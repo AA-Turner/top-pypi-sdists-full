@@ -10,6 +10,7 @@ from ..core.serialization import FieldMetadata
 
 class ProjectInfo(UniversalBaseModel):
     created_at: typing.Optional[str] = None
+    default_time_zone: typing.Optional[str] = None
     description: typing.Optional[str] = None
     name: typing.Optional[str] = None
     uuid_: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="uuid")] = None

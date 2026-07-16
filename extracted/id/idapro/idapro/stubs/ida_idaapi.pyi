@@ -1244,7 +1244,7 @@ class pyidc_opaque_object_t:
         """
         ...
 
-def IDAPython_Completion(line: Any, x: Any) -> Any:
+def IDAPython_Completion(line: Any, x: Any, max_count: Any) -> Any:
     r"""Internal utility class for auto-completion support"""
     ...
 
@@ -1476,6 +1476,7 @@ SWIG_PYTHON_LEGACY_BOOL: int  # 1
 annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 bisect: module
 builtins: module  # <module 'builtins' (built-in)>
+functools: module
 ida_idaapi: module
 inspect: module
 integer_types: tuple  # (<class 'int'>,)
@@ -1485,4 +1486,5 @@ string_types: tuple  # (<class 'str'>,)
 struct: module
 sys: module  # <module 'sys' (built-in)>
 traceback: module
+warnings: module
 weakref: module

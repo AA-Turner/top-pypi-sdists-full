@@ -402,7 +402,7 @@ def GetIdbDir() -> Any:
     """
     ...
 
-def GetInputFileMD5() -> bytes:
+def GetInputFileMD5() -> Any:
     r"""Get input file md5.
     
     """
@@ -547,7 +547,7 @@ def XrefsTo(ea: Any, flags: Any = 0) -> Any:
     """
     ...
 
-cpu: _cpu  # <idautils._cpu object at 0x000001FCE311A3C0>
+cpu: _cpu  # <idautils._cpu object at 0x0000022E348A6CF0>
 ida_bytes: module
 ida_dbg: module
 ida_entry: module
@@ -568,6 +568,6 @@ ida_ua: module
 ida_xref: module
 idc: _module_wrapper_t
 os: module  # <module 'os' (frozen)>
-procregs: _procregs  # <idautils._procregs object at 0x000001FCE4A44AD0>
+procregs: _procregs  # <idautils._procregs object at 0x0000022E3357D6A0>
 sys: module  # <module 'sys' (built-in)>
 types: module

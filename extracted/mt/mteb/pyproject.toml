@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mteb"
-version = "2.18.2"
+version = "2.18.3"
 description = "Massive Text Embedding Benchmark"
 readme = "README.md"
 authors = [
@@ -137,6 +137,7 @@ eager_embed = ["qwen_vl_utils>=0.0.14"]
 speechbrain = ["speechbrain>=0.5.12"]
 muq = ["muq==0.1.0"]
 wav2clip = ["wav2clip==0.1.0"]
+fusion-embedding = ["librosa>=0.10.0", "soundfile>=0.13.1", "torchvision>=0.22.1", "pillow>=10.0.1", "accelerate>=0.26.0"]
 torch-vggish-yamnet = ["torch-vggish-yamnet==0.2.1"]
 vllm = ["vllm>=0.11.1"]
 transformers-v4 = ["transformers<5"]
@@ -146,6 +147,7 @@ qwen-vl = ["transformers>=4.57.0", "qwen-vl-utils>=0.0.14"]
 qwen_omni_utils = ["qwen_omni_utils"]
 embeddinggemma = ["transformers>=4.56.0"]
 # ebind = ["ebind @ git+https://github.com/encord-team/ebind@7909701e9372353ca678b9515f9f61cf87c83c71", "soundfile>=0.13.1", "transformers>=4.57.1,!=5.0.0"]
+
 
 
 

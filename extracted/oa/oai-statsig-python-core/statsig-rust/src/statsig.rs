@@ -7,6 +7,7 @@ use crate::data_store_interface::{get_data_store_key, RequestPath};
 use crate::evaluation::cmab_evaluator::{get_cmab_ranked_list, CMABRankedGroup};
 use crate::evaluation::country_lookup::CountryLookup;
 use crate::evaluation::dynamic_value::DynamicValue;
+use crate::evaluation::evaluation_data::{RuleRef, SpecView};
 use crate::evaluation::evaluation_details::EvaluationDetails;
 use crate::evaluation::evaluation_types::GateEvaluation;
 use crate::evaluation::evaluator::{Evaluator, Recognition, SpecType};
@@ -48,8 +49,6 @@ use crate::sdk_event_emitter::SdkEventEmitter;
 use crate::spec_store::{SpecStore, SpecStoreData};
 use crate::specs_adapter::{StatsigCustomizedSpecsAdapter, StatsigHttpSpecsAdapter};
 use crate::specs_response::param_store_types::Parameter;
-use crate::specs_response::spec_types::Rule;
-use crate::specs_response::specs_hash_map::SpecPointer;
 use crate::statsig_err::StatsigErr;
 use crate::statsig_metadata::StatsigMetadata;
 use crate::statsig_options::StatsigOptions;
@@ -1577,12 +1576,12 @@ impl Statsig {
         self.get_experiment_by_group_name_impl(
             experiment_name,
             group_name,
-            |spec_pointer, rule, details| {
-                if let (Some(spec_pointer), Some(rule)) = (spec_pointer, rule) {
-                    let value = rule.return_value.get_json().unwrap_or_default();
-                    let rule_id = String::from(rule.id.as_str());
-                    let id_type = rule.id_type.value.unperformant_to_string();
-                    let group_name = rule.group_name.as_ref().map(|g| g.unperformant_to_string());
+            |spec, rule, details| {
+                if let (Some(spec), Some(rule)) = (spec, rule) {
+                    let value = rule.return_value().json_value().unwrap_or_default();
+                    let rule_id = rule.id().as_str().to_string();
+                    let id_type = rule.id_type().value().to_string();
+                    let group_name = rule.group_name().map(|name| name.as_str().to_string());
 
                     return Experiment {
                         name: experiment_name.to_string(),
@@ -1591,7 +1590,7 @@ impl Statsig {
                         id_type,
                         group_name,
                         details,
-                        is_experiment_active: spec_pointer.as_spec_ref().is_active.unwrap_or(false),
+                        is_experiment_active: spec.is_active().unwrap_or(false),
                         __evaluation: None,
                     };
                 }
@@ -1609,12 +1608,12 @@ impl Statsig {
         self.get_experiment_by_group_id_advanced_impl(
             experiment_name,
             group_id,
-            |spec_pointer, rule, details| {
-                if let (Some(spec_pointer), Some(rule)) = (spec_pointer, rule) {
-                    let value = rule.return_value.get_json().unwrap_or_default();
-                    let rule_id = String::from(rule.id.as_str());
-                    let id_type = rule.id_type.value.unperformant_to_string();
-                    let group_name = rule.group_name.as_ref().map(|g| g.unperformant_to_string());
+            |spec, rule, details| {
+                if let (Some(spec), Some(rule)) = (spec, rule) {
+                    let value = rule.return_value().json_value().unwrap_or_default();
+                    let rule_id = rule.id().as_str().to_string();
+                    let id_type = rule.id_type().value().to_string();
+                    let group_name = rule.group_name().map(|name| name.as_str().to_string());
 
                     return Experiment {
                         name: experiment_name.to_string(),
@@ -1623,7 +1622,7 @@ impl Statsig {
                         id_type,
                         group_name,
                         details,
-                        is_experiment_active: spec_pointer.as_spec_ref().is_active.unwrap_or(false),
+                        is_experiment_active: spec.is_active().unwrap_or(false),
                         __evaluation: None,
                     };
                 }
@@ -1637,11 +1636,14 @@ impl Statsig {
         &self,
         experiment_name: &str,
         group_name: &str,
-        result_factory: impl FnOnce(Option<&SpecPointer>, Option<&Rule>, EvaluationDetails) -> T,
+        result_factory: impl FnOnce(Option<SpecView<'_>>, Option<RuleRef<'_>>, EvaluationDetails) -> T,
     ) -> T {
         self.get_experiment_by_rule_match_impl(
             experiment_name,
-            |rule| rule.group_name.as_deref() == Some(group_name),
+            |rule| {
+                rule.group_name()
+                    .is_some_and(|name| name.as_str() == group_name)
+            },
             result_factory,
         )
     }
@@ -1650,11 +1652,11 @@ impl Statsig {
         &self,
         experiment_name: &str,
         rule_id: &str,
-        result_factory: impl FnOnce(Option<&SpecPointer>, Option<&Rule>, EvaluationDetails) -> T,
+        result_factory: impl FnOnce(Option<SpecView<'_>>, Option<RuleRef<'_>>, EvaluationDetails) -> T,
     ) -> T {
         self.get_experiment_by_rule_match_impl(
             experiment_name,
-            |rule| rule.id.as_str() == rule_id,
+            |rule| rule.id().as_str() == rule_id,
             result_factory,
         )
     }
@@ -1663,10 +1665,10 @@ impl Statsig {
         &self,
         experiment_name: &str,
         rule_predicate: P,
-        result_factory: impl FnOnce(Option<&SpecPointer>, Option<&Rule>, EvaluationDetails) -> T,
+        result_factory: impl FnOnce(Option<SpecView<'_>>, Option<RuleRef<'_>>, EvaluationDetails) -> T,
     ) -> T
     where
-        P: Fn(&Rule) -> bool,
+        P: Fn(RuleRef<'_>) -> bool,
     {
         let data = self.spec_store.load_data();
 
@@ -1681,21 +1683,20 @@ impl Statsig {
             );
         };
 
-        if let Some(rule) = exp
-            .as_spec_ref()
-            .rules
-            .iter()
-            .find(|rule| rule_predicate(rule))
-        {
-            return result_factory(
-                Some(exp),
-                Some(rule),
-                EvaluationDetails::recognized_without_eval_result(
-                    &data.source,
-                    data.lcut(),
-                    data.time_received_at,
-                ),
-            );
+        let spec = exp.view();
+        for index in 0..spec.rules_len() {
+            let rule = spec.rule(index);
+            if rule_predicate(rule) {
+                return result_factory(
+                    Some(spec),
+                    Some(rule),
+                    EvaluationDetails::recognized_without_eval_result(
+                        &data.source,
+                        data.lcut(),
+                        data.time_received_at,
+                    ),
+                );
+            }
         }
 
         result_factory(
@@ -1704,6 +1705,39 @@ impl Statsig {
             EvaluationDetails::unrecognized(&data.source, data.lcut(), data.time_received_at),
         )
     }
+}
+
+#[cfg(feature = "ffi-support")]
+fn experiment_group_to_raw_json(
+    experiment_name: &str,
+    spec: Option<SpecView<'_>>,
+    rule: Option<RuleRef<'_>>,
+    details: EvaluationDetails,
+) -> String {
+    use crate::statsig_types_raw::{ExperimentRaw, SuffixedRuleId};
+
+    let (Some(spec), Some(rule)) = (spec, rule) else {
+        return ExperimentRaw::empty(experiment_name, &details).unperformant_to_json_string();
+    };
+
+    let value = rule.return_value().to_owned();
+    let rule_id = rule.id().to_interned();
+    let id_type = InternedString::from_str_ref(rule.id_type().value());
+    let group_name = rule.group_name().map(|name| name.to_interned());
+    ExperimentRaw {
+        name: experiment_name,
+        value: Some(&value),
+        rule_id: SuffixedRuleId {
+            rule_id: &rule_id,
+            rule_id_suffix: None,
+        },
+        id_type: Some(&id_type),
+        group_name: group_name.as_ref(),
+        is_experiment_active: Some(spec.is_active().unwrap_or(false)),
+        details: &details,
+        secondary_exposures: None,
+    }
+    .unperformant_to_json_string()
 }
 
 // ------------------------------------------------------------------------------- [ Layer ]
@@ -2086,14 +2120,11 @@ impl Statsig {
         experiment_name: &str,
         group_name: &str,
     ) -> String {
-        use crate::evaluation::evaluator_result::rule_to_experiment_raw;
-
         self.get_experiment_by_group_name_impl(
             experiment_name,
             group_name,
-            |spec_pointer, rule, details| {
-                rule_to_experiment_raw(experiment_name, spec_pointer, rule, &details)
-                    .unperformant_to_json_string()
+            |spec, rule, details| {
+                experiment_group_to_raw_json(experiment_name, spec, rule, details)
             },
         )
     }
@@ -2103,14 +2134,11 @@ impl Statsig {
         experiment_name: &str,
         group_id: &str,
     ) -> String {
-        use crate::evaluation::evaluator_result::rule_to_experiment_raw;
-
         self.get_experiment_by_group_id_advanced_impl(
             experiment_name,
             group_id,
-            |spec_pointer, rule, details| {
-                rule_to_experiment_raw(experiment_name, spec_pointer, rule, &details)
-                    .unperformant_to_json_string()
+            |spec, rule, details| {
+                experiment_group_to_raw_json(experiment_name, spec, rule, details)
             },
         )
     }
@@ -3486,4 +3514,70 @@ fn setup_ops_stats(
     }
 
     ops_stat
+}
+
+#[cfg(test)]
+mod tests {
+    use rusty_fork::rusty_fork_test;
+
+    use super::*;
+    use crate::{
+        interned_values::{
+            interned_store::{preload_mmap_v2_for_test, write_mmap_v2_for_test},
+            InternedStore,
+        },
+        networking::ResponseData,
+        SpecsUpdate,
+    };
+
+    const EVAL_PROJ_JSON: &[u8] = include_bytes!("../tests/data/eval_proj_dcs.json");
+
+    rusty_fork_test! {
+        #[test]
+        fn experiment_group_lookups_do_not_materialize_mmap_specs() {
+            assert!(!InternedStore::has_preloaded_mmap_v2());
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join("interned-store-v2-group-lookup.mmap");
+            write_mmap_v2_for_test(EVAL_PROJ_JSON, &path).unwrap();
+            preload_mmap_v2_for_test(&path).unwrap();
+            assert!(InternedStore::has_preloaded_mmap_v2());
+
+            let statsig = Statsig::new("secret-key", None);
+            statsig
+                .spec_store
+                .set_values(SpecsUpdate {
+                    data: ResponseData::from_bytes(EVAL_PROJ_JSON.to_vec()),
+                    source: SpecsSource::Network,
+                    received_at: 2_000,
+                    source_api: Some("mmap-group-test".to_string()),
+                    has_updates: None,
+                })
+                .unwrap();
+
+            let experiment_name = "test_experiment_no_targeting";
+            let group_name = "Control";
+            let group_id = "54QJztEPRLXK7ZCvXeY9q4";
+            assert_eq!(InternedStore::get_mmap_spec_materialization_len(), 0);
+
+            let by_name = statsig.get_experiment_by_group_name(experiment_name, group_name);
+            let by_id = statsig.get_experiment_by_group_id_advanced(experiment_name, group_id);
+            assert_eq!(by_name.rule_id, group_id);
+            assert_eq!(by_id.group_name.as_deref(), Some(group_name));
+
+            #[cfg(feature = "ffi-support")]
+            {
+                for raw in [
+                    statsig.get_raw_experiment_by_group_name(experiment_name, group_name),
+                    statsig.get_raw_experiment_by_group_id_advanced(experiment_name, group_id),
+                ] {
+                    let raw: Value = serde_json::from_str(&raw).unwrap();
+                    assert_eq!(raw["ruleID"], group_id);
+                    assert_eq!(raw["groupName"], group_name);
+                    assert_eq!(raw["value"]["value"], "control");
+                }
+            }
+
+            assert_eq!(InternedStore::get_mmap_spec_materialization_len(), 0);
+        }
+    }
 }

@@ -3941,6 +3941,13 @@ components:
         when no media attached. Use organizationUrn for multi-org posting. Geo-restriction only works for
         organization pages (not personal profiles) and requires the targeted audience to exceed 300 followers.
 
+    MoneyAmount:
+      type: object
+      required: [amount, currencyCode]
+      properties:
+        amount:       { type: string, description: "Amount as a decimal string, e.g. \"88.59\"." }
+        currencyCode: { type: string, description: "ISO 4217 currency code, e.g. \"USD\"." }
+
     LinkedInAdsPlatformData:
       type: object
       additionalProperties: false
@@ -4207,6 +4214,29 @@ components:
               type: string
               pattern: '^urn:li:event:\d+$'
               description: LinkedIn Event URN, urn:li:event:N.
+        thoughtLeader:
+          type: object
+          additionalProperties: false
+          required: [postUrn]
+          description: |
+            POST /v1/ads/create only. Thought-leader ad: references someone
+            else's existing LinkedIn share or ugcPost as the creative. Unlike
+            boostPost, which provisions its own CampaignGroup + Campaign
+            around the post, this variant attaches the reference under the
+            campaign /v1/ads/create builds — same shape as every other
+            format, so the caller can pick bidding / targeting / schedule
+            freely. No headline, body, imageUrl or organization are needed;
+            the referenced post carries its own commentary and author.
+            Mutually exclusive with the other creative sources.
+          properties:
+            postUrn:
+              type: string
+              pattern: '^urn:li:(share|ugcPost):\d+$'
+              description: >
+                LinkedIn share or ugcPost URN, urn:li:share:N or
+                urn:li:ugcPost:N. Get it via "Copy link to post" on the
+                target LinkedIn post (the URL contains -share- for a share
+                or -ugcPost- for a ugcPost, then the numeric id).
       description: >
         LinkedIn-specific options for POST /v1/ads/boost and POST /v1/ads/create:
         campaign bidding and delivery controls, plus the LinkedIn-only creative
@@ -5712,7 +5742,7 @@ components:
         engagement: { type: integer }
         conversions:
           type: integer
-          description: "Count of conversion events matching the campaign's promoted_object.custom_event_type (PURCHASE, LEAD, etc.) over the requested date range. 0 for non-conversion campaigns or when no events have fired. Meta-only at time of writing; other platforms return 0."
+          description: "Count of conversion events over the requested date range. Meta: events matching the campaign's promoted_object.custom_event_type (PURCHASE, LEAD, etc.). Google: the account's tracked conversions. X and LinkedIn: their reported website/lead conversions (added 2026-07). 0 for non-conversion campaigns or when no events have fired."
         costPerConversion:
           type: number
           description: "Derived spend / conversions in the same currency as spend. 0 when conversions is 0."
@@ -5720,7 +5750,7 @@ components:
           type: object
           additionalProperties:
             type: integer
-          description: "Raw per-action-type counts from Meta's Insights actions[] array, summed over the date range. Keys are Meta action_type strings (e.g. link_click, offsite_conversion.fb_pixel_purchase, onsite_conversion.lead_grouped). Use this to extract any conversion event (purchases, leads, add_to_cart, etc.) without relying on the derived conversions field. Empty object when no actions are reported."
+          description: "Per-action-type counts summed over the date range, keyed by the platform's action-type names. Meta: raw Insights action_type keys (link_click, offsite_conversion.fb_pixel_purchase, onsite_conversion.lead_grouped, ...) — both engagement and conversion events. X: conversion types (purchase, sign_up, site_visit, download, custom). LinkedIn: conversion types (post_click, post_view, lead_gen). Google returns {} (its per-action names aren't synced per ad). Empty object when no actions are reported. NOTE: keys differ by platform, so branch on the ad's platform when interpreting them."
           example:
             link_click: 160
             post_engagement: 300
@@ -18199,6 +18229,65 @@ paths:
         '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
+    post:
+      operationId: createPinterestBoard
+      tags: [Connect]
+      summary: Create Pinterest board
+      description: Creates a new board on the connected Pinterest account. The returned board ID can be used immediately as `platformSpecificData.boardId` when creating a Pinterest post.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  description: Name of the board
+                description:
+                  type: string
+                  description: Board description
+                privacy:
+                  type: string
+                  enum: [PUBLIC, PROTECTED, SECRET]
+                  default: PUBLIC
+                  description: Board privacy setting
+            example:
+              name: "Summer Recipes"
+              description: "My favorite summer recipes"
+              privacy: "PUBLIC"
+      responses:
+        '201':
+          description: Board created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  board:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                      description: { type: string }
+                      privacy: { type: string }
+                      url: { type: string }
+              example:
+                board:
+                  id: "345678901234567890"
+                  name: "Summer Recipes"
+                  description: "My favorite summer recipes"
+                  privacy: "PUBLIC"
+        '400': { description: Invalid request or not a Pinterest account }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account not found }
+        '502': { description: Pinterest rejected the request (e.g. duplicate board name) }
 
   /v1/accounts/{accountId}/youtube-playlists:
     get:
@@ -25011,6 +25100,10 @@ paths:
                   maxItems: 10
                   items: { type: string, format: uri }
                   description: Public media URLs to attach (sends as MMS). Max 10.
+                sendAt:
+                  type: string
+                  format: date-time
+                  description: "Optional. Schedule the send for a future time (ISO 8601 with offset, e.g. `2026-08-01T12:00:00Z`). Must be in the future. The message is queued and the `message.delivered` webhook fires when it actually sends."
       responses:
         '200':
           description: Message accepted for delivery.
@@ -25184,11 +25277,18 @@ paths:
                     optoutKeywords: { type: string }
                     optoutMessage: { type: string, minLength: 20, maxLength: 320 }
                     helpKeywords: { type: string }
-                    embeddedLink: { type: boolean }
-                    embeddedPhone: { type: boolean }
+                    embeddedLink: { type: boolean, description: "Whether messages carry links. Auto-derived from the samples when omitted, so the declaration matches what the reviewer reads." }
+                    embeddedPhone: { type: boolean, description: "Whether messages carry phone numbers. Auto-derived from the samples when omitted." }
                     numberPool: { type: boolean }
                     ageGated: { type: boolean }
                     directLending: { type: boolean }
+                    privacyPolicyLink: { type: string, description: "Link to your privacy policy. Recommended: reviewers check that it says mobile information is not sold or shared with third parties for promotional purposes. A bare domain is normalized to https://." }
+                    termsAndConditionsLink: { type: string, description: "Link to your terms & conditions. A bare domain is normalized to https://." }
+                wizardValues:
+                  type: object
+                  additionalProperties: { type: string }
+                  description: Raw dashboard-wizard answers, stored only to prefill edit-and-resubmit. API integrators can omit.
+                resubmitRequestId: { type: string, description: "Resubmit a registration that was returned for changes — updates it in place instead of creating a new one." }
                 tollFree:
                   type: object
                   description: Required for toll_free.
@@ -25239,6 +25339,12 @@ paths:
       summary: List carrier registrations
       security:
         - bearerAuth: []
+      parameters:
+        - name: includeDeactivated
+          in: query
+          required: false
+          schema: { type: boolean }
+          description: Deactivated (terminated) registrations are hidden by default — pass true to include them.
       responses:
         '200':
           description: Registrations, newest first
@@ -25255,7 +25361,7 @@ paths:
                         id: { type: string }
                         registrationType: { type: string, enum: [standard_10dlc, sole_prop_10dlc, toll_free] }
                         displayName: { type: [string, "null"] }
-                        status: { type: string, enum: [pending, approved, rejected] }
+                        status: { type: string, enum: [pending, approved, rejected, requested, changes_requested, deactivated], description: "requested/changes_requested = pre-submission review states; customers see them as pending / needs changes." }
                         brandStatus: { type: string, description: Carrier-registry brand status (e.g. VERIFIED). }
                         campaignStatus: { type: string }
                         brandId: { type: [string, "null"], description: "TCR brand id, useful when referencing the brand in carrier support threads." }
@@ -25274,6 +25380,33 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /v1/sms/registrations/{id}:
+    delete:
+      operationId: deactivateSmsRegistration
+      tags: [SMS]
+      summary: Deactivate a brand/campaign registration
+      description: |
+        Terminates the campaign with the carrier registry so the recurring
+        monthly campaign fee stops (carriers bill the first 3 months of a
+        campaign regardless). Numbers covered by it can no longer SEND texts —
+        receiving is unaffected — until they're registered under a new brand.
+        Irreversible: a deactivated campaign cannot be restored; texting again
+        later requires a new registration (new one-time and review fees).
+        Idempotent.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Registration deactivated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [deactivated] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Registration not found }
     get:
       operationId: getSmsRegistration
       tags: [SMS]
@@ -25293,7 +25426,7 @@ paths:
                 properties:
                   id: { type: string }
                   registrationType: { type: string, enum: [standard_10dlc, sole_prop_10dlc, toll_free] }
-                  status: { type: string, enum: [pending, approved, rejected] }
+                  status: { type: string, enum: [pending, approved, rejected, requested, changes_requested, deactivated], description: "requested/changes_requested = pre-submission review states; customers see them as pending / needs changes." }
                   brandStatus: { type: string }
                   campaignStatus: { type: string }
                   declineReason: { type: [string, "null"] }
@@ -25419,6 +25552,79 @@ paths:
         '400': { description: Registration has no campaign to appeal; fix the brand and re-verify instead }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Registration not found }
+
+  /v1/sms/opt-in-proof:
+    post:
+      operationId: uploadSmsOptInProofFile
+      tags: [SMS]
+      summary: Upload opt-in form proof
+      description: |
+        Hosts a screenshot (or PDF) of your SMS opt-in form and returns its
+        public URL. Include that URL in the campaign's `messageFlow` (the
+        opt-in workflow text) — the carrier registry has no attachment field,
+        so reviewers verify consent by opening links in that answer. Works
+        before a registration exists (use it when registering) and for
+        appeals. `/v1/sms/registrations/{id}/opt-in-proof` is an alias.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary, description: "PNG, JPG, WebP, GIF or PDF, max 4MB." }
+      responses:
+        '200':
+          description: File hosted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string, description: Public URL to reference in the opt-in flow text. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { description: Unsupported file type or file too large }
+
+  /v1/sms/registrations/{id}/opt-in-proof:
+    post:
+      operationId: uploadSmsOptInProof
+      tags: [SMS]
+      summary: Upload opt-in form proof for an appeal
+      description: |
+        Hosts a screenshot (or PDF) of your SMS opt-in form and returns its
+        public URL. Carrier reviewers reject campaigns whose consent can't be
+        verified and ask for a "link/screenshot of the opt-in form" — the
+        registry has no attachment field, so include the returned URL inside
+        the `messageFlow` you submit with the appeal
+        (`POST /v1/sms/registrations/{id}/appeal`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary, description: "PNG, JPG, WebP, GIF or PDF, max 4MB." }
+      responses:
+        '200':
+          description: File hosted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string, description: Public URL to reference in the opt-in flow text. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Registration not found }
+        '422': { description: Unsupported file type or file too large }
 
   /v1/sms/registrations/share:
     post:
@@ -28351,7 +28557,7 @@ paths:
                 type: object
                 properties:
                   registrationId: { type: string }
-                  status: { type: string, enum: [pending, approved, rejected] }
+                  status: { type: string, enum: [pending, approved, rejected, requested, changes_requested, deactivated], description: "requested/changes_requested = pre-submission review states; customers see them as pending / needs changes." }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Number not found }
         '409': { description: No existing SMS registration to reuse for this number }
@@ -32359,7 +32565,7 @@ paths:
                         ctr: { type: number, description: "Click-through rate as a percentage (0–100)." }
                         cpc: { type: number, description: "Cost per click in native currency." }
                         cpm: { type: number, description: "Cost per 1000 impressions in native currency." }
-                        conversions: { type: integer, description: "Sum of conversion events matching the campaign optimization goal. Meta-only at time of writing." }
+                        conversions: { type: integer, description: "Sum of conversion events over the range. Meta: events matching the campaign optimization goal. Google: tracked conversions. X / LinkedIn: reported website/lead conversions (added 2026-07)." }
                         costPerConversion: { type: number }
                         actions:
                           type: object
@@ -33348,7 +33554,7 @@ paths:
                     - `catalog_sales`: Advantage+ catalog ads, for example vehicle inventory. Requires `promotedObject.productSetId`, `promotedObject.pixelId` and `promotedObject.customEventType`. Builds a catalog TEMPLATE creative from the copy fields, which may carry template tags like {{product.name}} or {{vehicle.make}}. No imageUrl or video is sent; Meta renders the visuals per catalog item. Discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets. Single shape only, no creatives[], adSetId, dynamicCreative or placementAssets.
 
                     **TikTok**
-                    - `conversions`: website-conversion ad group. Requires `promotedObject.pixelId`, your TikTok Pixel ID. Accepts an optional `promotedObject.customEventType` with a TikTok optimization_event code such as ON_WEB_ORDER, INITIATE_ORDER, ON_WEB_REGISTER or FORM. To inherit pixel and event from an existing ad group, pass `adSetId` instead.
+                    - `conversions`: website-conversion ad group. Requires `promotedObject.pixelId`, your TikTok Pixel ID. Accepts an optional `promotedObject.customEventType` with a TikTok optimization_event code your pixel tracks (newer pixels use e.g. SHOPPING for purchase events; legacy pixels use ON_WEB_ORDER, INITIATE_ORDER, ON_WEB_REGISTER or FORM). To inherit pixel and event from an existing ad group, pass `adSetId` instead.
 
                     **LinkedIn**
                     - `engagement`, `traffic`, `awareness` and `video_views` create standalone Direct Sponsored Content ads. `traffic` requires `linkUrl`; `video_views` requires `video`.
@@ -33915,11 +34121,15 @@ paths:
                         for `goal: conversions`.
 
                         **TikTok:** an `optimization_event` code (UPPER_SNAKE, not Meta's vocabulary
-                        and not PascalCase), e.g. `ON_WEB_ORDER` (Complete Payment), `INITIATE_ORDER`
-                        (Place an Order), `ON_WEB_CART` (Add to Cart), `ON_WEB_REGISTER` (Complete
-                        Registration), `FORM` (Submit Form), `ON_WEB_DETAIL` (View Content). Must be
-                        one of the events your TikTok Pixel is configured to track; passed through
-                        verbatim and validated by TikTok. Optional for `goal: conversions`.
+                        and not PascalCase). Must be one of the event types your TikTok Pixel is
+                        configured to track; passed through verbatim and validated by TikTok.
+                        Newer pixels (Events API / funnel-template setups) use TikTok's updated
+                        taxonomy, e.g. `SHOPPING` for purchase/payment events; legacy pixels use
+                        codes like `ON_WEB_ORDER` (Complete Payment), `INITIATE_ORDER` (Place an
+                        Order), `ON_WEB_CART` (Add to Cart), `ON_WEB_REGISTER` (Complete
+                        Registration), `FORM` (Submit Form), `ON_WEB_DETAIL` (View Content).
+                        On rejection the error lists the event types your pixel actually tracks.
+                        Optional for `goal: conversions`.
                     pageId:
                       type: string
                       description: |
@@ -34349,6 +34559,158 @@ paths:
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /v1/ads/targeting/bid-pricing:
+    post:
+      operationId: getLinkedInBidPricing
+      tags: [Ads]
+      summary: Suggested bid and budget bounds (LinkedIn)
+      description: |
+        LinkedIn-only. Returns the suggested bid and bid limits for a targeting
+        spec, plus the daily-budget bounds LinkedIn will accept. Use it before
+        creating a campaign to pick a bid inside the allowed range and warn the
+        user if their daily budget is below the minimum. Wraps LinkedIn's
+        `adBudgetPricing` finder.
+
+        Non-LinkedIn accounts return `available: false` so clients can hide the
+        pricing UI without treating it as a failure.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, adAccountId, spec]
+              properties:
+                accountId: { type: string, description: "Zernio social account ID (LinkedIn)." }
+                adAccountId: { type: string, description: "LinkedIn ad account ID (numeric)." }
+                spec: { allOf: [{ $ref: '#/components/schemas/TargetingSpec' }], description: "Same targeting spec used by POST /v1/ads/create." }
+                campaignType: { type: string, enum: [TEXT_AD, SPONSORED_UPDATES, SPONSORED_INMAILS], description: "Defaults to SPONSORED_UPDATES." }
+                bidType: { type: string, enum: [CPM, CPC, CPV], description: "Defaults to CPM." }
+                matchType: { type: string, enum: [EXACT, AUDIENCE_EXPANDED], description: "Defaults to EXACT." }
+                currency: { type: string, minLength: 3, maxLength: 3, description: "ISO 4217, defaults to USD." }
+                objectiveType: { type: string, description: "LinkedIn objectiveType, e.g. WEBSITE_VISIT, LEAD_GENERATION, VIDEO_VIEW." }
+                optimizationTargetType: { type: string, description: "LinkedIn optimizationTargetType, e.g. MAX_CLICK, MAX_IMPRESSION." }
+                dailyBudget: { type: number, description: "Optional daily budget in whole account-currency units. LinkedIn refines the suggested bid to this budget." }
+      responses:
+        '200':
+          description: Pricing insights
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [available]
+                properties:
+                  available: { type: boolean }
+                  pricing:
+                    type: [object, "null"]
+                    description: LinkedIn's adBudgetPricing element. Null when LinkedIn has no data for the combination.
+                    properties:
+                      bidLimits:
+                        type: object
+                        properties:
+                          min: { $ref: '#/components/schemas/MoneyAmount' }
+                          max: { $ref: '#/components/schemas/MoneyAmount' }
+                      suggestedBid:
+                        type: object
+                        properties:
+                          min:     { $ref: '#/components/schemas/MoneyAmount' }
+                          default: { $ref: '#/components/schemas/MoneyAmount' }
+                          max:     { $ref: '#/components/schemas/MoneyAmount' }
+                      dailyBudgetLimits:
+                        type: object
+                        properties:
+                          min:     { $ref: '#/components/schemas/MoneyAmount' }
+                          default: { $ref: '#/components/schemas/MoneyAmount' }
+                          max:     { $ref: '#/components/schemas/MoneyAmount' }
+        '400': { description: "Invalid targeting or unsupported objective/optimization/bid combination." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: "Ads access required." }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/ads/targeting/supply-forecast:
+    post:
+      operationId: getLinkedInSupplyForecast
+      tags: [Ads]
+      summary: Impressions, clicks and spend forecast (LinkedIn)
+      description: |
+        LinkedIn-only. Forecasted impressions, clicks, spend and ~20 other
+        metrics for a targeting spec over a time range. Wraps LinkedIn's
+        `adSupplyForecasts` finder.
+
+        Each returned series carries a `metricType` (IMPRESSION, CLICK, SPENDING,
+        MAX_POTENTIAL_BUDGET, COST_PER_MILLION_IMPRESSIONS, ...) and a
+        `granularity` (DAILY, SEVEN_DAY, THIRTY_DAY, CUSTOM). LinkedIn caps the
+        daily spending forecast at 1.2x the daily budget and returns 0 once the
+        total budget is exhausted.
+
+        Non-LinkedIn accounts return `available: false`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, adAccountId, spec, timeRangeStart, timeRangeEnd]
+              properties:
+                accountId: { type: string }
+                adAccountId: { type: string }
+                spec: { allOf: [{ $ref: '#/components/schemas/TargetingSpec' }] }
+                campaignType: { type: string, enum: [SPONSORED_UPDATES, SPONSORED_INMAILS, DYNAMIC], description: "Defaults to SPONSORED_UPDATES." }
+                timeRangeStart: { type: integer, description: "Unix ms. Must be in the future." }
+                timeRangeEnd: { type: integer, description: "Unix ms. Must be after start and within LinkedIn's max horizon." }
+                objectiveType: { type: string }
+                optimizationTarget: { type: string, description: "When set, the forecast assumes auto-bidding. When unset, competingBid is required." }
+                dailyBudget: { type: number, description: "Either dailyBudget or totalBudget is required." }
+                totalBudget: { type: number }
+                currency: { type: string, minLength: 3, maxLength: 3, description: "ISO 4217, defaults to USD." }
+                competingBid:
+                  type: object
+                  required: [bidType, amount]
+                  description: "Required for manual-bid forecasts (when optimizationTarget is not set)."
+                  properties:
+                    bidType: { type: string, enum: [CPM, CPC, CPV] }
+                    amount: { type: number }
+                enableAudienceNetwork: { type: boolean, description: "Defaults to false. Required true for connectedTelevisionOnly." }
+                enableAudienceExpansion: { type: boolean, description: "Defaults to false." }
+                connectedTelevisionOnly: { type: boolean, description: "Defaults to false." }
+      responses:
+        '200':
+          description: Forecast series
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [available]
+                properties:
+                  available: { type: boolean }
+                  forecast:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        metricType:  { type: string }
+                        granularity: { type: string, enum: [DAILY, SEVEN_DAY, THIRTY_DAY, CUSTOM] }
+                        timeSeries:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              timestamp: { type: integer }
+                              value:     { type: number }
+                              adForecastRange:
+                                type: object
+                                properties:
+                                  lowEnd:  { type: number }
+                                  highEnd: { type: number }
+        '400': { description: "Invalid targeting, missing budget, or LinkedIn forecast validation error (e.g. END_DATE_MAX_HORIZON_FOR_FORECAST)." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: "Ads access required." }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /v1/ads/catalogs:
     get:
       operationId: listAdCatalogs
@@ -34492,6 +34854,11 @@ paths:
                         matching page enters the segment. Needs the LinkedIn
                         Insight Tag installed on the customer's site — the
                         segment only starts filling once the tag reports visits.
+
+                        The response's `platformAudienceId` is the LinkedIn
+                        adSegment id, valid for downstream use.
+                        These segments appear in GET /v1/ads/audiences with 
+                        `type: website_retargeting` once LinkedIn has finished building them.
                       items:
                         type: object
                         additionalProperties: false

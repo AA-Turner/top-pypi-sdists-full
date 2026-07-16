@@ -759,9 +759,14 @@ class refinfo_t:
         ...
     def is_custom(self) -> bool:
         ...
+    def is_ignore_zero(self) -> bool:
+        ...
     def is_no_ones(self) -> bool:
         ...
     def is_no_zeros(self) -> bool:
+        r"""deprecated alias for is_ignore_zero()
+        
+        """
         ...
     def is_pastend(self) -> bool:
         ...
@@ -1224,8 +1229,8 @@ def clr_userti(ea: ida_idaapi.ea_t) -> None:
 def clr_zstroff(ea: ida_idaapi.ea_t) -> None:
     ...
 
-def dbg_get_input_path() -> str:
-    r"""Get debugger input file name/path (see LFLG_DBG_NOPATH)
+def dbg_get_input_path() -> Union[str, None]:
+    r"""Get debugger input file name/path (see LFLG_DBG_NOPATH).
     
     """
     ...
@@ -1318,7 +1323,7 @@ def get_aflags(ea: ida_idaapi.ea_t) -> aflags_t:
 def get_alignment(ea: ida_idaapi.ea_t) -> int:
     ...
 
-def get_archive_path() -> str:
+def get_archive_path() -> Union[str, None]:
     r"""Get archive file path from which input file was extracted.
     
     """
@@ -1327,7 +1332,7 @@ def get_archive_path() -> str:
 def get_array_parameters(out: array_parameters_t, ea: ida_idaapi.ea_t) -> int:
     ...
 
-def get_asm_inc_file() -> str:
+def get_asm_inc_file() -> Union[str, None]:
     r"""Get name of the include file.
     
     """
@@ -1366,7 +1371,7 @@ def get_encoding_qty() -> int:
 def get_gotea() -> ida_idaapi.ea_t:
     ...
 
-def get_ida_notepad_text() -> str:
+def get_ida_notepad_text() -> Union[str, None]:
     r"""Get notepad text.
     
     """
@@ -1413,25 +1418,25 @@ def get_import_module_qty() -> int:
 def get_ind_purged(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     ...
 
-def get_initial_ida_version() -> str:
-    r"""Get version of ida which created the database (string format like "7.5")
+def get_initial_ida_version() -> Union[str, None]:
+    r"""Get version of ida which created the database (string format like "7.5").
     
     """
     ...
 
 def get_initial_idb_version() -> int:
-    r"""Get initial version of the database (numeric format like 700)
+    r"""Get initial version of the database (numeric format like 700).
     
     """
     ...
 
 def get_initial_version() -> int:
-    r"""Get initial version of the database (numeric format like 700)
+    r"""Get initial version of the database (numeric format like 700).
     
     """
     ...
 
-def get_input_file_path() -> str:
+def get_input_file_path() -> Union[str, None]:
     r"""Get full path of the input file.
     
     """
@@ -1440,7 +1445,7 @@ def get_input_file_path() -> str:
 def get_item_color(ea: ida_idaapi.ea_t) -> int:
     ...
 
-def get_loader_format_name() -> str:
+def get_loader_format_name() -> Union[str, None]:
     r"""Get file format name for loader modules.
     
     """
@@ -1461,7 +1466,7 @@ def get_reftype_by_size(size: int) -> reftype_t:
     """
     ...
 
-def get_root_filename() -> str:
+def get_root_filename() -> Union[str, None]:
     r"""Get file name only of the input file.
     
     """
@@ -1470,13 +1475,13 @@ def get_root_filename() -> str:
 def get_source_linnum(ea: ida_idaapi.ea_t) -> int:
     ...
 
-def get_srcdbg_paths() -> str:
+def get_srcdbg_paths() -> Union[str, None]:
     r"""Get source debug paths.
     
     """
     ...
 
-def get_srcdbg_undesired_paths() -> str:
+def get_srcdbg_undesired_paths() -> Union[str, None]:
     r"""Get user-closed source files.
     
     """
@@ -1755,13 +1760,13 @@ def retrieve_input_file_crc32() -> int:
     """
     ...
 
-def retrieve_input_file_md5() -> bytes:
+def retrieve_input_file_md5() -> Union[bytes, None]:
     r"""Get input file md5.
     
     """
     ...
 
-def retrieve_input_file_sha256() -> bytes:
+def retrieve_input_file_sha256() -> Union[bytes, None]:
     r"""Get input file sha256.
     
     """
@@ -2119,6 +2124,7 @@ POF_IS_F64: int  # 4
 POF_VALID_AFLAGS: int  # 2
 POF_VALID_TI: int  # 1
 REFINFO_CUSTOM: int  # 64
+REFINFO_IGNZERO: int  # 1024
 REFINFO_NOBASE: int  # 128
 REFINFO_NO_ONES: int  # 2048
 REFINFO_NO_ZEROS: int  # 1024
@@ -2163,6 +2169,7 @@ RIDX_SRCDBG_UNDESIRED: int  # 1353
 RIDX_STR_ENCODINGS: int  # 1305
 STRENC_DEFAULT: int  # 0
 STRENC_NONE: int  # 255
+STRLYT_DECOMP: int  # 4
 STRLYT_MASK: int  # 252
 STRLYT_PASCAL1: int  # 1
 STRLYT_PASCAL2: int  # 2
@@ -2172,6 +2179,7 @@ STRLYT_TERMCHR: int  # 0
 STRTYPE_C: int  # 0
 STRTYPE_C_16: int  # 1
 STRTYPE_C_32: int  # 2
+STRTYPE_DECOMP: int  # 16
 STRTYPE_LEN2: int  # 8
 STRTYPE_LEN2_16: int  # 9
 STRTYPE_LEN2_32: int  # 10

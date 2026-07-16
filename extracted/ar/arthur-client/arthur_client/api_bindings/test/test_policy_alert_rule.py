@@ -50,7 +50,10 @@ class TestPolicyAlertRule(unittest.TestCase):
                     count = 56, ),
                 dependent_resource = arthur_client.api_bindings.models.policy_alert_guardrail_rule.PolicyAlertGuardrailRule(
                     resource_type = 'guardrail', 
-                    resource_name = 'KeywordRule', )
+                    resource_name = 'KeywordRule', ),
+                permissions = arthur_client.api_bindings.models.resource_permissions.ResourcePermissions(
+                    can_update = True, 
+                    can_delete = True, )
             )
         else:
             return PolicyAlertRule(

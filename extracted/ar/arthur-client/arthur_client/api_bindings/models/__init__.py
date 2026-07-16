@@ -359,6 +359,7 @@ from arthur_client.api_bindings.models.resource_list_tool import ResourceListToo
 from arthur_client.api_bindings.models.resource_list_user import ResourceListUser
 from arthur_client.api_bindings.models.resource_list_webhook import ResourceListWebhook
 from arthur_client.api_bindings.models.resource_list_workspace import ResourceListWorkspace
+from arthur_client.api_bindings.models.resource_permissions import ResourcePermissions
 from arthur_client.api_bindings.models.result_filter import ResultFilter
 from arthur_client.api_bindings.models.role import Role
 from arthur_client.api_bindings.models.role_binding import RoleBinding

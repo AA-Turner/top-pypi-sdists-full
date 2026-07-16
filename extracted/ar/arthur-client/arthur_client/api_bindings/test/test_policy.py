@@ -61,7 +61,10 @@ class TestPolicy(unittest.TestCase):
                             count = 56, ), 
                         dependent_resource = arthur_client.api_bindings.models.policy_alert_guardrail_rule.PolicyAlertGuardrailRule(
                             resource_type = 'guardrail', 
-                            resource_name = 'KeywordRule', ), )
+                            resource_name = 'KeywordRule', ), 
+                        permissions = arthur_client.api_bindings.models.resource_permissions.ResourcePermissions(
+                            can_update = True, 
+                            can_delete = True, ), )
                     ],
                 attestation_rules = [
                     arthur_client.api_bindings.models.policy_attestation_rule.PolicyAttestationRule(
@@ -71,7 +74,10 @@ class TestPolicy(unittest.TestCase):
                         policy_id = '', 
                         name = '', 
                         description = '', 
-                        validity_period_days = 56, )
+                        validity_period_days = 56, 
+                        permissions = arthur_client.api_bindings.models.resource_permissions.ResourcePermissions(
+                            can_update = True, 
+                            can_delete = True, ), )
                     ],
                 last_updated_by_user = arthur_client.api_bindings.models.user.User(
                     created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
@@ -85,7 +91,10 @@ class TestPolicy(unittest.TestCase):
                     user_type = 'user', 
                     data_plane_id = '', 
                     client_id = '', 
-                    organization_name = '', )
+                    organization_name = '', ),
+                permissions = arthur_client.api_bindings.models.resource_permissions.ResourcePermissions(
+                    can_update = True, 
+                    can_delete = True, )
             )
         else:
             return Policy(
@@ -114,7 +123,10 @@ class TestPolicy(unittest.TestCase):
                             count = 56, ), 
                         dependent_resource = arthur_client.api_bindings.models.policy_alert_guardrail_rule.PolicyAlertGuardrailRule(
                             resource_type = 'guardrail', 
-                            resource_name = 'KeywordRule', ), )
+                            resource_name = 'KeywordRule', ), 
+                        permissions = arthur_client.api_bindings.models.resource_permissions.ResourcePermissions(
+                            can_update = True, 
+                            can_delete = True, ), )
                     ],
                 attestation_rules = [
                     arthur_client.api_bindings.models.policy_attestation_rule.PolicyAttestationRule(
@@ -124,7 +136,10 @@ class TestPolicy(unittest.TestCase):
                         policy_id = '', 
                         name = '', 
                         description = '', 
-                        validity_period_days = 56, )
+                        validity_period_days = 56, 
+                        permissions = arthur_client.api_bindings.models.resource_permissions.ResourcePermissions(
+                            can_update = True, 
+                            can_delete = True, ), )
                     ],
         )
         """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-gap
-Version: 10.8.5
+Version: 10.8.6
 Summary: passagemath: Computational Group Theory with GAP
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -34,13 +34,13 @@ Requires-Dist: dot2tex>=2.11.3
 Requires-Dist: pyparsing<3.3
 Requires-Dist: memory_allocator<0.2
 Requires-Dist: pexpect>=4.8.0
-Requires-Dist: passagemath-conf~=10.8.5.0; sys_platform != "win32"
-Requires-Dist: passagemath-environment~=10.8.5.0
-Requires-Dist: passagemath-categories~=10.8.5.0
-Requires-Dist: passagemath-gap-pkg-factint-data~=10.8.5.0
-Requires-Dist: passagemath-gap-pkg-primgrp-data~=10.8.5.0
-Requires-Dist: passagemath-gap-pkg-smallgrp-data~=10.8.5.0
-Requires-Dist: passagemath-repl~=10.8.5.0
+Requires-Dist: passagemath-conf~=10.8.6.0; sys_platform != "win32"
+Requires-Dist: passagemath-environment~=10.8.6.0
+Requires-Dist: passagemath-categories~=10.8.6.0
+Requires-Dist: passagemath-gap-pkg-factint-data~=10.8.6.0
+Requires-Dist: passagemath-gap-pkg-primgrp-data~=10.8.6.0
+Requires-Dist: passagemath-gap-pkg-smallgrp-data~=10.8.6.0
+Requires-Dist: passagemath-repl~=10.8.6.0
 Provides-Extra: test
 Provides-Extra: 4ti2interface
 Requires-Dist: passagemath-latte-4ti2; extra == "4ti2interface"
@@ -293,7 +293,7 @@ Examples
 
 Running GAP from the command line::
 
-    $ pipx run --pip-args="--prefer-binary" --spec "passagemath-gap" sage -gap
+    $ pipx run --spec "passagemath-gap" sage -gap
      ┌───────┐   GAP 4.14.0 of 2024-12-05
      │  GAP  │   https://www.gap-system.org
      └───────┘   Architecture: x86_64-apple-darwin22-default64-kv9
@@ -305,7 +305,7 @@ Running GAP from the command line::
 
 Using the library interface from Python::
 
-    $ pipx run --pip-args="--prefer-binary" --spec "passagemath-gap[test]" IPython
+    $ pipx run --spec "passagemath-gap[test]" IPython
 
     In [1]: from passagemath_modules import *
 

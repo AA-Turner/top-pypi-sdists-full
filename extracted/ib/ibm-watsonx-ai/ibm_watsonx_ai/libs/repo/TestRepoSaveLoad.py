@@ -11,7 +11,7 @@ import inspect
 import os
 import pprint
 
-from ibm_watsonx_ai._wrappers.httpx_wrapper import set_verify_for_httpx
+from ibm_watsonx_ai._wrappers.httpx import GlobalHttpxSettings
 import base64
 import httpx
 import json
@@ -31,7 +31,7 @@ def download_content(request_id, dep_id, details_json):
                'Content-Type': 'application/octet-stream-stream',
                'Accept': 'application/octet-stream'}
     try:
-        decorated_get = set_verify_for_httpx(httpx.get)
+        decorated_get = GlobalHttpxSettings.set_default_verify(httpx.get)
         model_content = decorated_get(details_json['href'] + '/content', headers=headers).content
 
     except Exception as ex:

@@ -21,7 +21,7 @@ except ImportError:
 
 from jalali_core import GregorianToJalali, JalaliToGregorian, j_days_in_month
 
-__VERSION__ = '6.0.0'
+__VERSION__ = '6.0.1'
 MINYEAR = 1
 MAXYEAR = 9377
 
@@ -663,8 +663,6 @@ class datetime(date):
     """datetime(
         year, month, day, [hour, [minute, [seconds, [microsecond, [tzinfo]]]]]
     )-> datetime objects"""
-
-    __time = None
 
     def time(self) -> time:
         """Return time object with same time but with tzinfo=None."""

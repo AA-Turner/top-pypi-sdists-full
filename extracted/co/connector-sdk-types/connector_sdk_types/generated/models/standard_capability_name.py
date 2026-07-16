@@ -52,6 +52,7 @@ class StandardCapabilityName(str, Enum):
     LIST_RESOURCES = 'list_resources'
     LIST_CREDENTIALS = 'list_credentials'
     LIST_NON_HUMAN_ACCOUNTS = 'list_non_human_accounts'
+    GET_NON_HUMAN_ACCOUNT_LAST_ACTIVITY = 'get_non_human_account_last_activity'
     FIND_RESOURCE_GRAPH = 'find_resource_graph'
     FIND_ENTITLEMENT_GRAPH = 'find_entitlement_graph'
     FIND_ENTITLEMENT_ASSIGNMENTS = 'find_entitlement_assignments'

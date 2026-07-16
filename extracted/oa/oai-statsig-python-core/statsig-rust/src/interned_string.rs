@@ -117,7 +117,7 @@ impl InternedString {
             value.push_str(v);
         }
 
-        Self::from_string(value)
+        Self::from_string_uninterned(value)
     }
 
     pub fn as_str(&self) -> &str {
@@ -220,14 +220,5 @@ impl Display for InternedString {
 impl Default for InternedString {
     fn default() -> Self {
         EMPTY.clone()
-    }
-}
-
-impl Drop for InternedString {
-    fn drop(&mut self) {
-        if matches!(self.value, InternedStringValue::Pointer(_)) {
-            self.value = InternedStringValue::Static("");
-            InternedStore::release_string(self.hash);
-        }
     }
 }

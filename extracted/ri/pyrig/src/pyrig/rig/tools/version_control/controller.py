@@ -1,12 +1,9 @@
 """Type-safe construction of version control CLI commands."""
 
-import logging
 from functools import cache
 
 from pyrig.core.subprocesses import Args
 from pyrig.rig.tools.base.tool import Group, Tool
-
-logger = logging.getLogger(__name__)
 
 
 class VersionController(Tool):
@@ -26,7 +23,7 @@ class VersionController(Tool):
 
     def image_url(self) -> str:
         """Return the Shields.io badge image URL for Git."""
-        return "https://img.shields.io/badge/Git-F05032?logo=git&logoColor=white"
+        return f"https://img.shields.io/badge/Git-F05032?logo={self.name()}&logoColor=white"
 
     def link_url(self) -> str:
         """Return the URL of the Git homepage."""
@@ -46,7 +43,15 @@ class VersionController(Tool):
         Returns:
             The repository owner as a string.
         """
-        return cls()._repo_owner()  # noqa: SLF001
+        return cls().resolve_repo_owner()
+
+    def resolve_repo_owner(self) -> str:
+        """Return the repository owner.
+
+        Returns:
+            The repository owner as a string.
+        """
+        return self.remote_repo_owner() or self.normalized_username()
 
     def default_branch(self) -> str:
         """Return `'main'` as the default branch name for new repositories."""
@@ -88,16 +93,16 @@ class VersionController(Tool):
         return self.args("add", *args)
 
     def commit_with_msg_args(self, *args: str, msg: str) -> Args:
-        """Build arguments for `git commit -m <msg>`.
+        """Build arguments for `git commit --message <msg>`.
 
         Args:
             *args: Additional arguments appended to the command.
             msg: The commit message.
 
         Returns:
-            Args for `git commit -m <msg> [args]`.
+            Args for `git commit --message <msg> [args]`.
         """
-        return self.commit_args("-m", msg, *args)
+        return self.commit_args("--message", msg, *args)
 
     def commit_args(self, *args: str) -> Args:
         """Build base arguments for `git commit`.
@@ -215,7 +220,7 @@ class VersionController(Tool):
         """
         return self.args("config", *args)
 
-    def owner_from_remote_url(self) -> str:
+    def remote_repo_owner(self) -> str:
         """Return the repository owner parsed from the remote origin URL.
 
         Supports HTTPS (`https://github.com/owner/repo.git`) and SSH
@@ -223,12 +228,10 @@ class VersionController(Tool):
         remote formats.
 
         Returns:
-            The repository owner as a string.
-
-        Raises:
-            subprocess.CalledProcessError: If no remote origin is configured.
+            The repository owner as a string, or an empty string if no
+            remote origin is configured.
         """
-        url = self.remote_url(check=True)
+        url = self.remote_url()
         # possible formats:
         # ssh://git@github.com/owner/repo.git
         # git@github.com:owner/repo.git
@@ -236,29 +239,29 @@ class VersionController(Tool):
         url = url.split("github.com", 1)[-1]  # split off the domain, keep the path
         url = url.removeprefix("/").removeprefix(":")
         # the url left must have the format: owner/repo.git
-        owner = url.split("/")[0]
-        logger.debug("Extracted owner from remote URL: %s", owner)
-        return owner
+        return url.split("/")[0]
 
-    def remote_url(self, *, check: bool = True) -> str:
+    def remote_url(self) -> str:
         """Return the remote origin URL configured for this repository.
-
-        Args:
-            check: When `True` (the default), raises `subprocess.CalledProcessError`
-                if the underlying command fails (e.g. no remote is configured).
-                When `False`, returns an empty string on failure instead.
 
         Returns:
             The remote URL string in HTTPS or SSH format, or an empty string
-            when `check=False` and the command fails.
-
-        Raises:
-            subprocess.CalledProcessError: When `check=True` and the underlying
-                command exits with a non-zero status.
+            if no remote origin is configured.
         """
         return (
-            self.config_remote_origin_url_args().run_cached(check=check).stdout.strip()
+            self.config_remote_origin_url_args().run_cached(check=False).stdout.strip()
         )
+
+    def normalized_username(self) -> str:
+        """Return the git `user.name` with spaces removed.
+
+        Returns:
+            The configured git user name string with spaces removed.
+
+        Raises:
+            subprocess.CalledProcessError: If `user.name` is not configured.
+        """
+        return self.username().replace(" ", "")
 
     def username(self) -> str:
         """Return the git `user.name` from the active configuration.
@@ -281,36 +284,3 @@ class VersionController(Tool):
             subprocess.CalledProcessError: If `user.email` is not configured.
         """
         return self.config_get_user_email_args().run_cached().stdout.strip()
-
-    def _repo_owner(self) -> str:
-        """Return the repository owner, falling back to the git user name.
-
-        When no remote origin is configured, falls back to the configured
-        git `user.name`, stripping any spaces from it (with a warning logged)
-        since a repository owner must be URL-safe.
-
-        Returns:
-            The repository owner as a string.
-        """
-        url = self.remote_url(check=False)
-        if not url:
-            owner = self.username()
-            logger.warning(
-                "No remote url found, using username from %s as repository owner: '%s'",
-                self.name(),
-                owner,
-            )
-            if " " in owner:
-                logger.warning(
-                    "Repository owner '%s' contains spaces.",
-                    owner,
-                )
-                owner = owner.replace(" ", "")
-                logger.warning(
-                    "Spaces removed from the owner to ensure URL safety: '%s'",
-                    owner,
-                )
-        else:
-            owner = self.owner_from_remote_url()
-
-        return owner

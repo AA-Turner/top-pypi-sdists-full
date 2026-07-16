@@ -5,6 +5,7 @@
 #include "CommonUtils.h"
 #include "Utils.h"
 #include "MtaManager.h"
+#include "BackendWinRT.h"
 
 #include "../common/CharacteristicBase.h"
 #include "../common/DescriptorBase.h"
@@ -18,6 +19,7 @@
 
 #include "winrt/Windows.Foundation.Collections.h"
 #include "winrt/Windows.Foundation.h"
+#include "winrt/Windows.Devices.Enumeration.h"
 #include "winrt/Windows.Storage.Streams.h"
 #include "winrt/base.h"
 
@@ -98,6 +100,10 @@ bool PeripheralWindows::is_disconnect_pending() const noexcept {
 }
 
 void PeripheralWindows::connect() {
+    if (!BackendWinRT::get()->bluetooth_enabled()) {
+        throw SimpleBLE::Exception::OperationFailed("Bluetooth is not enabled.");
+    }
+
     if (SimpleBLE::Config::WinRT::use_deferred_disconnect) {
         if (connection_state_ == ConnectionState::Disconnecting) {
             throw SimpleBLE::Exception::OperationFailed("Device is still disconnecting");
@@ -109,6 +115,13 @@ void PeripheralWindows::connect() {
         device_ = async_get(BluetoothLEDevice::FromBluetoothAddressAsync(_str_to_mac_address(address_)));
     });
 
+    if (device_ == nullptr) {
+        if (SimpleBLE::Config::WinRT::use_deferred_disconnect) {
+            connection_state_ = ConnectionState::Disconnected;
+        }
+        throw SimpleBLE::Exception::OperationFailed("Failed to retrieve Bluetooth device.");
+    }
+
     // Attempt to connect to the device.
     for (size_t i = 0; i < 3; i++) {
         if (_attempt_connect()) {
@@ -117,6 +130,8 @@ void PeripheralWindows::connect() {
     }
 
     if (is_connected()) {
+        callback_on_disconnected_pending_.store(true);
+
         MtaManager::get().execute_sync([this]() {
             connection_status_changed_token_ = device_.ConnectionStatusChanged(
                 [this](const BluetoothLEDevice device, const auto args) {
@@ -135,7 +150,9 @@ void PeripheralWindows::connect() {
                         }
                         this->disconnection_cv_.notify_all();
 
-                        SAFE_CALLBACK_CALL(this->callback_on_disconnected_);
+                        if (callback_on_disconnected_pending_.exchange(false)) {
+                            SAFE_CALLBACK_CALL(this->callback_on_disconnected_);
+                        }
                     }
                 });
         });
@@ -195,6 +212,10 @@ void PeripheralWindows::disconnect() {
 
         device_ = nullptr;
     }
+
+    if (callback_on_disconnected_pending_.exchange(false)) {
+        SAFE_CALLBACK_CALL(this->callback_on_disconnected_);
+    }
 }
 
 bool PeripheralWindows::is_connected() {
@@ -216,7 +237,22 @@ bool PeripheralWindows::is_connected() {
 
 bool PeripheralWindows::is_connectable() { return connectable_; }
 
-bool PeripheralWindows::is_paired() { throw Exception::OperationNotSupported(); }
+bool PeripheralWindows::is_paired() {
+    const BluetoothAddress target_address = address_;
+    const winrt::hstring aqs_filter = BluetoothLEDevice::GetDeviceSelectorFromPairingState(true);
+
+    return MtaManager::get().execute_sync<bool>([target_address, aqs_filter]() {
+        auto dev_info_collection = async_get(Devices::Enumeration::DeviceInformation::FindAllAsync(aqs_filter));
+
+        for (const auto& dev_info : dev_info_collection) {
+            if (_bluetooth_address_from_id(winrt::to_string(dev_info.Id())) == target_address) {
+                return true;
+            }
+        }
+
+        return false;
+    });
+}
 
 void PeripheralWindows::unpair() { throw Exception::OperationNotSupported(); }
 
@@ -434,7 +470,7 @@ void PeripheralWindows::_subscribe(BluetoothUUID const& service, BluetoothUUID c
                                                                 const GattValueChangedEventArgs& args) {
             // Convert the payload to a ByteArray.
             ByteArray payload = ibuffer_to_bytearray(args.CharacteristicValue());
-            callback(payload);
+            SAFE_CALLBACK_CALL(callback, payload);
         };
 
         // Register the callback.

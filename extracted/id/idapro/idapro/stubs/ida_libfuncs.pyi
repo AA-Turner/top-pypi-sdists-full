@@ -113,7 +113,7 @@ class idasgn_header_t:
     def __swig_destroy__(self, object: Any) -> Any:
         ...
 
-def get_idasgn_header_by_short_name(out_header: idasgn_header_t, name: str) -> str:
+def get_idasgn_header_by_short_name(out_header: idasgn_header_t, name: str) -> Union[str, None]:
     r"""Get idasgn header by a short signature name. 
             
     :param out_header: buffer for the signature file header
@@ -122,7 +122,7 @@ def get_idasgn_header_by_short_name(out_header: idasgn_header_t, name: str) -> s
     """
     ...
 
-def get_idasgn_path_by_short_name(name: str) -> str:
+def get_idasgn_path_by_short_name(name: str) -> Union[str, None]:
     r"""Get idasgn full path by a short signature name. 
             
     :param name: short name of a signature

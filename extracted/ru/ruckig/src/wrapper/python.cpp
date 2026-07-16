@@ -20,7 +20,7 @@ NB_MODULE(ruckig, m) {
     m.doc() = "Instantaneous Motion Generation for Robots and Machines. Real-time and time-optimal trajectory calculation \
 given a target waypoint with position, velocity, and acceleration, starting from any initial state \
 limited by velocity, acceleration, and jerk constraints.";
-    m.attr("__version__")  = "0.17.3";
+    m.attr("__version__")  = "0.19.4";
 
     nb::enum_<ControlInterface>(m, "ControlInterface")
         .value("Position", ControlInterface::Position)
@@ -68,7 +68,11 @@ limited by velocity, acceleration, and jerk constraints.";
         .def_prop_ro("duration", &Trajectory<DynamicDOFs>::get_duration)
         .def_prop_ro("intermediate_durations", &Trajectory<DynamicDOFs>::get_intermediate_durations)
         .def_prop_ro("independent_min_durations", &Trajectory<DynamicDOFs>::get_independent_min_durations)
-        .def_prop_ro("position_extrema", &Trajectory<DynamicDOFs>::get_position_extrema)
+        .def_prop_ro("position_extrema", [](const Trajectory<DynamicDOFs>& traj) {
+            std::vector<Bound> extrema(traj.degrees_of_freedom);
+            traj.get_position_extrema(extrema);
+            return extrema;
+        })
         .def("at_time", [](const Trajectory<DynamicDOFs>& traj, double time, bool return_section=false) {
             std::vector<double> new_position(traj.degrees_of_freedom), new_velocity(traj.degrees_of_freedom), new_acceleration(traj.degrees_of_freedom), new_jerk(traj.degrees_of_freedom);
             size_t new_section;
@@ -95,6 +99,8 @@ limited by velocity, acceleration, and jerk constraints.";
         .def_rw("max_velocity", &InputParameter<DynamicDOFs>::max_velocity)
         .def_rw("max_acceleration", &InputParameter<DynamicDOFs>::max_acceleration)
         .def_rw("max_jerk", &InputParameter<DynamicDOFs>::max_jerk)
+        .def_rw("max_position", &InputParameter<DynamicDOFs>::max_position)
+        .def_rw("min_position", &InputParameter<DynamicDOFs>::min_position)
         .def_rw("min_velocity", &InputParameter<DynamicDOFs>::min_velocity, nb::arg().none())
         .def_rw("min_acceleration", &InputParameter<DynamicDOFs>::min_acceleration, nb::arg().none())
         .def_rw("intermediate_positions", &InputParameter<DynamicDOFs>::intermediate_positions)
@@ -105,8 +111,6 @@ limited by velocity, acceleration, and jerk constraints.";
         .def_rw("per_section_min_acceleration", &InputParameter<DynamicDOFs>::per_section_min_acceleration, nb::arg().none())
         .def_rw("per_section_max_position", &InputParameter<DynamicDOFs>::per_section_max_position, nb::arg().none())
         .def_rw("per_section_min_position", &InputParameter<DynamicDOFs>::per_section_min_position, nb::arg().none())
-        .def_rw("max_position", &InputParameter<DynamicDOFs>::max_position, nb::arg().none())
-        .def_rw("min_position", &InputParameter<DynamicDOFs>::min_position, nb::arg().none())
         .def_rw("enabled", &InputParameter<DynamicDOFs>::enabled)
         .def_rw("control_interface", &InputParameter<DynamicDOFs>::control_interface)
         .def_rw("synchronization", &InputParameter<DynamicDOFs>::synchronization)

@@ -3,9 +3,11 @@ from typing import cast
 import flask
 
 from abstra_internals.controllers.git import EmailProvider, GitController
+from abstra_internals.controllers.linter_events import LinterEventController
 from abstra_internals.controllers.main import MainController
 from abstra_internals.environment import EDITOR_MODE, PROJECT_ID
 from abstra_internals.interface.cli.deploy_messages import DeployMessages
+from abstra_internals.repositories.linter.models import deploy_gate_message
 from abstra_internals.services.jwt import decode_jwt
 from abstra_internals.usage import editor_usage
 
@@ -188,18 +190,13 @@ def get_editor_bp(controller: MainController):
             DeployMessages.checking_linters()
 
             issues = controller.linter_repository.get_blocking_checks_for_deploy()
+            LinterEventController.broadcast(controller.linter_repository.checks)
 
             if len(issues) > 0:
-                DeployMessages.error(
-                    "Please fix all linter issues before deploying your project."
-                )
+                message = deploy_gate_message(issues)
+                DeployMessages.error(message)
                 return (
-                    flask.jsonify(
-                        {
-                            "success": False,
-                            "message": "Please fix all linter issues before deploying your project.",
-                        }
-                    ),
+                    flask.jsonify({"success": False, "message": message}),
                     400,
                 )
 

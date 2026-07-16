@@ -253,6 +253,8 @@ class BingoTerminal:
         # v6.2.147: 에이전트 루프 중 수집한 해시 임시 큐 (스레드 인터리빙 방지)
         # _collect_crack_hashes()로 모아두고, 루프 완료 후 _notify_hashes_found()에서 한번에 크랙
         self._pending_crack_hashes: list = []
+        # v6.2.148: API 에러 메시지 캐시 (Grok 403 자동 폴백 교정기용)
+        self._last_stream_error: str = ""
         # Agent 루프 중단 플래그 (Ctrl+C)
         self._agent_stop_flag = threading.Event()
         # Agent 누적 상태 — 슬라이딩 윈도우에 잘려도 보존
@@ -2295,6 +2297,7 @@ class BingoTerminal:
             return
 
         # 시스템 프롬프트 + 스킬 컨텍스트 포함한 전체 메시지로 스트리밍
+        self._last_stream_error = ""
         full_response = self._stream_response(
             model.chat_stream(self._build_messages(skill_context))
         )
@@ -2789,6 +2792,7 @@ class BingoTerminal:
                     break
                 if chunk.error:
                     live.stop()
+                    self._last_stream_error = chunk.error  # v6.2.148: 에러 캐시
                     self._error(f"{self.s['api_error']}: {chunk.error}")
                     return ""
                 if chunk.text:

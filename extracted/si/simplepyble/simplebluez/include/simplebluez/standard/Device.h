@@ -1,10 +1,11 @@
 #pragma once
 
-#include <simpledbus/advanced/Proxy.h>
-#include <simplebluez/standard/Characteristic.h>
-#include <simplebluez/standard/Service.h>
 #include <simplebluez/interfaces/Battery1.h>
 #include <simplebluez/interfaces/Device1.h>
+#include <simplebluez/standard/Characteristic.h>
+#include <simplebluez/standard/Service.h>
+#include <simpledbus/advanced/Proxy.h>
+#include <kvn/kvn_safe_callback.hpp>
 
 namespace SimpleBluez {
 
@@ -43,6 +44,8 @@ class Device : public SimpleDBus::Proxy {
     void cancel_pairing();
 
     // ----- CALLBACKS -----
+    void set_on_connected(std::function<void()> callback);
+    void clear_on_connected();
     void set_on_services_resolved(std::function<void()> callback);
     void clear_on_services_resolved();
     void set_on_disconnected(std::function<void()> callback);
@@ -54,11 +57,16 @@ class Device : public SimpleDBus::Proxy {
     void set_on_battery_percentage_changed(std::function<void(uint8_t new_value)> callback);
     void clear_on_battery_percentage_changed();
 
+    void on_registration() override;
+
   private:
     std::shared_ptr<SimpleDBus::Proxy> path_create(const std::string& path) override;
 
     std::shared_ptr<Device1> device1();
     std::shared_ptr<Battery1> battery1();
+
+    kvn::safe_callback<void()> _callback_on_connected;
+    kvn::safe_callback<void()> _callback_on_disconnected;
 };
 
 }  // namespace SimpleBluez

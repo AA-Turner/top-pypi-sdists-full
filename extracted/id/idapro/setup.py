@@ -74,7 +74,7 @@ example_code = "#!/usr/bin/env python3\n\"\"\"\nIDA Pro Python Library Usage Exa
 
 setup(
     name="idapro",
-    version="0.0.9",
+    version="0.0.10",
     author="Hex-Rays SA",
     author_email="support@hex-rays.com",
     description="IDA Library Python module",

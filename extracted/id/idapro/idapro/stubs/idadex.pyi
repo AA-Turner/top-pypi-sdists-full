@@ -13,11 +13,13 @@ class Dex:
     DEXVAR_METHOD: int  # 77
     DEXVAR_METH_STR: int  # 78
     DEXVAR_METH_STRO: int  # 79
-    DEXVAR_STRING_IDS: int  # 83
+    DEXVAR_OLD_STRIDS: int  # 83
+    DEXVAR_OLD_TYPIDS: int  # 84
+    DEXVAR_OLD_TYPSTR: int  # 85
+    DEXVAR_OLD_TYPSTRO: int  # 86
+    DEXVAR_STRING_EAS: int  # 115
     DEXVAR_TRYLIST: int  # 89
-    DEXVAR_TYPE_IDS: int  # 84
-    DEXVAR_TYPE_STR: int  # 85
-    DEXVAR_TYPE_STRO: int  # 86
+    DEXVAR_TYPE_RENS: int  # 118
     HASHVAL_DEXVERSION: str  # dex_version
     HASHVAL_MAGIC: str  # version
     HASHVAL_OPTIMIZED: str  # optimized
@@ -143,9 +145,9 @@ class Dex:
         ...
     def get_string_by_index(self, node: Any, idx: Any, tag: Any) -> Any:
         ...
-    def get_type_string(self, from_ea: Any, type_idx: Any) -> Any:
+    def get_string_ea(self, from_ea: Any, string_idx: Any) -> Any:
         ...
-    def idx_to_ea(self, from_ea: Any, idx: Any, tag: Any) -> Any:
+    def get_type_string(self, from_ea: Any, type_idx: Any) -> Any:
         ...
     def is_wide_type(self, typechar: Any) -> Any:
         ...
@@ -248,6 +250,7 @@ class char:
         ...
 
 class dex_field:
+    access_flags: CField  # <Field type=c_ulong, ofs=24, size=4>
     ctype: CField  # <Field type=c_ulong, ofs=0, size=4>
     maddr: CField  # <Field type=c_ulonglong, ofs=16, size=8>
     name: CField  # <Field type=c_ulong, ofs=4, size=4>
@@ -1151,6 +1154,7 @@ def unpack_eavec(buf: Any, base_ea: Any) -> Any:
 ctypes: module
 ida_bytes: module
 ida_idaapi: module
+ida_segment: module
 idaapi: module
 idc: _module_wrapper_t
 print_function: _Feature

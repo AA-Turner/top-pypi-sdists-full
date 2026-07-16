@@ -153,6 +153,16 @@ is the single source of truth -- handlers never re-derive tier logic here.
                                          Self-hosted Pro, Trial, Enterprise"
                                          availability list a pricing-page
                                          row or feature tooltip needs).
+  GET  /api/entitlement/tiers-for-at  -- hypothetical-perspective sibling of
+                                         ``/tiers-for``: same ladder scoped
+                                         by a caller-supplied
+                                         ``tier=<perspective>`` so an ``_at``
+                                         walkthrough URL is uniform across
+                                         every ``_at`` sibling.
+  GET  /api/entitlement/tiers-for-batch-at -- hypothetical-perspective sibling
+                                         of ``/tiers-for-batch``: every
+                                         known feature + runtime in one pass
+                                         scoped by ``tier=<perspective>``.
   GET  /api/runtimes                  -- the full runtime catalog.
   GET  /api/tiers                     -- the full tier ladder with per-tier metadata.
   GET  /api/entitlement/feature-catalog  -- bare sibling of
@@ -5613,6 +5623,658 @@ def api_entitlement_min_tier_batch():
         )
 
 
+@bp_entitlement.route("/api/entitlement/min-tier-batch-at")
+def api_entitlement_min_tier_batch_at():
+    """``GET /api/entitlement/min-tier-batch-at?tier=<perspective>
+    &features=a,b,c&runtimes=x,y&channels=N&retention_days=K&nodes=M`` --
+    hypothetical-perspective sibling of ``/api/entitlement/min-tier-batch``.
+
+    Wraps :func:`clawmetry.entitlements.min_tier_batch_at` so a pricing-
+    matrix walkthrough can render "if I were on Starter, this bundle's
+    per-item cheapest tier is..." off ONE round-trip without first
+    switching the resolver. Per-item plural what-if companion of
+    ``/required-tier-at`` (which returns only the floor) and
+    ``/affordable-tiers-at`` (which returns the full ordered list of
+    qualifying tiers).
+
+    Perspective is validated against :data:`entitlements._TIER_ORDER`
+    (including ``trial``) but does NOT shape rows -- the per-item envelope
+    is anchored to the constraint bundle. A parity contract pinned in the
+    test suite guarantees per-row output byte-equals
+    ``/api/entitlement/min-tier-batch`` for the same bundle regardless of
+    perspective; the response layers ``perspective_tier`` /
+    ``perspective_tier_label`` / ``perspective_tier_rank`` on top so a
+    walkthrough surface can render the "from <perspective>" copy off one
+    call alongside the existing ``current_tier`` / ``grace`` / ``enforced``
+    resolver envelope.
+
+    Args are byte-identical to ``/min-tier-batch`` except for the
+    additional ``tier=`` perspective arg. Same CSV normalisation, same
+    capacity-axis parsing, same ``None`` = "not supplied" sentinel.
+
+    Response shape::
+
+        {
+          "perspective_tier":       "...",
+          "perspective_tier_label": "...",
+          "perspective_tier_rank":  <int>,
+          "features":       [<row>, ...],
+          "runtimes":       [<row>, ...],
+          "channels":       <row> | None,
+          "retention_days": <row> | None,
+          "nodes":          <row> | None,
+          "current_tier":       "...",
+          "current_tier_rank":  <int>,
+          "grace":              <bool>,
+          "enforced":           <bool>,
+        }
+
+    - **400** when ``tier=`` is missing / blank, OR when no constraint
+      axis is supplied.
+    - **404** when ``tier`` is unknown. The body carries ``which=tier``
+      so a caller can render the right "unknown tier" message.
+    - **Never 5xxs**: a resolver failure yields the OSS-free shape
+      (empty per-axis rows) so the pricing walkthrough keeps rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": tier_in}
+                ),
+                404,
+            )
+
+        features = _parse_csv_arg("features")
+        runtimes = _parse_csv_arg("runtimes")
+        (_, channels_ok, channels_n, _) = _parse_capacity_arg("channels")
+        (_, retention_ok, retention_n, _) = _parse_capacity_arg(
+            "retention_days"
+        )
+        (_, nodes_ok, nodes_n, _) = _parse_capacity_arg("nodes")
+
+        if (
+            not features
+            and not runtimes
+            and not channels_ok
+            and not retention_ok
+            and not nodes_ok
+        ):
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "supply at least one of features=<csv>, "
+                            "runtimes=<csv>, channels=<int>, "
+                            "retention_days=<int>, or nodes=<int>"
+                        )
+                    }
+                ),
+                400,
+            )
+
+        batch = _ent.min_tier_batch_at(
+            tier_in,
+            features=features or None,
+            runtimes=runtimes or None,
+            channels=channels_n if channels_ok else None,
+            retention_days=retention_n if retention_ok else None,
+            nodes=nodes_n if nodes_ok else None,
+        )
+        if batch is None:
+            batch = {
+                "features": [],
+                "runtimes": [],
+                "channels": None,
+                "retention_days": None,
+                "nodes": None,
+            }
+        ent = _ent.get_entitlement()
+        batch["perspective_tier"] = tier_in
+        batch["perspective_tier_label"] = _ent.tier_label(tier_in)
+        batch["perspective_tier_rank"] = _ent.tier_rank(tier_in)
+        batch["current_tier"] = ent.tier
+        batch["current_tier_rank"] = _ent.tier_rank(ent.tier)
+        batch["grace"] = bool(ent.grace)
+        batch["enforced"] = _ent.is_enforced()
+        return jsonify(batch)
+    except Exception as exc:
+        logger.warning("api_entitlement_min_tier_batch_at: error: %s", exc)
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_label": None,
+                "perspective_tier_rank": -1,
+                "features": [],
+                "runtimes": [],
+                "channels": None,
+                "retention_days": None,
+                "nodes": None,
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/min-tier-at")
+def api_entitlement_min_tier_at():
+    """``GET /api/entitlement/min-tier-at?tier=<perspective>&<axis>=<value>``
+    -- hypothetical-perspective sibling of ``/api/entitlement/min-tier``.
+
+    Wraps :func:`entitlements.min_tier_at` so a pricing-matrix walkthrough
+    at a hypothetical perspective can render "if I were on Starter, this
+    ONE axis constraint would land at Pro" off ONE round-trip without
+    switching the resolver. Fills the ``_at`` slot for the singular
+    scalar min-tier surface alongside :func:`api_entitlement_min_tier_batch_at`
+    (per-item batch what-if) and :func:`api_entitlement_required_tier_at`
+    (aggregate bundle what-if) so a caller can call ``X_at`` uniformly
+    across the whole ``_at`` scalar / batch / bundle surface.
+
+    Args mirror ``/api/entitlement/min-tier`` byte-for-byte -- exactly
+    one of ``feature=<id>``, ``runtime=<id>``, ``channels=<int>``,
+    ``retention_days=<int>``, or ``nodes=<int>`` must be supplied --
+    plus the additional ``tier=`` perspective arg. Perspective is
+    validated against :data:`entitlements._TIER_ORDER` (including
+    :data:`entitlements.TIER_TRIAL`) but does NOT shape the result: the
+    scalar answer is inherently perspective-independent (it walks the
+    static per-tier caps via the matching ``min_tier_for_<axis>``
+    helper), so per-row output byte-equals ``/min-tier`` for the same
+    axis regardless of perspective. A cross-endpoint parity test pins
+    this so the scalar what-if and the scalar current cannot silently
+    drift.
+
+    Response shape mirrors ``/min-tier`` (``key`` / ``value`` / ``free``
+    / ``min_tier`` / ``tier_label`` / ``tier_rank``) with the
+    ``perspective_tier`` / ``perspective_tier_label`` /
+    ``perspective_tier_rank`` envelope and the standard resolver
+    envelope (``current_tier`` / ``current_tier_rank`` / ``grace`` /
+    ``enforced``) layered on so the pricing surface reads current tier /
+    grace / enforced off the same call.
+
+    - **400** when ``tier=`` is missing / blank, or when zero / more
+      than one axis is supplied, or when a capacity axis value is
+      non-int.
+    - **404** when ``tier=`` is unknown (body carries ``which=tier``),
+      or when the ``feature=`` / ``runtime=`` id is unknown (matches
+      ``/min-tier``'s 404 posture on unknown grant ids). Capacity axes
+      never 404 -- any parseable int (including zero / negative --
+      which collapses to :data:`entitlements.TIER_OSS` matching the
+      helpers' contract) resolves to a real tier.
+    - **Never 5xxs**: a resolver failure yields the same shape with
+      ``min_tier=null`` and the perspective envelope populated so the
+      pricing walkthrough keeps rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": tier_in}
+                ),
+                404,
+            )
+
+        feature = (request.args.get("feature") or "").strip()
+        runtime = (request.args.get("runtime") or "").strip().lower()
+        (
+            channels_present,
+            channels_ok,
+            channels_n,
+            channels_raw,
+        ) = _parse_capacity_arg("channels")
+        (
+            retention_present,
+            retention_ok,
+            retention_n,
+            retention_raw,
+        ) = _parse_capacity_arg("retention_days")
+        (
+            nodes_present,
+            nodes_ok,
+            nodes_n,
+            nodes_raw,
+        ) = _parse_capacity_arg("nodes")
+
+        supplied = [
+            bool(feature),
+            bool(runtime),
+            channels_present,
+            retention_present,
+            nodes_present,
+        ]
+        n_supplied = sum(1 for s in supplied if s)
+        if n_supplied == 0:
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "supply exactly one of feature=<id>, "
+                            "runtime=<id>, channels=<int>, "
+                            "retention_days=<int>, or nodes=<int>"
+                        ),
+                    }
+                ),
+                400,
+            )
+        if n_supplied > 1:
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "supply only one of feature=, runtime=, "
+                            "channels=, retention_days=, or nodes="
+                        ),
+                    }
+                ),
+                400,
+            )
+        if channels_present and not channels_ok:
+            return (
+                jsonify({"error": "channels= must be an integer"}),
+                400,
+            )
+        if retention_present and not retention_ok:
+            return (
+                jsonify({"error": "retention_days= must be an integer"}),
+                400,
+            )
+        if nodes_present and not nodes_ok:
+            return (
+                jsonify({"error": "nodes= must be an integer"}),
+                400,
+            )
+
+        if feature:
+            min_t = _ent.min_tier_for_feature(feature)
+            key, value = "feature", feature
+            known = feature in _ent.ALL_FEATURES
+        elif runtime:
+            min_t = _ent.min_tier_for_runtime(runtime)
+            key, value = "runtime", runtime
+            known = runtime in _ent.ALL_RUNTIMES
+        elif channels_present:
+            min_t = _ent.min_tier_for_channel_count(channels_n)
+            key, value = "channels", str(channels_n)
+            known = True
+        elif retention_present:
+            min_t = _ent.min_tier_for_retention_window(retention_n)
+            key, value = "retention_days", str(retention_n)
+            known = True
+        else:
+            min_t = _ent.min_tier_for_node_count(nodes_n)
+            key, value = "nodes", str(nodes_n)
+            known = True
+
+        ent = _ent.get_entitlement()
+        base = {
+            "perspective_tier": tier_in,
+            "perspective_tier_label": _ent.tier_label(tier_in),
+            "perspective_tier_rank": _ent.tier_rank(tier_in),
+            "current_tier": ent.tier,
+            "current_tier_rank": _ent.tier_rank(ent.tier),
+            "grace": bool(ent.grace),
+            "enforced": _ent.is_enforced(),
+        }
+        if not known:
+            return (
+                jsonify(
+                    {
+                        "key": key,
+                        "value": value,
+                        "free": False,
+                        "min_tier": None,
+                        "tier_label": None,
+                        "tier_rank": None,
+                        "error": "unknown",
+                        **base,
+                    }
+                ),
+                404,
+            )
+        return jsonify(
+            {
+                "key": key,
+                "value": value,
+                "free": min_t == _ent.TIER_OSS,
+                "min_tier": min_t,
+                "tier_label": _ent.tier_label(min_t) if min_t else None,
+                "tier_rank": _ent.tier_rank(min_t) if min_t else None,
+                **base,
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_min_tier_at: error: %s", exc)
+        feature = (request.args.get("feature") or "").strip()
+        runtime = (request.args.get("runtime") or "").strip().lower()
+        (
+            channels_present,
+            _channels_ok,
+            _channels_n,
+            channels_raw,
+        ) = _parse_capacity_arg("channels")
+        (
+            retention_present,
+            _retention_ok,
+            _retention_n,
+            retention_raw,
+        ) = _parse_capacity_arg("retention_days")
+        (
+            nodes_present,
+            _nodes_ok,
+            _nodes_n,
+            nodes_raw,
+        ) = _parse_capacity_arg("nodes")
+        if feature:
+            key, value = "feature", feature
+        elif runtime:
+            key, value = "runtime", runtime
+        elif channels_present:
+            key, value = "channels", channels_raw
+        elif retention_present:
+            key, value = "retention_days", retention_raw
+        elif nodes_present:
+            key, value = "nodes", nodes_raw
+        else:
+            key, value = "", ""
+        return jsonify(
+            {
+                "key": key,
+                "value": value,
+                "free": False,
+                "min_tier": None,
+                "tier_label": None,
+                "tier_rank": None,
+                "perspective_tier": tier_in,
+                "perspective_tier_label": None,
+                "perspective_tier_rank": -1,
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/affordable-tiers-batch")
+def api_entitlement_affordable_tiers_batch():
+    """``GET /api/entitlement/affordable-tiers-batch?features=a,b,c
+    &runtimes=x,y&channels=N&retention_days=K&nodes=M`` -- per-item
+    plural sibling of ``/api/entitlement/affordable-tiers``.
+
+    Where ``/affordable-tiers`` collapses the answer to a single
+    ordered list of qualifying tiers for a whole constraint bundle,
+    this preserves the per-item detail so a pricing-matrix UI
+    ("show me each requested feature + runtime + capacity row with
+    its individual cheapest tier AND every tier above that also
+    qualifies") renders off ONE round-trip instead of N calls to
+    ``/affordable-tiers``. Same relationship it has to
+    ``/affordable-tiers`` that ``/min-tier-batch`` has to
+    ``/required-tier-batch``. Wraps
+    :func:`clawmetry.entitlements.affordable_tiers_batch` and appends
+    the same ``current_tier`` / ``grace`` / ``enforced`` envelope
+    ``/lock-reason-batch`` returns so a caller sees the same resolver
+    context alongside the per-item answers.
+
+    At least one of ``features=`` / ``runtimes=`` / ``channels=`` /
+    ``retention_days=`` / ``nodes=`` must be supplied (non-empty /
+    parseable after normalisation). ``features=`` / ``runtimes=``
+    take comma-separated tokens (whitespace and duplicates are
+    normalised away; runtime aliases like ``claude-code``
+    canonicalise to ``claude_code``; unknown ids contribute an all-
+    ``None`` row with ``tiers=[]`` -- they do not error). The three
+    capacity axes take a single int each; a blank or non-int value
+    is treated as "not supplied" (matches the singular endpoint's
+    never-crash posture rather than mis-routing a typo to
+    Enterprise). Never 5xxs: the grace-shape envelope is returned on
+    any resolver failure.
+
+    Response shape::
+
+        {
+          "features":       [<row>, ...],
+          "runtimes":       [<row>, ...],
+          "channels":       <row> | None,
+          "retention_days": <row> | None,
+          "nodes":          <row> | None,
+          "current_tier":       "...",
+          "current_tier_rank":  <int>,
+          "grace":              <bool>,
+          "enforced":           <bool>,
+        }
+
+    Each ``<row>`` carries ``key``, ``kind``, ``free``, ``min_tier``,
+    ``min_tier_label``, ``min_tier_rank`` (``-1`` when ``min_tier``
+    is ``None``), and ``tiers`` -- the full ordered list of
+    qualifying tiers for that single item (each entry carrying
+    ``tier`` / ``tier_label`` / ``tier_rank`` / ``is_minimum``).
+    Per-row parity with the singular
+    ``/affordable-tiers?features=<id>`` endpoint is pinned in the
+    test suite so the batch cannot silently drift from the scalar.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        features = _parse_csv_arg("features")
+        runtimes = _parse_csv_arg("runtimes")
+        (_, channels_ok, channels_n, _) = _parse_capacity_arg("channels")
+        (_, retention_ok, retention_n, _) = _parse_capacity_arg("retention_days")
+        (_, nodes_ok, nodes_n, _) = _parse_capacity_arg("nodes")
+
+        if (
+            not features
+            and not runtimes
+            and not channels_ok
+            and not retention_ok
+            and not nodes_ok
+        ):
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "supply at least one of features=<csv>, "
+                            "runtimes=<csv>, channels=<int>, "
+                            "retention_days=<int>, or nodes=<int>"
+                        )
+                    }
+                ),
+                400,
+            )
+
+        batch = _ent.affordable_tiers_batch(
+            features=features or None,
+            runtimes=runtimes or None,
+            channels=channels_n if channels_ok else None,
+            retention_days=retention_n if retention_ok else None,
+            nodes=nodes_n if nodes_ok else None,
+        )
+        ent = _ent.get_entitlement()
+        batch["current_tier"] = ent.tier
+        batch["current_tier_rank"] = _ent.tier_rank(ent.tier)
+        batch["grace"] = bool(ent.grace)
+        batch["enforced"] = _ent.is_enforced()
+        return jsonify(batch)
+    except Exception as exc:
+        logger.warning("api_entitlement_affordable_tiers_batch: error: %s", exc)
+        return jsonify(
+            {
+                "features": [],
+                "runtimes": [],
+                "channels": None,
+                "retention_days": None,
+                "nodes": None,
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/affordable-tiers-at-batch")
+def api_entitlement_affordable_tiers_at_batch():
+    """``GET /api/entitlement/affordable-tiers-at-batch?tier=<perspective>
+    &features=a,b,c&runtimes=x,y&channels=N&retention_days=K&nodes=M`` --
+    hypothetical-perspective sibling of
+    ``/api/entitlement/affordable-tiers-batch``.
+
+    Wraps :func:`clawmetry.entitlements.affordable_tiers_at_batch` so a
+    pricing-matrix walkthrough can render "if I were on Starter, each
+    requested item's cheapest tier AND every tier above that also
+    qualifies is..." off ONE round-trip without first switching the
+    resolver. Per-item plural what-if companion of ``/min-tier-batch-at``
+    (which returns only the per-item floor) and ``/affordable-tiers-at``
+    (which aggregates the answer to a single bundle-wide ordered list).
+
+    Perspective is validated against :data:`entitlements._TIER_ORDER`
+    (including ``trial``) but does NOT shape rows -- the per-item envelope
+    is anchored to the constraint bundle. A parity contract pinned in the
+    test suite guarantees per-row output byte-equals
+    ``/api/entitlement/affordable-tiers-batch`` for the same bundle
+    regardless of perspective; the response layers ``perspective_tier`` /
+    ``perspective_tier_label`` / ``perspective_tier_rank`` on top so a
+    walkthrough surface can render the "from <perspective>" copy off one
+    call alongside the existing ``current_tier`` / ``grace`` / ``enforced``
+    resolver envelope.
+
+    Args are byte-identical to ``/affordable-tiers-batch`` except for the
+    additional ``tier=`` perspective arg. Same CSV normalisation, same
+    capacity-axis parsing, same ``None`` = "not supplied" sentinel.
+
+    Response shape::
+
+        {
+          "perspective_tier":       "...",
+          "perspective_tier_label": "...",
+          "perspective_tier_rank":  <int>,
+          "features":       [<row>, ...],
+          "runtimes":       [<row>, ...],
+          "channels":       <row> | None,
+          "retention_days": <row> | None,
+          "nodes":          <row> | None,
+          "current_tier":       "...",
+          "current_tier_rank":  <int>,
+          "grace":              <bool>,
+          "enforced":           <bool>,
+        }
+
+    Each ``<row>`` carries ``key``, ``kind``, ``free``, ``min_tier``,
+    ``min_tier_label``, ``min_tier_rank`` (``-1`` when ``min_tier`` is
+    ``None``), and ``tiers`` -- the full ordered list of qualifying tiers
+    for that single item (each entry carrying ``tier`` / ``tier_label`` /
+    ``tier_rank`` / ``is_minimum``). Per-row parity with the singular
+    ``/affordable-tiers?features=<id>`` endpoint is pinned in the test
+    suite so the batch cannot silently drift from the scalar.
+
+    - **400** when ``tier=`` is missing / blank, OR when no constraint
+      axis is supplied.
+    - **404** when ``tier`` is unknown. The body carries ``which=tier``
+      so a caller can render the right "unknown tier" message.
+    - **Never 5xxs**: a resolver failure yields the grace-shape envelope
+      (empty per-axis rows) so the pricing walkthrough keeps rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": tier_in}
+                ),
+                404,
+            )
+
+        features = _parse_csv_arg("features")
+        runtimes = _parse_csv_arg("runtimes")
+        (_, channels_ok, channels_n, _) = _parse_capacity_arg("channels")
+        (_, retention_ok, retention_n, _) = _parse_capacity_arg(
+            "retention_days"
+        )
+        (_, nodes_ok, nodes_n, _) = _parse_capacity_arg("nodes")
+
+        if (
+            not features
+            and not runtimes
+            and not channels_ok
+            and not retention_ok
+            and not nodes_ok
+        ):
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "supply at least one of features=<csv>, "
+                            "runtimes=<csv>, channels=<int>, "
+                            "retention_days=<int>, or nodes=<int>"
+                        )
+                    }
+                ),
+                400,
+            )
+
+        batch = _ent.affordable_tiers_at_batch(
+            tier_in,
+            features=features or None,
+            runtimes=runtimes or None,
+            channels=channels_n if channels_ok else None,
+            retention_days=retention_n if retention_ok else None,
+            nodes=nodes_n if nodes_ok else None,
+        )
+        if batch is None:
+            batch = {
+                "features": [],
+                "runtimes": [],
+                "channels": None,
+                "retention_days": None,
+                "nodes": None,
+            }
+        ent = _ent.get_entitlement()
+        batch["perspective_tier"] = tier_in
+        batch["perspective_tier_label"] = _ent.tier_label(tier_in)
+        batch["perspective_tier_rank"] = _ent.tier_rank(tier_in)
+        batch["current_tier"] = ent.tier
+        batch["current_tier_rank"] = _ent.tier_rank(ent.tier)
+        batch["grace"] = bool(ent.grace)
+        batch["enforced"] = _ent.is_enforced()
+        return jsonify(batch)
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_affordable_tiers_at_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_label": None,
+                "perspective_tier_rank": -1,
+                "features": [],
+                "runtimes": [],
+                "channels": None,
+                "retention_days": None,
+                "nodes": None,
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
 @bp_entitlement.route("/api/entitlement/lock-reason-batch")
 def api_entitlement_lock_reason_batch():
     """``GET /api/entitlement/lock-reason-batch?features=a,b,c&runtimes=x,y
@@ -5981,6 +6643,158 @@ def api_entitlement_tiers_for_batch():
         )
 
 
+@bp_entitlement.route("/api/entitlement/tiers-for-at")
+def api_entitlement_tiers_for_at():
+    """``GET /api/entitlement/tiers-for-at?tier=<perspective>&feature=<id>``
+    (or ``&runtime=<id>``) -- hypothetical-perspective sibling of
+    ``/api/entitlement/tiers-for``: returns the full ladder of tiers
+    that grant the named feature or runtime, scoped by a caller-supplied
+    ``perspective_tier``.
+
+    Perspective is validated against ``_TIER_ORDER`` (``trial``
+    accepted) but does NOT shape rows -- the ladder is intrinsically
+    perspective-independent (walks static per-tier tables). The
+    ``perspective_tier`` envelope lets an ``_at`` walkthrough URL be
+    uniform across every ``_at`` sibling (``min_tier_batch_at``,
+    ``affordable_tiers_at``, ``tiers_for_*_at``, ...).
+
+    Missing / blank ``tier=`` -> ``400``. Unknown ``tier=`` -> ``404``
+    (``which=tier``). Exactly one of ``feature=`` or ``runtime=`` must
+    be supplied -- missing both is ``400``, both at once is ``400``.
+    Unknown feature / runtime id is ``404``. Never 5xxs.
+
+    Response shape mirrors ``/api/entitlement/tiers-for`` (``item``,
+    ``kind``, ``label``, ``free``, ``min_tier``, ``min_tier_label``,
+    ``min_tier_rank``, ``tiers``) plus a perspective envelope
+    (``perspective_tier``, ``perspective_tier_label``,
+    ``perspective_tier_rank``) and the resolver envelope
+    (``current_tier``, ``current_tier_rank``, ``grace``, ``enforced``).
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    feat = (request.args.get("feature") or "").strip().lower()
+    rt = (request.args.get("runtime") or "").strip().lower()
+    if not feat and not rt:
+        return jsonify({"error": "missing feature or runtime"}), 400
+    if feat and rt:
+        return jsonify(
+            {"error": "pass feature OR runtime, not both"}
+        ), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return jsonify({"error": "unknown tier", "which": "tier", "tier": p}), 404
+        if feat:
+            body = _ent.tiers_for_feature_at(p, feat)
+            kind = "feature"
+            item = feat
+        else:
+            body = _ent.tiers_for_runtime_at(p, rt)
+            kind = "runtime"
+            item = rt
+        if body is None:
+            return jsonify({"error": f"unknown {kind}", kind: item}), 404
+        ent = _ent.get_entitlement()
+        envelope = dict(body)
+        envelope["perspective_tier"] = p
+        envelope["perspective_tier_label"] = _ent.tier_label(p)
+        envelope["perspective_tier_rank"] = _ent.tier_rank(p)
+        envelope["current_tier"] = ent.tier
+        envelope["current_tier_rank"] = _ent.tier_rank(ent.tier)
+        envelope["grace"] = bool(ent.grace)
+        envelope["enforced"] = _ent.is_enforced()
+        return jsonify(envelope)
+    except Exception as exc:
+        logger.warning("api_entitlement_tiers_for_at: error: %s", exc)
+        return jsonify({"error": "tiers-for-at failed"}), 500
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-batch-at")
+def api_entitlement_tiers_for_batch_at():
+    """``GET /api/entitlement/tiers-for-batch-at?tier=<perspective>`` --
+    hypothetical-perspective sibling of
+    ``/api/entitlement/tiers-for-batch``: returns the full availability
+    ladder for every known feature *and* runtime in one pass, scoped by
+    a caller-supplied ``perspective_tier``.
+
+    Fills the ``_at`` slot on the batch tiers-for axis alongside
+    ``/tiers-for-at`` so a pricing-matrix walkthrough can call every
+    ``_at`` sibling with a uniform ``tier=<perspective>`` URL.
+    Perspective is validated but does NOT shape rows -- the batch is
+    identical to ``/tiers-for-batch`` regardless of perspective
+    (pinned by cross-endpoint parity test).
+
+    Missing / blank ``tier=`` -> ``400``. Unknown ``tier=`` -> ``404``.
+    Never 5xxs: a resolver failure yields empty ``features`` /
+    ``runtimes`` lists plus the perspective + grace envelope so the
+    pricing UI keeps rendering.
+
+    Response shape::
+
+        {
+          "features":               [<row>, ...],
+          "runtimes":               [<row>, ...],
+          "perspective_tier":       "...",
+          "perspective_tier_label": "...",
+          "perspective_tier_rank":  <int>,
+          "current_tier":           "...",
+          "current_tier_rank":      <int>,
+          "grace":                  <bool>,
+          "enforced":               <bool>,
+        }
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return jsonify({"error": "unknown tier", "which": "tier", "tier": p}), 404
+        body = _ent.tiers_for_batch_at(p)
+        if body is None:
+            body = {"features": [], "runtimes": []}
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "features": body.get("features", []),
+                "runtimes": body.get("runtimes", []),
+                "perspective_tier": p,
+                "perspective_tier_label": _ent.tier_label(p),
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "current_tier": ent.tier,
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_tiers_for_batch_at: error: %s", exc)
+        try:
+            from clawmetry import entitlements as _ent
+
+            label = _ent.tier_label(p)
+            rank = _ent.tier_rank(p)
+        except Exception:
+            label = p
+            rank = 0
+        return jsonify(
+            {
+                "features": [],
+                "runtimes": [],
+                "perspective_tier": p,
+                "perspective_tier_label": label,
+                "perspective_tier_rank": rank,
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
 @bp_entitlement.route("/api/runtimes")
 def api_runtimes():
     try:
@@ -6078,6 +6892,74 @@ def api_entitlement_tier_spec():
     except Exception as exc:
         logger.warning("api_entitlement_tier_spec: error: %s", exc)
         return jsonify({"error": "tier-spec failed"}), 500
+
+
+@bp_entitlement.route("/api/entitlement/tier-spec-batch")
+def api_entitlement_tier_spec_batch():
+    """``GET /api/entitlement/tier-spec-batch?tiers=a,b,c`` -- plural
+    sibling of ``/api/entitlement/tier-spec``.
+
+    Returns the full catalogue spec row for every supplied tier id in
+    one round-trip. Mirrors the scalar / batch pair
+    :func:`api_entitlement_feature_spec_batch` and
+    :func:`api_entitlement_runtime_spec_batch` establish on the feature
+    / runtime axes, so a pricing-comparison matrix UI hydrates the N
+    visible tier rows off one call instead of N calls to
+    ``/tier-spec``.
+
+    Each ``tiers[]`` entry is byte-identical to a row from
+    :func:`entitlements.tier_catalog` (and to the scalar
+    :func:`entitlements.tier_spec` for the same id) -- a parity test
+    pins this so the scalar / bulk / batch accessors cannot drift.
+    Supplied ids are normalised (whitespace stripped, lowercased,
+    duplicates dropped while preserving first-seen order). Unknown ids
+    do not 404 the call -- they are echoed in ``unknown[]`` so a
+    partially-bad caller still gets rows back for the valid ids
+    alongside a list of what was dropped.
+
+    Response shape::
+
+        {
+          "tiers":             [<spec_row>, ...],
+          "unknown":           ["bogus_id", ...],
+          "current_tier":      "...",
+          "current_tier_rank": <int>,
+          "grace":             <bool>,
+          "enforced":          <bool>,
+        }
+
+    - **400** when ``tiers=`` is missing or empty after normalisation
+    - **Never 5xxs**: a resolver crash short-circuits to the OSS-free
+      shape (empty rows, ``current_tier=oss``, ``grace=true``).
+    """
+    try:
+        tiers = _parse_csv_arg("tiers")
+        if not tiers:
+            return (
+                jsonify({"error": "supply tiers=<csv>"}),
+                400,
+            )
+        from clawmetry import entitlements as _ent
+
+        batch = _ent.tier_spec_batch(tiers)
+        ent = _ent.get_entitlement()
+        batch["current_tier"] = ent.tier
+        batch["current_tier_rank"] = _ent.tier_rank(ent.tier)
+        batch["grace"] = bool(ent.grace)
+        batch["enforced"] = _ent.is_enforced()
+        return jsonify(batch)
+    except Exception as exc:
+        logger.warning("api_entitlement_tier_spec_batch: error: %s", exc)
+        return jsonify(
+            {
+                "tiers": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
 
 
 @bp_entitlement.route("/api/features")
@@ -19459,5 +20341,1198 @@ def api_entitlement_previous_tier_runtime_catalog_at_batch():
                 "current_tier_rank": 0,
                 "grace": True,
                 "enforced": False,
+            }
+        )
+
+
+# ── capacity-axis tiers-for endpoints ────────────────────────────────────────
+#
+# Inverse siblings of ``/api/entitlement/required-tier?channels=`` /
+# ``retention_days=`` / ``nodes=``. Where ``required-tier`` returns the
+# cheapest tier that admits a capacity value (one id used by the upgrade-CTA),
+# these return the full "Fits in: ..." availability ladder a pricing-page row
+# or capacity tooltip needs. Same relationship the existing
+# ``/api/entitlement/tiers-for?feature=|runtime=`` endpoint has to
+# ``/api/entitlement/required-tier?feature=|runtime=``, extended to the three
+# capacity axes.
+
+
+def _resolver_envelope(_ent) -> dict:
+    ent = _ent.get_entitlement()
+    return {
+        "current_tier": ent.tier,
+        "current_tier_rank": _ent.tier_rank(ent.tier),
+        "grace": bool(ent.grace),
+        "enforced": _ent.is_enforced(),
+    }
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-channel-count")
+def api_entitlement_tiers_for_channel_count():
+    """``GET /api/entitlement/tiers-for-channel-count?count=<int>`` --
+    inverse of ``/api/entitlement/required-tier?channels=<int>``: returns
+    the full ladder of tiers that admit ``count`` configured channel
+    adapters, not just the cheapest one. The "Fits in: Starter, Cloud Pro,
+    Self-hosted Pro, Trial, Enterprise" availability list a pricing-page
+    row or capacity tooltip needs.
+
+    ``count=`` is required. Missing key -> ``400``. Non-int / blank value
+    -> ``400``. Never 5xxs: a resolver failure yields empty ``tiers`` list
+    and the grace-shape envelope so the pricing UI keeps rendering.
+
+    Response shape mirrors ``/api/entitlement/tiers-for`` exactly plus the
+    resolver envelope::
+
+        {
+          "item":              <int>,
+          "kind":              "channel_count",
+          "label":             "5 channels",
+          "free":              <bool>,
+          "min_tier":          "<tier id>" | null,
+          "min_tier_label":    "<label>" | null,
+          "min_tier_rank":     <int> | null,
+          "tiers":             [<row>, ...],
+          "current_tier":      "...",
+          "current_tier_rank": <int>,
+          "grace":             <bool>,
+          "enforced":          <bool>,
+        }
+    """
+    raw = request.args.get("count")
+    if raw is None:
+        return jsonify({"error": "missing count"}), 400
+    raw_stripped = raw.strip()
+    if not raw_stripped:
+        return jsonify({"error": "missing count"}), 400
+    try:
+        n = int(raw_stripped)
+    except (TypeError, ValueError):
+        return jsonify({"error": "count must be an integer"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.tiers_for_channel_count(n)
+        env = _resolver_envelope(_ent)
+        if body is None:
+            return jsonify({"tiers": [], **env})
+        return jsonify({**body, **env})
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tiers_for_channel_count: error: %s", exc
+        )
+        return jsonify(
+            {
+                "tiers": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-retention-window")
+def api_entitlement_tiers_for_retention_window():
+    """``GET /api/entitlement/tiers-for-retention-window?days=<int>`` --
+    inverse of ``/api/entitlement/required-tier?retention_days=<int>``:
+    returns the full ladder of tiers admitting a ``days`` history window.
+
+    ``days=`` is required. Pass ``days=unlimited`` (case-insensitive) for
+    the unlimited-history request; the helper only accepts tiers whose
+    retention cap is ``None`` (Enterprise on the current tier table).
+    Missing key -> ``400``. Blank / non-int / non-``unlimited`` value ->
+    ``400``. Never 5xxs.
+
+    Response shape mirrors ``/api/entitlement/tiers-for-channel-count`` --
+    ``item`` is the parsed ``days`` value, or ``null`` for the unlimited
+    request; ``kind`` is ``"retention_window"``; ``label`` is ``"30
+    days"`` / ``"unlimited"``.
+    """
+    raw = request.args.get("days")
+    if raw is None:
+        return jsonify({"error": "missing days"}), 400
+    raw_stripped = raw.strip()
+    if not raw_stripped:
+        return jsonify({"error": "missing days"}), 400
+    unlimited = raw_stripped.lower() == "unlimited"
+    if unlimited:
+        parsed: int | None = None
+    else:
+        try:
+            parsed = int(raw_stripped)
+        except (TypeError, ValueError):
+            return (
+                jsonify(
+                    {"error": "days must be an integer or 'unlimited'"}
+                ),
+                400,
+            )
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.tiers_for_retention_window(parsed)
+        env = _resolver_envelope(_ent)
+        if body is None:
+            return jsonify({"tiers": [], **env})
+        return jsonify({**body, **env})
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tiers_for_retention_window: error: %s", exc
+        )
+        return jsonify(
+            {
+                "tiers": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-node-count")
+def api_entitlement_tiers_for_node_count():
+    """``GET /api/entitlement/tiers-for-node-count?count=<int>`` --
+    inverse of ``/api/entitlement/required-tier?nodes=<int>``: returns the
+    full ladder of tiers admitting ``count`` registered nodes.
+
+    ``count=`` is required. Missing key -> ``400``. Non-int / blank value
+    -> ``400``. Never 5xxs.
+
+    Response shape mirrors ``/api/entitlement/tiers-for-channel-count`` --
+    ``kind`` is ``"node_count"``; ``label`` is ``"4 nodes"``.
+    """
+    raw = request.args.get("count")
+    if raw is None:
+        return jsonify({"error": "missing count"}), 400
+    raw_stripped = raw.strip()
+    if not raw_stripped:
+        return jsonify({"error": "missing count"}), 400
+    try:
+        n = int(raw_stripped)
+    except (TypeError, ValueError):
+        return jsonify({"error": "count must be an integer"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.tiers_for_node_count(n)
+        env = _resolver_envelope(_ent)
+        if body is None:
+            return jsonify({"tiers": [], **env})
+        return jsonify({**body, **env})
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tiers_for_node_count: error: %s", exc
+        )
+        return jsonify(
+            {
+                "tiers": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-capacity-batch")
+def api_entitlement_tiers_for_capacity_batch():
+    """``GET /api/entitlement/tiers-for-capacity-batch?channels=N
+    &retention_days=K&nodes=M`` -- per-item availability ladder for every
+    supplied capacity axis in one pass.
+
+    Per-item plural sibling of the three ``/tiers-for-<axis>`` endpoints.
+    Closes the capacity-axis symmetry gap in the ``/tiers-for-*`` family:
+    ``/tiers-for-batch`` collapses to the two grant axes (features +
+    runtimes) and does not accept capacity args at all -- so a pricing-
+    page that wants the full "Fits in: <tier>, ..." ladder for a caller-
+    supplied ``(channels, retention_days, nodes)`` capacity bundle
+    either had to fan out three ``/tiers-for-<axis>`` calls or build the
+    ladder client-side from ``/min-tier-batch``. This endpoint delivers
+    the same per-axis row shape those three singulars return, on all
+    three axes, off ONE round-trip.
+
+    At least one of ``channels=`` / ``retention_days=`` / ``nodes=``
+    must be supplied (non-empty / parseable after normalisation). A
+    blank or non-int value on an individual axis is treated as "not
+    supplied" for that axis (matches
+    ``/api/entitlement/min-tier-batch``'s never-crash posture rather
+    than mis-routing a typo to Enterprise); the endpoint 400s only when
+    *no* axis parsed successfully. Never 5xxs: the grace-shape envelope
+    is returned on any resolver failure.
+
+    Response shape::
+
+        {
+          "channels":       <row> | None,
+          "retention_days": <row> | None,
+          "nodes":          <row> | None,
+          "current_tier":       "...",
+          "current_tier_rank":  <int>,
+          "grace":              <bool>,
+          "enforced":           <bool>,
+        }
+
+    Each ``<row>`` matches the singular
+    ``/tiers-for-channel-count?count=`` /
+    ``/tiers-for-retention-window?days=`` /
+    ``/tiers-for-node-count?count=`` endpoint byte-for-byte (``item`` /
+    ``kind`` / ``label`` / ``free`` / ``min_tier`` / ``min_tier_label``
+    / ``min_tier_rank`` / ``tiers``) so a caller can pass any row
+    through the existing ``tiers_for_*`` rendering components without
+    reshaping. Per-row parity with the singular endpoints is pinned in
+    the test suite so the batch cannot silently drift from the scalars.
+
+    Critically, ``retention_days`` here treats ``None`` (parameter
+    omitted / unparseable) as *unset* -- NOT *unlimited* (matches
+    ``/min-tier-batch``'s posture on the same axis). Asking for the
+    unlimited-retention ladder is the singular
+    ``/tiers-for-retention-window?days=unlimited`` call's job.
+    """
+    (_, channels_ok, channels_n, _) = _parse_capacity_arg("channels")
+    (_, retention_ok, retention_n, _) = _parse_capacity_arg("retention_days")
+    (_, nodes_ok, nodes_n, _) = _parse_capacity_arg("nodes")
+
+    if not channels_ok and not retention_ok and not nodes_ok:
+        return (
+            jsonify(
+                {
+                    "error": (
+                        "supply at least one of channels=<int>, "
+                        "retention_days=<int>, or nodes=<int>"
+                    )
+                }
+            ),
+            400,
+        )
+
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.tiers_for_capacity_batch(
+            channels=channels_n if channels_ok else None,
+            retention_days=retention_n if retention_ok else None,
+            nodes=nodes_n if nodes_ok else None,
+        )
+        env = _resolver_envelope(_ent)
+        return jsonify(
+            {
+                "channels": body.get("channels"),
+                "retention_days": body.get("retention_days"),
+                "nodes": body.get("nodes"),
+                **env,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tiers_for_capacity_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "channels": None,
+                "retention_days": None,
+                "nodes": None,
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-features")
+def api_entitlement_tiers_for_features():
+    """``GET /api/entitlement/tiers-for-features?features=a,b,c`` --
+    ladder-intersection sibling of ``/api/entitlement/tiers-for``: the
+    set of tiers that grant **every** supplied feature at once, wrapped
+    in the same row shape a pricing-page component consumes off
+    ``/tiers-for?feature=<id>``.
+
+    Closes the ``tiers_for_*`` symmetry gap alongside the singular /
+    fixed-batch siblings: the caller-supplied-list shape had no plural
+    on the ladder axis, so a UI building the bundle-ladder off
+    ``/required-tier-batch?features=`` had to fan out one ``/tiers-for``
+    call per known id + intersect on the client. This wraps
+    :func:`clawmetry.entitlements.tiers_for_features` so the whole
+    "you use fleet + sso -- Available in: Enterprise" ladder lands in
+    one round-trip.
+
+    - **400** when ``features=`` is missing / blank after parsing
+      (empty string or all-empty tokens). All-unknown IS 200 with an
+      ``unknown`` list and empty ``tiers`` -- distinguishes "caller
+      asked for nothing" from "caller asked but every token was a typo"
+      so the paywall UI can render "these ids are unknown: X" instead
+      of a null.
+    - Blank / whitespace tokens are dropped; ids are lowercased and
+      de-duplicated preserving first-seen order (matches
+      ``_parse_csv_arg``).
+    - Unknown ids (not in ``ALL_FEATURES``) contribute nothing to the
+      intersection so a typo does NOT silently mis-route the ladder to
+      Enterprise. Every unknown id lands in the ``unknown`` list on the
+      response so the caller can echo them.
+    - Never 5xxs: a resolver failure yields the empty shape + the
+      grace-shape envelope so the pricing UI keeps rendering.
+
+    Response shape::
+
+        {
+          "items":             ["fleet", "sso"],
+          "unknown":           ["bogus"],
+          "kind":              "features",
+          "count":             2,
+          "min_tier":          "enterprise" | null,
+          "min_tier_label":    "Enterprise" | null,
+          "min_tier_rank":     <int> | null,
+          "tiers":             [<_tier_row>, ...],
+          "current_tier":      "...",
+          "current_tier_rank": <int>,
+          "grace":             <bool>,
+          "enforced":          <bool>,
+        }
+
+    Where ``<_tier_row>`` matches ``/api/entitlement/tiers-for`` exactly
+    (``id`` / ``label`` / ``rank`` / ``purchasable``). ``min_tier``
+    byte-equals ``/api/entitlement/required-tier-batch?features=<same>``
+    ``.required_tier`` for the same input (parity is the answer).
+    """
+    raw = request.args.get("features")
+    if raw is None or not raw.strip():
+        return jsonify({"error": "missing features"}), 400
+    features = _parse_csv_arg("features")
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.tiers_for_features(features)
+        env = _resolver_envelope(_ent)
+        if body is None:
+            return jsonify(
+                {
+                    "items": [],
+                    "unknown": features,
+                    "kind": "features",
+                    "count": 0,
+                    "min_tier": None,
+                    "min_tier_label": None,
+                    "min_tier_rank": None,
+                    "tiers": [],
+                    **env,
+                }
+            )
+        return jsonify({**body, **env})
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tiers_for_features: error: %s", exc
+        )
+        return jsonify(
+            {
+                "items": [],
+                "unknown": features,
+                "kind": "features",
+                "count": 0,
+                "min_tier": None,
+                "min_tier_label": None,
+                "min_tier_rank": None,
+                "tiers": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-runtimes")
+def api_entitlement_tiers_for_runtimes():
+    """``GET /api/entitlement/tiers-for-runtimes?runtimes=x,y,z`` --
+    runtime-axis twin of ``/api/entitlement/tiers-for-features``.
+
+    Wraps :func:`clawmetry.entitlements.tiers_for_runtimes`. Runtime
+    aliases (``claude-code`` -> ``claude_code``) are canonicalised
+    before intersection; input order is preserved after canonical
+    de-duplication so the response ``items`` list is stable.
+
+    - **400** when ``runtimes=`` is missing / blank after parsing.
+      All-unknown IS 200 with the ``unknown`` list populated (mirrors
+      ``/tiers-for-features``).
+    - Never 5xxs: a resolver failure yields the empty shape + the
+      grace-shape envelope.
+
+    Response shape mirrors ``/tiers-for-features`` with
+    ``kind="runtimes"``.
+    """
+    raw = request.args.get("runtimes")
+    if raw is None or not raw.strip():
+        return jsonify({"error": "missing runtimes"}), 400
+    runtimes = _parse_csv_arg("runtimes")
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.tiers_for_runtimes(runtimes)
+        env = _resolver_envelope(_ent)
+        if body is None:
+            return jsonify(
+                {
+                    "items": [],
+                    "unknown": runtimes,
+                    "kind": "runtimes",
+                    "count": 0,
+                    "min_tier": None,
+                    "min_tier_label": None,
+                    "min_tier_rank": None,
+                    "tiers": [],
+                    **env,
+                }
+            )
+        return jsonify({**body, **env})
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tiers_for_runtimes: error: %s", exc
+        )
+        return jsonify(
+            {
+                "items": [],
+                "unknown": runtimes,
+                "kind": "runtimes",
+                "count": 0,
+                "min_tier": None,
+                "min_tier_label": None,
+                "min_tier_rank": None,
+                "tiers": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+
+# ── capacity-axis tiers-for-*-at endpoints ───────────────────────────────────
+#
+# Hypothetical-perspective siblings of the four capacity-axis ``tiers_for_*``
+# endpoints above. Fill the ``_at`` slot on the capacity family alongside
+# ``/api/entitlement/tiers-for-at`` / ``/tiers-for-batch-at`` on the grant
+# axes, so a pricing-matrix walkthrough can call every ``/tiers-for-*-at``
+# endpoint with a uniform ``tier=<perspective>`` URL. The ladder itself is
+# perspective-independent (walks the static per-tier caps via the singular
+# helpers) so parity with the non-``_at`` sibling is pinned in the test suite.
+
+
+def _perspective_envelope(_ent, p: str) -> dict:
+    ent = _ent.get_entitlement()
+    return {
+        "perspective_tier": p,
+        "perspective_tier_label": _ent.tier_label(p),
+        "perspective_tier_rank": _ent.tier_rank(p),
+        "current_tier": ent.tier,
+        "current_tier_rank": _ent.tier_rank(ent.tier),
+        "grace": bool(ent.grace),
+        "enforced": _ent.is_enforced(),
+    }
+
+
+def _perspective_fallback(p: str) -> dict:
+    try:
+        from clawmetry import entitlements as _ent
+
+        label = _ent.tier_label(p)
+        rank = _ent.tier_rank(p)
+    except Exception:
+        label = p
+        rank = 0
+    return {
+        "perspective_tier": p,
+        "perspective_tier_label": label,
+        "perspective_tier_rank": rank,
+        "current_tier": "oss",
+        "current_tier_rank": 0,
+        "grace": True,
+        "enforced": False,
+    }
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-channel-count-at")
+def api_entitlement_tiers_for_channel_count_at():
+    """``GET /api/entitlement/tiers-for-channel-count-at?tier=<perspective>
+    &count=<int>`` -- hypothetical-perspective sibling of
+    ``/api/entitlement/tiers-for-channel-count``: returns the full ladder
+    of tiers admitting ``count`` configured channel adapters, scoped by a
+    caller-supplied ``perspective_tier``.
+
+    Perspective is validated against ``_TIER_ORDER`` (``trial``
+    accepted) but does NOT shape rows -- the ladder is intrinsically
+    perspective-independent (walks the static per-tier channel-cap
+    table). The ``perspective_tier`` envelope keeps every ``_at`` URL
+    uniform across the ``tiers_for_*`` family.
+
+    Missing / blank ``tier=`` -> ``400``. Unknown ``tier=`` -> ``404``
+    (``which=tier``). Missing / blank / non-int ``count=`` -> ``400``.
+    Never 5xxs: a resolver failure yields empty ``tiers`` list plus the
+    perspective + grace envelope so the pricing UI keeps rendering.
+
+    Response shape mirrors ``/api/entitlement/tiers-for-channel-count``
+    plus the perspective envelope (``perspective_tier``,
+    ``perspective_tier_label``, ``perspective_tier_rank``).
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    raw = request.args.get("count")
+    if raw is None:
+        return jsonify({"error": "missing count"}), 400
+    raw_stripped = raw.strip()
+    if not raw_stripped:
+        return jsonify({"error": "missing count"}), 400
+    try:
+        n = int(raw_stripped)
+    except (TypeError, ValueError):
+        return jsonify({"error": "count must be an integer"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify({"error": "unknown tier", "which": "tier", "tier": p}),
+                404,
+            )
+        body = _ent.tiers_for_channel_count_at(p, n)
+        env = _perspective_envelope(_ent, p)
+        if body is None:
+            return jsonify({"tiers": [], **env})
+        return jsonify({**body, **env})
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tiers_for_channel_count_at: error: %s", exc
+        )
+        return jsonify({"tiers": [], **_perspective_fallback(p)})
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-retention-window-at")
+def api_entitlement_tiers_for_retention_window_at():
+    """``GET /api/entitlement/tiers-for-retention-window-at?tier=<perspective>
+    &days=<int>`` -- hypothetical-perspective sibling of
+    ``/api/entitlement/tiers-for-retention-window``.
+
+    Pass ``days=unlimited`` (case-insensitive) for the unlimited-history
+    request; the helper only accepts tiers whose retention cap is
+    ``None`` (Enterprise on the current tier table). Perspective is
+    validated but does NOT shape rows.
+
+    Missing / blank ``tier=`` -> ``400``. Unknown ``tier=`` -> ``404``.
+    Missing ``days=`` -> ``400``. Blank / non-int / non-``unlimited``
+    value -> ``400``. Never 5xxs.
+
+    Response shape mirrors
+    ``/api/entitlement/tiers-for-retention-window`` plus the perspective
+    envelope.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    raw = request.args.get("days")
+    if raw is None:
+        return jsonify({"error": "missing days"}), 400
+    raw_stripped = raw.strip()
+    if not raw_stripped:
+        return jsonify({"error": "missing days"}), 400
+    unlimited = raw_stripped.lower() == "unlimited"
+    if unlimited:
+        parsed: int | None = None
+    else:
+        try:
+            parsed = int(raw_stripped)
+        except (TypeError, ValueError):
+            return (
+                jsonify(
+                    {"error": "days must be an integer or 'unlimited'"}
+                ),
+                400,
+            )
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify({"error": "unknown tier", "which": "tier", "tier": p}),
+                404,
+            )
+        body = _ent.tiers_for_retention_window_at(p, parsed)
+        env = _perspective_envelope(_ent, p)
+        if body is None:
+            return jsonify({"tiers": [], **env})
+        return jsonify({**body, **env})
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tiers_for_retention_window_at: error: %s", exc
+        )
+        return jsonify({"tiers": [], **_perspective_fallback(p)})
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-node-count-at")
+def api_entitlement_tiers_for_node_count_at():
+    """``GET /api/entitlement/tiers-for-node-count-at?tier=<perspective>
+    &count=<int>`` -- hypothetical-perspective sibling of
+    ``/api/entitlement/tiers-for-node-count``.
+
+    Perspective is validated against ``_TIER_ORDER`` (``trial``
+    accepted) but does NOT shape rows.
+
+    Missing / blank ``tier=`` -> ``400``. Unknown ``tier=`` -> ``404``.
+    Missing / blank / non-int ``count=`` -> ``400``. Never 5xxs.
+
+    Response shape mirrors ``/api/entitlement/tiers-for-node-count``
+    plus the perspective envelope.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    raw = request.args.get("count")
+    if raw is None:
+        return jsonify({"error": "missing count"}), 400
+    raw_stripped = raw.strip()
+    if not raw_stripped:
+        return jsonify({"error": "missing count"}), 400
+    try:
+        n = int(raw_stripped)
+    except (TypeError, ValueError):
+        return jsonify({"error": "count must be an integer"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify({"error": "unknown tier", "which": "tier", "tier": p}),
+                404,
+            )
+        body = _ent.tiers_for_node_count_at(p, n)
+        env = _perspective_envelope(_ent, p)
+        if body is None:
+            return jsonify({"tiers": [], **env})
+        return jsonify({**body, **env})
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tiers_for_node_count_at: error: %s", exc
+        )
+        return jsonify({"tiers": [], **_perspective_fallback(p)})
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-capacity-batch-at")
+def api_entitlement_tiers_for_capacity_batch_at():
+    """``GET /api/entitlement/tiers-for-capacity-batch-at?tier=<perspective>
+    &channels=N&retention_days=K&nodes=M`` -- hypothetical-perspective
+    sibling of ``/api/entitlement/tiers-for-capacity-batch``.
+
+    Fills the last ``_at`` slot in the ``/tiers-for-*`` family alongside
+    ``/tiers-for-at`` / ``/tiers-for-batch-at`` on the grant axes and the
+    three per-axis capacity ``/tiers-for-*-at`` endpoints, so a pricing-
+    matrix walkthrough can call every ``/tiers-for-*-at`` endpoint with
+    a uniform ``tier=<perspective>`` URL.
+
+    Perspective is validated against ``_TIER_ORDER`` (``trial``
+    accepted) but does NOT shape rows -- the batch is identical to
+    ``/tiers-for-capacity-batch`` regardless of perspective (pinned by
+    cross-endpoint parity test).
+
+    Missing / blank ``tier=`` -> ``400``. Unknown ``tier=`` -> ``404``.
+    At least one of ``channels=`` / ``retention_days=`` / ``nodes=``
+    must parse successfully; the endpoint 400s only when *no* axis
+    parsed (matches ``/tiers-for-capacity-batch``'s never-mis-route
+    posture). Never 5xxs.
+
+    ``retention_days`` treats ``None`` (parameter omitted /
+    unparseable) as *unset* -- NOT *unlimited* (matches
+    ``/min-tier-batch``'s posture). Asking for the unlimited-retention
+    ladder at a hypothetical perspective is the singular
+    ``/tiers-for-retention-window-at?days=unlimited`` call's job.
+
+    Response shape mirrors ``/api/entitlement/tiers-for-capacity-batch``
+    plus the perspective envelope.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    (_, channels_ok, channels_n, _) = _parse_capacity_arg("channels")
+    (_, retention_ok, retention_n, _) = _parse_capacity_arg("retention_days")
+    (_, nodes_ok, nodes_n, _) = _parse_capacity_arg("nodes")
+
+    if not channels_ok and not retention_ok and not nodes_ok:
+        return (
+            jsonify(
+                {
+                    "error": (
+                        "supply at least one of channels=<int>, "
+                        "retention_days=<int>, or nodes=<int>"
+                    )
+                }
+            ),
+            400,
+        )
+
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify({"error": "unknown tier", "which": "tier", "tier": p}),
+                404,
+            )
+        body = _ent.tiers_for_capacity_batch_at(
+            p,
+            channels=channels_n if channels_ok else None,
+            retention_days=retention_n if retention_ok else None,
+            nodes=nodes_n if nodes_ok else None,
+        )
+        env = _perspective_envelope(_ent, p)
+        if body is None:
+            body = {"channels": None, "retention_days": None, "nodes": None}
+        return jsonify(
+            {
+                "channels": body.get("channels"),
+                "retention_days": body.get("retention_days"),
+                "nodes": body.get("nodes"),
+                **env,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tiers_for_capacity_batch_at: error: %s", exc
+        )
+        return jsonify(
+            {
+                "channels": None,
+                "retention_days": None,
+                "nodes": None,
+                **_perspective_fallback(p),
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/min-tier-for-features-at")
+def api_entitlement_min_tier_for_features_at():
+    """``GET /api/entitlement/min-tier-for-features-at?tier=<perspective>
+    &features=a,b,c`` -- hypothetical-perspective sibling of
+    ``min_tier_for_features``: the cheapest *purchasable* tier admitting
+    every feature in the bundle, scoped by a caller-supplied
+    ``perspective_tier``.
+
+    Fills the ``_at`` slot for the ``min_tier_for_features`` scalar so a
+    pricing-matrix walkthrough (``?tier=<p>``) can hit
+    ``/min-tier-for-features-at`` uniformly across the whole ``_at``
+    family instead of falling back to ``/required-tier-batch?features=<csv>``
+    (which combines features + runtimes and lacks the perspective envelope).
+
+    Perspective is validated against :data:`entitlements._TIER_ORDER`
+    (including ``trial``) but does NOT shape the answer -- the scalar tier
+    id depends only on the static per-tier feature map. A parity contract
+    pinned in the test suite guarantees the ``required_tier`` byte-equals
+    ``min_tier_for_features(features)`` for every perspective. The
+    response layers ``perspective_tier`` / ``perspective_tier_label`` /
+    ``perspective_tier_rank`` on top of the standard resolver envelope so
+    a walkthrough surface can render the "from <perspective>" copy off
+    one round-trip.
+
+    Response shape::
+
+        {
+          "features":               ["fleet", "sso"],
+          "unknown":                ["bogus"],
+          "kind":                   "features",
+          "count":                  2,
+          "required_tier":          "enterprise" | null,
+          "required_tier_label":    "Enterprise" | null,
+          "required_tier_rank":     <int>,
+          "free":                   <bool>,
+          "perspective_tier":       "cloud_pro",
+          "perspective_tier_label": "Cloud Pro",
+          "perspective_tier_rank":  <int>,
+          "current_tier":           "oss",
+          "current_tier_rank":      <int>,
+          "grace":                  <bool>,
+          "enforced":               <bool>,
+        }
+
+    - **400** when ``tier=`` is missing / blank, OR when ``features=`` is
+      missing / blank after CSV normalisation.
+    - **404** when ``tier`` is unknown. The body carries ``which=tier`` so
+      a caller can render the right "unknown tier" message.
+    - **All-unknown features IS 200** with ``unknown`` populated and
+      ``required_tier=null`` -- distinguishes "caller asked for nothing"
+      from "caller asked but every token was a typo" so a paywall UI can
+      render "these ids are unknown: X" instead of a null.
+    - **Never 5xxs**: a resolver failure yields the fallback envelope
+      (empty ``features`` list, ``required_tier=null``) so the pricing
+      walkthrough keeps rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+
+    features_csv = _parse_csv_arg("features")
+    if not features_csv:
+        return jsonify({"error": "missing features"}), 400
+
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": tier_in}
+                ),
+                404,
+            )
+
+        known: list[str] = []
+        unknown: list[str] = []
+        for fid in features_csv:
+            if fid in _ent.ALL_FEATURES:
+                if fid not in known:
+                    known.append(fid)
+            else:
+                if fid not in unknown:
+                    unknown.append(fid)
+
+        required = _ent.min_tier_for_features_at(tier_in, known) if known else None
+        env = _resolver_envelope(_ent)
+        return jsonify(
+            {
+                "features": known,
+                "unknown": unknown,
+                "kind": "features",
+                "count": len(known),
+                "required_tier": required,
+                "required_tier_label": (
+                    _ent.tier_label(required) if required else None
+                ),
+                "required_tier_rank": (
+                    _ent.tier_rank(required) if required else -1
+                ),
+                "free": bool(required == _ent.TIER_OSS),
+                "perspective_tier": tier_in,
+                "perspective_tier_label": _ent.tier_label(tier_in),
+                "perspective_tier_rank": _ent.tier_rank(tier_in),
+                **env,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_min_tier_for_features_at: error: %s", exc
+        )
+        return jsonify(
+            {
+                "features": [],
+                "unknown": features_csv,
+                "kind": "features",
+                "count": 0,
+                "required_tier": None,
+                "required_tier_label": None,
+                "required_tier_rank": -1,
+                "free": False,
+                "perspective_tier": tier_in,
+                "perspective_tier_label": None,
+                "perspective_tier_rank": -1,
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/min-tier-for-runtimes-at")
+def api_entitlement_min_tier_for_runtimes_at():
+    """``GET /api/entitlement/min-tier-for-runtimes-at?tier=<perspective>
+    &runtimes=x,y,z`` -- runtime-axis twin of
+    ``/api/entitlement/min-tier-for-features-at``.
+
+    Same perspective contract, same never-5xx posture, same
+    perspective-independence guarantee (pinned by a parity test).
+    Runtime aliases (``claude-code`` -> ``claude_code``) are canonicalised
+    through :func:`clawmetry.entitlements.canonical_runtime` so a caller
+    does not need to normalise before calling; unknown ids land in
+    ``unknown`` and drop from the ``required_tier`` walk (a typo does NOT
+    silently mis-route the ladder to Enterprise).
+
+    Response shape and error paths mirror
+    ``/min-tier-for-features-at`` exactly, with ``kind="runtimes"`` and a
+    ``runtimes`` list in place of ``features``.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+
+    runtimes_csv = _parse_csv_arg("runtimes")
+    if not runtimes_csv:
+        return jsonify({"error": "missing runtimes"}), 400
+
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": tier_in}
+                ),
+                404,
+            )
+
+        known: list[str] = []
+        unknown: list[str] = []
+        for rt in runtimes_csv:
+            canon = _ent.canonical_runtime(rt)
+            if canon and canon in _ent.ALL_RUNTIMES:
+                if canon not in known:
+                    known.append(canon)
+            else:
+                if rt not in unknown:
+                    unknown.append(rt)
+
+        required = _ent.min_tier_for_runtimes_at(tier_in, known) if known else None
+        env = _resolver_envelope(_ent)
+        return jsonify(
+            {
+                "runtimes": known,
+                "unknown": unknown,
+                "kind": "runtimes",
+                "count": len(known),
+                "required_tier": required,
+                "required_tier_label": (
+                    _ent.tier_label(required) if required else None
+                ),
+                "required_tier_rank": (
+                    _ent.tier_rank(required) if required else -1
+                ),
+                "free": bool(required == _ent.TIER_OSS),
+                "perspective_tier": tier_in,
+                "perspective_tier_label": _ent.tier_label(tier_in),
+                "perspective_tier_rank": _ent.tier_rank(tier_in),
+                **env,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_min_tier_for_runtimes_at: error: %s", exc
+        )
+        return jsonify(
+            {
+                "runtimes": [],
+                "unknown": runtimes_csv,
+                "kind": "runtimes",
+                "count": 0,
+                "required_tier": None,
+                "required_tier_label": None,
+                "required_tier_rank": -1,
+                "free": False,
+                "perspective_tier": tier_in,
+                "perspective_tier_label": None,
+                "perspective_tier_rank": -1,
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-features-at")
+def api_entitlement_tiers_for_features_at():
+    """``GET /api/entitlement/tiers-for-features-at?tier=<perspective>
+    &features=a,b,c`` -- hypothetical-perspective sibling of
+    ``/api/entitlement/tiers-for-features``: the full ladder of tiers
+    admitting every feature in the bundle, scoped by a caller-supplied
+    ``perspective_tier``.
+
+    Fills the ``_at`` slot for the ``tiers_for_features`` ladder axis so
+    a pricing-matrix walkthrough (``?tier=<p>``) can hit
+    ``/tiers-for-features-at`` uniformly across the whole ``_at`` family
+    (alongside ``/min-tier-for-features-at`` on the scalar axis and the
+    four capacity-axis ``/tiers-for-*-at`` endpoints on the capacity
+    axis).
+
+    Perspective is validated against :data:`entitlements._TIER_ORDER`
+    (including ``trial``) but does NOT shape the answer -- the ladder id
+    list depends only on the static per-tier feature map. A parity
+    contract pinned in the test suite guarantees the six body keys
+    (``items`` / ``unknown`` / ``kind`` / ``count`` / ``min_tier`` /
+    ``min_tier_label`` / ``min_tier_rank`` / ``tiers``) byte-equal
+    ``/tiers-for-features?features=<same>`` for every perspective. The
+    response layers ``perspective_tier`` / ``perspective_tier_label`` /
+    ``perspective_tier_rank`` on top of the standard resolver envelope
+    so a walkthrough surface can render the "from <perspective>" copy
+    off one round-trip.
+
+    Response shape::
+
+        {
+          "items":                  ["fleet", "sso"],
+          "unknown":                ["bogus"],
+          "kind":                   "features",
+          "count":                  2,
+          "min_tier":               "enterprise" | null,
+          "min_tier_label":         "Enterprise" | null,
+          "min_tier_rank":          <int> | null,
+          "tiers":                  [<_tier_row>, ...],
+          "perspective_tier":       "cloud_pro",
+          "perspective_tier_label": "Cloud Pro",
+          "perspective_tier_rank":  3,
+          "current_tier":           "oss",
+          "current_tier_rank":      0,
+          "grace":                  true,
+          "enforced":               false,
+        }
+
+    - **400** when ``tier=`` is missing / blank, OR when ``features=``
+      is missing / blank after CSV normalisation.
+    - **404** when ``tier`` is unknown. The body carries ``which=tier``
+      so a caller can render the right "unknown tier" message.
+    - **All-unknown features IS 200** with ``unknown`` populated and
+      ``tiers=[]`` / ``min_tier=null`` -- distinguishes "caller asked
+      for nothing" from "caller asked but every token was a typo" so a
+      paywall UI can render "these ids are unknown: X" instead of a
+      null.
+    - **Never 5xxs**: a resolver failure yields the fallback envelope
+      (empty ``items`` / ``tiers`` list, ``min_tier=null``) so the
+      pricing walkthrough keeps rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+
+    raw_features = request.args.get("features")
+    if raw_features is None or not raw_features.strip():
+        return jsonify({"error": "missing features"}), 400
+    features_csv = _parse_csv_arg("features")
+    if not features_csv:
+        return jsonify({"error": "missing features"}), 400
+
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": tier_in}
+                ),
+                404,
+            )
+
+        body = _ent.tiers_for_features_at(tier_in, features_csv)
+        env = _perspective_envelope(_ent, tier_in)
+        if body is None:
+            return jsonify(
+                {
+                    "items": [],
+                    "unknown": features_csv,
+                    "kind": "features",
+                    "count": 0,
+                    "min_tier": None,
+                    "min_tier_label": None,
+                    "min_tier_rank": None,
+                    "tiers": [],
+                    **env,
+                }
+            )
+        return jsonify({**body, **env})
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tiers_for_features_at: error: %s", exc
+        )
+        return jsonify(
+            {
+                "items": [],
+                "unknown": features_csv,
+                "kind": "features",
+                "count": 0,
+                "min_tier": None,
+                "min_tier_label": None,
+                "min_tier_rank": None,
+                "tiers": [],
+                **_perspective_fallback(tier_in),
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tiers-for-runtimes-at")
+def api_entitlement_tiers_for_runtimes_at():
+    """``GET /api/entitlement/tiers-for-runtimes-at?tier=<perspective>
+    &runtimes=x,y,z`` -- runtime-axis twin of
+    ``/api/entitlement/tiers-for-features-at``.
+
+    Wraps :func:`clawmetry.entitlements.tiers_for_runtimes_at`. Runtime
+    aliases (``claude-code`` -> ``claude_code``) are canonicalised
+    before intersection; the perspective envelope layers on top of the
+    standard resolver envelope. Perspective is validated but does NOT
+    shape rows -- the ladder byte-equals
+    ``/tiers-for-runtimes?runtimes=<same>`` for every perspective
+    (pinned by the parity tests).
+
+    - **400** when ``tier=`` is missing / blank, OR when ``runtimes=``
+      is missing / blank after CSV normalisation.
+    - **404** when ``tier`` is unknown (``which=tier``).
+    - **All-unknown runtimes IS 200** with the ``unknown`` list
+      populated (mirrors ``/tiers-for-runtimes``).
+    - **Never 5xxs**: a resolver failure yields the fallback envelope.
+
+    Response shape mirrors ``/tiers-for-features-at`` with
+    ``kind="runtimes"``.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+
+    raw_runtimes = request.args.get("runtimes")
+    if raw_runtimes is None or not raw_runtimes.strip():
+        return jsonify({"error": "missing runtimes"}), 400
+    runtimes_csv = _parse_csv_arg("runtimes")
+    if not runtimes_csv:
+        return jsonify({"error": "missing runtimes"}), 400
+
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": tier_in}
+                ),
+                404,
+            )
+
+        body = _ent.tiers_for_runtimes_at(tier_in, runtimes_csv)
+        env = _perspective_envelope(_ent, tier_in)
+        if body is None:
+            return jsonify(
+                {
+                    "items": [],
+                    "unknown": runtimes_csv,
+                    "kind": "runtimes",
+                    "count": 0,
+                    "min_tier": None,
+                    "min_tier_label": None,
+                    "min_tier_rank": None,
+                    "tiers": [],
+                    **env,
+                }
+            )
+        return jsonify({**body, **env})
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tiers_for_runtimes_at: error: %s", exc
+        )
+        return jsonify(
+            {
+                "items": [],
+                "unknown": runtimes_csv,
+                "kind": "runtimes",
+                "count": 0,
+                "min_tier": None,
+                "min_tier_label": None,
+                "min_tier_rank": None,
+                "tiers": [],
+                **_perspective_fallback(tier_in),
             }
         )

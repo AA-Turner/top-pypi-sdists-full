@@ -95,6 +95,10 @@ lxb_selectors_match_attribute(const lxb_css_selector_t *selector,
                               lxb_dom_node_t *node, lxb_selectors_entry_t *entry);
 
 static bool
+lxb_selectors_match_attribute_html_case_insensitive(lxb_dom_node_t *node,
+                                                   lxb_dom_attr_id_t attr_id);
+
+static bool
 lxb_selectors_pseudo_class(const lxb_css_selector_t *selector,
                            const lxb_dom_node_t *node);
 
@@ -1310,7 +1314,9 @@ lxb_selectors_match(lxb_selectors_t *selectors, lxb_selectors_entry_t *entry,
             }
 
             return lxb_selectors_match_class(element->attr_class->value,
-                                             &entry->selector->name, true);
+                                             &entry->selector->name,
+                                             node->owner_document->compat_mode
+                                             == LXB_DOM_DOCUMENT_CMODE_QUIRKS);
 
         case LXB_CSS_SELECTOR_TYPE_ATTRIBUTE:
             return lxb_selectors_match_attribute(entry->selector, node, entry);
@@ -1368,8 +1374,15 @@ lxb_selectors_match_id(const lxb_css_selector_t *selector, lxb_dom_node_t *node)
     trg = element->attr_id->value;
     src = &selector->name;
 
-    return trg->length == src->length
-           && lexbor_str_data_ncasecmp(trg->data, src->data, src->length);
+    if (trg->length != src->length) {
+        return false;
+    }
+
+    if (node->owner_document->compat_mode == LXB_DOM_DOCUMENT_CMODE_QUIRKS) {
+        return lexbor_str_data_ncasecmp(trg->data, src->data, src->length);
+    }
+
+    return lexbor_str_data_ncmp(trg->data, src->data, src->length);
 }
 
 static bool
@@ -1378,7 +1391,7 @@ lxb_selectors_match_class(const lexbor_str_t *target, const lexbor_str_t *src,
 {
     lxb_char_t chr;
 
-    if (target->length < src->length) {
+    if (src->length == 0 || target->length < src->length) {
         return false;
     }
 
@@ -1471,7 +1484,20 @@ lxb_selectors_match_attribute(const lxb_css_selector_t *selector,
         trg = &lxb_blank_str;
     }
 
-    ins = attr->modifier == LXB_CSS_SELECTOR_MODIFIER_I;
+    switch (attr->modifier) {
+        case LXB_CSS_SELECTOR_MODIFIER_I:
+            ins = true;
+            break;
+
+        case LXB_CSS_SELECTOR_MODIFIER_S:
+            ins = false;
+            break;
+
+        default:
+            ins = lxb_selectors_match_attribute_html_case_insensitive(node,
+                                                                       entry->id);
+            break;
+    }
 
     switch (attr->match) {
         case LXB_CSS_SELECTOR_MATCH_EQUAL:      /*  = */
@@ -1563,6 +1589,70 @@ lxb_selectors_match_attribute(const lxb_css_selector_t *selector,
     }
 
     return false;
+}
+
+static bool
+lxb_selectors_match_attribute_html_case_insensitive(lxb_dom_node_t *node,
+                                                   lxb_dom_attr_id_t attr_id)
+{
+    if (node->ns != LXB_NS_HTML
+        || node->owner_document->type != LXB_DOM_DOCUMENT_DTYPE_HTML)
+    {
+        return false;
+    }
+
+    switch (attr_id) {
+        case LXB_DOM_ATTR_ACCEPT:
+        case LXB_DOM_ATTR_ACCEPT_CHARSET:
+        case LXB_DOM_ATTR_ALIGN:
+        case LXB_DOM_ATTR_ALINK:
+        case LXB_DOM_ATTR_AXIS:
+        case LXB_DOM_ATTR_BGCOLOR:
+        case LXB_DOM_ATTR_CHARSET:
+        case LXB_DOM_ATTR_CHECKED:
+        case LXB_DOM_ATTR_CLEAR:
+        case LXB_DOM_ATTR_CODETYPE:
+        case LXB_DOM_ATTR_COLOR:
+        case LXB_DOM_ATTR_COMPACT:
+        case LXB_DOM_ATTR_DECLARE:
+        case LXB_DOM_ATTR_DEFER:
+        case LXB_DOM_ATTR_DIR:
+        case LXB_DOM_ATTR_DIRECTION:
+        case LXB_DOM_ATTR_DISABLED:
+        case LXB_DOM_ATTR_ENCTYPE:
+        case LXB_DOM_ATTR_FACE:
+        case LXB_DOM_ATTR_FRAME:
+        case LXB_DOM_ATTR_HREFLANG:
+        case LXB_DOM_ATTR_HTTP_EQUIV:
+        case LXB_DOM_ATTR_LANG:
+        case LXB_DOM_ATTR_LANGUAGE:
+        case LXB_DOM_ATTR_LINK:
+        case LXB_DOM_ATTR_MEDIA:
+        case LXB_DOM_ATTR_METHOD:
+        case LXB_DOM_ATTR_MULTIPLE:
+        case LXB_DOM_ATTR_NOHREF:
+        case LXB_DOM_ATTR_NORESIZE:
+        case LXB_DOM_ATTR_NOSHADE:
+        case LXB_DOM_ATTR_NOWRAP:
+        case LXB_DOM_ATTR_READONLY:
+        case LXB_DOM_ATTR_REL:
+        case LXB_DOM_ATTR_REV:
+        case LXB_DOM_ATTR_RULES:
+        case LXB_DOM_ATTR_SCOPE:
+        case LXB_DOM_ATTR_SCROLLING:
+        case LXB_DOM_ATTR_SELECTED:
+        case LXB_DOM_ATTR_SHAPE:
+        case LXB_DOM_ATTR_TARGET:
+        case LXB_DOM_ATTR_TEXT:
+        case LXB_DOM_ATTR_TYPE:
+        case LXB_DOM_ATTR_VALIGN:
+        case LXB_DOM_ATTR_VALUETYPE:
+        case LXB_DOM_ATTR_VLINK:
+            return true;
+
+        default:
+            return false;
+    }
 }
 
 static bool

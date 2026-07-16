@@ -1851,6 +1851,89 @@ paths:
                         Callers should pass back the `rate_limit.current_state` from the prior response.
                   description: Generic request model.
               description: Authenticated request.
+  /{connector_id}/get_non_human_account_last_activity:
+    post:
+      operationId: get_non_human_account_last_activity
+      description: |-
+        Retrieve last-activity data for non-human accounts.
+
+        Unlike get_last_activity (which is filtered by account_ids), this capability
+        takes no id filter: the connector bulk-fetches activity for all non-human
+        accounts and owns its own response size and pagination (via the standard
+        Request.page / Response.page). This avoids the performance problems seen when
+        the caller supplies the id set, and keeps the connector in control of how it
+        queries and batches upstream.
+
+        Connectors whose listing endpoint already returns activity should instead
+        populate last_login / last_activity inline on NonHumanAccount and skip this
+        capability.
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/GetNonHumanAccountLastActivityResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/GetNonHumanAccountLastActivity'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                    rate_limit:
+                      allOf:
+                        - $ref: '#/components/schemas/RateLimitRequestInfo'
+                      description: |-
+                        Rate limit state from the previous call for this connector+capability.
+                        Seeds the connector's rate limiter so adaptive state survives across page calls.
+                        Callers should pass back the `rate_limit.current_state` from the prior response.
+                  description: Generic request model.
+              description: Authenticated request.
   /{connector_id}/handle_authorization_callback:
     post:
       operationId: handle_authorization_callback
@@ -6833,6 +6916,50 @@ components:
                 detailed information about what actually happened in the target system.
           description: Response containing the main response payload, raw data, and pagination information.
       description: Response containing last activity data for requested accounts
+    GetNonHumanAccountLastActivity:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/EmptyButCreateAnyway'
+      description: |-
+        Request parameters for retrieving non-human account last-activity data.
+        Intentionally has no id filter - the connector bulk-fetches and paginates.
+      x-capability-level: read
+    GetNonHumanAccountLastActivityResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              type: array
+              items:
+                $ref: '#/components/schemas/NonHumanAccountLastActivity'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+            rate_limit:
+              allOf:
+                - $ref: '#/components/schemas/RateLimitResponseInfo'
+              description: |-
+                Rate limit state after executing this operation.
+                Callers should pass `current_state` back in the next request's `rate_limit.last_known_state`
+                to preserve adaptive rate limit continuity across page calls.
+                `retry_after_seconds` is non-zero when the connector has hit rate limit pressure.
+            execution_summary:
+              allOf:
+                - $ref: '#/components/schemas/ExecutionSummary'
+              description: |-
+                Summary of how the operation executed from the connector's perspective.
+
+                This model provides metadata about the execution of the operation,
+                including what effect the operation had, whether it's safe to retry, and any non-fatal errors
+                that occurred during execution.
+
+                This field is typically included for write operations (create, update, delete) to provide
+                detailed information about what actually happened in the target system.
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing last-activity records for non-human accounts.
     HandleAuthorizationCallback:
       type: object
       required:
@@ -8129,6 +8256,17 @@ components:
           allOf:
             - $ref: '#/components/schemas/AccountStatus'
           description: The current status of the account.
+        last_login:
+          type: string
+          description: |-
+            ISO 8601 timestamp of the account's last authentication/login, when the
+            listing endpoint returns it. Lets connectors report activity inline and
+            avoid a separate get_non_human_account_last_activity call.
+        last_activity:
+          type: string
+          description: |-
+            ISO 8601 timestamp of the account's last observed activity, when the
+            listing endpoint returns it.
         custom_attributes:
           type: object
           additionalProperties:
@@ -8157,6 +8295,25 @@ components:
         status: ACTIVE
       x-unique-hash:
         - resource_id
+    NonHumanAccountLastActivity:
+      type: object
+      required:
+        - resource_id
+        - event_type
+        - happened_at
+      properties:
+        resource_id:
+          type: string
+          description: The resource_id of the non-human account this activity belongs to.
+          x-semantic: resource-id
+        event_type:
+          allOf:
+            - $ref: '#/components/schemas/ActivityEventType'
+          description: The type of activity event (last_login / last_activity).
+        happened_at:
+          type: string
+          description: ISO 8601 timestamp when the activity occurred.
+      description: Last known activity for a single non-human account.
     NoopEffect:
       type: object
       required:
@@ -8925,6 +9082,7 @@ components:
         - list_resources
         - list_credentials
         - list_non_human_accounts
+        - get_non_human_account_last_activity
         - find_resource_graph
         - find_entitlement_graph
         - find_entitlement_assignments

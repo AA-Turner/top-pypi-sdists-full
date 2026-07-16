@@ -6348,9 +6348,9 @@ class CommonAiActionsV1StageActions:
         )
 
 
-CommonAiDestructiveTool = typing.Union[typing.Literal["delete_table"], typing.Literal["delete_column_by_id"], typing.Literal["execute_sql"], typing.Literal["delete_stage"], typing.Literal["remove_role"], typing.Literal["execute_connection_action"], typing.Literal["revert_commit"]]
+CommonAiDestructiveTool = typing.Union[typing.Literal["delete_table"], typing.Literal["delete_column_by_id"], typing.Literal["execute_sql"], typing.Literal["delete_stage"], typing.Literal["pause_stage"], typing.Literal["remove_role"], typing.Literal["execute_connection_action"], typing.Literal["revert_commit"]]
 
-CommonAiDestructiveToolValues:typing.List[CommonAiDestructiveTool] = ["delete_table", "delete_column_by_id", "execute_sql", "delete_stage", "remove_role", "execute_connection_action", "revert_commit"]
+CommonAiDestructiveToolValues:typing.List[CommonAiDestructiveTool] = ["delete_table", "delete_column_by_id", "execute_sql", "delete_stage", "pause_stage", "remove_role", "execute_connection_action", "revert_commit"]
 
 CommonAiStreamJsonModeFlag = typing.Literal["___JSON_MODE___"]
 
@@ -6653,6 +6653,8 @@ CommonConnectorAuthOAuth2ConnectorAuthScopesItemDescription = str
 
 CommonConnectorAuthOAuth2ConnectorAuthScopesItemDefault = bool
 
+CommonConnectorAuthOAuth2ConnectorAuthScopesItemAdminConsentRequired = bool
+
 
 @dataclass
 class CommonConnectorAuthOAuth2ConnectorAuthScopesItem:
@@ -6660,6 +6662,7 @@ class CommonConnectorAuthOAuth2ConnectorAuthScopesItem:
     label: CommonConnectorAuthOAuth2ConnectorAuthScopesItemLabel
     description: CommonConnectorAuthOAuth2ConnectorAuthScopesItemDescription
     default: typing.Optional[CommonConnectorAuthOAuth2ConnectorAuthScopesItemDefault] = field(default_factory=lambda: None)
+    admin_consent_required: typing.Optional[CommonConnectorAuthOAuth2ConnectorAuthScopesItemAdminConsentRequired] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
@@ -6668,6 +6671,8 @@ class CommonConnectorAuthOAuth2ConnectorAuthScopesItem:
         data['description'] = self.description
         if self.default is not None:
             data['default'] = self.default
+        if self.admin_consent_required is not None:
+            data['adminConsentRequired'] = self.admin_consent_required
         return data
 
     @classmethod
@@ -6677,6 +6682,7 @@ class CommonConnectorAuthOAuth2ConnectorAuthScopesItem:
             label=str(data['label']),
             description=str(data['description']),
             default=None if data.get('default') is None else bool(data['default']),
+            admin_consent_required=None if data.get('adminConsentRequired') is None else bool(data['adminConsentRequired']),
         )
 
 
@@ -7730,8 +7736,6 @@ CommonOrganizationName = str
 
 CommonOrganizationFeatureFlagsDUPLICATEPROJECTS = bool
 
-CommonOrganizationFeatureFlagsWEBEDITOR = bool
-
 CommonOrganizationFeatureFlagsENABLEWORKERPODS = bool
 
 CommonOrganizationFeatureFlagsCOMPONENTSTAGE = bool
@@ -7760,7 +7764,6 @@ class CommonOrganizationFeatureFlags:
     c_o_m_p_o_n_e_n_t_s_t_a_g_e: CommonOrganizationFeatureFlagsCOMPONENTSTAGE
     w_h_i_t_e_l_i_s_t_i_p_s_e_n_a_b_l_e_d: CommonOrganizationFeatureFlagsWHITELISTIPSENABLED
     p_a_g_e_s: CommonOrganizationFeatureFlagsPAGES
-    w_e_b_e_d_i_t_o_r: typing.Optional[CommonOrganizationFeatureFlagsWEBEDITOR] = field(default_factory=lambda: None)
     c_e_n_t_r_a_l_s_c_h_e_d_u_l_e_r: typing.Optional[CommonOrganizationFeatureFlagsCENTRALSCHEDULER] = field(default_factory=lambda: None)
     k_a_t_a_f_i_r_e_c_r_a_c_k_e_r: typing.Optional[CommonOrganizationFeatureFlagsKATAFIRECRACKER] = field(default_factory=lambda: None)
     d_y_n_a_m_i_c_w_o_r_k_e_r_r_e_s_o_u_r_c_e_s: typing.Optional[CommonOrganizationFeatureFlagsDYNAMICWORKERRESOURCES] = field(default_factory=lambda: None)
@@ -7775,8 +7778,6 @@ class CommonOrganizationFeatureFlags:
         data['COMPONENT_STAGE'] = self.c_o_m_p_o_n_e_n_t_s_t_a_g_e
         data['WHITELIST_IPS_ENABLED'] = self.w_h_i_t_e_l_i_s_t_i_p_s_e_n_a_b_l_e_d
         data['PAGES'] = self.p_a_g_e_s
-        if self.w_e_b_e_d_i_t_o_r is not None:
-            data['WEB_EDITOR'] = self.w_e_b_e_d_i_t_o_r
         if self.c_e_n_t_r_a_l_s_c_h_e_d_u_l_e_r is not None:
             data['CENTRAL_SCHEDULER'] = self.c_e_n_t_r_a_l_s_c_h_e_d_u_l_e_r
         if self.k_a_t_a_f_i_r_e_c_r_a_c_k_e_r is not None:
@@ -7799,7 +7800,6 @@ class CommonOrganizationFeatureFlags:
             c_o_m_p_o_n_e_n_t_s_t_a_g_e=bool(data['COMPONENT_STAGE']),
             w_h_i_t_e_l_i_s_t_i_p_s_e_n_a_b_l_e_d=bool(data['WHITELIST_IPS_ENABLED']),
             p_a_g_e_s=bool(data['PAGES']),
-            w_e_b_e_d_i_t_o_r=None if data.get('WEB_EDITOR') is None else bool(data['WEB_EDITOR']),
             c_e_n_t_r_a_l_s_c_h_e_d_u_l_e_r=None if data.get('CENTRAL_SCHEDULER') is None else bool(data['CENTRAL_SCHEDULER']),
             k_a_t_a_f_i_r_e_c_r_a_c_k_e_r=None if data.get('KATA_FIRECRACKER') is None else bool(data['KATA_FIRECRACKER']),
             d_y_n_a_m_i_c_w_o_r_k_e_r_r_e_s_o_u_r_c_e_s=None if data.get('DYNAMIC_WORKER_RESOURCES') is None else bool(data['DYNAMIC_WORKER_RESOURCES']),
@@ -8251,8 +8251,6 @@ class CommonPartialBillingMetadata:
 
 CommonPartialFeatureFlagsDUPLICATEPROJECTS = bool
 
-CommonPartialFeatureFlagsWEBEDITOR = bool
-
 CommonPartialFeatureFlagsENABLEWORKERPODS = bool
 
 CommonPartialFeatureFlagsCOMPONENTSTAGE = bool
@@ -8277,7 +8275,6 @@ CommonPartialFeatureFlagsDBENVVARSENABLED = bool
 @dataclass
 class CommonPartialFeatureFlags:
     d_u_p_l_i_c_a_t_e_p_r_o_j_e_c_t_s: typing.Optional[CommonPartialFeatureFlagsDUPLICATEPROJECTS] = field(default_factory=lambda: None)
-    w_e_b_e_d_i_t_o_r: typing.Optional[CommonPartialFeatureFlagsWEBEDITOR] = field(default_factory=lambda: None)
     e_n_a_b_l_e_w_o_r_k_e_r_p_o_d_s: typing.Optional[CommonPartialFeatureFlagsENABLEWORKERPODS] = field(default_factory=lambda: None)
     c_o_m_p_o_n_e_n_t_s_t_a_g_e: typing.Optional[CommonPartialFeatureFlagsCOMPONENTSTAGE] = field(default_factory=lambda: None)
     w_h_i_t_e_l_i_s_t_i_p_s_e_n_a_b_l_e_d: typing.Optional[CommonPartialFeatureFlagsWHITELISTIPSENABLED] = field(default_factory=lambda: None)
@@ -8293,8 +8290,6 @@ class CommonPartialFeatureFlags:
         data = {}
         if self.d_u_p_l_i_c_a_t_e_p_r_o_j_e_c_t_s is not None:
             data['DUPLICATE_PROJECTS'] = self.d_u_p_l_i_c_a_t_e_p_r_o_j_e_c_t_s
-        if self.w_e_b_e_d_i_t_o_r is not None:
-            data['WEB_EDITOR'] = self.w_e_b_e_d_i_t_o_r
         if self.e_n_a_b_l_e_w_o_r_k_e_r_p_o_d_s is not None:
             data['ENABLE_WORKER_PODS'] = self.e_n_a_b_l_e_w_o_r_k_e_r_p_o_d_s
         if self.c_o_m_p_o_n_e_n_t_s_t_a_g_e is not None:
@@ -8321,7 +8316,6 @@ class CommonPartialFeatureFlags:
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "CommonPartialFeatureFlags":
         return cls(
             d_u_p_l_i_c_a_t_e_p_r_o_j_e_c_t_s=None if data.get('DUPLICATE_PROJECTS') is None else bool(data['DUPLICATE_PROJECTS']),
-            w_e_b_e_d_i_t_o_r=None if data.get('WEB_EDITOR') is None else bool(data['WEB_EDITOR']),
             e_n_a_b_l_e_w_o_r_k_e_r_p_o_d_s=None if data.get('ENABLE_WORKER_PODS') is None else bool(data['ENABLE_WORKER_PODS']),
             c_o_m_p_o_n_e_n_t_s_t_a_g_e=None if data.get('COMPONENT_STAGE') is None else bool(data['COMPONENT_STAGE']),
             w_h_i_t_e_l_i_s_t_i_p_s_e_n_a_b_l_e_d=None if data.get('WHITELIST_IPS_ENABLED') is None else bool(data['WHITELIST_IPS_ENABLED']),
@@ -10270,6 +10264,29 @@ class CloudApiCliAiV2StreamEventsContextUsage:
             used_tokens=float(data['usedTokens']),
             max_tokens=float(data['maxTokens']),
             breakdown=CloudApiCliAiV2StreamEventsContextUsageBreakdown.from_dict(data['breakdown']),
+        )
+
+
+CloudApiCliAiV2StreamEventsHeartbeatType = typing.Literal["ai-heartbeat"]
+
+CloudApiCliAiV2StreamEventsHeartbeatTypeValues:typing.List[CloudApiCliAiV2StreamEventsHeartbeatType] = ["ai-heartbeat"]
+
+CloudApiCliAiV2StreamEventsHeartbeatTypeValue: CloudApiCliAiV2StreamEventsHeartbeatType = "ai-heartbeat"
+
+
+@dataclass
+class CloudApiCliAiV2StreamEventsHeartbeat:
+    type: CloudApiCliAiV2StreamEventsHeartbeatType
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data['type'] = self.type
+        return data
+
+    @classmethod
+    def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "CloudApiCliAiV2StreamEventsHeartbeat":
+        return cls(
+            type=data['type'],
         )
 
 
@@ -13873,6 +13890,10 @@ AbstraLibApiEditorLintersRuleIssues = typing.List[AbstraLibApiEditorLintersRuleI
 
 AbstraLibApiEditorLintersRuleFixWithAi = bool
 
+AbstraLibApiEditorLintersRuleStatus = typing.Union[typing.Literal["ok"], typing.Literal["failed"]]
+
+AbstraLibApiEditorLintersRuleStatusValues:typing.List[AbstraLibApiEditorLintersRuleStatus] = ["ok", "failed"]
+
 
 @dataclass
 class AbstraLibApiEditorLintersRule:
@@ -13881,6 +13902,7 @@ class AbstraLibApiEditorLintersRule:
     type: AbstraLibApiEditorLintersRuleType
     issues: AbstraLibApiEditorLintersRuleIssues
     fix_with_ai: AbstraLibApiEditorLintersRuleFixWithAi
+    status: typing.Optional[AbstraLibApiEditorLintersRuleStatus] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
@@ -13889,6 +13911,8 @@ class AbstraLibApiEditorLintersRule:
         data['type'] = self.type
         data['issues'] = [item.to_dict() for item in self.issues]
         data['fixWithAi'] = self.fix_with_ai
+        if self.status is not None:
+            data['status'] = self.status
         return data
 
     @classmethod
@@ -13899,6 +13923,7 @@ class AbstraLibApiEditorLintersRule:
             type=data['type'],
             issues=[AbstraLibApiEditorLintersIssue.from_dict(item) for item in data['issues']],
             fix_with_ai=bool(data['fixWithAi']),
+            status=None if data.get('status') is None else data['status'],
         )
 
 
@@ -13929,20 +13954,28 @@ AbstraLibApiEditorLintersEventsMessageChecksItem = AbstraLibApiEditorLintersRule
 
 AbstraLibApiEditorLintersEventsMessageChecks = typing.List[AbstraLibApiEditorLintersEventsMessageChecksItem]
 
+AbstraLibApiEditorLintersEventsMessageStatus = typing.Union[typing.Literal["ok"], typing.Literal["degraded"]]
+
+AbstraLibApiEditorLintersEventsMessageStatusValues:typing.List[AbstraLibApiEditorLintersEventsMessageStatus] = ["ok", "degraded"]
+
 
 @dataclass
 class AbstraLibApiEditorLintersEventsMessage:
     checks: AbstraLibApiEditorLintersEventsMessageChecks
+    status: typing.Optional[AbstraLibApiEditorLintersEventsMessageStatus] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data['checks'] = [item.to_dict() for item in self.checks]
+        if self.status is not None:
+            data['status'] = self.status
         return data
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AbstraLibApiEditorLintersEventsMessage":
         return cls(
             checks=[AbstraLibApiEditorLintersRule.from_dict(item) for item in data['checks']],
+            status=None if data.get('status') is None else data['status'],
         )
 
 
@@ -14219,6 +14252,52 @@ class AbstraLibApiEditorLocksReleasePostResponse:
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AbstraLibApiEditorLocksReleasePostResponse":
         return cls(
             released=bool(data['released']),
+        )
+
+
+AbstraLibApiEditorStatusMessageUpdateAvailable = bool
+
+AbstraLibApiEditorStatusMessageUpdateLabel = str
+
+AbstraLibApiEditorStatusMessageUpdateRestarts = bool
+
+
+@dataclass
+class AbstraLibApiEditorStatusMessageUpdate:
+    available: AbstraLibApiEditorStatusMessageUpdateAvailable
+    label: AbstraLibApiEditorStatusMessageUpdateLabel
+    restarts: AbstraLibApiEditorStatusMessageUpdateRestarts
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data['available'] = self.available
+        data['label'] = self.label
+        data['restarts'] = self.restarts
+        return data
+
+    @classmethod
+    def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AbstraLibApiEditorStatusMessageUpdate":
+        return cls(
+            available=bool(data['available']),
+            label=str(data['label']),
+            restarts=bool(data['restarts']),
+        )
+
+
+
+@dataclass
+class AbstraLibApiEditorStatusMessage:
+    update: AbstraLibApiEditorStatusMessageUpdate
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data['update'] = self.update.to_dict()
+        return data
+
+    @classmethod
+    def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AbstraLibApiEditorStatusMessage":
+        return cls(
+            update=AbstraLibApiEditorStatusMessageUpdate.from_dict(data['update']),
         )
 
 

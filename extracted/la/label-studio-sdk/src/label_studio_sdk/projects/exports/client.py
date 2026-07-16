@@ -10,8 +10,8 @@ from ...types.export import Export
 from ...types.lse_annotation_filter_options_request import LseAnnotationFilterOptionsRequest
 from ...types.lse_export_create import LseExportCreate
 from ...types.lse_task_filter_options_request import LseTaskFilterOptionsRequest
+from ...types.project_import_status_enum import ProjectImportStatusEnum
 from ...types.serialization_options_request import SerializationOptionsRequest
-from ...types.status7bf_enum import Status7BfEnum
 from ...types.user_simple_request import UserSimpleRequest
 from .raw_client import AsyncRawExportsClient, RawExportsClient
 from .types.convert_exports_response import ConvertExportsResponse
@@ -48,7 +48,7 @@ class ExportsClient:
         """
 
                 This endpoint is deprecated in Enterprise. Use the async export API instead:
-                POST /api/projects/{id}/exports/ (see [Create new export](/api#operation/api_projects_exports_create)).
+                POST /api/projects/{id}/exports/ (see [Create new export](api:POST/api/projects/{id}/exports/)).
 
                 In Label Studio Enterprise, this endpoint will always return a 404 Not Found response with instructions to use the async export API.
 
@@ -109,7 +109,7 @@ class ExportsClient:
         """
 
         This endpoint is deprecated in Enterprise. Use the async export API instead:
-        POST /api/projects/{{id}}/exports/ (see [Create new export](/api#operation/api_projects_exports_create)).
+        POST /api/projects/{{id}}/exports/ (see [Create new export](api:POST/api/projects/{id}/exports/)).
 
         In Label Studio Enterprise, this endpoint will always return a 404 Not Found response with instructions to use the async export API.
 
@@ -189,7 +189,7 @@ class ExportsClient:
         finished_at: typing.Optional[dt.datetime] = OMIT,
         md5: typing.Optional[str] = OMIT,
         serialization_options: typing.Optional[SerializationOptionsRequest] = OMIT,
-        status: typing.Optional[Status7BfEnum] = OMIT,
+        status: typing.Optional[ProjectImportStatusEnum] = OMIT,
         task_filter_options: typing.Optional[LseTaskFilterOptionsRequest] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -217,7 +217,7 @@ class ExportsClient:
 
         serialization_options : typing.Optional[SerializationOptionsRequest]
 
-        status : typing.Optional[Status7BfEnum]
+        status : typing.Optional[ProjectImportStatusEnum]
 
         task_filter_options : typing.Optional[LseTaskFilterOptionsRequest]
 
@@ -397,8 +397,8 @@ class ExportsClient:
                 parameter in the path and the ID of the export file you want to download using the `export_pk` parameter
                 in the path.
 
-                Get the `export_pk` from the response of the request to [Create new export](/api#operation/api_projects_exports_create)
-                or after [listing export files](/api#operation/api_projects_exports_list).
+                Get the `export_pk` from the response of the request to [Create new export](api:POST/api/projects/{id}/exports/)
+                or after [listing export files](api:GET/api/projects/{id}/exports/).
 
 
         Parameters
@@ -452,7 +452,7 @@ class AsyncExportsClient:
         """
 
                 This endpoint is deprecated in Enterprise. Use the async export API instead:
-                POST /api/projects/{id}/exports/ (see [Create new export](/api#operation/api_projects_exports_create)).
+                POST /api/projects/{id}/exports/ (see [Create new export](api:POST/api/projects/{id}/exports/)).
 
                 In Label Studio Enterprise, this endpoint will always return a 404 Not Found response with instructions to use the async export API.
 
@@ -516,7 +516,7 @@ class AsyncExportsClient:
         """
 
         This endpoint is deprecated in Enterprise. Use the async export API instead:
-        POST /api/projects/{{id}}/exports/ (see [Create new export](/api#operation/api_projects_exports_create)).
+        POST /api/projects/{{id}}/exports/ (see [Create new export](api:POST/api/projects/{id}/exports/)).
 
         In Label Studio Enterprise, this endpoint will always return a 404 Not Found response with instructions to use the async export API.
 
@@ -612,7 +612,7 @@ class AsyncExportsClient:
         finished_at: typing.Optional[dt.datetime] = OMIT,
         md5: typing.Optional[str] = OMIT,
         serialization_options: typing.Optional[SerializationOptionsRequest] = OMIT,
-        status: typing.Optional[Status7BfEnum] = OMIT,
+        status: typing.Optional[ProjectImportStatusEnum] = OMIT,
         task_filter_options: typing.Optional[LseTaskFilterOptionsRequest] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -640,7 +640,7 @@ class AsyncExportsClient:
 
         serialization_options : typing.Optional[SerializationOptionsRequest]
 
-        status : typing.Optional[Status7BfEnum]
+        status : typing.Optional[ProjectImportStatusEnum]
 
         task_filter_options : typing.Optional[LseTaskFilterOptionsRequest]
 
@@ -852,8 +852,8 @@ class AsyncExportsClient:
                 parameter in the path and the ID of the export file you want to download using the `export_pk` parameter
                 in the path.
 
-                Get the `export_pk` from the response of the request to [Create new export](/api#operation/api_projects_exports_create)
-                or after [listing export files](/api#operation/api_projects_exports_list).
+                Get the `export_pk` from the response of the request to [Create new export](api:POST/api/projects/{id}/exports/)
+                or after [listing export files](api:GET/api/projects/{id}/exports/).
 
 
         Parameters

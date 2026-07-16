@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-redis
-Version: 0.2.12
+Version: 0.2.13
 Summary: Prefect integrations with Redis.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0

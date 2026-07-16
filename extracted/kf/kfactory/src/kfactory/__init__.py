@@ -6,18 +6,30 @@ Uses the klayout package as a backend.
 # The import order matters, we need to first import the important stuff.
 # isort:skip_file
 
-__version__ = "2.6.1"
+__version__ = "3.0.0"
 
 import klayout.db as kdb
 from klayout import lay
 from klayout import rdb
 
+from .factory_metadata import (
+    FactoryMetadata,
+    PortSpec,
+)
 from .conf import config, logger, CheckInstances
 from .cross_section import (
-    SymmetricalCrossSection,
+    AsymmetricCrossSection,
+    AsymmetricalCrossSection,
     CrossSection,
+    CrossSectionLayer,
     CrossSectionSpec,
+    CrossSectionSpecDict,
+    DCrossSectionSpecDict,
+    DAsymmetricCrossSection,
+    DAsymmetricalCrossSection,
     DCrossSection,
+    DCrossSectionLayer,
+    SymmetricalCrossSection,
 )
 from .enclosure import KCellEnclosure, LayerEnclosure
 from .grid import flexgrid, flexgrid_dbu, grid, grid_dbu
@@ -29,14 +41,14 @@ from .port import Port, DPort, ProtoPort
 from .instance import Instance, DInstance, VInstance
 from .instance_group import InstanceGroup, DInstanceGroup, VInstanceGroup
 from .instance_ports import InstancePorts, DInstancePorts, VInstancePorts
-from .netlist import Netlist
+from kfnetlist import Netlist
 from .schematic import (
-    Schematic,
     DSchematic,
-    get_schematic,
-    read_schematic,
-    Schema,
     DSchema,
+    PathLengthMatch,
+    Schematic,
+    Schema,
+    read_schematic,
 )
 from .instances import Instances, DInstances, VInstances
 from .settings import KCellSettings, Info
@@ -52,6 +64,7 @@ from .utilities import (
 )
 
 from . import (
+    checks,
     enclosure,
     factories,
     packing,
@@ -87,12 +100,20 @@ def __getattr__(name: str) -> ModuleType:
 
 
 __all__ = [
+    "AsymmetricCrossSection",
+    "AsymmetricalCrossSection",
     "BaseKCell",
     "CheckInstances",
     "Constants",
     "CrossSection",
+    "CrossSectionLayer",
     "CrossSectionSpec",
+    "CrossSectionSpecDict",
+    "DAsymmetricCrossSection",
+    "DAsymmetricalCrossSection",
     "DCrossSection",
+    "DCrossSectionLayer",
+    "DCrossSectionSpecDict",
     "DInstance",
     "DInstanceGroup",
     "DInstancePorts",
@@ -104,6 +125,7 @@ __all__ = [
     "DPorts",
     "DSchema",
     "DSchematic",
+    "FactoryMetadata",
     "Info",
     "Instance",
     "InstanceGroup",
@@ -118,9 +140,11 @@ __all__ = [
     "LayerInfos",
     "LayerStack",
     "Netlist",
+    "PathLengthMatch",
     "Pin",
     "Pins",
     "Port",
+    "PortSpec",
     "Ports",
     "ProtoPin",
     "ProtoPort",
@@ -137,6 +161,7 @@ __all__ = [
     "VShapes",
     "cell",
     "cells",
+    "checks",
     "conf",
     "config",
     "dpolygon_from_array",
@@ -144,7 +169,6 @@ __all__ = [
     "factories",
     "flexgrid",
     "flexgrid_dbu",
-    "get_schematic",
     "grid",
     "grid_dbu",
     "kcell",

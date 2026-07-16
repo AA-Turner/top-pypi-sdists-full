@@ -4832,6 +4832,402 @@ def tiers_for_batch() -> dict:
         return {"features": [], "runtimes": []}
 
 
+def tiers_for_feature_at(
+    perspective_tier: str, feature: str
+) -> dict | None:
+    """Hypothetical-perspective sibling of :func:`tiers_for_feature`:
+    full availability ladder for ``feature``, scoped by a caller-
+    supplied ``perspective_tier``.
+
+    Same relationship to :func:`tiers_for_feature` that
+    :func:`min_tier_for_all_at` / :func:`affordable_tiers_at` /
+    :func:`min_tier_batch_at` (when landed) have to their current-
+    perspective siblings: the ``perspective_tier`` argument tells the
+    helper which resolver / plan the caller is answering from so an
+    ``_at`` endpoint URL can be uniform across the whole ``_at`` family
+    (every ``_at`` sibling accepts a ``tier=<perspective>`` query arg),
+    even though the underlying ladder is inherently perspective-
+    independent -- :func:`tiers_for_feature` walks the static
+    :data:`_TIER_ORDER` / :data:`_TIER_FEATURES` tables, so the answer
+    does not depend on where the caller is standing.
+
+    Perspective is validated against :data:`_TIER_ORDER` (including
+    :data:`TIER_TRIAL`) but does NOT shape rows -- the ladder is
+    anchored to the requested feature, exactly the way
+    :func:`min_tier_for_all_at` anchors to its constraint bundle. A
+    parity test pins ``tiers_for_feature_at(p, f) ==
+    tiers_for_feature(f)`` for every ``p`` in :data:`_TIER_ORDER` so
+    the ``_at`` prefix cannot silently drift into shaping rows.
+
+    Row shape and ordering mirror :func:`tiers_for_feature` exactly
+    (``item`` / ``kind`` / ``label`` / ``free`` / ``min_tier`` /
+    ``min_tier_label`` / ``min_tier_rank`` / ``tiers``) so callers can
+    pass a row to existing components without reshaping.
+
+    Returns ``None`` for empty / unknown ``perspective_tier`` (caller
+    renders "unknown tier" / 404) and for empty / unknown feature ids.
+    Decoupled from the resolved entitlement (delegates to
+    :func:`tiers_for_feature`), so grace vs enforce yields byte-
+    identical rows. Never raises.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return tiers_for_feature(feature)
+    except Exception as exc:
+        logger.warning("entitlements: tiers_for_feature_at failed: %s", exc)
+        return None
+
+
+def tiers_for_runtime_at(
+    perspective_tier: str, runtime: str
+) -> dict | None:
+    """Hypothetical-perspective sibling of :func:`tiers_for_runtime`:
+    full availability ladder for ``runtime``, scoped by a caller-
+    supplied ``perspective_tier``.
+
+    Runtime-axis twin of :func:`tiers_for_feature_at`. Perspective is
+    validated against :data:`_TIER_ORDER` (including :data:`TIER_TRIAL`)
+    but does NOT shape rows. Row shape mirrors
+    :func:`tiers_for_runtime` exactly.
+
+    Accepts canonical runtime ids (``claude_code``) or any registered
+    alias (``claude-code``) -- delegates to :func:`tiers_for_runtime`
+    which does the canonicalisation. Returns ``None`` for empty /
+    unknown perspective, empty / unknown runtime ids. Never raises.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return tiers_for_runtime(runtime)
+    except Exception as exc:
+        logger.warning("entitlements: tiers_for_runtime_at failed: %s", exc)
+        return None
+
+
+def tiers_for_features(features) -> dict | None:
+    """Ladder-intersection sibling of :func:`min_tier_for_features`: the
+    set of tiers that grant **every** supplied feature at once, wrapped
+    in the same row shape a pricing-page component consumes off
+    :func:`tiers_for_feature`.
+
+    Where :func:`min_tier_for_features` collapses the caller-supplied
+    bundle to a single ``min_tier`` id (the cheapest purchasable tier
+    that admits all items), this helper returns the *full* ladder of
+    tiers that admit all items -- the ``"Available in: ...`` list a
+    "you use fleet + sso -- Available in Enterprise" tooltip renders.
+    Closes the ``tiers_for_*`` symmetry gap alongside the singular /
+    fixed-batch siblings: the caller-supplied-list shape had no plural
+    on the ladder axis, so a UI building the bundle-ladder off
+    ``min_tier_for_features`` had to fan out one ``/tiers-for`` call
+    per known id + intersect on the client.
+
+    Semantics mirror :func:`min_tier_for_features` on input handling:
+
+    * ``None`` / non-iterable -- returns ``None``. Never raises.
+    * Empty iterable -- returns the empty shape (``items=[]``,
+      ``tiers=[]``, ``min_tier=None``) rather than ``None``. Difference
+      from ``min_tier_for_features`` on purpose: the endpoint can then
+      surface a stable 200 shape when the caller supplied ``features=``
+      but every token was unknown / dropped.
+    * Unknown ids (not in :data:`ALL_FEATURES` after strip+lower) --
+      collected into ``unknown`` and dropped from the intersection so a
+      typo does not silently mis-route the ladder to Enterprise.
+    * Duplicates are de-duplicated preserving first-seen order (matches
+      :func:`_parse_csv_arg` on the endpoint side).
+    * All-known-free items -- ``tiers`` covers every tier in
+      :data:`_TIER_ORDER`, ``min_tier`` is :data:`TIER_OSS` (mirrors
+      :func:`min_tier_for_features`).
+    * Mixed -- ``tiers`` is the intersection of the per-item grant sets
+      (rank+id sorted for stable output); ``min_tier`` matches
+      :func:`min_tier_for_features` exactly.
+
+    Response shape::
+
+        {
+          "items":          ["fleet", "sso"],   # canonical known ids
+          "unknown":        ["bogus"],           # stripped+lowered ids
+          "kind":           "features",
+          "count":          <len(items)>,
+          "min_tier":       "enterprise" | None,
+          "min_tier_label": "Enterprise" | None,
+          "min_tier_rank":  <int> | None,
+          "tiers":          [<_tier_row>, ...],  # intersection ladder
+        }
+
+    Each entry in ``tiers`` matches the row shape used by
+    :func:`tiers_for_feature` (``id`` / ``label`` / ``rank`` /
+    ``purchasable``). ``min_tier`` is the cheapest *purchasable* tier
+    (trial excluded), matching :func:`min_tier_for_features`.
+
+    Never raises: a delegate failure surfaces as the empty shape so the
+    pricing UI keeps rendering.
+    """
+    try:
+        if features is None:
+            return None
+        items = list(features)
+    except TypeError:
+        return None
+    seen: set[str] = set()
+    known: list[str] = []
+    unknown: list[str] = []
+    for token in items:
+        raw = token if isinstance(token, str) else ""
+        canon = raw.strip().lower()
+        if canon and canon in ALL_FEATURES:
+            if canon not in seen:
+                seen.add(canon)
+                known.append(canon)
+        else:
+            unknown.append(canon)
+    try:
+        if not known:
+            min_t: str | None = None
+            tier_ids: list[str] = []
+        else:
+            common: set[str] | None = None
+            for fid in known:
+                carriers: set[str] = set()
+                is_free = fid in FREE_FEATURES
+                for tier in _TIER_ORDER:
+                    paid_feats = _TIER_FEATURES.get(tier, frozenset())
+                    if is_free or fid in paid_feats:
+                        carriers.add(tier)
+                common = carriers if common is None else (common & carriers)
+            tier_ids = sorted(common or set(), key=lambda t: (tier_rank(t), t))
+            min_t = min_tier_for_features(known)
+        rows = [_tier_row(t) for t in tier_ids]
+        return {
+            "items": known,
+            "unknown": unknown,
+            "kind": "features",
+            "count": len(known),
+            "min_tier": min_t,
+            "min_tier_label": tier_label(min_t) if min_t else None,
+            "min_tier_rank": tier_rank(min_t) if min_t else None,
+            "tiers": rows,
+        }
+    except Exception as exc:
+        logger.warning("entitlements: tiers_for_features failed: %s", exc)
+        return {
+            "items": known,
+            "unknown": unknown,
+            "kind": "features",
+            "count": len(known),
+            "min_tier": None,
+            "min_tier_label": None,
+            "min_tier_rank": None,
+            "tiers": [],
+        }
+
+
+def tiers_for_runtimes(runtimes) -> dict | None:
+    """Ladder-intersection sibling of :func:`min_tier_for_runtimes`:
+    the set of tiers that grant **every** supplied runtime at once,
+    wrapped in the same row shape a pricing-page component consumes off
+    :func:`tiers_for_runtime`.
+
+    Runtime-axis twin of :func:`tiers_for_features`. Semantics mirror
+    :func:`min_tier_for_runtimes` on input handling and
+    :func:`tiers_for_features` on shape:
+
+    * ``None`` / non-iterable -- returns ``None``. Never raises.
+    * Empty iterable -- returns the empty shape (``items=[]``,
+      ``tiers=[]``, ``min_tier=None``).
+    * Unknown ids (not in :data:`ALL_RUNTIMES` after
+      :func:`canonical_runtime`) -- collected into ``unknown`` and
+      dropped from the intersection.
+    * Aliases (``claude-code`` -> ``claude_code``) are canonicalised
+      through :func:`canonical_runtime` before intersection.
+    * Duplicates are de-duplicated preserving first-seen order after
+      canonicalisation.
+    * All-known-free items -- ``tiers`` covers every tier in
+      :data:`_TIER_ORDER` (:data:`FREE_RUNTIMES` are granted at every
+      tier); ``min_tier`` is :data:`TIER_OSS`.
+    * Mixed -- ``tiers`` is the intersection of the per-item grant sets;
+      ``min_tier`` matches :func:`min_tier_for_runtimes` exactly.
+
+    Response shape mirrors :func:`tiers_for_features` with
+    ``kind="runtimes"``.
+
+    Never raises: a delegate failure surfaces as the empty shape.
+    """
+    try:
+        if runtimes is None:
+            return None
+        items = list(runtimes)
+    except TypeError:
+        return None
+    seen: set[str] = set()
+    known: list[str] = []
+    unknown: list[str] = []
+    for token in items:
+        raw = token if isinstance(token, str) else ""
+        canon = canonical_runtime(raw)
+        if canon and canon in ALL_RUNTIMES:
+            if canon not in seen:
+                seen.add(canon)
+                known.append(canon)
+        else:
+            unknown.append(raw.strip().lower() if isinstance(raw, str) else "")
+    try:
+        if not known:
+            min_t: str | None = None
+            tier_ids: list[str] = []
+        else:
+            common: set[str] | None = None
+            for rt in known:
+                carriers: set[str] = set()
+                is_free = rt in FREE_RUNTIMES
+                is_paid = rt in PAID_RUNTIMES
+                for tier in _TIER_ORDER:
+                    if is_free:
+                        carriers.add(tier)
+                    elif is_paid and tier in _TIER_PAID_RUNTIMES:
+                        carriers.add(tier)
+                common = carriers if common is None else (common & carriers)
+            tier_ids = sorted(common or set(), key=lambda t: (tier_rank(t), t))
+            min_t = min_tier_for_runtimes(known)
+        rows = [_tier_row(t) for t in tier_ids]
+        return {
+            "items": known,
+            "unknown": unknown,
+            "kind": "runtimes",
+            "count": len(known),
+            "min_tier": min_t,
+            "min_tier_label": tier_label(min_t) if min_t else None,
+            "min_tier_rank": tier_rank(min_t) if min_t else None,
+            "tiers": rows,
+        }
+    except Exception as exc:
+        logger.warning("entitlements: tiers_for_runtimes failed: %s", exc)
+        return {
+            "items": known,
+            "unknown": unknown,
+            "kind": "runtimes",
+            "count": len(known),
+            "min_tier": None,
+            "min_tier_label": None,
+            "min_tier_rank": None,
+            "tiers": [],
+        }
+
+
+def tiers_for_features_at(
+    perspective_tier: str, features
+) -> dict | None:
+    """Hypothetical-perspective sibling of :func:`tiers_for_features`.
+
+    Fills the ``_at`` slot on the ``tiers_for_features`` ladder axis
+    alongside :func:`min_tier_for_features_at`, so a pricing-matrix
+    walkthrough can call ``X_at(perspective, ...)`` uniformly across the
+    whole ``_at`` family. Same relationship to
+    :func:`tiers_for_features` that :func:`min_tier_for_features_at`
+    has to :func:`min_tier_for_features`: ``perspective_tier`` is
+    validated against :data:`_TIER_ORDER` (including :data:`TIER_TRIAL`)
+    but does NOT shape the answer -- the ladder still intersects the
+    per-item ``tiers_for_feature`` grant sets and the result depends
+    only on the static per-tier feature map, not on the caller's live
+    plan. A parity test pins ``tiers_for_features_at(p, ...) ==
+    tiers_for_features(...)`` for every ``p`` in :data:`_TIER_ORDER` so
+    the ``_at`` prefix cannot silently drift into shaping the result.
+
+    Returns ``None`` for empty / non-string / unknown ``perspective_tier``
+    (caller renders "unknown tier" / 404), matching the ``None`` posture
+    the rest of the ``_at`` family uses for the perspective-validation
+    failure mode. All other semantics -- ``None`` / non-iterable ->
+    ``None``, empty iterable -> empty ladder shape, unknown ids echoed
+    in ``unknown``, duplicates collapsed, all-free bundle -> full
+    ladder + :data:`TIER_OSS` -- inherit from :func:`tiers_for_features`
+    unchanged. Never raises: a delegate failure logs a warning and
+    returns ``None`` so a pricing-matrix walkthrough keeps rendering.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return tiers_for_features(features)
+    except Exception as exc:
+        logger.warning("entitlements: tiers_for_features_at failed: %s", exc)
+        return None
+
+
+def tiers_for_runtimes_at(
+    perspective_tier: str, runtimes
+) -> dict | None:
+    """Runtime-axis twin of :func:`tiers_for_features_at`.
+
+    Same perspective-validated wrapper contract: ``perspective_tier``
+    validated against :data:`_TIER_ORDER` (including
+    :data:`TIER_TRIAL`); the ladder is resolved off the static per-tier
+    runtime map via :func:`tiers_for_runtimes`, so the answer is
+    perspective-independent by design. A parity test pins
+    ``tiers_for_runtimes_at(p, ...) == tiers_for_runtimes(...)`` for
+    every ``p`` in :data:`_TIER_ORDER` (including runtime aliases like
+    ``claude-code`` which canonicalise the same way they do on the
+    non-``_at`` sibling). Never raises.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return tiers_for_runtimes(runtimes)
+    except Exception as exc:
+        logger.warning("entitlements: tiers_for_runtimes_at failed: %s", exc)
+        return None
+
+
+def tiers_for_batch_at(perspective_tier: str) -> dict | None:
+    """Hypothetical-perspective sibling of :func:`tiers_for_batch`: full
+    availability ladder for every known feature *and* runtime in one
+    pass, scoped by a caller-supplied ``perspective_tier``.
+
+    Fills the ``_at`` slot on the batch tiers-for axis alongside
+    :func:`tiers_for_feature_at` / :func:`tiers_for_runtime_at`, so a
+    pricing-matrix walkthrough can call ``X_at(perspective, ...)``
+    uniformly across every ``_at`` batch sibling.
+
+    Perspective is validated against :data:`_TIER_ORDER` (including
+    :data:`TIER_TRIAL`) but does NOT shape rows. Row shape and ordering
+    mirror :func:`tiers_for_batch` exactly (``features`` / ``runtimes``
+    lists of the same row shape as :func:`tiers_for_feature` /
+    :func:`tiers_for_runtime`). A parity test pins
+    ``tiers_for_batch_at(p) == tiers_for_batch()`` for every ``p`` in
+    :data:`_TIER_ORDER`.
+
+    Returns ``None`` for empty / unknown ``perspective_tier`` (caller
+    renders "unknown tier" / 404). Never raises: a delegate failure
+    surfaces as an empty ``{"features": [], "runtimes": []}`` batch
+    (same posture as :func:`tiers_for_batch`).
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return tiers_for_batch()
+    except Exception as exc:
+        logger.warning("entitlements: tiers_for_batch_at failed: %s", exc)
+        return {"features": [], "runtimes": []}
+
+
 def min_tier_for_channel_count(count: int) -> str | None:
     """Return the cheapest *purchasable* tier id whose channel-adapter cap fits
     ``count`` configured channels. Closes the symmetry gap with
@@ -5024,6 +5420,74 @@ def min_tier_for_runtimes(runtimes) -> str | None:
     if not tiers:
         return None
     return max(tiers, key=tier_rank)
+
+
+def min_tier_for_features_at(
+    perspective_tier: str, features
+) -> str | None:
+    """Hypothetical-perspective sibling of :func:`min_tier_for_features`.
+
+    Fills the ``_at`` slot for the ``min_tier_for_features`` scalar so a
+    pricing-matrix walkthrough can call ``X_at(perspective, ...)`` uniformly
+    across the whole ``_at`` family. Same relationship to
+    :func:`min_tier_for_features` that :func:`min_tier_batch_at` has to
+    :func:`min_tier_batch`: ``perspective_tier`` is validated against
+    :data:`_TIER_ORDER` (including :data:`TIER_TRIAL`) but does NOT shape
+    the answer -- the walk still folds :func:`min_tier_for_feature` over
+    the bundle, and the resulting scalar tier id depends only on the
+    static per-tier feature map, not on the caller's live plan. A parity
+    test pins ``min_tier_for_features_at(p, ...) == min_tier_for_features(...)``
+    for every ``p`` in :data:`_TIER_ORDER` so the ``_at`` prefix cannot
+    silently drift into shaping the result.
+
+    Returns ``None`` for empty / unknown ``perspective_tier`` (caller
+    renders "unknown tier" / 404), matching the ``None`` posture the rest
+    of the ``_at`` family uses for the perspective-validation failure
+    mode. All other semantics -- empty / ``None`` iterable, unknown ids,
+    all-free bundle -> :data:`TIER_OSS`, non-iterable -> ``None`` --
+    inherit from :func:`min_tier_for_features` unchanged. Never raises: a
+    delegate failure logs a warning and returns ``None`` so a
+    pricing-matrix walkthrough keeps rendering instead of breaking.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return min_tier_for_features(features)
+    except Exception as exc:
+        logger.warning("entitlements: min_tier_for_features_at failed: %s", exc)
+        return None
+
+
+def min_tier_for_runtimes_at(
+    perspective_tier: str, runtimes
+) -> str | None:
+    """Runtime-axis twin of :func:`min_tier_for_features_at`.
+
+    Same perspective contract, same never-raise posture, same
+    perspective-independence guarantee (pinned by a parity test in the
+    suite). Delegates to :func:`min_tier_for_runtimes`, which already
+    canonicalises runtime aliases (``claude-code`` -> ``claude_code``)
+    through :func:`canonical_runtime` so a caller does not need to
+    normalise before calling.
+
+    Returns ``None`` for empty / unknown ``perspective_tier``; all other
+    semantics inherit from :func:`min_tier_for_runtimes`.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return min_tier_for_runtimes(runtimes)
+    except Exception as exc:
+        logger.warning("entitlements: min_tier_for_runtimes_at failed: %s", exc)
+        return None
 
 
 def min_tier_for_all(
@@ -5516,6 +5980,479 @@ def min_tier_batch(
             "retention_days": None,
             "nodes": None,
         }
+
+
+def min_tier_batch_at(
+    perspective_tier: str,
+    *,
+    features=None,
+    runtimes=None,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> dict | None:
+    """Hypothetical-perspective sibling of :func:`min_tier_batch`: per-item
+    cheapest qualifying tier for every supplied item across all five
+    capacity axes, scoped by a caller-supplied ``perspective_tier``.
+
+    Same relationship to :func:`min_tier_batch` that :func:`min_tier_for_all_at`
+    has to :func:`min_tier_for_all` and :func:`affordable_tiers_at` has to
+    :func:`affordable_tiers`: the ``perspective_tier`` argument tells the
+    helper which resolver / plan the caller is answering from so an ``_at``
+    endpoint URL can be uniform across the whole ``_at`` family (every
+    ``_at`` sibling accepts a ``tier=<perspective>`` query arg), even though
+    the underlying answer is inherently perspective-independent --
+    :func:`min_tier_batch` walks the static per-tier caps via the singular
+    ``min_tier_for_*`` helpers, so the per-row body does not depend on
+    where the caller is standing.
+
+    Perspective is validated against :data:`_TIER_ORDER` (including
+    :data:`TIER_TRIAL`) but does NOT shape rows -- the batch envelope
+    delegates to :func:`min_tier_batch` for the same ``(features, runtimes,
+    channels, retention_days, nodes)`` bundle. A parity test pins
+    ``min_tier_batch_at(p, ...) == min_tier_batch(...)`` for every ``p``
+    in :data:`_TIER_ORDER` so the ``_at`` prefix cannot silently drift into
+    shaping rows.
+
+    Plural what-if companion of :func:`min_tier_for_all_at` (which
+    collapses the answer to the single most-constraining tier) and
+    :func:`affordable_tiers_at` (which returns the full ordered list of
+    qualifying tiers). Fills the ``_at`` slot for the per-item batch
+    family alongside those siblings so a pricing-matrix walkthrough can
+    call ``X_at(perspective, ...)`` uniformly across the whole ``_at``
+    surface.
+
+    Envelope shape mirrors :func:`min_tier_batch` exactly::
+
+        {
+          "features":       [<row>, ...],
+          "runtimes":       [<row>, ...],
+          "channels":       <row> | None,
+          "retention_days": <row> | None,
+          "nodes":          <row> | None,
+        }
+
+    Each ``<row>`` carries ``key``, ``kind``, ``free``, ``min_tier``,
+    ``min_tier_label`` and ``min_tier_rank`` (``-1`` when ``min_tier`` is
+    ``None``). Per-row semantics -- runtime canonicalisation, unknown-id
+    all-``None`` row, CSV normalisation, ``retention_days=None`` = unset
+    (not unlimited) -- are inherited from :func:`min_tier_batch`.
+
+    Returns ``None`` for empty / unknown ``perspective_tier`` (caller
+    renders "unknown tier" / 404). Decoupled from the resolved entitlement
+    (delegates to :func:`min_tier_batch`, which walks the static per-tier
+    maps), so grace vs enforce yields byte-identical rows.
+
+    Never raises: a delegation failure logs a warning and returns ``None``
+    so a pricing-matrix walkthrough keeps rendering instead of breaking.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return min_tier_batch(
+            features=features,
+            runtimes=runtimes,
+            channels=channels,
+            retention_days=retention_days,
+            nodes=nodes,
+        )
+    except Exception as exc:
+        logger.warning("entitlements: min_tier_batch_at failed: %s", exc)
+        return None
+
+
+def min_tier_at(
+    perspective_tier: str,
+    *,
+    feature: str | None = None,
+    runtime: str | None = None,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> str | None:
+    """Perspective-scoped scalar sibling of the five singular
+    ``min_tier_for_*`` helpers -- the cheapest purchasable tier that
+    admits a single-axis constraint, scoped by a caller-supplied
+    ``perspective_tier``.
+
+    Fills the ``_at`` slot for the singular-scalar min-tier surface
+    alongside :func:`min_tier_batch_at` (per-item batch what-if) and
+    :func:`min_tier_for_all_at` (aggregate bundle what-if). A pricing-
+    matrix walkthrough at a hypothetical perspective (``tier=<p>``) can
+    then hit ``min_tier_at`` uniformly for a single-axis scalar query,
+    matching the URL shape it already uses for the batch and bundle
+    siblings.
+
+    Same relationship to the singular ``min_tier_for_*`` helpers that
+    :func:`min_tier_batch_at` has to :func:`min_tier_batch` and
+    :func:`min_tier_for_all_at` has to :func:`min_tier_for_all`: the
+    scalar answer is inherently perspective-independent (it walks the
+    static per-tier caps via the matching ``min_tier_for_*`` helper),
+    so ``perspective_tier`` is validated but does NOT shape the result.
+    A parity test pins ``min_tier_at(p, **axis) ==
+    min_tier_for_<axis>(**axis)`` for every ``p`` in :data:`_TIER_ORDER`
+    (including :data:`TIER_TRIAL`) so the ``_at`` prefix cannot silently
+    drift into shaping the answer.
+
+    Exactly one axis must be supplied:
+
+    * ``feature=<id>`` -> delegates to :func:`min_tier_for_feature`.
+    * ``runtime=<id>`` -> delegates to :func:`min_tier_for_runtime`.
+      Aliases with hyphens (e.g. ``claude-code``) are NOT canonicalised
+      -- they land as unknown ids and return ``None``, matching the
+      ``/min-tier`` route posture and every other singular scalar
+      helper on this axis. Callers that need alias canonicalisation
+      should preprocess via :func:`canonical_runtime`.
+    * ``channels=<int>`` -> delegates to :func:`min_tier_for_channel_count`.
+    * ``retention_days=<int>`` -> delegates to :func:`min_tier_for_retention_window`.
+      ``None`` here means *unset* (zero-axes-supplied), NOT the
+      unlimited-history sentinel -- pass the unlimited request through
+      :func:`min_tier_for_retention_window` directly (matches the
+      ``/min-tier`` route, which never accepts ``None`` on this axis
+      either).
+    * ``nodes=<int>`` -> delegates to :func:`min_tier_for_node_count`.
+
+    Zero or more than one axis supplied -> ``None``. Empty / blank /
+    ``None`` / non-string / unknown ``perspective_tier`` -> ``None``.
+    Perspective is case-insensitive and whitespace-stripped (matches
+    every other ``_at`` sibling).
+
+    Decoupled from the resolved entitlement (delegates to the static
+    per-tier map through the singular ``min_tier_for_*`` helpers), so
+    grace vs enforce yields byte-identical answers.
+
+    Never raises: a delegate crash logs a warning and returns ``None``
+    so a pricing-matrix walkthrough keeps rendering instead of breaking.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+
+    def _axis_supplied(value) -> bool:
+        if value is None:
+            return False
+        if isinstance(value, str):
+            return value.strip() != ""
+        return True
+
+    axes = (
+        _axis_supplied(feature),
+        _axis_supplied(runtime),
+        channels is not None,
+        retention_days is not None,
+        nodes is not None,
+    )
+    if sum(1 for a in axes if a) != 1:
+        return None
+    try:
+        if _axis_supplied(feature):
+            return min_tier_for_feature(feature)
+        if _axis_supplied(runtime):
+            return min_tier_for_runtime(runtime)
+        if channels is not None:
+            return min_tier_for_channel_count(channels)
+        if retention_days is not None:
+            return min_tier_for_retention_window(retention_days)
+        if nodes is not None:
+            return min_tier_for_node_count(nodes)
+    except Exception as exc:
+        logger.warning("entitlements: min_tier_at failed: %s", exc)
+        return None
+    return None
+
+
+def _affordable_row(key, kind: str) -> dict:
+    """Per-item full-list qualifying-tier row for
+    :func:`affordable_tiers_batch`.
+
+    Row-shape sibling of :func:`_min_tier_row`: mirrors the same
+    ``key`` + ``kind`` + normalised value contract and carries the
+    same floor scalar (``min_tier`` / ``free`` / label / rank), but
+    additionally carries the **full ordered list** of qualifying
+    tiers (``tiers``) so a pricing-matrix UI can render "each row's
+    cheapest qualifying tier -- and every tier above that also
+    qualifies" off ONE batch call. Same relationship to
+    :func:`_min_tier_row` that :func:`affordable_tiers` has to
+    :func:`min_tier_for_all` at the aggregate level.
+
+    Kind semantics mirror :func:`_min_tier_row` exactly:
+
+    * ``"feature"`` / ``"runtime"`` -- ``key`` is a normalised id
+      (whitespace stripped, lowercased; runtimes additionally
+      canonicalised via :func:`canonical_runtime` so
+      ``claude-code`` -> ``claude_code``). Unknown ids get
+      ``min_tier=None`` / ``free=False`` / ``min_tier_label=None`` /
+      ``min_tier_rank=-1`` / ``tiers=[]`` -- the caller distinguishes
+      "unknown" from "free" via the ``free`` flag.
+    * ``"channels"`` / ``"retention_days"`` / ``"nodes"`` -- ``key``
+      is int-parseable; non-int input collapses to the same all-None
+      shape with ``tiers=[]``. Retention passes the parsed int
+      straight through, so ``retention_days=<int>`` is treated as a
+      finite request, not the ``None`` unlimited sentinel (matches
+      every other 5-axis batch: this helper's ``None`` means "not
+      supplied").
+
+    ``tiers`` rows carry ``tier`` / ``tier_label`` / ``tier_rank`` /
+    ``is_minimum`` -- byte-identical to :func:`affordable_tiers` rows
+    for the single-axis single-item case, so a pricing UI can share
+    row renderers between the aggregate ``/affordable-tiers`` surface
+    and the per-item ``/affordable-tiers-batch`` surface.
+
+    Floor scalar (``min_tier`` / ``free`` / label / rank) is composed
+    from :func:`_min_tier_row` so the row byte-equals the matching
+    :func:`min_tier_batch` row on those fields -- a caller can drop
+    the ``tiers`` list off any row and get the exact
+    :func:`min_tier_batch` shape back. This keeps the two batches
+    internally consistent even for free items where alphabetical
+    tie-breaking among rank-0 tiers would otherwise land
+    :func:`affordable_tiers`' first row on ``cloud_free`` while
+    :func:`min_tier_for_feature` returns ``oss``.
+
+    Never raises: any resolver failure short-circuits to the all-
+    ``None`` shape (with ``tiers=[]``) so the caller keeps rendering.
+    """
+    base = _min_tier_row(key, kind)
+    try:
+        if kind == "feature":
+            fid = base["key"]
+            if fid in ALL_FEATURES:
+                tiers = affordable_tiers(features=[fid]) or []
+            else:
+                tiers = []
+        elif kind == "runtime":
+            rt = base["key"]
+            if rt in ALL_RUNTIMES:
+                tiers = affordable_tiers(runtimes=[rt]) or []
+            else:
+                tiers = []
+        elif kind in ("channels", "retention_days", "nodes"):
+            try:
+                n = int(key)
+            except (TypeError, ValueError):
+                tiers = []
+            else:
+                if kind == "channels":
+                    tiers = affordable_tiers(channels=n) or []
+                elif kind == "retention_days":
+                    tiers = affordable_tiers(retention_days=n) or []
+                else:
+                    tiers = affordable_tiers(nodes=n) or []
+        else:
+            tiers = []
+        out = dict(base)
+        out["tiers"] = tiers
+        return out
+    except Exception:
+        out = dict(base)
+        out["tiers"] = []
+        return out
+
+
+def affordable_tiers_batch(
+    *,
+    features=None,
+    runtimes=None,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> dict:
+    """Per-item full ordered list of qualifying tiers for every supplied
+    item across all five capacity axes in one pass.
+
+    Per-item plural sibling of :func:`affordable_tiers` (which
+    aggregates across a whole constraint bundle and returns ONE
+    ordered list). Same relationship it has to :func:`affordable_tiers`
+    that :func:`min_tier_batch` has to :func:`min_tier_for_all`: the
+    aggregate helper collapses the answer to a single bundle-wide
+    view; the batch preserves the per-item detail so a pricing-matrix
+    UI ("show me each requested feature + runtime + capacity row with
+    its individual cheapest tier AND every tier above that also
+    qualifies") renders off ONE round-trip instead of N calls to
+    :func:`affordable_tiers`.
+
+    Envelope shape mirrors :func:`min_tier_batch` / :func:`lock_reasons_batch`
+    exactly (same five-axis kwargs, same per-axis ``None`` "not
+    supplied" sentinel, same never-raise contract)::
+
+        {
+          "features":       [<row>, ...],
+          "runtimes":       [<row>, ...],
+          "channels":       <row> | None,
+          "retention_days": <row> | None,
+          "nodes":          <row> | None,
+        }
+
+    Each ``<row>`` carries ``key``, ``kind``, ``free`` (True iff
+    ``min_tier == TIER_OSS``), ``min_tier`` (``None`` for unknown /
+    unparseable input), ``min_tier_label``, ``min_tier_rank``
+    (``-1`` when ``min_tier`` is ``None``), and ``tiers`` -- the
+    full ordered list of qualifying tiers for that single item, with
+    each entry carrying ``tier`` / ``tier_label`` / ``tier_rank`` /
+    ``is_minimum``. ``tiers`` is ``[]`` (not ``None``) for unknown /
+    unparseable items, matching the never-crash posture of
+    :func:`_min_tier_row`.
+
+    Per-row parity with :func:`affordable_tiers` is pinned in the
+    test suite: for every feature id ``f`` in :data:`ALL_FEATURES`,
+    ``affordable_tiers_batch(features=[f])['features'][0]['tiers']``
+    byte-equals ``affordable_tiers(features=[f])``; ditto for every id
+    in :data:`ALL_RUNTIMES` and for the three capacity axes against
+    their singular ``affordable_tiers(<axis>=n)`` call.
+
+    Feature ids are normalised via :func:`_normalise_csv` (whitespace
+    stripped, lowercased, duplicates dropped while preserving first-
+    seen order). Runtime ids additionally canonicalise via
+    :func:`canonical_runtime` so aliases (``claude-code`` ->
+    ``claude_code``) resolve the same way they do on the singular
+    ``/api/entitlement/affordable-tiers?runtimes=`` endpoint;
+    duplicates that collapse after canonicalisation only contribute
+    one row.
+
+    Critically, ``retention_days=None`` here means *unset* -- NOT
+    *unlimited*. Same posture as :func:`min_tier_batch` /
+    :func:`lock_reasons_batch`: asking for the unlimited-retention
+    tier is the singular :func:`min_tier_for_retention_window`
+    (``days=None``) call's job and would mis-route the batch to
+    Enterprise otherwise.
+
+    Decoupled from the resolved entitlement (delegates to
+    :func:`affordable_tiers`, which walks the static per-tier maps),
+    so grace vs enforce yields byte-identical rows -- pinned in the
+    test suite via a grace / enforce reload roundtrip. Never raises:
+    a per-row failure short-circuits to the all-``None`` row shape
+    with ``tiers=[]`` so the pricing UI keeps rendering.
+    """
+    try:
+        feats = _normalise_csv(features)
+        raw_rts = _normalise_csv(runtimes)
+        seen: set[str] = set()
+        rt_rows: list[dict] = []
+        for raw in raw_rts:
+            rt = canonical_runtime(raw)
+            key = rt if rt else raw
+            if key in seen:
+                continue
+            seen.add(key)
+            rt_rows.append(_affordable_row(raw, "runtime"))
+        return {
+            "features": [_affordable_row(f, "feature") for f in feats],
+            "runtimes": rt_rows,
+            "channels": (
+                _affordable_row(channels, "channels")
+                if channels is not None
+                else None
+            ),
+            "retention_days": (
+                _affordable_row(retention_days, "retention_days")
+                if retention_days is not None
+                else None
+            ),
+            "nodes": (
+                _affordable_row(nodes, "nodes") if nodes is not None else None
+            ),
+        }
+    except Exception as exc:
+        logger.warning("entitlements: affordable_tiers_batch failed: %s", exc)
+        return {
+            "features": [],
+            "runtimes": [],
+            "channels": None,
+            "retention_days": None,
+            "nodes": None,
+        }
+
+
+def affordable_tiers_at_batch(
+    perspective_tier: str,
+    *,
+    features=None,
+    runtimes=None,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> dict | None:
+    """Hypothetical-perspective sibling of :func:`affordable_tiers_batch`:
+    per-item full ordered list of qualifying tiers for every supplied item
+    across all five capacity axes, scoped by a caller-supplied
+    ``perspective_tier``.
+
+    Same relationship to :func:`affordable_tiers_batch` that
+    :func:`min_tier_batch_at` has to :func:`min_tier_batch` and
+    :func:`affordable_tiers_at` has to :func:`affordable_tiers`: the
+    ``perspective_tier`` argument tells the helper which resolver / plan
+    the caller is answering from so an ``_at`` endpoint URL can be uniform
+    across the whole ``_at`` family (every ``_at`` sibling accepts a
+    ``tier=<perspective>`` query arg), even though the underlying answer
+    is inherently perspective-independent -- :func:`affordable_tiers_batch`
+    walks the static per-tier caps, so the per-row body does not depend on
+    where the caller is standing.
+
+    Perspective is validated against :data:`_TIER_ORDER` (including
+    :data:`TIER_TRIAL`) but does NOT shape rows -- the batch envelope
+    delegates to :func:`affordable_tiers_batch` for the same
+    ``(features, runtimes, channels, retention_days, nodes)`` bundle. A
+    parity test pins ``affordable_tiers_at_batch(p, ...) ==
+    affordable_tiers_batch(...)`` for every ``p`` in :data:`_TIER_ORDER`
+    so the ``_at`` prefix cannot silently drift into shaping rows.
+
+    Fills the ``_at`` slot for the per-item plural family alongside
+    :func:`min_tier_batch_at` (per-item cheapest tier what-if) and
+    :func:`affordable_tiers_at` (aggregate qualifying-tier list what-if)
+    so a pricing-matrix walkthrough can call ``X_at(perspective, ...)``
+    uniformly across the whole ``_at`` surface.
+
+    Envelope shape mirrors :func:`affordable_tiers_batch` exactly::
+
+        {
+          "features":       [<row>, ...],
+          "runtimes":       [<row>, ...],
+          "channels":       <row> | None,
+          "retention_days": <row> | None,
+          "nodes":          <row> | None,
+        }
+
+    Each ``<row>`` carries ``key``, ``kind``, ``free``, ``min_tier``,
+    ``min_tier_label``, ``min_tier_rank`` (``-1`` when ``min_tier`` is
+    ``None``), and ``tiers`` -- the full ordered list of qualifying tiers
+    for that single item (each entry carrying ``tier`` / ``tier_label`` /
+    ``tier_rank`` / ``is_minimum``). ``tiers`` is ``[]`` (not ``None``)
+    for unknown / unparseable items. Per-row semantics -- runtime
+    canonicalisation, unknown-id all-``None`` row, CSV normalisation,
+    ``retention_days=None`` = unset (not unlimited) -- are inherited from
+    :func:`affordable_tiers_batch`.
+
+    Returns ``None`` for empty / unknown ``perspective_tier`` (caller
+    renders "unknown tier" / 404). Decoupled from the resolved entitlement
+    (delegates to :func:`affordable_tiers_batch`, which walks the static
+    per-tier maps), so grace vs enforce yields byte-identical rows.
+
+    Never raises: a delegation failure logs a warning and returns ``None``
+    so a pricing-matrix walkthrough keeps rendering instead of breaking.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return affordable_tiers_batch(
+            features=features,
+            runtimes=runtimes,
+            channels=channels,
+            retention_days=retention_days,
+            nodes=nodes,
+        )
+    except Exception as exc:
+        logger.warning("entitlements: affordable_tiers_at_batch failed: %s", exc)
+        return None
 
 
 def lock_reason(item: str, *, kind: str | None = None) -> str | None:
@@ -6796,6 +7733,87 @@ def tier_spec(tier: str) -> dict | None:
         "features": sorted(paid_feats),
         "runtimes": list(paid_runtimes_sorted) if unlocks_paid else [],
     }
+
+
+def tier_spec_batch(tiers) -> dict:
+    """Plural sibling of :func:`tier_spec`: return spec rows for a
+    caller-supplied subset of tier ids in one pass.
+
+    Mirrors :func:`feature_spec_batch` / :func:`runtime_spec_batch` /
+    :func:`channel_spec_batch` on the tier axis. Where :func:`tier_catalog`
+    returns rows for *every* known tier, this lets a pricing-comparison
+    matrix UI hydrate only the N rows it is about to render off **one**
+    round-trip instead of N calls to ``/api/entitlement/tier-spec``. Each
+    returned row is byte-identical to the corresponding row from
+    :func:`tier_catalog` (and to the scalar :func:`tier_spec` for the same
+    id) -- a parity test pins this so the scalar / bulk / batch accessors
+    cannot drift.
+
+    Shape::
+
+        {
+          "tiers":   [<spec_row>, ...],   # one per known supplied id, in supply order
+          "unknown": ["bogus_id", ...],   # supplied ids not in _TIER_ORDER, in supply order
+        }
+
+    Supplied ids are normalised via :func:`_normalise_csv` (whitespace
+    stripped, lowercased, duplicates dropped while preserving first-seen
+    order) so the response is stable across repeated calls. ``trial`` IS
+    accepted (it lives in :data:`_TIER_ORDER` and the scalar helper
+    resolves it). Empty / ``None`` input returns
+    ``{"tiers": [], "unknown": []}`` -- the HTTP wrapper turns that into
+    a 400, this helper does not raise.
+
+    Resolver-independent for every catalogue field: only the
+    ``is_current`` flag on each row depends on the resolved entitlement,
+    so grace vs enforce yields byte-identical rows apart from that flag.
+    Never raises: a resolver failure short-circuits to the OSS-free
+    fallback (``is_current`` degrades to False for non-OSS rows) so the
+    matrix keeps rendering, and a per-tier row-build failure drops that
+    id into ``unknown[]`` while the rest of the batch keeps going.
+    """
+    ids = _normalise_csv(tiers)
+    try:
+        ent = get_entitlement()
+        current = ent.tier
+    except Exception as exc:
+        logger.warning(
+            "entitlements: tier_spec_batch falling back to OSS-free: %s", exc
+        )
+        current = TIER_OSS
+    paid_runtimes_sorted = sorted(PAID_RUNTIMES)
+    rows: list[dict] = []
+    unknown: list[str] = []
+    for tid in ids:
+        if tid not in _TIER_ORDER:
+            unknown.append(tid)
+            continue
+        try:
+            paid_feats = _TIER_FEATURES.get(tid, frozenset())
+            unlocks_paid = tid in _TIER_PAID_RUNTIMES
+            rows.append(
+                {
+                    "id": tid,
+                    "label": tier_label(tid),
+                    "is_paid": tid in _PAID_TIERS,
+                    "is_current": tid == current,
+                    "rank": _TIER_ORDER.index(tid),
+                    "unlocks_paid_runtimes": unlocks_paid,
+                    "retention_days": _TIER_RETENTION_DAYS.get(tid, 7),
+                    "channel_limit": _TIER_CHANNEL_LIMIT.get(
+                        tid, _FREE_CHANNEL_LIMIT
+                    ),
+                    "node_limit": _TIER_NODE_LIMIT.get(tid, _FREE_NODE_LIMIT),
+                    "features": sorted(paid_feats),
+                    "runtimes": list(paid_runtimes_sorted) if unlocks_paid else [],
+                }
+            )
+        except Exception as exc:
+            logger.warning(
+                "entitlements: tier_spec_batch row %r failed: %s", tid, exc
+            )
+            unknown.append(tid)
+    return {"tiers": rows, "unknown": unknown}
 
 
 def tier_catalog_at(tier: str) -> list[dict] | None:
@@ -15687,3 +16705,506 @@ def tier_path_at_batch(
             "entitlements: tier_path_at_batch failed: %s", exc
         )
         return None
+
+
+# ── capacity-axis tiers_for helpers ──────────────────────────────────────────
+#
+# Inverse siblings of ``min_tier_for_channel_count`` /
+# ``min_tier_for_retention_window`` / ``min_tier_for_node_count``. Where the
+# scalar ``min_tier_for_*`` helpers return the *cheapest* purchasable tier that
+# admits a capacity value (one id the upgrade-CTA uses), the ``tiers_for_*``
+# helpers below return the **full** ladder of tiers that admit the same value.
+# Closes the feature/runtime symmetry gap: ``tiers_for_feature`` /
+# ``tiers_for_runtime`` already exist for the two grant axes, but the three
+# capacity axes only expose the scalar side. A pricing-page row or capacity
+# tooltip ("Fits in: Starter, Cloud Pro, Self-hosted Pro, Trial, Enterprise")
+# now reads off the same shape as the feature/runtime rows.
+#
+# Row shape mirrors ``tiers_for_feature`` / ``tiers_for_runtime`` exactly:
+#
+#     {
+#       "item":           <int|None>,           # the queried capacity value
+#       "kind":           "channel_count" |     # matches the endpoint slug
+#                         "retention_window" |
+#                         "node_count",
+#       "label":          "5 channels" | "30 days" | "4 nodes",
+#       "free":           <bool>,               # OSS admits this value
+#       "min_tier":       "<tier id>" | None,   # matches min_tier_for_* scalar
+#       "min_tier_label": "<label>" | None,
+#       "min_tier_rank":  <int> | None,
+#       "tiers":          [<_tier_row>, ...],   # every tier admitting this value
+#     }
+#
+# ``tiers`` walks :data:`_TIER_ORDER` (includes the promotional ``trial`` tier
+# with ``purchasable=False``); ``min_tier`` walks :data:`_PURCHASABLE_TIERS`
+# (trial excluded) so it byte-equals the existing scalar helper. Rows sorted
+# ``(rank, id)`` for stable output. Never raises: bad input returns ``None``,
+# resolver failure logs at warning and returns ``None``.
+
+
+def tiers_for_channel_count(count: int) -> dict | None:
+    """Inverse of :func:`min_tier_for_channel_count`: list **every** tier that
+    admits ``count`` configured channel adapters.
+
+    Where ``min_tier_for_channel_count`` answers "cheapest purchasable tier
+    that admits N channels" -- one id the upgrade-CTA renders -- this helper
+    returns the full "Fits in: Starter, Cloud Pro, Self-hosted Pro, Trial,
+    Enterprise" availability list a pricing-page row or capacity tooltip
+    needs. Walks :data:`_TIER_ORDER` so the promotional ``trial`` tier
+    appears alongside the purchasable plans (each row carries ``purchasable``
+    so the UI can dim or badge it).
+
+    Semantics:
+
+    * ``count <= 0`` -- collapses to "free everywhere": every tier in
+      :data:`_TIER_ORDER` admits a zero/negative count (either "not measured
+      yet" or trivially satisfied). ``min_tier`` matches
+      :func:`min_tier_for_channel_count` (which returns :data:`TIER_OSS`).
+    * Non-int ``count`` -- returns ``None`` so a caller can distinguish
+      "free" from "couldn't parse". Never raises. Matches
+      :func:`min_tier_for_channel_count`'s posture on bad input.
+    * Otherwise -- the ladder of tiers whose ``_TIER_CHANNEL_LIMIT`` value
+      is either ``None`` (unlimited) or ``>= count``. ``min_tier`` matches
+      the existing scalar helper exactly (purchasable-only walk).
+
+    Rows sorted ``(tier_rank, tier_id)`` for stable output.
+    """
+    try:
+        try:
+            n = int(count)
+        except (TypeError, ValueError):
+            return None
+        carriers: list[str] = []
+        for tier in _TIER_ORDER:
+            cap = _TIER_CHANNEL_LIMIT.get(tier, _FREE_CHANNEL_LIMIT)
+            if n <= 0 or cap is None or n <= cap:
+                carriers.append(tier)
+        rows = [
+            _tier_row(t)
+            for t in sorted(carriers, key=lambda t: (tier_rank(t), t))
+        ]
+        min_t = min_tier_for_channel_count(n)
+        is_free = n <= _FREE_CHANNEL_LIMIT
+        label = f"{n} channel" if n == 1 else f"{n} channels"
+        return {
+            "item": n,
+            "kind": "channel_count",
+            "label": label,
+            "free": is_free,
+            "min_tier": min_t,
+            "min_tier_label": tier_label(min_t) if min_t else None,
+            "min_tier_rank": tier_rank(min_t) if min_t else None,
+            "tiers": rows,
+        }
+    except Exception as exc:
+        logger.warning(
+            "entitlements: tiers_for_channel_count failed: %s", exc
+        )
+        return None
+
+
+def tiers_for_retention_window(days: int | None) -> dict | None:
+    """Inverse of :func:`min_tier_for_retention_window`: list every tier that
+    admits a ``days`` event-retention history window.
+
+    Where ``min_tier_for_retention_window`` returns the cheapest purchasable
+    tier admitting the window -- one id the history-range toggle renders --
+    this helper returns the full "Fits in: <tier>, ..." availability list.
+
+    Semantics mirror :func:`min_tier_for_retention_window` on input parsing
+    and the ``free`` flag:
+
+    * ``days is None`` (caller asked for unlimited history) -- only tiers
+      with ``_TIER_RETENTION_DAYS[t] is None`` admit the request. On the
+      current tier table that is :data:`TIER_ENTERPRISE` alone. ``item`` is
+      ``None``, ``label`` is ``"unlimited"``, ``free`` is ``False`` (OSS
+      does not admit unlimited history).
+    * ``days <= 0`` -- collapses to "free everywhere": every tier in
+      :data:`_TIER_ORDER` admits a zero/negative window (trivially
+      satisfied). ``min_tier`` matches :func:`min_tier_for_retention_window`
+      (which returns :data:`TIER_OSS`).
+    * Non-int ``days`` (other than the explicit ``None``) -- returns
+      ``None`` so a caller can distinguish "free" from "couldn't parse".
+      Never raises.
+    * Otherwise -- the ladder of tiers whose retention cap is ``None``
+      (unlimited) or ``>= days``. ``min_tier`` matches the existing scalar
+      helper exactly (purchasable-only walk).
+
+    Rows sorted ``(tier_rank, tier_id)`` for stable output.
+    """
+    try:
+        if days is None:
+            carriers = [
+                t for t in _TIER_ORDER
+                if _TIER_RETENTION_DAYS.get(t, 7) is None
+            ]
+            rows = [
+                _tier_row(t)
+                for t in sorted(carriers, key=lambda t: (tier_rank(t), t))
+            ]
+            min_t = min_tier_for_retention_window(None)
+            return {
+                "item": None,
+                "kind": "retention_window",
+                "label": "unlimited",
+                "free": False,
+                "min_tier": min_t,
+                "min_tier_label": tier_label(min_t) if min_t else None,
+                "min_tier_rank": tier_rank(min_t) if min_t else None,
+                "tiers": rows,
+            }
+        try:
+            n = int(days)
+        except (TypeError, ValueError):
+            return None
+        carriers: list[str] = []
+        for tier in _TIER_ORDER:
+            cap = _TIER_RETENTION_DAYS.get(tier, 7)
+            if n <= 0 or cap is None or n <= cap:
+                carriers.append(tier)
+        rows = [
+            _tier_row(t)
+            for t in sorted(carriers, key=lambda t: (tier_rank(t), t))
+        ]
+        min_t = min_tier_for_retention_window(n)
+        free_cap = _TIER_RETENTION_DAYS.get(TIER_OSS, 7)
+        is_free = n <= 0 or (free_cap is not None and n <= free_cap)
+        label = f"{n} day" if n == 1 else f"{n} days"
+        return {
+            "item": n,
+            "kind": "retention_window",
+            "label": label,
+            "free": is_free,
+            "min_tier": min_t,
+            "min_tier_label": tier_label(min_t) if min_t else None,
+            "min_tier_rank": tier_rank(min_t) if min_t else None,
+            "tiers": rows,
+        }
+    except Exception as exc:
+        logger.warning(
+            "entitlements: tiers_for_retention_window failed: %s", exc
+        )
+        return None
+
+
+def tiers_for_node_count(count: int) -> dict | None:
+    """Inverse of :func:`min_tier_for_node_count`: list every tier that admits
+    ``count`` registered nodes.
+
+    Where ``min_tier_for_node_count`` returns the cheapest purchasable tier
+    admitting the node count -- one id the fleet-page upgrade affordance
+    renders -- this helper returns the full "Fits in: <tier>, ..."
+    availability list.
+
+    Semantics mirror :func:`min_tier_for_node_count`:
+
+    * ``count <= 0`` -- collapses to "free everywhere": every tier in
+      :data:`_TIER_ORDER` admits a zero/negative count. ``min_tier`` matches
+      :func:`min_tier_for_node_count` (which returns :data:`TIER_OSS`).
+    * Non-int ``count`` -- returns ``None`` so a caller can distinguish
+      "free" from "couldn't parse". Never raises.
+    * Otherwise -- the ladder of tiers whose ``_TIER_NODE_LIMIT`` value is
+      either ``None`` (unlimited) or ``>= count``. ``min_tier`` matches the
+      scalar helper exactly (purchasable-only walk).
+
+    Rows sorted ``(tier_rank, tier_id)`` for stable output.
+    """
+    try:
+        try:
+            n = int(count)
+        except (TypeError, ValueError):
+            return None
+        carriers: list[str] = []
+        for tier in _TIER_ORDER:
+            cap = _TIER_NODE_LIMIT.get(tier, _FREE_NODE_LIMIT)
+            if n <= 0 or cap is None or n <= cap:
+                carriers.append(tier)
+        rows = [
+            _tier_row(t)
+            for t in sorted(carriers, key=lambda t: (tier_rank(t), t))
+        ]
+        min_t = min_tier_for_node_count(n)
+        is_free = n <= _FREE_NODE_LIMIT
+        label = f"{n} node" if n == 1 else f"{n} nodes"
+        return {
+            "item": n,
+            "kind": "node_count",
+            "label": label,
+            "free": is_free,
+            "min_tier": min_t,
+            "min_tier_label": tier_label(min_t) if min_t else None,
+            "min_tier_rank": tier_rank(min_t) if min_t else None,
+            "tiers": rows,
+        }
+    except Exception as exc:
+        logger.warning(
+            "entitlements: tiers_for_node_count failed: %s", exc
+        )
+        return None
+
+
+def tiers_for_capacity_batch(
+    *,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> dict:
+    """Per-item availability ladder for every supplied capacity axis in one
+    pass.
+
+    Per-item plural sibling of :func:`tiers_for_channel_count` /
+    :func:`tiers_for_retention_window` / :func:`tiers_for_node_count`.
+    Closes the capacity-axis symmetry gap in the ``tiers_for_*`` family:
+    :func:`tiers_for_batch` collapses to the two grant axes (features +
+    runtimes) and does not accept capacity args at all -- so a pricing-page
+    that wants the full "Fits in: <tier>, ..." ladder for a caller-supplied
+    ``(channels, retention_days, nodes)`` capacity bundle either had to
+    fan out three ``/tiers-for-<axis>`` calls or build the ladder client-
+    side from ``/min-tier-batch``. This helper delivers the same
+    per-axis row shape those three singulars return, on all three axes,
+    in one round-trip.
+
+    Envelope shape mirrors :func:`min_tier_batch` on the three capacity
+    axes exactly (same "None means unset, not unlimited" posture, same
+    per-axis ``None`` "not supplied" sentinel, same never-raise
+    contract)::
+
+        {
+          "channels":       <row> | None,
+          "retention_days": <row> | None,
+          "nodes":          <row> | None,
+        }
+
+    Each ``<row>`` matches the singular ``tiers_for_<axis>`` helper
+    byte-for-byte (``item`` / ``kind`` / ``label`` / ``free`` /
+    ``min_tier`` / ``min_tier_label`` / ``min_tier_rank`` / ``tiers``)
+    so callers can pass any row through the existing ``tiers_for_*``
+    rendering components without reshaping. Per-row parity with each
+    singular helper is pinned in the test suite so the batch cannot
+    silently drift from the scalar.
+
+    Critically, ``retention_days=None`` here means *unset* -- NOT
+    *unlimited* (matches :func:`min_tier_batch` / :func:`lock_reasons_batch`
+    on the same axis). Asking for the unlimited-retention ladder is the
+    singular :func:`tiers_for_retention_window` (``days=None``) call's
+    job -- it would render an "Enterprise-only" row here otherwise and
+    a caller supplying every other axis but leaving retention off would
+    get a mis-routed Enterprise row instead of an omitted one.
+
+    A blank or non-int value on any axis short-circuits that axis to
+    ``None`` (matches the singular helpers' ``None``-on-bad-input
+    posture rather than raising -- the caller opts in per-axis by
+    supplying a value).
+
+    Decoupled from the resolved entitlement (walks the static per-tier
+    caps via the singular ``tiers_for_*`` helpers), so grace vs enforce
+    yields byte-identical rows -- pinned in the test suite via a grace
+    / enforce reload roundtrip. Never raises: if a resolver fails the
+    helper returns the all-``None`` envelope shape so the pricing UI
+    keeps rendering instead of 500-ing.
+    """
+    try:
+        return {
+            "channels": (
+                tiers_for_channel_count(channels)
+                if channels is not None
+                else None
+            ),
+            "retention_days": (
+                tiers_for_retention_window(retention_days)
+                if retention_days is not None
+                else None
+            ),
+            "nodes": (
+                tiers_for_node_count(nodes)
+                if nodes is not None
+                else None
+            ),
+        }
+    except Exception as exc:
+        logger.warning(
+            "entitlements: tiers_for_capacity_batch failed: %s", exc
+        )
+        return {
+            "channels": None,
+            "retention_days": None,
+            "nodes": None,
+        }
+
+
+def tiers_for_channel_count_at(
+    perspective_tier: str, count: int
+) -> dict | None:
+    """Hypothetical-perspective sibling of :func:`tiers_for_channel_count`:
+    full availability ladder for a ``count`` channel-adapter capacity value,
+    scoped by a caller-supplied ``perspective_tier``.
+
+    Fills the ``_at`` slot on the channel-count capacity axis alongside
+    :func:`tiers_for_feature_at` / :func:`tiers_for_runtime_at` /
+    :func:`tiers_for_batch_at`, so a pricing-matrix walkthrough can call
+    ``X_at(perspective, ...)`` uniformly across every ``_at`` sibling in
+    the ``tiers_for_*`` family.
+
+    Perspective is validated against :data:`_TIER_ORDER` (including
+    :data:`TIER_TRIAL`) but does NOT shape rows -- the ladder is
+    intrinsically perspective-independent (walks the static
+    :data:`_TIER_CHANNEL_LIMIT` table), exactly like
+    :func:`tiers_for_feature_at`. A parity test pins
+    ``tiers_for_channel_count_at(p, n) == tiers_for_channel_count(n)`` for
+    every ``p`` in :data:`_TIER_ORDER` so the ``_at`` prefix cannot
+    silently drift into shaping rows.
+
+    Row shape and ordering mirror :func:`tiers_for_channel_count`
+    exactly. ``min_tier`` matches :func:`min_tier_for_channel_count`.
+
+    Returns ``None`` for empty / unknown ``perspective_tier`` (caller
+    renders "unknown tier" / 404) and for non-int ``count``. Decoupled
+    from the resolved entitlement (delegates to
+    :func:`tiers_for_channel_count`), so grace vs enforce yields byte-
+    identical rows. Never raises.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return tiers_for_channel_count(count)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: tiers_for_channel_count_at failed: %s", exc
+        )
+        return None
+
+
+def tiers_for_retention_window_at(
+    perspective_tier: str, days: int | None
+) -> dict | None:
+    """Hypothetical-perspective sibling of :func:`tiers_for_retention_window`:
+    full availability ladder for a ``days`` event-retention window, scoped
+    by a caller-supplied ``perspective_tier``.
+
+    Retention-axis twin of :func:`tiers_for_channel_count_at`. Perspective
+    is validated against :data:`_TIER_ORDER` (including
+    :data:`TIER_TRIAL`) but does NOT shape rows. Row shape mirrors
+    :func:`tiers_for_retention_window` exactly.
+
+    Accepts the explicit ``days=None`` "unlimited" sentinel that the
+    singular helper accepts -- delegates without further parsing, so the
+    same "None means unlimited on this axis" semantics carry through
+    unchanged. Non-int (non-``None``) ``days`` yields ``None`` (matches
+    the singular helper's posture on bad input rather than mis-routing
+    to Enterprise).
+
+    Returns ``None`` for empty / unknown ``perspective_tier`` (caller
+    renders "unknown tier" / 404). Never raises.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return tiers_for_retention_window(days)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: tiers_for_retention_window_at failed: %s", exc
+        )
+        return None
+
+
+def tiers_for_node_count_at(
+    perspective_tier: str, count: int
+) -> dict | None:
+    """Hypothetical-perspective sibling of :func:`tiers_for_node_count`:
+    full availability ladder for a ``count`` registered-nodes capacity
+    value, scoped by a caller-supplied ``perspective_tier``.
+
+    Node-axis twin of :func:`tiers_for_channel_count_at`. Perspective is
+    validated against :data:`_TIER_ORDER` (including :data:`TIER_TRIAL`)
+    but does NOT shape rows. Row shape mirrors
+    :func:`tiers_for_node_count` exactly.
+
+    Returns ``None`` for empty / unknown ``perspective_tier`` (caller
+    renders "unknown tier" / 404) and for non-int ``count``. Never
+    raises.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return tiers_for_node_count(count)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: tiers_for_node_count_at failed: %s", exc
+        )
+        return None
+
+
+def tiers_for_capacity_batch_at(
+    perspective_tier: str,
+    *,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> dict | None:
+    """Hypothetical-perspective sibling of
+    :func:`tiers_for_capacity_batch`: per-item availability ladder for
+    every supplied capacity axis in one pass, scoped by a caller-supplied
+    ``perspective_tier``.
+
+    Fills the last ``_at`` slot in the ``tiers_for_*`` family alongside
+    :func:`tiers_for_batch_at` (grant-axis batch) and the three per-axis
+    ``tiers_for_*_at`` siblings, so a pricing-matrix walkthrough can
+    hit every ``tiers_for_*`` shape uniformly at a fixed perspective.
+
+    Perspective is validated against :data:`_TIER_ORDER` (including
+    :data:`TIER_TRIAL`) but does NOT shape rows -- the batch is
+    identical to :func:`tiers_for_capacity_batch` regardless of
+    perspective (pinned by a parity test).
+
+    Envelope shape mirrors :func:`tiers_for_capacity_batch` exactly::
+
+        {
+          "channels":       <row> | None,
+          "retention_days": <row> | None,
+          "nodes":          <row> | None,
+        }
+
+    Critically, ``retention_days=None`` here means *unset* -- NOT
+    *unlimited* (matches :func:`tiers_for_capacity_batch` /
+    :func:`min_tier_batch` on the same axis). Asking for the
+    unlimited-retention ladder at a hypothetical perspective is
+    :func:`tiers_for_retention_window_at` (``days=None``) call's job.
+
+    Returns ``None`` for empty / unknown ``perspective_tier`` (caller
+    renders "unknown tier" / 404). Never raises: a delegate failure
+    surfaces as an all-``None`` envelope shape (same posture as
+    :func:`tiers_for_capacity_batch`).
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return tiers_for_capacity_batch(
+            channels=channels,
+            retention_days=retention_days,
+            nodes=nodes,
+        )
+    except Exception as exc:
+        logger.warning(
+            "entitlements: tiers_for_capacity_batch_at failed: %s", exc
+        )
+        return {
+            "channels": None,
+            "retention_days": None,
+            "nodes": None,
+        }

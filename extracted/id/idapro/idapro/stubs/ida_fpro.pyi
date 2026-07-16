@@ -172,7 +172,7 @@ class qfile_t:
         :returns: result code
         """
         ...
-    def writebytes(self, size: Any, big_endian: Any) -> Any:
+    def writebytes(self, buf: Any, big_endian: Any) -> Any:
         r"""Similar to write() but it respect the endianness
         
         :param buf: the str to write

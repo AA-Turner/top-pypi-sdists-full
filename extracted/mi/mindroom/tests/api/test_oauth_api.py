@@ -28,6 +28,7 @@ from mindroom.oauth import OAuthClaimValidationError, OAuthProvider
 from mindroom.oauth import registry as oauth_registry
 from mindroom.oauth import service as oauth_service
 from mindroom.oauth.google_calendar import google_calendar_oauth_provider
+from mindroom.oauth.google_docs import google_docs_oauth_provider
 from mindroom.oauth.google_drive import google_drive_oauth_provider
 from mindroom.oauth.providers import (
     RUNTIME_BOOTSTRAPPED_CLIENT_CONFIG_KEY,
@@ -3586,6 +3587,30 @@ def test_google_status_reports_connected_with_service_account(tmp_path: Path) ->
     assert status_response.json()["connected"] is True
 
 
+def test_google_docs_status_reports_capabilities_with_service_account(tmp_path: Path) -> None:
+    runtime_paths = _runtime_paths(
+        tmp_path,
+        {
+            "GOOGLE_SERVICE_ACCOUNT_FILE": str(tmp_path / "google-service-account.json"),
+            constants.OWNER_MATRIX_USER_ID_ENV: "@alice:example.org",
+        },
+    )
+    api_app = _make_test_app(runtime_paths, _config_payload(worker_scope="user_agent"))
+    provider = google_docs_oauth_provider()
+
+    with TestClient(api_app, base_url="http://localhost:8765") as client:
+        _login(client)
+        status_response = client.get(f"/api/oauth/{provider.id}/status?agent_name=general")
+
+    assert status_response.status_code == 200
+    assert status_response.json()["provider"] == "google_docs"
+    assert status_response.json()["credential_service"] == "google_docs_oauth"
+    assert status_response.json()["tool_config_service"] == "google_docs"
+    assert status_response.json()["client_config_service"] == "google_docs_oauth_client"
+    assert status_response.json()["capabilities"] == ["Docs create and read", "Docs text editing"]
+    assert status_response.json()["connected"] is True
+
+
 def test_status_hides_runtime_bootstrapped_client_from_remote_request(tmp_path: Path) -> None:
     runtime_paths = _runtime_paths(
         tmp_path,
@@ -4117,8 +4142,20 @@ def test_status_rejects_stored_oauth_token_missing_claims_when_identity_policy_c
 
 
 def test_required_scope_check_accepts_google_scope_supersets() -> None:
-    calendar_provider = _fake_provider(scopes=("https://www.googleapis.com/auth/calendar.readonly",))
-    gmail_provider = _fake_provider(scopes=("https://www.googleapis.com/auth/gmail.readonly",))
+    calendar_provider = _fake_provider(
+        scopes=(
+            "https://www.googleapis.com/auth/calendar.events",
+            "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+            "https://www.googleapis.com/auth/calendar.freebusy",
+            "https://www.googleapis.com/auth/calendar.settings.readonly",
+        ),
+    )
+    gmail_provider = _fake_provider(
+        scopes=(
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.compose",
+        ),
+    )
     drive_provider = _fake_provider(scopes=("https://www.googleapis.com/auth/drive.file",))
     sheets_provider = _fake_provider(scopes=("https://www.googleapis.com/auth/spreadsheets.readonly",))
 

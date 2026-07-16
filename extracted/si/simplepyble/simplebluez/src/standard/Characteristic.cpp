@@ -3,6 +3,8 @@
 #include <simplebluez/standard/Descriptor.h>
 #include "simplebluez/Types.h"
 
+#include <utility>
+
 using namespace SimpleBluez;
 
 Characteristic::Characteristic(std::shared_ptr<SimpleDBus::Connection> conn, const std::string& bus_name,
@@ -37,7 +39,7 @@ std::shared_ptr<GattCharacteristic1> Characteristic::gattcharacteristic1() {
     return std::dynamic_pointer_cast<GattCharacteristic1>(interface_get("org.bluez.GattCharacteristic1"));
 }
 
-bool Characteristic::notifying() { return gattcharacteristic1()->Notifying.refresh(); }
+bool Characteristic::notifying() { return valid() && gattcharacteristic1()->Notifying.refresh(); }
 
 std::string Characteristic::uuid() { return gattcharacteristic1()->UUID; }
 void Characteristic::uuid(std::string uuid) { gattcharacteristic1()->UUID.set(uuid); }
@@ -65,7 +67,14 @@ void Characteristic::write_command(ByteArray value) {
 
 void Characteristic::start_notify() { gattcharacteristic1()->StartNotify(); }
 
-void Characteristic::stop_notify() { gattcharacteristic1()->StopNotify(); }
+void Characteristic::stop_notify() {
+    if (!valid()) return;
+    gattcharacteristic1()->StopNotify();
+}
+
+void Characteristic::enable_acquire_notify() { gattcharacteristic1()->enable_acquire_notify(); }
+
+void Characteristic::disable_acquire_notify() { gattcharacteristic1()->disable_acquire_notify(); }
 
 std::shared_ptr<Descriptor> Characteristic::descriptor_add(const std::string& name) {
     const std::string descriptor_path = _path + "/descriptor_" + name;
@@ -97,17 +106,22 @@ void Characteristic::set_on_value_changed(std::function<void(ByteArray new_value
 
 void Characteristic::clear_on_value_changed() { gattcharacteristic1()->Value.on_changed.unload(); }
 
-void Characteristic::set_on_read_value(std::function<void()> callback) {
-    gattcharacteristic1()->OnReadValue.load([this, callback]() { callback(); });
+void Characteristic::set_on_read_value(std::function<void(ValueOptions options)> callback) {
+    gattcharacteristic1()->OnReadValue.load([this, callback](ValueOptions options) { callback(options); });
 }
 
-void Characteristic::clear_on_read_value() { gattcharacteristic1()->OnReadValue.unload(); }
-
-void Characteristic::set_on_write_value(std::function<void(ByteArray value)> callback) {
-    gattcharacteristic1()->OnWriteValue.load([this, callback](const ByteArray& value) { callback(value); });
+void Characteristic::clear_on_read_value() {
+    gattcharacteristic1()->OnReadValue.unload();
 }
 
-void Characteristic::clear_on_write_value() { gattcharacteristic1()->OnWriteValue.unload(); }
+void Characteristic::set_on_write_value(std::function<void(ByteArray value, ValueOptions options)> callback) {
+    gattcharacteristic1()->OnWriteValue.load(
+        [this, callback](const ByteArray& value, ValueOptions options) { callback(value, options); });
+}
+
+void Characteristic::clear_on_write_value() {
+    gattcharacteristic1()->OnWriteValue.unload();
+}
 
 void Characteristic::set_on_notify(std::function<void(bool)> callback) {
     gattcharacteristic1()->OnStartNotify.load([this, callback]() { callback(true); });
@@ -117,4 +131,13 @@ void Characteristic::set_on_notify(std::function<void(bool)> callback) {
 void Characteristic::clear_on_notify() {
     gattcharacteristic1()->OnStartNotify.unload();
     gattcharacteristic1()->OnStopNotify.unload();
+}
+
+void Characteristic::set_on_acquire_notify(
+    std::function<void(SimpleDBus::UnixSocket socket, ValueOptions options)> callback) {
+    gattcharacteristic1()->OnAcquireNotify.load(std::move(callback));
+}
+
+void Characteristic::clear_on_acquire_notify() {
+    gattcharacteristic1()->OnAcquireNotify.unload();
 }

@@ -92,3 +92,53 @@ async fn test_pass_gate_passes_when_target_gate_name_is_empty() {
         json!([])
     );
 }
+
+#[tokio::test]
+async fn test_dangling_segment_preserves_layer_holdout_exposure() {
+    let (statsig, logging_adapter) = setup(None).await;
+
+    let holdout_layer = statsig.get_layer(
+        &StatsigUser::with_user_id("holdout-user".to_string()),
+        "test_layer",
+    );
+    assert_eq!(
+        holdout_layer.get_string("variant", "missing".to_string()),
+        "generic"
+    );
+
+    let no_holdout_layer = statsig.get_layer(
+        &StatsigUser::with_user_id("no-holdout-user".to_string()),
+        "test_layer",
+    );
+    assert_eq!(
+        no_holdout_layer.get_string("variant", "missing".to_string()),
+        "test"
+    );
+
+    statsig.shutdown().await.unwrap();
+
+    let holdout_event = logging_adapter.force_get_event_at(0);
+    assert_eq!(holdout_event["metadata"]["ruleID"], "holdout-id");
+    assert_json_eq!(
+        json!(&holdout_event["secondaryExposures"]),
+        json!([{
+            "gate": "test_holdout",
+            "gateValue": "true",
+            "ruleID": "holdout-rule"
+        }])
+    );
+
+    let no_holdout_event = logging_adapter.force_get_event_at(1);
+    assert_eq!(
+        no_holdout_event["metadata"]["allocatedExperiment"],
+        "child_experiment"
+    );
+    assert_json_eq!(
+        json!(&no_holdout_event["secondaryExposures"]),
+        json!([{
+            "gate": "test_holdout",
+            "gateValue": "false",
+            "ruleID": "default"
+        }])
+    );
+}

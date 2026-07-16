@@ -373,6 +373,20 @@ class Geocif:
         ):
             if self.parser.has_option("ML", _opt):
                 self.cubist_params[_opt.replace("cubist_", "")] = _cast("ML", _opt)
+        # Optional BASS (Bayesian MARS, model='bass') hyperparameters. Absent
+        # keys keep the trainers.BassRegressor defaults (max_int=1 additive,
+        # npart=15) tuned for poppy. Config keys map bass_<x> -> <x>.
+        self.bass_params: dict = {}
+        for _opt, _cast in (
+            ("bass_max_int", self.parser.getint),
+            ("bass_npart", self.parser.getint),
+            ("bass_max_basis", self.parser.getint),
+            ("bass_nmcmc", self.parser.getint),
+            ("bass_nburn", self.parser.getint),
+            ("bass_thin", self.parser.getint),
+        ):
+            if self.parser.has_option("ML", _opt):
+                self.bass_params[_opt.replace("bass_", "")] = _cast("ML", _opt)
 
     def _setup_feature_dictionaries(self):
         """Setup feature dictionaries and database paths."""
@@ -568,7 +582,12 @@ class Geocif:
         """Setup flags for regression models. Uses dispatch_name so the
         curated_<algo> wrappers pick the same flag set as their underlying
         algo (e.g. curated_gam → 'gam' → _setup_simple_regression_flags)."""
-        if not self.ml_model or self.dispatch_name in ["linear", "gam", "merf", "cubist", "gpr"]:
+        # NB: cubist was previously in this simple-regression group, which
+        # hard-disables estimate_ci — so cubist forecasts never got conformal
+        # CIs despite estimate_ci=True in config. Cubist is a full ML model
+        # (fits on features, supports crepes/mapie conformal wrapping), so it
+        # routes to _setup_standard_ml_flags and honours the config CI flags.
+        if not self.ml_model or self.dispatch_name in ["linear", "gam", "merf", "gpr"]:
             self._setup_simple_regression_flags()
         elif self.model_name.startswith("cumulative_"):
             self._setup_cumulative_flags()
@@ -2172,16 +2191,32 @@ class Geocif:
         return result
 
     def _correlation_cache_path(self, dir_output: Path) -> Path:
-        """Cache pickle path keyed on the current simulation_stages signature.
+        """Cache pickle path keyed on everything that determines the cached
+        (dict_selected_features, dict_best_cid).
 
-        Different stage subsets (multi-step / pre-season) produce different
-        selected features, so the signature must include them; forecast_season
-        is already in dir_output.
+        The cached result depends not only on the stage subset but on WHICH
+        CIDs are available and how they are selected. Keying on
+        simulation_stages alone meant two runs that differed only in use_cids /
+        select_cid_by / feature_selection / correlation_threshold (e.g. an
+        index sweep, or simply editing use_cids and re-running the same day)
+        collided on the date-scoped cache and silently reused stale features.
+        Include those knobs in the signature. forecast_season/year are already
+        in dir_output.
         """
         import hashlib
         sim = getattr(self, "simulation_stages", None)
-        sig_src = str(sorted(str(s) for s in sim)) if sim is not None else "default"
-        sig = hashlib.md5(sig_src.encode()).hexdigest()[:12]
+        sim_src = str(sorted(str(s) for s in sim)) if sim is not None else "default"
+        uc = getattr(self, "use_cids", None)
+        uc_src = str(sorted(map(str, uc))) if isinstance(uc, (list, tuple, set)) else str(uc)
+        parts = [
+            sim_src,
+            uc_src,
+            str(getattr(self, "select_cid_by", "")),
+            str(getattr(self, "feature_selection", "")),
+            str(getattr(self, "correlation_threshold", "")),
+            str(getattr(self, "correlation_metric", "")),
+        ]
+        sig = hashlib.md5("|".join(parts).encode()).hexdigest()[:12]
         return dir_output / "_corr_cache" / f"step_{sig}.pkl"
 
     def _load_correlation_cache(self, cache_path: Path):
@@ -5195,6 +5230,7 @@ class ModelTrainer:
             fraction_loocv=self.obj.fraction_loocv,
             cat_features=self.obj.cat_features,
             cubist_params=getattr(self.obj, "cubist_params", None),
+            bass_params=getattr(self.obj, "bass_params", None),
         )
 
     def _add_confidence_intervals_if_needed(self, X_train=None):
@@ -5213,12 +5249,21 @@ class ModelTrainer:
             self.obj.alpha,
             self.obj.ci_method,
         )
-        # Calibrate/conformalize with training data
+        # Calibrate/conformalize with training data. Cubist was fit on a
+        # zero-variance-pruned + NaN-filled column set (CubistFitter), and its
+        # sklearn feature-name check rejects the raw full-width frame. The
+        # point path aligns via _preprocess_test_data; the conformal
+        # calibrate must do the same or crepes' internal learner.predict trips
+        # "feature names should match those passed during fit". (Cubist has no
+        # scaler, so scaler=None routes straight to the cubist-align branch.)
         if X_train is not None:
+            cal_X = X_train
+            if self.obj.model_name == "cubist":
+                cal_X = self.obj._preprocess_test_data(X_train, None)
             if hasattr(self.obj.model, 'calibrate'):
-                self.obj.model.calibrate(X_train, self.obj.y_train.values)
+                self.obj.model.calibrate(cal_X, self.obj.y_train.values)
             elif hasattr(self.obj.model, 'conformalize'):
-                self.obj.model.conformalize(X_train, self.obj.y_train)
+                self.obj.model.conformalize(cal_X, self.obj.y_train)
     
     def _fit_final_model(
         self, 

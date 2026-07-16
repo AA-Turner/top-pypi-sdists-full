@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "extra-platforms"
-version = "13.1.0"
+version = "13.2.0"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
@@ -111,6 +111,7 @@ keywords = [
   "OS info",
   "Parallels",
   "Pidora",
+  "PikaOS",
   "Platform detection",
   "PowerPC (32-bit)",
   "PowerPC 64-bit (big-endian)",
@@ -254,7 +255,7 @@ optional-dependencies.pytest = [
 ]
 urls.Changelog = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 urls.Documentation = "https://kdeldycke.github.io/extra-platforms"
-urls.Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.1.0"
+urls.Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.2.0"
 urls.Funding = "https://github.com/sponsors/kdeldycke"
 urls.Homepage = "https://github.com/kdeldycke/extra-platforms"
 urls.Issues = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -283,8 +284,9 @@ test = [
   "tomli>=2.3; python_version<'3.11'",
 ]
 docs = [
-  # We need Click Extra 7.5 to render Markdown table properly.
-  "click-extra[sphinx]>=7.5",
+  # Click Extra 8.3 adds the {matrix} directive and refresh-directives command
+  # used to build the Python compatibility table in docs/install.md.
+  "click-extra[sphinx]>=8.3",
   "furo>=2025.9.25",
   # myst-parser 5.1 adds the "alert" extension that renders GitHub-style
   # callouts (> [!NOTE], …) as admonitions. See docs/conf.py.
@@ -418,7 +420,7 @@ run.source = [ "extra_platforms" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "13.1.0"
+current_version = "13.2.0"
 # Parse versions with an optional .devN suffix (PEP 440).
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.dev(?P<dev>\\d+))?"
 serialize = [

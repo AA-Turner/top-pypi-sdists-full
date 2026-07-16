@@ -28,6 +28,12 @@ AUTH_TYPE_API_KEY = "api-key"
 AUTH_TYPE_OAUTH = "oauth"
 
 
+def _stdin_is_tty() -> bool:
+    """Whether stdin is an interactive terminal. The questionary picker can only render on a
+    real TTY; scripted runs (CI, scheduled jobs piping prompt answers) must not reach it."""
+    return sys.stdin is not None and sys.stdin.isatty()
+
+
 def _validate_instance_id(value: str) -> str:
     """Validate an instance id via the SDK (the single source of truth), re-raising as a UsageError
     so the flag/prompt re-asks on invalid input.
@@ -72,7 +78,12 @@ def entry_point(ctx, profile, config_path):
         ctx.obj = {"config": config}
 
 
-@click.command(help="Configure the CLI.")
+@click.command(
+    help=(
+        "Configure the CLI. Without a terminal (e.g. CI or scripted runs), API key auth is used "
+        "unless --oauth or --api-key is passed."
+    )
+)
 @click.option(
     "--profile-name",
     required=False,
@@ -90,7 +101,10 @@ def entry_point(ctx, profile, config_path):
     "--oauth",
     is_flag=True,
     default=False,
-    help="Configure using OAuth client credentials.",
+    help=(
+        "Configure using OAuth client credentials. "
+        "Required in non-interactive environments, which default to API key auth."
+    ),
 )
 @click.option(
     "--api-key",
@@ -132,9 +146,17 @@ def configure(
         raise click.UsageError("Specify only one of --oauth or --api-key.")
 
     # --oauth / --api-key select the auth type non-interactively; otherwise ask (arrow-key picker).
+    # Without a TTY the picker cannot render, so scripted runs fall back to api-key auth — the
+    # pre-picker behavior, where prompt answers can be piped via stdin.
     if oauth:
         auth_type = AUTH_TYPE_OAUTH
     elif api_key:
+        auth_type = AUTH_TYPE_API_KEY
+    elif not _stdin_is_tty():
+        click.echo(
+            "No terminal detected — defaulting to API key auth. Pass --oauth to use OAuth.",
+            err=True,
+        )
         auth_type = AUTH_TYPE_API_KEY
     else:
         auth_type = questionary.select(

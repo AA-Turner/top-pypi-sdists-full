@@ -18,7 +18,7 @@ import yaml
 import numpy as np
 import torch
 from snapy import Mesh, MeshOptions, kIDN, kIPR, kIV1, kIV2, kIV3
-from paddle import start_dist, close_dist, setup_profile
+from paddle import setup_profile
 
 FACE_NAMES = ["+X", "+Y", "-X", "+Z", "-Y", "-Z"]
 
@@ -97,8 +97,8 @@ def hj_forcing(hw, hu, coslat, coslon, z, dt):
 def run(args):
     with open(args.config) as f:
         config = yaml.safe_load(f)
-    device = start_dist(config["distribute"].get("backend", "gloo"))
     opt = MeshOptions.from_yaml(args.config)
+    device = torch.device(opt.device_str())
     opt.block().output_dir(args.output_dir)
     mesh = Mesh(opt)
     mesh.to(device)
@@ -106,13 +106,15 @@ def run(args):
     global RD, CV, CP
     geom = []  # per-block (coslat, coslon, z)
     block_vars = []
-    for f, block in enumerate(mesh.blocks):
+    for local_index, block in enumerate(mesh.blocks):
+        layout = block.get_layout()
+        _, _, face_id = layout.loc_of(layout.options.rank())
         coord = block.module("coord")
         x1v = coord.buffer("x1v").cpu().numpy()
         x2v = coord.buffer("x2v").cpu().numpy()
         x3v = coord.buffer("x3v").cpu().numpy()
         alpha, beta = np.meshgrid(x2v, x3v)  # (nc3,nc2)
-        lon, lat = ab_to_lonlat(FACE_NAMES[f], alpha, beta)
+        lon, lat = ab_to_lonlat(FACE_NAMES[face_id], alpha, beta)
         coslat = torch.from_numpy(np.cos(lat)[..., None]).to(device, torch.float64)
         coslon = torch.from_numpy(np.cos(lon)[..., None]).to(device, torch.float64)
         z = torch.from_numpy((x1v - RP)[None, None, :]).to(device, torch.float64)
@@ -120,7 +122,7 @@ def run(args):
         w = setup_profile(
             block, {"Ts": TS, "Ps": P0, "grav": G, "Tmin": 1200.0}, method="isothermal"
         )
-        if f == 0:  # calibrate Rd from the isothermal IC (T = p/(rho*Rd) = Ts)
+        if local_index == 0:  # calibrate once per process from the isothermal IC
             il, jl, kl = coord.il(), coord.jl(), coord.kl()
             RD = float(w[kIPR][kl, jl, il] / w[kIDN][kl, jl, il]) / TS
             CV = 2.5 * RD
@@ -155,7 +157,6 @@ def run(args):
         current_time += dt
         mesh.make_outputs(block_vars, current_time)
     mesh.finalize(block_vars, current_time)
-    close_dist()
 
 
 if __name__ == "__main__":

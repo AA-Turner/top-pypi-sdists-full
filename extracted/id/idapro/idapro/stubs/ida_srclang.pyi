@@ -2,7 +2,7 @@ from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, 
 
 r"""Third-party compiler support."""
 
-def get_parser_option(parser_name: str, option_name: str) -> str:
+def get_parser_option(parser_name: str, option_name: str) -> Union[str, None]:
     r"""Get option for the parser with the specified name 
             
     :param parser_name: name of the target parser
@@ -11,7 +11,7 @@ def get_parser_option(parser_name: str, option_name: str) -> str:
     """
     ...
 
-def get_selected_parser_name() -> str:
+def get_selected_parser_name() -> Union[str, None]:
     r"""Get current parser name. 
             
     :returns: success

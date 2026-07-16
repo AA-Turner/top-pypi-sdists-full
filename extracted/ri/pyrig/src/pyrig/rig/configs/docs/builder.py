@@ -3,11 +3,13 @@
 from pathlib import Path
 from typing import Any
 
-from pyrig.rig.configs.base.yml import YMLDictConfigFile
-from pyrig.rig.tools.docs_builder import DocsBuilder
-from pyrig.rig.tools.package_manager import PackageManager
+from pyrig.rig.configs.base.yaml import YMLDictConfigFile
+from pyrig.rig.tools.docs.builder import DocsBuilder
+from pyrig.rig.tools.packages.manager import PackageManager
 from pyrig.rig.tools.version_control.controller import VersionController
-from pyrig.rig.tools.version_control.remote import RemoteVersionController
+from pyrig.rig.tools.version_control.remote.controller import (
+    RemoteVersionController,
+)
 
 
 class DocsBuilderConfigFile(YMLDictConfigFile):
@@ -32,13 +34,26 @@ class DocsBuilderConfigFile(YMLDictConfigFile):
             "site_url": DocsBuilder.I.documentation_url(),
             "repo_url": RemoteVersionController.I.repo_url(),
             "edit_uri": f"edit/{branch}/{docs_dir}",
+            "plugins": [
+                "search",
+                "mermaid2",
+                {
+                    "mkdocstrings": {
+                        "handlers": {
+                            "python": {
+                                "options": {
+                                    "inherited_members": True,
+                                    "members": True,
+                                    "relative_crossrefs": True,
+                                    "scoped_crossrefs": True,
+                                    "show_submodules": True,
+                                },
+                            },
+                        },
+                    },
+                },
+            ],
             "strict": True,
-            "validation": {
-                "omitted_files": "warn",
-                "absolute_links": "warn",
-                "unrecognized_links": "warn",
-                "anchors": "warn",
-            },
             "theme": {
                 "name": "material",
                 "features": [
@@ -62,25 +77,12 @@ class DocsBuilderConfigFile(YMLDictConfigFile):
                     },
                 ],
             },
-            "plugins": [
-                "search",
-                "mermaid2",
-                {
-                    "mkdocstrings": {
-                        "handlers": {
-                            "python": {
-                                "options": {
-                                    "members": True,
-                                    "inherited_members": True,
-                                    "show_submodules": True,
-                                    "relative_crossrefs": True,
-                                    "scoped_crossrefs": True,
-                                },
-                            },
-                        },
-                    },
-                },
-            ],
+            "validation": {
+                "absolute_links": "warn",
+                "anchors": "warn",
+                "omitted_files": "warn",
+                "unrecognized_links": "warn",
+            },
         }
 
     def parent_path(self) -> Path:
@@ -88,5 +90,5 @@ class DocsBuilderConfigFile(YMLDictConfigFile):
         return Path()
 
     def stem(self) -> str:
-        """Return `'mkdocs'` as the configuration file stem."""
+        """Return the MkDocs tool name as the configuration file stem."""
         return DocsBuilder.I.name()

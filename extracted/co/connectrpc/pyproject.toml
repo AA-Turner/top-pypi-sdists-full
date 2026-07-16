@@ -1,6 +1,6 @@
 [project]
 name = "connectrpc"
-version = "0.11.0"
+version = "0.11.1"
 description = "Server and client runtime library for Connect RPC"
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -41,29 +41,32 @@ Repository = "https://github.com/connectrpc/connect-py"
 
 [dependency-groups]
 dev = [
+  # Install all packages to be available in docs building, etc.
+  "connectrpc-grpcreflect",
+  "connectrpc-otel",
   "example",
   "protoc-gen-connectrpc",
 
   "asgiref==3.11.1",
   "brotli==1.2.0",
   "buf-bin==1.71.0",
-  "granian==2.7.6",
-  "grpcio-tools==1.81.1",
+  "granian==2.7.9",
+  "grpcio-tools==1.82.1",
   "gunicorn==26.0.0",
   "hypercorn==0.18.0",
-  "poethepoet==0.46.0",
+  "poethepoet==0.48.0",
   "pytest==9.1.1",
   "pytest-asyncio==1.4.0",
   "pytest-cov==7.1.0",
   "pytest-timeout==2.4.0",
-  "pyvoy==0.4.0",
-  "ruff==0.15.18",
-  "tombi==1.1.4",
-  "ty==0.0.51",
-  "types-grpcio==1.0.0.20260614",
+  "pyvoy==0.4.2",
+  "ruff==0.15.21",
+  "tombi==1.2.0",
+  "ty==0.0.59",
+  "types-grpcio==1.82.1.20260711",
   "types-protobuf==7.34.1.20260518",
-  "typing_extensions==4.15.0",
-  "uvicorn==0.49.0",
+  "typing_extensions==4.16.0",
+  "uvicorn==0.51.0",
   "zstandard==0.25.0",
 
   # dev dependencies only used in subprojects. Optimal structure would include these
@@ -73,15 +76,15 @@ dev = [
   # If the below issue is resolved, we can move them back to subprojects and configure
   # our default sync setting as --all-packages.
   # https://github.com/astral-sh/uv/issues/5737
-  "opentelemetry-instrumentation-asgi==0.63b1",
-  "opentelemetry-instrumentation-wsgi==0.63b1",
-  "opentelemetry-sdk==1.42.1",
+  "opentelemetry-instrumentation-asgi==0.64b0",
+  "opentelemetry-instrumentation-wsgi==0.64b0",
+  "opentelemetry-sdk==1.43.0",
   "protobuf>=5.28",
   "protoc-gen-grpc-py==0.1.1",
   "protoc-gen-py==0.1.1",
 ]
 
-docs = ["mkdocstrings-python==2.0.5", "zensical==0.0.46"]
+docs = ["mkdocstrings-python==2.0.5", "zensical==0.0.50"]
 
 [build-system]
 requires = ["uv_build>=0.11.0,<0.12.0"]
@@ -255,10 +258,16 @@ extra-paths = ["conformance/test"]
 module-name = "connectrpc"
 
 [tool.uv.workspace]
-members = ["connectrpc-otel", "example", "protoc-gen-connectrpc"]
+members = [
+  "connectrpc-grpcreflect",
+  "connectrpc-otel",
+  "example",
+  "protoc-gen-connectrpc"
+]
 
 [tool.uv.sources]
 connectrpc = { workspace = true }
+connectrpc-grpcreflect = { workspace = true }
 connectrpc-otel = { workspace = true }
 protoc-gen-connectrpc = { workspace = true }
 

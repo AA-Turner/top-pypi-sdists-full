@@ -10,15 +10,19 @@ pub struct ExplicitParameters {
 }
 
 impl ExplicitParameters {
-    pub fn from_vec(parameters: Vec<String>) -> Self {
+    pub(crate) fn from_interned(parameters: Vec<InternedString>) -> Self {
         Self {
-            inner: Arc::new(
-                parameters
-                    .into_iter()
-                    .map(InternedString::from_string)
-                    .collect(),
-            ),
+            inner: Arc::new(parameters),
         }
+    }
+
+    pub fn from_vec(parameters: Vec<String>) -> Self {
+        Self::from_interned(
+            parameters
+                .into_iter()
+                .map(InternedString::from_string)
+                .collect(),
+        )
     }
 
     pub fn contains(&self, parameter: &str) -> bool {

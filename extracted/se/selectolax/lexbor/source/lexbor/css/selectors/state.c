@@ -1138,6 +1138,9 @@ lxb_css_selectors_state_element_ns(lxb_css_parser_t *parser,
         return lxb_css_selectors_state_ns(parser, selector);
     }
 
+    selector->name.data[0] = '\0';
+    selector->name.length = 0;
+
     lxb_css_syntax_parser_consume(parser);
 
     return lxb_css_selectors_state_ns_ident(parser, selector);
@@ -1299,6 +1302,9 @@ lxb_css_selectors_state_attribute(lxb_css_parser_t *parser)
 
             break;
 
+        case LXB_CSS_SYNTAX_TOKEN__END:
+            goto done_eof;
+
         default:
             goto failed;
     }
@@ -1327,22 +1333,34 @@ string_or_ident:
     lxb_css_syntax_parser_consume(parser);
     lxb_css_parser_token_status_wo_ws_m(parser, token);
 
-    if (token->type == LXB_CSS_SYNTAX_TOKEN_RS_BRACKET) {
-        goto done;
-    }
+    switch (token->type) {
+        case LXB_CSS_SYNTAX_TOKEN_RS_BRACKET:
+            goto done;
 
-    if (token->type != LXB_CSS_SYNTAX_TOKEN_IDENT) {
-        goto failed;
+        case LXB_CSS_SYNTAX_TOKEN_IDENT:
+            if (lxb_css_syntax_token_string(token)->length != 1) {
+                goto failed;
+            }
+
+            break;
+
+        case LXB_CSS_SYNTAX_TOKEN__END:
+            goto done_eof;
+
+        default:
+            goto failed;
     }
 
     modifier = *lxb_css_syntax_token_string(token)->data;
 
     switch (modifier) {
         case 'i':
+        case 'I':
             attribute->modifier = LXB_CSS_SELECTOR_MODIFIER_I;
             break;
 
         case 's':
+        case 'S':
             attribute->modifier = LXB_CSS_SELECTOR_MODIFIER_S;
             break;
 
@@ -1354,6 +1372,10 @@ string_or_ident:
     lxb_css_parser_token_status_wo_ws_m(parser, token);
 
     if (token->type != LXB_CSS_SYNTAX_TOKEN_RS_BRACKET) {
+        if (token->type == LXB_CSS_SYNTAX_TOKEN__END) {
+            goto done_eof;
+        }
+
         goto failed;
     }
 
@@ -1361,6 +1383,16 @@ done:
 
     lxb_css_selectors_state_specificity_set_b(selectors);
     lxb_css_syntax_parser_consume(parser);
+
+    return LXB_STATUS_OK;
+
+done_eof:
+
+    (void) lxb_css_log_format(parser->log, LXB_CSS_LOG_SYNTAX_ERROR,
+                              "%s. End Of File in attribute selector",
+                              lxb_css_selectors_module_name);
+
+    lxb_css_selectors_state_specificity_set_b(selectors);
 
     return LXB_STATUS_OK;
 

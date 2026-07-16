@@ -70,9 +70,7 @@ class UpdateAbstraFixFlowTest(unittest.TestCase):
         process_actions.set_process_action_handler(None)
 
     def test_local_mode_flow_routes_restart_through_hook(self):
-        from abstra_internals.repositories.linter.rules import (
-            new_version_of_abstra_available as mod,
-        )
+        from abstra_internals.controllers import editor_update as mod
 
         collected = []
         process_actions.set_process_action_handler(collected.append)
@@ -91,9 +89,7 @@ class UpdateAbstraFixFlowTest(unittest.TestCase):
         exit_.assert_not_called()
 
     def test_web_mode_flow_routes_restart_through_hook(self):
-        from abstra_internals.repositories.linter.rules import (
-            new_version_of_abstra_available as mod,
-        )
+        from abstra_internals.controllers import editor_update as mod
 
         collected = []
         process_actions.set_process_action_handler(collected.append)
@@ -112,9 +108,7 @@ class UpdateAbstraFixFlowTest(unittest.TestCase):
         exit_.assert_not_called()
 
     def test_pip_failure_requests_no_action(self):
-        from abstra_internals.repositories.linter.rules import (
-            new_version_of_abstra_available as mod,
-        )
+        from abstra_internals.controllers import editor_update as mod
 
         collected = []
         process_actions.set_process_action_handler(collected.append)

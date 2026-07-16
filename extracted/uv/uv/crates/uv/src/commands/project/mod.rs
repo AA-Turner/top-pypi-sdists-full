@@ -233,8 +233,8 @@ pub(crate) enum ProjectError {
     )]
     MissingDefaultGroup(GroupName),
 
-    #[error("Extra `{0}` is not defined in the project's `optional-dependencies` table")]
-    MissingExtraProject(ExtraName),
+    #[error("Extra `{0}` is not defined in the `optional-dependencies` table for `{1}`")]
+    MissingExtraProject(ExtraName, PackageName),
 
     #[error("Extra `{0}` is not defined in any project's `optional-dependencies` table")]
     MissingExtraProjects(ExtraName),
@@ -1553,7 +1553,7 @@ impl ScriptPython {
             .metadata()
             .requires_python
             .as_ref()
-            .map(RequiresPython::from_specifiers);
+            .map(|specifiers| RequiresPython::from_specifiers(specifiers.clone()));
 
         let workspace_requires_python = workspace
             .map(|workspace| find_requires_python(workspace, &DependencyGroupsWithDefaults::none()))
@@ -3158,7 +3158,7 @@ pub(crate) fn script_specification(
             LoweredRequirement::from_non_workspace_requirement(
                 requirement,
                 script_dir.as_ref(),
-                script_sources,
+                script_sources.as_ref(),
                 script_indexes,
                 &settings.index_locations,
                 credentials_cache,
@@ -3179,7 +3179,7 @@ pub(crate) fn script_specification(
             LoweredRequirement::from_non_workspace_requirement(
                 requirement,
                 script_dir.as_ref(),
-                script_sources,
+                script_sources.as_ref(),
                 script_indexes,
                 &settings.index_locations,
                 credentials_cache,
@@ -3205,7 +3205,7 @@ pub(crate) fn script_specification(
                         LoweredRequirement::from_non_workspace_requirement(
                             requirement,
                             script_dir.as_ref(),
-                            script_sources,
+                            script_sources.as_ref(),
                             script_indexes,
                             &settings.index_locations,
                             credentials_cache,
@@ -3224,7 +3224,7 @@ pub(crate) fn script_specification(
                             LoweredRequirement::from_non_workspace_requirement(
                                 requirement,
                                 script_dir.as_ref(),
-                                script_sources,
+                                script_sources.as_ref(),
                                 script_indexes,
                                 &settings.index_locations,
                                 credentials_cache,
@@ -3293,7 +3293,7 @@ pub(crate) fn script_extra_build_requires(
                     LoweredRequirement::from_non_workspace_requirement(
                         requirement,
                         script_dir.as_ref(),
-                        script_sources,
+                        script_sources.as_ref(),
                         script_indexes,
                         &settings.index_locations,
                         credentials_cache,

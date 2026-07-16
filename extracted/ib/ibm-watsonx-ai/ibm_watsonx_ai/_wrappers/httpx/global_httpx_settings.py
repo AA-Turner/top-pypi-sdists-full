@@ -5,11 +5,26 @@
 
 import os
 from functools import wraps
-from typing import Any, Callable
+from typing import Callable, ParamSpec, TypeVar
+
+import httpx
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class GlobalHttpxSettings:
     """Holds global state for all requests made using the `httpx` library."""
+
+    HTTPX_KEEPALIVE_EXPIRY = 5
+
+    HTTPX_DEFAULT_TIMEOUT = httpx.Timeout(timeout=30 * 60, connect=10)
+
+    HTTPX_DEFAULT_LIMIT = httpx.Limits(
+        max_connections=10,
+        max_keepalive_connections=10,
+        keepalive_expiry=HTTPX_KEEPALIVE_EXPIRY,
+    )
 
     verify: bool | str | None = None
     proxies: dict[str, str] | None = None
@@ -47,15 +62,17 @@ class GlobalHttpxSettings:
         return True
 
     @classmethod
-    def inject_settings(cls, func: Callable) -> Callable:
+    def set_default_verify(cls, func: Callable[P, R]) -> Callable[P, R]:
         """
-        Injects global httpx settings - such as proxies - to the keyword arguments.
+        This decorator sets the default value of the `verify` argument passed to
+        the provided function. The default value is equal to `get_effective_verify()`.
         """
 
         @wraps(func)
-        def wrapper(*args: Any, **kw: Any) -> Any:
-            kwargs = {"proxies": cls.proxies}
-            kwargs.update(kw)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            if "verify" not in kwargs:
+                kwargs["verify"] = cls.get_effective_verify()
+
             return func(*args, **kwargs)
 
         return wrapper

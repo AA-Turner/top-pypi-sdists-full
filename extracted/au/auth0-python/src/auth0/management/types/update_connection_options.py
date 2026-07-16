@@ -11,7 +11,6 @@ from .connection_attributes import ConnectionAttributes
 from .connection_authentication_methods import ConnectionAuthenticationMethods
 from .connection_custom_scripts import ConnectionCustomScripts
 from .connection_dpop_signing_alg_enum import ConnectionDpopSigningAlgEnum
-from .connection_federated_connections_access_tokens import ConnectionFederatedConnectionsAccessTokens
 from .connection_gateway_authentication import ConnectionGatewayAuthentication
 from .connection_id_token_session_expiry_supported import ConnectionIdTokenSessionExpirySupported
 from .connection_id_token_signed_response_algs import ConnectionIdTokenSignedResponseAlgs
@@ -29,6 +28,8 @@ from .connection_token_endpoint_auth_signing_alg_enum import ConnectionTokenEndp
 from .connection_token_endpoint_jwtca_aud_format_enum_oidc import ConnectionTokenEndpointJwtcaAudFormatEnumOidc
 from .connection_upstream_params import ConnectionUpstreamParams
 from .connection_validation_options import ConnectionValidationOptions
+from .connections_discovery_url import ConnectionsDiscoveryUrl
+from .connections_oidc_metadata import ConnectionsOidcMetadata
 
 
 class UpdateConnectionOptions(UniversalBaseModel):
@@ -58,6 +59,10 @@ class UpdateConnectionOptions(UniversalBaseModel):
         FieldMetadata(alias="enabledDatabaseCustomization"),
         pydantic.Field(alias="enabledDatabaseCustomization", description="Set to true to use a legacy user store"),
     ] = None
+    """
+    Set to true to use a legacy user store
+    """
+
     import_mode: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Enable this if you have a legacy user store and you want to gradually migrate those users to the Auth0 user store
@@ -97,7 +102,6 @@ class UpdateConnectionOptions(UniversalBaseModel):
     upstream_params: typing.Optional[ConnectionUpstreamParams] = None
     set_user_root_attributes: typing.Optional[ConnectionSetUserRootAttributesEnum] = None
     gateway_authentication: typing.Optional[ConnectionGatewayAuthentication] = None
-    federated_connections_access_tokens: typing.Optional[ConnectionFederatedConnectionsAccessTokens] = None
     password_options: typing.Optional[ConnectionPasswordOptions] = None
     assertion_decryption_settings: typing.Optional[ConnectionAssertionDecryptionSettings] = None
     id_token_signed_response_algs: typing.Optional[ConnectionIdTokenSignedResponseAlgs] = None
@@ -106,6 +110,8 @@ class UpdateConnectionOptions(UniversalBaseModel):
     token_endpoint_auth_signing_alg: typing.Optional[ConnectionTokenEndpointAuthSigningAlgEnum] = None
     token_endpoint_jwtca_aud_format: typing.Optional[ConnectionTokenEndpointJwtcaAudFormatEnumOidc] = None
     id_token_session_expiry_supported: typing.Optional[ConnectionIdTokenSessionExpirySupported] = None
+    discovery_url: typing.Optional[ConnectionsDiscoveryUrl] = None
+    oidc_metadata: typing.Optional[ConnectionsOidcMetadata] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

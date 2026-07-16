@@ -36,7 +36,13 @@ class Models(WMLResource):
             embeddings or text/chat completions calls
         :type alias: str, optional
 
-        :param metadata: additional metadata which can be added for the model
+        :param metadata: additional metadata for the model.
+
+            .. note::
+                For AutoAI RAG experiments, ``"functions"`` (see
+                :class:`~ibm_watsonx_ai.gateway.enums.GatewayModelFunctions`) and
+                ``"context_window"`` must be set.
+
         :type metadata: dict, optional
 
         :returns: model details
@@ -102,10 +108,17 @@ class Models(WMLResource):
     def list(self, provider_id: str | None = None) -> pd.DataFrame:
         """List models registered in Model Gateway. List can be filtered by `provider_id`.
 
+        The returned DataFrame includes a ``FUNCTIONS`` column containing the capability
+        tags stored in each model's metadata (see
+        :class:`~ibm_watsonx_ai.gateway.GatewayModelFunctions`).  This column is
+        required for AutoAI RAG to identify models that carry the
+        :attr:`~ibm_watsonx_ai.gateway.GatewayModelFunctions.AUTOAI_RAG` function tag.
+
         :param provider_id: ID of provider added into Model Gateway
         :type provider_id: str, optional
 
-        :returns: dataframe containing list results
+        :returns: dataframe containing list results with columns
+            ``ID``, ``MODEL``, ``CREATED``, ``TYPE``, and ``FUNCTIONS``
         :rtype: pandas.DataFrame
         """
         models_details = self.get_details(provider_id=provider_id)["data"]
@@ -116,12 +129,13 @@ class Models(WMLResource):
                 m["id"],
                 datetime.datetime.fromtimestamp(m["created"]),
                 m["owned_by"],
+                m.get("metadata", {}).get("functions", []),
             )
             for m in models_details
         ]
 
         table = self._list(
-            models_values, ["ID", "MODEL", "CREATED", "TYPE"], limit=None
+            models_values, ["ID", "MODEL", "CREATED", "TYPE", "FUNCTIONS"], limit=None
         )
 
         return table

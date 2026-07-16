@@ -3,11 +3,12 @@
 import codecs
 from collections.abc import AsyncGenerator, MutableMapping
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import aiohttp
 
 from .const import DEFAULT_REQUEST_TIMEOUT_SECONDS
+from .exceptions import _map_opnsense_exception, _opnsense_http_error
 from .helpers import _LOGGER
 
 _STREAM_JSON_EVENT_RESET_KEY = "__aiopnsense_internal_stream_json_reset__"
@@ -97,17 +98,11 @@ class ClientTransportMixin:
                             response.reason,
                         )
                     if self._throw_errors:
-                        raise aiohttp.ClientResponseError(
-                            request_info=response.request_info,
-                            history=response.history,
-                            status=response.status,
-                            message=f"HTTP Status Error: {response.status} {response.reason}",
-                            headers=response.headers,
-                        )
+                        raise _opnsense_http_error(response.status, response.reason)
         except (aiohttp.ClientError, TimeoutError) as e:
             _LOGGER.error("Client error. %s: %s", type(e).__name__, e)
             if self._throw_errors:
-                raise
+                raise _map_opnsense_exception(e) from e
 
         return {}
 
@@ -158,13 +153,7 @@ class ClientTransportMixin:
                             response.reason,
                         )
                     if self._throw_errors:
-                        raise aiohttp.ClientResponseError(
-                            request_info=response.request_info,
-                            history=response.history,
-                            status=response.status,
-                            message=f"HTTP Status Error: {response.status} {response.reason}",
-                            headers=response.headers,
-                        )
+                        raise _opnsense_http_error(response.status, response.reason)
                     return
 
                 decoder = codecs.getincrementaldecoder("utf-8")()
@@ -271,23 +260,27 @@ class ClientTransportMixin:
         except (aiohttp.ClientError, TimeoutError) as err:
             _LOGGER.error("Client error in stream_json_events. %s: %s", type(err).__name__, err)
             if self._throw_errors:
-                raise
+                raise _map_opnsense_exception(err) from err
 
     async def _do_get(
         self,
         path: str,
         caller: str = "Unknown",
         timeout_seconds: float | None = None,
-    ) -> MutableMapping[str, Any] | list | None:
+        *,
+        response_format: Literal["json", "text"] = "json",
+    ) -> MutableMapping[str, Any] | list | str | None:
         """Execute a GET request immediately without queueing.
 
         Args:
             path (str): API endpoint path to request.
             caller (str): Caller name used for diagnostics and logging.
             timeout_seconds (float | None, optional): Request timeout in seconds for this call.
+            response_format (Literal["json", "text"], optional): Response decoding mode.
 
         Returns:
-            MutableMapping[str, Any] | list | None: Decoded response payload returned by the GET request.
+            MutableMapping[str, Any] | list | str | None: Decoded response payload
+                returned by the GET request.
         """
         self._rest_api_query_count += 1
         url: str = f"{self._url}{path}"
@@ -302,6 +295,8 @@ class ClientTransportMixin:
             ) as response:
                 _LOGGER.debug("[get] Response %s: %s", response.status, response.reason)
                 if response.ok:
+                    if response_format == "text":
+                        return await response.text()
                     return await response.json(content_type=None)
                 if response.status == 403:
                     _LOGGER.error(
@@ -318,17 +313,11 @@ class ClientTransportMixin:
                         response.reason,
                     )
                 if self._throw_errors:
-                    raise aiohttp.ClientResponseError(
-                        request_info=response.request_info,
-                        history=response.history,
-                        status=response.status,
-                        message=f"HTTP Status Error: {response.status} {response.reason}",
-                        headers=response.headers,
-                    )
+                    raise _opnsense_http_error(response.status, response.reason)
         except (aiohttp.ClientError, TimeoutError) as e:
             _LOGGER.error("Client error. %s: %s", type(e).__name__, e)
             if self._throw_errors:
-                raise
+                raise _map_opnsense_exception(e) from e
 
         return None
 
@@ -437,17 +426,11 @@ class ClientTransportMixin:
                         response.reason,
                     )
                 if self._throw_errors:
-                    raise aiohttp.ClientResponseError(
-                        request_info=response.request_info,
-                        history=response.history,
-                        status=response.status,
-                        message=f"HTTP Status Error: {response.status} {response.reason}",
-                        headers=response.headers,
-                    )
+                    raise _opnsense_http_error(response.status, response.reason)
         except (aiohttp.ClientError, TimeoutError) as e:
             _LOGGER.error("Client error. %s: %s", type(e).__name__, e)
             if self._throw_errors:
-                raise
+                raise _map_opnsense_exception(e) from e
 
         return None
 

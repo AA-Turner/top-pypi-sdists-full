@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-buckygen
-Version: 10.8.5
+Version: 10.8.6
 Summary: passagemath: Generation of nonisomorphic fullerenes with buckygen
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -120,11 +120,11 @@ Examples
 
 Using the buckygen program on the command line::
 
-    $ pipx run --pip-args="--prefer-binary" --spec "passagemath-buckygen[test]" sage -sh -c buckygen
+    $ pipx run --spec "passagemath-buckygen[test]" sage -sh -c buckygen
 
 Finding the installation location of the buckygen program::
 
-    $ pipx run --pip-args="--prefer-binary" --spec "passagemath-buckygen[test]" ipython
+    $ pipx run --spec "passagemath-buckygen[test]" ipython
 
     In [1]: from sage.features.graph_generators import Buckygen
 
@@ -133,7 +133,7 @@ Finding the installation location of the buckygen program::
 
 Using the Python interface::
 
-    $ pipx run --pip-args="--prefer-binary" --spec "passagemath-buckygen[test]" ipython
+    $ pipx run --spec "passagemath-buckygen[test]" ipython
 
     In [1]: from passagemath_buckygen import *
 

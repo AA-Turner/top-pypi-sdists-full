@@ -1,3 +1,4 @@
+from .automation import SHCAutomationRule
 from .device import SHCDevice
 from .device_helper import (
     SHCBatteryDevice,
@@ -36,7 +37,8 @@ from .device_helper import (
     SHCWaterLeakageSensor,
 )
 from .device_service import SHCDeviceService
-from .domain_impl import SHCIntrusionSystem
+from .domain_impl import SHCIntrusionSystem, SHCWaterAlarmSystem
+from .models_impl import SHCBoiler
 from .exceptions import (
     SHCAuthenticationError,
     SHCConnectionError,
@@ -85,7 +87,6 @@ from .services_impl import (  # noqa: F401
     SilentModeService,
     SmartSensitivityControlService,
     SmokeSensitivityService,
-    SoftwareUpdateService,
     SurveillanceAlarmService,
     OutdoorSirenService,
     OutdoorSirenPowerSupplyService,
@@ -106,6 +107,7 @@ from .services_impl import (  # noqa: F401
 __all__ = [
     "SHCDevice",
     "SHCBatteryDevice",
+    "SHCBoiler",
     "SHCCamera360",
     "SHCCameraEyes",
     "SHCCameraOutdoorGen2",
@@ -141,6 +143,7 @@ __all__ = [
     "SHCWaterLeakageSensor",
     "SHCDeviceService",
     "SHCIntrusionSystem",
+    "SHCWaterAlarmSystem",
     "SHCAuthenticationError",
     "SHCConnectionError",
     "SHCRegistrationError",
@@ -148,6 +151,7 @@ __all__ = [
     "SHCInformation",
     "SHCRegisterClient",
     "SHCScenario",
+    "SHCAutomationRule",
     "SHCSession",
     "SHCUserDefinedState",
     "SHCMessage",
@@ -190,7 +194,6 @@ __all__ = [
     "SmartSensitivityControlService",
     "SmokeDetectorCheckService",
     "SmokeSensitivityService",
-    "SoftwareUpdateService",
     "SurveillanceAlarmService",
     "SwitchConfiguration",
     "TerminalConfiguration",

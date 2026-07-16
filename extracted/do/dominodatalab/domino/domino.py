@@ -2,20 +2,24 @@ import functools
 import json
 import logging
 import os
-from packaging import version
 import re
 import time
-from typing import Any, Dict, List, Optional, Tuple
 import warnings
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import polling2
 import requests
 from bs4 import BeautifulSoup
+from packaging import version
 
-from domino import exceptions, helpers, datasets
+from domino import datasets, exceptions, helpers
+from domino._custom_metrics import (
+    _CustomMetricsClient,
+    _CustomMetricsClientBase,
+    _CustomMetricsClientGen,
+)
 from domino._version import __version__
 from domino.authentication import get_auth_by_type
-from domino.domino_enums import BillingTagSettingMode, BudgetLabel, BudgetType, ProjectVisibility
 from domino.constants import (
     CLUSTER_TYPE_MIN_SUPPORT,
     DOMINO_HOST_KEY_NAME,
@@ -24,14 +28,54 @@ from domino.constants import (
     MINIMUM_ON_DEMAND_SPARK_CLUSTER_SUPPORT_DOMINO_VERSION,
     MINIMUM_SUPPORTED_DOMINO_VERSION,
 )
+from domino.domino_enums import (
+    BillingTagSettingMode,
+    BudgetLabel,
+    BudgetType,
+    ProjectVisibility,
+)
 from domino.http_request_manager import _HttpRequestManager
 from domino.routes import _Routes
-from domino._custom_metrics import _CustomMetricsClientBase, _CustomMetricsClientGen, _CustomMetricsClient
+
+# Sentinel used as the default value of renamed parameters so we can detect
+# whether the caller passed the new name, the deprecated name, or neither.
+_UNSET: Any = object()
+
+
+def _resolve_renamed_kwarg(new_value, old_name, new_name, kwargs, default):
+    """Resolve a renamed parameter, raising if both old and new names were passed.
+
+    If the deprecated name is present in kwargs, emit a DeprecationWarning and
+    return its value. If both the new name (non-sentinel) and the deprecated
+    name are provided in the same call, raise ValueError so the caller can fix
+    the ambiguity instead of silently picking one.
+    """
+    has_old = old_name in kwargs
+    has_new = new_value is not _UNSET
+    if has_old and has_new:
+        raise ValueError(
+            f"Pass either '{new_name}' or '{old_name}', not both. "
+            f"'{old_name}' is deprecated; use '{new_name}'."
+        )
+    if has_old:
+        warnings.warn(
+            f"{old_name} is deprecated, use {new_name}",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return kwargs.pop(old_name)
+    return new_value if has_new else default
 
 
 class Domino:
     def __init__(
-        self, project, api_key=None, host=None, domino_token_file=None, auth_token=None, api_proxy=None,
+        self,
+        project,
+        api_key=None,
+        host=None,
+        domino_token_file=None,
+        auth_token=None,
+        api_proxy=None,
     ):
 
         self._configure_logging()
@@ -87,7 +131,9 @@ class Domino:
         logging.basicConfig(level=logging_level)
         self._logger = logging.getLogger(__name__)
 
-    def authenticate(self, api_key=None, auth_token=None, domino_token_file=None, api_proxy=None):
+    def authenticate(
+        self, api_key=None, auth_token=None, domino_token_file=None, api_proxy=None
+    ):
         """
         Method to authenticate the request manager. An existing domino client object can
         use this with a new token if the existing credentials expire.
@@ -112,22 +158,40 @@ class Domino:
     def runs_start(
         self,
         command,
-        isDirect=False,
-        commitId=None,
+        is_direct=_UNSET,
+        commit_id=_UNSET,
         title=None,
         tier=None,
-        publishApiEndpoint=None,
+        publish_api_endpoint=_UNSET,
+        **kwargs,
     ):
+        """
+        Start a run via the legacy v1 Runs API. For new work, prefer job_start() which uses
+        the v4 Jobs API and supports compute clusters, external volumes, and branch targeting.
+        """
+        is_direct = _resolve_renamed_kwarg(
+            is_direct, "isDirect", "is_direct", kwargs, False
+        )
+        commit_id = _resolve_renamed_kwarg(
+            commit_id, "commitId", "commit_id", kwargs, None
+        )
+        publish_api_endpoint = _resolve_renamed_kwarg(
+            publish_api_endpoint,
+            "publishApiEndpoint",
+            "publish_api_endpoint",
+            kwargs,
+            None,
+        )
 
         url = self._routes.runs_start()
 
         request = {
             "command": command,
-            "isDirect": isDirect,
-            "commitId": commitId,
+            "isDirect": is_direct,
+            "commitId": commit_id,
             "title": title,
             "tier": tier,
-            "publishApiEndpoint": publishApiEndpoint,
+            "publishApiEndpoint": publish_api_endpoint,
         }
         try:
             response = self.request_manager.post(url, json=request)
@@ -136,18 +200,20 @@ class Domino:
             self._logger.info(
                 f" You need to log in to the Domino UI to start the run. Please do it at {self._routes.host}/relogin?redirectPath=/"
             )
+            raise
 
     def runs_start_blocking(
         self,
         command,
-        isDirect=False,
-        commitId=None,
+        is_direct=_UNSET,
+        commit_id=_UNSET,
         title=None,
         tier=None,
-        publishApiEndpoint=None,
+        publish_api_endpoint=_UNSET,
         poll_freq=5,
         max_poll_time=6000,
         retry_count=5,
+        **kwargs,
     ):
         """
         Run a tasks that runs in a blocking loop that periodically checks to
@@ -161,12 +227,12 @@ class Domino:
                   example:
                   >> domino.runs_start(["main.py", "arg1", "arg2"])
 
-        isDirect : boolean (Optional)
+        is_direct : boolean (Optional)
                    Whether or not this command should be passed directly to
                    a shell.
 
-        commitId : string (Optional)
-                   The commitId to launch from. If not provided, will launch
+        commit_id : string (Optional)
+                   The commit_id to launch from. If not provided, will launch
                    from latest commit.
 
         title    : string (Optional)
@@ -176,7 +242,7 @@ class Domino:
                    The hardware tier to use for the run. Will use project
                    default tier if not provided.
 
-        publishApiEndpoint : boolean (Optional)
+        publish_api_endpoint : boolean (Optional)
                             Whether or not to publish an API endpoint from the
                             resulting output.
 
@@ -194,8 +260,22 @@ class Domino:
                         (in-case of transient http errors). If this
                         threshold exceeds, an exception is raised.
         """
+        is_direct = _resolve_renamed_kwarg(
+            is_direct, "isDirect", "is_direct", kwargs, False
+        )
+        commit_id = _resolve_renamed_kwarg(
+            commit_id, "commitId", "commit_id", kwargs, None
+        )
+        publish_api_endpoint = _resolve_renamed_kwarg(
+            publish_api_endpoint,
+            "publishApiEndpoint",
+            "publish_api_endpoint",
+            kwargs,
+            None,
+        )
+
         run_response = self.runs_start(
-            command, isDirect, commitId, title, tier, publishApiEndpoint
+            command, is_direct, commit_id, title, tier, publish_api_endpoint
         )
         run_id = run_response["runId"]
 
@@ -238,7 +318,7 @@ class Domino:
 
             # once task has finished running check to see if it was successful
             else:
-                stdout_msg = self.get_run_log(runId=run_id, includeSetupLog=False)
+                stdout_msg = self.get_run_log(run_id=run_id, include_setup_log=False)
 
                 if run_info["status"] != "Succeeded":
                     self.process_log(stdout_msg)
@@ -250,31 +330,46 @@ class Domino:
 
         return run_response
 
-    def run_stop(self, runId, saveChanges=True):
+    def run_stop(self, run_id=_UNSET, save_changes=_UNSET, **kwargs):
+        run_id = _resolve_renamed_kwarg(run_id, "runId", "run_id", kwargs, None)
+        save_changes = _resolve_renamed_kwarg(
+            save_changes, "saveChanges", "save_changes", kwargs, True
+        )
+        if not run_id:
+            raise ValueError("run_id is required")
         self.log.warning("Use job_stop method instead")
-        return self.job_stop(job_id=runId, commit_results=saveChanges)
+        return self.job_stop(job_id=run_id, commit_results=save_changes)
 
-    def runs_status(self, runId):
-        url = self._routes.runs_status(runId)
+    def runs_status(self, run_id=_UNSET, **kwargs):
+        run_id = _resolve_renamed_kwarg(run_id, "runId", "run_id", kwargs, None)
+        url = self._routes.runs_status(run_id)
         return self._get(url)
 
-    def get_run_log(self, runId, includeSetupLog=True):
+    def get_run_log(self, run_id=_UNSET, include_setup_log=_UNSET, **kwargs):
         """
         Get the unified log for a run (setup + stdout).
 
         parameters
         ----------
-        runId : string
+        run_id : string
                 the id associated with the run.
-        includeSetupLog : bool
+        include_setup_log : bool
                 whether or not to include the setup log in the output.
         """
+        run_id = _resolve_renamed_kwarg(run_id, "runId", "run_id", kwargs, None)
+        include_setup_log = _resolve_renamed_kwarg(
+            include_setup_log,
+            "includeSetupLog",
+            "include_setup_log",
+            kwargs,
+            True,
+        )
 
-        url = self._routes.runs_stdout(runId)
+        url = self._routes.runs_stdout(run_id)
 
         logs = list()
 
-        if includeSetupLog:
+        if include_setup_log:
             logs.append(self._get(url)["setup"])
 
         logs.append(self._get(url)["stdout"])
@@ -286,15 +381,16 @@ class Domino:
             if run_info["id"] == run_id:
                 return run_info
 
-    def runs_stdout(self, runId):
+    def runs_stdout(self, run_id=_UNSET, **kwargs):
         """
         Get std out emitted by a particular run.
 
         parameters
         ----------
-        runId : string
+        run_id : string
                 the id associated with the run.
         """
+        run_id = _resolve_renamed_kwarg(run_id, "runId", "run_id", kwargs, None)
 
         html_start_tags = (
             "<pre style='white-space: pre-wrap; white-space: -moz-pre-wrap; white-space: -pre-wrap; "
@@ -304,7 +400,7 @@ class Domino:
         span_regex = re.compile("<?span.*?>")
         returns = "'\\n'\n"
 
-        url = self._routes.runs_stdout(runId)
+        url = self._routes.runs_stdout(run_id)
         raw_stdout = self._get(url)["stdout"]
 
         stdout = (
@@ -315,7 +411,7 @@ class Domino:
 
         return stdout
 
-    def job_start(
+    def job_start(  # noqa: C901
         self,
         command: str,
         commit_id: Optional[str] = None,
@@ -327,14 +423,17 @@ class Domino:
         external_volume_mounts: Optional[List[str]] = None,
         title: Optional[str] = None,
         main_repo_git_ref: Optional[dict] = None,
+        branch: Optional[str] = None,
     ) -> dict:
         """
-        Starts a Domino Job via V4 API
+        Start a Domino Job via the v4 Jobs API. Preferred over runs_start() for all new work —
+        supports hardware tiers, compute clusters (Spark/Ray/Dask/MPI), external volumes, and
+        git ref targeting by branch or commit.
         :param command:                             string
                                                     Command to execute in Job
                                                     >> domino.job_start(command="main.py arg1 arg2")
         :param commit_id:                           string (Optional)
-                                                    The commitId to launch from. If not provided, will launch
+                                                    The commit_id to launch from. If not provided, will launch
                                                     from latest commit.
         :param hardware_tier_id:                    string (Optional)
                                                     The hardware tier ID to launch job in. If not provided
@@ -397,9 +496,24 @@ class Domino:
                                                         "type": "branches",
                                                         "value": "my-feature-branch"
                                                     }
-                                                    Supported types: "branches", "tags"
+                                                    Supported types: "branches", "tags".
+                                                    Cannot be combined with branch.
+        :param branch:                              string (Optional)
+                                                    Convenience parameter. For git-based projects, launch the job
+                                                    from the tip of the specified branch. Cannot be combined with
+                                                    commit_id or main_repo_git_ref.
         :return: Returns created Job details (number, id etc)
         """
+        if branch and commit_id:
+            raise ValueError(
+                "Only one of branch or commit_id may be specified, not both."
+            )
+        if branch and main_repo_git_ref:
+            raise ValueError(
+                "Only one of branch or main_repo_git_ref may be specified, not both."
+            )
+        if branch:
+            main_repo_git_ref = {"type": "branches", "value": branch}
 
         def validate_on_demand_spark_cluster_properties(max_execution_slot_per_user):
             self.log.debug(
@@ -491,7 +605,7 @@ class Domino:
                     + f" This version of Domino supports the following cluster types: {supported_types_str}"
                 )
 
-            def throw_if_information_invalid(key: str, info: dict) -> bool:
+            def throw_if_information_invalid(key: str, info: dict) -> None:
                 try:
                     self._validate_information_data_type(info)
                 except Exception as e:
@@ -518,9 +632,13 @@ class Domino:
                 )
 
             if "masterHardwareTierId" in compute_cluster_properties:
-                self._validate_hardware_tier_id(compute_cluster_properties["masterHardwareTierId"])
+                self._validate_hardware_tier_id(
+                    compute_cluster_properties["masterHardwareTierId"]
+                )
 
-            self._validate_hardware_tier_id(compute_cluster_properties["workerHardwareTierId"])
+            self._validate_hardware_tier_id(
+                compute_cluster_properties["workerHardwareTierId"]
+            )
 
         def validate_is_external_volume_mounts_supported():
             if not helpers.is_external_volume_mounts_supported(self._version):
@@ -588,8 +706,10 @@ class Domino:
                 "masterHardwareTierId": master_hardware_tier_id,
             }
 
-        resolved_hardware_tier_id = (
-            hardware_tier_id or self.get_hardware_tier_id_from_name(hardware_tier_name)
+        resolved_hardware_tier_id = hardware_tier_id or (
+            self.get_hardware_tier_id_from_name(hardware_tier_name)
+            if hardware_tier_name
+            else None
         )
         url = self._routes.job_start()
         payload = {
@@ -611,6 +731,7 @@ class Domino:
             self._logger.info(
                 f" You need to log in to the Domino UI to start the job. Please do it at {self._routes.host}/relogin?redirectPath=/"
             )
+            raise
 
     def job_stop(self, job_id: str, commit_results: bool = True):
         """
@@ -627,15 +748,17 @@ class Domino:
         response = self.request_manager.post(url, json=request)
         return response
 
-    def jobs_list(self,
-                  project_id: str,
-                  order_by: str = "number",
-                  sort_by: str = "desc",
-                  page_size: Optional[int] = None,
-                  page_no: int = 1,
-                  show_archived: str = "false",
-                  status: str = "all",
-                  tag: Optional[str] = None):
+    def jobs_list(
+        self,
+        project_id: str,
+        order_by: str = "number",
+        sort_by: str = "desc",
+        page_size: Optional[int] = None,
+        page_no: int = 1,
+        show_archived: str = "false",
+        status: str = "all",
+        tag: Optional[str] = None,
+    ):
         """
         Lists job history for a given project_id
         :param project_id: The project to query
@@ -648,9 +771,17 @@ class Domino:
         :param tag: Optional tag filter
         :return: The details
         """
-        url = self._routes.jobs_list(project_id, order_by, sort_by, page_size, page_no, show_archived, status, tag)
+        url = self._routes.jobs_list(
+            project_id,
+            order_by,
+            sort_by,
+            page_size,
+            page_no,
+            show_archived,
+            status,
+            tag,
+        )
         return self._get(url)
-
 
     def job_status(self, job_id: str) -> dict:
         """
@@ -660,11 +791,7 @@ class Domino:
         """
         return self.request_manager.get(self._routes.job_status(job_id)).json()
 
-    def job_restart(
-            self,
-            job_id:str,
-            should_use_original_input_commit: bool = True
-        ):
+    def job_restart(self, job_id: str, should_use_original_input_commit: bool = True):
         """
         Restarts a previous job
         :param job_id:                              ID of the original job that should be restarted
@@ -673,7 +800,7 @@ class Domino:
         url = self._routes.job_restart()
         request = {
             "jobId": job_id,
-            "shouldUseOriginalInputCommit": should_use_original_input_commit
+            "shouldUseOriginalInputCommit": should_use_original_input_commit,
         }
         response = self.request_manager.post(url, json=request)
         return response
@@ -726,12 +853,15 @@ class Domino:
             step=poll_freq,
             log_error=self.log.level,
         )
-        stdout_msg = self.get_run_log(runId=job_id, includeSetupLog=False)
+        stdout_msg = self.get_run_log(run_id=job_id, include_setup_log=False)
         self.process_log(stdout_msg)
         return job_status
 
-    def files_list(self, commitId, path="/"):
-        url = self._routes.files_list(commitId, path)
+    def files_list(self, commit_id=_UNSET, path="/", **kwargs):
+        commit_id = _resolve_renamed_kwarg(
+            commit_id, "commitId", "commit_id", kwargs, None
+        )
+        url = self._routes.files_list(commit_id, path)
         return self._get(url)
 
     def files_upload(self, path, file):
@@ -746,8 +876,10 @@ class Domino:
         :param key: blob key
         :return: blob content
         """
-        message = "blobs_get is deprecated and will soon be removed. Please migrate to blobs_get_v2 and adjust the " \
-                  "input parameters accordingly "
+        message = (
+            "blobs_get is deprecated and will soon be removed. Please migrate to blobs_get_v2 and adjust the "
+            "input parameters accordingly "
+        )
         warnings.warn(message, DeprecationWarning)
         self._validate_blob_key(key)
         url = self._routes.blobs_get(key)
@@ -757,6 +889,24 @@ class Domino:
         self._validate_blob_path(path)
         url = self._routes.blobs_get_v2(path, commit_id, project_id)
         return self.request_manager.get_raw(url)
+
+    def files_download(self, path: str, commit_id: Optional[str] = None):
+        """
+        Download a file from the project by path.
+
+        :param path: Path to the file within the project (e.g. "/README.md").
+        :param commit_id: The commit to download from. Defaults to the latest commit.
+        :return: Raw file content (urllib3 response stream).
+        """
+        if commit_id is None:
+            commits = self.commits_list()
+            if not commits:
+                raise ValueError(
+                    "Project has no commits; cannot resolve latest commit. "
+                    "Pass commit_id explicitly."
+                )
+            commit_id = commits[0]["id"]
+        return self.blobs_get_v2(path, commit_id, self.project_id)
 
     def fork_project(self, target_name):
         url = self._routes.fork_project(self.project_id)
@@ -773,11 +923,14 @@ class Domino:
         response = self.request_manager.delete(url)
         return response
 
-    def endpoint_publish(self, file, function, commitId):
+    def endpoint_publish(self, file, function, commit_id=_UNSET, **kwargs):
+        commit_id = _resolve_renamed_kwarg(
+            commit_id, "commitId", "commit_id", kwargs, None
+        )
         url = self._routes.endpoint_publish()
 
         request = {
-            "commitId": commitId,
+            "commitId": commit_id,
             "bindingDefinition": {"file": file, "function": function},
         }
 
@@ -800,12 +953,17 @@ class Domino:
         visibility: Optional[ProjectVisibility] = ProjectVisibility.PUBLIC,
     ):
         owner = (
-            owner_id if owner_id else self.get_user_id(owner_username) if owner_username
-            else self.get_user_id(self._owner_username)
+            owner_id
+            if owner_id
+            else (
+                self.get_user_id(owner_username)
+                if owner_username
+                else self.get_user_id(self._owner_username)
+            )
         )
         data = {
             "name": project_name,
-            "visibility": visibility.value,
+            "visibility": visibility.value if visibility else None,
             "ownerId": owner,
             "description": description,
             "collaborators": collaborators if collaborators is not None else [],
@@ -817,7 +975,9 @@ class Domino:
 
         url = self._routes.project_v4()
         payload = json.dumps(data)
-        response = self.request_manager.post(url, data=payload, headers={'Content-Type': 'application/json'})
+        response = self.request_manager.post(
+            url, data=payload, headers={"Content-Type": "application/json"}
+        )
         return response.json()
 
     def project_create(self, project_name, owner_username=None):
@@ -942,43 +1102,105 @@ class Domino:
         return response
 
     # App functions
-    def app_publish(self, unpublishRunningApps=True, hardwareTierId=None, environmentId=None, externalVolumeMountIds=None):
-        if unpublishRunningApps:
-            self.app_unpublish()
-        app_id = self._app_id
+    def app_publish(
+        self,
+        unpublish_running_apps=_UNSET,
+        hardware_tier_id=_UNSET,
+        environment_id=_UNSET,
+        external_volume_mount_ids=_UNSET,
+        commit_id=_UNSET,
+        branch=None,
+        app_id=_UNSET,
+        **kwargs,
+    ):
+        unpublish_running_apps = _resolve_renamed_kwarg(
+            unpublish_running_apps,
+            "unpublishRunningApps",
+            "unpublish_running_apps",
+            kwargs,
+            True,
+        )
+        hardware_tier_id = _resolve_renamed_kwarg(
+            hardware_tier_id,
+            "hardwareTierId",
+            "hardware_tier_id",
+            kwargs,
+            None,
+        )
+        environment_id = _resolve_renamed_kwarg(
+            environment_id,
+            "environmentId",
+            "environment_id",
+            kwargs,
+            None,
+        )
+        external_volume_mount_ids = _resolve_renamed_kwarg(
+            external_volume_mount_ids,
+            "externalVolumeMountIds",
+            "external_volume_mount_ids",
+            kwargs,
+            None,
+        )
+        commit_id = _resolve_renamed_kwarg(
+            commit_id, "commitId", "commit_id", kwargs, None
+        )
+        app_id = _resolve_renamed_kwarg(app_id, "appId", "app_id", kwargs, None)
+
+        if commit_id and branch:
+            raise ValueError(
+                "Only one of commit_id or branch may be specified, not both."
+            )
+        app_id = app_id or self.app_id
+        if unpublish_running_apps:
+            self.app_unpublish(app_id)
         if app_id is None:
             # No App Exists creating one
-            app_id = self.__app_create(hardware_tier_id=hardwareTierId)
+            app_id = self.__app_create(hardware_tier_id=hardware_tier_id)
         url = self._routes.app_start(app_id)
+        if commit_id:
+            main_repo_git_ref = {"type": "commitId", "value": commit_id}
+        elif branch:
+            main_repo_git_ref = {"type": "branches", "value": branch}
+        else:
+            main_repo_git_ref = None
         request = {
-            "hardwareTierId": hardwareTierId,
-            "environmentId": environmentId,
-            "externalVolumeMountIds": externalVolumeMountIds
+            "hardwareTierId": hardware_tier_id,
+            "environmentId": environment_id,
+            "externalVolumeMountIds": external_volume_mount_ids,
+            "mainRepoGitRef": main_repo_git_ref,
         }
-        omitting_null = {k: v for (k, v) in payload.items() if v is not None}
+        omitting_null = {k: v for (k, v) in request.items() if v is not None}
         response = self.request_manager.post(url, json=omitting_null)
         return response
 
-    def app_unpublish(self):
-        app_id = self._app_id
+    def app_unpublish(self, app_id=_UNSET, **kwargs):
+        app_id = _resolve_renamed_kwarg(app_id, "appId", "app_id", kwargs, None)
+        app_id = app_id or self.app_id
         if app_id is None:
             return
-        status = self.__app_get_status(app_id)
+        status = self.app_get_status(app_id)
         self.log.debug(f"App {app_id} status={status}")
         if status and status != "Stopped" and status != "Failed":
             url = self._routes.app_stop(app_id)
             response = self.request_manager.post(url)
             return response
 
-    def __app_get_status(self, id) -> Optional[str]:
-        app_id = self._app_id
+    def app_get_status(self, app_id: str) -> Optional[str]:
+        """
+        Return the current status of an app, or None if the app does not exist.
+
+        :param app_id: The ID of the app to query.
+        :return: Status string (e.g. "Running", "Stopped", "Failed") or None.
+        """
         if app_id is None:
             return None
         url = self._routes.app_get(app_id)
         response = self.request_manager.get(url).json()
         return response.get("status", None)
 
-    def __app_create(self, name: str = "", hardware_tier_id: str = None) -> str:
+    def __app_create(
+        self, name: str = "", hardware_tier_id: Optional[str] = None
+    ) -> str:
         """
         Private method to create app
 
@@ -1037,32 +1259,31 @@ class Domino:
         url = self._routes.environment_get(environment_id)
         self.request_manager.delete(url)
 
-
     def create_environment(
-            self,
-            name: str,
-            visibility: str,
-            dockerfile_instructions: str = "",
-            environment_variables: Optional[List[Dict[str, Any]]] = None,
-            base_image: str = "",
-            post_run_script: str = "",
-            post_setup_script: str = "",
-            pre_run_script: str = "",
-            pre_setup_script: str = "",
-            skip_cache: bool = False,
-            summary: str = "",
-            supported_clusters: Optional[List[str]] = None,
-            tags: Optional[List[str]] = None,
-            use_vpn: bool = False,
-            workspace_tools: Optional[List[Dict[str, Any]]] = None,
-            add_base_dependencies: bool = True,
-            description: str = "",
-            is_restricted: bool = False,
-            organization_owner_id: Optional[str] = None,
+        self,
+        name: str,
+        visibility: str,
+        dockerfile_instructions: str = "",
+        environment_variables: Optional[List[Dict[str, Any]]] = None,
+        base_image: str = "",
+        post_run_script: str = "",
+        post_setup_script: str = "",
+        pre_run_script: str = "",
+        pre_setup_script: str = "",
+        skip_cache: bool = False,
+        summary: str = "",
+        supported_clusters: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        use_vpn: bool = False,
+        workspace_tools: Optional[List[Dict[str, Any]]] = None,
+        add_base_dependencies: bool = True,
+        description: str = "",
+        is_restricted: bool = False,
+        organization_owner_id: Optional[str] = None,
     ) -> dict:
         """
         Create a new Domino compute environment.
-        
+
         Args:
             name: Name of the compute environment
             visibility: Visibility level ("Private" or "Global")
@@ -1083,7 +1304,7 @@ class Domino:
             description: Detailed description
             is_restricted: Whether the environment is restricted
             organization_owner_id: ID of an organization that will own the environment
-            
+
         Returns:
             dict: Created environment details
         """
@@ -1120,40 +1341,39 @@ class Domino:
             "description": description,
             "isRestricted": is_restricted,
             "name": name,
-            "visibility": visibility
+            "visibility": visibility,
         }
 
         if organization_owner_id:
-            data.update({
-                "orgOwnerId": organization_owner_id
-            })
+            data.update({"orgOwnerId": organization_owner_id})
 
         url = self._routes.environment_create()
         payload = json.dumps(data)
-        response = self.request_manager.post(url, data=payload, headers={"Content-Type": "application/json"})
+        response = self.request_manager.post(
+            url, data=payload, headers={"Content-Type": "application/json"}
+        )
         return response.json()
 
-
     def create_environment_revision(
-            self,
-            environment_id: str,
-            dockerfile_instructions: str = "",
-            environment_variables: Optional[List[Dict[str, Any]]] = None,
-            base_image: Optional[str] = None,
-            post_run_script: str = "",
-            post_setup_script: str = "",
-            pre_run_script: str = "",
-            pre_setup_script: str = "",
-            skip_cache: bool = False,
-            summary: str = "",
-            supported_clusters: Optional[List[str]] = None,
-            tags: Optional[List[str]] = None,
-            use_vpn: bool = False,
-            workspace_tools: Optional[List[Dict[str, Any]]] = None,
-        ) -> dict:
+        self,
+        environment_id: str,
+        dockerfile_instructions: str = "",
+        environment_variables: Optional[List[Dict[str, Any]]] = None,
+        base_image: Optional[str] = None,
+        post_run_script: str = "",
+        post_setup_script: str = "",
+        pre_run_script: str = "",
+        pre_setup_script: str = "",
+        skip_cache: bool = False,
+        summary: str = "",
+        supported_clusters: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        use_vpn: bool = False,
+        workspace_tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> dict:
         """
         Create a new revision of an existing Domino environment.
-        
+
         Args:
             environment_id: ID of the environment for which to create a revision
             dockerfile_instructions: Dockerfile instructions to customize the environment
@@ -1169,7 +1389,7 @@ class Domino:
             tags: List of tags for the environment
             use_vpn: Whether to use VPN for this environment
             workspace_tools: List of workspace tools configuration
-            
+
         Returns:
             dict: Response content from the API
         """
@@ -1201,34 +1421,33 @@ class Domino:
             "supportedClusters": supported_clusters,
             "tags": tags,
             "useVpn": use_vpn,
-            "workspaceTools": workspace_tools
+            "workspaceTools": workspace_tools,
         }
 
-        url=self._routes.revision_create(environment_id)
-        payload=json.dumps(data)
-        response = self.request_manager.post(url, data=payload, headers={"Content-Type": "application/json"})
+        url = self._routes.revision_create(environment_id)
+        payload = json.dumps(data)
+        response = self.request_manager.post(
+            url, data=payload, headers={"Content-Type": "application/json"}
+        )
         return response.json()
 
-
     def restrict_environment_revision(
-            self,
-            environment_id: str,
-            revision_id: str
-       ) -> None:
+        self, environment_id: str, revision_id: str
+    ) -> None:
         """
         Restrict an environment revision.
         """
 
-        data = {
-            "isRestricted": True
-        }
+        data = {"isRestricted": True}
 
-        url=self._routes.revision_patch(environment_id, revision_id)
-        payload=json.dumps(data)
-        self.request_manager.patch(url, data=payload, headers={"Content-Type": "application/json"})
-
+        url = self._routes.revision_patch(environment_id, revision_id)
+        payload = json.dumps(data)
+        self.request_manager.patch(
+            url, data=payload, headers={"Content-Type": "application/json"}
+        )
 
     # Model Manager functions
+
     def models_list(self):
         url = self._routes.models_list()
         return self._get(url)
@@ -1332,7 +1551,7 @@ class Domino:
         return self._get(url)
 
     def _dataset_remove(self, dataset_id):
-        if dataset_id in self.datasets_ids(self.project_id):
+        if dataset_id not in self.datasets_ids(self.project_id):
             raise exceptions.DatasetNotFoundException(
                 f"Dataset with id {dataset_id} does not exist"
             )
@@ -1340,19 +1559,17 @@ class Domino:
         response = self.request_manager.delete(url)
         return response
 
-    def datasets_remove(self, dataset_ids: list):
-        for dataset_id in dataset_ids:
-            url = self._routes.datasets_details(dataset_id)
-            self.request_manager.delete(url)
+    def datasets_remove(self, dataset_ids: list) -> list:
+        return [self._dataset_remove(dataset_id) for dataset_id in dataset_ids]
 
     def datasets_upload_files(
         self,
         dataset_id: str,
         local_path_to_file_or_directory: str,
-        file_upload_setting: str = None,
-        max_workers: int = None,
-        target_chunk_size: int = None,
-        target_relative_path: str = None
+        file_upload_setting: Optional[str] = None,
+        max_workers: Optional[int] = None,
+        target_chunk_size: Optional[int] = None,
+        target_relative_path: Optional[str] = None,
     ) -> str:
         """Upload file to dataset with multithreaded support.
 
@@ -1374,15 +1591,21 @@ class Domino:
         if file_upload_setting is None or file_upload_setting == "Ignore":
             text = "Ignore setting selected - any file with naming conflict will not be uploaded."
         elif file_upload_setting == "Overwrite":
-            text = "Overwrite setting selected - note that any existing file with naming conflict " \
-                   "will be overridden."
+            text = (
+                "Overwrite setting selected - note that any existing file with naming conflict "
+                "will be overridden."
+            )
         elif file_upload_setting == "Rename":
-            text = "Rename setting selected - note that naming conflicts will be resolved by appending " \
-                   "an increasing integer at the end of the uploaded files. In case of a directory with " \
-                   "numerous conflicts, this will cause severe file proliferation."
+            text = (
+                "Rename setting selected - note that naming conflicts will be resolved by appending "
+                "an increasing integer at the end of the uploaded files. In case of a directory with "
+                "numerous conflicts, this will cause severe file proliferation."
+            )
         else:
-            raise ValueError(f"input file_upload_setting {file_upload_setting} not allowed. Please use "
-                             f"`Overwrite`, `Rename`, or `Ignore` only.")
+            raise ValueError(
+                f"input file_upload_setting {file_upload_setting} not allowed. Please use "
+                f"`Overwrite`, `Rename`, or `Ignore` only."
+            )
         self.log.warning(text)
 
         with datasets.Uploader(
@@ -1392,15 +1615,16 @@ class Domino:
             log=self.log,
             request_manager=self.request_manager,
             routes=self._routes,
-
             file_upload_setting=file_upload_setting,
             max_workers=max_workers,
             target_chunk_size=target_chunk_size,
-            target_relative_path=target_relative_path
+            target_relative_path=target_relative_path,
         ) as uploader:
             path = uploader.upload()
-            self.log.info(f"Uploading chunks for file or directory `{path}` to dataset {dataset_id} completed. "
-                          f"Now attempting to end upload session.")
+            self.log.info(
+                f"Uploading chunks for file or directory `{path}` to dataset {dataset_id} completed. "
+                f"Now attempting to end upload session."
+            )
             return path
 
     def model_version_export(
@@ -1500,7 +1724,9 @@ class Domino:
         url = self._routes.budgets_default()
         return self.request_manager.get(url).json()
 
-    def budget_defaults_update(self, budget_label: BudgetLabel, budget_limit: float) -> dict:
+    def budget_defaults_update(
+        self, budget_label: BudgetLabel, budget_limit: float
+    ) -> dict:
         """
         Update default budgets limits (or quota) by BudgetLabel
         Requires Admin permission
@@ -1511,10 +1737,16 @@ class Domino:
         :return: Returns the updated budget with the newly assigned limit.
         """
         url = self._routes.budgets_default(budget_label.value)
-        updated_budget = {"budgetLabel": budget_label.value, "budgetType": "Default", "limit": budget_limit,
-                          "window": "monthly"}
+        updated_budget = {
+            "budgetLabel": budget_label.value,
+            "budgetType": "Default",
+            "limit": budget_limit,
+            "window": "monthly",
+        }
         data = json.dumps(updated_budget)
-        return self.request_manager.put(url, data=data, headers={"Content-Type": "application/json"}).json()
+        return self.request_manager.put(
+            url, data=data, headers={"Content-Type": "application/json"}
+        ).json()
 
     def budget_overrides_list(self):
         """
@@ -1526,7 +1758,9 @@ class Domino:
         url = self._routes.budget_overrides()
         return self.request_manager.get(url).json()
 
-    def budget_override_create(self, budget_label: BudgetLabel, budget_id: str, budget_limit: float) -> dict:
+    def budget_override_create(
+        self, budget_label: BudgetLabel, budget_id: str, budget_limit: float
+    ) -> dict:
         """
         Create Budget overrides based on BudgetLabels, ie BillingTags, Organization, or Projects
         the object id is used as budget ids
@@ -1541,9 +1775,13 @@ class Domino:
         url = self._routes.budget_overrides()
         new_budget: dict = self._generate_budget(budget_label, budget_id, budget_limit)
         data = json.dumps(new_budget)
-        return self.request_manager.post(url, data=data, headers={"Content-Type": "application/json"}).json()
+        return self.request_manager.post(
+            url, data=data, headers={"Content-Type": "application/json"}
+        ).json()
 
-    def budget_override_update(self, budget_label: BudgetLabel, budget_id: str, budget_limit: float) -> dict:
+    def budget_override_update(
+        self, budget_label: BudgetLabel, budget_id: str, budget_limit: float
+    ) -> dict:
         """
         Update Budget overrides based on BudgetLabel and budget id
         Requires Admin roles
@@ -1557,7 +1795,9 @@ class Domino:
         url = self._routes.budget_overrides(budget_id)
         new_budget: dict = self._generate_budget(budget_label, budget_id, budget_limit)
         data = json.dumps(new_budget)
-        return self.request_manager.put(url, data=data, headers={"Content-Type": "application/json"}).json()
+        return self.request_manager.put(
+            url, data=data, headers={"Content-Type": "application/json"}
+        ).json()
 
     def budget_override_delete(self, budget_id: str) -> list:
         """
@@ -1584,7 +1824,7 @@ class Domino:
     def budget_alerts_settings_update(
         self,
         alerts_enabled: Optional[bool] = None,
-        notify_org_owner: Optional[bool] = None
+        notify_org_owner: Optional[bool] = None,
     ) -> dict:
         """
         Update the current budget alerts settings to enable/disable budget notifications
@@ -1600,7 +1840,7 @@ class Domino:
 
         optional_fields = {
             "alertsEnabled": alerts_enabled,
-            "notifyOrgOwner": notify_org_owner
+            "notifyOrgOwner": notify_org_owner,
         }
 
         updated_settings = self._update_if_set(current_settings, optional_fields)
@@ -1627,7 +1867,9 @@ class Domino:
 
         for target in current_targets:
             if target["label"] in targets:
-                updated_targets.append({"label": target["label"], "emails": targets[target["label"]]})
+                updated_targets.append(
+                    {"label": target["label"], "emails": targets[target["label"]]}
+                )
             else:
                 updated_targets.append(target)
 
@@ -1660,7 +1902,9 @@ class Domino:
         self.requires_at_least("5.11.0")
         url = self._routes.billing_tags()
         payload = json.dumps({"billingTags": tags_list})
-        return self.request_manager.post(url, data=payload, headers={"Content-Type": "application/json"}).json()
+        return self.request_manager.post(
+            url, data=payload, headers={"Content-Type": "application/json"}
+        ).json()
 
     def active_billing_tag_by_name(self, name: str) -> dict:
         """
@@ -1706,7 +1950,9 @@ class Domino:
         url = self._routes.billing_tags_settings(mode_only=True)
         return self.request_manager.get(url).json()
 
-    def billing_tag_settings_mode_update(self, mode: BillingTagSettingMode) -> dict[str, BillingTagSettingMode]:
+    def billing_tag_settings_mode_update(
+        self, mode: BillingTagSettingMode
+    ) -> dict[str, BillingTagSettingMode]:
         """
         Update the current billing tag settings mode
         Requires Admin permission
@@ -1717,7 +1963,9 @@ class Domino:
         """
         url = self._routes.billing_tags_settings(mode_only=True)
         payload = json.dumps({"mode": mode.value})
-        return self.request_manager.put(url, data=payload, headers={"Content-Type": "application/json"}).json()
+        return self.request_manager.put(
+            url, data=payload, headers={"Content-Type": "application/json"}
+        ).json()
 
     def project_billing_tag(self, project_id: Optional[str] = None) -> Optional[dict]:
         """
@@ -1728,10 +1976,14 @@ class Domino:
 
         :return: Returns the billing tag if assigned or None
         """
-        url = self._routes.project_billing_tag(project_id if project_id else self.project_id)
+        url = self._routes.project_billing_tag(
+            project_id if project_id else self.project_id
+        )
         return self.request_manager.get(url).json()
 
-    def project_billing_tag_update(self, billing_tag: str, project_id: Optional[str] = None) -> dict:
+    def project_billing_tag_update(
+        self, billing_tag: str, project_id: Optional[str] = None
+    ) -> dict:
         """
         Update project's billing tag with new billing tag.
         Requires Admin permission
@@ -1741,10 +1993,10 @@ class Domino:
 
         :return: Returns the project details including the new billing tag
         """
-        url = self._routes.project_billing_tag(project_id if project_id else self.project_id)
-        data = {
-            "tag": billing_tag
-        }
+        url = self._routes.project_billing_tag(
+            project_id if project_id else self.project_id
+        )
+        data = {"tag": billing_tag}
         return self.request_manager.post(url, data=json.dumps(data)).json()
 
     def project_billing_tag_reset(self, project_id: Optional[str] = None) -> dict:
@@ -1756,7 +2008,9 @@ class Domino:
 
         :return: Returns the project details
         """
-        url = self._routes.project_billing_tag(project_id if project_id else self.project_id)
+        url = self._routes.project_billing_tag(
+            project_id if project_id else self.project_id
+        )
         return self.request_manager.delete(url).json()
 
     def projects_by_billing_tag(
@@ -1789,7 +2043,7 @@ class Domino:
         parameters = {
             "offset": offset,
             "pageSize": page_size,
-            "missingBillingTagOnly": str(missing_tag_only).lower()
+            "missingBillingTagOnly": str(missing_tag_only).lower(),
         }
 
         optional_params = {
@@ -1816,18 +2070,9 @@ class Domino:
         """
         value_list = []
         for key, value in projects_tag.items():
-            value_list.append(
-                {
-                    "projectId": key,
-                    "billingTag": {
-                        "tag": value
-                    }
-                }
-            )
+            value_list.append({"projectId": key, "billingTag": {"tag": value}})
 
-        data = {
-            "projectsBillingTags": value_list
-        }
+        data = {"projectsBillingTags": value_list}
 
         url = self._routes.projects_billing_tags()
         return self.request_manager.post(url, data=json.dumps(data)).json()
@@ -1860,7 +2105,13 @@ class Domino:
             f"{environment_id} environment not found"
         )
 
-    def _validate_hardware_tier_id(self, hardware_tier_id: str) -> bool:
+    def _validate_hardware_tier_id(self, hardware_tier_id: Union[str, Dict]) -> bool:
+        if isinstance(hardware_tier_id, dict):
+            if "value" not in hardware_tier_id:
+                raise ValueError(
+                    f"hardware_tier_id dict missing 'value' key: {hardware_tier_id}"
+                )
+            hardware_tier_id = hardware_tier_id["value"]
         self.log.debug(f"Validating hardware tier id: {hardware_tier_id}")
         for hardware_tier in self.hardware_tiers_list():
             if hardware_tier_id == hardware_tier["hardwareTier"]["id"]:
@@ -1928,10 +2179,7 @@ class Domino:
         normalized_path = os.path.normpath(path)
         if path != normalized_path:
             raise exceptions.MalformedInputException(
-                (
-                    "Path should be normalized and cannot contain "
-                    "'..' or '../'. "
-                )
+                ("Path should be normalized and cannot contain " "'..' or '../'. ")
             )
 
     @staticmethod
@@ -1950,13 +2198,15 @@ class Domino:
             )
 
     @staticmethod
-    def _generate_budget(budget_label: BudgetLabel, budget_id: str, budget_limit: float) -> dict:
+    def _generate_budget(
+        budget_label: BudgetLabel, budget_id: str, budget_limit: float
+    ) -> dict:
         return {
             "limit": budget_limit,
             "labelId": budget_id,
             "window": "monthly",
             "budgetLabel": budget_label.value,
-            "budgetType": BudgetType.OVERRIDE.value
+            "budgetType": BudgetType.OVERRIDE.value,
         }
 
     @staticmethod
@@ -1982,21 +2232,28 @@ class Domino:
         response = self._get(url)
         if key in response.keys():
             return response[key]
+        raise exceptions.ProjectNotFoundException(
+            f"Project '{self._project_name}' not found for owner '{self._owner_username}'"
+        )
 
-    # This will fetch app_id of app in current project
     @property
-    def _app_id(self):
+    def app_id(self) -> Optional[str]:
+        """Return the ID of the first app in the current project, or None if no app exists."""
         url = self._routes.app_list(self.project_id)
         response = self._get(url)
         if len(response) != 0:
             app = response[0]
         else:
             return None
-        key = "id"
-        if key in app.keys():
-            app_id = app[key]
-        else:
-            app_id = None
-        return app_id
+        return app.get("id", None)
+
+    @property
+    def _app_id(self) -> Optional[str]:
+        warnings.warn(
+            "_app_id is deprecated, use app_id",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.app_id
 
     _csrf_no_check_header = {"Csrf-Token": "nocheck"}

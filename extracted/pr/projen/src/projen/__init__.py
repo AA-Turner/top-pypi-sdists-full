@@ -9153,6 +9153,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         cwd: typing.Optional[builtins.str] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
+        output_env: typing.Optional[builtins.str] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         shell: typing.Optional["TaskShell"] = None,
     ) -> None:
@@ -9164,6 +9165,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :param cwd: (experimental) The working directory for this step. Default: - determined by the task
         :param env: (experimental) Defines environment variables for the execution of this step (``exec`` and ``builtin`` only). Values in this map can be simple, literal values or shell expressions that will be evaluated at runtime e.g. ``$(echo "foo")``. Default: - no environment variables defined in step
         :param name: (experimental) Step name. Default: - no name
+        :param output_env: (experimental) Capture this step's (trimmed) stdout into an environment variable of this name, visible to all later steps of the task run. For ``spawn`` steps the spawned subtask's combined stdout is captured. Set only when the step runs (a skipped step leaves it unset) and always overwrites. The step's output still streams live. Default: - stdout is not captured
         :param receive_args: (experimental) Should this step receive args passed to the task. If ``true``, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the marker is explicitly double-quoted ("$@") arguments will be wrapped in double quotes, approximating the whitespace preserving behavior of bash variable expansion. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. Default: false
         :param shell: (experimental) The shell used to run this step, overriding the task/project shell. Default: - the task's (or project's) shell
 
@@ -9178,6 +9180,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
             cwd=cwd,
             env=env,
             name=name,
+            output_env=output_env,
             receive_args=receive_args,
             shell=shell,
         )
@@ -9194,6 +9197,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         cwd: typing.Optional[builtins.str] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
+        output_env: typing.Optional[builtins.str] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         shell: typing.Optional["TaskShell"] = None,
     ) -> None:
@@ -9210,6 +9214,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :param cwd: (experimental) The working directory for this step. Default: - determined by the task
         :param env: (experimental) Defines environment variables for the execution of this step (``exec`` and ``builtin`` only). Values in this map can be simple, literal values or shell expressions that will be evaluated at runtime e.g. ``$(echo "foo")``. Default: - no environment variables defined in step
         :param name: (experimental) Step name. Default: - no name
+        :param output_env: (experimental) Capture this step's (trimmed) stdout into an environment variable of this name, visible to all later steps of the task run. For ``spawn`` steps the spawned subtask's combined stdout is captured. Set only when the step runs (a skipped step leaves it unset) and always overwrites. The step's output still streams live. Default: - stdout is not captured
         :param receive_args: (experimental) Should this step receive args passed to the task. If ``true``, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the marker is explicitly double-quoted ("$@") arguments will be wrapped in double quotes, approximating the whitespace preserving behavior of bash variable expansion. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. Default: false
         :param shell: (experimental) The shell used to run this step, overriding the task/project shell. Default: - the task's (or project's) shell
 
@@ -9228,6 +9233,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
             cwd=cwd,
             env=env,
             name=name,
+            output_env=output_env,
             receive_args=receive_args,
             shell=shell,
         )
@@ -9267,6 +9273,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         cwd: typing.Optional[builtins.str] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
+        output_env: typing.Optional[builtins.str] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         shell: typing.Optional["TaskShell"] = None,
     ) -> None:
@@ -9278,6 +9285,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :param cwd: (experimental) The working directory for this step. Default: - determined by the task
         :param env: (experimental) Defines environment variables for the execution of this step (``exec`` and ``builtin`` only). Values in this map can be simple, literal values or shell expressions that will be evaluated at runtime e.g. ``$(echo "foo")``. Default: - no environment variables defined in step
         :param name: (experimental) Step name. Default: - no name
+        :param output_env: (experimental) Capture this step's (trimmed) stdout into an environment variable of this name, visible to all later steps of the task run. For ``spawn`` steps the spawned subtask's combined stdout is captured. Set only when the step runs (a skipped step leaves it unset) and always overwrites. The step's output still streams live. Default: - stdout is not captured
         :param receive_args: (experimental) Should this step receive args passed to the task. If ``true``, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the marker is explicitly double-quoted ("$@") arguments will be wrapped in double quotes, approximating the whitespace preserving behavior of bash variable expansion. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. Default: false
         :param shell: (experimental) The shell used to run this step, overriding the task/project shell. Default: - the task's (or project's) shell
 
@@ -9292,6 +9300,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
             cwd=cwd,
             env=env,
             name=name,
+            output_env=output_env,
             receive_args=receive_args,
             shell=shell,
         )
@@ -9308,6 +9317,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         cwd: typing.Optional[builtins.str] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
+        output_env: typing.Optional[builtins.str] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         shell: typing.Optional["TaskShell"] = None,
     ) -> None:
@@ -9319,6 +9329,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :param cwd: (experimental) The working directory for this step. Default: - determined by the task
         :param env: (experimental) Defines environment variables for the execution of this step (``exec`` and ``builtin`` only). Values in this map can be simple, literal values or shell expressions that will be evaluated at runtime e.g. ``$(echo "foo")``. Default: - no environment variables defined in step
         :param name: (experimental) Step name. Default: - no name
+        :param output_env: (experimental) Capture this step's (trimmed) stdout into an environment variable of this name, visible to all later steps of the task run. For ``spawn`` steps the spawned subtask's combined stdout is captured. Set only when the step runs (a skipped step leaves it unset) and always overwrites. The step's output still streams live. Default: - stdout is not captured
         :param receive_args: (experimental) Should this step receive args passed to the task. If ``true``, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the marker is explicitly double-quoted ("$@") arguments will be wrapped in double quotes, approximating the whitespace preserving behavior of bash variable expansion. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. Default: false
         :param shell: (experimental) The shell used to run this step, overriding the task/project shell. Default: - the task's (or project's) shell
 
@@ -9333,6 +9344,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
             cwd=cwd,
             env=env,
             name=name,
+            output_env=output_env,
             receive_args=receive_args,
             shell=shell,
         )
@@ -9349,6 +9361,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         cwd: typing.Optional[builtins.str] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
+        output_env: typing.Optional[builtins.str] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         shell: typing.Optional["TaskShell"] = None,
     ) -> None:
@@ -9360,6 +9373,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :param cwd: (experimental) The working directory for this step. Default: - determined by the task
         :param env: (experimental) Defines environment variables for the execution of this step (``exec`` and ``builtin`` only). Values in this map can be simple, literal values or shell expressions that will be evaluated at runtime e.g. ``$(echo "foo")``. Default: - no environment variables defined in step
         :param name: (experimental) Step name. Default: - no name
+        :param output_env: (experimental) Capture this step's (trimmed) stdout into an environment variable of this name, visible to all later steps of the task run. For ``spawn`` steps the spawned subtask's combined stdout is captured. Set only when the step runs (a skipped step leaves it unset) and always overwrites. The step's output still streams live. Default: - stdout is not captured
         :param receive_args: (experimental) Should this step receive args passed to the task. If ``true``, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the marker is explicitly double-quoted ("$@") arguments will be wrapped in double quotes, approximating the whitespace preserving behavior of bash variable expansion. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. Default: false
         :param shell: (experimental) The shell used to run this step, overriding the task/project shell. Default: - the task's (or project's) shell
 
@@ -9374,6 +9388,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
             cwd=cwd,
             env=env,
             name=name,
+            output_env=output_env,
             receive_args=receive_args,
             shell=shell,
         )
@@ -9415,6 +9430,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         cwd: typing.Optional[builtins.str] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
+        output_env: typing.Optional[builtins.str] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         shell: typing.Optional["TaskShell"] = None,
     ) -> None:
@@ -9426,6 +9442,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :param cwd: (experimental) The working directory for this step. Default: - determined by the task
         :param env: (experimental) Defines environment variables for the execution of this step (``exec`` and ``builtin`` only). Values in this map can be simple, literal values or shell expressions that will be evaluated at runtime e.g. ``$(echo "foo")``. Default: - no environment variables defined in step
         :param name: (experimental) Step name. Default: - no name
+        :param output_env: (experimental) Capture this step's (trimmed) stdout into an environment variable of this name, visible to all later steps of the task run. For ``spawn`` steps the spawned subtask's combined stdout is captured. Set only when the step runs (a skipped step leaves it unset) and always overwrites. The step's output still streams live. Default: - stdout is not captured
         :param receive_args: (experimental) Should this step receive args passed to the task. If ``true``, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the marker is explicitly double-quoted ("$@") arguments will be wrapped in double quotes, approximating the whitespace preserving behavior of bash variable expansion. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. Default: false
         :param shell: (experimental) The shell used to run this step, overriding the task/project shell. Default: - the task's (or project's) shell
 
@@ -9440,6 +9457,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
             cwd=cwd,
             env=env,
             name=name,
+            output_env=output_env,
             receive_args=receive_args,
             shell=shell,
         )
@@ -9456,6 +9474,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         cwd: typing.Optional[builtins.str] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
+        output_env: typing.Optional[builtins.str] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         shell: typing.Optional["TaskShell"] = None,
     ) -> None:
@@ -9467,6 +9486,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :param cwd: (experimental) The working directory for this step. Default: - determined by the task
         :param env: (experimental) Defines environment variables for the execution of this step (``exec`` and ``builtin`` only). Values in this map can be simple, literal values or shell expressions that will be evaluated at runtime e.g. ``$(echo "foo")``. Default: - no environment variables defined in step
         :param name: (experimental) Step name. Default: - no name
+        :param output_env: (experimental) Capture this step's (trimmed) stdout into an environment variable of this name, visible to all later steps of the task run. For ``spawn`` steps the spawned subtask's combined stdout is captured. Set only when the step runs (a skipped step leaves it unset) and always overwrites. The step's output still streams live. Default: - stdout is not captured
         :param receive_args: (experimental) Should this step receive args passed to the task. If ``true``, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the marker is explicitly double-quoted ("$@") arguments will be wrapped in double quotes, approximating the whitespace preserving behavior of bash variable expansion. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. Default: false
         :param shell: (experimental) The shell used to run this step, overriding the task/project shell. Default: - the task's (or project's) shell
 
@@ -9481,6 +9501,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
             cwd=cwd,
             env=env,
             name=name,
+            output_env=output_env,
             receive_args=receive_args,
             shell=shell,
         )
@@ -9497,6 +9518,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         cwd: typing.Optional[builtins.str] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
+        output_env: typing.Optional[builtins.str] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         shell: typing.Optional["TaskShell"] = None,
     ) -> None:
@@ -9508,6 +9530,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :param cwd: (experimental) The working directory for this step. Default: - determined by the task
         :param env: (experimental) Defines environment variables for the execution of this step (``exec`` and ``builtin`` only). Values in this map can be simple, literal values or shell expressions that will be evaluated at runtime e.g. ``$(echo "foo")``. Default: - no environment variables defined in step
         :param name: (experimental) Step name. Default: - no name
+        :param output_env: (experimental) Capture this step's (trimmed) stdout into an environment variable of this name, visible to all later steps of the task run. For ``spawn`` steps the spawned subtask's combined stdout is captured. Set only when the step runs (a skipped step leaves it unset) and always overwrites. The step's output still streams live. Default: - stdout is not captured
         :param receive_args: (experimental) Should this step receive args passed to the task. If ``true``, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the marker is explicitly double-quoted ("$@") arguments will be wrapped in double quotes, approximating the whitespace preserving behavior of bash variable expansion. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. Default: false
         :param shell: (experimental) The shell used to run this step, overriding the task/project shell. Default: - the task's (or project's) shell
 
@@ -9522,6 +9545,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
             cwd=cwd,
             env=env,
             name=name,
+            output_env=output_env,
             receive_args=receive_args,
             shell=shell,
         )
@@ -9541,6 +9565,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         exec: typing.Optional[builtins.str] = None,
         exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
+        output_env: typing.Optional[builtins.str] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         say: typing.Optional[builtins.str] = None,
         shell: typing.Optional[typing.Union[builtins.str, typing.Sequence[builtins.str]]] = None,
@@ -9556,6 +9581,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :param exec: (experimental) Shell command to execute. The whole command is a single shell string. To pass arguments as a list instead - without having to quote spaces or other characters yourself - use ``execArgs``. Default: - don't execute a shell command
         :param exec_args: (experimental) Shell command to execute, provided as a list of the program followed by its arguments (an "argv"). Often more convenient than ``exec``: each element is passed to the program as-is, so arguments with spaces or special characters don't need quoting. Fixed (``args``) or received (``receiveArgs``) arguments are inserted wherever a ``$@`` element appears, or appended at the end if there is none. The elements are not run through a shell, so environment variables (``$FOO``) are not expanded and other shell features are unavailable. Use ``exec`` if you need them. Mutually exclusive with ``exec``. Default: - don't execute a shell command
         :param name: (experimental) Step name. Default: - no name
+        :param output_env: (experimental) Capture this step's standard output and expose it to later steps as an environment variable with this name. Default: - stdout is not captured
         :param receive_args: (experimental) Should this step receive args passed to the task. Default: false
         :param say: (experimental) Print a message. Default: - don't say anything
         :param shell: (experimental) The step shell in ``tasks.json`` form: a keyword (``"projen"`` or ``"system"``) or an invocation argument list. Default: - the task's (or project's) shell
@@ -9575,6 +9601,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
             exec=exec,
             exec_args=exec_args,
             name=name,
+            output_env=output_env,
             receive_args=receive_args,
             say=say,
             shell=shell,
@@ -10318,6 +10345,7 @@ class TaskSpec:
         "exec": "exec",
         "exec_args": "execArgs",
         "name": "name",
+        "output_env": "outputEnv",
         "receive_args": "receiveArgs",
         "say": "say",
         "shell": "shell",
@@ -10336,6 +10364,7 @@ class TaskStep:
         exec: typing.Optional[builtins.str] = None,
         exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
+        output_env: typing.Optional[builtins.str] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         say: typing.Optional[builtins.str] = None,
         shell: typing.Optional[typing.Union[builtins.str, typing.Sequence[builtins.str]]] = None,
@@ -10358,6 +10387,7 @@ class TaskStep:
         :param exec: (experimental) Shell command to execute. The whole command is a single shell string. To pass arguments as a list instead - without having to quote spaces or other characters yourself - use ``execArgs``. Default: - don't execute a shell command
         :param exec_args: (experimental) Shell command to execute, provided as a list of the program followed by its arguments (an "argv"). Often more convenient than ``exec``: each element is passed to the program as-is, so arguments with spaces or special characters don't need quoting. Fixed (``args``) or received (``receiveArgs``) arguments are inserted wherever a ``$@`` element appears, or appended at the end if there is none. The elements are not run through a shell, so environment variables (``$FOO``) are not expanded and other shell features are unavailable. Use ``exec`` if you need them. Mutually exclusive with ``exec``. Default: - don't execute a shell command
         :param name: (experimental) Step name. Default: - no name
+        :param output_env: (experimental) Capture this step's standard output and expose it to later steps as an environment variable with this name. Default: - stdout is not captured
         :param receive_args: (experimental) Should this step receive args passed to the task. Default: false
         :param say: (experimental) Print a message. Default: - don't say anything
         :param shell: (experimental) The step shell in ``tasks.json`` form: a keyword (``"projen"`` or ``"system"``) or an invocation argument list. Default: - the task's (or project's) shell
@@ -10375,6 +10405,7 @@ class TaskStep:
             check_type(argname="argument exec", value=exec, expected_type=type_hints["exec"])
             check_type(argname="argument exec_args", value=exec_args, expected_type=type_hints["exec_args"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument output_env", value=output_env, expected_type=type_hints["output_env"])
             check_type(argname="argument receive_args", value=receive_args, expected_type=type_hints["receive_args"])
             check_type(argname="argument say", value=say, expected_type=type_hints["say"])
             check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
@@ -10396,6 +10427,8 @@ class TaskStep:
             self._values["exec_args"] = exec_args
         if name is not None:
             self._values["name"] = name
+        if output_env is not None:
+            self._values["output_env"] = output_env
         if receive_args is not None:
             self._values["receive_args"] = receive_args
         if say is not None:
@@ -10524,6 +10557,18 @@ class TaskStep:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def output_env(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Capture this step's standard output and expose it to later steps as an environment variable with this name.
+
+        :default: - stdout is not captured
+
+        :see: {@link TaskStepOptions.outputEnv }
+        :stability: experimental
+        '''
+        result = self._values.get("output_env")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def receive_args(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Should this step receive args passed to the task.
 
@@ -10591,6 +10636,7 @@ class TaskStep:
         "cwd": "cwd",
         "env": "env",
         "name": "name",
+        "output_env": "outputEnv",
         "receive_args": "receiveArgs",
         "shell": "shell",
     },
@@ -10604,6 +10650,7 @@ class TaskStepOptions:
         cwd: typing.Optional[builtins.str] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
+        output_env: typing.Optional[builtins.str] = None,
         receive_args: typing.Optional[builtins.bool] = None,
         shell: typing.Optional["TaskShell"] = None,
     ) -> None:
@@ -10614,6 +10661,7 @@ class TaskStepOptions:
         :param cwd: (experimental) The working directory for this step. Default: - determined by the task
         :param env: (experimental) Defines environment variables for the execution of this step (``exec`` and ``builtin`` only). Values in this map can be simple, literal values or shell expressions that will be evaluated at runtime e.g. ``$(echo "foo")``. Default: - no environment variables defined in step
         :param name: (experimental) Step name. Default: - no name
+        :param output_env: (experimental) Capture this step's (trimmed) stdout into an environment variable of this name, visible to all later steps of the task run. For ``spawn`` steps the spawned subtask's combined stdout is captured. Set only when the step runs (a skipped step leaves it unset) and always overwrites. The step's output still streams live. Default: - stdout is not captured
         :param receive_args: (experimental) Should this step receive args passed to the task. If ``true``, args are passed through at the end of the ``exec`` shell command. The position of the args can be changed by including the marker ``$@`` inside the command string. If the marker is explicitly double-quoted ("$@") arguments will be wrapped in double quotes, approximating the whitespace preserving behavior of bash variable expansion. If the step spawns a subtask, args are passed to the subtask. The subtask must define steps receiving args for this to have any effect. Default: false
         :param shell: (experimental) The shell used to run this step, overriding the task/project shell. Default: - the task's (or project's) shell
 
@@ -10626,6 +10674,7 @@ class TaskStepOptions:
             check_type(argname="argument cwd", value=cwd, expected_type=type_hints["cwd"])
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument output_env", value=output_env, expected_type=type_hints["output_env"])
             check_type(argname="argument receive_args", value=receive_args, expected_type=type_hints["receive_args"])
             check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -10639,6 +10688,8 @@ class TaskStepOptions:
             self._values["env"] = env
         if name is not None:
             self._values["name"] = name
+        if output_env is not None:
+            self._values["output_env"] = output_env
         if receive_args is not None:
             self._values["receive_args"] = receive_args
         if shell is not None:
@@ -10722,6 +10773,23 @@ class TaskStepOptions:
         :stability: experimental
         '''
         result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def output_env(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Capture this step's (trimmed) stdout into an environment variable of this name, visible to all later steps of the task run.
+
+        For ``spawn`` steps the
+        spawned subtask's combined stdout is captured.
+
+        Set only when the step runs (a skipped step leaves it unset) and always
+        overwrites. The step's output still streams live.
+
+        :default: - stdout is not captured
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_env")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -11671,6 +11739,18 @@ class Version(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Version"):
         return typing.cast(builtins.str, jsii.get(self, "changelogFileName"))
 
     @builtins.property
+    @jsii.member(jsii_name="releasableCommitsTask")
+    def releasable_commits_task(self) -> "Task":
+        '''(experimental) The task that prints the releasable commits since the latest tag.
+
+        Spawned
+        by ``bump``; its shell can be overridden via ``task.shell``.
+
+        :stability: experimental
+        '''
+        return typing.cast("Task", jsii.get(self, "releasableCommitsTask"))
+
+    @builtins.property
     @jsii.member(jsii_name="releaseTagFileName")
     def release_tag_file_name(self) -> builtins.str:
         '''(experimental) The name of the file that contains the release tag (under ``artifactsDirectory``).
@@ -11695,6 +11775,18 @@ class Version(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Version"):
         :stability: experimental
         '''
         return typing.cast(builtins.str, jsii.get(self, "versionFileName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nextVersionTask")
+    def next_version_task(self) -> typing.Optional["Task"]:
+        '''(experimental) The task that runs the user's ``nextVersionCommand``, if configured.
+
+        Spawned
+        by ``bump``; its shell can be overridden via ``task.shell``.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["Task"], jsii.get(self, "nextVersionTask"))
 
 
 @jsii.data_type(
@@ -15241,6 +15333,7 @@ def _typecheckingstub__866645d9e72b430281a892f9aec648a8a4d11dfd83393ea8d1cf161c6
     cwd: typing.Optional[builtins.str] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
+    output_env: typing.Optional[builtins.str] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     shell: typing.Optional[TaskShell] = None,
 ) -> None:
@@ -15255,6 +15348,7 @@ def _typecheckingstub__fe30f7880fa3e47be647ce494f9e089f1e51d8eb30c924a902fbd8db3
     cwd: typing.Optional[builtins.str] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
+    output_env: typing.Optional[builtins.str] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     shell: typing.Optional[TaskShell] = None,
 ) -> None:
@@ -15276,6 +15370,7 @@ def _typecheckingstub__6303cc71c3e6fb4aba7cadb07d20f36a327564e7e91f7baf72d0bb511
     cwd: typing.Optional[builtins.str] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
+    output_env: typing.Optional[builtins.str] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     shell: typing.Optional[TaskShell] = None,
 ) -> None:
@@ -15290,6 +15385,7 @@ def _typecheckingstub__83e687ef928f97e72aa2e81b8d6d9eb6d68cfdfb3063bfbd3f8c9e4ea
     cwd: typing.Optional[builtins.str] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
+    output_env: typing.Optional[builtins.str] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     shell: typing.Optional[TaskShell] = None,
 ) -> None:
@@ -15304,6 +15400,7 @@ def _typecheckingstub__80be0ec2af5c5b034b9ad26a372663b2dede8547b402f7501bd174f17
     cwd: typing.Optional[builtins.str] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
+    output_env: typing.Optional[builtins.str] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     shell: typing.Optional[TaskShell] = None,
 ) -> None:
@@ -15330,6 +15427,7 @@ def _typecheckingstub__bec2ab04da022f328e54a5747cb659465473a80e61ea4b23af06f41a5
     cwd: typing.Optional[builtins.str] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
+    output_env: typing.Optional[builtins.str] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     shell: typing.Optional[TaskShell] = None,
 ) -> None:
@@ -15344,6 +15442,7 @@ def _typecheckingstub__7da16e7abde21673795e791b1dc02e7b9c04503d828a84a24ad2e0950
     cwd: typing.Optional[builtins.str] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
+    output_env: typing.Optional[builtins.str] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     shell: typing.Optional[TaskShell] = None,
 ) -> None:
@@ -15358,6 +15457,7 @@ def _typecheckingstub__30afd72afdc7d9e0229d01ea2f502a330dca643bfa30b79876a78ec24
     cwd: typing.Optional[builtins.str] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
+    output_env: typing.Optional[builtins.str] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     shell: typing.Optional[TaskShell] = None,
 ) -> None:
@@ -15375,6 +15475,7 @@ def _typecheckingstub__3e6471d9b24a42d1138efa839e893cd7685a703235152ad4f0c3aae00
     exec: typing.Optional[builtins.str] = None,
     exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
+    output_env: typing.Optional[builtins.str] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     say: typing.Optional[builtins.str] = None,
     shell: typing.Optional[typing.Union[builtins.str, typing.Sequence[builtins.str]]] = None,
@@ -15460,6 +15561,7 @@ def _typecheckingstub__6e32d65dbc737f8fd131c5593ecf206bcf2a76757ddb7c5f42945d730
     exec: typing.Optional[builtins.str] = None,
     exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
+    output_env: typing.Optional[builtins.str] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     say: typing.Optional[builtins.str] = None,
     shell: typing.Optional[typing.Union[builtins.str, typing.Sequence[builtins.str]]] = None,
@@ -15475,6 +15577,7 @@ def _typecheckingstub__2eac93e499bd717527ab62b174c5bd1e157bf4043f5d771b6a289f391
     cwd: typing.Optional[builtins.str] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
+    output_env: typing.Optional[builtins.str] = None,
     receive_args: typing.Optional[builtins.bool] = None,
     shell: typing.Optional[TaskShell] = None,
 ) -> None:

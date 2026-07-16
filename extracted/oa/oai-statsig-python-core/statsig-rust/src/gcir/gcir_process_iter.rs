@@ -5,13 +5,14 @@ use super::{
 };
 use crate::{
     evaluation::{
+        evaluation_data::SpecView,
         evaluator::{Evaluator, SpecType},
         evaluator_context::EvaluatorContext,
     },
     gcir::gcir_formatter::GCIRHashable,
     hashing,
     interned_string::InternedString,
-    specs_response::{spec_types::Spec, specs_hash_map::SpecsHashMap},
+    specs_response::specs_hash_map::SpecsHashMap,
     ClientInitResponseOptions, StatsigErr,
 };
 use std::collections::{HashMap, HashSet};
@@ -21,7 +22,7 @@ pub(crate) fn gcir_process_iter<T: GCIRHashable>(
     options: &ClientInitResponseOptions,
     sec_expo_hash_memo: &mut HashMap<InternedString, InternedString>,
     specs_map: &SpecsHashMap,
-    get_spec_type: impl Fn(&Spec) -> SpecType,
+    get_spec_type: impl Fn(SpecView<'_>) -> SpecType,
     mut evaluation_factory: impl FnMut(&str, &str, &mut EvaluatorContext) -> T,
 ) -> Result<HashMap<String, T>, StatsigErr> {
     let mut results = HashMap::with_capacity(specs_map.len());
@@ -40,8 +41,9 @@ pub(crate) fn gcir_process_iter<T: GCIRHashable>(
             Some(s) => s,
             None => continue,
         };
-        let spec = spec_ptr.as_spec_ref();
-        if spec.entity == "segment" || spec.entity == "holdout" {
+        let spec = spec_ptr.view();
+        let entity = spec.entity();
+        if entity.as_str() == "segment" || entity.as_str() == "holdout" {
             continue;
         }
 
@@ -65,7 +67,7 @@ pub(crate) fn gcir_process_iter<T: GCIRHashable>(
         Evaluator::evaluate(context, name.as_str(), &spec_type)?;
 
         if options.remove_default_value_gates.unwrap_or(false)
-            && spec.entity == "feature_gate"
+            && entity.as_str() == "feature_gate"
             && context.result.rule_id.as_deref() == Some("default")
             && !context.result.bool_value
             && context.result.secondary_exposures.is_empty()
@@ -83,7 +85,7 @@ pub(crate) fn gcir_process_iter<T: GCIRHashable>(
             sec_expo_hash_memo,
         );
 
-        let eval = evaluation_factory(&spec.entity, &hashed_name, context);
+        let eval = evaluation_factory(entity.as_str(), &hashed_name, context);
 
         if options.previous_response_hash.is_some() {
             hashes.push(eval.create_hash(&name));
@@ -200,7 +202,7 @@ fn gcir_process_plan_impl<T: GCIRHashable, const WITH_CHECKSUM: bool, const WITH
         context.reset_result();
 
         gcir_time!("plan.evaluate", {
-            Evaluator::evaluate(context, planned.name.as_str(), &planned.spec_type)
+            Evaluator::evaluate_with_name(context, &planned.name, &planned.spec_type)
         })?;
 
         if WITH_FILTERS && should_filter_default_gate(context, plan_options, planned) {
@@ -338,8 +340,12 @@ fn get_pipeline_override_names_from_mappings(
         .collect()
 }
 
-fn should_filter_entity(spec: &Spec, name: &str, options: &ClientInitResponseOptions) -> bool {
-    match spec.entity.as_str() {
+fn should_filter_entity(
+    spec: SpecView<'_>,
+    name: &str,
+    options: &ClientInitResponseOptions,
+) -> bool {
+    match spec.entity().as_str() {
         "feature_gate" => options
             .feature_gate_filter
             .as_ref()
@@ -362,11 +368,13 @@ fn should_filter_entity(spec: &Spec, name: &str, options: &ClientInitResponseOpt
 
 fn should_filter_experiment_in_layer(
     context: &EvaluatorContext,
-    spec: &Spec,
+    spec: SpecView<'_>,
     name: &str,
     options: &ClientInitResponseOptions,
 ) -> bool {
-    if spec.entity != "experiment" || !options.remove_experiments_in_layers.unwrap_or(false) {
+    if spec.entity().as_str() != "experiment"
+        || !options.remove_experiments_in_layers.unwrap_or(false)
+    {
         return false;
     }
 

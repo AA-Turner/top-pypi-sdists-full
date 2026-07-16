@@ -2,11 +2,11 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-conf ~= 10.8.5.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.8.5.0',
-    'passagemath-environment ~= 10.8.5.0',
-    'passagemath-categories ~= 10.8.5.0',
-    'passagemath-modules ~= 10.8.5.0',
+    'passagemath-conf ~= 10.8.6.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.8.6.0',
+    'passagemath-environment ~= 10.8.6.0',
+    'passagemath-categories ~= 10.8.6.0',
+    'passagemath-modules ~= 10.8.6.0',
     'cython >=3.1.0,<3.3.0',
     'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
@@ -23,13 +23,13 @@ dependencies = [
     'dot2tex >=2.11.3', 'pyparsing <3.3',
     'memory_allocator <0.2',
     'pexpect >=4.8.0',
-    'passagemath-conf ~= 10.8.5.0 ; sys_platform != "win32"',
-    'passagemath-environment ~= 10.8.5.0',
-    'passagemath-categories ~= 10.8.5.0',
-    'passagemath-gap-pkg-factint-data ~= 10.8.5.0',
-    'passagemath-gap-pkg-primgrp-data ~= 10.8.5.0',
-    'passagemath-gap-pkg-smallgrp-data ~= 10.8.5.0',
-    'passagemath-repl ~= 10.8.5.0',                         ]
+    'passagemath-conf ~= 10.8.6.0 ; sys_platform != "win32"',
+    'passagemath-environment ~= 10.8.6.0',
+    'passagemath-categories ~= 10.8.6.0',
+    'passagemath-gap-pkg-factint-data ~= 10.8.6.0',
+    'passagemath-gap-pkg-primgrp-data ~= 10.8.6.0',
+    'passagemath-gap-pkg-smallgrp-data ~= 10.8.6.0',
+    'passagemath-repl ~= 10.8.6.0',                         ]
 dynamic = ["version"]
 license = "GPL-2.0-or-later"
 authors = [{name = "The Sage Developers", email = "sage-support@googlegroups.com"}]

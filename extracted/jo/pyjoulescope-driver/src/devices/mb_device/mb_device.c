@@ -156,6 +156,28 @@ struct state_fetch_s {
 #define MB_USB_EP_BULK_IN  0x82
 #define MB_USB_EP_BULK_OUT 0x01
 
+// Host resume link revalidation.  The device may still be re-enumerating
+// when the resume notification arrives, so ping several times before
+// declaring the link dead.  A live link answers the first ping in
+// milliseconds; a re-enumerated device never answers (its link SM is in
+// AWAIT_REQ) and the handshake replay in ST_LINK_REQUEST retries until
+// the device responds or is removed.
+#define REVALIDATE_PING_INTERVAL   (JSDRV_TIME_MILLISECOND * 500)
+#define REVALIDATE_PING_RETRIES    (4)
+#define REVALIDATE_PING_PAYLOAD    (0x52455641)  // "REVA"
+
+// Session keep-alive.  The device's MS OS descriptors enable Windows USB
+// selective suspend with AUTO_SUSPEND on and a 2000 ms idle timeout, and
+// WinUSB ignores pending bulk IN reads when judging idleness.  This periodic
+// OUT link PING is what holds an open session awake.  When this process is
+// frozen (host sleep), killed, or closes the device, the keep-alives stop
+// and Windows suspends the device; the device firmware's suspend path then
+// releases its comm watchdog, so a sleeping host does not cause a device
+// watchdog reset.  The interval must be comfortably shorter than the
+// device's DefaultIdleTimeout (2000 ms).
+#define KEEPALIVE_INTERVAL         (JSDRV_TIME_SECOND)
+#define KEEPALIVE_PING_PAYLOAD     (0x4B454550)  // "KEEP"
+
 enum events_e {
     EV_INVALID,
     EV_STATE_ENTER,
@@ -181,6 +203,11 @@ enum events_e {
 
     EV_API_OPEN_REQUEST,
     EV_API_CLOSE_REQUEST,
+
+    // Host resume revalidation found the link dead (device re-enumerated
+    // across host sleep, e.g. Windows reset-on-resume).  Replay the link
+    // handshake on the same open session.
+    EV_LINK_REVALIDATE_FAILED,
 };
 
 enum state_e {
@@ -211,6 +238,19 @@ struct jsdrvp_mb_dev_s {
     int32_t open_mode;          // jsdrv_device_open_mode_e
     int64_t timeout_utc;      // <= 0 to disable timeout
     int64_t drv_timeout_utc;  // upper driver timeout, <= 0 to disable
+
+    // Host resume link revalidation (see JSDRV_USBBK_MSG_POWER).  After a
+    // host sleep/wake, ping the device link; if all pings go unanswered,
+    // the device re-enumerated (its link state machine is back at
+    // AWAIT_REQ and it will never transmit), so replay the link handshake.
+    uint8_t revalidate_remaining;  // pings left; 0 = revalidation inactive
+    int64_t revalidate_utc;        // next ping (or give-up) time
+
+    // Session keep-alive (see KEEPALIVE_INTERVAL).  keepalive_en is a
+    // diagnostic/test knob (topic h/link/keep); disabling it lets
+    // Windows selectively suspend the device ~2 s later.
+    bool    keepalive_en;
+    int64_t keepalive_utc;         // next keep-alive send time
 
     jsdrv_thread_t thread;
     volatile uint8_t state;  // state_e
@@ -315,6 +355,14 @@ static bool on_ll_bulk_open(struct jsdrvp_mb_dev_s * self, uint8_t event) {
 
 static bool on_link_request(struct jsdrvp_mb_dev_s * self, uint8_t event) {
     (void) event;
+    // CONNECT_REQ makes the device reset its link buffers and frame ids
+    // (reset_buffers), so restart ours to match.  Harmless on the initial
+    // open (already zero); required on a handshake replay after host
+    // resume found the link dead.
+    self->out_frame_id = 0;
+    self->in_frame_id = 0;
+    self->revalidate_remaining = 0;
+    self->revalidate_utc = 0;
     send_frame_ctrl_to_device(self, MB_FRAME_CTRL_CONNECT_REQ);
     timeout_set(self);
     return true;
@@ -1201,6 +1249,7 @@ static void state_set_on_rsp(struct jsdrvp_mb_dev_s * self, uint8_t status) {
 static bool on_open_enter(struct jsdrvp_mb_dev_s * self, uint8_t event) {
     (void) event;
     timeout_clear(self);
+    self->keepalive_utc = jsdrv_time_utc();  // first keep-alive immediately
 
     // Notify upper driver
     if (self->drv && self->drv->on_open) {
@@ -1392,7 +1441,10 @@ static bool on_open_timeout(struct jsdrvp_mb_dev_s * self, uint8_t event) {
 const struct state_machine_transition_s state_machine_open[] = {
     {EV_TIMEOUT, ST_OPEN, on_open_timeout},
     {EV_API_CLOSE_REQUEST, ST_PUBSUB_FLUSH, NULL},
-    // todo handle detect link lost
+    // Host resume found the link dead: replay the handshake on the same
+    // session.  ST_LINK_REQUEST -> ST_LINK_IDENTITY -> ST_OPEN re-runs
+    // the open restore (drv->on_open + state_fetch).
+    {EV_LINK_REVALIDATE_FAILED, ST_LINK_REQUEST, NULL},
     TRANSITION_END
 };
 
@@ -1685,6 +1737,16 @@ static bool handle_cmd(struct jsdrvp_mb_dev_s * d, struct jsdrvp_msg_s * msg) {
             send_to_device(d, MB_FRAME_ST_LINK, MB_LINK_MSG_PING,
                 (uint32_t *) msg->value.value.bin, (msg->value.size + 3) >> 2);
             send_return_code_to_frontend(d, topic, 0);
+        } else if (0 == strcmp("h/link/keep", topic)) {  // topic levels max 7 chars
+            // Diagnostic/test knob: 0 stops the session keep-alive, which
+            // lets Windows selectively suspend the device ~2 s later; 1
+            // restores it (the OUT publish itself auto-resumes the device).
+            d->keepalive_en = (0 != msg->value.value.u8);
+            if (d->keepalive_en) {
+                d->keepalive_utc = jsdrv_time_utc();  // resume immediately
+            }
+            JSDRV_LOGI("keepalive_en <= %d", (int) d->keepalive_en);
+            send_return_code_to_frontend(d, topic, 0);
         } else if (0 == strcmp("h/in/frecord", topic)) {
             if (NULL != d->file_in) {
                 fclose(d->file_in);
@@ -1724,6 +1786,14 @@ static void handle_in_link(struct jsdrvp_mb_dev_s * d, uint16_t metadata, uint32
             // todo respond with pong
             break;
         case MB_LINK_MSG_PONG:
+            if (d->revalidate_remaining) {
+                // The device only answers pings while its link SM is
+                // CONNECTED, so a pong proves the session survived the
+                // host sleep.
+                JSDRV_LOGI("link revalidate: pong received, link alive");
+                d->revalidate_remaining = 0;
+                d->revalidate_utc = 0;
+            }
             send_to_frontend(d, "h/link/!pong", &jsdrv_union_bin((uint8_t *) data, length * 4));
             break;
         case MB_LINK_MSG_IDENTITY:
@@ -1992,6 +2062,11 @@ static void handle_stream_in_link_frame(struct jsdrvp_mb_dev_s * d, uint32_t * p
         case MB_FRAME_CTRL_CONNECT_ACK: event = EV_LINK_CONNECT_ACK; break;
         case MB_FRAME_CTRL_DISCONNECT_REQ: event = EV_LINK_DISCONNECT_REQ; break;
         case MB_FRAME_CTRL_DISCONNECT_ACK: event = EV_LINK_DISCONNECT_ACK; break;
+        case MB_FRAME_CTRL_SLEEP_ACK:
+            // Device confirmed the host-sleep announcement.  Informational
+            // only; the host may already be frozen when this arrives.
+            JSDRV_LOGI("link sleep ack");
+            return;
         default:
             JSDRV_LOGW("unsupported link control: %d", ctrl);
             return;
@@ -2081,6 +2156,43 @@ static void handle_stream_in(struct jsdrvp_mb_dev_s * d, struct jsdrvp_msg_s * m
     }
 }
 
+// The host OS is entering sleep (JSDRV_USBBK_MSG_POWER suspend).  Announce
+// it to the device so the firmware releases its host-inactivity watchdog:
+// some hosts (Windows Modern Standby) freeze this process with no USB
+// suspend on the bus, which the firmware otherwise cannot distinguish from
+// a crashed host and answers with a watchdog reset.  A crashed host never
+// sends SLEEP_REQ, so crash recovery is preserved.
+static void on_host_power_suspend(struct jsdrvp_mb_dev_s * d) {
+    d->revalidate_remaining = 0;
+    d->revalidate_utc = 0;
+    if (ST_OPEN != d->state) {
+        JSDRV_LOGI("host suspend: state %s, no sleep announcement",
+                   state_machine_states[d->state].name);
+        return;
+    }
+    JSDRV_LOGI("host suspend: announce sleep to device");
+    send_frame_ctrl_to_device(d, MB_FRAME_CTRL_SLEEP_REQ);
+}
+
+// The host OS resumed (JSDRV_USBBK_MSG_POWER resume).  The link may have
+// survived (bus suspend/resume, or no bus event at all), or the device may
+// have re-enumerated (Windows resets the bus on resume from S3, wiping the
+// device link session while this process kept its handles).  Ping to find
+// out; the driver_thread revalidate check escalates to a handshake replay
+// when every ping goes unanswered.
+static void on_host_power_resume(struct jsdrvp_mb_dev_s * d) {
+    if (ST_OPEN != d->state) {
+        // Not in a steady open session: the open/close sequences have
+        // their own timeouts and retries.
+        return;
+    }
+    JSDRV_LOGI("host resume: revalidate link");
+    d->revalidate_remaining = REVALIDATE_PING_RETRIES;
+    d->revalidate_utc = jsdrv_time_utc() + REVALIDATE_PING_INTERVAL;
+    uint32_t payload = REVALIDATE_PING_PAYLOAD;
+    send_to_device(d, MB_FRAME_ST_LINK, MB_LINK_MSG_PING, &payload, 1);
+}
+
 static bool handle_rsp(struct jsdrvp_mb_dev_s * d, struct jsdrvp_msg_s * msg) {
     bool rv = true;
     uint8_t event = 0;
@@ -2117,6 +2229,12 @@ static bool handle_rsp(struct jsdrvp_mb_dev_s * d, struct jsdrvp_msg_s * msg) {
             event = (0 == msg->value.value.u32) ? EV_BACKEND_OPEN_ACK : EV_BACKEND_OPEN_NACK;
         } else if (0 == strcmp(JSDRV_MSG_CLOSE, msg->topic)) {
             event = EV_BACKEND_CLOSE_ACK;
+        } else if (0 == strcmp(JSDRV_USBBK_MSG_POWER, msg->topic)) {
+            if (JSDRVBK_POWER_EVENT_SUSPEND == msg->value.value.u32) {
+                on_host_power_suspend(d);
+            } else {
+                on_host_power_resume(d);
+            }
         } else if (0 == strcmp(JSDRV_MSG_FINALIZE, msg->topic)) {
             d->finalize_pending = true;
             event = EV_API_CLOSE_REQUEST;
@@ -2141,6 +2259,14 @@ static uint32_t thread_timeout_duration_ms(struct jsdrvp_mb_dev_s * d) {
     }
     if ((d->drv_timeout_utc > 0) && ((earliest <= 0) || (d->drv_timeout_utc < earliest))) {
         earliest = d->drv_timeout_utc;
+    }
+    if (d->revalidate_remaining && (d->revalidate_utc > 0)
+            && ((earliest <= 0) || (d->revalidate_utc < earliest))) {
+        earliest = d->revalidate_utc;
+    }
+    if ((d->state == ST_OPEN) && d->keepalive_en && (d->keepalive_utc > 0)
+            && ((earliest <= 0) || (d->keepalive_utc < earliest))) {
+        earliest = d->keepalive_utc;
     }
     if (earliest > 0) {
         int64_t duration = earliest - now;
@@ -2201,6 +2327,34 @@ static JSDRV_THREAD_RETURN_TYPE driver_thread(JSDRV_THREAD_ARG_TYPE lpParam) {
             d->drv_timeout_utc = 0;
             if (d->drv && d->drv->on_timeout) {
                 d->drv->on_timeout(d->drv, d);
+            }
+        }
+
+        // Session keep-alive: periodic OUT traffic holds off Windows USB
+        // selective suspend while the session is open and this process is
+        // alive.  See KEEPALIVE_INTERVAL.
+        if ((d->state == ST_OPEN) && d->keepalive_en
+                && (jsdrv_time_utc() >= d->keepalive_utc)) {
+            uint32_t keepalive_payload = KEEPALIVE_PING_PAYLOAD;
+            send_to_device(d, MB_FRAME_ST_LINK, MB_LINK_MSG_PING, &keepalive_payload, 1);
+            d->keepalive_utc = jsdrv_time_utc() + KEEPALIVE_INTERVAL;
+        }
+
+        // Host resume link revalidation: an unanswered ping either re-pings
+        // or, when the retries are exhausted, declares the link dead and
+        // replays the handshake (the device re-enumerated across the sleep).
+        if (d->revalidate_remaining && (jsdrv_time_utc() >= d->revalidate_utc)) {
+            if (ST_OPEN != d->state) {
+                d->revalidate_remaining = 0;  // left ST_OPEN; stand down
+            } else if (--d->revalidate_remaining) {
+                JSDRV_LOGI("link revalidate: ping retry (%u left)",
+                           (unsigned) d->revalidate_remaining);
+                d->revalidate_utc = jsdrv_time_utc() + REVALIDATE_PING_INTERVAL;
+                uint32_t payload = REVALIDATE_PING_PAYLOAD;
+                send_to_device(d, MB_FRAME_ST_LINK, MB_LINK_MSG_PING, &payload, 1);
+            } else {
+                JSDRV_LOGW("link revalidate failed: re-establish link session");
+                state_machine_process(d, EV_LINK_REVALIDATE_FAILED);
             }
         }
 
@@ -2287,6 +2441,7 @@ int32_t jsdrvp_ul_mb_device_usb_factory(struct jsdrvp_ul_device_s ** device, str
     d->context = context;
     d->ll = *ll;
     d->drv = drv;
+    d->keepalive_en = true;
     d->ul.cmd_q = msg_queue_init();
     d->ul.join = join;
     if (jsdrv_thread_create(&d->thread, driver_thread, d, 1)) {

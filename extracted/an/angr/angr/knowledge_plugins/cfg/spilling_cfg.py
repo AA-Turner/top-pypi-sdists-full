@@ -1,3 +1,4 @@
+# pylint:disable=protected-access
 """
 Spilling CFG Graph implementation with LRU caching and LMDB persistence.
 
@@ -257,6 +258,10 @@ class SpillingCFGNodeDict:
             return evicted_any
 
     def _evict_n(self, n: int) -> int:
+        if self.rtdb is None:
+            # without a RuntimeDb we cannot persist evicted nodes; evicting anyway would silently lose data
+            # (this happens e.g. while unpickling, before an rtdb is re-attached via CFGManager.set_kb()).
+            return 0
         if not self._lru_order:
             return 0
 
@@ -350,11 +355,11 @@ class SpillingCFGNodeDict:
                 payload = value[1:]
 
                 if type_byte == 0x00:
-                    cmsg = cfg_pb2.CFGNode()  # type:ignore
+                    cmsg = cfg_pb2.CFGNode()  # type:ignore  # pylint:disable=no-member
                     cmsg.ParseFromString(payload)
                     node = CFGNode.parse_from_cmessage(cmsg, cfg=self._cfg_model)
                 elif type_byte == 0x01:
-                    cmsg = cfg_pb2.CFGENode()  # type:ignore
+                    cmsg = cfg_pb2.CFGENode()  # type:ignore  # pylint:disable=no-member
                     cmsg.ParseFromString(payload)
                     node = CFGENode.parse_from_cmessage(cmsg, cfg=self._cfg_model)
                 else:
@@ -377,6 +382,39 @@ class SpillingCFGNodeDict:
                 and self.cached_count > self._cache_limit + self._db_batch_size
             ):
                 self._evict_lru()
+
+    def bulk_import_serialized(self, items: list[tuple[K, bytes]]) -> None:
+        """
+        Bulk-import already-serialized CFG nodes directly into the LMDB backing store and register them as spilled,
+        without deserializing them. Each payload must be in the format that _save_to_lmdb() writes: a type byte (0x00
+        for CFGNode, 0x01 for CFGENode) followed by the serialized protobuf message.
+
+        :param items:   A list of (block key, serialized node payload) tuples.
+        """
+
+        if not items or self.rtdb is None:
+            return
+
+        self._init_lmdb()
+        assert self._nodesdb is not None
+
+        with self._db_store_lock:
+            while True:
+                try:
+                    with self.rtdb.begin_txn(self._nodesdb, write=True) as txn:
+                        for block_key, payload in items:
+                            txn.put(str(block_key).encode("utf-8"), payload)
+                    break
+                except lmdb.MapFullError:
+                    # Increase map size and retry
+                    self.rtdb.increase_lmdb_map_size()
+
+            for block_key, _ in items:
+                if block_key in self._data:
+                    # drop the stale in-memory copy; LMDB now holds the authoritative data
+                    del self._data[block_key]
+                    self._lru_order.pop(block_key, None)
+                self._spilled_keys.add(block_key)
 
     def load_all_spilled(self) -> None:
         if not self._spilled_keys:
@@ -403,7 +441,8 @@ class SpillingCFGNodeDict:
     #
 
     def __getstate__(self):
-        # Load all spilled nodes before pickling
+        # Load all spilled nodes before pickling.
+        # We load the entire node store into memory (make sure there is enough RAM!); otherwise we will lose data.
         self.load_all_spilled()
         return {
             "cache_limit": self._cache_limit,
@@ -426,6 +465,9 @@ class SpillingCFGNodeDict:
         self._db_store_lock = threading.Lock()
 
         for k, v in state["items"].items():
+            # nodes restored from a pickle have no LMDB backing store behind them; mark them dirty so that
+            # they will be written out if they are ever evicted again (after an rtdb is re-attached)
+            v.dirty = True
             self[k] = v
 
 
@@ -813,6 +855,72 @@ class SpillingCFG:
         # update _keys_by_addr
         self._keys_by_addr[node.addr].add(block_key)
 
+    def export_serialized_nodes(self) -> list[tuple[K, bytes, bool]]:
+        """
+        Export every node as the serialized bytes of its CFGNode/CFGENode protobuf message (without the LMDB type
+        byte), e.g. for dumping into an angr database.
+
+        Nodes are byte-copied directly out of the LMDB backing store without being deserialized and re-serialized.
+
+        :return: A list of (block key, serialized CFGNode message bytes, copied_from_lmdb) tuples.
+        """
+
+        node_dict = self._nodes
+        cached = node_dict._data
+
+        # classify keys: byte-copyable (spilled, or cached-and-clean) vs must-materialize (cached-and-dirty)
+        copyable_keys: list[K] = []
+        materialize: list[K] = []
+        for block_key in list(node_dict):
+            node = cached.get(block_key)
+            if node is not None and node.dirty:
+                materialize.append(block_key)
+            else:
+                copyable_keys.append(block_key)
+
+        result: list[tuple[K, bytes, bool]] = []
+
+        copied_payloads: dict[K, bytes] = {}
+        if copyable_keys and node_dict.rtdb is not None and node_dict._nodesdb is not None:
+            with node_dict.rtdb.begin_txn(node_dict._nodesdb) as txn:
+                for block_key in copyable_keys:
+                    payload = txn.get(str(block_key).encode("utf-8"))
+                    # only byte-copy plain CFGNode records (type byte 0x00); fall back for missing records or
+                    # CFGENode records (0x01) that the consumer parses as CFGNode
+                    if payload is not None and payload[0] == 0x00:
+                        copied_payloads[block_key] = payload[1:]
+
+        for block_key in copyable_keys:
+            payload = copied_payloads.get(block_key)
+            if payload is not None:
+                result.append((block_key, payload, True))
+            else:
+                # LMDB record missing or not a plain CFGNode: materialize and serialize
+                node = self.get_node_by_key(block_key)
+                result.append((block_key, node.serialize_to_cmessage().SerializeToString(), False))
+
+        for block_key in materialize:
+            node = cached[block_key]
+            result.append((block_key, node.serialize_to_cmessage().SerializeToString(), False))
+
+        return result
+
+    def bulk_import_serialized_nodes(self, items: list[tuple[K, int | SootAddressDescriptor, bytes]]) -> None:
+        """
+        Bulk-import already-serialized nodes directly into the LMDB backing store as spilled entries, without
+        constructing any CFGNode objects.
+
+        :param items:   A list of (block key, node address, serialized node payload) tuples. See
+                        SpillingCFGNodeDict.bulk_import_serialized() for the payload format.
+        """
+
+        self._nodes.bulk_import_serialized([(block_key, payload) for block_key, _, payload in items])
+        graph_add_node = self._graph.add_node
+        keys_by_addr = self._keys_by_addr
+        for block_key, addr, _ in items:
+            graph_add_node(block_key)
+            keys_by_addr[addr].add(block_key)
+
     def remove_node(self, node: CFGNode) -> None:
         block_key = get_block_key(node)
         if block_key in self._nodes:
@@ -1140,6 +1248,15 @@ class SpillingCFG:
 
     def evict_all_cached(self) -> None:
         self._nodes.evict_all_cached()
+
+    def set_rtdb(self, rtdb: RuntimeDb | None) -> None:
+        """
+        (Re-)attach a RuntimeDb to this graph and its spilling containers. This is used after unpickling
+        (rtdb references are not preserved across pickling) so that node/edge spilling works again.
+        """
+        self._rtdb = rtdb
+        self._nodes.rtdb = rtdb
+        self._graph.set_rtdb(rtdb)
 
     #
     # Pickling

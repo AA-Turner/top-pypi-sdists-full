@@ -127,7 +127,7 @@ class RAGEngine(WMLResource):
         response_train_post = self._client.httpx_client.post(
             url=url,
             json=self._training_metadata,
-            params=self._client._params(skip_for_create=True),
+            params=self._client._params(skip_for_create=True, skip_userfs=True),
             headers=self._client._get_headers(),
         )
 
@@ -211,7 +211,7 @@ class RAGEngine(WMLResource):
         url = self._client._href_definitions.get_autoai_rag_id_href(
             self._current_run_id  # type: ignore[arg-type]
         )
-        params = self._client._params()
+        params = self._client._params(skip_userfs=True)
 
         if hard_delete is True:
             params.update({"hard_delete": "true"})
@@ -1287,7 +1287,7 @@ class RAGEngine(WMLResource):
 
             response_autoai_rag_api = self._client.httpx_client.get(
                 url=f"{url}?limit=1",
-                params=self._client._params(),
+                params=self._client._params(skip_userfs=True),
                 headers=self._client._get_headers(),
             )
             return response_autoai_rag_api.status_code != 404

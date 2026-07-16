@@ -26,8 +26,12 @@ from milvus_lite.search.filter.ast import (
     CmpOp,
     FieldRef,
     FloatLit,
+    GeometryOp,
+    GeometryDWithinOp,
+    GeometryIsValidOp,
     InOp,
     IntLit,
+    IntervalLit,
     IsNullOp,
     LikeOp,
     ListLit,
@@ -35,11 +39,16 @@ from milvus_lite.search.filter.ast import (
     Not,
     Or,
     StringLit,
+    TimestampLit,
     JsonAccess,
     TextMatchOp,
     ArrayContainsOp,
     ArrayLengthOp,
     ArrayAccessOp,
+)
+from milvus_lite.schema.timestamptz import (
+    interval_micros_to_timedelta,
+    micros_to_utc_datetime,
 )
 
 if TYPE_CHECKING:
@@ -129,6 +138,10 @@ def _eval_row(node, row: dict) -> Any:
         return node.value
     if isinstance(node, BoolLit):
         return node.value
+    if isinstance(node, TimestampLit):
+        return micros_to_utc_datetime(node.value)
+    if isinstance(node, IntervalLit):
+        return interval_micros_to_timedelta(node.value)
 
     if isinstance(node, FieldRef):
         return row.get(node.name)
@@ -149,7 +162,7 @@ def _eval_row(node, row: dict) -> Any:
         val = _eval_row(node.field, row)
         if val is None:
             return None  # NULL propagation (Kleene logic)
-        members = {el.value for el in node.values.elements}
+        members = {_eval_row(el, row) for el in node.values.elements}
         result = val in members
         return (not result) if node.negate else result
 
@@ -265,6 +278,48 @@ def _eval_row(node, row: dict) -> Any:
             return False
         # OR logic: match if any query token is in doc tokens
         return bool(doc_tokens & query_tokens)
+
+    # ── Geometry functions ──────────────────────────────────────
+    if isinstance(node, GeometryOp):
+        field_val = row.get(node.field.name)
+        if field_val is None:
+            return False
+        from milvus_lite.schema.geometry import (
+            geometry_contains,
+            geometry_intersects,
+            geometry_within,
+        )
+        try:
+            if node.op == "geometry_contains":
+                return geometry_contains(field_val, node.geometry.value)
+            if node.op == "geometry_within":
+                return geometry_within(field_val, node.geometry.value)
+            if node.op == "geometry_intersects":
+                return geometry_intersects(field_val, node.geometry.value)
+        except Exception:
+            return False
+        return False
+
+    if isinstance(node, GeometryIsValidOp):
+        field_val = row.get(node.field.name)
+        if field_val is None:
+            return False
+        from milvus_lite.schema.geometry import geometry_is_valid
+        return geometry_is_valid(field_val)
+
+    if isinstance(node, GeometryDWithinOp):
+        field_val = row.get(node.field.name)
+        if field_val is None:
+            return False
+        from milvus_lite.schema.geometry import geometry_dwithin
+        try:
+            return geometry_dwithin(
+                field_val,
+                node.geometry.value,
+                float(node.distance.value),
+            )
+        except Exception:
+            return False
 
     # ── Array functions ─────────────────────────────────────────
     if isinstance(node, ArrayContainsOp):

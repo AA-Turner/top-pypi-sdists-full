@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: globus-compute-sdk
-Version: 4.14.0
+Version: 4.15.0
 Summary: Globus Compute: High Performance Function Serving for Science
 Home-page: https://github.com/globus/globus-compute
 Author: Globus Compute Team
@@ -20,7 +20,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests<3,>=2.31.0
 Requires-Dist: globus-sdk<5,>=4.4.0
-Requires-Dist: globus-compute-common==0.7.1
+Requires-Dist: globus-compute-common==1.0.0
 Requires-Dist: dill==0.3.9
 Requires-Dist: typing_extensions>=4.0; python_version < "3.8"
 Requires-Dist: packaging>=21.1

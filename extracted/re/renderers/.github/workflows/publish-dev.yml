@@ -1,0 +1,67 @@
+name: Publish Dev
+
+# Every push to main publishes a pre-release wheel to PyPI. The version
+# is derived at build time by hatch-vcs from ``git describe`` distance
+# to the latest stable ``renderers-v<MAJOR>.<MINOR>.<PATCH>`` tag (see
+# ``[tool.hatch.version.raw-options]`` in pyproject.toml) — no per-commit
+# tag is created. ``local_scheme = "no-local-version"`` strips the
+# ``+gHASH`` segment so PyPI accepts the wheel directly.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: publish-dev-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Build (no OIDC) → publish (OIDC only). The build job runs ``uv build``
+  # with ``contents: read`` only so a poisoned build-time dep cannot mint
+  # the OIDC token. The publish job has ``id-token: write`` and the
+  # pypi-prod environment but no source checkout — it only downloads the
+  # prebuilt artifact and runs the SHA-pinned pypa publish action.
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # hatch-vcs needs the full tag history to resolve the version
+          # from the latest stable tag's distance.
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Build renderers
+        run: uv build
+
+      - name: Show derived version
+        run: ls -1 dist/
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-dev
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi-prod
+    permissions:
+      id-token: write
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-dev
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        with:
+          skip-existing: true

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeGuard, cast
 
 import klayout.db as kdb
 from klayout import rdb
@@ -25,6 +25,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ..kcell import KCell
+    from ..schematic import Constraint
+    from .utils import RouteDebug
 
 __all__ = [
     "ManhattanRoute",
@@ -52,22 +54,6 @@ class PlacerFunction(Protocol):
         **kwargs: Any,
     ) -> ManhattanRoute:
         """Implementation of the function."""
-        ...
-
-
-class RouterPostProcessFunction(Protocol):
-    """A function that can be used to post process functions."""
-
-    def __call__(
-        self,
-        *,
-        c: KCell,
-        routers: Sequence[ManhattanRouter],
-        start_ports: Sequence[BasePort],
-        end_ports: Sequence[BasePort],
-        **kwargs: Any,
-    ) -> None:
-        """Implementation of post process function."""
         ...
 
 
@@ -155,12 +141,12 @@ def check_collisions(
     if collision_edges or not inter_route_collisions.is_empty():
         if collision_check_layers is None:
             collision_check_layers = list(
-                {p.cross_section.main_layer for p in start_ports}
+                {p.any_cross_section.main_layer for p in start_ports}
             )
         dbu = c.kcl.dbu
         db = rdb.ReportDatabase("Routing Errors")
         cat = db.create_category("Manhattan Routing Collisions")
-        c.name = c.kcl.future_cell_name or c.name
+        c.name = c.kcl._future_cell_name or c.name
         cell = db.create_cell(c.name)
         for name, edges in collision_edges.items():
             item = db.create_item(cell, cat)
@@ -256,11 +242,11 @@ def check_collisions(
                 case "show_error":
                     c.show(lyrdb=db)
                     raise RuntimeError(
-                        f"Routing collision in {c.kcl.future_cell_name or c.name}"
+                        f"Routing collision in {c.kcl._future_cell_name or c.name}"
                     )
                 case "error":
                     raise RuntimeError(
-                        f"Routing collision in {c.kcl.future_cell_name or c.name}"
+                        f"Routing collision in {c.kcl._future_cell_name or c.name}"
                     )
 
 
@@ -307,7 +293,6 @@ def route_bundle(
     start_ports: list[BasePort],
     end_ports: list[BasePort],
     route_width: dbu | list[dbu] | None = None,
-    sort_ports: bool = False,
     on_collision: Literal["error", "show_error"] | None = "show_error",
     on_placer_error: Literal["error", "show_error"] | None = "show_error",
     collision_check_layers: Sequence[kdb.LayerInfo] | None = None,
@@ -315,12 +300,13 @@ def route_bundle(
     routing_kwargs: dict[str, Any] | None = None,
     placer_function: PlacerFunction,
     placer_kwargs: dict[str, Any] | None = None,
-    router_post_process_function: RouterPostProcessFunction | None = None,
-    router_post_process_kwargs: Any = None,
+    constraints: Sequence[Constraint] | None = None,
     starts: dbu | list[dbu] | list[Step] | list[list[Step]] | None = None,
     ends: dbu | list[dbu] | list[Step] | list[list[Step]] | None = None,
     start_angles: int | list[int] | None = None,
     end_angles: int | list[int] | None = None,
+    route_debug: RouteDebug | None = None,
+    route_name: str | None = None,
 ) -> list[ManhattanRoute]:
     r"""Route a bundle from starting ports to end_ports.
 
@@ -399,10 +385,9 @@ def route_bundle(
             )
             ```
         placer_kwargs: Additional kwargs passed to the placer_function.
-        router_post_process_function: Function used to modify the routers returned by
-            the routing function. This is particularly useful for operations such as
-            path length matching.
-        router_post_process_kwargs: Kwargs for router_post_process_function.
+        constraints: Routing constraints to enforce after routing but before placement.
+            Each constraint's `enforce` method is called with the routers and routing
+            kwargs (e.g. separation, bend90_radius).
         starts: List of steps to use on each starting port or all of them.
         ends: List of steps to use on each end port or all of them.
         start_angles: Overwrite the port orientation of all start_ports together
@@ -422,12 +407,12 @@ def route_bundle(
         ends = []
     if starts is None:
         starts = []
-    if router_post_process_kwargs is None:
-        router_post_process_kwargs = {}
     if placer_kwargs is None:
         placer_kwargs = {}
     if routing_kwargs is None:
         routing_kwargs = {"bbox_routing": "minimal"}
+    if route_debug is not None:
+        routing_kwargs["route_debug"] = route_debug
     if not start_ports:
         return []
     if not (len(start_ports) == len(end_ports)):
@@ -436,18 +421,26 @@ def route_bundle(
             " the same size as the end ports and be the same length."
         )
     length = len(start_ports)
-    if starts == []:
-        starts = [starts] * length  # type: ignore[assignment]
+    if starts is None or starts == []:
+        starts = [[]] * length
     elif isinstance(starts, int):
-        starts = [[Straight(dist=starts)] for _ in range(length)]  # type: ignore[assignment]
-    elif isinstance(starts[0], Step):
-        starts = [starts for _ in range(len(start_ports))]  # type: ignore[assignment]
-    if ends == []:
-        ends = [ends] * length  # type: ignore[assignment]
+        starts = [[Straight(dist=starts)] for _ in range(length)]
+    elif isinstance(starts, list):
+        if _is_steps_list(starts):
+            starts = [starts for _ in range(len(start_ports))]
+        else:
+            starts = cast("list[int]", starts)
+            starts = [[Straight(dist=s) for s in starts]] * len(start_ports)
+    if ends is None or ends == []:
+        ends = [[]] * length
     elif isinstance(ends, int):
-        ends = [[Straight(dist=ends)] for _ in range(length)]  # type: ignore[assignment]
-    elif isinstance(ends[0], Step):
-        ends = [ends for _ in range(len(start_ports))]  # type: ignore[assignment]
+        ends = [[Straight(dist=ends)] for _ in range(length)]
+    elif isinstance(ends, list):
+        if _is_steps_list(ends):
+            ends = [ends for _ in range(len(end_ports))]
+        else:
+            ends = cast("list[int]", ends)
+            ends = [[Straight(dist=e) for e in ends]] * len(end_ports)
 
     if start_angles is not None:
         if isinstance(start_angles, int):
@@ -489,14 +482,14 @@ def route_bundle(
         else:
             widths = route_width
     else:
-        widths = [p.cross_section.width for p in start_ports]
+        widths = [p.any_cross_section.width for p in start_ports]
 
     routers = routing_function(
         start_ports=start_ports,
         end_ports=end_ports,
         widths=widths,
-        starts=cast("list[list[Step]]", starts),
-        ends=cast("list[list[Step]]", ends),
+        starts=starts,
+        ends=ends,
         **routing_kwargs,
     )
 
@@ -515,14 +508,13 @@ def route_bundle(
         start_ports.append(sp)
         end_ports.append(ep)
 
-    if router_post_process_function is not None:
-        router_post_process_function(
-            c=c,
-            start_ports=start_ports,
-            end_ports=end_ports,
-            routers=routers,
-            **router_post_process_kwargs,
-        )
+    if constraints:
+        for constraint in constraints:
+            constraint.enforce(
+                c=c,
+                routers=routers,
+                route_name=route_name,
+            )
     placer_errors: list[Exception] = []
     error_routes: list[tuple[BasePort, BasePort, list[kdb.Point], int]] = []
     for router, ps, pe in zip(routers, start_ports, end_ports, strict=False):
@@ -540,7 +532,7 @@ def route_bundle(
             error_routes.append((ps, pe, router.start.pts, router.width))
     if placer_errors and on_placer_error == "show_error":
         db = rdb.ReportDatabase("Route Placing Errors")
-        c.name = c.kcl.future_cell_name or c.name
+        c.name = c.kcl._future_cell_name or c.name
         cell = db.create_cell(c.name)
         for error, (ps, pe, pts, width) in zip(
             placer_errors, error_routes, strict=False
@@ -552,14 +544,14 @@ def route_bundle(
                 f" points (dbu): {pts}"
             )
             it.add_value(f"Exception: {error}")
-            path = kdb.Path(pts, width or ps.cross_section.width)
+            path = kdb.Path(pts, width or ps.any_cross_section.width)
             it.add_value(c.kcl.to_um(path.polygon()))
         c.show(lyrdb=db)
     if placer_errors and on_placer_error is not None:
         for error in placer_errors:
             logger.error(error)
         if c.name.startswith("Unnamed_"):
-            c.name = c.kcl.future_cell_name or c.name
+            c.name = c.kcl._future_cell_name or c.name
         raise PlacerError(
             "Failed to place routes for bundle routing from "
             f"{[p.name for p in start_ports]} to {[p.name for p in end_ports]}"
@@ -574,4 +566,13 @@ def route_bundle(
         routers=routers,
         routes=routes,
     )
+    if constraints:
+        for constraint in constraints:
+            constraint._routes[route_name] = routes
     return routes
+
+
+def _is_steps_list(
+    step_list: list[Step] | list[int] | list[list[Step]],
+) -> TypeGuard[list[Step]]:
+    return isinstance(step_list[0], Step)

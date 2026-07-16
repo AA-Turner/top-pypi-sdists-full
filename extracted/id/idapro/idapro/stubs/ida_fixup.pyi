@@ -113,7 +113,7 @@ class fixup_data_t:
                 
         """
         ...
-    def get_desc(self, source: ida_idaapi.ea_t) -> str:
+    def get_desc(self, source: ida_idaapi.ea_t) -> Union[str, None]:
         r"""get_fixup_desc()
         
         """
@@ -169,8 +169,10 @@ class fixup_data_t:
         ...
     def set_extdef(self) -> None:
         ...
-    def set_sel(self, seg: segment_t) -> None:
-        ...
+    @overload
+    def set_sel(self, _sel: int) -> None: ...
+    @overload
+    def set_sel(self, seg: segment_t) -> Any: ...
     def set_target_sel(self) -> None:
         r"""Set selector of fixup to the target. The target should be set before a call of this function. 
                 
@@ -318,7 +320,7 @@ def get_fixup(fd: fixup_data_t, source: ida_idaapi.ea_t) -> bool:
     """
     ...
 
-def get_fixup_desc(source: ida_idaapi.ea_t, fd: fixup_data_t) -> str:
+def get_fixup_desc(source: ida_idaapi.ea_t, fd: fixup_data_t) -> Union[str, None]:
     r"""Get FIXUP description comment.
     
     """
@@ -409,4 +411,5 @@ V695_FIXUP_VHIGH: int  # 10
 V695_FIXUP_VLOW: int  # 11
 annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 ida_idaapi: module
+ida_segment: module
 weakref: module

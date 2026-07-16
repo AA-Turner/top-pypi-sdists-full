@@ -11,9 +11,9 @@ LOGGER = logging.getLogger(__name__)
 
 
 class IdaExporter:
-    def __init__(self, config, bitness=None):
+    def __init__(self, config, bitness=None, ida_interface=None):
         self.config = config
-        self.ida_interface = IdaInterface()
+        self.ida_interface = ida_interface if ida_interface is not None else IdaInterface()
         self.bitness = bitness if bitness else self.ida_interface.getBitness()
         self.architecture = self.ida_interface.getArchitecture()
         self.capstone = None
@@ -87,6 +87,9 @@ class IdaExporter:
         self.disassembly.function_symbols = self.ida_interface.getFunctionSymbols()
         api_map = self.ida_interface.getApiMap()
         for function_offset in self.ida_interface.getFunctions():
+            if cb_analysis_timeout and cb_analysis_timeout():
+                self.disassembly.analysis_timeout = True
+                break
             if self.ida_interface.isExternalFunction(function_offset):
                 continue
             converted_function = []

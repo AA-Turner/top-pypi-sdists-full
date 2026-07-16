@@ -1,28 +1,33 @@
+#[cfg(test)]
+use std::path::Path;
 use std::{
     borrow::Cow,
     collections::{hash_map::Entry, HashMap},
-    fs::{create_dir_all, File},
-    io::{self, BufWriter, Write},
-    path::{Path, PathBuf},
-    sync::{Arc, OnceLock},
-    time::{Duration, Instant},
+    marker::PhantomData,
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, OnceLock, Weak,
+    },
+    time::Instant,
 };
-
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 
 use ahash::AHashMap;
+use fancy_regex::Regex as FancyRegex;
 use lazy_static::lazy_static;
-use memmap2::Mmap;
-use ouroboros::self_referencing;
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 use rkyv::{
-    collections::swiss_table::ArchivedHashMap,
+    collections::swiss_table::{ArchivedHashMap, HashMapResolver},
+    hash::FxHasher64,
+    rancor::{Fallible, Source},
+    ser::{Allocator, Writer},
     string::ArchivedString,
-    with::{Identity, MapKV, Unshare},
-    Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
+    with::{ArchiveWith, DeserializeWith, Identity, SerializeWith, Unshare, With},
+    Archive, Deserialize as RkyvDeserialize, Place, Serialize as RkyvSerialize,
 };
 use serde_json::value::RawValue;
+
+pub use super::mmap_sync::{MmapSyncCursor, MmapWriteOutcome};
 
 use crate::{
     evaluation::{
@@ -32,7 +37,7 @@ use crate::{
     },
     hashing,
     interned_string::{InternedString, InternedStringValue},
-    log_d, log_e, log_w,
+    log_d, log_e,
     networking::ResponseData,
     observability::ops_stats::OpsStatsForInstance,
     specs_adapter::{SpecsInfo, SpecsSyncTrigger, StatsigHttpSpecsAdapter},
@@ -41,27 +46,286 @@ use crate::{
         spec_types::{Spec, SpecsResponseFull},
         specs_hash_map::{SpecPointer, SpecsHashMap},
     },
+    utils::try_release_unused_heap_memory,
     DynamicReturnable, StatsigErr, StatsigOptions,
 };
 
+use super::mmap_data_v2::ArchivedMmapEvaluatorValue;
+
+mod mmap_manifest;
+mod mmap_reader;
+mod mmap_writer;
+
+use mmap_manifest::open_committed_mmap_v2;
+#[cfg(all(test, any(unix, windows)))]
+pub(crate) use mmap_manifest::open_committed_mmap_v2_for_test;
+#[cfg(test)]
+pub(crate) use mmap_manifest::{
+    write_mmap_manifest_for_test, write_mmap_v2_only_manifest_for_test,
+};
+use mmap_reader::{
+    get_evaluator_value as get_archived_evaluator_value_from_mmap,
+    get_returnable as get_returnable_from_mmap, get_spec as get_mmap_spec,
+    get_string as get_string_from_mmap, MmapSpecKind,
+};
+use mmap_writer::{acquire_mmap_write_lock, write_mmap_artifacts};
+#[cfg(test)]
+pub(crate) use mmap_writer::{acquire_mmap_write_lock_for_test, write_mmap_v2_for_test};
+
 const TAG: &str = "InternedStore";
 const MMAP_DIRECTORY: &str = "statsig-interned-store";
-const MMAP_WRITE_BUFFER_CAPACITY: usize = 1024 * 1024;
+const WEAK_STORE_SWEEP_INTERVAL: usize = 4096;
 
 static IMMORTAL_DATA: OnceLock<ImmortalData> = OnceLock::new();
-static MMAP_DATA: OnceLock<LoadedMmapData> = OnceLock::new();
+static MMAP_EVALUATOR_OVERRIDE_EXISTS: AtomicBool = AtomicBool::new(false);
 
 lazy_static! {
-    static ref MUTABLE_DATA: Mutex<MutableData> = Mutex::new(MutableData::default());
+    static ref MUTABLE_STRINGS: MutableStore<String> = MutableStore::default();
+    static ref MUTABLE_RETURNABLES: MutableStore<HashMap<String, RkyvValue>> =
+        MutableStore::default();
+    static ref MUTABLE_EVALUATOR_VALUES: MutableStore<MemoizedEvaluatorValue> =
+        MutableStore::default();
+}
+
+type MutableEntries<T> = AHashMap<u64, Weak<T>>;
+
+struct MutableTable<T> {
+    entries: MutableEntries<T>,
+    insertions: usize,
+    next_sweep_at: usize,
+}
+
+impl<T> Default for MutableTable<T> {
+    fn default() -> Self {
+        Self {
+            entries: AHashMap::new(),
+            insertions: 0,
+            next_sweep_at: WEAK_STORE_SWEEP_INTERVAL,
+        }
+    }
+}
+
+struct MutableStore<T> {
+    table: RwLock<MutableTable<T>>,
+}
+
+impl<T> Default for MutableStore<T> {
+    fn default() -> Self {
+        Self {
+            table: RwLock::new(MutableTable::default()),
+        }
+    }
+}
+
+impl<T> MutableStore<T> {
+    fn get(&self, hash: u64) -> Option<Arc<T>> {
+        let table = self.table.read();
+        let value = table.entries.get(&hash)?.upgrade();
+        value
+    }
+
+    fn get_or_insert(&self, hash: u64, candidate: Arc<T>) -> Arc<T> {
+        let mut table = self.table.write();
+        let (value, inserted) = match table.entries.entry(hash) {
+            Entry::Occupied(mut entry) => match entry.get().upgrade() {
+                Some(value) => (value, false),
+                None => {
+                    entry.insert(Arc::downgrade(&candidate));
+                    (candidate, true)
+                }
+            },
+            Entry::Vacant(entry) => {
+                entry.insert(Arc::downgrade(&candidate));
+                (candidate, true)
+            }
+        };
+
+        if inserted {
+            Self::maybe_sweep(&mut table);
+        }
+        value
+    }
+
+    fn replace(&self, hash: u64, value: &Arc<T>) {
+        let mut table = self.table.write();
+        table.entries.insert(hash, Arc::downgrade(value));
+        Self::maybe_sweep(&mut table);
+    }
+
+    #[cfg(test)]
+    fn live_len(&self) -> usize {
+        self.table
+            .read()
+            .entries
+            .iter()
+            .filter(|(_, value)| value.strong_count() > 0)
+            .count()
+    }
+
+    #[cfg(test)]
+    fn stored_len(&self) -> usize {
+        self.table.read().entries.len()
+    }
+
+    #[cfg(test)]
+    fn stored_capacity(&self) -> usize {
+        self.table.read().entries.capacity()
+    }
+
+    fn take_live(&self) -> Vec<(u64, Arc<T>)> {
+        let detached = {
+            let mut table = self.table.write();
+            std::mem::take(&mut *table)
+        };
+
+        let mut values = Vec::with_capacity(detached.entries.len());
+        for (hash, value) in detached.entries {
+            if let Some(value) = value.upgrade() {
+                values.push((hash, value));
+            }
+        }
+        values
+    }
+
+    fn maybe_sweep(table: &mut MutableTable<T>) {
+        table.insertions += 1;
+        if table.insertions == table.next_sweep_at {
+            table.entries.retain(|_, value| value.strong_count() > 0);
+            table.next_sweep_at = table
+                .insertions
+                .saturating_add(table.entries.len().max(WEAK_STORE_SWEEP_INTERVAL));
+        }
+    }
+}
+
+// Archives the compact live-entry vector directly as the existing V1
+// ArchivedHashMap layout, avoiding an intermediate owned hash table and rehash.
+pub(super) struct MapKVVec<A, B>(PhantomData<(A, B)>);
+
+struct WithKey<'a, K, A> {
+    key: &'a K,
+    _adapter: PhantomData<A>,
+}
+
+impl<K, A> Copy for WithKey<'_, K, A> {}
+
+impl<K, A> Clone for WithKey<'_, K, A> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<K: PartialEq, A> PartialEq for WithKey<'_, K, A> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl<K: Eq, A> Eq for WithKey<'_, K, A> {}
+
+impl<K: std::hash::Hash, A> std::hash::Hash for WithKey<'_, K, A> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
+}
+
+impl<K, A> Archive for WithKey<'_, K, A>
+where
+    A: ArchiveWith<K>,
+{
+    type Archived = A::Archived;
+    type Resolver = A::Resolver;
+
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        A::resolve_with(self.key, resolver, out);
+    }
+}
+
+impl<K, A, S> RkyvSerialize<S> for WithKey<'_, K, A>
+where
+    S: Fallible + ?Sized,
+    A: SerializeWith<K, S>,
+{
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        A::serialize_with(self.key, serializer)
+    }
+}
+
+impl<A, B, K, V> ArchiveWith<Vec<(K, V)>> for MapKVVec<A, B>
+where
+    A: ArchiveWith<K>,
+    B: ArchiveWith<V>,
+{
+    type Archived = ArchivedHashMap<A::Archived, B::Archived>;
+    type Resolver = HashMapResolver;
+
+    fn resolve_with(field: &Vec<(K, V)>, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        ArchivedHashMap::resolve_from_len(field.len(), (7, 8), resolver, out);
+    }
+}
+
+impl<A, B, K, V, S> SerializeWith<Vec<(K, V)>, S> for MapKVVec<A, B>
+where
+    A: ArchiveWith<K> + SerializeWith<K, S>,
+    B: ArchiveWith<V> + SerializeWith<V, S>,
+    K: std::hash::Hash + Eq,
+    A::Archived: std::hash::Hash + Eq,
+    S: Fallible + Allocator + Writer + ?Sized,
+    S::Error: Source,
+{
+    fn serialize_with(field: &Vec<(K, V)>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        ArchivedHashMap::<_, _, FxHasher64>::serialize_from_iter::<
+            _,
+            _,
+            _,
+            WithKey<'_, K, A>,
+            With<V, B>,
+            S,
+        >(
+            field.iter().map(|(key, value)| {
+                (
+                    WithKey {
+                        key,
+                        _adapter: PhantomData,
+                    },
+                    With::<V, B>::cast(value),
+                )
+            }),
+            (7, 8),
+            serializer,
+        )
+    }
+}
+
+impl<A, B, K, V, D> DeserializeWith<ArchivedHashMap<A::Archived, B::Archived>, Vec<(K, V)>, D>
+    for MapKVVec<A, B>
+where
+    A: ArchiveWith<K> + DeserializeWith<A::Archived, K, D>,
+    B: ArchiveWith<V> + DeserializeWith<B::Archived, V, D>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &ArchivedHashMap<A::Archived, B::Archived>,
+        deserializer: &mut D,
+    ) -> Result<Vec<(K, V)>, D::Error> {
+        let mut result = Vec::with_capacity(field.len());
+        for (key, value) in field.iter() {
+            result.push((
+                A::deserialize_with(key, deserializer)?,
+                B::deserialize_with(value, deserializer)?,
+            ));
+        }
+        Ok(result)
+    }
 }
 
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]
 pub(crate) struct MmapDataV1 {
     format_version: u32,
-    #[rkyv(with = MapKV<Identity, Unshare>)]
-    strings: HashMap<u64, Arc<String>, ahash::RandomState>,
-    #[rkyv(with = MapKV<Identity, Unshare>)]
-    returnables: HashMap<u64, Arc<HashMap<String, RkyvValue>>, ahash::RandomState>,
+    #[rkyv(with = MapKVVec<Identity, Unshare>)]
+    strings: Vec<(u64, Arc<String>)>,
+    #[rkyv(with = MapKVVec<Identity, Unshare>)]
+    returnables: Vec<(u64, Arc<HashMap<String, RkyvValue>>)>,
 }
 
 impl MmapDataV1 {
@@ -73,8 +337,8 @@ impl MmapDataV1 {
     pub(crate) fn empty_with_format_version(format_version: u32) -> Self {
         Self {
             format_version,
-            strings: AHashMap::new().into(),
-            returnables: AHashMap::new().into(),
+            strings: Vec::new(),
+            returnables: Vec::new(),
         }
     }
 }
@@ -108,28 +372,20 @@ impl Default for MmapDataV1 {
     fn default() -> Self {
         Self {
             format_version: Self::FORMAT_VERSION,
-            strings: AHashMap::new().into(),
-            returnables: AHashMap::new().into(),
+            strings: Vec::new(),
+            returnables: Vec::new(),
         }
     }
-}
-
-#[self_referencing]
-struct LoadedMmapData {
-    file: File,
-    mmap: Mmap,
-
-    #[borrows(mmap)]
-    archived: &'this ArchivedMmapDataV1,
 }
 
 /// Immortal vs Mutable Data
 /// ------------------------------------------------------------
 /// -`ImmortalData` is static and never changes. It will only exist if a successful call to `preload` is made. It is intentionally
 ///  leaked so that it can be accessed across forks without incrementing the reference count.
-/// -`MutableData` is dynamic and changes over time as values are added and removed.
+/// -Mutable stores are sharded weak maps. Handles own the values, so dropping a
+///  handle never takes a global lock. Dead weak entries are swept periodically.
 /// ------------------------------------------------------------
-/// In all cases, we first check if there is a ImmortalData entry and then fallback to MutableData.
+/// In all cases, we first check if there is an ImmortalData entry and then fall back to a mutable store.
 #[derive(Default)]
 struct ImmortalData {
     strings: AHashMap<u64, &'static str>,
@@ -141,9 +397,9 @@ struct ImmortalData {
 }
 #[derive(Default)]
 struct MutableData {
-    strings: AHashMap<u64, Arc<String>>,
-    returnables: AHashMap<u64, Arc<HashMap<String, RkyvValue>>>,
-    evaluator_values: AHashMap<u64, Arc<MemoizedEvaluatorValue>>,
+    strings: Vec<(u64, Arc<String>)>,
+    returnables: Vec<(u64, Arc<HashMap<String, RkyvValue>>)>,
+    evaluator_values: Vec<(u64, Arc<MemoizedEvaluatorValue>)>,
 }
 
 pub trait Internable: Sized {
@@ -191,7 +447,7 @@ impl InternedStore {
         Ok(())
     }
 
-    /// Publishes an mmap artifact selected by `sdk_key`.
+    /// Publishes compatible V1 and V2 mmap artifacts selected by `sdk_key`.
     ///
     /// On Unix, the finalized artifact is atomically published with mode `0644`
     /// so readers with unrelated UIDs can consume a read-only shared mount.
@@ -211,228 +467,114 @@ impl InternedStore {
         Self::fetch_and_write_mmap_with_options(sdk_key, Some(&options)).await
     }
 
+    pub async fn fetch_and_write_mmap_with_specs_url_if_changed(
+        sdk_key: &str,
+        specs_url: &str,
+        previous: Option<&MmapSyncCursor>,
+    ) -> Result<MmapWriteOutcome, StatsigErr> {
+        let options = StatsigOptions {
+            specs_url: Some(specs_url.to_string()),
+            ..StatsigOptions::default()
+        };
+
+        Self::fetch_and_write_mmap_with_options_if_changed(sdk_key, Some(&options), previous).await
+    }
+
     pub(crate) async fn fetch_and_write_mmap_with_options(
         sdk_key: &str,
         options: Option<&StatsigOptions>,
     ) -> Result<(), StatsigErr> {
+        match Self::fetch_and_write_mmap_with_options_if_changed(sdk_key, options, None).await? {
+            MmapWriteOutcome::Published(_) => Ok(()),
+            MmapWriteOutcome::NoUpdate => Err(StatsigErr::InvalidOperation(
+                "An unconditional mmap fetch did not return a publishable config snapshot"
+                    .to_string(),
+            )),
+        }
+    }
+
+    pub(crate) async fn fetch_and_write_mmap_with_options_if_changed(
+        sdk_key: &str,
+        options: Option<&StatsigOptions>,
+        previous: Option<&MmapSyncCursor>,
+    ) -> Result<MmapWriteOutcome, StatsigErr> {
+        // Serialize the full same-key refresh so a delayed response cannot
+        // overwrite a newer generation published by another writer.
+        let write_lock = acquire_mmap_write_lock(&mmap_lock_path_for_sdk_key(sdk_key)).await?;
         let adapter = StatsigHttpSpecsAdapter::new(sdk_key, options, None);
+        let mut specs_info = SpecsInfo::empty();
+        if let Some(previous) = previous {
+            specs_info.lcut = Some(previous.lcut);
+            specs_info.checksum = previous.checksum.clone();
+        }
+
         let mut response = adapter
-            .fetch_specs_from_network(SpecsInfo::empty(), SpecsSyncTrigger::Manual)
+            .fetch_specs_from_network(specs_info, SpecsSyncTrigger::Manual)
             .await
             .map_err(StatsigErr::NetworkError)?;
-        let specs_response = parse_specs_response_data(&mut response.data)?;
+        let result = write_mmap_artifacts(
+            &mut response.data,
+            previous,
+            &mmap_path_for_sdk_key(sdk_key),
+            &mmap_v2_path_for_sdk_key(sdk_key),
+            &mmap_manifest_path_for_sdk_key(sdk_key),
+        );
 
-        write_mmap_specs(vec![specs_response], &mmap_path_for_sdk_key(sdk_key))
+        drop(response);
+        drop(adapter);
+        drop(write_lock);
+        try_release_unused_heap_memory();
+        result
     }
 
     pub fn preload_mmap(sdk_key: &str) -> Result<(), StatsigErr> {
-        preload_mmap_from_path(&mmap_path_for_sdk_key(sdk_key))
-    }
-}
-
-fn write_mmap_specs(
-    specs_responses: Vec<SpecsResponseFull>,
-    path: &Path,
-) -> Result<(), StatsigErr> {
-    if let Some(parent) = path.parent() {
-        create_dir_all(parent).map_err(|e| StatsigErr::FileError(e.to_string()))?;
-    }
-
-    let mmap_data = mutable_to_mmap_data(specs_responses)?;
-    publish_mmap_data(mmap_data, path, |data, file| {
-        serialize_mmap_data(data, file)
-    })
-}
-
-fn publish_mmap_data(
-    mmap_data: MmapDataV1,
-    path: &Path,
-    serialize: impl FnOnce(&MmapDataV1, &mut File) -> Result<usize, StatsigErr>,
-) -> Result<(), StatsigErr> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| StatsigErr::FileError("Mmap path has no parent".to_string()))?;
-    let mut file = tempfile::NamedTempFile::new_in(parent)
-        .map_err(|e| StatsigErr::FileError(e.to_string()))?;
-
-    let archived_len = serialize(&mmap_data, file.as_file_mut())?;
-    drop(mmap_data);
-
-    #[cfg(unix)]
-    file.as_file()
-        .set_permissions(std::fs::Permissions::from_mode(0o644))
-        .map_err(|e| StatsigErr::FileError(e.to_string()))?;
-    file.as_file()
-        .sync_all()
-        .map_err(|e| StatsigErr::FileError(e.to_string()))?;
-    file.persist(path)
-        .map_err(|e| StatsigErr::FileError(e.error.to_string()))?;
-
-    log_d!(
-        TAG,
-        "Wrote {} bytes to mmap file {}",
-        archived_len,
-        path.display()
-    );
-
-    Ok(())
-}
-
-fn serialize_mmap_data<W: Write>(mmap_data: &MmapDataV1, output: W) -> Result<usize, StatsigErr> {
-    use rkyv::ser::{allocator::Arena, writer::IoWriter, Positional};
-
-    let buffered = BufWriter::with_capacity(MMAP_WRITE_BUFFER_CAPACITY, output);
-    let mut recording = ErrorRecordingWriter::new(buffered);
-    let mut arena = Arena::new();
-
-    let (archive_result, archived_len) = {
-        let mut writer = IoWriter::new(&mut recording);
-        let archive_result = rkyv::api::high::to_bytes_in_with_alloc::<_, _, rkyv::rancor::Error>(
-            mmap_data,
-            &mut writer,
-            arena.acquire(),
-        )
-        .map(|_| ());
-        let archived_len = writer.pos();
-        (archive_result, archived_len)
-    };
-
-    if let Err(error) = archive_result {
-        let mapped = match recording.take_error() {
-            Some(io_error) => StatsigErr::FileError(io_error.to_string()),
-            None => StatsigErr::SerializationError(error.to_string()),
-        };
-        drop(recording);
-        drop(arena);
-        return Err(mapped);
-    }
-
-    recording
-        .flush()
-        .map_err(|error| StatsigErr::FileError(error.to_string()))?;
-    drop(recording);
-    drop(arena);
-    Ok(archived_len)
-}
-
-struct ErrorRecordingWriter<W> {
-    inner: W,
-    error: Option<io::Error>,
-}
-
-impl<W> ErrorRecordingWriter<W> {
-    fn new(inner: W) -> Self {
-        Self { inner, error: None }
-    }
-
-    fn take_error(&mut self) -> Option<io::Error> {
-        self.error.take()
-    }
-
-    fn record(&mut self, error: &io::Error) {
-        if self.error.is_none() {
-            self.error = Some(io::Error::new(error.kind(), error.to_string()));
+        let v1_path = mmap_path_for_sdk_key(sdk_key);
+        let v2_path = mmap_v2_path_for_sdk_key(sdk_key);
+        let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
+        if let Some(v2_file) = open_committed_mmap_v2(&manifest_path, &v1_path, &v2_path)? {
+            return mmap_reader::preload_v2_file(v2_file);
         }
+
+        mmap_reader::preload_v1(&v1_path)
     }
 }
 
-impl<W: Write> Write for ErrorRecordingWriter<W> {
-    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
-        match self.inner.write(buffer) {
-            Ok(written) => Ok(written),
-            Err(error) => {
-                self.record(&error);
-                Err(error)
-            }
-        }
-    }
-
-    fn write_all(&mut self, buffer: &[u8]) -> io::Result<()> {
-        match self.inner.write_all(buffer) {
-            Ok(()) => Ok(()),
-            Err(error) => {
-                self.record(&error);
-                Err(error)
-            }
-        }
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        match self.inner.flush() {
-            Ok(()) => Ok(()),
-            Err(error) => {
-                self.record(&error);
-                Err(error)
-            }
-        }
-    }
+#[cfg(test)]
+pub(crate) fn preload_mmap_v2_for_test(path: &Path) -> Result<(), StatsigErr> {
+    mmap_reader::preload_v2(path)
 }
 
-fn preload_mmap_from_path(path: &Path) -> Result<(), StatsigErr> {
-    let file = File::open(path).map_err(|e| StatsigErr::FileError(e.to_string()))?;
-    let mmap = unsafe { Mmap::map(&file).map_err(|e| StatsigErr::FileError(e.to_string()))? };
-
-    let loaded_result = LoadedMmapDataTryBuilder {
-        file,
-        mmap,
-        archived_builder: |mmap| rkyv::access::<ArchivedMmapDataV1, rkyv::rancor::Error>(mmap),
-    }
-    .try_build();
-
-    let loaded = match loaded_result {
-        Ok(loaded) => loaded,
-        Err(e) => {
-            return Err(StatsigErr::SerializationError(e.to_string()));
-        }
-    };
-
-    let format_version = loaded.borrow_archived().format_version();
-    if format_version != MmapDataV1::FORMAT_VERSION {
-        return Err(StatsigErr::SerializationError(format!(
-            "Unsupported interned mmap format version {format_version}; expected {}",
-            MmapDataV1::FORMAT_VERSION
-        )));
-    }
-
-    MMAP_DATA
-        .set(loaded)
-        .map_err(|_| StatsigErr::LockFailure("Failed to set MMAP_DATA".to_string()))
+#[cfg(test)]
+pub(crate) fn validate_mmap_v2_for_test(path: &Path) -> Result<(), StatsigErr> {
+    mmap_reader::validate_v2(path)
 }
 
 pub(crate) fn mmap_path_for_sdk_key(sdk_key: &str) -> PathBuf {
+    mmap_path_for_sdk_key_version(sdk_key, MmapDataV1::FORMAT_VERSION)
+}
+
+pub(crate) fn mmap_v2_path_for_sdk_key(sdk_key: &str) -> PathBuf {
+    mmap_path_for_sdk_key_version(sdk_key, super::mmap_data_v2::MmapDataV2::FORMAT_VERSION)
+}
+
+pub(crate) fn mmap_manifest_path_for_sdk_key(sdk_key: &str) -> PathBuf {
     std::env::temp_dir().join(MMAP_DIRECTORY).join(format!(
-        "{}_v{}_interned_store.mmap",
+        "{}_interned_store_manifest.json",
         hashing::djb2(sdk_key),
-        MmapDataV1::FORMAT_VERSION
     ))
 }
 
-fn parse_specs_response_data(
-    response_data: &mut ResponseData,
-) -> Result<SpecsResponseFull, StatsigErr> {
-    if is_protobuf_specs_response(response_data) {
-        let current = SpecsResponseFull::default();
-        let mut next = SpecsResponseFull::default();
-        deserialize_protobuf(
-            &OpsStatsForInstance::new(),
-            &current,
-            &mut next,
-            response_data,
-        )?;
-        return Ok(next);
-    }
-
-    response_data.deserialize_into::<SpecsResponseFull>()
+pub(crate) fn mmap_lock_path_for_sdk_key(sdk_key: &str) -> PathBuf {
+    std::env::temp_dir()
+        .join(MMAP_DIRECTORY)
+        .join(format!("{}_interned_store.lock", hashing::djb2(sdk_key)))
 }
 
-fn is_protobuf_specs_response(response_data: &ResponseData) -> bool {
-    let content_type = response_data.get_header_ref("content-type");
-    if content_type.map(|s| s.as_str().contains("application/octet-stream")) != Some(true) {
-        return false;
-    }
-
-    let content_encoding = response_data.get_header_ref("content-encoding");
-    content_encoding.map(|s| s.as_str().contains("statsig-br")) == Some(true)
+fn mmap_path_for_sdk_key_version(sdk_key: &str, version: u32) -> PathBuf {
+    std::env::temp_dir().join(MMAP_DIRECTORY).join(format!(
+        "{}_v{version}_interned_store.mmap",
+        hashing::djb2(sdk_key),
+    ))
 }
 
 impl InternedStore {
@@ -493,23 +635,39 @@ impl InternedStore {
         let raw_string = value.get();
         let hash = hashing::hash_one(raw_string.as_bytes());
 
+        if let Some(evaluator_value) = get_evaluator_value_from_mmap(hash) {
+            return evaluator_value;
+        }
+
         if let Some(evaluator_value) = get_evaluator_value_from_shared(hash) {
             return EvaluatorValue::from_static(hash, evaluator_value);
         }
 
-        let ptr = get_evaluator_value_from_local(hash, value);
+        let ptr = get_or_create_evaluator_value_from_local(hash, value);
         EvaluatorValue::from_pointer(hash, ptr)
     }
 
     pub fn replace_evaluator_value(hash: u64, evaluator_value: Arc<MemoizedEvaluatorValue>) {
-        let old = use_mutable_data("replace_evaluator_value", |data| {
-            data.evaluator_values.insert(hash, evaluator_value)
-        });
-        drop(old);
+        MUTABLE_EVALUATOR_VALUES.replace(hash, &evaluator_value);
+    }
+
+    pub(crate) fn replace_mmap_evaluator_value(
+        hash: u64,
+        evaluator_value: Arc<MemoizedEvaluatorValue>,
+    ) {
+        let has_regex = evaluator_value.regex_value.is_some();
+        MUTABLE_EVALUATOR_VALUES.replace(hash, &evaluator_value);
+        if has_regex {
+            MMAP_EVALUATOR_OVERRIDE_EXISTS.store(true, Ordering::Release);
+        }
     }
 
     pub fn try_get_preloaded_evaluator_value(bytes: &[u8]) -> Option<EvaluatorValue> {
         let hash = hashing::hash_one(bytes);
+        if let Some(evaluator_value) = get_evaluator_value_from_mmap(hash) {
+            return Some(evaluator_value);
+        }
+
         if let Some(evaluator_value) = get_evaluator_value_from_shared(hash) {
             return Some(EvaluatorValue::from_static(hash, evaluator_value));
         }
@@ -539,6 +697,10 @@ impl InternedStore {
     }
 
     pub fn try_get_preloaded_dynamic_config(name: &InternedString) -> Option<SpecPointer> {
+        if let Some(spec) = get_mmap_spec(MmapSpecKind::DynamicConfig, name.hash) {
+            return Some(SpecPointer::from_mmap(spec));
+        }
+
         match IMMORTAL_DATA.get() {
             Some(shared) => shared
                 .dynamic_configs
@@ -549,6 +711,10 @@ impl InternedStore {
     }
 
     pub fn try_get_preloaded_layer_config(name: &InternedString) -> Option<SpecPointer> {
+        if let Some(spec) = get_mmap_spec(MmapSpecKind::LayerConfig, name.hash) {
+            return Some(SpecPointer::from_mmap(spec));
+        }
+
         match IMMORTAL_DATA.get() {
             Some(shared) => shared
                 .layer_configs
@@ -559,6 +725,10 @@ impl InternedStore {
     }
 
     pub fn try_get_preloaded_feature_gate(name: &InternedString) -> Option<SpecPointer> {
+        if let Some(spec) = get_mmap_spec(MmapSpecKind::FeatureGate, name.hash) {
+            return Some(SpecPointer::from_mmap(spec));
+        }
+
         match IMMORTAL_DATA.get() {
             Some(shared) => shared
                 .feature_gates
@@ -568,25 +738,28 @@ impl InternedStore {
         }
     }
 
-    pub fn release_returnable(hash: u64) {
-        let ptr = use_mutable_data("release_returnable", |data| {
-            try_release_entry(&mut data.returnables, hash)
-        });
-        drop(ptr);
+    pub(crate) fn try_get_preloaded_spec(
+        name: &InternedString,
+        entity: &str,
+    ) -> Option<SpecPointer> {
+        [
+            MmapSpecKind::FeatureGate,
+            MmapSpecKind::DynamicConfig,
+            MmapSpecKind::LayerConfig,
+        ]
+        .into_iter()
+        .find_map(|kind| {
+            let spec = get_mmap_spec(kind, name.hash)?;
+            (get_string_from_mmap(spec.entity.to_native()) == Some(entity))
+                .then(|| SpecPointer::from_mmap(spec))
+        })
     }
 
-    pub fn release_string(hash: u64) {
-        let ptr = use_mutable_data("release_string", |data| {
-            try_release_entry(&mut data.strings, hash)
-        });
-        drop(ptr);
+    pub(crate) fn has_preloaded_mmap_v2() -> bool {
+        mmap_reader::has_v2()
     }
-
-    pub fn release_evaluator_value(hash: u64) {
-        let ptr = use_mutable_data("release_eval_value", |data| {
-            try_release_entry(&mut data.evaluator_values, hash)
-        });
-        drop(ptr);
+    pub(crate) fn get_mmap_string(hash: u64) -> Option<&'static str> {
+        get_string_from_mmap(hash)
     }
 
     #[cfg(test)]
@@ -595,14 +768,11 @@ impl InternedStore {
         /* returnables */ usize,
         /* evaluator values */ usize,
     ) {
-        match MUTABLE_DATA.try_lock() {
-            Some(memo) => (
-                memo.strings.len(),
-                memo.returnables.len(),
-                memo.evaluator_values.len(),
-            ),
-            None => (0, 0, 0),
-        }
+        (
+            MUTABLE_STRINGS.live_len(),
+            MUTABLE_RETURNABLES.live_len(),
+            MUTABLE_EVALUATOR_VALUES.live_len(),
+        )
     }
 }
 
@@ -634,13 +804,6 @@ fn try_parse_as_proto(data: &[u8]) -> Result<SpecsResponseFull, StatsigErr> {
 
 // ------------------------------------------------------------------------------- [ String ]
 
-fn get_string_from_mmap(hash: u64) -> Option<&'static str> {
-    let data = MMAP_DATA.get()?;
-    let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
-    let found = data.borrow_archived().strings.get(&archived_hash);
-    found.map(|s| s.as_str())
-}
-
 fn get_string_from_shared(hash: u64) -> Option<&'static str> {
     match IMMORTAL_DATA.get() {
         Some(shared) => shared.strings.get(&hash).copied(),
@@ -649,60 +812,22 @@ fn get_string_from_shared(hash: u64) -> Option<&'static str> {
 }
 
 fn get_string_from_local<T: ToString>(hash: u64, value: T) -> Arc<String> {
-    let result = use_mutable_data("intern_string", |data| {
-        if let Some(string) = data.strings.get(&hash) {
-            return Some(string.clone());
-        }
+    if let Some(string) = MUTABLE_STRINGS.get(hash) {
+        return string;
+    }
 
-        let ptr = Arc::new(value.to_string());
-        data.strings.insert(hash, ptr.clone());
-        Some(ptr)
-    });
-
-    result.unwrap_or_else(|| {
-        log_w!(TAG, "Failed to get string from local");
-        Arc::new(value.to_string())
-    })
+    MUTABLE_STRINGS.get_or_insert(hash, Arc::new(value.to_string()))
 }
 
 fn get_owned_string_from_local(hash: u64, value: String) -> Arc<String> {
-    let mut data = match MUTABLE_DATA.try_lock_for(Duration::from_secs(5)) {
-        Some(data) => data,
-        None => {
-            #[cfg(test)]
-            panic!("Failed to acquire lock for mutable data (intern_owned_string)");
-
-            #[cfg(not(test))]
-            {
-                log_e!(
-                    TAG,
-                    "Failed to acquire lock for mutable data (intern_owned_string)"
-                );
-                return Arc::new(value);
-            }
-        }
-    };
-
-    if let Some(string) = data.strings.get(&hash) {
-        return string.clone();
+    if let Some(string) = MUTABLE_STRINGS.get(hash) {
+        return string;
     }
 
-    let ptr = Arc::new(value);
-    data.strings.insert(hash, ptr.clone());
-    ptr
+    MUTABLE_STRINGS.get_or_insert(hash, Arc::new(value))
 }
 
 // ------------------------------------------------------------------------------- [ Returnable ]
-
-fn get_returnable_from_mmap(
-    hash: u64,
-) -> Option<&'static ArchivedHashMap<ArchivedString, ArchivedRkyvValue>> {
-    let data = MMAP_DATA.get()?;
-
-    let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
-    let found = data.borrow_archived().returnables.get(&archived_hash)?;
-    Some(found)
-}
 
 fn get_returnable_from_shared(hash: u64) -> Option<&'static HashMap<String, RkyvValue>> {
     match IMMORTAL_DATA.get() {
@@ -712,15 +837,7 @@ fn get_returnable_from_shared(hash: u64) -> Option<&'static HashMap<String, Rkyv
 }
 
 fn get_returnable_from_local(hash: u64, value: Cow<RawValue>) -> Arc<HashMap<String, RkyvValue>> {
-    let result = use_mutable_data("intern_returnable", |data| {
-        if let Some(returnable) = data.returnables.get(&hash) {
-            return Some(returnable.clone());
-        }
-
-        None
-    });
-
-    if let Some(returnable) = result {
+    if let Some(returnable) = MUTABLE_RETURNABLES.get(hash) {
         return returnable;
     }
 
@@ -732,17 +849,24 @@ fn get_returnable_from_local(hash: u64, value: Cow<RawValue>) -> Arc<HashMap<Str
         }
     };
 
-    let ptr = Arc::new(owned);
-
-    use_mutable_data("intern_returnable", |data| {
-        data.returnables.insert(hash, ptr.clone());
-        Some(())
-    });
-
-    ptr
+    MUTABLE_RETURNABLES.get_or_insert(hash, Arc::new(owned))
 }
 
 // ------------------------------------------------------------------------------- [ Evaluator Value ]
+
+fn get_evaluator_value_from_mmap(hash: u64) -> Option<EvaluatorValue> {
+    let (value, regex) = get_archived_evaluator_value_from_mmap(hash)?;
+
+    if regex.is_none() && MMAP_EVALUATOR_OVERRIDE_EXISTS.load(Ordering::Acquire) {
+        if let Some(value) =
+            get_evaluator_value_from_local(hash).filter(|value| value.regex_value.is_some())
+        {
+            return Some(EvaluatorValue::from_pointer(hash, value));
+        }
+    }
+
+    Some(EvaluatorValue::from_mmap(hash, value, regex))
+}
 
 fn get_evaluator_value_from_shared(hash: u64) -> Option<&'static MemoizedEvaluatorValue> {
     match IMMORTAL_DATA.get() {
@@ -751,75 +875,28 @@ fn get_evaluator_value_from_shared(hash: u64) -> Option<&'static MemoizedEvaluat
     }
 }
 
-fn get_evaluator_value_from_local(
+fn get_evaluator_value_from_local(hash: u64) -> Option<Arc<MemoizedEvaluatorValue>> {
+    MUTABLE_EVALUATOR_VALUES.get(hash)
+}
+
+fn get_or_create_evaluator_value_from_local(
     hash: u64,
     value: Cow<'_, RawValue>,
 ) -> Arc<MemoizedEvaluatorValue> {
-    let result = use_mutable_data("eval_value_lookup", |data| {
-        if let Some(evaluator_value) = data.evaluator_values.get(&hash) {
-            return Some(evaluator_value.clone());
-        }
-
-        None
-    });
-
-    if let Some(evaluator_value) = result {
+    if let Some(evaluator_value) = MUTABLE_EVALUATOR_VALUES.get(hash) {
         return evaluator_value;
     }
 
-    // intentinonally done across two locks to avoid deadlock with InternedString creation
     let ptr = Arc::new(MemoizedEvaluatorValue::from_raw_value(value));
-    let _ = use_mutable_data("intern_evaluator_value", |data| {
-        data.evaluator_values.insert(hash, ptr.clone());
-        Some(())
-    });
-
-    ptr
+    MUTABLE_EVALUATOR_VALUES.get_or_insert(hash, ptr)
 }
 
 // ------------------------------------------------------------------------------- [ Helpers ]
 
-fn try_release_entry<T>(data: &mut AHashMap<u64, Arc<T>>, hash: u64) -> Option<Arc<T>> {
-    let found = match data.entry(hash) {
-        Entry::Occupied(entry) => entry,
-        Entry::Vacant(_) => return None,
-    };
-
-    let strong_count = Arc::strong_count(found.get());
-    if strong_count == 1 {
-        let value = found.remove();
-        // return the value so it isn't dropped while holding the lock
-        return Some(value);
-    }
-
-    None
-}
-
-fn use_mutable_data<T>(reason: &str, f: impl FnOnce(&mut MutableData) -> Option<T>) -> Option<T> {
-    let mut data = match MUTABLE_DATA.try_lock_for(Duration::from_secs(5)) {
-        Some(data) => data,
-        None => {
-            #[cfg(test)]
-            panic!("Failed to acquire lock for mutable data ({reason})");
-
-            #[cfg(not(test))]
-            {
-                log_e!(TAG, "Failed to acquire lock for mutable data ({reason})");
-                return None;
-            }
-        }
-    };
-
-    f(&mut data)
-}
-
 fn mutable_to_immortal(
     specs_responses: Vec<SpecsResponseFull>,
 ) -> Result<ImmortalData, StatsigErr> {
-    let mutable_data: MutableData = {
-        let mut mutable_data_lock = MUTABLE_DATA.lock();
-        std::mem::take(&mut *mutable_data_lock)
-    };
+    let mutable_data = take_mutable_data();
     let mut immortal = ImmortalData::default();
 
     for (hash, arc) in mutable_data.strings.into_iter() {
@@ -849,52 +926,18 @@ fn mutable_to_immortal(
     Ok(immortal)
 }
 
-fn mutable_to_mmap_data(specs_responses: Vec<SpecsResponseFull>) -> Result<MmapDataV1, StatsigErr> {
-    let mutable_data: MutableData = {
-        let mut mutable_data_lock = MUTABLE_DATA.lock();
-        std::mem::take(&mut *mutable_data_lock)
-    };
-
-    Ok(detached_mutable_to_mmap_data(mutable_data, specs_responses))
-}
-
-fn detached_mutable_to_mmap_data(
-    mutable_data: MutableData,
-    specs_responses: Vec<SpecsResponseFull>,
-) -> MmapDataV1 {
-    let MutableData {
-        strings,
-        returnables,
-        evaluator_values,
-    } = mutable_data;
-
-    // Specs and evaluator values can retain interned strings and returnables.
-    // Drop them only after detaching MUTABLE_DATA so their destructors cannot
-    // remove entries that still need to be archived.
-    drop(specs_responses);
-    drop(evaluator_values);
-
-    // TODO: Add evaluator values to mmap data
-    // for (hash, evaluator_value) in evaluator_values.into_iter() {
-    //     let raw_evaluator_value = Arc::into_raw(evaluator_value);
-    //     let leaked = unsafe { &*raw_evaluator_value };
-    //     mmap_data.evaluator_values.insert(hash, leaked);
-    // }
-
-    MmapDataV1 {
-        format_version: MmapDataV1::FORMAT_VERSION,
-        // AHashMap wraps this exact std HashMap type, so these conversions move
-        // the existing tables without allocating, iterating, or rehashing.
-        strings: strings.into(),
-        returnables: returnables.into(),
+fn take_mutable_data() -> MutableData {
+    MutableData {
+        strings: MUTABLE_STRINGS.take_live(),
+        returnables: MUTABLE_RETURNABLES.take_live(),
+        evaluator_values: MUTABLE_EVALUATOR_VALUES.take_live(),
     }
 }
 
 fn try_insert_specs(source: SpecsHashMap, destination: &mut AHashMap<u64, &'static Spec>) {
     for (name, spec_ptr) in source.0.into_iter() {
-        let spec = match spec_ptr {
-            SpecPointer::Pointer(spec) => spec,
-            _ => continue,
+        let Some(spec) = spec_ptr.into_pointer() else {
+            continue;
         };
 
         if spec.checksum.is_none() {
@@ -911,6 +954,22 @@ fn try_insert_specs(source: SpecsHashMap, destination: &mut AHashMap<u64, &'stat
 // ------------------------------------------------------------------------------- [ Helper Implementations ]
 
 impl EvaluatorValue {
+    fn from_mmap(
+        hash: u64,
+        evaluator_value: &'static ArchivedMmapEvaluatorValue,
+        regex: Option<&'static FancyRegex>,
+    ) -> Self {
+        Self {
+            hash,
+            inner: EvaluatorValueInner::Mmap(
+                crate::evaluation::evaluator_value::MmapEvaluatorValueHandle::new(
+                    evaluator_value,
+                    regex,
+                ),
+            ),
+        }
+    }
+
     fn from_static(hash: u64, evaluator_value: &'static MemoizedEvaluatorValue) -> Self {
         Self {
             hash,
@@ -928,32 +987,23 @@ impl EvaluatorValue {
 
 impl DynamicReturnable {
     fn from_static(hash: u64, returnable: &'static HashMap<String, RkyvValue>) -> Self {
-        Self {
-            hash,
-            value: DynamicReturnableValue::JsonStatic(returnable),
-        }
+        Self::from_interned_value(hash, DynamicReturnableValue::JsonStatic(returnable))
     }
 
     fn from_archived(
         hash: u64,
         returnable: &'static ArchivedHashMap<ArchivedString, ArchivedRkyvValue>,
     ) -> Self {
-        Self {
-            hash,
-            value: DynamicReturnableValue::JsonArchived(returnable),
-        }
+        Self::from_archived_value(hash, returnable)
     }
 
     fn from_pointer(hash: u64, pointer: Arc<HashMap<String, RkyvValue>>) -> Self {
-        Self {
-            hash,
-            value: DynamicReturnableValue::JsonPointer(pointer),
-        }
+        Self::from_interned_value(hash, DynamicReturnableValue::JsonPointer(pointer))
     }
 }
 
 impl InternedString {
-    fn from_static(hash: u64, string: &'static str) -> Self {
+    pub(crate) fn from_static(hash: u64, string: &'static str) -> Self {
         Self {
             hash,
             value: InternedStringValue::Static(string),
@@ -969,270 +1019,98 @@ impl InternedString {
 }
 
 #[cfg(test)]
-mod mmap_arc_archive_tests {
-    use super::*;
-    use crate::evaluation::evaluator_value::EvaluatorValueType;
+mod mutable_store_tests {
+    use super::MutableStore;
+    use std::sync::{Arc, Barrier};
 
-    // Freeze the exact source shape used before the Arc-backed archive input.
-    // This models the previous V1 reader and must not be refactored alongside
-    // MmapDataV1: new writer bytes have to remain readable through this type.
-    #[derive(Archive, RkyvSerialize)]
-    #[rkyv(archived = PreviousArchivedMmapDataV1)]
-    struct PreviousOwnedMmapDataV1 {
-        format_version: u32,
-        strings: HashMap<u64, String>,
-        returnables: HashMap<u64, HashMap<String, RkyvValue>>,
-    }
+    #[test]
+    fn concurrent_insertions_share_one_live_value() {
+        const THREAD_COUNT: usize = 16;
+        let store = Arc::new(MutableStore::<String>::default());
+        let start = Arc::new(Barrier::new(THREAD_COUNT));
 
-    impl PreviousArchivedMmapDataV1 {
-        fn format_version(&self) -> u32 {
-            self.format_version.to_native()
-        }
+        let threads = (0..THREAD_COUNT)
+            .map(|_| {
+                let store = Arc::clone(&store);
+                let start = Arc::clone(&start);
+                std::thread::spawn(move || {
+                    start.wait();
+                    store.get_or_insert(42, Arc::new("shared".to_owned()))
+                })
+            })
+            .collect::<Vec<_>>();
+        let handles = threads
+            .into_iter()
+            .map(|thread| thread.join().expect("interner thread should finish"))
+            .collect::<Vec<_>>();
 
-        fn string(&self, hash: u64) -> Option<&str> {
-            let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
-            self.strings.get(&archived_hash).map(|value| value.as_str())
-        }
-
-        fn returnable(&self, hash: u64, key: &str) -> Option<&ArchivedRkyvValue> {
-            let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
-            self.returnables.get(&archived_hash)?.get(key)
-        }
-    }
-
-    struct FailAfterWriter<W> {
-        inner: W,
-        remaining: usize,
-    }
-
-    impl<W> FailAfterWriter<W> {
-        fn new(inner: W, remaining: usize) -> Self {
-            Self { inner, remaining }
-        }
-    }
-
-    impl<W: Write> Write for FailAfterWriter<W> {
-        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
-            if self.remaining == 0 {
-                return Err(io::Error::other("injected mmap write failure"));
-            }
-
-            let limit = self.remaining.min(buffer.len());
-            let written = self.inner.write(&buffer[..limit])?;
-            self.remaining -= written;
-            Ok(written)
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            self.inner.flush()
-        }
-    }
-
-    struct FailOnFlushWriter<W> {
-        inner: W,
-    }
-
-    struct WriteZeroWriter;
-
-    impl Write for WriteZeroWriter {
-        fn write(&mut self, _buffer: &[u8]) -> io::Result<usize> {
-            Ok(0)
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            Ok(())
-        }
-    }
-
-    impl<W> FailOnFlushWriter<W> {
-        fn new(inner: W) -> Self {
-            Self { inner }
-        }
-    }
-
-    impl<W: Write> Write for FailOnFlushWriter<W> {
-        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
-            self.inner.write(buffer)
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            Err(io::Error::other("injected mmap flush failure"))
-        }
-    }
-
-    fn arc_backed_v1_source() -> MmapDataV1 {
-        let returnable = HashMap::from([("enabled".to_string(), RkyvValue::Bool(true))]);
-        MmapDataV1 {
-            format_version: MmapDataV1::FORMAT_VERSION,
-            strings: AHashMap::from_iter([(7, Arc::new("v1-string".to_string()))]).into(),
-            returnables: AHashMap::from_iter([(11, Arc::new(returnable))]).into(),
-        }
-    }
-
-    fn previous_owned_v1_source() -> PreviousOwnedMmapDataV1 {
-        PreviousOwnedMmapDataV1 {
-            format_version: MmapDataV1::FORMAT_VERSION,
-            strings: HashMap::from([(7, "v1-string".to_string())]),
-            returnables: HashMap::from([(
-                11,
-                HashMap::from([("enabled".to_string(), RkyvValue::Bool(true))]),
-            )]),
-        }
+        assert!(handles.iter().all(|value| Arc::ptr_eq(value, &handles[0])));
     }
 
     #[test]
-    fn previous_owned_v1_reader_reads_arc_backed_writer_bytes() {
-        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&arc_backed_v1_source()).unwrap();
-        let previous =
-            rkyv::access::<PreviousArchivedMmapDataV1, rkyv::rancor::Error>(&bytes).unwrap();
+    fn dead_value_is_replaced() {
+        let store = MutableStore::<String>::default();
+        let first = store.get_or_insert(42, Arc::new("first".to_owned()));
+        let weak_first = Arc::downgrade(&first);
+        drop(first);
 
-        assert_eq!(previous.format_version(), MmapDataV1::FORMAT_VERSION);
-        assert_eq!(previous.string(7), Some("v1-string"));
-        assert!(matches!(
-            previous.returnable(11, "enabled"),
-            Some(ArchivedRkyvValue::Bool(true))
-        ));
+        assert!(store.get(42).is_none());
+
+        let second = store.get_or_insert(42, Arc::new("second".to_owned()));
+        assert!(weak_first.upgrade().is_none());
+        assert_eq!(second.as_str(), "second");
+        assert_eq!(store.live_len(), 1);
     }
 
     #[test]
-    fn current_v1_reader_reads_previous_owned_writer_bytes() {
-        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&previous_owned_v1_source()).unwrap();
-        let current = rkyv::access::<ArchivedMmapDataV1, rkyv::rancor::Error>(&bytes).unwrap();
+    fn dead_entries_are_bounded_by_periodic_sweeps() {
+        let store = MutableStore::<String>::default();
 
-        assert_eq!(current.format_version(), MmapDataV1::FORMAT_VERSION);
-        assert_eq!(current.string_for_test(7), Some("v1-string"));
-        assert!(matches!(
-            current.returnable_for_test(11, "enabled"),
-            Some(ArchivedRkyvValue::Bool(true))
-        ));
+        for hash in 0..super::WEAK_STORE_SWEEP_INTERVAL as u64 {
+            drop(store.get_or_insert(hash, Arc::new(hash.to_string())));
+        }
+
+        assert_eq!(store.live_len(), 0);
+        assert_eq!(store.stored_len(), 1);
     }
 
     #[test]
-    fn conversion_keeps_shared_arc_allocations() {
-        let string = Arc::new("shared string".to_string());
-        let other_string_owner = Arc::clone(&string);
-        let returnable = Arc::new(HashMap::from([(
-            "enabled".to_string(),
-            RkyvValue::Bool(true),
-        )]));
-        let other_returnable_owner = Arc::clone(&returnable);
-        let mutable_data = MutableData {
-            strings: AHashMap::from_iter([(7, string)]),
-            returnables: AHashMap::from_iter([(11, returnable)]),
-            evaluator_values: AHashMap::new(),
-        };
+    fn take_live_retires_the_old_table() {
+        let store = MutableStore::<String>::default();
+        let live = store.get_or_insert(1, Arc::new("live".to_owned()));
+        drop(store.get_or_insert(2, Arc::new("dead".to_owned())));
 
-        let mmap_data = detached_mutable_to_mmap_data(mutable_data, Vec::new());
+        assert!(store.stored_capacity() > 0);
+        let taken = store.take_live();
 
         assert!(Arc::ptr_eq(
-            mmap_data.strings.get(&7).unwrap(),
-            &other_string_owner
+            &taken.iter().find(|(hash, _)| *hash == 1).unwrap().1,
+            &live
         ));
-        assert!(Arc::ptr_eq(
-            mmap_data.returnables.get(&11).unwrap(),
-            &other_returnable_owner
-        ));
+        assert!(!taken.iter().any(|(hash, _)| *hash == 2));
+        assert_eq!(store.stored_len(), 0);
+        assert_eq!(store.stored_capacity(), 0);
     }
 
     #[test]
-    fn conversion_releases_evaluator_cache_before_returning_archive_input() {
-        let evaluator = Arc::new(MemoizedEvaluatorValue::new(EvaluatorValueType::Null));
-        let evaluator_weak = Arc::downgrade(&evaluator);
-        let mutable_data = MutableData {
-            strings: AHashMap::new(),
-            returnables: AHashMap::new(),
-            evaluator_values: AHashMap::from_iter([(13, evaluator)]),
-        };
+    fn take_live_releases_weak_metadata_before_a_batch_drop() {
+        const BATCH_SIZE: u64 = 1024;
 
-        let _mmap_data = detached_mutable_to_mmap_data(mutable_data, Vec::new());
+        let store = MutableStore::<String>::default();
+        let handles = (0..BATCH_SIZE)
+            .map(|hash| store.get_or_insert(hash, Arc::new(hash.to_string())))
+            .collect::<Vec<_>>();
+        assert!(store.stored_capacity() >= BATCH_SIZE as usize);
 
-        assert!(evaluator_weak.upgrade().is_none());
-    }
+        let taken = store.take_live();
 
-    #[test]
-    fn previous_v1_reader_reads_streamed_arc_backed_archive() {
-        let mut file = tempfile::NamedTempFile::new().unwrap();
+        assert_eq!(taken.len(), BATCH_SIZE as usize);
+        assert_eq!(store.stored_len(), 0);
+        assert_eq!(store.stored_capacity(), 0);
 
-        let archived_len =
-            serialize_mmap_data(&arc_backed_v1_source(), file.as_file_mut()).unwrap();
-
-        assert_eq!(
-            archived_len,
-            file.as_file().metadata().unwrap().len() as usize
-        );
-        let mmap = unsafe { Mmap::map(file.as_file()).unwrap() };
-        let previous =
-            rkyv::access::<PreviousArchivedMmapDataV1, rkyv::rancor::Error>(&mmap).unwrap();
-
-        assert_eq!(previous.format_version(), MmapDataV1::FORMAT_VERSION);
-        assert_eq!(previous.string(7), Some("v1-string"));
-        assert!(matches!(
-            previous.returnable(11, "enabled"),
-            Some(ArchivedRkyvValue::Bool(true))
-        ));
-    }
-
-    #[test]
-    fn write_failure_is_file_error_and_preserves_published_artifact() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("published.mmap");
-        std::fs::write(&path, b"previous artifact").unwrap();
-        let mmap_data = MmapDataV1 {
-            format_version: MmapDataV1::FORMAT_VERSION,
-            strings: AHashMap::from_iter([(
-                1,
-                Arc::new("x".repeat(MMAP_WRITE_BUFFER_CAPACITY * 2)),
-            )])
-            .into(),
-            returnables: AHashMap::new().into(),
-        };
-
-        let result = publish_mmap_data(mmap_data, &path, |data, file| {
-            serialize_mmap_data(data, FailAfterWriter::new(file, 4096))
-        });
-
-        assert!(matches!(
-            result,
-            Err(StatsigErr::FileError(message))
-                if message.contains("injected mmap write failure")
-        ));
-        assert_eq!(std::fs::read(&path).unwrap(), b"previous artifact");
-        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
-    }
-
-    #[test]
-    fn flush_failure_is_file_error_and_preserves_published_artifact() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("published.mmap");
-        std::fs::write(&path, b"previous artifact").unwrap();
-
-        let result = publish_mmap_data(MmapDataV1::default(), &path, |data, file| {
-            serialize_mmap_data(data, FailOnFlushWriter::new(file))
-        });
-
-        assert!(matches!(
-            result,
-            Err(StatsigErr::FileError(message))
-                if message.contains("injected mmap flush failure")
-        ));
-        assert_eq!(std::fs::read(&path).unwrap(), b"previous artifact");
-        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
-    }
-
-    #[test]
-    fn write_zero_during_serialization_is_a_file_error() {
-        let mmap_data = MmapDataV1 {
-            format_version: MmapDataV1::FORMAT_VERSION,
-            strings: AHashMap::from_iter([(
-                1,
-                Arc::new("x".repeat(MMAP_WRITE_BUFFER_CAPACITY * 2)),
-            )])
-            .into(),
-            returnables: AHashMap::new().into(),
-        };
-
-        let result = serialize_mmap_data(&mmap_data, WriteZeroWriter);
-
-        assert!(matches!(result, Err(StatsigErr::FileError(_))));
+        drop(handles);
+        assert!(taken.iter().all(|(_, value)| Arc::strong_count(value) == 1));
+        drop(taken);
+        assert_eq!(store.stored_len(), 0);
     }
 }

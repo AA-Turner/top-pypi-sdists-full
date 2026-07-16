@@ -5,6 +5,7 @@ from abstra_internals.controllers.execution.consumer import ConsumerController
 from abstra_internals.controllers.main import MainController
 from abstra_internals.environment import (
     DEFAULT_PORT,
+    EDITOR_MODE,
     NATS_CREDS,
     NATS_URL,
     RABBITMQ_CONNECTION_URI,
@@ -20,12 +21,29 @@ from abstra_internals.repositories.factory import build_web_editor_repositories
 from abstra_internals.services.nats_file_events import WorkerFileChangeNotifier
 from abstra_internals.settings import SettingsController
 from abstra_internals.signals import SignalHandlers
+from abstra_internals.utils.multiprocessing import (
+    cleanup_stale_multiprocessing_semaphores,
+)
 from abstra_internals.utils.packages import get_local_package_version
 
 
 def run():
     SignalHandlers.init()
     AbstraLogger.init("cloud")
+
+    # Same exposure as the cloud worker: this module is PID 1 of its own pod
+    # (shared only with a Go metrics sidecar), so a SIGKILL also kills the
+    # multiprocessing resource tracker and leaks semaphores into the
+    # pod-scoped /dev/shm until Queue() fails with ENOSPC. Gated to cloud
+    # pods: on a shared host these files may belong to other processes.
+    if EDITOR_MODE == "web":
+        stale_semaphores = cleanup_stale_multiprocessing_semaphores()
+        if stale_semaphores:
+            AbstraLogger.warning(
+                f"[web-editor-worker] Removed {stale_semaphores} stale "
+                "multiprocessing semaphore files from /dev/shm (leaked by a "
+                "previous container incarnation, e.g. after an OOM kill)"
+            )
     try:
         abstra_version = str(get_local_package_version())
     except PackageNotFoundError:

@@ -292,7 +292,7 @@ class idc_value_t:
         """
         ...
     def clear(self) -> None:
-        r"""See free_idcv()
+        r"""See free_idcv().
         
         """
         ...
@@ -520,7 +520,7 @@ def add_idc_gvar(name: str) -> idc_value_t:
 def call_idc_func__(*args: Any, **kwargs: Any) -> Any:
     ...
 
-def compile_idc_file(nonnul_line: str) -> str:
+def compile_idc_file(nonnul_line: str) -> Union[str, None]:
     ...
 
 def compile_idc_snippet(func: str, text: str, resolver: idc_resolver_t = None, only_safe_funcs: bool = False) -> str:
@@ -535,7 +535,7 @@ def compile_idc_snippet(func: str, text: str, resolver: idc_resolver_t = None, o
     """
     ...
 
-def compile_idc_text(nonnul_line: str) -> str:
+def compile_idc_text(nonnul_line: str) -> Union[str, None]:
     ...
 
 def copy_idcv(dst: idc_value_t, src: idc_value_t) -> int:
@@ -583,7 +583,7 @@ def deref_idcv(v: idc_value_t, vref_flags: int) -> idc_value_t:
     """
     ...
 
-def eval_expr(rv: idc_value_t, where: ida_idaapi.ea_t, line: str) -> str:
+def eval_expr(rv: idc_value_t, where: ida_idaapi.ea_t, line: str) -> Union[str, None]:
     r"""Compile and calculate an expression. 
             
     :param rv: pointer to the result
@@ -594,13 +594,13 @@ def eval_expr(rv: idc_value_t, where: ida_idaapi.ea_t, line: str) -> str:
     """
     ...
 
-def eval_idc_expr(rv: idc_value_t, where: ida_idaapi.ea_t, line: str) -> str:
+def eval_idc_expr(rv: idc_value_t, where: ida_idaapi.ea_t, line: str) -> Union[str, None]:
     r"""Same as eval_expr(), but will always use the IDC interpreter regardless of the currently installed extlang. 
             
     """
     ...
 
-def exec_idc_script(result: idc_value_t, path: str, func: str, args: idc_value_t, argsnum: int) -> str:
+def exec_idc_script(result: idc_value_t, path: str, func: str, args: idc_value_t, argsnum: int) -> Union[str, None]:
     r"""Compile and execute IDC function(s) from file. 
             
     :param result: ptr to idc_value_t to hold result of the function. If execution fails, this variable will contain the exception information. You may pass nullptr if you are not interested in the returned value.
@@ -652,7 +652,7 @@ def free_idcv(v: idc_value_t) -> None:
     """
     ...
 
-def get_idc_filename(file: str) -> str:
+def get_idc_filename(file: str) -> Union[str, None]:
     r"""Get full name of IDC file name. Search for file in list of include directories, IDCPATH directory and system directories. 
             
     :param file: file name without full path
@@ -671,7 +671,7 @@ def get_idcv_attr(res: idc_value_t, obj: idc_value_t, attr: str, may_use_getattr
     """
     ...
 
-def get_idcv_class_name(obj: idc_value_t) -> str:
+def get_idcv_class_name(obj: idc_value_t) -> Union[str, None]:
     r"""Retrieves the IDC object class name. 
             
     :param obj: class instance variable

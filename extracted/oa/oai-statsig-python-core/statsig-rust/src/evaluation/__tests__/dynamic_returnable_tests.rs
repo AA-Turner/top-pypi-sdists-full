@@ -50,6 +50,30 @@ fn test_memoization_from_json_bool() {
     assert_eq!(get_memo_len(), 0, "Bools are not memoized");
 }
 
+#[test]
+#[serial]
+fn test_stable_hash_ignores_object_order() {
+    let first = serde_json::from_str::<DynamicReturnable>(
+        r#"{"first":1,"nested":{"alpha":true,"beta":false}}"#,
+    )
+    .unwrap();
+    let second = serde_json::from_str::<DynamicReturnable>(
+        r#"{"nested":{"beta":false,"alpha":true},"first":1}"#,
+    )
+    .unwrap();
+
+    assert_eq!(first.get_stable_hash(), second.get_stable_hash());
+}
+
+#[test]
+#[serial]
+fn test_stable_hash_preserves_array_order() {
+    let first = serde_json::from_str::<DynamicReturnable>(r#"{"values":[1,2]}"#).unwrap();
+    let second = serde_json::from_str::<DynamicReturnable>(r#"{"values":[2,1]}"#).unwrap();
+
+    assert_ne!(first.get_stable_hash(), second.get_stable_hash());
+}
+
 fn get_memo_len() -> usize {
     InternedStore::get_memoized_len().1
 }

@@ -20,7 +20,7 @@ from pyrig.core.introspection.modules import (
 from pyrig.core.introspection.paths import module_name_as_path
 from pyrig.core.strings import reformat_name
 from pyrig.rig.configs.base.package import PythonPackageConfigFile
-from pyrig.rig.tools.package_manager import PackageManager
+from pyrig.rig.tools.packages.manager import PackageManager
 
 
 class CopyModuleConfigFile(PythonPackageConfigFile):
@@ -51,13 +51,13 @@ class CopyModuleConfigFile(PythonPackageConfigFile):
             The module to copy.
         """
 
-    def lines(self) -> list[str]:
-        """Read the source module's file content as a list of lines.
+    def content(self) -> str:
+        """Read the source module's file content.
 
         Returns:
-            Source code of the module split into individual lines.
+            Source code of the module.
         """
-        return self.split_lines(module_content(self.copy_module()))
+        return module_content(self.copy_module())
 
     def parent_path(self) -> Path:
         """Return the directory that will contain the copied module file.
@@ -106,7 +106,10 @@ class CopyModuleConfigFile(PythonPackageConfigFile):
         """
         cls_name = (
             reformat_name(
-                leaf_module_name(module), split_on="_", join_on="", capitalize=True
+                leaf_module_name(module),
+                split_on="_",
+                join_on="",
+                capitalize=True,
             )
             + cls.__name__
         )
@@ -137,6 +140,7 @@ class CopyModuleConfigFile(PythonPackageConfigFile):
         """
         return self.source_root() / module_name_as_path(
             replace_root_module_name(
-                self.copy_module(), PackageManager.I.package_name()
-            )
+                self.copy_module(),
+                PackageManager.I.package_name(),
+            ),
         )

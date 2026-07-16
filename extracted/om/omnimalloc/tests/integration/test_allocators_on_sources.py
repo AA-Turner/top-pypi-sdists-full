@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from omnimalloc.allocate import run_allocation
+from omnimalloc.allocators.base import BaseAllocator
 from omnimalloc.allocators.greedy import (
     GreedyAllocator,
     GreedyByAreaAllocator,
@@ -13,6 +14,7 @@ from omnimalloc.allocators.greedy import (
     GreedyByDurationAllocator,
     GreedyBySizeAllocator,
 )
+from omnimalloc.allocators.hillclimb import HillClimbAllocator
 from omnimalloc.benchmark.sources.generator import (
     HighContentionSource,
     PowerOf2Source,
@@ -20,6 +22,7 @@ from omnimalloc.benchmark.sources.generator import (
     SequentialSource,
     UniformSource,
 )
+from omnimalloc.common.optional import OptionalDependencyError
 from omnimalloc.primitives.memory import Memory
 from omnimalloc.primitives.pool import Pool
 from omnimalloc.validate import validate_allocation
@@ -178,6 +181,30 @@ def test_greedy_deterministic_across_runs() -> None:
     assert offsets1 == offsets2
 
 
+def test_hill_climb_with_high_contention() -> None:
+    source = HighContentionSource(num_allocations=40, time_window=10, seed=42)
+    allocations = source.get_allocations()
+    pool = Pool(id="test_pool", allocations=allocations)
+
+    allocator = HillClimbAllocator(max_iterations=200)
+    allocated_pool = run_allocation(pool, allocator)
+
+    assert validate_allocation(allocated_pool)
+    assert all(a.offset is not None for a in allocated_pool.allocations)
+
+
+def test_hill_climb_with_random_source() -> None:
+    source = RandomSource(num_allocations=50, seed=42)
+    allocations = source.get_allocations()
+    pool = Pool(id="test_pool", allocations=allocations)
+
+    allocator = HillClimbAllocator()
+    allocated_pool = run_allocation(pool, allocator)
+
+    assert validate_allocation(allocated_pool)
+    assert len(allocated_pool.allocations) == 50
+
+
 def test_greedy_with_sequential_produces_small_footprint() -> None:
     source = SequentialSource(num_allocations=100, seed=42)
     allocations = source.get_allocations()
@@ -227,6 +254,24 @@ def test_all_greedy_variants_handle_empty_pool() -> None:
         assert validate_allocation(allocated_pool)
         assert len(allocated_pool.allocations) == 0
         assert allocated_pool.size == 0
+
+
+@pytest.mark.parametrize("name", sorted(BaseAllocator.registry()))
+def test_every_registered_allocator_on_random_source(name: str) -> None:
+    source = RandomSource(num_allocations=25, seed=42)
+    allocations = source.get_allocations()
+    pool = Pool(id="test_pool", allocations=allocations)
+
+    try:
+        allocator = BaseAllocator.get(name)()
+    except OptionalDependencyError as error:
+        pytest.skip(str(error))
+
+    allocated_pool = run_allocation(pool, allocator)
+
+    assert validate_allocation(allocated_pool)
+    assert {a.id for a in allocated_pool.allocations} == {a.id for a in allocations}
+    assert all(a.offset is not None for a in allocated_pool.allocations)
 
 
 @pytest.mark.skipif(not HAS_MATPLOTLIB, reason="matplotlib not installed")

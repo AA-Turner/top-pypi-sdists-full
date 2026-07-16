@@ -28,7 +28,7 @@ def clear_data(download_files):
             shutil.rmtree(pl_dir)
 
 
-def _get_package(pl_name, version, robust, use_v8):
+def _get_package(pl_name, version, use_v8):
     
     pl_dir = DataDir / pl_name
     mkdir(pl_dir)
@@ -40,30 +40,21 @@ def _get_package(pl_name, version, robust, use_v8):
     fn = prefix + f"{PdfiumBinariesMap[pl_name]}.tgz"
     fu = f"{ReleaseURL}{version}/{fn}"
     fp = pl_dir / fn
-    
-    try:
-        urlretrieve(fu, fp)
-    except Exception as e:
-        if robust:
-            log(str(e))
-            return None, None
-        else:
-            raise
+    urlretrieve(fu, fp)
     
     return pl_name, fp
 
 
-def do_download(platforms, version, use_v8, max_workers, robust):
+def do_download(platforms, version, use_v8, max_workers):
     
     if not max_workers:
         max_workers = len(platforms)
     
     archives = {}
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        func = functools.partial(_get_package, version=version, robust=robust, use_v8=use_v8)
+        func = functools.partial(_get_package, version=version, use_v8=use_v8)
         for pl_name, file_path in pool.map(func, platforms):
-            if pl_name is not None:
-                archives[pl_name] = file_path
+            archives[pl_name] = file_path
     
     return archives
 
@@ -92,43 +83,29 @@ def _extract_licenses(tar, pl_dir):
 
 
 def do_extract(archives, version, flags):
-    
+    headers_dir = DataDir_Bindings/f"headers_{version}"
+    have_headers = get_have_headers(headers_dir)
     for pl_name, arc_path in archives.items():
-        
         with tarfile.open(arc_path) as tar:
             pl_dir = DataDir/pl_name
             system = plat_to_system(pl_name)
             libname = libname_for_system(system)
             tar_libdir = "lib" if system != SysNames.windows else "bin"
             tar_extract_file(tar, f"{tar_libdir}/{libname}", pl_dir/libname)
-            _extract_licenses(tar, pl_dir)
+            if not have_headers:
+                log(f"Extracting pdfium headers from pdfium-binaries {pl_name} tarball")
+                tar_extract_headers(tar, headers_dir, prefix="include/")
+                have_headers = True
             full_ver = _parse_ver_file(tar.extractfile("VERSION"), version)
             write_pdfium_info(pl_dir, full_ver, origin="pdfium-binaries", flags=flags)
-        
+            _extract_licenses(tar, pl_dir)
         arc_path.unlink()
-
-
-def _have_recent_gh():
-    
-    if not shutil.which("gh"):
-        log("gh CLI is not installed")
-        return False
-    
-    from packaging.version import Version
-    gh_version = run_cmd(["gh", "--version"], cwd=None, capture=True)
-    gh_version = Version( re.match(r"gh version ([\d.]+)", gh_version).group(1) )
-    
-    if gh_version >= Version("2.47.0"):
-        return True
-    else:
-        log("gh CLI version is too old for verification")
-        return False
 
 
 def do_verify(verify, archives, version):
     
     if verify is None:
-        verify = version >= 7557 and _have_recent_gh()
+        verify = version >= 7557 and shutil.which("gh")  # assuming gh >= 2.47.0
     if not verify:
         log("Warning: Verification is off. If this is not intentional, make sure `gh` (GitHub CLI) is installed.")
         return
@@ -156,16 +133,15 @@ def postprocess_android():
         log("If you are on Termux, consider installing termux-elf-cleaner to clean up possible linker warnings.")
 
 
-def main(platforms, version, robust=False, max_workers=None, use_v8=False, verify=None):
+def main(platforms, version, max_workers=None, use_v8=False, verify=None):
     
-    if not platforms:
-        platforms = WheelPlatforms
+    platforms = handle_platforms(platforms)
     if len(platforms) != len(set(platforms)):
         raise ValueError("Duplicate platforms not allowed.")
     flags = ("V8", "XFA") if use_v8 else ()
     
     clear_data(platforms)
-    archives = do_download(platforms, version, use_v8, max_workers, robust)
+    archives = do_download(platforms, version, use_v8, max_workers)
     do_verify(verify, archives, version)
     
     do_extract(archives, version, flags)
@@ -176,7 +152,6 @@ def main(platforms, version, robust=False, max_workers=None, use_v8=False, verif
 # low-level interface for internal use - end users should go with cached, higher-level emplace.py or setup.py instead
 
 def parse_args(argv):
-    platform_choices = list(PdfiumBinariesMap.keys())
     parser = argparse.ArgumentParser(
         description = "Download pre-built PDFium packages.",
     )
@@ -184,8 +159,7 @@ def parse_args(argv):
         "--platforms", "-p",
         nargs = "+",
         metavar = "ID",
-        choices = platform_choices,
-        help = f"The platform(s) to include. Defaults to the platforms we build wheels for. Choices: {platform_choices}",
+        help = f"The platform(s) to include. Defaults to the platforms we build wheels for. Choices: {ALL_PLATFORMS}",
     )
     parser.add_argument(
         "--use-v8",
@@ -200,11 +174,6 @@ def parse_args(argv):
         "--max-workers",
         type = int,
         help = "Maximum number of jobs to run in parallel when downloading binaries.",
-    )
-    parser.add_argument(
-        "--robust",
-        action = "store_true",
-        help = "Skip missing binaries instead of raising an exception.",
     )
     parser.add_argument(
         "--verify",

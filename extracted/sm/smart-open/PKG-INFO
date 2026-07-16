@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smart_open
-Version: 8.0.0
+Version: 8.0.1
 Summary: Utils for streaming large files (S3, HDFS, GCS, SFTP, Azure Blob Storage, gzip, bz2, zst...)
 Author-email: Radim Rehurek <me@radimrehurek.com>
 Project-URL: Repository, https://github.com/piskvorky/smart_open
@@ -168,6 +168,12 @@ Or, if you don't mind installing a large number of third party libraries, you ca
 ```sh
 pip install 'smart_open[all]'
 ```
+
+Some transports have external dependencies that are not `smart_open` extras:
+
+- HTTP Kerberos auth (`kerberos=True`) needs the `requests-kerberos` package: `pip install requests-kerberos`
+- SSH GSSAPI/Kerberos auth (`gss_*` options) needs paramiko's GSSAPI support: `pip install 'paramiko[gssapi]'`
+- The `hdfs://` and `viewfs://` transports shell out to the Hadoop `hdfs` command-line client, which must be installed separately and available on `$PATH`
 
 ### Built-in help
 
@@ -571,11 +577,11 @@ This can be helpful when e.g. working with compressed files.
 
 ## How do I ...?
 
-See [this document](howto.md).
+See [HOWTO.md](HOWTO.md).
 
 ## Extending `smart_open`
 
-See [this document](extending.md).
+See [EXTENDING.md](EXTENDING.md).
 
 ## Testing `smart_open`
 

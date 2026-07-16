@@ -4,7 +4,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.process import BaseProcess
 from threading import Thread
-from typing import Dict, Optional, cast
+from typing import Dict, Optional, Union, cast
 from uuid import uuid4
 
 from abstra_internals.cloud.metrics_reporter import (
@@ -16,6 +16,7 @@ from abstra_internals.controllers.execution.executor_config import ExecutorConfi
 from abstra_internals.controllers.execution.executor_pool import (
     ExecutorDiedError,
     ExecutorPool,
+    ExecutorPoolNotReadyError,
 )
 from abstra_internals.controllers.execution.executor_types import RabbitMQParams
 from abstra_internals.controllers.main import MainController
@@ -33,6 +34,7 @@ from abstra_internals.repositories.consumer import (
 )
 from abstra_internals.repositories.models import (
     RunSnippetMessage,
+    RunSnippetSandboxedMessage,
     StopAllExecutionsMessage,
     StopExecutionMessage,
 )
@@ -173,9 +175,13 @@ class ConsumerController:
 
             if elapsed_time >= 300:
                 AbstraLogger.error(
-                    "[ConsumerController] Executor pool not ready after 5 minutes. Exiting."
+                    "[ConsumerController] Executor pool not ready after 5 minutes. "
+                    "Shutting down pool and exiting with error."
                 )
-                return
+                self.executor_pool.shutdown()
+                raise ExecutorPoolNotReadyError(
+                    "Executor pool not ready after 5 minutes"
+                )
 
         try:
             self.executor = ThreadPoolExecutor(
@@ -222,6 +228,9 @@ class ConsumerController:
             elif isinstance(control_msg, RunSnippetMessage):
                 control_msg.connection = msg.connection
                 self._handle_run_snippet(control_msg)
+            elif isinstance(control_msg, RunSnippetSandboxedMessage):
+                control_msg.connection = msg.connection
+                self._handle_run_snippet_sandboxed(control_msg)
 
             self.consumer.threadsafe_ack(msg)
         except Exception as e:
@@ -244,7 +253,47 @@ class ConsumerController:
         }
         self._send_snippet_result(msg, result)
 
-    def _send_snippet_result(self, msg: RunSnippetMessage, result: dict) -> None:
+    def _handle_run_snippet_sandboxed(self, msg: RunSnippetSandboxedMessage) -> None:
+        # Throwaway Landlock process (not an executor-pool process). Still holds
+        # one dispatch thread while blocking on the child — bounded by timeout.
+        # build_prod_repositories is module-level so it pickles into the child.
+        from abstra_internals.controllers.execution.sandboxed_snippet import (
+            run_snippet_sandboxed,
+        )
+        from abstra_internals.repositories.factory import build_prod_repositories
+
+        response = run_snippet_sandboxed(
+            code=msg.payload.code,
+            title=msg.payload.title,
+            worker_id=self.worker_id,
+            mp_context=self.main_controller.repositories.mp_context.get_context(),
+            repositories_factory=build_prod_repositories,
+            timeout_s=int(msg.timeout_ms / 1000) if msg.timeout_ms else None,
+        )
+
+        result = {
+            "ok": response.success,
+            "error": response.error,
+            "logs": response.logs or [],
+        }
+        # Match cloud-api's SessionConnection queue args (session mode +
+        # publisher-supplied expiry) or RabbitMQ 406s on redeclare. Send-only.
+        self._send_snippet_result(
+            msg,
+            result,
+            is_session=True,
+            queue_expire_ms=msg.queue_expire_ms,
+            auto_start_consumer=False,
+        )
+
+    def _send_snippet_result(
+        self,
+        msg: Union[RunSnippetMessage, RunSnippetSandboxedMessage],
+        result: dict,
+        is_session: bool = False,
+        queue_expire_ms: Optional[int] = None,
+        auto_start_consumer: bool = True,
+    ) -> None:
         result_json = json.dumps(result)
 
         if msg.connection:
@@ -257,6 +306,9 @@ class ConsumerController:
                 send_queue=f"worker_to_server_{correlation_id}",
                 recv_queue=f"server_to_worker_{correlation_id}",
                 execution_id=correlation_id,
+                is_session=is_session,
+                queue_expire_ms=queue_expire_ms,
+                auto_start_consumer=auto_start_consumer,
             ) as conn:
                 conn.send(result_json)
 

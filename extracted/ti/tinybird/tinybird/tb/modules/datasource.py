@@ -862,20 +862,50 @@ def datasource_sync(ctx: Context, datasource_name: str, yes: bool):
     default=False,
     help="Wait for the import job to finish",
 )
+@click.option(
+    "--rows",
+    default=None,
+    type=int,
+    help="For DynamoDB, the maximum number of rows to scan and import (default 1500; mutually exclusive with --max-bytes)",
+)
+@click.option(
+    "--max-bytes",
+    default=None,
+    type=str,
+    help="For DynamoDB, the maximum approximate JSONEachRow bytes to import, e.g. 500MB (capped at 10GB by default; mutually exclusive with --rows)",
+)
+@click.option(
+    "--full-export",
+    is_flag=True,
+    default=False,
+    help="For DynamoDB, trigger a full PITR export instead of a bounded sample (mutually exclusive with --rows and --max-bytes)",
+)
 @click.pass_context
-def datasource_sample(ctx: Context, datasource_name: str, max_files: int, wait: bool) -> None:
-    """Import sample data from a datasource connected to an S3 or GCS bucket.
+def datasource_sample(
+    ctx: Context,
+    datasource_name: str,
+    max_files: int,
+    wait: bool,
+    rows: Optional[int],
+    max_bytes: Optional[str],
+    full_export: bool,
+) -> None:
+    """Import sample data from a datasource connected to S3, GCS, or DynamoDB.
 
-    This command only works with datasources that have IMPORT_CONNECTION_NAME and
-    IMPORT_BUCKET_URI configured (i.e., datasources ingesting from S3 or GCS).
-    It imports a limited number of files from the bucket URI pattern, useful for
-    testing data pipelines in branches without importing the entire dataset.
+    For S3 and GCS, this imports a limited number of files from the bucket URI
+    pattern. For DynamoDB, this scans and imports a bounded sample limited by
+    either --rows or --max-bytes (defaulting to 1500 rows), or --full-export to
+    trigger a PITR export of the whole table.
 
     By default, returns immediately with job info. Use --wait to block until complete.
 
     Examples:
         tb --branch=my_branch datasource sample my_s3_ds
         tb --branch=my_branch datasource sample my_s3_ds --max-files 3 --wait
+        tb --branch=my_branch datasource sample my_dynamodb_ds --wait
+        tb --branch=my_branch datasource sample my_dynamodb_ds --rows 100000 --wait
+        tb --branch=my_branch datasource sample my_dynamodb_ds --max-bytes 1GB --wait
+        tb --branch=my_branch datasource sample my_dynamodb_ds --full-export --wait
     """
     from tinybird.tb.modules.common import wait_job
     from tinybird.tb.modules.job_common import echo_job_url
@@ -884,10 +914,32 @@ def datasource_sample(ctx: Context, datasource_name: str, max_files: int, wait: 
         client: TinyB = ctx.obj["client"]
         config = ctx.obj.get("config", {})
 
+        if rows is not None and max_bytes is not None:
+            raise CLIDatasourceException(
+                FeedbackManager.error(message="--rows and --max-bytes are mutually exclusive; pass only one.")
+            )
+
+        if full_export and (rows is not None or max_bytes is not None):
+            raise CLIDatasourceException(
+                FeedbackManager.error(message="--full-export cannot be combined with --rows or --max-bytes.")
+            )
+
+        if full_export:
+            click.echo(
+                FeedbackManager.warning(
+                    message=(
+                        "DynamoDB full export samples will import the whole table. "
+                        "Use --rows or --max-bytes without --full-export for a bounded sample."
+                    )
+                )
+            )
+
         click.echo(FeedbackManager.info(message=f"Starting sample import for {datasource_name}..."))
 
         # Start the job
-        result = client.datasource_sample(datasource_name, max_files=max_files)
+        result = client.datasource_sample(
+            datasource_name, max_files=max_files, rows=rows, max_bytes=max_bytes, full_export=full_export
+        )
 
         job_id = result.get("job_id") or result.get("id")
         if not job_id:

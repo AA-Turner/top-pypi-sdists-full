@@ -6,8 +6,8 @@
 #include "DescriptorBase.h"
 #include "ServiceBase.h"
 
-#include <simpleble/Config.h>
 #include <simpleble/Characteristic.h>
+#include <simpleble/Config.h>
 #include <simpleble/Descriptor.h>
 #include <simpleble/Exceptions.h>
 #include <simpleble/Service.h>
@@ -32,9 +32,10 @@ PeripheralLinux::~PeripheralLinux() {
     this->callback_on_connected_.unload();
     this->callback_on_disconnected_.unload();
 
+    device_->clear_on_connected();
     device_->clear_on_disconnected();
     device_->clear_on_services_resolved();
-    _cleanup_characteristics();
+    _cleanup_characteristics(true);
 }
 
 void* PeripheralLinux::underlying() const { return device_.get(); }
@@ -48,7 +49,7 @@ BluetoothAddressType PeripheralLinux::address_type() {
 
     if (address_type == "public") {
         return BluetoothAddressType::PUBLIC;
-    } else if (address_type == "public") {
+    } else if (address_type == "random") {
         return BluetoothAddressType::RANDOM;
     } else {
         return BluetoothAddressType::UNSPECIFIED;
@@ -78,6 +79,7 @@ void PeripheralLinux::connect() {
     }
 
     device_->clear_on_disconnected();
+    device_->set_on_connected([this]() { this->connection_cv_.notify_all(); });
     device_->set_on_services_resolved([this]() { this->connection_cv_.notify_all(); });
 
     // Attempt to connect to the device.
@@ -87,10 +89,13 @@ void PeripheralLinux::connect() {
         }
     }
 
+    device_->clear_on_connected();
+    device_->clear_on_services_resolved();
+
     // Set the on_disconnected callback once the connection attempts are finished, thus
     // preventing disconnection events that should not be seen by the user.
     device_->set_on_disconnected([this]() {
-        this->_cleanup_characteristics();
+        this->_cleanup_characteristics(false);
         this->disconnection_cv_.notify_all();
 
         SAFE_CALLBACK_CALL(this->callback_on_disconnected_);
@@ -112,11 +117,9 @@ void PeripheralLinux::disconnect() {
     device_->clear_on_disconnected();
 
     // Ensure that all characteristics are stopped and cleaned up.
-    _cleanup_characteristics();
+    _cleanup_characteristics(true);
 
-    device_->set_on_disconnected([this]() {
-        this->disconnection_cv_.notify_all();
-    });
+    device_->set_on_disconnected([this]() { this->disconnection_cv_.notify_all(); });
 
     // Attempt to connect to the device.
     for (size_t i = 0; i < 5; i++) {
@@ -197,8 +200,16 @@ SharedPtrVector<ServiceBase> PeripheralLinux::available_services() {
 
 SharedPtrVector<ServiceBase> PeripheralLinux::advertised_services() {
     SharedPtrVector<ServiceBase> service_list;
+
+    auto service_data = device_->service_data();
+    for (auto& [service_uuid, data] : service_data) {
+        service_list.push_back(std::make_shared<ServiceBase>(service_uuid, data));
+    }
+
     for (auto& service_uuid : device_->uuids()) {
-        service_list.push_back(std::make_shared<ServiceBase>(service_uuid));
+        if (service_data.count(service_uuid) == 0) {
+            service_list.push_back(std::make_shared<ServiceBase>(service_uuid));
+        }
     }
 
     return service_list;
@@ -328,7 +339,7 @@ void PeripheralLinux::set_callback_on_disconnected(std::function<void()> on_disc
 
 // Private methods
 
-void PeripheralLinux::_cleanup_characteristics() noexcept {
+void PeripheralLinux::_cleanup_characteristics(bool stop_notifications) noexcept {
     // As this method can be called in multiple stages of a disconnection or object
     // destruction, the entire execution of this method is wrapped in a try-catch
     // block to prevent any exceptions from being thrown, as these will most certainly
@@ -350,7 +361,11 @@ void PeripheralLinux::_cleanup_characteristics() noexcept {
             }
         }
 
-        // Stop notifying all characteristics.
+        if (!stop_notifications || !device_->valid() || !device_->connected()) {
+            return;
+        }
+
+        // Stop notifying all characteristics while the device is still connected.
         for (auto bluez_service : device_->services()) {
             for (auto bluez_characteristic : bluez_service->characteristics()) {
                 try {
@@ -390,7 +405,8 @@ bool PeripheralLinux::_attempt_disconnect() {
     // Wait for the disconnection to be confirmed.
     // The condition variable will return false if the connection is still active.
     std::unique_lock<std::mutex> lock(disconnection_mutex_);
-    return disconnection_cv_.wait_for(lock, Config::SimpleBluez::disconnection_timeout, [this]() { return !is_connected(); });
+    return disconnection_cv_.wait_for(lock, Config::SimpleBluez::disconnection_timeout,
+                                      [this]() { return !is_connected(); });
 }
 
 std::shared_ptr<SimpleBluez::Characteristic> PeripheralLinux::_get_characteristic(
@@ -409,6 +425,10 @@ std::shared_ptr<SimpleBluez::Descriptor> PeripheralLinux::_get_descriptor(Blueto
                                                                           BluetoothUUID const& descriptor_uuid) {
     try {
         return device_->get_characteristic(service_uuid, characteristic_uuid)->get_descriptor(descriptor_uuid);
+    } catch (SimpleBluez::Exception::ServiceNotFoundException& e) {
+        throw Exception::ServiceNotFound(service_uuid);
+    } catch (SimpleBluez::Exception::CharacteristicNotFoundException& e) {
+        throw Exception::CharacteristicNotFound(characteristic_uuid);
     } catch (SimpleBluez::Exception::DescriptorNotFoundException& e) {
         throw Exception::DescriptorNotFound(descriptor_uuid);
     }

@@ -12,6 +12,7 @@ Usage::
 
     from mypy_boto3_healthlake.client import HealthLakeClient
     from mypy_boto3_healthlake.waiter import (
+        DataTransformationJobCompletedWaiter,
         FHIRDatastoreActiveWaiter,
         FHIRDatastoreDeletedWaiter,
         FHIRExportJobCompletedWaiter,
@@ -21,6 +22,7 @@ Usage::
     session = Session()
     client: HealthLakeClient = session.client("healthlake")
 
+    data_transformation_job_completed_waiter: DataTransformationJobCompletedWaiter = client.get_waiter("data_transformation_job_completed")
     fhir_datastore_active_waiter: FHIRDatastoreActiveWaiter = client.get_waiter("fhir_datastore_active")
     fhir_datastore_deleted_waiter: FHIRDatastoreDeletedWaiter = client.get_waiter("fhir_datastore_deleted")
     fhir_export_job_completed_waiter: FHIRExportJobCompletedWaiter = client.get_waiter("fhir_export_job_completed")
@@ -35,6 +37,7 @@ import sys
 from botocore.waiter import Waiter
 
 from .type_defs import (
+    DescribeDataTransformationJobRequestWaitTypeDef,
     DescribeFHIRDatastoreRequestWaitExtraTypeDef,
     DescribeFHIRDatastoreRequestWaitTypeDef,
     DescribeFHIRExportJobRequestWaitTypeDef,
@@ -47,11 +50,25 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "DataTransformationJobCompletedWaiter",
     "FHIRDatastoreActiveWaiter",
     "FHIRDatastoreDeletedWaiter",
     "FHIRExportJobCompletedWaiter",
     "FHIRImportJobCompletedWaiter",
 )
+
+class DataTransformationJobCompletedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/waiter/DataTransformationJobCompleted.html#HealthLake.Waiter.DataTransformationJobCompleted)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_healthlake/waiters/#datatransformationjobcompletedwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeDataTransformationJobRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/waiter/DataTransformationJobCompleted.html#HealthLake.Waiter.DataTransformationJobCompleted.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_healthlake/waiters/#datatransformationjobcompletedwaiter)
+        """
 
 class FHIRDatastoreActiveWaiter(Waiter):
     """

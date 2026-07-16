@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: slack_bolt
-Version: 1.29.0
+Version: 1.30.0
 Summary: The Bolt Framework for Python
 Home-page: https://github.com/slackapi/bolt-python
 Author: Slack Technologies, LLC

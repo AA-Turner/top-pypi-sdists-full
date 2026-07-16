@@ -7,6 +7,71 @@ from catboost import CatBoostRegressor
 from geocif.progress import pbar as _pbar
 
 
+class BassRegressor:
+    """scikit-learn-style wrapper around pyBASS (BASS = Bayesian Adaptive
+    Spline Surfaces = Bayesian MARS: adaptive hinge-spline bases + automatic
+    interaction selection, MCMC-fit).
+
+    One-hot-encodes categorical/object columns, fills NaN with the train
+    median, and returns the posterior-MEAN prediction. pyBASS is a git-only
+    optional dependency (``pip install git+https://github.com/lanl/pyBASS.git``)
+    imported lazily so geocif installs without it. Tuned poppy defaults
+    (maxInt=1 additive, npart=15) beat cubist on MIN_ESI4WK LOOCV (0.489 vs
+    0.443); interactions overfit the small sample.
+    """
+
+    def __init__(self, max_int=1, npart=15, max_basis=1000,
+                 nmcmc=14000, nburn=9000, thin=10):
+        self.max_int = max_int
+        self.npart = npart
+        self.max_basis = max_basis
+        self.nmcmc = nmcmc
+        self.nburn = nburn
+        self.thin = thin
+
+    def get_params(self, deep=True):
+        return dict(max_int=self.max_int, npart=self.npart, max_basis=self.max_basis,
+                    nmcmc=self.nmcmc, nburn=self.nburn, thin=self.thin)
+
+    def set_params(self, **p):
+        for k, v in p.items():
+            setattr(self, k, v)
+        return self
+
+    def _numeric(self, X):
+        X = pd.DataFrame(X).copy()
+        obj = list(X.select_dtypes(include=["object", "category"]).columns)
+        if obj:
+            X = pd.get_dummies(X, columns=obj, dummy_na=False)
+        return X.apply(pd.to_numeric, errors="coerce")
+
+    def fit(self, X, y):
+        try:
+            import pyBASS as pb
+        except ImportError as exc:
+            raise ImportError(
+                "model = 'bass' requires pyBASS (Bayesian MARS), a git-only "
+                "optional dependency:\n"
+                "    pip install git+https://github.com/lanl/pyBASS.git"
+            ) from exc
+        Xn = self._numeric(X)
+        self._median = Xn.median(numeric_only=True)
+        Xn = Xn.fillna(self._median).fillna(0.0)
+        self.columns_ = list(Xn.columns)
+        self.model_ = pb.bass(
+            Xn.values.astype(float), np.asarray(y, dtype=float),
+            maxInt=self.max_int, npart=self.npart, maxBasis=self.max_basis,
+            nmcmc=self.nmcmc, nburn=self.nburn, thin=self.thin, verbose=False,
+        )
+        return self
+
+    def predict(self, X):
+        Xn = self._numeric(X).reindex(columns=self.columns_, fill_value=0.0)
+        Xn = Xn.fillna(self._median).fillna(0.0)
+        preds = np.asarray(self.model_.predict(Xn.values.astype(float)))
+        return preds.mean(axis=0)
+
+
 def loocv(
     model,
     df,
@@ -238,6 +303,7 @@ def auto_train(
     monotonic_features: list = None,
     seed: int = 0,
     cubist_params: dict = None,
+    bass_params: dict = None,
 ):
     """
     Train a model using specified parameters and optionally perform hyperparameter optimization.
@@ -653,6 +719,14 @@ def auto_train(
             if cub.get("neighbors") is not None and cub.get("auto", True):
                 cub["auto"] = False
             model = Cubist(random_state=seed, **cub)
+        elif model_name == "bass":
+            # BASS = Bayesian MARS (pyBASS). Tuned poppy defaults (maxInt=1
+            # additive, npart=15) beat cubist on MIN_ESI4WK; interactions
+            # overfit small samples. Overridable per-project via [ML] bass_*.
+            bass = dict(max_int=1, npart=15, max_basis=1000,
+                        nmcmc=14000, nburn=9000, thin=10)
+            bass.update(bass_params or {})
+            model = BassRegressor(**bass)
         elif model_name == "gpr":
             from sklearn.gaussian_process import GaussianProcessRegressor
             from sklearn.gaussian_process.kernels import (

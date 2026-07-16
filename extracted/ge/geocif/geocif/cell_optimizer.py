@@ -80,7 +80,13 @@ _REQUIRED_COLS = frozenset({
 })
 
 # Variables the GA can use. Order matters only for output column order.
-_VAR_COLS = ("ndvi", "tmax", "tmin", "precip")
+# ``esi`` (Evaporative Stress Index) added so the GA can select cells that
+# best represent the crop's WATER-STRESS signal — extract it per cell via
+# [CELL_OPTIMIZER] variables = {"esi": "esi_4wk"} in geoextract.txt, and use
+# esi_doy_agg = min (see _DOY_AGG_DEFAULTS) to reproduce MIN_ESI4WK. Only
+# columns actually present in the parquet are used (see load path), so this
+# is inert unless esi was extracted.
+_VAR_COLS = ("ndvi", "tmax", "tmin", "precip", "esi")
 
 # Default DOY-axis aggregations per variable. Each instance of
 # CellOptimizer reads per-variable overrides from
@@ -100,6 +106,10 @@ _DOY_AGG_DEFAULTS = {
     "tmax":   "mean",
     "tmin":   "mean",
     "precip": "mean",
+    # ESI default = min: the seasonal MINIMUM ESI (worst water-stress) is
+    # the poppy-relevant signal and reproduces the MIN_ESI4WK CID. Override
+    # via [CELL_OPTIMIZER] esi_doy_agg = mean|median|... in geocif.txt.
+    "esi":    "min",
 }
 
 # Allowed agg values per variable. ``auc`` is an alias for ``sum``

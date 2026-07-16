@@ -7,6 +7,354 @@ Finally there are functions that deal with anterior/posterior user-defined lines
 
 """
 
+class sourcefile_info_t:
+    @property
+    def filename(self) -> str: ...
+    @property
+    def range(self) -> range_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
+class sourcefile_t:
+    @property
+    def end_ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def filename(self) -> str: ...
+    @property
+    def start_ea(self) -> ida_idaapi.ea_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: range_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, r: range_t) -> bool:
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, r: range_t) -> bool:
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, r: range_t) -> bool:
+        ...
+    def __lt__(self, r: range_t) -> bool:
+        ...
+    def __ne__(self, r: range_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def clear(self) -> None:
+        r"""Set start_ea, end_ea to 0.
+        
+        """
+        ...
+    def compare(self, r: range_t) -> int:
+        ...
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
+        
+        Is 'ea' in the address range?
+        """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
+        ...
+    def empty(self) -> bool:
+        r"""Is the size of the range_t <= 0?
+        
+        """
+        ...
+    def extend(self, ea: ida_idaapi.ea_t) -> None:
+        r"""Ensure that the range_t includes 'ea'.
+        
+        """
+        ...
+    def intersect(self, r: range_t) -> None:
+        r"""Assign the range_t to the intersection between the range_t and 'r'.
+        
+        """
+        ...
+    def overlaps(self, r: range_t) -> bool:
+        r"""Is there an ea in 'r' that is also in this range_t?
+        
+        """
+        ...
+    def size(self) -> int:
+        r"""Get end_ea - start_ea.
+        
+        """
+        ...
+
+class sourcefilevec_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: sourcefilevec_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> sourcefile_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[sourcefile_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: sourcefilevec_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: sourcefile_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: sourcefile_t) -> bool:
+        ...
+    def append(self, x: sourcefile_t) -> None:
+        ...
+    def at(self, _idx: int) -> sourcefile_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> qvector:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> qvector:
+        ...
+    def erase(self, *args: Any) -> qvector:
+        ...
+    def extend(self, x: sourcefilevec_t) -> None:
+        ...
+    def extract(self) -> sourcefile_t:
+        ...
+    def find(self, *args: Any) -> qvector:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: sourcefile_t) -> bool:
+        ...
+    def inject(self, s: sourcefile_t, len: int) -> None:
+        ...
+    def insert(self, it: sourcefile_t, x: sourcefile_t) -> qvector:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> sourcefile_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: sourcefilevec_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
 class user_defined_prefix_t:
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -91,7 +439,7 @@ class user_defined_prefix_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def get_user_defined_prefix(self, ea: ida_idaapi.ea_t, insn: insn_t, lnnum: int, indent: int, line: str) -> None:
+    def get_user_defined_prefix(self, ea: ida_idaapi.ea_t, insn: insn_t, lnnum: int, indent: int, line: str) -> str:
         r"""This callback must be overridden by the derived class. 
                 
         :param ea: the current address
@@ -121,6 +469,9 @@ def add_pgm_cmt(*args: Any) -> bool:
     ...
 
 def add_sourcefile(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, filename: str) -> bool:
+    ...
+
+def add_sourcefiles(items: sourcefilevec_t) -> bool:
     ...
 
 def calc_bg_color(ea: ida_idaapi.ea_t) -> int:
@@ -175,6 +526,15 @@ def get_first_free_extra_cmtidx(ea: ida_idaapi.ea_t, start: int) -> int:
 def get_sourcefile(ea: ida_idaapi.ea_t, bounds: range_t = None) -> str:
     ...
 
+def get_sourcefile_by_ea(ea: ida_idaapi.ea_t, bounds: range_t = None) -> str:
+    ...
+
+def get_sourcefiles_qty() -> int:
+    ...
+
+def getn_sourcefile(out: sourcefile_info_t, n: int) -> bool:
+    ...
+
 def install_user_defined_prefix(*args: Any) -> bool:
     ...
 
@@ -197,6 +557,14 @@ def tag_advance(line: str, cnt: int) -> int:
     :param line: pointer to string
     :param cnt: number of positions to move right
     :returns: moved pointer
+    """
+    ...
+
+def tag_get_addr(line: str) -> ida_idaapi.ea_t:
+    r"""Decode an address from an address mark. 
+            
+    :param line: points to sequence: COLOR_ON COLOR_ADDR ADDRESS
+    :returns: the decoded address, or BADADDR on malformed input
     """
     ...
 
@@ -233,13 +601,18 @@ def update_extra_cmt(ea: ida_idaapi.ea_t, what: int, str: str) -> bool:
     ...
 
 COLOR_ADDR: int  # 40
+COLOR_ADDR_EXPR: int  # 53
 COLOR_ADDR_SIZE: int  # 16
 COLOR_ALTOP: int  # 22
+COLOR_ARGLOC: int  # 16
+COLOR_ARGNAME: int  # 33
 COLOR_ASMDIR: int  # 27
+COLOR_ATTR: int  # 23
 COLOR_AUTOCMT: int  # 4
 COLOR_BG_MAX: int  # 13
 COLOR_BINPREF: int  # 20
 COLOR_CHAR: int  # 10
+COLOR_CMT: int  # 12
 COLOR_CNAME: int  # 37
 COLOR_CODE: int  # 5
 COLOR_CODNAME: int  # 26
@@ -263,6 +636,7 @@ COLOR_ESC: str  # 
 COLOR_EXTERN: int  # 8
 COLOR_EXTRA: int  # 21
 COLOR_FG_MAX: int  # 40
+COLOR_GROUP: int  # 54
 COLOR_HIDLINE: int  # 11
 COLOR_HIDNAME: int  # 23
 COLOR_IMPNAME: int  # 34
@@ -275,6 +649,7 @@ COLOR_LOCNAME: int  # 25
 COLOR_LUMFUNC: int  # 12
 COLOR_LUMINA: int  # 52
 COLOR_MACRO: int  # 28
+COLOR_NAME: int  # 37
 COLOR_NUMBER: int  # 12
 COLOR_OFF: str  # 
 COLOR_ON: str  # 
@@ -286,6 +661,7 @@ COLOR_OPND5: int  # 45
 COLOR_OPND6: int  # 46
 COLOR_OPND7: int  # 47
 COLOR_OPND8: int  # 48
+COLOR_PRAGMA: int  # 28
 COLOR_PREFIX: int  # 19
 COLOR_REG: int  # 33
 COLOR_REGCMT: int  # 2
@@ -296,6 +672,8 @@ COLOR_SEGNAME: int  # 35
 COLOR_SELECTED: int  # 2
 COLOR_STRING: int  # 11
 COLOR_SYMBOL: int  # 9
+COLOR_TNUM: int  # 24
+COLOR_TYPE: int  # 23
 COLOR_UNAME: int  # 38
 COLOR_UNKNAME: int  # 36
 COLOR_UNKNOWN: int  # 7
@@ -313,11 +691,15 @@ GENDSM_UNHIDE: int  # 8
 PALETTE_SIZE: int  # 53
 SCOLOR_ADDR: str  # (
 SCOLOR_ALTOP: str  # 
+SCOLOR_ARGLOC: str  # 
+SCOLOR_ARGNAME: str  # !
 SCOLOR_ASMDIR: str  # 
+SCOLOR_ATTR: str  # 
 SCOLOR_AUTOCMT: str  # 
 SCOLOR_BINPREF: str  # 
 SCOLOR_CHAR: str  # 
 
+SCOLOR_CMT: str  # 
 SCOLOR_CNAME: str  # %
 SCOLOR_CODNAME: str  # 
 SCOLOR_COLLAPSED: str  # '
@@ -344,6 +726,7 @@ SCOLOR_KEYWORD: str  #
 SCOLOR_LIBNAME: str  # 
 SCOLOR_LOCNAME: str  # 
 SCOLOR_MACRO: str  # 
+SCOLOR_NAME: str  # %
 SCOLOR_NUMBER: str  # 
 SCOLOR_OFF: str  # 
 SCOLOR_ON: str  # 
@@ -353,6 +736,7 @@ SCOLOR_OPND3: str  # +
 SCOLOR_OPND4: str  # ,
 SCOLOR_OPND5: str  # -
 SCOLOR_OPND6: str  # .
+SCOLOR_PRAGMA: str  # 
 SCOLOR_PREFIX: str  # 
 SCOLOR_REG: str  # !
 SCOLOR_REGCMT: str  # 
@@ -360,6 +744,8 @@ SCOLOR_RPTCMT: str  # 
 SCOLOR_SEGNAME: str  # #
 SCOLOR_STRING: str  # 
 SCOLOR_SYMBOL: str  # 	
+SCOLOR_TNUM: str  # 
+SCOLOR_TYPE: str  # 
 SCOLOR_UNAME: str  # &
 SCOLOR_UNKNAME: str  # $
 SCOLOR_UTF8: str  # 2
@@ -370,4 +756,5 @@ VEL_POST: int  # 1
 annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
 cvar: swigvarlink
 ida_idaapi: module
+ida_range: module
 weakref: module

@@ -593,7 +593,7 @@ class Choose:
     CHCOL_DRAGHINT: int  # 2097152
     CHCOL_EA: int  # 262144
     CHCOL_FNAME: int  # 327680
-    CHCOL_FORMAT: int  # 458752
+    CHCOL_FORMAT: int  # 983040
     CHCOL_HEX: int  # 131072
     CHCOL_INODENAME: int  # 4194304
     CHCOL_PATH: int  # 65536
@@ -656,6 +656,16 @@ class Choose:
         Return the TWidget underlying this view.
         
         :returns: The TWidget underlying this view, or None.
+        
+        """
+        ...
+    def OnCheckedLine(self, n: Any, state: Any) -> Any:
+        r"""
+        User changed the checkbox state
+        
+        :param n: element number (0-based)
+        :param state: the new state: 0-unchecked, 1-partially checked, 2-checked
+        :returns: a tuple (changed, selection)
         
         """
         ...
@@ -1265,7 +1275,11 @@ class DBG_Hooks:
         r"""A user defined breakpoint was reached. 
                   
         :param tid: (thid_t)
-        :param bptea: (::ea_t)
+        :param bptea: (ea_t)
+        :returns: warn: (int *) filled with:
+        * -1: display an exception warning dialog if the process is suspended.
+        * 0: never display an exception warning dialog.
+        * 1: always display an exception warning dialog.
         """
         ...
     def dbg_bpt_changed(self, bptev_code: int, bpt: bpt_t) -> None:
@@ -1329,7 +1343,7 @@ class DBG_Hooks:
         r"""A step occurred (one instruction was executed). This event notification is only generated if step tracing is enabled. 
                   
         :param tid: (thid_t) thread ID
-        :param ip: (::ea_t) current instruction pointer. usually points after the executed instruction
+        :param ip: (ea_t) current instruction pointer. usually points after the executed instruction
         :returns: 1: do not log this trace event
         :returns: 0: log it
         """
@@ -2379,7 +2393,7 @@ class Hexrays_Hooks:
                   
         :param cdg: (codegen_t *)
         :param decomp_flags: (int)
-        :returns: Microcode error code This is an opportunity to inline other ranges.
+        :returns: Microcode error code  This is an opportunity to inline other ranges.
         """
         ...
     def build_callinfo(self, blk: mblock_t, type: tinfo_t) -> Any:
@@ -2387,6 +2401,7 @@ class Hexrays_Hooks:
                   
         :param blk: (mblock_t *) blk->tail is the call.
         :param type: (tinfo_t *) buffer for the output type.
+        :returns: callinfo: (mcallinfo_t **) prepared callinfo. The plugin should either specify the function type, either allocate and return a new mcallinfo_t object.
         """
         ...
     def callinfo_built(self, blk: mblock_t) -> int:
@@ -2419,6 +2434,7 @@ class Hexrays_Hooks:
         r"""Collect warning messages from plugins. These warnings will be displayed at the function header, after the user-defined comments. 
                   
         :param cfunc: (cfunc_t *)
+        :returns: warnings: (qstrvec_t *)
         """
         ...
     def combine(self, blk: mblock_t, insn: minsn_t) -> int:
@@ -2432,8 +2448,7 @@ class Hexrays_Hooks:
         r"""Create a hint for the current item. 
                   
         :param vu: (vdui_t *)
-        :returns: 0: continue collecting hints with other subscribers
-        :returns: 1: stop collecting hints
+        :returns: hint: (qstring *); important_lines: (int *)
         """
         ...
     def curpos(self, vu: vdui_t) -> int:
@@ -2453,7 +2468,17 @@ class Hexrays_Hooks:
     def flowchart(self, fc: qflow_chart_t, mba: mba_t, reachable_blocks: bitset_t, decomp_flags: int) -> int:
         r"""Flowchart has been generated. 
                   
-        :param fc: (qflow_chart_t *)
+        :param fc: (const qflow_chart_t *)
+        :param mba: (mba_t *)
+        :param reachable_blocks: (bitset_t *)
+        :param decomp_flags: (int)
+        :returns: Microcode error code
+        """
+        ...
+    def flowchart_ea(self, fc: qflow_chart_ea_t, mba: mba_t, reachable_blocks: bitset_t, decomp_flags: int) -> int:
+        r"""Flowchart has been generated (ea-based variant). Replaces the deprecated hxe_flowchart which passes a qflow_chart_t* with a raw func_t* inside. 
+                  
+        :param fc: (const qflow_chart_ea_t *)
         :param mba: (mba_t *)
         :param reachable_blocks: (bitset_t *)
         :param decomp_flags: (int)
@@ -2485,12 +2510,30 @@ class Hexrays_Hooks:
         :param i2: (int) blknum of the last inlined block (excluded)
         """
         ...
+    def inlined_function(self, cdg: codegen_t, blk: int, dcr: decomp_ranges_t, i1: int, i2: int) -> int:
+        r"""A set of ranges got inlined (ea-based variant). Replaces the deprecated hxe_inlined_func which passes an mba_ranges_t* with a raw func_t* inside. 
+                  
+        :param cdg: (codegen_t *)
+        :param blk: (int) the block containing call/jump to inline
+        :param dcr: (const decomp_ranges_t *) the range to inline
+        :param i1: (int) blknum of the first inlined block
+        :param i2: (int) blknum of the last inlined block (excluded)
+        """
+        ...
     def inlining_func(self, cdg: codegen_t, blk: int, mbr: mba_ranges_t) -> int:
         r"""A set of ranges is going to be inlined. 
                   
         :param cdg: (codegen_t *)
         :param blk: (int) the block containing call/jump to inline
         :param mbr: (mba_ranges_t *) the range to inline
+        """
+        ...
+    def inlining_function(self, cdg: codegen_t, blk: int, dcr: decomp_ranges_t) -> int:
+        r"""A set of ranges is going to be inlined (ea-based variant). Replaces the deprecated hxe_inlining_func which passes an mba_ranges_t* with a raw func_t* inside. 
+                  
+        :param cdg: (codegen_t *)
+        :param blk: (int) the block containing call/jump to inline
+        :param dcr: (const decomp_ranges_t *) the range to inline
         """
         ...
     def interr(self, errcode: int) -> int:
@@ -2588,7 +2631,7 @@ class Hexrays_Hooks:
         :param ct: (control_graph_t *) in/out: control graph
         :param cfunc: (cfunc_t *) in: the current function
         :param g: (const simple_graph_t *) in: control flow graph
-        :returns: Microcode error code; MERR_BLOCK means that the analysis has been performed by a plugin
+        :returns: Microcode error code ; MERR_BLOCK means that the analysis has been performed by a plugin
         """
         ...
     def prealloc(self, mba: mba_t) -> int:
@@ -2615,10 +2658,20 @@ class Hexrays_Hooks:
         r"""Prolog analysis has been finished. 
                   
         :param mba: (mba_t *)
-        :param fc: (qflow_chart_t *)
+        :param fc: (const qflow_chart_t *)
         :param reachable_blocks: (const bitset_t *)
         :param decomp_flags: (int)
-        :returns: Microcode error code This event is generated for each inlined range as well.
+        :returns: Microcode error code  This event is generated for each inlined range as well.
+        """
+        ...
+    def prolog_ea(self, mba: mba_t, fc: qflow_chart_ea_t, reachable_blocks: bitset_t, decomp_flags: int) -> int:
+        r"""Prolog analysis has been finished (ea-based variant). Replaces the deprecated hxe_prolog which passes a qflow_chart_t* with a raw func_t* inside. 
+                  
+        :param mba: (mba_t *)
+        :param fc: (const qflow_chart_ea_t *)
+        :param reachable_blocks: (const bitset_t *)
+        :param decomp_flags: (int)
+        :returns: Microcode error code  This event is generated for each inlined range as well.
         """
         ...
     def refresh_pseudocode(self, vu: vdui_t) -> int:
@@ -2643,7 +2696,7 @@ class Hexrays_Hooks:
         r"""SP change points have been calculated. 
                   
         :param mba: (mba_t *)
-        :returns: Microcode error code This event is generated for each inlined range as well.
+        :returns: Microcode error code  This event is generated for each inlined range as well.
         """
         ...
     def structural(self, ct: control_graph_t) -> int:
@@ -3091,8 +3144,8 @@ class IDB_Hooks:
     def __swig_destroy__(self, object: Any) -> Any:
         ...
     def adding_segm(self, s: segment_t) -> None:
-        r"""A segment is being created. 
-                  
+        r"""A segment is being created.
+        
         :param s: (segment_t *)
         """
         ...
@@ -3124,21 +3177,21 @@ class IDB_Hooks:
     def byte_patched(self, ea: ida_idaapi.ea_t, old_value: int) -> None:
         r"""A byte has been patched. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param old_value: (uint32)
         """
         ...
     def callee_addr_changed(self, ea: ida_idaapi.ea_t, callee: ida_idaapi.ea_t) -> None:
         r"""Callee address has been updated by the user. 
                   
-        :param ea: (::ea_t)
-        :param callee: (::ea_t)
+        :param ea: (ea_t)
+        :param callee: (ea_t)
         """
         ...
     def changing_cmt(self, ea: ida_idaapi.ea_t, repeatable_cmt: bool, newcmt: str) -> None:
         r"""An item comment is to be changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param repeatable_cmt: (bool)
         :param newcmt: (const char *)
         """
@@ -3146,7 +3199,7 @@ class IDB_Hooks:
     def changing_op_ti(self, ea: ida_idaapi.ea_t, n: int, new_type: bytes, new_fnames: p_list) -> None:
         r"""An operand typestring (c/c++ prototype) is to be changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param n: (int)
         :param new_type: (const type_t *)
         :param new_fnames: (const p_list *)
@@ -3155,7 +3208,7 @@ class IDB_Hooks:
     def changing_op_type(self, ea: ida_idaapi.ea_t, n: int, opinfo: opinfo_t) -> None:
         r"""An operand type (offset, hex, etc...) is to be changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param n: (int) eventually or'ed with OPND_OUTER or OPND_ALL
         :param opinfo: (const opinfo_t *) additional operand info
         """
@@ -3170,38 +3223,67 @@ class IDB_Hooks:
         """
         ...
     def changing_segm_class(self, s: segment_t) -> None:
-        r"""Segment class is being changed. 
-                  
+        r"""Segment class is being changed.
+        
         :param s: (segment_t *)
         """
         ...
     def changing_segm_end(self, s: segment_t, new_end: ida_idaapi.ea_t, segmod_flags: int) -> None:
-        r"""Segment end address is to be changed. 
-                  
+        r"""Segment end address is to be changed.
+        
         :param s: (segment_t *)
-        :param new_end: (::ea_t)
+        :param new_end: (ea_t)
         :param segmod_flags: (int)
         """
         ...
     def changing_segm_name(self, s: segment_t, oldname: str) -> None:
-        r"""Segment name is being changed. 
-                  
+        r"""Segment name is being changed.
+        
         :param s: (segment_t *)
         :param oldname: (const char *)
         """
         ...
     def changing_segm_start(self, s: segment_t, new_start: ida_idaapi.ea_t, segmod_flags: int) -> None:
+        r"""Segment start address is to be changed.
+        
+        :param s: (segment_t *)
+        :param new_start: (ea_t)
+        :param segmod_flags: (int)
+        """
+        ...
+    def changing_segment_class(self, seg_start_ea: ida_idaapi.ea_t) -> None:
+        r"""Segment class is being changed. 
+                  
+        :param seg_start_ea: (ea_t)
+        """
+        ...
+    def changing_segment_end(self, seg_start_ea: ida_idaapi.ea_t, new_end: ida_idaapi.ea_t, segmod_flags: int) -> None:
+        r"""Segment end address is to be changed. 
+                  
+        :param seg_start_ea: (ea_t)
+        :param new_end: (ea_t)
+        :param segmod_flags: (int)
+        """
+        ...
+    def changing_segment_name(self, seg_start_ea: ida_idaapi.ea_t, oldname: str) -> None:
+        r"""Segment name is being changed. 
+                  
+        :param seg_start_ea: (ea_t)
+        :param oldname: (const char *)
+        """
+        ...
+    def changing_segment_start(self, seg_start_ea: ida_idaapi.ea_t, new_start: ida_idaapi.ea_t, segmod_flags: int) -> None:
         r"""Segment start address is to be changed. 
                   
-        :param s: (segment_t *)
-        :param new_start: (::ea_t)
+        :param seg_start_ea: (ea_t)
+        :param new_start: (ea_t)
         :param segmod_flags: (int)
         """
         ...
     def changing_ti(self, ea: ida_idaapi.ea_t, new_type: bytes, new_fnames: p_list) -> None:
         r"""An item typestring (c/c++ prototype) is to be changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param new_type: (const type_t *)
         :param new_fnames: (const p_list *)
         """
@@ -3214,7 +3296,7 @@ class IDB_Hooks:
     def cmt_changed(self, ea: ida_idaapi.ea_t, repeatable_cmt: bool) -> None:
         r"""An item comment has been changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param repeatable_cmt: (bool)
         """
         ...
@@ -3225,22 +3307,35 @@ class IDB_Hooks:
         """
         ...
     def deleting_func(self, pfn: func_t) -> None:
-        r"""The kernel is about to delete a function. 
-                  
+        r"""The kernel is about to delete a function.
+        
         :param pfn: (func_t *)
         """
         ...
     def deleting_func_tail(self, pfn: func_t, tail: range_t) -> None:
+        r"""A function tail chunk is to be removed.
+        
+        :param pfn: (func_t *)
+        :param tail: (const range_t *)
+        """
+        ...
+    def deleting_function(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""The kernel is about to delete a function. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        """
+        ...
+    def deleting_function_tail(self, func_ea: ida_idaapi.ea_t, tail: range_t) -> None:
         r"""A function tail chunk is to be removed. 
                   
-        :param pfn: (func_t *)
+        :param func_ea: (ea_t) function entry start address
         :param tail: (const range_t *)
         """
         ...
     def deleting_segm(self, start_ea: ida_idaapi.ea_t) -> None:
         r"""A segment is to be deleted. 
                   
-        :param start_ea: (::ea_t)
+        :param start_ea: (ea_t)
         """
         ...
     def deleting_tryblks(self, range: range_t) -> None:
@@ -3252,23 +3347,23 @@ class IDB_Hooks:
     def destroyed_items(self, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, will_disable_range: bool) -> None:
         r"""Instructions/data have been destroyed in [ea1,ea2). 
                   
-        :param ea1: (::ea_t)
-        :param ea2: (::ea_t)
+        :param ea1: (ea_t)
+        :param ea2: (ea_t)
         :param will_disable_range: (bool)
         """
         ...
     def determined_main(self, main: ida_idaapi.ea_t) -> None:
         r"""The main() function has been determined. 
                   
-        :param main: (::ea_t) address of the main() function
+        :param main: (ea_t) address of the main() function
         """
         ...
     def dirtree_bulk_move(self, dt: dirtree_t, sources: dirtree_bulk_results_t, moved_items: dirtree_cursor_vec_t, dstdir: str, dstrank: int) -> None:
         r"""Dirtree: many items have been moved. 
                   
         :param dt: (dirtree_t *)
-        :param sources: (::dirtree_bulk_results_t *)
-        :param moved_items: (::dirtree_cursor_vec_t *)
+        :param sources: (dirtree_bulk_results_t *)
+        :param moved_items: (dirtree_cursor_vec_t *)
         :param dstdir: (::const char *)
         :param dstrank: (ssize_t) SOURCES and MOVED_ITEMS correspond to each other
         """
@@ -3342,7 +3437,7 @@ class IDB_Hooks:
     def extra_cmt_changed(self, ea: ida_idaapi.ea_t, line_idx: int, cmt: str) -> None:
         r"""An extra comment has been changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param line_idx: (int)
         :param cmt: (const char *)
         """
@@ -3356,27 +3451,27 @@ class IDB_Hooks:
     def frame_created(self, func_ea: ida_idaapi.ea_t) -> None:
         r"""A function frame has been created. 
                   
-        :param func_ea: (::ea_t) idb_event::frame_deleted
+        :param func_ea: (ea_t) idb_event::frame_deleted
         """
         ...
     def frame_deleted(self, pfn: func_t) -> None:
-        r"""The kernel has deleted a function frame. 
-                  
+        r"""The kernel has deleted a function frame.
+        
         :param pfn: (func_t *) idb_event::frame_created
         """
         ...
     def frame_expanded(self, func_ea: ida_idaapi.ea_t, udm_tid: int, delta: int) -> None:
         r"""A frame type has been expanded/shrank. 
                   
-        :param func_ea: (::ea_t)
+        :param func_ea: (ea_t)
         :param udm_tid: (tid_t) the gap was added/removed before this member
-        :param delta: (::adiff_t) number of added/removed bytes
+        :param delta: (adiff_t) number of added/removed bytes
         """
         ...
     def frame_udm_changed(self, func_ea: ida_idaapi.ea_t, udm_tid: int, udmold: udm_t, udmnew: udm_t) -> None:
         r"""Frame member has been changed. 
                   
-        :param func_ea: (::ea_t)
+        :param func_ea: (ea_t)
         :param udm_tid: (tid_t)
         :param udmold: (::const udm_t *)
         :param udmnew: (::const udm_t *)
@@ -3385,14 +3480,14 @@ class IDB_Hooks:
     def frame_udm_created(self, func_ea: ida_idaapi.ea_t, udm: udm_t) -> None:
         r"""Frame member has been added. 
                   
-        :param func_ea: (::ea_t)
+        :param func_ea: (ea_t)
         :param udm: (::const udm_t *)
         """
         ...
     def frame_udm_deleted(self, func_ea: ida_idaapi.ea_t, udm_tid: int, udm: udm_t) -> None:
         r"""Frame member has been deleted. 
                   
-        :param func_ea: (::ea_t)
+        :param func_ea: (ea_t)
         :param udm_tid: (tid_t)
         :param udm: (::const udm_t *)
         """
@@ -3400,47 +3495,99 @@ class IDB_Hooks:
     def frame_udm_renamed(self, func_ea: ida_idaapi.ea_t, udm: udm_t, oldname: str) -> None:
         r"""Frame member has been renamed. 
                   
-        :param func_ea: (::ea_t)
+        :param func_ea: (ea_t)
         :param udm: (::const udm_t *)
         :param oldname: (::const char *)
         """
         ...
     def func_added(self, pfn: func_t) -> None:
-        r"""The kernel has added a function. 
-                  
+        r"""The kernel has added a function.
+        
         :param pfn: (func_t *)
         """
         ...
     def func_deleted(self, func_ea: ida_idaapi.ea_t) -> None:
         r"""A function has been deleted. 
                   
-        :param func_ea: (::ea_t)
+        :param func_ea: (ea_t)
         """
         ...
     def func_noret_changed(self, pfn: func_t) -> None:
-        r"""FUNC_NORET bit has been changed. 
-                  
+        r"""FUNC_NORET bit has been changed.
+        
         :param pfn: (func_t *)
         """
         ...
     def func_tail_appended(self, pfn: func_t, tail: func_t) -> None:
-        r"""A function tail chunk has been appended. 
-                  
+        r"""A function tail chunk has been appended.
+        
         :param pfn: (func_t *)
         :param tail: (func_t *)
         """
         ...
     def func_tail_deleted(self, pfn: func_t, tail_ea: ida_idaapi.ea_t) -> None:
-        r"""A function tail chunk has been removed. 
-                  
+        r"""A function tail chunk has been removed.
+        
         :param pfn: (func_t *)
-        :param tail_ea: (::ea_t)
+        :param tail_ea: (ea_t)
         """
         ...
     def func_updated(self, pfn: func_t) -> None:
+        r"""The kernel has updated a function.
+        
+        :param pfn: (func_t *)
+        """
+        ...
+    def function_added(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""The kernel has added a function. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        """
+        ...
+    def function_frame_deleted(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""The kernel has deleted a function frame. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        """
+        ...
+    def function_noret_changed(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""FUNC_NORET bit has been changed. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        """
+        ...
+    def function_stkpnts_changed(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""Stack change points have been modified. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        """
+        ...
+    def function_tail_appended(self, func_ea: ida_idaapi.ea_t, tail: func_tail_info_t) -> None:
+        r"""A function tail chunk has been appended. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        :param tail: (func_tail_info_t *)
+        """
+        ...
+    def function_tail_deleted(self, func_ea: ida_idaapi.ea_t, tail_ea: ida_idaapi.ea_t) -> None:
+        r"""A function tail chunk has been removed. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        :param tail_ea: (ea_t)
+        """
+        ...
+    def function_tail_owner_changed(self, tail: func_tail_info_t, owner_func: ida_idaapi.ea_t, old_owner: ida_idaapi.ea_t) -> None:
+        r"""A tail chunk owner has been changed. 
+                  
+        :param tail: (func_tail_info_t *)
+        :param owner_func: (ea_t)
+        :param old_owner: (ea_t)
+        """
+        ...
+    def function_updated(self, fchunk_ea: ida_idaapi.ea_t) -> None:
         r"""The kernel has updated a function. 
                   
-        :param pfn: (func_t *)
+        :param fchunk_ea: (ea_t) function entry or tail start address
         """
         ...
     def hook(self) -> bool:
@@ -3454,7 +3601,7 @@ class IDB_Hooks:
     def idasgn_matched_ea(self, ea: ida_idaapi.ea_t, name: str, lib_name: str) -> None:
         r"""A FLIRT match has been found 
                   
-        :param ea: (::ea_t) the matching address
+        :param ea: (ea_t) the matching address
         :param name: (::const char *) the matched name
         :param lib_name: (::const char *) library name extracted from signature file
         """
@@ -3462,7 +3609,7 @@ class IDB_Hooks:
     def item_color_changed(self, ea: ida_idaapi.ea_t, color: int) -> None:
         r"""An item color has been changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param color: (bgcolor_t) if color==DEFCOLOR, the color is deleted.
         """
         ...
@@ -3565,7 +3712,7 @@ class IDB_Hooks:
                   
         :param udtname: (::const char *)
         :param udm_tid: (tid_t) the gap was added/removed before this member
-        :param delta: (::adiff_t) number of added/removed bytes
+        :param delta: (adiff_t) number of added/removed bytes
         """
         ...
     def make_code(self, insn: insn_t) -> None:
@@ -3577,16 +3724,25 @@ class IDB_Hooks:
     def make_data(self, ea: ida_idaapi.ea_t, flags: int, tid: int, len: int) -> None:
         r"""A data item is being created. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param flags: (flags64_t)
         :param tid: (tid_t)
-        :param len: (::asize_t)
+        :param len: (asize_t)
+        """
+        ...
+    def moving_range_cmt(self, kind: range_kind_t, oldea: ida_idaapi.ea_t, newea: ida_idaapi.ea_t, repeatable: bool) -> None:
+        r"""Range comment is to be moved. 
+                  
+        :param kind: (range_kind_t)
+        :param oldea: (ea_t)
+        :param newea: (ea_t)
+        :param repeatable: (bool)
         """
         ...
     def op_ti_changed(self, ea: ida_idaapi.ea_t, n: int, type: bytes, fnames: p_list) -> None:
         r"""An operand typestring (c/c++ prototype) has been changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param n: (int)
         :param type: (const type_t *)
         :param fnames: (const p_list *)
@@ -3595,7 +3751,7 @@ class IDB_Hooks:
     def op_type_changed(self, ea: ida_idaapi.ea_t, n: int) -> None:
         r"""An operand type (offset, hex, etc...) has been set or deleted. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param n: (int) eventually or'ed with OPND_OUTER or OPND_ALL
         """
         ...
@@ -3611,7 +3767,7 @@ class IDB_Hooks:
     def renamed(self, ea: ida_idaapi.ea_t, new_name: str, local_name: bool, old_name: str) -> None:
         r"""The kernel has renamed a byte. See also the rename event 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param new_name: (const char *) can be nullptr
         :param local_name: (bool)
         :param old_name: (const char *) can be nullptr
@@ -3623,20 +3779,20 @@ class IDB_Hooks:
         """
         ...
     def segm_added(self, s: segment_t) -> None:
-        r"""A new segment has been created. 
-                  
+        r"""A new segment has been created.
+        
         :param s: (segment_t *) See also adding_segm
         """
         ...
     def segm_attrs_updated(self, s: segment_t) -> None:
-        r"""Segment attributes has been changed. 
-                  
+        r"""Segment attributes has been changed.
+        
         :param s: (segment_t *) This event is generated for secondary segment attributes (examples: color, permissions, etc)
         """
         ...
     def segm_class_changed(self, s: segment_t, sclass: str) -> None:
-        r"""Segment class has been changed. 
-                  
+        r"""Segment class has been changed.
+        
         :param s: (segment_t *)
         :param sclass: (const char *)
         """
@@ -3644,97 +3800,157 @@ class IDB_Hooks:
     def segm_deleted(self, start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, flags: int) -> None:
         r"""A segment has been deleted. 
                   
-        :param start_ea: (::ea_t)
-        :param end_ea: (::ea_t)
+        :param start_ea: (ea_t)
+        :param end_ea: (ea_t)
         :param flags: (int)
         """
         ...
     def segm_end_changed(self, s: segment_t, oldend: ida_idaapi.ea_t) -> None:
-        r"""Segment end address has been changed. 
-                  
+        r"""Segment end address has been changed.
+        
         :param s: (segment_t *)
-        :param oldend: (::ea_t)
+        :param oldend: (ea_t)
         """
         ...
     def segm_moved(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, size: int, changed_netmap: bool) -> None:
         r"""Segment has been moved. 
                   
-        :param to: (::ea_t)
-        :param size: (::asize_t)
+        :param to: (ea_t)
+        :param size: (asize_t)
         :param changed_netmap: (bool) See also idb_event::allsegs_moved
         """
         ...
     def segm_name_changed(self, s: segment_t, name: str) -> None:
-        r"""Segment name has been changed. 
-                  
+        r"""Segment name has been changed.
+        
         :param s: (segment_t *)
         :param name: (const char *)
         """
         ...
     def segm_start_changed(self, s: segment_t, oldstart: ida_idaapi.ea_t) -> None:
+        r"""Segment start address has been changed.
+        
+        :param s: (segment_t *)
+        :param oldstart: (ea_t)
+        """
+        ...
+    def segment_added(self, seg_start_ea: ida_idaapi.ea_t) -> None:
+        r"""A new segment has been created. 
+                  
+        :param seg_start_ea: (ea_t)
+        """
+        ...
+    def segment_attrs_updated(self, seg_start_ea: ida_idaapi.ea_t) -> None:
+        r"""Segment attributes has been changed. 
+                  
+        :param seg_start_ea: (ea_t) This event is generated for secondary segment attributes (examples: color, permissions, etc)
+        """
+        ...
+    def segment_class_changed(self, seg_start_ea: ida_idaapi.ea_t, sclass: str) -> None:
+        r"""Segment class has been changed. 
+                  
+        :param seg_start_ea: (ea_t)
+        :param sclass: (const char *)
+        """
+        ...
+    def segment_end_changed(self, seg_start_ea: ida_idaapi.ea_t, oldend: ida_idaapi.ea_t) -> None:
+        r"""Segment end address has been changed. 
+                  
+        :param seg_start_ea: (ea_t)
+        :param oldend: (ea_t)
+        """
+        ...
+    def segment_name_changed(self, seg_start_ea: ida_idaapi.ea_t, name: str) -> None:
+        r"""Segment name has been changed. 
+                  
+        :param seg_start_ea: (ea_t)
+        :param name: (const char *)
+        """
+        ...
+    def segment_start_changed(self, seg_start_ea: ida_idaapi.ea_t, oldstart: ida_idaapi.ea_t) -> None:
         r"""Segment start address has been changed. 
                   
-        :param s: (segment_t *)
-        :param oldstart: (::ea_t)
+        :param seg_start_ea: (ea_t)
+        :param oldstart: (ea_t)
         """
         ...
     def set_func_end(self, pfn: func_t, new_end: ida_idaapi.ea_t) -> None:
-        r"""Function chunk end address will be changed. 
-                  
+        r"""Function chunk end address will be changed.
+        
         :param pfn: (func_t *)
-        :param new_end: (::ea_t)
+        :param new_end: (ea_t)
         """
         ...
     def set_func_start(self, pfn: func_t, new_start: ida_idaapi.ea_t) -> None:
+        r"""Function chunk start address will be changed.
+        
+        :param pfn: (func_t *)
+        :param new_start: (ea_t)
+        """
+        ...
+    def set_function_end(self, fchunk: fchunk_info_t, new_end: ida_idaapi.ea_t) -> None:
+        r"""Function chunk end address will be changed. 
+                  
+        :param fchunk: (fchunk_info_t *)
+        :param new_end: (ea_t)
+        """
+        ...
+    def set_function_start(self, fchunk: fchunk_info_t, new_start: ida_idaapi.ea_t) -> None:
         r"""Function chunk start address will be changed. 
                   
-        :param pfn: (func_t *)
-        :param new_start: (::ea_t)
+        :param fchunk: (fchunk_info_t *)
+        :param new_start: (ea_t)
         """
         ...
     def sgr_changed(self, start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, regnum: int, value: int, old_value: int, tag: int) -> None:
         r"""The kernel has changed a segment register value. 
                   
-        :param start_ea: (::ea_t)
-        :param end_ea: (::ea_t)
+        :param start_ea: (ea_t)
+        :param end_ea: (ea_t)
         :param regnum: (int)
-        :param value: (::sel_t)
-        :param old_value: (::sel_t)
+        :param value: (sel_t)
+        :param old_value: (sel_t)
         :param tag: (uchar) Segment register range tags
         """
         ...
     def sgr_deleted(self, start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, regnum: int) -> None:
         r"""The kernel has deleted a segment register value. 
                   
-        :param start_ea: (::ea_t)
-        :param end_ea: (::ea_t)
+        :param start_ea: (ea_t)
+        :param end_ea: (ea_t)
         :param regnum: (int)
         """
         ...
     def stkpnts_changed(self, pfn: func_t) -> None:
-        r"""Stack change points have been modified. 
-                  
+        r"""Stack change points have been modified.
+        
         :param pfn: (func_t *)
         """
         ...
     def tail_owner_changed(self, tail: func_t, owner_func: ida_idaapi.ea_t, old_owner: ida_idaapi.ea_t) -> None:
-        r"""A tail chunk owner has been changed. 
-                  
+        r"""A tail chunk owner has been changed.
+        
         :param tail: (func_t *)
-        :param owner_func: (::ea_t)
-        :param old_owner: (::ea_t)
+        :param owner_func: (ea_t)
+        :param old_owner: (ea_t)
         """
         ...
     def thunk_func_created(self, pfn: func_t) -> None:
+        r"""A thunk bit has been set for a function.
+        
+        :param pfn: (func_t *)
+        """
+        ...
+    def thunk_function_created(self, func_ea: ida_idaapi.ea_t) -> None:
         r"""A thunk bit has been set for a function. 
                   
-        :param pfn: (func_t *)
+        :param func_ea: (ea_t) function entry start address
         """
         ...
     def ti_changed(self, ea: ida_idaapi.ea_t, type: bytes, fnames: p_list) -> None:
         r"""An item typestring (c/c++ prototype) has been changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param type: (const type_t *)
         :param fnames: (const p_list *)
         """
@@ -3742,7 +3958,7 @@ class IDB_Hooks:
     def tryblks_updated(self, tbv: tryblks_t) -> None:
         r"""Updated tryblk information 
                   
-        :param tbv: (const ::tryblks_t *)
+        :param tbv: (const tryblks_t *)
         """
         ...
     def unhook(self) -> bool:
@@ -3750,7 +3966,7 @@ class IDB_Hooks:
     def updating_tryblks(self, tbv: tryblks_t) -> None:
         r"""About to update tryblk information 
                   
-        :param tbv: (const ::tryblks_t *)
+        :param tbv: (const tryblks_t *)
         """
         ...
     def upgraded(self, _from: int) -> None:
@@ -3846,7 +4062,7 @@ class IDP_Hooks:
     def ev_add_cref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, type: cref_t) -> int:
         r"""A code reference is being created. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param type: (cref_t)
         :returns: <0: cancel cref creation
         :returns: 0: not implemented or continue
@@ -3855,7 +4071,7 @@ class IDP_Hooks:
     def ev_add_dref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, type: dref_t) -> int:
         r"""A data reference is being created. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param type: (dref_t)
         :returns: <0: cancel dref creation
         :returns: 0: not implemented or continue
@@ -3876,7 +4092,7 @@ class IDP_Hooks:
                   
         :param sig: (const idasgn_t *)
         :param libfun: (const libfunc_t *)
-        :param ea: (::ea_t *)
+        :param ea: (ea_t *)
         :returns: 1: the ea_t pointed to by the third argument was modified.
         :returns: <=0: not modified. use default algorithm.
         """
@@ -3885,7 +4101,7 @@ class IDP_Hooks:
         r"""Called from apply_fixup before converting operand to reference. Can be used for changing the reference info. (e.g. the PPC module adds REFINFO_NOBASE for some references) 
                   
         :param ri: (refinfo_t *)
-        :param ea: (::ea_t) instruction address
+        :param ea: (ea_t) instruction address
         :param n: (int) operand number
         :param fd: (const fixup_data_t *)
         :returns: <0: do not create an offset
@@ -3903,7 +4119,7 @@ class IDP_Hooks:
     def ev_analyze_prolog(self, ea: ida_idaapi.ea_t) -> int:
         r"""Analyzes function prolog, epilog, and updates purge, and function attributes 
                   
-        :param ea: (::ea_t) start of function
+        :param ea: (ea_t) start of function
         :returns: 1: ok
         :returns: 0: not implemented
         """
@@ -3918,10 +4134,10 @@ class IDP_Hooks:
     def ev_arg_addrs_ready(self, caller: ida_idaapi.ea_t, n: int, tif: tinfo_t, addrs: int) -> int:
         r"""Argument address info is ready. 
                   
-        :param caller: (::ea_t)
+        :param caller: (ea_t)
         :param n: (int) number of formal arguments
         :param tif: (tinfo_t *) call prototype
-        :param addrs: (::ea_t *) argument intilization addresses
+        :param addrs: (ea_t *) argument intilization addresses
         :returns: <0: do not save into idb; other values mean "ok to save"
         """
         ...
@@ -3934,12 +4150,12 @@ class IDP_Hooks:
     def ev_assemble(self, ea: ida_idaapi.ea_t, cs: ida_idaapi.ea_t, ip: ida_idaapi.ea_t, use32: bool, line: str) -> Any:
         r"""Assemble an instruction. (display a warning if an error occurs). 
                   
-        :param ea: (::ea_t) linear address of instruction
-        :param cs: (::ea_t) cs of instruction
-        :param ip: (::ea_t) ip of instruction
+        :param ea: (ea_t) linear address of instruction
+        :param cs: (ea_t) cs of instruction
+        :param ip: (ea_t) ip of instruction
         :param use32: (bool) is 32-bit segment?
         :param line: (const char *) line to assemble
-        :returns: size of the instruction in bytes
+        :returns: bin: (uchar *) pointer to output opcode buffer
         """
         ...
     def ev_auto_queue_empty(self, type: atype_t) -> int:
@@ -3961,7 +4177,7 @@ class IDP_Hooks:
     def ev_calc_cdecl_purged_bytes(self, ea: ida_idaapi.ea_t) -> int:
         r"""Calculate number of purged bytes after call. 
                   
-        :param ea: (::ea_t) address of the call instruction
+        :param ea: (ea_t) address of the call instruction
         :returns: number of purged bytes (usually add sp, N)
         """
         ...
@@ -3989,7 +4205,7 @@ class IDP_Hooks:
                   
         :param retloc: (argloc_t *)
         :param rettype: (const tinfo_t *)
-        :param cc: (::callcnv_t)
+        :param cc: (callcnv_t)
         :returns: 0: not implemented
         :returns: 1: ok,
         :returns: -1: error
@@ -4007,8 +4223,8 @@ class IDP_Hooks:
     def ev_calc_step_over(self, target: int, ip: ida_idaapi.ea_t) -> int:
         r"""Calculate the address of the instruction which will be executed after "step over". The kernel will put a breakpoint there. If the step over is equal to step into or we cannot calculate the address, return BADADDR. 
                   
-        :param target: (::ea_t *) pointer to the answer
-        :param ip: (::ea_t) instruction address
+        :param target: (ea_t *) pointer to the answer
+        :param ip: (ea_t) instruction address
         :returns: 0: unimplemented
         :returns: 1: implemented
         """
@@ -4018,7 +4234,7 @@ class IDP_Hooks:
                   
         :param casevec: (::casevec_t *) vector of case values (may be nullptr)
         :param targets: (eavec_t *) corresponding target addresses (my be nullptr)
-        :param insn_ea: (::ea_t) address of the 'indirect jump' instruction
+        :param insn_ea: (ea_t) address of the 'indirect jump' instruction
         :param si: (switch_info_t *) switch information
         :returns: 1: ok
         :returns: <=0: failed
@@ -4053,7 +4269,7 @@ class IDP_Hooks:
     def ev_clean_tbit(self, ea: ida_idaapi.ea_t, getreg: regval_getter_t, regvalues: regval_t) -> int:
         r"""Clear the TF bit after an insn like pushf stored it in memory. 
                   
-        :param ea: (::ea_t) instruction address
+        :param ea: (ea_t) instruction address
         :param getreg: (::processor_t::regval_getter_t *) function to get register values
         :param regvalues: (const regval_t *) register values array
         :returns: 1: ok
@@ -4073,16 +4289,16 @@ class IDP_Hooks:
     def ev_coagulate(self, start_ea: ida_idaapi.ea_t) -> int:
         r"""Try to define some unexplored bytes. This notification will be called if the kernel tried all possibilities and could not find anything more useful than to convert to array of bytes. The module can help the kernel and convert the bytes into something more useful. 
                   
-        :param start_ea: (::ea_t)
+        :param start_ea: (ea_t)
         :returns: number of converted bytes
         """
         ...
     def ev_coagulate_dref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, may_define: bool, code_ea: int) -> int:
         r"""Data reference is being analyzed. plugin may correct 'code_ea' (e.g. for thumb mode refs, we clear the last bit) 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param may_define: (bool)
-        :param code_ea: (::ea_t *)
+        :param code_ea: (ea_t *)
         :returns: <0: failed dref analysis, >0 done dref analysis
         :returns: 0: not implemented or continue
         """
@@ -4090,15 +4306,23 @@ class IDP_Hooks:
     def ev_create_flat_group(self, image_base: ida_idaapi.ea_t, bitness: int, dataseg_sel: int) -> int:
         r"""Create special segment representing the flat group. 
                   
-        :param image_base: (::ea_t)
+        :param image_base: (ea_t)
         :param bitness: (int)
-        :param dataseg_sel: (::sel_t) return value is ignored
+        :param dataseg_sel: (sel_t) return value is ignored
         """
         ...
     def ev_create_func_frame(self, pfn: func_t) -> int:
-        r"""Create a function frame for a newly created function Set up frame size, its attributes etc 
-                  
+        r"""Create a function frame for a newly created function
+        
         :param pfn: (func_t *)
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
+    def ev_create_function_frame(self, func_ea: ida_idaapi.ea_t) -> int:
+        r"""Create a function frame for a newly created function. Set up frame size, its attributes etc 
+                  
+        :param func_ea: (ea_t) function entry start address
         :returns: 1: ok
         :returns: 0: not implemented
         """
@@ -4113,15 +4337,23 @@ class IDP_Hooks:
     def ev_create_switch_xrefs(self, jumpea: ida_idaapi.ea_t, si: switch_info_t) -> int:
         r"""Create xrefs for a custom jump table. 
                   
-        :param jumpea: (::ea_t) address of the jump insn
+        :param jumpea: (ea_t) address of the jump insn
         :param si: (const switch_info_t *) switch information
         :returns: must return 1 Must be implemented if module uses custom jump tables, SWI_CUSTOM
         """
         ...
     def ev_creating_segm(self, seg: segment_t) -> int:
+        r"""A new segment is about to be created.
+        
+        :param seg: (segment_t *)
+        :returns: 1: ok
+        :returns: <0: segment should not be created
+        """
+        ...
+    def ev_creating_segment(self, seg_info: segment_info_t) -> int:
         r"""A new segment is about to be created. 
                   
-        :param seg: (segment_t *)
+        :param seg_info: (segment_info_t *)
         :returns: 1: ok
         :returns: <0: segment should not be created
         """
@@ -4129,7 +4361,7 @@ class IDP_Hooks:
     def ev_cvt64_hashval(self, node: int, tag: int, name: str, data: int) -> int:
         r"""perform 32-64 conversion for a hash value 
                   
-        :param node: (::nodeidx_t)
+        :param node: (nodeidx_t)
         :param tag: (uchar)
         :param name: (const ::char *)
         :param data: (const uchar *)
@@ -4141,9 +4373,9 @@ class IDP_Hooks:
     def ev_cvt64_supval(self, node: int, tag: int, idx: int, data: int) -> int:
         r"""perform 32-64 conversion for a netnode array element 
                   
-        :param node: (::nodeidx_t)
+        :param node: (nodeidx_t)
         :param tag: (uchar)
-        :param idx: (::nodeidx_t)
+        :param idx: (nodeidx_t)
         :param data: (const uchar *)
         :returns: 0: nothing was done
         :returns: 1: converted successfully
@@ -4155,15 +4387,14 @@ class IDP_Hooks:
                   
         :param name: (const char *) name of symbol
         :param mangle: (bool) true-mangle, false-unmangle
-        :param cc: (::callcnv_t) calling convention
-        :returns: 1: if success
-        :returns: 0: not implemented or failed
+        :param cc: (callcnv_t) calling convention
+        :returns: outbuf: (qstring *) output buffer
         """
         ...
     def ev_del_cref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, expand: bool) -> int:
         r"""A code reference is being deleted. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param expand: (bool)
         :returns: <0: cancel cref deletion
         :returns: 0: not implemented or continue
@@ -4172,7 +4403,7 @@ class IDP_Hooks:
     def ev_del_dref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t) -> int:
         r"""A data reference is being deleted. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :returns: <0: cancel dref deletion
         :returns: 0: not implemented or continue
         """
@@ -4180,7 +4411,7 @@ class IDP_Hooks:
     def ev_delay_slot_insn(self, ea: ida_idaapi.ea_t, bexec: bool, fexec: bool) -> Any:
         r"""Get delay slot instruction 
                   
-        :param ea: (::ea_t *) in: instruction address in question, out: (if the answer is positive) if the delay slot contains valid insn: the address of the delay slot insn else: BADADDR (invalid insn, e.g. a branch)
+        :param ea: (ea_t *) in: instruction address in question, out: (if the answer is positive) if the delay slot contains valid insn: the address of the delay slot insn else: BADADDR (invalid insn, e.g. a branch)
         :param bexec: (bool *) execute slot if jumping, initially set to 'true'
         :param fexec: (bool *) execute slot if not jumping, initially set to 'true'
         :returns: 1: positive answer
@@ -4193,8 +4424,7 @@ class IDP_Hooks:
         :param name: (const char *) mangled name
         :param disable_mask: (uint32) flags to inhibit parts of output or compiler info/other (see MNG_)
         :param demreq: (demreq_type_t) operation to perform
-        :returns: 1: if success
-        :returns: 0: not implemented
+        :returns: out: (qstring *) output buffer. may be nullptr; res: (int32 *) value to return from demangle_name()
         """
         ...
     def ev_emu_insn(self, insn: insn_t) -> bool:
@@ -4245,8 +4475,7 @@ class IDP_Hooks:
                   
         :param pinsn: (const insn_t *) instruction
         :param opn: (int) operand index
-        :returns: 1: if implemented, and value was found
-        :returns: 0: not implemented, -1 decoding failed, or no value found
+        :returns: out: (uval_t *) pointer to the found value
         """
         ...
     def ev_find_reg_value(self, pinsn: insn_t, reg: int) -> Any:
@@ -4254,16 +4483,24 @@ class IDP_Hooks:
                   
         :param pinsn: (const insn_t *) instruction
         :param reg: (int) register index
-        :returns: 1: if implemented, and value was found
-        :returns: 0: not implemented, -1 decoding failed, or no value found
+        :returns: out: (uval_t *) pointer to the found value
         """
         ...
     def ev_func_bounds(self, possible_return_code: int, pfn: func_t, max_func_end_ea: ida_idaapi.ea_t) -> int:
-        r"""find_func_bounds() finished its work. The module may fine tune the function bounds 
-                  
+        r"""find_func_bounds() finished its work.
+        
         :param possible_return_code: (int *), in/out
         :param pfn: (func_t *)
-        :param max_func_end_ea: (::ea_t) (from the kernel's point of view)
+        :param max_func_end_ea: (ea_t) (from the kernel's point of view)
+        :returns: void: 
+        """
+        ...
+    def ev_function_bounds(self, possible_return_code: int, fi: fchunk_info_t, max_func_end_ea: ida_idaapi.ea_t) -> int:
+        r"""find_function_bounds() finished its work. The module may fine tune the function bounds 
+                  
+        :param possible_return_code: (int *), in/out
+        :param fi: (fchunk_info_t *)
+        :param max_func_end_ea: (ea_t) (from the kernel's point of view)
         :returns: void: 
         """
         ...
@@ -4334,15 +4571,14 @@ class IDP_Hooks:
         r"""Callback: get dynamic auto comment. Will be called if the autocomments are enabled and the comment retrieved from ida.int starts with '$!'. 'insn' contains valid info. 
                   
         :param insn: (const insn_t*) the instruction
-        :returns: 1: new comment has been generated
-        :returns: 0: callback has not been handled. the buffer must not be changed in this case
+        :returns: buf: (qstring *) output buffer
         """
         ...
     def ev_get_bg_color(self, color: int, ea: ida_idaapi.ea_t) -> int:
         r"""Get item background color. Plugins can hook this callback to color disassembly lines dynamically 
                   
         :param color: (bgcolor_t *), out
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :returns: 0: not implemented
         :returns: 1: color set
         """
@@ -4351,7 +4587,7 @@ class IDP_Hooks:
         r"""Get register allocation convention for given calling convention 
                   
         :param regs: (callregs_t *), out
-        :param cc: (::callcnv_t)
+        :param cc: (callcnv_t)
         :returns: 1: 
         :returns: 0: not implemented
         """
@@ -4379,12 +4615,7 @@ class IDP_Hooks:
         """
         ...
     def ev_get_frame_retsize(self, frsize: int, pfn: func_t) -> int:
-        r"""Get size of function return address in bytes If this event is not implemented, the kernel will assume
-        * 8 bytes for 64-bit function
-        * 4 bytes for 32-bit function
-        * 2 bytes otherwise
-        
-        
+        r"""Get size of function return address in bytes
         
         :param frsize: (int *) frame size (out)
         :param pfn: (const func_t *), can't be nullptr
@@ -4392,11 +4623,25 @@ class IDP_Hooks:
         :returns: 0: not implemented
         """
         ...
+    def ev_get_function_retsize(self, frsize: int, func_ea: ida_idaapi.ea_t) -> int:
+        r"""Get size of function return address in bytes. If this event is not implemented, the kernel will assume
+        * 8 bytes for 64-bit function
+        * 4 bytes for 32-bit function
+        * 2 bytes otherwise
+        
+        
+        
+        :param frsize: (int *) frame size (out)
+        :param func_ea: (ea_t) function entry start address
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
     def ev_get_macro_insn_head(self, head: int, ip: ida_idaapi.ea_t) -> int:
         r"""Calculate the start of a macro instruction. This notification is called if IP points to the middle of an instruction 
                   
-        :param head: (::ea_t *), out: answer, BADADDR means normal instruction
-        :param ip: (::ea_t) instruction address
+        :param head: (ea_t *), out: answer, BADADDR means normal instruction
+        :param ip: (ea_t) instruction address
         :returns: 0: unimplemented
         :returns: 1: implemented
         """
@@ -4406,8 +4651,7 @@ class IDP_Hooks:
                   
         :param insn: (const insn_t*) the instruction
         :param opnum: (int) operand number, -1 means any string operand
-        :returns: 0: no string (or empty string)
-        :returns: >0: original string length without terminating zero
+        :returns: buf: (qstring *)
         """
         ...
     def ev_get_procmod(self) -> int:
@@ -4448,8 +4692,7 @@ class IDP_Hooks:
         :param reg: (int) internal register number as defined in the processor module
         :param width: (size_t) register width in bytes
         :param reghi: (int) if not -1 then this function will return the register pair
-        :returns: -1: if error
-        :returns: strlen(buf): if success
+        :returns: buf: (qstring *) output buffer
         """
         ...
     def ev_get_simd_types(self, out: simd_info_vec_t, simd_attrs: simd_info_t, argloc: argloc_t, create_tifs: bool, insn: insn_t, op: op_t) -> int:
@@ -4469,9 +4712,19 @@ class IDP_Hooks:
         r"""Get some metrics of the stack argument area. 
                   
         :param out: (stkarg_area_info_t *) ptr to stkarg_area_info_t
-        :param cc: (::callcnv_t) calling convention
+        :param cc: (callcnv_t) calling convention
         :returns: 1: if success
         :returns: 0: not implemented
+        """
+        ...
+    def ev_get_stkarg_parts(self, insn: insn_t, parts: stkarg_part_t, max_parts: int) -> int:
+        r"""Enumerate the stkarg stores performed by an instruction. Used by the kernel to drive multi-slot stkarg propagation (e.g. ARM "STMIA SP, {R0-R3}" writes 4 slots). When the processor returns 0, the kernel falls back to argtinfo_helper_t::is_stkarg_load. 
+                  
+        :param insn: (const insn_t *)
+        :param parts: (stkarg_part_t *) output array
+        :param max_parts: (int) size of the output array
+        :returns: N>0: produced N parts (use them)
+        :returns: 0: not implemented for this insn
         """
         ...
     def ev_get_stkvar_scale_factor(self) -> int:
@@ -4479,6 +4732,11 @@ class IDP_Hooks:
                   
         :returns: scaling factor
         :returns: 0: not implemented
+        """
+        ...
+    def ev_get_swift_abi_regs(self) -> int:
+        r"""Reserved.
+        
         """
         ...
     def ev_getreg(self, regval: uval_t, regnum: int) -> int:
@@ -4531,7 +4789,7 @@ class IDP_Hooks:
     def ev_is_alloca_probe(self, ea: ida_idaapi.ea_t) -> int:
         r"""Does the function at 'ea' behave like __alloca_probe? 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :returns: 1: yes
         :returns: 0: no
         """
@@ -4600,14 +4858,33 @@ class IDP_Hooks:
         """
         ...
     def ev_is_jump_func(self, pfn: func_t, jump_target: int, func_pointer: int) -> int:
-        r"""Is the function a trivial "jump" function? 
-                  
+        r"""Is the function a trivial "jump" function?
+        
         :param pfn: (func_t *)
-        :param jump_target: (::ea_t *)
-        :param func_pointer: (::ea_t *)
+        :param jump_target: (ea_t *)
+        :param func_pointer: (ea_t *)
         :returns: <0: no
         :returns: 0: don't know
         :returns: 1: yes, see 'jump_target' and 'func_pointer'
+        """
+        ...
+    def ev_is_jump_function(self, fi: func_entry_info_t, jump_target: int, func_pointer: int) -> int:
+        r"""Is the function a trivial "jump" function? 
+                  
+        :param fi: (func_entry_info_t *)
+        :param jump_target: (ea_t *)
+        :param func_pointer: (ea_t *)
+        :returns: <0: no
+        :returns: 0: don't know
+        :returns: 1: yes, see 'jump_target' and 'func_pointer'
+        """
+        ...
+    def ev_is_outlined_function(self, func_ea: ida_idaapi.ea_t) -> int:
+        r"""The kernel is creating a function and wants to know whether it is an outlined helper (sets FUNC_OUTLINE). 
+                  
+        :param func_ea: (ea_t) function entry start address
+        :returns: 1: the function is outlined
+        :returns: 0: not implemented / not outlined
         """
         ...
     def ev_is_ret_insn(self, insn: insn_t, flags: int) -> int:
@@ -4651,6 +4928,14 @@ class IDP_Hooks:
         ...
     def ev_last_cb_before_loader(self) -> int:
         ...
+    def ev_load_unmapped_address(self, ea: ida_idaapi.ea_t) -> int:
+        r"""Load the dependency covering the provided address. 
+                  
+        :param ea: (ea_t) the (currently unmapped) address
+        :returns: 1: if success
+        :returns: 0: not implemented or failed
+        """
+        ...
     def ev_loader(self) -> int:
         r"""This code and higher ones are reserved for the loaders. The arguments and the return values are defined by the loaders 
                   
@@ -4659,7 +4944,7 @@ class IDP_Hooks:
     def ev_lower_func_type(self, argnums: intvec_t, fti: func_type_data_t) -> int:
         r"""Get function arguments which should be converted to pointers when lowering function prototype. The processor module can also modify 'fti' in order to make non-standard conversion of some arguments. 
                   
-        :param argnums: (intvec_t *), out - numbers of arguments to be converted to pointers in acsending order
+        :param argnums: (intvec_t *), out - numbers of arguments to be converted to pointers in ascending order
         :param fti: (func_type_data_t *), inout func type details
         :returns: 0: not implemented
         :returns: 1: argnums was filled
@@ -4683,16 +4968,26 @@ class IDP_Hooks:
     def ev_may_show_sreg(self, current_ea: ida_idaapi.ea_t) -> int:
         r"""The kernel wants to display the segment registers in the messages window. 
                   
-        :param current_ea: (::ea_t)
+        :param current_ea: (ea_t)
         :returns: <0: if the kernel should not show the segment registers. (assuming that the module has done it)
         :returns: 0: not implemented
         """
         ...
     def ev_moving_segm(self, seg: segment_t, to: ida_idaapi.ea_t, flags: int) -> int:
+        r"""May the kernel move the segment?
+        
+        :param seg: (segment_t *) segment to move
+        :param to: (ea_t) new segment start address
+        :param flags: (int) combination of Move segment flags
+        :returns: 0: yes
+        :returns: <0: the kernel should stop
+        """
+        ...
+    def ev_moving_segment(self, seg_start_ea: ida_idaapi.ea_t, to: ida_idaapi.ea_t, flags: int) -> int:
         r"""May the kernel move the segment? 
                   
-        :param seg: (segment_t *) segment to move
-        :param to: (::ea_t) new segment start address
+        :param seg_start_ea: (ea_t)
+        :param to: (ea_t) new segment start address
         :param flags: (int) combination of Move segment flags
         :returns: 0: yes
         :returns: <0: the kernel should stop
@@ -4709,9 +5004,9 @@ class IDP_Hooks:
                   
         :param filename: (char *) binary file name
         :param fileoff: (qoff64_t) offset in the file
-        :param basepara: (::ea_t) base loading paragraph
-        :param binoff: (::ea_t) loader offset
-        :param nbytes: (::uint64) number of bytes to load
+        :param basepara: (ea_t) base loading paragraph
+        :param binoff: (ea_t) loader offset
+        :param nbytes: (uint64) number of bytes to load
         """
         ...
     def ev_newfile(self, fname: int) -> int:
@@ -4732,8 +5027,8 @@ class IDP_Hooks:
     def ev_next_exec_insn(self, target: int, ea: ida_idaapi.ea_t, tid: int, getreg: regval_getter_t, regvalues: regval_t) -> int:
         r"""Get next address to be executed This function must return the next address to be executed. If the instruction following the current one is executed, then it must return BADADDR Usually the instructions to consider are: jumps, branches, calls, returns. This function is essential if the 'single step' is not supported in hardware. 
                   
-        :param target: (::ea_t *), out: pointer to the answer
-        :param ea: (::ea_t) instruction address
+        :param target: (ea_t *), out: pointer to the answer
+        :param ea: (ea_t) instruction address
         :param tid: (int) current therad id
         :param getreg: (::processor_t::regval_getter_t *) function to get register values
         :param regvalues: (const regval_t *) register values array
@@ -4769,6 +5064,24 @@ class IDP_Hooks:
                   
         :param outctx: (outctx_t *)
         :returns: void: 
+        """
+        ...
+    def ev_out_function_footer(self, outctx: outctx_t, func_ea: ida_idaapi.ea_t) -> int:
+        r"""Generate function footer lines. If this event is not implemented, the kernel will use asm_t::out_func_footer if available, or display a comment line. 
+                  
+        :param outctx: (outctx_t *)
+        :param func_ea: (ea_t)
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
+    def ev_out_function_header(self, outctx: outctx_t, func_ea: ida_idaapi.ea_t) -> int:
+        r"""Generate function header lines. If this event is not implemented, the kernel will use asm_t::out_func_header if available, or display function headers as normal lines. 
+                  
+        :param outctx: (outctx_t *)
+        :param func_ea: (ea_t)
+        :returns: 1: ok
+        :returns: 0: not implemented
         """
         ...
     def ev_out_header(self, outctx: outctx_t) -> int:
@@ -4812,17 +5125,35 @@ class IDP_Hooks:
         """
         ...
     def ev_out_segend(self, outctx: outctx_t, seg: segment_t) -> int:
-        r"""Function to produce end of segment 
-                  
+        r"""Function to produce end of segment
+        
         :param outctx: (outctx_t *)
         :param seg: (segment_t *)
         :returns: 1: ok
         :returns: 0: not implemented
         """
         ...
-    def ev_out_segstart(self, outctx: outctx_t, seg: segment_t) -> int:
+    def ev_out_segment_end(self, outctx: outctx_t, seg_start_ea: ida_idaapi.ea_t) -> int:
+        r"""Function to produce end of segment 
+                  
+        :param outctx: (outctx_t *)
+        :param seg_start_ea: (ea_t)
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
+    def ev_out_segment_start(self, outctx: outctx_t, seg_start_ea: ida_idaapi.ea_t) -> int:
         r"""Function to produce start of segment 
                   
+        :param outctx: (outctx_t *)
+        :param seg_start_ea: (ea_t)
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
+    def ev_out_segstart(self, outctx: outctx_t, seg: segment_t) -> int:
+        r"""Function to produce start of segment
+        
         :param outctx: (outctx_t *)
         :param seg: (segment_t *)
         :returns: 1: ok
@@ -4843,9 +5174,18 @@ class IDP_Hooks:
         r"""Privrange interval has been moved to a new location. Most common actions to be done by module in this case: fix indices of netnodes used by module 
                   
         :param old_privrange: (const range_t *) - old privrange interval
-        :param delta: (::adiff_t)
+        :param delta: (adiff_t)
         :returns: 0: Ok
         :returns: -1: error (and message in errbuf)
+        """
+        ...
+    def ev_query_unmapped_address(self, out: unmapped_info_t, ea: ida_idaapi.ea_t) -> int:
+        r"""Get information about an unmapped address 
+                  
+        :param out: (unmapped_info_t *) output information (can be nullptr)
+        :param ea: (ea_t) the (currently unmapped) address
+        :returns: 1: the address can be loaded
+        :returns: 0: not implemented or failed
         """
         ...
     def ev_realcvt(self, m: Any, e: fpvalue_t, swt: int) -> int:
@@ -4860,7 +5200,7 @@ class IDP_Hooks:
     def ev_rename(self, ea: ida_idaapi.ea_t, new_name: str) -> int:
         r"""The kernel is going to rename a byte. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param new_name: (const char *)
         :returns: <0: if the kernel should not rename it.
         :returns: 2: to inhibit the notification. I.e., the kernel should not rename, but 'set_name()' should return 'true'. also see renamed the return value is ignored when kernel is going to delete name
@@ -4872,6 +5212,15 @@ class IDP_Hooks:
         :param action_name: (const char *) action that we perform undo/redo for. may be nullptr for intermediate buffers.
         :param vec: (const undo_records_t *)
         :param is_undo: (bool) true if performing undo, false if performing redo This event may be generated multiple times per undo/redo
+        """
+        ...
+    def ev_sanitize_name(self, name: str, cc: callcnv_t) -> int:
+        r"""Apply processor/language-specific rewrites to a candidate name before the kernel validates its character set. E.g. the golang plugin uses this to rewrite "*" -> "_ptr_", "[]" -> "_slice_", ... 
+                  
+        :param name: (qstring *) name to sanitize (in/out)
+        :param cc: (callcnv_t) calling convention hint (pass CM_CC_UNKNOWN if not known; plugins can resolve via get_effective_cc())
+        :returns: 1: handled (name may have been modified)
+        :returns: 0: not implemented
         """
         ...
     def ev_set_code16_mode(self, ea: ida_idaapi.ea_t, code16: bool) -> int:
@@ -4923,10 +5272,10 @@ class IDP_Hooks:
     def ev_treat_hindering_item(self, hindering_item_ea: ida_idaapi.ea_t, new_item_flags: int, new_item_ea: ida_idaapi.ea_t, new_item_length: int) -> int:
         r"""An item hinders creation of another item. 
                   
-        :param hindering_item_ea: (::ea_t)
+        :param hindering_item_ea: (ea_t)
         :param new_item_flags: (flags64_t) (0 for code)
-        :param new_item_ea: (::ea_t)
-        :param new_item_length: (::asize_t)
+        :param new_item_ea: (ea_t)
+        :param new_item_length: (asize_t)
         :returns: 0: no reaction
         :returns: !=0: the kernel may delete the hindering item
         """
@@ -4954,7 +5303,7 @@ class IDP_Hooks:
     def ev_use_arg_types(self, ea: ida_idaapi.ea_t, fti: func_type_data_t, rargs: funcargvec_t) -> int:
         r"""Use information about callee arguments. 
                   
-        :param ea: (::ea_t) address of the call instruction
+        :param ea: (ea_t) address of the call instruction
         :param fti: (func_type_data_t *) info about function type
         :param rargs: (funcargvec_t *) array of register arguments
         :returns: 1: (and removes handled arguments from fti and rargs)
@@ -4964,16 +5313,19 @@ class IDP_Hooks:
     def ev_use_regarg_type(self, ea: ida_idaapi.ea_t, rargs: funcargvec_t) -> Any:
         r"""Use information about register argument. 
                   
-        :param ea: (::ea_t) address of the instruction
+        :param ea: (ea_t) address of the instruction
         :param rargs: (const funcargvec_t *) vector of register arguments (including regs extracted from scattered arguments)
-        :returns: 1: 
-        :returns: 0: not implemented
+        :returns: idx: (int *) pointer to the returned value, may contain:
+        * idx of the used argument, if the argument is defined in the current instruction, a comment will be applied by the kernel
+        * idx | REG_SPOIL - argument is spoiled by the instruction
+        * -1 if the instruction doesn't change any registers
+        * -2 if the instruction spoils all registers
         """
         ...
     def ev_use_stkarg_type(self, ea: ida_idaapi.ea_t, arg: funcarg_t) -> int:
         r"""Use information about a stack argument. 
                   
-        :param ea: (::ea_t) address of the push instruction which pushes the function argument into the stack
+        :param ea: (ea_t) address of the push instruction which pushes the function argument into the stack
         :param arg: (const funcarg_t *) argument info
         :returns: 1: ok
         :returns: <=0: failed, the kernel will create a comment with the argument name or type for the instruction
@@ -4982,22 +5334,37 @@ class IDP_Hooks:
     def ev_validate_flirt_func(self, start_ea: ida_idaapi.ea_t, funcname: str) -> int:
         r"""Flirt has recognized a library function. This callback can be used by a plugin or proc module to intercept it and validate such a function. 
                   
-        :param start_ea: (::ea_t)
+        :param start_ea: (ea_t)
         :param funcname: (const char *)
         :returns: -1: do not create a function,
         :returns: 0: function is validated
         """
         ...
-    def ev_verify_noreturn(self, pfn: func_t) -> int:
+    def ev_verify_function_noreturn(self, func_ea: ida_idaapi.ea_t) -> int:
         r"""The kernel wants to set 'noreturn' flags for a function. 
                   
+        :param func_ea: (ea_t) function entry start address
+        :returns: 0: ok. any other value: do not set 'noreturn' flag
+        """
+        ...
+    def ev_verify_function_sp(self, func_ea: ida_idaapi.ea_t) -> int:
+        r"""All function instructions have been analyzed. Now the processor module can analyze the stack pointer for the whole function 
+                  
+        :param func_ea: (ea_t) function entry start address
+        :returns: 0: ok
+        :returns: <0: bad stack pointer
+        """
+        ...
+    def ev_verify_noreturn(self, pfn: func_t) -> int:
+        r"""The kernel wants to set 'noreturn' flags for a function.
+        
         :param pfn: (func_t *)
         :returns: 0: ok. any other value: do not set 'noreturn' flag
         """
         ...
     def ev_verify_sp(self, pfn: func_t) -> int:
-        r"""All function instructions have been analyzed. Now the processor module can analyze the stack pointer for the whole function 
-                  
+        r"""All function instructions have been analyzed.
+        
         :param pfn: (func_t *)
         :returns: 0: ok
         :returns: <0: bad stack pointer
@@ -5678,6 +6045,12 @@ class UI_Hooks:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
+    def about_to_exit(self) -> None:
+        r"""IDA is exiting. QApplication is still alive but is about to be destroyed. Last chance to perform cleanup that needs both the UI runtime and the scripting runtime (e.g., IDAPython) to still be usable. Unlike ui_database_closed, this fires only at exit, not on every database close. Unlike qatexit() handlers, which fire after PLUGIN_FIX plugins have been unloaded, this fires while those plugins are still fully operational. 
+                  
+        :returns: void
+        """
+        ...
     def create_desktop_widget(self, title: str, cfg: jobj_wrapper_t) -> Any:
         r"""create a widget, to be placed in the widget tree (at desktop-creation time.) 
                   
@@ -5761,15 +6134,14 @@ class UI_Hooks:
                   
         :param viewer: (TWidget*) viewer
         :param place: (place_t *) current position in the viewer
-        :returns: 0: continue collecting hints with other subscribers
-        :returns: 1: stop collecting hints
+        :returns: hint: (qstring *) the output string, on input contains hints from the previous subscribers; important_lines: (int *) number of important lines, should be incremented, if zero, the result is ignored
         """
         ...
     def get_ea_hint(self, ea: ida_idaapi.ea_t) -> Any:
         r"""ui wants to display a simple hint for an address. Use this event to generate a custom hint See also more generic ui_get_item_hint 
                   
-        :param ea: (::ea_t)
-        :returns: true if generated a hint
+        :param ea: (ea_t)
+        :returns: buf: (qstring *)
         """
         ...
     def get_item_hint(self, ea: ida_idaapi.ea_t, max_lines: int) -> Any:
@@ -5777,7 +6149,7 @@ class UI_Hooks:
                   
         :param ea: (ea_t) or item id like a structure or enum member
         :param max_lines: (int) maximal number of lines
-        :returns: true if generated a hint
+        :returns: hint: (qstring *) the output string; important_lines: (int *) number of important lines. if zero, output is ignored
         """
         ...
     def get_lines_rendering_info(self, out: lines_rendering_output_t, widget: TWidget, info: lines_rendering_input_t) -> None:
@@ -6365,11 +6737,17 @@ class action_ctx_base_t:
     @property
     def cur_fchunk(self) -> func_t: ...
     @property
+    def cur_fchunk_info(self) -> fchunk_info_t: ...
+    @property
     def cur_flags(self) -> int: ...
     @property
     def cur_func(self) -> func_t: ...
     @property
+    def cur_func_info(self) -> func_entry_info_t: ...
+    @property
     def cur_seg(self) -> segment_t: ...
+    @property
+    def cur_seg_info(self) -> segment_info_t: ...
     @property
     def cur_sel(self) -> action_ctx_base_cur_sel_t: ...
     @property
@@ -6787,6 +7165,96 @@ class addon_info_t:
     def __swig_destroy__(self, object: Any) -> Any:
         ...
 
+class address_info_t:
+    @property
+    def file_offset(self) -> int: ...
+    @property
+    def mapping(self) -> mapping_coords_t: ...
+    @property
+    def region(self) -> region_info_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> str:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def valid(self) -> bool:
+        ...
+
 class adiff_pointer:
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -7054,7 +7522,7 @@ class argloc_t:
         """
         ...
     def atype(self) -> argloc_type_t:
-        r"""Get type (Argument location types)
+        r"""Get type (Argument location types ).
         
         """
         ...
@@ -7319,7 +7787,7 @@ class argpart_t(argloc_t):
         """
         ...
     def atype(self) -> argloc_type_t:
-        r"""Get type (Argument location types)
+        r"""Get type (Argument location types ).
         
         """
         ...
@@ -9112,12 +9580,12 @@ class bitrange_t:
         """
         ...
     def shift_down(self, cnt: int) -> None:
-        r"""Shift range down (left)
+        r"""Shift range down (left).
         
         """
         ...
     def shift_up(self, cnt: int) -> None:
-        r"""Shift range up (right)
+        r"""Shift range up (right).
         
         """
         ...
@@ -9711,7 +10179,7 @@ class bookmarks_t:
         ...
     def get_by_inode(self, out_entry: lochist_entry_t, out_desc: str, inode: inode_t, ud: Any) -> int:
         ...
-    def get_desc(self, e: lochist_entry_t, index: int, ud: Any) -> str:
+    def get_desc(self, e: lochist_entry_t, index: int, ud: Any) -> Any:
         ...
     def get_dirtree_id(self, e: lochist_entry_t, ud: Any) -> dirtree_id_t:
         ...
@@ -10288,27 +10756,27 @@ class bpt_location_t:
         """
         ...
     def ea(self) -> ida_idaapi.ea_t:
-        r"""Get address (BPLT_ABS)
+        r"""Get address (BPLT_ABS).
         
         """
         ...
     def is_empty_path(self) -> bool:
-        r"""No path/filename specified? (BPLT_REL, BPLT_SRC)
+        r"""No path/filename specified? (BPLT_REL, BPLT_SRC).
         
         """
         ...
     def lineno(self) -> int:
-        r"""Get line number (BPLT_SRC)
+        r"""Get line number (BPLT_SRC).
         
         """
         ...
     def offset(self) -> int:
-        r"""Get offset (BPLT_REL, BPLT_SYM)
+        r"""Get offset (BPLT_REL, BPLT_SYM).
         
         """
         ...
     def path(self) -> str:
-        r"""Get path/filename (BPLT_REL, BPLT_SRC)
+        r"""Get path/filename (BPLT_REL, BPLT_SRC).
         
         """
         ...
@@ -10333,7 +10801,7 @@ class bpt_location_t:
         """
         ...
     def symbol(self) -> str:
-        r"""Get symbol name (BPLT_SYM)
+        r"""Get symbol name (BPLT_SYM).
         
         """
         ...
@@ -11367,7 +11835,7 @@ class callregs_t:
         """
         ...
     def set(self, _policy: argreg_policy_t, gprs: int, fprs: int) -> None:
-        r"""Init policy & registers (arrays are -1-terminated)
+        r"""Init policy & registers (arrays are -1-terminated).
         
         """
         ...
@@ -11842,6 +12310,8 @@ class carg_t(cexpr_t, citem_t):
         ...
     def is_undef_val(self) -> bool:
         ...
+    def is_user_cast(self) -> bool:
+        ...
     def is_vftable(self) -> bool:
         ...
     def is_zero_const(self) -> bool:
@@ -11859,7 +12329,7 @@ class carg_t(cexpr_t, citem_t):
                 
         """
         ...
-    def print1(self, func: cfunc_t) -> None:
+    def print1(self, func: cfunc_t) -> str:
         r"""Print expression into one line. 
                 
         :param func: parent function. This argument is used to find out the referenced variable names.
@@ -11885,6 +12355,8 @@ class carg_t(cexpr_t, citem_t):
         ...
     def set_cpadone(self) -> None:
         ...
+    def set_user_cast(self) -> None:
+        ...
     def set_v(self, v: var_ref_t) -> None:
         ...
     def set_vftable(self) -> None:
@@ -11902,6 +12374,8 @@ class carglist_t(qvector_carg_t):
     def flags(self) -> int: ...
     @property
     def functype(self) -> tinfo_t: ...
+    @property
+    def role(self) -> funcrole_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -12627,7 +13101,13 @@ class catchexpr_t:
         ...
     def compare(self, r: catchexpr_t) -> int:
         ...
+    def convert_to_catch_all(self) -> None:
+        ...
+    def convert_to_finally(self) -> None:
+        ...
     def is_catch_all(self) -> bool:
+        ...
+    def is_finally(self) -> bool:
         ...
     def swap(self, r: catchexpr_t) -> None:
         ...
@@ -13108,6 +13588,8 @@ class cblock_t(cinsn_list_t):
         ...
     def insert(self, *args: Any) -> cinsn_list_t_iterator:
         ...
+    def is_ordinary_flow(self) -> bool:
+        ...
     def pop_back(self) -> None:
         ...
     def pop_front(self) -> None:
@@ -13338,7 +13820,7 @@ class ccase_t(cinsn_t, citem_t):
         :param insn_ea: statement address
         """
         ...
-    def print1(self, func: cfunc_t) -> None:
+    def print1(self, func: cfunc_t) -> str:
         r"""Print the statement into one line. Currently this function is not available. 
                 
         :param func: parent function. This argument is used to find out the referenced variable names.
@@ -13589,6 +14071,10 @@ class ccatch_t(cblock_t, cinsn_list_t):
         ...
     def compare(self, r: ccatch_t) -> int:
         ...
+    def convert_to_catch_all(self) -> None:
+        ...
+    def convert_to_finally(self) -> None:
+        ...
     def empty(self) -> bool:
         ...
     def end(self) -> cinsn_list_t_iterator:
@@ -13604,6 +14090,10 @@ class ccatch_t(cblock_t, cinsn_list_t):
     def insert(self, *args: Any) -> cinsn_list_t_iterator:
         ...
     def is_catch_all(self) -> bool:
+        ...
+    def is_finally(self) -> bool:
+        ...
+    def is_ordinary_flow(self) -> bool:
         ...
     def pop_back(self) -> None:
         ...
@@ -13737,7 +14227,7 @@ class cdg_insn_iterator_t:
 
 class cdo_t(cloop_t, ceinsn_t):
     @property
-    def body(self) -> cinsn_t: ...
+    def body(self) -> Any: ...
     @property
     def expr(self) -> cexpr_t: ...
     def __delattr__(self, name: Any) -> Any:
@@ -14230,6 +14720,8 @@ class cexpr_t(citem_t):
         ...
     def is_undef_val(self) -> bool:
         ...
+    def is_user_cast(self) -> bool:
+        ...
     def is_vftable(self) -> bool:
         ...
     def is_zero_const(self) -> bool:
@@ -14247,7 +14739,7 @@ class cexpr_t(citem_t):
                 
         """
         ...
-    def print1(self, func: cfunc_t) -> None:
+    def print1(self, func: cfunc_t) -> str:
         r"""Print expression into one line. 
                 
         :param func: parent function. This argument is used to find out the referenced variable names.
@@ -14273,6 +14765,8 @@ class cexpr_t(citem_t):
         ...
     def set_cpadone(self) -> None:
         ...
+    def set_user_cast(self) -> None:
+        ...
     def set_v(self, v: var_ref_t) -> None:
         ...
     def set_vftable(self) -> None:
@@ -14287,7 +14781,7 @@ class cexpr_t(citem_t):
 
 class cfor_t(cloop_t, ceinsn_t):
     @property
-    def body(self) -> cinsn_t: ...
+    def body(self) -> Any: ...
     @property
     def expr(self) -> cexpr_t: ...
     @property
@@ -14547,7 +15041,7 @@ class cfunc_parentee_t(ctree_parentee_t, ctree_visitor_t):
         """
         ...
     def parent_item(self) -> citem_t:
-        r"""Get parent of the current item as an item (statement or expression)
+        r"""Get parent of the current item as an item (statement or expression).
         
         """
         ...
@@ -14563,7 +15057,7 @@ class cfunc_parentee_t(ctree_parentee_t, ctree_visitor_t):
         """
         ...
     def set_restart(self) -> None:
-        r"""Restart the travesal. Meaningful only in apply_to_exprs()
+        r"""Restart the travesal. Meaningful only in apply_to_exprs().
         
         """
         ...
@@ -14613,6 +15107,8 @@ class cfunc_t:
     def treeitems(self) -> citem_pointers_t: ...
     @property
     def type(self) -> Any: ...
+    @property
+    def user_casts(self) -> user_casts_t: ...
     @property
     def user_cmts(self) -> user_cmts_t: ...
     @property
@@ -14721,6 +15217,12 @@ class cfunc_t:
         :returns: new cfunc_t object
         """
         ...
+    def find_addressable_item(self, i: citem_t) -> citem_t:
+        r"""Find the closest addressable ancestor of an item. Try to locate the closest address to the citem_t `i` walking the tree and taking the most immediate parent with an address. 
+                
+        :returns: the closest addressable item, or `i` itself if none was found
+        """
+        ...
     def find_item_coords(self, *args: Any) -> Any:
         r"""This method has the following signatures:
         
@@ -14787,6 +15289,11 @@ class cfunc_t:
         :returns: the delta to apply. example: ida_stkoff = v.location.stkoff() - f->get_stkoff_delta()
         """
         ...
+    def get_user_cast(self, loc: citem_locator_t) -> tinfo_t:
+        r"""Retrieve a user-defined cast.
+        
+        """
+        ...
     def get_user_cmt(self, loc: treeloc_t, rt: cmt_retrieval_type_t) -> str:
         r"""Retrieve a user defined comment. 
                 
@@ -14799,7 +15306,7 @@ class cfunc_t:
         r"""Retrieve citem iflags. 
                 
         :param loc: citem locator
-        :returns: ctree item iflags bits or 0
+        :returns: ctree item iflags bits  or 0
         """
         ...
     def get_user_union_selection(self, ea: ida_idaapi.ea_t, path: intvec_t) -> bool:
@@ -14823,7 +15330,7 @@ class cfunc_t:
         ...
     def locked(self) -> bool:
         ...
-    def print_dcl(self) -> None:
+    def print_dcl(self) -> str:
         r"""Print function prototype. 
                 
         """
@@ -14839,6 +15346,12 @@ class cfunc_t:
                 
         """
         ...
+    def redirect_gotos(self, frm: int, to: int) -> None:
+        r"""Redirect all gotos targeting one label to another. This function walks the entire ctree and changes all goto statements that target `from` to target `to` instead. 
+                
+        :param to: target label number
+        """
+        ...
     def refresh_func_ctext(self) -> None:
         r"""Refresh ctext after a ctree modification. This function informs the decompiler that ctree (body) have been modified and ctext (sv) does not correspond to it anymore. It also refreshes the pseudocode windows if there is any. 
                 
@@ -14849,6 +15362,11 @@ class cfunc_t:
     def remove_unused_labels(self) -> None:
         r"""Remove unused labels. This function checks what labels are really used by the function and removes the unused ones. You must call it after deleting a goto statement. 
                 
+        """
+        ...
+    def save_user_casts(self) -> None:
+        r"""Save user-defined casts into the database.
+        
         """
         ...
     def save_user_cmts(self) -> None:
@@ -14878,6 +15396,11 @@ class cfunc_t:
         ...
     def serialize(self) -> bool:
         r"""Serialize cfunc into a sequence of bytes.
+        
+        """
+        ...
+    def set_user_cast(self, loc: citem_locator_t, type: tinfo_t) -> None:
+        r"""Set a user-defined cast.
         
         """
         ...
@@ -14943,6 +15466,8 @@ class cfuncptr_t:
     def treeitems(self) -> citem_pointers_t: ...
     @property
     def type(self) -> Any: ...
+    @property
+    def user_casts(self) -> user_casts_t: ...
     @property
     def user_cmts(self) -> user_cmts_t: ...
     @property
@@ -15044,6 +15569,8 @@ class cfuncptr_t:
         ...
     def deserialize(self, mba: mba_t, bytes: int) -> cfunc_t:
         ...
+    def find_addressable_item(self, i: citem_t) -> citem_t:
+        ...
     def find_item_coords(self, *args: Any) -> Any:
         r"""This method has the following signatures:
         
@@ -15074,6 +15601,8 @@ class cfuncptr_t:
         ...
     def get_stkoff_delta(self) -> int:
         ...
+    def get_user_cast(self, loc: citem_locator_t) -> tinfo_t:
+        ...
     def get_user_cmt(self, loc: treeloc_t, rt: cmt_retrieval_type_t) -> str:
         ...
     def get_user_iflags(self, loc: citem_locator_t) -> int:
@@ -15086,11 +15615,13 @@ class cfuncptr_t:
         ...
     def locked(self) -> bool:
         ...
-    def print_dcl(self) -> None:
+    def print_dcl(self) -> str:
         ...
     def print_func(self, vp: vc_printer_t) -> None:
         ...
     def recalc_item_addresses(self) -> None:
+        ...
+    def redirect_gotos(self, frm: int, to: int) -> None:
         ...
     def refresh_func_ctext(self) -> None:
         ...
@@ -15099,6 +15630,11 @@ class cfuncptr_t:
     def remove_unused_labels(self) -> None:
         ...
     def reset(self) -> None:
+        ...
+    def save_user_casts(self) -> None:
+        r"""Save user defined casts into the database. 
+                
+        """
         ...
     def save_user_cmts(self) -> None:
         r"""Save user defined comments into the database. 
@@ -15126,6 +15662,8 @@ class cfuncptr_t:
         """
         ...
     def serialize(self) -> bool:
+        ...
+    def set_user_cast(self, loc: citem_locator_t, type: tinfo_t) -> None:
         ...
     def set_user_cmt(self, loc: treeloc_t, cmt: str) -> None:
         ...
@@ -16473,9 +17011,9 @@ class cif_t(ceinsn_t):
     @property
     def expr(self) -> cexpr_t: ...
     @property
-    def ielse(self) -> cinsn_t: ...
+    def ielse(self) -> Any: ...
     @property
-    def ithen(self) -> cinsn_t: ...
+    def ithen(self) -> Any: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -16975,7 +17513,7 @@ class cinsn_t(citem_t):
         :param insn_ea: statement address
         """
         ...
-    def print1(self, func: cfunc_t) -> None:
+    def print1(self, func: cfunc_t) -> str:
         r"""Print the statement into one line. Currently this function is not available. 
                 
         :param func: parent function. This argument is used to find out the referenced variable names.
@@ -17418,7 +17956,7 @@ class citem_t:
         
         """
         ...
-    def print1(self, func: cfunc_t) -> None:
+    def print1(self, func: cfunc_t) -> str:
         r"""Print item into one line. 
                 
         :param func: parent function. This argument is used to find out the referenced variable names.
@@ -17431,6 +17969,332 @@ class citem_t:
         r"""Swap two citem_t.
         
         """
+        ...
+
+class cli_completion_t:
+    @property
+    def doc(self) -> str: ...
+    @property
+    def hint(self) -> str: ...
+    @property
+    def text(self) -> str: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
+class cli_completion_vec_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> cli_completion_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[cli_completion_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: cli_completion_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def append(self, x: cli_completion_t) -> None:
+        ...
+    def at(self, _idx: int) -> cli_completion_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: cli_completion_vec_t) -> None:
+        ...
+    def extract(self) -> cli_completion_t:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def inject(self, s: cli_completion_t, len: int) -> None:
+        ...
+    def insert(self, it: cli_completion_t, x: cli_completion_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> cli_completion_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: cli_completion_vec_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
+class cli_completions_t:
+    @property
+    def cb(self) -> int: ...
+    @property
+    def entries(self) -> cli_completion_vec_t: ...
+    @property
+    def match_end(self) -> int: ...
+    @property
+    def match_start(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: cli_completions_t) -> None:
         ...
 
 class cli_t(pyidc_opaque_object_t):
@@ -17451,14 +18315,15 @@ class cli_t(pyidc_opaque_object_t):
         
         """
         ...
-    def OnFindCompletions(self, line: Any, x: Any) -> Any:
+    def OnFindCompletions(self, line: Any, x: Any, max_count: Any) -> Any:
         r"""
-        The user pressed Tab. Return a list of completions
+        The user pressed Tab. Return a list of completions.
         
         This callback is optional.
         
         :param line: the current line (string)
         :param x: the index where the cursor is (int)
+        :param max_count: do not return more than this many results
         
         :returns: None if no completion could be generated, otherwise a tuple:
             (completions : Sequence[str], hints : Sequence[str], docs: Sequence[str],
@@ -17589,7 +18454,7 @@ class cli_t(pyidc_opaque_object_t):
 
 class cloop_t(ceinsn_t):
     @property
-    def body(self) -> cinsn_t: ...
+    def body(self) -> Any: ...
     @property
     def expr(self) -> cexpr_t: ...
     def __delattr__(self, name: Any) -> Any:
@@ -17861,7 +18726,7 @@ class codegen_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def analyze_prolog(self, fc: qflow_chart_t, reachable: bitset_t) -> int:
+    def analyze_prolog(self, fc: qflow_chart_ea_t, reachable: bitset_t) -> int:
         r"""Analyze prolog/epilog of the function to decompile. If prolog is found, allocate and fill 'mba->pi' structure. 
                 
         :param fc: flow chart
@@ -17924,14 +18789,17 @@ class codegen_t:
         :returns: MERR_OK - all ok other error codes are fatal
         """
         ...
-    def store_operand(self, n: int, mop: mop_t, flags: int = 0, outins: minsn_t = None) -> bool:
-        r"""Generate microcode to store an operand. In case of success an arbitrary number of instructions can be generated (and even no instruction if the source and target are the same) 
-                
-        :param n: - number of target INSN operand
-        :param mop: - operand to be stored
-        :param flags: - reserved for future use
-        :param outins: - (OUT) the last generated instruction
-        :returns: success
+    def store_operand(self, n: int, mop: mop_t, flags: int = 0) -> Any:
+        r"""Generate microcode to store an operand.
+        In case of success an arbitrary number of instructions can be
+        generated (and even no instruction if the source and target are the same).
+        
+        :param n: number of target insn operand
+        :param mop: operand to be stored
+        :param flags: reserved for future use
+        :returns: (success, outins) tuple.
+            outins: the last generated instruction
+            (None if no instruction was generated).
         """
         ...
 
@@ -18934,7 +19802,7 @@ class ctree_item_t:
     def get_label_num(self, gln_flags: int) -> int:
         r"""Get label number of the current item. 
                 
-        :param gln_flags: Combination of get_label_num control bits
+        :param gln_flags: Combination of get_label_num control  bits
         :returns: -1 if failed or no label
         """
         ...
@@ -19260,7 +20128,7 @@ class ctree_parentee_t(ctree_visitor_t):
         """
         ...
     def parent_item(self) -> citem_t:
-        r"""Get parent of the current item as an item (statement or expression)
+        r"""Get parent of the current item as an item (statement or expression).
         
         """
         ...
@@ -19276,7 +20144,7 @@ class ctree_parentee_t(ctree_visitor_t):
         """
         ...
     def set_restart(self) -> None:
-        r"""Restart the travesal. Meaningful only in apply_to_exprs()
+        r"""Restart the travesal. Meaningful only in apply_to_exprs().
         
         """
         ...
@@ -19457,7 +20325,7 @@ class ctree_visitor_t:
         """
         ...
     def parent_item(self) -> citem_t:
-        r"""Get parent of the current item as an item (statement or expression)
+        r"""Get parent of the current item as an item (statement or expression).
         
         """
         ...
@@ -19467,7 +20335,7 @@ class ctree_visitor_t:
         """
         ...
     def set_restart(self) -> None:
-        r"""Restart the travesal. Meaningful only in apply_to_exprs()
+        r"""Restart the travesal. Meaningful only in apply_to_exprs().
         
         """
         ...
@@ -19488,7 +20356,9 @@ class ctry_t(cblock_t, cinsn_list_t):
     @property
     def catchs(self) -> ccatchvec_t: ...
     @property
-    def is_wind(self) -> bool: ...
+    def flags(self) -> int: ...
+    @property
+    def is_wind(self) -> Any: ...
     @property
     def new_state(self) -> int: ...
     @property
@@ -19597,6 +20467,13 @@ class ctry_t(cblock_t, cinsn_list_t):
     def index(self, item: Any) -> Any:
         ...
     def insert(self, *args: Any) -> cinsn_list_t_iterator:
+        ...
+    def is_ordinary_flow(self) -> bool:
+        ...
+    def is_synchronized_block(self) -> bool:
+        r"""Is a synchronized block? Such a block matches this pattern: __monitor_enter__(obj); try { ... } finally { __monitor_exit__(obj); } 
+                
+        """
         ...
     def pop_back(self) -> None:
         ...
@@ -19740,7 +20617,7 @@ class custom_callcnv_t:
         :returns: success
         """
         ...
-    def decorate_name(self, name: str, should_decorate: bool, cc: callcnv_t, type: tinfo_t) -> bool:
+    def decorate_name(self, name: str, should_decorate: bool, cc: callcnv_t, type: tinfo_t) -> str:
         r"""Function to be overloaded for custom calling conventions.
         
         Decorate a function name. Some compilers decorate names depending on the calling convention. This function provides the means to handle it for custom callcnvs. Please note that this is about name decoration (C), not name mangling (C++). 
@@ -20063,7 +20940,7 @@ class custom_data_type_info_t:
 
 class cwhile_t(cloop_t, ceinsn_t):
     @property
-    def body(self) -> cinsn_t: ...
+    def body(self) -> Any: ...
     @property
     def expr(self) -> cexpr_t: ...
     def __delattr__(self, name: Any) -> Any:
@@ -20846,9 +21723,9 @@ class debugger_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def attach_process(self, pid: pid_t, event_id: int, dbg_proc_flags: int) -> int:
+    def attach_process(self, pid: pid_t, event_id: int, dbg_proc_flags: int) -> Any:
         ...
-    def bin_search(self, start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, data: compiled_binpat_vec_t, srch_flags: int) -> int:
+    def bin_search(self, start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, data: compiled_binpat_vec_t, srch_flags: int) -> Any:
         ...
     def cache_block_size(self) -> int:
         ...
@@ -20864,11 +21741,11 @@ class debugger_t:
         ...
     def dbg_enable_trace(self, tid: int, enable: bool, trace_flags: int) -> bool:
         ...
-    def detach_process(self) -> int:
+    def detach_process(self) -> Any:
         ...
-    def eval_lowcnd(self, tid: int, ea: ida_idaapi.ea_t) -> int:
+    def eval_lowcnd(self, tid: int, ea: ida_idaapi.ea_t) -> Any:
         ...
-    def exit_process(self) -> int:
+    def exit_process(self) -> Any:
         ...
     def fake_memory(self) -> bool:
         ...
@@ -20880,9 +21757,9 @@ class debugger_t:
         ...
     def get_dynamic_register_set(self, regset: dynamic_register_set_t) -> bool:
         ...
-    def get_memory_info(self, ranges: meminfo_vec_t) -> int:
+    def get_memory_info(self, ranges: meminfo_vec_t) -> Any:
         ...
-    def get_processes(self, procs: procinfo_vec_t) -> int:
+    def get_processes(self, procs: procinfo_vec_t) -> Any:
         ...
     def get_srcinfo_path(self, path: str, base: ida_idaapi.ea_t) -> bool:
         ...
@@ -20920,7 +21797,7 @@ class debugger_t:
         ...
     def have_set_options(self) -> bool:
         ...
-    def init_debugger(self, hostname: str, portnum: int, password: str) -> bool:
+    def init_debugger(self, hostname: str, portnum: int, password: str) -> Any:
         ...
     def is_remote(self) -> bool:
         ...
@@ -20940,33 +21817,33 @@ class debugger_t:
         ...
     def must_have_hostname(self) -> bool:
         ...
-    def open_file(self, file: str, fsize: int, readonly: bool) -> int:
+    def open_file(self, file: str, fsize: int, readonly: bool) -> Any:
         ...
-    def read_file(self, fn: int, off: qoff64_t, buf: Any, size: int) -> int:
+    def read_file(self, fn: int, off: qoff64_t, buf: Any, size: int) -> Any:
         ...
-    def read_memory(self, nbytes: int, ea: ida_idaapi.ea_t, buffer: Any, size: int) -> int:
+    def read_memory(self, nbytes: int, ea: ida_idaapi.ea_t, buffer: Any, size: int) -> Any:
         ...
-    def read_registers(self, tid: int, clsmask: int, values: regval_t) -> int:
+    def read_registers(self, tid: int, clsmask: int, values: regval_t) -> Any:
         ...
     def rebase_if_required_to(self, new_base: ida_idaapi.ea_t) -> None:
         ...
     def regs(self, idx: int) -> register_info_t:
         ...
-    def request_pause(self) -> int:
+    def request_pause(self) -> Any:
         ...
-    def resume(self, event: debug_event_t) -> int:
+    def resume(self, event: debug_event_t) -> Any:
         ...
     def rexec(self, cmdline: str) -> int:
         ...
-    def send_ioctl(self, fn: int, buf: Any, poutbuf: Any, poutsize: int) -> int:
+    def send_ioctl(self, fn: int, buf: Any, poutbuf: Any, poutsize: int) -> Any:
         ...
     def set_backwards(self, backwards: bool) -> int:
         ...
     def set_exception_info(self, info: exception_info_t, qty: int) -> None:
         ...
-    def set_resume_mode(self, tid: int, resmod: resume_mode_t) -> int:
+    def set_resume_mode(self, tid: int, resmod: resume_mode_t) -> Any:
         ...
-    def start_process(self, path: str, args: str, envs: launch_env_t, startdir: str, dbg_proc_flags: int, input_path: str, input_file_crc32: int) -> int:
+    def start_process(self, path: str, args: str, envs: launch_env_t, startdir: str, dbg_proc_flags: int, input_path: str, input_file_crc32: int) -> Any:
         ...
     def supports_debthread(self) -> bool:
         ...
@@ -20976,17 +21853,17 @@ class debugger_t:
         ...
     def term_debugger(self) -> bool:
         ...
-    def thread_continue(self, tid: int) -> int:
+    def thread_continue(self, tid: int) -> Any:
         ...
-    def thread_get_sreg_base(self, answer: int, tid: int, sreg_value: int) -> int:
+    def thread_get_sreg_base(self, answer: int, tid: int, sreg_value: int) -> Any:
         ...
-    def thread_suspend(self, tid: int) -> int:
+    def thread_suspend(self, tid: int) -> Any:
         ...
-    def update_bpts(self, nbpts: int, bpts: update_bpt_info_t, nadd: int, ndel: int) -> int:
+    def update_bpts(self, nbpts: int, bpts: update_bpt_info_t, nadd: int, ndel: int) -> Any:
         ...
     def update_call_stack(self, tid: int, trace: call_stack_t) -> int:
         ...
-    def update_lowcnds(self, nupdated: int, lowcnds: lowcnd_t, nlowcnds: int) -> int:
+    def update_lowcnds(self, nupdated: int, lowcnds: lowcnd_t, nlowcnds: int) -> Any:
         ...
     def use_memregs(self) -> bool:
         ...
@@ -20994,11 +21871,564 @@ class debugger_t:
         ...
     def virtual_threads(self) -> bool:
         ...
-    def write_file(self, fn: int, off: qoff64_t, buf: Any) -> int:
+    def write_file(self, fn: int, off: qoff64_t, buf: Any) -> Any:
         ...
-    def write_memory(self, nbytes: int, ea: ida_idaapi.ea_t, buffer: Any, size: int) -> int:
+    def write_memory(self, nbytes: int, ea: ida_idaapi.ea_t, buffer: Any, size: int) -> Any:
         ...
-    def write_register(self, tid: int, regidx: int, value: regval_t) -> int:
+    def write_register(self, tid: int, regidx: int, value: regval_t) -> Any:
+        ...
+
+class decomp_range_iterator_t:
+    @property
+    def fii(self) -> function_tail_iterator_t: ...
+    @property
+    def rii(self) -> range_chunk_iterator_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def chunk(self, out: range_t) -> None:
+        ...
+    def is_snippet(self) -> bool:
+        ...
+    def next(self) -> bool:
+        ...
+    def set(self, dcr: decomp_ranges_t) -> bool:
+        ...
+
+class decomp_ranges_t:
+    @property
+    def func_ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def ranges(self) -> rangevec_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def is_fragmented(self) -> bool:
+        ...
+    def is_snippet(self) -> bool:
+        ...
+    def start(self) -> ida_idaapi.ea_t:
+        ...
+
+class dependency_match_entry_t:
+    @property
+    def image_index(self) -> int: ...
+    @property
+    def image_name(self) -> str: ...
+    @property
+    def load_command_type(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: dependency_match_entry_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: dependency_match_entry_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> str:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
+class dependency_match_entry_vec_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: dependency_match_entry_vec_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> dependency_match_entry_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[dependency_match_entry_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: dependency_match_entry_vec_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: dependency_match_entry_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: dependency_match_entry_t) -> bool:
+        ...
+    def append(self, x: dependency_match_entry_t) -> None:
+        ...
+    def at(self, _idx: int) -> dependency_match_entry_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: dependency_match_entry_vec_t) -> None:
+        ...
+    def extract(self) -> dependency_match_entry_t:
+        ...
+    def find(self, *args: Any) -> Any:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: dependency_match_entry_t) -> bool:
+        ...
+    def inject(self, s: dependency_match_entry_t, len: int) -> None:
+        ...
+    def insert(self, it: dependency_match_entry_t, x: dependency_match_entry_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> dependency_match_entry_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: dependency_match_entry_vec_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
+class dependency_match_result_t(dependency_match_entry_vec_t):
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: dependency_match_entry_vec_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> dependency_match_entry_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[dependency_match_entry_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: dependency_match_entry_vec_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: dependency_match_entry_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: dependency_match_entry_t) -> bool:
+        ...
+    def append(self, x: dependency_match_entry_t) -> None:
+        ...
+    def at(self, _idx: int) -> dependency_match_entry_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: dependency_match_entry_vec_t) -> None:
+        ...
+    def extract(self) -> dependency_match_entry_t:
+        ...
+    def find(self, *args: Any) -> Any:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: dependency_match_entry_t) -> bool:
+        ...
+    def inject(self, s: dependency_match_entry_t, len: int) -> None:
+        ...
+    def insert(self, it: dependency_match_entry_t, x: dependency_match_entry_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> dependency_match_entry_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: dependency_match_entry_vec_t) -> None:
+        ...
+    def truncate(self) -> None:
         ...
 
 class direntry_t:
@@ -21332,7 +22762,7 @@ class dirspec_t:
         r"""get the entry name. for example, the structure name 
                 
         :param inode: inode number of the entry
-        :param name_flags: how exactly the name should be retrieved. combination of bits for get_...name() methods bits
+        :param name_flags: how exactly the name should be retrieved. combination of bits for get_...name() methods  bits
         :returns: false if the entry does not exist.
         """
         ...
@@ -22069,7 +23499,7 @@ class dirtree_t:
     def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, ds: dirspec_t) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
     def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
@@ -22180,6 +23610,14 @@ class dirtree_t:
         :returns: success
         """
         ...
+    def fold_common_prefix(self, *args: Any) -> int:
+        r"""Collapse single child folders into a single folder item The default separator (DIRTREE_FOLDED_SEP, ASCII 0x1D) is rendered as '/' by the UI but is not split by the path parser, so folded folders behave like a single item for rmdir/cd/rename/etc. 
+                
+        :param path: starting directory; nullptr or "/" means root
+        :param sep: character used to join names
+        :returns: dterr_t error code
+        """
+        ...
     @overload
     def get_abspath(self, cursor: dirtree_cursor_t, name_flags: int = ...) -> str:
         r"""Get absolute path pointed by the cursor 
@@ -22212,7 +23650,7 @@ class dirtree_t:
         r"""Get entry name 
                 
         :param de: directory entry
-        :param name_flags: how exactly the name should be retrieved. combination of bits for get_...name() methods bits
+        :param name_flags: how exactly the name should be retrieved. combination of bits for get_...name() methods  bits
         :returns: name
         """
         ...
@@ -22948,6 +24386,308 @@ class drawable_graph_t(gdl_graph_t):
     def size(self) -> int:
         ...
     def succ(self, node: int, i: int) -> int:
+        ...
+
+class dscu_load_request_t:
+    @property
+    def cache_data(self) -> eavec_t: ...
+    @property
+    def flags(self) -> int: ...
+    @property
+    def gots(self) -> eavec_t: ...
+    @property
+    def images(self) -> intvec_t: ...
+    @property
+    def islands(self) -> intvec_t: ...
+    @property
+    def mappings(self) -> eavec_t: ...
+    @property
+    def unknown_regions(self) -> eavec_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_region(self, ri: region_info_t) -> None:
+        ...
+    def add_regions(self, ris: region_info_vec_t) -> None:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+
+class dscu_svc_t:
+    dmc_bad_file: int  # 1
+    dmc_cpu_mismatch: int  # 2
+    dmc_failed: int  # 4
+    dmc_ok: int  # 0
+    dmc_platform_mismatch: int  # 3
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def dump_layout(self, *args: Any) -> None:
+        ...
+    def find_string(self, *args: Any) -> bool:
+        ...
+    def find_symbol(self, *args: Any) -> bool:
+        ...
+    def get_dyld_slide(self) -> int:
+        r"""Return the cumulative ASLR slide applied to the cache.
+        
+        """
+        ...
+    def get_file_index(self, file_name: str) -> int:
+        ...
+    def get_file_mappings(self, file_name: str) -> bool:
+        ...
+    def get_file_name(self, file_index: int) -> Any:
+        ...
+    def get_files_names(self) -> None:
+        ...
+    def get_image_address(self, image_index: int) -> ida_idaapi.ea_t:
+        ...
+    def get_image_dependencies(self, *args: Any) -> bool:
+        ...
+    def get_image_file_index(self, *args: Any) -> int:
+        ...
+    def get_image_file_name(self, *args: Any) -> bool:
+        ...
+    def get_image_filename(self, image_index: int) -> Any:
+        ...
+    def get_image_index(self, image_name: str) -> int:
+        ...
+    def get_image_mapping(self, *args: Any) -> mapping_coords_t:
+        ...
+    def get_image_name(self, image_index: int) -> Any:
+        ...
+    def get_image_regions(self, *args: Any) -> bool:
+        ...
+    def get_image_regions_indexes(self, *args: Any) -> bool:
+        ...
+    def get_image_total_size(self, *args: Any) -> int:
+        ...
+    def get_images_count(self) -> int:
+        ...
+    def get_images_dependencies(self, images_indexes: intvec_t, depth: int = 1) -> bool:
+        ...
+    def get_images_names(self) -> None:
+        ...
+    def get_input_file_path(self) -> Any:
+        r"""Retrieve the path to the dyld_shared_cache file on disk. 
+                
+        :returns: true on success
+        """
+        ...
+    def get_load_regions_requests_count(self) -> int:
+        ...
+    def get_mapping_range(self, mapping: mapping_coords_t) -> bool:
+        ...
+    def get_region(self, ri: region_info_t, region_index: int, full: bool = True) -> bool:
+        ...
+    def get_region_by_ea(self, ri: region_info_t, ea: ida_idaapi.ea_t, out_region_index: int = None, full: bool = True) -> bool:
+        ...
+    def get_region_type(self, region_index: int) -> region_type_t:
+        ...
+    def get_regions(self, region_indexes: sizevec_t = None, full: bool = True) -> None:
+        ...
+    def has_local_symbols(self) -> bool:
+        ...
+    def is_cache_data_loaded(self, cache_data_addr: ida_idaapi.ea_t) -> bool:
+        ...
+    def is_got_loaded(self, got_addr: ida_idaapi.ea_t) -> bool:
+        ...
+    def is_image_loaded(self, *args: Any) -> bool:
+        ...
+    def is_island_loaded(self, island_index: int) -> bool:
+        ...
+    def is_mapping_loaded(self, mapping_addr: ida_idaapi.ea_t) -> bool:
+        ...
+    def is_unknown_region_loaded(self, ea: ida_idaapi.ea_t) -> bool:
+        ...
+    def load_branch_mapping(self, *args: Any) -> bool:
+        ...
+    def load_cache_data(self, *args: Any) -> bool:
+        ...
+    def load_got(self, *args: Any) -> bool:
+        ...
+    def load_image(self, *args: Any) -> bool:
+        ...
+    def load_island(self, *args: Any) -> bool:
+        ...
+    def load_regions(self, regions: dscu_load_request_t) -> bool:
+        ...
+    def load_unknown_region(self, *args: Any) -> bool:
+        ...
+    def locate_address(self, ea: ida_idaapi.ea_t) -> address_info_t:
+        ...
+    def match_dependencies(self, path: str, flags: int = 0) -> depmatch_code_t:
+        ...
+    def query_exported_symbol(self, ea: ida_idaapi.ea_t) -> string_view:
+        ...
+    def query_symbol(self, ea: ida_idaapi.ea_t) -> string_view:
+        ...
+    def query_symbols(self, range: range_t) -> bool:
+        ...
+    def update_dyld_slide(self, delta: int) -> None:
+        r"""Apply an additional slide delta and reload the cache. 
+                
+        :param delta: slide increment (added to the current slide)
+        """
         ...
 
 class dyn_ea_array:
@@ -26396,6 +28136,8 @@ class extra_cmt_t(insn_site_t):
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
+    def to_ea(self, func_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+        ...
     def toea(self, pfn: func_t) -> ida_idaapi.ea_t:
         ...
 
@@ -26535,6 +28277,261 @@ class extra_cmts_t:
     def swap(self, r: extra_cmts_t) -> None:
         ...
     def truncate(self) -> None:
+        ...
+
+class fchunk_info_t(range_t):
+    @property
+    def end_ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def start_ea(self) -> ida_idaapi.ea_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: range_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, r: range_t) -> bool:
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, r: range_t) -> bool:
+        ...
+    def __init__(self, start: ida_idaapi.ea_t = 0, end: ida_idaapi.ea_t = 0) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, r: range_t) -> bool:
+        ...
+    def __lt__(self, r: range_t) -> bool:
+        ...
+    def __ne__(self, r: range_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def analyzed_sp(self) -> bool:
+        r"""Has SP-analysis been performed?
+        
+        """
+        ...
+    def clear(self) -> None:
+        r"""Set start_ea, end_ea to 0.
+        
+        """
+        ...
+    def compare(self, r: range_t) -> int:
+        ...
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
+        
+        Is 'ea' in the address range?
+        """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
+        ...
+    def does_return(self) -> bool:
+        r"""Does function return?
+        
+        """
+        ...
+    def empty(self) -> bool:
+        r"""Is the size of the range_t <= 0?
+        
+        """
+        ...
+    def extend(self, ea: ida_idaapi.ea_t) -> None:
+        r"""Ensure that the range_t includes 'ea'.
+        
+        """
+        ...
+    def get_flags(self) -> int:
+        r"""Function chunk flags Function flags.
+        
+        """
+        ...
+    def intersect(self, r: range_t) -> None:
+        r"""Assign the range_t to the intersection between the range_t and 'r'.
+        
+        """
+        ...
+    def is_entry(self) -> bool:
+        r"""Is this an entry chunk?
+        
+        """
+        ...
+    def is_far(self) -> bool:
+        r"""Is a far function?
+        
+        """
+        ...
+    def is_tail(self) -> bool:
+        r"""Is this a tail chunk?
+        
+        """
+        ...
+    def is_valid(self) -> bool:
+        r"""Is the function chunk info valid?
+        
+        """
+        ...
+    def need_prolog_analysis(self) -> bool:
+        r"""Needs prolog analysis?
+        
+        """
+        ...
+    def overlaps(self, r: range_t) -> bool:
+        r"""Is there an ea in 'r' that is also in this range_t?
+        
+        """
+        ...
+    def set_flags(self, v: int) -> None:
+        ...
+    def size(self) -> int:
+        r"""Get end_ea - start_ea.
+        
+        """
+        ...
+
+class field_path_t:
+    @property
+    def cumul_bitoff(self) -> int: ...
+    @property
+    def leaf_tif(self) -> tinfo_t: ...
+    @property
+    def leaf_udm_tid(self) -> int: ...
+    @property
+    def stroff_path(self) -> qvector: ...
+    @property
+    def top_tif(self) -> tinfo_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class file_enumerator_t:
@@ -26731,7 +28728,7 @@ class fixup_data_t:
                 
         """
         ...
-    def get_desc(self, source: ida_idaapi.ea_t) -> str:
+    def get_desc(self, source: ida_idaapi.ea_t) -> Any:
         r"""get_fixup_desc()
         
         """
@@ -26787,8 +28784,10 @@ class fixup_data_t:
         ...
     def set_extdef(self) -> None:
         ...
-    def set_sel(self, seg: segment_t) -> None:
-        ...
+    @overload
+    def set_sel(self, _sel: int) -> None: ...
+    @overload
+    def set_sel(self, seg: segment_t) -> Any: ...
     def set_target_sel(self) -> None:
         r"""Set selector of fixup to the target. The target should be set before a call of this function. 
                 
@@ -27447,7 +29446,7 @@ class fpvalue_t:
         """
         ...
     def to_sval(self, round: bool = False) -> fpvalue_error_t:
-        r"""Convert IEEE to integer (+-0.5 if round)
+        r"""Convert IEEE to integer (+-0.5 if round).
         
         """
         ...
@@ -27778,6 +29777,238 @@ class frame_mems_t:
     def swap(self, r: frame_mems_t) -> None:
         ...
     def truncate(self) -> None:
+        ...
+
+class func_entry_info_t(fchunk_info_t, range_t):
+    @property
+    def end_ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def start_ea(self) -> ida_idaapi.ea_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: range_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, r: range_t) -> bool:
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, r: range_t) -> bool:
+        ...
+    def __init__(self, start: ida_idaapi.ea_t = 0, end: ida_idaapi.ea_t = 0) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, r: range_t) -> bool:
+        ...
+    def __lt__(self, r: range_t) -> bool:
+        ...
+    def __ne__(self, r: range_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def analyzed_sp(self) -> bool:
+        r"""Has SP-analysis been performed?
+        
+        """
+        ...
+    def clear(self) -> None:
+        r"""Set start_ea, end_ea to 0.
+        
+        """
+        ...
+    def compare(self, r: range_t) -> int:
+        ...
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
+        
+        Is 'ea' in the address range?
+        """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
+        ...
+    def does_return(self) -> bool:
+        r"""Does function return?
+        
+        """
+        ...
+    def empty(self) -> bool:
+        r"""Is the size of the range_t <= 0?
+        
+        """
+        ...
+    def extend(self, ea: ida_idaapi.ea_t) -> None:
+        r"""Ensure that the range_t includes 'ea'.
+        
+        """
+        ...
+    def get_argsize(self) -> int:
+        r"""Number of bytes purged from the stack upon returning.
+        
+        """
+        ...
+    def get_cmt(self) -> str:
+        r"""Function comment (requires GFI_CMT flag).
+        
+        """
+        ...
+    def get_cmt_rpt(self) -> str:
+        r"""Repeatable function comment (requires GFI_CMT_RPT flag).
+        
+        """
+        ...
+    def get_color(self) -> int:
+        r"""User defined function color.
+        
+        """
+        ...
+    def get_flags(self) -> int:
+        r"""Function chunk flags Function flags.
+        
+        """
+        ...
+    def get_fpd(self) -> int:
+        r"""Frame pointer delta.
+        
+        """
+        ...
+    def get_frame_id(self) -> int:
+        r"""Netnode id of frame structure.
+        
+        """
+        ...
+    def get_frregs(self) -> int:
+        r"""Size of saved registers in frame.
+        
+        """
+        ...
+    def get_frsize(self) -> int:
+        r"""Size of local variables part of frame in bytes.
+        
+        """
+        ...
+    def get_name(self) -> str:
+        r"""Function name (requires GFI_NAME flag).
+        
+        """
+        ...
+    def has(self, gfi_flags: int) -> bool:
+        r"""Check if a string field was populated by get_func_entry_info(). 
+                
+        :param gfi_flags: combination of Flags for get_func_entry_info() flags to check
+        :returns: true if all specified fields are available
+        """
+        ...
+    def intersect(self, r: range_t) -> None:
+        r"""Assign the range_t to the intersection between the range_t and 'r'.
+        
+        """
+        ...
+    def is_entry(self) -> bool:
+        r"""Is this an entry chunk?
+        
+        """
+        ...
+    def is_far(self) -> bool:
+        r"""Is a far function?
+        
+        """
+        ...
+    def is_tail(self) -> bool:
+        r"""Is this a tail chunk?
+        
+        """
+        ...
+    def is_valid(self) -> bool:
+        r"""Is the function chunk info valid?
+        
+        """
+        ...
+    def need_prolog_analysis(self) -> bool:
+        r"""Needs prolog analysis?
+        
+        """
+        ...
+    def overlaps(self, r: range_t) -> bool:
+        r"""Is there an ea in 'r' that is also in this range_t?
+        
+        """
+        ...
+    def set_argsize(self, v: int) -> None:
+        ...
+    def set_color(self, v: int) -> None:
+        ...
+    def set_flag(self, v: int, cnd: bool = True) -> None:
+        r"""Set or clear function flag Function flags.
+        
+        """
+        ...
+    def set_flags(self, v: int) -> None:
+        r"""Function flags Function flags.
+        
+        """
+        ...
+    def set_fpd(self, v: int) -> None:
+        ...
+    def set_frregs(self, v: int) -> None:
+        ...
+    def set_frsize(self, v: int) -> None:
+        ...
+    def size(self) -> int:
+        r"""Get end_ea - start_ea.
+        
+        """
         ...
 
 class func_info_and_frequency_t(func_info_t):
@@ -28816,13 +31047,7 @@ class func_item_iterator_t:
         ...
     def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
+    def __init_subclass__(self, **kwargs: Any) -> Any:
         ...
     def __iter__(self) -> Any:
         r"""
@@ -29095,13 +31320,7 @@ class func_parent_iterator_t:
         ...
     def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
+    def __init_subclass__(self, **kwargs: Any) -> Any:
         ...
     def __iter__(self) -> Any:
         r"""
@@ -29288,7 +31507,6 @@ class func_t(range_t):
         r"""Size of object in memory, in bytes."""
         ...
     def __str__(self) -> str:
-        r"""Return str(self)."""
         ...
     def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
@@ -29426,6 +31644,178 @@ class func_t(range_t):
         """
         ...
 
+class func_tail_info_t(fchunk_info_t, range_t):
+    @property
+    def end_ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def start_ea(self) -> ida_idaapi.ea_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: range_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, r: range_t) -> bool:
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, r: range_t) -> bool:
+        ...
+    def __init__(self, start: ida_idaapi.ea_t = 0, end: ida_idaapi.ea_t = 0) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, r: range_t) -> bool:
+        ...
+    def __lt__(self, r: range_t) -> bool:
+        ...
+    def __ne__(self, r: range_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def analyzed_sp(self) -> bool:
+        r"""Has SP-analysis been performed?
+        
+        """
+        ...
+    def clear(self) -> None:
+        r"""Set start_ea, end_ea to 0.
+        
+        """
+        ...
+    def compare(self, r: range_t) -> int:
+        ...
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
+        
+        Is 'ea' in the address range?
+        """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
+        ...
+    def does_return(self) -> bool:
+        r"""Does function return?
+        
+        """
+        ...
+    def empty(self) -> bool:
+        r"""Is the size of the range_t <= 0?
+        
+        """
+        ...
+    def extend(self, ea: ida_idaapi.ea_t) -> None:
+        r"""Ensure that the range_t includes 'ea'.
+        
+        """
+        ...
+    def get_flags(self) -> int:
+        r"""Function chunk flags Function flags.
+        
+        """
+        ...
+    def get_owner(self) -> ida_idaapi.ea_t:
+        r"""Primary owner function start_ea.
+        
+        """
+        ...
+    def get_refqty(self) -> int:
+        r"""Number of refering functions (for quick checks without iterating).
+        
+        """
+        ...
+    def intersect(self, r: range_t) -> None:
+        r"""Assign the range_t to the intersection between the range_t and 'r'.
+        
+        """
+        ...
+    def is_entry(self) -> bool:
+        r"""Is this an entry chunk?
+        
+        """
+        ...
+    def is_far(self) -> bool:
+        r"""Is a far function?
+        
+        """
+        ...
+    def is_tail(self) -> bool:
+        r"""Is this a tail chunk?
+        
+        """
+        ...
+    def is_valid(self) -> bool:
+        r"""Is the function chunk info valid?
+        
+        """
+        ...
+    def need_prolog_analysis(self) -> bool:
+        r"""Needs prolog analysis?
+        
+        """
+        ...
+    def overlaps(self, r: range_t) -> bool:
+        r"""Is there an ea in 'r' that is also in this range_t?
+        
+        """
+        ...
+    def set_flags(self, v: int) -> None:
+        ...
+    def size(self) -> int:
+        r"""Get end_ea - start_ea.
+        
+        """
+        ...
+
 class func_tail_iterator_t:
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -29459,13 +31849,7 @@ class func_tail_iterator_t:
         ...
     def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
+    def __init_subclass__(self, **kwargs: Any) -> Any:
         ...
     def __iter__(self) -> Any:
         r"""
@@ -29702,9 +32086,17 @@ class func_type_data_t(funcargvec_t):
         ...
     def is_pure(self) -> bool:
         ...
+    def is_rust_cc(self) -> bool:
+        ...
     def is_static(self) -> bool:
         ...
     def is_swift_cc(self) -> bool:
+        ...
+    def is_swiftasync(self) -> bool:
+        ...
+    def is_swiftthrows(self) -> bool:
+        ...
+    def is_synchronized(self) -> bool:
         ...
     def is_user_cc(self) -> bool:
         ...
@@ -29837,6 +32229,9 @@ class funcarg_t:
         """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def is_swiftself(self) -> bool:
+        r""":returns: true if this funcarg is the implicit Swift `self` (X20/R13-bound)."""
         ...
 
 class funcargvec_t:
@@ -29976,6 +32371,340 @@ class funcargvec_t:
     def swap(self, r: funcargvec_t) -> None:
         ...
     def truncate(self) -> None:
+        ...
+
+class function_item_iterator_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __next__(self, func: testf_t) -> bool:
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def chunk(self, out: range_t) -> None:
+        ...
+    def current(self) -> ida_idaapi.ea_t:
+        ...
+    def decode_preceding_insn(self, visited: eavec_t, p_farref: bool, out: insn_t) -> bool:
+        ...
+    def decode_prev_insn(self, out: insn_t) -> bool:
+        ...
+    def first(self) -> bool:
+        ...
+    def last(self) -> bool:
+        ...
+    def next_addr(self) -> bool:
+        ...
+    def next_code(self) -> bool:
+        ...
+    def next_data(self) -> bool:
+        ...
+    def next_head(self) -> bool:
+        ...
+    def next_not_tail(self) -> bool:
+        ...
+    def prev(self, func: testf_t) -> bool:
+        ...
+    def prev_addr(self) -> bool:
+        ...
+    def prev_code(self) -> bool:
+        ...
+    def prev_data(self) -> bool:
+        ...
+    def prev_head(self) -> bool:
+        ...
+    def prev_not_tail(self) -> bool:
+        ...
+    def set(self, *args: Any) -> bool:
+        r"""Set a function range. if func_ea == BADADDR then a segment range will be set.
+        
+        """
+        ...
+    def set_ea(self, ea: ida_idaapi.ea_t) -> bool:
+        ...
+    def set_range(self, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t) -> bool:
+        r"""Set an arbitrary range.
+        
+        """
+        ...
+    def succ(self, func: testf_t) -> bool:
+        r"""Similar to next(), but succ() iterates the chunks from low to high addresses, while next() iterates through chunks starting at the function entry chunk 
+                
+        """
+        ...
+    def succ_code(self) -> bool:
+        ...
+
+class function_parent_iterator_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __next__(self) -> bool:
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def first(self) -> bool:
+        ...
+    def last(self) -> bool:
+        ...
+    def parent(self) -> ida_idaapi.ea_t:
+        ...
+    def prev(self) -> bool:
+        ...
+    def set(self, tail_ea: ida_idaapi.ea_t) -> bool:
+        ...
+
+class function_tail_iterator_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __next__(self) -> bool:
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def chunk(self, out: range_t) -> None:
+        ...
+    def first(self) -> bool:
+        ...
+    def last(self) -> bool:
+        ...
+    def main(self) -> bool:
+        ...
+    def prev(self) -> bool:
+        ...
+    def set(self, *args: Any) -> bool:
+        ...
+    def set_ea(self, ea: ida_idaapi.ea_t) -> bool:
+        ...
+    def set_range(self, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t) -> bool:
         ...
 
 class gco_info_t:
@@ -31341,6 +34070,166 @@ class hexwarns_t:
     def truncate(self) -> None:
         ...
 
+class hidden_range_info_t(range_t):
+    @property
+    def end_ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def start_ea(self) -> ida_idaapi.ea_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: range_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, r: range_t) -> bool:
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, r: range_t) -> bool:
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, r: range_t) -> bool:
+        ...
+    def __lt__(self, r: range_t) -> bool:
+        ...
+    def __ne__(self, r: range_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def clear(self) -> None:
+        r"""Set start_ea, end_ea to 0.
+        
+        """
+        ...
+    def compare(self, r: range_t) -> int:
+        ...
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
+        
+        Is 'ea' in the address range?
+        """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
+        ...
+    def empty(self) -> bool:
+        r"""Is the size of the range_t <= 0?
+        
+        """
+        ...
+    def extend(self, ea: ida_idaapi.ea_t) -> None:
+        r"""Ensure that the range_t includes 'ea'.
+        
+        """
+        ...
+    def get_color(self) -> int:
+        r"""The range color.
+        
+        """
+        ...
+    def get_description(self) -> str:
+        r"""Description to display if the range is collapsed.
+        
+        """
+        ...
+    def get_footer(self) -> str:
+        r"""Footer lines to display if the range is expanded.
+        
+        """
+        ...
+    def get_header(self) -> str:
+        r"""Header lines to display if the range is expanded.
+        
+        """
+        ...
+    def get_visible(self) -> bool:
+        r"""The range visibility state.
+        
+        """
+        ...
+    def intersect(self, r: range_t) -> None:
+        r"""Assign the range_t to the intersection between the range_t and 'r'.
+        
+        """
+        ...
+    def is_valid(self) -> bool:
+        r"""Is the hidden range info valid?
+        
+        """
+        ...
+    def overlaps(self, r: range_t) -> bool:
+        r"""Is there an ea in 'r' that is also in this range_t?
+        
+        """
+        ...
+    def set_color(self, v: int) -> None:
+        ...
+    def set_description(self, v: str) -> None:
+        ...
+    def set_footer(self, v: str) -> None:
+        ...
+    def set_header(self, v: str) -> None:
+        ...
+    def set_visible(self, v: bool) -> None:
+        ...
+    def size(self) -> int:
+        r"""Get end_ea - start_ea.
+        
+        """
+        ...
+
 class hidden_range_t(range_t):
     @property
     def color(self) -> int: ...
@@ -31414,7 +34303,6 @@ class hidden_range_t(range_t):
         r"""Size of object in memory, in bytes."""
         ...
     def __str__(self) -> str:
-        r"""Return str(self)."""
         ...
     def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
@@ -33037,7 +35925,7 @@ class idc_value_t:
         """
         ...
     def clear(self) -> None:
-        r"""See free_idcv()
+        r"""See free_idcv().
         
         """
         ...
@@ -34034,6 +36922,8 @@ class insn_cmt_t(insn_site_t):
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
+    def to_ea(self, func_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+        ...
     def toea(self, pfn: func_t) -> ida_idaapi.ea_t:
         ...
 
@@ -34265,6 +37155,8 @@ class insn_ops_repr_t(insn_site_t):
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
+    def to_ea(self, func_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+        ...
     def toea(self, pfn: func_t) -> ida_idaapi.ea_t:
         ...
 
@@ -34491,6 +37383,8 @@ class insn_site_t:
         """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def to_ea(self, func_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
         ...
     def toea(self, pfn: func_t) -> ida_idaapi.ea_t:
         ...
@@ -35049,6 +37943,10 @@ class int64_emulator_t:
     def minsn_value(self, insn: minsn_t) -> int:
         ...
     def mop_value(self, mop: mop_t) -> int:
+        ...
+    def read_glbmem(self, arg0: ida_idaapi.ea_t, arg1: int) -> int:
+        ...
+    def write_glbmem(self, arg0: ida_idaapi.ea_t, arg1: int, arg2: int) -> None:
         ...
 
 class int64_pointer:
@@ -36228,7 +39126,7 @@ class ioports_fallback_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def handle(self, ports: ioports_t, line: str) -> bool:
+    def handle(self, ports: ioports_t, line: str) -> Any:
         r""":param ports: i/o port definitions
         :param line: input line to parse
         :returns: success or fills ERRBUF with an error message
@@ -37731,6 +40629,225 @@ class listing_location_t:
     def __swig_destroy__(self, object: Any) -> Any:
         ...
 
+class llabel_t:
+    @property
+    def ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def name(self) -> str: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: llabel_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, r: llabel_t) -> bool:
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, r: llabel_t) -> bool:
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, r: llabel_t) -> bool:
+        ...
+    def __lt__(self, r: llabel_t) -> bool:
+        ...
+    def __ne__(self, r: llabel_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def compare(self, r: llabel_t) -> int:
+        ...
+
+class llabels_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: llabels_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> llabel_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[llabel_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: llabels_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: llabel_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: llabel_t) -> bool:
+        ...
+    def append(self, x: llabel_t) -> None:
+        ...
+    def at(self, _idx: int) -> llabel_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: llabels_t) -> None:
+        ...
+    def extract(self) -> llabel_t:
+        ...
+    def find(self, *args: Any) -> Any:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: llabel_t) -> bool:
+        ...
+    def inject(self, s: llabel_t, len: int) -> None:
+        ...
+    def insert(self, it: llabel_t, x: llabel_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> llabel_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: llabels_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
 class loader_input_t:
     r"""A helper class to work with linput_t related functions.
     This class is also used by file loaders scripts.
@@ -38138,7 +41255,84 @@ class lock_func:
     def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, _pfn: func_t) -> Any:
+    def __init__(self, pfn: func_t) -> Any:
+        ...
+    def __init_subclass__(self, **kwargs: Any) -> Any:
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
+class lock_func_ea:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, ea: ida_idaapi.ea_t) -> Any:
         ...
     def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
@@ -38221,7 +41415,7 @@ class lock_func_with_tails_t:
     def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, pfn: func_t) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
     def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
@@ -38304,7 +41498,90 @@ class lock_segment:
     def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, _segm: segment_t) -> Any:
+    def __init__(self, segm: segment_t) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
+class lock_segment_ea:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, ea: ida_idaapi.ea_t) -> Any:
         ...
     def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
@@ -38672,6 +41949,8 @@ class lumina_client_t:
         ...
     def is_pattern_id(self, pid: pattern_id_t, md5: md5_t) -> bool:
         ...
+    def obsolete_push_md(self, result: push_md_result_t, opts: push_md_opts_t, append_metadata: metadata_appender_t = None, flags: int = 0) -> bool:
+        ...
     def pull_md(self, *args: Any) -> pkt_pull_md_result_t:
         r"""Pull metadata from the Lumina server.
         See lumina.hpp's lumina_client_t::pull_md() for authoritative documentation.
@@ -38692,7 +41971,7 @@ class lumina_client_t:
                   and `codes` (lumina_op_res_vec_t) for per-input status
         """
         ...
-    def push_md(self, result: push_md_result_t, opts: push_md_opts_t, append_metadata: metadata_appender_t = None, flags: int = 0) -> bool:
+    def push_md(self, result: push_md_result_t, opts: push_md_opts_t, append_metadata: metadata_appender_ea_t = None, flags: int = 0) -> bool:
         ...
     def set_pattern_id_md5(self, out: pattern_id_t, md5: md5_t) -> None:
         ...
@@ -39200,7 +42479,7 @@ class lvar_locator_t:
         """
         ...
     def get_reg2(self) -> mreg_t:
-        r"""Get the number of the second register (works only for ALOC_REG2 lvars)
+        r"""Get the number of the second register (works only for ALOC_REG2 lvars).
         
         """
         ...
@@ -39950,7 +43229,7 @@ class lvar_t(lvar_locator_t):
         """
         ...
     def get_reg2(self) -> mreg_t:
-        r"""Get the number of the second register (works only for ALOC_REG2 lvars)
+        r"""Get the number of the second register (works only for ALOC_REG2 lvars).
         
         """
         ...
@@ -39976,7 +43255,7 @@ class lvar_t(lvar_locator_t):
         """
         ...
     def has_regname(self) -> bool:
-        r"""Has a register name? (like _RAX)
+        r"""Has a register name? (like _RAX).
         
         """
         ...
@@ -40002,7 +43281,7 @@ class lvar_t(lvar_locator_t):
         """
         ...
     def is_dummy_arg(self) -> bool:
-        r"""Is a dummy argument (added to fill a hole in the argument list)
+        r"""Is a dummy argument (added to fill a hole in the argument list).
         
         """
         ...
@@ -40017,7 +43296,7 @@ class lvar_t(lvar_locator_t):
         """
         ...
     def is_notarg(self) -> bool:
-        r"""Is a local variable? (local variable cannot be an input argument)
+        r"""Is a local variable? (local variable cannot be an input argument).
         
         """
         ...
@@ -40537,6 +43816,408 @@ class macro_constructor_t:
         """
         ...
 
+class mapping_coords_t:
+    @property
+    def file_index(self) -> int: ...
+    @property
+    def mapping_index(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: mapping_coords_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: mapping_coords_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> str:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def make_invalid(self) -> mapping_coords_t:
+        ...
+    def valid(self) -> bool:
+        ...
+
+class mapping_coords_vec_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: mapping_coords_vec_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> mapping_coords_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[mapping_coords_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: mapping_coords_vec_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: mapping_coords_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: mapping_coords_t) -> bool:
+        ...
+    def append(self, x: mapping_coords_t) -> None:
+        ...
+    def at(self, _idx: int) -> mapping_coords_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: mapping_coords_vec_t) -> None:
+        ...
+    def extract(self) -> mapping_coords_t:
+        ...
+    def find(self, *args: Any) -> Any:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: mapping_coords_t) -> bool:
+        ...
+    def inject(self, s: mapping_coords_t, len: int) -> None:
+        ...
+    def insert(self, it: mapping_coords_t, x: mapping_coords_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> mapping_coords_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: mapping_coords_vec_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
+class match_config_t:
+    @property
+    def cb(self) -> int: ...
+    @property
+    def max_results(self) -> int: ...
+    @property
+    def mode(self) -> match_mode_t: ...
+    @property
+    def score_cutoff(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
+class match_range_t:
+    @property
+    def end(self) -> int: ...
+    @property
+    def start(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
 class mba_range_iterator_t:
     @property
     def fii(self) -> func_tail_iterator_t: ...
@@ -40901,6 +44582,13 @@ class mba_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
+    def add_user_minsn(self, uins: user_minsn_t, mmat: mba_maturity_t) -> None:
+        r"""Add a user-defined microinstruction action. 
+                
+        :param uins: user minsn to add (includes location, action, and instruction)
+        :param mmat: maturity level
+        """
+        ...
     def alloc_fict_ea(self, real_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
         r"""Allocate a fictional address. This function can be used to allocate a new unique address for a new instruction, if re-using any existing address leads to conflicts. For example, if the last instruction of the function modifies R0 and falls through to the next function, it will be a tail call: LDM R0!, {R4,R7} end of the function start of another function In this case R0 generates two different lvars at the same address:
         * one modified by LDM
@@ -40933,11 +44621,9 @@ class mba_t:
         :returns: number of calls. -1 means error.
         """
         ...
+    @overload
     def arg(self, n: int) -> lvar_t:
-        r"""Get input argument of the decompiled function. 
-                
-        :param n: argument number (0..nargs-1)
-        """
+        r"""Get input argument of the decompiled function."""
         ...
     def argbase(self) -> int:
         ...
@@ -40965,6 +44651,13 @@ class mba_t:
         ...
     def clr_mba_flags2(self, f: int) -> None:
         ...
+    def clr_numform(self, loc: operand_locator_t) -> bool:
+        r"""Clear the user-defined number format for an operand. 
+                
+        :param loc: operand locator
+        :returns: true if a format was present and removed
+        """
+        ...
     def code16_bit_removed(self) -> bool:
         ...
     def common_stkvars_stkargs(self) -> bool:
@@ -40974,7 +44667,7 @@ class mba_t:
                 
         :param blk: block to copy
         :param new_serial: position of the copied block
-        :param cpblk_flags: combination of Batch decompilation bits... bits
+        :param cpblk_flags: combination of Batch decompilation bits ... bits
         :returns: pointer to the new copy
         """
         ...
@@ -40987,6 +44680,15 @@ class mba_t:
         :param callargs: The helper arguments (nullptr-no arguments)
         :param out: The operand where the call result should be stored. If this argument is not nullptr, "mov helper_call(), out" will be generated. Otherwise "call helper()" will be generated. Note: the size of this operand must be equal to the RETTYPE size
         :returns: pointer to the created instruction or nullptr if error
+        """
+        ...
+    def del_user_minsn(self, loc: minsn_locator_t, action: user_minsn_action_t, mmat: mba_maturity_t) -> bool:
+        r"""Delete a user-defined microinstruction action. 
+                
+        :param loc: location of the target microinstruction
+        :param action: action type to delete (UMA_DEL, UMA_INS, or UMA_APP)
+        :param mmat: maturity level;
+        :returns: true if the action was found and deleted
         """
         ...
     def deleted_pairs(self) -> bool:
@@ -41055,6 +44757,8 @@ class mba_t:
         ...
     def get_curfunc(self) -> func_t:
         ...
+    def get_decomp_ranges(self) -> decomp_ranges_t:
+        ...
     def get_func_output_lists(self, *args: Any) -> None:
         r"""Prepare the lists of registers & memory that are defined/killed by a function 
                 
@@ -41083,6 +44787,14 @@ class mba_t:
         
         """
         ...
+    def get_numform(self, nf: number_format_t, loc: operand_locator_t) -> bool:
+        r"""Get the user-defined number format for an operand. 
+                
+        :param nf: output: receives the number format if one is set
+        :param loc: operand locator (insn ea + opnum)
+        :returns: true if a format was set and was copied to nf
+        """
+        ...
     def get_shadow_region(self) -> ivl_t:
         ...
     def get_stack_region(self) -> ivl_t:
@@ -41107,13 +44819,24 @@ class mba_t:
     def idaloc2vd(self, loc: argloc_t, width: int) -> vdloc_t:
         ...
     def inline_func(self, cdg: codegen_t, blknum: int, ranges: mba_ranges_t, decomp_flags: int = 0, inline_flags: int = 0) -> int:
-        r"""Inline a range. This function may be called only during the initial microcode generation phase. 
+        r"""Inline a range. 
                 
         :param cdg: the codegenerator object
         :param blknum: the block contaning the call/jump instruction to inline
         :param ranges: the set of ranges to inline. in the case of multiple calls to inline_func(), ranges will be compared using their start addresses. if two ranges have the same address, they will be considered the same.
-        :param decomp_flags: combination of decompile() flags bits
-        :param inline_flags: combination of inline_func() flags bits
+        :param decomp_flags: combination of decompile() flags  bits
+        :param inline_flags: combination of inline_func() flags  bits
+        :returns: error code
+        """
+        ...
+    def inline_function(self, cdg: codegen_t, blknum: int, ranges: decomp_ranges_t, decomp_flags: int = 0, inline_flags: int = 0) -> int:
+        r"""Inline a range (ea-based variant). Replaces the deprecated inline_func() which accepts the legacy mba_ranges_t. This function may be called only during the initial microcode generation phase. 
+                
+        :param cdg: the codegenerator object
+        :param blknum: the block contaning the call/jump instruction to inline
+        :param ranges: the set of ranges to inline. in the case of multiple calls to inline_function(), ranges will be compared using their start addresses. if two ranges have the same address, they will be considered the same.
+        :param decomp_flags: combination of decompile() flags  bits
+        :param inline_flags: combination of inline_func() flags  bits
         :returns: error code
         """
         ...
@@ -41177,7 +44900,7 @@ class mba_t:
     def optimize_local(self, locopt_bits: int) -> int:
         r"""Optimize each basic block locally 
                 
-        :param locopt_bits: combination of Bits for optimize_local() bits
+        :param locopt_bits: combination of Bits for optimize_local()  bits
         :returns: number of changes. 0 means nothing changed This function is called by the decompiler, usually there is no need to call it explicitly.
         """
         ...
@@ -41192,6 +44915,9 @@ class mba_t:
     def really_alloc(self) -> bool:
         ...
     def regargs_is_not_aligned(self) -> bool:
+        ...
+    def release(self) -> Any:
+        r"""Free the underlying mba_t immediately. The object must not be used afterwards."""
         ...
     def remove_block(self, blk: mblock_t) -> bool:
         r"""Delete a block. 
@@ -41237,6 +44963,13 @@ class mba_t:
     def set_mba_flags2(self, f: int) -> None:
         ...
     def set_nice_lvar_name(self, v: lvar_t, name: str) -> bool:
+        ...
+    def set_numform(self, loc: operand_locator_t, nf: number_format_t) -> None:
+        r"""Set the user-defined number format for an operand. 
+                
+        :param loc: operand locator
+        :param nf: new format
+        """
         ...
     def set_user_lvar_name(self, v: lvar_t, name: str) -> bool:
         ...
@@ -41449,6 +45182,13 @@ class mbl_array_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
+    def add_user_minsn(self, uins: user_minsn_t, mmat: mba_maturity_t) -> None:
+        r"""Add a user-defined microinstruction action. 
+                
+        :param uins: user minsn to add (includes location, action, and instruction)
+        :param mmat: maturity level
+        """
+        ...
     def alloc_fict_ea(self, real_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
         r"""Allocate a fictional address. This function can be used to allocate a new unique address for a new instruction, if re-using any existing address leads to conflicts. For example, if the last instruction of the function modifies R0 and falls through to the next function, it will be a tail call: LDM R0!, {R4,R7} end of the function start of another function In this case R0 generates two different lvars at the same address:
         * one modified by LDM
@@ -41481,11 +45221,9 @@ class mbl_array_t:
         :returns: number of calls. -1 means error.
         """
         ...
+    @overload
     def arg(self, n: int) -> lvar_t:
-        r"""Get input argument of the decompiled function. 
-                
-        :param n: argument number (0..nargs-1)
-        """
+        r"""Get input argument of the decompiled function."""
         ...
     def argbase(self) -> int:
         ...
@@ -41513,6 +45251,13 @@ class mbl_array_t:
         ...
     def clr_mba_flags2(self, f: int) -> None:
         ...
+    def clr_numform(self, loc: operand_locator_t) -> bool:
+        r"""Clear the user-defined number format for an operand. 
+                
+        :param loc: operand locator
+        :returns: true if a format was present and removed
+        """
+        ...
     def code16_bit_removed(self) -> bool:
         ...
     def common_stkvars_stkargs(self) -> bool:
@@ -41522,7 +45267,7 @@ class mbl_array_t:
                 
         :param blk: block to copy
         :param new_serial: position of the copied block
-        :param cpblk_flags: combination of Batch decompilation bits... bits
+        :param cpblk_flags: combination of Batch decompilation bits ... bits
         :returns: pointer to the new copy
         """
         ...
@@ -41535,6 +45280,15 @@ class mbl_array_t:
         :param callargs: The helper arguments (nullptr-no arguments)
         :param out: The operand where the call result should be stored. If this argument is not nullptr, "mov helper_call(), out" will be generated. Otherwise "call helper()" will be generated. Note: the size of this operand must be equal to the RETTYPE size
         :returns: pointer to the created instruction or nullptr if error
+        """
+        ...
+    def del_user_minsn(self, loc: minsn_locator_t, action: user_minsn_action_t, mmat: mba_maturity_t) -> bool:
+        r"""Delete a user-defined microinstruction action. 
+                
+        :param loc: location of the target microinstruction
+        :param action: action type to delete (UMA_DEL, UMA_INS, or UMA_APP)
+        :param mmat: maturity level;
+        :returns: true if the action was found and deleted
         """
         ...
     def deleted_pairs(self) -> bool:
@@ -41603,6 +45357,8 @@ class mbl_array_t:
         ...
     def get_curfunc(self) -> func_t:
         ...
+    def get_decomp_ranges(self) -> decomp_ranges_t:
+        ...
     def get_func_output_lists(self, *args: Any) -> None:
         r"""Prepare the lists of registers & memory that are defined/killed by a function 
                 
@@ -41631,6 +45387,14 @@ class mbl_array_t:
         
         """
         ...
+    def get_numform(self, nf: number_format_t, loc: operand_locator_t) -> bool:
+        r"""Get the user-defined number format for an operand. 
+                
+        :param nf: output: receives the number format if one is set
+        :param loc: operand locator (insn ea + opnum)
+        :returns: true if a format was set and was copied to nf
+        """
+        ...
     def get_shadow_region(self) -> ivl_t:
         ...
     def get_stack_region(self) -> ivl_t:
@@ -41655,13 +45419,24 @@ class mbl_array_t:
     def idaloc2vd(self, loc: argloc_t, width: int) -> vdloc_t:
         ...
     def inline_func(self, cdg: codegen_t, blknum: int, ranges: mba_ranges_t, decomp_flags: int = 0, inline_flags: int = 0) -> int:
-        r"""Inline a range. This function may be called only during the initial microcode generation phase. 
+        r"""Inline a range. 
                 
         :param cdg: the codegenerator object
         :param blknum: the block contaning the call/jump instruction to inline
         :param ranges: the set of ranges to inline. in the case of multiple calls to inline_func(), ranges will be compared using their start addresses. if two ranges have the same address, they will be considered the same.
-        :param decomp_flags: combination of decompile() flags bits
-        :param inline_flags: combination of inline_func() flags bits
+        :param decomp_flags: combination of decompile() flags  bits
+        :param inline_flags: combination of inline_func() flags  bits
+        :returns: error code
+        """
+        ...
+    def inline_function(self, cdg: codegen_t, blknum: int, ranges: decomp_ranges_t, decomp_flags: int = 0, inline_flags: int = 0) -> int:
+        r"""Inline a range (ea-based variant). Replaces the deprecated inline_func() which accepts the legacy mba_ranges_t. This function may be called only during the initial microcode generation phase. 
+                
+        :param cdg: the codegenerator object
+        :param blknum: the block contaning the call/jump instruction to inline
+        :param ranges: the set of ranges to inline. in the case of multiple calls to inline_function(), ranges will be compared using their start addresses. if two ranges have the same address, they will be considered the same.
+        :param decomp_flags: combination of decompile() flags  bits
+        :param inline_flags: combination of inline_func() flags  bits
         :returns: error code
         """
         ...
@@ -41725,7 +45500,7 @@ class mbl_array_t:
     def optimize_local(self, locopt_bits: int) -> int:
         r"""Optimize each basic block locally 
                 
-        :param locopt_bits: combination of Bits for optimize_local() bits
+        :param locopt_bits: combination of Bits for optimize_local()  bits
         :returns: number of changes. 0 means nothing changed This function is called by the decompiler, usually there is no need to call it explicitly.
         """
         ...
@@ -41740,6 +45515,9 @@ class mbl_array_t:
     def really_alloc(self) -> bool:
         ...
     def regargs_is_not_aligned(self) -> bool:
+        ...
+    def release(self) -> Any:
+        r"""Free the underlying mba_t immediately. The object must not be used afterwards."""
         ...
     def remove_block(self, blk: mblock_t) -> bool:
         r"""Delete a block. 
@@ -41785,6 +45563,13 @@ class mbl_array_t:
     def set_mba_flags2(self, f: int) -> None:
         ...
     def set_nice_lvar_name(self, v: lvar_t, name: str) -> bool:
+        ...
+    def set_numform(self, loc: operand_locator_t, nf: number_format_t) -> None:
+        r"""Set the user-defined number format for an operand. 
+                
+        :param loc: operand locator
+        :param nf: new format
+        """
         ...
     def set_user_lvar_name(self, v: lvar_t, name: str) -> bool:
         ...
@@ -42177,17 +45962,37 @@ class mblock_t:
         ...
     def empty(self) -> bool:
         ...
-    def find_access(self, op: mop_t, parent: minsn_t, mend: minsn_t, fdflags: int) -> minsn_t:
-        r"""Find the instruction that accesses the specified operand. This function search inside one block. 
-                
+    def find_access(self, op: mop_t, parent: minsn_t, mend: minsn_t, fdflags: int) -> Any:
+        r"""Find the instruction that accesses the specified operand.
+        This function searches inside one block.
+        
         :param op: operand to search for
-        :param parent: ptr to ptr to a top level instruction. in: denotes the beginning of the search range. out: denotes the parent of the found instruction.
-        :param mend: end instruction of the range (must be a top level insn) mend is excluded from the range. it can be specified as nullptr. parent and mend must belong to the same block.
-        :param fdflags: combination of bits for mblock_t::find_access bits
-        :returns: the instruction that accesses the operand. this instruction may be a sub-instruction. to find out the top level instruction, check out *parent. nullptr means 'not found'.
+        :param parent: top-level instruction denoting the beginning
+            of the search range (must not be None).
+            parent and mend must belong to the same block.
+        :param mend: end instruction of the range (must be a top level insn).
+            mend is excluded from the range. None means search to the block
+            boundary.
+        :param fdflags: combination of FD_ bits
+        :returns: (found, parent) tuple.
+            found: the instruction that accesses the operand. This instruction
+            may be a sub-instruction. None means 'not found'.
+            parent: the top-level instruction containing 'found'.
         """
         ...
-    def find_def(self, op: mop_t, p_i1: minsn_t, i2: minsn_t, fdflags: int) -> minsn_t:
+    def find_def(self, op: mop_t, p_i1: minsn_t, i2: minsn_t, fdflags: int) -> Any:
+        r"""Find the instruction that defines the specified operand.
+        Convenience wrapper around find_access() with FD_DEF.
+        
+        :param op: operand to search for
+        :param p_i1: top-level instruction denoting the beginning
+            of the search range (must not be None).
+            p_i1 and i2 must belong to the same block.
+        :param i2: end instruction of the range (excluded). None means
+            search to the block boundary.
+        :param fdflags: combination of FD_ bits (see find_access)
+        :returns: (found, parent) tuple. See find_access().
+        """
         ...
     @overload
     def find_first_use(self, list: mlist_t, i1: minsn_t, i2: minsn_t, maymust: maymust_t = ...) -> minsn_t:
@@ -42203,7 +46008,19 @@ class mblock_t:
         :returns: pointer to such instruction or nullptr.
         """
         ...
-    def find_use(self, op: mop_t, p_i1: minsn_t, i2: minsn_t, fdflags: int) -> minsn_t:
+    def find_use(self, op: mop_t, p_i1: minsn_t, i2: minsn_t, fdflags: int) -> Any:
+        r"""Find the instruction that uses the specified operand.
+        Convenience wrapper around find_access() with FD_USE.
+        
+        :param op: operand to search for
+        :param p_i1: top-level instruction denoting the beginning
+            of the search range (must not be None).
+            p_i1 and i2 must belong to the same block.
+        :param i2: end instruction of the range (excluded). None means
+            search to the block boundary.
+        :param fdflags: combination of FD_ bits (see find_access)
+        :returns: (found, parent) tuple. See find_access().
+        """
         ...
     def for_all_insns(self, mv: minsn_visitor_t) -> int:
         r"""Visit all instructions. This function visits subinstructions too. 
@@ -42324,7 +46141,7 @@ class mblock_t:
         r"""Optimize one instruction in the context of the block. 
                 
         :param m: pointer to a top level instruction
-        :param optflags: combination of optimization flags bits
+        :param optflags: combination of optimization flags  bits
         :returns: number of changes made to the block This function may change other instructions in the block too. However, it will not destroy top level instructions (it may convert them to nop's). This function performs only intrablock modifications. See also minsn_t::optimize_solo()
         """
         ...
@@ -42352,6 +46169,11 @@ class mblock_t:
     def succ(self, n: int) -> int:
         ...
     def succs(self) -> Any:
+        ...
+    def undef_spoiled_regs(self, m: minsn_t) -> None:
+        r"""Undefine registers spoiled by the instruction m (insert new 'und' instruction for them, after 'm'). This is useful after replacing a call instruction with a different instruction. 
+                
+        """
         ...
     def verify_insn(self, m: minsn_t) -> None:
         r"""Verify an instruction. This function will generate an internal error if something is wrong with the instruction. 
@@ -42564,7 +46386,7 @@ class mcallarg_t(mop_t):
         r"""Compare operands. This is the main comparison function for operands. 
                 
         :param rop: operand to compare with
-        :param eqflags: combination of comparison bits bits
+        :param eqflags: combination of comparison bits  bits
         """
         ...
     def erase(self) -> None:
@@ -42583,6 +46405,11 @@ class mcallarg_t(mop_t):
         r"""Visit all sub-operands of a scattered operand. This function does not visit the current operand, only its sub-operands. All sub-operands are synthetic and are destroyed after the visitor. This function works only with scattered operands. 
                 
         :param sv: visitor object
+        """
+        ...
+    def get_bitwidth(self, blk: mblock_t, top: minsn_t) -> int:
+        r"""Get the effective bitwidth of the operand. Returns the number of significant bits needed to represent the value (0 for zero, size*8 for unknown operands). For example, for a constant 7 returns 3, for xdu(x.1) returns 8. If BLK and TOP are specified, the method also looks up the defining instruction in this block. 
+                
         """
         ...
     def get_insn(self, code: mcode_t) -> minsn_t:
@@ -43818,7 +47645,6 @@ class memory_info_t(range_t):
         r"""Size of object in memory, in bytes."""
         ...
     def __str__(self) -> str:
-        r"""Return str(self)."""
         ...
     def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
@@ -44789,6 +48615,90 @@ class microcode_filter_t:
         """
         ...
 
+class minsn_locator_t:
+    @property
+    def blknum(self) -> int: ...
+    @property
+    def ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def mcode(self) -> mcode_t: ...
+    @property
+    def serial(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: minsn_locator_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, r: minsn_locator_t) -> bool:
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, r: minsn_locator_t) -> bool:
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, r: minsn_locator_t) -> bool:
+        ...
+    def __lt__(self, r: minsn_locator_t) -> bool:
+        ...
+    def __ne__(self, r: minsn_locator_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def compare(self, r: minsn_locator_t) -> int:
+        ...
+
 class minsn_t:
     @property
     def d(self) -> mop_t: ...
@@ -44936,7 +48846,7 @@ class minsn_t:
         r"""Compare instructions. This is the main comparison function for instructions. 
                 
         :param m: instruction to compare with
-        :param eqflags: combination of comparison bits bits
+        :param eqflags: combination of comparison bits  bits
         """
         ...
     def find_call(self, with_helpers: bool = False) -> minsn_t:
@@ -44946,16 +48856,38 @@ class minsn_t:
         """
         ...
     def find_ins_op(self, op: mcode_t = 0) -> minsn_t:
-        r"""Find an operand that is a subinsruction with the specified opcode. This function checks only the 'l' and 'r' operands of the current insn. 
+        r"""Find an operand that is a subinstruction with the specified opcode. This function checks only the 'l' and 'r' operands of the current insn. It replaces the common pattern: 
+             (  side = 0; side < 2; side++ )
+            
+              mop_t *op = side == 0 ? &m->l : &m->r;
+               ( op->is_insn(opcode) )
+              {
+                other = side == 0 ? &m->r : &m->l;
+                ...
+              }
+            
+        
+        
                 
-        :param op: opcode to search for
-        :returns: &l or &r or nullptr
+        :param op: opcode to search for (m_nop matches any subinstruction)
+        :returns: pointer to the found subinstruction (l.d or r.d), or nullptr
         """
         ...
     def find_num_op(self) -> mop_t:
-        r"""Find a numeric operand of the current instruction. This function checks only the 'l' and 'r' operands of the current insn. 
+        r"""Find a numeric operand of the current instruction (operand with t == mop_n). This function checks only the 'l' and 'r' operands of the current insn. It replaces the common pattern: 
+             (  side = 0; side < 2; side++ )
+            
+              mop_t *op = side == 0 ? &m->l : &m->r;
+               ( op->t == mop_n )
+              {
+                other = side == 0 ? &m->r : &m->l;
+                ...
+              }
+            
+        
+        
                 
-        :returns: &l or &r or nullptr
+        :returns: &l or &r, or nullptr if neither operand is numeric
         """
         ...
     def find_opcode(self, mcode: mcode_t) -> minsn_t:
@@ -45023,7 +48955,7 @@ class minsn_t:
     def is_fpinsn(self) -> bool:
         ...
     def is_helper(self, name: str) -> bool:
-        r"""Is a helper call with the specified name? Helper calls usually have well-known function names (see Well known function names) but they may have any other name. The decompiler does not assume any special meaning for non-well-known names. 
+        r"""Is a helper call with the specified name? Helper calls usually have well-known function names (see Well known function names ) but they may have any other name. The decompiler does not assume any special meaning for non-well-known names. 
                 
         """
         ...
@@ -45083,7 +49015,7 @@ class minsn_t:
     def optimize_solo(self, optflags: int = 0) -> int:
         r"""Optimize one instruction without context. This function does not have access to the instruction context (the previous and next instructions in the list, the block number, etc). It performs only basic optimizations that are available without this info. 
                 
-        :param optflags: combination of optimization flags bits
+        :param optflags: combination of optimization flags  bits
         :returns: number of changes, 0-unchanged See also mblock_t::optimize_insn()
         """
         ...
@@ -45094,11 +49026,10 @@ class minsn_t:
         ...
     def replace_by(self, o: Any) -> Any:
         ...
-    def serialize(self, b: bytevec_t) -> int:
-        r"""Serialize an instruction 
-                
-        :param b: the output buffer
-        :returns: the serialization format that was used to store info
+    def serialize(self) -> Any:
+        r"""Serialize an instruction
+        
+        :returns: tuple(serialization format, serialized bytes)
         """
         ...
     def set_assert(self) -> None:
@@ -45144,6 +49075,8 @@ class minsn_t:
         r"""Swap two instructions. The prev/next fields are not modified by this function because it would corrupt the doubly linked list. 
                 
         """
+        ...
+    def was_memfunc(self) -> bool:
         ...
     def was_noret_icall(self) -> bool:
         ...
@@ -45949,7 +49882,7 @@ class mop_addr_t(mop_t):
         r"""Compare operands. This is the main comparison function for operands. 
                 
         :param rop: operand to compare with
-        :param eqflags: combination of comparison bits bits
+        :param eqflags: combination of comparison bits  bits
         """
         ...
     def erase(self) -> None:
@@ -45968,6 +49901,11 @@ class mop_addr_t(mop_t):
         r"""Visit all sub-operands of a scattered operand. This function does not visit the current operand, only its sub-operands. All sub-operands are synthetic and are destroyed after the visitor. This function works only with scattered operands. 
                 
         :param sv: visitor object
+        """
+        ...
+    def get_bitwidth(self, blk: mblock_t, top: minsn_t) -> int:
+        r"""Get the effective bitwidth of the operand. Returns the number of significant bits needed to represent the value (0 for zero, size*8 for unknown operands). For example, for a constant 7 returns 3, for xdu(x.1) returns 8. If BLK and TOP are specified, the method also looks up the defining instruction in this block. 
+                
         """
         ...
     def get_insn(self, code: mcode_t) -> minsn_t:
@@ -46543,7 +50481,7 @@ class mop_t:
         r"""Compare operands. This is the main comparison function for operands. 
                 
         :param rop: operand to compare with
-        :param eqflags: combination of comparison bits bits
+        :param eqflags: combination of comparison bits  bits
         """
         ...
     def erase(self) -> None:
@@ -46562,6 +50500,11 @@ class mop_t:
         r"""Visit all sub-operands of a scattered operand. This function does not visit the current operand, only its sub-operands. All sub-operands are synthetic and are destroyed after the visitor. This function works only with scattered operands. 
                 
         :param sv: visitor object
+        """
+        ...
+    def get_bitwidth(self, blk: mblock_t, top: minsn_t) -> int:
+        r"""Get the effective bitwidth of the operand. Returns the number of significant bits needed to represent the value (0 for zero, size*8 for unknown operands). For example, for a constant 7 returns 3, for xdu(x.1) returns 8. If BLK and TOP are specified, the method also looks up the defining instruction in this block. 
+                
         """
         ...
     def get_insn(self, code: mcode_t) -> minsn_t:
@@ -47832,7 +51775,7 @@ class netnode:
         
         """
         ...
-    def get_name(self) -> int:
+    def get_name(self) -> Any:
         ...
     def getblob(self, start: Any, tag: Any) -> Any:
         r"""Get a blob from a netnode.
@@ -47948,17 +51891,17 @@ class netnode:
         ...
     def supstr_ea(self, *args: Any) -> int:
         ...
-    def supstr_idx8(self, alt: int, tag: int) -> int:
+    def supstr_idx8(self, alt: int, tag: int) -> Any:
         ...
     def supval(self, *args: Any) -> int:
         ...
     def supval_ea(self, *args: Any) -> int:
         ...
-    def supval_idx8(self, *args: Any) -> int:
+    def supval_idx8(self, *args: Any) -> Any:
         ...
-    def valobj(self, *args: Any) -> int:
+    def valobj(self, *args: Any) -> Any:
         ...
-    def valstr(self) -> int:
+    def valstr(self) -> Any:
         ...
     def value_exists(self) -> bool:
         ...
@@ -49763,7 +53706,7 @@ class optinsn_t:
                 
         :param blk: current basic block. maybe nullptr, which means that the instruction must be optimized without context
         :param ins: instruction to optimize; it is always a top-level instruction. the callback may not delete the instruction but may convert it into nop (see mblock_t::make_nop). to optimize sub-instructions, visit them using minsn_visitor_t. sub-instructions may not be converted into nop but can be converted to "mov x,x". for example: add x,0,x => mov x,x this callback may change other instructions in the block, but should do this with care, e.g. to no break the propagation algorithm if called with OPTI_NO_LDXOPT.
-        :param optflags: combination of optimization flags bits
+        :param optflags: combination of optimization flags  bits
         :returns: number of changes made to the instruction. if after this call the instruction's use/def lists have changed, you must mark the block level lists as dirty (see mark_lists_dirty)
         """
         ...
@@ -50251,6 +54194,16 @@ class outctx_t(outctx_base_t):
         ...
     def gen_func_header(self, pfn: func_t) -> None:
         ...
+    def gen_function_footer(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""Generate function footer lines. This function is called to generate the closing lines of a function, typically a comment with the function name. 
+                
+        """
+        ...
+    def gen_function_header(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""Generate function header lines. This function is called to generate the opening lines of a function, including border, comments, attributes, and the function name. 
+                
+        """
+        ...
     def gen_header(self, *args: Any) -> None:
         ...
     def gen_header_extra(self) -> None:
@@ -50370,7 +54323,7 @@ class outctx_t(outctx_base_t):
     def out_one_operand(self, n: int) -> bool:
         r"""Use this function to output an operand of an instruction. This function checks for the existence of a manually defined operand and will output it if it exists. It should be called from processor_t::ev_out_insn() and it will call processor_t::ev_out_operand(). This function outputs colored text. 
                 
-        :param n: 0..UA_MAXOP-1 operand number
+        :param n: 0..#UA_MAXOP-1 operand number
         :returns: 1: operand is displayed
         :returns: 0: operand is hidden
         """
@@ -50406,6 +54359,15 @@ class outctx_t(outctx_base_t):
     def out_tagon(self, tag: color_t) -> None:
         r"""Output "turn color on" escape sequence.
         
+        """
+        ...
+    def out_unmapped_addr(self, addr: ida_idaapi.ea_t, radix: int = 16) -> None:
+        r"""Output a reference to an address that is not (yet) mapped in the database.
+        The processor module is queried (processor_t::query_unmapped_address) for symbolic information about `addr`.
+        If the not-yet-mapped address is mappable, a colored symbolic expression is emitted (e.g. "qualifier:symbol+offset", prefixed with a "outgoing" arrow). Otherwise the raw numeric value is emitted, tagged with COLOR_ERROR.
+        
+        :param addr: the unmapped address
+        :param radix: radix for the numeric fallback (default 16)
         """
         ...
     def out_value(self, x: op_t, outf: int = 0) -> int:
@@ -53555,12 +57517,14 @@ class processor_t(IDP_Hooks):
         ...
     def deleting_func(self, pfn: Any) -> Any:
         ...
+    def deleting_function(self, func_ea: Any) -> Any:
+        ...
     def determined_main(self, *args: Any) -> Any:
         ...
     def ev_add_cref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, type: cref_t) -> int:
         r"""A code reference is being created. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param type: (cref_t)
         :returns: <0: cancel cref creation
         :returns: 0: not implemented or continue
@@ -53569,7 +57533,7 @@ class processor_t(IDP_Hooks):
     def ev_add_dref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, type: dref_t) -> int:
         r"""A data reference is being created. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param type: (dref_t)
         :returns: <0: cancel dref creation
         :returns: 0: not implemented or continue
@@ -53590,7 +57554,7 @@ class processor_t(IDP_Hooks):
                   
         :param sig: (const idasgn_t *)
         :param libfun: (const libfunc_t *)
-        :param ea: (::ea_t *)
+        :param ea: (ea_t *)
         :returns: 1: the ea_t pointed to by the third argument was modified.
         :returns: <=0: not modified. use default algorithm.
         """
@@ -53599,7 +57563,7 @@ class processor_t(IDP_Hooks):
         r"""Called from apply_fixup before converting operand to reference. Can be used for changing the reference info. (e.g. the PPC module adds REFINFO_NOBASE for some references) 
                   
         :param ri: (refinfo_t *)
-        :param ea: (::ea_t) instruction address
+        :param ea: (ea_t) instruction address
         :param n: (int) operand number
         :param fd: (const fixup_data_t *)
         :returns: <0: do not create an offset
@@ -53611,7 +57575,7 @@ class processor_t(IDP_Hooks):
     def ev_analyze_prolog(self, ea: ida_idaapi.ea_t) -> int:
         r"""Analyzes function prolog, epilog, and updates purge, and function attributes 
                   
-        :param ea: (::ea_t) start of function
+        :param ea: (ea_t) start of function
         :returns: 1: ok
         :returns: 0: not implemented
         """
@@ -53626,10 +57590,10 @@ class processor_t(IDP_Hooks):
     def ev_arg_addrs_ready(self, caller: ida_idaapi.ea_t, n: int, tif: tinfo_t, addrs: int) -> int:
         r"""Argument address info is ready. 
                   
-        :param caller: (::ea_t)
+        :param caller: (ea_t)
         :param n: (int) number of formal arguments
         :param tif: (tinfo_t *) call prototype
-        :param addrs: (::ea_t *) argument intilization addresses
+        :param addrs: (ea_t *) argument intilization addresses
         :returns: <0: do not save into idb; other values mean "ok to save"
         """
         ...
@@ -53655,7 +57619,7 @@ class processor_t(IDP_Hooks):
     def ev_calc_cdecl_purged_bytes(self, ea: ida_idaapi.ea_t) -> int:
         r"""Calculate number of purged bytes after call. 
                   
-        :param ea: (::ea_t) address of the call instruction
+        :param ea: (ea_t) address of the call instruction
         :returns: number of purged bytes (usually add sp, N)
         """
         ...
@@ -53683,7 +57647,7 @@ class processor_t(IDP_Hooks):
                   
         :param retloc: (argloc_t *)
         :param rettype: (const tinfo_t *)
-        :param cc: (::callcnv_t)
+        :param cc: (callcnv_t)
         :returns: 0: not implemented
         :returns: 1: ok,
         :returns: -1: error
@@ -53705,7 +57669,7 @@ class processor_t(IDP_Hooks):
                   
         :param casevec: (::casevec_t *) vector of case values (may be nullptr)
         :param targets: (eavec_t *) corresponding target addresses (my be nullptr)
-        :param insn_ea: (::ea_t) address of the 'indirect jump' instruction
+        :param insn_ea: (ea_t) address of the 'indirect jump' instruction
         :param si: (switch_info_t *) switch information
         :returns: 1: ok
         :returns: <=0: failed
@@ -53733,7 +57697,7 @@ class processor_t(IDP_Hooks):
     def ev_clean_tbit(self, ea: ida_idaapi.ea_t, getreg: regval_getter_t, regvalues: regval_t) -> int:
         r"""Clear the TF bit after an insn like pushf stored it in memory. 
                   
-        :param ea: (::ea_t) instruction address
+        :param ea: (ea_t) instruction address
         :param getreg: (::processor_t::regval_getter_t *) function to get register values
         :param regvalues: (const regval_t *) register values array
         :returns: 1: ok
@@ -53749,12 +57713,14 @@ class processor_t(IDP_Hooks):
     def ev_create_flat_group(self, image_base: ida_idaapi.ea_t, bitness: int, dataseg_sel: int) -> int:
         r"""Create special segment representing the flat group. 
                   
-        :param image_base: (::ea_t)
+        :param image_base: (ea_t)
         :param bitness: (int)
-        :param dataseg_sel: (::sel_t) return value is ignored
+        :param dataseg_sel: (sel_t) return value is ignored
         """
         ...
     def ev_create_func_frame(self, pfn: Any) -> Any:
+        ...
+    def ev_create_function_frame(self, func_ea: Any) -> Any:
         ...
     def ev_create_merge_handlers(self, md: merge_data_t) -> int:
         r"""Create merge handlers, if needed 
@@ -53767,10 +57733,12 @@ class processor_t(IDP_Hooks):
         ...
     def ev_creating_segm(self, s: Any) -> Any:
         ...
+    def ev_creating_segment(self, si: Any) -> Any:
+        ...
     def ev_cvt64_hashval(self, node: int, tag: int, name: str, data: int) -> int:
         r"""perform 32-64 conversion for a hash value 
                   
-        :param node: (::nodeidx_t)
+        :param node: (nodeidx_t)
         :param tag: (uchar)
         :param name: (const ::char *)
         :param data: (const uchar *)
@@ -53782,9 +57750,9 @@ class processor_t(IDP_Hooks):
     def ev_cvt64_supval(self, node: int, tag: int, idx: int, data: int) -> int:
         r"""perform 32-64 conversion for a netnode array element 
                   
-        :param node: (::nodeidx_t)
+        :param node: (nodeidx_t)
         :param tag: (uchar)
-        :param idx: (::nodeidx_t)
+        :param idx: (nodeidx_t)
         :param data: (const uchar *)
         :returns: 0: nothing was done
         :returns: 1: converted successfully
@@ -53796,15 +57764,14 @@ class processor_t(IDP_Hooks):
                   
         :param name: (const char *) name of symbol
         :param mangle: (bool) true-mangle, false-unmangle
-        :param cc: (::callcnv_t) calling convention
-        :returns: 1: if success
-        :returns: 0: not implemented or failed
+        :param cc: (callcnv_t) calling convention
+        :returns: outbuf: (qstring *) output buffer
         """
         ...
     def ev_del_cref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, expand: bool) -> int:
         r"""A code reference is being deleted. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param expand: (bool)
         :returns: <0: cancel cref deletion
         :returns: 0: not implemented or continue
@@ -53813,7 +57780,7 @@ class processor_t(IDP_Hooks):
     def ev_del_dref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t) -> int:
         r"""A data reference is being deleted. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :returns: <0: cancel dref deletion
         :returns: 0: not implemented or continue
         """
@@ -53821,7 +57788,7 @@ class processor_t(IDP_Hooks):
     def ev_delay_slot_insn(self, ea: ida_idaapi.ea_t, bexec: bool, fexec: bool) -> Any:
         r"""Get delay slot instruction 
                   
-        :param ea: (::ea_t *) in: instruction address in question, out: (if the answer is positive) if the delay slot contains valid insn: the address of the delay slot insn else: BADADDR (invalid insn, e.g. a branch)
+        :param ea: (ea_t *) in: instruction address in question, out: (if the answer is positive) if the delay slot contains valid insn: the address of the delay slot insn else: BADADDR (invalid insn, e.g. a branch)
         :param bexec: (bool *) execute slot if jumping, initially set to 'true'
         :param fexec: (bool *) execute slot if not jumping, initially set to 'true'
         :returns: 1: positive answer
@@ -53834,8 +57801,7 @@ class processor_t(IDP_Hooks):
         :param name: (const char *) mangled name
         :param disable_mask: (uint32) flags to inhibit parts of output or compiler info/other (see MNG_)
         :param demreq: (demreq_type_t) operation to perform
-        :returns: 1: if success
-        :returns: 0: not implemented
+        :returns: out: (qstring *) output buffer. may be nullptr; res: (int32 *) value to return from demangle_name()
         """
         ...
     def ev_emu_insn(self, *args: Any) -> Any:
@@ -53876,8 +57842,7 @@ class processor_t(IDP_Hooks):
                   
         :param pinsn: (const insn_t *) instruction
         :param opn: (int) operand index
-        :returns: 1: if implemented, and value was found
-        :returns: 0: not implemented, -1 decoding failed, or no value found
+        :returns: out: (uval_t *) pointer to the found value
         """
         ...
     def ev_find_reg_value(self, pinsn: insn_t, reg: int) -> Any:
@@ -53885,11 +57850,12 @@ class processor_t(IDP_Hooks):
                   
         :param pinsn: (const insn_t *) instruction
         :param reg: (int) register index
-        :returns: 1: if implemented, and value was found
-        :returns: 0: not implemented, -1 decoding failed, or no value found
+        :returns: out: (uval_t *) pointer to the found value
         """
         ...
     def ev_func_bounds(self, _possible_return_code: Any, pfn: Any, max_func_end_ea: Any) -> Any:
+        ...
+    def ev_function_bounds(self, _possible_return_code: Any, fchunk: Any, max_func_end_ea: Any) -> Any:
         ...
     def ev_gen_asm_or_lst(self, starting: bool, fp: Any, is_asm: bool, flags: int, outline: html_line_cb_t) -> int:
         r"""Callback: generating asm or lst file. The kernel calls this callback twice, at the beginning and at the end of listing generation. The processor module can intercept this event and adjust its output 
@@ -53933,7 +57899,7 @@ class processor_t(IDP_Hooks):
         r"""Get item background color. Plugins can hook this callback to color disassembly lines dynamically 
                   
         :param color: (bgcolor_t *), out
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :returns: 0: not implemented
         :returns: 1: color set
         """
@@ -53942,7 +57908,7 @@ class processor_t(IDP_Hooks):
         r"""Get register allocation convention for given calling convention 
                   
         :param regs: (callregs_t *), out
-        :param cc: (::callcnv_t)
+        :param cc: (callcnv_t)
         :returns: 1: 
         :returns: 0: not implemented
         """
@@ -53971,11 +57937,13 @@ class processor_t(IDP_Hooks):
         ...
     def ev_get_frame_retsize(self, frsize: Any, pfn: Any) -> Any:
         ...
+    def ev_get_function_retsize(self, frsize: Any, func_ea: Any) -> Any:
+        ...
     def ev_get_macro_insn_head(self, head: int, ip: ida_idaapi.ea_t) -> int:
         r"""Calculate the start of a macro instruction. This notification is called if IP points to the middle of an instruction 
                   
-        :param head: (::ea_t *), out: answer, BADADDR means normal instruction
-        :param ip: (::ea_t) instruction address
+        :param head: (ea_t *), out: answer, BADADDR means normal instruction
+        :param ip: (ea_t) instruction address
         :returns: 0: unimplemented
         :returns: 1: implemented
         """
@@ -54020,8 +57988,7 @@ class processor_t(IDP_Hooks):
         :param reg: (int) internal register number as defined in the processor module
         :param width: (size_t) register width in bytes
         :param reghi: (int) if not -1 then this function will return the register pair
-        :returns: -1: if error
-        :returns: strlen(buf): if success
+        :returns: buf: (qstring *) output buffer
         """
         ...
     def ev_get_simd_types(self, out: simd_info_vec_t, simd_attrs: simd_info_t, argloc: argloc_t, create_tifs: bool, insn: insn_t, op: op_t) -> int:
@@ -54041,9 +58008,19 @@ class processor_t(IDP_Hooks):
         r"""Get some metrics of the stack argument area. 
                   
         :param out: (stkarg_area_info_t *) ptr to stkarg_area_info_t
-        :param cc: (::callcnv_t) calling convention
+        :param cc: (callcnv_t) calling convention
         :returns: 1: if success
         :returns: 0: not implemented
+        """
+        ...
+    def ev_get_stkarg_parts(self, insn: insn_t, parts: stkarg_part_t, max_parts: int) -> int:
+        r"""Enumerate the stkarg stores performed by an instruction. Used by the kernel to drive multi-slot stkarg propagation (e.g. ARM "STMIA SP, {R0-R3}" writes 4 slots). When the processor returns 0, the kernel falls back to argtinfo_helper_t::is_stkarg_load. 
+                  
+        :param insn: (const insn_t *)
+        :param parts: (stkarg_part_t *) output array
+        :param max_parts: (int) size of the output array
+        :returns: N>0: produced N parts (use them)
+        :returns: 0: not implemented for this insn
         """
         ...
     def ev_get_stkvar_scale_factor(self) -> int:
@@ -54051,6 +58028,11 @@ class processor_t(IDP_Hooks):
                   
         :returns: scaling factor
         :returns: 0: not implemented
+        """
+        ...
+    def ev_get_swift_abi_regs(self) -> int:
+        r"""Reserved.
+        
         """
         ...
     def ev_getreg(self, regval: uval_t, regnum: int) -> int:
@@ -54129,14 +58111,33 @@ class processor_t(IDP_Hooks):
     def ev_is_insn_table_jump(self, *args: Any) -> Any:
         ...
     def ev_is_jump_func(self, pfn: func_t, jump_target: int, func_pointer: int) -> int:
-        r"""Is the function a trivial "jump" function? 
-                  
+        r"""Is the function a trivial "jump" function?
+        
         :param pfn: (func_t *)
-        :param jump_target: (::ea_t *)
-        :param func_pointer: (::ea_t *)
+        :param jump_target: (ea_t *)
+        :param func_pointer: (ea_t *)
         :returns: <0: no
         :returns: 0: don't know
         :returns: 1: yes, see 'jump_target' and 'func_pointer'
+        """
+        ...
+    def ev_is_jump_function(self, fi: func_entry_info_t, jump_target: int, func_pointer: int) -> int:
+        r"""Is the function a trivial "jump" function? 
+                  
+        :param fi: (func_entry_info_t *)
+        :param jump_target: (ea_t *)
+        :param func_pointer: (ea_t *)
+        :returns: <0: no
+        :returns: 0: don't know
+        :returns: 1: yes, see 'jump_target' and 'func_pointer'
+        """
+        ...
+    def ev_is_outlined_function(self, func_ea: ida_idaapi.ea_t) -> int:
+        r"""The kernel is creating a function and wants to know whether it is an outlined helper (sets FUNC_OUTLINE). 
+                  
+        :param func_ea: (ea_t) function entry start address
+        :returns: 1: the function is outlined
+        :returns: 0: not implemented / not outlined
         """
         ...
     def ev_is_ret_insn(self, *args: Any) -> Any:
@@ -54149,6 +58150,14 @@ class processor_t(IDP_Hooks):
         ...
     def ev_last_cb_before_loader(self) -> int:
         ...
+    def ev_load_unmapped_address(self, ea: ida_idaapi.ea_t) -> int:
+        r"""Load the dependency covering the provided address. 
+                  
+        :param ea: (ea_t) the (currently unmapped) address
+        :returns: 1: if success
+        :returns: 0: not implemented or failed
+        """
+        ...
     def ev_loader(self) -> int:
         r"""This code and higher ones are reserved for the loaders. The arguments and the return values are defined by the loaders 
                   
@@ -54157,7 +58166,7 @@ class processor_t(IDP_Hooks):
     def ev_lower_func_type(self, argnums: intvec_t, fti: func_type_data_t) -> int:
         r"""Get function arguments which should be converted to pointers when lowering function prototype. The processor module can also modify 'fti' in order to make non-standard conversion of some arguments. 
                   
-        :param argnums: (intvec_t *), out - numbers of arguments to be converted to pointers in acsending order
+        :param argnums: (intvec_t *), out - numbers of arguments to be converted to pointers in ascending order
         :param fti: (func_type_data_t *), inout func type details
         :returns: 0: not implemented
         :returns: 1: argnums was filled
@@ -54176,6 +58185,8 @@ class processor_t(IDP_Hooks):
         ...
     def ev_moving_segm(self, s: Any, to_ea: Any, flags: Any) -> Any:
         ...
+    def ev_moving_segment(self, seg_start_ea: Any, to_ea: Any, flags: Any) -> Any:
+        ...
     def ev_newasm(self, asmnum: int) -> int:
         r"""Before setting a new assembler. 
                   
@@ -54191,8 +58202,8 @@ class processor_t(IDP_Hooks):
     def ev_next_exec_insn(self, target: int, ea: ida_idaapi.ea_t, tid: int, getreg: regval_getter_t, regvalues: regval_t) -> int:
         r"""Get next address to be executed This function must return the next address to be executed. If the instruction following the current one is executed, then it must return BADADDR Usually the instructions to consider are: jumps, branches, calls, returns. This function is essential if the 'single step' is not supported in hardware. 
                   
-        :param target: (::ea_t *), out: pointer to the answer
-        :param ea: (::ea_t) instruction address
+        :param target: (ea_t *), out: pointer to the answer
+        :param ea: (ea_t) instruction address
         :param tid: (int) current therad id
         :param getreg: (::processor_t::regval_getter_t *) function to get register values
         :param regvalues: (const regval_t *) register values array
@@ -54208,6 +58219,24 @@ class processor_t(IDP_Hooks):
         ...
     def ev_out_footer(self, *args: Any) -> Any:
         ...
+    def ev_out_function_footer(self, outctx: outctx_t, func_ea: ida_idaapi.ea_t) -> int:
+        r"""Generate function footer lines. If this event is not implemented, the kernel will use asm_t::out_func_footer if available, or display a comment line. 
+                  
+        :param outctx: (outctx_t *)
+        :param func_ea: (ea_t)
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
+    def ev_out_function_header(self, outctx: outctx_t, func_ea: ida_idaapi.ea_t) -> int:
+        r"""Generate function header lines. If this event is not implemented, the kernel will use asm_t::out_func_header if available, or display function headers as normal lines. 
+                  
+        :param outctx: (outctx_t *)
+        :param func_ea: (ea_t)
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
     def ev_out_header(self, *args: Any) -> Any:
         ...
     def ev_out_insn(self, *args: Any) -> Any:
@@ -54220,6 +58249,10 @@ class processor_t(IDP_Hooks):
         ...
     def ev_out_segend(self, ctx: Any, s: Any) -> Any:
         ...
+    def ev_out_segment_end(self, ctx: Any, seg_start_ea: Any) -> Any:
+        ...
+    def ev_out_segment_start(self, ctx: Any, seg_start_ea: Any) -> Any:
+        ...
     def ev_out_segstart(self, ctx: Any, s: Any) -> Any:
         ...
     def ev_out_special_item(self, *args: Any) -> Any:
@@ -54228,9 +58261,18 @@ class processor_t(IDP_Hooks):
         r"""Privrange interval has been moved to a new location. Most common actions to be done by module in this case: fix indices of netnodes used by module 
                   
         :param old_privrange: (const range_t *) - old privrange interval
-        :param delta: (::adiff_t)
+        :param delta: (adiff_t)
         :returns: 0: Ok
         :returns: -1: error (and message in errbuf)
+        """
+        ...
+    def ev_query_unmapped_address(self, out: unmapped_info_t, ea: ida_idaapi.ea_t) -> int:
+        r"""Get information about an unmapped address 
+                  
+        :param out: (unmapped_info_t *) output information (can be nullptr)
+        :param ea: (ea_t) the (currently unmapped) address
+        :returns: 1: the address can be loaded
+        :returns: 0: not implemented or failed
         """
         ...
     def ev_realcvt(self, m: Any, e: fpvalue_t, swt: int) -> int:
@@ -54250,6 +58292,15 @@ class processor_t(IDP_Hooks):
         :param action_name: (const char *) action that we perform undo/redo for. may be nullptr for intermediate buffers.
         :param vec: (const undo_records_t *)
         :param is_undo: (bool) true if performing undo, false if performing redo This event may be generated multiple times per undo/redo
+        """
+        ...
+    def ev_sanitize_name(self, name: str, cc: callcnv_t) -> int:
+        r"""Apply processor/language-specific rewrites to a candidate name before the kernel validates its character set. E.g. the golang plugin uses this to rewrite "*" -> "_ptr_", "[]" -> "_slice_", ... 
+                  
+        :param name: (qstring *) name to sanitize (in/out)
+        :param cc: (callcnv_t) calling convention hint (pass CM_CC_UNKNOWN if not known; plugins can resolve via get_effective_cc())
+        :returns: 1: handled (name may have been modified)
+        :returns: 0: not implemented
         """
         ...
     def ev_set_code16_mode(self, ea: ida_idaapi.ea_t, code16: bool) -> int:
@@ -54295,7 +58346,7 @@ class processor_t(IDP_Hooks):
     def ev_use_arg_types(self, ea: ida_idaapi.ea_t, fti: func_type_data_t, rargs: funcargvec_t) -> int:
         r"""Use information about callee arguments. 
                   
-        :param ea: (::ea_t) address of the call instruction
+        :param ea: (ea_t) address of the call instruction
         :param fti: (func_type_data_t *) info about function type
         :param rargs: (funcargvec_t *) array of register arguments
         :returns: 1: (and removes handled arguments from fti and rargs)
@@ -54305,16 +58356,19 @@ class processor_t(IDP_Hooks):
     def ev_use_regarg_type(self, ea: ida_idaapi.ea_t, rargs: funcargvec_t) -> Any:
         r"""Use information about register argument. 
                   
-        :param ea: (::ea_t) address of the instruction
+        :param ea: (ea_t) address of the instruction
         :param rargs: (const funcargvec_t *) vector of register arguments (including regs extracted from scattered arguments)
-        :returns: 1: 
-        :returns: 0: not implemented
+        :returns: idx: (int *) pointer to the returned value, may contain:
+        * idx of the used argument, if the argument is defined in the current instruction, a comment will be applied by the kernel
+        * idx | REG_SPOIL - argument is spoiled by the instruction
+        * -1 if the instruction doesn't change any registers
+        * -2 if the instruction spoils all registers
         """
         ...
     def ev_use_stkarg_type(self, ea: ida_idaapi.ea_t, arg: funcarg_t) -> int:
         r"""Use information about a stack argument. 
                   
-        :param ea: (::ea_t) address of the push instruction which pushes the function argument into the stack
+        :param ea: (ea_t) address of the push instruction which pushes the function argument into the stack
         :param arg: (const funcarg_t *) argument info
         :returns: 1: ok
         :returns: <=0: failed, the kernel will create a comment with the argument name or type for the instruction
@@ -54322,11 +58376,17 @@ class processor_t(IDP_Hooks):
         ...
     def ev_validate_flirt_func(self, *args: Any) -> Any:
         ...
+    def ev_verify_function_noreturn(self, func_ea: Any) -> Any:
+        ...
+    def ev_verify_function_sp(self, func_ea: Any) -> Any:
+        ...
     def ev_verify_noreturn(self, pfn: Any) -> Any:
         ...
     def ev_verify_sp(self, pfn: Any) -> Any:
         ...
     def func_added(self, pfn: Any) -> Any:
+        ...
+    def function_added(self, func_ea: Any) -> Any:
         ...
     def get_auxpref(self, insn: Any) -> Any:
         r"""This function returns insn.auxpref value"""
@@ -54358,6 +58418,10 @@ class processor_t(IDP_Hooks):
     def set_func_end(self, *args: Any) -> Any:
         ...
     def set_func_start(self, *args: Any) -> Any:
+        ...
+    def set_function_end(self, *args: Any) -> Any:
+        ...
+    def set_function_start(self, *args: Any) -> Any:
         ...
     def sgr_changed(self, *args: Any) -> Any:
         ...
@@ -55122,7 +59186,6 @@ class qbasic_block_t(range_t):
         r"""Size of object in memory, in bytes."""
         ...
     def __str__(self) -> str:
-        r"""Return str(self)."""
         ...
     def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
@@ -55344,13 +59407,172 @@ class qfile_t:
         :returns: result code
         """
         ...
-    def writebytes(self, size: Any, big_endian: Any) -> Any:
+    def writebytes(self, buf: Any, big_endian: Any) -> Any:
         r"""Similar to write() but it respect the endianness
         
         :param buf: the str to write
         :param big_endian: endianness
         :returns: result code
         """
+        ...
+
+class qflow_chart_ea_t(cancellable_graph_t, gdl_graph_t):
+    @property
+    def bounds(self) -> range_t: ...
+    @property
+    def cancelled(self) -> bool: ...
+    @property
+    def flags(self) -> int: ...
+    @property
+    def func_ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def nproper(self) -> int: ...
+    @property
+    def title(self) -> str: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __disown__(self) -> Any:
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, n: int) -> qbasic_block_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def append_to_flowchart(self, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t) -> None:
+        ...
+    def begin(self) -> Any:
+        ...
+    def calc_block_type(self, blknum: int) -> fc_block_type_t:
+        ...
+    @overload
+    def create(self, _title: str, _func_ea: ida_idaapi.ea_t, _ea1: ida_idaapi.ea_t, _ea2: ida_idaapi.ea_t, _flags: int) -> None: ...
+    @overload
+    def create(self, _title: str, ranges: rangevec_t, _flags: int) -> None: ...
+    def edge(self, node: int, i: int, ispred: bool) -> int:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self) -> Any:
+        ...
+    def entry(self) -> int:
+        ...
+    def exists(self, node: int) -> bool:
+        ...
+    def exit(self) -> int:
+        ...
+    def front(self) -> int:
+        ...
+    def get_edge_color(self, i: int, j: int) -> int:
+        ...
+    def get_node_color(self, n: int) -> int:
+        ...
+    def get_node_label(self, *args: Any) -> int:
+        ...
+    def is_noret_block(self, blknum: int) -> bool:
+        ...
+    def is_ret_block(self, blknum: int) -> bool:
+        ...
+    def nedge(self, node: int, ispred: bool) -> int:
+        ...
+    def node_qty(self) -> int:
+        ...
+    def npred(self, node: int) -> int:
+        ...
+    def nsucc(self, node: int) -> int:
+        ...
+    def pred(self, node: int, i: int) -> int:
+        ...
+    def print_edge(self, fp: Any, i: int, j: int) -> bool:
+        ...
+    def print_graph_attributes(self, fp: Any) -> None:
+        ...
+    def print_names(self) -> bool:
+        ...
+    def print_node(self, fp: Any, n: int) -> bool:
+        ...
+    def print_node_attributes(self, fp: Any, n: int) -> None:
+        ...
+    def refresh(self) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def succ(self, node: int, i: int) -> int:
         ...
 
 class qflow_chart_t(cancellable_graph_t, gdl_graph_t):
@@ -57049,7 +61271,6 @@ class range_t:
         r"""Size of object in memory, in bytes."""
         ...
     def __str__(self) -> str:
-        r"""Return str(self)."""
         ...
     def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
@@ -57229,17 +61450,17 @@ class rangeset_t:
         """
         ...
     def clear(self) -> None:
-        r"""Delete all elements from the set. See qvector::clear()
+        r"""Delete all elements from the set. See qvector::clear().
         
         """
         ...
     @overload
     def contains(self, ea: ida_idaapi.ea_t) -> bool:
-        r"""Does an element of the rangeset contain 'ea'? See range_t::contains(ea_t)"""
+        r"""Does an element of the rangeset contain 'ea'? See range_t::contains(ea_t)."""
         ...
     @overload
     def contains(self, aset: rangeset_t) -> bool:
-        r"""Is every element in 'aset' contained in an element of this rangeset? See range_t::contains(range_t)"""
+        r"""Is every element in 'aset' contained in an element of this rangeset? See range_t::contains(range_t)."""
         ...
     def empty(self) -> bool:
         r"""Does the set have zero elements.
@@ -57247,7 +61468,7 @@ class rangeset_t:
         """
         ...
     def end(self) -> Any:
-        r"""Get an iterator that points to the end of the set. (This is NOT the last element)
+        r"""Get an iterator that points to the end of the set. (This is NOT the last element).
         
         """
         ...
@@ -57268,7 +61489,7 @@ class rangeset_t:
         ...
     @overload
     def has_common(self, aset: rangeset_t) -> bool:
-        r"""Does any element of 'aset' overlap with an element in this rangeset? See range_t::overlaps()"""
+        r"""Does any element of 'aset' overlap with an element in this rangeset? See range_t::overlaps()."""
         ...
     def includes(self, range: range_t) -> bool:
         r"""Is every ea in 'range' contained in the rangeset?
@@ -57330,7 +61551,7 @@ class rangeset_t:
         ...
     @overload
     def sub(self, ea: ida_idaapi.ea_t) -> bool:
-        r"""Subtract an ea (an range of size 1) from the set. See sub(const range_t &)"""
+        r"""Subtract an ea (an range of size 1) from the set. See sub(const range_t &)."""
         ...
     @overload
     def sub(self, aset: rangeset_t) -> bool:
@@ -57340,7 +61561,7 @@ class rangeset_t:
         """
         ...
     def swap(self, r: rangeset_t) -> None:
-        r"""Set this = 'r' and 'r' = this. See qvector::swap()
+        r"""Set this = 'r' and 'r' = this. See qvector::swap().
         
         """
         ...
@@ -57833,9 +62054,14 @@ class refinfo_t:
         ...
     def is_custom(self) -> bool:
         ...
+    def is_ignore_zero(self) -> bool:
+        ...
     def is_no_ones(self) -> bool:
         ...
-    def is_no_zeros(self) -> bool:
+    def is_no_zeros(self) -> Any:
+        r"""deprecated alias for is_ignore_zero()
+        
+        """
         ...
     def is_pastend(self) -> bool:
         ...
@@ -58307,6 +62533,446 @@ class reg_info_t:
     def compare(self, r: reg_info_t) -> int:
         ...
 
+class reg_value_base_t:
+    ADD: int  # 0
+    AND: int  # 3
+    AND_NOT: int  # 5
+    CONTAINED: int  # 2
+    CONTAINS: int  # 1
+    EQUAL: int  # 0
+    MOVT: int  # 9
+    NEG: int  # 10
+    NOT: int  # 11
+    NOT_COMPARABLE: int  # 3
+    OR: int  # 2
+    SAR: int  # 8
+    SLL: int  # 6
+    SLR: int  # 7
+    SUB: int  # 1
+    XOR: int  # 4
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> reg_value_def_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def aborted(self) -> bool:
+        r"""Return 'true' if the tracking process was aborted.
+        
+        """
+        ...
+    def add(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""The methods below save INSN as a defining instruction. Add R to the value. 
+                
+        """
+        ...
+    @overload
+    def add_num(self, r: int, insn: insn_t) -> None:
+        r"""Add R to the value."""
+        ...
+    @overload
+    def add_num(self, r: int) -> None:
+        r"""The methods below do not change the defining instructions. Add R to the value."""
+        ...
+    def band(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise AND of R to the value. 
+                
+        """
+        ...
+    def bandnot(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise AND of the inverse of R to the value. 
+                
+        """
+        ...
+    def bnot(self, insn: insn_t) -> None:
+        r"""Make bitwise inverse of the value.
+        
+        """
+        ...
+    def bor(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise OR of R to the value. 
+                
+        """
+        ...
+    def bxor(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise eXclusive OR of R to the value. 
+                
+        """
+        ...
+    def clear(self) -> None:
+        r"""Undefine the value.
+        
+        """
+        ...
+    def empty(self) -> bool:
+        r"""Return 'true' if we know nothing about a value.
+        
+        """
+        ...
+    def extend(self, width: int, is_signed: bool) -> None:
+        r"""Zero-, or sign-extend the value from WIDTH bytes to uint64. 
+                
+        """
+        ...
+    def get_aborting_depth(self) -> int:
+        r"""Return the aborting depth if the value is ABORTED.
+        
+        """
+        ...
+    def get_def_ea(self) -> ida_idaapi.ea_t:
+        r"""Return the defining address.
+        
+        """
+        ...
+    def get_def_itype(self) -> int:
+        r"""Return the defining instruction code (processor specific).
+        
+        """
+        ...
+    def has_any_vals_flag(self, val_flags: int) -> bool:
+        ...
+    def have_all_vals_flag(self, val_flags: int) -> bool:
+        r"""Check the given flag for each value.
+        
+        """
+        ...
+    def is_all_vals_like_got(self) -> bool:
+        ...
+    def is_all_vals_pc_based(self) -> bool:
+        ...
+    def is_any_vals_like_got(self) -> bool:
+        ...
+    def is_any_vals_pc_based(self) -> bool:
+        ...
+    def is_badinsn(self) -> bool:
+        r"""Return 'true' if the value is unknown because of a bad insn.
+        
+        """
+        ...
+    def is_dead_end(self) -> bool:
+        r"""Return 'true' if the value is undefined because of a dead end.
+        
+        """
+        ...
+    def is_known(self) -> bool:
+        r"""Return 'true' if the value is known (i.e. it is a number or SP delta).
+        
+        """
+        ...
+    def is_num(self) -> bool:
+        r"""Return 'true' if the value is a constant.
+        
+        """
+        ...
+    def is_spd(self) -> bool:
+        r"""Return 'true' if the value depends on the stack pointer.
+        
+        """
+        ...
+    def is_special(self) -> bool:
+        r"""Return 'true' if the value requires special handling.
+        
+        """
+        ...
+    def is_unkfunc(self) -> bool:
+        r"""Return 'true' if the value is unknown from the function start.
+        
+        """
+        ...
+    def is_unkinsn(self) -> bool:
+        r"""Return 'true' if the value is unknown after executing the insn.
+        
+        """
+        ...
+    def is_unkloop(self) -> bool:
+        r"""Return 'true' if the value is unknown because it changes in a loop.
+        
+        """
+        ...
+    def is_unkmult(self) -> bool:
+        r"""Return 'true' if the value is unknown because the register has incompatible values (a number and SP delta). 
+                
+        """
+        ...
+    def is_unknown(self) -> bool:
+        r"""Return 'true' if the value is unknown.
+        
+        """
+        ...
+    def is_unkvals(self) -> bool:
+        r"""Return 'true' if the value is unknown because the register has too many values. 
+                
+        """
+        ...
+    def is_unkxref(self) -> bool:
+        r"""Return 'true' if the value is unknown because there are too many xrefs.
+        
+        """
+        ...
+    def is_value_unique(self) -> bool:
+        r"""Check that the value is unique.
+        
+        """
+        ...
+    def make_aborted(self, bblk_ea: ida_idaapi.ea_t, aborting_depth: int = -1) -> reg_value_base_t:
+        r"""Return the value after aborting. 
+                
+        """
+        ...
+    def make_badinsn(self, insn_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the unknown value after a bad insn. 
+                
+        """
+        ...
+    def make_dead_end(self, dead_end_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the undefined value because of a dead end. 
+                
+        """
+        ...
+    def make_initial_sp(self, func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the value that is the initial stack pointer. 
+                
+        """
+        ...
+    @overload
+    def make_num(self, rval: int, insn: insn_t, val_flags: int = 0) -> reg_value_base_t:
+        r"""Return the value that is the RVAL number."""
+        ...
+    @overload
+    def make_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> reg_value_base_t:
+        r"""Return the value that is the RVAL number."""
+        ...
+    def make_unkfunc(self, func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the unknown value from the function start. 
+                
+        """
+        ...
+    def make_unkinsn(self, insn: insn_t) -> reg_value_base_t:
+        r"""Return the unknown value after executing the insn. 
+                
+        """
+        ...
+    def make_unkloop(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the unknown value if it changes in a loop. 
+                
+        """
+        ...
+    def make_unkmult(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the unknown value if the register has incompatible values. 
+                
+        """
+        ...
+    def make_unkvals(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the unknown value if the register has too many values. 
+                
+        """
+        ...
+    def make_unkxref(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the unknown value if there are too many xrefs. 
+                
+        """
+        ...
+    def movt(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Replace the top 16 bits with bottom 16 bits of R, leaving the bottom 16 bits untouched. 
+                
+        """
+        ...
+    def neg(self, insn: insn_t) -> None:
+        r"""Negate the value.
+        
+        """
+        ...
+    def sar(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Shift arithmetically the value right by R. 
+                
+        """
+        ...
+    def set_aborted(self, bblk_ea: ida_idaapi.ea_t, aborting_depth: int = -1) -> None:
+        r"""Set the value after aborting. 
+                
+        """
+        ...
+    def set_all_vals_flag(self, val_flags: int) -> None:
+        r"""Set the given flag for each value.
+        
+        """
+        ...
+    def set_all_vals_got_based(self) -> None:
+        ...
+    def set_all_vals_pc_based(self) -> None:
+        ...
+    def set_badinsn(self, insn_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be unknown after a bad insn. 
+                
+        """
+        ...
+    def set_dead_end(self, dead_end_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be undefined because of a dead end. 
+                
+        """
+        ...
+    def set_def_itype_for_mov(self, insn: insn_t) -> bool:
+        r"""Set the defining instruction The value of the destination register after the mov instruction is equal to the value of the source register before it. Therefore, we can consider this instruction as defining that value. 
+                
+        """
+        ...
+    @overload
+    def set_num(self, rval: int, insn: insn_t, val_flags: int = 0) -> None:
+        r"""Set the value to be a number after executing an insn."""
+        ...
+    @overload
+    def set_num(self, rvals: uvalvec_t, insn: insn_t) -> None:
+        r"""Set the value to be numbers after executing an insn."""
+        ...
+    @overload
+    def set_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> None:
+        r"""Set the value to be a number before an address."""
+        ...
+    def set_unkfunc(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be unknown from the function start. 
+                
+        """
+        ...
+    def set_unkinsn(self, insn: insn_t) -> None:
+        r"""Set the value to be unknown after executing the insn. 
+                
+        """
+        ...
+    def set_unkloop(self, bblk_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be unknown because it changes in a loop. 
+                
+        """
+        ...
+    def set_unkmult(self, bblk_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be unknown because the register has incompatible values. 
+                
+        """
+        ...
+    def set_unkvals(self, bblk_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be unknown because the register has too many values. 
+                
+        """
+        ...
+    def set_unkxref(self, bblk_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be unknown because there are too many xrefs. 
+                
+        """
+        ...
+    def shift_left(self, r: int) -> None:
+        r"""Shift the value left by R. 
+                
+        """
+        ...
+    def shift_right(self, r: int, nbytes: int = 0) -> None:
+        r"""Shift the value right by R. If NBYTES is non-zero, perform an arithmetic (signed) shift assuming the value is NBYTES bytes wide. 
+                
+        """
+        ...
+    def sll(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Shift the value left by R. 
+                
+        """
+        ...
+    def slr(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Shift logically the value right by R. 
+                
+        """
+        ...
+    def sub(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Subtract R from the value. 
+                
+        """
+        ...
+    def swap(self, r: reg_value_base_t) -> None:
+        ...
+    def vals_union(self, r: reg_value_base_t) -> set_compare_res_t:
+        r"""Add values from R into THIS ignoring duplicates. 
+                
+        :returns: EQUAL: THIS is not changed
+        :returns: CONTAINS: THIS is not changed
+        :returns: CONTAINED: THIS is a copy of R
+        :returns: NOT_COMPARABLE: values from R are added to THIS
+        """
+        ...
+
 class reg_value_def_t:
     ABORTED: int  # 3
     NOVAL: int  # 0
@@ -58416,7 +63082,7 @@ class reg_value_def_t:
     @overload
     def is_short_insn(self, insn: insn_t) -> bool: ...
 
-class reg_value_info_t:
+class reg_value_info_t(reg_value_base_t):
     ADD: int  # 0
     AND: int  # 3
     AND_NOT: int  # 5
@@ -58465,7 +63131,7 @@ class reg_value_info_t:
     def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
     def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
@@ -58522,41 +63188,41 @@ class reg_value_info_t:
         
         """
         ...
-    def add(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Add R to the value, save INSN as a defining instruction. 
+    def add(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""The methods below save INSN as a defining instruction. Add R to the value. 
                 
         """
         ...
     @overload
     def add_num(self, r: int, insn: insn_t) -> None:
-        r"""Add R to the value, save INSN as a defining instruction."""
+        r"""Add R to the value."""
         ...
     @overload
     def add_num(self, r: int) -> None:
-        r"""Add R to the value, do not change the defining instructions."""
+        r"""The methods below do not change the defining instructions. Add R to the value."""
         ...
-    def band(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Make bitwise AND of R to the value, save INSN as a defining instruction. 
+    def band(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise AND of R to the value. 
                 
         """
         ...
-    def bandnot(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Make bitwise AND of the inverse of R to the value, save INSN as a defining instruction. 
+    def bandnot(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise AND of the inverse of R to the value. 
                 
         """
         ...
     def bnot(self, insn: insn_t) -> None:
-        r"""Make bitwise inverse of the value, save INSN as a defining instruction. 
+        r"""Make bitwise inverse of the value.
+        
+        """
+        ...
+    def bor(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise OR of R to the value. 
                 
         """
         ...
-    def bor(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Make bitwise OR of R to the value, save INSN as a defining instruction. 
-                
-        """
-        ...
-    def bxor(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Make bitwise eXclusive OR of R to the value, save INSN as a defining instruction. 
+    def bxor(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise eXclusive OR of R to the value. 
                 
         """
         ...
@@ -58570,14 +63236,19 @@ class reg_value_info_t:
         
         """
         ...
-    def extend(self, pm: procmod_t, width: int, is_signed: bool) -> None:
-        r"""Sign-, or zero-extend the number or SP delta value to full size. The initial value is considered to be of size WIDTH. 
+    def extend(self, width: int, is_signed: bool) -> None:
+        r"""Zero-, or sign-extend the value from WIDTH bytes to uint64. 
                 
         """
         ...
     def get_aborting_depth(self) -> int:
         r"""Return the aborting depth if the value is ABORTED.
         
+        """
+        ...
+    def get_addr(self) -> bool:
+        r"""Return the address if the value is a constant (truncated to ADDRSIZE). 
+                
         """
         ...
     def get_def_ea(self) -> ida_idaapi.ea_t:
@@ -58591,12 +63262,12 @@ class reg_value_info_t:
         """
         ...
     def get_num(self) -> bool:
-        r"""Return the number if the value is a constant. 
+        r"""Return the number if the value is a constant (truncated to SLOTSIZE). 
                 
         """
         ...
     def get_spd(self) -> bool:
-        r"""Return the SP delta if the value depends on the stack pointer. 
+        r"""Return the SP delta if the value depends on the stack pointer (sign-extended to ADDRSIZE). 
                 
         """
         ...
@@ -58685,76 +63356,76 @@ class reg_value_info_t:
         
         """
         ...
-    def make_aborted(self, bblk_ea: ida_idaapi.ea_t, aborting_depth: int = -1) -> reg_value_info_t:
+    def make_aborted(self, bblk_ea: ida_idaapi.ea_t, aborting_depth: int = -1) -> reg_value_base_t:
         r"""Return the value after aborting. 
                 
         """
         ...
-    def make_badinsn(self, insn_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_badinsn(self, insn_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value after a bad insn. 
                 
         """
         ...
-    def make_dead_end(self, dead_end_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_dead_end(self, dead_end_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the undefined value because of a dead end. 
                 
         """
         ...
-    def make_initial_sp(self, func_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_initial_sp(self, func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the value that is the initial stack pointer. 
                 
         """
         ...
     @overload
-    def make_num(self, rval: int, insn: insn_t, val_flags: int = 0) -> reg_value_info_t:
+    def make_num(self, rval: int, insn: insn_t, val_flags: int = 0) -> reg_value_base_t:
         r"""Return the value that is the RVAL number."""
         ...
     @overload
-    def make_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> reg_value_info_t:
+    def make_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> reg_value_base_t:
         r"""Return the value that is the RVAL number."""
         ...
-    def make_unkfunc(self, func_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_unkfunc(self, func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value from the function start. 
                 
         """
         ...
-    def make_unkinsn(self, insn: insn_t) -> reg_value_info_t:
+    def make_unkinsn(self, insn: insn_t) -> reg_value_base_t:
         r"""Return the unknown value after executing the insn. 
                 
         """
         ...
-    def make_unkloop(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_unkloop(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if it changes in a loop. 
                 
         """
         ...
-    def make_unkmult(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_unkmult(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if the register has incompatible values. 
                 
         """
         ...
-    def make_unkvals(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_unkvals(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if the register has too many values. 
                 
         """
         ...
-    def make_unkxref(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_unkxref(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if there are too many xrefs. 
                 
         """
         ...
-    def movt(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Replace the top 16 bits with bottom 16 bits of R, leaving the bottom 16 bits untouched, save INSN as a defining instruction. 
+    def movt(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Replace the top 16 bits with bottom 16 bits of R, leaving the bottom 16 bits untouched. 
                 
         """
         ...
     def neg(self, insn: insn_t) -> None:
-        r"""Negate the value, save INSN as a defining instruction.
+        r"""Negate the value.
         
         """
         ...
-    def sar(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Shift arithmetically the value right by R, save INSN as a defining instruction. 
+    def sar(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Shift arithmetically the value right by R. 
                 
         """
         ...
@@ -58774,6 +63445,11 @@ class reg_value_info_t:
         ...
     def set_badinsn(self, insn_ea: ida_idaapi.ea_t) -> None:
         r"""Set the value to be unknown after a bad insn. 
+                
+        """
+        ...
+    def set_context(self, _slotsize: int, _addrsize: int) -> None:
+        r"""Set the context. 
                 
         """
         ...
@@ -58830,38 +63506,40 @@ class reg_value_info_t:
         """
         ...
     def shift_left(self, r: int) -> None:
-        r"""Shift the value left by R, do not change the defining instructions. 
+        r"""Shift the value left by R. 
                 
         """
         ...
-    def shift_right(self, r: int) -> None:
-        r"""Shift the value right by R, do not change the defining instructions. 
+    def shift_right(self, r: int, nbytes: int = 0) -> None:
+        r"""Shift the value right by R. If NBYTES is non-zero, perform an arithmetic (signed) shift assuming the value is NBYTES bytes wide. 
                 
         """
         ...
-    def sll(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Shift the value left by R, save INSN as a defining instruction. 
+    def sll(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Shift the value left by R. 
                 
         """
         ...
-    def slr(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Shift logically the value right by R, save INSN as a defining instruction. 
+    def slr(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Shift logically the value right by R. 
                 
         """
         ...
-    def sub(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Subtract R from the value, save INSN as a defining instruction. 
+    def sub(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Subtract R from the value. 
                 
         """
         ...
-    def swap(self, r: reg_value_info_t) -> None:
+    def swap(self, r: reg_value_base_t) -> None:
         ...
     def trunc_uval(self, pm: procmod_t) -> None:
-        r"""Truncate the number to the application bitness. 
+        ...
+    def truncate(self, width: int = 0) -> None:
+        r"""Truncate the value to WIDTH (in bytes). For numbers: zero-truncate to WIDTH. For SP deltas: sign-extend to WIDTH. If WIDTH = 0, defaults to SLOTSIZE for numbers and ADDRSIZE for SP deltas. 
                 
         """
         ...
-    def vals_union(self, r: reg_value_info_t) -> set_compare_res_t:
+    def vals_union(self, r: reg_value_base_t) -> set_compare_res_t:
         r"""Add values from R into THIS ignoring duplicates. 
                 
         :returns: EQUAL: THIS is not changed
@@ -58884,8 +63562,7 @@ class regarg_t:
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
+    def __eq__(self, r: regarg_t) -> bool:
         ...
     def __format__(self, format_spec: Any) -> str:
         r"""Default object formatter.
@@ -58893,8 +63570,7 @@ class regarg_t:
         Return str(self) if format_spec is empty. Raise TypeError otherwise.
         """
         ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
+    def __ge__(self, r: regarg_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
@@ -58902,11 +63578,7 @@ class regarg_t:
     def __getstate__(self) -> Any:
         r"""Helper for pickle."""
         ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
+    def __gt__(self, r: regarg_t) -> bool:
         ...
     def __init__(self, *args: Any) -> Any:
         ...
@@ -58918,14 +63590,11 @@ class regarg_t:
         
         """
         ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
+    def __le__(self, r: regarg_t) -> bool:
         ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
+    def __lt__(self, r: regarg_t) -> bool:
         ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
+    def __ne__(self, r: regarg_t) -> bool:
         ...
     def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
@@ -58959,7 +63628,152 @@ class regarg_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
+    def compare(self, r: regarg_t) -> int:
+        ...
+    def deserialize(self, mmdsr: memory_deserializer_t) -> bool:
+        ...
+    def serialize(self, out: bytevec_t) -> None:
+        ...
     def swap(self, r: regarg_t) -> None:
+        ...
+
+class regargs_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: regargs_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> regarg_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[regarg_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: regargs_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: regarg_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: regarg_t) -> bool:
+        ...
+    def append(self, x: regarg_t) -> None:
+        ...
+    def at(self, _idx: int) -> regarg_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: regargs_t) -> None:
+        ...
+    def extract(self) -> regarg_t:
+        ...
+    def find(self, *args: Any) -> Any:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: regarg_t) -> bool:
+        ...
+    def inject(self, s: regarg_t, len: int) -> None:
+        ...
+    def insert(self, it: regarg_t, x: regarg_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> regarg_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: regargs_t) -> None:
+        ...
+    def truncate(self) -> None:
         ...
 
 class reginfovec_t:
@@ -59097,6 +63911,241 @@ class reginfovec_t:
     def size(self) -> int:
         ...
     def swap(self, r: reginfovec_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
+class region_info_t:
+    @property
+    def branch_island_number(self) -> int: ...
+    @property
+    def image_index(self) -> int: ...
+    @property
+    def name(self) -> Any: ...
+    @property
+    def size(self) -> int: ...
+    @property
+    def start(self) -> ida_idaapi.ea_t: ...
+    @property
+    def type(self) -> region_type_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: region_info_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: region_info_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> str:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def get_range(self) -> range_t:
+        ...
+    def swap(self, r: region_info_t) -> None:
+        r"""region name (e.g., `__text`). Not unique
+        
+        """
+        ...
+
+class region_info_vec_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: region_info_vec_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> region_info_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[region_info_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: region_info_vec_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: region_info_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: region_info_t) -> bool:
+        ...
+    def append(self, x: region_info_t) -> None:
+        ...
+    def at(self, _idx: int) -> region_info_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: region_info_vec_t) -> None:
+        ...
+    def extract(self) -> region_info_t:
+        ...
+    def find(self, *args: Any) -> Any:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: region_info_t) -> bool:
+        ...
+    def inject(self, s: region_info_t, len: int) -> None:
+        ...
+    def insert(self, it: region_info_t, x: region_info_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> region_info_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: region_info_vec_t) -> None:
         ...
     def truncate(self) -> None:
         ...
@@ -59833,7 +64882,7 @@ class regvar_t(range_t):
     def __dir__(self) -> Any:
         r"""Default dir() implementation."""
         ...
-    def __eq__(self, r: range_t) -> bool:
+    def __eq__(self, r: regvar_t) -> bool:
         ...
     def __format__(self, format_spec: Any) -> str:
         r"""Default object formatter.
@@ -59841,7 +64890,7 @@ class regvar_t(range_t):
         Return str(self) if format_spec is empty. Raise TypeError otherwise.
         """
         ...
-    def __ge__(self, r: range_t) -> bool:
+    def __ge__(self, r: regvar_t) -> bool:
         ...
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
@@ -59849,7 +64898,7 @@ class regvar_t(range_t):
     def __getstate__(self) -> Any:
         r"""Helper for pickle."""
         ...
-    def __gt__(self, r: range_t) -> bool:
+    def __gt__(self, r: regvar_t) -> bool:
         ...
     def __init__(self, *args: Any) -> Any:
         ...
@@ -59861,11 +64910,11 @@ class regvar_t(range_t):
         
         """
         ...
-    def __le__(self, r: range_t) -> bool:
+    def __le__(self, r: regvar_t) -> bool:
         ...
-    def __lt__(self, r: range_t) -> bool:
+    def __lt__(self, r: regvar_t) -> bool:
         ...
-    def __ne__(self, r: range_t) -> bool:
+    def __ne__(self, r: regvar_t) -> bool:
         ...
     def __new__(self, *args: Any, **kwargs: Any) -> Any:
         r"""Create and return a new object.  See help(type) for accurate signature."""
@@ -59885,7 +64934,6 @@ class regvar_t(range_t):
         r"""Size of object in memory, in bytes."""
         ...
     def __str__(self) -> str:
-        r"""Return str(self)."""
         ...
     def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
@@ -59904,7 +64952,7 @@ class regvar_t(range_t):
         
         """
         ...
-    def compare(self, r: range_t) -> int:
+    def compare(self, r: regvar_t) -> int:
         ...
     @overload
     def contains(self, ea: ida_idaapi.ea_t) -> bool:
@@ -59943,6 +64991,145 @@ class regvar_t(range_t):
         """
         ...
     def swap(self, r: regvar_t) -> None:
+        ...
+
+class regvars_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: regvars_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> regvar_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[regvar_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: regvars_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: regvar_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: regvar_t) -> bool:
+        ...
+    def append(self, x: regvar_t) -> None:
+        ...
+    def at(self, _idx: int) -> regvar_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: regvars_t) -> None:
+        ...
+    def extract(self) -> regvar_t:
+        ...
+    def find(self, *args: Any) -> Any:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: regvar_t) -> bool:
+        ...
+    def inject(self, s: regvar_t, len: int) -> None:
+        ...
+    def insert(self, it: regvar_t, x: regvar_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> regvar_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: regvars_t) -> None:
+        ...
+    def truncate(self) -> None:
         ...
 
 class renderer_info_pos_t:
@@ -60725,7 +65912,6 @@ class scattered_segm_t(range_t):
         r"""Size of object in memory, in bytes."""
         ...
     def __str__(self) -> str:
-        r"""Return str(self)."""
         ...
     def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
@@ -60814,7 +66000,7 @@ class scif_t(vdloc_t, argloc_t):
         ...
     def __gt__(self, r: vdloc_t) -> bool:
         ...
-    def __init__(self, _mba: mba_t, tif: tinfo_t, n: str = None) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
     def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
@@ -60878,7 +66064,7 @@ class scif_t(vdloc_t, argloc_t):
         """
         ...
     def atype(self) -> argloc_type_t:
-        r"""Get type (Argument location types)
+        r"""Get type (Argument location types ).
         
         """
         ...
@@ -61427,6 +66613,148 @@ class screen_graph_selection_t(screen_graph_selection_base_t):
     def swap(self, r: screen_graph_selection_base_t) -> None:
         ...
     def truncate(self) -> None:
+        ...
+
+class search_result_data_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __disown__(self) -> Any:
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def empty(self) -> bool:
+        ...
+    def get_ea(self, index: int) -> ida_idaapi.ea_t:
+        r"""Effective address of result at `index`, or BADADDR for local types.
+        
+        """
+        ...
+    def get_ltype_ordinal(self, index: int) -> int:
+        r"""Local type ordinal of result at `index`, or 0 if not a local type.
+        
+        """
+        ...
+    def get_ltype_type(self, index: int) -> bytes:
+        r"""BT_* type code of the local type at `index` (valid when get_ltype_ordinal() != 0).
+        
+        """
+        ...
+    def get_match_line_range(self, index: int) -> match_range_t:
+        r"""For function-comment results, the range within get_name_str() that holds the matched comment line. Returns {0, 0} for all other result types. 
+                
+        """
+        ...
+    def get_match_range(self, index: int, range_idx: int) -> match_range_t:
+        r"""Returns the `range_idx'th` matched range for result at `index`.
+        
+        """
+        ...
+    def get_match_ranges_count(self, index: int) -> int:
+        r"""Number of matched character ranges for result at `index`.
+        
+        """
+        ...
+    def get_name(self, index: int) -> string_view:
+        r"""Name of result at `index`.
+        
+        """
+        ...
+    def get_netnode_idx(self, index: int) -> int:
+        r"""Netnode index of result at `index`.
+        
+        """
+        ...
+    def get_score(self, index: int) -> int:
+        r"""Match score of result at `index`, in percent [0, 100].
+        
+        """
+        ...
+    def get_subindex(self, index: int) -> subindex_typeid_t:
+        r"""Sub-index that produced result at `index` (e.g. SUBIDX_FUNCTIONS).
+        
+        """
+        ...
+    def size(self) -> int:
+        r"""Number of results.
+        
+        """
         ...
 
 class section_lines_refs_t:
@@ -62161,6 +67489,310 @@ class segment_defsr_array:
     def __swig_destroy__(self, object: Any) -> Any:
         ...
 
+class segment_info_t(range_t):
+    @property
+    def end_ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def start_ea(self) -> ida_idaapi.ea_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: range_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, r: range_t) -> bool:
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, r: range_t) -> bool:
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, r: range_t) -> bool:
+        ...
+    def __lt__(self, r: range_t) -> bool:
+        ...
+    def __ne__(self, r: range_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def abits(self) -> int:
+        r"""Get number of address bits.
+        
+        """
+        ...
+    def abytes(self) -> int:
+        r"""Get number of address bytes.
+        
+        """
+        ...
+    def base(self) -> ida_idaapi.ea_t:
+        r"""Get segment base linear address.
+        
+        """
+        ...
+    def clear(self) -> None:
+        r"""Set start_ea, end_ea to 0.
+        
+        """
+        ...
+    def comorg(self) -> bool:
+        ...
+    def compare(self, r: range_t) -> int:
+        ...
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
+        
+        Is 'ea' in the address range?
+        """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
+        ...
+    def empty(self) -> bool:
+        r"""Is the size of the range_t <= 0?
+        
+        """
+        ...
+    def extend(self, ea: ida_idaapi.ea_t) -> None:
+        r"""Ensure that the range_t includes 'ea'.
+        
+        """
+        ...
+    def get_align(self) -> int:
+        r"""Segment alignment Segment alignment codes.
+        
+        """
+        ...
+    def get_bitness(self) -> int:
+        r"""Addressing mode (0=16bit, 1=32bit, 2=64bit).
+        
+        """
+        ...
+    def get_cmt_reg(self) -> str:
+        r"""Regular segment comment 
+                
+        """
+        ...
+    def get_cmt_rpt(self) -> str:
+        r"""Repeatable segment comment 
+                
+        """
+        ...
+    def get_color(self) -> int:
+        r"""The segment color.
+        
+        """
+        ...
+    def get_comb(self) -> int:
+        r"""Segment combination Segment combination codes.
+        
+        """
+        ...
+    def get_defsr(self, sr_idx: int) -> int:
+        r"""Get default segment register value. 
+                
+        :param sr_idx: segment register index (0..SREG_NUM-1)
+        :returns: segment register value, or BADSEL if sr_idx is out of range
+        """
+        ...
+    def get_flags(self) -> int:
+        r"""Segment flags Segment flags.
+        
+        """
+        ...
+    def get_name(self) -> str:
+        r"""A segment always has a name. If you hadn't specified a name, the kernel will assign it "seg###" name where ### is segment number. The new name is validated (see validate_name). 
+                
+        """
+        ...
+    def get_orgbase(self) -> int:
+        r"""This field is IDP dependent. you may keep your information about the segment here 
+                
+        """
+        ...
+    def get_perm(self) -> int:
+        r"""Segment permissions Segment permissions.
+        
+        """
+        ...
+    def get_sclass(self) -> str:
+        r"""Segment class is arbitrary text (max 8 characters) If segment type is SEG_NORM and segment class is one of predefined names, then segment type is changed to:
+        * "CODE" -> SEG_CODE
+        * "DATA" -> SEG_DATA
+        * "STACK" -> SEG_BSS
+        * "BSS" -> SEG_BSS
+        * if "UNK" then segment type is reset to SEG_NORM. 
+        
+        
+                
+        """
+        ...
+    def get_sel(self) -> int:
+        r"""Segment selector - should be unique. You can't change this field after creating the segment. Exception: 16-bit OMF files may have several segments with the same selector, but this is not good (no way to denote a segment exactly) so it should be fixed in the future. 
+                
+        """
+        ...
+    def get_type(self) -> int:
+        r"""Segment type Segment types The kernel treats different segment types differently. Segments marked with '*' contain no instructions or data and are not declared as 'segments' in the disassembly. 
+                
+        """
+        ...
+    def has(self, gsi_flags: int) -> bool:
+        r"""Check if a string field was populated by get_segment_info(). 
+                
+        :param gsi_flags: combination of Get segment info flags flags to check
+        :returns: true if all specified fields are available
+        """
+        ...
+    def intersect(self, r: range_t) -> None:
+        r"""Assign the range_t to the intersection between the range_t and 'r'.
+        
+        """
+        ...
+    def is_16bit(self) -> bool:
+        r"""Is a 16-bit segment?
+        
+        """
+        ...
+    def is_32bit(self) -> bool:
+        r"""Is a 32-bit segment?
+        
+        """
+        ...
+    def is_64bit(self) -> bool:
+        r"""Is a 64-bit segment?
+        
+        """
+        ...
+    def is_finally_visible_segm(self) -> bool:
+        ...
+    def is_header_segm(self) -> bool:
+        ...
+    def is_hidden_segtype(self) -> bool:
+        ...
+    def is_loader_segm(self) -> bool:
+        ...
+    def is_valid(self) -> bool:
+        r"""Is the segment info valid?
+        
+        """
+        ...
+    def is_visible_segm(self) -> bool:
+        ...
+    def ob_ok(self) -> bool:
+        ...
+    def overlaps(self, r: range_t) -> bool:
+        r"""Is there an ea in 'r' that is also in this range_t?
+        
+        """
+        ...
+    def para(self) -> ida_idaapi.ea_t:
+        r"""Get segment base paragraph.
+        
+        """
+        ...
+    def set_align(self, v: int) -> None:
+        ...
+    def set_bitness(self, v: int) -> None:
+        ...
+    def set_cmt_reg(self, v: str) -> None:
+        ...
+    def set_cmt_rpt(self, v: str) -> None:
+        ...
+    def set_color(self, v: int) -> None:
+        ...
+    def set_comb(self, v: int) -> None:
+        ...
+    def set_comorg(self, v: bool = True) -> None:
+        ...
+    def set_debugger_segm(self, debseg: bool = True) -> None:
+        ...
+    def set_defsr(self, sr_idx: int, v: int) -> None:
+        ...
+    def set_flags(self, v: int) -> None:
+        ...
+    def set_header_segm(self, on: bool = True) -> None:
+        ...
+    def set_hidden_segtype(self, hide: bool = True) -> None:
+        ...
+    def set_loader_segm(self, ldrseg: bool = True) -> None:
+        ...
+    def set_name(self, v: str) -> None:
+        ...
+    def set_ob_ok(self, v: bool = True) -> None:
+        ...
+    def set_orgbase(self, v: int) -> None:
+        ...
+    def set_perm(self, v: int) -> None:
+        ...
+    def set_sclass(self, v: str) -> None:
+        ...
+    def set_sel(self, v: int) -> None:
+        ...
+    def set_type(self, v: int) -> None:
+        ...
+    def set_visible_segm(self, visible: bool = True) -> None:
+        ...
+    def size(self) -> int:
+        r"""Get end_ea - start_ea.
+        
+        """
+        ...
+    def visible_name(self) -> Any:
+        ...
+
 class segment_t(range_t):
     @property
     def align(self) -> int: ...
@@ -62248,7 +67880,6 @@ class segment_t(range_t):
         r"""Size of object in memory, in bytes."""
         ...
     def __str__(self) -> str:
-        r"""Return str(self)."""
         ...
     def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
@@ -64535,6 +70166,814 @@ class snapshot_t:
     def clear(self) -> None:
         ...
 
+class source_item_ptr:
+    @property
+    def refcnt(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __deref__(self) -> source_item_t:
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __ref__(self) -> source_item_t:
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def equals(self, other: source_item_t) -> bool:
+        ...
+    def evaluate(self, ctx: eval_ctx_t, res: idc_value_t) -> Any:
+        ...
+    def get_colnum(self) -> int:
+        ...
+    def get_ea(self) -> ida_idaapi.ea_t:
+        ...
+    def get_end_colnum(self) -> int:
+        ...
+    def get_end_lnnum(self) -> int:
+        ...
+    def get_expr_tinfo(self, tif: tinfo_t) -> bool:
+        ...
+    def get_hint(self, ctx: eval_ctx_t) -> Any:
+        r"""Calculate a string to display as a hint.
+        
+        :param ctx: execution context, or None if no context is available
+        :returns: a tuple `(hint, nlines)` where:
+        
+                  * `hint` is the hint text (may be multiline & with colors),
+                    or None if no hint is available
+                  * `nlines` is the number of important lines in the hint;
+                    only meaningful when `hint` is not None - otherwise the
+                    value is unspecified
+        """
+        ...
+    def get_item_bounds(self, set: rangeset_t) -> bool:
+        ...
+    def get_item_kind(self, arg2: eval_ctx_t) -> src_item_kind_t:
+        ...
+    def get_lnnum(self) -> int:
+        ...
+    def get_location(self, arg2: argloc_t, arg3: eval_ctx_t) -> bool:
+        ...
+    def get_name(self) -> Any:
+        ...
+    def get_parent(self, max_kind: src_item_kind_t) -> source_item_ptr:
+        ...
+    def get_provider(self) -> srcinfo_provider_t:
+        ...
+    def get_size(self) -> int:
+        ...
+    def is_expr(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_func(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_locvar(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_module(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_stmt(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_sttvar(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def release(self) -> None:
+        ...
+    def reset(self) -> None:
+        ...
+
+class source_item_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def equals(self, other: source_item_t) -> bool:
+        r"""Do these two items have the same source?. source_item_t will return true if the two items are backed by DIEs that have the same file offset. 
+                
+        :returns: false: the source of the underlying data differs between the two items.
+        :returns: true: when either the source of the underlying data is the same for the two items, or when such information is not available.
+        """
+        ...
+    def evaluate(self, ctx: eval_ctx_t, res: idc_value_t) -> Any:
+        r"""Evaluate item value (meaningful only for expression items). 
+                
+        :param ctx: execution context. nullptr means missing context.
+        :param res: buffer for the result (or exception if evaluation failed)
+        """
+        ...
+    def get_colnum(self) -> int:
+        r"""Get column number of the item. If unknown, return -1 
+                
+        """
+        ...
+    def get_ea(self) -> ida_idaapi.ea_t:
+        r"""Get starting address of the item.
+        
+        """
+        ...
+    def get_end_colnum(self) -> int:
+        r"""Get ending column number. The returned column number is the next column after the expression. If unknown, return -1 
+                
+        """
+        ...
+    def get_end_lnnum(self) -> int:
+        r"""Get ending line number (1-based.) The returned line number is the next line after the expression 
+                
+        """
+        ...
+    def get_expr_tinfo(self, tif: tinfo_t) -> bool:
+        ...
+    def get_hint(self, ctx: eval_ctx_t) -> Any:
+        r"""Calculate a string to display as a hint.
+        
+        :param ctx: execution context, or None if no context is available
+        :returns: a tuple `(hint, nlines)` where:
+        
+                  * `hint` is the hint text (may be multiline & with colors),
+                    or None if no hint is available
+                  * `nlines` is the number of important lines in the hint;
+                    only meaningful when `hint` is not None - otherwise the
+                    value is unspecified
+        """
+        ...
+    def get_item_bounds(self, set: rangeset_t) -> bool:
+        r"""Get item boundaries as a set of ranges. This function will be used to determine what breakpoints to set for stepping into/stepping over the item. 
+                
+        """
+        ...
+    def get_item_kind(self, arg2: eval_ctx_t) -> src_item_kind_t:
+        ...
+    def get_lnnum(self) -> int:
+        r"""Get line number of the item (1-based).
+        
+        """
+        ...
+    def get_location(self, arg2: argloc_t, arg3: eval_ctx_t) -> bool:
+        ...
+    def get_name(self) -> Any:
+        r"""Get name of the item.
+        
+        """
+        ...
+    def get_parent(self, max_kind: src_item_kind_t) -> source_item_ptr:
+        r"""Get parent of the item. 
+                
+        :param max_kind: maximal source item kind we are interested in. for example, if max_kinds==SRCIT_STMT, we are not interested in expressions, only in the enclosing statement or function
+        """
+        ...
+    def get_provider(self) -> srcinfo_provider_t:
+        ...
+    def get_size(self) -> int:
+        r"""Get size of the item in bytes. If the item is fragmented, return size of the main fragment. if unknown, return 0. On error, return (asize_t) -1. 
+                
+        """
+        ...
+    def is_expr(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_func(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_locvar(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_module(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_stmt(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_sttvar(self, ctx: eval_ctx_t) -> bool:
+        ...
+
+class source_items_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> qrefcnt_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[qrefcnt_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: source_item_ptr) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def append(self, x: source_item_ptr) -> None:
+        ...
+    def at(self, _idx: int) -> qrefcnt_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: source_items_t) -> None:
+        ...
+    def extract(self) -> qrefcnt_t:
+        ...
+    def front(self) -> Any:
+        ...
+    def inject(self, s: source_item_ptr, len: int) -> None:
+        ...
+    def insert(self, it: source_item_ptr, x: source_item_ptr) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, x: source_item_ptr) -> None:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, _newsize: int, x: source_item_ptr) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: source_items_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
+class sourcefile_info_t:
+    @property
+    def filename(self) -> str: ...
+    @property
+    def range(self) -> range_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
+class sourcefile_t(range_t):
+    @property
+    def end_ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def filename(self) -> str: ...
+    @property
+    def start_ea(self) -> ida_idaapi.ea_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: range_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, r: range_t) -> bool:
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, r: range_t) -> bool:
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, r: range_t) -> bool:
+        ...
+    def __lt__(self, r: range_t) -> bool:
+        ...
+    def __ne__(self, r: range_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def clear(self) -> None:
+        r"""Set start_ea, end_ea to 0.
+        
+        """
+        ...
+    def compare(self, r: range_t) -> int:
+        ...
+    @overload
+    def contains(self, ea: ida_idaapi.ea_t) -> bool:
+        r"""Compare two range_t instances, based on the start_ea.
+        
+        Is 'ea' in the address range?
+        """
+        ...
+    @overload
+    def contains(self, r: range_t) -> bool:
+        r"""Is every ea in 'r' also in this range_t?"""
+        ...
+    def empty(self) -> bool:
+        r"""Is the size of the range_t <= 0?
+        
+        """
+        ...
+    def extend(self, ea: ida_idaapi.ea_t) -> None:
+        r"""Ensure that the range_t includes 'ea'.
+        
+        """
+        ...
+    def intersect(self, r: range_t) -> None:
+        r"""Assign the range_t to the intersection between the range_t and 'r'.
+        
+        """
+        ...
+    def overlaps(self, r: range_t) -> bool:
+        r"""Is there an ea in 'r' that is also in this range_t?
+        
+        """
+        ...
+    def size(self) -> int:
+        r"""Get end_ea - start_ea.
+        
+        """
+        ...
+
+class sourcefilevec_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: sourcefilevec_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> sourcefile_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[sourcefile_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: sourcefilevec_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: sourcefile_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: sourcefile_t) -> bool:
+        ...
+    def append(self, x: sourcefile_t) -> None:
+        ...
+    def at(self, _idx: int) -> sourcefile_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: sourcefilevec_t) -> None:
+        ...
+    def extract(self) -> sourcefile_t:
+        ...
+    def find(self, *args: Any) -> Any:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: sourcefile_t) -> bool:
+        ...
+    def inject(self, s: sourcefile_t, len: int) -> None:
+        ...
+    def insert(self, it: sourcefile_t, x: sourcefile_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> sourcefile_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: sourcefilevec_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
 class sreg_range_t(range_t):
     @property
     def end_ea(self) -> ida_idaapi.ea_t: ...
@@ -64602,7 +71041,6 @@ class sreg_range_t(range_t):
         r"""Size of object in memory, in bytes."""
         ...
     def __str__(self) -> str:
-        r"""Return str(self)."""
         ...
     def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
@@ -64842,6 +71280,95 @@ class stkarg_area_info_t:
     def __swig_destroy__(self, object: Any) -> Any:
         ...
 
+class stkarg_part_t:
+    @property
+    def dst(self) -> int: ...
+    @property
+    def off(self) -> int: ...
+    @property
+    def src(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
 class stkpnt_t:
     @property
     def ea(self) -> ida_idaapi.ea_t: ...
@@ -64922,7 +71449,7 @@ class stkpnt_t:
     def compare(self, r: stkpnt_t) -> int:
         ...
 
-class stkpnts_t:
+class stkpnts_t(stkpnts_template_t):
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -64942,6 +71469,8 @@ class stkpnts_t:
     def __getattribute__(self, name: Any) -> Any:
         r"""Return getattr(self, name)."""
         ...
+    def __getitem__(self, i: int) -> stkpnt_t:
+        ...
     def __getstate__(self) -> Any:
         r"""Helper for pickle."""
         ...
@@ -64957,7 +71486,12 @@ class stkpnts_t:
         
         """
         ...
+    def __iter__(self) -> Iterator[stkpnt_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
     def __le__(self, r: stkpnts_t) -> bool:
+        ...
+    def __len__(self) -> int:
         ...
     def __lt__(self, r: stkpnts_t) -> bool:
         ...
@@ -64977,6 +71511,8 @@ class stkpnts_t:
     def __setattr__(self, name: Any, value: Any) -> Any:
         r"""Implement setattr(self, name, value)."""
         ...
+    def __setitem__(self, i: int, v: stkpnt_t) -> None:
+        ...
     def __sizeof__(self) -> Any:
         r"""Size of object in memory, in bytes."""
         ...
@@ -64995,7 +71531,198 @@ class stkpnts_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
+    def add_unique(self, x: stkpnt_t) -> bool:
+        ...
+    def append(self, x: stkpnt_t) -> None:
+        ...
+    def at(self, _idx: int) -> stkpnt_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
     def compare(self, r: stkpnts_t) -> int:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: stkpnts_template_t) -> None:
+        ...
+    def extract(self) -> stkpnt_t:
+        ...
+    def find(self, *args: Any) -> Any:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: stkpnt_t) -> bool:
+        ...
+    def inject(self, s: stkpnt_t, len: int) -> None:
+        ...
+    def insert(self, it: stkpnt_t, x: stkpnt_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> stkpnt_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: stkpnts_template_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
+class stkpnts_template_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: stkpnts_template_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> stkpnt_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[stkpnt_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: stkpnts_template_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: stkpnt_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: stkpnt_t) -> bool:
+        ...
+    def append(self, x: stkpnt_t) -> None:
+        ...
+    def at(self, _idx: int) -> stkpnt_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: stkpnts_template_t) -> None:
+        ...
+    def extract(self) -> stkpnt_t:
+        ...
+    def find(self, *args: Any) -> Any:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: stkpnt_t) -> bool:
+        ...
+    def inject(self, s: stkpnt_t, len: int) -> None:
+        ...
+    def insert(self, it: stkpnt_t, x: stkpnt_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> stkpnt_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: stkpnts_template_t) -> None:
+        ...
+    def truncate(self) -> None:
         ...
 
 class stkvar_ref_t:
@@ -65175,6 +71902,96 @@ class strarray_t:
     def __swig_destroy__(self, object: Any) -> Any:
         ...
 
+class string_info_ex_t(string_info_t):
+    @property
+    def decompiler_string(self) -> str: ...
+    @property
+    def ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def length(self) -> int: ...
+    @property
+    def type(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, r: string_info_t) -> bool:
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
 class string_info_t:
     @property
     def ea(self) -> ida_idaapi.ea_t: ...
@@ -65261,6 +72078,232 @@ class string_info_t:
         """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
+class string_match_t:
+    @property
+    def context(self) -> str: ...
+    @property
+    def ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def file_index(self) -> int: ...
+    @property
+    def file_offset(self) -> int: ...
+    @property
+    def image_index(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: string_match_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: string_match_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> str:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
+class string_match_vec_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: string_match_vec_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> string_match_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[string_match_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: string_match_vec_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: string_match_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: string_match_t) -> bool:
+        ...
+    def append(self, x: string_match_t) -> None:
+        ...
+    def at(self, _idx: int) -> string_match_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: string_match_vec_t) -> None:
+        ...
+    def extract(self) -> string_match_t:
+        ...
+    def find(self, *args: Any) -> Any:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: string_match_t) -> bool:
+        ...
+    def inject(self, s: string_match_t, len: int) -> None:
+        ...
+    def insert(self, it: string_match_t, x: string_match_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> string_match_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: string_match_vec_t) -> None:
+        ...
+    def truncate(self) -> None:
         ...
 
 class strpath_ids_array:
@@ -66078,6 +73121,228 @@ class switch_info_t:
     def use_std_table(self) -> bool:
         ...
 
+class symbol_match_t:
+    @property
+    def ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def image_index(self) -> int: ...
+    @property
+    def symbol(self) -> string_view: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: symbol_match_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: symbol_match_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> str:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
+class symbol_match_vec_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: symbol_match_vec_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> symbol_match_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[symbol_match_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, r: symbol_match_vec_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: symbol_match_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def add_unique(self, x: symbol_match_t) -> bool:
+        ...
+    def append(self, x: symbol_match_t) -> None:
+        ...
+    def at(self, _idx: int) -> symbol_match_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> Any:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> Any:
+        ...
+    def erase(self, *args: Any) -> Any:
+        ...
+    def extend(self, x: symbol_match_vec_t) -> None:
+        ...
+    def extract(self) -> symbol_match_t:
+        ...
+    def find(self, *args: Any) -> Any:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def has(self, x: symbol_match_t) -> bool:
+        ...
+    def inject(self, s: symbol_match_t, len: int) -> None:
+        ...
+    def insert(self, it: symbol_match_t, x: symbol_match_t) -> Any:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> symbol_match_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: symbol_match_vec_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
 class sync_source_t:
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -66522,6 +73787,11 @@ class tagged_line_section_t(line_section_t):
         ...
     def contains(self, x: cpidx_t) -> bool:
         ...
+    def get_addr(self, line: str) -> ida_idaapi.ea_t:
+        r"""For COLOR_ADDR sections, decode the address embedded in `line`. `line` must be the same raw line the section was parsed from. Returns BADADDR if this is not a COLOR_ADDR section or `line` does not match. 
+                
+        """
+        ...
     def is_closed(self) -> bool:
         ...
     def is_open(self) -> bool:
@@ -66794,6 +74064,8 @@ class tagged_line_sections_t(tagged_line_section_vec_t):
         ...
     def inject(self, s: tagged_line_section_t, len: int) -> None:
         ...
+    def innermost_at(self, x: cpidx_t, tag: color_t = 0) -> tagged_line_section_t:
+        ...
     def insert(self, it: tagged_line_section_t, x: tagged_line_section_t) -> Any:
         ...
     def nearest_after(self, range: tagged_line_section_t, start: cpidx_t, tag: color_t = 0) -> tagged_line_section_t:
@@ -66801,6 +74073,8 @@ class tagged_line_sections_t(tagged_line_section_vec_t):
     def nearest_at(self, x: cpidx_t, tag: color_t = 0) -> tagged_line_section_t:
         ...
     def nearest_before(self, range: tagged_line_section_t, start: cpidx_t, tag: color_t = 0) -> tagged_line_section_t:
+        ...
+    def next(self, anchor: tagged_line_section_t, tag: color_t) -> tagged_line_section_t:
         ...
     def pop_back(self) -> None:
         ...
@@ -68189,7 +75463,7 @@ class til_t:
         """
         ...
     def is_dirty(self) -> bool:
-        r"""Has the til been modified? (TIL_MOD)
+        r"""Has the til been modified? (TIL_MOD).
         
         """
         ...
@@ -68212,7 +75486,7 @@ class til_t:
         """
         ...
     def set_dirty(self) -> None:
-        r"""Mark the til as modified (TIL_MOD)
+        r"""Mark the til as modified (TIL_MOD).
         
         """
         ...
@@ -68489,7 +75763,7 @@ class tinfo_t:
         r"""Add a function argument. 
                 
         :param farg: argument to add
-        :param etf_flags: type changing flags flags
+        :param etf_flags: type changing flags  flags
         :param idx: the index in the funcarg array where the new funcarg should be placed. if the specified index cannot be honored because it would spoil the funcarg sorting order, it is silently ignored.
         """
         ...
@@ -68531,7 +75805,7 @@ class tinfo_t:
         :param offset: delta in bytes to add to all calculations. used internally during recursion.
         """
         ...
-    def build_anon_type_name(self) -> bool:
+    def build_anon_type_name(self) -> Any:
         r"""Generate a name like $hex_numbers based on the field types and names.
         
         """
@@ -68550,7 +75824,7 @@ class tinfo_t:
         """
         ...
     def calc_score(self) -> int:
-        r"""Calculate the type score (the higher - the nicer is the type)
+        r"""Calculate the type score (the higher - the nicer is the type).
         
         """
         ...
@@ -68580,7 +75854,7 @@ class tinfo_t:
     def compare(self, r: tinfo_t) -> int:
         ...
     def compare_with(self, r: tinfo_t, tcflags: int = 0) -> bool:
-        r"""Compare two types, based on given flags (see tinfo_t comparison flags)
+        r"""Compare two types, based on given flags (see tinfo_t comparison flags).
         
         """
         ...
@@ -68676,7 +75950,7 @@ class tinfo_t:
         """
         ...
     def del_udms(self, idx1: int, idx2: int, etf_flags: int = 0) -> int:
-        r"""Delete structure/union members in the range [idx1, idx2)
+        r"""Delete structure/union members in the range [idx1, idx2).
         
         """
         ...
@@ -68817,7 +76091,7 @@ class tinfo_t:
         """
         ...
     def get_attrs(self, tav: type_attrs_t, all_attrs: bool = False) -> bool:
-        r"""Get type attributes (all_attrs: include attributes of referenced types, if any)
+        r"""Get type attributes (all_attrs: include attributes of referenced types, if any).
         
         """
         ...
@@ -68934,11 +76208,11 @@ class tinfo_t:
         """
         ...
     def get_final_ordinal(self) -> int:
-        r"""Get final type ordinal (0 if none)
+        r"""Get final type ordinal (0 if none).
         
         """
         ...
-    def get_final_type_name(self) -> bool:
+    def get_final_type_name(self) -> Any:
         r"""Use in the case of typedef chain (TYPE1 -> TYPE2 -> TYPE3...TYPEn). 
                 
         :returns: the name of the last type in the chain (TYPEn). if there is no chain, returns TYPE1
@@ -68960,9 +76234,15 @@ class tinfo_t:
         """
         ...
     def get_func_frame(self, pfn: func_t) -> bool:
+        r"""Create a tinfo_t object for the function frame
+        
+        :param pfn: function
+        """
+        ...
+    def get_function_frame(self, func_ea: ida_idaapi.ea_t) -> bool:
         r"""Create a tinfo_t object for the function frame 
                 
-        :param pfn: function
+        :param func_ea: any address inside function
         """
         ...
     def get_innermost_member_type(self, bitoffset: int) -> tinfo_t:
@@ -68999,13 +76279,15 @@ class tinfo_t:
         
         """
         ...
-    def get_next_type_name(self) -> bool:
-        r"""Use In the case of typedef chain (TYPE1 -> TYPE2 -> TYPE3...TYPEn). 
-                
-        :returns: the name of the next type in the chain (TYPE2). if there is no chain, returns failure
+    def get_next_type_name(self) -> Any:
+        r"""In the case of a typedef chain (TYPE1 -> TYPE2 -> TYPE3 ... TYPEn),
+        return the name of the next type in the chain (TYPE2).
+        
+        :returns: the next type name in the chain, or None if there is no
+                  chain.
         """
         ...
-    def get_nice_type_name(self) -> bool:
+    def get_nice_type_name(self) -> Any:
         r"""Get the beautified type name. Get the referenced name and apply regular expressions from goodname.cfg to beautify the name 
                 
         """
@@ -69027,7 +76309,7 @@ class tinfo_t:
         """
         ...
     def get_ordinal(self) -> int:
-        r"""Get type ordinal (only if the type was created as a numbered type, 0 if none)
+        r"""Get type ordinal (only if the type was created as a numbered type, 0 if none).
         
         """
         ...
@@ -69105,18 +76387,19 @@ class tinfo_t:
         ...
     def get_type_by_tid(self, tid: int) -> bool:
         ...
-    def get_type_cmt(self) -> int:
-        r"""Get type comment 
-                
-        :returns: 0-failed, 1-returned regular comment, 2-returned repeatable comment
+    def get_type_cmt(self) -> Any:
+        r"""Get the type comment.
+        
+        :returns: the regular or repeatable comment, or None if there is no
+                  comment.
         """
         ...
-    def get_type_name(self) -> bool:
+    def get_type_name(self) -> Any:
         r"""Does a type refer to a name? If yes, fill the provided buffer with the type name and return true. Names are returned for numbered types too: either a user-defined nice name or, if a user-provided name does not exist, an ordinal name (like #xx, see create_numbered_type_name()). 
                 
         """
         ...
-    def get_type_rptcmt(self) -> bool:
+    def get_type_rptcmt(self) -> Any:
         r"""Get type comment only if it is repeatable.
         
         """
@@ -69188,6 +76471,11 @@ class tinfo_t:
         """
         ...
     def is_aliased(self) -> bool:
+        ...
+    def is_anonymous_type_name(self) -> bool:
+        r"""Is an anonymous type?
+        
+        """
         ...
     def is_anonymous_udt(self) -> bool:
         r"""Is an anonymous struct/union? We assume that types with names are anonymous if the name starts with $ 
@@ -69433,12 +76721,12 @@ class tinfo_t:
         """
         ...
     def is_empty_enum(self) -> bool:
-        r"""Is an empty enum? (has no constants)
+        r"""Is an empty enum? (has no constants).
         
         """
         ...
     def is_empty_udt(self) -> bool:
-        r"""Is an empty struct/union? (has no fields)
+        r"""Is an empty struct/union? (has no fields).
         
         """
         ...
@@ -69611,7 +76899,7 @@ class tinfo_t:
         """
         ...
     def is_small_udt(self) -> bool:
-        r"""Is a small udt? (can fit a register or a pair of registers)
+        r"""Is a small udt? (can fit a register or a pair of registers).
         
         """
         ...
@@ -69832,11 +77120,11 @@ class tinfo_t:
                 
         :param decl: a type declaration
         :param til: type library to use
-        :param pt_flags: combination of Type parsing flags bits
+        :param pt_flags: combination of Type parsing flags  bits
         """
         ...
     def present(self) -> bool:
-        r"""Is the type really present? (not a reference to a missing type, for example)
+        r"""Is the type really present? (not a reference to a missing type, for example).
         
         """
         ...
@@ -69879,12 +77167,14 @@ class tinfo_t:
                 
         """
         ...
-    def requires_qualifier(self, name: str, offset: int) -> bool:
-        r"""Requires full qualifier? (name is not unique) 
-                
+    def requires_qualifier(self, name: str, offset: int) -> Any:
+        r"""Check whether a field name requires a full qualifier because it is
+        not unique within the type.
+        
         :param name: field name
         :param offset: field offset in bits
-        :returns: if the name is not unique, returns true
+        :returns: a qualifier string (possibly empty) if the name is not
+                  unique, or None if the name is already unique.
         """
         ...
     def save_type(self, *args: Any) -> int:
@@ -74270,6 +81560,175 @@ class ulonglongvec_t:
     def truncate(self) -> None:
         ...
 
+class unmapped_info_t:
+    @property
+    def offset(self) -> ida_idaapi.ea_t: ...
+    @property
+    def qualifier(self) -> str: ...
+    @property
+    def symbol(self) -> str: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
+class user_casts_iterator_t:
+    @property
+    def x(self) -> iterator_word: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, p: user_casts_iterator_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, p: user_casts_iterator_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
 class user_cmts_iterator_t:
     @property
     def x(self) -> iterator_word: ...
@@ -74607,7 +82066,7 @@ class user_defined_prefix_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def get_user_defined_prefix(self, ea: ida_idaapi.ea_t, insn: insn_t, lnnum: int, indent: int, line: str) -> None:
+    def get_user_defined_prefix(self, ea: ida_idaapi.ea_t, insn: insn_t, lnnum: int, indent: int, line: str) -> str:
         r"""This callback must be overridden by the derived class. 
                 
         :param ea: the current address
@@ -75315,6 +82774,93 @@ class user_lvar_modifier_t:
         """
         ...
 
+class user_minsn_t:
+    @property
+    def action(self) -> user_minsn_action_t: ...
+    @property
+    def ins(self) -> minsn_t: ...
+    @property
+    def loc(self) -> minsn_locator_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: user_minsn_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, r: user_minsn_t) -> bool:
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, r: user_minsn_t) -> bool:
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, r: user_minsn_t) -> bool:
+        ...
+    def __lt__(self, r: user_minsn_t) -> bool:
+        ...
+    def __ne__(self, r: user_minsn_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def compare(self, r: user_minsn_t) -> int:
+        ...
+    def marked_for_addition(self) -> bool:
+        r"""Does this action add a new instruction?
+        
+        """
+        ...
+
 class user_numforms_iterator_t:
     @property
     def x(self) -> iterator_word: ...
@@ -75655,6 +83201,8 @@ class user_stkpnt_t(insn_site_t):
         """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def to_ea(self, func_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
         ...
     def toea(self, pfn: func_t) -> ida_idaapi.ea_t:
         ...
@@ -77617,7 +85165,7 @@ class vdloc_t(argloc_t):
         """
         ...
     def atype(self) -> argloc_type_t:
-        r"""Get type (Argument location types)
+        r"""Get type (Argument location types ).
         
         """
         ...
@@ -78123,6 +85671,12 @@ class vdui_t:
                 
         :param f: pointer to the function to display.
         :param activate: should the pseudocode window get focus?
+        """
+        ...
+    def ui_add_cast(self, e: cexpr_t) -> bool:
+        r"""Add a user-defined cast on the current expression. This function displays a dialog box and allows the user to enter a pointer type for the current expression. 
+                
+        :returns: false if failed or cancelled
         """
         ...
     def ui_edit_lvar_cmt(self, v: lvar_t) -> bool:
@@ -79001,7 +86555,7 @@ def COLSTR(str: Any, tag: Any) -> Any:
     """
     ...
 
-def IDAPython_Completion(line: Any, x: Any) -> Any:
+def IDAPython_Completion(line: Any, x: Any, max_count: Any) -> Any:
     r"""Internal utility class for auto-completion support"""
     ...
 
@@ -79071,8 +86625,8 @@ def activate_widget(widget: TWidget, take_focus: bool) -> None:
     ...
 
 def add_auto_stkpnt(pfn: func_t, ea: ida_idaapi.ea_t, delta: int) -> bool:
-    r"""Add automatic SP register change point. 
-            
+    r"""Add automatic SP register change point.
+    
     :param pfn: pointer to the function. may be nullptr.
     :param ea: linear address where SP changes. usually this is the end of the instruction which modifies the stack pointer ( insn_t::ea+ insn_t::size)
     :param delta: difference between old and new values of SP
@@ -79145,8 +86699,8 @@ def add_extra_line(*args: Any) -> bool:
     ...
 
 def add_frame(pfn: func_t, frsize: int, frregs: int, argsize: int) -> bool:
-    r"""Add function frame. 
-            
+    r"""Add function frame.
+    
     :param pfn: pointer to function structure
     :param frsize: size of function local variables
     :param frregs: size of saved registers
@@ -79156,10 +86710,34 @@ def add_frame(pfn: func_t, frsize: int, frregs: int, argsize: int) -> bool:
     """
     ...
 
+def add_frame_ea(func_ea: ida_idaapi.ea_t, frsize: int, frregs: int, argsize: int) -> bool:
+    r"""Add function frame. 
+            
+    :param func_ea: any address of the function
+    :param frsize: size of function local variables
+    :param frregs: size of saved registers
+    :param argsize: size of function arguments range which will be purged upon return. this parameter is used for __stdcall and __pascal calling conventions. for other calling conventions please pass 0.
+    :returns: 1: ok
+    :returns: 0: failed (no function at func_ea, frame already exists)
+    """
+    ...
+
 def add_frame_member(pfn: func_t, name: str, offset: int, tif: tinfo_t, repr: value_repr_t = None, etf_flags: int = 0) -> bool:
+    r"""Add member to the frame type
+    
+    :param pfn: pointer to function
+    :param name: variable name, nullptr means autogenerate a name
+    :param offset: member offset in the frame structure, in bytes
+    :param tif: variable type
+    :param repr: variable representation
+    :returns: success
+    """
+    ...
+
+def add_frame_member_ea(func_ea: ida_idaapi.ea_t, name: str, offset: int, tif: tinfo_t, repr: value_repr_t = None, etf_flags: int = 0) -> bool:
     r"""Add member to the frame type 
             
-    :param pfn: pointer to function
+    :param func_ea: any address of the function
     :param name: variable name, nullptr means autogenerate a name
     :param offset: member offset in the frame structure, in bytes
     :param tif: variable type
@@ -79177,10 +86755,44 @@ def add_func(*args: Any) -> bool:
     """
     ...
 
-def add_func_ex(pfn: func_t) -> bool:
-    r"""Add a new function. If the fn->end_ea is BADADDR, then IDA will try to determine the function bounds by calling find_func_bounds(..., FIND_FUNC_DEFINE). 
+def add_func_auto_stkpnt(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t, delta: int) -> bool:
+    r"""Add automatic SP register change point. 
             
+    :param func_ea: any address of the function, may be BADADDR to auto-resolve
+    :param ea: linear address where SP changes. usually this is the end of the instruction which modifies the stack pointer ( insn_t::ea+ insn_t::size)
+    :param delta: difference between old and new values of SP
+    :returns: success
+    """
+    ...
+
+def add_func_ex(pfn: func_t) -> bool:
+    r"""Add a new function.
+    
     :param pfn: ptr to filled function structure
+    :returns: success
+    """
+    ...
+
+def add_func_regarg(func_ea: ida_idaapi.ea_t, reg: int, tif: tinfo_t, name: str) -> None:
+    ...
+
+def add_func_regvar(func_ea: ida_idaapi.ea_t, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, canon: str, user: str, cmt: str) -> int:
+    r"""Define a register variable. 
+            
+    :param func_ea: any address of the function
+    :param ea1: range of addresses within the function where the definition will be used
+    :param ea2: range of addresses within the function where the definition will be used
+    :param canon: name of a general register
+    :param user: user-defined name for the register
+    :param cmt: comment for the definition
+    :returns: Register variable error codes
+    """
+    ...
+
+def add_function_ex(fi: func_entry_info_t) -> bool:
+    r"""Add a new function using func_entry_info_t. If fi->end_ea is BADADDR, then IDA will try to determine the function bounds by calling find_func_bounds(..., FIND_FUNC_DEFINE). Uses fi->start_ea, fi->end_ea, and fi->get_flags(). On success, `fi` is updated with the resulting function properties. 
+            
+    :param fi: entry info describing the function to create
     :returns: success
     """
     ...
@@ -79297,8 +86909,8 @@ def add_regarg(pfn: func_t, reg: int, tif: tinfo_t, name: str) -> None:
     ...
 
 def add_regvar(pfn: func_t, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, canon: str, user: str, cmt: str) -> int:
-    r"""Define a register variable. 
-            
+    r"""Define a register variable.
+    
     :param pfn: function in which the definition will be created
     :param ea1: range of addresses within the function where the definition will be used
     :param ea2: range of addresses within the function where the definition will be used
@@ -79332,8 +86944,8 @@ def add_segm(para: ida_idaapi.ea_t, start: ida_idaapi.ea_t, end: ida_idaapi.ea_t
     ...
 
 def add_segm_ex(s: segment_t, name: str, sclass: str, flags: int) -> bool:
-    r"""Add a new segment. If a segment already exists at the specified range of addresses, this segment will be truncated. Instructions and data in the old segment will be deleted if the new segment has another addressing mode or another segment base address. 
-            
+    r"""Add a new segment.
+    
     :param s: pointer to filled segment structure. segment selector should have proper mapping (see set_selector()).
     * if s.start_ea==BADADDR then s.start_ea <- get_segm_base(&s)
     * if s.end_ea==BADADDR, then a segment up to the next segment will be created (if the next segment doesn't exist, then 1 byte segment will be created).
@@ -79344,6 +86956,20 @@ def add_segm_ex(s: segment_t, name: str, sclass: str, flags: int) -> bool:
     :param flags: Add segment flags
     :returns: 1: ok
     :returns: 0: failed, a warning message is displayed The specified default segment register values may be modified by processor modules (see ev_creating_segm). Also, if the default data segment value is BADSEL, it will be changed to the selector of the newly created segment. This ensures that the data segment is always correctly set, which is a good default for most processors.
+    """
+    ...
+
+def add_segment_ex(si: segment_info_t, flags: int) -> bool:
+    r"""Add a new segment using segment_info_t. If a segment already exists at the specified range of addresses, this segment will be truncated. Instructions and data in the old segment will be deleted if the new segment has another addressing mode or another segment base address. The segment name and class and comments are taken from the segment_info_t structure. 
+            
+    :param si: segment_info_t structure containing segment properties. Required fields: start_ea, end_ea, sel (or use setup_selector()). Optional fields: name, sclass, comments, align, comb, bitness, type, perm, flags, orgbase, defsr, color. segment selector should have proper mapping (see set_selector()).
+    * if s.start_ea==BADADDR then s.start_ea <- get_segm_base(&s)
+    * if s.end_ea==BADADDR, then a segment up to the next segment will be created (if the next segment doesn't exist, then 1 byte segment will be created).
+    * if the s.end_ea < s.start_ea, then fail.
+    * if s.end_ea is too high and the new segment would overlap the next segment, s.end_ea is adjusted properly.
+    :param flags: Add segment flags
+    :returns: true: segment was created successfully
+    :returns: false: failed, a warning message is displayed The specified default segment register values may be modified by processor modules (see ev_creating_segment). Also, if the default data segment value is BADSEL, it will be changed to the selector of the newly created segment. This ensures that the data segment is always correctly set, which is a good default for most processors.
     """
     ...
 
@@ -79358,6 +86984,9 @@ def add_segment_translation(segstart: ida_idaapi.ea_t, mappedseg: ida_idaapi.ea_
     ...
 
 def add_sourcefile(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, filename: str) -> bool:
+    ...
+
+def add_sourcefiles(items: sourcefilevec_t) -> bool:
     ...
 
 def add_spaces(s: str, len: int) -> str:
@@ -79385,6 +87014,15 @@ def add_tryblk(tb: tryblk_t) -> int:
     """
     ...
 
+def add_user_minsn(entry_ea: ida_idaapi.ea_t, uins: user_minsn_t, mmat: mba_maturity_t) -> None:
+    r"""Add a user-defined microinstruction action. This is a standalone version that loads user minsns from the database, adds the action, and saves back. Use it when an mba_t is not available. 
+            
+    :param entry_ea: entry address of the function
+    :param uins: user minsn to add (includes location, action, and instruction)
+    :param mmat: maturity level to add the action to
+    """
+    ...
+
 def add_user_stkpnt(ea: ida_idaapi.ea_t, delta: int) -> bool:
     r"""Add user-defined SP register change point. 
             
@@ -79408,6 +87046,24 @@ def add_word(ea: ida_idaapi.ea_t, value: int) -> None:
 def addon_count() -> int:
     r"""Get number of installed addons.
     
+    """
+    ...
+
+def adjust_segment_diff(seg_ea: ida_idaapi.ea_t, delta: int) -> int:
+    r"""Truncate and sign extend a delta depending on the segment by address. 
+            
+    :param seg_ea: any address within the segment
+    :param delta: delta to adjust
+    :returns: adjusted delta (0 if no segment at seg_ea)
+    """
+    ...
+
+def adjust_segment_ea(seg_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Truncate an address depending on the segment by address. 
+            
+    :param seg_ea: any address within the segment (used to determine bitness)
+    :param ea: address to adjust
+    :returns: adjusted address (ea if no segment at seg_ea)
     """
     ...
 
@@ -79441,7 +87097,7 @@ def allocate_selector(segbase: ida_idaapi.ea_t) -> int:
     ...
 
 def analyzer_options() -> None:
-    r"""Allow the user to set analyzer options. (show a dialog box) (ui_analyzer_options)
+    r"""Allow the user to set analyzer options. (show a dialog box) (ui_analyzer_options).
     
     """
     ...
@@ -79483,7 +87139,10 @@ def append_func_tail(pfn: func_t, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t) ->
     """
     ...
 
-def append_struct_fields(disp: int, n: int, path: int, flags: int, delta: int, appzero: bool) -> str:
+def append_func_tail_ea(func_ea: ida_idaapi.ea_t, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t) -> bool:
+    ...
+
+def append_struct_fields(disp: int, n: int, path: int, flags: int, delta: int, appzero: bool) -> Any:
     r"""Append names of struct fields to a name if the name is a struct name. 
             
     :param disp: displacement from the name
@@ -79686,7 +87345,7 @@ def ask_form(*args: Any) -> Any:
     """
     ...
 
-def ask_ident(defval: str, prompt: str) -> bool:
+def ask_ident(defval: str, prompt: str) -> Any:
     r"""Display a dialog box and wait for the user to input an identifier. If the user enters a non-valid identifier, this function displays a warning and allows the user to correct it. CPU register names are usually forbidden. 
             
     :returns: false if the user cancelled the dialog, otherwise returns true.
@@ -79816,13 +87475,6 @@ def attach_action_to_toolbar(toolbar_name: str, name: str) -> bool:
     ...
 
 def attach_custom_data_format(dtid: int, dfid: int) -> bool:
-    r"""Attach the data format to the data type. 
-            
-    :param dtid: data type id that can use the data format. 0 means all standard data types. Such data formats can be applied to any data item or instruction operands. For instruction operands, the data_format_t::value_size check is not performed by the kernel.
-    :param dfid: data format id
-    :returns: true: ok
-    :returns: false: no such `dtid`, or no such `dfid', or the data format has already been attached to the data type
-    """
     ...
 
 def attach_dynamic_action_to_popup(unused: Any, popup_handle: Any, desc: Any, popuppath: Any = None, flags: Any = 0) -> Any:
@@ -79991,7 +87643,7 @@ def begin_type_updating(utp: update_type_t) -> None:
     ...
 
 def bin_flag() -> int:
-    r"""Get number flag of the base, regardless of current processor - better to use num_flag()
+    r"""Get number flag of the base, regardless of current processor - better to use num_flag().
     
     """
     ...
@@ -80109,7 +87761,7 @@ def bookmarks_t_find_index(e: lochist_entry_t, ud: Any) -> int:
 def bookmarks_t_get(out: lochist_entry_t, _index: int, ud: Any) -> Any:
     ...
 
-def bookmarks_t_get_desc(e: lochist_entry_t, index: int, ud: Any) -> str:
+def bookmarks_t_get_desc(e: lochist_entry_t, index: int, ud: Any) -> Any:
     ...
 
 def bookmarks_t_get_dirtree_id(e: lochist_entry_t, ud: Any) -> dirtree_id_t:
@@ -80210,20 +87862,39 @@ def build_snapshot_tree(root: snapshot_t) -> bool:
     """
     ...
 
-def build_stkvar_name(pfn: func_t, v: int) -> str:
-    r"""Build automatic stack variable name. 
-            
+def build_stkvar_name(pfn: func_t, v: int) -> Any:
+    r"""Build automatic stack variable name.
+    
     :param pfn: pointer to function (can't be nullptr!)
     :param v: value of variable offset
     :returns: length of stack variable name or -1
     """
     ...
 
-def build_stkvar_xrefs(out: xreflist_t, pfn: func_t, start_offset: int, end_offset: int) -> None:
-    r"""Fill 'out' with a list of all the xrefs made from function 'pfn' to specified range of the pfn's stack frame. 
+def build_stkvar_name_ea(func_ea: ida_idaapi.ea_t, v: int) -> Any:
+    r"""Build automatic stack variable name. 
             
+    :param func_ea: any address of the function
+    :param v: value of variable offset
+    :returns: length of stack variable name or -1
+    """
+    ...
+
+def build_stkvar_xrefs(out: xreflist_t, pfn: func_t, start_offset: int, end_offset: int) -> None:
+    r"""Fill 'out' with a list of all the xrefs made from function 'pfn' to specified range of the pfn's stack frame.
+    
     :param out: the list of xrefs to fill.
     :param pfn: the function to scan.
+    :param start_offset: start frame structure offset, in bytes
+    :param end_offset: end frame structure offset, in bytes
+    """
+    ...
+
+def build_stkvar_xrefs_ea(out: xreflist_t, func_ea: ida_idaapi.ea_t, start_offset: int, end_offset: int) -> None:
+    r"""Fill 'out' with a list of all the xrefs from a function to the specified range of the function's stack frame. 
+            
+    :param out: the list of xrefs to fill
+    :param func_ea: any address of the function
     :param start_offset: start frame structure offset, in bytes
     :param end_offset: end frame structure offset, in bytes
     """
@@ -80263,7 +87934,7 @@ def calc_bg_color(ea: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def calc_c_cpp_name(name: str, type: tinfo_t, ccn_flags: int) -> str:
+def calc_c_cpp_name(name: str, type: tinfo_t, ccn_flags: int) -> Any:
     r"""Get C or C++ form of the name. 
             
     :param name: original (mangled or decorated) name
@@ -80307,9 +87978,20 @@ def calc_fixup_size(type: fixup_type_t) -> int:
     ...
 
 def calc_frame_offset(pfn: func_t, off: int, insn: insn_t = None, op: op_t = None) -> int:
+    r"""Calculate the offset of stack variable in the frame.
+    
+    :param pfn: pointer to function (cannot be nullptr)
+    :param off: the offset relative to stack pointer or frame pointer
+    :param insn: the instruction
+    :param op: the operand
+    :returns: the offset in the frame
+    """
+    ...
+
+def calc_frame_offset_ea(func_ea: ida_idaapi.ea_t, off: int, insn: insn_t = None, op: op_t = None) -> int:
     r"""Calculate the offset of stack variable in the frame. 
             
-    :param pfn: pointer to function (cannot be nullptr)
+    :param func_ea: any address of the function
     :param off: the offset relative to stack pointer or frame pointer
     :param insn: the instruction
     :param op: the operand
@@ -80325,6 +88007,12 @@ def calc_func_size(pfn: func_t) -> int:
             
     :param pfn: ptr to function structure
     """
+    ...
+
+def calc_func_size_ea(ea: ida_idaapi.ea_t) -> int:
+    ...
+
+def calc_function_metadata(out_fi: func_info_t, func_ea: ida_idaapi.ea_t, append_metadata: metadata_appender_ea_t = None) -> md5_t:
     ...
 
 def calc_gtn_flags(fromaddr: Any, ea: Any) -> Any:
@@ -80427,11 +88115,21 @@ def calc_retloc(fti: func_type_data_t) -> bool: ...
 def calc_retloc(retloc: argloc_t, rettype: tinfo_t, cc: callcnv_t) -> bool: ...
 
 def calc_stkvar_struc_offset(pfn: func_t, insn: insn_t, n: int) -> ida_idaapi.ea_t:
-    r"""Calculate offset of stack variable in the frame structure. 
-            
+    r"""Calculate offset of stack variable in the frame structure.
+    
     :param pfn: pointer to function (cannot be nullptr)
     :param insn: the instruction
-    :param n: 0..UA_MAXOP-1 operand number -1 if error, return BADADDR
+    :param n: 0..#UA_MAXOP-1 operand number -1 if error, return BADADDR
+    :returns: BADADDR if some error (issue a warning if stack frame is bad)
+    """
+    ...
+
+def calc_stkvar_struc_offset_ea(func_ea: ida_idaapi.ea_t, insn: insn_t, n: int) -> ida_idaapi.ea_t:
+    r"""Calculate offset of stack variable in the frame structure. 
+            
+    :param func_ea: any address of the function
+    :param insn: the instruction
+    :param n: 0..#UA_MAXOP-1 operand number -1 if error, return BADADDR
     :returns: BADADDR if some error (issue a warning if stack frame is bad)
     """
     ...
@@ -80467,6 +88165,14 @@ def calc_thunk_func_target(*args: Any) -> Any:
     r"""Calculate target of a thunk function. 
             
     :param pfn: pointer to function (may not be nullptr)
+    :returns: the target function or BADADDR
+    """
+    ...
+
+def calc_thunk_function_target(*args: Any) -> Any:
+    r"""Calculate thunk function target. 
+            
+    :param fi: function entry info
     :returns: the target function or BADADDR
     """
     ...
@@ -80583,9 +88289,18 @@ def change_hexrays_config(directive: str) -> bool:
     ...
 
 def change_segment_status(s: segment_t, is_deb_segm: bool) -> int:
-    r"""Convert a debugger segment to a regular segment and vice versa. When converting debug->regular, the memory contents will be copied to the database. 
-            
+    r"""Convert a debugger segment to a regular segment and vice versa.
+    
     :param s: segment to modify
+    :param is_deb_segm: new status of the segment
+    :returns: Change segment status result codes
+    """
+    ...
+
+def change_segment_status_by_ea(ea: ida_idaapi.ea_t, is_deb_segm: bool) -> int:
+    r"""Convert a debugger segment to a regular segment and vice versa by address. When converting debug->regular, the memory contents will be copied to the database. 
+            
+    :param ea: any address within the segment
     :param is_deb_segm: new status of the segment
     :returns: Change segment status result codes
     """
@@ -80678,11 +88393,18 @@ def choose_find(title: str) -> Any:
     ...
 
 def choose_func(title: str, default_ea: ida_idaapi.ea_t) -> func_t:
-    r"""Choose a function (ui_choose, chtype_func). 
+    r""":param title: chooser title
+    :param default_ea: ea of function to select by default
+    :returns: pointer to function that was selected, nullptr if none selected
+    """
+    ...
+
+def choose_func_ea(title: str, default_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Choose a function (ui_choose, chtype_func_ea). 
             
     :param title: chooser title
     :param default_ea: ea of function to select by default
-    :returns: pointer to function that was selected, nullptr if none selected
+    :returns: start ea of the selected function, BADADDR if none selected
     """
     ...
 
@@ -80729,7 +88451,16 @@ def choose_refresh(_self: Any) -> None:
     ...
 
 def choose_segm(title: str, default_ea: ida_idaapi.ea_t) -> segment_t:
-    r"""Choose a segment (ui_choose, chtype_segm). 
+    r"""Choose a segment (ui_choose, chtype_segm).
+    
+    :param title: chooser title
+    :param default_ea: ea of segment to select by default
+    :returns: pointer to segment that was selected, nullptr if none selected
+    """
+    ...
+
+def choose_segment(title: str, default_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Choose a segment (ui_choose, chtype_segment). 
             
     :param title: chooser title
     :param default_ea: ea of segment to select by default
@@ -80746,10 +88477,17 @@ def choose_srcp(title: str) -> sreg_range_t:
     ...
 
 def choose_stkvar_xref(pfn: func_t, srkvar_tid: int) -> ida_idaapi.ea_t:
-    r"""Choose an xref to a stack variable (ui_choose, chtype_name). 
-            
-    :param pfn: function
+    r""":param pfn: function
     :param srkvar_tid: frame variable TID
+    :returns: ea of the selected xref, BADADDR if none selected
+    """
+    ...
+
+def choose_stkvar_xref_ea(func_ea: ida_idaapi.ea_t, stkvar_tid: int) -> ida_idaapi.ea_t:
+    r"""Choose an xref to a stack variable (ui_choose, chtype_stkvar_xref_ea). 
+            
+    :param func_ea: function start address
+    :param stkvar_tid: frame variable TID
     :returns: ea of the selected xref, BADADDR if none selected
     """
     ...
@@ -80764,7 +88502,7 @@ def choose_struct(out: tinfo_t, title: str) -> bool:
     """
     ...
 
-def choose_til() -> str:
+def choose_til() -> Any:
     r"""Choose a type library (ui_choose, chtype_idatil). 
             
     :returns: true: 'buf' was filled with the name of the selected til
@@ -80772,7 +88510,7 @@ def choose_til() -> str:
     """
     ...
 
-def choose_trace_file() -> str:
+def choose_trace_file() -> Any:
     r"""Show the choose trace dialog.
     
     """
@@ -80901,7 +88639,7 @@ def clr_align_flow(ea: ida_idaapi.ea_t) -> None:
     ...
 
 def clr_cancelled() -> None:
-    r"""Clear "Cancelled" flag (ui_clr_cancelled)
+    r"""Clear "Cancelled" flag (ui_clr_cancelled).
     
     """
     ...
@@ -80970,7 +88708,7 @@ def clr_op_type(ea: ida_idaapi.ea_t, n: int) -> bool:
     r"""Remove operand representation information. (set operand representation to be 'undefined') 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all operands
     :returns: success
     """
     ...
@@ -81018,7 +88756,7 @@ def compact_til(ti: til_t) -> bool:
 def compare_tinfo(t1: typid_t, t2: typid_t, tcflags: int) -> bool:
     ...
 
-def compile_idc_file(nonnul_line: str) -> str:
+def compile_idc_file(nonnul_line: str) -> Any:
     ...
 
 def compile_idc_snippet(func: str, text: str, resolver: idc_resolver_t = None, only_safe_funcs: bool = False) -> str:
@@ -81033,7 +88771,7 @@ def compile_idc_snippet(func: str, text: str, resolver: idc_resolver_t = None, o
     """
     ...
 
-def compile_idc_text(nonnul_line: str) -> str:
+def compile_idc_text(nonnul_line: str) -> Any:
     ...
 
 def construct_macro(*args: Any) -> Any:
@@ -81073,7 +88811,7 @@ def continue_process() -> bool:
     ...
 
 def convert_pt_flags_to_hti(pt_flags: int) -> int:
-    r"""Convert Type parsing flags to Type formatting flags. Type parsing flags lesser than 0x10 don't have stable meaning and will be ignored (more on these flags can be seen in idc.idc) 
+    r"""Convert Type parsing flags  to Type formatting flags . Type parsing flags lesser than 0x10 don't have stable meaning and will be ignored (more on these flags can be seen in idc.idc) 
             
     """
     ...
@@ -81081,7 +88819,7 @@ def convert_pt_flags_to_hti(pt_flags: int) -> int:
 def convert_to_user_call(udc: udcall_t, cdg: codegen_t) -> int:
     r"""try to generate user-defined call for an instruction 
             
-    :returns: Microcode error code code: MERR_OK - user-defined call generated else - error (MERR_INSN == inacceptable udc.tif)
+    :returns: Microcode error code  code: MERR_OK - user-defined call generated else - error (MERR_INSN == inacceptable udc.tif)
     """
     ...
 
@@ -81104,9 +88842,9 @@ def copy_idcv(dst: idc_value_t, src: idc_value_t) -> int:
 def copy_named_type(dsttil: til_t, srctil: til_t, name: str) -> int:
     r"""Copy a named type from one til to another. This function will copy the specified type and all dependent types from the source type library to the destination library. 
             
-    :param dsttil: Destination til. It must have original types enabled
+    :param dsttil: Destination til. It must have ordinal types enabled
     :param srctil: Source til.
-    :param name: name of the type to copy
+    :param name: name of the type to copy, can not be an ordinal name is_ordinal_name()
     :returns: ordinal number of the copied type. 0 means error
     """
     ...
@@ -81134,13 +88872,13 @@ def cpu2ieee(ieee_out: fpvalue_t, cpu_fpval: Any, size: int) -> int:
     ...
 
 def create_16bit_data(ea: ida_idaapi.ea_t, length: int) -> bool:
-    r"""Convert to 16-bit quantity (take the byte size into account)
+    r"""Convert to 16-bit quantity (take the byte size into account).
     
     """
     ...
 
 def create_32bit_data(ea: ida_idaapi.ea_t, length: int) -> bool:
-    r"""Convert to 32-bit quantity (take the byte size into account)
+    r"""Convert to 32-bit quantity (take the byte size into account).
     
     """
     ...
@@ -81218,10 +88956,13 @@ def create_dword(ea: ida_idaapi.ea_t, length: int, force: bool = False) -> bool:
     """
     ...
 
-def create_empty_mba(mbr: mba_ranges_t, hf: hexrays_failure_t = None) -> mba_t:
-    r"""Create an empty microcode object.
-    
-    """
+@overload
+def create_empty_mba(mbr: mba_ranges_t, hf: hexrays_failure_t = None) -> Any:
+    r"""Create an empty microcode object"""
+    ...
+@overload
+def create_empty_mba(dcr: decomp_ranges_t, hf: hexrays_failure_t = None) -> mba_t:
+    r"""Create an empty microcode object (ea-based variant). Replaces the deprecated create_empty_mba() which takes mba_ranges_t."""
     ...
 
 def create_empty_widget(title: str, icon: int = -1) -> TWidget:
@@ -81355,9 +89096,14 @@ def create_nodeval_merge_handlers(out: merge_handlers_t, mhp: merge_handler_para
     """
     ...
 
-def create_numbered_type_name(ord: int) -> str:
-    r"""Create anonymous name for numbered type. This name can be used to reference a numbered type by its ordinal Ordinal names have the following format: '#' + set_de(ord) Returns: -1 if error, otherwise the name length 
-            
+def create_numbered_type_name(ord: int) -> Any:
+    r"""Create anonymous name for a numbered type.
+    
+    This name can be used to reference a numbered type by its ordinal.
+    Ordinal names have the format ``'#' + set_de(ord)``.
+    
+    :param ord: the ordinal
+    :returns: the ordinal name, or None on error.
     """
     ...
 
@@ -81481,7 +89227,7 @@ def create_undo_point(action_name: str, label: str) -> bool:
     ...
 
 def create_user_graph_place(node: int, lnnum: int) -> user_graph_place_t:
-    r"""Get a copy of a user_graph_place_t (returns a pointer to static storage)
+    r"""Get a copy of a user_graph_place_t (returns a pointer to static storage).
     
     """
     ...
@@ -81592,7 +89338,7 @@ def dbg_appcall(retval: idc_value_t, func_ea: ida_idaapi.ea_t, tid: int, ptif: t
     """
     ...
 
-def dbg_bin_search(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, data: compiled_binpat_vec_t, srch_flags: int) -> str:
+def dbg_bin_search(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, data: compiled_binpat_vec_t, srch_flags: int) -> Any:
     ...
 
 def dbg_can_query() -> Any:
@@ -81613,8 +89359,8 @@ def dbg_del_thread(tid: int) -> None:
     """
     ...
 
-def dbg_get_input_path() -> str:
-    r"""Get debugger input file name/path (see LFLG_DBG_NOPATH)
+def dbg_get_input_path() -> Any:
+    r"""Get debugger input file name/path (see LFLG_DBG_NOPATH).
     
     """
     ...
@@ -81681,7 +89427,7 @@ def debug_hexrays_ctree(level: int, msg: str) -> None:
     ...
 
 def dec_flag() -> int:
-    r"""Get number flag of the base, regardless of current processor - better to use num_flag()
+    r"""Get number flag of the base, regardless of current processor - better to use num_flag().
     
     """
     ...
@@ -81709,7 +89455,7 @@ def decode_prev_insn(out: insn_t, ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
             
     :param out: the resulting instruction
     :param ea: the address to decode the previous instruction from
-    :returns: the previous instruction address (BADADDR-no such insn)
+    :returns: the previous instruction address (#BADADDR-no such insn)
     """
     ...
 
@@ -81726,7 +89472,17 @@ def decompile_func(pfn: func_t, hf: hexrays_failure_t = None, decomp_flags: int 
             
     :param pfn: pointer to function to decompile
     :param hf: extended error information (if failed)
-    :param decomp_flags: bitwise combination of decompile() flags... bits
+    :param decomp_flags: bitwise combination of decompile() flags ... bits
+    :returns: pointer to the decompilation result (a reference counted pointer). nullptr if failed.
+    """
+    ...
+
+def decompile_function(func_ea: ida_idaapi.ea_t, hf: hexrays_failure_t = None, decomp_flags: int = 0) -> cfuncptr_t:
+    r"""Decompile a function (ea-based variant). Multiple decompilations of the same function return the same object. Replaces the deprecated decompile_func(func_t *). 
+            
+    :param func_ea: start address of the function to decompile
+    :param hf: extended error information (if failed)
+    :param decomp_flags: bitwise combination of decompile() flags ... bits
     :returns: pointer to the decompilation result (a reference counted pointer). nullptr if failed.
     """
     ...
@@ -81741,15 +89497,20 @@ def decompile_many(outfile: str, funcaddrs: uint64vec_t, flags: int) -> bool:
     """
     ...
 
-def decorate_name(*args: Any) -> str:
-    r"""Decorate/undecorate a C symbol name. 
-            
-    :param out: output buffer
+def decorate_name(*args: Any) -> Any:
+    r"""Decorate/undecorate a C symbol name.
+    
+    This function has the following signatures:
+    
+        1. decorate_name(name: str, should_decorate: bool) -> Union[str, None]
+        2. decorate_name(name: str, should_decorate: bool, cc: int,
+                         type: tinfo_t = None) -> Union[str, None]
+    
     :param name: name of symbol
-    :param should_decorate: true-decorate name, false-undecorate
-    :param cc: calling convention
-    :param type: name type (nullptr-unknown)
-    :returns: success
+    :param should_decorate: True to decorate, False to undecorate
+    :param cc: calling convention (form 2)
+    :param type: type info (form 2, may be None)
+    :returns: the (un)decorated name, or None on failure.
     """
     ...
 
@@ -81777,9 +89538,21 @@ def define_exception(code: int, name: str, desc: str, flags: int) -> str:
     ...
 
 def define_stkvar(pfn: func_t, name: str, off: int, tif: tinfo_t, repr: value_repr_t = None) -> bool:
+    r"""Define/redefine a stack variable.
+    
+    :param pfn: pointer to function
+    :param name: variable name, nullptr means autogenerate a name
+    :param off: offset of the stack variable in the frame. negative values denote local variables, positive - function arguments.
+    :param tif: variable type
+    :param repr: variable representation
+    :returns: success
+    """
+    ...
+
+def define_stkvar_ea(func_ea: ida_idaapi.ea_t, name: str, off: int, tif: tinfo_t, repr: value_repr_t = None) -> bool:
     r"""Define/redefine a stack variable. 
             
-    :param pfn: pointer to function
+    :param func_ea: any address of the function
     :param name: variable name, nullptr means autogenerate a name
     :param off: offset of the stack variable in the frame. negative values denote local variables, positive - function arguments.
     :param tif: variable type
@@ -81854,9 +89627,17 @@ def del_fixup(source: ida_idaapi.ea_t) -> None:
     ...
 
 def del_frame(pfn: func_t) -> bool:
+    r"""Delete a function frame.
+    
+    :param pfn: pointer to function structure
+    :returns: success
+    """
+    ...
+
+def del_frame_ea(func_ea: ida_idaapi.ea_t) -> bool:
     r"""Delete a function frame. 
             
-    :param pfn: pointer to function structure
+    :param func_ea: any address of the function
     :returns: success
     """
     ...
@@ -81865,6 +89646,26 @@ def del_func(ea: ida_idaapi.ea_t) -> bool:
     r"""Delete a function. 
             
     :param ea: any address in the function entry chunk
+    :returns: success
+    """
+    ...
+
+def del_func_regvar(func_ea: ida_idaapi.ea_t, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, canon: str) -> int:
+    r"""Delete a register variable definition. 
+            
+    :param func_ea: any address of the function
+    :param ea1: range of addresses within the function where the definition holds
+    :param ea2: range of addresses within the function where the definition holds
+    :param canon: name of a general register
+    :returns: Register variable error codes
+    """
+    ...
+
+def del_func_stkpnt(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> bool:
+    r"""Delete SP register change point. 
+            
+    :param func_ea: any address of the function, may be BADADDR to auto-resolve
+    :param ea: linear address
     :returns: success
     """
     ...
@@ -81971,8 +89772,8 @@ def del_refinfo(ea: ida_idaapi.ea_t, n: int) -> bool:
     ...
 
 def del_regvar(pfn: func_t, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, canon: str) -> int:
-    r"""Delete a register variable definition. 
-            
+    r"""Delete a register variable definition.
+    
     :param pfn: function in question
     :param ea1: range of addresses within the function where the definition holds
     :param ea2: range of addresses within the function where the definition holds
@@ -82021,8 +89822,8 @@ def del_sreg_range(ea: ida_idaapi.ea_t, rg: int) -> bool:
     ...
 
 def del_stkpnt(pfn: func_t, ea: ida_idaapi.ea_t) -> bool:
-    r"""Delete SP register change point. 
-            
+    r"""Delete SP register change point.
+    
     :param pfn: pointer to the function. may be nullptr.
     :param ea: linear address
     :returns: success
@@ -82057,6 +89858,17 @@ def del_tryblks(range: range_t) -> None:
     """
     ...
 
+def del_user_minsn(entry_ea: ida_idaapi.ea_t, loc: minsn_locator_t, action: user_minsn_action_t, mmat: mba_maturity_t) -> bool:
+    r"""Delete a user-defined microinstruction action. This is a standalone version that loads user minsns from the database, deletes the action, and saves back. Use it when an mba_t is not available. 
+            
+    :param entry_ea: entry address of the function
+    :param loc: location of the target microinstruction
+    :param action: action type to delete (UMA_DEL, UMA_INS, or UMA_APP)
+    :param mmat: maturity level to delete the action from
+    :returns: true if the action was found and deleted
+    """
+    ...
+
 def del_value(ea: ida_idaapi.ea_t) -> None:
     r"""Delete byte value from flags. The corresponding byte becomes uninitialized. 
             
@@ -82081,9 +89893,19 @@ def delete_extra_cmts(ea: ida_idaapi.ea_t, what: int) -> None:
     ...
 
 def delete_frame_members(pfn: func_t, start_offset: int, end_offset: int) -> bool:
+    r"""Delete frame members
+    
+    :param pfn: pointer to function
+    :param start_offset: member offset to start deletion from, in bytes
+    :param end_offset: member offset which not included in the deletion, in bytes
+    :returns: success
+    """
+    ...
+
+def delete_frame_members_ea(func_ea: ida_idaapi.ea_t, start_offset: int, end_offset: int) -> bool:
     r"""Delete frame members 
             
-    :param pfn: pointer to function
+    :param func_ea: any address of the function
     :param start_offset: member offset to start deletion from, in bytes
     :param end_offset: member offset which not included in the deletion, in bytes
     :returns: success
@@ -82121,6 +89943,20 @@ def delete_toolbar(name: str) -> bool:
             
     :param name: name of toolbar
     :returns: success
+    """
+    ...
+
+def delete_wrong_frame_info_ea(func_ea: ida_idaapi.ea_t, should_reanalyze: Any) -> int:
+    r"""Find and delete wrong frame info. Namely, we delete:
+    * unreferenced stack variable definitions
+    * references to dead stack variables (i.e. operands displayed in red) these operands will be untyped and most likely displayed in hex.
+    
+    
+    We also plan to reanalyze instruction with the stack frame references 
+            
+    :param func_ea: any address of the function
+    :param should_reanalyze: callback to determine which instructions to reanalyze
+    :returns: number of deleted definitions or -1 if no function
     """
     ...
 
@@ -82205,13 +90041,6 @@ def detach_action_from_toolbar(toolbar_name: str, name: str) -> bool:
     ...
 
 def detach_custom_data_format(dtid: int, dfid: int) -> bool:
-    r"""Detach the data format from the data type. Unregistering a custom data type detaches all attached data formats, no need to detach them explicitly. You still need unregister them. Unregistering a custom data format detaches it from all attached data types. 
-            
-    :param dtid: data type id to detach data format from
-    :param dfid: data format id to detach
-    :returns: true: ok
-    :returns: false: no such `dtid`, or no such `dfid', or the data format was not attached to the data type
-    """
     ...
 
 def detach_process() -> bool:
@@ -82229,6 +90058,12 @@ def diff_metadata(handler: func_md_diff_handler_t, left: func_info_t, right: fun
 def diff_trace_file(filename: str) -> bool:
     r"""Show difference between the current trace and the one from 'filename'.
     
+    """
+    ...
+
+def dirtree_restore_prefix_sep(s: str) -> None:
+    r"""Replace DIRTREE_FOLDED_SEP bytes by '/' in-place, for display only. The result is NOT safe for using with dirtree path APIs (rmdir, cd, ...); the embedded '/' would be interpreted as a path separator. 
+            
     """
     ...
 
@@ -82310,8 +90145,8 @@ def dummy_ptrtype(ptrsize: int, isfp: bool) -> tinfo_t:
     """
     ...
 
-def dump_func_type_data(fti: func_type_data_t, praloc_bits: int) -> str:
-    r"""Use func_type_data_t::dump()
+def dump_func_type_data(fti: func_type_data_t, praloc_bits: int) -> Any:
+    r"""Use func_type_data_t::dump().
     
     """
     ...
@@ -82328,7 +90163,7 @@ def ea2node(ea: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def ea2str(ea: ida_idaapi.ea_t) -> str:
+def ea2str(ea: ida_idaapi.ea_t) -> Any:
     r"""Convert linear address to UTF-8 string.
     
     """
@@ -82510,7 +90345,7 @@ def end_ea2node(ea: ida_idaapi.ea_t) -> int:
     ...
 
 def end_type_updating(utp: update_type_t) -> None:
-    r"""Mark the end of a large update operation on the types (see begin_type_updating())
+    r"""Mark the end of a large update operation on the types (see begin_type_updating()).
     
     """
     ...
@@ -82563,7 +90398,7 @@ def error(message: Any) -> Any:
     """
     ...
 
-def eval_expr(rv: idc_value_t, where: ida_idaapi.ea_t, line: str) -> str:
+def eval_expr(rv: idc_value_t, where: ida_idaapi.ea_t, line: str) -> Any:
     r"""Compile and calculate an expression. 
             
     :param rv: pointer to the result
@@ -82574,13 +90409,13 @@ def eval_expr(rv: idc_value_t, where: ida_idaapi.ea_t, line: str) -> str:
     """
     ...
 
-def eval_idc_expr(rv: idc_value_t, where: ida_idaapi.ea_t, line: str) -> str:
+def eval_idc_expr(rv: idc_value_t, where: ida_idaapi.ea_t, line: str) -> Any:
     r"""Same as eval_expr(), but will always use the IDC interpreter regardless of the currently installed extlang. 
             
     """
     ...
 
-def exec_idc_script(result: idc_value_t, path: str, func: str, args: idc_value_t, argsnum: int) -> str:
+def exec_idc_script(result: idc_value_t, path: str, func: str, args: idc_value_t, argsnum: int) -> Any:
     r"""Compile and execute IDC function(s) from file. 
             
     :param result: ptr to idc_value_t to hold result of the function. If execution fails, this variable will contain the exception information. You may pass nullptr if you are not interested in the returned value.
@@ -82684,7 +90519,7 @@ def extract_module_from_archive(fname: str, is_remote: bool = False) -> Any:
     """
     ...
 
-def extract_name(line: str, x: int) -> str:
+def extract_name(line: str, x: int) -> Any:
     r"""Extract a name or address from the specified string. 
             
     :param line: input string
@@ -82736,13 +90571,13 @@ def f_has_xref(f: int, arg2: Any) -> bool:
     ...
 
 def f_is_align(F: int, arg2: Any) -> bool:
-    r"""See is_align()
+    r"""See is_align().
     
     """
     ...
 
 def f_is_byte(F: int, arg2: Any) -> bool:
-    r"""See is_byte()
+    r"""See is_byte().
     
     """
     ...
@@ -82754,7 +90589,7 @@ def f_is_code(F: int, arg2: Any) -> bool:
     ...
 
 def f_is_custom(F: int, arg2: Any) -> bool:
-    r"""See is_custom()
+    r"""See is_custom().
     
     """
     ...
@@ -82766,19 +90601,19 @@ def f_is_data(F: int, arg2: Any) -> bool:
     ...
 
 def f_is_double(F: int, arg2: Any) -> bool:
-    r"""See is_double()
+    r"""See is_double().
     
     """
     ...
 
 def f_is_dword(F: int, arg2: Any) -> bool:
-    r"""See is_dword()
+    r"""See is_dword().
     
     """
     ...
 
 def f_is_float(F: int, arg2: Any) -> bool:
-    r"""See is_float()
+    r"""See is_float().
     
     """
     ...
@@ -82796,31 +90631,31 @@ def f_is_not_tail(F: int, arg2: Any) -> bool:
     ...
 
 def f_is_oword(F: int, arg2: Any) -> bool:
-    r"""See is_oword()
+    r"""See is_oword().
     
     """
     ...
 
 def f_is_pack_real(F: int, arg2: Any) -> bool:
-    r"""See is_pack_real()
+    r"""See is_pack_real().
     
     """
     ...
 
 def f_is_qword(F: int, arg2: Any) -> bool:
-    r"""See is_qword()
+    r"""See is_qword().
     
     """
     ...
 
 def f_is_strlit(F: int, arg2: Any) -> bool:
-    r"""See is_strlit()
+    r"""See is_strlit().
     
     """
     ...
 
 def f_is_struct(F: int, arg2: Any) -> bool:
-    r"""See is_struct()
+    r"""See is_struct().
     
     """
     ...
@@ -82832,19 +90667,19 @@ def f_is_tail(F: int, arg2: Any) -> bool:
     ...
 
 def f_is_tbyte(F: int, arg2: Any) -> bool:
-    r"""See is_tbyte()
+    r"""See is_tbyte().
     
     """
     ...
 
 def f_is_word(F: int, arg2: Any) -> bool:
-    r"""See is_word()
+    r"""See is_word().
     
     """
     ...
 
 def f_is_yword(F: int, arg2: Any) -> bool:
-    r"""See is_yword()
+    r"""See is_yword().
     
     """
     ...
@@ -82892,7 +90727,70 @@ def find_byter(sEA: ida_idaapi.ea_t, size: int, value: int, bin_search_flags: in
     """
     ...
 
-def find_bytes(bs: Any, range_start: int, range_size: typing.Optional[int] = None, range_end: typing.Optional[int] = 18446744073709551615, mask: Any = None, flags: typing.Optional[int] = 8, radix: typing.Optional[int] = 16, strlit_encoding: Any = 0) -> int:
+def find_bytes(bs: Any, range_start: int, range_size: typing.Optional[int] = None, range_end: typing.Optional[int] = 18446744073709551615, mask: typing.Optional[bytes] = None, flags: typing.Optional[int] = 8, radix: typing.Optional[int] = 16, strlit_encoding: Any = 0) -> int:
+    r"""
+    Search for bytes in the program.
+    
+    The pattern can be either a textual binary pattern (`str`) or a raw
+    `bytes` buffer optionally combined with `mask`. A textual pattern is
+    a space-separated sequence of hex bytes, `?` wildcards, and quoted
+    string literals. A `?` may also stand in for a single hex nibble
+    inside a 2-char hex byte token (e.g. `A?` or `?5`), as long as the
+    token is whitespace/comma-delimited on both sides. Examples (pattern
+    contents, without surrounding Python quotes):
+      * `B8 ? ? ? ? 90`  -- byte `0xB8`, four wildcards, byte `0x90`
+                            (`mov eax, imm32; nop` with any immediate)
+      * `48 8? ?? 24`    -- 0x48, any byte starting with 0x8, any byte,
+                            0x24 (e.g. matches `mov [rsp+...]` family)
+      * `"Hello", 0`     -- the bytes of "Hello" followed by a null byte
+    
+    The search range can be specified three ways. From highest to lowest
+    precedence:
+      * by size, via `range_size` (then `range_end = range_start + range_size`)
+      * by `range_t` passed as `range_start` (its `start_ea` and `end_ea`
+        become the search range's start and end addresses)
+      * by end address, via `range_end`
+    
+    The function returns `ida_idaapi.BADADDR` when no further match is
+    found. To iterate over all matches in a window:
+      * forward (default): after a match at `ea`, set `range_start = ea + 1`
+        and call again.
+      * backward (`BIN_SEARCH_BACKWARD`): the window is unchanged but the
+        highest-address match is returned; after a match at `ea`, set
+        `range_end = ea` and call again.
+    
+    :param bs: the pattern. If `str`, parsed as a textual binary pattern
+               (see the intro above for the syntax); quoted string literals
+               inside it are converted to bytes per `strlit_encoding`. If
+               `bytes`, used literally and combined with `mask` if provided.
+    :param range_start: start address of the search range (inclusive); or
+               a `range_t` (see precedence list above).
+    :param range_size: size of the search range (see precedence list above).
+    :param range_end: end address of the search range (exclusive). The
+               entire pattern must fit within the range, i.e. a match is
+               accepted only when `match_ea + len(pattern) <= range_end`.
+               Defaults to `BADADDR`.
+    :param mask: optional byte mask, applied when `bs` is `bytes`. A non-zero
+               mask byte means the corresponding pattern byte must match;
+               a zero mask byte makes that position a wildcard. Ignored for
+               textual patterns (the mask is derived from `?` wildcards in
+               the pattern).
+    :param flags: combination of `BIN_SEARCH_*` flags. Direction is
+               controlled by `BIN_SEARCH_FORWARD` (default) or
+               `BIN_SEARCH_BACKWARD`. Case sensitivity only affects quoted
+               string literals in a textual pattern: they match
+               case-insensitively by default; pass `BIN_SEARCH_CASE` to
+               require exact case. Hex byte tokens are unaffected (they
+               are literal byte values, not text). Use `BIN_SEARCH_BITMASK`
+               for bit-granular `mask` interpretation. Note: these are
+               *not* interchangeable with `ida_search.SEARCH_*` (which
+               belong to the legacy `find_text`/`find_imm` API).
+    :param radix: numeric base for tokens in a textual pattern (8, 10, or 16).
+    :param strlit_encoding: encoding (name or index) used to convert quoted
+               string literals inside a textual pattern into bytes.
+    :returns: address of the next match, or `ida_idaapi.BADADDR` if no match.
+    
+    """
     ...
 
 def find_code(ea: ida_idaapi.ea_t, sflag: int) -> ida_idaapi.ea_t:
@@ -82957,11 +90855,35 @@ def find_free_selector() -> int:
     ...
 
 def find_func_bounds(nfn: func_t, flags: int) -> int:
-    r"""Determine the boundaries of a new function. This function tries to find the start and end addresses of a new function. It calls the module with processor_t::func_bounds in order to fine tune the function boundaries. 
-            
+    r"""Determine the boundaries of a new function.
+    
     :param nfn: structure to fill with information \ nfn->start_ea points to the start address of the new function.
     :param flags: Find function bounds flags
     :returns: Find function bounds result codes
+    """
+    ...
+
+@overload
+def find_func_regvar(rv: regvar_t, func_ea: ida_idaapi.ea_t, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, canon: str, user: str) -> int:
+    r"""Find a register variable definition (powerful version). One of 'canon' and 'user' should be nullptr. If both 'canon' and 'user' are nullptr it returns the first regvar definition in the range. 
+            
+    :returns: index of the register variable, or -1 if not found
+    """
+    ...
+@overload
+def find_func_regvar(rv: regvar_t, func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t, canon: str) -> int:
+    r"""Find a register variable definition. 
+            
+    :returns: index of the register variable, or -1 if not found
+    """
+    ...
+
+def find_function_bounds(fi: func_entry_info_t, flags: int) -> int:
+    r"""Determine the boundaries of a new function. This function tries to find the start and end addresses of a new function. It calls the module with processor_t::func_bounds in order to fine tune the function boundaries. 
+            
+    :param fi: entry info to fill with information. \ fi->start_ea points to the start address of the new function.
+    :param flags: Find function bounds flags
+    :returns: Find function bounds result codes. On success, `fi` is updated with the resulting function properties.
     """
     ...
 
@@ -83038,17 +90960,29 @@ def find_reg_value_info(rvi: reg_value_info_t, ea: ida_idaapi.ea_t, reg: int, ma
     """
     ...
 
-@overload
-def find_regvar(pfn: func_t, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, canon: str, user: str) -> regvar_t:
-    r"""Find a register variable definition (powerful version). One of 'canon' and 'user' should be nullptr. If both 'canon' and 'user' are nullptr it returns the first regvar definition in the range. 
+def find_regname_value_info(rvi: reg_value_info_t, ea: ida_idaapi.ea_t, regname: str, max_depth: int = 0) -> bool:
+    r"""Find register value using the register tracker. 
             
+    :param rvi: the found value with additional attributes
+    :param ea: the address to find a value at
+    :param regname: the name of the register to find
+    :param max_depth: the number of basic blocks to look before aborting the search and returning the unknown value. 0 means the value of REGTRACK_MAX_DEPTH from ida.cfg for ordinal registers or REGTRACK_FUNC_MAX_DEPTH for the function-wide registers, -1 means the value of REGTRACK_FUNC_MAX_DEPTH from ida.cfg.
+    :returns: 'false': the processor module does not support a register tracker
+    :returns: 'true': the found value is in RVI
+    """
+    ...
+
+@overload
+def find_regvar(pfn: func_t, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, canon: str, user: str) -> Any:
+    r"""Find a register variable definition (powerful version).
+    
     :returns: nullptr-not found, otherwise ptr to regvar_t
     """
     ...
 @overload
-def find_regvar(pfn: func_t, ea: ida_idaapi.ea_t, canon: str) -> regvar_t:
-    r"""Find a register variable definition. 
-            
+def find_regvar(pfn: func_t, ea: ida_idaapi.ea_t, canon: str) -> Any:
+    r"""Find a register variable definition.
+    
     :returns: nullptr-not found, otherwise ptr to regvar_t
     """
     ...
@@ -83061,7 +90995,7 @@ def find_selector(base: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def find_sp_value(ea: ida_idaapi.ea_t, reg: int = -1) -> int:
+def find_sp_value(ea: ida_idaapi.ea_t, reg: int = -1) -> sval_t:
     r"""Find a value of the SP based register using the register tracker. 
             
     :param ea: the address to find a value at
@@ -83073,6 +91007,48 @@ def find_sp_value(ea: ida_idaapi.ea_t, reg: int = -1) -> int:
     ...
 
 def find_string(_str: str, range_start: int, range_end: typing.Optional[int] = 18446744073709551615, range_size: typing.Optional[int] = None, strlit_encoding: Any = 0, flags: typing.Optional[int] = 8) -> int:
+    r"""
+    Search for an occurrence of a string in the program.
+    
+    Convenience wrapper around `find_bytes()` that quotes `_str` and
+    delegates the search. The string is encoded according to
+    `strlit_encoding` before matching, so the same call can locate ASCII,
+    UTF-16, or any other registered encoding.
+    
+    The search range can be specified three ways. From highest to lowest
+    precedence: `range_size`, `range_t` passed as `range_start`, or
+    `range_end`.
+    
+    The function returns `ida_idaapi.BADADDR` when no further match is
+    found. To iterate over all matches in a window:
+      * forward (default): after a match at `ea`, set `range_start = ea + 1`
+        and call again.
+      * backward (`BIN_SEARCH_BACKWARD`): the window is unchanged but the
+        highest-address match is returned; after a match at `ea`, set
+        `range_end = ea` and call again.
+    
+    :param _str: the string to look for (plain text -- no quoting needed;
+                 embedded double quotes are escaped automatically).
+    :param range_start: start address of the search range (inclusive); or
+                 a `range_t` (see precedence list above).
+    :param range_end: end address of the search range (exclusive). The
+                 entire encoded string must fit within the range, i.e. a
+                 match is accepted only when
+                 `match_ea + len(encoded_str) <= range_end`. Defaults to
+                 `BADADDR`.
+    :param range_size: size of the search range (see precedence list above).
+    :param strlit_encoding: encoding (name or index) used to convert `_str`
+                 into bytes.
+    :param flags: combination of `BIN_SEARCH_*` flags. Direction is
+                 controlled by `BIN_SEARCH_FORWARD` (default) or
+                 `BIN_SEARCH_BACKWARD`. By default the match is
+                 case-insensitive; pass `BIN_SEARCH_CASE` to require exact
+                 case. Note: these are *not* interchangeable with
+                 `ida_search.SEARCH_*` (which belong to the legacy
+                 `find_text`/`find_imm` API).
+    :returns: address of the next match, or `ida_idaapi.BADADDR` if no match.
+    
+    """
     ...
 
 def find_suspop(ea: ida_idaapi.ea_t, sflag: int) -> int:
@@ -83158,7 +91134,7 @@ def for_all_arglocs(vv: aloc_visitor_t, vloc: argloc_t, size: int, off: int = 0)
     ...
 
 def for_all_const_arglocs(vv: const_aloc_visitor_t, vloc: argloc_t, size: int, off: int = 0) -> int:
-    r"""See for_all_arglocs()
+    r"""See for_all_arglocs().
     
     """
     ...
@@ -83206,26 +91182,58 @@ def formchgcbfa_show_field(p_fa: int, fid: int, show: bool) -> bool:
     ...
 
 def frame_off_args(pfn: func_t) -> ida_idaapi.ea_t:
-    r"""Get starting address of arguments section.
+    r"""Get starting address of arguments section
     
+    """
+    ...
+
+def frame_off_args_ea(func_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Get starting address of arguments section 
+            
+    :param func_ea: any address of the function
+    :returns: offset in frame or BADADDR on failure
     """
     ...
 
 def frame_off_lvars(pfn: func_t) -> ida_idaapi.ea_t:
-    r"""Get start address of local variables section.
+    r"""Get start address of local variables section
     
+    """
+    ...
+
+def frame_off_lvars_ea(func_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Get start address of local variables section 
+            
+    :param func_ea: any address of the function
+    :returns: offset in frame or BADADDR on failure
     """
     ...
 
 def frame_off_retaddr(pfn: func_t) -> ida_idaapi.ea_t:
-    r"""Get starting address of return address section.
+    r"""Get starting address of return address section
     
     """
     ...
 
+def frame_off_retaddr_ea(func_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Get starting address of return address section 
+            
+    :param func_ea: any address of the function
+    :returns: offset in frame or BADADDR on failure
+    """
+    ...
+
 def frame_off_savregs(pfn: func_t) -> ida_idaapi.ea_t:
-    r"""Get starting address of saved registers section.
+    r"""Get starting address of saved registers section
     
+    """
+    ...
+
+def frame_off_savregs_ea(func_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Get starting address of saved registers section 
+            
+    :param func_ea: any address of the function
+    :returns: offset in frame or BADADDR on failure
     """
     ...
 
@@ -83255,9 +91263,6 @@ def free_til(ti: til_t) -> None:
     ...
 
 def func_contains(pfn: func_t, ea: ida_idaapi.ea_t) -> bool:
-    r"""Does the given function contain the given address?
-    
-    """
     ...
 
 def func_does_return(callee: ida_idaapi.ea_t) -> bool:
@@ -83284,6 +91289,69 @@ def func_tail_iterator_set(fti: func_tail_iterator_t, pfn: func_t, ea: ida_idaap
 def func_tail_iterator_set_ea(fti: func_tail_iterator_t, ea: ida_idaapi.ea_t) -> bool:
     ...
 
+def function_contains(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> bool:
+    ...
+
+def function_item_iterator_decode_preceding_insn(fii: function_item_iterator_t, visited: eavec_t, p_farref: bool, out: insn_t) -> bool:
+    ...
+
+def function_item_iterator_decode_prev_insn(fii: function_item_iterator_t, out: insn_t) -> bool:
+    ...
+
+def function_item_iterator_next(fii: function_item_iterator_t, testf: testf_t, ud: Any) -> bool:
+    ...
+
+def function_item_iterator_prev(fii: function_item_iterator_t, testf: testf_t, ud: Any) -> bool:
+    ...
+
+def function_item_iterator_succ(fii: function_item_iterator_t, testf: testf_t, ud: Any) -> bool:
+    ...
+
+def function_parent_iterator_first(fpi: function_parent_iterator_t) -> bool:
+    ...
+
+def function_parent_iterator_last(fpi: function_parent_iterator_t) -> bool:
+    ...
+
+def function_parent_iterator_next(fpi: function_parent_iterator_t) -> bool:
+    ...
+
+def function_parent_iterator_parent(fpi: function_parent_iterator_t) -> ida_idaapi.ea_t:
+    ...
+
+def function_parent_iterator_prev(fpi: function_parent_iterator_t) -> bool:
+    ...
+
+def function_parent_iterator_set(fpi: function_parent_iterator_t, tail_ea: ida_idaapi.ea_t) -> bool:
+    ...
+
+def function_tail_iterator_chunk(out: range_t, fti: function_tail_iterator_t) -> None:
+    ...
+
+def function_tail_iterator_first(fti: function_tail_iterator_t) -> bool:
+    ...
+
+def function_tail_iterator_last(fti: function_tail_iterator_t) -> bool:
+    ...
+
+def function_tail_iterator_main(fti: function_tail_iterator_t) -> bool:
+    ...
+
+def function_tail_iterator_next(fti: function_tail_iterator_t) -> bool:
+    ...
+
+def function_tail_iterator_prev(fti: function_tail_iterator_t) -> bool:
+    ...
+
+def function_tail_iterator_set(fti: function_tail_iterator_t, func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> bool:
+    ...
+
+def function_tail_iterator_set_ea(fti: function_tail_iterator_t, ea: ida_idaapi.ea_t) -> bool:
+    ...
+
+def function_tail_iterator_set_range(fti: function_tail_iterator_t, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t) -> bool:
+    ...
+
 def gcc_layout() -> bool:
     r"""Should use the struct/union layout as done by gcc?
     
@@ -83304,8 +91372,8 @@ def gen_complex_call_chart(filename: str, wait: str, title: str, ea1: ida_idaapi
     """
     ...
 
-def gen_decorate_name(name: str, should_decorate: bool, cc: callcnv_t, type: tinfo_t) -> str:
-    r"""Generic function for decorate_name() (may be used in IDP modules)
+def gen_decorate_name(name: str, should_decorate: bool, cc: callcnv_t, type: tinfo_t) -> Any:
+    r"""Generic function for decorate_name() (may be used in IDP modules).
     
     """
     ...
@@ -83364,6 +91432,19 @@ def gen_flow_graph(filename: str, title: str, pfn: func_t, ea1: ida_idaapi.ea_t,
     """
     ...
 
+def gen_flow_graph_ea(filename: str, title: str, func_ea: ida_idaapi.ea_t, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, gflags: int) -> bool:
+    r"""Build and display a flow graph (ea-based). 
+            
+    :param filename: output file name. the file extension is not used. maybe nullptr.
+    :param title: graph title
+    :param func_ea: function start address, or BADADDR
+    :param ea1: if func_ea == BADADDR, then the address range
+    :param ea2: if func_ea == BADADDR, then the address range
+    :param gflags: combination of Flow graph building flags. if none of CHART_GEN_DOT, CHART_GEN_GDL, CHART_WINGRAPH is specified, the function will return false
+    :returns: success. if fails, a warning message is displayed on the screen
+    """
+    ...
+
 def gen_gdl(g: gdl_graph_t, fname: str) -> None:
     r"""Create GDL file for graph.
     
@@ -83376,14 +91457,17 @@ def gen_idb_event(*args: Any) -> None:
     """
     ...
 
-def gen_microcode(mbr: mba_ranges_t, hf: hexrays_failure_t = None, retlist: mlist_t = None, decomp_flags: int = 0, reqmat: mba_maturity_t = 7) -> mba_t:
+@overload
+def gen_microcode(mbr: mba_ranges_t, hf: hexrays_failure_t = None, retlist: mlist_t = None, decomp_flags: int = 0, reqmat: mba_maturity_t = ...) -> Any:
     r"""Generate microcode of an arbitrary code snippet 
             
-    :param mbr: snippet ranges
-    :param hf: extended error information (if failed)
-    :param retlist: list of registers the snippet returns
-    :param decomp_flags: bitwise combination of decompile() flags... bits
-    :param reqmat: required microcode maturity
+    :returns: pointer to the microcode, nullptr if failed.
+    """
+    ...
+@overload
+def gen_microcode(dcr: decomp_ranges_t, hf: hexrays_failure_t = None, retlist: mlist_t = None, decomp_flags: int = 0, reqmat: mba_maturity_t = ...) -> mba_t:
+    r"""Generate microcode of an arbitrary code snippet (ea-based variant). Replaces the deprecated gen_microcode() which takes mba_ranges_t. 
+            
     :returns: pointer to the microcode, nullptr if failed.
     """
     ...
@@ -83449,10 +91533,10 @@ def get_64bit(ea: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def get_abi_name() -> str:
-    r"""Get ABI name. 
-            
-    :returns: length of the name (>=0)
+def get_abi_name() -> Any:
+    r"""Get the current ABI name.
+    
+    :returns: the ABI name, or None if no ABI is set.
     """
     ...
 
@@ -83483,7 +91567,7 @@ def get_action_icon(name: str) -> int:
     """
     ...
 
-def get_action_label(name: str) -> str:
+def get_action_label(name: str) -> Any:
     r"""Get an action's label (ui_get_action_attr). 
             
     :param name: the action name
@@ -83491,7 +91575,7 @@ def get_action_label(name: str) -> str:
     """
     ...
 
-def get_action_shortcut(name: str) -> str:
+def get_action_shortcut(name: str) -> Any:
     r"""Get an action's shortcut (ui_get_action_attr). 
             
     :param name: the action name
@@ -83507,7 +91591,7 @@ def get_action_state(name: str) -> action_state_t:
     """
     ...
 
-def get_action_tooltip(name: str) -> str:
+def get_action_tooltip(name: str) -> Any:
     r"""Get an action's tooltip (ui_get_action_attr). 
             
     :param name: the action name
@@ -83556,7 +91640,7 @@ def get_alias_target(ti: til_t, ordinal: int) -> int:
 def get_alignment(ea: ida_idaapi.ea_t) -> int:
     ...
 
-def get_archive_path() -> str:
+def get_archive_path() -> Any:
     r"""Get archive file path from which input file was extracted.
     
     """
@@ -83576,7 +91660,7 @@ def get_array_parameters(out: array_parameters_t, ea: ida_idaapi.ea_t) -> int:
 def get_ash() -> asm_t:
     ...
 
-def get_asm_inc_file() -> str:
+def get_asm_inc_file() -> Any:
     r"""Get name of the include file.
     
     """
@@ -83602,7 +91686,7 @@ def get_available_core_count() -> int:
     ...
 
 def get_base_type(t: bytes) -> bytes:
-    r"""Get basic type bits (TYPE_BASE_MASK)
+    r"""Get basic type bits (TYPE_BASE_MASK).
     
     """
     ...
@@ -83628,7 +91712,7 @@ def get_bpt(ea: ida_idaapi.ea_t, bpt: bpt_t) -> bool:
     """
     ...
 
-def get_bpt_group(bptloc: bpt_location_t) -> str:
+def get_bpt_group(bptloc: bpt_location_t) -> Any:
     r"""Retrieve the absolute path to the folder of the bpt based on the bpt_location find_bpt is called to retrieve the bpt \sq{Type, Synchronous function, Notification, none (synchronous function)} 
             
     :param bptloc: bptlocation of the bpt
@@ -83688,15 +91772,22 @@ def get_bytes_and_mask(ea: ida_idaapi.ea_t, size: int, gmb_flags: int = 1) -> An
     """
     ...
 
-def get_c_header_path() -> str:
+def get_c_header_path() -> Any:
     r"""Get the include directory path of the target compiler.
     
     """
     ...
 
-def get_c_macros() -> str:
+def get_c_macros() -> Any:
     r"""Get predefined macros for the target compiler.
     
+    """
+    ...
+
+def get_cached_cfunc_eas(out: uint64vec_t) -> None:
+    r"""Return the start EAs of all cached cfunc_t objects. 
+            
+    :param out: receives one EA per cached cfunc_t
     """
     ...
 
@@ -83708,7 +91799,7 @@ def get_call_tev_callee(n: int) -> ida_idaapi.ea_t:
     """
     ...
 
-def get_chooser_data(title: str, n: int) -> List[str]:
+def get_chooser_data(title: str, n: int) -> Any:
     r"""Get the text corresponding to the index N in the chooser data.
     Use -1 to get the header.
     
@@ -83735,7 +91826,7 @@ def get_chooser_rows(out: chooser_row_info_vec_t, chooser_caption: str, what: in
     """
     ...
 
-def get_cmt(ea: ida_idaapi.ea_t, rptble: bool) -> str:
+def get_cmt(ea: ida_idaapi.ea_t, rptble: bool) -> Any:
     r"""Get an indented comment. 
             
     :param ea: linear address. may point to tail byte, the function will find start of the item
@@ -83812,7 +91903,7 @@ def get_current_operand(out: gco_info_t) -> bool:
     """
     ...
 
-def get_current_source_file() -> str:
+def get_current_source_file() -> Any:
     ...
 
 def get_current_source_line() -> int:
@@ -83825,7 +91916,7 @@ def get_current_thread() -> int:
     ...
 
 def get_current_viewer() -> TWidget:
-    r"""Get current ida viewer (idaview or custom viewer) (ui_get_current_viewer)
+    r"""Get current ida viewer (idaview or custom viewer) (ui_get_current_viewer).
     
     """
     ...
@@ -84023,7 +92114,7 @@ def get_debug_event_name(dev: debug_event_t) -> str:
     """
     ...
 
-def get_debug_name(ea_ptr: int, how: debug_name_how_t) -> str:
+def get_debug_name(ea_ptr: int, how: debug_name_how_t) -> Any:
     ...
 
 def get_debug_name_ea(name: str) -> ida_idaapi.ea_t:
@@ -84061,6 +92152,15 @@ def get_defsr(s: Any, reg: Any) -> Any:
 def get_demangled_name(ea: ida_idaapi.ea_t, inhibitor: int, demform: int, gtn_flags: int = 0) -> str:
     ...
 
+def get_dscu_svc() -> dscu_svc_t:
+    r"""Retrieve the "shared cache services".
+    The returned instance is shared, and must not be deleted. Furthermore, the following situations will cause this function to return a `nullptr`:
+    * we are currently not operating on a shared cache * `dscu_bootstrap` wasn't called (by the loader) * an error occurs
+    
+    :returns: the services instance, or nullptr
+    """
+    ...
+
 def get_dtype_by_size(size: int) -> int:
     r"""Get op_t::dtype from size.
     
@@ -84085,7 +92185,7 @@ def get_dword(ea: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def get_ea_diffpos_name(ea: ida_idaapi.ea_t) -> str:
+def get_ea_diffpos_name(ea: ida_idaapi.ea_t) -> Any:
     r"""Get nice name for EA diffpos 
             
     :param ea: diffpos
@@ -84113,8 +92213,8 @@ def get_ea_viewer_history_info(nback: int, nfwd: int, v: TWidget) -> bool:
     ...
 
 def get_effective_spd(pfn: func_t, ea: ida_idaapi.ea_t) -> int:
-    r"""Get effective difference between the initial and current values of ESP. This function returns the sp-diff used by the instruction. The difference between get_spd() and get_effective_spd() is present only for instructions like "pop [esp+N]": they modify sp and use the modified value. 
-            
+    r"""Get effective difference between the initial and current values of ESP.
+    
     :param pfn: pointer to the function. may be nullptr.
     :param ea: linear address
     :returns: 0 or the difference, usually a negative number
@@ -84153,7 +92253,7 @@ def get_entry(ord: int) -> ida_idaapi.ea_t:
     """
     ...
 
-def get_entry_forwarder(ord: int) -> str:
+def get_entry_forwarder(ord: int) -> Any:
     r"""Get forwarder name for the entry point by its ordinal. 
             
     :param ord: ordinal number of entry point
@@ -84161,7 +92261,7 @@ def get_entry_forwarder(ord: int) -> str:
     """
     ...
 
-def get_entry_name(ord: int) -> str:
+def get_entry_name(ord: int) -> Any:
     r"""Get name of the entry point by its ordinal. 
             
     :param ord: ordinal number of entry point
@@ -84187,12 +92287,12 @@ def get_enum_id(ea: ida_idaapi.ea_t, n: int) -> int:
     r"""Get enum id of 'enum' operand. 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL one of the operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL one of the operands
     :returns: id of enum or BADNODE
     """
     ...
 
-def get_enum_member_expr(tif: tinfo_t, serial: int, value: int) -> str:
+def get_enum_member_expr(tif: tinfo_t, serial: int, value: int) -> Any:
     r"""Return a C expression that can be used to represent an enum member. If the value does not correspond to any single enum member, this function tries to find a bitwise combination of enum members that correspond to it. If more than half of value bits do not match any enum members, it fails. 
             
     :param tif: enumeration type
@@ -84211,16 +92311,16 @@ def get_event_exc_code(ev: debug_event_t) -> int:
 def get_event_exc_ea(ev: debug_event_t) -> ida_idaapi.ea_t:
     ...
 
-def get_event_exc_info(ev: debug_event_t) -> str:
+def get_event_exc_info(ev: debug_event_t) -> Any:
     ...
 
-def get_event_info(ev: debug_event_t) -> str:
+def get_event_info(ev: debug_event_t) -> Any:
     ...
 
 def get_event_module_base(ev: debug_event_t) -> ida_idaapi.ea_t:
     ...
 
-def get_event_module_name(ev: debug_event_t) -> str:
+def get_event_module_name(ev: debug_event_t) -> Any:
     ...
 
 def get_event_module_size(ev: debug_event_t) -> int:
@@ -84234,6 +92334,18 @@ def get_fchunk(ea: ida_idaapi.ea_t) -> func_t:
             
     :param ea: any address in a function chunk
     :returns: ptr to a function chunk or nullptr. This function may return a function entry as well as a function tail.
+    """
+    ...
+
+def get_fchunk_ea_by_num(n: int) -> ida_idaapi.ea_t:
+    ...
+
+def get_fchunk_info(out: fchunk_info_t, ea: ida_idaapi.ea_t) -> bool:
+    r"""Get the range of the function chunk (entry or tail) containing 'ea'. 
+            
+    :param out: pointer to output buffer, may be nullptr
+    :param ea: any address in a function chunk
+    :returns: true if a chunk was found at ea
     """
     ...
 
@@ -84254,7 +92366,10 @@ def get_fchunk_qty() -> int:
 def get_fchunk_referer(ea: int, idx: Any) -> Any:
     ...
 
-def get_file_type_name() -> str:
+def get_fchunk_start(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    ...
+
+def get_file_type_name() -> Any:
     r"""Get name of the current file type. The current file type is kept in idainfo::filetype. 
             
     :returns: size of answer, this function always succeeds
@@ -84316,9 +92431,12 @@ def get_first_free_extra_cmtidx(ea: ida_idaapi.ea_t, start: int) -> int:
     ...
 
 def get_first_hidden_range() -> hidden_range_t:
-    r"""Get pointer to the first hidden range. 
+    ...
+
+def get_first_hidden_range_ea() -> ida_idaapi.ea_t:
+    r"""Get start address of the first hidden range. 
             
-    :returns: ptr to hidden range or nullptr
+    :returns: start_ea of the first hidden range, or BADADDR
     """
     ...
 
@@ -84331,13 +92449,20 @@ def get_first_seg() -> segment_t:
     """
     ...
 
+def get_first_segment_ea() -> ida_idaapi.ea_t:
+    r"""Get start address of the first segment. The returned address can be used as a handle for other segment_* functions. 
+            
+    :returns: segment start_ea, or BADADDR if no segments exist
+    """
+    ...
+
 def get_fixup(fd: fixup_data_t, source: ida_idaapi.ea_t) -> bool:
     r"""Get fixup information.
     
     """
     ...
 
-def get_fixup_desc(source: ida_idaapi.ea_t, fd: fixup_data_t) -> str:
+def get_fixup_desc(source: ida_idaapi.ea_t, fd: fixup_data_t) -> Any:
     r"""Get FIXUP description comment.
     
     """
@@ -84395,35 +92520,61 @@ def get_float_type(width: int) -> tinfo_t:
     """
     ...
 
-def get_forced_operand(ea: ida_idaapi.ea_t, n: int) -> str:
+def get_forced_operand(ea: ida_idaapi.ea_t, n: int) -> Any:
     r"""Get forced operand. 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number
+    :param n: 0..#UA_MAXOP-1 operand number
     :returns: size of the forced operand or -1
     """
     ...
 
 def get_frame_part(range: range_t, pfn: func_t, part: frame_part_t) -> None:
-    r"""Get offsets of the frame part in the frame. 
-            
+    r"""Get offsets of the frame part in the frame.
+    
     :param range: pointer to the output buffer with the frame part start/end(exclusive) offsets, can't be nullptr
     :param pfn: pointer to function structure, can't be nullptr
     :param part: frame part
     """
     ...
 
-def get_frame_retsize(pfn: func_t) -> int:
-    r"""Get size of function return address. 
+def get_frame_part_ea(range: range_t, func_ea: ida_idaapi.ea_t, part: frame_part_t) -> bool:
+    r"""Get offsets of the frame part in the frame. 
             
+    :param range: pointer to the output buffer with the frame part start/end(exclusive) offsets, can't be nullptr
+    :param func_ea: any address of the function
+    :param part: frame part
+    :returns: false if no function at func_ea
+    """
+    ...
+
+def get_frame_retsize(pfn: func_t) -> int:
+    r"""Get size of function return address.
+    
     :param pfn: pointer to function structure, can't be nullptr
     """
     ...
 
-def get_frame_size(pfn: func_t) -> int:
-    r"""Get full size of a function frame. This function takes into account size of local variables + size of saved registers + size of return address + number of purged bytes. The purged bytes correspond to the arguments of the functions with __stdcall and __fastcall calling conventions. 
+def get_frame_retsize_ea(func_ea: ida_idaapi.ea_t) -> int:
+    r"""Get size of function return address. 
             
+    :param func_ea: any address of the function
+    :returns: return address size or 0
+    """
+    ...
+
+def get_frame_size(pfn: func_t) -> int:
+    r"""Get full size of a function frame.
+    
     :param pfn: pointer to function structure, may be nullptr
+    :returns: size of frame in bytes or zero
+    """
+    ...
+
+def get_frame_size_ea(func_ea: ida_idaapi.ea_t) -> int:
+    r"""Get full size of a function frame. This function takes into account size of local variables + size of saved registers + size of return address + number of purged bytes. 
+            
+    :param func_ea: any address of the function
     :returns: size of frame in bytes or zero
     """
     ...
@@ -84442,7 +92593,7 @@ def get_full_flags(ea: ida_idaapi.ea_t) -> int:
     ...
 
 def get_full_type(t: bytes) -> bytes:
-    r"""Get basic type bits + type flags (TYPE_FULL_MASK)
+    r"""Get basic type bits + type flags (TYPE_FULL_MASK).
     
     """
     ...
@@ -84464,16 +92615,19 @@ def get_func_bitness(pfn: func_t) -> int:
     """
     ...
 
+def get_func_bitness_ea(ea: ida_idaapi.ea_t) -> int:
+    ...
+
 def get_func_bits(pfn: func_t) -> int:
-    r"""Get number of bits in the function addressing.
-    
-    """
+    ...
+
+def get_func_bits_ea(ea: ida_idaapi.ea_t) -> int:
     ...
 
 def get_func_bytes(pfn: func_t) -> int:
-    r"""Get number of bytes in the function addressing.
-    
-    """
+    ...
+
+def get_func_bytes_ea(ea: ida_idaapi.ea_t) -> int:
     ...
 
 def get_func_chunknum(pfn: func_t, ea: ida_idaapi.ea_t) -> int:
@@ -84485,7 +92639,10 @@ def get_func_chunknum(pfn: func_t, ea: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def get_func_cmt(pfn: func_t, repeatable: bool) -> str:
+def get_func_chunknum_ea(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> int:
+    ...
+
+def get_func_cmt(pfn: func_t, repeatable: bool) -> Any:
     r"""Get function comment. 
             
     :param pfn: ptr to function structure
@@ -84494,16 +92651,80 @@ def get_func_cmt(pfn: func_t, repeatable: bool) -> str:
     """
     ...
 
-def get_func_frame(out: tinfo_t, pfn: func_t) -> bool:
-    r"""Get type of function frame 
+def get_func_cmt_ea(ea: ida_idaapi.ea_t, repeatable: bool) -> Any:
+    ...
+
+def get_func_ea_by_num(n: int) -> ida_idaapi.ea_t:
+    ...
+
+def get_func_effective_spd(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> int:
+    r"""Get effective difference between the initial and current values of ESP. This function returns the sp-diff used by the instruction. The difference between get_func_spd() and get_func_effective_spd() is present only for instructions like "pop [esp+N]": they modify sp and use the modified value. 
             
+    :param func_ea: any address of the function, may be BADADDR to auto-resolve
+    :param ea: linear address
+    :returns: 0 or the difference, usually a negative number
+    """
+    ...
+
+def get_func_entry_info(out: func_entry_info_t, ea: ida_idaapi.ea_t, flags: int = 0) -> bool:
+    r"""Get function entry info by address. 
+            
+    :param out: pointer to output buffer, may be nullptr
+    :param ea: any address in a function
+    :param flags: combination of Flags for get_func_entry_info() flags to control which optional string fields to populate
+    :returns: true if a function entry was found at the given address
+    """
+    ...
+
+def get_func_entry_info_by_num(out: func_entry_info_t, n: int, flags: int = 0) -> bool:
+    r"""Get function entry info by ordinal number. 
+            
+    :param out: pointer to output buffer, may be nullptr
+    :param n: number of function, is in range 0..get_func_qty()-1
+    :param flags: combination of Flags for get_func_entry_info() flags
+    :returns: true if a function with the given number exists
+    """
+    ...
+
+def get_func_flags(ea: ida_idaapi.ea_t) -> int:
+    ...
+
+def get_func_frame(out: tinfo_t, pfn: func_t) -> bool:
+    r"""Get type of function frame
+    
     :param out: type info
     :param pfn: pointer to function structure
     :returns: success
     """
     ...
 
-def get_func_name(ea: ida_idaapi.ea_t) -> str:
+def get_func_frame_ea(out: tinfo_t, func_ea: ida_idaapi.ea_t) -> bool:
+    r"""Get type of function frame 
+            
+    :param out: type info
+    :param func_ea: any address of the function
+    :returns: success
+    """
+    ...
+
+def get_func_llabel_qty(func_ea: ida_idaapi.ea_t) -> int:
+    r"""Get the number of local labels for a function. 
+            
+    :param func_ea: function start address
+    :returns: number of local labels, or 0
+    """
+    ...
+
+def get_func_llabels(out: llabels_t, func_ea: ida_idaapi.ea_t) -> bool:
+    r"""Get all local labels for a function. 
+            
+    :param out: output vector of llabel_t
+    :param func_ea: function start address
+    :returns: success
+    """
+    ...
+
+def get_func_name(ea: ida_idaapi.ea_t) -> Any:
     r"""Get function name. 
             
     :param ea: any address in the function
@@ -84532,6 +92753,98 @@ def get_func_ranges(ranges: rangeset_t, pfn: func_t) -> ida_idaapi.ea_t:
     :param pfn: ptr to function structure
     :returns: end address of the last function range (BADADDR-error)
     """
+    ...
+
+def get_func_ranges_ea(ranges: rangeset_t, ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    ...
+
+def get_func_regarg(out: regarg_t, func_ea: ida_idaapi.ea_t, n: int) -> bool:
+    ...
+
+def get_func_regarg_qty(func_ea: ida_idaapi.ea_t) -> int:
+    ...
+
+def get_func_regargs(out: regargs_t, func_ea: ida_idaapi.ea_t) -> bool:
+    ...
+
+def get_func_regvar(out: regvar_t, func_ea: ida_idaapi.ea_t, index: int) -> bool:
+    r"""Get a copy of a register variable by index. 
+            
+    :param out: output regvar_t (deep copy)
+    :param func_ea: any address of the function
+    :param index: index of the register variable (see find_func_regvar())
+    :returns: false if the index is out of range
+    """
+    ...
+
+def get_func_regvar_qty(func_ea: ida_idaapi.ea_t) -> int:
+    r"""Get the number of register variables for a function. 
+            
+    :param func_ea: function start address
+    :returns: number of register variables, or 0
+    """
+    ...
+
+def get_func_regvars(out: regvars_t, func_ea: ida_idaapi.ea_t) -> bool:
+    r"""Get all register variables for a function. 
+            
+    :param out: output vector of regvar_t
+    :param func_ea: function start address
+    :returns: success
+    """
+    ...
+
+def get_func_sp_delta(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> int:
+    r"""Get modification of SP made at the specified location 
+            
+    :param func_ea: any address of the function, may be BADADDR to auto-resolve
+    :param ea: linear address
+    :returns: 0 if the specified location doesn't contain a SP change point. otherwise return delta of SP modification.
+    """
+    ...
+
+def get_func_spd(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> int:
+    r"""Get difference between the initial and current values of ESP. 
+            
+    :param func_ea: any address of the function, may be BADADDR to auto-resolve
+    :param ea: linear address of the instruction
+    :returns: 0 or the difference, usually a negative number. returns the sp-diff before executing the instruction.
+    """
+    ...
+
+def get_func_start(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    ...
+
+def get_func_stkpnt_qty(func_ea: ida_idaapi.ea_t) -> int:
+    r"""Get the number of SP change points for a function. 
+            
+    :param func_ea: function start address
+    :returns: number of SP change points, or 0 if no function / no points
+    """
+    ...
+
+def get_func_stkpnts(out: stkpnts_t, func_ea: ida_idaapi.ea_t) -> bool:
+    r"""Get all SP change points for a function. 
+            
+    :param out: output vector of stkpnt_t
+    :param func_ea: function start address
+    :returns: success
+    """
+    ...
+
+def get_func_tail_info(out: func_tail_info_t, ea: ida_idaapi.ea_t) -> bool:
+    r"""Get function tail info by address. 
+            
+    :param out: pointer to output buffer, may be nullptr
+    :param ea: any address in a function tail chunk
+    :returns: true if a tail chunk was found at the given address
+    """
+    ...
+
+def get_func_tail_qty(func_ea: ida_idaapi.ea_t) -> int:
+    ...
+
+def get_func_tails(out: rangevec_t, func_ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def get_func_trace_options() -> int:
@@ -84584,9 +92897,23 @@ def get_hexrays_version() -> str:
     ...
 
 def get_hidden_range(ea: ida_idaapi.ea_t) -> hidden_range_t:
-    r"""Get pointer to hidden range structure, in: linear address. 
+    ...
+
+def get_hidden_range_info(hri: hidden_range_info_t, ea: ida_idaapi.ea_t) -> bool:
+    r"""Get hidden range information by address. 
             
+    :param hri: pointer to output buffer, may be nullptr
     :param ea: any address in the hidden range
+    :returns: true if a hidden range was found at the given address
+    """
+    ...
+
+def get_hidden_range_info_by_num(hri: hidden_range_info_t, n: int) -> bool:
+    r"""Get hidden range information by number. 
+            
+    :param hri: pointer to output buffer, may be nullptr
+    :param n: number of hidden range, is in range 0..get_hidden_range_qty()-1
+    :returns: true if a hidden range with the given number exists
     """
     ...
 
@@ -84622,7 +92949,7 @@ def get_icon_id_by_name(icon_name: str) -> int:
     """
     ...
 
-def get_ida_notepad_text() -> str:
+def get_ida_notepad_text() -> Any:
     r"""Get notepad text.
     
     """
@@ -84676,7 +93003,7 @@ def get_idasgn_desc_with_matches(n: Any) -> Any:
     """
     ...
 
-def get_idasgn_header_by_short_name(out_header: idasgn_header_t, name: str) -> str:
+def get_idasgn_header_by_short_name(out_header: idasgn_header_t, name: str) -> Any:
     r"""Get idasgn header by a short signature name. 
             
     :param out_header: buffer for the signature file header
@@ -84685,7 +93012,7 @@ def get_idasgn_header_by_short_name(out_header: idasgn_header_t, name: str) -> s
     """
     ...
 
-def get_idasgn_path_by_short_name(name: str) -> str:
+def get_idasgn_path_by_short_name(name: str) -> Any:
     r"""Get idasgn full path by a short signature name. 
             
     :param name: short name of a signature
@@ -84700,7 +93027,7 @@ def get_idasgn_qty() -> int:
     """
     ...
 
-def get_idasgn_title(name: str) -> str:
+def get_idasgn_title(name: str) -> Any:
     r"""Get full description of the signature by its short name. 
             
     :param name: short name of a signature
@@ -84732,7 +93059,7 @@ def get_idb_notifier_addr(arg1: Any) -> Any:
 def get_idb_notifier_ud_addr(hooks: IDB_Hooks) -> Any:
     ...
 
-def get_idc_filename(file: str) -> str:
+def get_idc_filename(file: str) -> Any:
     r"""Get full name of IDC file name. Search for file in list of include directories, IDCPATH directory and system directories. 
             
     :param file: file name without full path
@@ -84751,7 +93078,7 @@ def get_idcv_attr(res: idc_value_t, obj: idc_value_t, attr: str, may_use_getattr
     """
     ...
 
-def get_idcv_class_name(obj: idc_value_t) -> str:
+def get_idcv_class_name(obj: idc_value_t) -> Any:
     r"""Retrieves the IDC object class name. 
             
     :param obj: class instance variable
@@ -84771,7 +93098,7 @@ def get_idcv_slice(res: idc_value_t, v: idc_value_t, i1: int, i2: int, flags: in
     """
     ...
 
-def get_idp_name() -> str:
+def get_idp_name() -> Any:
     r"""Get name of the current processor module. The name is derived from the file name. For example, for IBM PC the module is named "pc.w32" (windows version), then the module name is "PC" (uppercase). If no processor module is loaded, this function will return nullptr 
             
     """
@@ -84799,7 +93126,7 @@ def get_immvals(ea: ida_idaapi.ea_t, n: int, F: int = 0) -> Any:
     r"""Get immediate values at the specified address. This function decodes instruction at the specified address or inspects the data item. It finds immediate values and copies them to 'out'. This function will store the original value of the operands in 'out', unless the last bits of 'F' are "...0 11111111", in which case the transformed values (as needed for printing) will be stored instead. 
             
     :param ea: address to analyze
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all the operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all the operands
     :param F: flags for the specified address
     :returns: number of immediate values (0..2*UA_MAXOP)
     """
@@ -84822,25 +93149,25 @@ def get_import_module_qty() -> int:
 def get_ind_purged(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     ...
 
-def get_initial_ida_version() -> str:
-    r"""Get version of ida which created the database (string format like "7.5")
+def get_initial_ida_version() -> Any:
+    r"""Get version of ida which created the database (string format like "7.5").
     
     """
     ...
 
 def get_initial_idb_version() -> int:
-    r"""Get initial version of the database (numeric format like 700)
+    r"""Get initial version of the database (numeric format like 700).
     
     """
     ...
 
 def get_initial_version() -> int:
-    r"""Get initial version of the database (numeric format like 700)
+    r"""Get initial version of the database (numeric format like 700).
     
     """
     ...
 
-def get_input_file_path() -> str:
+def get_input_file_path() -> Any:
     r"""Get full path of the input file.
     
     """
@@ -84936,28 +93263,38 @@ def get_item_size(ea: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def get_kernel_version() -> str:
+def get_kernel_version() -> Any:
     r"""Get IDA kernel version (in a string like "5.1").
     
     """
     ...
 
 def get_key_code(keyname: str) -> int:
-    r"""Get keyboard key code by its name (ui_get_key_code)
+    r"""Get keyboard key code by its name (ui_get_key_code).
     
     """
     ...
 
 def get_last_hidden_range() -> hidden_range_t:
-    r"""Get pointer to the last hidden range. 
+    ...
+
+def get_last_hidden_range_ea() -> ida_idaapi.ea_t:
+    r"""Get start address of the last hidden range. 
             
-    :returns: ptr to hidden range or nullptr
+    :returns: start_ea of the last hidden range, or BADADDR
     """
     ...
 
 def get_last_seg() -> segment_t:
     r"""Get pointer to the last segment.
     
+    """
+    ...
+
+def get_last_segment_ea() -> ida_idaapi.ea_t:
+    r"""Get start address of the last segment. 
+            
+    :returns: segment start_ea, or BADADDR if no segments exist
     """
     ...
 
@@ -84972,7 +93309,7 @@ def get_last_widget(*args: Any) -> TWidget:
 def get_linput_type(li: linput_t) -> linput_type_t:
     ...
 
-def get_loader_format_name() -> str:
+def get_loader_format_name() -> Any:
     r"""Get file format name for loader modules.
     
     """
@@ -84991,7 +93328,7 @@ def get_logical_core_count() -> int:
     """
     ...
 
-def get_login_name() -> str:
+def get_login_name() -> Any:
     r"""Get the user name for the current desktop session 
             
     :returns: success
@@ -85013,7 +93350,7 @@ def get_lumina_rpc_packet_t_index_from_base(code: lumina_rpc_packet_t) -> int:
 def get_mangled_name_type(name: str) -> mangled_name_type_t:
     ...
 
-def get_manual_insn(ea: ida_idaapi.ea_t) -> str:
+def get_manual_insn(ea: ida_idaapi.ea_t) -> Any:
     r"""Retrieve the user-specified string for the manual instruction. 
             
     :param ea: linear address of the instruction or data item
@@ -85064,7 +93401,7 @@ def get_max_strlit_length(ea: ida_idaapi.ea_t, strtype: int, options: int = 0) -
     """
     ...
 
-def get_merror_desc(code: int, mba: mba_t) -> str:
+def get_merror_desc(code: int, mba: mba_t) -> Any:
     r"""Get textual description of an error code 
             
     :param code: Microcode error code
@@ -85214,6 +93551,18 @@ def get_next_fchunk(ea: ida_idaapi.ea_t) -> func_t:
     """
     ...
 
+def get_next_fchunk_ea(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    ...
+
+def get_next_fchunk_info(out: fchunk_info_t, ea: ida_idaapi.ea_t) -> bool:
+    r"""Get the next function chunk after the one containing 'ea'. 
+            
+    :param out: pointer to output buffer, may be nullptr
+    :param ea: any address in the program
+    :returns: true if a next chunk was found
+    """
+    ...
+
 def get_next_fcref_from(frm: ida_idaapi.ea_t, current: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     ...
 
@@ -85234,11 +93583,20 @@ def get_next_func(ea: ida_idaapi.ea_t) -> func_t:
 def get_next_func_addr(pfn: func_t, ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     ...
 
+def get_next_func_ea(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    ...
+
+def get_next_function_addr(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    ...
+
 def get_next_hidden_range(ea: ida_idaapi.ea_t) -> hidden_range_t:
-    r"""Get pointer to next hidden range. 
+    ...
+
+def get_next_hidden_range_ea(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Get start address of the next hidden range. 
             
     :param ea: any address in the program
-    :returns: ptr to hidden range or nullptr if next hidden range does not exist
+    :returns: start_ea of the next hidden range, or BADADDR
     """
     ...
 
@@ -85248,6 +93606,14 @@ def get_next_module(modinfo: modinfo_t) -> bool:
 def get_next_seg(ea: ida_idaapi.ea_t) -> segment_t:
     r"""Get pointer to the next segment.
     
+    """
+    ...
+
+def get_next_segment_ea(seg_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Get start address of the next segment. 
+            
+    :param seg_ea: linear address belonging to the segment
+    :returns: start_ea of next segment, or BADADDR if no more segments
     """
     ...
 
@@ -85309,26 +93675,27 @@ def get_offbase(ea: ida_idaapi.ea_t, n: int) -> ida_idaapi.ea_t:
     r"""Get offset base value 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number
+    :param n: 0..#UA_MAXOP-1 operand number
     :returns: offset base or BADADDR
     """
     ...
 
 def get_offset_expr(ea: ida_idaapi.ea_t, n: int, ri: refinfo_t, _from: ida_idaapi.ea_t, offset: int, getn_flags: int = 0) -> str:
-    r"""See get_offset_expression()
+    r"""See get_offset_expression().
     
     """
     ...
 
 def get_offset_expression(ea: ida_idaapi.ea_t, n: int, _from: ida_idaapi.ea_t, offset: int, getn_flags: int = 0) -> str:
     r"""Get offset expression (in the form "offset name+displ"). This function uses offset translation function ( processor_t::translate) if your IDP module has such a function. Translation function is used to map linear addresses in the program (only for offsets).
-    Example: suppose we have instruction at linear address 0x00011000: `mov     ax, [bx+7422h] ` and at ds:7422h: `array   dw      ... ` We want to represent the second operand with an offset expression, so then we call: `get_offset_expresion(0x001100, 1, 0x001102, 0x7422, buf);
-                         |         |  |         |       |
-                         |         |  |         |       +output buffer
-                         |         |  |         +value of offset expression
-                         |         |  +address offset value in the instruction
-                         |         +the second operand
-                         +address of instruction` and the function will return a colored string: `offset array ` 
+    Example: suppose we have instruction at linear address 0x00011000: `mov     ax, [bx+7422h] ` and at ds:7422h: `array   dw      ... ` We want to represent the second operand with an offset expression, so then we call: `/// get_offset_expresion(0x001100, 1, 0x001102, 0x7422, buf);
+    ///                      |         |  |         |       |
+    ///                      |         |  |         |       +output buffer
+    ///                      |         |  |         +value of offset expression
+    ///                      |         |  +address offset value in the instruction
+    ///                      |         +the second operand
+    ///                      +address of instruction
+    ///  ` and the function will return a colored string: `offset array ` 
             
     :param ea: start of instruction or data with the offset expression
     :param n: operand number (may be ORed with OPND_OUTER)
@@ -85385,8 +93752,17 @@ def get_opinfo(buf: opinfo_t, ea: ida_idaapi.ea_t, n: int, flags: int) -> opinfo
     ...
 
 def get_opnum() -> int:
-    r"""Get current operand number, -1 means no operand (ui_get_opnum)
+    r"""Get current operand number, -1 means no operand (ui_get_opnum).
     
+    """
+    ...
+
+def get_optype_flags(F: int, n: int) -> int:
+    r"""Extract operand `n`'s type bits from a 64-bit flags set. This is the reverse of get_operand_flag(): it extracts the type nibble from flags and returns it as a value suitable for comparison with `FF_N_` constants.
+    
+    :param F: the flags
+    :param n: the operand number
+    :returns: the type bits (one of `FF_N_`), or 0 if n is out of range
     """
     ...
 
@@ -85445,7 +93821,7 @@ def get_original_word(ea: ida_idaapi.ea_t) -> int:
 def get_outfile_encoding_idx() -> int:
     ...
 
-def get_output_curline(mouse: bool) -> str:
+def get_output_curline(mouse: bool) -> Any:
     r"""Get current line of output window (ui_get_output_curline). 
             
     :param mouse: current for mouse pointer?
@@ -85461,14 +93837,14 @@ def get_output_cursor() -> Any:
     """
     ...
 
-def get_output_selected_text() -> str:
+def get_output_selected_text() -> Any:
     r"""Returns selected text from output window (ui_get_output_selected_text). 
             
     :returns: true if there is a selection
     """
     ...
 
-def get_parser_option(parser_name: str, option_name: str) -> str:
+def get_parser_option(parser_name: str, option_name: str) -> Any:
     r"""Get option for the parser with the specified name 
             
     :param parser_name: name of the target parser
@@ -85514,7 +93890,7 @@ def get_place_class_id(name: str) -> int:
     ...
 
 def get_place_class_template(id: int) -> place_t:
-    r"""See get_place_class()
+    r"""See get_place_class().
     
     """
     ...
@@ -85535,7 +93911,7 @@ def get_possible_item_varsize(ea: ida_idaapi.ea_t, tif: tinfo_t) -> int:
     """
     ...
 
-def get_predef_insn_cmt(ins: insn_t) -> str:
+def get_predef_insn_cmt(ins: insn_t) -> Any:
     r"""Get predefined comment. 
             
     :param ins: current instruction information
@@ -85548,6 +93924,18 @@ def get_prev_fchunk(ea: ida_idaapi.ea_t) -> func_t:
             
     :param ea: any address in the program
     :returns: ptr to function chunk or nullptr if previous function chunk doesn't exist
+    """
+    ...
+
+def get_prev_fchunk_ea(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    ...
+
+def get_prev_fchunk_info(out: fchunk_info_t, ea: ida_idaapi.ea_t) -> bool:
+    r"""Get the previous function chunk before the one containing 'ea'. 
+            
+    :param out: pointer to output buffer, may be nullptr
+    :param ea: any address in the program
+    :returns: true if a previous chunk was found
     """
     ...
 
@@ -85565,17 +93953,34 @@ def get_prev_func(ea: ida_idaapi.ea_t) -> func_t:
 def get_prev_func_addr(pfn: func_t, ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     ...
 
+def get_prev_func_ea(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    ...
+
+def get_prev_function_addr(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    ...
+
 def get_prev_hidden_range(ea: ida_idaapi.ea_t) -> hidden_range_t:
-    r"""Get pointer to previous hidden range. 
+    ...
+
+def get_prev_hidden_range_ea(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Get start address of the previous hidden range. 
             
     :param ea: any address in the program
-    :returns: ptr to hidden range or nullptr if previous hidden range does not exist
+    :returns: start_ea of the previous hidden range, or BADADDR
     """
     ...
 
 def get_prev_seg(ea: ida_idaapi.ea_t) -> segment_t:
     r"""Get pointer to the previous segment.
     
+    """
+    ...
+
+def get_prev_segment_ea(seg_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Get start address of the previous segment. 
+            
+    :param seg_ea: linear address belonging to the segment
+    :returns: start_ea of previous segment, or BADADDR if no more segments
     """
     ...
 
@@ -85593,7 +93998,7 @@ def get_printable_immvals(ea: ida_idaapi.ea_t, n: int, F: int = 0) -> Any:
     r"""Get immediate ready-to-print values at the specified address 
             
     :param ea: address to analyze
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all the operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all the operands
     :param F: flags for the specified address
     :returns: number of immediate values (0..2*UA_MAXOP)
     """
@@ -85608,7 +94013,7 @@ def get_problem(type: problist_id_t, lowea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     """
     ...
 
-def get_problem_desc(t: problist_id_t, ea: ida_idaapi.ea_t) -> str:
+def get_problem_desc(t: problist_id_t, ea: ida_idaapi.ea_t) -> Any:
     r"""Get the human-friendly description of the problem, if one was provided to remember_problem. 
             
     :param t: problem list type.
@@ -85662,7 +94067,16 @@ def get_radix(F: int, n: int) -> int:
     """
     ...
 
-def get_redo_action_label() -> str:
+def get_realtype(til: til_t, type: bytes) -> bytes:
+    r"""Get the resolved base type. 
+            
+    :param til: type information library or nullptr
+    :param type: type string
+    :returns: resolved base type
+    """
+    ...
+
+def get_redo_action_label() -> Any:
     r"""Get the label of the action that will be redone. This function returns the text that can be displayed in the redo menu 
             
     :returns: success
@@ -85736,7 +94150,7 @@ def get_ret_tev_return(n: int) -> ida_idaapi.ea_t:
     """
     ...
 
-def get_root_filename() -> str:
+def get_root_filename() -> Any:
     r"""Get file name only of the input file.
     
     """
@@ -85760,46 +94174,46 @@ def get_scalar_bt(size: int) -> bytes:
     ...
 
 def get_screen_ea() -> ida_idaapi.ea_t:
-    r"""Get the address at the screen cursor (ui_screenea)
+    r"""Get the address at the screen cursor (ui_screenea).
     
     """
     ...
 
 def get_segm_base(s: segment_t) -> ida_idaapi.ea_t:
-    r"""Get segment base linear address. Segment base linear address is used to calculate virtual addresses. The virtual address of the first byte of the segment will be (start address of segment - segment base linear address) 
-            
+    r"""Get segment base linear address.
+    
     :param s: pointer to segment
     :returns: 0 if s == nullptr, otherwise segment base linear address
     """
     ...
 
 def get_segm_by_name(name: str) -> segment_t:
-    r"""Get pointer to segment by its name. If there are several segments with the same name, returns the first of them. 
-            
+    r"""Get pointer to segment by its name.
+    
     :param name: segment name. may be nullptr.
     :returns: nullptr or pointer to segment structure
     """
     ...
 
 def get_segm_by_sel(selector: int) -> segment_t:
-    r"""Get pointer to segment structure. This function finds a segment by its selector. If there are several segments with the same selectors, the last one will be returned. 
-            
+    r"""Get pointer to segment structure.
+    
     :param selector: a segment with the specified selector will be returned
     :returns: pointer to segment or nullptr
     """
     ...
 
-def get_segm_class(s: segment_t) -> str:
-    r"""Get segment class. Segment class is arbitrary text (max 8 characters). 
-            
+def get_segm_class(s: segment_t) -> Any:
+    r"""Get segment class. Segment class is arbitrary text (max 8 characters).
+    
     :param s: pointer to segment
     :returns: size of segment class (-1 if s==nullptr or bufsize<=0)
     """
     ...
 
 def get_segm_name(s: segment_t, flags: int = 0) -> str:
-    r"""Get true segment name by pointer to segment. 
-            
+    r"""Get true segment name by pointer to segment.
+    
     :param s: pointer to segment
     :param flags: 0-return name as is; 1-substitute bad symbols with _ 1 corresponds to GN_VISIBLE
     :returns: size of segment name (-1 if s==nullptr)
@@ -85815,8 +94229,8 @@ def get_segm_num(ea: ida_idaapi.ea_t) -> int:
     ...
 
 def get_segm_para(s: segment_t) -> ida_idaapi.ea_t:
-    r"""Get segment base paragraph. Segment base paragraph may be converted to segment base linear address using to_ea() function. In fact, to_ea(get_segm_para(s), 0) == get_segm_base(s). 
-            
+    r"""Get segment base paragraph.
+    
     :param s: pointer to segment
     :returns: 0 if s == nullptr, the segment base paragraph
     """
@@ -85835,12 +94249,37 @@ def get_segment_alignment(align: int) -> str:
     """
     ...
 
-def get_segment_cmt(s: segment_t, repeatable: bool) -> str:
-    r"""Get segment comment. 
+def get_segment_base(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Get segment base linear address by address. Segment base linear address is used to calculate virtual addresses. The virtual address of the first byte of the segment will be (start address of segment - segment base linear address) 
             
+    :param ea: any linear address within the segment
+    :returns: 0 if no segment at ea, otherwise segment base linear address
+    """
+    ...
+
+def get_segment_class(ea: ida_idaapi.ea_t) -> Any:
+    r"""Get segment class by address. Segment class is arbitrary text (max 8 characters). 
+            
+    :param ea: any address within the segment
+    :returns: size of segment class (-1 if no segment at ea)
+    """
+    ...
+
+def get_segment_cmt(s: segment_t, repeatable: bool) -> Any:
+    r"""Get segment comment.
+    
     :param s: pointer to segment structure
     :param repeatable: 0: get regular comment. 1: get repeatable comment.
     :returns: size of comment or -1
+    """
+    ...
+
+def get_segment_cmt_by_ea(ea: ida_idaapi.ea_t, repeatable: bool) -> Any:
+    r"""Get segment comment by address. 
+            
+    :param ea: any address within the segment
+    :param repeatable: 0: get regular comment. 1: get repeatable comment.
+    :returns: size of comment or -1 if no segment at ea
     """
     ...
 
@@ -85848,6 +94287,75 @@ def get_segment_combination(comb: int) -> str:
     r"""Get text representation of segment combination code. 
             
     :returns: text digestable by IBM PC assembler.
+    """
+    ...
+
+def get_segment_ea(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Get segment start address. 
+            
+    :param ea: linear address belonging to the segment
+    :returns: segment start_ea, or BADADDR if not found
+    """
+    ...
+
+def get_segment_ea_by_name(name: str) -> ida_idaapi.ea_t:
+    r"""Get segment start address by its name. If there are several segments with the same name, returns the first of them. 
+            
+    :param name: segment name (may be nullptr)
+    :returns: segment start_ea, or BADADDR if not found
+    """
+    ...
+
+def get_segment_ea_by_num(n: int) -> ida_idaapi.ea_t:
+    r"""Get segment start address by its number. The returned address can be used as a handle for other segment_* functions. 
+            
+    :param n: segment number in the range (0..get_segm_qty()-1)
+    :returns: segment start_ea, or BADADDR if not found
+    """
+    ...
+
+def get_segment_ea_by_sel(selector: int) -> ida_idaapi.ea_t:
+    r"""Get segment start address by its selector. This function finds a segment by its selector. If there are several segments with the same selectors, the last one will be returned. 
+            
+    :param selector: selector value to search for
+    :returns: segment start_ea, or BADADDR if not found
+    """
+    ...
+
+def get_segment_info(out: segment_info_t, ea: ida_idaapi.ea_t, flags: int = 0) -> bool:
+    r"""Fill segment_info_t structure for segment at the specified address. By default, only fields present in segment_t are filled. Use GSI_* flags to request additional string fields (name, class, comments). 
+            
+    :param out: output structure to fill (can be nullptr)
+    :param ea: linear address belonging to the segment
+    :param flags: combination of Get segment info flags flags (default: 0)
+    :returns: true if segment found, false otherwise
+    """
+    ...
+
+def get_segment_info_by_num(out: segment_info_t, n: int, flags: int = 0) -> bool:
+    r"""Fill segment_info_t structure for segment by its number. By default, only fields present in segment_t are filled. Use GSI_* flags to request additional string fields (name, class, comments). 
+            
+    :param out: output structure to fill (can be nullptr)
+    :param n: segment number (0..get_segm_qty()-1)
+    :param flags: combination of Get segment info flags flags (default: 0)
+    :returns: true if segment found, false otherwise
+    """
+    ...
+
+def get_segment_name(ea: ida_idaapi.ea_t, flags: int = 0) -> str:
+    r"""Get segment name by address. 
+            
+    :param ea: any address within the segment
+    :param flags: 0-return name as is; 1-substitute bad symbols with _ 1 corresponds to GN_VISIBLE
+    :returns: size of segment name (-1 if no segment at ea)
+    """
+    ...
+
+def get_segment_para(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Get segment base paragraph by address. Segment base paragraph may be converted to segment base linear address using to_ea() function. 
+            
+    :param ea: any linear address within the segment
+    :returns: 0 if no segment at ea, otherwise the segment base paragraph
     """
     ...
 
@@ -85860,7 +94368,7 @@ def get_segment_translations(transmap: eavec_t, segstart: ida_idaapi.ea_t) -> in
     """
     ...
 
-def get_selected_parser_name() -> str:
+def get_selected_parser_name() -> Any:
     r"""Get current parser name. 
             
     :returns: success
@@ -85891,9 +94399,15 @@ def get_source_linnum(ea: ida_idaapi.ea_t) -> int:
 def get_sourcefile(ea: ida_idaapi.ea_t, bounds: range_t = None) -> str:
     ...
 
+def get_sourcefile_by_ea(ea: ida_idaapi.ea_t, bounds: range_t = None) -> str:
+    ...
+
+def get_sourcefiles_qty() -> int:
+    ...
+
 def get_sp_delta(pfn: func_t, ea: ida_idaapi.ea_t) -> int:
-    r"""Get modification of SP made at the specified location 
-            
+    r"""Get modification of SP made at the specified location
+    
     :param pfn: pointer to the function. may be nullptr.
     :param ea: linear address
     :returns: 0 if the specified location doesn't contain a SP change point. otherwise return delta of SP modification.
@@ -85907,27 +94421,27 @@ def get_sp_val() -> int:
     ...
 
 def get_spd(pfn: func_t, ea: ida_idaapi.ea_t) -> int:
-    r"""Get difference between the initial and current values of ESP. 
-            
+    r"""Get difference between the initial and current values of ESP.
+    
     :param pfn: pointer to the function. may be nullptr.
     :param ea: linear address of the instruction
     :returns: 0 or the difference, usually a negative number. returns the sp-diff before executing the instruction.
     """
     ...
 
-def get_special_folder(csidl: int) -> str:
+def get_special_folder(csidl: int) -> Any:
     r"""Get a folder location by CSIDL (see Common CSIDLs). Path should be of at least MAX_PATH size 
             
     """
     ...
 
-def get_srcdbg_paths() -> str:
+def get_srcdbg_paths() -> Any:
     r"""Get source debug paths.
     
     """
     ...
 
-def get_srcdbg_undesired_paths() -> str:
+def get_srcdbg_undesired_paths() -> Any:
     r"""Get user-closed source files.
     
     """
@@ -86012,7 +94526,13 @@ def get_strid(ea: ida_idaapi.ea_t) -> int:
     ...
 
 def get_strlist_item(si: string_info_t, n: int) -> bool:
-    r"""Get nth element of the string list (n=0..get_strlist_qty()-1)
+    r"""Get nth element of the string list (n=0..get_strlist_qty()-1).
+    
+    """
+    ...
+
+def get_strlist_item_ex(si: string_info_ex_t, n: int) -> bool:
+    r"""Get nth element of the string list, including the decompiler string.
     
     """
     ...
@@ -86086,6 +94606,35 @@ def get_tab_size(path: str) -> int:
     """
     ...
 
+def get_tail_owner(tail_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    ...
+
+def get_tail_referer(tail_ea: ida_idaapi.ea_t, n: int) -> ida_idaapi.ea_t:
+    r"""Get a tail chunk referer by index. 
+            
+    :param tail_ea: any address in a function tail chunk
+    :param n: 0-based index
+    :returns: referer (function start address), or BADADDR
+    """
+    ...
+
+def get_tail_referer_qty(tail_ea: ida_idaapi.ea_t) -> int:
+    r"""Get the number of referers (parent functions) for a tail chunk. 
+            
+    :param tail_ea: any address in a function tail chunk
+    :returns: number of referers, or 0
+    """
+    ...
+
+def get_tail_referers(out: eavec_t, tail_ea: ida_idaapi.ea_t) -> bool:
+    r"""Get all referers (parent functions) for a tail chunk. 
+            
+    :param out: output vector of ea_t (function start addresses)
+    :param tail_ea: any address in a function tail chunk
+    :returns: success
+    """
+    ...
+
 def get_temp_regs() -> mlist_t:
     r"""Get list of temporary registers. Tempregs are temporary registers that are used during code generation. They do not map to regular processor registers. They are used only to store temporary values during execution of one instruction. Tempregs may not be used to pass a value from one block to another. In other words, at the end of a block all tempregs must be dead. 
             
@@ -86152,7 +94701,7 @@ def get_thread_qty() -> int:
     """
     ...
 
-def get_tid_name(tid: int) -> str:
+def get_tid_name(tid: int) -> Any:
     r"""Get a type name for the specified TID 
             
     :param tid: type TID
@@ -86216,7 +94765,7 @@ def get_trace_dynamic_register_set(idaregs: dynamic_register_set_t) -> None:
     """
     ...
 
-def get_trace_file_desc(filename: str) -> str:
+def get_trace_file_desc(filename: str) -> Any:
     r"""Get the file header of the specified trace file.
     
     """
@@ -86248,7 +94797,7 @@ def get_type(id: int, tif: tinfo_t, guess: type_source_t) -> bool:
     ...
 
 def get_type_flags(t: bytes) -> bytes:
-    r"""Get type flags (TYPE_FLAGS_MASK)
+    r"""Get type flags (TYPE_FLAGS_MASK).
     
     """
     ...
@@ -86268,7 +94817,7 @@ def get_udm_by_fullname(udm: udm_t, fullname: str) -> int:
     """
     ...
 
-def get_undo_action_label() -> str:
+def get_undo_action_label() -> Any:
     r"""Get the label of the action that will be undone. This function returns the text that can be displayed in the undo menu 
             
     :returns: success
@@ -86325,7 +94874,7 @@ def get_vftable_ordinal(vftable_ea: ida_idaapi.ea_t) -> int:
     ...
 
 def get_view_renderer_type(v: TWidget) -> tcc_renderer_type_t:
-    r"""Get the type of renderer currently in use in the given view (ui_get_renderer_type)
+    r"""Get the type of renderer currently in use in the given view (ui_get_renderer_type).
     
     """
     ...
@@ -86343,7 +94892,7 @@ def get_viewer_place_type(viewer: TWidget) -> tcc_place_type_t:
     ...
 
 def get_viewer_user_data(viewer: TWidget) -> Any:
-    r"""Get the user data from a custom viewer (ui_get_viewer_user_data)
+    r"""Get the user data from a custom viewer (ui_get_viewer_user_data).
     
     """
     ...
@@ -86351,9 +94900,9 @@ def get_viewer_user_data(viewer: TWidget) -> Any:
 def get_visible_name(ea: ida_idaapi.ea_t, gtn_flags: int = 0) -> str:
     ...
 
-def get_visible_segm_name(s: segment_t) -> str:
-    r"""Get segment name by pointer to segment. 
-            
+def get_visible_segm_name(s: segment_t) -> Any:
+    r"""Get segment name by pointer to segment.
+    
     :param s: pointer to segment
     :returns: size of segment name (-1 if s==nullptr)
     """
@@ -86377,7 +94926,7 @@ def get_wide_word(ea: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def get_widget_title(widget: TWidget) -> str:
+def get_widget_title(widget: TWidget) -> Any:
     r"""Get the TWidget's title (ui_get_widget_title).
     
     """
@@ -86432,7 +94981,7 @@ def getf_reginsn(ins: minsn_t) -> minsn_t:
     """
     ...
 
-def getinf_str(tag: inftag_t) -> str:
+def getinf_str(tag: inftag_t) -> Any:
     r"""Get program specific information (a non-scalar value) 
             
     :param tag: one of inftag_t constants
@@ -86466,16 +95015,15 @@ def getn_func(n: int) -> func_t:
     ...
 
 def getn_hidden_range(n: int) -> hidden_range_t:
-    r"""Get pointer to hidden range structure, in: number of hidden range. 
-            
-    :param n: number of hidden range, is in range 0..get_hidden_range_qty()-1
-    """
     ...
 
 def getn_selector(n: int) -> Any:
-    r"""Get description of selector (0..get_selector_qty()-1)
+    r"""Get description of selector (0..get_selector_qty()-1).
     
     """
+    ...
+
+def getn_sourcefile(out: sourcefile_info_t, n: int) -> bool:
     ...
 
 def getn_sreg_range(out: sreg_range_t, rg: int, n: int) -> bool:
@@ -86508,22 +95056,22 @@ def getnode(ea: ida_idaapi.ea_t) -> netnode:
     ...
 
 def getnseg(n: int) -> segment_t:
-    r"""Get pointer to segment by its number. 
-            
+    r"""Get pointer to segment by its number.
+    
     :param n: segment number in the range (0..get_segm_qty()-1)
     :returns: nullptr or pointer to segment structure
     """
     ...
 
 def getseg(ea: ida_idaapi.ea_t) -> segment_t:
-    r"""Get pointer to segment by linear address. 
-            
+    r"""Get pointer to segment by linear address.
+    
     :param ea: linear address belonging to the segment
     :returns: nullptr or pointer to segment structure
     """
     ...
 
-def getsysfile(filename: str, subdir: str) -> str:
+def getsysfile(filename: str, subdir: str) -> Any:
     r"""Search for IDA system file. This function searches for a file in:
     0. each directory specified by IDAUSR%
     1. ida directory [+ subdir]
@@ -86544,7 +95092,7 @@ def graph_trace() -> bool:
     ...
 
 def guess_func_cc(fti: func_type_data_t, npurged: int, cc_flags: int) -> callcnv_t:
-    r"""Use func_type_data_t::guess_cc()
+    r"""Use func_type_data_t::guess_cc().
     
     """
     ...
@@ -86633,7 +95181,13 @@ def has_dummy_name(F: int) -> bool:
     ...
 
 def has_external_refs(pfn: func_t, ea: ida_idaapi.ea_t) -> bool:
-    r"""Does 'ea' have references from outside of 'pfn'?
+    r"""Does 'ea' have references from outside of the function at 'func_ea'?
+    
+    """
+    ...
+
+def has_external_refs_ea(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> bool:
+    r"""Does 'ea' have references from outside of the function at 'func_ea'?
     
     """
     ...
@@ -86641,6 +95195,14 @@ def has_external_refs(pfn: func_t, ea: ida_idaapi.ea_t) -> bool:
 def has_extra_cmts(F: int) -> bool:
     r"""Does the current byte have additional anterior or posterior lines?
     
+    """
+    ...
+
+def has_func_regvar(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> bool:
+    r"""Is there a register variable definition? 
+            
+    :param func_ea: any address of the function
+    :param ea: current address
     """
     ...
 
@@ -86675,8 +95237,8 @@ def has_name(F: int) -> bool:
     ...
 
 def has_regvar(pfn: func_t, ea: ida_idaapi.ea_t) -> bool:
-    r"""Is there a register variable definition? 
-            
+    r"""Is there a register variable definition?
+    
     :param pfn: function in question
     :param ea: current address
     """
@@ -86710,7 +95272,7 @@ def has_xref(F: int) -> bool:
     ...
 
 def hex_flag() -> int:
-    r"""Get number flag of the base, regardless of current processor - better to use num_flag()
+    r"""Get number flag of the base, regardless of current processor - better to use num_flag().
     
     """
     ...
@@ -86893,22 +95455,22 @@ def idainfo_use_allasm() -> bool:
 def idainfo_use_gcc_layout() -> bool:
     ...
 
-def idc_get_local_type(ordinal: int, flags: int) -> str:
+def idc_get_local_type(ordinal: int, flags: int) -> Any:
     ...
 
-def idc_get_local_type_name(ordinal: int) -> str:
+def idc_get_local_type_name(ordinal: int) -> Any:
     ...
 
 def idc_get_local_type_raw(ordinal: Any) -> Any:
     ...
 
-def idc_get_type(ea: ida_idaapi.ea_t) -> str:
+def idc_get_type(ea: ida_idaapi.ea_t) -> Any:
     ...
 
 def idc_get_type_raw(ea: ida_idaapi.ea_t) -> Any:
     ...
 
-def idc_guess_type(ea: ida_idaapi.ea_t) -> str:
+def idc_guess_type(ea: ida_idaapi.ea_t) -> Any:
     ...
 
 def idc_parse_decl(til: til_t, decl: str, flags: int) -> Any:
@@ -86917,7 +95479,7 @@ def idc_parse_decl(til: til_t, decl: str, flags: int) -> Any:
 def idc_parse_types(input: str, flags: int) -> int:
     ...
 
-def idc_print_type(type: bytes, fields: bytes, name: str, flags: int) -> str:
+def idc_print_type(type: bytes, fields: bytes, name: str, flags: int) -> Any:
     ...
 
 def idc_set_local_type(ordinal: int, dcl: str, flags: int) -> int:
@@ -86975,6 +95537,54 @@ def ieee2cpu(cpu_fpval_out: Any, ieee: fpvalue_t, size: int) -> int:
     :param ieee: floating point number of IDA's internal format
     :param size: size of cpu_fpval in bytes (size of the output buffer)
     :returns: Floating point/IEEE Conversion codes
+    """
+    ...
+
+def import_module(module: str, windir: str, modnode: int, importer: None, ostype: str) -> None:
+    r"""Register imports in the database, the way file loaders do.
+    
+    Before calling, populate ``modnode`` with the entries to register
+    using :func:`set_import_name` (named imports) and/or
+    :func:`set_import_ordinal` (ordinal imports). After the call the
+    module appears in the Imports view and is enumerable through
+    :func:`ida_nalt.get_import_module_qty`,
+    :func:`ida_nalt.get_import_module_name` and
+    :func:`ida_nalt.enum_import_names`.
+    
+    :param module: DLL/library name (e.g. ``"libfoo.so"``)
+    :param windir: system directory with DLLs to probe; may be None
+    :param modnode: index of a netnode you previously created with
+                    ``netnode().create()`` and populated
+    :param importer: must be ``None``. In a C++ loader this slot
+                     accepts an optional callback IDA uses to walk a
+                     sibling DLL on disk and discover its exports
+                     (used by the PE/NE/LX loaders); a Python loader
+                     has already parsed its input and has no DLL on
+                     disk for IDA to probe, so the hook is not
+                     exposed. The argument is kept in the signature
+                     for one-to-one parity with the C++ API.
+    :param ostype: OS subdir under ``ids/`` to look in (e.g. ``"win"``,
+                   ``"linux"``); None means the IDS directory root
+    """
+    ...
+
+def indexer_is_enabled() -> bool:
+    r"""Returns true if the indexer is enabled for the current database. The indexer is controlled by the ENABLE_INDEXER configuration option and requires the database to have been opened with indexing support. 
+            
+    """
+    ...
+
+def indexer_match(subindex_id: subindex_typeid_t, query: str, config: match_config_t) -> search_result_data_t:
+    r"""Search a single sub-index identified by `subindex_id` for `query`. 
+            
+    :returns: a heap-allocated result set; the caller must delete it. Returns nullptr if the indexer is not enabled or `subindex_id` is invalid.
+    """
+    ...
+
+def indexer_match_all(query: str, config: match_config_t) -> search_result_data_t:
+    r"""Search all sub-indexes for `query` using `config`. 
+            
+    :returns: a heap-allocated result set; the caller must delete it. Returns nullptr if the indexer is not enabled.
     """
     ...
 
@@ -87167,6 +95777,9 @@ def inf_get_demname_form() -> int:
 def inf_get_demnames() -> int:
     ...
 
+def inf_get_effective_addrsize() -> int:
+    ...
+
 def inf_get_filetype() -> filetype_t:
     ...
 
@@ -87250,7 +95863,7 @@ def inf_get_privrange_end_ea() -> ida_idaapi.ea_t:
 def inf_get_privrange_start_ea() -> ida_idaapi.ea_t:
     ...
 
-def inf_get_procname() -> str:
+def inf_get_procname() -> Any:
     ...
 
 def inf_get_refcmtnum() -> int:
@@ -87283,7 +95896,7 @@ def inf_get_strlit_break() -> int:
 def inf_get_strlit_flags() -> int:
     ...
 
-def inf_get_strlit_pref() -> str:
+def inf_get_strlit_pref() -> Any:
     ...
 
 def inf_get_strlit_sernum() -> int:
@@ -87322,6 +95935,9 @@ def inf_hide_comments() -> bool:
 def inf_hide_libfuncs() -> bool:
     ...
 
+def inf_hide_outlined() -> bool:
+    ...
+
 def inf_huge_arg_align(*args: Any) -> bool:
     ...
 
@@ -87347,6 +95963,9 @@ def inf_is_be() -> bool:
     ...
 
 def inf_is_dll() -> bool:
+    ...
+
+def inf_is_exe_dll() -> bool:
     ...
 
 def inf_is_flat_off32() -> bool:
@@ -87622,6 +96241,9 @@ def inf_set_demnames(_v: int) -> bool:
 def inf_set_dll(_v: bool = True) -> bool:
     ...
 
+def inf_set_exe_dll(_v: bool = True) -> bool:
+    ...
+
 def inf_set_filetype(_v: filetype_t) -> bool:
     ...
 
@@ -87671,6 +96293,9 @@ def inf_set_hide_comments(_v: bool = True) -> bool:
     ...
 
 def inf_set_hide_libfuncs(_v: bool = True) -> bool:
+    ...
+
+def inf_set_hide_outlined(_v: bool = True) -> bool:
     ...
 
 def inf_set_highoff(_v: ida_idaapi.ea_t) -> bool:
@@ -88093,7 +96718,7 @@ def insn_t__from_ptrval__(ptrval: int) -> insn_t:
     ...
 
 def install_command_interpreter(py_obj: Any) -> int:
-    r"""Install command line interpreter (ui_install_cli)
+    r"""Install command line interpreter (ui_install_cli).
     
     """
     ...
@@ -88282,6 +96907,9 @@ def is_align(F: int) -> bool:
     """
     ...
 
+def is_align_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_align_flow(ea: ida_idaapi.ea_t) -> bool:
     ...
 
@@ -88310,12 +96938,6 @@ def is_assignment(op: ctype_t) -> bool:
     ...
 
 def is_attached_custom_data_format(dtid: int, dfid: int) -> bool:
-    r"""Is the custom data format attached to the custom data type? 
-            
-    :param dtid: data type id
-    :param dfid: data format id
-    :returns: true or false
-    """
     ...
 
 def is_auto_enabled() -> bool:
@@ -88378,6 +97000,9 @@ def is_byte(F: int) -> bool:
     """
     ...
 
+def is_byte_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_call_insn(insn: insn_t) -> bool:
     r"""Is the instruction a "call"?
     
@@ -88391,13 +97016,13 @@ def is_char(F: int, n: int) -> bool:
     ...
 
 def is_char0(F: int) -> bool:
-    r"""Is the first operand character constant? (example: push 'a')
+    r"""Is the first operand character constant? (example: push 'a').
     
     """
     ...
 
 def is_char1(F: int) -> bool:
-    r"""Is the second operand character constant? (example: mov al, 'a')
+    r"""Is the second operand character constant? (example: mov al, 'a').
     
     """
     ...
@@ -88418,6 +97043,9 @@ def is_code(F: int) -> bool:
     r"""Does flag denote start of an instruction?
     
     """
+    ...
+
+def is_code_ea(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_code_far(cm: cm_t) -> bool:
@@ -88477,6 +97105,9 @@ def is_custom_callcnv(cc: callcnv_t) -> bool:
     """
     ...
 
+def is_custom_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_cvt64() -> bool:
     r"""is IDA converting IDB into I64?
     
@@ -88487,6 +97118,9 @@ def is_data(F: int) -> bool:
     r"""Does flag denote start of data?
     
     """
+    ...
+
+def is_data_ea(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_data_far(cm: cm_t) -> bool:
@@ -88549,7 +97183,7 @@ def is_defarg1(F: int) -> bool:
     ...
 
 def is_diff_merge_mode() -> bool:
-    r"""Return TRUE if IDA is running in diff mode (MERGE_POLICY_MDIFF/MERGE_POLICY_VDIFF)
+    r"""Return TRUE if IDA is running in diff mode (MERGE_POLICY_MDIFF/MERGE_POLICY_VDIFF).
     
     """
     ...
@@ -88558,6 +97192,9 @@ def is_double(F: int) -> bool:
     r"""FF_DOUBLE
     
     """
+    ...
+
+def is_double_ea(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_dummy_member_name(name: str) -> bool:
@@ -88572,11 +97209,20 @@ def is_dword(F: int) -> bool:
     """
     ...
 
+def is_dword_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_ea_tryblks(ea: ida_idaapi.ea_t, flags: int) -> bool:
     r"""Check if the given address ea is part of tryblks description. 
             
     :param ea: address to check
     :param flags: combination of flags for is_ea_tryblks()
+    """
+    ...
+
+def is_eh_role(r: funcrole_t) -> bool:
+    r"""Is this an EH exception handling role?
+    
     """
     ...
 
@@ -88604,10 +97250,7 @@ def is_filetype_like_binary(ft: filetype_t) -> bool:
     """
     ...
 
-def is_finally_visible_func(pfn: func_t) -> bool:
-    r"""Is the function visible (event after considering SCF_SHHID_FUNC)?
-    
-    """
+def is_finally_visible_func(*args: Any, **kwargs: Any) -> Any:
     ...
 
 def is_finally_visible_item(ea: ida_idaapi.ea_t) -> bool:
@@ -88659,6 +97302,9 @@ def is_float1(F: int) -> bool:
     """
     ...
 
+def is_float_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_floating_dtype(dtype: op_dtype_t) -> bool:
     r"""Is a floating type operand?
     
@@ -88671,6 +97317,9 @@ def is_flow(F: int) -> bool:
     """
     ...
 
+def is_flow_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_fltnum(F: int, n: int) -> bool:
     r"""is floating point number?
     
@@ -88681,7 +97330,7 @@ def is_forced_operand(ea: ida_idaapi.ea_t, n: int) -> bool:
     r"""Is operand manually defined? 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number
+    :param n: 0..#UA_MAXOP-1 operand number
     """
     ...
 
@@ -88689,6 +97338,9 @@ def is_func(F: int) -> bool:
     r"""Is function start?
     
     """
+    ...
+
+def is_func_ea(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_func_entry(pfn: func_t) -> bool:
@@ -88706,6 +97358,9 @@ def is_func_locked(pfn: func_t) -> bool:
     """
     ...
 
+def is_func_locked_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_func_tail(pfn: func_t) -> bool:
     r"""Does function describe a function tail chunk?
     
@@ -88719,6 +97374,15 @@ def is_func_trace_enabled() -> bool:
     ...
 
 def is_funcarg_off(pfn: func_t, frameoff: int) -> bool:
+    ...
+
+def is_funcarg_off_ea(ea: ida_idaapi.ea_t, frameoff: int) -> bool:
+    ...
+
+def is_function_entry(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
+def is_function_tail(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_gcc() -> bool:
@@ -88751,6 +97415,9 @@ def is_head(F: int) -> bool:
     """
     ...
 
+def is_head_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_hidden_border(ea: ida_idaapi.ea_t) -> bool:
     ...
 
@@ -88765,19 +97432,19 @@ def is_idaq() -> Any:
     ...
 
 def is_idaview(v: TWidget) -> bool:
-    r"""Is the given custom view an idaview? (ui_is_idaview)
+    r"""Is the given custom view an idaview? (ui_is_idaview).
     
     """
     ...
 
 def is_ident(name: str) -> bool:
-    r"""Is a valid name? (including ::MangleChars)
+    r"""Is a valid name? (including ::MangleChars).
     
     """
     ...
 
 def is_ident_cp(cp: wchar32_t) -> bool:
-    r"""Can a character appear in a name? (present in ::NameChars or ::MangleChars)
+    r"""Can a character appear in a name? (present in ::NameChars or ::MangleChars).
     
     """
     ...
@@ -88819,7 +97486,7 @@ def is_libitem(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_loaded(ea: ida_idaapi.ea_t) -> bool:
-    r"""Does the specified address have a byte value (is initialized?)
+    r"""Does the specified address have a byte value (is initialized?).
     
     """
     ...
@@ -88950,9 +97617,21 @@ def is_multiplicative(op: ctype_t) -> bool:
     ...
 
 def is_name_defined_locally(*args: Any) -> bool:
+    r"""Is the name defined locally in the specified function?
+    
+    :param pfn: pointer to function
+    :param name: name to check
+    :param ignore_name_def: which names to ignore when checking
+    :param ea1: the starting address of the range inside the function (optional)
+    :param ea2: the ending address of the range inside the function (optional)
+    :returns: true if the name has been defined
+    """
+    ...
+
+def is_name_defined_locally_ea(*args: Any) -> bool:
     r"""Is the name defined locally in the specified function? 
             
-    :param pfn: pointer to function
+    :param func_ea: function start address
     :param name: name to check
     :param ignore_name_def: which names to ignore when checking
     :param ea1: the starting address of the range inside the function (optional)
@@ -88999,13 +97678,13 @@ def is_numop(F: int, n: int) -> bool:
     ...
 
 def is_numop0(F: int) -> bool:
-    r"""Is the first operand a number (i.e. binary, octal, decimal or hex?)
+    r"""Is the first operand a number (i.e. binary, octal, decimal or hex?).
     
     """
     ...
 
 def is_numop1(F: int) -> bool:
-    r"""Is the second operand a number (i.e. binary, octal, decimal or hex?)
+    r"""Is the second operand a number (i.e. binary, octal, decimal or hex?).
     
     """
     ...
@@ -89017,13 +97696,13 @@ def is_off(F: int, n: int) -> bool:
     ...
 
 def is_off0(F: int) -> bool:
-    r"""Is the first operand offset? (example: push offset xxx)
+    r"""Is the first operand offset? (example: push offset xxx).
     
     """
     ...
 
 def is_off1(F: int) -> bool:
-    r"""Is the second operand offset? (example: mov ax, offset xxx)
+    r"""Is the second operand offset? (example: mov ax, offset xxx).
     
     """
     ...
@@ -89046,10 +97725,16 @@ def is_oword(F: int) -> bool:
     """
     ...
 
+def is_oword_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_pack_real(F: int) -> bool:
     r"""FF_PACKREAL
     
     """
+    ...
+
+def is_pack_real_ea(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_paf(t: bytes) -> bool:
@@ -89062,7 +97747,7 @@ def is_pascal(strtype: int) -> bool:
     ...
 
 def is_place_class_ea_capable(id: int) -> bool:
-    r"""See get_place_class()
+    r"""See get_place_class().
     
     """
     ...
@@ -89098,6 +97783,9 @@ def is_qword(F: int) -> bool:
     r"""FF_QWORD
     
     """
+    ...
+
+def is_qword_ea(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_refresh_requested(mask: builtin_widgets_mask_t) -> bool:
@@ -89163,15 +97851,30 @@ def is_ret_insn(*args: Any) -> bool:
 def is_retfp(ea: ida_idaapi.ea_t) -> bool:
     ...
 
+def is_rust_cc(cc: callcnv_t) -> bool:
+    r"""Rust language calling convention?
+    
+    """
+    ...
+
 def is_same_data_type(F1: int, F2: int) -> bool:
     r"""Do the given flags specify the same data type?
     
     """
     ...
 
+def is_same_fchunk(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_same_func(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t) -> bool:
-    r"""Do two addresses belong to the same function?
-    
+    ...
+
+def is_same_segment(ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t) -> bool:
+    r"""Check two addresses belong to one segment. 
+            
+    :param ea1: linear address
+    :param ea2: linear address
+    :returns: true if two addresses belong to one segment or they both are not belong to any segment
     """
     ...
 
@@ -89188,13 +97891,13 @@ def is_seg(F: int, n: int) -> bool:
     ...
 
 def is_seg0(F: int) -> bool:
-    r"""Is the first operand segment selector? (example: push seg seg001)
+    r"""Is the first operand segment selector? (example: push seg seg001).
     
     """
     ...
 
 def is_seg1(F: int) -> bool:
-    r"""Is the second operand segment selector? (example: mov dx, seg dseg)
+    r"""Is the second operand segment selector? (example: mov dx, seg dseg).
     
     """
     ...
@@ -89202,6 +97905,14 @@ def is_seg1(F: int) -> bool:
 def is_segm_locked(segm: segment_t) -> bool:
     r"""Is a segment pointer locked?
     
+    """
+    ...
+
+def is_segment_locked(ea: ida_idaapi.ea_t) -> bool:
+    r"""Is segment locked by address? 
+            
+    :param ea: any address within the segment
+    :returns: true if the segment is locked
     """
     ...
 
@@ -89281,6 +97992,9 @@ def is_strlit_cp(cp: wchar32_t, specific_ranges: rangeset_crefvec_t = None) -> b
     """
     ...
 
+def is_strlit_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_stroff(F: int, n: int) -> bool:
     r"""is struct offset?
     
@@ -89303,6 +98017,9 @@ def is_struct(F: int) -> bool:
     r"""FF_STRUCT
     
     """
+    ...
+
+def is_struct_ea(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_suspop(ea: ida_idaapi.ea_t, F: int, n: int) -> bool:
@@ -89329,10 +98046,19 @@ def is_tail(F: int) -> bool:
     """
     ...
 
+def is_tail_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_tbyte(F: int) -> bool:
     r"""FF_TBYTE
     
     """
+    ...
+
+def is_tbyte_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
+def is_teams_widget(t: twidget_type_t) -> bool:
     ...
 
 def is_terse_struc(ea: ida_idaapi.ea_t) -> bool:
@@ -89357,7 +98083,7 @@ def is_trusted_idb() -> bool:
     ...
 
 def is_type_arithmetic(t: bytes) -> bool:
-    r"""Is the type an arithmetic type? (floating or integral)
+    r"""Is the type an arithmetic type? (floating or integral).
     
     """
     ...
@@ -89381,7 +98107,7 @@ def is_type_bool(t: bytes) -> bool:
     ...
 
 def is_type_char(t: bytes) -> bool:
-    r"""Does the type specify a char value? (signed or unsigned, see Basic type: integer)
+    r"""Does the type specify a char value? (signed or unsigned, see Basic type: integer ).
     
     """
     ...
@@ -89429,13 +98155,13 @@ def is_type_enum(t: bytes) -> bool:
     ...
 
 def is_type_ext_arithmetic(t: bytes) -> bool:
-    r"""Is the type an extended arithmetic type? (arithmetic or enum)
+    r"""Is the type an extended arithmetic type? (arithmetic or enum).
     
     """
     ...
 
 def is_type_ext_integral(t: bytes) -> bool:
-    r"""Is the type an extended integral type? (integral or enum)
+    r"""Is the type an extended integral type? (integral or enum).
     
     """
     ...
@@ -89465,31 +98191,31 @@ def is_type_guessed_by_ida(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_type_int(bt: bytes) -> bool:
-    r"""Does the type_t specify one of the basic types in Basic type: integer?
+    r"""Does the type_t specify one of the basic types in Basic type: integer ?
     
     """
     ...
 
 def is_type_int128(t: bytes) -> bool:
-    r"""Does the type specify a 128-bit value? (signed or unsigned, see Basic type: integer)
+    r"""Does the type specify a 128-bit value? (signed or unsigned, see Basic type: integer ).
     
     """
     ...
 
 def is_type_int16(t: bytes) -> bool:
-    r"""Does the type specify a 16-bit value? (signed or unsigned, see Basic type: integer)
+    r"""Does the type specify a 16-bit value? (signed or unsigned, see Basic type: integer ).
     
     """
     ...
 
 def is_type_int32(t: bytes) -> bool:
-    r"""Does the type specify a 32-bit value? (signed or unsigned, see Basic type: integer)
+    r"""Does the type specify a 32-bit value? (signed or unsigned, see Basic type: integer ).
     
     """
     ...
 
 def is_type_int64(t: bytes) -> bool:
-    r"""Does the type specify a 64-bit value? (signed or unsigned, see Basic type: integer)
+    r"""Does the type specify a 64-bit value? (signed or unsigned, see Basic type: integer ).
     
     """
     ...
@@ -89513,7 +98239,7 @@ def is_type_paf(t: bytes) -> bool:
     ...
 
 def is_type_partial(t: bytes) -> bool:
-    r"""Identifies an unknown or void type with a known size (see Basic type: unknown & void)
+    r"""Identifies an unknown or void type with a known size (see Basic type: unknown & void).
     
     """
     ...
@@ -89647,6 +98373,9 @@ def is_unknown(F: int) -> bool:
     """
     ...
 
+def is_unknown_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_unsigned_cmpop(cmpop: cmpop_t) -> bool:
     ...
 
@@ -89709,15 +98438,12 @@ def is_varsize_item(ea: ida_idaapi.ea_t, F: int, ti: opinfo_t = None, itemsize: 
     ...
 
 def is_visible_cp(cp: wchar32_t) -> bool:
-    r"""Can a character be displayed in a name? (present in ::NameChars)
+    r"""Can a character be displayed in a name? (present in ::NameChars).
     
     """
     ...
 
-def is_visible_func(pfn: func_t) -> bool:
-    r"""Is the function visible (not hidden)?
-    
-    """
+def is_visible_func(*args: Any, **kwargs: Any) -> Any:
     ...
 
 def is_visible_item(ea: ida_idaapi.ea_t) -> bool:
@@ -89741,10 +98467,16 @@ def is_word(F: int) -> bool:
     """
     ...
 
+def is_word_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
 def is_yword(F: int) -> bool:
     r"""FF_YWORD
     
     """
+    ...
+
+def is_yword_ea(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_zstroff(ea: ida_idaapi.ea_t) -> bool:
@@ -89754,6 +98486,12 @@ def is_zword(F: int) -> bool:
     r"""FF_ZWORD
     
     """
+    ...
+
+def is_zword_ea(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
+def iterate_func_chunks_ea(fchunk_ea: ida_idaapi.ea_t, visitor: func_chunk_visitor_t, include_parents: bool = False) -> None:
     ...
 
 def jcnd2set(code: mcode_t) -> mcode_t:
@@ -89795,7 +98533,7 @@ def lexcompare(a: mop_t, b: mop_t) -> int:
 def lexcompare_tinfo(t1: typid_t, t2: typid_t, arg3: int) -> int:
     ...
 
-def list_bptgrps() -> List[str]:
+def list_bptgrps() -> Any:
     r"""Retrieve the list of absolute path of all folders of bpt dirtree.
     Synchronous function, Notification, none (synchronous function)
     """
@@ -89886,7 +98624,7 @@ def load_til_header(tildir: str, name: str) -> str:
     """
     ...
 
-def load_trace_file(filename: str) -> str:
+def load_trace_file(filename: str) -> Any:
     r"""Load a recorded trace file in the 'Tracing' window. If the call succeeds and 'buf' is not null, the description of the trace stored in the binary trace file will be returned in 'buf' 
             
     """
@@ -89903,14 +98641,25 @@ def locate_lvar(out: lvar_locator_t, func_ea: ida_idaapi.ea_t, varname: str) -> 
     ...
 
 def lock_func_range(pfn: func_t, lock: bool) -> None:
-    r"""Lock function pointer Locked pointers are guaranteed to remain valid until they are unlocked. Ranges with locked pointers cannot be deleted or moved. 
-            
+    r"""Lock function pointer Locked pointers are guaranteed to remain valid until they are unlocked. Ranges with locked pointers cannot be deleted or moved.
+    
     """
     ...
 
+def lock_func_range_ea(ea: ida_idaapi.ea_t, lock: bool) -> None:
+    ...
+
 def lock_segm(segm: segment_t, lock: bool) -> None:
-    r"""Lock segment pointer Locked pointers are guaranteed to remain valid until they are unlocked. Ranges with locked pointers cannot be deleted or moved. 
+    r"""Lock segment pointer
+    
+    """
+    ...
+
+def lock_segment_by_ea(ea: ida_idaapi.ea_t, lock: bool) -> None:
+    r"""Lock segment by address. Locked segments cannot be deleted or moved. 
             
+    :param ea: any address within the segment
+    :param lock: true to lock, false to unlock
     """
     ...
 
@@ -90028,6 +98777,9 @@ def lvar_mapping_size(map: lvar_mapping_t) -> int:
     ...
 
 def lvar_off(pfn: func_t, frameoff: int) -> int:
+    ...
+
+def lvar_off_ea(ea: ida_idaapi.ea_t, frameoff: int) -> int:
     ...
 
 def macros_enabled() -> bool:
@@ -90195,8 +98947,8 @@ def move_privrange(new_privrange_start: ida_idaapi.ea_t) -> bool:
     ...
 
 def move_segm(s: segment_t, to: ida_idaapi.ea_t, flags: int = 0) -> move_segm_code_t:
-    r"""This function moves all information to the new address. It fixes up address sensitive information in the kernel. The total effect is equal to reloading the segment to the target address. For the file format dependent address sensitive information, loader_t::move_segm is called. Also IDB notification event idb_event::segm_moved is called. 
-            
+    r"""This function moves all information to the new address.
+    
     :param s: segment to move
     :param to: new segment start address
     :param flags: Move segment flags
@@ -90222,6 +98974,16 @@ def move_segm_start(ea: ida_idaapi.ea_t, newstart: ida_idaapi.ea_t, mode: int) -
 def move_segm_strerror(code: move_segm_code_t) -> str:
     r"""Return string describing error MOVE_SEGM_... code.
     
+    """
+    ...
+
+def move_segment(seg_ea: ida_idaapi.ea_t, to: ida_idaapi.ea_t, flags: int = 0) -> move_segm_code_t:
+    r"""Move segment to a new address. It fixes up address sensitive information in the kernel. The total effect is equal to reloading the segment to the target address. For the file format dependent address sensitive information, loader_t::move_segm is called. Also IDB notification event idb_event::segm_moved is called. 
+            
+    :param seg_ea: any address within the segment to move
+    :param to: new segment start address
+    :param flags: Move segment flags
+    :returns: Move segment result codes
     """
     ...
 
@@ -90406,7 +99168,7 @@ def num_flag() -> int:
     ...
 
 def oct_flag() -> int:
-    r"""Get number flag of the base, regardless of current processor - better to use num_flag()
+    r"""Get number flag of the base, regardless of current processor - better to use num_flag().
     
     """
     ...
@@ -90427,7 +99189,7 @@ def op_based_stroff(insn: insn_t, n: int, opval: int, base: ida_idaapi.ea_t) -> 
     r"""Set operand representation to be 'struct offset' if the operand likely points to a structure member. For example, let's there is a structure at 1000 1000 stru_1000 Elf32_Sym <...> the operand #8 will be represented as '#Elf32_Sym.st_size' after the call of 'op_based_stroff(..., 8, 0x1000)' By the way, after the call of 'op_plain_offset(..., 0x1000)' it will be represented as '#(stru_1000.st_size - 0x1000)' 
             
     :param insn: the instruction
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all operands
     :param opval: operand value (usually op_t::value or op_t::addr)
     :param base: base reference
     :returns: success
@@ -90447,7 +99209,7 @@ def op_chr(ea: ida_idaapi.ea_t, n: int) -> bool:
     ...
 
 def op_custfmt(ea: ida_idaapi.ea_t, n: int, fid: int) -> bool:
-    r"""Set custom data format for operand (fid-custom data format id)
+    r"""Set custom data format for operand (fid-custom data format id).
     
     """
     ...
@@ -90462,7 +99224,7 @@ def op_enum(ea: ida_idaapi.ea_t, n: int, id: int, serial: int = 0) -> bool:
     r"""Set operand representation to be enum type If applied to unexplored bytes, converts them to 16-/32-bit word data 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all operands
     :param id: id of enum
     :param serial: the serial number of the constant in the enumeration, usually 0. the serial numbers are used if the enumeration contains several constants with the same value
     :returns: success
@@ -90494,7 +99256,7 @@ def op_oct(ea: ida_idaapi.ea_t, n: int) -> bool:
     ...
 
 def op_offset(*args: Any) -> bool:
-    r"""See op_offset_ex()
+    r"""See op_offset_ex().
     
     """
     ...
@@ -90529,7 +99291,7 @@ def op_seg(ea: ida_idaapi.ea_t, n: int) -> bool:
     r"""Set operand representation to be 'segment'. If applied to unexplored bytes, converts them to 16-/32-bit word data 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all operands
     :returns: success
     """
     ...
@@ -90538,7 +99300,7 @@ def op_stkvar(ea: ida_idaapi.ea_t, n: int) -> bool:
     r"""Set operand representation to be 'stack variable'. Should be applied to an instruction within a function. Should be applied after creating a stack var using insn_t::create_stkvar(). 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all operands
     :returns: success
     """
     ...
@@ -90632,11 +99394,19 @@ def open_form(*args: Any) -> Any:
     ...
 
 def open_frame_window(pfn: func_t, offset: int) -> TWidget:
-    r"""Open the frame window for the given function (ui_open_builtin). 
-            
-    :param pfn: function to analyze
+    r""":param pfn: function to analyze
     :param offset: offset where the cursor is placed
     :returns: pointer to resulting window if 'pfn' is a valid function and the window was displayed, 
+     nullptr otherwise
+    """
+    ...
+
+def open_frame_window_ea(func_ea: ida_idaapi.ea_t, offset: int) -> TWidget:
+    r"""Open the frame window for the given function (ui_open_builtin2). 
+            
+    :param func_ea: function start address
+    :param offset: offset where the cursor is placed
+    :returns: pointer to resulting window if 'func_ea' is a valid function and the window was displayed, 
      nullptr otherwise
     """
     ...
@@ -90654,6 +99424,34 @@ def open_hexdump_window(window_title: str) -> TWidget:
             
     :param window_title: title of view to open
     :returns: pointer to resulting window
+    """
+    ...
+
+def open_ida_link(uri: str) -> bool:
+    r"""Open a resource using URL-style navigation with ida:// scheme. 
+    * identifies the data source (currently only used by hcli)
+    * empty source (ida:///...) matches any source 
+    * functions, addresses, strings, segments
+    * names, imports, exports, types, bookmarks
+    
+    
+    Parameters:
+    * rva=ADDRESS: relative virtual address, offset from imagebase (required for most resources, mutually exclusive with ea)
+    * ea=ADDRESS: absolute target address (mutually exclusive with rva)
+    * name=STRING: type name (required for types resource)
+    * view=TYPE: target view (disasm, pseudocode, hexdump, graph, functions, segments, names, imports, exports, strings, types, bookmarks)
+    
+    
+    Examples:
+    * ida:///myfile.i64/functions?rva=0x1000&view=pseudocode
+    * ida:///myfile.i64/types?name=MyStruct&view=types
+    * ida:///addresses?ea=0x401000 (current source, current IDB)
+    * ida:///myfile.i64/functions?rva=0x1000 (current source, specific IDB)
+    
+    
+    
+    :param uri: Resource URI in format: ida://<source>/<idb-name>/<resource>?<params>
+    :returns: true on success, false on failure (displays warning dialog on error)
     """
     ...
 
@@ -90803,7 +99601,7 @@ def open_trace_window() -> TWidget:
     ...
 
 def open_url(url: str) -> None:
-    r"""Open the given url (ui_open_url)
+    r"""Open the given url (ui_open_url).
     
     """
     ...
@@ -90896,15 +99694,20 @@ def parse_dbgopts(ido: instant_dbgopts_t, r_switch: str) -> bool:
     """
     ...
 
-def parse_decl(out_tif: tinfo_t, til: til_t, decl: str, pt_flags: int) -> str:
-    r"""Parse ONE declaration. If the input string contains more than one declaration, the first complete type declaration (PT_TYP) or the last variable declaration (PT_VAR) will be used. 
-            
-    :param out_tif: type info
-    :param til: type library to use. may be nullptr
+def parse_decl(out_tif: tinfo_t, til: til_t, decl: str, pt_flags: int) -> Any:
+    r"""Parse ONE declaration.
+    
+    If the input string contains more than one declaration, the first complete
+    type declaration (PT_TYP) or the last variable declaration (PT_VAR) will
+    be used.
+    
+    :param out_tif: (output) receives the parsed type info
+    :param til: type library to use. May be None
     :param decl: C declaration to parse
-    :param pt_flags: combination of Type parsing flags bits
-    :returns: true: ok
-    :returns: false: declaration is bad, the error message is displayed if !PT_SIL
+    :param pt_flags: combination of PT_... bits
+    :returns: the declared name on success (may be empty), or None if the
+              declaration is bad. On failure, an error message is displayed
+              unless PT_SIL is set.
     """
     ...
 
@@ -91290,7 +100093,7 @@ def print_idcv(v: idc_value_t, name: str = None, indent: int = 0) -> str:
     """
     ...
 
-def print_insn_mnem(ea: ida_idaapi.ea_t) -> str:
+def print_insn_mnem(ea: ida_idaapi.ea_t) -> Any:
     r"""Print instruction mnemonics. 
             
     :param ea: linear address of the instruction
@@ -91302,7 +100105,7 @@ def print_operand(ea: ida_idaapi.ea_t, n: int, getn_flags: int = 0, newtype: pri
     r"""Generate text representation for operand #n. This function will generate the text representation of the specified operand (includes color codes.) 
             
     :param ea: the item address (instruction or data)
-    :param n: 0..UA_MAXOP-1 operand number, meaningful only for instructions
+    :param n: 0..#UA_MAXOP-1 operand number, meaningful only for instructions
     :param getn_flags: Name expression flags Currently only GETN_NODUMMY is accepted.
     :param newtype: if specified, print the operand using the specified type
     :returns: success
@@ -91318,15 +100121,15 @@ def print_strlit_type(strtype: int, flags: int = 0) -> Any:
     """
     ...
 
-def print_tinfo(prefix: str, indent: int, cmtindent: int, flags: int, tif: tinfo_t, name: str, cmt: str) -> str:
+def print_tinfo(prefix: str, indent: int, cmtindent: int, flags: int, tif: tinfo_t, name: str, cmt: str) -> Any:
     ...
 
-def print_type(ea: ida_idaapi.ea_t, prtype_flags: int) -> str:
-    r"""Get type declaration for the specified address. 
-            
+def print_type(ea: ida_idaapi.ea_t, prtype_flags: int) -> Any:
+    r"""Get the type declaration for the specified address.
+    
     :param ea: address
-    :param prtype_flags: combination of Type printing flags
-    :returns: success
+    :param prtype_flags: combination of PRTYPE_... flags
+    :returns: the type declaration, or None if the address has no type.
     """
     ...
 
@@ -91336,7 +100139,7 @@ def print_vdloc(loc: vdloc_t, nbytes: int) -> str:
     """
     ...
 
-def process_archive(temp_file: str, li: linput_t, module_name: str, neflags: int, defmember: str, loader: load_info_t) -> str:
+def process_archive(temp_file: str, li: linput_t, module_name: str, neflags: int, defmember: str, loader: load_info_t) -> Any:
     r"""Calls loader_t::process_archive() For parameters and return value description look at loader_t::process_archive(). Additional parameter 'loader' is a pointer to load_info_t structure. 
             
     """
@@ -91354,13 +100157,19 @@ def process_ui_action(name: str, flags: int = 0) -> Any:
     """
     ...
 
-def prompt_function_prototype(out_tif: tinfo_t, pfn: func_t, tif: tinfo_t, name: str) -> str:
+def prompt_function_prototype(*args: Any, **kwargs: Any) -> Any:
+    r"""Open function prototype editor to edit function type and create new type (ui_prompt_function_prototype). Allows to change the function prototype either in the "old" one-liner mode or in the new multi-line editor, which supports shortcuts, etc. Note: changes will not apply! It is the caller's job to apply the resulting out_tif and out_name. 
+            
+    :param out_tif: (tinfo_t *) tif for created type
+    :param func_ea: (ea_t) function start address
+    :param tif: (tinfo_t *) current function type
+    :param name: (const char *) function name
+    :returns: true if new type created successfully
+    """
     ...
 
-def prompt_function_prototype_ex(out_tif: tinfo_t, pfn: func_t, tif: tinfo_t, name: str) -> str:
-    r"""Open function prototype editor to edit function type and create new type. Allows to change the function prototype either in the "old" one-liner mode or in the new multi-line editor, which supports shortcuts, etc. Note: changes will not apply! It is the caller's job to apply the resulting out_tif and out_name. Parameters: 
-            
-    :param out_tif: - (tinfo_t *) tif for created type
+def prompt_function_prototype_ex(out_tif: tinfo_t, pfn: func_t, tif: tinfo_t, name: str) -> Any:
+    r""":param out_tif: - (tinfo_t *) tif for created type
     :param pfn: - (func_t *) editing function
     :param tif: - (tinfo_t *) current function type
     :param name: - (const char *) function name
@@ -91592,7 +100401,7 @@ def qfile_t_tmpfile() -> Any:
     r"""A static method to construct an instance using a temporary file"""
     ...
 
-def qlgetz(li: linput_t, fpos: int) -> str:
+def qlgetz(li: linput_t, fpos: int) -> Any:
     ...
 
 def qstrvec_t_add(_self: Any, s: str) -> bool:
@@ -91670,7 +100479,7 @@ def qword_flag() -> int:
     """
     ...
 
-def range_t_print(cb: range_t) -> str:
+def range_t_print(cb: range_t) -> Any:
     r"""Helper function. Should not be called directly!
     
     """
@@ -91759,6 +100568,9 @@ def reanalyze_function(*args: Any) -> None:
     """
     ...
 
+def reanalyze_function_ea(*args: Any) -> None:
+    ...
+
 def reanalyze_noret_flag(ea: ida_idaapi.ea_t) -> bool:
     r"""Plan to reanalyze noret flag. This function does not remove FUNC_NORET if it is already present. It just plans to reanalysis. 
             
@@ -91777,6 +100589,22 @@ def rebase_program(delta: Any, flags: int) -> int:
 def rebuild_nlist() -> None:
     ...
 
+def recalc_func_spd_for_basic_block(func_ea: ida_idaapi.ea_t, cur_ea: ida_idaapi.ea_t) -> bool:
+    r"""Recalculate SP delta for the current instruction. The typical code snippet to calculate SP delta in a proc module is:
+    
+    ea_t func_ea = get_func_start(insn.ea);
+    if ( may_trace_sp() && func_ea != BADADDR )
+      if ( !recalc_func_spd_for_basic_block(func_ea, insn.ea) )
+        trace_sp(func_ea, insn);
+    
+    
+    :param func_ea: any address of the function
+    :param cur_ea: linear address of the current instruction
+    :returns: true: the cumulative SP delta is set
+    :returns: false: the instruction at CUR_EA passes flow to the next instruction. SP delta must be set as a result of emulating the current instruction.
+    """
+    ...
+
 def recalc_spd(cur_ea: ida_idaapi.ea_t) -> bool:
     r"""Recalculate SP delta for an instruction that stops execution. The next instruction is not reached from the current instruction. We need to recalculate SP for the next instruction.
     This function will create a new automatic SP register change point if necessary. It should be called from the emulator (emu.cpp) when auto_state == AU_USED if the current instruction doesn't pass the execution flow to the next instruction. 
@@ -91788,7 +100616,7 @@ def recalc_spd(cur_ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def recalc_spd_for_basic_block(pfn: func_t, cur_ea: ida_idaapi.ea_t) -> bool:
-    r"""Recalculate SP delta for the current instruction. The typical code snippet to calculate SP delta in a proc module is:
+    r"""Recalculate SP delta for the current instruction.
     
     if ( may_trace_sp() && pfn != nullptr )
       if ( !recalc_spd_for_basic_block(pfn, insn.ea) )
@@ -91815,7 +100643,7 @@ def refresh_choosers() -> None:
     ...
 
 def refresh_custom_viewer(custom_viewer: TWidget) -> None:
-    r"""Refresh custom ida viewer (ui_refresh_custom_viewer)
+    r"""Refresh custom ida viewer (ui_refresh_custom_viewer).
     
     """
     ...
@@ -91828,7 +100656,7 @@ def refresh_debugger_memory() -> Any:
     ...
 
 def refresh_idaview() -> None:
-    r"""Refresh marked windows (ui_refreshmarked)
+    r"""Refresh marked windows (ui_refreshmarked).
     
     """
     ...
@@ -92022,6 +100850,9 @@ def reg_write_strlist(items: List[str], subkey: str) -> Any:
     """
     ...
 
+def regarg_t__compare(l: regarg_t, r: regarg_t) -> int:
+    ...
+
 def register_action(desc: action_desc_t) -> bool:
     r"""Create a new action (ui_register_action). After an action has been created, it is possible to attach it to menu items (attach_action_to_menu()), or to popup menus (attach_action_to_popup()).
     Because the actions will need to call the handler's activate() and update() methods at any time, you shouldn't build your action handler on the stack.
@@ -92115,6 +100946,9 @@ def register_timer(interval: Any, callback: Any) -> Any:
     """
     ...
 
+def regvar_t__compare(l: regvar_t, r: regvar_t) -> int:
+    ...
+
 def reload_file(file: str, is_remote: bool) -> bool:
     r"""Reload the input file. This function reloads the byte values from the input file. It doesn't modify the segmentation, names, comments, etc. 
             
@@ -92148,7 +100982,7 @@ def remove_abi_opts(abi_opts: str, user_level: bool = False) -> bool:
     ...
 
 def remove_command_interpreter(cli_idx: int) -> None:
-    r"""Remove command line interpreter (ui_install_cli)
+    r"""Remove command line interpreter (ui_install_cli).
     
     """
     ...
@@ -92159,6 +100993,9 @@ def remove_func_tail(pfn: func_t, tail_ea: ida_idaapi.ea_t) -> bool:
     :param pfn: pointer to the function
     :param tail_ea: any address inside the tail to remove
     """
+    ...
+
+def remove_func_tail_ea(func_ea: ida_idaapi.ea_t, tail_ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def remove_hexrays_callback(callback: Any) -> Any:
@@ -92209,6 +101046,16 @@ def rename_entry(ord: int, name: str, flags: int = 0) -> bool:
     """
     ...
 
+def rename_func_regvar(func_ea: ida_idaapi.ea_t, index: int, user: str) -> int:
+    r"""Rename a register variable. 
+            
+    :param func_ea: any address of the function
+    :param index: index of the register variable (see find_func_regvar())
+    :param user: new user-defined name for the register
+    :returns: Register variable error codes
+    """
+    ...
+
 def rename_lvar(func_ea: ida_idaapi.ea_t, oldname: str, newname: str) -> bool:
     r"""Rename a local variable. 
             
@@ -92220,8 +101067,8 @@ def rename_lvar(func_ea: ida_idaapi.ea_t, oldname: str, newname: str) -> bool:
     ...
 
 def rename_regvar(pfn: func_t, v: regvar_t, user: str) -> int:
-    r"""Rename a register variable. 
-            
+    r"""Rename a register variable.
+    
     :param pfn: function in question
     :param v: variable to rename
     :param user: new user-defined name for the register
@@ -92236,7 +101083,7 @@ def reorder_dummy_names() -> None:
     ...
 
 def repaint_custom_viewer(custom_viewer: TWidget) -> None:
-    r"""Repaint the given widget immediately (ui_repaint_qwidget)
+    r"""Repaint the given widget immediately (ui_repaint_qwidget).
     
     """
     ...
@@ -92485,6 +101332,18 @@ def requires_color_esc(c: Any) -> Any:
     """
     ...
 
+def resolve_field_path(out: field_path_t, til: til_t, dotted_path: str) -> bool:
+    r"""Resolve a dotted field path like "Top.Field1.Field2.Leaf".
+    The first segment must be a registered TIL type name (a type, not a member). Each subsequent segment is looked up as a member in the current type. Every segment must be spelled out explicitly.
+    On success, `out` is filled with the leaf info plus the chain of union selections needed to disambiguate the path for op_stroff().
+    
+    :param out: result; cleared on entry
+    :param til: type library; nullptr means current idati
+    :param dotted_path: dotted field path
+    :returns: true on success
+    """
+    ...
+
 def resolve_typedef(til: til_t, type: bytes) -> bytes:
     ...
 
@@ -92497,6 +101356,14 @@ def restore_database_snapshot(snapshot: Any, callback: Any, userdata: Any) -> bo
     :param callback: a callback function
     :param userdata: payload to pass to the callback
     :returns: success
+    """
+    ...
+
+def restore_user_casts(func_ea: ida_idaapi.ea_t) -> user_casts_t:
+    r"""Restore user defined casts from the database. 
+            
+    :param func_ea: the entry address of the function
+    :returns: collection of user defined casts. The returned object must be deleted by the caller using delete
     """
     ...
 
@@ -92581,13 +101448,13 @@ def retrieve_input_file_crc32() -> int:
     """
     ...
 
-def retrieve_input_file_md5() -> bytes:
+def retrieve_input_file_md5() -> Any:
     r"""Get input file md5.
     
     """
     ...
 
-def retrieve_input_file_sha256() -> bytes:
+def retrieve_input_file_sha256() -> Any:
     r"""Get input file sha256.
     
     """
@@ -92669,6 +101536,14 @@ def save_trace_file(filename: str, description: str) -> bool:
     """
     ...
 
+def save_user_casts(func_ea: ida_idaapi.ea_t, casts: user_casts_t) -> None:
+    r"""Save user defined casts into the database. 
+            
+    :param func_ea: the entry address of the function
+    :param casts: collection of user defined casts
+    """
+    ...
+
 def save_user_cmts(func_ea: ida_idaapi.ea_t, user_cmts: user_cmts_t) -> None:
     r"""Save user defined comments into the database. 
             
@@ -92745,13 +101620,13 @@ def seg_flag() -> int:
     ...
 
 def segm_adjust_diff(s: segment_t, delta: int) -> int:
-    r"""Truncate and sign extend a delta depending on the segment.
+    r"""Truncate and sign extend a delta depending on the segment
     
     """
     ...
 
 def segm_adjust_ea(s: segment_t, ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
-    r"""Truncate an address depending on the segment.
+    r"""Truncate an address depending on the segment
     
     """
     ...
@@ -92835,6 +101710,12 @@ def send_dbg_command(command: Any) -> Any:
 def serialize_tinfo(type: qtype, fields: qtype, fldcmts: qtype, tif: tinfo_t, sudt_flags: int) -> bool:
     ...
 
+def serve() -> None:
+    r"""Block the main thread, dispatching queued requests as they arrive (ui_serve). Semantically equivalent to Qt's QApplication::exec(): puts the calling thread to sleep on a semaphore that is signaled whenever something is queued for the main thread (execute_sync requests from worker threads), dispatches the queued work, then sleeps again. Returns when stop_serving() is called In GUI mode this is a no-op because Qt's own event loop already serves this role. Must be called from the main thread. 
+            
+    """
+    ...
+
 def set2jcnd(code: mcode_t) -> mcode_t:
     ...
 
@@ -92851,7 +101732,7 @@ def set__invsign1(ea: ida_idaapi.ea_t) -> None:
     ...
 
 def set_abi_name(abiname: str, user_level: bool = False) -> bool:
-    r"""Set abi name (see Compiler IDs)
+    r"""Set abi name (see Compiler IDs ).
     
     """
     ...
@@ -92887,8 +101768,8 @@ def set_asm_inc_file(file: str) -> bool:
     ...
 
 def set_auto_spd(pfn: func_t, ea: ida_idaapi.ea_t, new_spd: int) -> bool:
-    r"""Add such an automatic SP register change point so that at EA the new cumulative SP delta (that is, the difference between the initial and current values of SP) would be equal to NEW_SPD. 
-            
+    r"""Add such an automatic SP register change point so that at EA the new cumulative SP delta (that is, the difference between the initial and current values of SP) would be equal to NEW_SPD.
+    
     :param pfn: pointer to the function. may be nullptr.
     :param ea: linear address of the instruction
     :param new_spd: new value of the cumulative SP delta
@@ -92905,7 +101786,7 @@ def set_auto_state(new_state: atype_t) -> atype_t:
     ...
 
 def set_bblk_trace_options(options: int) -> None:
-    r"""Modify basic block tracing options (see BT_LOG_INSTS)
+    r"""Modify basic block tracing options (see BT_LOG_INSTS).
     
     """
     ...
@@ -92944,7 +101825,7 @@ def set_c_macros(macros: str) -> None:
     ...
 
 def set_cancelled() -> None:
-    r"""Set "Cancelled" flag (ui_set_cancelled)
+    r"""Set "Cancelled" flag (ui_set_cancelled).
     
     """
     ...
@@ -93021,7 +101902,7 @@ def set_compiler(cc: compiler_info_t, flags: int, abiname: str = None) -> bool:
     ...
 
 def set_compiler_id(id: comp_t, abiname: str = None) -> bool:
-    r"""Set the compiler id (see Compiler IDs)
+    r"""Set the compiler id (see Compiler IDs ).
     
     """
     ...
@@ -93043,7 +101924,7 @@ def set_custom_data_type_ids(ea: ida_idaapi.ea_t, cdis: custom_data_type_ids_t) 
     ...
 
 def set_custom_viewer_qt_aware(custom_viewer: TWidget) -> bool:
-    r"""Allow the given viewer to interpret Qt events (ui_set_custom_viewer_handler)
+    r"""Allow the given viewer to interpret Qt events (ui_set_custom_viewer_handler).
     
     """
     ...
@@ -93085,9 +101966,19 @@ def set_default_encoding_idx(bpu: int, idx: int) -> bool:
     ...
 
 def set_default_sreg_value(sg: segment_t, rg: int, value: int) -> bool:
+    r"""Set default value of a segment register for a segment.
+    
+    :param sg: pointer to segment structure if nullptr, then set the register for all segments
+    :param rg: number of segment register
+    :param value: its default value. this value will be used by get_sreg() if value of the register is unknown at the specified address.
+    :returns: success
+    """
+    ...
+
+def set_default_sreg_value_ea(seg_ea: ida_idaapi.ea_t, rg: int, value: int) -> bool:
     r"""Set default value of a segment register for a segment. 
             
-    :param sg: pointer to segment structure if nullptr, then set the register for all segments
+    :param seg_ea: any address within the segment, if BADADDR, then set the register for all segments
     :param rg: number of segment register
     :param value: its default value. this value will be used by get_sreg() if value of the register is unknown at the specified address.
     :returns: success
@@ -93160,7 +102051,7 @@ def set_forced_operand(ea: ida_idaapi.ea_t, n: int, op: str) -> bool:
     r"""Set forced operand. 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number
+    :param n: 0..#UA_MAXOP-1 operand number
     :param op: text of operand
     * nullptr: do nothing (return 0)
     * "" : delete forced operand
@@ -93169,8 +102060,8 @@ def set_forced_operand(ea: ida_idaapi.ea_t, n: int, op: str) -> bool:
     ...
 
 def set_frame_member_type(pfn: func_t, offset: int, tif: tinfo_t, repr: value_repr_t = None, etf_flags: int = 0) -> bool:
-    r"""Change type of the frame member 
-            
+    r"""Change type of the frame member
+    
     :param pfn: pointer to function
     :param offset: member offset in the frame structure, in bytes
     :param tif: variable type
@@ -93179,13 +102070,45 @@ def set_frame_member_type(pfn: func_t, offset: int, tif: tinfo_t, repr: value_re
     """
     ...
 
-def set_frame_size(pfn: func_t, frsize: int, frregs: int, argsize: int) -> bool:
-    r"""Set size of function frame. Note: The returned size may not include all stack arguments. It does so only for __stdcall and __fastcall calling conventions. To get the entire frame size for all cases use frame.get_func_frame(pfn).get_size() 
+def set_frame_member_type_ea(func_ea: ida_idaapi.ea_t, offset: int, tif: tinfo_t, repr: value_repr_t = None, etf_flags: int = 0) -> bool:
+    r"""Change type of the frame member 
             
+    :param func_ea: any address of the function
+    :param offset: member offset in the frame structure, in bytes
+    :param tif: variable type
+    :param repr: variable representation
+    :returns: success
+    """
+    ...
+
+def set_frame_size(pfn: func_t, frsize: int, frregs: int, argsize: int) -> bool:
+    r"""Set size of function frame.
+    
     :param pfn: pointer to function structure
     :param frsize: size of function local variables
     :param frregs: size of saved registers
     :param argsize: size of function arguments that will be purged from the stack upon return
+    :returns: success
+    """
+    ...
+
+def set_frame_size_ea(func_ea: ida_idaapi.ea_t, frsize: int, frregs: int, argsize: int) -> bool:
+    r"""Set size of function frame. 
+            
+    :param func_ea: any address of the function
+    :param frsize: size of function local variables
+    :param frregs: size of saved registers
+    :param argsize: size of function arguments that will be purged from the stack upon return
+    :returns: success
+    """
+    ...
+
+def set_func_auto_spd(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t, new_spd: int) -> bool:
+    r"""Set the cumulative SP delta at the given address. 
+            
+    :param func_ea: any address of the function, may be BADADDR to auto-resolve
+    :param ea: linear address of the instruction
+    :param new_spd: new value of the cumulative SP delta
     :returns: success
     """
     ...
@@ -93200,6 +102123,9 @@ def set_func_cmt(pfn: func_t, cmt: str, repeatable: bool) -> bool:
     """
     ...
 
+def set_func_cmt_ea(ea: ida_idaapi.ea_t, cmt: str, repeatable: bool) -> bool:
+    ...
+
 def set_func_end(ea: ida_idaapi.ea_t, newend: ida_idaapi.ea_t) -> bool:
     r"""Move function chunk end address. 
             
@@ -93207,6 +102133,20 @@ def set_func_end(ea: ida_idaapi.ea_t, newend: ida_idaapi.ea_t) -> bool:
     :param newend: new end address of the function
     :returns: success
     """
+    ...
+
+def set_func_entry_info(fi: func_entry_info_t) -> bool:
+    r"""Update function entry info in the database. You cannot use this function to change the range boundaries. Uses start_ea to identify the function, applies only modified fields. 
+            
+    :param fi: entry info to update
+    :returns: success
+    """
+    ...
+
+def set_func_flag(ea: ida_idaapi.ea_t, flag: int, on_off: bool = True) -> bool:
+    ...
+
+def set_func_flags(ea: ida_idaapi.ea_t, flags: int) -> bool:
     ...
 
 def set_func_guessed_by_hexrays(ea: ida_idaapi.ea_t) -> None:
@@ -93218,6 +102158,26 @@ def set_func_name_if_jumpfunc(pfn: func_t, oldname: str) -> int:
     :param pfn: pointer to function (may be nullptr)
     :param oldname: old name of function. if old name was in "j_..." form, then we may discard it and set a new name. if oldname is not known, you may pass nullptr.
     :returns: success
+    """
+    ...
+
+def set_func_regvar_cmt(func_ea: ida_idaapi.ea_t, index: int, cmt: str) -> int:
+    r"""Set comment for a register variable. 
+            
+    :param func_ea: any address of the function
+    :param index: index of the register variable (see find_func_regvar())
+    :param cmt: new comment
+    :returns: Register variable error codes
+    """
+    ...
+
+def set_func_regvar_range(func_ea: ida_idaapi.ea_t, index: int, range: range_t) -> int:
+    r"""Update the address range of a register variable by index. Only the range is changed; to rename a regvar or change its comment use rename_func_regvar()/set_func_regvar_cmt(). The new range must be well-formed (start_ea < end_ea) and must keep the function's register variables sorted by start_ea. 
+            
+    :param func_ea: any address of the function
+    :param index: index of the register variable (see find_func_regvar())
+    :param range: new address range for the register variable
+    :returns: Register variable error codes
     """
     ...
 
@@ -93234,6 +102194,9 @@ def set_func_trace_options(options: int) -> None:
     r"""Modify function tracing options. \sq{Type, Synchronous function - available as request, Notification, none (synchronous function)} 
             
     """
+    ...
+
+def set_function_name_if_jumpfunc(func_ea: ida_idaapi.ea_t, oldname: str) -> bool:
     ...
 
 def set_gotea(gotea: ida_idaapi.ea_t) -> None:
@@ -93488,9 +102451,18 @@ def set_op_type(ea: ida_idaapi.ea_t, type: int, n: int) -> bool:
             
     :param ea: linear address
     :param type: new flag value (should be obtained from char_flag(), num_flag() and similar functions)
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all operands
     :returns: 1: ok
     :returns: 0: failed (applied to a tail byte)
+    """
+    ...
+
+def set_operand_flag(*args: Any) -> Any:
+    r"""Set operand `n`'s type flag in the 64-bit flags set.
+    
+    :param F: the flags to modify
+    :param typebits: the type bits (one of `FF_N_`)
+    :param n: the operand number
     """
     ...
 
@@ -93603,8 +102575,8 @@ def set_registry_name(name: str) -> bool:
     ...
 
 def set_regvar_cmt(pfn: func_t, v: regvar_t, cmt: str) -> int:
-    r"""Set comment for a register variable. 
-            
+    r"""Set comment for a register variable.
+    
     :param pfn: function in question
     :param v: variable to rename
     :param cmt: new comment
@@ -93646,8 +102618,8 @@ def set_script_timeout(timeout: Any) -> Any:
     ...
 
 def set_segm_addressing(s: segment_t, bitness: int) -> bool:
-    r"""Change segment addressing mode (16, 32, 64 bits). You must use this function to change segment addressing, never change the 'bitness' field directly. This function will delete all instructions, comments and names in the segment 
-            
+    r"""Change segment addressing mode (16, 32, 64 bits). You must use this function to change segment addressing, never change the 'bitness' field directly. This function will delete all instructions, comments and names in the segment
+    
     :param s: pointer to segment
     :param bitness: new addressing mode of segment
     * 2: 64-bit segment
@@ -93658,14 +102630,14 @@ def set_segm_addressing(s: segment_t, bitness: int) -> bool:
     ...
 
 def set_segm_base(s: segment_t, newbase: ida_idaapi.ea_t) -> bool:
-    r"""Internal function.
+    r"""Internal function
     
     """
     ...
 
 def set_segm_class(s: segment_t, sclass: str, flags: int = 0) -> int:
-    r"""Set segment class. 
-            
+    r"""Set segment class.
+    
     :param s: pointer to segment (may be nullptr)
     :param sclass: segment class (may be nullptr). If segment type is SEG_NORM and segment class is one of predefined names, then segment type is changed to:
     * "CODE" -> SEG_CODE
@@ -93691,8 +102663,8 @@ def set_segm_end(ea: ida_idaapi.ea_t, newend: ida_idaapi.ea_t, flags: int) -> bo
     ...
 
 def set_segm_name(s: segment_t, name: str, flags: int = 0) -> int:
-    r"""Rename segment. The new name is validated (see validate_name). A segment always has a name. If you hadn't specified a name, the kernel will assign it "seg###" name where ### is segment number. 
-            
+    r"""Rename segment. The new name is validated (see validate_name). A segment always has a name. If you hadn't specified a name, the kernel will assign it "seg###" name where ### is segment number.
+    
     :param s: pointer to segment (may be nullptr)
     :param name: new segment name
     :param flags: ADDSEG_IDBENC or 0
@@ -93712,13 +102684,80 @@ def set_segm_start(ea: ida_idaapi.ea_t, newstart: ida_idaapi.ea_t, flags: int) -
     """
     ...
 
-def set_segment_cmt(s: segment_t, cmt: str, repeatable: bool) -> None:
-    r"""Set segment comment. 
+def set_segment_addressing(ea: ida_idaapi.ea_t, bitness: int) -> bool:
+    r"""Change segment addressing mode (16, 32, 64 bits) by address. You must use this function to change segment addressing, never change the 'bitness' field directly. This function will delete all instructions, comments and names in the segment 
             
+    :param ea: any address within the segment
+    :param bitness: new addressing mode of segment
+    * 2: 64-bit segment
+    * 1: 32-bit segment
+    * 0: 16-bit segment
+    :returns: success
+    """
+    ...
+
+def set_segment_base_ea(seg_ea: ida_idaapi.ea_t, newbase: ida_idaapi.ea_t) -> bool:
+    r"""Set segment base. Internal function. 
+            
+    :param seg_ea: any address within the segment
+    :param newbase: new base linear address
+    :returns: success
+    """
+    ...
+
+def set_segment_class(ea: ida_idaapi.ea_t, sclass: str, flags: int = 0) -> int:
+    r"""Set segment class by address. 
+            
+    :param ea: any address within the segment
+    :param sclass: segment class (may be nullptr). If segment type is SEG_NORM and segment class is one of predefined names, then segment type is changed to:
+    * "CODE" -> SEG_CODE
+    * "DATA" -> SEG_DATA
+    * "STACK" -> SEG_BSS
+    * "BSS" -> SEG_BSS
+    * if "UNK" then segment type is reset to SEG_NORM.
+    :param flags: Add segment flags
+    :returns: 1: ok, class is good and segment class is changed
+    :returns: 0: failure, class is nullptr or bad or no segment at ea
+    """
+    ...
+
+def set_segment_cmt(s: segment_t, cmt: str, repeatable: bool) -> None:
+    r"""Set segment comment.
+    
     :param s: pointer to segment structure
     :param cmt: comment string, may be multiline (with '
     '). maximal size is 4096 bytes. Use empty str ("") to delete comment
     :param repeatable: 0: set regular comment. 1: set repeatable comment.
+    """
+    ...
+
+def set_segment_cmt_by_ea(ea: ida_idaapi.ea_t, cmt: str, repeatable: bool) -> None:
+    r"""Set segment comment by address. 
+            
+    :param ea: any address within the segment
+    :param cmt: comment string, may be multiline (with '
+    '). maximal size is 4096 bytes. Use empty str ("") to delete comment
+    :param repeatable: 0: set regular comment. 1: set repeatable comment.
+    """
+    ...
+
+def set_segment_info(si: segment_info_t, flags: int = 0) -> bool:
+    r"""Apply segment_info_t modifications to the database. Uses start_ea as the segment handle. 
+            
+    :param si: segment_info_t with modifications (set via set_* methods)
+    :param flags: combination of Add segment flags flags (default: 0)
+    :returns: true on success, false if segment not found
+    """
+    ...
+
+def set_segment_name(ea: ida_idaapi.ea_t, name: str, flags: int = 0) -> int:
+    r"""Rename segment by address. The new name is validated (see validate_name). A segment always has a name. If you hadn't specified a name, the kernel will assign it "seg###" name where ### is segment number. 
+            
+    :param ea: any address within the segment
+    :param name: new segment name
+    :param flags: ADDSEG_IDBENC or 0
+    :returns: 1: ok, name is good and segment is renamed
+    :returns: 0: failure, name is bad or no segment at ea
     """
     ...
 
@@ -93795,6 +102834,9 @@ def set_tail_owner(fnt: func_t, new_owner: ida_idaapi.ea_t) -> bool:
     :param fnt: pointer to the function tail
     :param new_owner: the entry point of the new owner function
     """
+    ...
+
+def set_tail_owner_ea(tail_ea: ida_idaapi.ea_t, new_owner: ida_idaapi.ea_t) -> bool:
     ...
 
 def set_target_assembler(asmnum: int) -> bool:
@@ -93908,7 +102950,7 @@ def set_vftable_ea(ordinal: int, vftable_ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def set_view_renderer_type(v: TWidget, rt: tcc_renderer_type_t) -> None:
-    r"""Set the type of renderer to use in a view (ui_set_renderer_type)
+    r"""Set the type of renderer to use in a view (ui_set_renderer_type).
     
     """
     ...
@@ -93920,9 +102962,12 @@ def set_viewer_graph(gv: graph_viewer_t, g: interactive_graph_t) -> None:
     ...
 
 def set_visible_func(pfn: func_t, visible: bool) -> None:
-    r"""Set visibility of function.
+    r"""Set visibility of function
     
     """
+    ...
+
+def set_visible_func_ea(ea: ida_idaapi.ea_t, visible: bool) -> None:
     ...
 
 def set_visible_item(ea: ida_idaapi.ea_t, visible: bool) -> None:
@@ -93932,8 +102977,16 @@ def set_visible_item(ea: ida_idaapi.ea_t, visible: bool) -> None:
     ...
 
 def set_visible_segm(s: segment_t, visible: bool) -> None:
-    r"""See SFL_HIDDEN.
+    r"""See SFL_HIDDEN
     
+    """
+    ...
+
+def set_visible_segment(ea: ida_idaapi.ea_t, visible: bool) -> None:
+    r"""Set segment visibility by address. 
+            
+    :param ea: any address within the segment
+    :param visible: true to make visible, false to hide
     """
     ...
 
@@ -94014,8 +103067,17 @@ def sizeof_ldbl() -> int:
     ...
 
 def soff_to_fpoff(pfn: func_t, soff: int) -> int:
-    r"""Convert struct offsets into fp-relative offsets. This function converts the offsets inside the udt_type_data_t object into the frame pointer offsets (for example, EBP-relative). 
+    r"""Convert struct offsets into fp-relative offsets.
+    
+    """
+    ...
+
+def soff_to_fpoff_ea(func_ea: ida_idaapi.ea_t, soff: int) -> int:
+    r"""Convert struct offsets into fp-relative offsets. 
             
+    :param func_ea: any address of the function
+    :param soff: struct offset
+    :returns: fp-relative offset, or soff if no function at func_ea
     """
     ...
 
@@ -94070,8 +103132,16 @@ def start_process(path: str = None, args: str = None, sdir: str = None) -> int:
     ...
 
 def std_out_segm_footer(ctx: outctx_t, seg: segment_t) -> None:
-    r"""Generate segment footer line as a comment line. This function may be used in IDP modules to generate segment footer if the target assembler doesn't have 'ends' directive. 
+    r"""Generate segment footer line as a comment line.
+    
+    """
+    ...
+
+def std_out_segment_footer(ctx: outctx_t, seg_ea: ida_idaapi.ea_t) -> None:
+    r"""Generate segment footer line as a comment line by address. This function may be used in IDP modules to generate segment footer if the target assembler doesn't have 'ends' directive. 
             
+    :param ctx: output context
+    :param seg_ea: any address within the segment
     """
     ...
 
@@ -94108,6 +103178,12 @@ def step_until_ret() -> bool:
 def stkvar_flag() -> int:
     r"""see FF_opbits
     
+    """
+    ...
+
+def stop_serving() -> None:
+    r"""Ask the serve() loop to return (ui_stop_serving). Thread-safe; callable from any thread, including from inside a callback that is currently running on the main thread under serve(). Has no effect in GUI mode. 
+            
     """
     ...
 
@@ -94157,7 +103233,7 @@ def str2ea_ex(*args: Any) -> int:
     ...
 
 def str2reg(p: str) -> int:
-    r"""Get any register number (-1 on error)
+    r"""Get any register number (-1 on error).
     
     """
     ...
@@ -94269,6 +103345,12 @@ def switch_to_golang() -> None:
     """
     ...
 
+def switch_to_rust() -> None:
+    r"""switch to RUST calling convention (to be used as default CC)
+    
+    """
+    ...
+
 def sync_sources(what: sync_source_t, _with: sync_source_t, sync: bool) -> bool:
     r"""[Un]synchronize sources 
             
@@ -94289,6 +103371,14 @@ def tag_advance(line: str, cnt: int) -> int:
     :param line: pointer to string
     :param cnt: number of positions to move right
     :returns: moved pointer
+    """
+    ...
+
+def tag_get_addr(line: str) -> ida_idaapi.ea_t:
+    r"""Decode an address from an address mark. 
+            
+    :param line: points to sequence: COLOR_ON COLOR_ADDR ADDRESS
+    :returns: the decoded address, or BADADDR on malformed input
     """
     ...
 
@@ -94404,7 +103494,7 @@ def to_ea(reg_cs: int, reg_ip: int) -> ida_idaapi.ea_t:
     ...
 
 def toggle_bnot(ea: ida_idaapi.ea_t, n: int) -> bool:
-    r"""Toggle binary negation of operand. also see is_bnot()
+    r"""Toggle binary negation of operand. also see is_bnot().
     
     """
     ...
@@ -94432,7 +103522,7 @@ def try_to_add_libfunc(ea: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def ua_mnem(ea: ida_idaapi.ea_t) -> str:
+def ua_mnem(ea: ida_idaapi.ea_t) -> Any:
     r"""Print instruction mnemonics. 
             
     :param ea: linear address of the instruction
@@ -94558,7 +103648,7 @@ def unhide_item(ea: ida_idaapi.ea_t) -> None:
     ...
 
 def unmark_selection() -> None:
-    r"""Unmark selection (ui_unmarksel)
+    r"""Unmark selection (ui_unmarksel).
     
     """
     ...
@@ -94730,9 +103820,18 @@ def update_extra_cmt(ea: ida_idaapi.ea_t, what: int, str: str) -> bool:
     ...
 
 def update_fpd(pfn: func_t, fpd: int) -> bool:
+    r"""Update frame pointer delta.
+    
+    :param pfn: pointer to function structure
+    :param fpd: new fpd value. cannot be bigger than the local variable range size.
+    :returns: success
+    """
+    ...
+
+def update_fpd_ea(func_ea: ida_idaapi.ea_t, fpd: int) -> bool:
     r"""Update frame pointer delta. 
             
-    :param pfn: pointer to function structure
+    :param func_ea: any address of the function
     :param fpd: new fpd value. cannot be bigger than the local variable range size.
     :returns: success
     """
@@ -94747,9 +103846,12 @@ def update_func(pfn: func_t) -> bool:
     ...
 
 def update_hidden_range(ha: hidden_range_t) -> bool:
-    r"""Update hidden range information in the database. You cannot use this function to change the range boundaries 
+    ...
+
+def update_hidden_range_info(hri: hidden_range_info_t) -> bool:
+    r"""Update hidden range information in the database. You cannot use this function to change the range boundaries. Uses start_ea to identify the range, applies only modified fields. 
             
-    :param ha: range to update
+    :param hri: range info to update
     :returns: success
     """
     ...
@@ -94771,11 +103873,95 @@ def use_mapping(ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     """
     ...
 
+def use_rust_cc() -> bool:
+    r"""is RUST calling convention used by default?
+    
+    """
+    ...
+
 def user_cancelled() -> bool:
     r"""Test the cancellation flag (ui_test_cancelled). 
             
     :returns: true: Cancelled, a message is displayed
     :returns: false: Not cancelled
+    """
+    ...
+
+def user_casts_begin(map: user_casts_t) -> user_casts_iterator_t:
+    r"""Get iterator pointing to the beginning of user_casts_t.
+    
+    """
+    ...
+
+def user_casts_clear(map: user_casts_t) -> None:
+    r"""Clear user_casts_t.
+    
+    """
+    ...
+
+def user_casts_end(map: user_casts_t) -> user_casts_iterator_t:
+    r"""Get iterator pointing to the end of user_casts_t.
+    
+    """
+    ...
+
+def user_casts_erase(map: user_casts_t, p: user_casts_iterator_t) -> None:
+    r"""Erase current element from user_casts_t.
+    
+    """
+    ...
+
+def user_casts_find(map: user_casts_t, key: citem_locator_t) -> user_casts_iterator_t:
+    r"""Find the specified key in user_casts_t.
+    
+    """
+    ...
+
+def user_casts_first(p: user_casts_iterator_t) -> citem_locator_t:
+    r"""Get reference to the current map key.
+    
+    """
+    ...
+
+def user_casts_free(map: user_casts_t) -> None:
+    r"""Delete user_casts_t instance.
+    
+    """
+    ...
+
+def user_casts_insert(map: user_casts_t, key: citem_locator_t, val: tinfo_t) -> user_casts_iterator_t:
+    r"""Insert new (citem_locator_t, tinfo_t) pair into user_casts_t.
+    
+    """
+    ...
+
+def user_casts_new() -> user_casts_t:
+    r"""Create a new user_casts_t instance.
+    
+    """
+    ...
+
+def user_casts_next(p: user_casts_iterator_t) -> user_casts_iterator_t:
+    r"""Move to the next element.
+    
+    """
+    ...
+
+def user_casts_prev(p: user_casts_iterator_t) -> user_casts_iterator_t:
+    r"""Move to the previous element.
+    
+    """
+    ...
+
+def user_casts_second(p: user_casts_iterator_t) -> tinfo_t:
+    r"""Get reference to the current map value.
+    
+    """
+    ...
+
+def user_casts_size(map: user_casts_t) -> int:
+    r"""Get size of user_casts_t.
+    
     """
     ...
 
@@ -95196,7 +104382,7 @@ def validate_name(name: str, type: nametype_t, flags: int = 1) -> Any:
 def value_repr_t__from_opinfo(_this: value_repr_t, flags: int, afl: aflags_t, opinfo: opinfo_t, ap: array_parameters_t) -> bool:
     ...
 
-def value_repr_t__print_(_this: value_repr_t, colored: bool) -> str:
+def value_repr_t__print_(_this: value_repr_t, colored: bool) -> Any:
     ...
 
 def verify_argloc(vloc: argloc_t, size: int, gaps: rangeset_t) -> int:
@@ -95239,7 +104425,7 @@ def viewer_create_groups(gv: graph_viewer_t, out_group_nodes: intvec_t, gi: grou
     ...
 
 def viewer_del_node_info(gv: graph_viewer_t, n: int) -> None:
-    r"""Delete node info for node in given viewer (see del_node_info())
+    r"""Delete node info for node in given viewer (see del_node_info()).
     
     """
     ...
@@ -95262,7 +104448,7 @@ def viewer_fit_window(gv: graph_viewer_t) -> None:
     ...
 
 def viewer_get_curnode(gv: graph_viewer_t) -> int:
-    r"""Get number of currently selected node (-1 if none)
+    r"""Get number of currently selected node (-1 if none).
     
     """
     ...
@@ -95274,7 +104460,7 @@ def viewer_get_gli(out: graph_location_info_t, gv: graph_viewer_t, flags: int = 
     ...
 
 def viewer_get_node_info(gv: graph_viewer_t, out: node_info_t, n: int) -> bool:
-    r"""Get node info for node in given viewer (see get_node_info())
+    r"""Get node info for node in given viewer (see get_node_info()).
     
     """
     ...
@@ -95303,13 +104489,13 @@ def viewer_set_groups_visibility(gv: graph_viewer_t, groups: intvec_t, expand: b
     ...
 
 def viewer_set_node_info(gv: graph_viewer_t, n: int, ni: node_info_t, flags: int) -> None:
-    r"""Set node info for node in given viewer (see set_node_info())
+    r"""Set node info for node in given viewer (see set_node_info()).
     
     """
     ...
 
 def viewer_set_titlebar_height(gv: graph_viewer_t, height: int) -> int:
-    r"""Set height of node title bars (grcode_set_titlebar_height)
+    r"""Set height of node title bars (grcode_set_titlebar_height).
     
     """
     ...
@@ -95632,6 +104818,7 @@ AD218X_tops_r: int  # 132
 AD218X_tops_w: int  # 131
 ADDSEG_FILLGAP: int  # 16
 ADDSEG_IDBENC: int  # 128
+ADDSEG_KEEP_TYPE: int  # 256
 ADDSEG_NOAA: int  # 64
 ADDSEG_NOSREG: int  # 1
 ADDSEG_NOTRUNC: int  # 4
@@ -95662,6 +104849,7 @@ AEF_UTF8: int  # 0
 AEF_WEAK: int  # 4
 AF2_DOEH: int  # 1
 AF2_DORTTI: int  # 2
+AF2_HFOUTLINE: int  # 16
 AF2_MACRO: int  # 4
 AF2_MERGESTR: int  # 8
 AFL_ALIGNFLOW: int  # 16777216
@@ -96066,6 +105254,7 @@ ARC_daddh11: int  # 108
 ARC_daddh12: int  # 109
 ARC_daddh21: int  # 110
 ARC_daddh22: int  # 111
+ARC_dbnz: int  # 313
 ARC_dexcl1: int  # 112
 ARC_dexcl2: int  # 113
 ARC_div: int  # 158
@@ -96127,7 +105316,7 @@ ARC_j: int  # 17
 ARC_jl: int  # 18
 ARC_jli: int  # 308
 ARC_kflag: int  # 310
-ARC_last: int  # 312
+ARC_last: int  # 314
 ARC_ld: int  # 1
 ARC_ldi: int  # 140
 ARC_leave: int  # 157
@@ -96328,6 +105517,7 @@ ARC_vsubadd2h: int  # 177
 ARC_vsubadds2h: int  # 178
 ARC_vsubs2h: int  # 174
 ARC_wevt: int  # 311
+ARC_xbfu: int  # 312
 ARC_xor: int  # 26
 ARC_xpkqb: int  # 135
 ARGREGS_BY_SLOTS: int  # 3
@@ -96339,12 +105529,26 @@ ARGREGS_POLICY_UNDEFINED: int  # 0
 ARGREGS_RISCV: int  # 6
 ARM_abs: int  # 556
 ARM_adc: int  # 15
+ARM_adclb: int  # 1411
+ARM_adclt: int  # 1412
 ARM_add: int  # 14
+ARM_add_destr: int  # 1630
+ARM_add_sme: int  # 1615
+ARM_add_sve: int  # 1142
 ARM_addg: int  # 895
+ARM_addha: int  # 1597
 ARM_addhn: int  # 563
 ARM_addhn2: int  # 564
+ARM_addhnb: int  # 1437
+ARM_addhnt: int  # 1438
 ARM_addp: int  # 678
+ARM_addp_sve: int  # 1353
+ARM_addpl: int  # 1188
+ARM_addpt: int  # 1138
+ARM_addqv: int  # 1664
 ARM_addv: int  # 793
+ARM_addva: int  # 1598
+ARM_addvl: int  # 1187
 ARM_adr: int  # 44
 ARM_adrl: int  # 81
 ARM_adrp: int  # 497
@@ -96354,31 +105558,51 @@ ARM_aesimc: int  # 451
 ARM_aesmc: int  # 452
 ARM_amx: int  # 959
 ARM_and: int  # 10
+ARM_and_pred: int  # 1286
+ARM_and_sve: int  # 1149
+ARM_andqv: int  # 1674
+ARM_ands_pred: int  # 1294
+ARM_andv: int  # 1671
 ARM_asr: int  # 5
+ARM_asr_sve: int  # 1164
+ARM_asrd: int  # 1160
 ARM_asrl: int  # 1087
+ARM_asrr: int  # 1161
 ARM_at: int  # 539
 ARM_aut: int  # 869
 ARM_autg: int  # 1098
 ARM_axflag: int  # 894
 ARM_b: int  # 3
 ARM_bcax: int  # 918
+ARM_bdep: int  # 1403
+ARM_bext: int  # 1402
 ARM_bf: int  # 1109
 ARM_bfc: int  # 273
 ARM_bfcsel: int  # 1113
 ARM_bfcvt: int  # 951
 ARM_bfcvtn: int  # 949
 ARM_bfcvtn2: int  # 950
+ARM_bfcvtnt: int  # 1565
 ARM_bfdot: int  # 948
+ARM_bfdot_sme: int  # 1612
 ARM_bfi: int  # 272
 ARM_bfl: int  # 1111
 ARM_bflx: int  # 1112
 ARM_bfm: int  # 498
+ARM_bfmlal: int  # 1601
 ARM_bfmlalb: int  # 946
 ARM_bfmlalt: int  # 947
+ARM_bfmlsl: int  # 1602
 ARM_bfmmla: int  # 945
+ARM_bfmopa: int  # 1580
+ARM_bfmops: int  # 1581
 ARM_bfx: int  # 1110
 ARM_bfxil: int  # 501
+ARM_bgrp: int  # 1404
 ARM_bic: int  # 24
+ARM_bic_pred: int  # 1287
+ARM_bic_sve: int  # 1152
+ARM_bics_pred: int  # 1295
 ARM_bif: int  # 573
 ARM_bit: int  # 574
 ARM_bkpt: int  # 45
@@ -96386,13 +105610,28 @@ ARM_bl: int  # 4
 ARM_blr: int  # 471
 ARM_blx1: int  # 46
 ARM_blx2: int  # 47
+ARM_bmopa: int  # 1582
+ARM_bmops: int  # 1583
 ARM_br: int  # 470
 ARM_brk: int  # 542
+ARM_brka: int  # 1268
+ARM_brkas: int  # 1269
+ARM_brkb: int  # 1270
+ARM_brkbs: int  # 1271
+ARM_brkn: int  # 1272
+ARM_brkns: int  # 1273
+ARM_brkpa: int  # 1274
+ARM_brkpas: int  # 1275
+ARM_brkpb: int  # 1276
+ARM_brkpbs: int  # 1277
 ARM_bsl: int  # 575
+ARM_bsl1n: int  # 1190
+ARM_bsl2n: int  # 1191
 ARM_bti: int  # 910
 ARM_bx: int  # 41
 ARM_bxaut: int  # 1099
 ARM_bxj: int  # 166
+ARM_cadd: int  # 1405
 ARM_cas: int  # 856
 ARM_casa: int  # 858
 ARM_casal: int  # 859
@@ -96405,33 +105644,48 @@ ARM_cbnz: int  # 283
 ARM_cbz: int  # 282
 ARM_ccmn: int  # 521
 ARM_ccmp: int  # 522
+ARM_cdot: int  # 1318
 ARM_cdp: int  # 83
 ARM_cdp2: int  # 84
 ARM_cfinv: int  # 889
 ARM_chka: int  # 292
 ARM_cinc: int  # 517
 ARM_cinv: int  # 518
+ARM_clasta: int  # 1252
+ARM_clastb: int  # 1253
 ARM_clrex: int  # 256
 ARM_cls: int  # 509
+ARM_cls_sve: int  # 1184
 ARM_clz: int  # 48
+ARM_clz_sve: int  # 1185
 ARM_cmeq: int  # 576
 ARM_cmge: int  # 579
 ARM_cmgt: int  # 582
 ARM_cmhi: int  # 581
 ARM_cmhs: int  # 578
+ARM_cmla: int  # 1319
 ARM_cmle: int  # 585
 ARM_cmlo: int  # 587
 ARM_cmls: int  # 584
 ARM_cmlt: int  # 588
 ARM_cmn: int  # 21
 ARM_cmp: int  # 20
+ARM_cmp_sve: int  # 1267
 ARM_cmpp: int  # 898
 ARM_cmtst: int  # 788
 ARM_cneg: int  # 519
+ARM_cnot: int  # 1176
 ARM_cnt: int  # 595
+ARM_cntb: int  # 1195
+ARM_cntd: int  # 1198
+ARM_cnth: int  # 1196
+ARM_cntp: int  # 1301
+ARM_cntw: int  # 1197
+ARM_compact: int  # 1249
 ARM_cps: int  # 169
 ARM_cpsid: int  # 170
 ARM_cpsie: int  # 171
+ARM_cpy_pred: int  # 1243
 ARM_crc32: int  # 873
 ARM_crc32c: int  # 874
 ARM_csel: int  # 511
@@ -96440,6 +105694,7 @@ ARM_csetm: int  # 516
 ARM_csinc: int  # 512
 ARM_csinv: int  # 513
 ARM_csneg: int  # 514
+ARM_cterm: int  # 1312
 ARM_ctz: int  # 1134
 ARM_cx1: int  # 1114
 ARM_cx1A: int  # 1115
@@ -96458,39 +105713,74 @@ ARM_dc: int  # 538
 ARM_dcps1: int  # 463
 ARM_dcps2: int  # 464
 ARM_dcps3: int  # 465
+ARM_decb: int  # 1203
+ARM_decd: int  # 1206
+ARM_dech: int  # 1204
+ARM_decp: int  # 1307
+ARM_decw: int  # 1205
 ARM_dls: int  # 1103
 ARM_dlstp: int  # 1105
 ARM_dmb: int  # 285
 ARM_drps: int  # 534
 ARM_dsb: int  # 284
 ARM_dup: int  # 627
+ARM_dupm: int  # 1241
+ARM_dupq: int  # 1245
 ARM_enterx: int  # 290
 ARM_eon: int  # 507
 ARM_eor: int  # 11
 ARM_eor3: int  # 919
+ARM_eor_pred: int  # 1288
+ARM_eor_sve: int  # 1151
+ARM_eorbt: int  # 1399
+ARM_eorqv: int  # 1673
+ARM_eors_pred: int  # 1296
+ARM_eortb: int  # 1400
+ARM_eorv: int  # 1670
 ARM_eret: int  # 429
 ARM_esb: int  # 1101
 ARM_ext: int  # 629
+ARM_ext_sve_constr: int  # 1240
+ARM_ext_sve_destr: int  # 1239
+ARM_extq: int  # 1246
 ARM_extr: int  # 504
 ARM_fabd: int  # 551
+ARM_fabd_pred: int  # 1469
 ARM_fabs: int  # 557
 ARM_fabsd: int  # 95
 ARM_fabss: int  # 96
 ARM_facge: int  # 558
+ARM_facge_sve: int  # 1458
 ARM_facgt: int  # 559
+ARM_facgt_sve: int  # 1459
 ARM_facle: int  # 560
 ARM_faclt: int  # 561
 ARM_fadd: int  # 562
+ARM_fadd_pred: int  # 1461
+ARM_fadd_sme: int  # 1613
+ARM_fadda: int  # 1460
 ARM_faddd: int  # 97
 ARM_faddp: int  # 679
+ARM_faddp_pred: int  # 1566
 ARM_fadds: int  # 98
+ARM_faddv: int  # 1576
+ARM_fcadd_pred: int  # 1572
 ARM_fccmp: int  # 592
 ARM_fccmpe: int  # 593
+ARM_fclamp: int  # 1574
 ARM_fcmeq: int  # 577
+ARM_fcmeq_sve: int  # 1451
 ARM_fcmge: int  # 580
+ARM_fcmge_sve: int  # 1452
 ARM_fcmgt: int  # 583
+ARM_fcmgt_sve: int  # 1453
+ARM_fcmla_i: int  # 1571
+ARM_fcmla_v: int  # 1573
 ARM_fcmle: int  # 586
+ARM_fcmle_sve: int  # 1454
 ARM_fcmlt: int  # 589
+ARM_fcmlt_sve: int  # 1455
+ARM_fcmne: int  # 1456
 ARM_fcmp: int  # 590
 ARM_fcmpd: int  # 99
 ARM_fcmpe: int  # 591
@@ -96501,61 +105791,101 @@ ARM_fcmpezs: int  # 104
 ARM_fcmps: int  # 100
 ARM_fcmpzd: int  # 105
 ARM_fcmpzs: int  # 106
+ARM_fcmuo: int  # 1457
+ARM_fcpy_pred: int  # 1244
 ARM_fcpyd: int  # 107
 ARM_fcpys: int  # 108
 ARM_fcsel: int  # 594
 ARM_fcvt: int  # 596
+ARM_fcvt_sme: int  # 1643
 ARM_fcvtas: int  # 598
 ARM_fcvtau: int  # 603
 ARM_fcvtds: int  # 110
 ARM_fcvtl: int  # 611
 ARM_fcvtl2: int  # 612
+ARM_fcvtlt: int  # 1562
 ARM_fcvtms: int  # 601
 ARM_fcvtmu: int  # 606
 ARM_fcvtn: int  # 609
 ARM_fcvtn2: int  # 610
+ARM_fcvtn_sme: int  # 1644
 ARM_fcvtns: int  # 599
+ARM_fcvtnt: int  # 1563
 ARM_fcvtnu: int  # 604
 ARM_fcvtps: int  # 600
 ARM_fcvtpu: int  # 605
 ARM_fcvtsd: int  # 109
+ARM_fcvtx: int  # 1475
 ARM_fcvtxn: int  # 613
 ARM_fcvtxn2: int  # 614
+ARM_fcvtxnt: int  # 1564
 ARM_fcvtzs: int  # 597
+ARM_fcvtzs_sme: int  # 1639
 ARM_fcvtzu: int  # 602
+ARM_fcvtzu_sme: int  # 1640
 ARM_fdiv: int  # 626
+ARM_fdiv_pred: int  # 1473
 ARM_fdivd: int  # 111
+ARM_fdivr: int  # 1472
 ARM_fdivs: int  # 112
+ARM_fdot: int  # 1611
+ARM_fdup: int  # 1242
+ARM_fexpa: int  # 1194
 ARM_fjcvtzs: int  # 886
 ARM_fldd: int  # 113
 ARM_fldmd: int  # 115
 ARM_fldms: int  # 116
 ARM_fldmx: int  # 117
 ARM_flds: int  # 114
+ARM_flogb: int  # 1476
 ARM_fmacd: int  # 118
 ARM_fmacs: int  # 119
+ARM_fmad: int  # 1481
 ARM_fmadd: int  # 622
 ARM_fmax: int  # 644
+ARM_fmax_destr: int  # 1624
+ARM_fmax_pred: int  # 1467
 ARM_fmaxnm: int  # 645
+ARM_fmaxnm_destr: int  # 1626
+ARM_fmaxnm_pred: int  # 1465
 ARM_fmaxnmp: int  # 685
+ARM_fmaxnmp_pred: int  # 1567
 ARM_fmaxnmv: int  # 799
 ARM_fmaxp: int  # 684
+ARM_fmaxp_pred: int  # 1569
 ARM_fmaxv: int  # 798
 ARM_fmdhr: int  # 154
 ARM_fmdlr: int  # 156
 ARM_fmdrr: int  # 162
 ARM_fmin: int  # 648
+ARM_fmin_destr: int  # 1625
+ARM_fmin_pred: int  # 1468
 ARM_fminnm: int  # 649
+ARM_fminnm_destr: int  # 1627
+ARM_fminnm_pred: int  # 1466
 ARM_fminnmp: int  # 689
+ARM_fminnmp_pred: int  # 1568
 ARM_fminnmv: int  # 803
 ARM_fminp: int  # 688
+ARM_fminp_pred: int  # 1570
 ARM_fminv: int  # 802
 ARM_fmla: int  # 650
+ARM_fmla_sve: int  # 1477
 ARM_fmlal: int  # 941
 ARM_fmlal2: int  # 942
+ARM_fmlal_sme: int  # 1599
+ARM_fmlalb: int  # 1447
+ARM_fmlalt: int  # 1448
 ARM_fmls: int  # 653
+ARM_fmls_sve: int  # 1478
 ARM_fmlsl: int  # 943
 ARM_fmlsl2: int  # 944
+ARM_fmlsl_sme: int  # 1600
+ARM_fmlslb: int  # 1449
+ARM_fmlslt: int  # 1450
+ARM_fmmla: int  # 1575
+ARM_fmopa: int  # 1578
+ARM_fmops: int  # 1579
 ARM_fmov: int  # 660
 ARM_fmrdh: int  # 155
 ARM_fmrdl: int  # 157
@@ -96563,6 +105893,7 @@ ARM_fmrrd: int  # 163
 ARM_fmrrs: int  # 165
 ARM_fmrs: int  # 161
 ARM_fmrx: int  # 159
+ARM_fmsb: int  # 1482
 ARM_fmscd: int  # 120
 ARM_fmscs: int  # 121
 ARM_fmsr: int  # 160
@@ -96570,16 +105901,22 @@ ARM_fmsrr: int  # 164
 ARM_fmstat: int  # 122
 ARM_fmsub: int  # 623
 ARM_fmul: int  # 667
+ARM_fmul_pred: int  # 1463
 ARM_fmuld: int  # 123
 ARM_fmuls: int  # 124
 ARM_fmulx: int  # 669
+ARM_fmulx_pred: int  # 1471
 ARM_fmxr: int  # 158
 ARM_fneg: int  # 675
 ARM_fnegd: int  # 125
 ARM_fnegs: int  # 126
 ARM_fnmacd: int  # 127
 ARM_fnmacs: int  # 128
+ARM_fnmad: int  # 1483
 ARM_fnmadd: int  # 624
+ARM_fnmla: int  # 1479
+ARM_fnmls: int  # 1480
+ARM_fnmsb: int  # 1484
 ARM_fnmscd: int  # 129
 ARM_fnmscs: int  # 130
 ARM_fnmsub: int  # 625
@@ -96594,14 +105931,19 @@ ARM_frint32z: int  # 915
 ARM_frint64x: int  # 916
 ARM_frint64z: int  # 917
 ARM_frinta: int  # 615
+ARM_frinta_sme: int  # 1656
 ARM_frinti: int  # 616
 ARM_frintm: int  # 617
+ARM_frintm_sme: int  # 1655
 ARM_frintn: int  # 618
+ARM_frintn_sme: int  # 1653
 ARM_frintp: int  # 619
+ARM_frintp_sme: int  # 1654
 ARM_frintx: int  # 620
 ARM_frintz: int  # 621
 ARM_frsqrte: int  # 745
 ARM_frsqrts: int  # 746
+ARM_fscale: int  # 1470
 ARM_fsitod: int  # 133
 ARM_fsitos: int  # 134
 ARM_fsqrt: int  # 765
@@ -96613,8 +105955,12 @@ ARM_fstms: int  # 140
 ARM_fstmx: int  # 141
 ARM_fsts: int  # 138
 ARM_fsub: int  # 773
+ARM_fsub_pred: int  # 1462
+ARM_fsub_sme: int  # 1614
 ARM_fsubd: int  # 142
+ARM_fsubr: int  # 1464
 ARM_fsubs: int  # 143
+ARM_ftmad: int  # 1474
 ARM_ftosid: int  # 144
 ARM_ftosis: int  # 145
 ARM_ftosizd: int  # 146
@@ -96623,8 +105969,11 @@ ARM_ftouid: int  # 148
 ARM_ftouis: int  # 149
 ARM_ftouizd: int  # 150
 ARM_ftouizs: int  # 151
+ARM_ftsmul: int  # 1577
+ARM_ftssel: int  # 1193
 ARM_fuitod: int  # 152
 ARM_fuitos: int  # 153
+ARM_fvdot: int  # 1617
 ARM_genter: int  # 954
 ARM_gexit: int  # 955
 ARM_gmi: int  # 900
@@ -96633,23 +105982,65 @@ ARM_hbl: int  # 294
 ARM_hblp: int  # 295
 ARM_hbp: int  # 296
 ARM_hint: int  # 541
+ARM_histcnt: int  # 1446
+ARM_histseg: int  # 1445
 ARM_hlt: int  # 466
 ARM_hvc: int  # 430
 ARM_ic: int  # 537
+ARM_incb: int  # 1199
+ARM_incd: int  # 1202
+ARM_inch: int  # 1200
+ARM_incp: int  # 1306
+ARM_incw: int  # 1201
+ARM_index: int  # 1189
 ARM_ins: int  # 628
+ARM_insr: int  # 1262
 ARM_irg: int  # 899
 ARM_isb: int  # 286
 ARM_it: int  # 278
-ARM_last: int  # 1137
+ARM_last: int  # 1676
+ARM_lasta: int  # 1250
+ARM_lastb: int  # 1251
 ARM_lctp: int  # 1095
 ARM_ld1: int  # 634
+ARM_ld1b: int  # 1496
+ARM_ld1d: int  # 1512
+ARM_ld1h: int  # 1497
+ARM_ld1q: int  # 1659
 ARM_ld1r: int  # 638
+ARM_ld1rb: int  # 1489
+ARM_ld1rd: int  # 1492
+ARM_ld1rh: int  # 1490
+ARM_ld1rqb: int  # 1524
+ARM_ld1rqd: int  # 1527
+ARM_ld1rqh: int  # 1525
+ARM_ld1rqw: int  # 1526
+ARM_ld1rsb: int  # 1493
+ARM_ld1rsh: int  # 1494
+ARM_ld1rsw: int  # 1495
+ARM_ld1rw: int  # 1491
+ARM_ld1sb: int  # 1499
+ARM_ld1sh: int  # 1500
+ARM_ld1sw: int  # 1513
+ARM_ld1w: int  # 1498
 ARM_ld2: int  # 635
+ARM_ld2b: int  # 1528
+ARM_ld2d: int  # 1531
+ARM_ld2h: int  # 1529
 ARM_ld2r: int  # 639
+ARM_ld2w: int  # 1530
 ARM_ld3: int  # 636
+ARM_ld3b: int  # 1532
+ARM_ld3d: int  # 1535
+ARM_ld3h: int  # 1533
 ARM_ld3r: int  # 640
+ARM_ld3w: int  # 1534
 ARM_ld4: int  # 637
+ARM_ld4b: int  # 1536
+ARM_ld4d: int  # 1539
+ARM_ld4h: int  # 1537
 ARM_ld4r: int  # 641
+ARM_ld4w: int  # 1538
 ARM_lda: int  # 431
 ARM_ldadd: int  # 808
 ARM_ldadda: int  # 810
@@ -96671,11 +106062,32 @@ ARM_ldeor: int  # 820
 ARM_ldeora: int  # 822
 ARM_ldeoral: int  # 823
 ARM_ldeorl: int  # 821
+ARM_ldff1b: int  # 1501
+ARM_ldff1d: int  # 1514
+ARM_ldff1h: int  # 1502
+ARM_ldff1sb: int  # 1504
+ARM_ldff1sh: int  # 1505
+ARM_ldff1sw: int  # 1515
+ARM_ldff1w: int  # 1503
 ARM_ldg: int  # 908
 ARM_ldgm: int  # 909
 ARM_ldlar: int  # 864
 ARM_ldm: int  # 33
+ARM_ldnf1b: int  # 1517
+ARM_ldnf1d: int  # 1520
+ARM_ldnf1h: int  # 1518
+ARM_ldnf1sb: int  # 1521
+ARM_ldnf1sh: int  # 1522
+ARM_ldnf1sw: int  # 1523
+ARM_ldnf1w: int  # 1519
 ARM_ldnp: int  # 476
+ARM_ldnt1b: int  # 1506
+ARM_ldnt1d: int  # 1516
+ARM_ldnt1h: int  # 1507
+ARM_ldnt1sb: int  # 1509
+ARM_ldnt1sh: int  # 1510
+ARM_ldnt1sw: int  # 1511
+ARM_ldnt1w: int  # 1508
 ARM_ldp: int  # 474
 ARM_ldr: int  # 30
 ARM_ldrd: int  # 49
@@ -96714,22 +106126,35 @@ ARM_le2: int  # 1107
 ARM_leavex: int  # 291
 ARM_letp: int  # 1108
 ARM_lsl: int  # 6
+ARM_lsl_sve: int  # 1166
 ARM_lsll: int  # 1085
+ARM_lslr: int  # 1163
 ARM_lsr: int  # 7
+ARM_lsr_sve: int  # 1165
 ARM_lsrl: int  # 1086
+ARM_lsrr: int  # 1162
+ARM_luti2: int  # 1593
+ARM_luti4: int  # 1594
+ARM_mad: int  # 1174
 ARM_madd: int  # 523
+ARM_match: int  # 1560
 ARM_mcr: int  # 91
 ARM_mcr2: int  # 92
 ARM_mcrr: int  # 93
 ARM_mcrr2: int  # 167
 ARM_mla: int  # 29
+ARM_mla_sve: int  # 1172
 ARM_mls: int  # 279
+ARM_mls_sve: int  # 1173
 ARM_mneg: int  # 525
 ARM_mov: int  # 23
+ARM_mova: int  # 1595
+ARM_mova_multi: int  # 1596
 ARM_movi: int  # 492
 ARM_movk: int  # 496
 ARM_movl: int  # 80
 ARM_movn: int  # 495
+ARM_movprfx: int  # 1675
 ARM_movt: int  # 269
 ARM_movz: int  # 494
 ARM_mrc: int  # 89
@@ -96737,23 +106162,43 @@ ARM_mrc2: int  # 90
 ARM_mrrc: int  # 94
 ARM_mrrc2: int  # 168
 ARM_mrs: int  # 26
+ARM_msb: int  # 1175
 ARM_msr: int  # 27
 ARM_msub: int  # 524
 ARM_mul: int  # 28
 ARM_mul53hi: int  # 961
 ARM_mul53lo: int  # 960
+ARM_mul_sve: int  # 1144
 ARM_mvn: int  # 25
 ARM_mvni: int  # 493
+ARM_nand_pred: int  # 1293
+ARM_nands_pred: int  # 1300
+ARM_nbsl: int  # 1192
 ARM_neg: int  # 9
+ARM_neg_sve: int  # 1183
 ARM_ngc: int  # 520
+ARM_nmatch: int  # 1561
 ARM_nop: int  # 2
+ARM_nor_pred: int  # 1292
+ARM_nors_pred: int  # 1299
 ARM_not: int  # 508
+ARM_not_sve: int  # 1186
 ARM_null: int  # 0
 ARM_orn: int  # 268
+ARM_orn_pred: int  # 1291
+ARM_orns_pred: int  # 1298
+ARM_orqv: int  # 1672
 ARM_orr: int  # 22
+ARM_orr_pred: int  # 1290
+ARM_orr_sve: int  # 1150
+ARM_orrs_pred: int  # 1297
+ARM_orv: int  # 1669
 ARM_pac: int  # 868
 ARM_pacbti: int  # 1097
 ARM_pacg: int  # 1100
+ARM_pext: int  # 1315
+ARM_pfalse: int  # 1280
+ARM_pfirst: int  # 1279
 ARM_pkhbt: int  # 173
 ARM_pkhtb: int  # 174
 ARM_pld: int  # 50
@@ -96762,10 +106207,23 @@ ARM_pli: int  # 276
 ARM_pmul: int  # 668
 ARM_pmull: int  # 673
 ARM_pmull2: int  # 674
+ARM_pmullb: int  # 1390
+ARM_pmullt: int  # 1391
+ARM_pnext: int  # 1281
 ARM_pop: int  # 42
+ARM_prfb: int  # 1485
+ARM_prfd: int  # 1488
+ARM_prfh: int  # 1486
 ARM_prfm: int  # 490
 ARM_prfum: int  # 491
+ARM_prfw: int  # 1487
+ARM_psel: int  # 1661
 ARM_pssbb: int  # 913
+ARM_ptest: int  # 1278
+ARM_ptrue: int  # 1284
+ARM_ptrues: int  # 1285
+ARM_punpkhi: int  # 1247
+ARM_punpklo: int  # 1248
 ARM_push: int  # 43
 ARM_qadd: int  # 51
 ARM_qadd16: int  # 175
@@ -96781,8 +106239,13 @@ ARM_qsub8: int  # 179
 ARM_qsubaddx: int  # 180
 ARM_raddhn: int  # 729
 ARM_raddhn2: int  # 730
+ARM_raddhnb: int  # 1439
+ARM_raddhnt: int  # 1440
 ARM_rax1: int  # 920
 ARM_rbit: int  # 277
+ARM_rbit_pred: int  # 1258
+ARM_rdffr: int  # 1282
+ARM_rdffrs: int  # 1283
 ARM_rdsvl: int  # 1136
 ARM_rdvl: int  # 1135
 ARM_ret: int  # 1
@@ -96790,7 +106253,11 @@ ARM_rev: int  # 181
 ARM_rev16: int  # 182
 ARM_rev32: int  # 510
 ARM_rev64: int  # 735
+ARM_revb: int  # 1254
+ARM_revd: int  # 1257
+ARM_revh: int  # 1255
 ARM_revsh: int  # 183
+ARM_revw: int  # 1256
 ARM_rfe: int  # 184
 ARM_rmif: int  # 890
 ARM_ror: int  # 8
@@ -96799,39 +106266,63 @@ ARM_rsb: int  # 13
 ARM_rsc: int  # 17
 ARM_rshrn: int  # 742
 ARM_rshrn2: int  # 743
+ARM_rshrnb: int  # 1427
+ARM_rshrnt: int  # 1428
 ARM_rsubhn: int  # 749
 ARM_rsubhn2: int  # 750
+ARM_rsubhnb: int  # 1443
+ARM_rsubhnt: int  # 1444
 ARM_saba: int  # 544
 ARM_sabal: int  # 547
 ARM_sabal2: int  # 548
+ARM_sabalb: int  # 1407
+ARM_sabalt: int  # 1408
 ARM_sabd: int  # 550
+ARM_sabd_sve: int  # 1157
 ARM_sabdl: int  # 554
 ARM_sabdl2: int  # 555
+ARM_sabdlb: int  # 1378
+ARM_sabdlt: int  # 1379
 ARM_sadalp: int  # 677
 ARM_sadd16: int  # 185
 ARM_sadd8: int  # 186
 ARM_saddl: int  # 567
 ARM_saddl2: int  # 568
+ARM_saddlb: int  # 1370
+ARM_saddlbt: int  # 1396
 ARM_saddlp: int  # 681
+ARM_saddlt: int  # 1371
 ARM_saddlv: int  # 795
 ARM_saddsubx: int  # 187
+ARM_saddv: int  # 1662
 ARM_saddw: int  # 571
 ARM_saddw2: int  # 572
+ARM_saddwb: int  # 1382
+ARM_saddwt: int  # 1383
 ARM_sasx: int  # 187
 ARM_sb: int  # 911
 ARM_sbc: int  # 16
+ARM_sbclb: int  # 1413
+ARM_sbclt: int  # 1414
 ARM_sbdc: int  # 1021
 ARM_sbfiz: int  # 502
 ARM_sbfm: int  # 499
 ARM_sbfx: int  # 270
+ARM_sclamp: int  # 1634
 ARM_scvtf: int  # 608
+ARM_scvtf_sme: int  # 1641
 ARM_sdiv: int  # 280
+ARM_sdiv_sve: int  # 1147
+ARM_sdivr: int  # 1140
 ARM_sdot: int  # 939
 ARM_sdsb: int  # 958
 ARM_sel: int  # 188
+ARM_sel_pred: int  # 1289
+ARM_sel_sve: int  # 1261
 ARM_setend: int  # 189
 ARM_setf16: int  # 892
 ARM_setf8: int  # 891
+ARM_setffr: int  # 1309
 ARM_sev: int  # 264
 ARM_sevl: int  # 467
 ARM_sg: int  # 877
@@ -96852,6 +106343,7 @@ ARM_sha512su1: int  # 925
 ARM_shadd: int  # 631
 ARM_shadd16: int  # 190
 ARM_shadd8: int  # 191
+ARM_shadd_sve: int  # 1347
 ARM_shaddsubx: int  # 192
 ARM_shasx: int  # 192
 ARM_shl: int  # 761
@@ -96859,11 +106351,15 @@ ARM_shll: int  # 762
 ARM_shll2: int  # 763
 ARM_shrn: int  # 759
 ARM_shrn2: int  # 760
+ARM_shrnb: int  # 1425
+ARM_shrnt: int  # 1426
 ARM_shsax: int  # 195
 ARM_shsub: int  # 633
 ARM_shsub16: int  # 193
 ARM_shsub8: int  # 194
+ARM_shsub_sve: int  # 1349
 ARM_shsubaddx: int  # 195
+ARM_shsubr: int  # 1339
 ARM_sli: int  # 764
 ARM_sm3partw1: int  # 926
 ARM_sm3partw2: int  # 927
@@ -96876,11 +106372,19 @@ ARM_sm4e: int  # 933
 ARM_sm4ekey: int  # 934
 ARM_smaddl: int  # 526
 ARM_smax: int  # 643
+ARM_smax_destr: int  # 1620
+ARM_smax_sve: int  # 1153
 ARM_smaxp: int  # 683
+ARM_smaxp_sve: int  # 1354
+ARM_smaxqv: int  # 1665
 ARM_smaxv: int  # 797
 ARM_smc: int  # 267
 ARM_smin: int  # 647
+ARM_smin_destr: int  # 1622
+ARM_smin_sve: int  # 1155
 ARM_sminp: int  # 687
+ARM_sminp_sve: int  # 1356
+ARM_sminqv: int  # 1667
 ARM_sminv: int  # 801
 ARM_smlabb: int  # 55
 ARM_smlabt: int  # 57
@@ -96888,10 +106392,14 @@ ARM_smlad: int  # 196
 ARM_smladx: int  # 197
 ARM_smlal: int  # 38
 ARM_smlal2: int  # 652
+ARM_smlal_sme: int  # 1603
+ARM_smlalb: int  # 1321
 ARM_smlalbb: int  # 59
 ARM_smlalbt: int  # 61
 ARM_smlald: int  # 200
 ARM_smlaldx: int  # 201
+ARM_smlall: int  # 1605
+ARM_smlalt: int  # 1322
 ARM_smlaltb: int  # 60
 ARM_smlaltt: int  # 62
 ARM_smlatb: int  # 56
@@ -96902,15 +106410,21 @@ ARM_smlsd: int  # 202
 ARM_smlsdx: int  # 203
 ARM_smlsl: int  # 656
 ARM_smlsl2: int  # 657
+ARM_smlslb: int  # 1325
 ARM_smlsld: int  # 206
 ARM_smlsldx: int  # 207
+ARM_smlsll: int  # 1606
+ARM_smlslt: int  # 1326
 ARM_smmla: int  # 208
+ARM_smmla_sve: int  # 1401
 ARM_smmlar: int  # 209
 ARM_smmls: int  # 212
 ARM_smmlsr: int  # 213
 ARM_smmul: int  # 210
 ARM_smmulr: int  # 211
 ARM_smnegl: int  # 528
+ARM_smopa: int  # 1584
+ARM_smops: int  # 1585
 ARM_smov: int  # 659
 ARM_smsubl: int  # 527
 ARM_smuad: int  # 198
@@ -96918,51 +106432,116 @@ ARM_smuadx: int  # 199
 ARM_smulbb: int  # 67
 ARM_smulbt: int  # 69
 ARM_smulh: int  # 529
+ARM_smulh_sve: int  # 1145
 ARM_smull: int  # 37
 ARM_smull2: int  # 672
+ARM_smullb: int  # 1364
+ARM_smullt: int  # 1365
 ARM_smultb: int  # 68
 ARM_smultt: int  # 70
 ARM_smulwb: int  # 64
 ARM_smulwt: int  # 66
 ARM_smusd: int  # 204
 ARM_smusdx: int  # 205
+ARM_splice_constr: int  # 1260
+ARM_splice_destr: int  # 1259
 ARM_sqabs: int  # 690
 ARM_sqadd: int  # 692
+ARM_sqadd_sve: int  # 1358
+ARM_sqcadd: int  # 1406
+ARM_sqcvt: int  # 1645
+ARM_sqcvtn: int  # 1648
+ARM_sqcvtu: int  # 1647
+ARM_sqcvtun: int  # 1650
+ARM_sqdecb: int  # 1215
+ARM_sqdecb32: int  # 1231
+ARM_sqdecd: int  # 1218
+ARM_sqdecd32: int  # 1234
+ARM_sqdech: int  # 1216
+ARM_sqdech32: int  # 1232
+ARM_sqdecp: int  # 1304
+ARM_sqdecw: int  # 1217
+ARM_sqdecw32: int  # 1233
 ARM_sqdmlal: int  # 695
 ARM_sqdmlal2: int  # 696
+ARM_sqdmlalb: int  # 1329
+ARM_sqdmlalbt: int  # 1316
+ARM_sqdmlalt: int  # 1330
 ARM_sqdmlsl: int  # 697
 ARM_sqdmlsl2: int  # 698
+ARM_sqdmlslb: int  # 1331
+ARM_sqdmlslbt: int  # 1317
+ARM_sqdmlslt: int  # 1332
 ARM_sqdmulh: int  # 699
+ARM_sqdmulh_destr: int  # 1631
 ARM_sqdmull: int  # 700
 ARM_sqdmull2: int  # 701
+ARM_sqdmullb: int  # 1368
+ARM_sqdmullt: int  # 1369
+ARM_sqincb: int  # 1207
+ARM_sqincb32: int  # 1223
+ARM_sqincd: int  # 1210
+ARM_sqincd32: int  # 1226
+ARM_sqinch: int  # 1208
+ARM_sqinch32: int  # 1224
+ARM_sqincp: int  # 1302
+ARM_sqincw: int  # 1209
+ARM_sqincw32: int  # 1225
 ARM_sqneg: int  # 708
+ARM_sqrdcmlah: int  # 1320
 ARM_sqrdmlah: int  # 866
 ARM_sqrdmlsh: int  # 867
 ARM_sqrdmulh: int  # 709
 ARM_sqrshl: int  # 711
+ARM_sqrshl_sve: int  # 1345
+ARM_sqrshlr: int  # 1337
 ARM_sqrshr: int  # 1094
+ARM_sqrshr_sme: int  # 1636
 ARM_sqrshrl: int  # 1093
 ARM_sqrshrn: int  # 714
 ARM_sqrshrn2: int  # 715
+ARM_sqrshrnb: int  # 1431
+ARM_sqrshrnt: int  # 1432
+ARM_sqrshru_sme: int  # 1638
 ARM_sqrshrun: int  # 716
 ARM_sqrshrun2: int  # 717
+ARM_sqrshrunb: int  # 1423
+ARM_sqrshrunt: int  # 1424
 ARM_sqshl: int  # 719
+ARM_sqshl_sve: int  # 1167
 ARM_sqshll: int  # 1088
+ARM_sqshlr: int  # 1335
 ARM_sqshlu: int  # 720
+ARM_sqshlu_sve: int  # 1169
 ARM_sqshrn: int  # 723
 ARM_sqshrn2: int  # 724
+ARM_sqshrnb: int  # 1429
+ARM_sqshrnt: int  # 1430
 ARM_sqshrun: int  # 725
 ARM_sqshrun2: int  # 726
+ARM_sqshrunb: int  # 1421
+ARM_sqshrunt: int  # 1422
 ARM_sqsub: int  # 728
+ARM_sqsub_sve: int  # 1360
+ARM_sqsubr: int  # 1341
 ARM_sqxtn: int  # 704
 ARM_sqxtn2: int  # 705
+ARM_sqxtnb: int  # 1415
+ARM_sqxtnt: int  # 1416
 ARM_sqxtun: int  # 706
 ARM_sqxtun2: int  # 707
+ARM_sqxtunb: int  # 1419
+ARM_sqxtunt: int  # 1420
 ARM_srhadd: int  # 737
+ARM_srhadd_sve: int  # 1351
 ARM_sri: int  # 768
 ARM_srs: int  # 214
 ARM_srshl: int  # 739
+ARM_srshl_destr: int  # 1628
+ARM_srshl_sve: int  # 1343
+ARM_srshlr: int  # 1333
 ARM_srshr: int  # 741
+ARM_srshr_sve: int  # 1170
 ARM_srshrl: int  # 1091
 ARM_srsra: int  # 748
 ARM_ssat: int  # 215
@@ -96972,6 +106551,8 @@ ARM_ssbb: int  # 912
 ARM_sshl: int  # 752
 ARM_sshll: int  # 755
 ARM_sshll2: int  # 756
+ARM_sshllb: int  # 1392
+ARM_sshllt: int  # 1393
 ARM_sshr: int  # 758
 ARM_ssra: int  # 767
 ARM_ssub16: int  # 217
@@ -96979,13 +106560,36 @@ ARM_ssub8: int  # 218
 ARM_ssubaddx: int  # 219
 ARM_ssubl: int  # 778
 ARM_ssubl2: int  # 779
+ARM_ssublb: int  # 1374
+ARM_ssublbt: int  # 1397
+ARM_ssublt: int  # 1375
+ARM_ssubltb: int  # 1398
 ARM_ssubw: int  # 782
 ARM_ssubw2: int  # 783
+ARM_ssubwb: int  # 1386
+ARM_ssubwt: int  # 1387
 ARM_st1: int  # 769
+ARM_st1b: int  # 1544
+ARM_st1d: int  # 1547
+ARM_st1h: int  # 1545
+ARM_st1q: int  # 1660
+ARM_st1w: int  # 1546
 ARM_st2: int  # 770
+ARM_st2b: int  # 1548
+ARM_st2d: int  # 1551
 ARM_st2g: int  # 904
+ARM_st2h: int  # 1549
+ARM_st2w: int  # 1550
 ARM_st3: int  # 771
+ARM_st3b: int  # 1552
+ARM_st3d: int  # 1555
+ARM_st3h: int  # 1553
+ARM_st3w: int  # 1554
 ARM_st4: int  # 772
+ARM_st4b: int  # 1556
+ARM_st4d: int  # 1559
+ARM_st4h: int  # 1557
+ARM_st4w: int  # 1558
 ARM_stadd: int  # 812
 ARM_staddl: int  # 813
 ARM_stc: int  # 87
@@ -97006,6 +106610,10 @@ ARM_stlxp: int  # 489
 ARM_stlxr: int  # 487
 ARM_stm: int  # 34
 ARM_stnp: int  # 477
+ARM_stnt1b: int  # 1540
+ARM_stnt1d: int  # 1543
+ARM_stnt1h: int  # 1541
+ARM_stnt1w: int  # 1542
 ARM_stp: int  # 475
 ARM_str: int  # 32
 ARM_strd: int  # 71
@@ -97032,13 +106640,28 @@ ARM_stz2g: int  # 905
 ARM_stzg: int  # 902
 ARM_stzgm: int  # 903
 ARM_sub: int  # 12
+ARM_sub_sme: int  # 1616
+ARM_sub_sve: int  # 1143
 ARM_subg: int  # 896
 ARM_subhn: int  # 774
 ARM_subhn2: int  # 775
+ARM_subhnb: int  # 1441
+ARM_subhnt: int  # 1442
 ARM_subp: int  # 897
+ARM_subpt: int  # 1139
+ARM_subr: int  # 1137
+ARM_subr_pred: int  # 1159
 ARM_sudot: int  # 935
+ARM_sumlall: int  # 1610
+ARM_sumopa: int  # 1588
+ARM_sumops: int  # 1589
+ARM_sunpk: int  # 1651
+ARM_sunpkhi: int  # 1263
+ARM_sunpklo: int  # 1264
 ARM_suqadd: int  # 693
+ARM_suqadd_sve: int  # 1362
 ARM_svc: int  # 36
+ARM_svdot: int  # 1618
 ARM_swbkpt: int  # 82
 ARM_swp: int  # 35
 ARM_swpa: int  # 805
@@ -97049,10 +106672,13 @@ ARM_sxtab16: int  # 223
 ARM_sxtah: int  # 225
 ARM_sxtb: int  # 222
 ARM_sxtb16: int  # 224
+ARM_sxtb_sve: int  # 1177
 ARM_sxth: int  # 226
+ARM_sxth_sve: int  # 1179
 ARM_sxtl: int  # 663
 ARM_sxtl2: int  # 664
 ARM_sxtw: int  # 505
+ARM_sxtw_sve: int  # 1181
 ARM_sys: int  # 535
 ARM_sysl: int  # 536
 ARM_tbb: int  # 274
@@ -97073,80 +106699,157 @@ ARM_tta: int  # 876
 ARM_uaba: int  # 543
 ARM_uabal: int  # 545
 ARM_uabal2: int  # 546
+ARM_uabalb: int  # 1409
+ARM_uabalt: int  # 1410
 ARM_uabd: int  # 549
+ARM_uabd_sve: int  # 1158
 ARM_uabdl: int  # 552
 ARM_uabdl2: int  # 553
+ARM_uabdlb: int  # 1380
+ARM_uabdlt: int  # 1381
 ARM_uadalp: int  # 676
 ARM_uadd16: int  # 227
 ARM_uadd8: int  # 228
 ARM_uaddl: int  # 565
 ARM_uaddl2: int  # 566
+ARM_uaddlb: int  # 1372
 ARM_uaddlp: int  # 680
+ARM_uaddlt: int  # 1373
 ARM_uaddlv: int  # 794
 ARM_uaddsubx: int  # 229
+ARM_uaddv: int  # 1663
 ARM_uaddw: int  # 569
 ARM_uaddw2: int  # 570
+ARM_uaddwb: int  # 1384
+ARM_uaddwt: int  # 1385
 ARM_uasx: int  # 229
 ARM_ubfiz: int  # 503
 ARM_ubfm: int  # 500
 ARM_ubfx: int  # 271
+ARM_uclamp: int  # 1635
 ARM_ucvtf: int  # 607
+ARM_ucvtf_sme: int  # 1642
+ARM_udf: int  # 288
 ARM_udiv: int  # 281
+ARM_udiv_sve: int  # 1148
+ARM_udivr: int  # 1141
 ARM_udot: int  # 940
 ARM_uhadd: int  # 630
 ARM_uhadd16: int  # 230
 ARM_uhadd8: int  # 231
+ARM_uhadd_sve: int  # 1348
 ARM_uhaddsubx: int  # 232
 ARM_uhasx: int  # 232
 ARM_uhsax: int  # 235
 ARM_uhsub: int  # 632
 ARM_uhsub16: int  # 233
 ARM_uhsub8: int  # 234
+ARM_uhsub_sve: int  # 1350
 ARM_uhsubaddx: int  # 235
+ARM_uhsubr: int  # 1340
 ARM_umaal: int  # 236
 ARM_umaddl: int  # 530
 ARM_umax: int  # 642
+ARM_umax_destr: int  # 1621
+ARM_umax_sve: int  # 1154
 ARM_umaxp: int  # 682
+ARM_umaxp_sve: int  # 1355
+ARM_umaxqv: int  # 1666
 ARM_umaxv: int  # 796
 ARM_umin: int  # 646
+ARM_umin_destr: int  # 1623
+ARM_umin_sve: int  # 1156
 ARM_uminp: int  # 686
+ARM_uminp_sve: int  # 1357
+ARM_uminqv: int  # 1668
 ARM_uminv: int  # 800
 ARM_umlal: int  # 40
 ARM_umlal2: int  # 651
+ARM_umlal_sme: int  # 1604
+ARM_umlalb: int  # 1323
+ARM_umlall: int  # 1607
+ARM_umlalt: int  # 1324
 ARM_umlsl: int  # 654
 ARM_umlsl2: int  # 655
+ARM_umlslb: int  # 1327
+ARM_umlsll: int  # 1608
+ARM_umlslt: int  # 1328
 ARM_ummla: int  # 936
 ARM_umnegl: int  # 532
+ARM_umopa: int  # 1586
+ARM_umops: int  # 1587
 ARM_umov: int  # 658
 ARM_umsubl: int  # 531
 ARM_umulh: int  # 533
+ARM_umulh_sve: int  # 1146
 ARM_umull: int  # 39
 ARM_umull2: int  # 671
+ARM_umullb: int  # 1366
+ARM_umullt: int  # 1367
 ARM_und: int  # 288
 ARM_uqadd: int  # 691
 ARM_uqadd16: int  # 237
 ARM_uqadd8: int  # 238
+ARM_uqadd_sve: int  # 1359
 ARM_uqaddsubx: int  # 239
 ARM_uqasx: int  # 239
+ARM_uqcvt: int  # 1646
+ARM_uqcvtn: int  # 1649
+ARM_uqdecb: int  # 1219
+ARM_uqdecb32: int  # 1235
+ARM_uqdecd: int  # 1222
+ARM_uqdecd32: int  # 1238
+ARM_uqdech: int  # 1220
+ARM_uqdech32: int  # 1236
+ARM_uqdecp: int  # 1305
+ARM_uqdecw: int  # 1221
+ARM_uqdecw32: int  # 1237
+ARM_uqincb: int  # 1211
+ARM_uqincb32: int  # 1227
+ARM_uqincd: int  # 1214
+ARM_uqincd32: int  # 1230
+ARM_uqinch: int  # 1212
+ARM_uqinch32: int  # 1228
+ARM_uqincp: int  # 1303
+ARM_uqincw: int  # 1213
+ARM_uqincw32: int  # 1229
 ARM_uqrshl: int  # 710
+ARM_uqrshl_sve: int  # 1346
 ARM_uqrshll: int  # 1092
+ARM_uqrshlr: int  # 1338
+ARM_uqrshr_sme: int  # 1637
 ARM_uqrshrn: int  # 712
 ARM_uqrshrn2: int  # 713
+ARM_uqrshrnb: int  # 1435
+ARM_uqrshrnt: int  # 1436
 ARM_uqsax: int  # 242
 ARM_uqshl: int  # 718
+ARM_uqshl_sve: int  # 1168
 ARM_uqshll: int  # 1089
+ARM_uqshlr: int  # 1336
 ARM_uqshrn: int  # 721
 ARM_uqshrn2: int  # 722
+ARM_uqshrnb: int  # 1433
+ARM_uqshrnt: int  # 1434
 ARM_uqsub: int  # 727
 ARM_uqsub16: int  # 240
 ARM_uqsub8: int  # 241
+ARM_uqsub_sve: int  # 1361
 ARM_uqsubaddx: int  # 242
+ARM_uqsubr: int  # 1342
 ARM_uqxtn: int  # 702
 ARM_uqxtn2: int  # 703
+ARM_uqxtnb: int  # 1417
+ARM_uqxtnt: int  # 1418
 ARM_urecpe: int  # 731
 ARM_urhadd: int  # 736
+ARM_urhadd_sve: int  # 1352
 ARM_urshl: int  # 738
+ARM_urshl_destr: int  # 1629
+ARM_urshl_sve: int  # 1344
+ARM_urshlr: int  # 1334
 ARM_urshr: int  # 740
+ARM_urshr_sve: int  # 1171
 ARM_urshrl: int  # 1090
 ARM_ursqrte: int  # 744
 ARM_ursra: int  # 747
@@ -97159,28 +106862,47 @@ ARM_usdot: int  # 937
 ARM_ushl: int  # 751
 ARM_ushll: int  # 753
 ARM_ushll2: int  # 754
+ARM_ushllb: int  # 1394
+ARM_ushllt: int  # 1395
 ARM_ushr: int  # 757
+ARM_usmlall: int  # 1609
 ARM_usmmla: int  # 938
+ARM_usmopa: int  # 1590
+ARM_usmops: int  # 1591
 ARM_usqadd: int  # 694
+ARM_usqadd_sve: int  # 1363
 ARM_usra: int  # 766
 ARM_usub16: int  # 247
 ARM_usub8: int  # 248
 ARM_usubaddx: int  # 249
 ARM_usubl: int  # 776
 ARM_usubl2: int  # 777
+ARM_usublb: int  # 1376
+ARM_usublt: int  # 1377
 ARM_usubw: int  # 780
 ARM_usubw2: int  # 781
+ARM_usubwb: int  # 1388
+ARM_usubwt: int  # 1389
+ARM_uunpk: int  # 1652
+ARM_uunpkhi: int  # 1265
+ARM_uunpklo: int  # 1266
+ARM_uvdot: int  # 1619
 ARM_uxtab: int  # 250
 ARM_uxtab16: int  # 252
 ARM_uxtah: int  # 254
 ARM_uxtb: int  # 251
 ARM_uxtb16: int  # 253
+ARM_uxtb_sve: int  # 1178
 ARM_uxth: int  # 255
+ARM_uxth_sve: int  # 1180
 ARM_uxtl: int  # 661
 ARM_uxtl2: int  # 662
 ARM_uxtw: int  # 506
+ARM_uxtw_sve: int  # 1182
 ARM_uzp1: int  # 789
 ARM_uzp2: int  # 790
+ARM_uzp_sme: int  # 1633
+ARM_uzp_sme4: int  # 1658
 ARM_vaba: int  # 297
 ARM_vabal: int  # 298
 ARM_vabav: int  # 1054
@@ -97467,18 +107189,26 @@ ARM_wfe: int  # 265
 ARM_wfet: int  # 1132
 ARM_wfi: int  # 266
 ARM_wfit: int  # 1133
+ARM_while: int  # 1310
+ARM_while_cnt: int  # 1311
+ARM_whilerw: int  # 1314
+ARM_whilewr: int  # 1313
 ARM_wkdmc: int  # 956
 ARM_wkdmd: int  # 957
 ARM_wls: int  # 1102
 ARM_wlstp: int  # 1104
+ARM_wrffr: int  # 1308
 ARM_xaflag: int  # 893
 ARM_xar: int  # 921
 ARM_xpac: int  # 870
 ARM_xtn: int  # 665
 ARM_xtn2: int  # 666
 ARM_yield: int  # 263
+ARM_zero: int  # 1592
 ARM_zip1: int  # 791
 ARM_zip2: int  # 792
+ARM_zip_sme: int  # 1632
+ARM_zip_sme4: int  # 1657
 AS2_BRACE: int  # 1
 AS2_BYTE1CHAR: int  # 4
 AS2_COLONSUF: int  # 32
@@ -97685,7 +107415,7 @@ AVR_swap: int  # 78
 AVR_tst: int  # 20
 AVR_wdr: int  # 103
 AVR_xch: int  # 119
-Appcall: Appcall__  # <ida_idd.Appcall__ object at 0x000001FCDDBF0EC0>
+Appcall: Appcall__  # <ida_idd.Appcall__ object at 0x0000022E2DE93B60>
 BADADDR: int  # 18446744073709551615
 BADADDR32: int  # 4294967295
 BADADDR64: int  # 18446744073709551615
@@ -97747,6 +107477,7 @@ BOPF_SHOW_FIELD_INPUT_HASH: int  # 65536
 BOPF_SHOW_FIELD_INPUT_PATH: int  # 131072
 BOPF_SHOW_FIELD_USERNAME: int  # 4194304
 BPLT_ABS: int  # 0
+BPLT_LAST: int  # 4
 BPLT_REL: int  # 1
 BPLT_SRC: int  # 3
 BPLT_SYM: int  # 2
@@ -97905,9 +107636,14 @@ BWN_CV_LINE_INFOS: int  # 51
 BWN_DISASM: int  # 27
 BWN_DISASMS: int  # 27
 BWN_DISASM_ARROWS: int  # 50
+BWN_DSC_INDEX: int  # 74
+BWN_DSC_STRINGS: int  # 76
+BWN_DSC_SYMBOLS: int  # 75
+BWN_EXAMPLE_SCRIPTS_TREE: int  # 81
 BWN_EXPORTS: int  # 0
 BWN_FRAME: int  # 25
 BWN_FUNCS: int  # 3
+BWN_GIT_REPOS: int  # 78
 BWN_HEXVIEW: int  # 28
 BWN_IMPORTS: int  # 1
 BWN_LOCALS: int  # 33
@@ -97919,13 +107655,16 @@ BWN_NAMES: int  # 2
 BWN_NAVBAND: int  # 26
 BWN_NOTEPAD: int  # 29
 BWN_OUTPUT: int  # 30
+BWN_PATHFINDER: int  # 83
 BWN_PROBS: int  # 12
 BWN_PSEUDOCODE: int  # 46
+BWN_RECENT_SCRIPTS_TREE: int  # 80
 BWN_RESERVED_1: int  # 11
 BWN_RESERVED_2: int  # 47
 BWN_RESERVED_3: int  # 48
 BWN_SCRIPTS_CSR: int  # 56
 BWN_SEARCH: int  # 19
+BWN_SEARCH_SCRIPTS_TREE: int  # 82
 BWN_SEGREGS: int  # 6
 BWN_SEGS: int  # 5
 BWN_SELS: int  # 7
@@ -97934,12 +107673,24 @@ BWN_SHORTCUTWIN: int  # 37
 BWN_SIGNS: int  # 8
 BWN_SNIPPETS: int  # 43
 BWN_SNIPPETS_CSR: int  # 55
+BWN_SNIPPETS_TREE: int  # 55
 BWN_SO_OFFSETS: int  # 40
 BWN_SO_STRUCTS: int  # 39
 BWN_SRCPTHMAP_CSR: int  # 52
 BWN_SRCPTHUND_CSR: int  # 53
 BWN_STKVIEW: int  # 34
 BWN_STRINGS: int  # 4
+BWN_TEAMS_COMMITS: int  # 64
+BWN_TEAMS_COMMIT_FILES: int  # 70
+BWN_TEAMS_EXT_ASSOCS: int  # 71
+BWN_TEAMS_FILE_HISTORY: int  # 69
+BWN_TEAMS_LOCAL_FILES: int  # 65
+BWN_TEAMS_OPENED_FILES: int  # 72
+BWN_TEAMS_SITES: int  # 67
+BWN_TEAMS_USERS: int  # 68
+BWN_TEAMS_VAULT_FILES: int  # 63
+BWN_TEAMS_VAULT_FILE_PICKER: int  # 73
+BWN_TEAMS_WORKLISTS: int  # 66
 BWN_THREADS: int  # 14
 BWN_TICSR: int  # 10
 BWN_TILIST: int  # 58
@@ -97953,6 +107704,8 @@ BWN_UNDOHIST: int  # 54
 BWN_UNKNOWN: int  # -1
 BWN_WATCH: int  # 32
 BWN_XREFS: int  # 18
+BWN_XREF_GRAPH: int  # 77
+BWN_XREF_GRAPH_MANAGER: int  # 79
 BWN_XREF_TREE: int  # 62
 C166_add: int  # 1
 C166_addb: int  # 2
@@ -98177,6 +107930,7 @@ CC_ALLOW_REGHOLES: int  # 4
 CC_CDECL_OK: int  # 1
 CC_GOLANG_OK: int  # 16
 CC_HAS_ELLIPSIS: int  # 8
+CC_RUST_OK: int  # 32
 CDVF_LINEICONS: int  # 2
 CDVF_NOLINES: int  # 1
 CDVF_STATUSBAR: int  # 4
@@ -98184,6 +107938,8 @@ CDVH_LINES_ALIGNMENT: int  # 1009
 CDVH_LINES_CLICK: int  # 1002
 CDVH_LINES_DBLCLICK: int  # 1003
 CDVH_LINES_DRAWICON: int  # 1005
+CDVH_LINES_FOLD_STATE: int  # 1010
+CDVH_LINES_FOLD_TOGGLE: int  # 1011
 CDVH_LINES_ICONMARGIN: int  # 1007
 CDVH_LINES_LINENUM: int  # 1006
 CDVH_LINES_POPUP: int  # 1004
@@ -98237,16 +107993,19 @@ CHART_RECURSIVE: int  # 4
 CHART_REFERENCED: int  # 2
 CHART_REFERENCING: int  # 1
 CHART_WINGRAPH: int  # 32768
+CHCOL_CHECKBOX: int  # 8388608
 CHCOL_DEC: int  # 196608
 CHCOL_DEFHIDDEN: int  # 1048576
 CHCOL_DRAGHINT: int  # 2097152
 CHCOL_EA: int  # 262144
 CHCOL_FNAME: int  # 327680
-CHCOL_FORMAT: int  # 458752
+CHCOL_FORMAT: int  # 983040
 CHCOL_HEX: int  # 131072
 CHCOL_INODENAME: int  # 4194304
 CHCOL_PATH: int  # 65536
 CHCOL_PLAIN: int  # 0
+CHCOL_SIZE: int  # 393216
+CHCOL_TIMESTAMP: int  # 458752
 CHF_FAKE: int  # 8
 CHF_INITED: int  # 1
 CHF_OVER: int  # 4
@@ -98254,6 +108013,10 @@ CHF_PASSTHRU: int  # 16
 CHF_REPLACED: int  # 2
 CHF_TERM: int  # 32
 CHITEM_BOLD: int  # 1
+CHITEM_CHKST_CHECKED: int  # 64
+CHITEM_CHKST_MASK: int  # 96
+CHITEM_CHKST_PARTIAL: int  # 32
+CHITEM_CHKST_UNCHECKED: int  # 0
 CHITEM_GRAY: int  # 16
 CHITEM_ITALIC: int  # 2
 CHITEM_STRIKE: int  # 8
@@ -98303,6 +108066,9 @@ CH_TM_NO_TREE: int  # 0
 CH_TM_SHIFT: int  # 26
 CH_UNUSED: int  # 64
 CIT_COLLAPSED: int  # 1
+CIT_ELSE_COLLAPSED: int  # 8
+CIT_INVERTED: int  # 2
+CIT_THEN_COLLAPSED: int  # 4
 CK_EXTRA1: int  # 82
 CK_EXTRA10: int  # 91
 CK_EXTRA11: int  # 92
@@ -98362,6 +108128,7 @@ CM_CC_LAST_USERCALL: int  # 255
 CM_CC_MASK: int  # 240
 CM_CC_PASCAL: int  # 96
 CM_CC_RESERVE3: int  # 192
+CM_CC_RUST: int  # 257
 CM_CC_SPECIAL: int  # 240
 CM_CC_SPECIALE: int  # 208
 CM_CC_SPECIALP: int  # 224
@@ -98384,15 +108151,21 @@ CM_N8_F16: int  # 1
 CM_UNKNOWN: int  # 0
 CN_KEEP_TRAILING_DIGITS: int  # 1
 CN_KEEP_UNDERSCORES: int  # 2
+CN_REMOVE_ALL_TRAILING_DIGITS: int  # 4
 COLLAPSED_NODE: int  # -2147483648
 COLOR_ADDR: int  # 40
+COLOR_ADDR_EXPR: int  # 53
 COLOR_ADDR_SIZE: int  # 16
 COLOR_ALTOP: int  # 22
+COLOR_ARGLOC: int  # 16
+COLOR_ARGNAME: int  # 33
 COLOR_ASMDIR: int  # 27
+COLOR_ATTR: int  # 23
 COLOR_AUTOCMT: int  # 4
 COLOR_BG_MAX: int  # 13
 COLOR_BINPREF: int  # 20
 COLOR_CHAR: int  # 10
+COLOR_CMT: int  # 12
 COLOR_CNAME: int  # 37
 COLOR_CODE: int  # 5
 COLOR_CODNAME: int  # 26
@@ -98416,6 +108189,7 @@ COLOR_ESC: str  # 
 COLOR_EXTERN: int  # 8
 COLOR_EXTRA: int  # 21
 COLOR_FG_MAX: int  # 40
+COLOR_GROUP: int  # 54
 COLOR_HIDLINE: int  # 11
 COLOR_HIDNAME: int  # 23
 COLOR_IMPNAME: int  # 34
@@ -98428,6 +108202,7 @@ COLOR_LOCNAME: int  # 25
 COLOR_LUMFUNC: int  # 12
 COLOR_LUMINA: int  # 52
 COLOR_MACRO: int  # 28
+COLOR_NAME: int  # 37
 COLOR_NUMBER: int  # 12
 COLOR_OFF: str  # 
 COLOR_ON: str  # 
@@ -98439,6 +108214,7 @@ COLOR_OPND5: int  # 45
 COLOR_OPND6: int  # 46
 COLOR_OPND7: int  # 47
 COLOR_OPND8: int  # 48
+COLOR_PRAGMA: int  # 28
 COLOR_PREFIX: int  # 19
 COLOR_REG: int  # 33
 COLOR_REGCMT: int  # 2
@@ -98449,6 +108225,8 @@ COLOR_SEGNAME: int  # 35
 COLOR_SELECTED: int  # 2
 COLOR_STRING: int  # 11
 COLOR_SYMBOL: int  # 9
+COLOR_TNUM: int  # 24
+COLOR_TYPE: int  # 23
 COLOR_UNAME: int  # 38
 COLOR_UNKNAME: int  # 36
 COLOR_UNKNOWN: int  # 7
@@ -98594,6 +108372,8 @@ CR16_xorw: int  # 111
 CREATETB_ADV: int  # 1
 CSIDL_APPDATA: int  # 26
 CSIDL_LOCAL_APPDATA: int  # 28
+CSIDL_PERSONAL: int  # 5
+CSIDL_PROFILE: int  # 40
 CSIDL_PROGRAM_FILES: int  # 38
 CSIDL_PROGRAM_FILESX86: int  # 42
 CSIDL_PROGRAM_FILES_COMMON: int  # 43
@@ -98602,6 +108382,8 @@ CSS_NODBG: int  # -1
 CSS_NOMEM: int  # -3
 CSS_NORANGE: int  # -2
 CSS_OK: int  # 0
+CTRY_SYNC: int  # 2
+CTRY_WIND: int  # 1
 CTXF_BINOP_STATE: int  # 786432
 CTXF_BIT_PREFIX: int  # 2097152
 CTXF_CMT_STATE: int  # 768
@@ -99034,14 +108816,37 @@ DEMNAM_MASK: int  # 3
 DEMNAM_NAME: int  # 1
 DEMNAM_NONE: int  # 2
 DIRTREE_BPTS: int  # 5
-DIRTREE_END: int  # 7
+DIRTREE_END: int  # 8
+DIRTREE_FOLDED_SEP: str  # 
 DIRTREE_FUNCS: int  # 1
 DIRTREE_IDAPLACE_BOOKMARKS: int  # 4
 DIRTREE_IMPORTS: int  # 3
 DIRTREE_LOCAL_TYPES: int  # 0
 DIRTREE_LTYPES_BOOKMARKS: int  # 6
 DIRTREE_NAMES: int  # 2
+DIRTREE_SNIPPETS: int  # 7
+DLF_ALL: int  # -1
+DLF_CACHE_DATA: int  # 8192
+DLF_FILES: int  # 16
+DLF_GOTS: int  # 2048
+DLF_IMAGES: int  # 64
+DLF_IMAGES_DEPENDENCIES: int  # 192
+DLF_IMAGES_REGIONS: int  # 320
+DLF_ISLANDS: int  # 512
+DLF_ISLANDS_REGIONS: int  # 1536
+DLF_MAPPINGS: int  # 32
+DLF_TOPLEVEL: int  # 12
+DLF_TOPLEVEL_DETAILS: int  # 8
+DLF_TOPLEVEL_INPUT_PATH: int  # 4
+DLF_UNKNOWN_REGIONS: int  # 4096
+DLF_VALIDATE: int  # 1
+DLF_VALIDATE_HARD: int  # 3
 DLLEXT: str  # dll
+DLRF_ASK_CONFIRMATION: int  # 8
+DLRF_CREATE_UNDO_POINT: int  # 3
+DLRF_DEFAULT: int  # 3
+DLRF_SILENT: int  # 4
+DLRF_UNDO_ON_FAILURE: int  # 1
 DMD_SORT_HASH: int  # 1
 DMD_SORT_NONE: int  # 0
 DMOF_COMPUTE_AND_DIFF_SCORE: int  # 1
@@ -99407,7 +109212,7 @@ EXC_BREAK: int  # 1
 EXC_HANDLE: int  # 2
 EXC_MSG: int  # 4
 EXC_SILENT: int  # 8
-EXFL_ALL: int  # 511
+EXFL_ALL: int  # 1023
 EXFL_ALONE: int  # 8
 EXFL_CPADONE: int  # 1
 EXFL_CSTR: int  # 16
@@ -99415,6 +109220,7 @@ EXFL_FPOP: int  # 4
 EXFL_JUMPOUT: int  # 128
 EXFL_LVALUE: int  # 2
 EXFL_PARTIAL: int  # 32
+EXFL_UCAST: int  # 512
 EXFL_UNDEF: int  # 64
 EXFL_VFTABLE: int  # 256
 EXTFUN_BASE: int  # 1
@@ -99603,6 +109409,7 @@ FAI_ARRAY: int  # 8
 FAI_HIDDEN: int  # 1
 FAI_RETPTR: int  # 2
 FAI_STRUCT: int  # 4
+FAI_SWIFTSELF: int  # 32
 FAI_UNUSED: int  # 16
 FCBF_CONT: int  # 1
 FCBF_DELIM: int  # 8
@@ -99778,7 +109585,19 @@ FRB_STRLIT: int  # 10
 FRB_STROFF: int  # 11
 FRB_TABFORM: int  # 4096
 FRB_UNK: int  # 0
-FTI_ALL: int  # 8191
+FSF_CASE_INSENSITIVE: int  # 2
+FSF_LOADED_IMAGES_ONLY: int  # 1
+FSSF_CASE_INSENSITIVE: int  # 32
+FSSF_FILES_INCLUDE_BRANCH_MAPPINGS: int  # 8
+FSSF_FILES_INCLUDE_OTHER: int  # 16
+FSSF_FILES_INCLUDE_SYMBOLS: int  # 4
+FSSF_IMAGES_SCOPE_ALL: int  # 2
+FSSF_IMAGES_SCOPE_DATA_SECTIONS: int  # 0
+FSSF_IMAGES_SCOPE_MASK: int  # 2
+FSSF_SCOPE_FILES: int  # 1
+FSSF_SCOPE_IMAGES: int  # 0
+FSSF_SCOPE_MASK: int  # 1
+FTI_ALL: int  # 65535
 FTI_ARGLOCS: int  # 256
 FTI_CALLTYPE: int  # 192
 FTI_CONST: int  # 1024
@@ -99794,6 +109613,9 @@ FTI_NORET: int  # 2
 FTI_PURE: int  # 4
 FTI_SPOILED: int  # 1
 FTI_STATIC: int  # 16
+FTI_SWIFTASYNC: int  # 16384
+FTI_SWIFTTHROWS: int  # 32768
+FTI_SYNCHRONIZED: int  # 8192
 FTI_VIRTUAL: int  # 32
 FT_LOG_RET: int  # 1
 FULL_XDSU: int  # 256
@@ -99837,6 +109659,7 @@ FUNC_THUNK: int  # 128
 FUNC_TRACE: int  # 4
 FUNC_UNWIND: int  # 524288
 FUNC_USERFAR: int  # 32
+FUZZY: int  # 1
 GB_ldh: int  # 250
 GB_stop: int  # 251
 GCA_ALLOC: int  # 4
@@ -99884,6 +109707,11 @@ GETN_NOFIXUP: int  # 2
 GFE_32BIT: int  # 4
 GFE_IDB_VALUE: int  # 2
 GFE_VALUE: int  # 1
+GFI_ALL: int  # 7
+GFI_CMT: int  # 2
+GFI_CMT_RPT: int  # 4
+GFI_COMMENTS: int  # 6
+GFI_NAME: int  # 1
 GH_BYTESEX_HAS_HIGHBYTE: int  # 16
 GH_PRINT_ALL: int  # 15
 GH_PRINT_ALL_BUT_BYTESEX: int  # 11
@@ -99922,6 +109750,13 @@ GN_VISIBLE: int  # 1
 GOTEA_NODE_IDX: int  # 0
 GOTEA_NODE_NAME: str  # $ got
 GSCF_FEAT_MASK: int  # 2147483647
+GSI_ALL: int  # 15
+GSI_CMT_REG: int  # 4
+GSI_CMT_RPT: int  # 8
+GSI_COMMENTS: int  # 12
+GSI_NAME: int  # 1
+GSI_SCLASS: int  # 2
+GSI_UPDATED: int  # 256
 GST_NAME: int  # 1
 GST_NONE: int  # 0
 GTD_CALC_ARGLOCS: int  # 0
@@ -100153,7 +109988,7 @@ HD_out0: int  # 145
 HD_slp: int  # 146
 HD_tst: int  # 147
 HD_tstio: int  # 148
-HEXRAYS_API_MAGIC: int  # 62699504545038340
+HEXRAYS_API_MAGIC: int  # 62699504545038341
 HF_COMMENT: int  # 5
 HF_DEFAULT: int  # 0
 HF_KEYWORD1: int  # 1
@@ -101383,7 +111218,7 @@ IDA_DEBUG_SUBPROC: int  # 67108864
 IDA_DEBUG_THEMES: int  # 16777216
 IDA_DEBUG_TIL: int  # 16384
 IDA_REGISTRY_NAME: str  # IDA
-IDA_SDK_VERSION: int  # 930
+IDA_SDK_VERSION: int  # 940
 IDA_SUBDIR_IDADIR_FIRST: int  # 2
 IDA_SUBDIR_IDP: int  # 1
 IDA_SUBDIR_ONLY_EXISTING: int  # 4
@@ -101693,10 +111528,12 @@ INF_XREFFLAG: int  # 33
 INF_XREFNUM: int  # 30
 INLINE_DONTCOPY: int  # 2
 INLINE_EXTFRAME: int  # 1
+INLINE_NORETADDR: int  # 4
 INSN_64BIT: int  # 4
 INSN_MACRO: int  # 1
 INSN_MODMAC: int  # 2
 INSN_TRACE: int  # 2
+INVALID_SUBIDX_ID: int  # 0
 IOREDIR_APPEND: int  # 4
 IOREDIR_INPUT: int  # 1
 IOREDIR_OUTPUT: int  # 2
@@ -101723,6 +111560,7 @@ IPROP_SPLIT8: int  # 1024
 IPROP_TAILCALL: int  # 64
 IPROP_UNMERGED: int  # 1048576
 IPROP_UNPAIRED: int  # 2097152
+IPROP_WAS_FUNC: int  # 4194304
 IPROP_WAS_NORET: int  # 32768
 IPROP_WILDMATCH: int  # 4
 IRI_EXTENDED: int  # 0
@@ -101772,7 +111610,11 @@ IWID_CV_LINE_INFOS: int  # 2251799813685248
 IWID_DISASM: int  # 134217728
 IWID_DISASMS: int  # 134217728
 IWID_DISASM_ARROWS: int  # 1125899906842624
+IWID_DSC_INDEX: int  # 18889465931478580854784
+IWID_DSC_STRINGS: int  # 75557863725914323419136
+IWID_DSC_SYMBOLS: int  # 37778931862957161709568
 IWID_EA_LISTING: int  # 70369146830848
+IWID_EXAMPLE_SCRIPTS_TREE: int  # 2417851639229258349412352
 IWID_EXPORTS: int  # 1
 IWID_FRAME: int  # 33554432
 IWID_FUNCS: int  # 8
@@ -101786,10 +111628,13 @@ IWID_NAMES: int  # 4
 IWID_NAVBAND: int  # 67108864
 IWID_NOTEPAD: int  # 536870912
 IWID_OUTPUT: int  # 1073741824
+IWID_PATHFINDER: int  # 9671406556917033397649408
 IWID_PROBS: int  # 4096
 IWID_PSEUDOCODE: int  # 70368744177664
+IWID_RECENT_SCRIPTS_TREE: int  # 1208925819614629174706176
 IWID_SCRIPTS_CSR: int  # 72057594037927936
 IWID_SEARCH: int  # 524288
+IWID_SEARCH_SCRIPTS_TREE: int  # 4835703278458516698824704
 IWID_SEGREGS: int  # 64
 IWID_SEGS: int  # 32
 IWID_SELS: int  # 128
@@ -101798,12 +111643,24 @@ IWID_SHORTCUTWIN: int  # 137438953472
 IWID_SIGNS: int  # 256
 IWID_SNIPPETS: int  # 8796093022208
 IWID_SNIPPETS_CSR: int  # 36028797018963968
+IWID_SNIPPETS_TREE: int  # 36028797018963968
 IWID_SO_OFFSETS: int  # 1099511627776
 IWID_SO_STRUCTS: int  # 549755813888
 IWID_SRCPTHMAP_CSR: int  # 4503599627370496
 IWID_SRCPTHUND_CSR: int  # 9007199254740992
 IWID_STKVIEW: int  # 17179869184
 IWID_STRINGS: int  # 16
+IWID_TEAMS_COMMITS: int  # 18446744073709551616
+IWID_TEAMS_COMMIT_FILES: int  # 1180591620717411303424
+IWID_TEAMS_EXT_ASSOCS: int  # 2361183241434822606848
+IWID_TEAMS_FILE_HISTORY: int  # 590295810358705651712
+IWID_TEAMS_LOCAL_FILES: int  # 36893488147419103232
+IWID_TEAMS_OPENED_FILES: int  # 4722366482869645213696
+IWID_TEAMS_SITES: int  # 147573952589676412928
+IWID_TEAMS_USERS: int  # 295147905179352825856
+IWID_TEAMS_VAULT_FILES: int  # 9223372036854775808
+IWID_TEAMS_VAULT_FILE_PICKER: int  # 9444732965739290427392
+IWID_TEAMS_WORKLISTS: int  # 73786976294838206464
 IWID_THREADS: int  # 16384
 IWID_TICSR: int  # 1024
 IWID_TILIST: int  # 288230376151711744
@@ -101816,6 +111673,7 @@ IWID_TYPE_EDITOR: int  # 1152921504606846976
 IWID_UNDOHIST: int  # 18014398509481984
 IWID_WATCH: int  # 4294967296
 IWID_XREFS: int  # 262144
+IWID_XREF_GRAPH: int  # 151115727451828646838272
 IWID_XREF_TREE: int  # 4611686018427387904
 KR1878_adc: int  # 24
 KR1878_add: int  # 3
@@ -101888,6 +111746,7 @@ LFLG_DBG_NOPATH: int  # 128
 LFLG_FLAT_OFF32: int  # 16
 LFLG_ILP32: int  # 4096
 LFLG_IS_DLL: int  # 8
+LFLG_IS_EXE_DLL: int  # 8192
 LFLG_KERNMODE: int  # 2048
 LFLG_MSF: int  # 32
 LFLG_PACK: int  # 512
@@ -103077,6 +112936,8 @@ MC6816_xgdz: int  # 212
 MC6816_xgex: int  # 213
 MC6816_xgey: int  # 214
 MC6816_xgez: int  # 215
+MDF_ALLOW_CPU_MISMATCH: int  # 1
+MDF_ALLOW_PLATFORM_MISMATCH: int  # 2
 MDKF_DCSTRLIST: int  # 5
 MDKF_DOPSLIST: int  # 9
 MDKF_DSVALLIST: int  # 6
@@ -108862,6 +118723,7 @@ PLFM_M7700: int  # 41
 PLFM_M7900: int  # 45
 PLFM_MC6812: int  # 11
 PLFM_MC6816: int  # 44
+PLFM_MCORE: int  # 77
 PLFM_MIPS: int  # 12
 PLFM_MN102L00: int  # 53
 PLFM_MSP430: int  # 58
@@ -112621,6 +122483,7 @@ REAL_ERROR_OK: int  # 1
 REAL_ERROR_RANGE: int  # -2
 REAL_ERROR_ZERODIV: int  # 4
 REFINFO_CUSTOM: int  # 64
+REFINFO_IGNZERO: int  # 1024
 REFINFO_NOBASE: int  # 128
 REFINFO_NO_ONES: int  # 2048
 REFINFO_NO_ZEROS: int  # 1024
@@ -112729,6 +122592,10 @@ RISCV_bgez: int  # 137
 RISCV_bgtz: int  # 139
 RISCV_binv: int  # 344
 RISCV_binvi: int  # 345
+RISCV_bitc: int  # 563
+RISCV_bitci: int  # 564
+RISCV_bits: int  # 565
+RISCV_bitsi: int  # 566
 RISCV_blez: int  # 136
 RISCV_blt: int  # 7
 RISCV_bltu: int  # 9
@@ -112745,6 +122612,14 @@ RISCV_clmulh: int  # 349
 RISCV_clmulr: int  # 350
 RISCV_clz: int  # 351
 RISCV_clzw: int  # 352
+RISCV_cmjalt: int  # 576
+RISCV_cmjt: int  # 575
+RISCV_cmmva01s: int  # 573
+RISCV_cmmvsa01: int  # 574
+RISCV_cmpop: int  # 570
+RISCV_cmpopret: int  # 572
+RISCV_cmpopretz: int  # 571
+RISCV_cmpush: int  # 569
 RISCV_cpop: int  # 353
 RISCV_cpopw: int  # 354
 RISCV_csrc: int  # 152
@@ -112782,6 +122657,7 @@ RISCV_fld: int  # 117
 RISCV_fle: int  # 115
 RISCV_flh: int  # 375
 RISCV_flq: int  # 119
+RISCV_fls: int  # 568
 RISCV_flt: int  # 114
 RISCV_flw: int  # 93
 RISCV_fmadd: int  # 95
@@ -112808,6 +122684,12 @@ RISCV_fsqrt: int  # 103
 RISCV_fsrm: int  # 159
 RISCV_fsub: int  # 100
 RISCV_fsw: int  # 94
+RISCV_grev: int  # 561
+RISCV_grevi: int  # 562
+RISCV_h3bextm: int  # 559
+RISCV_h3bextmi: int  # 560
+RISCV_h3block: int  # 557
+RISCV_h3unblock: int  # 558
 RISCV_hfenceb: int  # 46
 RISCV_hfenceg: int  # 47
 RISCV_hinval: int  # 381
@@ -112819,7 +122701,7 @@ RISCV_jalr: int  # 4
 RISCV_jr: int  # 141
 RISCV_jump: int  # 165
 RISCV_la: int  # 162
-RISCV_last: int  # 557
+RISCV_last: int  # 581
 RISCV_lb: int  # 11
 RISCV_lbu: int  # 14
 RISCV_ld: int  # 49
@@ -112874,6 +122756,10 @@ RISCV_neg: int  # 125
 RISCV_negw: int  # 126
 RISCV_nop: int  # 121
 RISCV_not: int  # 124
+RISCV_ntl_all: int  # 580
+RISCV_ntl_p1: int  # 577
+RISCV_ntl_pall: int  # 578
+RISCV_ntl_s1: int  # 579
 RISCV_null: int  # 0
 RISCV_or: int  # 36
 RISCV_orc: int  # 361
@@ -112883,6 +122769,7 @@ RISCV_pack: int  # 391
 RISCV_packh: int  # 392
 RISCV_packw: int  # 393
 RISCV_pause: int  # 382
+RISCV_pcnt: int  # 567
 RISCV_prefetch: int  # 384
 RISCV_rdcycle: int  # 144
 RISCV_rdcycleh: int  # 147
@@ -113337,28 +123224,74 @@ RL78_xor1: int  # 25
 ROLE_3WAYCMP0: int  # 32
 ROLE_3WAYCMP1: int  # 33
 ROLE_ABS: int  # 31
+ROLE_AGET: int  # 77
 ROLE_ALLOCA: int  # 11
+ROLE_APUT: int  # 78
+ROLE_ARRLEN: int  # 68
 ROLE_BITTEST: int  # 19
 ROLE_BITTESTANDCOMPLEMENT: int  # 22
 ROLE_BITTESTANDRESET: int  # 21
 ROLE_BITTESTANDSET: int  # 20
 ROLE_BSWAP: int  # 12
 ROLE_BUG: int  # 10
+ROLE_CATCH_EXCEPTION: int  # 85
 ROLE_CFSUB3: int  # 29
+ROLE_CHKCAST: int  # 69
+ROLE_CONST_CLASS: int  # 86
 ROLE_CONTAINING_RECORD: int  # 14
+ROLE_EH_CATCH: int  # 43
+ROLE_EH_CATCH_ABSENT: int  # 64
+ROLE_EH_CATCH_ELLIPSIS: int  # 45
+ROLE_EH_CATCH_TYPE: int  # 44
+ROLE_EH_CAUGHT: int  # 61
+ROLE_EH_CAUGHT_ELLIPSIS: int  # 60
+ROLE_EH_CAUGHT_TYPE: int  # 59
+ROLE_EH_CONTINUE_UNWINDING: int  # 53
+ROLE_EH_DEAD_END_TRY: int  # 50
+ROLE_EH_DEAD_END_WIND: int  # 51
+ROLE_EH_ENTER_TRY_STATE: int  # 55
+ROLE_EH_ENTER_WIND_STATE: int  # 54
+ROLE_EH_EXIT_TRY_STATE: int  # 57
+ROLE_EH_EXIT_WIND_STATE: int  # 56
+ROLE_EH_NO_UNWIND_HANDLER: int  # 58
+ROLE_EH_PROPAGATE: int  # 52
+ROLE_EH_RETHROW: int  # 62
+ROLE_EH_SCOPE_STRUT: int  # 49
+ROLE_EH_THROW: int  # 47
+ROLE_EH_TRY: int  # 41
+ROLE_EH_TRY_CONTINUATION: int  # 48
+ROLE_EH_UNWIND: int  # 46
+ROLE_EH_UNWIND_ABSENT: int  # 63
+ROLE_EH_WIND: int  # 42
 ROLE_EMPTY: int  # 1
 ROLE_FASTFAIL: int  # 15
+ROLE_FILL_ARRAY: int  # 67
+ROLE_FILL_ARRAY_DATA: int  # 87
+ROLE_FMOD: int  # 79
+ROLE_IGET: int  # 73
+ROLE_INSTANCEOF: int  # 70
+ROLE_INVOKE_INIT: int  # 82
+ROLE_INVOKE_INIT_SUPER: int  # 83
+ROLE_INVOKE_INIT_THIS: int  # 84
+ROLE_INVOKE_SUPER: int  # 81
+ROLE_INVOKE_VIRTUAL: int  # 80
+ROLE_IPUT: int  # 74
 ROLE_IS_MUL_OK: int  # 17
+ROLE_LOCK: int  # 71
 ROLE_MEMCPY: int  # 5
 ROLE_MEMSET: int  # 2
 ROLE_MEMSET32: int  # 3
 ROLE_MEMSET64: int  # 4
+ROLE_NEW_ARRAY: int  # 66
+ROLE_NEW_OBJ: int  # 65
 ROLE_OFSUB3: int  # 30
 ROLE_PRESENT: int  # 13
 ROLE_READFLAGS: int  # 16
 ROLE_ROL: int  # 27
 ROLE_ROR: int  # 28
 ROLE_SATURATED_MUL: int  # 18
+ROLE_SGET: int  # 75
+ROLE_SPUT: int  # 76
 ROLE_SSE_CMP4: int  # 39
 ROLE_SSE_CMP8: int  # 40
 ROLE_STRCAT: int  # 8
@@ -113366,6 +123299,7 @@ ROLE_STRCPY: int  # 6
 ROLE_STRLEN: int  # 7
 ROLE_TAIL: int  # 9
 ROLE_UNK: int  # 0
+ROLE_UNLOCK: int  # 72
 ROLE_VA_ARG: int  # 23
 ROLE_VA_COPY: int  # 24
 ROLE_VA_END: int  # 26
@@ -113592,11 +123526,15 @@ SCF_SHHID_SEGM: int  # 128
 SCF_TESTMODE: int  # 16
 SCOLOR_ADDR: str  # (
 SCOLOR_ALTOP: str  # 
+SCOLOR_ARGLOC: str  # 
+SCOLOR_ARGNAME: str  # !
 SCOLOR_ASMDIR: str  # 
+SCOLOR_ATTR: str  # 
 SCOLOR_AUTOCMT: str  # 
 SCOLOR_BINPREF: str  # 
 SCOLOR_CHAR: str  # 
 
+SCOLOR_CMT: str  # 
 SCOLOR_CNAME: str  # %
 SCOLOR_CODNAME: str  # 
 SCOLOR_COLLAPSED: str  # '
@@ -113623,6 +123561,7 @@ SCOLOR_KEYWORD: str  #
 SCOLOR_LIBNAME: str  # 
 SCOLOR_LOCNAME: str  # 
 SCOLOR_MACRO: str  # 
+SCOLOR_NAME: str  # %
 SCOLOR_NUMBER: str  # 
 SCOLOR_OFF: str  # 
 SCOLOR_ON: str  # 
@@ -113632,6 +123571,7 @@ SCOLOR_OPND3: str  # +
 SCOLOR_OPND4: str  # ,
 SCOLOR_OPND5: str  # -
 SCOLOR_OPND6: str  # .
+SCOLOR_PRAGMA: str  # 
 SCOLOR_PREFIX: str  # 
 SCOLOR_REG: str  # !
 SCOLOR_REGCMT: str  # 
@@ -113639,6 +123579,8 @@ SCOLOR_RPTCMT: str  # 
 SCOLOR_SEGNAME: str  # #
 SCOLOR_STRING: str  # 
 SCOLOR_SYMBOL: str  # 	
+SCOLOR_TNUM: str  # 
+SCOLOR_TYPE: str  # 
 SCOLOR_UNAME: str  # &
 SCOLOR_UNKNAME: str  # $
 SCOLOR_UTF8: str  # 2
@@ -113894,6 +123836,7 @@ SH4a_movua_l: int  # 174
 SH4a_prefi: int  # 176
 SH4a_synco: int  # 177
 SHINS_LDXEA: int  # 8
+SHINS_NOEA: int  # 16
 SHINS_NUMADDR: int  # 1
 SHINS_SHORT: int  # 4
 SHINS_VALNUM: int  # 2
@@ -114531,6 +124474,7 @@ STRF_GEN: int  # 1
 STRF_SAVECASE: int  # 32
 STRF_SERIAL: int  # 4
 STRF_UNICODE: int  # 8
+STRLYT_DECOMP: int  # 4
 STRLYT_MASK: int  # 252
 STRLYT_PASCAL1: int  # 1
 STRLYT_PASCAL2: int  # 2
@@ -114556,6 +124500,7 @@ STRMEM_VFTABLE: int  # 268435456
 STRTYPE_C: int  # 0
 STRTYPE_C_16: int  # 1
 STRTYPE_C_32: int  # 2
+STRTYPE_DECOMP: int  # 16
 STRTYPE_LEN2: int  # 8
 STRTYPE_LEN2_16: int  # 9
 STRTYPE_LEN2_32: int  # 10
@@ -114571,6 +124516,7 @@ STRWIDTH_1B: int  # 0
 STRWIDTH_2B: int  # 1
 STRWIDTH_4B: int  # 2
 STRWIDTH_MASK: int  # 3
+STR_MATCH: int  # 0
 STT_CUR: int  # -1
 STT_DBG: int  # 2
 STT_MM: int  # 1
@@ -114582,6 +124528,12 @@ ST_OPTIONS_MASK: int  # 31
 ST_OVER_DEBUG_SEG: int  # 1
 ST_OVER_LIB_FUNC: int  # 2
 ST_SKIP_LOOPS: int  # 8
+SUBIDX_FUNCTIONS: int  # 1
+SUBIDX_FUNCTION_COMMENTS: int  # 5
+SUBIDX_LTYPES: int  # 2
+SUBIDX_NAMES: int  # 3
+SUBIDX_REPEATABLE_FUNCTION_COMMENTS: int  # 6
+SUBIDX_SEGMENTS: int  # 4
 SUBSTCHAR: str  # _
 SUDT_ALIGN: int  # 2
 SUDT_CONST: int  # 64
@@ -116387,7 +126339,6 @@ TMS_xpl2: int  # 135
 TMS_zalr: int  # 136
 TMS_zap: int  # 137
 TMS_zpr: int  # 138
-TPOS_LNNUM: str  # 
 TPOS_REGCMT: str  # 
 TRACE_FULL: int  # 14
 TRICORE_abs: int  # 1
@@ -116882,6 +126833,10 @@ UIJMP_IDAVIEW: int  # 4
 UIJMP_IDAVIEW_NEW: int  # 8
 UIJMP_VIEWMASK: int  # 12
 ULV_PRECISE_DEFEA: int  # 1
+UMA_APP: int  # 2
+UMA_DEL: int  # 0
+UMA_INS: int  # 1
+UMA_MAX: int  # 3
 UNHID_FUNC: int  # 2
 UNHID_RANGE: int  # 4
 UNHID_SEGM: int  # 1
@@ -117048,6 +127003,7 @@ VT_WILD: int  # 4
 WARN_ADDR_OUTARGS: int  # 6
 WARN_ARRAY_INARG: int  # 21
 WARN_BAD_CALL_SP: int  # 38
+WARN_BAD_EHINFO: int  # 58
 WARN_BAD_FIELD_TYPE: int  # 23
 WARN_BAD_INSN: int  # 49
 WARN_BAD_MAPDST: int  # 48
@@ -117063,6 +127019,7 @@ WARN_BAD_VARSIZE: int  # 34
 WARN_CBUILD_LOOPS: int  # 13
 WARN_CR_BADOFF: int  # 32
 WARN_CR_NOFIELD: int  # 31
+WARN_DALVIK_ENUM: int  # 60
 WARN_DEP_UNK_CALLS: int  # 7
 WARN_EXP_LINVAR: int  # 10
 WARN_FIXED_INSN: int  # 29
@@ -117074,8 +127031,9 @@ WARN_ILL_ELLIPSIS: int  # 8
 WARN_ILL_FPU_STACK: int  # 18
 WARN_ILL_FUNCTYPE: int  # 2
 WARN_ILL_PURGED: int  # 1
+WARN_INCOMPAT_TYPE: int  # 59
 WARN_JUMPOUT: int  # 43
-WARN_MAX: int  # 58
+WARN_MAX: int  # 61
 WARN_MAX_ARGS: int  # 22
 WARN_MISSED_SWITCH: int  # 39
 WARN_MUST_RET_FP: int  # 17
@@ -117706,18 +127664,25 @@ changing_segm_class: int  # 27
 changing_segm_end: int  # 23
 changing_segm_name: int  # 25
 changing_segm_start: int  # 21
+changing_segment_class: int  # 99
+changing_segment_end: int  # 95
+changing_segment_name: int  # 97
+changing_segment_start: int  # 93
 changing_ti: int  # 12
 chtype_entry: int  # 2
 chtype_enum: int  # 12
 chtype_enum_by_value_and_size: int  # 13
 chtype_func: int  # 6
+chtype_func_ea: int  # 16
 chtype_generic: int  # 0
 chtype_idasgn: int  # 1
 chtype_idatil: int  # 9
 chtype_name: int  # 3
 chtype_segm: int  # 7
+chtype_segment: int  # 14
 chtype_srcp: int  # 10
 chtype_stkvar_xref: int  # 4
+chtype_stkvar_xref_ea: int  # 15
 chtype_strpath: int  # 8
 chtype_struct: int  # 11
 chtype_xref: int  # 5
@@ -117815,7 +127780,7 @@ cot_ushr: int  # 33
 cot_var: int  # 65
 cot_xor: int  # 20
 ctypes: module
-cvar: idaapi_Cvar  # <idaapi.idaapi_Cvar object at 0x000001FCE3119940>
+cvar: idaapi_Cvar  # <idaapi.idaapi_Cvar object at 0x0000022E348A6120>
 dbg_bpt: int  # 12
 dbg_bpt_changed: int  # 19
 dbg_exception: int  # 10
@@ -117841,6 +127806,8 @@ dbg_thread_start: int  # 5
 dbg_trace: int  # 13
 deleting_func: int  # 36
 deleting_func_tail: int  # 40
+deleting_function: int  # 106
+deleting_function_tail: int  # 108
 deleting_segm: int  # 19
 deleting_tryblks: int  # 47
 destroyed_items: int  # 51
@@ -118042,6 +128009,15 @@ func_noret_changed: int  # 43
 func_tail_appended: int  # 39
 func_tail_deleted: int  # 41
 func_updated: int  # 33
+function_added: int  # 102
+function_frame_deleted: int  # 114
+function_noret_changed: int  # 111
+function_stkpnts_changed: int  # 112
+function_tail_appended: int  # 107
+function_tail_deleted: int  # 109
+function_tail_owner_changed: int  # 110
+function_updated: int  # 103
+functools: module
 git_edge: int  # 1
 git_elp: int  # 5
 git_node: int  # 2
@@ -118117,6 +128093,7 @@ grcode_viewer_delete_groups_vec: int  # 296
 grcode_viewer_groups_visibility: int  # 294
 grcode_viewer_groups_visibility_vec: int  # 297
 htag: int  # 72
+hx_add_user_minsn: int  # 650
 hx_arglocs_overlap: int  # 177
 hx_asgop: int  # 448
 hx_asgop_revert: int  # 449
@@ -118204,6 +128181,7 @@ hx_cfunc_t_build_c_tree: int  # 534
 hx_cfunc_t_cleanup: int  # 564
 hx_cfunc_t_del_orphan_cmts: int  # 548
 hx_cfunc_t_deserialize: int  # 625
+hx_cfunc_t_find_addressable_item: int  # 664
 hx_cfunc_t_find_item_coords: int  # 563
 hx_cfunc_t_find_label: int  # 541
 hx_cfunc_t_gather_derefs: int  # 562
@@ -118214,6 +128192,7 @@ hx_cfunc_t_get_line_item: int  # 556
 hx_cfunc_t_get_lvars: int  # 539
 hx_cfunc_t_get_pseudocode: int  # 560
 hx_cfunc_t_get_stkoff_delta: int  # 540
+hx_cfunc_t_get_user_cast: int  # 645
 hx_cfunc_t_get_user_cmt: int  # 543
 hx_cfunc_t_get_user_iflags: int  # 545
 hx_cfunc_t_get_user_union_selection: int  # 549
@@ -118222,14 +128201,17 @@ hx_cfunc_t_has_orphan_cmts: int  # 547
 hx_cfunc_t_print_dcl: int  # 536
 hx_cfunc_t_print_func: int  # 537
 hx_cfunc_t_recalc_item_addresses: int  # 619
+hx_cfunc_t_redirect_gotos: int  # 647
 hx_cfunc_t_refresh_func_ctext: int  # 561
 hx_cfunc_t_remove_unused_labels: int  # 542
+hx_cfunc_t_save_user_casts: int  # 643
 hx_cfunc_t_save_user_cmts: int  # 552
 hx_cfunc_t_save_user_iflags: int  # 554
 hx_cfunc_t_save_user_labels: int  # 551
 hx_cfunc_t_save_user_numforms: int  # 553
 hx_cfunc_t_save_user_unions: int  # 555
 hx_cfunc_t_serialize: int  # 624
+hx_cfunc_t_set_user_cast: int  # 644
 hx_cfunc_t_set_user_cmt: int  # 544
 hx_cfunc_t_set_user_iflags: int  # 546
 hx_cfunc_t_set_user_union_selection: int  # 550
@@ -118290,8 +128272,11 @@ hx_ctree_visitor_t_apply_to: int  # 455
 hx_ctree_visitor_t_apply_to_exprs: int  # 456
 hx_ctry_t_compare: int  # 509
 hx_cwhile_t_compare: int  # 484
+hx_decomp_ranges_t_range_contains: int  # 653
 hx_decompile: int  # 566
+hx_decompile_: int  # 656
 hx_decompile_many: int  # 439
+hx_del_user_minsn: int  # 651
 hx_dereference: int  # 523
 hx_dstr: int  # 158
 hx_dummy_ptrtype: int  # 167
@@ -118313,6 +128298,8 @@ hx_fnumber_t_dstr: int  # 272
 hx_fnumber_t_print: int  # 271
 hx_gco_info_t_append_to_list: int  # 442
 hx_gen_microcode: int  # 567
+hx_gen_microcode_: int  # 657
+hx_get_cached_cfunc_eas: int  # 663
 hx_get_ctype_name: int  # 572
 hx_get_current_operand: int  # 443
 hx_get_float_type: int  # 164
@@ -118398,14 +128385,17 @@ hx_make_pointer: int  # 169
 hx_make_ref: int  # 522
 hx_mark_cfunc_dirty: int  # 569
 hx_mba_ranges_t_range_contains: int  # 384
+hx_mba_t_add_user_minsn: int  # 648
 hx_mba_t_alloc_fict_ea: int  # 417
 hx_mba_t_alloc_kreg: int  # 422
 hx_mba_t_alloc_lvars: int  # 399
 hx_mba_t_analyze_calls: int  # 397
 hx_mba_t_arg: int  # 416
 hx_mba_t_build_graph: int  # 395
+hx_mba_t_clr_numform: int  # 662
 hx_mba_t_copy_block: int  # 407
 hx_mba_t_create_helper_call: int  # 414
+hx_mba_t_del_user_minsn: int  # 649
 hx_mba_t_deserialize: int  # 420
 hx_mba_t_dump: int  # 400
 hx_mba_t_find_mop: int  # 413
@@ -118414,11 +128404,14 @@ hx_mba_t_for_all_ops: int  # 410
 hx_mba_t_for_all_topinsns: int  # 412
 hx_mba_t_free_kreg: int  # 423
 hx_mba_t_get_curfunc: int  # 392
+hx_mba_t_get_decomp_ranges: int  # 654
 hx_mba_t_get_func_output_lists: int  # 415
 hx_mba_t_get_graph: int  # 396
+hx_mba_t_get_numform: int  # 660
 hx_mba_t_idaloc2vd: int  # 387
 hx_mba_t_idaloc2vd_: int  # 388
 hx_mba_t_inline_func: int  # 424
+hx_mba_t_inline_function: int  # 655
 hx_mba_t_insert_block: int  # 405
 hx_mba_t_locate_stkpnt: int  # 425
 hx_mba_t_map_fict_ea: int  # 418
@@ -118434,6 +128427,7 @@ hx_mba_t_save_snapshot: int  # 421
 hx_mba_t_serialize: int  # 419
 hx_mba_t_set_lvar_name: int  # 426
 hx_mba_t_set_maturity: int  # 393
+hx_mba_t_set_numform: int  # 661
 hx_mba_t_split_block: int  # 617
 hx_mba_t_stkoff_ida2vd: int  # 386
 hx_mba_t_stkoff_vd2ida: int  # 385
@@ -118468,6 +128462,7 @@ hx_mblock_t_optimize_insn: int  # 369
 hx_mblock_t_optimize_useless_jump: int  # 372
 hx_mblock_t_print: int  # 361
 hx_mblock_t_remove_from_block: int  # 365
+hx_mblock_t_undef_spoiled_regs: int  # 659
 hx_mblock_t_vdump_block: int  # 363
 hx_mblock_t_verify_insn: int  # 626
 hx_mcallarg_t_dstr: int  # 310
@@ -118528,6 +128523,7 @@ hx_mop_t_equal_mops: int  # 295
 hx_mop_t_erase: int  # 276
 hx_mop_t_for_all_ops: int  # 297
 hx_mop_t_for_all_scattered_submops: int  # 298
+hx_mop_t_get_bitwidth: int  # 658
 hx_mop_t_get_stkoff: int  # 300
 hx_mop_t_is01: int  # 292
 hx_mop_t_is_bit_reg: int  # 290
@@ -118570,6 +128566,7 @@ hx_remitem: int  # 444
 hx_remove_hexrays_callback: int  # 575
 hx_remove_optblock_handler: int  # 258
 hx_remove_optinsn_handler: int  # 256
+hx_restore_user_casts: int  # 629
 hx_restore_user_cmts: int  # 530
 hx_restore_user_defined_calls: int  # 195
 hx_restore_user_iflags: int  # 532
@@ -118579,6 +128576,7 @@ hx_restore_user_numforms: int  # 531
 hx_restore_user_unions: int  # 533
 hx_rlist_t_dstr: int  # 245
 hx_rlist_t_print: int  # 244
+hx_save_user_casts: int  # 628
 hx_save_user_cmts: int  # 525
 hx_save_user_defined_calls: int  # 196
 hx_save_user_iflags: int  # 527
@@ -118614,6 +128612,19 @@ hx_udcall_map_next: int  # 28
 hx_udcall_map_prev: int  # 29
 hx_udcall_map_second: int  # 31
 hx_udcall_map_size: int  # 36
+hx_user_casts_begin: int  # 630
+hx_user_casts_clear: int  # 639
+hx_user_casts_end: int  # 631
+hx_user_casts_erase: int  # 638
+hx_user_casts_find: int  # 636
+hx_user_casts_first: int  # 634
+hx_user_casts_free: int  # 641
+hx_user_casts_insert: int  # 637
+hx_user_casts_new: int  # 642
+hx_user_casts_next: int  # 632
+hx_user_casts_prev: int  # 633
+hx_user_casts_second: int  # 635
+hx_user_casts_size: int  # 640
 hx_user_cmts_begin: int  # 39
 hx_user_cmts_clear: int  # 48
 hx_user_cmts_end: int  # 40
@@ -118653,6 +128664,7 @@ hx_user_labels_next: int  # 80
 hx_user_labels_prev: int  # 81
 hx_user_labels_second: int  # 83
 hx_user_labels_size: int  # 88
+hx_user_minsn_t_compare: int  # 652
 hx_user_numforms_begin: int  # 0
 hx_user_numforms_clear: int  # 9
 hx_user_numforms_end: int  # 1
@@ -118734,6 +128746,7 @@ hx_vdui_t_set_num_stroff: int  # 609
 hx_vdui_t_set_udm_type: int  # 596
 hx_vdui_t_split_item: int  # 614
 hx_vdui_t_switch_to: int  # 579
+hx_vdui_t_ui_add_cast: int  # 646
 hx_vdui_t_ui_edit_lvar_cmt: int  # 591
 hx_vdui_t_ui_map_lvar: int  # 593
 hx_vdui_t_ui_noprop_lvar: int  # 627
@@ -118757,10 +128770,13 @@ hxe_create_hint: int  # 108
 hxe_curpos: int  # 107
 hxe_double_click: int  # 106
 hxe_flowchart: int  # 0
+hxe_flowchart_ea: int  # 23
 hxe_func_printed: int  # 14
 hxe_glbopt: int  # 7
 hxe_inlined_func: int  # 21
+hxe_inlined_function: int  # 26
 hxe_inlining_func: int  # 20
+hxe_inlining_function: int  # 25
 hxe_interr: int  # 11
 hxe_keyboard: int  # 104
 hxe_locopt: int  # 5
@@ -118774,6 +128790,7 @@ hxe_prealloc: int  # 6
 hxe_preoptimized: int  # 4
 hxe_print_func: int  # 13
 hxe_prolog: int  # 2
+hxe_prolog_ea: int  # 24
 hxe_refresh_pseudocode: int  # 102
 hxe_resolve_stkaddrs: int  # 15
 hxe_right_click: int  # 105
@@ -118791,6 +128808,7 @@ ida_idd: module
 ida_idp: module
 ida_kernwin: module
 ida_nalt: module
+ida_name: module
 ida_pro: module
 ida_range: module
 ida_segment: module
@@ -120138,6 +130156,7 @@ mop_sc: int  # 15
 mop_str: int  # 3
 mop_v: int  # 6
 mop_z: int  # 0
+moving_range_cmt: int  # 115
 mr_cc: int  # 5
 mr_cf: int  # 0
 mr_first: int  # 8
@@ -120293,7 +130312,7 @@ pdp_tst: int  # 39
 pdp_tstd: int  # 88
 pdp_wait: int  # 2
 pdp_xor: int  # 59
-ph: __ph  # <ida_idp.__ph object at 0x000001FCE2866900>
+ph: __ph  # <ida_idp.__ph object at 0x0000022E32A95550>
 range_cmt_changed: int  # 57
 re: module
 reg_binary: int  # 3
@@ -120301,6 +130320,14 @@ reg_dword: int  # 4
 reg_sz: int  # 1
 reg_unknown: int  # 0
 renamed: int  # 52
+rt_cache_data: int  # 6
+rt_got: int  # 5
+rt_header: int  # 2
+rt_image_entity: int  # 0
+rt_invalid: int  # -1
+rt_island: int  # 1
+rt_mapping: int  # 3
+rt_unknown: int  # 4
 s39_a: int  # 1
 s39_ad: int  # 2
 s39_adb: int  # 3
@@ -122552,6 +132579,14 @@ segm_end_changed: int  # 24
 segm_moved: int  # 30
 segm_name_changed: int  # 26
 segm_start_changed: int  # 22
+segment_added: int  # 92
+segment_attrs_updated: int  # 101
+segment_class_changed: int  # 100
+segment_end_changed: int  # 96
+segment_name_changed: int  # 98
+segment_start_changed: int  # 94
+set_function_end: int  # 105
+set_function_start: int  # 104
 sgr_changed: int  # 48
 sgr_deleted: int  # 62
 st9_adc: int  # 9
@@ -122679,6 +132714,7 @@ tev_mem: int  # 5
 tev_none: int  # 0
 tev_ret: int  # 3
 thunk_func_created: int  # 38
+thunk_function_created: int  # 113
 ti_changed: int  # 13
 traceback: module
 tryblks_updated: int  # 46
@@ -122701,6 +132737,7 @@ view_mouse_moved: int  # 11
 view_mouse_over: int  # 9
 view_switched: int  # 8
 vtag: int  # 86
+warnings: module
 weakref: module
 xScale_mar: int  # 78
 xScale_mia: int  # 72

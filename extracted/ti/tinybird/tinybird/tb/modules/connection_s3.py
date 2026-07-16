@@ -363,6 +363,7 @@ def connection_create_s3(
         connection_name=connection_name,
         policy=access_type.lower(),
         local_unavailable=local_aws_unavailable,
+        env=env,
     )
     unique_suffix = uuid.uuid4().hex[:8]  # Use first 8 chars of a UUID for brevity
     secret_name = f"s3_role_arn_{connection_name}_{unique_suffix}"

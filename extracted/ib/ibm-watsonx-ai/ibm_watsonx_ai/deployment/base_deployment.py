@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from contextlib import redirect_stdout
 from copy import copy
 from functools import wraps
+from time import sleep
 from typing import TYPE_CHECKING, Any, Callable, cast
 from warnings import warn
 
@@ -35,7 +36,7 @@ from ..utils.deployment.errors import (
     ServingNameNotAvailable,
     WrongDeploymentType,
 )
-from ..wml_client_error import MissingValue
+from ..wml_client_error import ApiRequestFailure, MissingValue
 from ..workspace import WorkSpace
 
 if TYPE_CHECKING:
@@ -656,6 +657,32 @@ class BaseDeployment(ABC):
         """Protected method to create a deployment."""
         pass
 
+    def _check_asset_content_import_state(self, asset_id: str) -> None:
+        """Check asset content import state before promoting asset to space."""
+        self._source_workspace = cast(WorkSpace, self._source_workspace)
+
+        for i in range(5):
+            # If checking state is taking too long, just try to promote.
+            if i > 0:
+                delay = 2 ** (i - 1)
+                sleep(delay)
+            try:
+                asset_details = (
+                    self._source_workspace.api_client.data_assets.get_details(
+                        asset_id=asset_id
+                    )
+                )
+                content_import_state = asset_details["entity"]["wml_model"][
+                    "content_import_state"
+                ]
+
+                if content_import_state in {"completed", "failed"}:
+                    # If state is failed, try promoting anyway and let the promotion API raise any errors.
+                    break
+            except (ApiRequestFailure, KeyError):
+                # Couldn't check content import state of the published model. Try to promote anyway.
+                break
+
     def _publish_model(self, pipeline_model: Pipeline | str, meta_props: dict) -> str:
         """Publish model into Service.
 
@@ -687,6 +714,8 @@ class BaseDeployment(ABC):
                     published_model_details
                 )
             )
+
+            self._check_asset_content_import_state(project_asset_id)
 
             self._target_workspace.space_id = cast(str, self._target_workspace.space_id)
             asset_id = self._source_workspace.api_client.spaces.promote(

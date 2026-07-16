@@ -128,7 +128,11 @@ def test_keep_mirror(layers: Layers) -> None:
     c = kf.KCell()
 
     p1 = kf.Port(
-        trans=kf.kdb.Trans.M90, width=1000, layer=c.kcl.find_layer(layers.WG), kcl=c.kcl
+        name="o1",
+        trans=kf.kdb.Trans.M90,
+        width=1000,
+        layer=c.kcl.find_layer(layers.WG),
+        kcl=c.kcl,
     )
 
     c.add_port(port=p1, name="o1")
@@ -218,6 +222,7 @@ def test_dplx_port_dbu_port_conversion(layers: Layers, kcl: kf.KCLayout) -> None
     t1 = kf.kdb.DCplxTrans(1, 90, False, 10, 10)
     t2 = kf.kdb.Trans(1, False, 10_000, 10_000)
     p = kf.Port(
+        name="o1",
         width=kcl.to_dbu(1),
         dcplx_trans=t1,
         layer=kcl.find_layer(layers.WG),
@@ -304,13 +309,13 @@ def test_ports_create_port(kcl: kf.KCLayout, layers: Layers) -> None:
     assert port in ports
 
     with pytest.raises(ValueError):
-        ports.create_port(name="o1", layer=1, center=(1000, 1000), angle=1)  # type: ignore[call-overload]
+        ports.create_port(name="o1", layer=1, center=(1000, 1000), angle=1)  # ty:ignore[no-matching-overload]
 
     with pytest.raises(ValueError):
-        ports.create_port(name="o1", width=10, center=(1000, 1000), angle=1)  # type: ignore[call-overload]
+        ports.create_port(name="o1", width=10, center=(1000, 1000), angle=1)  # ty:ignore[no-matching-overload]
 
     with pytest.raises(ValueError):
-        ports.create_port(name="o1", layer=1, width=10)  # type: ignore[call-overload]
+        ports.create_port(name="o1", layer=1, width=10)  # ty:ignore[no-matching-overload]
 
     with pytest.raises(ValueError, match=r"and greater than 0."):
         ports.create_port(name="o1", width=-10, layer=1, center=(1000, 1000), angle=1)
@@ -367,6 +372,47 @@ def test_ports_getitem(kcl: kf.KCLayout, layers: Layers) -> None:
         ports["o3"]
 
 
+def test_ports_getitem_uses_renamed_port(kcl: kf.KCLayout, layers: Layers) -> None:
+    c = kf.factories.straight.straight_dbu_factory(kcl)(
+        width=5000, length=10000, layer=layers.WG
+    )
+    c.locked = False
+    ports = c.ports
+    port = ports["o1"]
+    port.name = "renamed"
+
+    assert ports["renamed"] == port
+    assert "renamed" in ports
+    assert "o1" not in ports
+
+
+def test_ports_getitem_duplicate_names_return_first(
+    kcl: kf.KCLayout, layers: Layers
+) -> None:
+    c = kf.factories.straight.straight_dbu_factory(kcl)(
+        width=5000, length=10000, layer=layers.WG
+    )
+    ports = c.ports
+    first = ports["o1"]
+    ports["o2"].name = "o1"
+
+    assert ports["o1"] == first
+
+
+def test_ports_getitem_unlocked_renamed_duplicate_returns_first(
+    kcl: kf.KCLayout, layers: Layers
+) -> None:
+    c = kf.factories.straight.straight_dbu_factory(kcl)(
+        width=5000, length=10000, layer=layers.WG
+    )
+    c.locked = False
+    ports = c.ports
+    first = ports["o1"]
+    first.name = "o2"
+
+    assert ports["o2"] == first
+
+
 def test_ports_getitem_slice(kcl: kf.KCLayout, layers: Layers) -> None:
     c = kf.factories.straight.straight_dbu_factory(kcl)(
         width=5000, length=10000, layer=layers.WG
@@ -417,13 +463,13 @@ def test_dports_create_port(kcl: kf.KCLayout, layers: Layers) -> None:
     assert port in ports
 
     with pytest.raises(ValueError):
-        ports.create_port(name="o1", layer=1, center=(1000, 1000), orientation=1)  # type: ignore[call-overload]
+        ports.create_port(name="o1", layer=1, center=(1000, 1000), orientation=1)  # ty:ignore[no-matching-overload]
 
     with pytest.raises(ValueError):
-        ports.create_port(name="o1", width=10, center=(1000, 1000), orientation=1)  # type: ignore[call-overload]
+        ports.create_port(name="o1", width=10, center=(1000, 1000), orientation=1)  # ty:ignore[no-matching-overload]
 
     with pytest.raises(ValueError):
-        ports.create_port(name="o1", layer=1, width=10)  # type: ignore[call-overload]
+        ports.create_port(name="o1", layer=1, width=10)  # ty:ignore[no-matching-overload]
 
     with pytest.raises(ValueError, match=r"and greater than 0."):
         ports.create_port(
@@ -455,6 +501,34 @@ def test_dports_getitem(kcl: kf.KCLayout, layers: Layers) -> None:
     assert ports[0] == ports["o1"]
     with pytest.raises(KeyError):
         ports["o3"]
+
+
+def test_dports_getitem_uses_renamed_port(kcl: kf.KCLayout, layers: Layers) -> None:
+    c = kf.factories.straight.straight_dbu_factory(kcl)(
+        width=5000, length=10000, layer=layers.WG
+    ).to_dtype()
+    c.locked = False
+    ports = c.ports
+    port = ports["o1"]
+    port.name = "renamed"
+
+    assert ports["renamed"] == port
+    assert "renamed" in ports
+    assert "o1" not in ports
+
+
+def test_dports_getitem_unlocked_renamed_duplicate_returns_first(
+    kcl: kf.KCLayout, layers: Layers
+) -> None:
+    c = kf.factories.straight.straight_dbu_factory(kcl)(
+        width=5000, length=10000, layer=layers.WG
+    ).to_dtype()
+    c.locked = False
+    ports = c.ports
+    first = ports["o1"]
+    first.name = "o2"
+
+    assert ports["o2"] == first
 
 
 def test_dports_getitem_slice(kcl: kf.KCLayout, layers: Layers) -> None:

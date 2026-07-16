@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acme
-Version: 5.6.0
+Version: 5.7.0
 Summary: ACME protocol implementation in Python
 Author: Certbot Project
 License-Expression: Apache-2.0

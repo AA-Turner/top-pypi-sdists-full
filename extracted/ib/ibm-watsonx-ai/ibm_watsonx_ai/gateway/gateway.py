@@ -22,19 +22,12 @@ BatchedPromptInput = list[str | list[str] | list[int]]
 
 
 def _streaming_create(api_client: APIClient, url: str, request_json: dict) -> Iterator:
-    kw_args: dict = dict(
+    with api_client.httpx_client.stream(
         method="POST",
         url=url,
         json=request_json,
         headers=api_client._get_headers(include_container_id=True),
-    )
-
-    if hasattr(api_client.httpx_client, "post_stream"):
-        stream_function = api_client.httpx_client.post_stream
-    else:
-        stream_function = api_client.httpx_client.stream
-
-    with stream_function(**kw_args) as resp:
+    ) as resp:
         if resp.status_code == 200:
             resp_iter = resp.iter_lines()
 
@@ -60,19 +53,12 @@ def _streaming_create(api_client: APIClient, url: str, request_json: dict) -> It
 async def _streaming_acreate(
     api_client: APIClient, url: str, request_json: dict
 ) -> AsyncIterator:
-    kw_args: dict = dict(
+    async with api_client.async_httpx_client.stream(
         method="POST",
         url=url,
         json=request_json,
         headers=await api_client._aget_headers(include_container_id=True),
-    )
-
-    if hasattr(api_client.async_httpx_client, "post_stream"):
-        stream_function = api_client.async_httpx_client.post_stream
-    else:
-        stream_function = api_client.async_httpx_client.stream
-
-    async with stream_function(**kw_args) as resp:
+    ) as resp:
         if resp.status_code == 200:
             resp_iter = resp.aiter_lines()
 

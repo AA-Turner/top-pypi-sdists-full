@@ -7,7 +7,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
-    Generic,
     Self,
     overload,
 )
@@ -16,13 +15,14 @@ import klayout.db as kdb
 
 from .conf import PROPID, config, logger
 from .exceptions import (
+    AsymmetricMirrorRequiredError,
+    CrossSectionSymmetryMismatchError,
     PortLayerMismatchError,
     PortTypeMismatchError,
     PortWidthMismatchError,
 )
 from .geometry import DBUGeometricObject, GeometricObject, UMGeometricObject
 from .port import DPort, Port, ProtoPort
-from .typings import TUnit
 
 if TYPE_CHECKING:
     from ruamel.yaml.representer import BaseRepresenter, MappingNode
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 __all__ = ["DInstance", "Instance", "ProtoInstance", "ProtoTInstance", "VInstance"]
 
 
-class ProtoInstance(GeometricObject[TUnit], Generic[TUnit]):
+class ProtoInstance[T: (int, float)](GeometricObject[T]):
     """Base class for instances."""
 
     _kcl: KCLayout
@@ -82,13 +82,13 @@ class ProtoInstance(GeometricObject[TUnit], Generic[TUnit]):
     @abstractmethod
     def __getitem__(
         self, key: int | str | tuple[int | str | None, int, int] | None
-    ) -> ProtoPort[TUnit]: ...
+    ) -> ProtoPort[T]: ...
     @property
     @abstractmethod
-    def ports(self) -> ProtoInstancePorts[TUnit, ProtoInstance[TUnit]]: ...
+    def ports(self) -> ProtoInstancePorts[T, ProtoInstance[T]]: ...
 
 
-class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
+class ProtoTInstance[T: (int, float)](ProtoInstance[T]):
     _instance: kdb.Instance
 
     @property
@@ -118,7 +118,7 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
     def __getattr__(self, name: str) -> Any:
         """If we don't have an attribute, get it from the instance."""
         try:
-            return super().__getattr__(name)  # type: ignore[misc]
+            return super().__getattr__(name)  # ty:ignore[unresolved-attribute]
         except Exception:
             return getattr(self._instance, name)
 
@@ -147,12 +147,12 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
 
     @property
     @abstractmethod
-    def parent_cell(self) -> ProtoTKCell[TUnit]: ...
+    def parent_cell(self) -> ProtoTKCell[T]: ...
 
     @property
     def purpose(self) -> str | None:
         """Purpose value of instance in GDS."""
-        return self._instance.property(PROPID.PURPOSE)  # type: ignore[no-any-return]
+        return self._instance.property(PROPID.PURPOSE)
 
     @purpose.setter
     def purpose(self, value: str | None) -> None:
@@ -169,7 +169,7 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
 
     @property
     @abstractmethod
-    def cell(self) -> ProtoTKCell[TUnit]:
+    def cell(self) -> ProtoTKCell[T]:
         """Parent KCell  of the Instance."""
         ...
 
@@ -179,13 +179,13 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
 
     @property
     @abstractmethod
-    def ports(self) -> ProtoTInstancePorts[TUnit]:
+    def ports(self) -> ProtoTInstancePorts[T]:
         """Ports of the instance."""
         ...
 
     @property
     @abstractmethod
-    def pins(self) -> ProtoTInstancePins[TUnit]:
+    def pins(self) -> ProtoTInstancePins[T]:
         """Ports of the instance."""
         ...
 
@@ -196,7 +196,7 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
 
     @a.setter
     def a(self, vec: kdb.Vector | kdb.DVector) -> None:
-        self._instance.a = vec  # type: ignore[assignment]
+        self._instance.a = vec  # ty:ignore[invalid-assignment]
 
     @property
     def b(self) -> kdb.Vector:
@@ -205,7 +205,7 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
 
     @b.setter
     def b(self, vec: kdb.Vector | kdb.DVector) -> None:
-        self._instance.b = vec  # type: ignore[assignment]
+        self._instance.b = vec  # ty:ignore[invalid-assignment]
 
     @property
     def cell_inst(self) -> kdb.CellInstArray:
@@ -214,7 +214,7 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
 
     @cell_inst.setter
     def cell_inst(self, cell_inst: kdb.CellInstArray | kdb.DCellInstArray) -> None:
-        self._instance.cell_inst = cell_inst  # type: ignore[assignment]
+        self._instance.cell_inst = cell_inst  # ty:ignore[invalid-assignment]
 
     @property
     def cplx_trans(self) -> kdb.ICplxTrans:
@@ -226,7 +226,7 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
 
     @cplx_trans.setter
     def cplx_trans(self, trans: kdb.ICplxTrans | kdb.DCplxTrans) -> None:
-        self._instance.cplx_trans = trans  # type: ignore[assignment]
+        self._instance.cplx_trans = trans  # ty:ignore[invalid-assignment]
 
     @property
     def dcplx_trans(self) -> kdb.DCplxTrans:
@@ -262,7 +262,7 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
 
     @trans.setter
     def trans(self, trans: kdb.Trans | kdb.DTrans) -> None:
-        self._instance.trans = trans  # type: ignore[assignment]
+        self._instance.trans = trans  # ty:ignore[invalid-assignment]
 
     @property
     def na(self) -> int:
@@ -399,7 +399,7 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
                     "complex connections (non-90 degree and floating point ports) use"
                     "route_cplx instead"
                 )
-            op = Port(base=other.ports[other_port_name].base)  # type: ignore[index]
+            op = Port(base=other.ports[other_port_name].base)  # ty:ignore[invalid-argument-type]
         if isinstance(port, ProtoPort):
             p = Port(base=port.base.transformed(self.dcplx_trans.inverted()))
         else:
@@ -408,12 +408,23 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
         assert isinstance(p, Port)
         assert isinstance(op, Port)
 
+        if p.base.is_symmetric() != op.base.is_symmetric():
+            raise CrossSectionSymmetryMismatchError(p, op)
         if p.width != op.width and not allow_width_mismatch:
             raise PortWidthMismatchError(self, other, p, op)
         if p.layer != op.layer and not allow_layer_mismatch:
             raise PortLayerMismatchError(self.cell.kcl, self, other, p, op)
         if p.port_type != op.port_type and not allow_type_mismatch:
             raise PortTypeMismatchError(self, other, p, op)
+        # For two ports carrying the same asymmetric cross section, the
+        # profile asymmetry must align in world coordinates after the
+        # connection — i.e. both ports' world "right" direction must match.
+        # This depends on the actual resulting inst.trans (not just the
+        # `mirror` flag), so compute the would-be world trans of p and verify.
+        same_asym = (
+            p.base.asymmetric_cross_section is not None
+            and p.base.asymmetric_cross_section == op.base.asymmetric_cross_section
+        )
         if p.base.dcplx_trans or op.base.dcplx_trans:
             dconn_trans = kdb.DCplxTrans.M90 if mirror else kdb.DCplxTrans.R180
             match (use_mirror, use_angle):
@@ -421,50 +432,70 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
                     dcplx_trans = (
                         op.dcplx_trans * dconn_trans * p.dcplx_trans.inverted()
                     )
-                    self._instance.dcplx_trans = dcplx_trans
                 case False, True:
                     dconn_trans = (
                         kdb.DCplxTrans.M90
                         if mirror ^ self.dcplx_trans.mirror
                         else kdb.DCplxTrans.R180
                     )
-                    opt = op.dcplx_trans
-                    opt.mirror = False
-                    dcplx_trans = opt * dconn_trans * p.dcplx_trans.inverted()
-                    self._instance.dcplx_trans = dcplx_trans
+                    op_dcplx_trans = op.dcplx_trans
+                    op_dcplx_trans.mirror = False
+                    dcplx_trans = (
+                        op_dcplx_trans * dconn_trans * p.dcplx_trans.inverted()
+                    )
                 case False, False:
-                    self._instance.dcplx_trans = kdb.DCplxTrans(
+                    dcplx_trans = kdb.DCplxTrans(
                         op.dcplx_trans.disp - p.dcplx_trans.disp
                     )
                 case True, False:
-                    self._instance.dcplx_trans = kdb.DCplxTrans(
+                    dcplx_trans = kdb.DCplxTrans(
                         op.dcplx_trans.disp - p.dcplx_trans.disp
                     )
-                    self.dmirror_y(op.dcplx_trans.disp.y)
                 case _:
                     raise NotImplementedError("This shouldn't happen")
-
+            self._instance.dcplx_trans = dcplx_trans
+            if same_asym:
+                try:
+                    p_ = self[p.name]
+                except Exception:
+                    logger.warning(
+                        f"Couldn't find port {p.name!r} in instance, skipping asymmetry"
+                        " compatibility check."
+                    )
+                else:
+                    if not p_.mirror != op.mirror:
+                        raise AsymmetricMirrorRequiredError(p, op)
         else:
             conn_trans = kdb.Trans.M90 if mirror else kdb.Trans.R180
             match (use_mirror, use_angle):
                 case True, True:
                     trans = op.trans * conn_trans * p.trans.inverted()
-                    self._instance.trans = trans
                 case False, True:
                     conn_trans = (
                         kdb.Trans.M90 if mirror ^ self.trans.mirror else kdb.Trans.R180
                     )
-                    op = op.copy()
-                    op.trans.mirror = False
-                    trans = op.trans * conn_trans * p.trans.inverted()
-                    self._instance.trans = trans
+                    op_trans = op.copy().trans
+                    op_trans.mirror = False
+                    trans = op_trans * conn_trans * p.trans.inverted()
                 case False, False:
-                    self._instance.trans = kdb.Trans(op.trans.disp - p.trans.disp)
+                    trans = kdb.Trans(op.trans.disp - p.trans.disp)
                 case True, False:
-                    self._instance.trans = kdb.Trans(op.trans.disp - p.trans.disp)
-                    self.dmirror_y(op.dcplx_trans.disp.y)
+                    trans = kdb.Trans(op.trans.disp - p.trans.disp)
                 case _:
                     raise NotImplementedError("This shouldn't happen")
+
+            self._instance.trans = trans
+            if same_asym:
+                try:
+                    p_ = self[p.name]
+                except Exception:
+                    logger.warning(
+                        f"Couldn't find port {p.name!r} in instance, skipping asymmetry"
+                        " compatibility check."
+                    )
+                else:
+                    if not p_.mirror != op.mirror:
+                        raise AsymmetricMirrorRequiredError(p, op)
 
         return self
 
@@ -901,27 +932,26 @@ class VInstance(ProtoInstance[float], UMGeometricObject):
 
         if trans is None:
             trans = kdb.DCplxTrans()
+        trans_ = trans * self.trans
 
         if isinstance(self.cell, VKCell):
             for layer, shapes in self.cell.shapes().items():
-                for shape in shapes.transform(trans * self.trans):
+                for shape in shapes.transform(trans_):
                     if isinstance(cell, ProtoTKCell) and isinstance(
                         shape, kdb.DPolygon | kdb.DSimplePolygon
                     ):
                         cell.shapes(layer).insert(shape.to_itype(cell.kcl.dbu))
                     else:
-                        cell.shapes(layer).insert(shape)
+                        cell.shapes(layer).insert(shape)  # ty:ignore[no-matching-overload]
             for inst in self.cell.insts:
                 if levels is not None:
                     if levels > 0:
-                        inst.insert_into_flat(
-                            cell, trans=trans * self.trans, levels=levels - 1
-                        )
+                        inst.insert_into_flat(cell, trans=trans_, levels=levels - 1)
                     else:
                         assert isinstance(cell, ProtoTKCell)
-                        inst.insert_into(cell, trans=trans * self.trans)
+                        inst.insert_into(cell, trans=trans_)
                 else:
-                    inst.insert_into_flat(cell, trans=trans * self.trans)
+                    inst.insert_into_flat(cell, trans=trans_)
 
         else:
             assert isinstance(self.cell, ProtoTKCell)
@@ -930,16 +960,20 @@ class VInstance(ProtoInstance[float], UMGeometricObject):
                     "Levels are not supported if the inserted Instance is a KCell."
                 )
             if isinstance(cell, ProtoTKCell):
-                for layer in cell.kcl.layer_indexes():
+                assert self.cell.kcl is cell.kcl, (
+                    "Inserting a KCell into a KCell across different KCLayouts"
+                    " is currently not supported"
+                )
+                for layer in self.cell.kcl.layer_indexes():
                     reg = kdb.Region(self.cell.kdb_cell.begin_shapes_rec(layer))
-                    reg.transform(kdb.ICplxTrans((trans * self.trans), cell.kcl.dbu))
+                    reg.transform(kdb.ICplxTrans(trans_, self.cell.kcl.dbu))
                     cell.shapes(layer).insert(reg)
             else:
-                for layer, shapes in self.cell._shapes.items():
-                    for shape in shapes.transform(trans * self.trans):
-                        cell.shapes(layer).insert(shape)
-                for vinst in self.cell.insts:
-                    vinst.insert_into_flat(cell, trans=trans * self.trans)
+                for layer in self.cell.kcl.layer_indexes():
+                    for poly in kdb.Region(self.cell.kdb_cell.begin_shapes_rec(layer)):
+                        cell.shapes(layer).insert(
+                            poly.to_dtype(self.cell.kcl.dbu).transformed(trans_)
+                        )
 
     @overload
     def connect(
@@ -1035,7 +1069,7 @@ class VInstance(ProtoInstance[float], UMGeometricObject):
                     "complex connections (non-90 degree and floating point ports) use"
                     "route_cplx instead"
                 )
-            op = Port(base=other.ports[other_port_name].base)  # type: ignore[index]
+            op = Port(base=other.ports[other_port_name].base)  # ty:ignore[invalid-argument-type]
         else:
             op = Port(base=other.base)
         if isinstance(port, ProtoPort):
@@ -1046,17 +1080,22 @@ class VInstance(ProtoInstance[float], UMGeometricObject):
         assert isinstance(p, Port)
         assert isinstance(op, Port)
 
+        if p.base.is_symmetric() != op.base.is_symmetric():
+            raise CrossSectionSymmetryMismatchError(p, op)
         if p.width != op.width and not allow_width_mismatch:
             raise PortWidthMismatchError(self, other, p, op)
         if p.layer != op.layer and not allow_layer_mismatch:
             raise PortLayerMismatchError(self.cell.kcl, self, other, p, op)
         if p.port_type != op.port_type and not allow_type_mismatch:
             raise PortTypeMismatchError(self, other, p, op)
+        same_asym = (
+            p.base.asymmetric_cross_section is not None
+            and p.base.asymmetric_cross_section == op.base.asymmetric_cross_section
+        )
         dconn_trans = kdb.DCplxTrans.M90 if mirror else kdb.DCplxTrans.R180
         match (use_mirror, use_angle):
             case True, True:
-                trans = op.dcplx_trans * dconn_trans * p.dcplx_trans.inverted()
-                self.trans = trans
+                dcplx_trans = op.dcplx_trans * dconn_trans * p.dcplx_trans.inverted()
             case False, True:
                 dconn_trans = (
                     kdb.DCplxTrans.M90
@@ -1066,15 +1105,25 @@ class VInstance(ProtoInstance[float], UMGeometricObject):
                 opt = op.dcplx_trans
                 opt.mirror = False
                 dcplx_trans = opt * dconn_trans * p.dcplx_trans.inverted()
-                self.trans = dcplx_trans
             case False, False:
-                self.trans = kdb.DCplxTrans(op.dcplx_trans.disp - p.dcplx_trans.disp)
+                dcplx_trans = kdb.DCplxTrans(op.dcplx_trans.disp - p.dcplx_trans.disp)
             case True, False:
-                self.trans = kdb.DCplxTrans(op.dcplx_trans.disp - p.dcplx_trans.disp)
-                self.mirror_y(op.dcplx_trans.disp.y)
+                dcplx_trans = kdb.DCplxTrans(op.dcplx_trans.disp - p.dcplx_trans.disp)
             case _:
-                ...
+                raise NotImplementedError("This shouldn't happen")
 
+        self.trans = dcplx_trans
+        if same_asym:
+            try:
+                p_ = self[p.name]
+            except Exception:
+                logger.warning(
+                    f"Couldn't find port {p.name!r} in instance, skipping asymmetry"
+                    " compatibility check."
+                )
+            else:
+                if not p_.mirror != op.mirror:
+                    raise AsymmetricMirrorRequiredError(p, op)
         return self
 
     def transform(

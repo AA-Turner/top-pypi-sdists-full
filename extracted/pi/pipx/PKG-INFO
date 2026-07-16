@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipx
-Version: 1.15.0
+Version: 1.16.0
 Summary: Install and Run Python Applications in Isolated Environments
 Project-URL: Issue Tracker, https://github.com/pypa/pipx/issues
 Project-URL: Release Notes, https://pipx.pypa.io/latest/changelog/
@@ -22,12 +22,13 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: argcomplete>=1.9.4
 Requires-Dist: colorama>=0.4.4; sys_platform == 'win32'
+Requires-Dist: filelock>=3.16
 Requires-Dist: packaging>=20
-Requires-Dist: platformdirs>=2.1
+Requires-Dist: platformdirs>=4.6
 Requires-Dist: tomli; python_version < '3.11'
 Requires-Dist: userpath!=1.9,>=1.6
 Provides-Extra: uv
-Requires-Dist: uv>=0.4; extra == 'uv'
+Requires-Dist: uv>=0.9.17; extra == 'uv'
 Description-Content-Type: text/markdown
 
 <p align="center">

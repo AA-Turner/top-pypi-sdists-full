@@ -60,6 +60,7 @@ __all__ = (
     "ResourceServiceName",
     "RevocationTypeType",
     "ServiceName",
+    "SourceIpAddressTypeEnumType",
     "TargetAdministrativeOverrideReasonEnumType",
     "TargetAdministrativeOverrideStateEnumType",
     "TargetDeregisteredWaiterName",
@@ -118,6 +119,7 @@ ProtocolEnumType = Literal[
 RedirectActionStatusCodeEnumType = Literal["HTTP_301", "HTTP_302"]
 RemoveIpamPoolEnumType = Literal["ipv4"]
 RevocationTypeType = Literal["CRL"]
+SourceIpAddressTypeEnumType = Literal["ipv4", "ipv6"]
 TargetAdministrativeOverrideReasonEnumType = Literal[
     "AdministrativeOverride.NoOverride",
     "AdministrativeOverride.Unknown",

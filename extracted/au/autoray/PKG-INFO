@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autoray
-Version: 0.8.11
+Version: 0.9.0
 Summary: Abstract your array operations.
 Project-URL: Documentation, https://autoray.readthedocs.io/
 Project-URL: Repository, https://github.com/jcmgray/autoray/
@@ -15,13 +15,12 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Provides-Extra: docs
 Requires-Dist: furo; extra == 'docs'
 Requires-Dist: ipython; extra == 'docs'

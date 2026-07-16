@@ -25,11 +25,11 @@ from typing import Any
 
 import pytest
 
-
 # (HuggingFace model name, renderer name or "auto"). These are the
 # renderers we actively rely on; expand as new ones get hand-coded.
 _ROUNDTRIP_MODELS = [
     ("Qwen/Qwen3-8B", "auto"),
+    ("PrimeIntellect/Qwen3-0.6B", "auto"),
     ("Qwen/Qwen3.5-9B", "auto"),
     ("Qwen/Qwen3.6-35B-A3B", "auto"),
     ("Qwen/Qwen3-VL-4B-Instruct", "auto"),
@@ -43,6 +43,16 @@ _ROUNDTRIP_MODELS = [
     ("moonshotai/Kimi-K2.6", "auto"),
     ("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16", "auto"),
     ("nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16", "auto"),
+    # Ultra: parse must recover content after a </think> glued directly to it
+    # (no separating newline) — the Ultra-specific glue stresses the round-trip.
+    ("nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16", "auto"),
+    ("poolside/Laguna-XS.2", "auto"),
+    # Laguna-XS-2.1 is deliberately absent: under the default
+    # ``enable_thinking=False`` its template drops assistant reasoning at
+    # render time, so the reasoning round-trip can't hold by design.
+    # test_laguna_xs21.py covers the round-trip under enable_thinking=True.
+    ("tencent/Hy3", "auto"),
+    ("unsloth/Llama-3.2-1B-Instruct", "llama-3"),
     ("openai/gpt-oss-20b", "gpt-oss"),
     ("Qwen/Qwen2.5-0.5B-Instruct", "default"),
 ]
@@ -50,11 +60,11 @@ _ROUNDTRIP_MODELS = [
 
 @lru_cache(maxsize=None)
 def _load_renderer(model_name: str, renderer_name: str):
-    from renderers import create_renderer
+    from renderers import config_from_name, create_renderer
     from renderers.base import load_tokenizer
 
     tok = load_tokenizer(model_name)
-    return tok, create_renderer(tok, renderer=renderer_name)
+    return tok, create_renderer(tok, config_from_name(renderer_name))
 
 
 def pytest_generate_tests(metafunc):
@@ -158,8 +168,8 @@ def test_roundtrip_reasoning_and_content(rt_model, rt_tokenizer, rt_renderer):
 
 
 def _maybe_skip_tool_calls(renderer_name: str) -> None:
-    """DefaultRenderer without a tool_parser configured always returns
-    tool_calls=None. That's a documented limitation, not a bug — skip."""
+    """DefaultRenderer without a tool_parser configured always returns an
+    empty tool_calls list. That's a documented limitation, not a bug — skip."""
     if renderer_name == "default":
         pytest.skip(
             "DefaultRenderer requires an explicit tool_parser to parse tool "
@@ -194,11 +204,9 @@ def test_roundtrip_single_tool_call(
     assert parsed.tool_calls, f"{rt_model}: tool_calls lost, got {parsed.tool_calls!r}"
     assert len(parsed.tool_calls) == 1
     tc = parsed.tool_calls[0]
-    assert tc["function"]["name"] == "get_weather", (
-        f"{rt_model}: name mangled, got {tc!r}"
-    )
-    assert _normalize_args(tc["function"]["arguments"]) == {"city": "Tokyo"}, (
-        f"{rt_model}: args mangled, got {tc['function']['arguments']!r}"
+    assert tc.name == "get_weather", f"{rt_model}: name mangled, got {tc!r}"
+    assert _normalize_args(tc.arguments) == {"city": "Tokyo"}, (
+        f"{rt_model}: args mangled, got {tc.arguments!r}"
     )
 
 
@@ -208,6 +216,12 @@ def test_roundtrip_multiple_tool_calls(
     """Parsers that loop over ``<tool_call>…</tool_call>`` blocks can
     silently drop the second one; this test catches that."""
     _maybe_skip_tool_calls(rt_renderer_name)
+    if rt_renderer_name == "llama-3":
+        pytest.skip(
+            "Llama-3's chat template forbids >1 tool call per assistant "
+            "message (the renderer raises, mirroring the template); the "
+            "single-call path is covered by test_roundtrip_single_tool_call."
+        )
 
     msg = {
         "role": "assistant",
@@ -235,19 +249,15 @@ def test_roundtrip_multiple_tool_calls(
     completion_ids = _extract_assistant_tokens(rt_renderer, PROMPT, msg)
     parsed = rt_renderer.parse_response(completion_ids)
 
-    assert parsed.tool_calls is not None and len(parsed.tool_calls) == 2, (
+    assert len(parsed.tool_calls) == 2, (
         f"{rt_model}: expected 2 tool_calls, got {parsed.tool_calls!r}"
     )
-    names = [tc["function"]["name"] for tc in parsed.tool_calls]
+    names = [tc.name for tc in parsed.tool_calls]
     assert names == ["get_weather", "get_time"], (
         f"{rt_model}: names/order wrong, got {names}"
     )
-    assert _normalize_args(parsed.tool_calls[0]["function"]["arguments"]) == {
-        "city": "Tokyo"
-    }
-    assert _normalize_args(parsed.tool_calls[1]["function"]["arguments"]) == {
-        "zone": "JST"
-    }
+    assert _normalize_args(parsed.tool_calls[0].arguments) == {"city": "Tokyo"}
+    assert _normalize_args(parsed.tool_calls[1].arguments) == {"zone": "JST"}
 
 
 # ── byte-exact re-render invariant ─────────────────────────────────────
@@ -321,7 +331,7 @@ def test_default_renderer_fallback_parser_preserves_boundary_whitespace(
     """
     from renderers.default import DefaultRenderer
 
-    renderer = DefaultRenderer(rt_tokenizer, tool_parser=None, reasoning_parser=None)
+    renderer = DefaultRenderer(rt_tokenizer)
 
     # Encode `<think>reason</think>\nvisible` as text and run through
     # parse_response. We don't need the template to emit `<think>` here

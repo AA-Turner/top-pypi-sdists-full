@@ -165,7 +165,7 @@ def fill_tiled(
     dbb = c.dbbox()
     for r, ext in fill_regions:
         dbb += r.bbox().to_dtype(c.kcl.dbu).enlarged(ext)
-    tp.frame = dbb  # type: ignore[assignment, misc]
+    tp.frame = dbb  # ty:ignore[invalid-assignment]
     tp.dbu = c.kcl.dbu
     tp.threads = n_threads
 
@@ -292,7 +292,7 @@ def fill_tiled(
         c.kcl.start_changes()
         try:
             logger.debug(
-                "Filling {} with {}", c.kcl.future_cell_name or c.name, fill_cell.name
+                "Filling {} with {}", c.kcl._future_cell_name or c.name, fill_cell.name
             )
             logger.debug("Fill string: '{}'", queue_str)
             tp.execute(f"Fill {c.name}")
@@ -337,7 +337,7 @@ def add_coverage(
     dbb = c.dbbox()
     for r, ext in coverage_regions:
         dbb += r.bbox().to_dtype(c.kcl.dbu).enlarged(ext)
-    tp.frame = dbb  # type: ignore[assignment, misc]
+    tp.frame = dbb  # ty:ignore[invalid-assignment]
     tp.dbu = c.kcl.dbu
     tp.threads = n_threads
 
@@ -466,7 +466,7 @@ def add_coverage(
         try:
             logger.debug(
                 "Adding coverage on '{}' with '{}'",
-                c.kcl.future_cell_name or c.name,
+                c.kcl._future_cell_name or c.name,
                 coverage_cell.name,
             )
             logger.debug("Coverage string: '{}'", queue_str)

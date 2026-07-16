@@ -3,7 +3,8 @@
 The client is exercised against an in-process fake child that speaks the real
 protocol over OS pipes — no real subprocess here (lifecycle_test.py covers
 that). These tests freeze the client's behavioral contract: mirror semantics,
-degraded mode, deploy fail-closed, respawn/resync, irrecoverability policy.
+degraded mode, deploy gate in-process fallback, respawn/resync,
+irrecoverability policy.
 """
 
 import json
@@ -13,12 +14,13 @@ import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import List
 from unittest.mock import Mock
 
+from abstra_internals.repositories.linter.models import LinterCheck
 from abstra_internals.repositories.linter.repository import LinterRepository
 from abstra_internals.repositories.linter.sidecar.client import (
     SidecarLinterRepository,
-    SidecarUnavailableError,
 )
 from abstra_internals.repositories.linter.sidecar.protocol import RpcChannel
 
@@ -29,6 +31,42 @@ def _rules(*names: str) -> list:
     """Rule-like stand-ins: the client only reads .name (serialization by
     name); real rule resolution lives in the child."""
     return [SimpleNamespace(name=name) for name in names]
+
+
+def _mk_check(name: str, type_: str = "bug") -> LinterCheck:
+    return LinterCheck(name=name, label=name, type=type_, issues=[], fix_with_ai=False)
+
+
+class _FakeInProcessRepo(LinterRepository):
+    """Stand-in for the deploy gate's in-process fallback repository: returns a
+    fixed blocking set and records whether it was consulted."""
+
+    def __init__(self, blocking: List[LinterCheck]):
+        self.checks = list(blocking)
+        self._blocking = list(blocking)
+        self.called = False
+
+    def get_blocking_checks_for_deploy(self) -> List[LinterCheck]:
+        self.called = True
+        return list(self._blocking)
+
+    def find_issues_in_codebase(self) -> List[LinterCheck]:
+        return self.checks
+
+    def update_checks(self, revalidate_caches: bool = False) -> List[LinterCheck]:
+        return self.checks
+
+    def update_specific_checks(self, target_rules, paths=None) -> List[LinterCheck]:
+        return self.checks
+
+    def fix_issue_in_codebase(self, rule_name: str, fix_name: str) -> bool:
+        return False
+
+    def fix_all_linters(self):
+        pass
+
+    def get_blocking_checks(self) -> List[LinterCheck]:
+        return list(self._blocking)
 
 
 def _wait_for(predicate, timeout=5.0):
@@ -52,6 +90,7 @@ CHECKS_FULL = [
             }
         ],
         "fixWithAi": True,
+        "status": "ok",
     },
     {
         "name": "RuleB",
@@ -59,6 +98,7 @@ CHECKS_FULL = [
         "type": "warning",
         "issues": [],
         "fixWithAi": False,
+        "status": "ok",
     },
 ]
 
@@ -69,6 +109,7 @@ CHECKS_PARTIAL = [
         "type": "error",
         "issues": [],
         "fixWithAi": True,
+        "status": "ok",
     }
 ]
 
@@ -409,6 +450,41 @@ class ClientDegradedModeTest(ClientTestBase):
         fakes[0].kill()
         result = repo.update_specific_checks(_rules("RuleA"))
         self.assertEqual([c.to_dict() for c in result], CHECKS_FULL)
+        self.assertTrue(repo.degraded)
+
+    def test_degraded_flag_tracks_sidecar_availability(self):
+        calls = {"n": 0}
+        fakes = []
+
+        def factory():
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise OSError("temporarily down")
+            fake = FakeSidecar()
+            fakes.append(fake)
+            return fake
+
+        repo = SidecarLinterRepository(
+            popen_factory=factory,
+            request_timeout=2.0,
+            backoff_schedule=[0.0],
+            is_web=False,
+            exiter=Mock(),
+        )
+        self.addCleanup(repo.stop)
+
+        self.assertFalse(repo.degraded)
+        repo.update_checks()
+        self.assertFalse(repo.degraded)
+
+        # Child dies and the respawn attempt fails: stale mirror + degraded.
+        fakes[0].kill()
+        repo.update_specific_checks(_rules("RuleA"))
+        self.assertTrue(repo.degraded)
+
+        # Next call respawns successfully: healthy again.
+        repo.update_checks()
+        self.assertFalse(repo.degraded)
 
     def test_eof_fails_pending_request_quickly(self):
         def handler(fake, method, params, rid):
@@ -453,20 +529,26 @@ class ClientDegradedModeTest(ClientTestBase):
         self.assertEqual(len(fakes), 2)
         self.assertIsNone(fakes[1].poll())  # healthy replacement left alone
 
-    def test_deploy_gate_fail_closed_when_unavailable(self):
+    def test_deploy_gate_falls_back_in_process_when_child_cannot_spawn(self):
+        # A child that can't even spawn must NOT block the deploy: the gate
+        # recomputes the blocking checks in-process instead of raising.
         def factory():
             raise OSError("spawn denied")
 
+        fallback = _FakeInProcessRepo([_mk_check("invalid_package")])
         repo = SidecarLinterRepository(
             popen_factory=factory,
             request_timeout=2.0,
             backoff_schedule=[0.0],
             is_web=False,
             exiter=Mock(),
+            deploy_fallback_factory=lambda: fallback,
         )
         self.addCleanup(repo.stop)
-        with self.assertRaises(SidecarUnavailableError):
-            repo.get_blocking_checks_for_deploy()
+        blocking = repo.get_blocking_checks_for_deploy()
+        self.assertTrue(fallback.called)
+        self.assertEqual([c.name for c in blocking], ["invalid_package"])
+        self.assertIn("invalid_package", [c.name for c in repo.checks])
 
     def test_deploy_gate_returns_blocking_when_healthy(self):
         repo, _ = self._make_repo()
@@ -474,6 +556,63 @@ class ClientDegradedModeTest(ClientTestBase):
         self.assertEqual([c.to_dict() for c in blocking], [CHECKS_FULL[0]])
         # Mirror refreshed from the same response
         self.assertEqual([c.to_dict() for c in repo.checks], CHECKS_FULL)
+
+
+class ClientDeployGateFallbackTest(ClientTestBase):
+    def test_slow_sidecar_falls_back_within_bounded_time(self):
+        # The child accepts the request but never answers it — the gate must
+        # fall back after deploy_gate_timeout, NOT the 600s request timeout.
+        def handler(fake, method, params, rid):
+            if method == "blocking_checks_for_deploy":
+                return NO_RESPONSE
+            return _default_handler(fake, method, params, rid)
+
+        fallback = _FakeInProcessRepo([_mk_check("invalid_package")])
+        repo, fakes = self._make_repo(
+            handler,
+            deploy_gate_timeout=0.5,
+            deploy_fallback_factory=lambda: fallback,
+        )
+        start = time.monotonic()
+        blocking = repo.get_blocking_checks_for_deploy()
+        elapsed = time.monotonic() - start
+
+        self.assertTrue(fallback.called)
+        self.assertEqual([c.name for c in blocking], ["invalid_package"])
+        self.assertIn("invalid_package", [c.name for c in repo.checks])
+        self.assertGreaterEqual(elapsed, 0.3)  # waited the bounded gate timeout
+        self.assertLess(elapsed, 8)  # but not the full request timeout
+        self.assertIsNotNone(fakes[0].poll())  # hung child was killed
+
+    def test_healthy_sidecar_does_not_touch_fallback(self):
+        def boom():
+            raise AssertionError("fallback must not run when the sidecar answers")
+
+        repo, _ = self._make_repo(deploy_fallback_factory=boom)
+        blocking = repo.get_blocking_checks_for_deploy()
+        self.assertEqual([c.to_dict() for c in blocking], [CHECKS_FULL[0]])
+
+    def test_fallback_keeps_unrelated_mirror_checks(self):
+        # A non-blocking check already in the mirror survives the fallback; only
+        # the freshly recomputed blocking-rule check is swapped in.
+        def factory():
+            raise OSError("spawn denied")
+
+        fallback = _FakeInProcessRepo([_mk_check("invalid_package")])
+        repo = SidecarLinterRepository(
+            popen_factory=factory,
+            request_timeout=2.0,
+            backoff_schedule=[0.0],
+            is_web=False,
+            exiter=Mock(),
+            deploy_fallback_factory=lambda: fallback,
+        )
+        self.addCleanup(repo.stop)
+        repo.checks = [_mk_check("some_info_rule", type_="info")]
+        repo.get_blocking_checks_for_deploy()
+        names = [c.name for c in repo.checks]
+        self.assertIn("some_info_rule", names)
+        self.assertIn("invalid_package", names)
 
 
 class ClientRespawnTest(ClientTestBase):

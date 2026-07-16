@@ -1,5 +1,5 @@
 pub use dependency_mode::DependencyMode;
-pub use error::{ErrorTree, NoSolutionError, NoSolutionHeader, ResolveError, SentinelRange};
+pub use error::{ErrorTree, NoSolutionError, NoSolutionHeader, ResolveError};
 pub use exclude_newer::{
     ExcludeNewer, ExcludeNewerChange, ExcludeNewerOverrideChange, ExcludeNewerPackage,
     ExcludeNewerPackageChange, ExcludeNewerPackageEntry, ExcludeNewerValueChange,
@@ -11,7 +11,7 @@ pub use fork_strategy::ForkStrategy;
 pub use lock::{
     DependencySelection, Installable, Lock, LockError, LockVersion, Metadata, Package, PackageMap,
     PylockToml, PylockTomlError, PylockTomlErrorKind, RequirementsTxtExport, ResolverManifest,
-    SatisfiesResult, TreeDisplay, VERSION, cyclonedx_json,
+    SatisfiesResult, SelectedDependency, TreeDisplay, TreeJsonTarget, VERSION, cyclonedx_json,
 };
 pub use manifest::Manifest;
 pub use options::{Flexibility, Options, OptionsBuilder};

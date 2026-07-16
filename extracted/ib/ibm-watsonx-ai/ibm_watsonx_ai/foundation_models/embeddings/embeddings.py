@@ -16,11 +16,10 @@ from warnings import warn
 
 import httpx
 
-from ibm_watsonx_ai._wrappers.httpx_wrapper import (
+from ibm_watsonx_ai._wrappers.httpx import (
+    RateLimitedRetryDecorator,
     TokenBucket,
-    _get_httpx_client,
-    _with_async_retry,
-    _with_retry,
+    httpx_client_factory,
 )
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema, Crypto
 from ibm_watsonx_ai.utils.utils import get_from_json
@@ -181,10 +180,13 @@ class Embeddings(BaseEmbeddings, WMLResource):
         retry_status_codes: list[int] | None = None,
         **kwargs: Any,
     ) -> None:
+        persistent_connection_warning_message = (
+            "The `persistent_connection` parameter is no longer supported "
+            "and any value provided for this parameter will be ignored."
+        )
+
         if "persistent_connection" in kwargs:
-            warn(
-                "The `persistent_connection` parameter is no longer supported and any value provided for this parameter will be ignored."
-            )
+            warn(persistent_connection_warning_message, DeprecationWarning)
             kwargs.pop("persistent_connection")
 
         if isinstance(model_id, Enum):
@@ -253,12 +255,25 @@ class Embeddings(BaseEmbeddings, WMLResource):
 
         WMLResource.__init__(self, __name__, self._client)
 
-        # Set initially 8 requests per second as it is default for prod instances
-        # if header "x-requests-limit-rate" is different capacity will be updated
-        self.rate_limiter = TokenBucket(rate=8, capacity=8)
-        self.retry_status_codes = retry_status_codes
-        self.max_retries = max_retries
-        self.delay_time = delay_time
+        # Token bucket uses 8 requests per second as it is the default for prod instances.
+        # If header `x-requests-limit-rate` is different, capacity will be updated.
+        self._retry_decorator = RateLimitedRetryDecorator(
+            api_client=self._client,
+            rate_limiter=TokenBucket(rate=8, capacity=8),
+            retry_status_codes=retry_status_codes,
+            max_retries=max_retries,
+            delay_time=delay_time,
+        )
+
+        self._post_with_retry = self._retry_decorator.rate_limited_retry(
+            self._client.httpx_client.post,
+            retry_status_codes=_RETRY_STATUS_CODES,
+        )
+
+        self._async_post_with_retry = self._retry_decorator.rate_limited_async_retry(
+            self._client.async_httpx_client.post,
+            retry_status_codes=_RETRY_STATUS_CODES,
+        )
 
     def _generate_raw_response(
         self,
@@ -271,14 +286,12 @@ class Embeddings(BaseEmbeddings, WMLResource):
 
         payload = self._prepare_payload(inputs, params, crypto)
 
-        post_params: dict[str, Any] = dict(
+        return self._post_with_retry(
             url=generate_url,
             json=payload,
             params=self._client._params(skip_for_create=True, skip_userfs=True),
             headers=self._client._get_headers(),
         )
-
-        return self._post(self._client.httpx_client, **post_params)
 
     async def _agenerate_raw_response(
         self,
@@ -291,14 +304,12 @@ class Embeddings(BaseEmbeddings, WMLResource):
 
         payload = self._prepare_payload(inputs, params, crypto)
 
-        post_params: dict[str, Any] = dict(
+        return await self._async_post_with_retry(
             url=generate_url,
             json=payload,
             params=self._client._params(skip_for_create=True, skip_userfs=True),
             headers=await self._client._aget_headers(),
         )
-
-        return await self._apost(self._client.async_httpx_client, **post_params)
 
     def generate(
         self,
@@ -342,7 +353,7 @@ class Embeddings(BaseEmbeddings, WMLResource):
             ]
 
             def make_request(_inputs: list[str]) -> dict:
-                self.rate_limiter.acquire()
+                self._retry_decorator.rate_limiter.acquire()
                 response = self._generate_raw_response(
                     generate_url=generate_url,
                     inputs=_inputs,
@@ -350,15 +361,20 @@ class Embeddings(BaseEmbeddings, WMLResource):
                     crypto=crypto,
                 )
                 rate_limit = int(response.headers.get("x-requests-limit-rate", 0))
-                if rate_limit and rate_limit != self.rate_limiter.capacity:
-                    self.rate_limiter.capacity = rate_limit
+
+                if (
+                    rate_limit
+                    and rate_limit != self._retry_decorator.rate_limiter.capacity
+                ):
+                    self._retry_decorator.rate_limiter.capacity = rate_limit
 
                 rate_limit_remaining = int(
                     response.headers.get(
-                        "x-requests-limit-remaining", self.rate_limiter.capacity
+                        "x-requests-limit-remaining",
+                        self._retry_decorator.rate_limiter.capacity,
                     )
                 )
-                self.rate_limiter.adjust_tokens(rate_limit_remaining)
+                self._retry_decorator.rate_limiter.adjust_tokens(rate_limit_remaining)
                 return self._handle_response(
                     200,
                     "generate",
@@ -375,7 +391,7 @@ class Embeddings(BaseEmbeddings, WMLResource):
                     params=params,
                     crypto=crypto,
                 )
-            )  # If CDP, don't use Token Bucket
+            )  # If CPD, don't use Token Bucket
 
             if (inputs_length := len(inputs_split)) <= concurrency_limit:
                 with ThreadPoolExecutor(max_workers=inputs_length) as executor:
@@ -657,20 +673,9 @@ class Embeddings(BaseEmbeddings, WMLResource):
         """
         Calling this method closes the current `httpx.Client` and recreates a new `httpx.Client` with default values:
         timeout: httpx.Timeout(read=30 * 60, write=30 * 60, connect=10, pool=30 * 60)
-        limit: httpx.Limits(max_connections=10, max_keepalive_connections=10, keepalive_expiry=HTTPX_KEEPALIVE_EXPIRY)
+        limit: httpx.Limits(max_connections=10, max_keepalive_connections=10, keepalive_expiry=5)
         """
         self._client.httpx_client.close()
-        self._client.httpx_client = _get_httpx_client(
-            self._client,
-            timeout=EMBEDDINGS_HTTPX_TIMEOUT,
+        self._client.httpx_client = httpx_client_factory(
+            is_async=False, api_client=self._client
         )
-
-    @_with_retry(retry_status_codes=_RETRY_STATUS_CODES)
-    def _post(self, http_client: Any, *args: Any, **kwargs: Any) -> httpx.Response:
-        return http_client.post(*args, **kwargs)
-
-    @_with_async_retry(retry_status_codes=_RETRY_STATUS_CODES)
-    async def _apost(
-        self, async_http_client: httpx.AsyncClient, *args: Any, **kwargs: Any
-    ) -> httpx.Response:
-        return await async_http_client.post(*args, **kwargs)

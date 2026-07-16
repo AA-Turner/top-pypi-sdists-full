@@ -17,6 +17,7 @@ import logging
 import sys
 from collections.abc import Iterator
 from contextlib import AbstractAsyncContextManager
+from operator import attrgetter
 from typing import TYPE_CHECKING, Any
 
 from esphome.const import __version__ as _installed_esphome_version
@@ -60,6 +61,7 @@ from .helpers import (
     _validate_upload_target,
     _verify_esphome_importable,
 )
+from .persistence import job_dict_without_output
 
 if TYPE_CHECKING:
     from ...device_builder import DeviceBuilder
@@ -449,6 +451,13 @@ class FirmwareController:  # noqa: PLR0904 (grandfathered; new public methods ne
     ) -> None:
         await follow.follow_job(self, job_id=job_id, client=client, message_id=message_id)
 
+    def jobs_snapshot(self) -> list[dict]:
+        """Serialise the retained job set (``created_at`` order, ``output`` dropped)."""
+        return [
+            job_dict_without_output(job)
+            for job in sorted(self.state.jobs.values(), key=attrgetter("created_at"))
+        ]
+
     @api_command("firmware/follow_jobs")
     async def follow_jobs(
         self,
@@ -642,7 +651,10 @@ class FirmwareController:  # noqa: PLR0904 (grandfathered; new public methods ne
                     f"no provisioner available to build esphome {version} "
                     "(receiver stopping?); refusing to compile with the installed version"
                 )
-            return await provisioner.provision(version)
+            return await provisioner.provision(
+                version,
+                on_build=lambda line: _ingest_output_line(job, self._db.bus, line),
+            )
         if job.job_type is JobType.CLEAN:
             if provisioner is not None and (cached := await provisioner.cached_cmd(version)):
                 return cached

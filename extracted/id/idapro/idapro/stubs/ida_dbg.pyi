@@ -95,7 +95,11 @@ class DBG_Hooks:
         r"""A user defined breakpoint was reached. 
                   
         :param tid: (thid_t)
-        :param bptea: (::ea_t)
+        :param bptea: (ea_t)
+        :returns: warn: (int *) filled with:
+        * -1: display an exception warning dialog if the process is suspended.
+        * 0: never display an exception warning dialog.
+        * 1: always display an exception warning dialog.
         """
         ...
     def dbg_bpt_changed(self, bptev_code: int, bpt: bpt_t) -> None:
@@ -159,7 +163,7 @@ class DBG_Hooks:
         r"""A step occurred (one instruction was executed). This event notification is only generated if step tracing is enabled. 
                   
         :param tid: (thid_t) thread ID
-        :param ip: (::ea_t) current instruction pointer. usually points after the executed instruction
+        :param ip: (ea_t) current instruction pointer. usually points after the executed instruction
         :returns: 1: do not log this trace event
         :returns: 0: log it
         """
@@ -254,27 +258,27 @@ class bpt_location_t:
         """
         ...
     def ea(self) -> ida_idaapi.ea_t:
-        r"""Get address (BPLT_ABS)
+        r"""Get address (BPLT_ABS).
         
         """
         ...
     def is_empty_path(self) -> bool:
-        r"""No path/filename specified? (BPLT_REL, BPLT_SRC)
+        r"""No path/filename specified? (BPLT_REL, BPLT_SRC).
         
         """
         ...
     def lineno(self) -> int:
-        r"""Get line number (BPLT_SRC)
+        r"""Get line number (BPLT_SRC).
         
         """
         ...
     def offset(self) -> int:
-        r"""Get offset (BPLT_REL, BPLT_SYM)
+        r"""Get offset (BPLT_REL, BPLT_SYM).
         
         """
         ...
     def path(self) -> str:
-        r"""Get path/filename (BPLT_REL, BPLT_SRC)
+        r"""Get path/filename (BPLT_REL, BPLT_SRC).
         
         """
         ...
@@ -299,7 +303,7 @@ class bpt_location_t:
         """
         ...
     def symbol(self) -> str:
-        r"""Get symbol name (BPLT_SYM)
+        r"""Get symbol name (BPLT_SYM).
         
         """
         ...
@@ -1164,6 +1168,466 @@ class memreg_infos_t:
     def truncate(self) -> None:
         ...
 
+class source_item_ptr:
+    @property
+    def refcnt(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __deref__(self) -> source_item_t:
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __ref__(self) -> source_item_t:
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def equals(self, other: source_item_t) -> bool:
+        ...
+    def evaluate(self, ctx: eval_ctx_t, res: idc_value_t) -> Union[str, None]:
+        ...
+    def get_colnum(self) -> int:
+        ...
+    def get_ea(self) -> ida_idaapi.ea_t:
+        ...
+    def get_end_colnum(self) -> int:
+        ...
+    def get_end_lnnum(self) -> int:
+        ...
+    def get_expr_tinfo(self, tif: tinfo_t) -> bool:
+        ...
+    def get_hint(self, ctx: eval_ctx_t) -> Tuple[Union[str, None], int]:
+        r"""Calculate a string to display as a hint.
+        
+        :param ctx: execution context, or None if no context is available
+        :returns: a tuple `(hint, nlines)` where:
+        
+                  * `hint` is the hint text (may be multiline & with colors),
+                    or None if no hint is available
+                  * `nlines` is the number of important lines in the hint;
+                    only meaningful when `hint` is not None - otherwise the
+                    value is unspecified
+        """
+        ...
+    def get_item_bounds(self, set: rangeset_t) -> bool:
+        ...
+    def get_item_kind(self, arg2: eval_ctx_t) -> src_item_kind_t:
+        ...
+    def get_lnnum(self) -> int:
+        ...
+    def get_location(self, arg2: argloc_t, arg3: eval_ctx_t) -> bool:
+        ...
+    def get_name(self) -> Union[str, None]:
+        ...
+    def get_parent(self, max_kind: src_item_kind_t) -> source_item_ptr:
+        ...
+    def get_provider(self) -> srcinfo_provider_t:
+        ...
+    def get_size(self) -> int:
+        ...
+    def is_expr(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_func(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_locvar(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_module(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_stmt(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_sttvar(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def release(self) -> None:
+        ...
+    def reset(self) -> None:
+        ...
+
+class source_item_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any, **kwargs: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def equals(self, other: source_item_t) -> bool:
+        r"""Do these two items have the same source?. source_item_t will return true if the two items are backed by DIEs that have the same file offset. 
+                
+        :returns: false: the source of the underlying data differs between the two items.
+        :returns: true: when either the source of the underlying data is the same for the two items, or when such information is not available.
+        """
+        ...
+    def evaluate(self, ctx: eval_ctx_t, res: idc_value_t) -> Union[str, None]:
+        r"""Evaluate item value (meaningful only for expression items). 
+                
+        :param ctx: execution context. nullptr means missing context.
+        :param res: buffer for the result (or exception if evaluation failed)
+        """
+        ...
+    def get_colnum(self) -> int:
+        r"""Get column number of the item. If unknown, return -1 
+                
+        """
+        ...
+    def get_ea(self) -> ida_idaapi.ea_t:
+        r"""Get starting address of the item.
+        
+        """
+        ...
+    def get_end_colnum(self) -> int:
+        r"""Get ending column number. The returned column number is the next column after the expression. If unknown, return -1 
+                
+        """
+        ...
+    def get_end_lnnum(self) -> int:
+        r"""Get ending line number (1-based.) The returned line number is the next line after the expression 
+                
+        """
+        ...
+    def get_expr_tinfo(self, tif: tinfo_t) -> bool:
+        ...
+    def get_hint(self, ctx: eval_ctx_t) -> Tuple[Union[str, None], int]:
+        r"""Calculate a string to display as a hint.
+        
+        :param ctx: execution context, or None if no context is available
+        :returns: a tuple `(hint, nlines)` where:
+        
+                  * `hint` is the hint text (may be multiline & with colors),
+                    or None if no hint is available
+                  * `nlines` is the number of important lines in the hint;
+                    only meaningful when `hint` is not None - otherwise the
+                    value is unspecified
+        """
+        ...
+    def get_item_bounds(self, set: rangeset_t) -> bool:
+        r"""Get item boundaries as a set of ranges. This function will be used to determine what breakpoints to set for stepping into/stepping over the item. 
+                
+        """
+        ...
+    def get_item_kind(self, arg2: eval_ctx_t) -> src_item_kind_t:
+        ...
+    def get_lnnum(self) -> int:
+        r"""Get line number of the item (1-based).
+        
+        """
+        ...
+    def get_location(self, arg2: argloc_t, arg3: eval_ctx_t) -> bool:
+        ...
+    def get_name(self) -> Union[str, None]:
+        r"""Get name of the item.
+        
+        """
+        ...
+    def get_parent(self, max_kind: src_item_kind_t) -> source_item_ptr:
+        r"""Get parent of the item. 
+                
+        :param max_kind: maximal source item kind we are interested in. for example, if max_kinds==SRCIT_STMT, we are not interested in expressions, only in the enclosing statement or function
+        """
+        ...
+    def get_provider(self) -> srcinfo_provider_t:
+        ...
+    def get_size(self) -> int:
+        r"""Get size of the item in bytes. If the item is fragmented, return size of the main fragment. if unknown, return 0. On error, return (asize_t) -1. 
+                
+        """
+        ...
+    def is_expr(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_func(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_locvar(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_module(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_stmt(self, ctx: eval_ctx_t) -> bool:
+        ...
+    def is_sttvar(self, ctx: eval_ctx_t) -> bool:
+        ...
+
+class source_items_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> qrefcnt_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[qrefcnt_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: source_item_ptr) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def append(self, x: source_item_ptr) -> None:
+        ...
+    def at(self, _idx: int) -> qrefcnt_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> qvector:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> qvector:
+        ...
+    def erase(self, *args: Any) -> qvector:
+        ...
+    def extend(self, x: source_items_t) -> None:
+        ...
+    def extract(self) -> qrefcnt_t:
+        ...
+    def front(self) -> Any:
+        ...
+    def inject(self, s: source_item_ptr, len: int) -> None:
+        ...
+    def insert(self, it: source_item_ptr, x: source_item_ptr) -> qvector:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, x: source_item_ptr) -> None:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, _newsize: int, x: source_item_ptr) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: source_items_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
 class tev_info_reg_t:
     @property
     def info(self) -> tev_info_t: ...
@@ -1742,7 +2206,7 @@ def check_bpt(ea: ida_idaapi.ea_t) -> int:
     """
     ...
 
-def choose_trace_file() -> str:
+def choose_trace_file() -> Union[str, None]:
     r"""Show the choose trace dialog.
     
     """
@@ -1832,7 +2296,7 @@ def dbg_add_thread(tid: int) -> None:
     """
     ...
 
-def dbg_bin_search(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, data: compiled_binpat_vec_t, srch_flags: int) -> str:
+def dbg_bin_search(start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, data: compiled_binpat_vec_t, srch_flags: int) -> Union[str, None]:
     ...
 
 def dbg_can_query() -> Any:
@@ -1985,7 +2449,7 @@ def get_bpt(ea: ida_idaapi.ea_t, bpt: bpt_t) -> bool:
     """
     ...
 
-def get_bpt_group(bptloc: bpt_location_t) -> str:
+def get_bpt_group(bptloc: bpt_location_t) -> Union[str, None]:
     r"""Retrieve the absolute path to the folder of the bpt based on the bpt_location find_bpt is called to retrieve the bpt \sq{Type, Synchronous function, Notification, none (synchronous function)} 
             
     :param bptloc: bptlocation of the bpt
@@ -2019,7 +2483,7 @@ def get_call_tev_callee(n: int) -> ida_idaapi.ea_t:
     """
     ...
 
-def get_current_source_file() -> str:
+def get_current_source_file() -> Union[str, None]:
     ...
 
 def get_current_source_line() -> int:
@@ -2310,7 +2774,7 @@ def get_trace_dynamic_register_set(idaregs: dynamic_register_set_t) -> None:
     """
     ...
 
-def get_trace_file_desc(filename: str) -> str:
+def get_trace_file_desc(filename: str) -> Union[str, None]:
     r"""Get the file header of the specified trace file.
     
     """
@@ -2463,7 +2927,7 @@ def is_valid_trace_file(filename: str) -> bool:
     """
     ...
 
-def list_bptgrps() -> List[str]:
+def list_bptgrps() -> Union[List[str], None]:
     r"""Retrieve the list of absolute path of all folders of bpt dirtree.
     Synchronous function, Notification, none (synchronous function)
     """
@@ -2472,7 +2936,7 @@ def list_bptgrps() -> List[str]:
 def load_debugger(dbgname: str, use_remote: bool) -> bool:
     ...
 
-def load_trace_file(filename: str) -> str:
+def load_trace_file(filename: str) -> Union[str, None]:
     r"""Load a recorded trace file in the 'Tracing' window. If the call succeeds and 'buf' is not null, the description of the trace stored in the binary trace file will be returned in 'buf' 
             
     """
@@ -2776,7 +3240,7 @@ def send_dbg_command(command: Any) -> Any:
     ...
 
 def set_bblk_trace_options(options: int) -> None:
-    r"""Modify basic block tracing options (see BT_LOG_INSTS)
+    r"""Modify basic block tracing options (see BT_LOG_INSTS).
     
     """
     ...
@@ -3037,6 +3501,7 @@ BKPT_PAGE: int  # 128
 BKPT_PARTIAL: int  # 16
 BKPT_TRACE: int  # 4
 BPLT_ABS: int  # 0
+BPLT_LAST: int  # 4
 BPLT_REL: int  # 1
 BPLT_SRC: int  # 3
 BPLT_SYM: int  # 2

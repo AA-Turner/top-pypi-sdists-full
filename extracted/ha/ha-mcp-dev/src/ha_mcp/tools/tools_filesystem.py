@@ -7,8 +7,10 @@ configuration directory, enabling AI assistants to:
 - List files in allowed directories
 - Write/delete files in restricted directories (www/, themes/, custom_templates/)
 
-**Dependency:** Requires the ha_mcp_tools custom component to be installed.
-The tools will gracefully fail with installation instructions if the component is not available.
+**Dependency:** Requires the ha_mcp_tools custom component, added in HA via its
+"HA-MCP File & YAML Tools" config entry (NOT the "HA-MCP Server" entry, which
+starts a redundant in-process server). The tools will gracefully fail with
+installation instructions if the component is not available.
 
 Feature Flag: Set HAMCP_ENABLE_FILESYSTEM_TOOLS=true to enable these tools.
 """
@@ -74,7 +76,14 @@ CALLER_TOKEN_BOOTSTRAP_SERVICE = "get_caller_token"
 # ENABLE_YAML_EDIT_CONFIRM, default on); a <0.11.0 component's strict
 # (PREVENT_EXTRA) schema rejects the unknown arg with a raw voluptuous
 # error — the gate surfaces an actionable "update" prompt instead.
-MIN_COMPONENT_VERSION = "0.11.0"
+# 1.1.0: the YAML fragment read (#1788) needs two component behaviours that a
+# <1.1.0 component reports no differently from a missing key. ``list_files``
+# only now honours the configured packages folder, so ha_config_get_yaml's
+# glob/discovery would otherwise come back "Path not allowed" instead of
+# enumerating packages; and ``include_parsed`` on ``read_file`` is a new arg
+# that an older strict (PREVENT_EXTRA) schema rejects with a raw voluptuous
+# error. The gate turns both into the actionable "update" prompt.
+MIN_COMPONENT_VERSION = "1.1.0"
 
 
 def _version_tuple(version: str) -> tuple[int, ...]:
@@ -134,7 +143,7 @@ def _raise_component_too_old(detail: str) -> NoReturn:
             f"This ha-mcp release requires >= {MIN_COMPONENT_VERSION}. "
             "Update via HACS and restart Home Assistant.",
             suggestions=[
-                "HACS → Integrations → HA MCP Tools → Update",
+                "HACS → Integrations → HA-MCP Custom Component → Update",
                 "Restart Home Assistant after update completes",
                 "Then retry the operation",
             ],
@@ -355,8 +364,17 @@ async def _assert_mcp_tools_available(client: Any) -> None:
         raise_tool_error(
             create_error_response(
                 ErrorCode.COMPONENT_NOT_INSTALLED,
-                f"The {MCP_TOOLS_DOMAIN} custom component is not installed. "
-                "Use ha_install_mcp_tools() to install it via HACS, then restart Home Assistant.",
+                f"The {MCP_TOOLS_DOMAIN} custom component is not installed.",
+                suggestions=[
+                    'Add the repository to HACS: ha_manage_hacs(action="add_repository",'
+                    + ' repository="homeassistant-ai/ha-mcp-integration", category="integration")',
+                    'Download the component: ha_manage_hacs(action="download",'
+                    + ' repository_id="homeassistant-ai/ha-mcp-integration")',
+                    "Restart Home Assistant (ha_restart) so the integration loads",
+                    'In HA, add the "HA-MCP Custom Component" integration and choose the'
+                    + ' "HA-MCP File & YAML Tools" entry — NOT "HA-MCP Server", which starts'
+                    + " a second in-process server this ha-mcp server does not need",
+                ],
             )
         )
 
@@ -371,6 +389,7 @@ class FilesystemTools:
         name="ha_list_files",
         tags={"Files", "beta"},
         annotations={
+            "openWorldHint": False,
             "readOnlyHint": True,
             "title": "List Files",
         },
@@ -478,6 +497,7 @@ class FilesystemTools:
         name="ha_read_file",
         tags={"Files", "beta"},
         annotations={
+            "openWorldHint": False,
             "readOnlyHint": True,
             "title": "Read File",
         },
@@ -506,6 +526,19 @@ class FilesystemTools:
                     "For log files, return only the last N lines. "
                     "Recommended for home-assistant.log to avoid large responses. "
                     "Default: None (return full file, or last 1000 lines for logs)"
+                ),
+            ),
+        ] = None,
+        yaml_path: Annotated[
+            str | None,
+            Field(
+                default=None,
+                description=(
+                    "Dotted YAML key path (e.g. 'alert2', 'mqtt.sensor'). When "
+                    "set, the response also carries 'subtree': the round-trip "
+                    "text of just that key's value. To look a key up across "
+                    "packages/*.yaml, or to get it as structured data, use "
+                    "ha_config_get_yaml instead."
                 ),
             ),
         ] = None,
@@ -539,6 +572,9 @@ class FilesystemTools:
         - size: File size in bytes
         - modified: Last modification timestamp
         - path: The file path that was read
+        - subtree: Round-trip text of the `yaml_path` key, when that arg is set
+          (null when the key is absent). Comments and HA tags (`!secret`,
+          `!include`) survive as written — a `!secret` is never resolved.
 
         **Example:**
         ```python
@@ -547,6 +583,9 @@ class FilesystemTools:
 
         # Read last 100 lines of log
         result = ha_read_file(path="home-assistant.log", tail_lines=100)
+
+        # Read just the alert2 block out of a package file
+        result = ha_read_file(path="packages/alert2.yaml", yaml_path="alert2")
         ```
         """
         try:
@@ -557,6 +596,8 @@ class FilesystemTools:
             service_data: dict[str, Any] = {"path": path}
             if tail_lines is not None:
                 service_data["tail_lines"] = tail_lines
+            if yaml_path is not None:
+                service_data["yaml_path"] = yaml_path
 
             # Call the custom component service
             result = await call_mcp_tools_service(
@@ -593,6 +634,7 @@ class FilesystemTools:
         name="ha_write_file",
         tags={"Files", "beta"},
         annotations={
+            "openWorldHint": False,
             "destructiveHint": True,
             "title": "Write File",
         },
@@ -735,6 +777,7 @@ class FilesystemTools:
         name="ha_delete_file",
         tags={"Files", "beta"},
         annotations={
+            "openWorldHint": False,
             "destructiveHint": True,
             "title": "Delete File",
         },

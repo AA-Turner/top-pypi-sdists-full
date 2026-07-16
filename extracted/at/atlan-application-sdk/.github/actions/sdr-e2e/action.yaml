@@ -83,6 +83,22 @@ inputs:
     description: Extra arguments appended to the pytest invocation.
     required: false
     default: ""
+  artifact-suffix:
+    description: |
+      Suffix appended to the uploaded results artifact name so parallel
+      callers (e.g. the e2e matrix, one leg per suite) don't collide on
+      upload-artifact, which rejects duplicate names within a run. Empty
+      (default) keeps the historical single-artifact name.
+    required: false
+    default: ""
+  post-pr-comment:
+    description: |
+      Whether the action posts its per-run summary comment on the connector
+      PR. "true" (default) preserves current behaviour. Set "false" when a
+      caller posts one aggregated summary itself (e.g. the e2e matrix, so N
+      legs don't post N comments).
+    required: false
+    default: "true"
   application-sdk-ref:
     description: |
       Optional application-sdk commit SHA / ref. When supplied, the
@@ -246,6 +262,20 @@ runs:
         fi
         uv lock
 
+    # Regenerate app/generated/** (incl. manifest.json — the AE DAG) from
+    # contract/app.pkl BEFORE the image build, so the connector image bakes a
+    # manifest generated from the CURRENT contract + toolkit rather than a
+    # possibly-stale committed one (BLDX-1493). This is the ONLY regeneration in
+    # this action — it must precede the buildx build below that COPYs the tree.
+    # check-drift is false: uv/ruff aren't installed until setup-deps (later), so
+    # generated-Python formatting is skipped here; the warn-only drift gate lives
+    # in the connector-integration-tests job. Self-skips when no contract/app.pkl.
+    - name: Regenerate contract artifacts (manifest.json) before image build
+      uses: atlanhq/application-sdk/.github/actions/regenerate-contract@main
+      with:
+        application-sdk-ref: ${{ inputs.application-sdk-ref }}
+        check-drift: "false"
+
     # Buildx is required for the GHA cache backend below. Set up once
     # per run, before the image build that uses `cache-from/cache-to`.
     - name: Set up Docker Buildx
@@ -311,7 +341,7 @@ runs:
     # Must run before atlan-configurator generates ci-deploy/ — setup-deps
     # uses actions/checkout internally which would wipe generated files.
     - name: Setup Python and dependencies
-      uses: atlanhq/application-sdk/.github/actions/setup-deps@v3.21.2
+      uses: atlanhq/application-sdk/.github/actions/setup-deps@v3.22.0
 
     # setup-deps' actions/checkout wipes the pre-build re-pin above. Do
     # it again so the host pytest runtime resolves the dispatched SDK
@@ -392,6 +422,26 @@ runs:
           echo "SDR_CONFIG_DIR=$DIR"
           echo "APP_YAML_PATH=$APP_YAML"
         } >> "$GITHUB_ENV"
+
+    # Give each matrix leg its own worker + Temporal queue. The queue is
+    # atlan-{ATLAN_APPLICATION_NAME}-{ATLAN_DEPLOYMENT_NAME}; parallel legs
+    # share the run id, so without a per-leg suffix their workers co-serve one
+    # queue and Temporal splits a single workflow's activities across them —
+    # which, under the two-store posture (per-container localstorage), makes a
+    # FileReference written by one leg's worker invisible to the other. Derive a
+    # per-leg ATLAN_DEPLOYMENT_NAME (base + sanitised artifact-suffix) here, so
+    # both the worker (compose reads it below) and the harness (agent_spec reads
+    # the same env) land on the same isolated queue. Empty suffix (single-suite
+    # callers) keeps the original e2e-full-ci-<run_id> shape.
+    - name: Derive per-leg deployment name
+      shell: bash
+      env:
+        SDR_E2E_ROOT: ${{ steps.action_root.outputs.path }}
+        ARTIFACT_SUFFIX: ${{ inputs.artifact-suffix }}
+      run: |
+        python3 "$SDR_E2E_ROOT/derive_deployment_name.py" \
+          --run-id "${GITHUB_RUN_ID}" \
+          --suffix "${ARTIFACT_SUFFIX}" >> "$GITHUB_ENV"
 
     - name: Resolve app.yaml
       shell: bash
@@ -994,7 +1044,9 @@ runs:
     # new comments at the bottom of the conversation rather than silently
     # mutating an old one, which makes "what's the latest run" obvious.
     - name: Render PR comment + post (when on a PR)
-      if: always()
+      # Suppressed when the caller aggregates its own summary (e.g. the e2e
+      # matrix sets post-pr-comment=false so N legs don't post N comments).
+      if: always() && inputs.post-pr-comment == 'true'
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
       env:
         APP_NAME: ${{ inputs.app-name }}
@@ -1157,7 +1209,10 @@ runs:
       if: always()
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
-        name: sdr-integration-tests-${{ inputs.app-name }}-results
+        # artifact-suffix keeps parallel matrix legs from colliding on this
+        # name (upload-artifact rejects duplicate names within a run); empty
+        # suffix preserves the historical single-artifact name.
+        name: sdr-integration-tests-${{ inputs.app-name }}${{ inputs.artifact-suffix != '' && format('-{0}', inputs.artifact-suffix) || '' }}-results
         path: results/
         retention-days: 14
 

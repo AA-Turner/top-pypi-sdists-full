@@ -125,6 +125,29 @@ class SHCInformation:
         return sw.get("automaticUpdatesEnabled", None)
 
     @property
+    def last_update_result(self) -> str | None:
+        """Result of the last software update attempt (swUpdateLastResult)."""
+        sw: dict[str, Any] = self._pub_info.get("softwareUpdateState", {})
+        return sw.get("swUpdateLastResult", None)
+
+    @property
+    def update_activation_timeout(self) -> int | None:
+        """Seconds left to confirm a pending update activation (swActivationDate.timeout)."""
+        sw: dict[str, Any] = self._pub_info.get("softwareUpdateState", {})
+        activation: dict[str, Any] = sw.get("swActivationDate", {})
+        return activation.get("timeout", None)
+
+    @property
+    def api_versions(self) -> list[str] | None:
+        """API versions supported by this controller (apiVersions)."""
+        return self._pub_info.get("apiVersions", None)
+
+    @property
+    def shc_generation(self) -> str | None:
+        """Controller hardware generation ("SHC_1" or "SHC_2")."""
+        return self._pub_info.get("shcGeneration", None)
+
+    @property
     def updateState(self) -> UpdateState | None:
         sw: dict[str, Any] = self._pub_info.get("softwareUpdateState", {})
         raw = sw.get("swUpdateState", None)
@@ -242,6 +265,16 @@ class SHCInformation:
             self._name = host
         else:
             raise SHCConnectionError
+
+    def start_software_update(self) -> None:
+        """Trigger a controller firmware update install.
+
+        Not in the official OpenAPI spec; APK ground-truth
+        (RestClientImpl.startSwUpdateRootDevice -> POST
+        rootdevices/startSoftwareUpdate, no request body). NEVER_BLIND_FIX:
+        confirm on real hardware before relying on this outside tests.
+        """
+        self._api.post_domain_action("rootdevices/startSoftwareUpdate")
 
     def summary(self) -> None:
         print("Information:")

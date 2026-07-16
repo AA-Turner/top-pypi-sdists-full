@@ -209,7 +209,6 @@ class range_t:
         r"""Size of object in memory, in bytes."""
         ...
     def __str__(self) -> str:
-        r"""Return str(self)."""
         ...
     def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
@@ -389,17 +388,17 @@ class rangeset_t:
         """
         ...
     def clear(self) -> None:
-        r"""Delete all elements from the set. See qvector::clear()
+        r"""Delete all elements from the set. See qvector::clear().
         
         """
         ...
     @overload
     def contains(self, ea: ida_idaapi.ea_t) -> bool:
-        r"""Does an element of the rangeset contain 'ea'? See range_t::contains(ea_t)"""
+        r"""Does an element of the rangeset contain 'ea'? See range_t::contains(ea_t)."""
         ...
     @overload
     def contains(self, aset: rangeset_t) -> bool:
-        r"""Is every element in 'aset' contained in an element of this rangeset? See range_t::contains(range_t)"""
+        r"""Is every element in 'aset' contained in an element of this rangeset? See range_t::contains(range_t)."""
         ...
     def empty(self) -> bool:
         r"""Does the set have zero elements.
@@ -407,7 +406,7 @@ class rangeset_t:
         """
         ...
     def end(self) -> Any:
-        r"""Get an iterator that points to the end of the set. (This is NOT the last element)
+        r"""Get an iterator that points to the end of the set. (This is NOT the last element).
         
         """
         ...
@@ -428,7 +427,7 @@ class rangeset_t:
         ...
     @overload
     def has_common(self, aset: rangeset_t) -> bool:
-        r"""Does any element of 'aset' overlap with an element in this rangeset? See range_t::overlaps()"""
+        r"""Does any element of 'aset' overlap with an element in this rangeset? See range_t::overlaps()."""
         ...
     def includes(self, range: range_t) -> bool:
         r"""Is every ea in 'range' contained in the rangeset?
@@ -490,7 +489,7 @@ class rangeset_t:
         ...
     @overload
     def sub(self, ea: ida_idaapi.ea_t) -> bool:
-        r"""Subtract an ea (an range of size 1) from the set. See sub(const range_t &)"""
+        r"""Subtract an ea (an range of size 1) from the set. See sub(const range_t &)."""
         ...
     @overload
     def sub(self, aset: rangeset_t) -> bool:
@@ -500,7 +499,7 @@ class rangeset_t:
         """
         ...
     def swap(self, r: rangeset_t) -> None:
-        r"""Set this = 'r' and 'r' = this. See qvector::swap()
+        r"""Set this = 'r' and 'r' = this. See qvector::swap().
         
         """
         ...
@@ -783,7 +782,7 @@ class rangevec_t(rangevec_base_t):
     def truncate(self) -> None:
         ...
 
-def range_t_print(cb: range_t) -> str:
+def range_t_print(cb: range_t) -> Union[str, None]:
     r"""Helper function. Should not be called directly!
     
     """

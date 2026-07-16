@@ -7,9 +7,9 @@ The same barrage of tests runs against every pair.
 import os
 
 import pytest
-
 from renderers import create_renderer
 from renderers.base import load_tokenizer
+from renderers.configs import config_from_name
 
 # (HuggingFace model name, renderer name or "auto")
 #
@@ -19,6 +19,7 @@ from renderers.base import load_tokenizer
 # own parametrization in the test file.
 RENDERER_MODELS = [
     ("Qwen/Qwen3-8B", "auto"),
+    ("PrimeIntellect/Qwen3-0.6B", "auto"),
     ("Qwen/Qwen3.5-9B", "auto"),
     ("Qwen/Qwen3.6-35B-A3B", "auto"),
     ("Qwen/Qwen3-VL-4B-Instruct", "auto"),
@@ -32,7 +33,29 @@ RENDERER_MODELS = [
     ("moonshotai/Kimi-K2.6", "auto"),
     ("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16", "auto"),
     ("nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16", "auto"),
+    # Ultra resolves to the `nemotron-3-ultra` config variant via the model
+    # name (auto → MODEL_RENDERER_MAP → nemotron-3-ultra).
+    ("nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16", "auto"),
+    ("poolside/Laguna-XS.2", "auto"),
+    # XS-2.1 resolves to `LagunaXS21Renderer` via the model name — its
+    # chat template differs from XS.2's (see renderers/laguna_xs2.py).
+    ("poolside/Laguna-XS-2.1", "auto"),
+    # DeepSeek-V3/R1 are intentionally NOT in this shared barrage: their
+    # chat templates can't render the barrage's tool-call fixtures (the
+    # templates require ``tool['type']`` and a string-serialized
+    # ``arguments``, and V3 only renders tool_calls when content is None —
+    # so ``apply_chat_template`` raises or drops the calls on the shared
+    # shapes), and the is_content body-recovery checks hit a Metaspace
+    # subset-decode artifact. The renderer is correct in all these cases;
+    # there's just no byte-output to parity-check against. Split-specific
+    # parity (V3 bare prompt vs R1 <think>+history-strip) is covered in
+    # tests/test_deepseek_r1.py.
+    # Llama-3 uses the canonical Meta ID for renderer auto-resolution, while
+    # load_tokenizer fetches the tokenizer/chat_template from the unrestricted
+    # unsloth mirror so CI needs no Meta-gated HF token.
+    ("meta-llama/Llama-3.2-1B-Instruct", "auto"),
     ("openai/gpt-oss-20b", "gpt-oss"),
+    ("tencent/Hy3", "auto"),
     ("Qwen/Qwen2.5-0.5B-Instruct", "default"),
 ]
 
@@ -43,7 +66,7 @@ def _load(model_name: str, renderer_name: str):
     key = f"{model_name}:{renderer_name}"
     if key not in _cache:
         tokenizer = load_tokenizer(model_name)
-        renderer = create_renderer(tokenizer, renderer=renderer_name)
+        renderer = create_renderer(tokenizer, config_from_name(renderer_name))
         _cache[key] = (tokenizer, renderer)
     return _cache[key]
 
@@ -100,4 +123,31 @@ def _skip_gpt_oss_for_hf_parity_tests(request):
         pytest.skip(
             f"{model_name}: renderer matches openai-harmony / vLLM, not HF "
             "apply_chat_template — see test_gpt_oss_harmony_parity.py"
+        )
+
+
+# Llama-3's chat template fills the "Today Date:" line via ``strftime_now``,
+# so ``apply_chat_template`` with no explicit ``date_string`` bakes in the
+# real wall-clock date — non-deterministic and not byte-stable against a
+# renderer pinned to "26 Jul 2024". Generic HF-parity tests can't pass a
+# kwarg, so they're skipped here; deterministic byte-parity (with the date
+# passed on both sides) is covered in test_llama_3.py.
+_LLAMA_HF_PARITY_TEST_FILES = {
+    "test_render_ids.py",
+    "test_build_helpers.py",
+}
+
+
+@pytest.fixture(autouse=True)
+def _skip_llama_for_hf_parity_tests(request):
+    callspec = getattr(request.node, "callspec", None)
+    model_name = callspec.params.get("model_name") if callspec else None
+    if model_name != "meta-llama/Llama-3.2-1B-Instruct":
+        return
+    test_file = os.path.basename(str(request.node.fspath))
+    if test_file in _LLAMA_HF_PARITY_TEST_FILES:
+        pytest.skip(
+            f"{model_name}: template uses strftime_now for the date line, so "
+            "generic apply_chat_template parity is non-deterministic — "
+            "deterministic byte-parity is covered in test_llama_3.py"
         )

@@ -19,6 +19,9 @@ project(
 include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/epilogue.cmake)
 
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+option(SIMPLEDBUS_INSTALL "Install SimpleDBus targets and package files" ON)
 
 find_package(DBus1 REQUIRED)
 
@@ -36,6 +39,8 @@ set(SIMPLEDBUS_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/Logging.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/Message.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/Path.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/base/UnixSocket.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/Introspectable.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/ObjectManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/Properties.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Config.cpp)
@@ -70,8 +75,7 @@ target_include_directories(simpledbus INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/external>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-    $<INSTALL_INTERFACE:${DBus1_INCLUDE_DIR}>
-    $<INSTALL_INTERFACE:${DBus1_ARCH_INCLUDE_DIR}>)
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/simpledbus>)
 
 append_sanitize_options("${SIMPLEDBUS_SANITIZE}")
 
@@ -83,34 +87,55 @@ apply_build_options(simpledbus
     "${PRIVATE_LINK_OPTIONS}"
     "${PUBLIC_LINK_OPTIONS}")
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/simpledbus.pc.in
-            ${CMAKE_CURRENT_BINARY_DIR}/simpledbus.pc @ONLY)
+if(SIMPLEDBUS_INSTALL)
+    set(SIMPLEDBUS_CMAKE_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/simpledbus)
 
-install(
-    TARGETS simpledbus
-    EXPORT simpledbus-config
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/simpledbus.pc.in
+                ${CMAKE_CURRENT_BINARY_DIR}/simpledbus.pc @ONLY)
 
-install(
-    EXPORT simpledbus-config
-    NAMESPACE simpledbus::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/simpledbus)
+    configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/simpledbus-config.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/simpledbus-config.cmake
+        INSTALL_DESTINATION ${SIMPLEDBUS_CMAKE_INSTALL_DIR})
 
-install(
-    DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/simpledbus/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simpledbus)
+    write_basic_package_version_file(
+        ${CMAKE_CURRENT_BINARY_DIR}/simpledbus-config-version.cmake
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion)
 
-install(
-    FILES
-        ${CMAKE_CURRENT_LIST_DIR}/../dependencies/external/kvn/kvn_safe_callback.hpp
-        ${CMAKE_CURRENT_LIST_DIR}/../dependencies/external/kvn/logfwd.hpp
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simpledbus/kvn)
+    install(
+        TARGETS simpledbus
+        EXPORT simpledbus-targets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/simpledbus.pc
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+    install(
+        EXPORT simpledbus-targets
+        FILE simpledbus-targets.cmake
+        NAMESPACE simpledbus::
+        DESTINATION ${SIMPLEDBUS_CMAKE_INSTALL_DIR})
+
+    install(
+        FILES
+            ${CMAKE_CURRENT_BINARY_DIR}/simpledbus-config.cmake
+            ${CMAKE_CURRENT_BINARY_DIR}/simpledbus-config-version.cmake
+        DESTINATION ${SIMPLEDBUS_CMAKE_INSTALL_DIR})
+
+    install(
+        DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/simpledbus/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simpledbus)
+
+    install(
+        FILES
+            ${CMAKE_CURRENT_LIST_DIR}/../dependencies/external/kvn/kvn_safe_callback.hpp
+            ${CMAKE_CURRENT_LIST_DIR}/../dependencies/external/kvn/logfwd.hpp
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simpledbus/kvn)
+
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/simpledbus.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+endif()
 
 
 if(SIMPLEDBUS_TEST)
@@ -125,6 +150,7 @@ if(SIMPLEDBUS_TEST)
         ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_proxy_children.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_proxy_lifetime.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_path.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_unix_socket.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/test/src/helpers/PythonRunner.cpp)
 
     target_compile_definitions(simpledbus_test PRIVATE FMT_HEADER_ONLY)

@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from pyrig.rig.configs.base.badges import BadgesConfigFile
-from pyrig.rig.tools.docs_builder import DocsBuilder
+from pyrig.rig.tools.docs.builder import DocsBuilder
 
 
 class IndexConfigFile(BadgesConfigFile):
@@ -14,17 +14,9 @@ class IndexConfigFile(BadgesConfigFile):
     MkDocs nav shows a short label for the landing page.
     """
 
-    def lines(self) -> list[str]:
-        """Build the landing page content lines.
-
-        Replaces the inherited project-name heading with `"Home"`.
-
-        Returns:
-            Markdown lines for the landing page.
-        """
-        lines = super().lines()
-        lines[0] = "# Home"
-        return lines
+    def heading(self) -> str:
+        """Return `"Home"` as the heading text."""
+        return "Home"
 
     def parent_path(self) -> Path:
         """Return the MkDocs documentation source directory."""

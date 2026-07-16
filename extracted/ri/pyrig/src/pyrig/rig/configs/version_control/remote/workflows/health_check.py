@@ -6,11 +6,10 @@ from pyrig.core.strings import fstring_var_name
 from pyrig.rig.cli.make import local
 from pyrig.rig.cli.subcommands import mk
 from pyrig.rig.configs.base.workflow import WorkflowConfigFile
-from pyrig.rig.tools.dependencies.auditor import DependencyAuditor
-from pyrig.rig.tools.package_manager import PackageManager
+from pyrig.rig.tools.packages.manager import PackageManager
 from pyrig.rig.tools.pyrigger import Pyrigger
 from pyrig.rig.tools.testing.project import ProjectTester
-from pyrig.rig.tools.version_control.hook_manager import (
+from pyrig.rig.tools.version_control.hooks.manager import (
     VersionControlHookManager,
 )
 
@@ -18,32 +17,10 @@ from pyrig.rig.tools.version_control.hook_manager import (
 class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
     """GitHub Actions workflow that runs code quality checks and tests.
 
-    Triggered on every pull request, on push to the default branch, on a
-    daily cron schedule, and manually. Its aggregation job is the single
-    required status check for merging, so this workflow is the CI gate the
-    project relies on.
+    Triggered on every pull request, on push to the default branch, and on a
+    daily cron schedule. Its aggregation job is the single required status
+    check for merging, so this workflow is the CI gate the project relies on.
     """
-
-    def stem(self) -> str:
-        """Return `"health_check"`, the workflow file's stem."""
-        return "health_check"
-
-    def workflow_triggers(self) -> dict[str, Any]:
-        """Return the triggers for the health check workflow.
-
-        Combines manual dispatch, pull request, push, and scheduled cron
-        triggers.
-
-        Returns:
-            Trigger configuration dict with `workflow_dispatch`,
-            `pull_request`, `push`, and `schedule` entries.
-        """
-        return {
-            **self.on_workflow_dispatch(),
-            **self.on_pull_request(),
-            **self.on_push(),
-            **self.on_schedule(cron=" ".join(map(str, self.cron_schedule()))),
-        }
 
     def jobs(self) -> dict[str, Any]:
         """Return all jobs for the health check workflow.
@@ -56,6 +33,25 @@ class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
         jobs.update(self.job_matrix_health_checks())
         jobs.update(self.job_health_check())
         return jobs
+
+    def stem(self) -> str:
+        """Return `"health_check"`, the workflow file's stem."""
+        return "health_check"
+
+    def workflow_triggers(self) -> dict[str, Any]:
+        """Return the triggers for the health check workflow.
+
+        Combines pull request, push, and scheduled cron triggers.
+
+        Returns:
+            Trigger configuration dict with `pull_request`, `push`, and
+            `schedule` entries.
+        """
+        return {
+            **self.on_pull_request(),
+            **self.on_push(),
+            **self.on_schedule(cron=" ".join(map(str, self.cron_schedule()))),
+        }
 
     def cron_schedule(
         self,
@@ -96,37 +92,6 @@ class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
             steps=self.steps_aggregate_jobs(),
         )
 
-    def job_health_checks(self) -> dict[str, Any]:
-        """Return the single-runner job that applies all code quality checks.
-
-        Runs on a single Ubuntu runner (no matrix) and covers pre-commit hooks
-        and dependency auditing.
-
-        Returns:
-            Job configuration with steps for the full quality check sequence.
-        """
-        return self.job(
-            self.job_health_checks,
-            steps=self.steps_health_checks(),
-        )
-
-    def job_matrix_health_checks(self) -> dict[str, Any]:
-        """Return the matrix job that runs the test suite across environments.
-
-        Uses a strategy matrix combining the default operating systems with
-        every Python version the project supports.
-
-        Returns:
-            Job configuration with a matrix strategy, dynamic `runs-on`
-            value, and steps for setup and testing.
-        """
-        return self.job(
-            self.job_matrix_health_checks,
-            strategy=self.strategy_matrix_os_and_python_version(),
-            runs_on=self.insert_matrix_os(),
-            steps=self.steps_matrix_health_checks(),
-        )
-
     def steps_aggregate_jobs(self) -> list[dict[str, Any]]:
         """Return the steps for the fan-in aggregation job.
 
@@ -135,36 +100,6 @@ class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
         """
         return [
             self.step_aggregate_jobs(),
-        ]
-
-    def steps_health_checks(self) -> list[dict[str, Any]]:
-        """Return the steps for the single-runner quality check job.
-
-        Returns:
-            Steps that install dependencies, create version-control-ignored
-            local files, run the configured pre-commit hooks, and audit
-            dependencies for known vulnerabilities.
-        """
-        return [
-            *self.steps_core_installed_setup(update_dependencies=True),
-            self.step_create_version_control_ignored_files(),
-            self.step_run_pre_commit_hooks(),
-            self.step_run_dependency_audit(),
-        ]
-
-    def steps_matrix_health_checks(self) -> list[dict[str, Any]]:
-        """Return the steps for the matrix test job.
-
-        Returns:
-            Steps that set up the environment for the current matrix OS and
-            Python version and run the test suite.
-        """
-        return [
-            *self.steps_core_matrix_setup(
-                python_version=self.insert_matrix_python_version(),
-                update_dependencies=True,
-            ),
-            self.step_run_tests(),
         ]
 
     def step_aggregate_jobs(
@@ -185,6 +120,34 @@ class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
             run="echo 'Aggregating jobs into one job.'",
             step=step,
         )
+
+    def job_health_checks(self) -> dict[str, Any]:
+        """Return the single-runner job that applies all code quality checks.
+
+        Runs on a single Ubuntu runner (no matrix) and covers pre-commit hooks
+        and dependency auditing.
+
+        Returns:
+            Job configuration with steps for the full quality check sequence.
+        """
+        return self.job(
+            self.job_health_checks,
+            steps=self.steps_health_checks(),
+        )
+
+    def steps_health_checks(self) -> list[dict[str, Any]]:
+        """Return the steps for the single-runner quality check job.
+
+        Returns:
+            Steps that install dependencies, create version-control-ignored
+            local files, run the configured pre-commit hooks, and audit
+            dependencies for known vulnerabilities.
+        """
+        return [
+            *self.steps_core_installed_setup(update_dependencies=True),
+            self.step_create_version_control_ignored_files(),
+            self.step_run_version_control_hooks(),
+        ]
 
     def step_create_version_control_ignored_files(
         self,
@@ -208,36 +171,15 @@ class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
             run=str(
                 PackageManager.I.run_args(
                     *Pyrigger.I.group_cmd_args(
-                        group=fstring_var_name(f"{mk=}"), cmd=local
-                    )
-                )
+                        group=fstring_var_name(f"{mk=}"),
+                        cmd=local,
+                    ),
+                ),
             ),
             step=step,
         )
 
-    def step_run_dependency_audit(
-        self,
-        *,
-        step: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Build a step that audits dependencies for known vulnerabilities.
-
-        Runs `pip-audit` via uv against the installed environment to detect
-        CVEs in direct and transitive dependencies.
-
-        Args:
-            step: Additional keys to merge into the step configuration.
-
-        Returns:
-            Step that runs `uv run pip-audit`.
-        """
-        return self.step(
-            self.step_run_dependency_audit,
-            run=str(PackageManager.I.run_args(*DependencyAuditor.I.audit_args())),
-            step=step,
-        )
-
-    def step_run_pre_commit_hooks(
+    def step_run_version_control_hooks(
         self,
         *,
         step: dict[str, Any] | None = None,
@@ -251,14 +193,46 @@ class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
             Step that runs the pre-commit hooks.
         """
         return self.step(
-            self.step_run_pre_commit_hooks,
+            self.step_run_version_control_hooks,
             run=str(
                 PackageManager.I.run_args(
-                    *VersionControlHookManager.I.run_all_files_stage_pre_commit_args()
-                )
+                    *VersionControlHookManager.I.run_all_files_all_hooks_args(),
+                ),
             ),
             step=step,
         )
+
+    def job_matrix_health_checks(self) -> dict[str, Any]:
+        """Return the matrix job that runs the test suite across environments.
+
+        Uses a strategy matrix combining the default operating systems with
+        every Python version the project supports.
+
+        Returns:
+            Job configuration with a matrix strategy, dynamic `runs-on`
+            value, and steps for setup and testing.
+        """
+        return self.job(
+            self.job_matrix_health_checks,
+            strategy=self.strategy_matrix_os_and_python_version(),
+            runs_on=self.insert_matrix_os(),
+            steps=self.steps_matrix_health_checks(),
+        )
+
+    def steps_matrix_health_checks(self) -> list[dict[str, Any]]:
+        """Return the steps for the matrix test job.
+
+        Returns:
+            Steps that set up the environment for the current matrix OS and
+            Python version and run the test suite.
+        """
+        return [
+            *self.steps_core_matrix_setup(
+                python_version=self.insert_matrix_python_version(),
+                update_dependencies=True,
+            ),
+            self.step_run_tests(),
+        ]
 
     def step_run_tests(
         self,

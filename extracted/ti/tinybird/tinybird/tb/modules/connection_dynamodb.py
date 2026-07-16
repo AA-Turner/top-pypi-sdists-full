@@ -158,6 +158,7 @@ def connection_create_dynamodb(
         connection_name=connection_name,
         policy="read",
         local_unavailable=local_aws_unavailable,
+        env=env,
     )
 
     unique_suffix = uuid.uuid4().hex[:8]

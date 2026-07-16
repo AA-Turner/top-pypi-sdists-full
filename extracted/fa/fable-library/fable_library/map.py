@@ -999,12 +999,12 @@ def MapTreeModule_toList[KEY, VALUE](m: MapTreeLeaf_2[KEY, VALUE] | None = None)
 def MapTreeModule_copyToArray[_A, _B](m: MapTreeLeaf_2[_A, _B] | None, arr: Array[Any], i: int32) -> None:
     j: int32 = i
 
-    def _arrow229(x: _A, y: _B, arr: Any = arr) -> None:
+    def _arrow230(x: _A, y: _B, arr: Any = arr) -> None:
         nonlocal j
         arr[j] = (x, y)
         j = j + int32.ONE
 
-    MapTreeModule_iter(_arrow229, m)
+    MapTreeModule_iter(_arrow230, m)
 
 
 def MapTreeModule_toArray[_A, _B](m: MapTreeLeaf_2[_A, _B] | None = None) -> Array[Any]:
@@ -1016,12 +1016,12 @@ def MapTreeModule_toArray[_A, _B](m: MapTreeLeaf_2[_A, _B] | None = None) -> Arr
 def MapTreeModule_ofList[_A, _B](
     comparer: IComparer_1[_A], l: FSharpList[tuple[_A, _B]]
 ) -> MapTreeLeaf_2[_A, _B] | None:
-    def _arrow230(
+    def _arrow231(
         acc: MapTreeLeaf_2[_A, _B] | None, tupled_arg: tuple[_A, _B], comparer: Any = comparer
     ) -> MapTreeLeaf_2[_A, _B] | None:
         return erase(MapTreeModule_add(comparer, tupled_arg[0], tupled_arg[1], acc))
 
-    return erase(fold_1(_arrow230, MapTreeModule_empty(), l))
+    return erase(fold_1(_arrow231, MapTreeModule_empty(), l))
 
 
 def MapTreeModule_mkFromEnumerator[_A, _B](

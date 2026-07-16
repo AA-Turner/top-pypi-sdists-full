@@ -43,6 +43,11 @@ pub fn hash_u64_slice(values: &[u64]) -> u64 {
     hasher.finish()
 }
 
+pub fn hash_unordered(mut values: Vec<u64>) -> u64 {
+    values.sort_unstable();
+    hash_u64_slice(&values)
+}
+
 pub struct U64HashBuilder {
     inline: [u64; INLINE_U64_HASH_CAPACITY],
     len: usize,
@@ -156,5 +161,11 @@ mod tests {
 
             assert_eq!(builder.finish(), hash_one(values));
         }
+    }
+
+    #[test]
+    fn hash_unordered_ignores_input_order() {
+        assert_eq!(hash_unordered(vec![1, 2, 3]), hash_unordered(vec![3, 1, 2]));
+        assert_ne!(hash_unordered(vec![1, 2, 3]), hash_unordered(vec![1, 2, 4]));
     }
 }

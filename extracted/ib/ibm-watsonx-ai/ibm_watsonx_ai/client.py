@@ -28,11 +28,7 @@ from warnings import warn
 import httpx
 
 import ibm_watsonx_ai.utils
-from ibm_watsonx_ai._wrappers.httpx import GlobalHttpxSettings
-from ibm_watsonx_ai._wrappers.httpx_wrapper import (
-    _get_async_httpx_client,
-    _get_httpx_client,
-)
+from ibm_watsonx_ai._wrappers.httpx import GlobalHttpxSettings, httpx_client_factory
 from ibm_watsonx_ai.ai_services import AIServices
 from ibm_watsonx_ai.assets import Assets
 from ibm_watsonx_ai.connections import Connections
@@ -346,8 +342,9 @@ to `APIClient.service_instance.get_details` method.
         _validate_gov_cloud_env(cast(str, credentials.url), self._logger)
 
         self._httpx_client = (
-            _get_httpx_client(
-                self,
+            httpx_client_factory(
+                is_async=False,
+                api_client=self,
                 limits=httpx_client.limits,
                 timeout=httpx_client.timeout,
             )
@@ -356,10 +353,11 @@ to `APIClient.service_instance.get_details` method.
         )
 
         self._async_httpx_client = (
-            _get_async_httpx_client(
-                self,
-                async_httpx_client.limits,
-                async_httpx_client.timeout,
+            httpx_client_factory(
+                is_async=True,
+                api_client=self,
+                limits=async_httpx_client.limits,
+                timeout=async_httpx_client.timeout,
             )
             if isinstance(async_httpx_client, HttpClientConfig)
             else async_httpx_client

@@ -753,6 +753,19 @@ def _sandbox_inference_configs() -> list:
                 _te.update(_openshell_sandbox_phase_policy(_sb))
                 _te.update(_openshell_sandbox_ocsf_enabled(_sb))
                 _te.update(_sandbox_egress_denied_count(_sb))
+                # dcode session-supervisor feasibility (#3675): the supervisor
+                # (dcode-session-supervisor.py) requires Linux + an OpenShell
+                # sandbox and exits immediately with a fail-closed diagnostic
+                # otherwise.  Surface a flag so unsupervised dcode sessions are
+                # distinguishable from healthy ones.  True means both conditions
+                # are met (Linux platform AND openshell phase data present),
+                # matching the supervisor's own gate exactly.
+                if "deepagents-code" in _sb.lower() or _sb.lower() == "dcode":
+                    import sys as _sys
+                    _te["dcodeSupervisionFeasible"] = (
+                        _sys.platform.startswith("linux")
+                        and bool(_te.get("sandboxPhase"))
+                    )
                 out.append(_te)
     except Exception:
         pass
@@ -909,6 +922,45 @@ def _model_router_health_ok(port: int) -> bool:
         return False
 
 
+def _model_router_launch_log(tail_lines: int = 50) -> Optional[str]:
+    """Read the NemoClaw model-router launch log (#3721).
+
+    The provisioning path writes a startup log during harness onboarding
+    (``readRouterLaunchLog`` in the harness test helper). ClawMetry surfaces
+    the last ``tail_lines`` lines so a failed startup is diagnosable from the
+    dashboard rather than just showing a binary not-running verdict.
+
+    Path resolution (first match wins):
+    1. ``NEMOCLAW_MODEL_ROUTER_LOG`` env var override.
+    2. ``<venv>/model-router.log`` (same directory as fingerprint + proxy-config
+       files — the canonical NemoClaw model-router directory).
+    3. ``~/.nemoclaw/model-router.log`` (home-directory fallback).
+
+    Returns the last ``tail_lines`` as a stripped string, or ``None`` when no
+    log file is found. Never raises.
+    """
+    venv = os.environ.get("NEMOCLAW_MODEL_ROUTER_VENV") or os.path.expanduser(
+        os.path.join("~", ".nemoclaw", "model-router-venv")
+    )
+    candidates = [
+        os.environ.get("NEMOCLAW_MODEL_ROUTER_LOG", ""),
+        os.path.join(venv, "model-router.log"),
+        os.path.expanduser(os.path.join("~", ".nemoclaw", "model-router.log")),
+    ]
+    for path in candidates:
+        if not path:
+            continue
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                lines = fh.readlines()
+            return "".join(lines[-tail_lines:]).strip() or None
+        except OSError:
+            continue
+        except Exception:
+            continue
+    return None
+
+
 def _model_router_live() -> dict:
     """Runtime-liveness signal for the NemoClaw model-router proxy (#2795).
 
@@ -917,13 +969,28 @@ def _model_router_live() -> dict:
     healthy one. This discovers the live proxy and polls its ``/health``
     endpoint, surfacing the distinct liveness signal on ``DetectResult.meta``.
 
+    When the router is not running, includes ``modelRouterLaunchLog`` (last 50
+    lines of the startup log, #3721) so a failed start is diagnosable from the
+    dashboard. The key is absent when no log file exists.
+
     Returns ``{"modelRouterRunning": bool}`` (plus ``modelRouterPort`` when the
-    listening port is discoverable). Read-only, best-effort, never raises.
+    listening port is discoverable, and ``modelRouterLaunchLog`` when a log
+    file is present). Read-only, best-effort, never raises.
     """
     port = _discover_model_router_port()
     if port is None:
-        return {"modelRouterRunning": False}
-    return {"modelRouterPort": port, "modelRouterRunning": _model_router_health_ok(port)}
+        result: dict = {"modelRouterRunning": False}
+        log = _model_router_launch_log()
+        if log is not None:
+            result["modelRouterLaunchLog"] = log
+        return result
+    running = _model_router_health_ok(port)
+    result = {"modelRouterPort": port, "modelRouterRunning": running}
+    if not running:
+        log = _model_router_launch_log()
+        if log is not None:
+            result["modelRouterLaunchLog"] = log
+    return result
 
 
 def _parse_proxy_config_model_list(content: str) -> Optional[List[str]]:
@@ -1490,6 +1557,31 @@ class OpenClawAdapter(AgentAdapter):
             )
             if _fb_runtime is not None:
                 extra["fallbackRuntime"] = _fb_runtime
+            # Atomic runtime alias (#3672): CHANGELOG #98021 "GPT-5.6 Ultra
+            # and runtime switching" added Sol/Terra/Luna as named runtime
+            # variants switched atomically with model and thinking via /model
+            # and fallback.  Capture the selected alias so cost/model
+            # attribution can distinguish which variant served the session.
+            _rt_alias = (
+                s.get("runtimeAlias")
+                or s.get("selectedRuntimeAlias")
+                or s.get("modelRuntimeAlias")
+            )
+            if _rt_alias is not None:
+                extra["runtimeAlias"] = _rt_alias
+            # Thinking-mode selection (#3672): atomic alongside runtimeAlias;
+            # surface as-is (bool or string) so the dashboard can show whether
+            # extended thinking was active.  Use is-not-None guards so
+            # thinkingMode=False (thinking disabled) is never silently dropped.
+            _thinking_mode = s.get("thinkingMode")
+            if _thinking_mode is None:
+                _thinking_mode = s.get("isThinkingEnabled")
+            if _thinking_mode is None:
+                _thinking_mode = s.get("thinkingEnabled")
+            if _thinking_mode is not None:
+                extra["thinkingMode"] = (
+                    _thinking_mode if isinstance(_thinking_mode, str) else bool(_thinking_mode)
+                )
             # /think reasoning-level tier (#3324): PR #94067 stores the active
             # level (light/medium/deep) on session records; surface when present.
             _think_level = s.get("thinkLevel") or s.get("reasoningLevel")

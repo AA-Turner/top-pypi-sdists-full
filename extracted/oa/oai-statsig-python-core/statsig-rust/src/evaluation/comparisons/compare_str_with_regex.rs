@@ -1,16 +1,17 @@
 use crate::{
-    evaluation::evaluator_value::MemoizedEvaluatorValue, log_w, unwrap_or_return,
+    evaluation::evaluator_value::EvaluatorValueRef, log_w, unwrap_or_return,
     user::user_value::UserValueRef,
 };
 
 const TAG: &str = "CompareStrWithRegex";
 
-pub(crate) fn compare_str_with_regex(
+pub(crate) fn compare_str_with_regex<'a>(
     value: UserValueRef<'_>,
-    regex_value: &MemoizedEvaluatorValue,
+    regex_value: impl Into<EvaluatorValueRef<'a>>,
 ) -> bool {
+    let regex_value = regex_value.into();
     let value_str = unwrap_or_return!(value.string_value(), false);
-    let regex = match &regex_value.regex_value {
+    let regex = match regex_value.regex_value() {
         Some(regex) => regex,
         None => {
             log_w!(

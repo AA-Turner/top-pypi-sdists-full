@@ -36,7 +36,7 @@ def get_entry(ord: int) -> ida_idaapi.ea_t:
     """
     ...
 
-def get_entry_forwarder(ord: int) -> str:
+def get_entry_forwarder(ord: int) -> Union[str, None]:
     r"""Get forwarder name for the entry point by its ordinal. 
             
     :param ord: ordinal number of entry point
@@ -44,7 +44,7 @@ def get_entry_forwarder(ord: int) -> str:
     """
     ...
 
-def get_entry_name(ord: int) -> str:
+def get_entry_name(ord: int) -> Union[str, None]:
     r"""Get name of the entry point by its ordinal. 
             
     :param ord: ordinal number of entry point

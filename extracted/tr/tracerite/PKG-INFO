@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tracerite
-Version: 2.5.0
+Version: 2.5.1
 Summary: Human-readable HTML tracebacks for Python exceptions
 Project-URL: Homepage, https://github.com/sanic-org/tracerite
 Project-URL: Repository, https://github.com/sanic-org/tracerite
@@ -23,17 +23,19 @@ Requires-Dist: jupyter-client>=8.6.3; extra == 'nb'
 Requires-Dist: jupyter>=1.1.1; extra == 'nb'
 Requires-Dist: jupyterlab>=4.3.8; extra == 'nb'
 Requires-Dist: notebook>=7.3.3; extra == 'nb'
+Requires-Dist: numpy>=2.2.6; extra == 'nb'
 Description-Content-Type: text/markdown
 
-# TraceRite
+# Tracebacks for Humans (and Machines)
 
-**Beautiful, readable error messages for Python, with text and HTML formatting.**
+**Fixing bugs is easier with well formatted error messages. Console, HTML and JSON.**
 
 [![PyPI version](https://badge.fury.io/py/tracerite.svg)](https://pypi.org/project/tracerite/)
 ![Tests](https://raw.githubusercontent.com/sanic-org/tracerite/main/docs/img/tests-badge.svg)
 ![Coverage](https://raw.githubusercontent.com/sanic-org/tracerite/main/docs/img/coverage-badge.svg)
 
-![TraceRite features](https://raw.githubusercontent.com/sanic-org/tracerite/main/docs/screenshots/features-composite.webp)
+![TraceRite in Notebook/HTML and terminal](https://raw.githubusercontent.com/sanic-org/tracerite/main/docs/screenshots/features-composite.webp)
+*TraceRite formats Python errors in Jupyter notebooks, in plain HTML, and in the terminal: rich variable inspection (left), plus syntax-error highlighting and compact terminal tracebacks (right).*
 
 ## Installation
 
@@ -70,12 +72,12 @@ This monkeypatches Starlette error handling and FastAPI routing to work with HTM
 
 ### Sanic
 
-Comes with TraceRite built in whenever running in debug mode.
+Comes with TraceRite built in. HTML reports are available in debug mode, and console messages are always formatted by Tracerite.
 
 ## Clarity in complex situations
 
 ![Exception chain comparison](https://raw.githubusercontent.com/sanic-org/tracerite/main/docs/screenshots/chain-comparison.webp)
-*TraceRite shows even complex exception chains in chronological order, as opposed to the convoluted order of Python's own tracebacks where the entry point `func()` is near bottom and the flow jumps back and forth.*
+*TraceRite renders complex exception chains in chronological order (left). The Python 3.15 built in traceback needs illustrative arrows to follow execution (right).*
 
 ## Features
 
@@ -89,8 +91,8 @@ Comes with TraceRite built in whenever running in debug mode.
 - **Custom Styling** - Theme with your colors by defining CSS variables or tty.COLORS.
 - **Automatic dark mode** - Saves your eyes.
 
-![ExceptionGroup comparison](https://raw.githubusercontent.com/sanic-org/tracerite/main/docs/screenshots/group-comparison.webp)
-*Python 3.11+ introduced `ExceptionGroup` for parallel execution errors (e.g., `asyncio.TaskGroup`). TraceRite displays these clearly.*
+![ExceptionGroup in HTML and terminal](https://raw.githubusercontent.com/sanic-org/tracerite/main/docs/screenshots/group-comparison.webp)
+*Python 3.11+ concurrent execution errors with `except*` handling are shown clearly in both HTML and terminal output.*
 
 ## Usage
 
@@ -104,7 +106,7 @@ Renders a complete HTML5 document with a TraceRite traceback, ready to serve fro
 
 ### `extract_chain(exc)`
 
-Extracts exception information as a list of dictionaries—useful for logging, custom formatting, or machine processing.
+Extracts exception information as a JSON compatible list of dictionaries—useful for logging, custom formatting, or machine processing.
 
 ### `prettyvalue(value)`
 
@@ -118,11 +120,9 @@ Extracts and formats variables mentioned in a line of source code.
 
 Load or remove TraceRite as the default exception handler for terminal applications. Handles both `sys.excepthook` and `threading.excepthook`.
 
-Granular loaders are also available: `load_hooks()` / `unload_hooks()`, `load_logging_capture()` / `unload_logging_capture()`, and `load_suppressions()` / `unload_suppressions()`.
-
 ### `tty_traceback(exc)`
 
-Renders an exception as colorful terminal output with ANSI escape codes. Pass an exception object, or call with no arguments inside an `except` block.
+Renders an exception as colorful terminal output with ANSI escape codes. Pass an exception object, or call with no arguments inside an `except` block. `file=io.StringIO()` may be used for plain text output. The output is well readable by all major LLMs, not only by humans.
 
 See the [API documentation](https://github.com/sanic-org/tracerite/blob/main/docs/API.md) for details, or [Development guide](https://github.com/sanic-org/tracerite/blob/main/docs/Development.md) for contributors.
 

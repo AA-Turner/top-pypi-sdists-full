@@ -17,7 +17,6 @@ from pgqueuer.ports.repository import EntrypointExecutionParameter
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_enqueue_single(queries: InMemoryQueries) -> None:
     ids = await queries.enqueue("my_ep", b"payload", priority=5)
     assert len(ids) == 1
@@ -30,7 +29,6 @@ async def test_enqueue_single(queries: InMemoryQueries) -> None:
     assert stats[0].status == "queued"
 
 
-@pytest.mark.asyncio
 async def test_enqueue_batch(queries: InMemoryQueries) -> None:
     ids = await queries.enqueue(
         ["a", "b", "c"],
@@ -41,7 +39,6 @@ async def test_enqueue_batch(queries: InMemoryQueries) -> None:
     assert ids[0] < ids[1] < ids[2]
 
 
-@pytest.mark.asyncio
 async def test_enqueue_returns_ids_with_priority(queries: InMemoryQueries) -> None:
     ids = await queries.enqueue("ep", None, priority=10)
     assert len(ids) == 1
@@ -52,14 +49,12 @@ async def test_enqueue_returns_ids_with_priority(queries: InMemoryQueries) -> No
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_dedupe_key_rejects_duplicate(queries: InMemoryQueries) -> None:
     await queries.enqueue("ep", None, dedupe_key="unique1")
     with pytest.raises(DuplicateJobError):
         await queries.enqueue("ep", None, dedupe_key="unique1")
 
 
-@pytest.mark.asyncio
 async def test_dedupe_key_freed_after_log(queries: InMemoryQueries) -> None:
     await queries.enqueue("ep", None, dedupe_key="dk1")
     qm_id = uuid.uuid4()
@@ -78,12 +73,90 @@ async def test_dedupe_key_freed_after_log(queries: InMemoryQueries) -> None:
     assert len(ids2) == 1
 
 
+async def test_dedupe_key_on_conflict_skip_single(queries: InMemoryQueries) -> None:
+    (first,) = await queries.enqueue("ep", None, dedupe_key="k", on_conflict="skip")
+    assert first is not None
+    assert await queries.enqueue("ep", None, dedupe_key="k", on_conflict="skip") == [None]
+
+    stats = await queries.queue_size()
+    assert sum(x.count for x in stats) == 1
+
+
+async def test_dedupe_key_on_conflict_skip_batch_preserves_shape(
+    queries: InMemoryQueries,
+) -> None:
+    await queries.enqueue("existing", None, dedupe_key="b")
+
+    ids = await queries.enqueue(
+        ["ep_a", "ep_b", "ep_c"],
+        [b"a", b"b", b"c"],
+        [0, 0, 0],
+        dedupe_key=["a", None, "b"],
+        on_conflict="skip",
+    )
+    assert len(ids) == 3
+    assert ids[0] is not None
+    assert ids[1] is not None
+    assert ids[2] is None
+
+
+async def test_dedupe_key_on_conflict_skip_within_batch_duplicate(
+    queries: InMemoryQueries,
+) -> None:
+    ids = await queries.enqueue(
+        ["ep", "ep"],
+        [None, None],
+        [0, 0],
+        dedupe_key=["k", "k"],
+        on_conflict="skip",
+    )
+    assert ids[0] is not None
+    assert ids[1] is None
+    assert sum(x.count for x in await queries.queue_size()) == 1
+
+
+async def test_dedupe_key_within_batch_duplicate_raises(queries: InMemoryQueries) -> None:
+    with pytest.raises(DuplicateJobError):
+        await queries.enqueue(
+            ["ep", "ep"],
+            [None, None],
+            [0, 0],
+            dedupe_key=["k", "k"],
+        )
+    assert sum(x.count for x in await queries.queue_size()) == 0
+
+
+async def test_dedupe_key_on_conflict_skip_no_log_for_skipped(
+    queries: InMemoryQueries,
+) -> None:
+    await queries.enqueue("ep", None, dedupe_key="k")
+    await queries.enqueue("ep", None, dedupe_key="k", on_conflict="skip")
+
+    logged = [log for log in await queries.queue_log() if log.status == "queued"]
+    assert len(logged) == 1
+
+
+async def test_dedupe_key_on_conflict_skip_freed_after_log(queries: InMemoryQueries) -> None:
+    await queries.enqueue("ep", None, dedupe_key="dk1")
+    qm_id = uuid.uuid4()
+    jobs = await queries.dequeue(
+        10,
+        {"ep": EntrypointExecutionParameter(0)},
+        qm_id,
+        None,
+        heartbeat_timeout=timedelta(seconds=30),
+    )
+    await queries.log_jobs([(jobs[0], "successful", None)])
+
+    (job_id,) = await queries.enqueue("ep", None, dedupe_key="dk1", on_conflict="skip")
+    assert job_id is not None
+
+
 # ---------------------------------------------------------------------------
 # Dequeue
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_dequeue_basic(queries: InMemoryQueries) -> None:
     await queries.enqueue("ep", b"data")
     qm_id = uuid.uuid4()
@@ -100,7 +173,6 @@ async def test_dequeue_basic(queries: InMemoryQueries) -> None:
     assert jobs[0].payload == b"data"
 
 
-@pytest.mark.asyncio
 async def test_dequeue_priority_ordering(queries: InMemoryQueries) -> None:
     await queries.enqueue(
         ["ep", "ep", "ep"],
@@ -120,7 +192,6 @@ async def test_dequeue_priority_ordering(queries: InMemoryQueries) -> None:
     assert priorities == sorted(priorities, reverse=True)
 
 
-@pytest.mark.asyncio
 async def test_dequeue_execute_after(queries: InMemoryQueries) -> None:
     await queries.enqueue("ep", None, execute_after=timedelta(hours=1))
     qm_id = uuid.uuid4()
@@ -135,7 +206,6 @@ async def test_dequeue_execute_after(queries: InMemoryQueries) -> None:
     assert len(jobs) == 0
 
 
-@pytest.mark.asyncio
 async def test_dequeue_serialized_dispatch(queries: InMemoryQueries) -> None:
     await queries.enqueue(
         ["ep", "ep"],
@@ -154,7 +224,6 @@ async def test_dequeue_serialized_dispatch(queries: InMemoryQueries) -> None:
     assert len(jobs2) == 0
 
 
-@pytest.mark.asyncio
 async def test_dequeue_concurrency_limit(queries: InMemoryQueries) -> None:
     await queries.enqueue(
         ["ep", "ep", "ep"],
@@ -171,7 +240,6 @@ async def test_dequeue_concurrency_limit(queries: InMemoryQueries) -> None:
     assert len(jobs2) == 0
 
 
-@pytest.mark.asyncio
 async def test_dequeue_global_concurrency_limit(queries: InMemoryQueries) -> None:
     await queries.enqueue(
         ["ep", "ep", "ep"],
@@ -192,7 +260,6 @@ async def test_dequeue_global_concurrency_limit(queries: InMemoryQueries) -> Non
     assert len(jobs2) == 0
 
 
-@pytest.mark.asyncio
 async def test_dequeue_retry_stale_picked(queries: InMemoryQueries) -> None:
     """Picked jobs with expired heartbeat should be retried."""
     await queries.enqueue("ep", None)
@@ -214,7 +281,28 @@ async def test_dequeue_retry_stale_picked(queries: InMemoryQueries) -> None:
     assert jobs2[0].id == jobs[0].id
 
 
-@pytest.mark.asyncio
+async def test_dequeue_stale_priority_beats_fresh_work(queries: InMemoryQueries) -> None:
+    """A stale high-priority job outranks fresh lower-priority work (#684)."""
+    await queries.enqueue("ep", b"stale-hi", priority=10)
+    qm_id = uuid.uuid4()
+    params = {"ep": EntrypointExecutionParameter(0)}
+
+    picked = await queries.dequeue(10, params, qm_id, None, heartbeat_timeout=timedelta(seconds=30))
+    assert len(picked) == 1
+    stale_id = picked[0].id
+
+    from datetime import datetime, timezone
+
+    queries._jobs[int(stale_id)]["heartbeat"] = datetime(2000, 1, 1, tzinfo=timezone.utc)
+
+    await queries.enqueue(["ep"] * 3, [b"fresh-lo"] * 3, [0] * 3)
+
+    recovered = await queries.dequeue(
+        1, params, qm_id, None, heartbeat_timeout=timedelta(seconds=30)
+    )
+    assert [j.id for j in recovered] == [stale_id]
+
+
 async def test_dequeue_empty_entrypoints(queries: InMemoryQueries) -> None:
     await queries.enqueue("ep", None)
     jobs = await queries.dequeue(
@@ -223,7 +311,6 @@ async def test_dequeue_empty_entrypoints(queries: InMemoryQueries) -> None:
     assert len(jobs) == 0
 
 
-@pytest.mark.asyncio
 async def test_dequeue_batch_size_validation(queries: InMemoryQueries) -> None:
     with pytest.raises(ValueError):
         await queries.dequeue(0, {}, uuid.uuid4(), None, heartbeat_timeout=timedelta(seconds=30))
@@ -234,7 +321,6 @@ async def test_dequeue_batch_size_validation(queries: InMemoryQueries) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_log_jobs_removes_from_queue(queries: InMemoryQueries) -> None:
     await queries.enqueue("ep", None)
     qm_id = uuid.uuid4()
@@ -251,7 +337,6 @@ async def test_log_jobs_removes_from_queue(queries: InMemoryQueries) -> None:
     assert len(stats) == 0
 
 
-@pytest.mark.asyncio
 async def test_log_jobs_adds_to_log(queries: InMemoryQueries) -> None:
     await queries.enqueue("ep", None)
     qm_id = uuid.uuid4()
@@ -274,7 +359,6 @@ async def test_log_jobs_adds_to_log(queries: InMemoryQueries) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_mark_job_as_cancelled(queries: InMemoryQueries, driver: InMemoryDriver) -> None:
     notifications: list[str] = []
     await driver.add_listener(queries.qbq.settings.channel, notifications.append)
@@ -294,7 +378,6 @@ async def test_mark_job_as_cancelled(queries: InMemoryQueries, driver: InMemoryD
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_clear_queue_truncate(queries: InMemoryQueries) -> None:
     await queries.enqueue(["a", "b"], [None, None], [0, 0])
     await queries.clear_queue()
@@ -308,7 +391,6 @@ async def test_clear_queue_truncate(queries: InMemoryQueries) -> None:
     assert len(deleted_entries) == 0
 
 
-@pytest.mark.asyncio
 async def test_clear_queue_filtered(queries: InMemoryQueries) -> None:
     await queries.enqueue(["a", "b"], [None, None], [0, 0])
     await queries.clear_queue("a")
@@ -328,7 +410,6 @@ async def test_clear_queue_filtered(queries: InMemoryQueries) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_update_heartbeat(queries: InMemoryQueries) -> None:
     await queries.enqueue("ep", None)
     qm_id = uuid.uuid4()
@@ -351,7 +432,6 @@ async def test_update_heartbeat(queries: InMemoryQueries) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_queue_log_lifecycle(queries: InMemoryQueries) -> None:
     await queries.enqueue("ep", None)
     qm_id = uuid.uuid4()
@@ -376,7 +456,6 @@ async def test_queue_log_lifecycle(queries: InMemoryQueries) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_log_statistics(queries: InMemoryQueries) -> None:
     await queries.enqueue("ep", None)
     qm_id = uuid.uuid4()
@@ -399,7 +478,6 @@ async def test_log_statistics(queries: InMemoryQueries) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_job_status(queries: InMemoryQueries) -> None:
     ids = await queries.enqueue("ep", None)
     qm_id = uuid.uuid4()
@@ -422,7 +500,6 @@ async def test_job_status(queries: InMemoryQueries) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_queued_work(queries: InMemoryQueries) -> None:
     await queries.enqueue(["ep", "ep", "other"], [None, None, None], [0, 0, 0])
     count = await queries.queued_work(["ep"])
@@ -434,7 +511,6 @@ async def test_queued_work(queries: InMemoryQueries) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_schedule_lifecycle(queries: InMemoryQueries) -> None:
     from pgqueuer.domain.models import CronExpressionEntrypoint
     from pgqueuer.domain.types import CronEntrypoint, CronExpression
@@ -470,7 +546,6 @@ async def test_schedule_lifecycle(queries: InMemoryQueries) -> None:
     assert len(schedules) == 0
 
 
-@pytest.mark.asyncio
 async def test_clear_schedule(queries: InMemoryQueries) -> None:
     from pgqueuer.domain.models import CronExpressionEntrypoint
     from pgqueuer.domain.types import CronEntrypoint, CronExpression
@@ -490,7 +565,6 @@ async def test_clear_schedule(queries: InMemoryQueries) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_table_changed_notification(queries: InMemoryQueries, driver: InMemoryDriver) -> None:
     notifications: list[str] = []
     await driver.add_listener(queries.qbq.settings.channel, notifications.append)
@@ -499,7 +573,6 @@ async def test_table_changed_notification(queries: InMemoryQueries, driver: InMe
     assert any("table_changed_event" in n for n in notifications)
 
 
-@pytest.mark.asyncio
 async def test_health_check_notification(queries: InMemoryQueries, driver: InMemoryDriver) -> None:
     notifications: list[str] = []
     await driver.add_listener(queries.qbq.settings.channel, notifications.append)
@@ -513,7 +586,6 @@ async def test_health_check_notification(queries: InMemoryQueries, driver: InMem
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_schema_methods_return_true(queries: InMemoryQueries) -> None:
     assert await queries.has_table("any_table") is True
     assert await queries.table_has_column("t", "c") is True
@@ -521,13 +593,11 @@ async def test_schema_methods_return_true(queries: InMemoryQueries) -> None:
     assert await queries.has_user_defined_enum("k", "e") is True
 
 
-@pytest.mark.asyncio
 async def test_install_upgrade_noop(queries: InMemoryQueries) -> None:
     await queries.install()
     await queries.upgrade()
 
 
-@pytest.mark.asyncio
 async def test_uninstall_clears_state(queries: InMemoryQueries) -> None:
     await queries.enqueue("ep", None)
     await queries.uninstall()
@@ -540,19 +610,16 @@ async def test_uninstall_clears_state(queries: InMemoryQueries) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_driver_context_manager(driver: InMemoryDriver) -> None:
     async with driver as d:
         assert d is driver
 
 
-@pytest.mark.asyncio
 async def test_driver_fetch_raises(driver: InMemoryDriver) -> None:
     with pytest.raises(NotImplementedError):
         await driver.fetch("SELECT 1")
 
 
-@pytest.mark.asyncio
 async def test_driver_execute_raises(driver: InMemoryDriver) -> None:
     with pytest.raises(NotImplementedError):
         await driver.execute("SELECT 1")

@@ -122,6 +122,54 @@ fn test_fast_user_loggable_matches_public_user_for_full_payload() {
     );
 }
 
-// todo: test get_unit_id
+#[test]
+fn test_fast_user_get_unit_id_matches_public_user() {
+    let mut public_user = StatsigUser::with_user_id("primary-user");
+    public_user.set_custom_ids(std::collections::HashMap::from([
+        ("userID".to_string(), "custom-user".to_string()),
+        ("accountID".to_string(), "exact-account".to_string()),
+        ("accountid".to_string(), "lowercase-account".to_string()),
+    ]));
+
+    let fast_user = FastStatsigUser::new(FastUserData {
+        user_id: Some(UserValue::from("primary-user")),
+        custom_ids: Some(FastUserUnitIDMap::from_iter([
+            ("userID".to_string(), UserValue::from("custom-user")),
+            ("accountID".to_string(), UserValue::from("exact-account")),
+            (
+                "accountid".to_string(),
+                UserValue::from("lowercase-account"),
+            ),
+        ])),
+        ..FastUserData::default()
+    });
+
+    let public_user = StatsigUserInternal::new(&public_user, None);
+    let fast_user = StatsigUserInternal::from_fast_user(&fast_user, None);
+    let cases = [
+        ("userID", Some("primary-user")),
+        ("USERID", Some("primary-user")),
+        ("accountID", Some("exact-account")),
+        ("AccountID", Some("lowercase-account")),
+        ("missingID", None),
+    ];
+
+    for (id_type, expected) in cases {
+        let id_type = DynamicString::from(id_type.to_string());
+        assert_eq!(
+            public_user
+                .get_unit_id(&id_type)
+                .and_then(UserValueRef::string_value),
+            expected,
+        );
+        assert_eq!(
+            fast_user
+                .get_unit_id(&id_type)
+                .and_then(UserValueRef::string_value),
+            expected,
+        );
+    }
+}
+
 // todo: test get_value_from_environment
 // todo: test to_loggable

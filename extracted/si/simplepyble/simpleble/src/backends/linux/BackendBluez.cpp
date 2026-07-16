@@ -7,10 +7,11 @@
 #include <simpleble/Config.h>
 #include <simplebluez/Config.h>
 
-#include <fmt/core.h>
 #include <atomic>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <thread>
 
 namespace SimpleBLE {
@@ -28,9 +29,13 @@ class BackendBluez : public BackendSingleton<BackendBluez> {
     virtual bool is_active() override;
 
   private:
-    std::thread* async_thread;
-    std::atomic_bool async_thread_active;
+    std::thread async_thread;
+    std::atomic_bool async_thread_active = false;
+    std::shared_ptr<SimpleBluez::Agent> agent;
     void async_thread_function();
+
+    std::map<std::string, std::shared_ptr<AdapterLinux>> adapters_;
+    std::mutex adapters_mutex_;
 };
 
 std::shared_ptr<BackendBase> BACKEND_LINUX() { return BackendBluez::get(); }
@@ -42,29 +47,36 @@ BackendBluez::BackendBluez(buildToken) {
     SimpleBluez::Config::use_system_bus = Config::SimpleBluez::use_system_bus;
 
     bluez.init();
-    async_thread_active = true;
-    async_thread = new std::thread(&BackendBluez::async_thread_function, this);
+    agent = bluez.root_custom()->agent_add("default");
 
-    fmt::print(
-        "WARNING: This is an experimental version of the new Bluez backend. Please report any issues to the SimpleBLE "
-        "developers.\n");
+    async_thread_active = true;
+    async_thread = std::thread(&BackendBluez::async_thread_function, this);
+    SAFE_RUN({ bluez.register_agent(agent); });
 }
 
 BackendBluez::~BackendBluez() {
     async_thread_active = false;
-    while (!async_thread->joinable()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    if (async_thread.joinable()) {
+        async_thread.join();
     }
-    async_thread->join();
-    delete async_thread;
 }
 
 SharedPtrVector<AdapterBase> BackendBluez::adapters() {
     SharedPtrVector<AdapterBase> adapter_list;
 
     auto internal_adapters = bluez.get_adapters();
+    std::scoped_lock lock(adapters_mutex_);
     for (auto& adapter : internal_adapters) {
-        adapter_list.push_back(std::make_shared<AdapterLinux>(adapter));
+        auto path = adapter->path();
+
+        // Reuse the cached wrapper for this adapter if one exists, as creating a
+        // second wrapper around the same adapter would clear the existing wrapper's
+        // callbacks once it gets destroyed.
+        if (adapters_.count(path) == 0) {
+            adapters_.insert(std::make_pair(path, std::make_shared<AdapterLinux>(adapter)));
+        }
+
+        adapter_list.push_back(adapters_.at(path));
     }
     return adapter_list;
 }
@@ -90,12 +102,6 @@ bool BackendBluez::is_active() {
 std::string BackendBluez::identifier() const noexcept { return "SimpleBluez"; }
 
 void BackendBluez::async_thread_function() {
-    SAFE_RUN({
-        std::shared_ptr<SimpleBluez::Agent> agent = bluez.root_custom()->agent_add("default");
-        // NOTE: We should pin this agent to the backend so that we can directly access the object for advance behaviors.
-        bluez.register_agent(agent);
-    });
-
     while (async_thread_active) {
         SAFE_RUN({ bluez.run_async(); });
         std::this_thread::sleep_for(std::chrono::microseconds(100));

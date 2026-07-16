@@ -546,20 +546,36 @@ class TinyB:
     def datasource_sync(self, datasource_id: str):
         return self._req(f"/v0/datasources/{datasource_id}/scheduling/runs", method="POST", data="")
 
-    def datasource_sample(self, datasource_name: str, max_files: int = 1) -> Dict[str, Any]:
-        """Start a sample import job for an S3/GCS connected datasource.
+    def datasource_sample(
+        self,
+        datasource_name: str,
+        max_files: int = 1,
+        rows: Optional[int] = None,
+        max_bytes: Optional[str] = None,
+        full_export: bool = False,
+    ) -> Dict[str, Any]:
+        """Start a sample import job for an S3/GCS/DynamoDB connected datasource.
 
         Args:
             datasource_name: Name of the datasource to import sample data into
-            max_files: Maximum number of files to import (default 1, max 10)
+            max_files: Maximum number of files to import for blob storage connectors (default 1, max 10)
+            rows: For DynamoDB, the maximum number of rows to scan and import (mutually exclusive with max_bytes)
+            max_bytes: For DynamoDB, the maximum approximate JSONEachRow bytes to import, capped by the server's
+                workspace limit (mutually exclusive with rows)
+            full_export: For DynamoDB, trigger a full PITR export instead of a bounded scan
 
         Returns:
             dict with job info including id, job_id, job_url, job, status
         """
+        payload: Dict[str, Any] = {"max_files": max_files, "full_export": full_export}
+        if rows is not None:
+            payload["rows"] = rows
+        if max_bytes is not None:
+            payload["max_bytes"] = max_bytes
         return self._req(
             f"/v0/datasources/{datasource_name}/sample",
             method="POST",
-            data=json.dumps({"max_files": max_files}),
+            data=json.dumps(payload),
         )
 
     def datasource_scheduling_state(self, datasource_id: str):

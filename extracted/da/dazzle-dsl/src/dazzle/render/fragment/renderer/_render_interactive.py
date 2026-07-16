@@ -35,6 +35,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dazzle.render.fragment.context import RenderContext
+from dazzle.render.fragment.ingest import DateRange as DateRangeSeam
+from dazzle.render.fragment.ingest import Pagination as PaginationSeam
+from dazzle.render.fragment.ingest import SearchBox as SearchBoxSeam
+from dazzle.render.fragment.ingest import (
+    render_date_range,
+    render_pagination,
+    render_search_box,
+)
 from dazzle.render.fragment.primitives import (
     BulkActionToolbar,
     Button,
@@ -239,14 +247,11 @@ class _RenderInteractiveMixin:
         )
 
     def _emit_pagination(self, p: Pagination, ctx: RenderContext) -> str:
-        """Render a Pagination matching legacy `table_pagination.html`
-        byte-equivalent shape (Phase 2 of #1029).
+        """Render Pagination via HM dual-lock Pagination seam.
 
-        Wraps the LIST adapter's table when total > page_size; emits
-        the row-summary on the left and bounded page-button row on
-        the right. Each button is htmx-driven; sort/filter/search
-        state preserved via the opaque `extra_query` carried on the
-        primitive."""
+        Page buttons stay host-built (htmx endpoints); dual-lock roots
+        data-dz-pagination + data-dz-grid-pagination + data-dz-grid-total.
+        """
         if p.total <= p.page_size:
             return ""
         total_pages = (p.total + p.page_size - 1) // p.page_size
@@ -274,59 +279,24 @@ class _RenderInteractiveMixin:
                 f"</button>"
             )
         rows_label = "row" if p.total == 1 else "rows"
-        return (
-            # data-dz-grid-total: the server-authoritative matched total the HM
-            # grid primitive reads (all-matching selection) — convergence C0a.
-            # C1 GATE: `data-dz-grid-pagination` must land on THIS element
-            # (matchedTotal() reads the total off the marker's carrier).
-            f'<div class="dz-pagination" data-dz-grid-total="{p.total}">'
-            f'<span class="dz-pagination-summary">'
-            f'<span class="dz-bulk-summary-selected">'
-            f"<span data-dz-bulk-count-target>0</span> of {p.total} selected"
-            f"</span>"
-            f'<span class="dz-bulk-summary-rows">{p.total} {rows_label}</span>'
-            f"</span>"
-            f'<div class="dz-pagination-pages">{"".join(page_html_parts)}</div>'
-            f"</div>"
+        return render_pagination(
+            PaginationSeam(
+                total=p.total,
+                pages_html="".join(page_html_parts),
+                rows_label=rows_label,
+            )
         )
 
     def _emit_search_box(self, s: SearchBox, ctx: RenderContext) -> str:
-        """Render a SearchBox: accessible label + search input wired to
-        HTMX with 250ms debounce, results panel with
-        `aria-live="polite"`, and a coaching message hidden by PURE CSS
-        once the user types (`.dz-search-box-region:has(input:not(
-        :placeholder-shown))` — the Alpine `q` island retired in Tier
-        F3; the first result swap replaces the coaching line anyway).
-        """
-        results_id = f"dz-search-results-{ctx.escape_attr(s.name)}"
-        endpoint = ctx.escape_attr(str(s.fts_endpoint))
-        # A non-empty placeholder is LOAD-BEARING: the coaching-line CSS
-        # toggle keys off :placeholder-shown, which never matches an empty
-        # placeholder (coaching would be permanently hidden).
-        placeholder = ctx.escape_attr(s.placeholder or "Search…")
-        coaching = ctx.escape(s.coaching_message)
-        # Label uses placeholder as fallback when no explicit label is
-        # supplied — matches the legacy template's `title or _placeholder`.
-        label_text = ctx.escape(s.label or s.placeholder)
-        return (
-            f'<div class="dz-search-box-region">'
-            f'<div class="dz-search-box-input-row">'
-            f'<label for="{results_id}-input" class="visually-hidden">{label_text}</label>'
-            f'<input id="{results_id}-input" type="search" name="q" '
-            f'class="dz-search-box-input" placeholder="{placeholder}" '
-            f'autocomplete="off" '
-            f'hx-get="{endpoint}" '
-            f'hx-trigger="input changed delay:250ms, search" '
-            f'hx-target="#{results_id}" '
-            f'hx-swap="innerHTML">'
-            f"</div>"
-            f'<div id="{results_id}" class="dz-search-box-results" '
-            f'role="region" aria-live="polite">'
-            f'<div class="dz-search-box-empty">'
-            f"{coaching}"
-            f"</div>"
-            f"</div>"
-            f"</div>"
+        """Render a SearchBox via HM dual-lock SearchBox seam."""
+        return render_search_box(
+            SearchBoxSeam(
+                name=s.name,
+                label=s.label or "",
+                placeholder=s.placeholder or "Search…",
+                coaching_message=s.coaching_message,
+                endpoint=str(s.fts_endpoint),
+            )
         )
 
     def _emit_confirm_gate(self, c: ConfirmGate, ctx: RenderContext) -> str:
@@ -628,28 +598,14 @@ class _RenderInteractiveMixin:
         )
 
     def _emit_date_range_picker(self, d: DateRangePicker, ctx: RenderContext) -> str:
-        """Render a DateRangePicker matching the legacy
-        `fragments/date_range_picker.html` byte-for-byte: paired
-        From/To `<input type="date">` elements with HTMX
-        `hx-include="closest .date-range-bar"` so both values ride
-        along on every change.
-        """
-        rname = ctx.escape_attr(d.region_name)
-        endpoint = ctx.escape_attr(str(d.endpoint))
-        target = f"#region-{rname}"
-        date_from = ctx.escape_attr(d.date_from)
-        date_to = ctx.escape_attr(d.date_to)
-        return (
-            f'<div class="dz-date-range-picker date-range-bar">'
-            f'<label class="dz-date-range-label" for="date-from-{rname}">From</label>'
-            f'<input type="date" id="date-from-{rname}" name="date_from" '
-            f'value="{date_from}" class="dz-date-range-input" '
-            f'hx-get="{endpoint}" hx-target="{target}" hx-swap="innerHTML" '
-            f'hx-include="closest .date-range-bar">'
-            f'<label class="dz-date-range-label" for="date-to-{rname}">To</label>'
-            f'<input type="date" id="date-to-{rname}" name="date_to" '
-            f'value="{date_to}" class="dz-date-range-input" '
-            f'hx-get="{endpoint}" hx-target="{target}" hx-swap="innerHTML" '
-            f'hx-include="closest .date-range-bar">'
-            f"</div>"
+        """Render a DateRangePicker via HM dual-lock DateRange seam."""
+        rname = d.region_name
+        return render_date_range(
+            DateRangeSeam(
+                region_name=rname,
+                endpoint=str(d.endpoint),
+                date_from=d.date_from,
+                date_to=d.date_to,
+                target=f"#region-{rname}",
+            )
         )

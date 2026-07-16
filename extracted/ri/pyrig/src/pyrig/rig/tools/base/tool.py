@@ -2,6 +2,7 @@
 
 from abc import abstractmethod
 from types import ModuleType
+from typing import Any
 
 from pyrig_runtime.core.dependencies.subclass import DependencySubclass
 from pyrig_runtime.core.strings import kebab_to_snake_case
@@ -68,7 +69,7 @@ class Tool(DependencySubclass):
             tools in that group. Groups are ordered by `groups()`; badges
             within a group are ordered by each tool's `sort_key()`.
         """
-        subclasses = cls.subclasses_sorted(cls.concrete_subclasses())
+        subclasses = cls.sort_subclasses(cls.concrete_subclasses())
         groups: dict[str, list[str]] = {g: [] for g in cls.groups()}
         for subclass in subclasses:
             tool = subclass()
@@ -79,8 +80,7 @@ class Tool(DependencySubclass):
     def groups(cls) -> tuple[str, ...]:
         """Return the display order of the `Group` categories."""
         return (
-            Group.CI_CD,
-            Group.TESTING,
+            Group.PROJECT_STATUS,
             Group.CODE_QUALITY,
             Group.TOOLING,
             Group.PROJECT_INFO,
@@ -95,13 +95,15 @@ class Tool(DependencySubclass):
             duplicates if multiple tools share a dependency.
         """
         return sorted(
-            dep
-            for subclass in cls.concrete_subclasses()
-            for dep in subclass().dev_dependencies()
+            {
+                dep
+                for subclass in cls.concrete_subclasses()
+                for dep in subclass().dev_dependencies()
+            },
         )
 
     @classmethod
-    def subclasses_version_control_ignore_paths(cls) -> list[str]:
+    def subclasses_version_control_ignore_patterns(cls) -> list[str]:
         """Return the version control ignore paths of every concrete tool, sorted.
 
         Returns:
@@ -111,7 +113,7 @@ class Tool(DependencySubclass):
         return sorted(
             path
             for subclass in cls.concrete_subclasses()
-            for path in subclass().version_control_ignore_paths()
+            for path in subclass().version_control_ignore_patterns()
         )
 
     def args(self, *args: str) -> Args:
@@ -124,6 +126,19 @@ class Tool(DependencySubclass):
             An `Args` object whose first element is the tool name.
         """
         return Args(self.name(), *args)
+
+    def shield_name(self) -> str:
+        """Return this tool's name escaped for a shields.io static badge segment.
+
+        shields.io's static badge URL splits its path on `-`, so a literal
+        hyphen in the name itself (e.g. `check-json`) must be doubled to
+        `--` to survive as one segment instead of being misread as a field
+        separator.
+
+        Returns:
+            `self.name()` with every `-` doubled.
+        """
+        return self.name().replace("-", "--")
 
     def badge(self) -> str:
         """Return the Markdown badge string for this tool.
@@ -161,7 +176,7 @@ class Tool(DependencySubclass):
         """
         return (self.name(),)
 
-    def version_control_ignore_paths(self) -> tuple[str, ...]:
+    def version_control_ignore_patterns(self) -> tuple[str, ...]:
         """Return paths this tool writes that should be excluded from version control.
 
         Paths are relative to the project root. Override in a subclass to
@@ -169,6 +184,17 @@ class Tool(DependencySubclass):
 
         Returns:
             File paths to ignore. Empty by default.
+        """
+        return ()
+
+    def version_control_hooks(self) -> tuple[dict[str, Any], ...]:
+        """Return the prek hooks this tool contributes to the pipeline.
+
+        Override in a subclass to declare the hooks that invoke this tool,
+        built via `VersionControlHookManager.hook`.
+
+        Returns:
+            Hook metadata dictionaries. Empty by default.
         """
         return ()
 
@@ -184,8 +210,7 @@ class Tool(DependencySubclass):
 class Group:
     """Named constants for the categories tool badges are grouped under."""
 
-    CI_CD = "ci/cd"
     CODE_QUALITY = "code-quality"
     PROJECT_INFO = "project-info"
+    PROJECT_STATUS = "project-status"
     TOOLING = "tooling"
-    TESTING = "testing"

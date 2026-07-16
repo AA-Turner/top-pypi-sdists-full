@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from aiopnsense import (
+    OPNsenseError,
     client_queue as aiopnsense_client_queue,
 )
 from tests.conftest import (
@@ -79,6 +80,33 @@ async def test_opnsenseclient_async_context_manager_closes_background_tasks(
         await client.async_close()
 
 
+@pytest.mark.asyncio
+async def test_get_active_loop_raises_when_worker_startup_leaves_loop_unset(
+    make_client: MakeClientFactory,
+) -> None:
+    """Raise a public error when worker startup does not retain its event loop.
+
+    Args:
+        make_client (MakeClientFactory): Fixture factory returning ``OPNsenseClient`` instances.
+
+    Returns:
+        None: This test asserts the missing-loop failure contract.
+    """
+    client, _session = make_mock_session_client(make_client)
+    try:
+        await client._ensure_workers_started()
+        assert client._workers
+
+        client._loop = None
+        client._ensure_workers_started = AsyncMock()
+
+        with pytest.raises(OPNsenseError, match="^Event loop is not initialized$"):
+            await client._get_active_loop()
+        client._ensure_workers_started.assert_awaited_once()
+    finally:
+        await client.async_close()
+
+
 async def test_process_queue_unknown_method_sets_future_exception(
     make_client: MakeClientFactory,
 ) -> None:
@@ -109,7 +137,7 @@ async def test_process_queue_unknown_method_sets_future_exception(
             await task
         # future should have an exception
         exc = future.exception()
-        assert isinstance(exc, RuntimeError)
+        assert isinstance(exc, OPNsenseError)
     finally:
         if task is not None and not task.done():
             task.cancel()
@@ -131,7 +159,22 @@ async def test_process_queue_handles_requests(make_client: MakeClientFactory) ->
     task: asyncio.Task | None = None
     try:
         # patch the do_* methods
-        client._do_get = AsyncMock(return_value={"g": 1})
+        async def fake_do_get(path: Any, caller: str = "x", response_format: str = "json") -> Any:
+            """Fake ``_do_get`` with response format support.
+
+            Args:
+                path (Any): API endpoint path.
+                caller (str): Caller name used for diagnostics.
+                response_format (str): Expected response format.
+
+            Returns:
+                Any: JSON mapping for JSON format, text marker for text format.
+            """
+            if response_format == "text":
+                return "text"
+            return {"g": 1}
+
+        client._do_get = AsyncMock(side_effect=fake_do_get)
         client._do_post = AsyncMock(return_value={"p": 2})
         client._do_get_from_stream = AsyncMock(return_value={"s": 3})
 
@@ -144,20 +187,27 @@ async def test_process_queue_handles_requests(make_client: MakeClientFactory) ->
 
         loop = asyncio.get_running_loop()
         fut_get = loop.create_future()
+        fut_get_text = loop.create_future()
         fut_post = loop.create_future()
         fut_stream = loop.create_future()
 
         await q.put(("get", "/g", None, fut_get, "t"))
+        await q.put(("get_text", "/gt", None, fut_get_text, "t"))
         await q.put(("post", "/p", {"x": 1}, fut_post, "t"))
         await q.put(("get_from_stream", "/s", None, fut_stream, "t"))
 
         res1 = await asyncio.wait_for(fut_get, timeout=2)
+        res_text = await asyncio.wait_for(fut_get_text, timeout=2)
         res2 = await asyncio.wait_for(fut_post, timeout=2)
         res3 = await asyncio.wait_for(fut_stream, timeout=2)
 
         assert res1 == {"g": 1}
+        assert res_text == "text"
         assert res2 == {"p": 2}
         assert res3 == {"s": 3}
+        assert client._do_get.await_count == 2
+        client._do_get.assert_any_await("/g", "t")
+        client._do_get.assert_any_await("/gt", "t", response_format="text")
 
         # cancel the processor task
         task.cancel()
@@ -217,6 +267,36 @@ async def test_get_enqueues_and_processes(returned: Any, make_client: MakeClient
         assert res == returned
         # caller should be the test function name when inspect.stack works
         assert called.get("caller") is not None
+    finally:
+        if task is not None and not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_get_text_rejects_unexpected_type(make_client: MakeClientFactory) -> None:
+    """Raise a public error when text-mode queue responses are not text.
+
+    Args:
+        make_client (MakeClientFactory): Fixture factory returning ``OPNsenseClient`` instances.
+
+    Returns:
+        None: This test asserts unexpected response types raise ``OPNsenseError``.
+    """
+    client, _session = make_mock_session_client(make_client)
+    task: asyncio.Task | None = None
+    try:
+        q: asyncio.Queue = asyncio.Queue()
+        client._request_queue = q
+
+        client._do_get = AsyncMock(return_value={"ok": 1})
+
+        task = asyncio.get_running_loop().create_task(client._process_queue())
+
+        with pytest.raises(OPNsenseError, match=r"Expected text response"):
+            await client._get_text("/text")
     finally:
         if task is not None and not task.done():
             task.cancel()
@@ -409,12 +489,23 @@ async def test_post_uses_unknown_when_inspect_stack_raises(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("source_error", "expect_cause"),
+    [
+        pytest.param(ValueError("boom"), True, id="mapped-error"),
+        pytest.param(OPNsenseError("boom"), False, id="public-error"),
+    ],
+)
 async def test_process_queue_exception_sets_future_exception(
+    source_error: Exception,
+    expect_cause: bool,
     make_client: MakeClientFactory,
 ) -> None:
     """Verify worker exceptions are propagated to request futures.
 
     Args:
+        source_error (Exception): Error raised by the queued request handler.
+        expect_cause (bool): Whether the queue maps and chains the source error.
         make_client (MakeClientFactory): Fixture factory returning ``OPNsenseClient`` instances.
 
     Returns:
@@ -423,7 +514,7 @@ async def test_process_queue_exception_sets_future_exception(
     client, _session = make_mock_session_client(make_client)
     task: asyncio.Task | None = None
     try:
-        client._do_get = AsyncMock(side_effect=ValueError("boom"))
+        client._do_get = AsyncMock(side_effect=source_error)
 
         q: asyncio.Queue = asyncio.Queue()
         client._request_queue = q
@@ -434,8 +525,13 @@ async def test_process_queue_exception_sets_future_exception(
         fut = loop.create_future()
         await q.put(("get", "/g", None, fut, "t"))
 
-        with pytest.raises(ValueError):
+        with pytest.raises(OPNsenseError, match="boom") as exc_info:
             await asyncio.wait_for(fut, timeout=2)
+        if expect_cause:
+            assert exc_info.value.__cause__ is source_error
+        else:
+            assert exc_info.value is source_error
+            assert exc_info.value.__cause__ is None
 
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):

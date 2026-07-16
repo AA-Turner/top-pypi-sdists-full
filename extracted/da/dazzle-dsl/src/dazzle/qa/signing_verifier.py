@@ -11,12 +11,18 @@ from dazzle.qa.signing_seed import SeededDoc
 DbReader = Callable[[str, str], "dict[str, Any] | None"]
 PdfValidator = Callable[[str], "dict[str, Any]"]
 
-_EXPECTED_STATUS: dict[str, str | None] = {
+# Expected final row status(es) for each inferred outcome. Values are a single
+# status string or a frozenset of acceptable statuses.
+#
+# ``validator_rejected`` accepts both ``sent`` and ``viewed``: opening the
+# link advances default lifecycle ``sent → viewed`` before POST sign; a
+# rejected signature must leave the row non-terminal (not signed/declined).
+_EXPECTED_STATUS: dict[str, str | frozenset[str] | None] = {
     "signed": "signed",
     "declined": "declined",
     "token_invalid": "sent",
     "token_expired": "sent",
-    "validator_rejected": "sent",  # #1382: validator blocks the signature → row stays sent
+    "validator_rejected": frozenset({"sent", "viewed"}),
     "not_engaged": None,
 }
 
@@ -65,6 +71,27 @@ def _has_audit_fields(row: dict[str, Any]) -> bool:
     return bool(row.get("signer_ip")) and bool(row.get("signed_at"))
 
 
+def _expected_outcome_for_seeded_doc(
+    active_doc: SeededDoc | None,
+    invoked: list[str],
+) -> str:
+    """Map seeded-doc harness flags to an expected outcome label.
+
+    When the harness fixed token/validator state, tool-based inference would
+    mis-score (e.g. expect "signed" after an attempt against an expired link).
+    """
+    if active_doc is not None and getattr(active_doc, "token_state", "fresh") == "expired":
+        # TR-51: expired token — every attempt rejected; row stays untouched.
+        return "token_expired"
+    if active_doc is not None and getattr(active_doc, "token_state", "fresh") == "already_signed":
+        # TR-49: pre-signed row; re-open must leave status=signed.
+        return "signed"
+    if active_doc is not None and getattr(active_doc, "validator_reject", False):
+        # #1382: project signing_validator armed to reject — stay `sent`.
+        return "validator_rejected"
+    return infer_expected_outcome(invoked)
+
+
 def verify_signing_outcome(
     *,
     action_sink: dict[str, Any],
@@ -82,25 +109,7 @@ def verify_signing_outcome(
     requests: list[dict[str, Any]] = action_sink.get("requests", [])
     active_doc: SeededDoc | None = action_sink.get("active_doc")
 
-    # When the harness seeded an already-expired token (TR-51), the
-    # expectation is fixed by the seeding, not by what the persona tried:
-    # every sign/decline attempt must be rejected and the row must stay
-    # untouched. Tool-based inference would wrongly expect "signed" the
-    # moment the persona attempts a signature against the expired link.
-    if active_doc is not None and getattr(active_doc, "token_state", "fresh") == "expired":
-        expected = "token_expired"
-    elif active_doc is not None and getattr(active_doc, "token_state", "fresh") == "already_signed":
-        # TR-50: harness pre-signed the row; re-open must leave status=signed
-        # (persona may open the link / download; must not un-sign or re-seed pending).
-        expected = "signed"
-    elif active_doc is not None and getattr(active_doc, "validator_reject", False):
-        # #1382: the project signing_validator is armed to reject this row, so the
-        # expectation is fixed by the seeding — the persona's sign attempt must be
-        # blocked and the row must stay `sent`. Tool inference would wrongly expect
-        # "signed" and a successful rejection would mis-score as a failure.
-        expected = "validator_rejected"
-    else:
-        expected = infer_expected_outcome(invoked)
+    expected = _expected_outcome_for_seeded_doc(active_doc, invoked)
     outcome = SigningOutcome(detected=False, expected_outcome_inferred=expected)
 
     if not any("/sign/" in r.get("url", "") for r in requests):
@@ -125,13 +134,23 @@ def verify_signing_outcome(
 
     expected_status = _EXPECTED_STATUS.get(expected)
     final_status = row.get("status")
-    if expected_status is not None and final_status != expected_status:
+    if expected_status is None:
+        status_ok = True
+        expected_repr: str | None = None
+    elif isinstance(expected_status, frozenset):
+        status_ok = final_status in expected_status
+        expected_repr = "|".join(sorted(expected_status))
+    else:
+        status_ok = final_status == expected_status
+        expected_repr = expected_status
+
+    if expected_status is not None and not status_ok:
         outcome.functional = {
             "status": "fail",
             "final_row_status": final_status,
             "audit_row_present": _has_audit_fields(row),
             "reason": (
-                f"expected status={expected_status} for outcome={expected}, got {final_status}"
+                f"expected status={expected_repr} for outcome={expected}, got {final_status}"
             ),
         }
     else:

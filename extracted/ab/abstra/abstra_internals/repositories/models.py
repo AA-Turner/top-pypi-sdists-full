@@ -61,6 +61,33 @@ class RunSnippetMessage(ControlMessage):
         )
 
 
+class RunSnippetSandboxedMessage(ControlMessage):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    type: str = "run_snippet_sandboxed"
+    payload: RunSnippetPayload
+    connection: Optional[Connection] = Field(default=None, exclude=True)
+    # Publisher's reply-queue x-expires; the worker must redeclare with the exact
+    # same value or RabbitMQ 406s (see consumer._send_snippet_result).
+    queue_expire_ms: Optional[int] = None
+    # Execution budget; worker kills at this point, cloud-api waits past it.
+    # None → worker's own hard cap.
+    timeout_ms: Optional[int] = None
+
+    @staticmethod
+    def create(
+        code: str,
+        title: str = "Debug Snippet",
+        queue_expire_ms: Optional[int] = None,
+        timeout_ms: Optional[int] = None,
+    ) -> "RunSnippetSandboxedMessage":
+        return RunSnippetSandboxedMessage(
+            payload=RunSnippetPayload(code=code, title=title),
+            queue_expire_ms=queue_expire_ms,
+            timeout_ms=timeout_ms,
+        )
+
+
 class PingMessage(ControlMessage):
     type: str = "ping"
 

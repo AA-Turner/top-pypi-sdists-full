@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 import kfactory as kf
-from kfactory.cross_section import CrossSection, CrossSectionSpec
+from kfactory.cross_section import CrossSection, CrossSectionSpecDict
 from tests.conftest import Layers
 
 _PortsType = tuple[kf.port.DPort, kf.port.Port, kf.port.DPort, kf.port.Port]
@@ -18,10 +18,10 @@ kcl.infos = layers
 
 def get_ports() -> _PortsType:
     base = kf.port.BasePort(
-        name=None,
+        name="o1",
         kcl=kcl,
         cross_section=kcl.get_symmetrical_cross_section(
-            CrossSectionSpec(layer=layers.WG, width=2000)
+            CrossSectionSpecDict(layer=layers.WG, width=2000)
         ),
         port_type="optical",
         trans=kf.kdb.Trans(0, 0),
@@ -62,10 +62,10 @@ def test_create_port_error(kcl: kf.KCLayout, layers: Layers) -> None:
 def test_invalid_base_port_trans(kcl: kf.KCLayout, layers: Layers) -> None:
     with pytest.raises(ValueError, match=r"Both trans and dcplx_trans cannot be None."):
         kf.port.BasePort(
-            name=None,
+            name="o1",
             kcl=kcl,
             cross_section=kcl.get_symmetrical_cross_section(
-                CrossSectionSpec(layer=layers.WG, width=2000)
+                CrossSectionSpecDict(layer=layers.WG, width=2000)
             ),
             port_type="optical",
         )
@@ -74,10 +74,10 @@ def test_invalid_base_port_trans(kcl: kf.KCLayout, layers: Layers) -> None:
         ValueError, match=r"Only one of trans or dcplx_trans can be set."
     ):
         kf.port.BasePort(
-            name=None,
+            name="o2",
             kcl=kcl,
             cross_section=kcl.get_symmetrical_cross_section(
-                CrossSectionSpec(layer=layers.WG, width=2000)
+                CrossSectionSpecDict(layer=layers.WG, width=2000)
             ),
             port_type="optical",
             trans=kf.kdb.Trans(1, 0),
@@ -87,20 +87,20 @@ def test_invalid_base_port_trans(kcl: kf.KCLayout, layers: Layers) -> None:
 
 def test_base_port_ser_model(kcl: kf.KCLayout, layers: Layers) -> None:
     port = kf.port.BasePort(
-        name=None,
+        name="o1",
         kcl=kcl,
         cross_section=kcl.get_symmetrical_cross_section(
-            CrossSectionSpec(layer=layers.WG, width=2000)
+            CrossSectionSpecDict(layer=layers.WG, width=2000)
         ),
         port_type="optical",
         trans=kf.kdb.Trans(1, 0),
     )
     assert port.ser_model()
     port = kf.port.BasePort(
-        name=None,
+        name="o2",
         kcl=kcl,
         cross_section=kcl.get_symmetrical_cross_section(
-            CrossSectionSpec(layer=layers.WG, width=2000)
+            CrossSectionSpecDict(layer=layers.WG, width=2000)
         ),
         port_type="optical",
         dcplx_trans=kf.kdb.DCplxTrans(1, 0),
@@ -110,10 +110,10 @@ def test_base_port_ser_model(kcl: kf.KCLayout, layers: Layers) -> None:
 
 def test_base_port_get_trans(kcl: kf.KCLayout, layers: Layers) -> None:
     port = kf.port.BasePort(
-        name=None,
+        name="o1",
         kcl=kcl,
         cross_section=kcl.get_symmetrical_cross_section(
-            CrossSectionSpec(layer=layers.WG, width=2000)
+            CrossSectionSpecDict(layer=layers.WG, width=2000)
         ),
         port_type="optical",
         trans=kf.kdb.Trans(1, 0),
@@ -123,10 +123,10 @@ def test_base_port_get_trans(kcl: kf.KCLayout, layers: Layers) -> None:
     assert port.get_dcplx_trans() == kf.kdb.DCplxTrans(0.001, 0)
 
     port = kf.port.BasePort(
-        name=None,
+        name="o1",
         kcl=kcl,
         cross_section=kcl.get_symmetrical_cross_section(
-            CrossSectionSpec(layer=layers.WG, width=2000)
+            CrossSectionSpecDict(layer=layers.WG, width=2000)
         ),
         port_type="optical",
         dcplx_trans=kf.kdb.DCplxTrans(1, 0),
@@ -138,10 +138,10 @@ def test_base_port_get_trans(kcl: kf.KCLayout, layers: Layers) -> None:
 
 def test_base_port_eq(kcl: kf.KCLayout, layers: Layers) -> None:
     port1 = kf.port.BasePort(
-        name=None,
+        name="o1",
         kcl=kcl,
         cross_section=kcl.get_symmetrical_cross_section(
-            CrossSectionSpec(layer=layers.WG, width=2000)
+            CrossSectionSpecDict(layer=layers.WG, width=2000)
         ),
         port_type="optical",
         trans=kf.kdb.Trans(1, 0),
@@ -164,10 +164,10 @@ def test_port_eq(port: kf.port.ProtoPort[Any]) -> None:
 
 def test_port_kcl(kcl: kf.KCLayout, pdk: kf.KCLayout, layers: Layers) -> None:
     port = kf.port.Port(
-        name=None,
+        name="o1",
         kcl=kcl,
         cross_section=kcl.get_symmetrical_cross_section(
-            CrossSectionSpec(layer=layers.WG, width=2000)
+            CrossSectionSpecDict(layer=layers.WG, width=2000)
         ),
         port_type="optical",
         trans=kf.kdb.Trans(1, 0),
@@ -179,44 +179,44 @@ def test_port_kcl(kcl: kf.KCLayout, pdk: kf.KCLayout, layers: Layers) -> None:
 
 def test_port_cross_section(kcl: kf.KCLayout, layers: Layers) -> None:
     base_port = kf.port.BasePort(
-        name=None,
+        name="o1",
         kcl=kcl,
         cross_section=kcl.get_symmetrical_cross_section(
-            CrossSectionSpec(layer=layers.WG, width=2000)
+            CrossSectionSpecDict(layer=layers.WG, width=2000)
         ),
         port_type="optical",
         trans=kf.kdb.Trans(1, 0),
     )
     port = kf.port.Port(base=base_port)
     assert port.cross_section.base is kcl.get_symmetrical_cross_section(
-        CrossSectionSpec(layer=layers.WG, width=2000)
+        CrossSectionSpecDict(layer=layers.WG, width=2000)
     )
     assert port.cross_section.width == 2000
     port.cross_section = kcl.get_symmetrical_cross_section(
-        CrossSectionSpec(layer=layers.WG, width=3000)
+        CrossSectionSpecDict(layer=layers.WG, width=3000)
     )
     assert port.cross_section.base is kcl.get_symmetrical_cross_section(
-        CrossSectionSpec(layer=layers.WG, width=3000)
+        CrossSectionSpecDict(layer=layers.WG, width=3000)
     )
     port.cross_section = CrossSection(
         kcl,
         base=kcl.get_symmetrical_cross_section(
-            CrossSectionSpec(layer=layers.WG, width=3000)
+            CrossSectionSpecDict(layer=layers.WG, width=3000)
         ),
     )
     assert port.cross_section.base is kcl.get_symmetrical_cross_section(
-        CrossSectionSpec(layer=layers.WG, width=3000)
+        CrossSectionSpecDict(layer=layers.WG, width=3000)
     )
     assert port.width == 3000
     dport = port.to_dtype()
     dport.cross_section = CrossSection(
         kcl,
         base=kcl.get_symmetrical_cross_section(
-            CrossSectionSpec(layer=layers.WG, width=3000)
+            CrossSectionSpecDict(layer=layers.WG, width=3000)
         ),
     )
     assert dport.cross_section.base is kcl.get_symmetrical_cross_section(
-        CrossSectionSpec(layer=layers.WG, width=3000)
+        CrossSectionSpecDict(layer=layers.WG, width=3000)
     )
 
 
@@ -290,20 +290,20 @@ def test_to_itype() -> None:
 
 def test_port_copy(kcl: kf.KCLayout, layers: Layers) -> None:
     port = kf.DPort(
-        name=None,
+        name="o1",
         kcl=kcl,
         cross_section=kcl.get_symmetrical_cross_section(
-            CrossSectionSpec(layer=layers.WG, width=2000)
+            CrossSectionSpecDict(layer=layers.WG, width=2000)
         ),
         port_type="optical",
         trans=kf.kdb.Trans(1, 0),
     )
     port2 = port.copy()
     port.trans = kf.kdb.Trans(2, 0)
-    assert port2.name is None
+    assert port2.name == "o1"
     assert port2.kcl is kcl
     assert port2.cross_section.base is kcl.get_symmetrical_cross_section(
-        CrossSectionSpec(layer=layers.WG, width=2000)
+        CrossSectionSpecDict(layer=layers.WG, width=2000)
     )
     assert port2.port_type == "optical"
     assert port2.trans == kf.kdb.Trans(1, 0)
@@ -374,13 +374,13 @@ def test_dport_init_with_port() -> None:
 
 def test_port_invalid_init() -> None:
     with pytest.raises(ValueError):
-        kf.Port(name="o1", layer=1, center=(1000, 1000), angle=1)  # type: ignore[call-overload]
+        kf.Port(name="o1", layer=1, center=(1000, 1000), angle=1)  # ty:ignore[no-matching-overload]
 
     with pytest.raises(ValueError):
-        kf.Port(name="o1", width=10, center=(1000, 1000), angle=1)  # type: ignore[call-overload]
+        kf.Port(name="o1", width=10, center=(1000, 1000), angle=1)  # ty:ignore[no-matching-overload]
 
     with pytest.raises(ValueError):
-        kf.Port(name="o1", layer=1, width=10)  # type: ignore[call-overload]
+        kf.Port(name="o1", layer=1, width=10)  # ty:ignore[no-matching-overload]
 
     with pytest.raises(ValueError, match=r"Width must be greater than 0."):
         kf.Port(name="o1", width=-10, layer=1, center=(1000, 1000), angle=1)
@@ -388,10 +388,10 @@ def test_port_invalid_init() -> None:
 
 def test_dport_invalid_init() -> None:
     with pytest.raises(ValueError):
-        kf.DPort(name="o1", layer=1, center=(1000, 1000), orientation=90)  # type: ignore[call-overload]
+        kf.DPort(name="o1", layer=1, center=(1000, 1000), orientation=90)  # ty:ignore[no-matching-overload]
 
     with pytest.raises(ValueError):
-        kf.DPort(name="o1", width=10, center=(1000, 1000), orientation=90)  # type: ignore[call-overload]
+        kf.DPort(name="o1", width=10, center=(1000, 1000), orientation=90)  # ty:ignore[no-matching-overload]
 
     with pytest.raises(ValueError, match=r"Width must be greater than 0."):
         kf.DPort(name="o1", width=-10, layer=1, center=(1000, 1000), orientation=90)
@@ -438,7 +438,7 @@ def test_dport_copy_polar() -> None:
 def test_autorename(
     kcl: kf.KCLayout,
     layers: Layers,
-    gds_regression: Callable[[kf.ProtoTKCell[Any]], None],
+    oas_regression: Callable[[kf.ProtoTKCell[Any]], None],
 ) -> None:
     cell = kf.factories.straight.straight_dbu_factory(kcl)(
         length=10000, width=2000, layer=layers.WG
@@ -451,13 +451,13 @@ def test_autorename(
     kf.port.autorename(cell, _rename_ports)
 
     assert cell.ports.get_all_named().keys() == {"o3", "o4"}
-    gds_regression(cell)
+    oas_regression(cell)
 
 
 def test_rename_clockwise(
     kcl: kf.KCLayout,
     layers: Layers,
-    gds_regression: Callable[[kf.ProtoTKCell[Any]], None],
+    oas_regression: Callable[[kf.ProtoTKCell[Any]], None],
 ) -> None:
     cell = kf.factories.straight.straight_dbu_factory(kcl)(
         length=10000, width=2000, layer=layers.WG
@@ -466,13 +466,13 @@ def test_rename_clockwise(
     kf.port.rename_clockwise(_ports, start=0)
     assert _ports[0].name == "o0"
     assert _ports[1].name == "o1"
-    gds_regression(cell)
+    oas_regression(cell)
 
 
 def test_filter_regex(
     kcl: kf.KCLayout,
     layers: Layers,
-    gds_regression: Callable[[kf.ProtoTKCell[Any]], None],
+    oas_regression: Callable[[kf.ProtoTKCell[Any]], None],
 ) -> None:
     cell = kf.factories.straight.straight_dbu_factory(kcl)(
         length=10000, width=2000, layer=layers.WG
@@ -481,16 +481,16 @@ def test_filter_regex(
     filtered = list(kf.port.filter_regex(ports, "o2"))
     assert len(filtered) == 1
 
-    filtered[0].name = None
+    filtered[0].name = "o1"
     filtered = list(kf.port.filter_regex(filtered, "o2"))
     assert len(list(filtered)) == 0
-    gds_regression(cell)
+    oas_regression(cell)
 
 
 def test_filter_layer_pt_reg(
     kcl: kf.KCLayout,
     layers: Layers,
-    gds_regression: Callable[[kf.ProtoTKCell[Any]], None],
+    oas_regression: Callable[[kf.ProtoTKCell[Any]], None],
 ) -> None:
     cell = kf.factories.straight.straight_dbu_factory(kcl)(
         length=10000, width=2000, layer=layers.WG
@@ -500,13 +500,37 @@ def test_filter_layer_pt_reg(
         ports, layer=0, port_type="optical", regex="o2"
     )
     assert len(list(filtered)) == 1
-    gds_regression(cell)
+    oas_regression(cell)
+
+
+def test_filter_layer_info(
+    kcl: kf.KCLayout,
+    layers: Layers,
+    oas_regression: Callable[[kf.ProtoTKCell[Any]], None],
+) -> None:
+    cell = kf.factories.straight.straight_dbu_factory(kcl)(
+        length=10000, width=2000, layer=layers.WG
+    )
+    ports = cell.ports
+    filtered = list(kf.port.filter_layer_info(ports, layers.WG))
+    assert len(filtered) == 2
+
+    filtered = list(kf.port.filter_layer_info(ports, kf.kdb.LayerInfo(42, 0)))
+    assert len(filtered) == 0
+
+    filtered = list(
+        kf.port.filter_layer_pt_reg(
+            ports, layer_info=layers.WG, port_type="optical", regex="o2"
+        )
+    )
+    assert len(filtered) == 1
+    oas_regression(cell)
 
 
 def test_rename_clockwise_multi(
     kcl: kf.KCLayout,
     layers: Layers,
-    gds_regression: Callable[[kf.ProtoTKCell[Any]], None],
+    oas_regression: Callable[[kf.ProtoTKCell[Any]], None],
 ) -> None:
     cell = kf.factories.straight.straight_dbu_factory(kcl)(
         length=10000, width=2000, layer=layers.WG
@@ -516,22 +540,22 @@ def test_rename_clockwise_multi(
     ports["o2"].name = "o5"
     kf.port.rename_clockwise_multi(ports, layers=[0], regex="o4")
     assert len(list(ports)) == 2
-    gds_regression(cell)
+    oas_regression(cell)
 
 
 def test_create(
     kcl: kf.KCLayout,
     layers: Layers,
-    gds_regression: Callable[[kf.ProtoTKCell[Any]], None],
+    oas_regression: Callable[[kf.ProtoTKCell[Any]], None],
 ) -> None:
     cell = kcl.kcell()
 
     cell.create_port(
         name="o1",
         cross_section=kcl.get_icross_section(
-            CrossSectionSpec(layer=layers.WG, width=2000)
+            CrossSectionSpecDict(layer=layers.WG, width=2000)
         ),
         port_type="optical",
         trans=kf.kdb.Trans(1, 0),
     )
-    gds_regression(cell)
+    oas_regression(cell)

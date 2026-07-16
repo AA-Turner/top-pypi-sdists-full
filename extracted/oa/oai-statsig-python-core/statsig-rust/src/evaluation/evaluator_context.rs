@@ -76,8 +76,19 @@ impl<'a> EvaluatorContext<'a> {
     }
 
     pub fn finalize_evaluation(&mut self, spec: &Spec, rule: Option<&Rule>) {
-        self.result.sampling_rate = rule.and_then(|r| r.sampling_rate);
-        self.result.forward_all_exposures = spec.forward_all_exposures;
+        self.finalize_evaluation_values(
+            rule.and_then(|rule| rule.sampling_rate),
+            spec.forward_all_exposures,
+        );
+    }
+
+    pub(crate) fn finalize_evaluation_values(
+        &mut self,
+        sampling_rate: Option<u64>,
+        forward_all_exposures: Option<bool>,
+    ) {
+        self.result.sampling_rate = sampling_rate;
+        self.result.forward_all_exposures = forward_all_exposures;
 
         if self.nested_count > 0 {
             self.nested_count -= 1;

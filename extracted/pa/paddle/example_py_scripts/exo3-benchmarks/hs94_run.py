@@ -18,7 +18,7 @@ import yaml
 import numpy as np
 import torch
 from snapy import Mesh, MeshOptions, kIDN, kIPR, kIV1, kIV2, kIV3
-from paddle import start_dist, close_dist, setup_profile
+from paddle import setup_profile
 
 FACE_NAMES = ["+X", "+Y", "-X", "+Z", "-Y", "-Z"]
 
@@ -103,8 +103,8 @@ def hs_forcing(hw, hu, lat_col, dt):
 def run(args):
     with open(args.config) as f:
         config = yaml.safe_load(f)
-    device = start_dist(config["distribute"].get("backend", "gloo"))
     opt = MeshOptions.from_yaml(args.config)
+    device = torch.device(opt.device_str())
     opt.block().output_dir(args.output_dir)
     mesh = Mesh(opt)
     mesh.to(device)
@@ -112,13 +112,15 @@ def run(args):
 
     lats = []  # per-block (nc3,nc2,1) latitude
     block_vars = []
-    for f, block in enumerate(mesh.blocks):
+    for block in mesh.blocks:
+        layout = block.get_layout()
+        _, _, face_id = layout.loc_of(layout.options.rank())
         coord = block.module("coord")
         x1v = coord.buffer("x1v").cpu().numpy()
         x2v = coord.buffer("x2v").cpu().numpy()
         x3v = coord.buffer("x3v").cpu().numpy()
         alpha, beta = np.meshgrid(x2v, x3v)  # (nc3,nc2)
-        lat2d = ab_to_lat(FACE_NAMES[f], alpha, beta)  # (nc3,nc2)
+        lat2d = ab_to_lat(FACE_NAMES[face_id], alpha, beta)  # (nc3,nc2)
         lats.append(torch.from_numpy(lat2d[..., None]).to(device, torch.float64))
         # dry-adiabatic hydrostatic IC (theta=Ts up to where T hits Tmin, then isothermal)
         w = setup_profile(
@@ -153,7 +155,6 @@ def run(args):
         current_time += dt
         mesh.make_outputs(block_vars, current_time)
     mesh.finalize(block_vars, current_time)
-    close_dist()
 
 
 if __name__ == "__main__":

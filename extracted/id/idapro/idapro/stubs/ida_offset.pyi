@@ -82,26 +82,27 @@ def get_offbase(ea: ida_idaapi.ea_t, n: int) -> ida_idaapi.ea_t:
     r"""Get offset base value 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number
+    :param n: 0..#UA_MAXOP-1 operand number
     :returns: offset base or BADADDR
     """
     ...
 
 def get_offset_expr(ea: ida_idaapi.ea_t, n: int, ri: refinfo_t, _from: ida_idaapi.ea_t, offset: int, getn_flags: int = 0) -> str:
-    r"""See get_offset_expression()
+    r"""See get_offset_expression().
     
     """
     ...
 
 def get_offset_expression(ea: ida_idaapi.ea_t, n: int, _from: ida_idaapi.ea_t, offset: int, getn_flags: int = 0) -> str:
     r"""Get offset expression (in the form "offset name+displ"). This function uses offset translation function ( processor_t::translate) if your IDP module has such a function. Translation function is used to map linear addresses in the program (only for offsets).
-    Example: suppose we have instruction at linear address 0x00011000: `mov     ax, [bx+7422h] ` and at ds:7422h: `array   dw      ... ` We want to represent the second operand with an offset expression, so then we call: `get_offset_expresion(0x001100, 1, 0x001102, 0x7422, buf);
-                         |         |  |         |       |
-                         |         |  |         |       +output buffer
-                         |         |  |         +value of offset expression
-                         |         |  +address offset value in the instruction
-                         |         +the second operand
-                         +address of instruction` and the function will return a colored string: `offset array ` 
+    Example: suppose we have instruction at linear address 0x00011000: `mov     ax, [bx+7422h] ` and at ds:7422h: `array   dw      ... ` We want to represent the second operand with an offset expression, so then we call: `/// get_offset_expresion(0x001100, 1, 0x001102, 0x7422, buf);
+    ///                      |         |  |         |       |
+    ///                      |         |  |         |       +output buffer
+    ///                      |         |  |         +value of offset expression
+    ///                      |         |  +address offset value in the instruction
+    ///                      |         +the second operand
+    ///                      +address of instruction
+    ///  ` and the function will return a colored string: `offset array ` 
             
     :param ea: start of instruction or data with the offset expression
     :param n: operand number (may be ORed with OPND_OUTER)
@@ -120,7 +121,7 @@ def get_offset_expression(ea: ida_idaapi.ea_t, n: int, _from: ida_idaapi.ea_t, o
     ...
 
 def op_offset(*args: Any) -> bool:
-    r"""See op_offset_ex()
+    r"""See op_offset_ex().
     
     """
     ...

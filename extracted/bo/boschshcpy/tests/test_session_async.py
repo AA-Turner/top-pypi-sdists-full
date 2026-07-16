@@ -42,6 +42,7 @@ def _fake_api() -> AsyncMock:
     api.get_devices.return_value = []
     api.get_rooms.return_value = []
     api.get_scenarios.return_value = []
+    api.get_automation_rules.return_value = []
     api.get_messages.return_value = []
     api.get_userdefinedstates.return_value = []
     api.get_domain_intrusion_detection.return_value = {
@@ -67,6 +68,7 @@ def _bare_session(api: AsyncMock | None = None) -> SHCSessionAsync:
     s._long_poll_timeout = 30
     s._rooms_by_id = {}
     s._scenarios_by_id = {}
+    s._automation_rules_by_id = {}
     s._devices_by_id = {}
     s._services_by_device_id = defaultdict(list)
     s._domains_by_id = {}
@@ -127,6 +129,31 @@ class TestAsyncSHCInformation:
     def test_name_is_ip(self):
         info = _AsyncSHCInformation({"shcIpAddress": "1.2.3.4"}, {})
         assert info.name == "1.2.3.4"
+
+    def test_last_update_result_and_activation_timeout(self):
+        info = _AsyncSHCInformation(
+            {
+                "softwareUpdateState": {
+                    "swUpdateLastResult": "UPDATE_FAILED",
+                    "swActivationDate": {"timeout": 60},
+                }
+            },
+            {},
+        )
+        assert info.last_update_result == "UPDATE_FAILED"
+        assert info.update_activation_timeout == 60
+
+    def test_api_versions_and_shc_generation(self):
+        info = _AsyncSHCInformation(
+            {"apiVersions": ["3.19"], "shcGeneration": "SHC_1"}, {}
+        )
+        assert info.api_versions == ["3.19"]
+        assert info.shc_generation == "SHC_1"
+
+    def test_api_versions_and_shc_generation_missing(self):
+        info = _AsyncSHCInformation({}, {})
+        assert info.api_versions is None
+        assert info.shc_generation is None
 
     def test_missing_fields_return_none(self):
         info = _AsyncSHCInformation({}, {})
@@ -249,6 +276,22 @@ class TestAsyncInit:
 
         s = asyncio.run(run())
         assert "sc1" in s._scenarios_by_id
+
+    def test_async_init_populates_automation_rules(self):
+        api = _fake_api()
+        api.get_automation_rules.return_value = [
+            {"id": "r1", "name": "TV aus", "enabled": True}
+        ]
+
+        async def run():
+            s = _bare_session(api)
+            with patch("boschshcpy.session_async.SHCIntrusionSystem") as MockIDS:
+                MockIDS.return_value = MagicMock()
+                await s.async_init()
+            return s
+
+        s = asyncio.run(run())
+        assert "r1" in s._automation_rules_by_id
 
     def test_async_init_raises_on_public_info_failure(self):
         api = _fake_api()
@@ -920,6 +963,36 @@ class TestPropertyAccessors:
         sc = MagicMock()
         s._scenarios_by_id["sc1"] = sc
         assert s.scenario("sc1") is sc
+
+    def test_automation_rules_list(self):
+        s = _bare_session()
+        rule = MagicMock()
+        s._automation_rules_by_id["r1"] = rule
+        assert rule in s.automation_rules
+
+    def test_automation_rule_by_id(self):
+        s = _bare_session()
+        rule = MagicMock()
+        s._automation_rules_by_id["r1"] = rule
+        assert s.automation_rule("r1") is rule
+
+    def test_async_refresh_automation_rules_updates_existing(self):
+        s = _bare_session()
+        existing = MagicMock()
+        s._automation_rules_by_id["r1"] = existing
+        raw_rule = {"id": "r1", "name": "TV aus", "enabled": False}
+        s._api.get_automation_rules.return_value = [raw_rule]
+        asyncio.run(s.async_refresh_automation_rules())
+        existing.update_raw_rule.assert_called_once_with(raw_rule)
+
+    def test_async_refresh_automation_rules_adds_new(self):
+        s = _bare_session()
+        raw_rule = {"id": "r2", "name": "Neu", "enabled": True}
+        s._api.get_automation_rules.return_value = [raw_rule]
+        with patch("boschshcpy.session_async.SHCAutomationRule") as MockRule:
+            MockRule.return_value = MagicMock()
+            asyncio.run(s.async_refresh_automation_rules())
+        assert "r2" in s._automation_rules_by_id
 
     def test_messages_list(self):
         s = _bare_session()

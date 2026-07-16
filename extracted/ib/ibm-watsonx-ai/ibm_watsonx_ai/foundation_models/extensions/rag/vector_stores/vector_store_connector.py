@@ -219,7 +219,7 @@ class VectorStoreConnector:
             MilvusVectorStore,
         )
         from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.milvus_utils import (
-            DEFAULT_INDEX_PARAM,
+            resolve_index_params,
         )
 
         parsed_params = self._get_milvus_connection_params()
@@ -236,12 +236,7 @@ class VectorStoreConnector:
         # Here we replace the default `index_params` with different metric type.
         # See: `Milvus._create_index()`.
         distance_metric = parsed_params.pop("distance_metric", None)
-        if distance_metric == "cosine":
-            index_params = DEFAULT_INDEX_PARAM
-        else:
-            index_params = None
-
-        parsed_params["index_params"] = parsed_params.get("index_params", index_params)
+        parsed_params.setdefault("index_params", resolve_index_params(distance_metric))
         if "embedding_function" in parsed_params:
             if "embeddings" in parsed_params:
                 raise ValueError(

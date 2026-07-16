@@ -9,6 +9,8 @@ namespace SimpleBluez {
 
 class Characteristic : public SimpleDBus::Proxy {
   public:
+    using ValueOptions = GattCharacteristic1::ValueOptions;
+
     Characteristic(std::shared_ptr<SimpleDBus::Connection> conn, const std::string& bus_name, const std::string& path);
     virtual ~Characteristic();
 
@@ -23,6 +25,8 @@ class Characteristic : public SimpleDBus::Proxy {
     void write_command(ByteArray value);
     void start_notify();
     void stop_notify();
+    void enable_acquire_notify();
+    void disable_acquire_notify();
 
     // ----- PROPERTIES -----
     std::vector<std::shared_ptr<Descriptor>> descriptors();
@@ -41,20 +45,27 @@ class Characteristic : public SimpleDBus::Proxy {
     std::vector<std::string> flags();
     void flags(std::vector<std::string> flags);
 
+    // For local GATT server objects, this is not a per-device negotiated MTU.
+    // Use ValueOptions::mtu from server-side ReadValue/WriteValue callbacks instead.
     uint16_t mtu();
 
     // ----- CALLBACKS -----
     void set_on_value_changed(std::function<void(ByteArray new_value)> callback);
     void clear_on_value_changed();
 
-    void set_on_read_value(std::function<void()> callback);
+    void set_on_read_value(std::function<void(ValueOptions options)> callback);
     void clear_on_read_value();
 
-    void set_on_write_value(std::function<void(ByteArray value)> callback);
+    void set_on_write_value(std::function<void(ByteArray value, ValueOptions options)> callback);
     void clear_on_write_value();
 
     void set_on_notify(std::function<void(bool)> callback);
     void clear_on_notify();
+
+    // Server-side AcquireNotify callback. The socket is the application-owned
+    // endpoint; move and store it to keep the acquired notify stream alive.
+    void set_on_acquire_notify(std::function<void(SimpleDBus::UnixSocket socket, ValueOptions options)> callback);
+    void clear_on_acquire_notify();
 
     // ----- INTERNAL CALLBACKS -----
     void on_registration() override;

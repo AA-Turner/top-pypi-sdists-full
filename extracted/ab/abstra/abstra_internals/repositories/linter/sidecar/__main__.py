@@ -62,7 +62,7 @@ def main() -> int:
         except OSError:
             pass
 
-    from abstra_internals.environment import EDITOR_MODE
+    from abstra_internals.environment import EDITOR_MODE, linter_sidecar_serial
     from abstra_internals.logger import AbstraLogger
 
     AbstraLogger.init("local" if EDITOR_MODE == "local" else "cloud")
@@ -75,7 +75,10 @@ def main() -> int:
         SidecarLinterServer,
     )
 
-    repository = LocalLinterRepository(serial=True)
+    # Serial only in the web editor (pod), where thread-per-rule would inflate
+    # the cgroup's CFS throttle. Local installs keep the parallel fan-out so a
+    # full pass stays fast (see environment.linter_sidecar_serial).
+    repository = LocalLinterRepository(serial=linter_sidecar_serial())
     server = SidecarLinterServer(
         repository=repository,
         registry=rules,

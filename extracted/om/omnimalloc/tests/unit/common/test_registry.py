@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+from abc import abstractmethod
+
 import pytest
 from omnimalloc.allocators import (
     BaseAllocator,
@@ -90,6 +92,20 @@ def test_name_with_numbers() -> None:
     assert Test123Thing.name() == "test123_thing"
 
 
+def test_abstract_intermediate_not_registered() -> None:
+    class AbstractMid(ExampleBase):
+        @abstractmethod
+        def compute(self) -> int: ...
+
+    class ConcreteLeaf(AbstractMid):
+        def compute(self) -> int:
+            return 0
+
+    registry = ExampleBase.registry()
+    assert "abstract_mid" not in registry
+    assert "concrete_leaf" in registry
+
+
 def test_allocator_registry() -> None:
     registry = BaseAllocator.registry()
     assert "greedy_allocator" in registry
@@ -123,3 +139,19 @@ def test_source_name() -> None:
 def test_source_includes_suffix() -> None:
     assert RandomSource.name() == "random_source"
     assert "source" in RandomSource.name()
+
+
+def test_registry_rejects_duplicate_names() -> None:
+    class UniqueNameBase(Registered):
+        """Test base class."""
+
+    class DuplicateName(UniqueNameBase):
+        """First registration wins."""
+
+    first = DuplicateName
+    with pytest.raises(RuntimeError, match="already taken"):
+
+        class DuplicateName(UniqueNameBase):
+            """Second registration with the same name must fail."""
+
+    assert UniqueNameBase.registry()["duplicate_name"] is first

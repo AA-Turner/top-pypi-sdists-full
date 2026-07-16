@@ -2243,6 +2243,26 @@ impl NativeNaiveForecaster {
         serde_json::to_string(&self.model.metadata())
             .map_err(|err| PyRuntimeError::new_err(err.to_string()))
     }
+
+    fn save(&self, path: PathBuf) -> PyResult<()> {
+        let payload = serde_json::to_string(&self.model).map_err(|err| {
+            PyRuntimeError::new_err(format!("failed to serialize NaiveForecaster: {err}"))
+        })?;
+        std::fs::write(path, payload).map_err(|err| {
+            PyRuntimeError::new_err(format!("failed to write NaiveForecaster artifact: {err}"))
+        })
+    }
+
+    #[classmethod]
+    fn load(_cls: &Bound<'_, PyType>, path: PathBuf) -> PyResult<Self> {
+        let payload = std::fs::read_to_string(path).map_err(|err| {
+            PyRuntimeError::new_err(format!("failed to read NaiveForecaster artifact: {err}"))
+        })?;
+        let model = serde_json::from_str(&payload).map_err(|err| {
+            PyValueError::new_err(format!("failed to parse NaiveForecaster artifact: {err}"))
+        })?;
+        Ok(Self { model })
+    }
 }
 
 #[pyclass(name = "SeasonalNaiveForecaster")]
@@ -2273,6 +2293,34 @@ impl NativeSeasonalNaiveForecaster {
     fn metadata_json(&self) -> PyResult<String> {
         serde_json::to_string(&self.model.metadata())
             .map_err(|err| PyRuntimeError::new_err(err.to_string()))
+    }
+
+    fn save(&self, path: PathBuf) -> PyResult<()> {
+        let payload = serde_json::to_string(&self.model).map_err(|err| {
+            PyRuntimeError::new_err(format!(
+                "failed to serialize SeasonalNaiveForecaster: {err}"
+            ))
+        })?;
+        std::fs::write(path, payload).map_err(|err| {
+            PyRuntimeError::new_err(format!(
+                "failed to write SeasonalNaiveForecaster artifact: {err}"
+            ))
+        })
+    }
+
+    #[classmethod]
+    fn load(_cls: &Bound<'_, PyType>, path: PathBuf) -> PyResult<Self> {
+        let payload = std::fs::read_to_string(path).map_err(|err| {
+            PyRuntimeError::new_err(format!(
+                "failed to read SeasonalNaiveForecaster artifact: {err}"
+            ))
+        })?;
+        let model = serde_json::from_str(&payload).map_err(|err| {
+            PyValueError::new_err(format!(
+                "failed to parse SeasonalNaiveForecaster artifact: {err}"
+            ))
+        })?;
+        Ok(Self { model })
     }
 }
 
@@ -3977,6 +4025,16 @@ impl NativePaperGraphTransformerForecaster {
 
     fn fit(&mut self, py: Python<'_>, frame: &NativeGraphTemporalFrame) -> PyResult<()> {
         py.detach(|| self.model.fit(&frame.frame))
+            .map_err(to_py_geo_st_error)
+    }
+
+    fn fit_checkpointed(
+        &mut self,
+        py: Python<'_>,
+        frame: &NativeGraphTemporalFrame,
+        checkpoint_path: PathBuf,
+    ) -> PyResult<()> {
+        py.detach(|| self.model.fit_checkpointed(&frame.frame, checkpoint_path))
             .map_err(to_py_geo_st_error)
     }
 
@@ -6291,12 +6349,25 @@ impl NativeCartoBoostClassifier {
         py.detach(|| model.save(path)).map_err(to_py_error)
     }
 
+    fn save_weights(&self, py: Python<'_>, path: PathBuf) -> PyResult<()> {
+        let model = self
+            .model
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("CartoBoostClassifier is not fitted"))?;
+        py.detach(|| model.save(path)).map_err(to_py_error)
+    }
+
     #[staticmethod]
     fn load(py: Python<'_>, path: PathBuf) -> PyResult<Self> {
         let model = py
             .detach(|| ClassifierModel::load(path))
             .map_err(to_py_error)?;
         Self::from_model(model)
+    }
+
+    #[staticmethod]
+    fn load_weights(py: Python<'_>, path: PathBuf) -> PyResult<Self> {
+        Self::load(py, path)
     }
 
     #[getter]
@@ -6770,10 +6841,23 @@ impl NativeCartoBoostRanker {
         py.detach(|| model.save(path)).map_err(to_py_error)
     }
 
+    fn save_weights(&self, py: Python<'_>, path: PathBuf) -> PyResult<()> {
+        let model = self
+            .model
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("CartoBoostRanker is not fitted"))?;
+        py.detach(|| model.save(path)).map_err(to_py_error)
+    }
+
     #[staticmethod]
     fn load(py: Python<'_>, path: PathBuf) -> PyResult<Self> {
         let model = py.detach(|| RankerModel::load(path)).map_err(to_py_error)?;
         Self::from_model(model)
+    }
+
+    #[staticmethod]
+    fn load_weights(py: Python<'_>, path: PathBuf) -> PyResult<Self> {
+        Self::load(py, path)
     }
 
     #[getter]
@@ -10453,30 +10537,36 @@ where
     T: Send,
     F: FnOnce() -> Result<T, CartoBoostError> + Send,
 {
-    if let Some(n_threads) = n_threads {
-        static THREAD_POOLS: OnceLock<Mutex<HashMap<usize, Arc<ThreadPool>>>> = OnceLock::new();
-        let pools = THREAD_POOLS.get_or_init(|| Mutex::new(HashMap::new()));
-        let pool = {
-            let mut pools = pools
-                .lock()
-                .map_err(|_| CartoBoostError::InvalidInput("thread-pool cache poisoned".into()))?;
-            if let Some(pool) = pools.get(&n_threads) {
-                Arc::clone(pool)
-            } else {
-                let pool = Arc::new(
-                    ThreadPoolBuilder::new()
-                        .num_threads(n_threads)
-                        .build()
-                        .map_err(|err| CartoBoostError::InvalidInput(err.to_string()))?,
-                );
-                pools.insert(n_threads, Arc::clone(&pool));
-                pool
-            }
-        };
-        pool.install(f)
-    } else {
-        f()
-    }
+    // Never rely on Rayon’s global pool for public model operations.  It can
+    // be initialized by a notebook host, another extension, or an embedding
+    // application with a single worker before CartoBoost is imported.
+    // Constructing a cached pool here makes the default genuinely use the
+    // machine’s available CPUs while preserving an explicit user override.
+    let n_threads = n_threads.unwrap_or_else(|| {
+        std::thread::available_parallelism()
+            .map(|count| count.get())
+            .unwrap_or(1)
+    });
+    static THREAD_POOLS: OnceLock<Mutex<HashMap<usize, Arc<ThreadPool>>>> = OnceLock::new();
+    let pools = THREAD_POOLS.get_or_init(|| Mutex::new(HashMap::new()));
+    let pool = {
+        let mut pools = pools
+            .lock()
+            .map_err(|_| CartoBoostError::InvalidInput("thread-pool cache poisoned".into()))?;
+        if let Some(pool) = pools.get(&n_threads) {
+            Arc::clone(pool)
+        } else {
+            let pool = Arc::new(
+                ThreadPoolBuilder::new()
+                    .num_threads(n_threads)
+                    .build()
+                    .map_err(|err| CartoBoostError::InvalidInput(err.to_string()))?,
+            );
+            pools.insert(n_threads, Arc::clone(&pool));
+            pool
+        }
+    };
+    pool.install(f)
 }
 
 #[allow(clippy::too_many_arguments)]

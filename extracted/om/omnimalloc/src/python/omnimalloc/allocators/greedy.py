@@ -2,120 +2,88 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import sys
-
+from omnimalloc._cpp import compute_temporal_overlaps, first_fit_place
 from omnimalloc.primitives import Allocation
 
 from .base import BaseAllocator
+from .greedy_base import (
+    allocate_parallel,
+    order_by_area,
+    order_by_conflict,
+    order_by_conflict_size,
+    order_by_duration,
+    order_by_size,
+    order_by_start,
+)
 
 
 class GreedyAllocator(BaseAllocator):
     """Base greedy allocator using first-fit strategy."""
 
-    def allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
-        placed_allocations: list[Allocation] = []
+    supports_vector_time = True
 
-        for current_alloc in allocations:
-            # Collect overlapping allocations sorted by offset
-            overlapping = [
-                placed
-                for placed in placed_allocations
-                if current_alloc.overlaps_temporally(placed)
-            ]
-            overlapping.sort(key=lambda a: a.offset or 0, reverse=False)
-
-            # Find offset using first-fit (outperforms best-fit in practice)
-            best_offset = 0
-            for placed in overlapping:
-                assert placed.offset is not None
-                gap = placed.offset - best_offset
-                if gap >= current_alloc.size:
-                    break
-                best_offset = max(best_offset, placed.offset + placed.size)
-
-            new_alloc = current_alloc.with_offset(best_offset)
-            placed_allocations.append(new_alloc)
-
-        return tuple(placed_allocations)
+    def _allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
+        return tuple(
+            first_fit_place(allocations, compute_temporal_overlaps(allocations))
+        )
 
 
 class GreedyByDurationAllocator(GreedyAllocator):
     """Greedy allocator sorting by duration (longest first)."""
 
-    def allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
-        sorted_allocs = sorted(allocations, key=lambda a: a.duration, reverse=True)
-        return super().allocate(tuple(sorted_allocs))
+    def _allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
+        return super()._allocate(order_by_duration(allocations))
 
 
 class GreedyByConflictAllocator(GreedyAllocator):
     """Greedy allocator sorting by conflict degree (most conflicted first)."""
 
-    def allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
-        conflict_degrees = {}
-        for alloc in allocations:
-            conflicts = sum(
-                1
-                for other in allocations
-                if other != alloc and alloc.overlaps_temporally(other)
-            )
-            conflict_degrees[alloc] = conflicts
+    def _allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
+        return super()._allocate(order_by_conflict(allocations))
 
-        sorted_allocs = sorted(
-            allocations, key=lambda a: (conflict_degrees[a], a.size), reverse=True
-        )
-        return super().allocate(tuple(sorted_allocs))
+
+class GreedyByConflictSizeAllocator(GreedyAllocator):
+    """Greedy allocator sorting by conflict degree times size (largest first)."""
+
+    def _allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
+        return super()._allocate(order_by_conflict_size(allocations))
+
+
+class GreedyByStartAllocator(GreedyAllocator):
+    """Greedy allocator sorting by start time (earliest first, largest ties first)."""
+
+    def _allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
+        return super()._allocate(order_by_start(allocations))
 
 
 class GreedyByAreaAllocator(GreedyAllocator):
     """Greedy allocator sorting by area (size * duration, largest first)."""
 
-    def allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
-        sorted_allocs = sorted(
-            allocations, key=lambda a: a.size * a.duration, reverse=True
-        )
-        return super().allocate(tuple(sorted_allocs))
+    def _allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
+        return super()._allocate(order_by_area(allocations))
 
 
 class GreedyBySizeAllocator(GreedyAllocator):
     """Greedy allocator sorting by size (largest first)."""
 
-    def allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
-        sorted_allocs = sorted(allocations, key=lambda a: a.size, reverse=True)
-        return super().allocate(tuple(sorted_allocs))
-
-
-def allocate_best_of(
-    variants: tuple[BaseAllocator, ...], allocations: tuple[Allocation, ...]
-) -> tuple[Allocation, ...]:
-    """Run each variant and return the result with the smallest peak memory."""
-    if not allocations:
-        return allocations
-
-    best_allocation: tuple[Allocation, ...] | None = None
-    best_peak_memory = sys.maxsize
-
-    for variant in variants:
-        result = variant.allocate(allocations)
-        heights = [a.height for a in result if a.height is not None]
-        peak_memory = max(heights) if heights else 0
-
-        if peak_memory < best_peak_memory:
-            best_peak_memory = peak_memory
-            best_allocation = result
-
-    assert best_allocation is not None
-    return best_allocation
+    def _allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
+        return super()._allocate(order_by_size(allocations))
 
 
 class GreedyByAllAllocator(GreedyAllocator):
     """Greedy allocator that runs every variant and keeps the best result."""
 
-    def allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
+    def __init__(self, cores: int | None = None) -> None:
+        self._cores = cores
+
+    def _allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
         variants: tuple[BaseAllocator, ...] = (
             GreedyAllocator(),
             GreedyBySizeAllocator(),
             GreedyByDurationAllocator(),
             GreedyByAreaAllocator(),
             GreedyByConflictAllocator(),
+            GreedyByConflictSizeAllocator(),
+            GreedyByStartAllocator(),
         )
-        return allocate_best_of(variants, allocations)
+        return allocate_parallel(variants, allocations, cores=self._cores)

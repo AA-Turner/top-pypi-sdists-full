@@ -51,9 +51,8 @@ class SidecarLifecycleTest(unittest.TestCase):
     project files asynchronously and add noise to lifecycle timing."""
 
     def setUp(self):
-        # Keep NewVersionOfAbstraAvailable out of the CHILD's registry so the
-        # resync full pass never performs network calls (rules/__init__.py
-        # reads this env at import time; the child inherits our environ).
+        # Run in bundled mode so the child's resync full pass stays offline
+        # (deterministic, no network calls); the child inherits our environ.
         self._old_bundled = os.environ.get("ABSTRA_RUNNING_IN_BUNDLED_APP")
         os.environ["ABSTRA_RUNNING_IN_BUNDLED_APP"] = "1"
         self.root = init_dir()

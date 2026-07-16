@@ -80,10 +80,11 @@ class ConfigureTest(TestCase):
         self.assertEqual(result.exit_code, 0)
         config_manager_mock.return_value.write.assert_called_once_with(mcd_id="id", mcd_token="tok")
 
+    @patch("montecarlodata.cli._stdin_is_tty", return_value=True)
     @patch("montecarlodata.cli.questionary")
     @patch("montecarlodata.cli.ConfigManager")
     def test_configure_prompts_for_auth_type_oauth(
-        self, config_manager_mock: Mock, questionary_mock: Mock
+        self, config_manager_mock: Mock, questionary_mock: Mock, _stdin_is_tty_mock: Mock
     ):
         # No auth flag -> arrow-key picker; choose oauth, then provide oauth details.
         questionary_mock.select.return_value.ask.return_value = AUTH_TYPE_OAUTH
@@ -95,10 +96,11 @@ class ConfigureTest(TestCase):
             mcd_instance_id="us1",
         )
 
+    @patch("montecarlodata.cli._stdin_is_tty", return_value=True)
     @patch("montecarlodata.cli.questionary")
     @patch("montecarlodata.cli.ConfigManager")
     def test_configure_prompts_for_auth_type_api_key(
-        self, config_manager_mock: Mock, questionary_mock: Mock
+        self, config_manager_mock: Mock, questionary_mock: Mock, _stdin_is_tty_mock: Mock
     ):
         # Picker returns api-key, then prompts for key/secret.
         questionary_mock.select.return_value.ask.return_value = AUTH_TYPE_API_KEY
@@ -106,16 +108,31 @@ class ConfigureTest(TestCase):
         self.assertEqual(result.exit_code, 0)
         config_manager_mock.return_value.write.assert_called_once_with(mcd_id="id", mcd_token="tok")
 
+    @patch("montecarlodata.cli._stdin_is_tty", return_value=True)
     @patch("montecarlodata.cli.questionary")
     @patch("montecarlodata.cli.ConfigManager")
     def test_configure_aborts_when_auth_type_cancelled(
-        self, config_manager_mock: Mock, questionary_mock: Mock
+        self, config_manager_mock: Mock, questionary_mock: Mock, _stdin_is_tty_mock: Mock
     ):
         # Cancelling the picker (Ctrl-C) returns None -> abort without writing.
         questionary_mock.select.return_value.ask.return_value = None
         result = self._runner.invoke(configure)
         self.assertNotEqual(result.exit_code, 0)
         config_manager_mock.return_value.write.assert_not_called()
+
+    @patch("montecarlodata.cli.questionary")
+    @patch("montecarlodata.cli.ConfigManager")
+    def test_configure_without_a_tty_falls_back_to_api_key(
+        self, config_manager_mock: Mock, questionary_mock: Mock
+    ):
+        # No auth flag and no terminal (e.g. answers piped from a scheduled job or CI) -> the
+        # arrow-key picker cannot render; default to the scriptable api-key prompts instead.
+        # CliRunner supplies a non-tty stdin, matching that environment.
+        result = self._runner.invoke(configure, input="id\ntok\n")
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("No terminal detected", result.output)
+        questionary_mock.select.assert_not_called()
+        config_manager_mock.return_value.write.assert_called_once_with(mcd_id="id", mcd_token="tok")
 
     @patch("montecarlodata.cli.ConfigManager")
     def test_configure_oauth_and_api_key_mutually_exclusive(self, config_manager_mock: Mock):

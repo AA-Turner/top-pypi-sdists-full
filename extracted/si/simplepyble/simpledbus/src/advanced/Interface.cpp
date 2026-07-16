@@ -65,6 +65,17 @@ void Interface::property_refresh(const std::string& property_name) {
     }
 }
 
+void Interface::property_write(const std::string& property_name, Holder value) {
+    if (!_loaded || _properties.count(property_name) == 0) {
+        return;
+    }
+
+    auto properties = std::dynamic_pointer_cast<SimpleDBus::Interfaces::Properties>(
+        proxy()->interface_get("org.freedesktop.DBus.Properties"));
+
+    properties->Set(_interface_name, property_name, value);
+}
+
 void Interface::property_emit(const std::string& property_name, Holder value) {
     if (!_loaded || _properties.count(property_name) == 0) {
         return;
@@ -79,6 +90,27 @@ void Interface::property_emit(const std::string& property_name, Holder value) {
 }
 
 bool Interface::property_exists(const std::string& property_name) { return _properties.count(property_name) > 0; }
+
+bool Interface::property_valid(const std::string& property_name) {
+    if (_properties.count(property_name) == 0) {
+        return false;
+    }
+
+    return _properties[property_name]->valid();
+}
+
+void Interface::property_invalidate(const std::string& property_name) {
+    if (!_loaded || _properties.count(property_name) == 0) {
+        return;
+    }
+
+    _properties[property_name]->invalidate();
+
+    auto properties = std::dynamic_pointer_cast<SimpleDBus::Interfaces::Properties>(
+        proxy()->interface_get("org.freedesktop.DBus.Properties"));
+
+    properties->PropertiesChanged(_interface_name, std::vector<std::string>{property_name});
+}
 
 // ----- HANDLES -----
 

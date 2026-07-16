@@ -1,8 +1,7 @@
 use crate::{
-    hashing::HashUtil,
-    interned_string::InternedString,
-    specs_response::spec_types::{Spec, SpecsResponseFull},
-    ClientInitResponseOptions, DynamicValue, HashAlgorithm,
+    evaluation::evaluation_data::SpecView, hashing::HashUtil, interned_string::InternedString,
+    specs_response::spec_types::SpecsResponseFull, ClientInitResponseOptions, DynamicValue,
+    HashAlgorithm,
 };
 
 pub(crate) fn select_app_id_for_gcir<'a>(
@@ -30,11 +29,21 @@ pub(crate) fn select_app_id_for_gcir<'a>(
 }
 
 pub(crate) fn should_filter_spec_for_app(
-    spec: &Spec,
+    spec: SpecView<'_>,
     app_id: &Option<&DynamicValue>,
     client_sdk_key: &Option<String>,
 ) -> bool {
-    should_filter_config_for_app(spec.target_app_ids.as_ref(), app_id, client_sdk_key)
+    if client_sdk_key.is_none() {
+        return false;
+    }
+
+    let Some(string_app_id) = app_id.and_then(|value| value.string_value.as_ref()) else {
+        return false;
+    };
+
+    !spec
+        .target_app_ids_contains(string_app_id.value.as_str())
+        .unwrap_or(false)
 }
 
 pub(crate) fn should_filter_config_for_app(

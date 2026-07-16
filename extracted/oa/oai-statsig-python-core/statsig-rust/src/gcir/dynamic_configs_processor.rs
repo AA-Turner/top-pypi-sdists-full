@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use crate::{
     evaluation::{
         dynamic_returnable::DynamicReturnable,
+        evaluation_data::SpecView,
         evaluation_types::AnyConfigEvaluation,
         evaluation_types_initialize_v2::AnyConfigEvaluationInitV2,
         evaluation_types_v2::AnyConfigEvaluationV2,
@@ -22,7 +23,6 @@ use crate::{
         target_app_id_utils::should_filter_config_for_app,
     },
     interned_string::InternedString,
-    specs_response::spec_types::Spec,
     ClientInitResponseOptions, SecondaryExposure, StatsigErr,
 };
 
@@ -168,7 +168,7 @@ pub(crate) fn get_dynamic_config_evaluations_with_plan(
 
         context.reset_result();
         gcir_time!("cmab.evaluate", {
-            let _ = Evaluator::evaluate(context, planned.name.as_str(), &SpecType::Experiment);
+            let _ = Evaluator::evaluate_with_name(context, &planned.name, &SpecType::Experiment);
         });
         gcir_time!("cmab.hash_secondary_exposures", {
             hash_secondary_exposures(
@@ -377,8 +377,8 @@ pub(crate) fn get_dynamic_config_evaluations_init_v2(
     Ok(result)
 }
 
-fn get_dynamic_config_type(spec: &Spec) -> SpecType {
-    if spec.entity == "dynamic_config" {
+fn get_dynamic_config_type(spec: SpecView<'_>) -> SpecType {
+    if spec.entity().as_str() == "dynamic_config" {
         SpecType::DynamicConfig
     } else {
         SpecType::Experiment

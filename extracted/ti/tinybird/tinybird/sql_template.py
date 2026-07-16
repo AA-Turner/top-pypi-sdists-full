@@ -2911,13 +2911,21 @@ def extract_variables_from_sql(sql: str, params: List[Dict[str, Any]]) -> Dict[s
     return defaults
 
 
-def render_template_with_secrets(name: str, content: str, secrets: Optional[Dict[str, str]] = None) -> str:
+def render_template_with_secrets(
+    name: str,
+    content: str,
+    secrets: Optional[Dict[str, str]] = None,
+    empty_secret_raises: bool = False,
+) -> str:
     """Renders a template with secrets, allowing for default values.
 
     Args:
         name: The name of the template
         content: The template content
         secrets: A dictionary mapping secret names to their values
+        empty_secret_raises: When True, empty secret values or empty defaults raise
+            instead of returning '""'. Used for sink metadata (Forward deploy) where
+            an empty bucket path must not be baked as s3://"".
 
     Returns:
         The rendered template
@@ -2959,6 +2967,26 @@ def render_template_with_secrets(name: str, content: str, secrets: Optional[Dict
         Traceback (most recent call last):
         ...
         tinybird.sql_template.SQLTemplateException: Template Syntax Error: Cannot access secret 'MISSING_SECRET'. Check the secret exists in the Workspace and the token has the required scope.
+
+        >>> render_template_with_secrets(
+        ...     "sink_bucket",
+        ...     "s3://{{ tb_secret('MISSING_SECRET', '') }}",
+        ...     secrets = {},
+        ...     empty_secret_raises=True,
+        ... )
+        Traceback (most recent call last):
+        ...
+        tinybird.sql_template.SQLTemplateException: Template Syntax Error: Secret 'MISSING_SECRET' resolves to an empty value and cannot be used in sink metadata.
+
+        >>> render_template_with_secrets(
+        ...     "sink_bucket",
+        ...     "s3://{{ tb_secret('EMPTY_SECRET', 'fallback') }}",
+        ...     secrets = {'EMPTY_SECRET': ''},
+        ...     empty_secret_raises=True,
+        ... )
+        Traceback (most recent call last):
+        ...
+        tinybird.sql_template.SQLTemplateException: Template Syntax Error: Secret 'EMPTY_SECRET' resolves to an empty value and cannot be used in sink metadata.
     """
     if not secrets:
         secrets = {}
@@ -2974,15 +3002,24 @@ def render_template_with_secrets(name: str, content: str, secrets: Optional[Dict
             The secret value or default
 
         Raises:
-            SQLTemplateException: If the secret is not found and no default is provided
+            SQLTemplateException: If the secret is not found and no default is provided,
+                or if empty_secret_raises is True and the resolved value is empty
         """
         if secret_name in secrets:
             value = secrets[secret_name]
             if isinstance(value, str) and len(value) == 0:
+                if empty_secret_raises:
+                    raise SQLTemplateException(
+                        f"Secret '{secret_name}' resolves to an empty value and cannot be used in sink metadata."
+                    )
                 return '""'
             return value
         elif default is not None:
             if isinstance(default, str) and len(default) == 0:
+                if empty_secret_raises:
+                    raise SQLTemplateException(
+                        f"Secret '{secret_name}' resolves to an empty value and cannot be used in sink metadata."
+                    )
                 return '""'
             return default
         else:

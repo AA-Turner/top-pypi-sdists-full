@@ -9,7 +9,7 @@ from ..models import (
     ListResponseIngestSourceOut,
     RotateTokenOut,
 )
-from .common import ApiBase, BaseOptions, serialize_params
+from .common import ApiBaseAsync, ApiBaseSync, BaseOptions, serialize_params
 
 
 @dataclass
@@ -55,7 +55,7 @@ class IngestSourceRotateTokenOptions(BaseOptions):
         )
 
 
-class IngestSourceAsync(ApiBase):
+class IngestSourceAsync(ApiBaseAsync):
     async def list(
         self, options: IngestSourceListOptions = (IngestSourceListOptions())
     ) -> ListResponseIngestSourceOut:
@@ -101,7 +101,7 @@ class IngestSourceAsync(ApiBase):
     async def update(
         self, source_id: str, ingest_source_in: IngestSourceIn
     ) -> IngestSourceOut:
-        """Update an Ingest Source."""
+        """Create or update an Ingest Source."""
         response = await self._request_asyncio(
             method="put",
             path="/ingest/api/v1/source/{source_id}",
@@ -147,7 +147,7 @@ class IngestSourceAsync(ApiBase):
         return RotateTokenOut.model_validate(response.json())
 
 
-class IngestSource(ApiBase):
+class IngestSource(ApiBaseSync):
     def list(
         self, options: IngestSourceListOptions = (IngestSourceListOptions())
     ) -> ListResponseIngestSourceOut:
@@ -193,7 +193,7 @@ class IngestSource(ApiBase):
     def update(
         self, source_id: str, ingest_source_in: IngestSourceIn
     ) -> IngestSourceOut:
-        """Update an Ingest Source."""
+        """Create or update an Ingest Source."""
         response = self._request_sync(
             method="put",
             path="/ingest/api/v1/source/{source_id}",

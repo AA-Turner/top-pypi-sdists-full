@@ -506,9 +506,6 @@ class RawPromptsClient:
                 "skill_name": skill_name,
                 "title": title,
             },
-            headers={
-                "content-type": "application/json",
-            },
             request_options=request_options,
             omit=OMIT,
         )
@@ -534,10 +531,16 @@ class RawPromptsClient:
     def compatible_projects(
         self,
         *,
+        archived: typing.Optional[bool] = None,
+        ids: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
         ordering: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
         project_type: typing.Optional[CompatibleProjectsPromptsRequestProjectType] = None,
+        source_interface_id: typing.Optional[float] = None,
+        state: typing.Optional[str] = None,
+        title: typing.Optional[str] = None,
+        workspaces: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PaginatedAllRolesProjectListList]:
         """
@@ -545,6 +548,12 @@ class RawPromptsClient:
 
         Parameters
         ----------
+        archived : typing.Optional[bool]
+            Filter by projects that belong to archived workspaces
+
+        ids : typing.Optional[typing.Union[int, typing.Sequence[int]]]
+            Multiple values may be separated by commas.
+
         ordering : typing.Optional[str]
             Which field to use when ordering the results.
 
@@ -556,6 +565,14 @@ class RawPromptsClient:
 
         project_type : typing.Optional[CompatibleProjectsPromptsRequestProjectType]
             Skill to filter by
+
+        source_interface_id : typing.Optional[float]
+
+        state : typing.Optional[str]
+
+        title : typing.Optional[str]
+
+        workspaces : typing.Optional[int]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -569,10 +586,16 @@ class RawPromptsClient:
             "api/prompts/compatible-projects",
             method="GET",
             params={
+                "archived": archived,
+                "ids": ",".join(map(str, ids)) if isinstance(ids, (list, tuple, set)) else ids,
                 "ordering": ordering,
                 "page": page,
                 "page_size": page_size,
                 "project_type": project_type,
+                "source_interface_id": source_interface_id,
+                "state": state,
+                "title": title,
+                "workspaces": workspaces,
             },
             request_options=request_options,
         )
@@ -596,7 +619,7 @@ class RawPromptsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def get(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self, id: int, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ModelInterfaceSerializerGet]:
         """
         <Card href="https://humansignal.com/goenterprise">
@@ -609,7 +632,8 @@ class RawPromptsClient:
 
         Parameters
         ----------
-        id : str
+        id : int
+            A unique integer value identifying this model interface.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -643,7 +667,7 @@ class RawPromptsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[None]:
+    def delete(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[None]:
         """
         <Card href="https://humansignal.com/goenterprise">
                 <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
@@ -655,7 +679,8 @@ class RawPromptsClient:
 
         Parameters
         ----------
-        id : str
+        id : int
+            A unique integer value identifying this model interface.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -683,7 +708,7 @@ class RawPromptsClient:
 
     def update(
         self,
-        id: str,
+        id: int,
         *,
         associated_projects: typing.Optional[typing.Sequence[int]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
@@ -706,7 +731,8 @@ class RawPromptsClient:
 
         Parameters
         ----------
-        id : str
+        id : int
+            A unique integer value identifying this model interface.
 
         associated_projects : typing.Optional[typing.Sequence[int]]
 
@@ -1252,9 +1278,6 @@ class AsyncRawPromptsClient:
                 "skill_name": skill_name,
                 "title": title,
             },
-            headers={
-                "content-type": "application/json",
-            },
             request_options=request_options,
             omit=OMIT,
         )
@@ -1280,10 +1303,16 @@ class AsyncRawPromptsClient:
     async def compatible_projects(
         self,
         *,
+        archived: typing.Optional[bool] = None,
+        ids: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
         ordering: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
         project_type: typing.Optional[CompatibleProjectsPromptsRequestProjectType] = None,
+        source_interface_id: typing.Optional[float] = None,
+        state: typing.Optional[str] = None,
+        title: typing.Optional[str] = None,
+        workspaces: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PaginatedAllRolesProjectListList]:
         """
@@ -1291,6 +1320,12 @@ class AsyncRawPromptsClient:
 
         Parameters
         ----------
+        archived : typing.Optional[bool]
+            Filter by projects that belong to archived workspaces
+
+        ids : typing.Optional[typing.Union[int, typing.Sequence[int]]]
+            Multiple values may be separated by commas.
+
         ordering : typing.Optional[str]
             Which field to use when ordering the results.
 
@@ -1302,6 +1337,14 @@ class AsyncRawPromptsClient:
 
         project_type : typing.Optional[CompatibleProjectsPromptsRequestProjectType]
             Skill to filter by
+
+        source_interface_id : typing.Optional[float]
+
+        state : typing.Optional[str]
+
+        title : typing.Optional[str]
+
+        workspaces : typing.Optional[int]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1315,10 +1358,16 @@ class AsyncRawPromptsClient:
             "api/prompts/compatible-projects",
             method="GET",
             params={
+                "archived": archived,
+                "ids": ",".join(map(str, ids)) if isinstance(ids, (list, tuple, set)) else ids,
                 "ordering": ordering,
                 "page": page,
                 "page_size": page_size,
                 "project_type": project_type,
+                "source_interface_id": source_interface_id,
+                "state": state,
+                "title": title,
+                "workspaces": workspaces,
             },
             request_options=request_options,
         )
@@ -1342,7 +1391,7 @@ class AsyncRawPromptsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def get(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self, id: int, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ModelInterfaceSerializerGet]:
         """
         <Card href="https://humansignal.com/goenterprise">
@@ -1355,7 +1404,8 @@ class AsyncRawPromptsClient:
 
         Parameters
         ----------
-        id : str
+        id : int
+            A unique integer value identifying this model interface.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1390,7 +1440,7 @@ class AsyncRawPromptsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def delete(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self, id: int, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[None]:
         """
         <Card href="https://humansignal.com/goenterprise">
@@ -1403,7 +1453,8 @@ class AsyncRawPromptsClient:
 
         Parameters
         ----------
-        id : str
+        id : int
+            A unique integer value identifying this model interface.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1431,7 +1482,7 @@ class AsyncRawPromptsClient:
 
     async def update(
         self,
-        id: str,
+        id: int,
         *,
         associated_projects: typing.Optional[typing.Sequence[int]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
@@ -1454,7 +1505,8 @@ class AsyncRawPromptsClient:
 
         Parameters
         ----------
-        id : str
+        id : int
+            A unique integer value identifying this model interface.
 
         associated_projects : typing.Optional[typing.Sequence[int]]
 

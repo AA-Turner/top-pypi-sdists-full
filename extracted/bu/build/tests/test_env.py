@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
-import contextlib
 import importlib.util
 import logging
 import os
@@ -11,7 +10,6 @@ import subprocess
 import sys
 import sysconfig
 import typing
-import unittest.mock
 
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,9 +21,6 @@ from packaging.version import Version
 
 import build
 import build.env
-
-from build import _ctx
-from build._compat.importlib import metadata as importlib_metadata
 
 
 IS_PYPY = sys.implementation.name == 'pypy'
@@ -42,25 +37,6 @@ def test_make_extra_environ_overrides_pythonpath() -> None:
         assert env._env_backend.scripts_dir in extra['PATH']
 
 
-def test_installed_versions(mocker: pytest_mock.MockerFixture) -> None:
-    env = build.env.DefaultIsolatedEnv()
-    env._env_backend = SimpleNamespace(purelib='/purelib')
-    distributions = mocker.patch(
-        'build._compat.importlib.metadata.distributions',
-        return_value=[
-            SimpleNamespace(name='Setuptools', version='80.9.0'),
-            SimpleNamespace(name='wheel', version='0.45.1'),
-            SimpleNamespace(name='pip', version='25.0'),
-        ],
-    )
-
-    versions = env.installed_versions(['setuptools >= 40.8.0', 'Wheel', '/local/path/pkg.whl'])
-
-    assert versions == {'setuptools': '80.9.0', 'wheel': '0.45.1'}
-    distributions.assert_called_once_with(path=['/purelib'])
-
-
-@pytest.mark.skipif(MISSING_UV, reason='uv executable not found')
 def test_uv_install_strips_pythonpath(
     mocker: pytest_mock.MockerFixture,
     monkeypatch: pytest.MonkeyPatch,
@@ -234,43 +210,6 @@ def test_venv_symlink(
     assert supports_symlink is has_symlink
 
 
-def test_fs_supports_symlink_windows_dest_is_tmp_file_path(
-    mocker: pytest_mock.MockerFixture,
-) -> None:
-    """Regression test for the Windows-only branch of ``_fs_supports_symlink``.
-
-    ``dest`` must be built from ``tmp_file.name``, not from the ``NamedTemporaryFile`` object itself: interpolating the
-    object yields its repr (containing ``<`` and ``>``, which are invalid in Windows filenames), so ``os.symlink`` would
-    always fail and the function would always report symlinks as unsupported, even when Windows Developer Mode enables
-    them.
-
-    """
-    mocker.patch('os.name', 'nt')
-
-    # Avoid exercising the real tempfile module: on some platforms tempfile's own
-    # internals branch on os.name, which we're patching to 'nt' above.
-    fake_tmp_file = mocker.MagicMock()
-    fake_tmp_file.name = r'C:\Users\test\AppData\Local\Temp\build-symlink-abc123'
-    fake_tmp_file.__enter__.return_value = fake_tmp_file
-    fake_tmp_file.__exit__.return_value = False
-    mocker.patch('build.env.tempfile.NamedTemporaryFile', return_value=fake_tmp_file)
-
-    recorded_dest = {}
-
-    def fake_symlink(_src: str, dst: str) -> None:
-        recorded_dest['dst'] = dst
-
-    mocker.patch('os.symlink', side_effect=fake_symlink)
-    mocker.patch('os.unlink')
-
-    build.env._fs_supports_symlink.cache_clear()
-    supports_symlink = build.env._fs_supports_symlink()
-    build.env._fs_supports_symlink.cache_clear()
-
-    assert supports_symlink is True
-    assert recorded_dest['dst'] == f'{fake_tmp_file.name}-b'
-
-
 def test_install_short_circuits(
     mocker: pytest_mock.MockerFixture,
 ) -> None:
@@ -295,7 +234,7 @@ def test_default_impl_install_cmd_well_formed(
     constraints: list[str],
     fresh: bool,
 ) -> None:
-    mocker.patch.object(_ctx, 'verbosity', verbosity)
+    mocker.patch.object(build.env._ctx, 'verbosity', verbosity)  # type: ignore[attr-defined]
 
     with build.env.DefaultIsolatedEnv() as env:
         run_subprocess = mocker.patch('build.env.run_subprocess')
@@ -333,7 +272,7 @@ def test_uv_impl_install_cmd_well_formed(  # pragma: no cover -- uv tests are sk
     constraints: list[str],
     fresh: bool,
 ) -> None:
-    mocker.patch.object(_ctx, 'verbosity', verbosity)
+    mocker.patch.object(build.env._ctx, 'verbosity', verbosity)  # type: ignore[attr-defined]
 
     with build.env.DefaultIsolatedEnv(installer='uv') as env:
         run_subprocess = mocker.patch('build.env.run_subprocess')
@@ -356,54 +295,6 @@ def test_uv_impl_install_cmd_well_formed(  # pragma: no cover -- uv tests are sk
         )
         (install_call,) = run_subprocess.call_args_list
         assert install_call.kwargs['env']['VIRTUAL_ENV'] == env.path
-
-
-@pytest.mark.usefixtures('local_pip')
-def test_default_impl_install_files_line_endings_not_doubled(mocker: pytest_mock.MockerFixture) -> None:
-    # The requirements/constraints files are opened in text mode, which translates every
-    # '\n' written to os.linesep -- '\r\n' on disk is correct on Windows. Joining with
-    # os.linesep first (instead of '\n') would double-translate there, turning '\r\n' into
-    # '\r\r\n'. Read back as bytes, before the files are deleted by the
-    # install_dependencies() ExitStack, to catch that.
-    written: dict[str, bytes] = {}
-
-    def fake_run_subprocess(cmd: list[str], **_kwargs: object) -> None:
-        args = iter(cmd)
-        for arg in args:
-            if arg == '-r':
-                written['requirements'] = Path(next(args)).read_bytes()
-            elif arg == '-c':
-                written['constraints'] = Path(next(args)).read_bytes()
-
-    with build.env.DefaultIsolatedEnv() as env:
-        mocker.patch('build.env.run_subprocess', side_effect=fake_run_subprocess)
-        env.install(['some', 'requirements'], ['a-constraint', 'b-constraint'])
-
-    assert b'\r\r' not in written['requirements']
-    assert written['requirements'].splitlines() == [b'some', b'requirements']
-    assert b'\r\r' not in written['constraints']
-    assert written['constraints'].splitlines() == [b'a-constraint', b'b-constraint']
-
-
-@pytest.mark.skipif(IS_PYPY, reason='uv cannot find PyPy executable')
-@pytest.mark.skipif(MISSING_UV, reason='uv executable not found')
-def test_uv_impl_install_files_line_endings_not_doubled(  # pragma: no cover -- skipped on PyPy, covered on CPython
-    mocker: pytest_mock.MockerFixture,
-) -> None:
-    written: dict[str, bytes] = {}
-
-    def fake_run_subprocess(cmd: list[str], **_kwargs: object) -> None:
-        args = iter(cmd)
-        for arg in args:
-            if arg == '-c':
-                written['constraints'] = Path(next(args)).read_bytes()
-
-    with build.env.DefaultIsolatedEnv(installer='uv') as env:
-        mocker.patch('build.env.run_subprocess', side_effect=fake_run_subprocess)
-        env.install(['some', 'requirements'], ['a-constraint', 'b-constraint'])
-
-    assert b'\r\r' not in written['constraints']
-    assert written['constraints'].splitlines() == [b'a-constraint', b'b-constraint']
 
 
 @pytest.mark.usefixtures('local_pip')
@@ -506,49 +397,6 @@ def test_get_minimum_pip_version_old_darwin(
 
 
 @pytest.mark.parametrize(
-    ('release', 'machine', 'expected'),
-    [
-        # A dot-less release must not have its last digit truncated.
-        ('15', 'arm64', '21.0.1'),
-        ('15', 'x86_64', '20.3.0'),
-        # The 10.16 backwards-compatibility report maps to the pre-11 minimum.
-        ('10.16', 'x86_64', '19.1.0'),
-        # An empty release must not raise, and falls back to the generic minimum.
-        ('', 'x86_64', '19.1.0'),
-    ],
-)
-def test_get_minimum_pip_version_darwin_release_parsing(
-    mocker: pytest_mock.MockerFixture,
-    release: str,
-    machine: str,
-    expected: str,
-) -> None:
-    mocker.patch('platform.system', return_value='Darwin')
-    mocker.patch('platform.mac_ver', return_value=(release, ('', '', ''), machine))
-    assert build.env._PipBackend._get_minimum_pip_version_str() == expected
-
-
-def test_isolated_env_enter_failure_before_path_set(
-    mocker: pytest_mock.MockerFixture,
-    tmp_path: Path,
-) -> None:
-    # If setup fails before ``self._path`` is assigned, the original exception must
-    # propagate (not an AttributeError from ``__exit__``), and the temp dir cleaned up.
-    class _DistinctError(Exception):
-        pass
-
-    env_dir = tmp_path / 'build-env'
-    env_dir.mkdir()
-    mocker.patch('build.env.tempfile.mkdtemp', return_value=str(env_dir))
-    mocker.patch('build.env.os.path.realpath', side_effect=_DistinctError('boom'))
-
-    with pytest.raises(_DistinctError, match='boom'):
-        build.env.DefaultIsolatedEnv().__enter__()
-
-    assert not env_dir.exists()
-
-
-@pytest.mark.parametrize(
     ('version', 'has_no_wheel'),
     [
         pytest.param('20.30.0', True, id='old'),
@@ -565,9 +413,7 @@ def test_virtualenv_no_wheel_flag(
 
     mocker.patch('build._compat.importlib.metadata.version', return_value=version)
     cli_run = mocker.patch('virtualenv.cli_run')
-    cli_run.return_value = SimpleNamespace(
-        creator=SimpleNamespace(exe=Path('/fake/python'), script_dir=Path('/fake/scripts'), purelib=Path('/fake/purelib'))
-    )
+    cli_run.return_value = SimpleNamespace(creator=SimpleNamespace(exe=Path('/fake/python'), script_dir=Path('/fake/scripts')))
 
     backend = build.env._PipBackend()
     backend.create('/some/path')
@@ -657,7 +503,7 @@ def test_venv_creation_no_setuptools(
 ) -> None:
     original = build.env._has_dependency
 
-    def no_setuptools(name: str, min_ver: str | None = None, /, **kwargs: list[str]) -> importlib_metadata.Distribution | None:
+    def no_setuptools(name: str, min_ver: str | None = None, /, **kwargs: object) -> object:
         if name == 'setuptools':
             return None
         return original(name, min_ver, **kwargs)
@@ -764,80 +610,3 @@ def test_pythonpath_does_not_interfere_with_outer_pip(
         env.install({'flit_core'}, _fresh=True)
 
         assert subprocess.check_call([env.python_executable, '-c', 'import flit_core']) == 0
-
-
-@pytest.fixture
-def mock_env_create(mocker: pytest_mock.MockerFixture) -> unittest.mock.MagicMock:
-    return mocker.patch('build.env._PipBackend.create', autospec=True)
-
-
-def test_env_dir_created_at_requested_location(
-    mock_env_create: unittest.mock.MagicMock,
-    tmp_path: pathlib.Path,
-) -> None:
-    target = tmp_path / 'nested' / 'build-env'
-
-    with build.env.DefaultIsolatedEnv(path=str(target)) as env:
-        assert env.path == os.path.realpath(target)
-        assert os.path.isdir(env.path)
-
-    mock_env_create.assert_called_once()
-
-
-@pytest.mark.usefixtures('mock_env_create')
-@pytest.mark.parametrize(
-    ('use_path', 'fail', 'kept_after'),
-    [
-        pytest.param(False, False, False, id='temporary-success-removed'),
-        pytest.param(False, True, False, id='temporary-failure-removed'),
-        pytest.param(True, False, False, id='requested-success-removed'),
-        pytest.param(True, True, True, id='requested-failure-kept'),
-    ],
-)
-def test_env_cleanup(
-    tmp_path: pathlib.Path,
-    use_path: bool,
-    fail: bool,
-    kept_after: bool,
-) -> None:
-    target = str(tmp_path / 'build-env') if use_path else None
-
-    created_path = ''
-    with contextlib.suppress(RuntimeError), build.env.DefaultIsolatedEnv(path=target) as env:
-        created_path = env.path
-        if fail:
-            msg = 'boom'
-            raise RuntimeError(msg)
-
-    assert os.path.exists(created_path) is kept_after
-
-
-def test_env_dir_rejects_non_empty_location(tmp_path: pathlib.Path) -> None:
-    tmp_path.joinpath('sentinel').touch()
-
-    with (
-        pytest.raises(build.BuildException, match='Build environment location is not empty'),
-        build.env.DefaultIsolatedEnv(path=str(tmp_path)),
-    ):
-        raise AssertionError
-
-    assert tmp_path.joinpath('sentinel').exists()
-
-
-def test_env_dir_rejects_file_at_location(tmp_path: pathlib.Path) -> None:
-    file_path = tmp_path / 'env-file'
-    file_path.touch()
-
-    with (
-        pytest.raises(build.BuildException, match='Build environment location is not a directory'),
-        build.env.DefaultIsolatedEnv(path=str(file_path)),
-    ):
-        raise AssertionError
-
-    assert file_path.is_file()
-
-
-@pytest.mark.usefixtures('mock_env_create')
-def test_env_dir_accepts_existing_empty_location(tmp_path: pathlib.Path) -> None:
-    with build.env.DefaultIsolatedEnv(path=str(tmp_path)) as env:
-        assert env.path == os.path.realpath(tmp_path)

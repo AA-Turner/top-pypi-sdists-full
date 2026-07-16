@@ -9,7 +9,7 @@ import typer
 
 from pyrig.core.introspection.packages import make_init_files
 from pyrig.rig.tools.base.tool import Group, Tool
-from pyrig.rig.tools.package_manager import PackageManager
+from pyrig.rig.tools.packages.manager import PackageManager
 from pyrig.rig.tools.testing.project import ProjectTester
 
 
@@ -31,7 +31,7 @@ class ProgrammingLanguage(Tool):
 
     def image_url(self) -> str:
         """Return the Shields.io badge image URL for Python."""
-        return "https://img.shields.io/badge/Language-Python-3776AB?logo=python&logoColor=white"
+        return f"https://img.shields.io/badge/Language-Python-3776AB?logo={self.name()}&logoColor=white"
 
     def link_url(self) -> str:
         """Return the URL of the official Python website."""
@@ -41,7 +41,7 @@ class ProgrammingLanguage(Tool):
         """Return `"python"`."""
         return "python"
 
-    def version_control_ignore_paths(self) -> tuple[str, ...]:
+    def version_control_ignore_patterns(self) -> tuple[str, ...]:
         """Return `("__pycache__/",)`."""
         return ("__pycache__/",)
 
@@ -54,13 +54,10 @@ class ProgrammingLanguage(Tool):
             Directories where `__init__.py` files were created. Empty if all
             already existed.
         """
-        paths = make_init_files(
+        return make_init_files(
             self.namespace_package_paths(),
             content=self.standard_init_content(),
         )
-        for path in paths:
-            typer.echo(f"Created: {path}")
-        return paths
 
     def namespace_package_paths(self) -> Iterator[Path]:
         """Yield project directories that lack an `__init__.py` file.

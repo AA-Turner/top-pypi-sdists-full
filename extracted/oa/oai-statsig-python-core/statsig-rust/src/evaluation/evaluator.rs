@@ -12,14 +12,15 @@ use crate::evaluation::comparisons::{
 use crate::evaluation::dynamic_returnable::DynamicReturnable;
 use crate::evaluation::dynamic_string::DynamicString;
 use crate::evaluation::dynamic_value::DynamicValue;
+use crate::evaluation::evaluation_data::{InternedStrRef, RuleRef, SpecAccess, SpecView};
 use crate::evaluation::evaluation_types::SecondaryExposure;
 use crate::evaluation::evaluator_context::{EvaluatorContext, IdListResolution};
-use crate::evaluation::evaluator_value::{EvaluatorValue, MemoizedEvaluatorValue};
+use crate::evaluation::evaluator_value::{EvaluatorValue, EvaluatorValueRef};
 use crate::evaluation::get_unit_id::get_unit_id;
 use crate::evaluation::user_agent_parsing::UserAgentParser;
 use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
-use crate::specs_response::spec_types::{Condition, ConditionOperator, ConditionType, Rule, Spec};
+use crate::specs_response::spec_types::{Condition, ConditionOperator, ConditionType};
 use crate::user::user_value::UserValueRef;
 use crate::{dyn_value, log_w, unwrap_or_return, ExperimentEvaluationOptions, StatsigErr};
 
@@ -58,17 +59,26 @@ impl Evaluator {
         spec_type: &SpecType,
     ) -> Result<Recognition, StatsigErr> {
         let spec_name_intern = InternedString::from_str_ref(spec_name);
+        Self::evaluate_with_name(ctx, &spec_name_intern, spec_type)
+    }
+
+    pub(crate) fn evaluate_with_name(
+        ctx: &mut EvaluatorContext,
+        spec_name_intern: &InternedString,
+        spec_type: &SpecType,
+    ) -> Result<Recognition, StatsigErr> {
+        let spec_name = spec_name_intern.as_str();
 
         let opt_spec = match spec_type {
-            SpecType::Gate => ctx.specs_data.feature_gates.get(&spec_name_intern),
-            SpecType::DynamicConfig => ctx.specs_data.dynamic_configs.get(&spec_name_intern),
-            SpecType::Experiment => ctx.specs_data.dynamic_configs.get(&spec_name_intern),
-            SpecType::Layer => ctx.specs_data.layer_configs.get(&spec_name_intern),
+            SpecType::Gate => ctx.specs_data.feature_gates.get(spec_name_intern),
+            SpecType::DynamicConfig => ctx.specs_data.dynamic_configs.get(spec_name_intern),
+            SpecType::Experiment => ctx.specs_data.dynamic_configs.get(spec_name_intern),
+            SpecType::Layer => ctx.specs_data.layer_configs.get(spec_name_intern),
             SpecType::ParameterStore => {
-                return evaluate_param_store_reason(ctx, spec_name.to_string())
+                return evaluate_param_store_reason(ctx, spec_name.to_string());
             }
         }
-        .map(|sp| sp.as_spec_ref());
+        .map(|spec| spec.view());
 
         if try_apply_override(ctx, spec_name, spec_type, opt_spec) {
             return Ok(Recognition::Recognized);
@@ -85,36 +95,37 @@ impl Evaluator {
         let spec = unwrap_or_return!(opt_spec, Ok(Recognition::Unrecognized));
 
         if ctx.result.name.is_none() {
-            ctx.result.name = Some(spec_name_intern);
+            ctx.result.name = Some(spec_name_intern.clone());
         }
 
         if ctx.result.id_type.is_none() {
-            ctx.result.id_type = Some(InternedString::from_str_ref(&spec.id_type));
+            ctx.result.id_type = Some(spec.id_type().to_interned());
         }
 
         if ctx.result.version.is_none() {
-            if let Some(version) = spec.version {
+            if let Some(version) = spec.version() {
                 ctx.result.version = Some(version);
             }
         }
 
-        if let Some(is_active) = spec.is_active {
+        if let Some(is_active) = spec.is_active() {
             ctx.result.is_experiment_active = is_active;
         }
 
-        if let Some(has_shared_params) = spec.has_shared_params {
+        if let Some(has_shared_params) = spec.has_shared_params() {
             ctx.result.is_in_layer = has_shared_params;
         }
 
-        if let Some(explicit_params) = &spec.explicit_parameters {
-            ctx.result.explicit_parameters = Some(explicit_params.clone());
+        if let Some(explicit_params) = spec.explicit_parameters() {
+            ctx.result.explicit_parameters = Some(explicit_params);
         }
 
-        if spec.use_new_layer_eval == Some(true) && matches!(spec_type, SpecType::Layer) {
+        if spec.uses_new_layer_eval() && matches!(spec_type, SpecType::Layer) {
             return new_layer_eval(ctx, spec);
         }
 
-        for rule in &spec.rules {
+        for index in 0..spec.rules_len() {
+            let rule = spec.rule(index);
             evaluate_rule(ctx, rule)?;
 
             if ctx.result.unsupported {
@@ -126,35 +137,40 @@ impl Evaluator {
             }
 
             if evaluate_config_delegate(ctx, rule)? {
-                ctx.finalize_evaluation(spec, Some(rule));
+                ctx.finalize_evaluation_values(rule.sampling_rate(), spec.forward_all_exposures());
                 return Ok(Recognition::Recognized);
             }
 
-            let did_pass = evaluate_pass_percentage(ctx, rule, &spec.salt);
+            let did_pass = evaluate_pass_percentage(ctx, rule, spec.salt());
 
-            if did_pass {
-                ctx.result.bool_value = rule.return_value.get_bool() != Some(false);
-                ctx.result.json_value = Some(rule.return_value.clone());
+            let return_value = if did_pass {
+                rule.return_value()
             } else {
-                ctx.result.bool_value = spec.default_value.get_bool() == Some(true);
-                ctx.result.json_value = Some(spec.default_value.clone());
-            }
+                spec.default_value()
+            };
+            ctx.result.bool_value = if did_pass {
+                return_value.bool_value() != Some(false)
+            } else {
+                return_value.bool_value() == Some(true)
+            };
+            ctx.result.json_value = Some(return_value.to_owned());
 
-            ctx.result.rule_id = Some(rule.id.clone());
-            ctx.result.group_name = rule.group_name.clone();
-            ctx.result.is_experiment_group = rule.is_experiment_group.unwrap_or(false);
-            ctx.result.is_experiment_active = spec.is_active.unwrap_or(false);
-            ctx.finalize_evaluation(spec, Some(rule));
+            ctx.result.rule_id = Some(rule.id().to_interned());
+            ctx.result.group_name = rule.group_name().map(InternedStrRef::to_interned);
+            ctx.result.is_experiment_group = rule.is_experiment_group();
+            ctx.result.is_experiment_active = spec.is_active().unwrap_or(false);
+            ctx.finalize_evaluation_values(rule.sampling_rate(), spec.forward_all_exposures());
             return Ok(Recognition::Recognized);
         }
 
-        ctx.result.bool_value = spec.default_value.get_bool() == Some(true);
-        ctx.result.json_value = Some(spec.default_value.clone());
-        ctx.result.rule_id = match spec.enabled {
+        let default_value = spec.default_value();
+        ctx.result.bool_value = default_value.bool_value() == Some(true);
+        ctx.result.json_value = Some(default_value.to_owned());
+        ctx.result.rule_id = match spec.enabled() {
             true => Some(InternedString::default_rule_id()),
             false => Some(DISABLED_RULE.clone()),
         };
-        ctx.finalize_evaluation(spec, None);
+        ctx.finalize_evaluation_values(None, spec.forward_all_exposures());
 
         Ok(Recognition::Recognized)
     }
@@ -162,7 +178,7 @@ impl Evaluator {
 
 fn new_layer_eval<'a>(
     ctx: &mut EvaluatorContext<'a>,
-    spec: &'a Spec,
+    spec: SpecView<'a>,
 ) -> Result<Recognition, StatsigErr> {
     let mut has_passed_rule = false;
     let mut passed = false;
@@ -177,7 +193,8 @@ fn new_layer_eval<'a>(
     let mut secondary_exposures: Vec<SecondaryExposure> = Vec::new();
     let mut undelegated_secondary_exposures: Vec<SecondaryExposure> = Vec::new();
 
-    for rule in &spec.rules {
+    for index in 0..spec.rules_len() {
+        let rule = spec.rule(index);
         evaluate_rule(ctx, rule)?;
         let rule_secondary_exposures = std::mem::take(&mut ctx.result.secondary_exposures);
         secondary_exposures.extend(rule_secondary_exposures.iter().cloned());
@@ -191,7 +208,7 @@ fn new_layer_eval<'a>(
             continue;
         }
 
-        let did_pass = evaluate_pass_percentage(ctx, rule, &spec.salt);
+        let did_pass = evaluate_pass_percentage(ctx, rule, spec.salt());
         if !did_pass {
             continue;
         }
@@ -223,7 +240,12 @@ fn new_layer_eval<'a>(
                 .rule_id
                 .clone()
                 .unwrap_or_else(InternedString::default_rule_id);
-            update_parameter_values(&mut value, &mut rule_ids, delegate_value, &delegate_rule_id);
+            update_parameter_values(
+                &mut value,
+                &mut rule_ids,
+                delegate_value,
+                (&delegate_rule_id).into(),
+            );
 
             secondary_exposures.append(&mut ctx.result.secondary_exposures);
             ctx.result.secondary_exposures.clear();
@@ -239,8 +261,8 @@ fn new_layer_eval<'a>(
             update_parameter_values(
                 &mut value,
                 &mut rule_ids,
-                rule.return_value.get_json(),
-                &rule.id,
+                rule.return_value().json_value(),
+                rule.id(),
             );
         }
         has_passed_rule = true;
@@ -248,8 +270,8 @@ fn new_layer_eval<'a>(
     update_parameter_values(
         &mut value,
         &mut rule_ids,
-        spec.default_value.get_json(),
-        InternedString::default_rule_id_ref(),
+        spec.default_value().json_value(),
+        InternedString::default_rule_id_ref().into(),
     );
     ctx.result.bool_value = passed;
     ctx.result.config_delegate = delegate_name;
@@ -262,7 +284,7 @@ fn new_layer_eval<'a>(
     ctx.result.secondary_exposures = secondary_exposures;
     ctx.result.undelegated_secondary_exposures = Some(undelegated_secondary_exposures);
     ctx.result.parameter_rule_ids = Some(rule_ids);
-    ctx.finalize_evaluation(spec, None);
+    ctx.finalize_evaluation_values(None, spec.forward_all_exposures());
     Ok(Recognition::Recognized)
 }
 
@@ -270,17 +292,17 @@ fn update_parameter_values(
     value: &mut HashMap<String, Value>,
     rule_ids: &mut HashMap<InternedString, InternedString>,
     values_to_apply: Option<HashMap<String, Value>>,
-    rule_id: &InternedString,
+    rule_id: InternedStrRef<'_>,
 ) {
     let json_map = match values_to_apply {
         Some(map) => map,
         None => return,
     };
     for (k, v) in json_map {
-        let parameter_name = InternedString::from_str_ref(&k);
+        let parameter_name = InternedString::from_string_uninterned(k.clone());
         if let std::collections::hash_map::Entry::Vacant(e) = value.entry(k) {
             e.insert(v);
-            rule_ids.insert(parameter_name.clone(), rule_id.clone());
+            rule_ids.insert(parameter_name.clone(), rule_id.to_interned());
         }
     }
 }
@@ -289,7 +311,7 @@ fn try_apply_config_mapping(
     ctx: &mut EvaluatorContext,
     spec_name: &str,
     spec_type: &SpecType,
-    opt_spec: Option<&Spec>,
+    opt_spec: Option<SpecView<'_>>,
 ) -> bool {
     let overrides = match &ctx.specs_data.overrides {
         Some(overrides) => overrides,
@@ -307,8 +329,8 @@ fn try_apply_config_mapping(
     };
 
     let spec_salt = match opt_spec {
-        Some(spec) => &spec.salt,
-        None => InternedString::empty_ref(),
+        Some(spec) => spec.salt(),
+        None => InternedString::empty_ref().into(),
     };
 
     for mapping in mapping_list {
@@ -323,6 +345,7 @@ fn try_apply_config_mapping(
                 Some(rule) => rule,
                 None => continue,
             };
+            let rule = RuleRef::from(rule);
             match evaluate_rule(ctx, rule) {
                 Ok(_) => {}
                 Err(_) => {
@@ -339,7 +362,7 @@ fn try_apply_config_mapping(
             let pass = evaluate_pass_percentage(ctx, rule, spec_salt);
             if pass {
                 ctx.result.override_config_name = Some(mapping.new_config_name.clone());
-                match Evaluator::evaluate(ctx, mapping.new_config_name.as_str(), spec_type) {
+                match Evaluator::evaluate_with_name(ctx, &mapping.new_config_name, spec_type) {
                     Ok(Recognition::Recognized) => {
                         return true;
                     }
@@ -359,7 +382,7 @@ fn try_apply_override(
     ctx: &mut EvaluatorContext,
     spec_name: &str,
     spec_type: &SpecType,
-    opt_spec: Option<&Spec>,
+    opt_spec: Option<SpecView<'_>>,
 ) -> bool {
     let adapter = match &ctx.override_adapter {
         Some(adapter) => adapter,
@@ -386,7 +409,13 @@ fn try_apply_override(
         }
 
         SpecType::Experiment => {
-            adapter.get_experiment_override(user, spec_name, &mut ctx.result, opt_spec)
+            let override_spec = opt_spec.map(SpecView::materialize);
+            adapter.get_experiment_override(
+                user,
+                spec_name,
+                &mut ctx.result,
+                override_spec.as_ref().map(SpecAccess::as_ref),
+            )
         }
 
         SpecType::Layer => adapter.get_layer_override(user, spec_name, &mut ctx.result),
@@ -397,16 +426,21 @@ fn try_apply_override(
     })
 }
 
-fn evaluate_rule<'a>(ctx: &mut EvaluatorContext<'a>, rule: &'a Rule) -> Result<(), StatsigErr> {
+fn evaluate_rule<'a>(ctx: &mut EvaluatorContext<'a>, rule: RuleRef<'a>) -> Result<(), StatsigErr> {
     let mut all_conditions_pass = true;
     // println!("--- Eval Rule {} ---", rule.id);
-    for condition_hash in &rule.conditions {
+    for index in 0..rule.conditions_len() {
+        let condition_hash = rule.condition_id(index);
         // println!("Condition Hash {}", condition_hash);
-        let opt_condition = ctx.specs_data.condition_map.get(condition_hash);
+        let opt_condition = condition_hash.get_from(&ctx.specs_data.condition_map);
         let condition = if let Some(c) = opt_condition {
             c
         } else {
-            log_w!(TAG, "Unsupported - Condition not found: {}", condition_hash);
+            log_w!(
+                TAG,
+                "Unsupported - Condition not found: {}",
+                condition_hash.as_str()
+            );
             ctx.result.unsupported = true;
             return Ok(());
         };
@@ -431,8 +465,8 @@ fn evaluate_condition<'a>(
     let target_value = condition
         .target_value
         .as_ref()
-        .map(|v| v.as_ref())
-        .unwrap_or(EvaluatorValue::empty().as_ref());
+        .map(EvaluatorValue::as_value_ref)
+        .unwrap_or_else(|| EvaluatorValue::empty().as_value_ref());
     let condition_type = condition.condition_type.as_str();
 
     let value: UserValueRef<'_> = match condition.compiled_condition_type {
@@ -578,7 +612,7 @@ fn evaluate_condition<'a>(
 fn evaluate_id_list(
     ctx: &mut EvaluatorContext<'_>,
     op: ConditionOperator,
-    target_value: &MemoizedEvaluatorValue,
+    target_value: EvaluatorValueRef<'_>,
     value: UserValueRef<'_>,
 ) -> bool {
     let is_in_list = is_in_id_list(ctx, target_value, value);
@@ -592,23 +626,21 @@ fn evaluate_id_list(
 
 fn is_in_id_list(
     ctx: &mut EvaluatorContext<'_>,
-    target_value: &MemoizedEvaluatorValue,
+    target_value: EvaluatorValueRef<'_>,
     value: UserValueRef<'_>,
 ) -> bool {
-    let list_name = unwrap_or_return!(&target_value.string_value, false);
+    let list_name = unwrap_or_return!(target_value.string_value(), false);
     let dyn_str = unwrap_or_return!(value.string_value(), false);
     let hashed = ctx.hashing.sha256(dyn_str);
     let lookup_id: String = hashed.chars().take(8).collect();
 
     match ctx.id_list_resolver {
         IdListResolution::MapLookup(id_lists) => {
-            let list = unwrap_or_return!(id_lists.get(list_name.value.as_str()), false);
+            let list = unwrap_or_return!(id_lists.get(list_name), false);
 
             list.ids.contains(&lookup_id)
         }
-        IdListResolution::Callback(callback) => {
-            callback(list_name.value.as_str(), lookup_id.as_str())
-        }
+        IdListResolution::Callback(callback) => callback(list_name, lookup_id.as_str()),
     }
 }
 
@@ -644,16 +676,15 @@ fn evaluate_experiment_group<'a>(
 
 fn evaluate_nested_gate<'a>(
     ctx: &mut EvaluatorContext<'a>,
-    target_value: &'a MemoizedEvaluatorValue,
+    target_value: EvaluatorValueRef<'a>,
     is_fail_gate: bool,
 ) -> Result<(), StatsigErr> {
-    let gate_name = target_value
-        .string_value
-        .as_ref()
-        .map(|name| &name.value)
-        .unwrap_or(InternedString::empty_ref());
+    let gate_name = match target_value.interned_string_value() {
+        Some(name) => name,
+        None => InternedString::empty_ref().into(),
+    };
 
-    match ctx.nested_gate_memo.get(gate_name) {
+    match gate_name.get_from(&ctx.nested_gate_memo) {
         Some((previous_bool, previous_rule_id, previous_secondary_exposures)) => {
             ctx.result.bool_value = *previous_bool;
             ctx.result.rule_id = previous_rule_id.clone();
@@ -662,31 +693,51 @@ fn evaluate_nested_gate<'a>(
                 .extend_from_slice(previous_secondary_exposures);
         }
         None => {
-            ctx.prep_for_nested_evaluation()?;
+            let parent_nested_count = ctx.nested_count;
+            if let Err(error) = ctx.prep_for_nested_evaluation() {
+                ctx.nested_count = parent_nested_count;
+                return Err(error);
+            }
 
-            let mut current_exposures = std::mem::take(&mut ctx.result.secondary_exposures);
+            let parent_exposures = std::mem::take(&mut ctx.result.secondary_exposures);
 
-            let _ = Evaluator::evaluate(ctx, gate_name.as_str(), &SpecType::Gate)?;
+            let gate_name_owned = gate_name.to_interned();
+            let recognition = Evaluator::evaluate_with_name(ctx, &gate_name_owned, &SpecType::Gate);
+            ctx.nested_count = parent_nested_count;
+
+            let recognition = match recognition {
+                Ok(recognition) => recognition,
+                Err(error) => {
+                    ctx.result.secondary_exposures = parent_exposures;
+                    return Err(error);
+                }
+            };
+
+            let mut nested_exposures = std::mem::take(&mut ctx.result.secondary_exposures);
+
+            if recognition == Recognition::Unrecognized {
+                ctx.result.bool_value = false;
+                ctx.result.rule_id = None;
+            }
 
             if ctx.result.unsupported {
+                ctx.result.secondary_exposures = parent_exposures;
                 return Ok(());
             }
 
             if !gate_name.as_str().is_empty() {
                 ctx.nested_gate_memo.insert(
-                    gate_name.clone(),
+                    gate_name.to_interned(),
                     (
                         ctx.result.bool_value,
                         ctx.result.rule_id.clone(),
-                        ctx.result.secondary_exposures.clone(),
+                        nested_exposures.clone(),
                     ),
                 );
             }
 
-            std::mem::swap(&mut ctx.result.secondary_exposures, &mut current_exposures);
-            ctx.result
-                .secondary_exposures
-                .extend_from_slice(&current_exposures);
+            ctx.result.secondary_exposures = parent_exposures;
+            ctx.result.secondary_exposures.append(&mut nested_exposures);
         }
     }
 
@@ -695,10 +746,10 @@ fn evaluate_nested_gate<'a>(
         None => true,
     };
 
-    if !&gate_name.starts_with("segment:") && !is_empty_rule_id {
+    if !gate_name.as_str().starts_with("segment:") && !is_empty_rule_id {
         let res = &ctx.result;
         let expo = SecondaryExposure {
-            gate: gate_name.clone(),
+            gate: gate_name.to_interned(),
             gate_value: InternedString::from_bool(res.bool_value),
             rule_id: res.rule_id.clone().unwrap_or_default(),
         };
@@ -718,50 +769,55 @@ fn evaluate_nested_gate<'a>(
 
 fn evaluate_config_delegate<'a>(
     ctx: &mut EvaluatorContext<'a>,
-    rule: &'a Rule,
+    rule: RuleRef<'a>,
 ) -> Result<bool, StatsigErr> {
-    let delegate = unwrap_or_return!(&rule.config_delegate, Ok(false));
-    let delegate_spec = unwrap_or_return!(ctx.specs_data.dynamic_configs.get(delegate), Ok(false));
+    let delegate = unwrap_or_return!(rule.config_delegate(), Ok(false));
+    let delegate_spec = unwrap_or_return!(
+        delegate.get_from(&ctx.specs_data.dynamic_configs.0),
+        Ok(false)
+    );
+    let delegate_owned = delegate.to_interned();
 
     ctx.result.undelegated_secondary_exposures = Some(ctx.result.secondary_exposures.clone());
 
     ctx.prep_for_nested_evaluation()?;
-    let recognition = Evaluator::evaluate(ctx, delegate, &SpecType::Experiment)?;
+    let recognition = Evaluator::evaluate_with_name(ctx, &delegate_owned, &SpecType::Experiment)?;
     if recognition == Recognition::Unrecognized {
         ctx.result.undelegated_secondary_exposures = None;
         return Ok(false);
     }
 
-    ctx.result.explicit_parameters = delegate_spec.as_spec_ref().explicit_parameters.clone();
-    ctx.result.config_delegate = rule.config_delegate.clone();
+    ctx.result.explicit_parameters = delegate_spec.view().explicit_parameters();
+    ctx.result.config_delegate = Some(delegate_owned);
 
     Ok(true)
 }
 
 fn evaluate_pass_percentage(
     ctx: &mut EvaluatorContext,
-    rule: &Rule,
-    spec_salt: &InternedString,
+    rule: RuleRef<'_>,
+    spec_salt: InternedStrRef<'_>,
 ) -> bool {
-    if rule.pass_percentage == 100f64 {
+    let pass_percentage = rule.pass_percentage();
+    if pass_percentage == 100f64 {
         return true;
     }
 
-    if rule.pass_percentage == 0f64 {
+    if pass_percentage == 0f64 {
         return false;
     }
 
-    let rule_salt = rule.salt.as_deref().unwrap_or(rule.id.as_str());
-    let unit_id = get_unit_id(ctx, &rule.id_type);
-    let input = format!("{spec_salt}.{rule_salt}.{unit_id}");
+    let rule_salt = rule.salt().unwrap_or_else(|| rule.id()).as_str();
+    let unit_id = get_unit_id(ctx, rule.id_type());
+    let input = format!("{}.{rule_salt}.{unit_id}", spec_salt.as_str());
     match ctx.hashing.evaluation_hash(&input) {
-        Some(hash) => ((hash % 10000) as f64) < rule.pass_percentage * 100.0,
+        Some(hash) => ((hash % 10000) as f64) < pass_percentage * 100.0,
         None => false,
     }
 }
 
 fn get_hash_for_user_bucket(ctx: &mut EvaluatorContext, condition: &Condition) -> DynamicValue {
-    let unit_id = get_unit_id(ctx, &condition.id_type);
+    let unit_id = get_unit_id(ctx, (&condition.id_type).into());
 
     let mut salt = InternedString::empty_ref();
 

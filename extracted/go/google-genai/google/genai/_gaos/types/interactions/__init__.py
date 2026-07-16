@@ -30,6 +30,10 @@ if TYPE_CHECKING:
         TransformParam,
     )
     from .annotation import Annotation, AnnotationParam, UnknownAnnotation
+    from .antigravityagentconfig import (
+        AntigravityAgentConfig,
+        AntigravityAgentConfigParam,
+    )
     from .argumentsdelta import ArgumentsDelta, ArgumentsDeltaTypedDict
     from .audiocontent import AudioContent, AudioContentMimeType, AudioContentParam
     from .audiodelta import AudioDelta, AudioDeltaMimeType, AudioDeltaTypedDict
@@ -58,6 +62,7 @@ if TYPE_CHECKING:
         CodeExecutionResultStep,
         CodeExecutionResultStepParam,
     )
+    from .codemenderagentconfig import CodeMenderAgentConfig, CodeMenderAgentConfigParam
     from .computeruse import (
         ComputerUse,
         ComputerUseParam,
@@ -118,6 +123,7 @@ if TYPE_CHECKING:
     from .errorevent import ErrorEvent, ErrorEventTypedDict
     from .exaaisearchconfig import ExaAISearchConfig, ExaAISearchConfigParam
     from .filecitation import FileCitation, FileCitationParam
+    from .filecontent import FileContent, FileContentParam
     from .filesearch import FileSearch, FileSearchParam
     from .filesearchcalldelta import FileSearchCallDelta, FileSearchCallDeltaTypedDict
     from .filesearchcallstep import FileSearchCallStep, FileSearchCallStepParam
@@ -128,6 +134,8 @@ if TYPE_CHECKING:
     )
     from .filesearchresultstep import FileSearchResultStep, FileSearchResultStepParam
     from .filter_ import Filter, FilterParam
+    from .findrequest import FindRequest, FindRequestParam, Mode
+    from .fixrequest import FixRequest, FixRequestParam
     from .function import Function, FunctionParam
     from .functioncallstep import FunctionCallStep, FunctionCallStepParam
     from .functionresultdelta import (
@@ -314,6 +322,7 @@ if TYPE_CHECKING:
     from .reviewsnippet import ReviewSnippet, ReviewSnippetParam
     from .safetysetting import Method, SafetySetting, SafetySettingParam, Threshold
     from .servicetier import ServiceTier
+    from .sessionconfig import SessionConfig, SessionConfigParam
     from .source import Source, SourceParam, SourceType
     from .speechconfig import SpeechConfig, SpeechConfigParam
     from .status import Status, StatusParam
@@ -395,6 +404,8 @@ __all__ = [
     "AllowlistParam",
     "Annotation",
     "AnnotationParam",
+    "AntigravityAgentConfig",
+    "AntigravityAgentConfigParam",
     "ArgumentsDelta",
     "ArgumentsDeltaTypedDict",
     "AudioContent",
@@ -419,6 +430,8 @@ __all__ = [
     "CodeExecutionResultDeltaTypedDict",
     "CodeExecutionResultStep",
     "CodeExecutionResultStepParam",
+    "CodeMenderAgentConfig",
+    "CodeMenderAgentConfigParam",
     "ComputerUse",
     "ComputerUseParam",
     "Content",
@@ -464,6 +477,8 @@ __all__ = [
     "ExaAISearchConfigParam",
     "FileCitation",
     "FileCitationParam",
+    "FileContent",
+    "FileContentParam",
     "FileSearch",
     "FileSearchCallDelta",
     "FileSearchCallDeltaTypedDict",
@@ -478,6 +493,10 @@ __all__ = [
     "FileSearchResultTypedDict",
     "Filter",
     "FilterParam",
+    "FindRequest",
+    "FindRequestParam",
+    "FixRequest",
+    "FixRequestParam",
     "Function",
     "FunctionCallStep",
     "FunctionCallStepParam",
@@ -600,6 +619,7 @@ __all__ = [
     "Method",
     "ModalityTokens",
     "ModalityTokensTypedDict",
+    "Mode",
     "Model",
     "ModelOutputStep",
     "ModelOutputStepParam",
@@ -636,6 +656,8 @@ __all__ = [
     "SafetySetting",
     "SafetySettingParam",
     "ServiceTier",
+    "SessionConfig",
+    "SessionConfigParam",
     "Source",
     "SourceParam",
     "SourceType",
@@ -751,6 +773,8 @@ _dynamic_imports: dict[str, str] = {
     "Annotation": ".annotation",
     "AnnotationParam": ".annotation",
     "UnknownAnnotation": ".annotation",
+    "AntigravityAgentConfig": ".antigravityagentconfig",
+    "AntigravityAgentConfigParam": ".antigravityagentconfig",
     "ArgumentsDelta": ".argumentsdelta",
     "ArgumentsDeltaTypedDict": ".argumentsdelta",
     "AudioContent": ".audiocontent",
@@ -776,6 +800,8 @@ _dynamic_imports: dict[str, str] = {
     "CodeExecutionResultDeltaTypedDict": ".codeexecutionresultdelta",
     "CodeExecutionResultStep": ".codeexecutionresultstep",
     "CodeExecutionResultStepParam": ".codeexecutionresultstep",
+    "CodeMenderAgentConfig": ".codemenderagentconfig",
+    "CodeMenderAgentConfigParam": ".codemenderagentconfig",
     "ComputerUse": ".computeruse",
     "ComputerUseParam": ".computeruse",
     "DisabledSafetyPolicy": ".computeruse",
@@ -828,6 +854,8 @@ _dynamic_imports: dict[str, str] = {
     "ExaAISearchConfigParam": ".exaaisearchconfig",
     "FileCitation": ".filecitation",
     "FileCitationParam": ".filecitation",
+    "FileContent": ".filecontent",
+    "FileContentParam": ".filecontent",
     "FileSearch": ".filesearch",
     "FileSearchParam": ".filesearch",
     "FileSearchCallDelta": ".filesearchcalldelta",
@@ -842,6 +870,11 @@ _dynamic_imports: dict[str, str] = {
     "FileSearchResultStepParam": ".filesearchresultstep",
     "Filter": ".filter_",
     "FilterParam": ".filter_",
+    "FindRequest": ".findrequest",
+    "FindRequestParam": ".findrequest",
+    "Mode": ".findrequest",
+    "FixRequest": ".fixrequest",
+    "FixRequestParam": ".fixrequest",
     "Function": ".function",
     "FunctionParam": ".function",
     "FunctionCallStep": ".functioncallstep",
@@ -1002,6 +1035,8 @@ _dynamic_imports: dict[str, str] = {
     "SafetySettingParam": ".safetysetting",
     "Threshold": ".safetysetting",
     "ServiceTier": ".servicetier",
+    "SessionConfig": ".sessionconfig",
+    "SessionConfigParam": ".sessionconfig",
     "Source": ".source",
     "SourceParam": ".source",
     "SourceType": ".source",

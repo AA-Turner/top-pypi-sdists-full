@@ -1,5 +1,445 @@
 from typing import Any, Optional, List, Dict, Tuple, Callable, Union, Iterator, overload
 
+class reg_value_base_t:
+    ADD: int  # 0
+    AND: int  # 3
+    AND_NOT: int  # 5
+    CONTAINED: int  # 2
+    CONTAINS: int  # 1
+    EQUAL: int  # 0
+    MOVT: int  # 9
+    NEG: int  # 10
+    NOT: int  # 11
+    NOT_COMPARABLE: int  # 3
+    OR: int  # 2
+    SAR: int  # 8
+    SLL: int  # 6
+    SLR: int  # 7
+    SUB: int  # 1
+    XOR: int  # 4
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> reg_value_def_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def aborted(self) -> bool:
+        r"""Return 'true' if the tracking process was aborted.
+        
+        """
+        ...
+    def add(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""The methods below save INSN as a defining instruction. Add R to the value. 
+                
+        """
+        ...
+    @overload
+    def add_num(self, r: int, insn: insn_t) -> None:
+        r"""Add R to the value."""
+        ...
+    @overload
+    def add_num(self, r: int) -> None:
+        r"""The methods below do not change the defining instructions. Add R to the value."""
+        ...
+    def band(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise AND of R to the value. 
+                
+        """
+        ...
+    def bandnot(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise AND of the inverse of R to the value. 
+                
+        """
+        ...
+    def bnot(self, insn: insn_t) -> None:
+        r"""Make bitwise inverse of the value.
+        
+        """
+        ...
+    def bor(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise OR of R to the value. 
+                
+        """
+        ...
+    def bxor(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise eXclusive OR of R to the value. 
+                
+        """
+        ...
+    def clear(self) -> None:
+        r"""Undefine the value.
+        
+        """
+        ...
+    def empty(self) -> bool:
+        r"""Return 'true' if we know nothing about a value.
+        
+        """
+        ...
+    def extend(self, width: int, is_signed: bool) -> None:
+        r"""Zero-, or sign-extend the value from WIDTH bytes to uint64. 
+                
+        """
+        ...
+    def get_aborting_depth(self) -> int:
+        r"""Return the aborting depth if the value is ABORTED.
+        
+        """
+        ...
+    def get_def_ea(self) -> ida_idaapi.ea_t:
+        r"""Return the defining address.
+        
+        """
+        ...
+    def get_def_itype(self) -> int:
+        r"""Return the defining instruction code (processor specific).
+        
+        """
+        ...
+    def has_any_vals_flag(self, val_flags: int) -> bool:
+        ...
+    def have_all_vals_flag(self, val_flags: int) -> bool:
+        r"""Check the given flag for each value.
+        
+        """
+        ...
+    def is_all_vals_like_got(self) -> bool:
+        ...
+    def is_all_vals_pc_based(self) -> bool:
+        ...
+    def is_any_vals_like_got(self) -> bool:
+        ...
+    def is_any_vals_pc_based(self) -> bool:
+        ...
+    def is_badinsn(self) -> bool:
+        r"""Return 'true' if the value is unknown because of a bad insn.
+        
+        """
+        ...
+    def is_dead_end(self) -> bool:
+        r"""Return 'true' if the value is undefined because of a dead end.
+        
+        """
+        ...
+    def is_known(self) -> bool:
+        r"""Return 'true' if the value is known (i.e. it is a number or SP delta).
+        
+        """
+        ...
+    def is_num(self) -> bool:
+        r"""Return 'true' if the value is a constant.
+        
+        """
+        ...
+    def is_spd(self) -> bool:
+        r"""Return 'true' if the value depends on the stack pointer.
+        
+        """
+        ...
+    def is_special(self) -> bool:
+        r"""Return 'true' if the value requires special handling.
+        
+        """
+        ...
+    def is_unkfunc(self) -> bool:
+        r"""Return 'true' if the value is unknown from the function start.
+        
+        """
+        ...
+    def is_unkinsn(self) -> bool:
+        r"""Return 'true' if the value is unknown after executing the insn.
+        
+        """
+        ...
+    def is_unkloop(self) -> bool:
+        r"""Return 'true' if the value is unknown because it changes in a loop.
+        
+        """
+        ...
+    def is_unkmult(self) -> bool:
+        r"""Return 'true' if the value is unknown because the register has incompatible values (a number and SP delta). 
+                
+        """
+        ...
+    def is_unknown(self) -> bool:
+        r"""Return 'true' if the value is unknown.
+        
+        """
+        ...
+    def is_unkvals(self) -> bool:
+        r"""Return 'true' if the value is unknown because the register has too many values. 
+                
+        """
+        ...
+    def is_unkxref(self) -> bool:
+        r"""Return 'true' if the value is unknown because there are too many xrefs.
+        
+        """
+        ...
+    def is_value_unique(self) -> bool:
+        r"""Check that the value is unique.
+        
+        """
+        ...
+    def make_aborted(self, bblk_ea: ida_idaapi.ea_t, aborting_depth: int = -1) -> reg_value_base_t:
+        r"""Return the value after aborting. 
+                
+        """
+        ...
+    def make_badinsn(self, insn_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the unknown value after a bad insn. 
+                
+        """
+        ...
+    def make_dead_end(self, dead_end_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the undefined value because of a dead end. 
+                
+        """
+        ...
+    def make_initial_sp(self, func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the value that is the initial stack pointer. 
+                
+        """
+        ...
+    @overload
+    def make_num(self, rval: int, insn: insn_t, val_flags: int = 0) -> reg_value_base_t:
+        r"""Return the value that is the RVAL number."""
+        ...
+    @overload
+    def make_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> reg_value_base_t:
+        r"""Return the value that is the RVAL number."""
+        ...
+    def make_unkfunc(self, func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the unknown value from the function start. 
+                
+        """
+        ...
+    def make_unkinsn(self, insn: insn_t) -> reg_value_base_t:
+        r"""Return the unknown value after executing the insn. 
+                
+        """
+        ...
+    def make_unkloop(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the unknown value if it changes in a loop. 
+                
+        """
+        ...
+    def make_unkmult(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the unknown value if the register has incompatible values. 
+                
+        """
+        ...
+    def make_unkvals(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the unknown value if the register has too many values. 
+                
+        """
+        ...
+    def make_unkxref(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+        r"""Return the unknown value if there are too many xrefs. 
+                
+        """
+        ...
+    def movt(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Replace the top 16 bits with bottom 16 bits of R, leaving the bottom 16 bits untouched. 
+                
+        """
+        ...
+    def neg(self, insn: insn_t) -> None:
+        r"""Negate the value.
+        
+        """
+        ...
+    def sar(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Shift arithmetically the value right by R. 
+                
+        """
+        ...
+    def set_aborted(self, bblk_ea: ida_idaapi.ea_t, aborting_depth: int = -1) -> None:
+        r"""Set the value after aborting. 
+                
+        """
+        ...
+    def set_all_vals_flag(self, val_flags: int) -> None:
+        r"""Set the given flag for each value.
+        
+        """
+        ...
+    def set_all_vals_got_based(self) -> None:
+        ...
+    def set_all_vals_pc_based(self) -> None:
+        ...
+    def set_badinsn(self, insn_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be unknown after a bad insn. 
+                
+        """
+        ...
+    def set_dead_end(self, dead_end_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be undefined because of a dead end. 
+                
+        """
+        ...
+    def set_def_itype_for_mov(self, insn: insn_t) -> bool:
+        r"""Set the defining instruction The value of the destination register after the mov instruction is equal to the value of the source register before it. Therefore, we can consider this instruction as defining that value. 
+                
+        """
+        ...
+    @overload
+    def set_num(self, rval: int, insn: insn_t, val_flags: int = 0) -> None:
+        r"""Set the value to be a number after executing an insn."""
+        ...
+    @overload
+    def set_num(self, rvals: uvalvec_t, insn: insn_t) -> None:
+        r"""Set the value to be numbers after executing an insn."""
+        ...
+    @overload
+    def set_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> None:
+        r"""Set the value to be a number before an address."""
+        ...
+    def set_unkfunc(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be unknown from the function start. 
+                
+        """
+        ...
+    def set_unkinsn(self, insn: insn_t) -> None:
+        r"""Set the value to be unknown after executing the insn. 
+                
+        """
+        ...
+    def set_unkloop(self, bblk_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be unknown because it changes in a loop. 
+                
+        """
+        ...
+    def set_unkmult(self, bblk_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be unknown because the register has incompatible values. 
+                
+        """
+        ...
+    def set_unkvals(self, bblk_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be unknown because the register has too many values. 
+                
+        """
+        ...
+    def set_unkxref(self, bblk_ea: ida_idaapi.ea_t) -> None:
+        r"""Set the value to be unknown because there are too many xrefs. 
+                
+        """
+        ...
+    def shift_left(self, r: int) -> None:
+        r"""Shift the value left by R. 
+                
+        """
+        ...
+    def shift_right(self, r: int, nbytes: int = 0) -> None:
+        r"""Shift the value right by R. If NBYTES is non-zero, perform an arithmetic (signed) shift assuming the value is NBYTES bytes wide. 
+                
+        """
+        ...
+    def sll(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Shift the value left by R. 
+                
+        """
+        ...
+    def slr(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Shift logically the value right by R. 
+                
+        """
+        ...
+    def sub(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Subtract R from the value. 
+                
+        """
+        ...
+    def swap(self, r: reg_value_base_t) -> None:
+        ...
+    def vals_union(self, r: reg_value_base_t) -> set_compare_res_t:
+        r"""Add values from R into THIS ignoring duplicates. 
+                
+        :returns: EQUAL: THIS is not changed
+        :returns: CONTAINS: THIS is not changed
+        :returns: CONTAINED: THIS is a copy of R
+        :returns: NOT_COMPARABLE: values from R are added to THIS
+        """
+        ...
+
 class reg_value_def_t:
     ABORTED: int  # 3
     NOVAL: int  # 0
@@ -109,7 +549,7 @@ class reg_value_def_t:
     @overload
     def is_short_insn(self, insn: insn_t) -> bool: ...
 
-class reg_value_info_t:
+class reg_value_info_t(reg_value_base_t):
     ADD: int  # 0
     AND: int  # 3
     AND_NOT: int  # 5
@@ -158,7 +598,7 @@ class reg_value_info_t:
     def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
     def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
@@ -215,41 +655,41 @@ class reg_value_info_t:
         
         """
         ...
-    def add(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Add R to the value, save INSN as a defining instruction. 
+    def add(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""The methods below save INSN as a defining instruction. Add R to the value. 
                 
         """
         ...
     @overload
     def add_num(self, r: int, insn: insn_t) -> None:
-        r"""Add R to the value, save INSN as a defining instruction."""
+        r"""Add R to the value."""
         ...
     @overload
     def add_num(self, r: int) -> None:
-        r"""Add R to the value, do not change the defining instructions."""
+        r"""The methods below do not change the defining instructions. Add R to the value."""
         ...
-    def band(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Make bitwise AND of R to the value, save INSN as a defining instruction. 
+    def band(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise AND of R to the value. 
                 
         """
         ...
-    def bandnot(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Make bitwise AND of the inverse of R to the value, save INSN as a defining instruction. 
+    def bandnot(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise AND of the inverse of R to the value. 
                 
         """
         ...
     def bnot(self, insn: insn_t) -> None:
-        r"""Make bitwise inverse of the value, save INSN as a defining instruction. 
+        r"""Make bitwise inverse of the value.
+        
+        """
+        ...
+    def bor(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise OR of R to the value. 
                 
         """
         ...
-    def bor(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Make bitwise OR of R to the value, save INSN as a defining instruction. 
-                
-        """
-        ...
-    def bxor(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Make bitwise eXclusive OR of R to the value, save INSN as a defining instruction. 
+    def bxor(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Make bitwise eXclusive OR of R to the value. 
                 
         """
         ...
@@ -263,14 +703,19 @@ class reg_value_info_t:
         
         """
         ...
-    def extend(self, pm: procmod_t, width: int, is_signed: bool) -> None:
-        r"""Sign-, or zero-extend the number or SP delta value to full size. The initial value is considered to be of size WIDTH. 
+    def extend(self, width: int, is_signed: bool) -> None:
+        r"""Zero-, or sign-extend the value from WIDTH bytes to uint64. 
                 
         """
         ...
     def get_aborting_depth(self) -> int:
         r"""Return the aborting depth if the value is ABORTED.
         
+        """
+        ...
+    def get_addr(self) -> bool:
+        r"""Return the address if the value is a constant (truncated to ADDRSIZE). 
+                
         """
         ...
     def get_def_ea(self) -> ida_idaapi.ea_t:
@@ -284,12 +729,12 @@ class reg_value_info_t:
         """
         ...
     def get_num(self) -> bool:
-        r"""Return the number if the value is a constant. 
+        r"""Return the number if the value is a constant (truncated to SLOTSIZE). 
                 
         """
         ...
     def get_spd(self) -> bool:
-        r"""Return the SP delta if the value depends on the stack pointer. 
+        r"""Return the SP delta if the value depends on the stack pointer (sign-extended to ADDRSIZE). 
                 
         """
         ...
@@ -378,76 +823,76 @@ class reg_value_info_t:
         
         """
         ...
-    def make_aborted(self, bblk_ea: ida_idaapi.ea_t, aborting_depth: int = -1) -> reg_value_info_t:
+    def make_aborted(self, bblk_ea: ida_idaapi.ea_t, aborting_depth: int = -1) -> reg_value_base_t:
         r"""Return the value after aborting. 
                 
         """
         ...
-    def make_badinsn(self, insn_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_badinsn(self, insn_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value after a bad insn. 
                 
         """
         ...
-    def make_dead_end(self, dead_end_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_dead_end(self, dead_end_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the undefined value because of a dead end. 
                 
         """
         ...
-    def make_initial_sp(self, func_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_initial_sp(self, func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the value that is the initial stack pointer. 
                 
         """
         ...
     @overload
-    def make_num(self, rval: int, insn: insn_t, val_flags: int = 0) -> reg_value_info_t:
+    def make_num(self, rval: int, insn: insn_t, val_flags: int = 0) -> reg_value_base_t:
         r"""Return the value that is the RVAL number."""
         ...
     @overload
-    def make_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> reg_value_info_t:
+    def make_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> reg_value_base_t:
         r"""Return the value that is the RVAL number."""
         ...
-    def make_unkfunc(self, func_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_unkfunc(self, func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value from the function start. 
                 
         """
         ...
-    def make_unkinsn(self, insn: insn_t) -> reg_value_info_t:
+    def make_unkinsn(self, insn: insn_t) -> reg_value_base_t:
         r"""Return the unknown value after executing the insn. 
                 
         """
         ...
-    def make_unkloop(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_unkloop(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if it changes in a loop. 
                 
         """
         ...
-    def make_unkmult(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_unkmult(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if the register has incompatible values. 
                 
         """
         ...
-    def make_unkvals(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_unkvals(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if the register has too many values. 
                 
         """
         ...
-    def make_unkxref(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_info_t:
+    def make_unkxref(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if there are too many xrefs. 
                 
         """
         ...
-    def movt(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Replace the top 16 bits with bottom 16 bits of R, leaving the bottom 16 bits untouched, save INSN as a defining instruction. 
+    def movt(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Replace the top 16 bits with bottom 16 bits of R, leaving the bottom 16 bits untouched. 
                 
         """
         ...
     def neg(self, insn: insn_t) -> None:
-        r"""Negate the value, save INSN as a defining instruction.
+        r"""Negate the value.
         
         """
         ...
-    def sar(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Shift arithmetically the value right by R, save INSN as a defining instruction. 
+    def sar(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Shift arithmetically the value right by R. 
                 
         """
         ...
@@ -467,6 +912,11 @@ class reg_value_info_t:
         ...
     def set_badinsn(self, insn_ea: ida_idaapi.ea_t) -> None:
         r"""Set the value to be unknown after a bad insn. 
+                
+        """
+        ...
+    def set_context(self, _slotsize: int, _addrsize: int) -> None:
+        r"""Set the context. 
                 
         """
         ...
@@ -523,38 +973,40 @@ class reg_value_info_t:
         """
         ...
     def shift_left(self, r: int) -> None:
-        r"""Shift the value left by R, do not change the defining instructions. 
+        r"""Shift the value left by R. 
                 
         """
         ...
-    def shift_right(self, r: int) -> None:
-        r"""Shift the value right by R, do not change the defining instructions. 
+    def shift_right(self, r: int, nbytes: int = 0) -> None:
+        r"""Shift the value right by R. If NBYTES is non-zero, perform an arithmetic (signed) shift assuming the value is NBYTES bytes wide. 
                 
         """
         ...
-    def sll(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Shift the value left by R, save INSN as a defining instruction. 
+    def sll(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Shift the value left by R. 
                 
         """
         ...
-    def slr(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Shift logically the value right by R, save INSN as a defining instruction. 
+    def slr(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Shift logically the value right by R. 
                 
         """
         ...
-    def sub(self, r: reg_value_info_t, insn: insn_t) -> None:
-        r"""Subtract R from the value, save INSN as a defining instruction. 
+    def sub(self, r: reg_value_base_t, insn: insn_t) -> None:
+        r"""Subtract R from the value. 
                 
         """
         ...
-    def swap(self, r: reg_value_info_t) -> None:
+    def swap(self, r: reg_value_base_t) -> None:
         ...
     def trunc_uval(self, pm: procmod_t) -> None:
-        r"""Truncate the number to the application bitness. 
+        ...
+    def truncate(self, width: int = 0) -> None:
+        r"""Truncate the value to WIDTH (in bytes). For numbers: zero-truncate to WIDTH. For SP deltas: sign-extend to WIDTH. If WIDTH = 0, defaults to SLOTSIZE for numbers and ADDRSIZE for SP deltas. 
                 
         """
         ...
-    def vals_union(self, r: reg_value_info_t) -> set_compare_res_t:
+    def vals_union(self, r: reg_value_base_t) -> set_compare_res_t:
         r"""Add values from R into THIS ignoring duplicates. 
                 
         :returns: EQUAL: THIS is not changed
@@ -597,7 +1049,19 @@ def find_reg_value_info(rvi: reg_value_info_t, ea: ida_idaapi.ea_t, reg: int, ma
     """
     ...
 
-def find_sp_value(ea: ida_idaapi.ea_t, reg: int = -1) -> int:
+def find_regname_value_info(rvi: reg_value_info_t, ea: ida_idaapi.ea_t, regname: str, max_depth: int = 0) -> bool:
+    r"""Find register value using the register tracker. 
+            
+    :param rvi: the found value with additional attributes
+    :param ea: the address to find a value at
+    :param regname: the name of the register to find
+    :param max_depth: the number of basic blocks to look before aborting the search and returning the unknown value. 0 means the value of REGTRACK_MAX_DEPTH from ida.cfg for ordinal registers or REGTRACK_FUNC_MAX_DEPTH for the function-wide registers, -1 means the value of REGTRACK_FUNC_MAX_DEPTH from ida.cfg.
+    :returns: 'false': the processor module does not support a register tracker
+    :returns: 'true': the found value is in RVI
+    """
+    ...
+
+def find_sp_value(ea: ida_idaapi.ea_t, reg: int = -1) -> sval_t:
     r"""Find a value of the SP based register using the register tracker. 
             
     :param ea: the address to find a value at

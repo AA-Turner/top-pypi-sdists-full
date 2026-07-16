@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "cartoboost"
-version = "0.3.8"
+version = "0.3.10"
 description = "Rust-backed spatial boosting for tabular modeling and forecasting."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,7 +23,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "Programming Language :: Python :: Free Threading :: 2 - Beta",
     "Programming Language :: Rust",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -152,7 +151,7 @@ pythonpath = ["python"]
 addopts = ["-p", "no:fugue_test", "-p", "no:fugue_test_fixtures"]
 
 [tool.coverage.report]
-# Keep the release suite from silently losing coverage as preview modules are
+# Keep the release suite from silently losing coverage as supported modules are
 # removed or the stable surface changes.  Raise this floor deliberately when
 # the maintained test matrix improves; never lower it to accommodate a
 # failing release.

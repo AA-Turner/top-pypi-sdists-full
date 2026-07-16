@@ -133,11 +133,88 @@ def _load_json_file(path: Path | None, *, label: str) -> Any:
         raise typer.Exit(code=2) from None
 
 
+_LOCAL_MEDIA_SUFFIXES = (
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".bmp",
+    ".svg",
+    ".mp4",
+    ".webm",
+    ".mov",
+    ".mp3",
+    ".wav",
+    ".pdf",
+)
+
+
+def _looks_like_unresolved_local_media(value: str) -> bool:
+    if not value or value.startswith(("http://", "https://", "data:")):
+        return False
+    lower = value.lower()
+    return any(lower.endswith(suffix) for suffix in _LOCAL_MEDIA_SUFFIXES)
+
+
+def _warn_unresolved_local_media_in_task(task: dict[str, Any]) -> None:
+    for key, value in task.items():
+        if isinstance(value, str) and _looks_like_unresolved_local_media(value):
+            typer.echo(
+                f"warning: task field {key!r} references local media {value!r} but the file was not found "
+                f"next to task.json or the interface bundle. Copy the file into the bundle folder or use an "
+                f"https:// /static/interface-agent-assets/... URL so preview can load it.",
+                err=True,
+            )
+
+
+def _resolve_local_paths(data: Any, base_dirs: list[Path]) -> Any:
+    if isinstance(data, dict):
+        return {k: _resolve_local_paths(v, base_dirs) for k, v in data.items()}
+    if isinstance(data, list):
+        return [_resolve_local_paths(x, base_dirs) for x in data]
+    if isinstance(data, str):
+        if data.startswith(("http://", "https://", "data:")):
+            return data
+        if not data or "\x00" in data:
+            return data
+        try:
+            p = Path(data)
+            for base_dir in base_dirs:
+                resolved_p = p if p.is_absolute() else base_dir / p
+                if resolved_p.is_file():
+                    import base64
+                    import mimetypes
+
+                    mime, _ = mimetypes.guess_type(str(resolved_p))
+                    if not mime:
+                        mime = "application/octet-stream"
+                    content = resolved_p.read_bytes()
+                    if len(content) > 50 * 1024 * 1024:
+                        typer.echo(
+                            f"warning: file {resolved_p} is too large to embed (>50MB), skipping base64 encoding",
+                            err=True,
+                        )
+                        return data
+                    encoded = base64.b64encode(content).decode("utf-8")
+                    typer.echo(f"  embedded local file: {resolved_p} ({mime})")
+                    return f"data:{mime};base64,{encoded}"
+        except Exception:
+            pass
+    return data
+
+
 def _load_task(task_path: Path | None) -> dict[str, Any] | None:
     task = _load_json_file(task_path, label="task file")
     if task is not None and not isinstance(task, dict):
         typer.echo("error: --task must decode to a JSON object", err=True)
         raise typer.Exit(code=2)
+    if task is not None:
+        base_dirs = [Path.cwd()]
+        if task_path is not None:
+            base_dirs.insert(0, task_path.parent)
+        task = _resolve_local_paths(task, base_dirs)
+        _warn_unresolved_local_media_in_task(task)
     return task
 
 
@@ -184,12 +261,19 @@ def _resolve_interface_file(path: Path) -> Path:
     raise typer.Exit(code=2)
 
 
-def _post_preview(client: httpx.Client, push_url: str, *, code: str, task: dict[str, Any] | None) -> bool:
+def _post_preview(
+    client: httpx.Client,
+    push_url: str,
+    *,
+    code: str,
+    task: dict[str, Any] | None,
+    headers: dict[str, str] | None = None,
+) -> bool:
     payload: dict[str, Any] = {"code": code}
     if task is not None:
         payload["task"] = task
     try:
-        resp = client.post(push_url, json=payload, timeout=10.0)
+        resp = client.post(push_url, json=payload, headers=headers, timeout=10.0)
     except httpx.HTTPError as exc:
         typer.echo(f"  preview sync failed: {exc}", err=True)
         return False
@@ -629,6 +713,8 @@ def _sync_interface(
     new_version = _new_version(source, compiled, report, publish=publish)
     history_message, artifact = _build_history_entry(file, source, compiled, message)
     schema_payload = _interface_schema_payload(report)
+    task_file = _resolve_bundle_file(file.parent, None, TASK_FILE_CANDIDATES)
+    task_data = _load_task(task_file)
 
     with httpx.Client(headers=headers, timeout=30.0) as client:
         try:
@@ -677,6 +763,8 @@ def _sync_interface(
                     "messages": [*(existing.get("messages") or []), history_message],
                     "artifacts": [*(existing.get("artifacts") or []), artifact],
                 }
+                if task_data is not None:
+                    payload["data_sample"] = task_data
                 if title:
                     payload["title"] = title
                 payload.update({key: value for key, value in schema_payload.items() if key != "metadata"})
@@ -701,6 +789,8 @@ def _sync_interface(
                     "artifacts": [artifact],
                     **schema_payload,
                 }
+                if task_data is not None:
+                    payload["data_sample"] = task_data
                 if resolved_workspace_id is not None:
                     payload["workspace"] = resolved_workspace_id
                 resp = client.post(f"{base}/api/interfaces/", json=payload)
@@ -751,6 +841,12 @@ def preview(
     task: Path | None = typer.Option(
         None, "--task", exists=True, dir_okay=False, readable=True, help="Task data JSON."
     ),
+    token: str | None = typer.Option(
+        None,
+        "--token",
+        envvar="LABEL_STUDIO_API_KEY",
+        help="Label Studio API token.",
+    ),
     lse_url: str | None = typer.Option(
         None,
         "--lse-url",
@@ -773,9 +869,13 @@ def preview(
     file = _resolve_interface_file(source_path).resolve()
     task = task.resolve() if task is not None else None
     base = _resolve_base_url(ctx, lse_url)
-    token = secrets.token_urlsafe(16)
-    push_url = f"{base}/api/interfaces/playground/{token}/push/"
-    playground_url = f"{base}/interfaces/playground?s={urllib.parse.quote(token)}&file={urllib.parse.quote(file.name)}"
+    resolved_token = _resolve_token(ctx, token)
+    headers = _auth_headers(resolved_token, base_url=base) if resolved_token else {}
+    playground_token = secrets.token_urlsafe(16)
+    push_url = f"{base}/api/interfaces/playground/{playground_token}/push/"
+    playground_url = (
+        f"{base}/interfaces/playground?s={urllib.parse.quote(playground_token)}&file={urllib.parse.quote(file.name)}"
+    )
 
     typer.echo(f"playground: {playground_url}")
     typer.echo(f"watching:   {file}")
@@ -785,7 +885,7 @@ def preview(
     with httpx.Client() as client:
         code = file.read_text(encoding="utf-8")
         last_pushed_hash = hashlib.sha256(code.encode("utf-8")).hexdigest()
-        if _post_preview(client, push_url, code=code, task=task_data):
+        if _post_preview(client, push_url, code=code, task=task_data, headers=headers):
             typer.echo("  pushed initial code")
         else:
             last_pushed_hash = ""
@@ -794,13 +894,21 @@ def preview(
             webbrowser.open(playground_url)
 
         try:
-            watch_paths = [file]
-            if task is not None:
-                watch_paths.append(task)
-            for changes in watch(*watch_paths, step=200, recursive=False):
+            current_task_data = task_data
+            watch_dir = file.parent
+            for changes in watch(watch_dir, step=200, recursive=False):
                 changed_paths = {Path(path).resolve() for _, path in changes}
-                task_changed = task is not None and task in changed_paths
-                if file not in changed_paths and not task_changed:
+                file_changed = file in changed_paths
+                task_changed = False
+                if task is None:
+                    resolved_task = _resolve_bundle_file(source_path, None, TASK_FILE_CANDIDATES)
+                    if resolved_task is not None:
+                        task = resolved_task.resolve()
+                        task_changed = True
+                else:
+                    task_changed = task in changed_paths
+
+                if not file_changed and not task_changed:
                     continue
                 try:
                     code = file.read_text(encoding="utf-8")
@@ -810,9 +918,10 @@ def preview(
                 source_hash = hashlib.sha256(code.encode("utf-8")).hexdigest()
                 if source_hash == last_pushed_hash and not task_changed:
                     continue
-                task_update = _load_task(task) if task_changed else None
+                if task_changed and task is not None:
+                    current_task_data = _load_task(task)
                 stamp = time.strftime("%H:%M:%S")
-                if _post_preview(client, push_url, code=code, task=task_update):
+                if _post_preview(client, push_url, code=code, task=current_task_data, headers=headers):
                     last_pushed_hash = source_hash
                     suffix = " and task data" if task_changed else ""
                     typer.echo(f"  [{stamp}] pushed {len(code)} bytes{suffix}")

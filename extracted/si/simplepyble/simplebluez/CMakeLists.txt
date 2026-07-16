@@ -19,6 +19,9 @@ project(
 include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/epilogue.cmake)
 
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+option(SIMPLEBLUEZ_INSTALL "Install SimpleBluez targets and package files" ON)
 
 find_package(DBus1 REQUIRED)
 
@@ -76,6 +79,8 @@ set(SIMPLEBLUEZ_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/base/Logging.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/base/Message.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/base/Path.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/base/UnixSocket.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/interfaces/Introspectable.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/interfaces/ObjectManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/interfaces/Properties.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/Config.cpp
@@ -113,8 +118,7 @@ target_include_directories(simplebluez INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/external>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-    $<INSTALL_INTERFACE:${DBus1_INCLUDE_DIR}>
-    $<INSTALL_INTERFACE:${DBus1_ARCH_INCLUDE_DIR}>)
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/simplebluez>)
 
 append_sanitize_options("${SIMPLEBLUEZ_SANITIZE}")
 
@@ -124,42 +128,57 @@ apply_build_options(simplebluez
     "${PRIVATE_LINK_OPTIONS}"
     "${PUBLIC_LINK_OPTIONS}")
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/simplebluez.pc.in
-            ${CMAKE_CURRENT_BINARY_DIR}/simplebluez.pc @ONLY)
+if(SIMPLEBLUEZ_INSTALL)
+    set(SIMPLEBLUEZ_CMAKE_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/simplebluez)
 
-install(
-    TARGETS simplebluez
-    EXPORT simplebluez-config
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/simplebluez.pc.in
+                ${CMAKE_CURRENT_BINARY_DIR}/simplebluez.pc @ONLY)
 
-install(
-    EXPORT simplebluez-config
-    NAMESPACE simplebluez::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/simplebluez)
+    configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/simplebluez-config.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/simplebluez-config.cmake
+        INSTALL_DESTINATION ${SIMPLEBLUEZ_CMAKE_INSTALL_DIR})
 
-install(
-    DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/simplebluez/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simplebluez)
+    write_basic_package_version_file(
+        ${CMAKE_CURRENT_BINARY_DIR}/simplebluez-config-version.cmake
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion)
 
-install(
-    DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/../dependencies/external/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simplebluez)
+    install(
+        TARGETS simplebluez
+        EXPORT simplebluez-targets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-install(
-    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/include/simpledbus/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simpledbus)
+    install(
+        EXPORT simplebluez-targets
+        FILE simplebluez-targets.cmake
+        NAMESPACE simplebluez::
+        DESTINATION ${SIMPLEBLUEZ_CMAKE_INSTALL_DIR})
 
-install(
-    FILES
-        ${CMAKE_CURRENT_LIST_DIR}/../dependencies/external/kvn/kvn_safe_callback.hpp
-        ${CMAKE_CURRENT_LIST_DIR}/../dependencies/external/kvn/logfwd.hpp
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/kvn)
+    install(
+        FILES
+            ${CMAKE_CURRENT_BINARY_DIR}/simplebluez-config.cmake
+            ${CMAKE_CURRENT_BINARY_DIR}/simplebluez-config-version.cmake
+        DESTINATION ${SIMPLEBLUEZ_CMAKE_INSTALL_DIR})
 
-install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/simplebluez.pc
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+    install(
+        DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/simplebluez/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simplebluez)
+
+    install(
+        DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/../dependencies/external/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simplebluez)
+
+    install(
+        DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/include/simpledbus/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simpledbus)
+
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/simplebluez.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+endif()
 
 if(SIMPLEBLUEZ_TEST)
     find_package(Python3 COMPONENTS Development REQUIRED)

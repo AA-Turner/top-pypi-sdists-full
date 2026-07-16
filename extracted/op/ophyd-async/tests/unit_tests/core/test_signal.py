@@ -5,7 +5,7 @@ import time
 from asyncio import Event
 from functools import partial
 from typing import Any
-from unittest.mock import ANY, AsyncMock, MagicMock, Mock, call
+from unittest.mock import ANY, AsyncMock, MagicMock, Mock, call, patch
 
 import numpy as np
 import numpy.typing as npt
@@ -37,13 +37,27 @@ from ophyd_async.core import (
 from ophyd_async.core import (
     StandardReadableFormat as Format,
 )
+
+# _SignalCache is the internal object behind Signal.subscribe()/caching -
+# a caller gets one automatically, never constructs it directly. Tested
+# here (test_get_reading_runtime_error/test_notify_runtime_error) to
+# exercise internal error paths that aren't otherwise reachable from the
+# public Signal surface - checked, nothing here looks missing from the
+# public interface.
 from ophyd_async.core._signal import (  # noqa: PLC2701
     _SignalCache,
 )
 from ophyd_async.epics.core import epics_signal_r, epics_signal_rw
+
+# get_signal_backend_type is the internal ca:/pva: prefix-to-backend-class
+# dispatch epics_signal_rw uses under the hood - a caller only ever sees
+# the prefix-based PV string, never the protocol/backend-class mapping
+# directly - checked, nothing here looks missing from the public interface.
 from ophyd_async.epics.core._signal import get_signal_backend_type  # noqa: PLC2701
 from ophyd_async.testing import (
     ExampleEnum,
+    ExampleSubsetEnum,
+    ExampleSupersetEnum,
     ExampleTable,
     OneOfEverythingDevice,
     assert_configuration,
@@ -381,6 +395,44 @@ async def test_partial_matcher_still_gives_timeout_error():
         )
 
 
+async def test_set_and_wait_for_other_value_gives_helpful_error_with_no_first_value():
+    """`set_and_wait_for_other_value` races two independent `asyncio.timeout`
+    clocks of the same duration: an outer one guarding the wait for a first
+    value from match_signal, and an inner one (wait_task's own) that
+    produces a nicely formatted error. When match_signal never produces a
+    value at all before `timeout` elapses, the *outer* one always wins this
+    particular race - its clock starts ticking at (or fractionally before)
+    wait_task's, since wait_task needs a trip through the event loop before
+    it can start its own timer. This test pins down that the outer path
+    raises its own distinct, helpful TimeoutError - "didn't provide an
+    initial value" - rather than reusing the inner path's "didn't match"
+    message (which would be misleading here, since no value was ever seen),
+    and not the bare, message-less one asyncio.timeout() raises by default
+    (see PR #1342 / the flaky windows CI failure that motivated this).
+    """
+    set_signal = epics_signal_rw(int, "pva://signal", name="s")
+    match_signal = epics_signal_rw(int, "pva://match_signal", name="m")
+    await set_signal.connect(mock=True)
+    await match_signal.connect(mock=True)
+
+    async def never_yields(signal):
+        # An observe_value() that never produces anything - simulates a
+        # monitor that never even sees a first value within the timeout.
+        await asyncio.sleep(1000)
+        yield  # pragma: no cover - unreachable, just makes this a generator
+
+    with patch("ophyd_async.core._signal.observe_value", never_yields):
+        with pytest.raises(
+            asyncio.TimeoutError,
+            match=re.escape(
+                "m didn't provide an initial value within 0.05s, is it connected?"
+            ),
+        ):
+            await set_and_wait_for_other_value(
+                set_signal, 1, match_signal, 20, timeout=0.05
+            )
+
+
 async def test_wait_for_value_with_value():
     signal = epics_signal_rw(str, read_pv="pva://signal", name="signal")
     await signal.connect(mock=True)
@@ -585,6 +637,8 @@ async def test_assert_configuration_everything(
             "everything-device-a_str": partial_reading("test_string"),
             "everything-device-a_bool": partial_reading(True),
             "everything-device-a_enum": partial_reading("Bbb"),
+            "everything-device-a_subset_enum": partial_reading("Bbb"),
+            "everything-device-a_superset_enum": partial_reading("Bbb"),
             "everything-device-boola": partial_reading(_array_vals["boola"]),
             "everything-device-int8a": partial_reading(_array_vals["int8a"]),
             "everything-device-uint8a": partial_reading(_array_vals["uint8a"]),
@@ -635,6 +689,18 @@ async def test_assert_reading_everything(
     await assert_reading(
         one_of_everything_device.a_bool,
         {"everything-device-a_bool": partial_reading(True)},
+    )
+    await assert_reading(
+        one_of_everything_device.a_subset_enum,
+        {
+            "everything-device-a_subset_enum": partial_reading(ExampleSubsetEnum.B),
+        },
+    )
+    await assert_reading(
+        one_of_everything_device.a_superset_enum,
+        {
+            "everything-device-a_superset_enum": partial_reading(ExampleSupersetEnum.B),
+        },
     )
     await assert_reading(
         one_of_everything_device.boola,
@@ -872,6 +938,8 @@ async def test_assert_value_everything(
     await assert_value(one_of_everything_device.a_bool, True)
     # for bools we must provide an array not a list for approx comparison to work
     await assert_value(one_of_everything_device.a_enum, ExampleEnum.B)
+    await assert_value(one_of_everything_device.a_subset_enum, ExampleSubsetEnum.B)
+    await assert_value(one_of_everything_device.a_superset_enum, ExampleSupersetEnum.B)
     await assert_value(one_of_everything_device.boola, _array_vals["boola"])
     await assert_value(
         one_of_everything_device.int8a,

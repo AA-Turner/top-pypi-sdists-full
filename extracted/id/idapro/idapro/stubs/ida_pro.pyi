@@ -5163,7 +5163,7 @@ def get_logical_core_count() -> int:
     """
     ...
 
-def get_login_name() -> str:
+def get_login_name() -> Union[str, None]:
     r"""Get the user name for the current desktop session 
             
     :returns: success
@@ -5359,7 +5359,7 @@ FMT_EA: str  # ll
 FMT_Z: str  # zu
 FMT_ZS: str  # zd
 FMT_ZX: str  # zX
-IDA_SDK_VERSION: int  # 930
+IDA_SDK_VERSION: int  # 940
 IDBDEC_ESCAPE: int  # 1
 IOREDIR_APPEND: int  # 4
 IOREDIR_INPUT: int  # 1

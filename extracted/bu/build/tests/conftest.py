@@ -12,21 +12,18 @@ import stat
 import sys
 import sysconfig
 import tempfile
+import typing
 
 from collections.abc import Callable, Generator
 from functools import partial, update_wrapper
 from pathlib import Path
-from typing import Protocol
+from typing import Any
 
 import pytest
 
 import build.env
 
 from build._compat import tomllib
-
-
-class SubTests(Protocol):
-    def test(self, msg: str | None = ..., **kwargs: object) -> contextlib.AbstractContextManager[None]: ...
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -42,7 +39,7 @@ PYPY3_WIN_VENV_BAD = (
 PYPY3_WIN_M = 'https://foss.heptapod.net/pypy/pypy/-/issues/3323 and https://foss.heptapod.net/pypy/pypy/-/issues/3321'
 
 
-def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+def pytest_collection_modifyitems(config: pytest.Config, items: list[typing.Any]) -> None:
     skip_int = pytest.mark.skip(reason='integration tests not run (no --run-integration flag)')
     skip_other = pytest.mark.skip(reason='only integration tests are run (got --only-integration flag)')
 
@@ -59,7 +56,10 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         if (
             PYPY3_WIN_VENV_BAD
             and item.get_closest_marker('isolated')
-            and _xfail_isolated_strict(item, is_integration_file=is_integration_file)
+            and (
+                not (is_integration_file and item.originalname == 'test_build')
+                or (hasattr(item, 'callspec') and '--no-isolation' not in item.callspec.params.get('args', []))
+            )
         ):
             item.add_marker(pytest.mark.xfail(reason=PYPY3_WIN_M, strict=True))
         if is_integration_file:  # pragma: no cover
@@ -69,15 +69,6 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.add_marker(skip_other)
     # run integration tests after unit tests
     items.sort(key=lambda i: 1 if is_integration(i) else 0)
-
-
-def _xfail_isolated_strict(item: pytest.Item, *, is_integration_file: bool) -> bool:
-    if isinstance(item, pytest.Function) and hasattr(item, 'callspec'):
-        args = item.callspec.params.get('args', [])
-        if isinstance(args, (list, tuple)) and '--no-isolation' not in args:
-            return True
-    is_test_build = is_integration_file and isinstance(item, pytest.Function) and item.originalname == 'test_build'
-    return not is_test_build
 
 
 def is_integration(item: pytest.Item) -> bool:
@@ -144,7 +135,7 @@ def is_setuptools(package_path: Path) -> bool:
     return 'setuptools' in pp.get('build-system', {}).get('build-backend', 'setuptools')
 
 
-def generate_package_path_fixture(package_name: str) -> Callable[[str, Path], str]:
+def generate_package_path_fixture(package_name: str) -> Callable[..., str]:
     @pytest.fixture
     def fixture(packages_path: str, tmp_path: Path) -> str:
         package_path = Path(packages_path) / package_name
@@ -212,9 +203,9 @@ def pytest_report_header() -> str:
 
 
 @pytest.fixture
-def subtests(request: pytest.FixtureRequest) -> SubTests:
+def subtests(request: pytest.FixtureRequest) -> Any:
     try:
-        existing: SubTests = request.getfixturevalue('subtests')
+        return request.getfixturevalue('subtests')
     except pytest.FixtureLookupError:
 
         class Subtests:
@@ -224,4 +215,3 @@ def subtests(request: pytest.FixtureRequest) -> SubTests:
                 yield
 
         return Subtests()
-    return existing

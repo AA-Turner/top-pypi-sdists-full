@@ -8,26 +8,21 @@ from pyrig.rig.configs.pyproject import PyprojectConfigFile
 from pyrig.rig.configs.version_control.remote.workflows.health_check import (
     HealthCheckWorkflowConfigFile,
 )
-from pyrig.rig.tools.package_manager import PackageManager
+from pyrig.rig.tools.packages.manager import PackageManager
 from pyrig.rig.tools.version_control.controller import VersionController
+from pyrig.rig.tools.version_control.remote.controller import (
+    RemoteVersionController,
+)
 
 
-class RepoSettingsConfigFile(JSONDictConfigFile):
+class RepositorySettingsConfigFile(JSONDictConfigFile):
     """Configuration file for GitHub repository settings and branch protection rulesets.
 
     Manages `.github/settings.json`, containing the general repository settings
-    and the branch protection rulesets to apply to the default branch. The
-    release workflow reads this file and applies its contents to the repository
-    via the GitHub CLI.
+    and the branch protection rulesets to apply to the default branch. Its
+    contents are applied to the repository via the GitHub CLI by a generated
+    script that the release workflow invokes.
     """
-
-    def parent_path(self) -> Path:
-        """Return `Path(".github")`, the standard GitHub configuration directory."""
-        return Path(".github")
-
-    def stem(self) -> str:
-        """Return `"settings"`."""
-        return "settings"
 
     def _configs(self) -> dict[str, Any]:
         """Build the required repository settings and branch protection ruleset.
@@ -41,7 +36,7 @@ class RepoSettingsConfigFile(JSONDictConfigFile):
             Dict keyed by `repository_key()` and `rulesets_key()`.
         """
         status_check_id = HealthCheckWorkflowConfigFile.I.id_from_method(
-            HealthCheckWorkflowConfigFile.I.job_health_check
+            HealthCheckWorkflowConfigFile.I.job_health_check,
         )
         return {
             self.repository_key(): {
@@ -60,7 +55,7 @@ class RepoSettingsConfigFile(JSONDictConfigFile):
                     "target": "branch",
                     "enforcement": "active",
                     "conditions": {
-                        "ref_name": {"exclude": [], "include": ["~DEFAULT_BRANCH"]}
+                        "ref_name": {"exclude": [], "include": ["~DEFAULT_BRANCH"]},
                     },
                     "rules": [
                         {"type": "creation"},
@@ -85,7 +80,7 @@ class RepoSettingsConfigFile(JSONDictConfigFile):
                                 "strict_required_status_checks_policy": True,
                                 "do_not_enforce_on_create": True,
                                 "required_status_checks": [
-                                    {"context": status_check_id}
+                                    {"context": status_check_id},
                                 ],
                             },
                         },
@@ -97,11 +92,19 @@ class RepoSettingsConfigFile(JSONDictConfigFile):
                             "actor_id": 5,
                             "actor_type": "RepositoryRole",
                             "bypass_mode": "always",
-                        }
+                        },
                     ],
-                }
+                },
             ],
         }
+
+    def parent_path(self) -> Path:
+        """Return the `RemoteVersionController`'s config directory."""
+        return RemoteVersionController.I.config_dir()
+
+    def stem(self) -> str:
+        """Return `"settings"`."""
+        return "settings"
 
     def repository_key(self) -> str:
         """Return `"repository"`, the top-level key for the repo settings."""

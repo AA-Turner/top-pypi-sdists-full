@@ -26,7 +26,7 @@ def get_problem(type: problist_id_t, lowea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
     """
     ...
 
-def get_problem_desc(t: problist_id_t, ea: ida_idaapi.ea_t) -> str:
+def get_problem_desc(t: problist_id_t, ea: ida_idaapi.ea_t) -> Union[str, None]:
     r"""Get the human-friendly description of the problem, if one was provided to remember_problem. 
             
     :param t: problem list type.

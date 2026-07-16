@@ -23,8 +23,9 @@ use crate::{
     StatsigErr,
 };
 
-use crate::{hashing, user::StatsigUserInternal, StatsigUser};
-use rand::Rng;
+use crate::{
+    evaluation::dynamic_string::DynamicString, hashing, user::StatsigUserInternal, StatsigUser,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -358,7 +359,7 @@ fn get_session_replay_info(
     let targeting_gate_name = &session_replay_data.targeting_gate;
 
     if let Some(gate_name) = targeting_gate_name {
-        match Evaluator::evaluate(context, gate_name.clone().as_str(), &SpecType::Gate) {
+        match Evaluator::evaluate(context, gate_name, &SpecType::Gate) {
             Ok(_result) => {
                 session_replay_info.passes_session_recording_targeting =
                     Some(context.result.bool_value);
@@ -373,12 +374,21 @@ fn get_session_replay_info(
         }
     }
 
-    let mut rng = rand::thread_rng();
-    let random: f64 = rng.gen::<f64>();
+    let session_id_field = Some(DynamicString::from("sessionID".to_string()));
+    let session_id = context
+        .user
+        .get_user_value(&session_id_field)
+        .and_then(|value| value.string_value())
+        .unwrap_or_default()
+        .to_string();
+    let session_replay_bucket = context
+        .hashing
+        .evaluation_hash(&session_id)
+        .map(|hash| hash % 1000);
 
     if let Some(rate) = &session_replay_data.sampling_rate {
         session_replay_info.session_recording_rate = Some(*rate);
-        if random > *rate {
+        if !passes_session_replay_sampling(session_replay_bucket, *rate) {
             session_replay_info.can_record_session = Some(false);
         }
     }
@@ -393,7 +403,8 @@ fn get_session_replay_info(
                 passes_sampling: None,
             };
             if let Some(rate) = &trigger.sampling_rate {
-                new_trigger.passes_sampling = Some(random <= *rate);
+                new_trigger.passes_sampling =
+                    Some(passes_session_replay_sampling(session_replay_bucket, *rate));
             }
             if options.previous_response_hash.is_some() {
                 event_triggers_hash.push(new_trigger.create_hash(key));
@@ -413,7 +424,8 @@ fn get_session_replay_info(
                 passes_sampling: None,
             };
             if let Some(rate) = &trigger.sampling_rate {
-                new_trigger.passes_sampling = Some(random <= *rate);
+                new_trigger.passes_sampling =
+                    Some(passes_session_replay_sampling(session_replay_bucket, *rate));
             }
             if options.previous_response_hash.is_some() {
                 exposure_triggers_hash.push(new_trigger.create_hash(key));
@@ -430,8 +442,8 @@ fn get_session_replay_info(
     if options.previous_response_hash.is_some() {
         let combined_hashes = vec![
             session_replay_info.create_hash(InternedString::empty_ref()),
-            hashing::hash_one(event_triggers_hash),
-            hashing::hash_one(exposure_triggers_hash),
+            hashing::hash_unordered(event_triggers_hash),
+            hashing::hash_unordered(exposure_triggers_hash),
         ];
         context.gcir_hashes.push(hashing::hash_one(combined_hashes));
     }
@@ -441,6 +453,10 @@ fn get_session_replay_info(
         .clone();
 
     session_replay_info
+}
+
+fn passes_session_replay_sampling(bucket: Option<u64>, rate: f64) -> bool {
+    bucket.is_some_and(|bucket| (bucket as f64) < rate * 1000.0)
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -526,7 +542,7 @@ impl EvaluatedKeys {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
 
     use crate::{
         dcs_str::DCS_STR,
@@ -538,7 +554,7 @@ mod tests {
         hashing::{HashAlgorithm, HashUtil},
         interned_string::InternedString,
         specs_response::{
-            spec_types::{Spec, SpecsResponseFull},
+            spec_types::{SessionReplayInfo, SessionReplayTrigger, Spec, SpecsResponseFull},
             specs_hash_map::SpecPointer,
         },
         user::{StatsigUser, StatsigUserInternal},
@@ -598,6 +614,94 @@ mod tests {
             serde_json::to_value(unplanned).unwrap(),
             serde_json::to_value(planned).unwrap(),
         )
+    }
+
+    fn session_replay_response(session_id: &str) -> serde_json::Value {
+        let mut specs: SpecsResponseFull = serde_json::from_str(DCS_STR).unwrap();
+        specs.session_replay_info = Some(SessionReplayInfo {
+            sampling_rate: Some(0.4),
+            targeting_gate: None,
+            recording_blocked: Some(false),
+            session_recording_event_triggers: Some(HashMap::from([(
+                InternedString::from_str_ref("checkout"),
+                SessionReplayTrigger {
+                    sampling_rate: Some(0.4),
+                    values: None,
+                    passes_sampling: None,
+                },
+            )])),
+            session_recording_exposure_triggers: Some(HashMap::from([(
+                InternedString::from_str_ref("experiment"),
+                SessionReplayTrigger {
+                    sampling_rate: Some(0.3),
+                    values: None,
+                    passes_sampling: None,
+                },
+            )])),
+            session_recording_privacy_settings: None,
+        });
+
+        let hashing = HashUtil::new();
+        let mut user = StatsigUser::with_user_id("user-in-test");
+        user.set_custom(HashMap::from([(
+            "sessionID".to_string(),
+            DynamicValue::from_string(session_id),
+        )]));
+        let user_internal = StatsigUserInternal::new(&user, None);
+        let id_list_callback = |_: &str, _: &str| false;
+        let mut context = EvaluatorContext::new(
+            &user_internal,
+            &specs,
+            IdListResolution::Callback(&id_list_callback),
+            &hashing,
+            None,
+            None,
+            false,
+            None,
+            true,
+        );
+        let options = ClientInitResponseOptions {
+            previous_response_hash: Some("stale-checksum".to_string()),
+            ..Default::default()
+        };
+
+        serde_json::to_value(GCIRFormatter::generate_v1_format(&mut context, &options).unwrap())
+            .unwrap()
+    }
+
+    #[test]
+    fn session_replay_sampling_is_deterministic_and_matches_scrapi() {
+        let hashing = HashUtil::new();
+        let session_a = "session-a".to_string();
+        let session_b = "session-b".to_string();
+        assert_eq!(hashing.evaluation_hash(&session_a).unwrap() % 1000, 378);
+        assert_eq!(hashing.evaluation_hash(&session_b).unwrap() % 1000, 463);
+
+        let first = session_replay_response(&session_a);
+        let repeated = session_replay_response(&session_a);
+        assert_eq!(first, repeated);
+        assert_eq!(first["can_record_session"], true);
+        assert_eq!(
+            first["session_recording_event_triggers"]["checkout"]["passes_sampling"],
+            true
+        );
+        assert_eq!(
+            first["session_recording_exposure_triggers"]
+                .as_object()
+                .unwrap()
+                .values()
+                .next()
+                .unwrap()["passes_sampling"],
+            false
+        );
+
+        let different_session = session_replay_response(&session_b);
+        assert_eq!(different_session["can_record_session"], false);
+        assert_eq!(
+            different_session["session_recording_event_triggers"]["checkout"]["passes_sampling"],
+            false
+        );
+        assert_ne!(first["full_checksum"], different_session["full_checksum"]);
     }
 
     #[test]

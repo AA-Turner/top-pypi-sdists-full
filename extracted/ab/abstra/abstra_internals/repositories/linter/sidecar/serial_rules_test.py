@@ -2,8 +2,9 @@
 
 The sidecar child runs rules serially (serial=True). The in-process
 kill-switch path keeps today's thread-per-rule fan-out (default serial=False).
-Serial mode must preserve the current failure semantics: a rule that raises
-loses its check silently (today its thread dies), never aborting the run.
+Failure semantics (both modes): a rule that raises never aborts the run and
+materializes as a status="failed" check with no issues, instead of silently
+vanishing from the results.
 """
 
 import threading
@@ -51,6 +52,24 @@ class _BoomRule(LinterRule):
         raise RuntimeError("rule exploded")
 
 
+class _FlakyBlockingRule(LinterRule):
+    """Succeeds (with one issue) until `broken` is flipped, then crashes."""
+
+    label = "flaky blocking"
+    type = "error"
+
+    def __init__(self):
+        self.broken = False
+
+    def find_issues(self):
+        if self.broken:
+            raise RuntimeError("rule exploded")
+        issue = LinterIssue()
+        issue.label = "real issue"
+        issue.fixes = []
+        return [issue]
+
+
 class _ScopedFakeRule(PathScopedLinterRule):
     label = "scoped fake"
     type = "info"
@@ -95,14 +114,20 @@ class SerialExecutionTest(unittest.TestCase):
         names = {c.name for c in repo.checks}
         self.assertEqual(names, {"_OkRuleOne", "_OkRuleTwo"})
 
-    def test_serial_drops_failing_rule_and_keeps_going(self):
+    def test_serial_materializes_failing_rule_and_keeps_going(self):
         log = []
         repo = LocalLinterRepository(serial=True)
         repo.update_specific_checks([_OkRuleOne(log), _BoomRule(), _OkRuleTwo(log)])
 
         names = {c.name for c in repo.checks}
-        self.assertEqual(names, {"_OkRuleOne", "_OkRuleTwo"})
+        self.assertEqual(names, {"_OkRuleOne", "_BoomRule", "_OkRuleTwo"})
         self.assertEqual(len(log), 2)
+
+        boom = next(c for c in repo.checks if c.name == "_BoomRule")
+        self.assertEqual(boom.status, "failed")
+        self.assertEqual(boom.issues, [])
+        ok = next(c for c in repo.checks if c.name == "_OkRuleOne")
+        self.assertEqual(ok.status, "ok")
 
     def test_threaded_default_runs_in_worker_threads(self):
         log = []
@@ -114,14 +139,51 @@ class SerialExecutionTest(unittest.TestCase):
         self.assertNotEqual(thread, threading.current_thread())
         self.assertTrue(thread.name.startswith("LinterCheck["))
 
-    def test_threaded_default_drops_failing_rule(self):
-        # Parity check of today's behavior: the failing rule's thread dies and
-        # its check is silently absent.
+    def test_threaded_default_materializes_failing_rule(self):
+        # Parity with serial mode: the worker catches the crash and appends a
+        # failed check instead of letting the thread die silently.
         log = []
         repo = LocalLinterRepository()
         repo.update_specific_checks([_OkRuleOne(log), _BoomRule()])
         names = {c.name for c in repo.checks}
-        self.assertEqual(names, {"_OkRuleOne"})
+        self.assertEqual(names, {"_OkRuleOne", "_BoomRule"})
+        boom = next(c for c in repo.checks if c.name == "_BoomRule")
+        self.assertEqual(boom.status, "failed")
+
+    def test_failed_check_replaces_stale_check_on_merge(self):
+        # A rule that crashes on a merged pass must not leave its previous
+        # (stale) issues alive: the failed check replaces the old one.
+        rule = _FlakyBlockingRule()
+        repo = LocalLinterRepository(serial=True)
+        repo.update_specific_checks([rule])
+        self.assertEqual(len(repo.checks[0].issues), 1)
+
+        rule.broken = True
+        repo.update_specific_checks([rule])
+        check = repo.checks[0]
+        self.assertEqual(check.status, "failed")
+        self.assertEqual(check.issues, [])
+
+    def test_failed_blocking_rule_blocks_and_message_says_verify(self):
+        from abstra_internals.repositories.linter.models import deploy_gate_message
+
+        rule = _FlakyBlockingRule()
+        rule.broken = True
+        repo = LocalLinterRepository(serial=True)
+        repo.update_specific_checks([rule])
+
+        blocking = repo.get_blocking_checks()
+        self.assertEqual([c.name for c in blocking], ["_FlakyBlockingRule"])
+        message = deploy_gate_message(blocking)
+        self.assertIn("Could not verify", message)
+        self.assertIn("flaky blocking", message)
+
+        # Real issues take precedence over the could-not-verify wording.
+        rule.broken = False
+        repo.update_specific_checks([rule])
+        blocking = repo.get_blocking_checks()
+        message = deploy_gate_message(blocking)
+        self.assertIn("fix all linter issues", message)
 
     def test_serial_scoped_merge_matches_threaded(self):
         a_path = self.root / "a.py"

@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import sys
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
-from ._api import AcquireReturnProxy, BaseFileLock
-from ._error import Timeout
+from ._api import AcquireReturnProxy, BaseFileLock, CloseErrorPolicy, ContextErrorPolicy, LockOptions
+from ._descriptor import lock_descriptor, unlock_descriptor
+from ._error import LeaseSettingsMismatch, SoftFileLockLifetimeWarning, SoftFileLockProtocolError, Timeout
+from ._lease import LeaseCompromise, SoftFileLease
+from ._marker import MarkerSoftFileLock, OwnerRecord
 
 if TYPE_CHECKING:
     from ._async_read_write import (
@@ -32,11 +35,14 @@ else:
 
 from ._soft import SoftFileLock
 from ._soft_rw import AsyncAcquireSoftReadWriteReturnProxy, AsyncSoftReadWriteLock, SoftReadWriteLock
+from ._strict import StrictSoftFileClaim, StrictSoftFileClaimState, StrictSoftFileLock
 from ._unix import UnixFileLock, has_fcntl
 from ._windows import WindowsFileLock
 from .asyncio import (
     AsyncAcquireReturnProxy,
+    AsyncSoftFileLease,
     AsyncSoftFileLock,
+    AsyncStrictSoftFileLock,
     AsyncUnixFileLock,
     AsyncWindowsFileLock,
     BaseAsyncFileLock,
@@ -44,7 +50,7 @@ from .asyncio import (
 from .version import version
 
 #: version of the project as a string
-__version__: str = version
+__version__: Final[str] = version
 
 
 if sys.platform == "win32":  # pragma: win32 cover
@@ -57,8 +63,7 @@ else:  # pragma: win32 no cover # noqa: PLR5501
     else:
         _FileLock = SoftFileLock
         _AsyncFileLock = AsyncSoftFileLock
-        if warnings is not None:
-            warnings.warn("only soft file lock is available", stacklevel=2)
+        warnings.warn("only soft file lock is available", stacklevel=2)
 
 if TYPE_CHECKING:
     FileLock = SoftFileLock
@@ -76,18 +81,35 @@ __all__ = [
     "AsyncAcquireSoftReadWriteReturnProxy",
     "AsyncFileLock",
     "AsyncReadWriteLock",
+    "AsyncSoftFileLease",
     "AsyncSoftFileLock",
     "AsyncSoftReadWriteLock",
+    "AsyncStrictSoftFileLock",
     "AsyncUnixFileLock",
     "AsyncWindowsFileLock",
     "BaseAsyncFileLock",
     "BaseFileLock",
+    "CloseErrorPolicy",
+    "ContextErrorPolicy",
     "FileLock",
+    "LeaseCompromise",
+    "LeaseSettingsMismatch",
+    "LockOptions",
+    "MarkerSoftFileLock",
+    "OwnerRecord",
     "ReadWriteLock",
+    "SoftFileLease",
     "SoftFileLock",
+    "SoftFileLockLifetimeWarning",
+    "SoftFileLockProtocolError",
     "SoftReadWriteLock",
+    "StrictSoftFileClaim",
+    "StrictSoftFileClaimState",
+    "StrictSoftFileLock",
     "Timeout",
     "UnixFileLock",
     "WindowsFileLock",
     "__version__",
+    "lock_descriptor",
+    "unlock_descriptor",
 ]

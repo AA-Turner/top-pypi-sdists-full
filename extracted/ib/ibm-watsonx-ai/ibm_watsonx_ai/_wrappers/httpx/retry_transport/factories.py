@@ -21,13 +21,6 @@ from ibm_watsonx_ai._wrappers.httpx.retry_transport.utils import raise_verify_er
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
 
-HTTPX_KEEPALIVE_EXPIRY = 5
-HTTPX_DEFAULT_LIMIT = httpx.Limits(
-    max_connections=10,
-    max_keepalive_connections=10,
-    keepalive_expiry=HTTPX_KEEPALIVE_EXPIRY,
-)
-
 TRANSPORT_RETRIES = 3
 TRANSPORT_BACKOFF_FACTOR = 0.3
 TRANSPORT_STATUS_FORCELIST = (401, 500, 502, 503, 504, 520, 521, 524)
@@ -37,7 +30,7 @@ TRANSPORT_STATUS_FORCELIST = (401, 500, 502, 503, 504, 520, 521, 524)
 def retry_transport_factory(
     is_async: Literal[True],
     api_client: APIClient,
-    limits: httpx.Limits = HTTPX_DEFAULT_LIMIT,
+    limits: httpx.Limits = GlobalHttpxSettings.HTTPX_DEFAULT_LIMIT,
     proxy: str | None = None,
 ) -> AsyncRetryTransport: ...
 
@@ -46,7 +39,7 @@ def retry_transport_factory(
 def retry_transport_factory(
     is_async: Literal[False],
     api_client: APIClient,
-    limits: httpx.Limits = HTTPX_DEFAULT_LIMIT,
+    limits: httpx.Limits = GlobalHttpxSettings.HTTPX_DEFAULT_LIMIT,
     proxy: str | None = None,
 ) -> RetryTransport: ...
 
@@ -55,7 +48,7 @@ def retry_transport_factory(
 def retry_transport_factory(
     is_async: bool,
     api_client: APIClient,
-    limits: httpx.Limits = HTTPX_DEFAULT_LIMIT,
+    limits: httpx.Limits = GlobalHttpxSettings.HTTPX_DEFAULT_LIMIT,
     proxy: str | None = None,
 ) -> RetryTransport | AsyncRetryTransport: ...
 
@@ -63,7 +56,7 @@ def retry_transport_factory(
 def retry_transport_factory(
     is_async: bool,
     api_client: APIClient,
-    limits: httpx.Limits = HTTPX_DEFAULT_LIMIT,
+    limits: httpx.Limits = GlobalHttpxSettings.HTTPX_DEFAULT_LIMIT,
     proxy: str | None = None,
 ) -> RetryTransport | AsyncRetryTransport:
     """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-openstackclient
-Version: 10.2.0
+Version: 10.2.1
 Summary: OpenStack Command-line Client
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License-Expression: Apache-2.0

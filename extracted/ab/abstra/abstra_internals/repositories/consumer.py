@@ -25,6 +25,7 @@ from abstra_internals.repositories.models import (
     QueueMessage,
     RunSnippetMessage,
     RunSnippetPayload,
+    RunSnippetSandboxedMessage,
     StopAllExecutionsMessage,
     StopExecutionMessage,
     StopExecutionPayload,
@@ -52,6 +53,8 @@ def _parse_control_message(data: dict) -> ControlMessage:
         return StopAllExecutionsMessage.model_validate(data)
     elif msg_type == "run_snippet":
         return RunSnippetMessage.model_validate(data)
+    elif msg_type == "run_snippet_sandboxed":
+        return RunSnippetSandboxedMessage.model_validate(data)
     elif msg_type == "ping":
         return PingMessage.model_validate(data)
     return ControlMessage.model_validate(data)

@@ -338,7 +338,7 @@ class ea_name_vec_t:
     def truncate(self) -> None:
         ...
 
-def append_struct_fields(disp: int, n: int, path: int, flags: int, delta: int, appzero: bool) -> str:
+def append_struct_fields(disp: int, n: int, path: int, flags: int, delta: int, appzero: bool) -> Union[str, None]:
     r"""Append names of struct fields to a name if the name is a struct name. 
             
     :param disp: displacement from the name
@@ -385,7 +385,7 @@ def demangle_name(name: str, disable_mask: int, demreq: demreq_type_t = 2) -> st
     """
     ...
 
-def extract_name(line: str, x: int) -> str:
+def extract_name(line: str, x: int) -> Union[str, None]:
     r"""Extract a name or address from the specified string. 
             
     :param line: input string
@@ -415,7 +415,7 @@ def get_cp_validity(*args: Any) -> bool:
     """
     ...
 
-def get_debug_name(ea_ptr: int, how: debug_name_how_t) -> str:
+def get_debug_name(ea_ptr: int, how: debug_name_how_t) -> Union[str, None]:
     ...
 
 def get_debug_name_ea(name: str) -> ida_idaapi.ea_t:
@@ -531,13 +531,13 @@ def hide_name(ea: ida_idaapi.ea_t) -> None:
     ...
 
 def is_ident(name: str) -> bool:
-    r"""Is a valid name? (including ::MangleChars)
+    r"""Is a valid name? (including ::MangleChars).
     
     """
     ...
 
 def is_ident_cp(cp: wchar32_t) -> bool:
-    r"""Can a character appear in a name? (present in ::NameChars or ::MangleChars)
+    r"""Can a character appear in a name? (present in ::NameChars or ::MangleChars).
     
     """
     ...
@@ -546,9 +546,21 @@ def is_in_nlist(ea: ida_idaapi.ea_t) -> bool:
     ...
 
 def is_name_defined_locally(*args: Any) -> bool:
+    r"""Is the name defined locally in the specified function?
+    
+    :param pfn: pointer to function
+    :param name: name to check
+    :param ignore_name_def: which names to ignore when checking
+    :param ea1: the starting address of the range inside the function (optional)
+    :param ea2: the ending address of the range inside the function (optional)
+    :returns: true if the name has been defined
+    """
+    ...
+
+def is_name_defined_locally_ea(*args: Any) -> bool:
     r"""Is the name defined locally in the specified function? 
             
-    :param pfn: pointer to function
+    :param func_ea: function start address
     :param name: name to check
     :param ignore_name_def: which names to ignore when checking
     :param ea1: the starting address of the range inside the function (optional)
@@ -591,7 +603,7 @@ def is_valid_typename(name: str) -> bool:
     ...
 
 def is_visible_cp(cp: wchar32_t) -> bool:
-    r"""Can a character be displayed in a name? (present in ::NameChars)
+    r"""Can a character be displayed in a name? (present in ::NameChars).
     
     """
     ...
@@ -676,6 +688,7 @@ def validate_name(name: str, type: nametype_t, flags: int = 1) -> Any:
 
 CN_KEEP_TRAILING_DIGITS: int  # 1
 CN_KEEP_UNDERSCORES: int  # 2
+CN_REMOVE_ALL_TRAILING_DIGITS: int  # 4
 DEBNAME_EXACT: int  # 0
 DEBNAME_LOWER: int  # 1
 DEBNAME_NICE: int  # 3

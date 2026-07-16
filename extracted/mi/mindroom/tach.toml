@@ -296,10 +296,11 @@ depends_on = [
     "mindroom.llm_request_logging",
     "mindroom.logging_config",
     "mindroom.tool_system.dependencies",
+    "mindroom.azure_openai_model",
     "mindroom.claude_prompt_cache",
     "mindroom.claude_stream_retry",
     "mindroom.codex_model",
-    "mindroom.openai_responses_model",
+    "mindroom.openai_models",
     "mindroom.openai_tool_search",
     "mindroom.vertex_claude_compat",
 ]
@@ -1145,6 +1146,16 @@ depends_on = [
 ]
 
 [[modules]]
+path = "mindroom.matrix.appservice"
+depends_on = [
+    "mindroom.constants",
+    "mindroom.matrix.client_session",
+    "mindroom.matrix.identity",
+    "mindroom.runtime_env_policy",
+]
+visibility = ["mindroom.matrix.users"]
+
+[[modules]]
 path = "mindroom.matrix.provisioning"
 depends_on = [
     "mindroom.constants",
@@ -1189,6 +1200,7 @@ path = "mindroom.matrix.users"
 depends_on = [
     "mindroom.config.main",
     "mindroom.constants",
+    "mindroom.matrix.appservice",
     "mindroom.matrix.client_session",
     "mindroom.matrix.cross_signing",
     "mindroom.matrix.provisioning",
@@ -1999,6 +2011,7 @@ depends_on = ["mindroom.constants", "mindroom.matrix.to_device"]
 visibility = [
     "mindroom.bot",
     "mindroom.cli.doctor",
+    "mindroom.matrix.appservice",
     "mindroom.matrix.client",
     "mindroom.matrix.provisioning",
     "mindroom.matrix.rooms",
@@ -2478,6 +2491,14 @@ depends_on = [
 visibility = ["mindroom.cli.main"]
 
 [[modules]]
+path = "mindroom.cli.plugins"
+depends_on = [
+    "mindroom.cli.config",
+    "mindroom.plugin_check",
+]
+visibility = ["mindroom.cli.main"]
+
+[[modules]]
 path = "mindroom.cli.service"
 depends_on = [
     "mindroom.services.config",
@@ -2503,6 +2524,7 @@ depends_on = [
     "mindroom.cli.doctor",
     "mindroom.cli.local_stack",
     "mindroom.cli.migrate",
+    "mindroom.cli.plugins",
     "mindroom.cli.service",
     "mindroom.cli.trigger",
     "mindroom.config.main",
@@ -2703,6 +2725,18 @@ depends_on = [
     "mindroom.mcp.registry",
     "mindroom.tool_system.plugins",
 ]
+
+[[modules]]
+path = "mindroom.plugin_check"
+depends_on = [
+    "mindroom.config.main",
+    "mindroom.constants",
+    "mindroom.hooks",
+    "mindroom.oauth.registry",
+    "mindroom.tool_system.catalog",
+    "mindroom.tool_system.plugins",
+]
+visibility = ["mindroom.cli.plugins"]
 
 [[modules]]
 path = "mindroom.tool_system.dependencies"
@@ -3502,6 +3536,7 @@ from = ["mindroom.matrix.client_room_admin"]
 [[interfaces]]
 expose = [
     "PermanentMatrixStartupError",
+    "create_authenticated_client",
     "login",
     "matrix_client",
     "matrix_startup_error",

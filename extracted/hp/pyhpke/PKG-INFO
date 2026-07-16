@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyhpke
-Version: 0.6.4
+Version: 0.6.5
 Summary: A Python implementation of HPKE.
 Author: Ajitomi Daisuke
 Author-email: Ajitomi Daisuke <dajiaji@gmail.com>
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Dist: cryptography>=42.0.1,<47
+Requires-Dist: cryptography>=42.0.1,<52
 Requires-Python: >=3.10, <4.0
 Project-URL: Repository, https://github.com/dajiaji/pyhpke
 Description-Content-Type: text/markdown
@@ -28,7 +28,7 @@ Description-Content-Type: text/markdown
 [![Documentation Status](https://readthedocs.org/projects/pyhpke/badge/?version=latest)](https://pyhpke.readthedocs.io/en/latest/?badge=latest)
 ![Github CI](https://github.com/dajiaji/pyhpke/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/dajiaji/pyhpke/branch/main/graph/badge.svg?token=QN8GXEYEP3)](https://codecov.io/gh/dajiaji/pyhpke)
-
+[![Known Vulnerabilities](https://snyk.io/test/github/dajiaji/pyhpke/badge.svg?targetFile=requirements.txt)](https://snyk.io/test/github/dajiaji/pyhpke?targetFile=requirements.txt)
 
 PyHPKE is a [HPKE (Hybrid Public Key Encryption)](https://www.rfc-editor.org/rfc/rfc9180.html) implementation written in Python.
 
@@ -92,6 +92,7 @@ keypair = suite_s.kem.derive_key_pair(b"some_ikm_bytes_used_for_key_derivation")
 - [Usage](#usage)
 - [API Reference](#api-reference)
 - [Test](#test)
+- [Security](#security)
 - [Contributing](#contributing)
 
 ## Installation
@@ -185,6 +186,46 @@ You can run tests from the project root after cloning with:
 $ tox
 ```
 
+## Security
+
+If you discover a security issue, please report it via a GitHub issue and avoid disclosing exploit details publicly until we respond.
+
+This project has not been formally audited; use it according to your risk assessment.
+
+The Snyk badge reports results based on `requirements.txt` exported from `uv.lock` and reflects dependency scanning only.
+
+See [SECURITY.md](SECURITY.md) for our security policy and reporting guidance.
+
 ## Contributing
 
 We welcome all kind of contributions, filing issues, suggesting new features or sending PRs.
+
+### Development environment
+
+```sh
+$ uv sync --frozen
+$ uv run pre-commit install
+```
+
+### Dependency updates
+
+`[tool.uv]` in `pyproject.toml` pins `exclude-newer = "2 days"`, so resolution only
+considers packages uploaded more than two days ago. This gives newly published
+releases a verification window before we depend on them, and it applies to every
+`uv` command automatically — no extra flags needed.
+
+After changing dependencies, re-export `requirements.txt`, which is what the
+dependency scanners read:
+
+```sh
+$ uv add <package>          # or: uv lock --upgrade
+$ uv export --format requirements-txt --locked -o requirements.txt
+```
+
+### Scanning
+
+```sh
+$ uv run pip-audit
+$ uv run pip-licenses
+$ trivy fs --severity HIGH,CRITICAL .
+```

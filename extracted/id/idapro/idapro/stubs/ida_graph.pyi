@@ -3806,7 +3806,7 @@ def create_mutable_graph(id: int) -> interactive_graph_t:
     ...
 
 def create_user_graph_place(node: int, lnnum: int) -> user_graph_place_t:
-    r"""Get a copy of a user_graph_place_t (returns a pointer to static storage)
+    r"""Get a copy of a user_graph_place_t (returns a pointer to static storage).
     
     """
     ...
@@ -3909,7 +3909,7 @@ def viewer_create_groups(gv: graph_viewer_t, out_group_nodes: intvec_t, gi: grou
     ...
 
 def viewer_del_node_info(gv: graph_viewer_t, n: int) -> None:
-    r"""Delete node info for node in given viewer (see del_node_info())
+    r"""Delete node info for node in given viewer (see del_node_info()).
     
     """
     ...
@@ -3932,7 +3932,7 @@ def viewer_fit_window(gv: graph_viewer_t) -> None:
     ...
 
 def viewer_get_curnode(gv: graph_viewer_t) -> int:
-    r"""Get number of currently selected node (-1 if none)
+    r"""Get number of currently selected node (-1 if none).
     
     """
     ...
@@ -3944,7 +3944,7 @@ def viewer_get_gli(out: graph_location_info_t, gv: graph_viewer_t, flags: int = 
     ...
 
 def viewer_get_node_info(gv: graph_viewer_t, out: node_info_t, n: int) -> bool:
-    r"""Get node info for node in given viewer (see get_node_info())
+    r"""Get node info for node in given viewer (see get_node_info()).
     
     """
     ...
@@ -3973,13 +3973,13 @@ def viewer_set_groups_visibility(gv: graph_viewer_t, groups: intvec_t, expand: b
     ...
 
 def viewer_set_node_info(gv: graph_viewer_t, n: int, ni: node_info_t, flags: int) -> None:
-    r"""Set node info for node in given viewer (see set_node_info())
+    r"""Set node info for node in given viewer (see set_node_info()).
     
     """
     ...
 
 def viewer_set_titlebar_height(gv: graph_viewer_t, height: int) -> int:
-    r"""Set height of node title bars (grcode_set_titlebar_height)
+    r"""Set height of node title bars (grcode_set_titlebar_height).
     
     """
     ...

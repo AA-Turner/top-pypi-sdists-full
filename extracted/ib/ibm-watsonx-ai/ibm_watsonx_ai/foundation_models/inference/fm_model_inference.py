@@ -10,7 +10,6 @@ from copy import deepcopy
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
-    Any,
     AsyncGenerator,
     Generator,
     Literal,
@@ -35,7 +34,7 @@ from ibm_watsonx_ai.foundation_models.utils.utils import (
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 
-from .base_model_inference import _RETRY_STATUS_CODES, BaseModelInference
+from .base_model_inference import BaseModelInference
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
@@ -190,8 +189,7 @@ class FMModelInference(BaseModelInference):
         if crypto:
             payload["crypto"] = crypto
 
-        response = await self._apost(
-            self._client.async_httpx_client,
+        response = await self._async_post_with_retry(
             url=text_chat_url,
             json=payload,
             headers=await self._client._aget_headers(),
@@ -637,14 +635,12 @@ class FMModelInference(BaseModelInference):
         if crypto:
             payload["crypto"] = crypto
 
-        post_params: dict[str, Any] = {
-            "url": generate_url,
-            "json": payload,
-            "params": self._client._params(skip_for_create=True, skip_userfs=True),
-            "headers": self._client._get_headers(),
-        }
-
-        response_scoring = self._post(self._client.httpx_client, **post_params)
+        response_scoring = self._post_with_retry(
+            url=generate_url,
+            json=payload,
+            params=self._client._params(skip_for_create=True, skip_userfs=True),
+            headers=self._client._get_headers(),
+        )
 
         return self._handle_response(
             200,
@@ -670,20 +666,13 @@ class FMModelInference(BaseModelInference):
             tool_choice_option=tool_choice_option,
         )
 
-        if hasattr(self._client.httpx_client, "post_stream"):
-            stream_function = self._client.httpx_client.post_stream
-        else:
-            stream_function = self._client.httpx_client.stream
-
-        kw_args: dict = {
-            "method": "POST",
-            "url": chat_stream_url,
-            "json": payload,
-            "headers": self._client._get_headers(),
-            "params": self._client._params(skip_for_create=True, skip_userfs=True),
-        }
-
-        with self._stream(stream_function, **kw_args) as resp:
+        with self._stream_with_retry(
+            method="POST",
+            url=chat_stream_url,
+            json=payload,
+            headers=self._client._get_headers(),
+            params=self._client._params(skip_for_create=True, skip_userfs=True),
+        ) as resp:
             if resp.status_code == 200:
                 resp_iter = (
                     resp.iter_lines()
@@ -731,20 +720,13 @@ class FMModelInference(BaseModelInference):
             tool_choice_option=tool_choice_option,
         )
 
-        if hasattr(self._client.async_httpx_client, "post_stream"):
-            stream_function = self._client.async_httpx_client.post_stream
-        else:
-            stream_function = self._client.async_httpx_client.stream
-
-        kw_args: dict = {
-            "method": "POST",
-            "url": chat_stream_url,
-            "json": payload,
-            "headers": await self._client._aget_headers(),
-            "params": self._client._params(skip_for_create=True, skip_userfs=True),
-        }
-
-        async with self._astream(stream_function, **kw_args) as resp:
+        async with self._async_stream_with_retry(
+            method="POST",
+            url=chat_stream_url,
+            json=payload,
+            headers=await self._client._aget_headers(),
+            params=self._client._params(skip_for_create=True, skip_userfs=True),
+        ) as resp:
             if resp.status_code == 200:
                 resp_iter = resp.aiter_lines()
 
@@ -781,16 +763,12 @@ class FMModelInference(BaseModelInference):
         payload = self._prepare_inference_payload(prompt, crypto=crypto)
         payload.setdefault("parameters", {})["return_tokens"] = return_tokens
 
-        post_params: dict[str, Any] = {
-            "url": tokenize_url,
-            "json": payload,
-            "params": self._client._params(skip_for_create=True, skip_userfs=True),
-            "headers": self._client._get_headers(),
-        }
-        if not isinstance(self._client.httpx_client, httpx.Client):
-            post_params["_retry_status_codes"] = _RETRY_STATUS_CODES
-
-        response_scoring = self._post(self._client.httpx_client, **post_params)
+        response_scoring = self._post_with_retry(
+            url=tokenize_url,
+            json=payload,
+            params=self._client._params(skip_for_create=True, skip_userfs=True),
+            headers=self._client._get_headers(),
+        )
 
         if response_scoring.status_code == 404:
             raise WMLClientError("Tokenize is not supported for this release")

@@ -226,7 +226,7 @@ class Hexrays_Hooks:
                   
         :param cdg: (codegen_t *)
         :param decomp_flags: (int)
-        :returns: Microcode error code This is an opportunity to inline other ranges.
+        :returns: Microcode error code  This is an opportunity to inline other ranges.
         """
         ...
     def build_callinfo(self, blk: mblock_t, type: tinfo_t) -> Any:
@@ -234,6 +234,7 @@ class Hexrays_Hooks:
                   
         :param blk: (mblock_t *) blk->tail is the call.
         :param type: (tinfo_t *) buffer for the output type.
+        :returns: callinfo: (mcallinfo_t **) prepared callinfo. The plugin should either specify the function type, either allocate and return a new mcallinfo_t object.
         """
         ...
     def callinfo_built(self, blk: mblock_t) -> int:
@@ -266,6 +267,7 @@ class Hexrays_Hooks:
         r"""Collect warning messages from plugins. These warnings will be displayed at the function header, after the user-defined comments. 
                   
         :param cfunc: (cfunc_t *)
+        :returns: warnings: (qstrvec_t *)
         """
         ...
     def combine(self, blk: mblock_t, insn: minsn_t) -> int:
@@ -279,8 +281,7 @@ class Hexrays_Hooks:
         r"""Create a hint for the current item. 
                   
         :param vu: (vdui_t *)
-        :returns: 0: continue collecting hints with other subscribers
-        :returns: 1: stop collecting hints
+        :returns: hint: (qstring *); important_lines: (int *)
         """
         ...
     def curpos(self, vu: vdui_t) -> int:
@@ -300,7 +301,17 @@ class Hexrays_Hooks:
     def flowchart(self, fc: qflow_chart_t, mba: mba_t, reachable_blocks: bitset_t, decomp_flags: int) -> int:
         r"""Flowchart has been generated. 
                   
-        :param fc: (qflow_chart_t *)
+        :param fc: (const qflow_chart_t *)
+        :param mba: (mba_t *)
+        :param reachable_blocks: (bitset_t *)
+        :param decomp_flags: (int)
+        :returns: Microcode error code
+        """
+        ...
+    def flowchart_ea(self, fc: qflow_chart_ea_t, mba: mba_t, reachable_blocks: bitset_t, decomp_flags: int) -> int:
+        r"""Flowchart has been generated (ea-based variant). Replaces the deprecated hxe_flowchart which passes a qflow_chart_t* with a raw func_t* inside. 
+                  
+        :param fc: (const qflow_chart_ea_t *)
         :param mba: (mba_t *)
         :param reachable_blocks: (bitset_t *)
         :param decomp_flags: (int)
@@ -332,12 +343,30 @@ class Hexrays_Hooks:
         :param i2: (int) blknum of the last inlined block (excluded)
         """
         ...
+    def inlined_function(self, cdg: codegen_t, blk: int, dcr: decomp_ranges_t, i1: int, i2: int) -> int:
+        r"""A set of ranges got inlined (ea-based variant). Replaces the deprecated hxe_inlined_func which passes an mba_ranges_t* with a raw func_t* inside. 
+                  
+        :param cdg: (codegen_t *)
+        :param blk: (int) the block containing call/jump to inline
+        :param dcr: (const decomp_ranges_t *) the range to inline
+        :param i1: (int) blknum of the first inlined block
+        :param i2: (int) blknum of the last inlined block (excluded)
+        """
+        ...
     def inlining_func(self, cdg: codegen_t, blk: int, mbr: mba_ranges_t) -> int:
         r"""A set of ranges is going to be inlined. 
                   
         :param cdg: (codegen_t *)
         :param blk: (int) the block containing call/jump to inline
         :param mbr: (mba_ranges_t *) the range to inline
+        """
+        ...
+    def inlining_function(self, cdg: codegen_t, blk: int, dcr: decomp_ranges_t) -> int:
+        r"""A set of ranges is going to be inlined (ea-based variant). Replaces the deprecated hxe_inlining_func which passes an mba_ranges_t* with a raw func_t* inside. 
+                  
+        :param cdg: (codegen_t *)
+        :param blk: (int) the block containing call/jump to inline
+        :param dcr: (const decomp_ranges_t *) the range to inline
         """
         ...
     def interr(self, errcode: int) -> int:
@@ -435,7 +464,7 @@ class Hexrays_Hooks:
         :param ct: (control_graph_t *) in/out: control graph
         :param cfunc: (cfunc_t *) in: the current function
         :param g: (const simple_graph_t *) in: control flow graph
-        :returns: Microcode error code; MERR_BLOCK means that the analysis has been performed by a plugin
+        :returns: Microcode error code ; MERR_BLOCK means that the analysis has been performed by a plugin
         """
         ...
     def prealloc(self, mba: mba_t) -> int:
@@ -462,10 +491,20 @@ class Hexrays_Hooks:
         r"""Prolog analysis has been finished. 
                   
         :param mba: (mba_t *)
-        :param fc: (qflow_chart_t *)
+        :param fc: (const qflow_chart_t *)
         :param reachable_blocks: (const bitset_t *)
         :param decomp_flags: (int)
-        :returns: Microcode error code This event is generated for each inlined range as well.
+        :returns: Microcode error code  This event is generated for each inlined range as well.
+        """
+        ...
+    def prolog_ea(self, mba: mba_t, fc: qflow_chart_ea_t, reachable_blocks: bitset_t, decomp_flags: int) -> int:
+        r"""Prolog analysis has been finished (ea-based variant). Replaces the deprecated hxe_prolog which passes a qflow_chart_t* with a raw func_t* inside. 
+                  
+        :param mba: (mba_t *)
+        :param fc: (const qflow_chart_ea_t *)
+        :param reachable_blocks: (const bitset_t *)
+        :param decomp_flags: (int)
+        :returns: Microcode error code  This event is generated for each inlined range as well.
         """
         ...
     def refresh_pseudocode(self, vu: vdui_t) -> int:
@@ -490,7 +529,7 @@ class Hexrays_Hooks:
         r"""SP change points have been calculated. 
                   
         :param mba: (mba_t *)
-        :returns: Microcode error code This event is generated for each inlined range as well.
+        :returns: Microcode error code  This event is generated for each inlined range as well.
         """
         ...
     def structural(self, ct: control_graph_t) -> int:
@@ -2016,6 +2055,8 @@ class carg_t(cexpr_t, citem_t):
         ...
     def is_undef_val(self) -> bool:
         ...
+    def is_user_cast(self) -> bool:
+        ...
     def is_vftable(self) -> bool:
         ...
     def is_zero_const(self) -> bool:
@@ -2033,7 +2074,7 @@ class carg_t(cexpr_t, citem_t):
                 
         """
         ...
-    def print1(self, func: cfunc_t) -> None:
+    def print1(self, func: cfunc_t) -> str:
         r"""Print expression into one line. 
                 
         :param func: parent function. This argument is used to find out the referenced variable names.
@@ -2059,6 +2100,8 @@ class carg_t(cexpr_t, citem_t):
         ...
     def set_cpadone(self) -> None:
         ...
+    def set_user_cast(self) -> None:
+        ...
     def set_v(self, v: var_ref_t) -> None:
         ...
     def set_vftable(self) -> None:
@@ -2076,6 +2119,8 @@ class carglist_t(qvector_carg_t):
     def flags(self) -> int: ...
     @property
     def functype(self) -> tinfo_t: ...
+    @property
+    def role(self) -> funcrole_t: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -2428,7 +2473,13 @@ class catchexpr_t:
         ...
     def compare(self, r: catchexpr_t) -> int:
         ...
+    def convert_to_catch_all(self) -> None:
+        ...
+    def convert_to_finally(self) -> None:
+        ...
     def is_catch_all(self) -> bool:
+        ...
+    def is_finally(self) -> bool:
         ...
     def swap(self, r: catchexpr_t) -> None:
         ...
@@ -2770,6 +2821,8 @@ class cblock_t(cinsn_list_t):
         ...
     def insert(self, *args: Any) -> cinsn_list_t_iterator:
         ...
+    def is_ordinary_flow(self) -> bool:
+        ...
     def pop_back(self) -> None:
         ...
     def pop_front(self) -> None:
@@ -3000,7 +3053,7 @@ class ccase_t(cinsn_t, citem_t):
         :param insn_ea: statement address
         """
         ...
-    def print1(self, func: cfunc_t) -> None:
+    def print1(self, func: cfunc_t) -> str:
         r"""Print the statement into one line. Currently this function is not available. 
                 
         :param func: parent function. This argument is used to find out the referenced variable names.
@@ -3251,6 +3304,10 @@ class ccatch_t(cblock_t, cinsn_list_t):
         ...
     def compare(self, r: ccatch_t) -> int:
         ...
+    def convert_to_catch_all(self) -> None:
+        ...
+    def convert_to_finally(self) -> None:
+        ...
     def empty(self) -> bool:
         ...
     def end(self) -> cinsn_list_t_iterator:
@@ -3266,6 +3323,10 @@ class ccatch_t(cblock_t, cinsn_list_t):
     def insert(self, *args: Any) -> cinsn_list_t_iterator:
         ...
     def is_catch_all(self) -> bool:
+        ...
+    def is_finally(self) -> bool:
+        ...
+    def is_ordinary_flow(self) -> bool:
         ...
     def pop_back(self) -> None:
         ...
@@ -3399,7 +3460,7 @@ class cdg_insn_iterator_t:
 
 class cdo_t(cloop_t, ceinsn_t):
     @property
-    def body(self) -> cinsn_t: ...
+    def body(self) -> Any: ...
     @property
     def expr(self) -> cexpr_t: ...
     def __delattr__(self, name: Any) -> Any:
@@ -3892,6 +3953,8 @@ class cexpr_t(citem_t):
         ...
     def is_undef_val(self) -> bool:
         ...
+    def is_user_cast(self) -> bool:
+        ...
     def is_vftable(self) -> bool:
         ...
     def is_zero_const(self) -> bool:
@@ -3909,7 +3972,7 @@ class cexpr_t(citem_t):
                 
         """
         ...
-    def print1(self, func: cfunc_t) -> None:
+    def print1(self, func: cfunc_t) -> str:
         r"""Print expression into one line. 
                 
         :param func: parent function. This argument is used to find out the referenced variable names.
@@ -3935,6 +3998,8 @@ class cexpr_t(citem_t):
         ...
     def set_cpadone(self) -> None:
         ...
+    def set_user_cast(self) -> None:
+        ...
     def set_v(self, v: var_ref_t) -> None:
         ...
     def set_vftable(self) -> None:
@@ -3949,7 +4014,7 @@ class cexpr_t(citem_t):
 
 class cfor_t(cloop_t, ceinsn_t):
     @property
-    def body(self) -> cinsn_t: ...
+    def body(self) -> Any: ...
     @property
     def expr(self) -> cexpr_t: ...
     @property
@@ -4209,7 +4274,7 @@ class cfunc_parentee_t(ctree_parentee_t, ctree_visitor_t):
         """
         ...
     def parent_item(self) -> citem_t:
-        r"""Get parent of the current item as an item (statement or expression)
+        r"""Get parent of the current item as an item (statement or expression).
         
         """
         ...
@@ -4225,7 +4290,7 @@ class cfunc_parentee_t(ctree_parentee_t, ctree_visitor_t):
         """
         ...
     def set_restart(self) -> None:
-        r"""Restart the travesal. Meaningful only in apply_to_exprs()
+        r"""Restart the travesal. Meaningful only in apply_to_exprs().
         
         """
         ...
@@ -4275,6 +4340,8 @@ class cfunc_t:
     def treeitems(self) -> citem_pointers_t: ...
     @property
     def type(self) -> Any: ...
+    @property
+    def user_casts(self) -> user_casts_t: ...
     @property
     def user_cmts(self) -> user_cmts_t: ...
     @property
@@ -4383,6 +4450,12 @@ class cfunc_t:
         :returns: new cfunc_t object
         """
         ...
+    def find_addressable_item(self, i: citem_t) -> citem_t:
+        r"""Find the closest addressable ancestor of an item. Try to locate the closest address to the citem_t `i` walking the tree and taking the most immediate parent with an address. 
+                
+        :returns: the closest addressable item, or `i` itself if none was found
+        """
+        ...
     def find_item_coords(self, *args: Any) -> Any:
         r"""This method has the following signatures:
         
@@ -4449,6 +4522,11 @@ class cfunc_t:
         :returns: the delta to apply. example: ida_stkoff = v.location.stkoff() - f->get_stkoff_delta()
         """
         ...
+    def get_user_cast(self, loc: citem_locator_t) -> tinfo_t:
+        r"""Retrieve a user-defined cast.
+        
+        """
+        ...
     def get_user_cmt(self, loc: treeloc_t, rt: cmt_retrieval_type_t) -> str:
         r"""Retrieve a user defined comment. 
                 
@@ -4461,7 +4539,7 @@ class cfunc_t:
         r"""Retrieve citem iflags. 
                 
         :param loc: citem locator
-        :returns: ctree item iflags bits or 0
+        :returns: ctree item iflags bits  or 0
         """
         ...
     def get_user_union_selection(self, ea: ida_idaapi.ea_t, path: intvec_t) -> bool:
@@ -4485,7 +4563,7 @@ class cfunc_t:
         ...
     def locked(self) -> bool:
         ...
-    def print_dcl(self) -> None:
+    def print_dcl(self) -> str:
         r"""Print function prototype. 
                 
         """
@@ -4501,6 +4579,12 @@ class cfunc_t:
                 
         """
         ...
+    def redirect_gotos(self, frm: int, to: int) -> None:
+        r"""Redirect all gotos targeting one label to another. This function walks the entire ctree and changes all goto statements that target `from` to target `to` instead. 
+                
+        :param to: target label number
+        """
+        ...
     def refresh_func_ctext(self) -> None:
         r"""Refresh ctext after a ctree modification. This function informs the decompiler that ctree (body) have been modified and ctext (sv) does not correspond to it anymore. It also refreshes the pseudocode windows if there is any. 
                 
@@ -4511,6 +4595,11 @@ class cfunc_t:
     def remove_unused_labels(self) -> None:
         r"""Remove unused labels. This function checks what labels are really used by the function and removes the unused ones. You must call it after deleting a goto statement. 
                 
+        """
+        ...
+    def save_user_casts(self) -> None:
+        r"""Save user-defined casts into the database.
+        
         """
         ...
     def save_user_cmts(self) -> None:
@@ -4540,6 +4629,11 @@ class cfunc_t:
         ...
     def serialize(self) -> bool:
         r"""Serialize cfunc into a sequence of bytes.
+        
+        """
+        ...
+    def set_user_cast(self, loc: citem_locator_t, type: tinfo_t) -> None:
+        r"""Set a user-defined cast.
         
         """
         ...
@@ -4605,6 +4699,8 @@ class cfuncptr_t:
     def treeitems(self) -> citem_pointers_t: ...
     @property
     def type(self) -> Any: ...
+    @property
+    def user_casts(self) -> user_casts_t: ...
     @property
     def user_cmts(self) -> user_cmts_t: ...
     @property
@@ -4706,6 +4802,8 @@ class cfuncptr_t:
         ...
     def deserialize(self, mba: mba_t, bytes: int) -> cfunc_t:
         ...
+    def find_addressable_item(self, i: citem_t) -> citem_t:
+        ...
     def find_item_coords(self, *args: Any) -> Any:
         r"""This method has the following signatures:
         
@@ -4736,6 +4834,8 @@ class cfuncptr_t:
         ...
     def get_stkoff_delta(self) -> int:
         ...
+    def get_user_cast(self, loc: citem_locator_t) -> tinfo_t:
+        ...
     def get_user_cmt(self, loc: treeloc_t, rt: cmt_retrieval_type_t) -> str:
         ...
     def get_user_iflags(self, loc: citem_locator_t) -> int:
@@ -4748,11 +4848,13 @@ class cfuncptr_t:
         ...
     def locked(self) -> bool:
         ...
-    def print_dcl(self) -> None:
+    def print_dcl(self) -> str:
         ...
     def print_func(self, vp: vc_printer_t) -> None:
         ...
     def recalc_item_addresses(self) -> None:
+        ...
+    def redirect_gotos(self, frm: int, to: int) -> None:
         ...
     def refresh_func_ctext(self) -> None:
         ...
@@ -4761,6 +4863,11 @@ class cfuncptr_t:
     def remove_unused_labels(self) -> None:
         ...
     def reset(self) -> None:
+        ...
+    def save_user_casts(self) -> None:
+        r"""Save user defined casts into the database. 
+                
+        """
         ...
     def save_user_cmts(self) -> None:
         r"""Save user defined comments into the database. 
@@ -4788,6 +4895,8 @@ class cfuncptr_t:
         """
         ...
     def serialize(self) -> bool:
+        ...
+    def set_user_cast(self, loc: citem_locator_t, type: tinfo_t) -> None:
         ...
     def set_user_cmt(self, loc: treeloc_t, cmt: str) -> None:
         ...
@@ -5247,9 +5356,9 @@ class cif_t(ceinsn_t):
     @property
     def expr(self) -> cexpr_t: ...
     @property
-    def ielse(self) -> cinsn_t: ...
+    def ielse(self) -> Any: ...
     @property
-    def ithen(self) -> cinsn_t: ...
+    def ithen(self) -> Any: ...
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
         ...
@@ -5749,7 +5858,7 @@ class cinsn_t(citem_t):
         :param insn_ea: statement address
         """
         ...
-    def print1(self, func: cfunc_t) -> None:
+    def print1(self, func: cfunc_t) -> str:
         r"""Print the statement into one line. Currently this function is not available. 
                 
         :param func: parent function. This argument is used to find out the referenced variable names.
@@ -6192,7 +6301,7 @@ class citem_t:
         
         """
         ...
-    def print1(self, func: cfunc_t) -> None:
+    def print1(self, func: cfunc_t) -> str:
         r"""Print item into one line. 
                 
         :param func: parent function. This argument is used to find out the referenced variable names.
@@ -6209,7 +6318,7 @@ class citem_t:
 
 class cloop_t(ceinsn_t):
     @property
-    def body(self) -> cinsn_t: ...
+    def body(self) -> Any: ...
     @property
     def expr(self) -> cexpr_t: ...
     def __delattr__(self, name: Any) -> Any:
@@ -6481,7 +6590,7 @@ class codegen_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def analyze_prolog(self, fc: qflow_chart_t, reachable: bitset_t) -> int:
+    def analyze_prolog(self, fc: qflow_chart_ea_t, reachable: bitset_t) -> int:
         r"""Analyze prolog/epilog of the function to decompile. If prolog is found, allocate and fill 'mba->pi' structure. 
                 
         :param fc: flow chart
@@ -6544,14 +6653,17 @@ class codegen_t:
         :returns: MERR_OK - all ok other error codes are fatal
         """
         ...
-    def store_operand(self, n: int, mop: mop_t, flags: int = 0, outins: minsn_t = None) -> bool:
-        r"""Generate microcode to store an operand. In case of success an arbitrary number of instructions can be generated (and even no instruction if the source and target are the same) 
-                
-        :param n: - number of target INSN operand
-        :param mop: - operand to be stored
-        :param flags: - reserved for future use
-        :param outins: - (OUT) the last generated instruction
-        :returns: success
+    def store_operand(self, n: int, mop: mop_t, flags: int = 0) -> Tuple[bool, minsn_t]:
+        r"""Generate microcode to store an operand.
+        In case of success an arbitrary number of instructions can be
+        generated (and even no instruction if the source and target are the same).
+        
+        :param n: number of target insn operand
+        :param mop: operand to be stored
+        :param flags: reserved for future use
+        :returns: (success, outins) tuple.
+            outins: the last generated instruction
+            (None if no instruction was generated).
         """
         ...
 
@@ -7094,7 +7206,7 @@ class ctree_item_t:
     def get_label_num(self, gln_flags: int) -> int:
         r"""Get label number of the current item. 
                 
-        :param gln_flags: Combination of get_label_num control bits
+        :param gln_flags: Combination of get_label_num control  bits
         :returns: -1 if failed or no label
         """
         ...
@@ -7420,7 +7532,7 @@ class ctree_parentee_t(ctree_visitor_t):
         """
         ...
     def parent_item(self) -> citem_t:
-        r"""Get parent of the current item as an item (statement or expression)
+        r"""Get parent of the current item as an item (statement or expression).
         
         """
         ...
@@ -7436,7 +7548,7 @@ class ctree_parentee_t(ctree_visitor_t):
         """
         ...
     def set_restart(self) -> None:
-        r"""Restart the travesal. Meaningful only in apply_to_exprs()
+        r"""Restart the travesal. Meaningful only in apply_to_exprs().
         
         """
         ...
@@ -7617,7 +7729,7 @@ class ctree_visitor_t:
         """
         ...
     def parent_item(self) -> citem_t:
-        r"""Get parent of the current item as an item (statement or expression)
+        r"""Get parent of the current item as an item (statement or expression).
         
         """
         ...
@@ -7627,7 +7739,7 @@ class ctree_visitor_t:
         """
         ...
     def set_restart(self) -> None:
-        r"""Restart the travesal. Meaningful only in apply_to_exprs()
+        r"""Restart the travesal. Meaningful only in apply_to_exprs().
         
         """
         ...
@@ -7648,7 +7760,9 @@ class ctry_t(cblock_t, cinsn_list_t):
     @property
     def catchs(self) -> ccatchvec_t: ...
     @property
-    def is_wind(self) -> bool: ...
+    def flags(self) -> int: ...
+    @property
+    def is_wind(self) -> Any: ...
     @property
     def new_state(self) -> int: ...
     @property
@@ -7758,6 +7872,13 @@ class ctry_t(cblock_t, cinsn_list_t):
         ...
     def insert(self, *args: Any) -> cinsn_list_t_iterator:
         ...
+    def is_ordinary_flow(self) -> bool:
+        ...
+    def is_synchronized_block(self) -> bool:
+        r"""Is a synchronized block? Such a block matches this pattern: __monitor_enter__(obj); try { ... } finally { __monitor_exit__(obj); } 
+                
+        """
+        ...
     def pop_back(self) -> None:
         ...
     def pop_front(self) -> None:
@@ -7781,7 +7902,7 @@ class ctry_t(cblock_t, cinsn_list_t):
 
 class cwhile_t(cloop_t, ceinsn_t):
     @property
-    def body(self) -> cinsn_t: ...
+    def body(self) -> Any: ...
     @property
     def expr(self) -> cexpr_t: ...
     def __delattr__(self, name: Any) -> Any:
@@ -7861,6 +7982,198 @@ class cwhile_t(cloop_t, ceinsn_t):
     def cleanup(self) -> None:
         ...
     def compare(self, r: cwhile_t) -> int:
+        ...
+
+class decomp_range_iterator_t:
+    @property
+    def fii(self) -> function_tail_iterator_t: ...
+    @property
+    def rii(self) -> range_chunk_iterator_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def chunk(self, out: range_t) -> None:
+        ...
+    def is_snippet(self) -> bool:
+        ...
+    def next(self) -> bool:
+        ...
+    def set(self, dcr: decomp_ranges_t) -> bool:
+        ...
+
+class decomp_ranges_t:
+    @property
+    def func_ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def ranges(self) -> rangevec_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def is_fragmented(self) -> bool:
+        ...
+    def is_snippet(self) -> bool:
+        ...
+    def start(self) -> ida_idaapi.ea_t:
         ...
 
 class eamap_iterator_t:
@@ -9131,6 +9444,10 @@ class int64_emulator_t:
         ...
     def mop_value(self, mop: mop_t) -> int:
         ...
+    def read_glbmem(self, arg0: ida_idaapi.ea_t, arg1: int) -> int:
+        ...
+    def write_glbmem(self, arg0: ida_idaapi.ea_t, arg1: int, arg2: int) -> None:
+        ...
 
 class intval64_t:
     @property
@@ -9832,7 +10149,7 @@ class lvar_locator_t:
         """
         ...
     def get_reg2(self) -> mreg_t:
-        r"""Get the number of the second register (works only for ALOC_REG2 lvars)
+        r"""Get the number of the second register (works only for ALOC_REG2 lvars).
         
         """
         ...
@@ -10582,7 +10899,7 @@ class lvar_t(lvar_locator_t):
         """
         ...
     def get_reg2(self) -> mreg_t:
-        r"""Get the number of the second register (works only for ALOC_REG2 lvars)
+        r"""Get the number of the second register (works only for ALOC_REG2 lvars).
         
         """
         ...
@@ -10608,7 +10925,7 @@ class lvar_t(lvar_locator_t):
         """
         ...
     def has_regname(self) -> bool:
-        r"""Has a register name? (like _RAX)
+        r"""Has a register name? (like _RAX).
         
         """
         ...
@@ -10634,7 +10951,7 @@ class lvar_t(lvar_locator_t):
         """
         ...
     def is_dummy_arg(self) -> bool:
-        r"""Is a dummy argument (added to fill a hole in the argument list)
+        r"""Is a dummy argument (added to fill a hole in the argument list).
         
         """
         ...
@@ -10649,7 +10966,7 @@ class lvar_t(lvar_locator_t):
         """
         ...
     def is_notarg(self) -> bool:
-        r"""Is a local variable? (local variable cannot be an input argument)
+        r"""Is a local variable? (local variable cannot be an input argument).
         
         """
         ...
@@ -11426,6 +11743,13 @@ class mba_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
+    def add_user_minsn(self, uins: user_minsn_t, mmat: mba_maturity_t) -> None:
+        r"""Add a user-defined microinstruction action. 
+                
+        :param uins: user minsn to add (includes location, action, and instruction)
+        :param mmat: maturity level
+        """
+        ...
     def alloc_fict_ea(self, real_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
         r"""Allocate a fictional address. This function can be used to allocate a new unique address for a new instruction, if re-using any existing address leads to conflicts. For example, if the last instruction of the function modifies R0 and falls through to the next function, it will be a tail call: LDM R0!, {R4,R7} end of the function start of another function In this case R0 generates two different lvars at the same address:
         * one modified by LDM
@@ -11458,11 +11782,9 @@ class mba_t:
         :returns: number of calls. -1 means error.
         """
         ...
+    @overload
     def arg(self, n: int) -> lvar_t:
-        r"""Get input argument of the decompiled function. 
-                
-        :param n: argument number (0..nargs-1)
-        """
+        r"""Get input argument of the decompiled function."""
         ...
     def argbase(self) -> int:
         ...
@@ -11490,6 +11812,13 @@ class mba_t:
         ...
     def clr_mba_flags2(self, f: int) -> None:
         ...
+    def clr_numform(self, loc: operand_locator_t) -> bool:
+        r"""Clear the user-defined number format for an operand. 
+                
+        :param loc: operand locator
+        :returns: true if a format was present and removed
+        """
+        ...
     def code16_bit_removed(self) -> bool:
         ...
     def common_stkvars_stkargs(self) -> bool:
@@ -11499,7 +11828,7 @@ class mba_t:
                 
         :param blk: block to copy
         :param new_serial: position of the copied block
-        :param cpblk_flags: combination of Batch decompilation bits... bits
+        :param cpblk_flags: combination of Batch decompilation bits ... bits
         :returns: pointer to the new copy
         """
         ...
@@ -11512,6 +11841,15 @@ class mba_t:
         :param callargs: The helper arguments (nullptr-no arguments)
         :param out: The operand where the call result should be stored. If this argument is not nullptr, "mov helper_call(), out" will be generated. Otherwise "call helper()" will be generated. Note: the size of this operand must be equal to the RETTYPE size
         :returns: pointer to the created instruction or nullptr if error
+        """
+        ...
+    def del_user_minsn(self, loc: minsn_locator_t, action: user_minsn_action_t, mmat: mba_maturity_t) -> bool:
+        r"""Delete a user-defined microinstruction action. 
+                
+        :param loc: location of the target microinstruction
+        :param action: action type to delete (UMA_DEL, UMA_INS, or UMA_APP)
+        :param mmat: maturity level;
+        :returns: true if the action was found and deleted
         """
         ...
     def deleted_pairs(self) -> bool:
@@ -11580,6 +11918,8 @@ class mba_t:
         ...
     def get_curfunc(self) -> Optional[func_t]:
         ...
+    def get_decomp_ranges(self) -> decomp_ranges_t:
+        ...
     def get_func_output_lists(self, *args: Any) -> None:
         r"""Prepare the lists of registers & memory that are defined/killed by a function 
                 
@@ -11608,6 +11948,14 @@ class mba_t:
         
         """
         ...
+    def get_numform(self, nf: number_format_t, loc: operand_locator_t) -> bool:
+        r"""Get the user-defined number format for an operand. 
+                
+        :param nf: output: receives the number format if one is set
+        :param loc: operand locator (insn ea + opnum)
+        :returns: true if a format was set and was copied to nf
+        """
+        ...
     def get_shadow_region(self) -> ivl_t:
         ...
     def get_stack_region(self) -> ivl_t:
@@ -11632,13 +11980,24 @@ class mba_t:
     def idaloc2vd(self, loc: argloc_t, width: int) -> vdloc_t:
         ...
     def inline_func(self, cdg: codegen_t, blknum: int, ranges: mba_ranges_t, decomp_flags: int = 0, inline_flags: int = 0) -> int:
-        r"""Inline a range. This function may be called only during the initial microcode generation phase. 
+        r"""Inline a range. 
                 
         :param cdg: the codegenerator object
         :param blknum: the block contaning the call/jump instruction to inline
         :param ranges: the set of ranges to inline. in the case of multiple calls to inline_func(), ranges will be compared using their start addresses. if two ranges have the same address, they will be considered the same.
-        :param decomp_flags: combination of decompile() flags bits
-        :param inline_flags: combination of inline_func() flags bits
+        :param decomp_flags: combination of decompile() flags  bits
+        :param inline_flags: combination of inline_func() flags  bits
+        :returns: error code
+        """
+        ...
+    def inline_function(self, cdg: codegen_t, blknum: int, ranges: decomp_ranges_t, decomp_flags: int = 0, inline_flags: int = 0) -> int:
+        r"""Inline a range (ea-based variant). Replaces the deprecated inline_func() which accepts the legacy mba_ranges_t. This function may be called only during the initial microcode generation phase. 
+                
+        :param cdg: the codegenerator object
+        :param blknum: the block contaning the call/jump instruction to inline
+        :param ranges: the set of ranges to inline. in the case of multiple calls to inline_function(), ranges will be compared using their start addresses. if two ranges have the same address, they will be considered the same.
+        :param decomp_flags: combination of decompile() flags  bits
+        :param inline_flags: combination of inline_func() flags  bits
         :returns: error code
         """
         ...
@@ -11702,7 +12061,7 @@ class mba_t:
     def optimize_local(self, locopt_bits: int) -> int:
         r"""Optimize each basic block locally 
                 
-        :param locopt_bits: combination of Bits for optimize_local() bits
+        :param locopt_bits: combination of Bits for optimize_local()  bits
         :returns: number of changes. 0 means nothing changed This function is called by the decompiler, usually there is no need to call it explicitly.
         """
         ...
@@ -11717,6 +12076,9 @@ class mba_t:
     def really_alloc(self) -> bool:
         ...
     def regargs_is_not_aligned(self) -> bool:
+        ...
+    def release(self) -> Any:
+        r"""Free the underlying mba_t immediately. The object must not be used afterwards."""
         ...
     def remove_block(self, blk: mblock_t) -> bool:
         r"""Delete a block. 
@@ -11762,6 +12124,13 @@ class mba_t:
     def set_mba_flags2(self, f: int) -> None:
         ...
     def set_nice_lvar_name(self, v: lvar_t, name: str) -> bool:
+        ...
+    def set_numform(self, loc: operand_locator_t, nf: number_format_t) -> None:
+        r"""Set the user-defined number format for an operand. 
+                
+        :param loc: operand locator
+        :param nf: new format
+        """
         ...
     def set_user_lvar_name(self, v: lvar_t, name: str) -> bool:
         ...
@@ -11974,6 +12343,13 @@ class mbl_array_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
+    def add_user_minsn(self, uins: user_minsn_t, mmat: mba_maturity_t) -> None:
+        r"""Add a user-defined microinstruction action. 
+                
+        :param uins: user minsn to add (includes location, action, and instruction)
+        :param mmat: maturity level
+        """
+        ...
     def alloc_fict_ea(self, real_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
         r"""Allocate a fictional address. This function can be used to allocate a new unique address for a new instruction, if re-using any existing address leads to conflicts. For example, if the last instruction of the function modifies R0 and falls through to the next function, it will be a tail call: LDM R0!, {R4,R7} end of the function start of another function In this case R0 generates two different lvars at the same address:
         * one modified by LDM
@@ -12006,11 +12382,9 @@ class mbl_array_t:
         :returns: number of calls. -1 means error.
         """
         ...
+    @overload
     def arg(self, n: int) -> lvar_t:
-        r"""Get input argument of the decompiled function. 
-                
-        :param n: argument number (0..nargs-1)
-        """
+        r"""Get input argument of the decompiled function."""
         ...
     def argbase(self) -> int:
         ...
@@ -12038,6 +12412,13 @@ class mbl_array_t:
         ...
     def clr_mba_flags2(self, f: int) -> None:
         ...
+    def clr_numform(self, loc: operand_locator_t) -> bool:
+        r"""Clear the user-defined number format for an operand. 
+                
+        :param loc: operand locator
+        :returns: true if a format was present and removed
+        """
+        ...
     def code16_bit_removed(self) -> bool:
         ...
     def common_stkvars_stkargs(self) -> bool:
@@ -12047,7 +12428,7 @@ class mbl_array_t:
                 
         :param blk: block to copy
         :param new_serial: position of the copied block
-        :param cpblk_flags: combination of Batch decompilation bits... bits
+        :param cpblk_flags: combination of Batch decompilation bits ... bits
         :returns: pointer to the new copy
         """
         ...
@@ -12060,6 +12441,15 @@ class mbl_array_t:
         :param callargs: The helper arguments (nullptr-no arguments)
         :param out: The operand where the call result should be stored. If this argument is not nullptr, "mov helper_call(), out" will be generated. Otherwise "call helper()" will be generated. Note: the size of this operand must be equal to the RETTYPE size
         :returns: pointer to the created instruction or nullptr if error
+        """
+        ...
+    def del_user_minsn(self, loc: minsn_locator_t, action: user_minsn_action_t, mmat: mba_maturity_t) -> bool:
+        r"""Delete a user-defined microinstruction action. 
+                
+        :param loc: location of the target microinstruction
+        :param action: action type to delete (UMA_DEL, UMA_INS, or UMA_APP)
+        :param mmat: maturity level;
+        :returns: true if the action was found and deleted
         """
         ...
     def deleted_pairs(self) -> bool:
@@ -12128,6 +12518,8 @@ class mbl_array_t:
         ...
     def get_curfunc(self) -> Optional[func_t]:
         ...
+    def get_decomp_ranges(self) -> decomp_ranges_t:
+        ...
     def get_func_output_lists(self, *args: Any) -> None:
         r"""Prepare the lists of registers & memory that are defined/killed by a function 
                 
@@ -12156,6 +12548,14 @@ class mbl_array_t:
         
         """
         ...
+    def get_numform(self, nf: number_format_t, loc: operand_locator_t) -> bool:
+        r"""Get the user-defined number format for an operand. 
+                
+        :param nf: output: receives the number format if one is set
+        :param loc: operand locator (insn ea + opnum)
+        :returns: true if a format was set and was copied to nf
+        """
+        ...
     def get_shadow_region(self) -> ivl_t:
         ...
     def get_stack_region(self) -> ivl_t:
@@ -12180,13 +12580,24 @@ class mbl_array_t:
     def idaloc2vd(self, loc: argloc_t, width: int) -> vdloc_t:
         ...
     def inline_func(self, cdg: codegen_t, blknum: int, ranges: mba_ranges_t, decomp_flags: int = 0, inline_flags: int = 0) -> int:
-        r"""Inline a range. This function may be called only during the initial microcode generation phase. 
+        r"""Inline a range. 
                 
         :param cdg: the codegenerator object
         :param blknum: the block contaning the call/jump instruction to inline
         :param ranges: the set of ranges to inline. in the case of multiple calls to inline_func(), ranges will be compared using their start addresses. if two ranges have the same address, they will be considered the same.
-        :param decomp_flags: combination of decompile() flags bits
-        :param inline_flags: combination of inline_func() flags bits
+        :param decomp_flags: combination of decompile() flags  bits
+        :param inline_flags: combination of inline_func() flags  bits
+        :returns: error code
+        """
+        ...
+    def inline_function(self, cdg: codegen_t, blknum: int, ranges: decomp_ranges_t, decomp_flags: int = 0, inline_flags: int = 0) -> int:
+        r"""Inline a range (ea-based variant). Replaces the deprecated inline_func() which accepts the legacy mba_ranges_t. This function may be called only during the initial microcode generation phase. 
+                
+        :param cdg: the codegenerator object
+        :param blknum: the block contaning the call/jump instruction to inline
+        :param ranges: the set of ranges to inline. in the case of multiple calls to inline_function(), ranges will be compared using their start addresses. if two ranges have the same address, they will be considered the same.
+        :param decomp_flags: combination of decompile() flags  bits
+        :param inline_flags: combination of inline_func() flags  bits
         :returns: error code
         """
         ...
@@ -12250,7 +12661,7 @@ class mbl_array_t:
     def optimize_local(self, locopt_bits: int) -> int:
         r"""Optimize each basic block locally 
                 
-        :param locopt_bits: combination of Bits for optimize_local() bits
+        :param locopt_bits: combination of Bits for optimize_local()  bits
         :returns: number of changes. 0 means nothing changed This function is called by the decompiler, usually there is no need to call it explicitly.
         """
         ...
@@ -12265,6 +12676,9 @@ class mbl_array_t:
     def really_alloc(self) -> bool:
         ...
     def regargs_is_not_aligned(self) -> bool:
+        ...
+    def release(self) -> Any:
+        r"""Free the underlying mba_t immediately. The object must not be used afterwards."""
         ...
     def remove_block(self, blk: mblock_t) -> bool:
         r"""Delete a block. 
@@ -12310,6 +12724,13 @@ class mbl_array_t:
     def set_mba_flags2(self, f: int) -> None:
         ...
     def set_nice_lvar_name(self, v: lvar_t, name: str) -> bool:
+        ...
+    def set_numform(self, loc: operand_locator_t, nf: number_format_t) -> None:
+        r"""Set the user-defined number format for an operand. 
+                
+        :param loc: operand locator
+        :param nf: new format
+        """
         ...
     def set_user_lvar_name(self, v: lvar_t, name: str) -> bool:
         ...
@@ -12702,17 +13123,37 @@ class mblock_t:
         ...
     def empty(self) -> bool:
         ...
-    def find_access(self, op: mop_t, parent: minsn_t, mend: minsn_t, fdflags: int) -> minsn_t:
-        r"""Find the instruction that accesses the specified operand. This function search inside one block. 
-                
+    def find_access(self, op: mop_t, parent: minsn_t, mend: minsn_t, fdflags: int) -> Tuple[minsn_t, minsn_t]:
+        r"""Find the instruction that accesses the specified operand.
+        This function searches inside one block.
+        
         :param op: operand to search for
-        :param parent: ptr to ptr to a top level instruction. in: denotes the beginning of the search range. out: denotes the parent of the found instruction.
-        :param mend: end instruction of the range (must be a top level insn) mend is excluded from the range. it can be specified as nullptr. parent and mend must belong to the same block.
-        :param fdflags: combination of bits for mblock_t::find_access bits
-        :returns: the instruction that accesses the operand. this instruction may be a sub-instruction. to find out the top level instruction, check out *parent. nullptr means 'not found'.
+        :param parent: top-level instruction denoting the beginning
+            of the search range (must not be None).
+            parent and mend must belong to the same block.
+        :param mend: end instruction of the range (must be a top level insn).
+            mend is excluded from the range. None means search to the block
+            boundary.
+        :param fdflags: combination of FD_ bits
+        :returns: (found, parent) tuple.
+            found: the instruction that accesses the operand. This instruction
+            may be a sub-instruction. None means 'not found'.
+            parent: the top-level instruction containing 'found'.
         """
         ...
-    def find_def(self, op: mop_t, p_i1: minsn_t, i2: minsn_t, fdflags: int) -> minsn_t:
+    def find_def(self, op: mop_t, p_i1: minsn_t, i2: minsn_t, fdflags: int) -> Tuple[minsn_t, minsn_t]:
+        r"""Find the instruction that defines the specified operand.
+        Convenience wrapper around find_access() with FD_DEF.
+        
+        :param op: operand to search for
+        :param p_i1: top-level instruction denoting the beginning
+            of the search range (must not be None).
+            p_i1 and i2 must belong to the same block.
+        :param i2: end instruction of the range (excluded). None means
+            search to the block boundary.
+        :param fdflags: combination of FD_ bits (see find_access)
+        :returns: (found, parent) tuple. See find_access().
+        """
         ...
     @overload
     def find_first_use(self, list: mlist_t, i1: minsn_t, i2: minsn_t, maymust: maymust_t = ...) -> minsn_t:
@@ -12728,7 +13169,19 @@ class mblock_t:
         :returns: pointer to such instruction or nullptr.
         """
         ...
-    def find_use(self, op: mop_t, p_i1: minsn_t, i2: minsn_t, fdflags: int) -> minsn_t:
+    def find_use(self, op: mop_t, p_i1: minsn_t, i2: minsn_t, fdflags: int) -> Tuple[minsn_t, minsn_t]:
+        r"""Find the instruction that uses the specified operand.
+        Convenience wrapper around find_access() with FD_USE.
+        
+        :param op: operand to search for
+        :param p_i1: top-level instruction denoting the beginning
+            of the search range (must not be None).
+            p_i1 and i2 must belong to the same block.
+        :param i2: end instruction of the range (excluded). None means
+            search to the block boundary.
+        :param fdflags: combination of FD_ bits (see find_access)
+        :returns: (found, parent) tuple. See find_access().
+        """
         ...
     def for_all_insns(self, mv: minsn_visitor_t) -> int:
         r"""Visit all instructions. This function visits subinstructions too. 
@@ -12849,7 +13302,7 @@ class mblock_t:
         r"""Optimize one instruction in the context of the block. 
                 
         :param m: pointer to a top level instruction
-        :param optflags: combination of optimization flags bits
+        :param optflags: combination of optimization flags  bits
         :returns: number of changes made to the block This function may change other instructions in the block too. However, it will not destroy top level instructions (it may convert them to nop's). This function performs only intrablock modifications. See also minsn_t::optimize_solo()
         """
         ...
@@ -12877,6 +13330,11 @@ class mblock_t:
     def succ(self, n: int) -> int:
         ...
     def succs(self) -> Any:
+        ...
+    def undef_spoiled_regs(self, m: minsn_t) -> None:
+        r"""Undefine registers spoiled by the instruction m (insert new 'und' instruction for them, after 'm'). This is useful after replacing a call instruction with a different instruction. 
+                
+        """
         ...
     def verify_insn(self, m: minsn_t) -> None:
         r"""Verify an instruction. This function will generate an internal error if something is wrong with the instruction. 
@@ -13089,7 +13547,7 @@ class mcallarg_t(mop_t):
         r"""Compare operands. This is the main comparison function for operands. 
                 
         :param rop: operand to compare with
-        :param eqflags: combination of comparison bits bits
+        :param eqflags: combination of comparison bits  bits
         """
         ...
     def erase(self) -> None:
@@ -13108,6 +13566,11 @@ class mcallarg_t(mop_t):
         r"""Visit all sub-operands of a scattered operand. This function does not visit the current operand, only its sub-operands. All sub-operands are synthetic and are destroyed after the visitor. This function works only with scattered operands. 
                 
         :param sv: visitor object
+        """
+        ...
+    def get_bitwidth(self, blk: mblock_t, top: minsn_t) -> int:
+        r"""Get the effective bitwidth of the operand. Returns the number of significant bits needed to represent the value (0 for zero, size*8 for unknown operands). For example, for a constant 7 returns 3, for xdu(x.1) returns 8. If BLK and TOP are specified, the method also looks up the defining instruction in this block. 
+                
         """
         ...
     def get_insn(self, code: mcode_t) -> minsn_t:
@@ -13866,6 +14329,90 @@ class microcode_filter_t:
         """
         ...
 
+class minsn_locator_t:
+    @property
+    def blknum(self) -> int: ...
+    @property
+    def ea(self) -> ida_idaapi.ea_t: ...
+    @property
+    def mcode(self) -> mcode_t: ...
+    @property
+    def serial(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: minsn_locator_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, r: minsn_locator_t) -> bool:
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, r: minsn_locator_t) -> bool:
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, r: minsn_locator_t) -> bool:
+        ...
+    def __lt__(self, r: minsn_locator_t) -> bool:
+        ...
+    def __ne__(self, r: minsn_locator_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def compare(self, r: minsn_locator_t) -> int:
+        ...
+
 class minsn_t:
     @property
     def d(self) -> mop_t: ...
@@ -14013,7 +14560,7 @@ class minsn_t:
         r"""Compare instructions. This is the main comparison function for instructions. 
                 
         :param m: instruction to compare with
-        :param eqflags: combination of comparison bits bits
+        :param eqflags: combination of comparison bits  bits
         """
         ...
     def find_call(self, with_helpers: bool = False) -> minsn_t:
@@ -14023,16 +14570,38 @@ class minsn_t:
         """
         ...
     def find_ins_op(self, op: mcode_t = 0) -> minsn_t:
-        r"""Find an operand that is a subinsruction with the specified opcode. This function checks only the 'l' and 'r' operands of the current insn. 
+        r"""Find an operand that is a subinstruction with the specified opcode. This function checks only the 'l' and 'r' operands of the current insn. It replaces the common pattern: 
+             (  side = 0; side < 2; side++ )
+            
+              mop_t *op = side == 0 ? &m->l : &m->r;
+               ( op->is_insn(opcode) )
+              {
+                other = side == 0 ? &m->r : &m->l;
+                ...
+              }
+            
+        
+        
                 
-        :param op: opcode to search for
-        :returns: &l or &r or nullptr
+        :param op: opcode to search for (m_nop matches any subinstruction)
+        :returns: pointer to the found subinstruction (l.d or r.d), or nullptr
         """
         ...
     def find_num_op(self) -> mop_t:
-        r"""Find a numeric operand of the current instruction. This function checks only the 'l' and 'r' operands of the current insn. 
+        r"""Find a numeric operand of the current instruction (operand with t == mop_n). This function checks only the 'l' and 'r' operands of the current insn. It replaces the common pattern: 
+             (  side = 0; side < 2; side++ )
+            
+              mop_t *op = side == 0 ? &m->l : &m->r;
+               ( op->t == mop_n )
+              {
+                other = side == 0 ? &m->r : &m->l;
+                ...
+              }
+            
+        
+        
                 
-        :returns: &l or &r or nullptr
+        :returns: &l or &r, or nullptr if neither operand is numeric
         """
         ...
     def find_opcode(self, mcode: mcode_t) -> minsn_t:
@@ -14100,7 +14669,7 @@ class minsn_t:
     def is_fpinsn(self) -> bool:
         ...
     def is_helper(self, name: str) -> bool:
-        r"""Is a helper call with the specified name? Helper calls usually have well-known function names (see Well known function names) but they may have any other name. The decompiler does not assume any special meaning for non-well-known names. 
+        r"""Is a helper call with the specified name? Helper calls usually have well-known function names (see Well known function names ) but they may have any other name. The decompiler does not assume any special meaning for non-well-known names. 
                 
         """
         ...
@@ -14160,7 +14729,7 @@ class minsn_t:
     def optimize_solo(self, optflags: int = 0) -> int:
         r"""Optimize one instruction without context. This function does not have access to the instruction context (the previous and next instructions in the list, the block number, etc). It performs only basic optimizations that are available without this info. 
                 
-        :param optflags: combination of optimization flags bits
+        :param optflags: combination of optimization flags  bits
         :returns: number of changes, 0-unchanged See also mblock_t::optimize_insn()
         """
         ...
@@ -14171,11 +14740,10 @@ class minsn_t:
         ...
     def replace_by(self, o: Any) -> Any:
         ...
-    def serialize(self, b: bytevec_t) -> int:
-        r"""Serialize an instruction 
-                
-        :param b: the output buffer
-        :returns: the serialization format that was used to store info
+    def serialize(self) -> Tuple[int, bytes]:
+        r"""Serialize an instruction
+        
+        :returns: tuple(serialization format, serialized bytes)
         """
         ...
     def set_assert(self) -> None:
@@ -14221,6 +14789,8 @@ class minsn_t:
         r"""Swap two instructions. The prev/next fields are not modified by this function because it would corrupt the doubly linked list. 
                 
         """
+        ...
+    def was_memfunc(self) -> bool:
         ...
     def was_noret_icall(self) -> bool:
         ...
@@ -14828,7 +15398,7 @@ class mop_addr_t(mop_t):
         r"""Compare operands. This is the main comparison function for operands. 
                 
         :param rop: operand to compare with
-        :param eqflags: combination of comparison bits bits
+        :param eqflags: combination of comparison bits  bits
         """
         ...
     def erase(self) -> None:
@@ -14847,6 +15417,11 @@ class mop_addr_t(mop_t):
         r"""Visit all sub-operands of a scattered operand. This function does not visit the current operand, only its sub-operands. All sub-operands are synthetic and are destroyed after the visitor. This function works only with scattered operands. 
                 
         :param sv: visitor object
+        """
+        ...
+    def get_bitwidth(self, blk: mblock_t, top: minsn_t) -> int:
+        r"""Get the effective bitwidth of the operand. Returns the number of significant bits needed to represent the value (0 for zero, size*8 for unknown operands). For example, for a constant 7 returns 3, for xdu(x.1) returns 8. If BLK and TOP are specified, the method also looks up the defining instruction in this block. 
+                
         """
         ...
     def get_insn(self, code: mcode_t) -> minsn_t:
@@ -15422,7 +15997,7 @@ class mop_t:
         r"""Compare operands. This is the main comparison function for operands. 
                 
         :param rop: operand to compare with
-        :param eqflags: combination of comparison bits bits
+        :param eqflags: combination of comparison bits  bits
         """
         ...
     def erase(self) -> None:
@@ -15441,6 +16016,11 @@ class mop_t:
         r"""Visit all sub-operands of a scattered operand. This function does not visit the current operand, only its sub-operands. All sub-operands are synthetic and are destroyed after the visitor. This function works only with scattered operands. 
                 
         :param sv: visitor object
+        """
+        ...
+    def get_bitwidth(self, blk: mblock_t, top: minsn_t) -> int:
+        r"""Get the effective bitwidth of the operand. Returns the number of significant bits needed to represent the value (0 for zero, size*8 for unknown operands). For example, for a constant 7 returns 3, for xdu(x.1) returns 8. If BLK and TOP are specified, the method also looks up the defining instruction in this block. 
+                
         """
         ...
     def get_insn(self, code: mcode_t) -> minsn_t:
@@ -16624,7 +17204,7 @@ class optinsn_t:
                 
         :param blk: current basic block. maybe nullptr, which means that the instruction must be optimized without context
         :param ins: instruction to optimize; it is always a top-level instruction. the callback may not delete the instruction but may convert it into nop (see mblock_t::make_nop). to optimize sub-instructions, visit them using minsn_visitor_t. sub-instructions may not be converted into nop but can be converted to "mov x,x". for example: add x,0,x => mov x,x this callback may change other instructions in the block, but should do this with care, e.g. to no break the propagation algorithm if called with OPTI_NO_LDXOPT.
-        :param optflags: combination of optimization flags bits
+        :param optflags: combination of optimization flags  bits
         :returns: number of changes made to the instruction. if after this call the instruction's use/def lists have changed, you must mark the block level lists as dirty (see mark_lists_dirty)
         """
         ...
@@ -17747,7 +18327,7 @@ class scif_t(vdloc_t):
         ...
     def __gt__(self, r: vdloc_t) -> bool:
         ...
-    def __init__(self, _mba: mba_t, tif: tinfo_t, n: str = None) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
     def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
@@ -17811,7 +18391,7 @@ class scif_t(vdloc_t):
         """
         ...
     def atype(self) -> argloc_type_t:
-        r"""Get type (Argument location types)
+        r"""Get type (Argument location types ).
         
         """
         ...
@@ -18967,6 +19547,86 @@ class ui_stroff_ops_t:
     def truncate(self) -> None:
         ...
 
+class user_casts_iterator_t:
+    @property
+    def x(self) -> iterator_word: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, p: user_casts_iterator_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, p: user_casts_iterator_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
 class user_cmts_iterator_t:
     @property
     def x(self) -> iterator_word: ...
@@ -19742,6 +20402,93 @@ class user_lvar_modifier_t:
     def modify_lvars(self, lvinf: lvar_uservec_t) -> bool:
         r"""Modify lvar settings. Returns: true-modified 
                 
+        """
+        ...
+
+class user_minsn_t:
+    @property
+    def action(self) -> user_minsn_action_t: ...
+    @property
+    def ins(self) -> minsn_t: ...
+    @property
+    def loc(self) -> minsn_locator_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, r: user_minsn_t) -> bool:
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, r: user_minsn_t) -> bool:
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, r: user_minsn_t) -> bool:
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, r: user_minsn_t) -> bool:
+        ...
+    def __lt__(self, r: user_minsn_t) -> bool:
+        ...
+    def __ne__(self, r: user_minsn_t) -> bool:
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def compare(self, r: user_minsn_t) -> int:
+        ...
+    def marked_for_addition(self) -> bool:
+        r"""Does this action add a new instruction?
+        
         """
         ...
 
@@ -20901,7 +21648,7 @@ class vdloc_t:
         """
         ...
     def atype(self) -> argloc_type_t:
-        r"""Get type (Argument location types)
+        r"""Get type (Argument location types ).
         
         """
         ...
@@ -21409,6 +22156,12 @@ class vdui_t:
         :param activate: should the pseudocode window get focus?
         """
         ...
+    def ui_add_cast(self, e: cexpr_t) -> bool:
+        r"""Add a user-defined cast on the current expression. This function displays a dialog box and allows the user to enter a pointer type for the current expression. 
+                
+        :returns: false if failed or cancelled
+        """
+        ...
     def ui_edit_lvar_cmt(self, v: lvar_t) -> bool:
         r"""Set local variable comment. This function displays a dialog box and allows the user to edit the comment of a local variable. 
                 
@@ -21719,6 +22472,15 @@ def accepts_small_udts(op: ctype_t) -> bool:
 def accepts_udts(op: ctype_t) -> bool:
     ...
 
+def add_user_minsn(entry_ea: ida_idaapi.ea_t, uins: user_minsn_t, mmat: mba_maturity_t) -> None:
+    r"""Add a user-defined microinstruction action. This is a standalone version that loads user minsns from the database, adds the action, and saves back. Use it when an mba_t is not available. 
+            
+    :param entry_ea: entry address of the function
+    :param uins: user minsn to add (includes location, action, and instruction)
+    :param mmat: maturity level to add the action to
+    """
+    ...
+
 def arglocs_overlap(loc1: vdloc_t, w1: int, loc2: vdloc_t, w2: int) -> bool:
     r"""Do two arglocs overlap?
     
@@ -21942,7 +22704,7 @@ def close_pseudocode(f: TWidget) -> bool:
 def convert_to_user_call(udc: udcall_t, cdg: codegen_t) -> int:
     r"""try to generate user-defined call for an instruction 
             
-    :returns: Microcode error code code: MERR_OK - user-defined call generated else - error (MERR_INSN == inacceptable udc.tif)
+    :returns: Microcode error code  code: MERR_OK - user-defined call generated else - error (MERR_INSN == inacceptable udc.tif)
     """
     ...
 
@@ -21953,10 +22715,13 @@ def create_cfunc(mba: mba_t) -> cfuncptr_t:
     """
     ...
 
-def create_empty_mba(mbr: mba_ranges_t, hf: hexrays_failure_t = None) -> mba_t:
-    r"""Create an empty microcode object.
-    
-    """
+@overload
+def create_empty_mba(mbr: mba_ranges_t, hf: hexrays_failure_t = None) -> Any:
+    r"""Create an empty microcode object"""
+    ...
+@overload
+def create_empty_mba(dcr: decomp_ranges_t, hf: hexrays_failure_t = None) -> mba_t:
+    r"""Create an empty microcode object (ea-based variant). Replaces the deprecated create_empty_mba() which takes mba_ranges_t."""
     ...
 
 def create_field_name(*args: Any) -> str:
@@ -21999,7 +22764,17 @@ def decompile_func(pfn: func_t, hf: hexrays_failure_t = None, decomp_flags: int 
             
     :param pfn: pointer to function to decompile
     :param hf: extended error information (if failed)
-    :param decomp_flags: bitwise combination of decompile() flags... bits
+    :param decomp_flags: bitwise combination of decompile() flags ... bits
+    :returns: pointer to the decompilation result (a reference counted pointer). nullptr if failed.
+    """
+    ...
+
+def decompile_function(func_ea: ida_idaapi.ea_t, hf: hexrays_failure_t = None, decomp_flags: int = 0) -> cfuncptr_t:
+    r"""Decompile a function (ea-based variant). Multiple decompilations of the same function return the same object. Replaces the deprecated decompile_func(func_t *). 
+            
+    :param func_ea: start address of the function to decompile
+    :param hf: extended error information (if failed)
+    :param decomp_flags: bitwise combination of decompile() flags ... bits
     :returns: pointer to the decompilation result (a reference counted pointer). nullptr if failed.
     """
     ...
@@ -22011,6 +22786,17 @@ def decompile_many(outfile: str, funcaddrs: uint64vec_t, flags: int) -> bool:
     :param funcaddrs: list of functions to decompile. If nullptr or empty, then decompile all nonlib functions
     :param flags: Batch decompilation bits
     :returns: true if no internal error occurred and the user has not cancelled decompilation
+    """
+    ...
+
+def del_user_minsn(entry_ea: ida_idaapi.ea_t, loc: minsn_locator_t, action: user_minsn_action_t, mmat: mba_maturity_t) -> bool:
+    r"""Delete a user-defined microinstruction action. This is a standalone version that loads user minsns from the database, deletes the action, and saves back. Use it when an mba_t is not available. 
+            
+    :param entry_ea: entry address of the function
+    :param loc: location of the target microinstruction
+    :param action: action type to delete (UMA_DEL, UMA_INS, or UMA_APP)
+    :param mmat: maturity level to delete the action from
+    :returns: true if the action was found and deleted
     """
     ...
 
@@ -22115,15 +22901,25 @@ def eamap_size(map: eamap_t) -> int:
     """
     ...
 
-def gen_microcode(mbr: mba_ranges_t, hf: hexrays_failure_t = None, retlist: mlist_t = None, decomp_flags: int = 0, reqmat: mba_maturity_t = 7) -> mba_t:
+@overload
+def gen_microcode(mbr: mba_ranges_t, hf: hexrays_failure_t = None, retlist: mlist_t = None, decomp_flags: int = 0, reqmat: mba_maturity_t = ...) -> Any:
     r"""Generate microcode of an arbitrary code snippet 
             
-    :param mbr: snippet ranges
-    :param hf: extended error information (if failed)
-    :param retlist: list of registers the snippet returns
-    :param decomp_flags: bitwise combination of decompile() flags... bits
-    :param reqmat: required microcode maturity
     :returns: pointer to the microcode, nullptr if failed.
+    """
+    ...
+@overload
+def gen_microcode(dcr: decomp_ranges_t, hf: hexrays_failure_t = None, retlist: mlist_t = None, decomp_flags: int = 0, reqmat: mba_maturity_t = ...) -> mba_t:
+    r"""Generate microcode of an arbitrary code snippet (ea-based variant). Replaces the deprecated gen_microcode() which takes mba_ranges_t. 
+            
+    :returns: pointer to the microcode, nullptr if failed.
+    """
+    ...
+
+def get_cached_cfunc_eas(out: uint64vec_t) -> None:
+    r"""Return the start EAs of all cached cfunc_t objects. 
+            
+    :param out: receives one EA per cached cfunc_t
     """
     ...
 
@@ -22159,7 +22955,7 @@ def get_int_type_by_width_and_sign(srcwidth: int, sign: type_sign_t) -> tinfo_t:
     """
     ...
 
-def get_merror_desc(code: int, mba: mba_t) -> str:
+def get_merror_desc(code: int, mba: mba_t) -> Union[str, None]:
     r"""Get textual description of an error code 
             
     :param code: Microcode error code
@@ -22324,6 +23120,12 @@ def is_cmpop_without_eq(cmpop: cmpop_t) -> bool:
 
 def is_commutative(op: ctype_t) -> bool:
     r"""Is commutative operator?
+    
+    """
+    ...
+
+def is_eh_role(r: funcrole_t) -> bool:
+    r"""Is this an EH exception handling role?
     
     """
     ...
@@ -22767,6 +23569,14 @@ def rename_lvar(func_ea: ida_idaapi.ea_t, oldname: str, newname: str) -> bool:
     """
     ...
 
+def restore_user_casts(func_ea: ida_idaapi.ea_t) -> user_casts_t:
+    r"""Restore user defined casts from the database. 
+            
+    :param func_ea: the entry address of the function
+    :returns: collection of user defined casts. The returned object must be deleted by the caller using delete
+    """
+    ...
+
 def restore_user_cmts(func_ea: ida_idaapi.ea_t) -> user_cmts_t:
     r"""Restore user defined comments from the database. 
             
@@ -22823,6 +23633,14 @@ def restore_user_unions(func_ea: ida_idaapi.ea_t) -> user_unions_t:
             
     :param func_ea: the entry address of the function
     :returns: collection of union field selections The returned object must be deleted by the caller using delete_user_unions()
+    """
+    ...
+
+def save_user_casts(func_ea: ida_idaapi.ea_t, casts: user_casts_t) -> None:
+    r"""Save user defined casts into the database. 
+            
+    :param func_ea: the entry address of the function
+    :param casts: collection of user defined casts
     """
     ...
 
@@ -23003,6 +23821,84 @@ def udcall_map_second(p: udcall_map_iterator_t) -> udcall_t:
 
 def udcall_map_size(map: udcall_map_t) -> int:
     r"""Get size of udcall_map_t.
+    
+    """
+    ...
+
+def user_casts_begin(map: user_casts_t) -> user_casts_iterator_t:
+    r"""Get iterator pointing to the beginning of user_casts_t.
+    
+    """
+    ...
+
+def user_casts_clear(map: user_casts_t) -> None:
+    r"""Clear user_casts_t.
+    
+    """
+    ...
+
+def user_casts_end(map: user_casts_t) -> user_casts_iterator_t:
+    r"""Get iterator pointing to the end of user_casts_t.
+    
+    """
+    ...
+
+def user_casts_erase(map: user_casts_t, p: user_casts_iterator_t) -> None:
+    r"""Erase current element from user_casts_t.
+    
+    """
+    ...
+
+def user_casts_find(map: user_casts_t, key: citem_locator_t) -> user_casts_iterator_t:
+    r"""Find the specified key in user_casts_t.
+    
+    """
+    ...
+
+def user_casts_first(p: user_casts_iterator_t) -> citem_locator_t:
+    r"""Get reference to the current map key.
+    
+    """
+    ...
+
+def user_casts_free(map: user_casts_t) -> None:
+    r"""Delete user_casts_t instance.
+    
+    """
+    ...
+
+def user_casts_insert(map: user_casts_t, key: citem_locator_t, val: tinfo_t) -> user_casts_iterator_t:
+    r"""Insert new (citem_locator_t, tinfo_t) pair into user_casts_t.
+    
+    """
+    ...
+
+def user_casts_new() -> user_casts_t:
+    r"""Create a new user_casts_t instance.
+    
+    """
+    ...
+
+def user_casts_next(p: user_casts_iterator_t) -> user_casts_iterator_t:
+    r"""Move to the next element.
+    
+    """
+    ...
+
+def user_casts_prev(p: user_casts_iterator_t) -> user_casts_iterator_t:
+    r"""Move to the previous element.
+    
+    """
+    ...
+
+def user_casts_second(p: user_casts_iterator_t) -> tinfo_t:
+    r"""Get reference to the current map value.
+    
+    """
+    ...
+
+def user_casts_size(map: user_casts_t) -> int:
+    r"""Get size of user_casts_t.
     
     """
     ...
@@ -23434,6 +24330,9 @@ CHF_PASSTHRU: int  # 16
 CHF_REPLACED: int  # 2
 CHF_TERM: int  # 32
 CIT_COLLAPSED: int  # 1
+CIT_ELSE_COLLAPSED: int  # 8
+CIT_INVERTED: int  # 2
+CIT_THEN_COLLAPSED: int  # 4
 CMAT_BUILT: int  # 1
 CMAT_CASTED: int  # 7
 CMAT_CPA: int  # 5
@@ -23463,6 +24362,8 @@ CMT_TAIL: int  # 1
 CPBLK_FAST: int  # 0
 CPBLK_MINREF: int  # 1
 CPBLK_OPTJMP: int  # 2
+CTRY_SYNC: int  # 2
+CTRY_WIND: int  # 1
 CV_FAST: int  # 0
 CV_INSNS: int  # 16
 CV_PARENTS: int  # 2
@@ -23486,7 +24387,7 @@ EQ_IGNSIZE: int  # 1
 EQ_OPTINSN: int  # 8
 EXCLUDE_PASS_REGS: int  # 128
 EXCLUDE_VOLATILE: int  # 1024
-EXFL_ALL: int  # 511
+EXFL_ALL: int  # 1023
 EXFL_ALONE: int  # 8
 EXFL_CPADONE: int  # 1
 EXFL_CSTR: int  # 16
@@ -23494,6 +24395,7 @@ EXFL_FPOP: int  # 4
 EXFL_JUMPOUT: int  # 128
 EXFL_LVALUE: int  # 2
 EXFL_PARTIAL: int  # 32
+EXFL_UCAST: int  # 512
 EXFL_UNDEF: int  # 64
 EXFL_VFTABLE: int  # 256
 FCI_DEAD: int  # 2
@@ -23553,13 +24455,14 @@ GUESSED_DATA: int  # 3
 GUESSED_FUNC: int  # 2
 GUESSED_NONE: int  # 0
 GUESSED_WEAK: int  # 1
-HEXRAYS_API_MAGIC: int  # 62699504545038340
+HEXRAYS_API_MAGIC: int  # 62699504545038341
 INCLUDE_DEAD_RETREGS: int  # 4096
 INCLUDE_RESTRICTED: int  # 8192
 INCLUDE_SPOILED_REGS: int  # 64
 INCLUDE_UNUSED_SRC: int  # 2048
 INLINE_DONTCOPY: int  # 2
 INLINE_EXTFRAME: int  # 1
+INLINE_NORETADDR: int  # 4
 IPROP_ASSERT: int  # 128
 IPROP_CLNPOP: int  # 8
 IPROP_COMBINED: int  # 2048
@@ -23582,6 +24485,7 @@ IPROP_SPLIT8: int  # 1024
 IPROP_TAILCALL: int  # 64
 IPROP_UNMERGED: int  # 1048576
 IPROP_UNPAIRED: int  # 2097152
+IPROP_WAS_FUNC: int  # 4194304
 IPROP_WAS_NORET: int  # 32768
 IPROP_WILDMATCH: int  # 4
 ITP_ARG1: int  # 1
@@ -23784,28 +24688,74 @@ RETRIEVE_ONCE: int  # 0
 ROLE_3WAYCMP0: int  # 32
 ROLE_3WAYCMP1: int  # 33
 ROLE_ABS: int  # 31
+ROLE_AGET: int  # 77
 ROLE_ALLOCA: int  # 11
+ROLE_APUT: int  # 78
+ROLE_ARRLEN: int  # 68
 ROLE_BITTEST: int  # 19
 ROLE_BITTESTANDCOMPLEMENT: int  # 22
 ROLE_BITTESTANDRESET: int  # 21
 ROLE_BITTESTANDSET: int  # 20
 ROLE_BSWAP: int  # 12
 ROLE_BUG: int  # 10
+ROLE_CATCH_EXCEPTION: int  # 85
 ROLE_CFSUB3: int  # 29
+ROLE_CHKCAST: int  # 69
+ROLE_CONST_CLASS: int  # 86
 ROLE_CONTAINING_RECORD: int  # 14
+ROLE_EH_CATCH: int  # 43
+ROLE_EH_CATCH_ABSENT: int  # 64
+ROLE_EH_CATCH_ELLIPSIS: int  # 45
+ROLE_EH_CATCH_TYPE: int  # 44
+ROLE_EH_CAUGHT: int  # 61
+ROLE_EH_CAUGHT_ELLIPSIS: int  # 60
+ROLE_EH_CAUGHT_TYPE: int  # 59
+ROLE_EH_CONTINUE_UNWINDING: int  # 53
+ROLE_EH_DEAD_END_TRY: int  # 50
+ROLE_EH_DEAD_END_WIND: int  # 51
+ROLE_EH_ENTER_TRY_STATE: int  # 55
+ROLE_EH_ENTER_WIND_STATE: int  # 54
+ROLE_EH_EXIT_TRY_STATE: int  # 57
+ROLE_EH_EXIT_WIND_STATE: int  # 56
+ROLE_EH_NO_UNWIND_HANDLER: int  # 58
+ROLE_EH_PROPAGATE: int  # 52
+ROLE_EH_RETHROW: int  # 62
+ROLE_EH_SCOPE_STRUT: int  # 49
+ROLE_EH_THROW: int  # 47
+ROLE_EH_TRY: int  # 41
+ROLE_EH_TRY_CONTINUATION: int  # 48
+ROLE_EH_UNWIND: int  # 46
+ROLE_EH_UNWIND_ABSENT: int  # 63
+ROLE_EH_WIND: int  # 42
 ROLE_EMPTY: int  # 1
 ROLE_FASTFAIL: int  # 15
+ROLE_FILL_ARRAY: int  # 67
+ROLE_FILL_ARRAY_DATA: int  # 87
+ROLE_FMOD: int  # 79
+ROLE_IGET: int  # 73
+ROLE_INSTANCEOF: int  # 70
+ROLE_INVOKE_INIT: int  # 82
+ROLE_INVOKE_INIT_SUPER: int  # 83
+ROLE_INVOKE_INIT_THIS: int  # 84
+ROLE_INVOKE_SUPER: int  # 81
+ROLE_INVOKE_VIRTUAL: int  # 80
+ROLE_IPUT: int  # 74
 ROLE_IS_MUL_OK: int  # 17
+ROLE_LOCK: int  # 71
 ROLE_MEMCPY: int  # 5
 ROLE_MEMSET: int  # 2
 ROLE_MEMSET32: int  # 3
 ROLE_MEMSET64: int  # 4
+ROLE_NEW_ARRAY: int  # 66
+ROLE_NEW_OBJ: int  # 65
 ROLE_OFSUB3: int  # 30
 ROLE_PRESENT: int  # 13
 ROLE_READFLAGS: int  # 16
 ROLE_ROL: int  # 27
 ROLE_ROR: int  # 28
 ROLE_SATURATED_MUL: int  # 18
+ROLE_SGET: int  # 75
+ROLE_SPUT: int  # 76
 ROLE_SSE_CMP4: int  # 39
 ROLE_SSE_CMP8: int  # 40
 ROLE_STRCAT: int  # 8
@@ -23813,6 +24763,7 @@ ROLE_STRCPY: int  # 6
 ROLE_STRLEN: int  # 7
 ROLE_TAIL: int  # 9
 ROLE_UNK: int  # 0
+ROLE_UNLOCK: int  # 72
 ROLE_VA_ARG: int  # 23
 ROLE_VA_COPY: int  # 24
 ROLE_VA_END: int  # 26
@@ -23823,6 +24774,7 @@ ROLE_WCSLEN: int  # 37
 ROLE_WMEMCPY: int  # 34
 ROLE_WMEMSET: int  # 35
 SHINS_LDXEA: int  # 8
+SHINS_NOEA: int  # 16
 SHINS_NUMADDR: int  # 1
 SHINS_SHORT: int  # 4
 SHINS_VALNUM: int  # 2
@@ -23835,6 +24787,10 @@ TS_MASK: int  # 234881024
 TS_NOELL: int  # 134217728
 TS_SHRINK: int  # 67108864
 ULV_PRECISE_DEFEA: int  # 1
+UMA_APP: int  # 2
+UMA_DEL: int  # 0
+UMA_INS: int  # 1
+UMA_MAX: int  # 3
 USE_CURLY_BRACES: int  # 2
 USE_KEYBOARD: int  # 0
 USE_MOUSE: int  # 1
@@ -23861,6 +24817,7 @@ VR_EXACT: int  # 2
 WARN_ADDR_OUTARGS: int  # 6
 WARN_ARRAY_INARG: int  # 21
 WARN_BAD_CALL_SP: int  # 38
+WARN_BAD_EHINFO: int  # 58
 WARN_BAD_FIELD_TYPE: int  # 23
 WARN_BAD_INSN: int  # 49
 WARN_BAD_MAPDST: int  # 48
@@ -23876,6 +24833,7 @@ WARN_BAD_VARSIZE: int  # 34
 WARN_CBUILD_LOOPS: int  # 13
 WARN_CR_BADOFF: int  # 32
 WARN_CR_NOFIELD: int  # 31
+WARN_DALVIK_ENUM: int  # 60
 WARN_DEP_UNK_CALLS: int  # 7
 WARN_EXP_LINVAR: int  # 10
 WARN_FIXED_INSN: int  # 29
@@ -23887,8 +24845,9 @@ WARN_ILL_ELLIPSIS: int  # 8
 WARN_ILL_FPU_STACK: int  # 18
 WARN_ILL_FUNCTYPE: int  # 2
 WARN_ILL_PURGED: int  # 1
+WARN_INCOMPAT_TYPE: int  # 59
 WARN_JUMPOUT: int  # 43
-WARN_MAX: int  # 58
+WARN_MAX: int  # 61
 WARN_MAX_ARGS: int  # 22
 WARN_MISSED_SWITCH: int  # 39
 WARN_MUST_RET_FP: int  # 17
@@ -24012,6 +24971,7 @@ cot_ushr: int  # 33
 cot_var: int  # 65
 cot_xor: int  # 20
 cvar: swigvarlink
+hx_add_user_minsn: int  # 650
 hx_arglocs_overlap: int  # 177
 hx_asgop: int  # 448
 hx_asgop_revert: int  # 449
@@ -24099,6 +25059,7 @@ hx_cfunc_t_build_c_tree: int  # 534
 hx_cfunc_t_cleanup: int  # 564
 hx_cfunc_t_del_orphan_cmts: int  # 548
 hx_cfunc_t_deserialize: int  # 625
+hx_cfunc_t_find_addressable_item: int  # 664
 hx_cfunc_t_find_item_coords: int  # 563
 hx_cfunc_t_find_label: int  # 541
 hx_cfunc_t_gather_derefs: int  # 562
@@ -24109,6 +25070,7 @@ hx_cfunc_t_get_line_item: int  # 556
 hx_cfunc_t_get_lvars: int  # 539
 hx_cfunc_t_get_pseudocode: int  # 560
 hx_cfunc_t_get_stkoff_delta: int  # 540
+hx_cfunc_t_get_user_cast: int  # 645
 hx_cfunc_t_get_user_cmt: int  # 543
 hx_cfunc_t_get_user_iflags: int  # 545
 hx_cfunc_t_get_user_union_selection: int  # 549
@@ -24117,14 +25079,17 @@ hx_cfunc_t_has_orphan_cmts: int  # 547
 hx_cfunc_t_print_dcl: int  # 536
 hx_cfunc_t_print_func: int  # 537
 hx_cfunc_t_recalc_item_addresses: int  # 619
+hx_cfunc_t_redirect_gotos: int  # 647
 hx_cfunc_t_refresh_func_ctext: int  # 561
 hx_cfunc_t_remove_unused_labels: int  # 542
+hx_cfunc_t_save_user_casts: int  # 643
 hx_cfunc_t_save_user_cmts: int  # 552
 hx_cfunc_t_save_user_iflags: int  # 554
 hx_cfunc_t_save_user_labels: int  # 551
 hx_cfunc_t_save_user_numforms: int  # 553
 hx_cfunc_t_save_user_unions: int  # 555
 hx_cfunc_t_serialize: int  # 624
+hx_cfunc_t_set_user_cast: int  # 644
 hx_cfunc_t_set_user_cmt: int  # 544
 hx_cfunc_t_set_user_iflags: int  # 546
 hx_cfunc_t_set_user_union_selection: int  # 550
@@ -24185,8 +25150,11 @@ hx_ctree_visitor_t_apply_to: int  # 455
 hx_ctree_visitor_t_apply_to_exprs: int  # 456
 hx_ctry_t_compare: int  # 509
 hx_cwhile_t_compare: int  # 484
+hx_decomp_ranges_t_range_contains: int  # 653
 hx_decompile: int  # 566
+hx_decompile_: int  # 656
 hx_decompile_many: int  # 439
+hx_del_user_minsn: int  # 651
 hx_dereference: int  # 523
 hx_dstr: int  # 158
 hx_dummy_ptrtype: int  # 167
@@ -24208,6 +25176,8 @@ hx_fnumber_t_dstr: int  # 272
 hx_fnumber_t_print: int  # 271
 hx_gco_info_t_append_to_list: int  # 442
 hx_gen_microcode: int  # 567
+hx_gen_microcode_: int  # 657
+hx_get_cached_cfunc_eas: int  # 663
 hx_get_ctype_name: int  # 572
 hx_get_current_operand: int  # 443
 hx_get_float_type: int  # 164
@@ -24293,14 +25263,17 @@ hx_make_pointer: int  # 169
 hx_make_ref: int  # 522
 hx_mark_cfunc_dirty: int  # 569
 hx_mba_ranges_t_range_contains: int  # 384
+hx_mba_t_add_user_minsn: int  # 648
 hx_mba_t_alloc_fict_ea: int  # 417
 hx_mba_t_alloc_kreg: int  # 422
 hx_mba_t_alloc_lvars: int  # 399
 hx_mba_t_analyze_calls: int  # 397
 hx_mba_t_arg: int  # 416
 hx_mba_t_build_graph: int  # 395
+hx_mba_t_clr_numform: int  # 662
 hx_mba_t_copy_block: int  # 407
 hx_mba_t_create_helper_call: int  # 414
+hx_mba_t_del_user_minsn: int  # 649
 hx_mba_t_deserialize: int  # 420
 hx_mba_t_dump: int  # 400
 hx_mba_t_find_mop: int  # 413
@@ -24309,11 +25282,14 @@ hx_mba_t_for_all_ops: int  # 410
 hx_mba_t_for_all_topinsns: int  # 412
 hx_mba_t_free_kreg: int  # 423
 hx_mba_t_get_curfunc: int  # 392
+hx_mba_t_get_decomp_ranges: int  # 654
 hx_mba_t_get_func_output_lists: int  # 415
 hx_mba_t_get_graph: int  # 396
+hx_mba_t_get_numform: int  # 660
 hx_mba_t_idaloc2vd: int  # 387
 hx_mba_t_idaloc2vd_: int  # 388
 hx_mba_t_inline_func: int  # 424
+hx_mba_t_inline_function: int  # 655
 hx_mba_t_insert_block: int  # 405
 hx_mba_t_locate_stkpnt: int  # 425
 hx_mba_t_map_fict_ea: int  # 418
@@ -24329,6 +25305,7 @@ hx_mba_t_save_snapshot: int  # 421
 hx_mba_t_serialize: int  # 419
 hx_mba_t_set_lvar_name: int  # 426
 hx_mba_t_set_maturity: int  # 393
+hx_mba_t_set_numform: int  # 661
 hx_mba_t_split_block: int  # 617
 hx_mba_t_stkoff_ida2vd: int  # 386
 hx_mba_t_stkoff_vd2ida: int  # 385
@@ -24363,6 +25340,7 @@ hx_mblock_t_optimize_insn: int  # 369
 hx_mblock_t_optimize_useless_jump: int  # 372
 hx_mblock_t_print: int  # 361
 hx_mblock_t_remove_from_block: int  # 365
+hx_mblock_t_undef_spoiled_regs: int  # 659
 hx_mblock_t_vdump_block: int  # 363
 hx_mblock_t_verify_insn: int  # 626
 hx_mcallarg_t_dstr: int  # 310
@@ -24423,6 +25401,7 @@ hx_mop_t_equal_mops: int  # 295
 hx_mop_t_erase: int  # 276
 hx_mop_t_for_all_ops: int  # 297
 hx_mop_t_for_all_scattered_submops: int  # 298
+hx_mop_t_get_bitwidth: int  # 658
 hx_mop_t_get_stkoff: int  # 300
 hx_mop_t_is01: int  # 292
 hx_mop_t_is_bit_reg: int  # 290
@@ -24465,6 +25444,7 @@ hx_remitem: int  # 444
 hx_remove_hexrays_callback: int  # 575
 hx_remove_optblock_handler: int  # 258
 hx_remove_optinsn_handler: int  # 256
+hx_restore_user_casts: int  # 629
 hx_restore_user_cmts: int  # 530
 hx_restore_user_defined_calls: int  # 195
 hx_restore_user_iflags: int  # 532
@@ -24474,6 +25454,7 @@ hx_restore_user_numforms: int  # 531
 hx_restore_user_unions: int  # 533
 hx_rlist_t_dstr: int  # 245
 hx_rlist_t_print: int  # 244
+hx_save_user_casts: int  # 628
 hx_save_user_cmts: int  # 525
 hx_save_user_defined_calls: int  # 196
 hx_save_user_iflags: int  # 527
@@ -24509,6 +25490,19 @@ hx_udcall_map_next: int  # 28
 hx_udcall_map_prev: int  # 29
 hx_udcall_map_second: int  # 31
 hx_udcall_map_size: int  # 36
+hx_user_casts_begin: int  # 630
+hx_user_casts_clear: int  # 639
+hx_user_casts_end: int  # 631
+hx_user_casts_erase: int  # 638
+hx_user_casts_find: int  # 636
+hx_user_casts_first: int  # 634
+hx_user_casts_free: int  # 641
+hx_user_casts_insert: int  # 637
+hx_user_casts_new: int  # 642
+hx_user_casts_next: int  # 632
+hx_user_casts_prev: int  # 633
+hx_user_casts_second: int  # 635
+hx_user_casts_size: int  # 640
 hx_user_cmts_begin: int  # 39
 hx_user_cmts_clear: int  # 48
 hx_user_cmts_end: int  # 40
@@ -24548,6 +25542,7 @@ hx_user_labels_next: int  # 80
 hx_user_labels_prev: int  # 81
 hx_user_labels_second: int  # 83
 hx_user_labels_size: int  # 88
+hx_user_minsn_t_compare: int  # 652
 hx_user_numforms_begin: int  # 0
 hx_user_numforms_clear: int  # 9
 hx_user_numforms_end: int  # 1
@@ -24629,6 +25624,7 @@ hx_vdui_t_set_num_stroff: int  # 609
 hx_vdui_t_set_udm_type: int  # 596
 hx_vdui_t_split_item: int  # 614
 hx_vdui_t_switch_to: int  # 579
+hx_vdui_t_ui_add_cast: int  # 646
 hx_vdui_t_ui_edit_lvar_cmt: int  # 591
 hx_vdui_t_ui_map_lvar: int  # 593
 hx_vdui_t_ui_noprop_lvar: int  # 627
@@ -24652,10 +25648,13 @@ hxe_create_hint: int  # 108
 hxe_curpos: int  # 107
 hxe_double_click: int  # 106
 hxe_flowchart: int  # 0
+hxe_flowchart_ea: int  # 23
 hxe_func_printed: int  # 14
 hxe_glbopt: int  # 7
 hxe_inlined_func: int  # 21
+hxe_inlined_function: int  # 26
 hxe_inlining_func: int  # 20
+hxe_inlining_function: int  # 25
 hxe_interr: int  # 11
 hxe_keyboard: int  # 104
 hxe_locopt: int  # 5
@@ -24669,6 +25668,7 @@ hxe_prealloc: int  # 6
 hxe_preoptimized: int  # 4
 hxe_print_func: int  # 13
 hxe_prolog: int  # 2
+hxe_prolog_ea: int  # 24
 hxe_refresh_pseudocode: int  # 102
 hxe_resolve_stkaddrs: int  # 15
 hxe_right_click: int  # 105

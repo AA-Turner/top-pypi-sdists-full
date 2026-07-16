@@ -368,9 +368,9 @@ class LogAnomalyDetector(pulumi.CustomResource):
         from typing import Any
         import pulumi_aws as aws
 
-        test: list[Any] = []
-        for range in [{"value": i} for i in range(0, 2)]:
-            test.append(aws.cloudwatch.LogGroup(f"test-{range['value']}", name=f"testing-{range['value']}"))
+        test: list[aws.cloudwatch.LogGroup] = []
+        for test_range in [{"value": i} for i in range(0, 2)]:
+            test.append(aws.cloudwatch.LogGroup(f"test-{test_range['value']}", name=f"testing-{test_range['value']}"))
         test_log_anomaly_detector = aws.cloudwatch.LogAnomalyDetector("test",
             detector_name="testing",
             log_group_arn_lists=[test[0].arn],
@@ -381,10 +381,16 @@ class LogAnomalyDetector(pulumi.CustomResource):
 
         ## Import
 
-        Using `pulumi import`, import CloudWatch Log Anomaly Detector using the `arn`. For example:
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) ARN of the anomaly detector.
+
+        Using `pulumi import`, import Anomaly Detectors using `arn`. For example:
 
         ```sh
-        $ pulumi import aws:cloudwatch/logAnomalyDetector:LogAnomalyDetector example log_anomaly_detector-arn-12345678
+        $ pulumi import aws:cloudwatch/logAnomalyDetector:LogAnomalyDetector example arn:aws:logs:us-east-1:123456789012:anomaly-detector:1a2b3c4d-5e6f-7890-abcd-ef1234567890
         ```
 
 
@@ -418,9 +424,9 @@ class LogAnomalyDetector(pulumi.CustomResource):
         from typing import Any
         import pulumi_aws as aws
 
-        test: list[Any] = []
-        for range in [{"value": i} for i in range(0, 2)]:
-            test.append(aws.cloudwatch.LogGroup(f"test-{range['value']}", name=f"testing-{range['value']}"))
+        test: list[aws.cloudwatch.LogGroup] = []
+        for test_range in [{"value": i} for i in range(0, 2)]:
+            test.append(aws.cloudwatch.LogGroup(f"test-{test_range['value']}", name=f"testing-{test_range['value']}"))
         test_log_anomaly_detector = aws.cloudwatch.LogAnomalyDetector("test",
             detector_name="testing",
             log_group_arn_lists=[test[0].arn],
@@ -431,10 +437,16 @@ class LogAnomalyDetector(pulumi.CustomResource):
 
         ## Import
 
-        Using `pulumi import`, import CloudWatch Log Anomaly Detector using the `arn`. For example:
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) ARN of the anomaly detector.
+
+        Using `pulumi import`, import Anomaly Detectors using `arn`. For example:
 
         ```sh
-        $ pulumi import aws:cloudwatch/logAnomalyDetector:LogAnomalyDetector example log_anomaly_detector-arn-12345678
+        $ pulumi import aws:cloudwatch/logAnomalyDetector:LogAnomalyDetector example arn:aws:logs:us-east-1:123456789012:anomaly-detector:1a2b3c4d-5e6f-7890-abcd-ef1234567890
         ```
 
 

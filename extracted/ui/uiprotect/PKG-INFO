@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uiprotect
-Version: 15.12.2
+Version: 15.14.2
 Summary: Python API for Unifi Protect (Unofficial)
 License-Expression: MIT
 License-File: LICENSE
@@ -27,14 +27,14 @@ Requires-Dist: convertertools (>=0.5.0)
 Requires-Dist: dateparser (>=1.4.1) ; extra == "cli"
 Requires-Dist: orjson (>=3.11.9)
 Requires-Dist: packaging (>=26.2)
-Requires-Dist: pillow (>=12.2.0) ; extra == "cli"
+Requires-Dist: pillow (>=12.3.0) ; extra == "cli"
 Requires-Dist: platformdirs (>=4.10.0)
 Requires-Dist: propcache (>=0.5.2)
 Requires-Dist: pydantic (>=2.13.4)
 Requires-Dist: pydantic-extra-types (>=2.10.1)
 Requires-Dist: pyjwt (>=2.12.1)
 Requires-Dist: rich (>=15.0.0) ; extra == "cli"
-Requires-Dist: typer (>=0.26.7) ; extra == "cli"
+Requires-Dist: typer (>=0.26.8) ; extra == "cli"
 Requires-Dist: yarl (>=1.24.2)
 Project-URL: Bug Tracker, https://github.com/uilibs/uiprotect/issues
 Project-URL: Changelog, https://github.com/uilibs/uiprotect/blob/main/CHANGELOG.md

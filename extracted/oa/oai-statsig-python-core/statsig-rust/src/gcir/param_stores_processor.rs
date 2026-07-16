@@ -58,7 +58,9 @@ pub(crate) fn get_serializeable_param_stores(
         param_stores.insert(hashed_name, parameters);
     }
     if options.previous_response_hash.is_some() {
-        context.gcir_hashes.push(hashing::hash_one(hash_array));
+        context
+            .gcir_hashes
+            .push(hashing::hash_unordered(hash_array));
     }
 
     param_stores

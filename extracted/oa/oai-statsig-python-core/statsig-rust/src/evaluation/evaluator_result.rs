@@ -169,7 +169,7 @@ pub fn rule_to_experiment_raw<'a>(
             },
             id_type: Some(&rule.id_type.value),
             group_name: rule.group_name.as_ref(),
-            is_experiment_active: Some(spec_pointer.as_spec_ref().is_active.unwrap_or(false)),
+            is_experiment_active: Some(spec_pointer.view().is_active().unwrap_or(false)),
             secondary_exposures: None,
         },
         _ => ExperimentRaw::empty(experiment_name, eval_details),
@@ -408,7 +408,7 @@ pub fn result_to_layer_eval_v2(
                 exposure.rule_id.as_str()
             );
             let hash = hashing.hash(&key, &HashAlgorithm::Djb2);
-            undelegated_secondary_exposures.push(InternedString::from_string(hash));
+            undelegated_secondary_exposures.push(InternedString::from_string_uninterned(hash));
         }
     }
 
@@ -582,7 +582,8 @@ fn get_mapped_value(
     match value_key_to_value_id.get(&hash) {
         Some(mapped_key) => mapped_key.clone(),
         None => {
-            let value_id = InternedString::from_string(value_id_to_value_map.len().to_string());
+            let value_id =
+                InternedString::from_string_uninterned(value_id_to_value_map.len().to_string());
             value_id_to_value_map.insert(value_id.clone(), val.clone());
             value_key_to_value_id.insert(hash, value_id.clone());
             value_id
@@ -615,7 +616,7 @@ fn get_exposure_name_if_not_hashed(
     if possibly_hashed_name == exposure_name.as_str() {
         exposure_name.clone()
     } else {
-        InternedString::from_str_ref(possibly_hashed_name)
+        InternedString::from_string_uninterned(possibly_hashed_name.to_owned())
     }
 }
 
@@ -721,8 +722,9 @@ fn map_exposures(
             match expo_key_to_expo_id_map.get(&expo_key) {
                 Some(expo_id) => expo_id.clone(),
                 None => {
-                    let expo_id =
-                        InternedString::from_string(expo_id_to_exposure_map.len().to_string());
+                    let expo_id = InternedString::from_string_uninterned(
+                        expo_id_to_exposure_map.len().to_string(),
+                    );
 
                     expo_id_to_exposure_map.insert(expo_id.clone(), exposure);
                     expo_key_to_expo_id_map.insert(expo_key, expo_id.clone());

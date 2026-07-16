@@ -15,14 +15,13 @@ from ..types.control_tag_weight_request import ControlTagWeightRequest
 from ..types.import_api_request import ImportApiRequest
 from ..types.lse_project_create import LseProjectCreate
 from ..types.lse_project_response import LseProjectResponse
-from ..types.lse_project_update import LseProjectUpdate
 from ..types.paginated_all_roles_project_list_list import PaginatedAllRolesProjectListList
 from ..types.paginated_lse_project_counts_list import PaginatedLseProjectCountsList
 from ..types.prediction_request import PredictionRequest
 from ..types.project_duplicate_mode_enum import ProjectDuplicateModeEnum
 from ..types.project_label_config import ProjectLabelConfig
+from ..types.project_sampling_enum import ProjectSamplingEnum
 from ..types.review_settings_request import ReviewSettingsRequest
-from ..types.sampling_de5enum import SamplingDe5Enum
 from ..types.skip_queue_enum import SkipQueueEnum
 from ..types.user_simple import UserSimple
 from ..types.user_simple_request import UserSimpleRequest
@@ -80,6 +79,7 @@ class ProjectsClient:
         page: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
         search: typing.Optional[str] = None,
+        source_interface_id: typing.Optional[float] = None,
         state: typing.Optional[str] = None,
         title: typing.Optional[str] = None,
         workspaces: typing.Optional[float] = None,
@@ -116,6 +116,9 @@ class ProjectsClient:
 
         search : typing.Optional[str]
             Search term for project title and description
+
+        source_interface_id : typing.Optional[float]
+            Filter lse_project__source_interface_id by exact match
 
         state : typing.Optional[str]
             Filter current_state by exact match
@@ -158,6 +161,7 @@ class ProjectsClient:
             page=page,
             page_size=page_size,
             search=search,
+            source_interface_id=source_interface_id,
             state=state,
             title=title,
             workspaces=workspaces,
@@ -179,6 +183,7 @@ class ProjectsClient:
         evaluate_predictions_automatically: typing.Optional[bool] = OMIT,
         expert_instruction: typing.Optional[str] = OMIT,
         input_schema: typing.Optional[typing.Any] = OMIT,
+        internal_description: typing.Optional[typing.Any] = OMIT,
         is_draft: typing.Optional[bool] = OMIT,
         is_published: typing.Optional[bool] = OMIT,
         label_config: typing.Optional[str] = OMIT,
@@ -190,7 +195,7 @@ class ProjectsClient:
         overlap_cohort_percentage: typing.Optional[int] = OMIT,
         pinned_at: typing.Optional[dt.datetime] = OMIT,
         reveal_preannotations_interactively: typing.Optional[bool] = OMIT,
-        sampling: typing.Optional[SamplingDe5Enum] = OMIT,
+        sampling: typing.Optional[ProjectSamplingEnum] = OMIT,
         show_annotation_history: typing.Optional[bool] = OMIT,
         show_collab_predictions: typing.Optional[bool] = OMIT,
         show_ground_truth_first: typing.Optional[bool] = OMIT,
@@ -230,7 +235,7 @@ class ProjectsClient:
         custom_interface_params : typing.Optional[typing.Any]
 
         description : typing.Optional[str]
-            Project Description
+            Description (Public)
 
         enable_empty_annotation : typing.Optional[bool]
             Allow annotators to submit empty annotations
@@ -242,6 +247,9 @@ class ProjectsClient:
             Labeling instructions in HTML format
 
         input_schema : typing.Optional[typing.Any]
+
+        internal_description : typing.Optional[typing.Any]
+            Description (Internal)
 
         is_draft : typing.Optional[bool]
             Whether or not the project is in the middle of being created
@@ -273,7 +281,7 @@ class ProjectsClient:
         reveal_preannotations_interactively : typing.Optional[bool]
             Reveal pre-annotations interactively
 
-        sampling : typing.Optional[SamplingDe5Enum]
+        sampling : typing.Optional[ProjectSamplingEnum]
 
         show_annotation_history : typing.Optional[bool]
             Show annotation history to annotator
@@ -343,6 +351,7 @@ class ProjectsClient:
             evaluate_predictions_automatically=evaluate_predictions_automatically,
             expert_instruction=expert_instruction,
             input_schema=input_schema,
+            internal_description=internal_description,
             is_draft=is_draft,
             is_published=is_published,
             label_config=label_config,
@@ -384,6 +393,7 @@ class ProjectsClient:
         page: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
         search: typing.Optional[str] = None,
+        source_interface_id: typing.Optional[float] = None,
         state: typing.Optional[str] = None,
         title: typing.Optional[str] = None,
         workspaces: typing.Optional[float] = None,
@@ -417,6 +427,9 @@ class ProjectsClient:
 
         search : typing.Optional[str]
             Search term for project title and description
+
+        source_interface_id : typing.Optional[float]
+            Filter lse_project__source_interface_id by exact match
 
         state : typing.Optional[str]
             Filter current_state by exact match
@@ -453,6 +466,7 @@ class ProjectsClient:
             page=page,
             page_size=page_size,
             search=search,
+            source_interface_id=source_interface_id,
             state=state,
             title=title,
             workspaces=workspaces,
@@ -557,6 +571,7 @@ class ProjectsClient:
         evaluate_predictions_automatically: typing.Optional[bool] = OMIT,
         expert_instruction: typing.Optional[str] = OMIT,
         input_schema: typing.Optional[typing.Any] = OMIT,
+        internal_description: typing.Optional[typing.Any] = OMIT,
         is_draft: typing.Optional[bool] = OMIT,
         is_published: typing.Optional[bool] = OMIT,
         label_config: typing.Optional[str] = OMIT,
@@ -572,7 +587,7 @@ class ProjectsClient:
         require_comment_on_skip: typing.Optional[bool] = OMIT,
         reveal_preannotations_interactively: typing.Optional[bool] = OMIT,
         review_settings: typing.Optional[ReviewSettingsRequest] = OMIT,
-        sampling: typing.Optional[SamplingDe5Enum] = OMIT,
+        sampling: typing.Optional[ProjectSamplingEnum] = OMIT,
         show_annotation_history: typing.Optional[bool] = OMIT,
         show_collab_predictions: typing.Optional[bool] = OMIT,
         show_ground_truth_first: typing.Optional[bool] = OMIT,
@@ -590,7 +605,7 @@ class ProjectsClient:
         use_custom_interface: typing.Optional[bool] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> LseProjectUpdate:
+    ) -> LseProjectResponse:
         """
         Update the details of a specific project.
 
@@ -657,7 +672,7 @@ class ProjectsClient:
             Task reservation time. TTL in seconds (UI displays and edits this value in minutes).
 
         description : typing.Optional[str]
-            Description
+            Description (Public)
 
         enable_empty_annotation : typing.Optional[bool]
             Allow empty annotations
@@ -669,6 +684,9 @@ class ProjectsClient:
             Instructions
 
         input_schema : typing.Optional[typing.Any]
+
+        internal_description : typing.Optional[typing.Any]
+            Description (Internal)
 
         is_draft : typing.Optional[bool]
             Whether or not the project is in the middle of being created
@@ -712,7 +730,7 @@ class ProjectsClient:
 
         review_settings : typing.Optional[ReviewSettingsRequest]
 
-        sampling : typing.Optional[SamplingDe5Enum]
+        sampling : typing.Optional[ProjectSamplingEnum]
 
         show_annotation_history : typing.Optional[bool]
             Show Data Manager to Annotators
@@ -764,7 +782,7 @@ class ProjectsClient:
 
         Returns
         -------
-        LseProjectUpdate
+        LseProjectResponse
 
 
         Examples
@@ -805,6 +823,7 @@ class ProjectsClient:
             evaluate_predictions_automatically=evaluate_predictions_automatically,
             expert_instruction=expert_instruction,
             input_schema=input_schema,
+            internal_description=internal_description,
             is_draft=is_draft,
             is_published=is_published,
             label_config=label_config,
@@ -1261,6 +1280,7 @@ class AsyncProjectsClient:
         page: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
         search: typing.Optional[str] = None,
+        source_interface_id: typing.Optional[float] = None,
         state: typing.Optional[str] = None,
         title: typing.Optional[str] = None,
         workspaces: typing.Optional[float] = None,
@@ -1297,6 +1317,9 @@ class AsyncProjectsClient:
 
         search : typing.Optional[str]
             Search term for project title and description
+
+        source_interface_id : typing.Optional[float]
+            Filter lse_project__source_interface_id by exact match
 
         state : typing.Optional[str]
             Filter current_state by exact match
@@ -1348,6 +1371,7 @@ class AsyncProjectsClient:
             page=page,
             page_size=page_size,
             search=search,
+            source_interface_id=source_interface_id,
             state=state,
             title=title,
             workspaces=workspaces,
@@ -1369,6 +1393,7 @@ class AsyncProjectsClient:
         evaluate_predictions_automatically: typing.Optional[bool] = OMIT,
         expert_instruction: typing.Optional[str] = OMIT,
         input_schema: typing.Optional[typing.Any] = OMIT,
+        internal_description: typing.Optional[typing.Any] = OMIT,
         is_draft: typing.Optional[bool] = OMIT,
         is_published: typing.Optional[bool] = OMIT,
         label_config: typing.Optional[str] = OMIT,
@@ -1380,7 +1405,7 @@ class AsyncProjectsClient:
         overlap_cohort_percentage: typing.Optional[int] = OMIT,
         pinned_at: typing.Optional[dt.datetime] = OMIT,
         reveal_preannotations_interactively: typing.Optional[bool] = OMIT,
-        sampling: typing.Optional[SamplingDe5Enum] = OMIT,
+        sampling: typing.Optional[ProjectSamplingEnum] = OMIT,
         show_annotation_history: typing.Optional[bool] = OMIT,
         show_collab_predictions: typing.Optional[bool] = OMIT,
         show_ground_truth_first: typing.Optional[bool] = OMIT,
@@ -1420,7 +1445,7 @@ class AsyncProjectsClient:
         custom_interface_params : typing.Optional[typing.Any]
 
         description : typing.Optional[str]
-            Project Description
+            Description (Public)
 
         enable_empty_annotation : typing.Optional[bool]
             Allow annotators to submit empty annotations
@@ -1432,6 +1457,9 @@ class AsyncProjectsClient:
             Labeling instructions in HTML format
 
         input_schema : typing.Optional[typing.Any]
+
+        internal_description : typing.Optional[typing.Any]
+            Description (Internal)
 
         is_draft : typing.Optional[bool]
             Whether or not the project is in the middle of being created
@@ -1463,7 +1491,7 @@ class AsyncProjectsClient:
         reveal_preannotations_interactively : typing.Optional[bool]
             Reveal pre-annotations interactively
 
-        sampling : typing.Optional[SamplingDe5Enum]
+        sampling : typing.Optional[ProjectSamplingEnum]
 
         show_annotation_history : typing.Optional[bool]
             Show annotation history to annotator
@@ -1541,6 +1569,7 @@ class AsyncProjectsClient:
             evaluate_predictions_automatically=evaluate_predictions_automatically,
             expert_instruction=expert_instruction,
             input_schema=input_schema,
+            internal_description=internal_description,
             is_draft=is_draft,
             is_published=is_published,
             label_config=label_config,
@@ -1582,6 +1611,7 @@ class AsyncProjectsClient:
         page: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
         search: typing.Optional[str] = None,
+        source_interface_id: typing.Optional[float] = None,
         state: typing.Optional[str] = None,
         title: typing.Optional[str] = None,
         workspaces: typing.Optional[float] = None,
@@ -1615,6 +1645,9 @@ class AsyncProjectsClient:
 
         search : typing.Optional[str]
             Search term for project title and description
+
+        source_interface_id : typing.Optional[float]
+            Filter lse_project__source_interface_id by exact match
 
         state : typing.Optional[str]
             Filter current_state by exact match
@@ -1659,6 +1692,7 @@ class AsyncProjectsClient:
             page=page,
             page_size=page_size,
             search=search,
+            source_interface_id=source_interface_id,
             state=state,
             title=title,
             workspaces=workspaces,
@@ -1779,6 +1813,7 @@ class AsyncProjectsClient:
         evaluate_predictions_automatically: typing.Optional[bool] = OMIT,
         expert_instruction: typing.Optional[str] = OMIT,
         input_schema: typing.Optional[typing.Any] = OMIT,
+        internal_description: typing.Optional[typing.Any] = OMIT,
         is_draft: typing.Optional[bool] = OMIT,
         is_published: typing.Optional[bool] = OMIT,
         label_config: typing.Optional[str] = OMIT,
@@ -1794,7 +1829,7 @@ class AsyncProjectsClient:
         require_comment_on_skip: typing.Optional[bool] = OMIT,
         reveal_preannotations_interactively: typing.Optional[bool] = OMIT,
         review_settings: typing.Optional[ReviewSettingsRequest] = OMIT,
-        sampling: typing.Optional[SamplingDe5Enum] = OMIT,
+        sampling: typing.Optional[ProjectSamplingEnum] = OMIT,
         show_annotation_history: typing.Optional[bool] = OMIT,
         show_collab_predictions: typing.Optional[bool] = OMIT,
         show_ground_truth_first: typing.Optional[bool] = OMIT,
@@ -1812,7 +1847,7 @@ class AsyncProjectsClient:
         use_custom_interface: typing.Optional[bool] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> LseProjectUpdate:
+    ) -> LseProjectResponse:
         """
         Update the details of a specific project.
 
@@ -1879,7 +1914,7 @@ class AsyncProjectsClient:
             Task reservation time. TTL in seconds (UI displays and edits this value in minutes).
 
         description : typing.Optional[str]
-            Description
+            Description (Public)
 
         enable_empty_annotation : typing.Optional[bool]
             Allow empty annotations
@@ -1891,6 +1926,9 @@ class AsyncProjectsClient:
             Instructions
 
         input_schema : typing.Optional[typing.Any]
+
+        internal_description : typing.Optional[typing.Any]
+            Description (Internal)
 
         is_draft : typing.Optional[bool]
             Whether or not the project is in the middle of being created
@@ -1934,7 +1972,7 @@ class AsyncProjectsClient:
 
         review_settings : typing.Optional[ReviewSettingsRequest]
 
-        sampling : typing.Optional[SamplingDe5Enum]
+        sampling : typing.Optional[ProjectSamplingEnum]
 
         show_annotation_history : typing.Optional[bool]
             Show Data Manager to Annotators
@@ -1986,7 +2024,7 @@ class AsyncProjectsClient:
 
         Returns
         -------
-        LseProjectUpdate
+        LseProjectResponse
 
 
         Examples
@@ -2035,6 +2073,7 @@ class AsyncProjectsClient:
             evaluate_predictions_automatically=evaluate_predictions_automatically,
             expert_instruction=expert_instruction,
             input_schema=input_schema,
+            internal_description=internal_description,
             is_draft=is_draft,
             is_published=is_published,
             label_config=label_config,

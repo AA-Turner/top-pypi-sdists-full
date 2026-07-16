@@ -7,14 +7,14 @@ def create_undo_point(action_name: str, label: str) -> bool:
     """
     ...
 
-def get_redo_action_label() -> str:
+def get_redo_action_label() -> Union[str, None]:
     r"""Get the label of the action that will be redone. This function returns the text that can be displayed in the redo menu 
             
     :returns: success
     """
     ...
 
-def get_undo_action_label() -> str:
+def get_undo_action_label() -> Union[str, None]:
     r"""Get the label of the action that will be undone. This function returns the text that can be displayed in the undo menu 
             
     :returns: success

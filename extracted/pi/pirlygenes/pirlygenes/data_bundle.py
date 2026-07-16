@@ -1,14 +1,15 @@
 """Lazy download of large data assets from this version's GitHub Release.
 
 The wheel ships small curated panels directly (gene families, cancer-type
-registry, key-gene panels, CTA list — total ~1 MB). The much larger
-per-cohort expression summaries are downloaded on first access from the
-GitHub Release matching the installed package version.
+registry, key-gene panels, CTA list — total ~1 MB). Pirlygenes' larger derived
+views and HPA/pan-cancer matrices are downloaded on first access from the GitHub
+Release matching the installed package version. Empirical per-cohort summary
+rows are owned and fetched by oncoref (#557), not this bundle.
 
-Why split: PyPI's per-file limit is 100 MiB. Bundling the full reference
-data pushed the wheel to 346 MB (vs. ~5 MB without it), so we hit the
-ceiling on this PR. The fix shifts the heavy assets out of the wheel
-into a version-pinned downloadable tarball.
+Why split: PyPI's per-file limit is 100 MiB. Bundling the full reference data
+formerly pushed the wheel to 346 MB (vs. ~5 MB without it). Runtime expression
+ownership is now split explicitly: oncoref serves empirical rows; pirlygenes'
+version-pinned tarball retains only its purpose-specific derived views/matrices.
 
 Layout:
 
@@ -18,7 +19,6 @@ Layout:
     pirlygenes/data/cancer-reference-expression-samples.csv.gz
 
 Downloaded (lazy, expression bundle, cached locally):
-    cancer-reference-expression/*.csv.gz            (legacy manifest/status source)
     cancer-reference-expression-views/*.parquet     (precomputed canonical views)
     pan-cancer-expression.csv
     hpa-cell-type-expression.csv
@@ -30,7 +30,6 @@ Downloaded (lazy, expression bundle, cached locally):
 Cache layout (version-pinned so upgrades trigger a re-fetch):
 
   ~/.cache/pirlygenes/bundled_data/v<version>/
-    cancer-reference-expression/...                  (legacy manifest/status source)
     cancer-reference-expression-views/...
     pan-cancer-expression.csv
     hpa-cell-type-expression.csv
@@ -77,10 +76,6 @@ RELEASE_URL = (
 # the cache root) and are NOT bundled in the wheel. The load_dataset
 # module looks here as a fallback after checking pirlygenes/data/.
 DOWNLOADABLE_PATHS: tuple[str, ...] = (
-    # The public expression accessor delegates to oncoref (#557). These shards
-    # remain temporarily for available_cancer_expression_references(), status
-    # rollups, and rebuilding the legacy canonical-view artifact.
-    "cancer-reference-expression",
     "cancer-reference-expression-views",  # precomputed canonical wide views
     "pan-cancer-expression.csv",
     # Public hpa_cell_type_expression delegates to oncoref (#510). Keep the old
@@ -135,7 +130,7 @@ def fetch(*, verbose: bool = True) -> Path:
     if verbose:
         sys.stderr.write(
             f"pirlygenes: downloading data bundle for v{DATA_VERSION} "
-            "(~350 MB, one-time)\n"
+            "(~52 MB, one-time)\n"
             f"  from {RELEASE_URL}\n"
             f"  to   {root}\n"
         )
@@ -168,7 +163,7 @@ def ensure_local(*, auto_fetch: bool = True, verbose: bool = True) -> Path:
     With ``auto_fetch=False``, raises ``FileNotFoundError`` instead of
     triggering a network call — useful for read-only CLI inspection
     paths (``pirlygenes data status``) that shouldn't surprise users
-    with a 340 MB download.
+    with a large download.
     """
     if is_local():
         return cache_dir()

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use crate::{
     evaluation::{
+        evaluation_data::SpecView,
         evaluation_types::GateEvaluation,
         evaluation_types_initialize_v2::GateEvaluationInitV2,
         evaluation_types_v2::GateEvaluationV2,
@@ -15,7 +16,6 @@ use crate::{
         secondary_exposure_key::SecondaryExposureKey,
     },
     interned_string::InternedString,
-    specs_response::spec_types::Spec,
     ClientInitResponseOptions, SecondaryExposure, StatsigErr,
 };
 
@@ -126,6 +126,6 @@ pub(crate) fn get_gate_evaluations_init_v2(
     )
 }
 
-fn get_gate_spec_type(_: &Spec) -> SpecType {
+fn get_gate_spec_type(_: SpecView<'_>) -> SpecType {
     SpecType::Gate
 }

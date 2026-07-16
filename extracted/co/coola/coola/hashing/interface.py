@@ -7,10 +7,13 @@ __all__ = ["get_default_registry", "hash_object", "register_hashers"]
 
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from coola.hashing.bytes import BytesHasher
 from coola.hashing.datetime import DatetimeHasher
 from coola.hashing.mapping import MappingHasher
+from coola.hashing.path import PathHasher
 from coola.hashing.registry import HasherRegistry
 from coola.hashing.repr import ReprHasher
 from coola.hashing.sequence import SequenceHasher
@@ -135,6 +138,7 @@ def _register_default_hashers(registry: HasherRegistry) -> None:
         {
             # Strings should not be iterated character by character
             str: string_hasher,
+            bytes: BytesHasher(),
             # Numeric types - no recursion needed
             int: repr_hasher,
             float: repr_hasher,
@@ -150,6 +154,8 @@ def _register_default_hashers(registry: HasherRegistry) -> None:
             # Date types
             date: datetime_hasher,
             datetime: datetime_hasher,
+            # Path
+            Path: PathHasher(),
             # None
             type(None): repr_hasher,
         }

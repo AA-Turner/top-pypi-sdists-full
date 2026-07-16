@@ -15,6 +15,12 @@ from aiopnsense.client_transport import _STREAM_JSON_EVENT_RESET_KEY
 from aiopnsense.const import (
     DEFAULT_REQUEST_TIMEOUT_SECONDS,
 )
+from aiopnsense.exceptions import (
+    OPNsenseConnectionError,
+    OPNsenseError,
+    OPNsensePrivilegeMissing,
+    OPNsenseTimeoutError,
+)
 from tests.conftest import (
     FakeResponse,
     FakeStreamResponseFactory,
@@ -158,10 +164,17 @@ async def test_normalize_timeout_seconds(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "method_name, session_method, args, kwargs",
+    ("method_name", "session_method", "args", "kwargs", "expected_exception"),
     [
-        ("_do_get", "get", ("/api/x",), {"caller": "tst"}),
-        ("_do_post", "post", ("/api/x",), {"payload": {}}),
+        ("_do_get", "get", ("/api/x",), {"caller": "tst"}, OPNsensePrivilegeMissing),
+        (
+            "_do_get",
+            "get",
+            ("/api/x",),
+            {"caller": "tst", "response_format": "text"},
+            OPNsensePrivilegeMissing,
+        ),
+        ("_do_post", "post", ("/api/x",), {"payload": {}}, OPNsenseConnectionError),
     ],
 )
 async def test_do_get_post_error_initial_behavior(
@@ -169,15 +182,17 @@ async def test_do_get_post_error_initial_behavior(
     session_method: str,
     args: tuple[str],
     kwargs: dict[str, Any],
+    expected_exception: type[OPNsenseConnectionError],
     make_client: MakeClientFactory,
 ) -> None:
-    """Verify thrown request errors raise ``ClientResponseError``.
+    """Verify thrown request errors raise public OPNsense exceptions.
 
     Args:
         method_name (str): Client method to invoke (``_do_get`` or ``_do_post``).
         session_method (str): Session method to override (``get`` or ``post``).
         args (tuple[str]): Positional arguments passed to the client method.
         kwargs (dict[str, Any]): Keyword arguments passed to the client method.
+        expected_exception (type[OPNsenseConnectionError]): Expected public exception type.
         make_client (MakeClientFactory): Fixture factory returning ``OPNsenseClient`` instances.
 
     Returns:
@@ -208,8 +223,71 @@ async def test_do_get_post_error_initial_behavior(
 
     client._throw_errors = True
     try:
-        with pytest.raises(aiohttp.ClientResponseError):
+        with pytest.raises(expected_exception):
             await getattr(client, method_name)(*args, **kwargs)
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.parametrize(
+    ("method_name", "session_method", "args", "kwargs"),
+    [
+        ("_do_get_from_stream", "get", ("/stream",), {"caller": "tst"}),
+        ("_stream_json_events", "get", ("/stream",), {}),
+        ("_do_get", "get", ("/api/x",), {"caller": "tst"}),
+        ("_do_get", "get", ("/api/x",), {"caller": "tst", "response_format": "text"}),
+        ("_do_post", "post", ("/api/x",), {"payload": {}, "caller": "tst"}),
+    ],
+)
+@pytest.mark.parametrize(
+    ("transport_error", "expected_exception"),
+    [
+        (aiohttp.ClientConnectionError("connection failed"), OPNsenseConnectionError),
+        (TimeoutError("request timed out"), OPNsenseTimeoutError),
+    ],
+)
+@pytest.mark.asyncio
+async def test_transport_errors_map_when_throwing(
+    method_name: str,
+    session_method: str,
+    args: tuple[str, ...],
+    kwargs: dict[str, Any],
+    transport_error: Exception,
+    expected_exception: type[OPNsenseError],
+    make_client: MakeClientFactory,
+) -> None:
+    """Verify transport failures map to public exceptions for each low-level request helper.
+
+    Args:
+        method_name (str): Client transport method to invoke.
+        session_method (str): Session method overridden to raise the transport failure.
+        args (tuple[str, ...]): Positional arguments passed to the client method.
+        kwargs (dict[str, Any]): Keyword arguments passed to the client method.
+        transport_error (Exception): Transport failure raised by the session.
+        expected_exception (type[OPNsenseError]): Public exception expected from the transport
+            mapper.
+        make_client (MakeClientFactory): Fixture factory returning ``OPNsenseClient`` instances.
+
+    Returns:
+        None: This test asserts mapped exception type and source exception chaining.
+    """
+    session = MagicMock()
+
+    def raise_transport_error(*_args: Any, **_kwargs: Any) -> Any:
+        """Raise the configured transport failure when the request starts."""
+        raise transport_error
+
+    setattr(session, session_method, raise_transport_error)
+    client = make_client(session=session, throw_errors=True)
+    try:
+        with pytest.raises(expected_exception) as exc_info:
+            if method_name == "_stream_json_events":
+                async for _event in getattr(client, method_name)(*args, **kwargs):
+                    pass
+            else:
+                await getattr(client, method_name)(*args, **kwargs)
+
+        assert exc_info.value.__cause__ is transport_error
     finally:
         await client.async_close()
 
@@ -339,15 +417,17 @@ async def test_do_get_from_stream_error_initial_raises(
     session.get = fake_get
     try:
         client._throw_errors = True
-        with pytest.raises(aiohttp.ClientResponseError):
+        with pytest.raises(OPNsensePrivilegeMissing):
             await client._do_get_from_stream("/bad", caller="t")
     finally:
         await client.async_close()
 
 
 @pytest.mark.asyncio
-async def test_do_get_and_do_post_success_paths(make_client: MakeClientFactory) -> None:
-    """Verify ``_do_get`` and ``_do_post`` return parsed JSON for successful responses.
+async def test_do_get_with_response_format_text_and_post_success_paths(
+    make_client: MakeClientFactory,
+) -> None:
+    """Verify JSON GET, text GET, and POST helpers return successful response bodies.
 
     Args:
         make_client (MakeClientFactory): Fixture factory returning ``OPNsenseClient`` instances.
@@ -372,6 +452,7 @@ async def test_do_get_and_do_post_success_paths(make_client: MakeClientFactory) 
             reason="OK",
             ok=True,
             json_payload={"a": 1},
+            text_payload="a;b\n1;2\n",
             stream_chunks=[b""],
         )
 
@@ -399,6 +480,9 @@ async def test_do_get_and_do_post_success_paths(make_client: MakeClientFactory) 
         got = await client._do_get("/api/x", caller="t")
         assert isinstance(got, MutableMapping) and got.get("a") == 1
 
+        text_result = await client._do_get("/api/x", caller="t", response_format="text")
+        assert text_result == "a;b\n1;2\n"
+
         posted = await client._do_post("/api/x", payload={"x": 1}, caller="t")
         assert isinstance(posted, list) and posted[0] == 1
     finally:
@@ -409,7 +493,7 @@ async def test_do_get_and_do_post_success_paths(make_client: MakeClientFactory) 
 async def test_do_get_post_and_stream_permission_errors(
     make_client: MakeClientFactory,
 ) -> None:
-    """Verify permission failures do not raise when error throwing is disabled.
+    """Verify JSON GET, text GET, POST, and stream permission failures do not raise when disabled.
 
     Args:
         make_client (MakeClientFactory): Fixture factory returning ``OPNsenseClient`` instances.
@@ -437,6 +521,7 @@ async def test_do_get_post_and_stream_permission_errors(
     try:
         client._throw_errors = False
         assert await client._do_get("/x", caller="t") is None
+        assert await client._do_get("/x", caller="t", response_format="text") is None
         assert await client._do_post("/x", payload={}, caller="t") is None
         assert await client._do_get_from_stream("/x", caller="t") == {}
     finally:
@@ -1041,7 +1126,7 @@ async def test_stream_json_events_raises_when_throw_errors_enabled(
     )
     client = make_client(session=session, throw_errors=True)
     try:
-        with pytest.raises(aiohttp.ClientResponseError):
+        with pytest.raises(OPNsensePrivilegeMissing):
             async for _event in client._stream_json_events("/api/diagnostics/traffic/stream/1"):
                 pass
     finally:

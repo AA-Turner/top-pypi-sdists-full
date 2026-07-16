@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.18.2
+Version: 2.18.3
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>
@@ -174,6 +174,12 @@ Provides-Extra: muq
 Requires-Dist: muq==0.1.0; extra == "muq"
 Provides-Extra: wav2clip
 Requires-Dist: wav2clip==0.1.0; extra == "wav2clip"
+Provides-Extra: fusion-embedding
+Requires-Dist: librosa>=0.10.0; extra == "fusion-embedding"
+Requires-Dist: soundfile>=0.13.1; extra == "fusion-embedding"
+Requires-Dist: torchvision>=0.22.1; extra == "fusion-embedding"
+Requires-Dist: pillow>=10.0.1; extra == "fusion-embedding"
+Requires-Dist: accelerate>=0.26.0; extra == "fusion-embedding"
 Provides-Extra: torch-vggish-yamnet
 Requires-Dist: torch-vggish-yamnet==0.2.1; extra == "torch-vggish-yamnet"
 Provides-Extra: vllm

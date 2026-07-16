@@ -22,14 +22,29 @@ from milvus_lite.search.filter.semantic import CompiledExpr, FieldInfo, compile_
 from milvus_lite.search.filter.eval import evaluate
 
 
-def compile_filter(source: str, schema) -> CompiledExpr:
+def evaluate_mask(compiled: CompiledExpr, table):
+    mask = evaluate(compiled, table).to_numpy(zero_copy_only=False)
+    if mask.dtype == bool:
+        return mask
+    return mask.astype(bool, copy=False)
+
+
+def compile_filter(
+    source: str,
+    schema,
+    default_timezone: str | None = None,
+) -> CompiledExpr:
     """Convenience: parse_expr + compile_expr in one call.
 
     Most call sites that already have the source string and the schema
     use this rather than the two-step API. Two-step is useful when you
     want to cache parsed AST across schemas (Phase F2c).
     """
-    return compile_expr(parse_expr(source), schema, source=source)
+    return compile_expr(
+        parse_expr(source, default_timezone=default_timezone),
+        schema,
+        source=source,
+    )
 
 
 __all__ = [
@@ -37,6 +52,7 @@ __all__ = [
     "compile_expr",
     "compile_filter",
     "evaluate",
+    "evaluate_mask",
     "CompiledExpr",
     "FieldInfo",
     "FilterError",

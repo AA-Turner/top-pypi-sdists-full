@@ -15,7 +15,7 @@ class DimensionList(UncheckedBaseModel):
     Excludes detailed parameters for performance in list views.
     """
 
-    allowed_metrics_with_params: typing.Optional[str] = pydantic.Field(default=None)
+    allowed_metrics_with_params: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
     Dictionary mapping metric type names to their parameter schemas.
     """
@@ -45,6 +45,11 @@ class DimensionList(UncheckedBaseModel):
     is_active: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Whether this dimension is used in agreement calculations.
+    """
+
+    is_categorical: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether this dimension produces categorical (primitive/scalar) values.
     """
 
     is_user_defined: typing.Optional[bool] = pydantic.Field(default=None)
@@ -78,6 +83,10 @@ class DimensionList(UncheckedBaseModel):
     """
 
     updated_at: typing.Optional[dt.datetime] = None
+    values_enum: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    """
+    Schema-defined enum values for indexed value_counts. Refreshed only with label config changes.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

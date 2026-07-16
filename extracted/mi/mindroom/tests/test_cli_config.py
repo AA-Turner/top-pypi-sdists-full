@@ -324,9 +324,16 @@ class TestConfigInit:
         assert "## 🧭 MindRoom Setup" in agents_template
         assert "discover and use `config_manager`" in agents_template
         assert "active config path recorded in `TOOLS.md`" in agents_template
-        assert "`https://mindroom.chat` is the hosted Matrix homeserver" in agents_template
-        assert "`https://chat.mindroom.chat` is MindRoom Chat" in agents_template
+        assert "The active Matrix homeserver is listed in the runtime context" in agents_template
+        assert "MindRoom Chat at `https://chat.mindroom.chat`" in agents_template
+        assert "supports custom homeservers" in agents_template
         assert "The MindRoom dashboard is a separate app" in agents_template
+        assert "If `config_manager` returns a target-agent `connect_url`" in agents_template
+        assert "Newly configured tools may not be available to the current agent or current run" in agents_template
+        assert "`*_connection_status` or `*_list_tools`" in agents_template
+        assert "otherwise, use the dashboard as the manual fallback" in agents_template
+        assert "loopback URL (`localhost`, `127.0.0.1`, or `::1`)" in agents_template
+        assert "`https://mindroom.chat`" not in agents_template
         assert "knowledge_bases" not in config
 
         env_content = (tmp_path / ".env").read_text()

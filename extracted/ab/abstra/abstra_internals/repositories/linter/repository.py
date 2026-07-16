@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.linter.context import (
     LintContext,
     reset_lint_context,
@@ -31,6 +32,10 @@ _PACKAGE_INSTALL_RULE_NAMES = frozenset(r.name for r in run_after_package_instal
 
 class LinterRepository(ABC):
     checks: List[LinterCheck] = []
+    # True when the last lint operation could not actually run and `checks` is
+    # a stale mirror (e.g. the sidecar child is dead). In-process repositories
+    # always run for real, so they never degrade.
+    degraded: bool = False
 
     @abstractmethod
     def find_issues_in_codebase(self) -> List[LinterCheck]:
@@ -63,6 +68,20 @@ class LinterRepository(ABC):
         pass
 
 
+def failed_check(rule: LinterRule) -> LinterCheck:
+    """A rule that crashed still yields a check — with status="failed" and no
+    issues — instead of silently vanishing from the results (which read as a
+    pass) or, on merged passes, leaving its stale previous check alive."""
+    return LinterCheck(
+        name=rule.name,
+        label=rule.label,
+        type=rule.type,
+        issues=[],
+        fix_with_ai=rule.fix_with_ai,
+        status="failed",
+    )
+
+
 def check_rule(rule, checks_list, context=None):
     # Publish the per-pass context into this thread's ContextVar so the rule
     # (which reads current_lint_context()) shares the single project load.
@@ -71,6 +90,10 @@ def check_rule(rule, checks_list, context=None):
     try:
         check = rule.check()
         checks_list.append(check)
+    except Exception as e:
+        AbstraLogger.error(f"[Linter] rule {rule.name} crashed: {e}")
+        AbstraLogger.capture_exception(e)
+        checks_list.append(failed_check(rule))
     finally:
         reset_lint_context(token)
 
@@ -79,10 +102,10 @@ LINTER_TYPE_PRIORITY = {"error": 0, "warning": 1}
 BLOCKING_TYPES = {"error"}
 
 # Rules whose fix has process-level side effects (pip upgrade + editor restart)
-# rather than a local file edit, so "fix all" must skip them. NewVersionOfAbstra
-# rides the linter pipeline but is surfaced as its own "Update Abstra" button —
-# this mirrors the frontend store, which already excludes it from the problem list.
-BULK_FIX_EXCLUDED_RULES = {"NewVersionOfAbstraAvailable"}
+# rather than a local file edit, so "fix all" must skip them. Currently empty:
+# the abstra self-update was moved out of the linter into EditorUpdateController
+# (its own "Update Abstra" button). Kept as an extension point.
+BULK_FIX_EXCLUDED_RULES: set[str] = set()
 
 
 class LocalLinterRepository(LinterRepository):
@@ -182,20 +205,24 @@ class LocalLinterRepository(LinterRepository):
                 for path in scope:
                     issues.extend(rule.find_issues(path))
                 scoped_results.append((rule, issues))
+            except Exception as e:
+                AbstraLogger.error(f"[Linter] rule {rule.name} crashed: {e}")
+                AbstraLogger.capture_exception(e)
+                # Into new_checks (not scoped_results): the failed check must
+                # REPLACE the rule's previous one in the merge, not be merged
+                # with the stale issues kept for unscoped paths.
+                new_checks.append(failed_check(rule))
             finally:
                 reset_lint_context(token)
 
         if self._serial:
+            # Workers materialize their own failures as status="failed"
+            # checks, so a raising rule never aborts the pass.
             for rule in target_rules:
-                # A failing rule loses its check silently — the same outcome
-                # as the threaded fan-out, where only that rule's thread dies.
-                try:
-                    if paths is not None and isinstance(rule, PathScopedLinterRule):
-                        check_rule_scoped(rule, paths)
-                    else:
-                        check_rule(rule, new_checks, context)
-                except Exception:
-                    continue
+                if paths is not None and isinstance(rule, PathScopedLinterRule):
+                    check_rule_scoped(rule, paths)
+                else:
+                    check_rule(rule, new_checks, context)
             return new_checks, scoped_results
 
         for rule in target_rules:
@@ -381,7 +408,12 @@ class LocalLinterRepository(LinterRepository):
         with self._run_lock:
             for rule in rules:
                 if rule.name == rule_name:
-                    new_check = rule.check()
+                    try:
+                        new_check = rule.check()
+                    except Exception as e:
+                        AbstraLogger.error(f"[Linter] rule {rule.name} crashed: {e}")
+                        AbstraLogger.capture_exception(e)
+                        new_check = failed_check(rule)
                     self.checks = [
                         new_check if check.name == rule_name else check
                         for check in self.checks
@@ -397,10 +429,13 @@ class LocalLinterRepository(LinterRepository):
                     fix.fix()
 
     def get_blocking_checks(self) -> List[LinterCheck]:
+        # A failed blocking check blocks too (fail-closed, same policy as a
+        # dead sidecar): the rule crashed, so "no issues" was never verified.
         return [
             check
             for check in self.checks
-            if check.type in BLOCKING_TYPES and check.issues
+            if check.type in BLOCKING_TYPES
+            and (check.issues or check.status == "failed")
         ]
 
     def get_blocking_checks_for_deploy(self) -> List[LinterCheck]:

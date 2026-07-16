@@ -31,10 +31,11 @@ from milvus_lite.search.filter.ast import (
     BoolLit,
     CmpOp,
     Expr,
-    FieldRef,
     FloatLit,
+    FieldRef,
     InOp,
     IntLit,
+    IntervalLit,
     ArrayAccessOp,
     ArrayContainsOp,
     ArrayLengthOp,
@@ -47,10 +48,12 @@ from milvus_lite.search.filter.ast import (
     Not,
     Or,
     StringLit,
+    TimestampLit,
     TextMatchOp,
 )
 from milvus_lite.search.filter.exceptions import FilterParseError
 from milvus_lite.search.filter.tokens import Token, TokenKind, tokenize
+from milvus_lite.schema.timestamptz import parse_interval_micros, parse_timestamptz
 
 
 _CMP_KINDS = (
@@ -68,9 +71,15 @@ _CMP_TEXT = {
 class Parser:
     """Recursive-descent parser; instances are single-use (one parse call)."""
 
-    def __init__(self, tokens: List[Token], source: str) -> None:
+    def __init__(
+        self,
+        tokens: List[Token],
+        source: str,
+        default_timezone: str | None = None,
+    ) -> None:
         self.tokens = tokens
         self.source = source
+        self.default_timezone = default_timezone
         self.pos = 0
 
     # ── public entry ────────────────────────────────────────────
@@ -306,6 +315,105 @@ class Parser:
         self._consume()
         return TextMatchOp(field=field, query=query, pos=func_tok.pos)
 
+    def _parse_geometry_field_arg(self, func_tok: Token) -> FieldRef:
+        field_tok = self._peek()
+        if field_tok.kind != TokenKind.IDENT:
+            raise FilterParseError(
+                f"{func_tok.text}: expected geometry field name",
+                self.source, field_tok.pos,
+            )
+        self._consume()
+        return FieldRef(name=field_tok.text, pos=field_tok.pos)
+
+    def _parse_geometry_predicate(self, func_tok: Token, op: str) -> Expr:
+        """``geometry_contains(field, 'WKT')`` and related predicates."""
+        from milvus_lite.search.filter.ast import GeometryOp
+
+        self._consume()  # '('
+        field = self._parse_geometry_field_arg(func_tok)
+        if self._peek().kind != TokenKind.COMMA:
+            raise FilterParseError(
+                f"{func_tok.text}: expected ',' after field name",
+                self.source, self._peek().pos,
+            )
+        self._consume()
+        geom_tok = self._peek()
+        if geom_tok.kind != TokenKind.STRING:
+            raise FilterParseError(
+                f"{func_tok.text}: expected WKT string literal",
+                self.source, geom_tok.pos,
+            )
+        self._consume()
+        geometry = StringLit(value=geom_tok.value, pos=geom_tok.pos)
+        if self._peek().kind != TokenKind.RPAREN:
+            raise FilterParseError(
+                f"{func_tok.text}: expected ')'",
+                self.source, self._peek().pos,
+            )
+        self._consume()
+        return GeometryOp(op=op, field=field, geometry=geometry, pos=func_tok.pos)
+
+    def _parse_geometry_isvalid(self, func_tok: Token) -> Expr:
+        from milvus_lite.search.filter.ast import GeometryIsValidOp
+
+        self._consume()  # '('
+        field = self._parse_geometry_field_arg(func_tok)
+        if self._peek().kind != TokenKind.RPAREN:
+            raise FilterParseError(
+                f"{func_tok.text}: expected ')'",
+                self.source, self._peek().pos,
+            )
+        self._consume()
+        return GeometryIsValidOp(field=field, pos=func_tok.pos)
+
+    def _parse_geometry_dwithin(self, func_tok: Token) -> Expr:
+        from milvus_lite.search.filter.ast import GeometryDWithinOp
+
+        self._consume()  # '('
+        field = self._parse_geometry_field_arg(func_tok)
+        if self._peek().kind != TokenKind.COMMA:
+            raise FilterParseError(
+                f"{func_tok.text}: expected ',' after field name",
+                self.source, self._peek().pos,
+            )
+        self._consume()
+        geom_tok = self._peek()
+        if geom_tok.kind != TokenKind.STRING:
+            raise FilterParseError(
+                f"{func_tok.text}: expected WKT string literal",
+                self.source, geom_tok.pos,
+            )
+        self._consume()
+        if self._peek().kind != TokenKind.COMMA:
+            raise FilterParseError(
+                f"{func_tok.text}: expected ',' after WKT string",
+                self.source, self._peek().pos,
+            )
+        self._consume()
+        distance = self.parse_unary()
+        if not isinstance(distance, (IntLit, FloatLit)):
+            raise FilterParseError(
+                f"{func_tok.text}: expected numeric distance literal",
+                self.source, getattr(distance, "pos", func_tok.pos),
+            )
+        if distance.value < 0:
+            raise FilterParseError(
+                f"{func_tok.text}: distance must be non-negative",
+                self.source, distance.pos,
+            )
+        if self._peek().kind != TokenKind.RPAREN:
+            raise FilterParseError(
+                f"{func_tok.text}: expected ')'",
+                self.source, self._peek().pos,
+            )
+        self._consume()
+        return GeometryDWithinOp(
+            field=field,
+            geometry=StringLit(value=geom_tok.value, pos=geom_tok.pos),
+            distance=distance,
+            pos=func_tok.pos,
+        )
+
     def _parse_bracket_access(self, ident_tok: Token) -> Expr:
         """``field["key"]``, ``field["a"]["b"]`` (JSON path) or ``field[N]`` (array index).
 
@@ -458,23 +566,14 @@ class Parser:
 
     def parse_primary(self) -> Expr:
         """prec 6: literal | ident | (expr)."""
+        lit = self._parse_literal()
+        if lit is not None:
+            return lit
+
         tok = self._peek()
 
-        if tok.kind == TokenKind.INT:
-            self._consume()
-            return IntLit(value=tok.value, pos=tok.pos)
-
-        if tok.kind == TokenKind.FLOAT:
-            self._consume()
-            return FloatLit(value=tok.value, pos=tok.pos)
-
-        if tok.kind == TokenKind.STRING:
-            self._consume()
-            return StringLit(value=tok.value, pos=tok.pos)
-
-        if tok.kind == TokenKind.BOOL:
-            self._consume()
-            return BoolLit(value=tok.value, pos=tok.pos)
+        if tok.kind == TokenKind.INTERVAL:
+            return self._parse_interval_literal(tok)
 
         if tok.kind == TokenKind.IDENT:
             self._consume()
@@ -483,6 +582,20 @@ class Parser:
                 fn_name = tok.text.lower()
                 if fn_name == "text_match":
                     return self._parse_text_match(tok)
+                geometry_aliases = {
+                    "geometry_contains": "geometry_contains",
+                    "geometry_within": "geometry_within",
+                    "geometry_intersects": "geometry_intersects",
+                    "st_contains": "geometry_contains",
+                    "st_within": "geometry_within",
+                    "st_intersects": "geometry_intersects",
+                }
+                if fn_name in geometry_aliases:
+                    return self._parse_geometry_predicate(tok, geometry_aliases[fn_name])
+                if fn_name in ("st_isvalid", "geometry_isvalid"):
+                    return self._parse_geometry_isvalid(tok)
+                if fn_name in ("st_dwithin", "geometry_dwithin"):
+                    return self._parse_geometry_dwithin(tok)
                 if fn_name in ("array_contains", "json_contains"):
                     return self._parse_array_contains(tok, "any_one")
                 if fn_name in ("array_contains_all", "json_contains_all"):
@@ -494,8 +607,10 @@ class Parser:
                 raise FilterParseError(
                     f"unknown function {tok.text!r}",
                     self.source, tok.pos, span=len(tok.text),
-                    hint="supported: text_match, array_contains, json_contains, "
-                         "array_contains_all, array_contains_any, array_length",
+                    hint="supported: text_match, geometry_contains, geometry_within, "
+                         "geometry_intersects, ST_CONTAINS, ST_WITHIN, ST_INTERSECTS, "
+                         "ST_ISVALID, ST_DWITHIN, array_contains, json_contains, array_contains_all, "
+                         "array_contains_any, array_length",
                 )
             # field[...] access: JSON path or array index
             if self._peek().kind == TokenKind.LBRACKET:
@@ -529,6 +644,43 @@ class Parser:
             self.source, tok.pos, span=max(1, len(tok.text)),
             hint="expected literal, identifier, or '('",
         )
+
+    def _parse_timestamp_literal(self, tok: Token) -> Expr:
+        """Parse ``ISO '...'`` as a TIMESTAMPTZ literal."""
+        iso_tok = self._consume()  # ISO
+        value_tok = self._peek()
+        if value_tok.kind != TokenKind.STRING:
+            raise FilterParseError(
+                "ISO timestamp literal requires a string",
+                self.source, value_tok.pos,
+                hint="example: ISO '2025-01-01T00:00:00Z'",
+            )
+        self._consume()
+        try:
+            value = parse_timestamptz(
+                value_tok.value,
+                default_timezone=self.default_timezone,
+            )
+        except Exception as e:
+            raise FilterParseError(str(e), self.source, value_tok.pos) from e
+        return TimestampLit(value=value, pos=iso_tok.pos)
+
+    def _parse_interval_literal(self, tok: Token) -> Expr:
+        """Parse ``INTERVAL 'P1D'`` as a duration literal."""
+        interval_tok = self._consume()  # INTERVAL
+        value_tok = self._peek()
+        if value_tok.kind != TokenKind.STRING:
+            raise FilterParseError(
+                "INTERVAL literal requires a string",
+                self.source, value_tok.pos,
+                hint="example: INTERVAL 'P1D'",
+            )
+        self._consume()
+        try:
+            value = parse_interval_micros(value_tok.value)
+        except Exception as e:
+            raise FilterParseError(str(e), self.source, value_tok.pos) from e
+        return IntervalLit(value=value, pos=interval_tok.pos)
 
     def parse_list_literal(self) -> ListLit:
         """Parse `[ literal (',' literal)* (',')? ]`. Caller has not
@@ -576,6 +728,18 @@ class Parser:
                 return IntLit(value=-inner.value, pos=sub_tok.pos)
             return FloatLit(value=-inner.value, pos=sub_tok.pos)
 
+        lit = self._parse_literal()
+        if lit is not None:
+            return lit
+
+        raise FilterParseError(
+            f"list elements must be literals, got {tok.text!r}",
+            self.source, tok.pos, span=max(1, len(tok.text)),
+        )
+
+    def _parse_literal(self) -> Optional[Literal]:
+        """Parse scalar literals shared by primary expressions and lists."""
+        tok = self._peek()
         if tok.kind == TokenKind.INT:
             self._consume()
             return IntLit(value=tok.value, pos=tok.pos)
@@ -588,11 +752,9 @@ class Parser:
         if tok.kind == TokenKind.BOOL:
             self._consume()
             return BoolLit(value=tok.value, pos=tok.pos)
-
-        raise FilterParseError(
-            f"list elements must be literals, got {tok.text!r}",
-            self.source, tok.pos, span=max(1, len(tok.text)),
-        )
+        if tok.kind == TokenKind.ISO:
+            return self._parse_timestamp_literal(tok)
+        return None
 
     # ── token utilities ─────────────────────────────────────────
 
@@ -619,11 +781,11 @@ def left_pos_of(node: Expr) -> int:
     return getattr(node, "pos", 0)
 
 
-def parse_expr(source: str) -> Expr:
+def parse_expr(source: str, default_timezone: str | None = None) -> Expr:
     """Public entry point: lex + parse a single expression.
 
     Raises:
         FilterParseError: on lex or parse errors. Always carries source + pos.
     """
     tokens = tokenize(source)
-    return Parser(tokens, source).parse()
+    return Parser(tokens, source, default_timezone=default_timezone).parse()

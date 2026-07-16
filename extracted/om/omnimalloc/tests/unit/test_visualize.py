@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 from omnimalloc.primitives import Allocation, BufferKind, Memory, Pool, System
-from omnimalloc.visualize import HAS_MATPLOTLIB, _canonicalize, plot_allocation
+from omnimalloc.visualize import (
+    HAS_MATPLOTLIB,
+    _byte_unit,
+    _canonicalize,
+    _format_bytes,
+    plot_allocation,
+)
 
 pytestmark = pytest.mark.skipif(not HAS_MATPLOTLIB, reason="matplotlib not installed")
 
@@ -266,6 +272,109 @@ def test_visualize_with_memory_limits(artifacts_dir: Path) -> None:
 
     output_path = artifacts_dir / "test_memory_limits.pdf"
     result = plot_allocation(system, file_path=output_path, memory_limits=custom_limits)
+    assert result == output_path
+    assert output_path.exists()
+    assert output_path.stat().st_size > 0
+
+
+def test_visualize_saves_png_when_path_has_png_extension(artifacts_dir: Path) -> None:
+    alloc = Allocation(id=1, size=100, start=0, end=10, offset=0)
+    pool = Pool(id=1, allocations=(alloc,), offset=0)
+
+    output_path = artifacts_dir / "test_extension.png"
+    result = plot_allocation(pool, file_path=output_path)
+    assert result == output_path
+    with output_path.open("rb") as f:
+        assert f.read(8) == b"\x89PNG\r\n\x1a\n"
+
+
+def test_visualize_still_saves_pdf_by_default(artifacts_dir: Path) -> None:
+    alloc = Allocation(id=1, size=100, start=0, end=10, offset=0)
+    pool = Pool(id=1, allocations=(alloc,), offset=0)
+
+    output_path = artifacts_dir / "test_extension.pdf"
+    result = plot_allocation(pool, file_path=output_path)
+    assert result == output_path
+    with output_path.open("rb") as f:
+        assert f.read(5) == b"%PDF-"
+
+
+def test_byte_unit_picks_largest_unit_that_keeps_value_above_one() -> None:
+    assert _byte_unit(500) == (1, "B")
+    assert _byte_unit(1024) == (1024, "KB")
+    assert _byte_unit(1024**2) == (1024**2, "MB")
+    assert _byte_unit(1024**3) == (1024**3, "GB")
+
+
+def test_format_bytes_does_not_collapse_small_values_to_zero() -> None:
+    assert _format_bytes(3000) == "2.9KB"
+    assert _format_bytes(200) == "200.0B"
+
+
+def test_visualize_memory_with_empty_pool(artifacts_dir: Path) -> None:
+    alloc = Allocation(id=1, size=100, start=0, end=10, offset=0)
+    memory = Memory(
+        id="mem",
+        pools=(
+            Pool(id="empty", allocations=()),
+            Pool(id="full", allocations=(alloc,), offset=0),
+        ),
+    )
+    output_path = artifacts_dir / "test_empty_pool.pdf"
+    assert plot_allocation(memory, file_path=output_path) == output_path
+    assert output_path.exists()
+
+
+def test_visualize_entity_with_zero_used_memory(artifacts_dir: Path) -> None:
+    pool = Pool(id="empty", allocations=())
+    output_path = artifacts_dir / "test_zero_used.pdf"
+    assert plot_allocation(pool, file_path=output_path) == output_path
+    assert output_path.exists()
+
+
+def test_visualize_mixed_dimension_pools(artifacts_dir: Path) -> None:
+    scalar_pool = Pool(
+        id=1,
+        allocations=(Allocation(id=1, size=100, start=0, end=4, offset=0),),
+        offset=0,
+    )
+    vector_pool = Pool(
+        id=2,
+        allocations=(Allocation(id=2, size=50, start=(0, 1), end=(2, 3), offset=0),),
+        offset=200,
+    )
+    memory = Memory(id="mem", pools=(scalar_pool, vector_pool), size=1000)
+
+    output_path = artifacts_dir / "test_mixed_dim_pools.pdf"
+    result = plot_allocation(memory, file_path=output_path)
+    assert result == output_path
+    assert output_path.exists()
+    assert output_path.stat().st_size > 0
+
+
+def test_visualize_empty_pool(artifacts_dir: Path) -> None:
+    empty = Pool(id=1, allocations=(), offset=0)
+    filled = Pool(
+        id=2,
+        allocations=(Allocation(id=1, size=100, start=0, end=4, offset=0),),
+        offset=100,
+    )
+    memory = Memory(id="mem", pools=(empty, filled), size=500)
+
+    output_path = artifacts_dir / "test_empty_pool.pdf"
+    result = plot_allocation(memory, file_path=output_path)
+    assert result == output_path
+    assert output_path.exists()
+
+
+def test_visualize_vector_time_lanes(artifacts_dir: Path) -> None:
+    alloc1 = Allocation(id=1, size=100, start=(0, 1), end=(2, 3), offset=0)
+    alloc2 = Allocation(id=2, size=100, start=(2, 3), end=(4, 5), offset=0)
+    alloc3 = Allocation(id=3, size=50, start=(1, 0), end=(3, 4), offset=100)
+    pool = Pool(id=1, allocations=(alloc1, alloc2, alloc3), offset=0)
+
+    output_path = artifacts_dir / "test_vector_lanes.pdf"
+    result = plot_allocation(pool, file_path=output_path, canonicalize=True)
     assert result == output_path
     assert output_path.exists()
     assert output_path.stat().st_size > 0

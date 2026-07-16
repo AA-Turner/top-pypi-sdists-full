@@ -12,8 +12,9 @@ Key invariants:
   in-process repository); an empty checks payload never wipes a non-empty
   mirror;
 - degraded mode (child dead/respawning): reads serve the stale mirror,
-  fix_issue returns False, nothing raises — EXCEPT the deploy gate, which is
-  fail-closed (one respawn attempt, then SidecarUnavailableError);
+  fix_issue returns False, nothing raises; the deploy gate is the one caller
+  that still needs a real answer, so on a slow/unavailable child it recomputes
+  the blocking checks in-process rather than blocking the deploy;
 - irrecoverability: too many consecutive premature child deaths stop the
   respawn loop. Web editor: exiter (os._exit(1)) so the kubelet restarts the
   pod — k8s CrashLoopBackOff is the anti-loop damper, ABSTRA_LINTER_SIDECAR=0
@@ -41,6 +42,7 @@ from abstra_internals.repositories.linter.models import (
 from abstra_internals.repositories.linter.repository import (
     BLOCKING_TYPES,
     LinterRepository,
+    LocalLinterRepository,
 )
 from abstra_internals.repositories.linter.sidecar.protocol import (
     PROTOCOL_VERSION,
@@ -52,6 +54,10 @@ from abstra_internals.repositories.linter.sidecar.protocol import (
 from abstra_internals.settings import Settings
 
 DEFAULT_REQUEST_TIMEOUT = 600.0
+# The deploy gate waits at most this long on the sidecar before computing the
+# blocking checks in-process instead — a slow child must never make the user
+# sit through (nor be blocked by) the full request timeout on a publish.
+DEFAULT_DEPLOY_GATE_TIMEOUT = 120.0
 DEFAULT_BACKOFF_SCHEDULE: Sequence[float] = (0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0)
 DEFAULT_PREMATURE_DEATH_WINDOW = 30.0
 DEFAULT_PREMATURE_DEATH_THRESHOLD = 5
@@ -127,6 +133,7 @@ def _check_from_dict(data: dict) -> LinterCheck:
         type=data.get("type", "warning"),
         issues=[_MirrorIssue(i) for i in data.get("issues", [])],
         fix_with_ai=bool(data.get("fixWithAi", False)),
+        status=data.get("status", "ok"),
     )
 
 
@@ -157,6 +164,8 @@ class SidecarLinterRepository(LinterRepository):
         *,
         popen_factory: Optional[Callable[[], Any]] = None,
         request_timeout: float = DEFAULT_REQUEST_TIMEOUT,
+        deploy_gate_timeout: float = DEFAULT_DEPLOY_GATE_TIMEOUT,
+        deploy_fallback_factory: Optional[Callable[[], LinterRepository]] = None,
         backoff_schedule: Sequence[float] = DEFAULT_BACKOFF_SCHEDULE,
         premature_death_window: float = DEFAULT_PREMATURE_DEATH_WINDOW,
         premature_death_threshold: int = DEFAULT_PREMATURE_DEATH_THRESHOLD,
@@ -167,6 +176,8 @@ class SidecarLinterRepository(LinterRepository):
     ):
         self._popen_factory = popen_factory or spawn_sidecar_process
         self._request_timeout = request_timeout
+        self._deploy_gate_timeout = deploy_gate_timeout
+        self._deploy_fallback_factory = deploy_fallback_factory or LocalLinterRepository
         self._backoff_schedule = list(backoff_schedule)
         self._premature_death_window = premature_death_window
         self._premature_death_threshold = premature_death_threshold
@@ -251,26 +262,57 @@ class SidecarLinterRepository(LinterRepository):
         self._maybe_execute_process_action(result)
 
     def get_blocking_checks(self) -> List[LinterCheck]:
+        # A failed blocking check blocks too (fail-closed, same policy as a
+        # dead sidecar): the rule crashed, so "no issues" was never verified.
         return [
             check
             for check in self.checks
-            if check.type in BLOCKING_TYPES and check.issues
+            if check.type in BLOCKING_TYPES
+            and (check.issues or check.status == "failed")
         ]
 
     def get_blocking_checks_for_deploy(self) -> List[LinterCheck]:
-        # Fail-closed: a dead linter must BLOCK deploys, never silently allow
-        # them with a stale gate. One respawn attempt, then a loud error.
-        last_error: Optional[Exception] = None
-        for _attempt in range(2):
-            try:
-                result = self._request("blocking_checks_for_deploy")
-                return [_check_from_dict(d) for d in (result.get("blocking") or [])]
-            except SidecarUnavailableError as e:
-                last_error = e
-        raise SidecarUnavailableError(
-            "Linter is unavailable; cannot verify blocking issues before "
-            "deploy. Please try again."
-        ) from last_error
+        # The deploy gate MUST verify blocking issues, but a slow or unavailable
+        # linter must never HARD-BLOCK a publish. Ask the sidecar with a bounded
+        # timeout; if the child can't answer in time (or is down), recompute the
+        # gate in-process — same rule stack, parallel fan-out, no request
+        # timeout — so the deploy is still verified instead of failed.
+        try:
+            result = self._request(
+                "blocking_checks_for_deploy", timeout=self._deploy_gate_timeout
+            )
+            return [_check_from_dict(d) for d in (result.get("blocking") or [])]
+        except SidecarUnavailableError as e:
+            AbstraLogger.warning(
+                "[LinterSidecar] deploy gate unavailable via sidecar; running "
+                f"in-process fallback: {e}"
+            )
+            return self._blocking_checks_for_deploy_in_process()
+
+    def _blocking_checks_for_deploy_in_process(self) -> List[LinterCheck]:
+        """Compute the deploy gate directly in the editor process when the
+        sidecar can't answer. Mirrors the pre-sidecar path: a fresh in-process
+        repository (parallel fan-out), no request timeout, no fail-closed block.
+        The freshly computed blocking-rule checks are merged into the mirror so
+        the post-deploy broadcast reflects them (unrelated non-blocking checks in
+        the mirror are kept)."""
+        fallback = self._deploy_fallback_factory()
+        blocking = fallback.get_blocking_checks_for_deploy()
+        fresh = {check.name for check in fallback.checks}
+        with self._mirror_lock:
+            merged = [c for c in self.checks if c.name not in fresh]
+            merged.extend(fallback.checks)
+            self.checks = merged
+        return blocking
+
+    def _notify_checks_updated(self) -> None:
+        callback = self._on_checks_updated
+        if callback is None:
+            return
+        try:
+            callback(self.checks)
+        except Exception as e:
+            AbstraLogger.warning(f"[LinterSidecar] checks-updated notify failed: {e}")
 
     # ── public wiring ───────────────────────────────────────────
 
@@ -440,11 +482,13 @@ class SidecarLinterRepository(LinterRepository):
                 "deaths. %s"
                 % (
                     self._consecutive_failures,
-                    "Exiting so the pod restarts (set ABSTRA_LINTER_SIDECAR=0 "
-                    "to fall back to in-process linting)."
-                    if is_web
-                    else "Linting disabled for this session; restart the "
-                    "editor to retry.",
+                    (
+                        "Exiting so the pod restarts (set ABSTRA_LINTER_SIDECAR=0 "
+                        "to fall back to in-process linting)."
+                        if is_web
+                        else "Linting disabled for this session; restart the "
+                        "editor to retry."
+                    ),
                 )
             )
             if is_web and not self._exited:
@@ -482,15 +526,39 @@ class SidecarLinterRepository(LinterRepository):
 
     # ── request plumbing ────────────────────────────────────────
 
-    def _request(self, method: str, params: Optional[dict] = None) -> dict:
+    def _request(
+        self,
+        method: str,
+        params: Optional[dict] = None,
+        timeout: Optional[float] = None,
+    ) -> dict:
+        # Degraded bookkeeping wraps every RPC (including _ensure_child spawn
+        # failures): callers that swallow SidecarUnavailableError and serve the
+        # stale mirror leave a visible trace, and the WS broadcast payload
+        # reports it to the editor UI as status=degraded.
+        try:
+            result = self._do_request(method, params, timeout)
+        except SidecarUnavailableError:
+            self.degraded = True
+            raise
+        self.degraded = False
+        return result
+
+    def _do_request(
+        self,
+        method: str,
+        params: Optional[dict] = None,
+        timeout: Optional[float] = None,
+    ) -> dict:
         child = self._ensure_child()
+        wait_timeout = timeout if timeout is not None else self._request_timeout
         try:
             future = child.channel.request_async(
                 method,
                 params,
                 on_result=lambda result: self._apply_checks_payload(result),
             )
-            result = future.wait(self._request_timeout)
+            result = future.wait(wait_timeout)
         except TimeoutError as e:
             AbstraLogger.error(
                 f"[LinterSidecar] {method} timed out; killing child: {e}"

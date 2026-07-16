@@ -4,9 +4,11 @@
 #include <simpledbus/base/Exceptions.h>
 #include <simpledbus/base/Logging.h>
 #include <simpledbus/base/Path.h>
+#include <fmt/core.h>
 #include <algorithm>
 #include <iostream>
 
+#include <simpledbus/interfaces/Introspectable.h>
 #include <simpledbus/interfaces/Properties.h>
 
 using namespace SimpleDBus;
@@ -22,6 +24,8 @@ Proxy::~Proxy() {
 
 void Proxy::on_registration() {}
 
+void Proxy::on_child_signal_received(std::shared_ptr<Proxy> /*child*/) { notify_parent_signal_received(); }
+
 std::shared_ptr<Proxy> Proxy::path_create(const std::string& path) {
     return std::make_shared<Proxy>(_conn, _bus_name, path);
 }
@@ -31,6 +35,16 @@ bool Proxy::valid() const { return _valid; }
 void Proxy::invalidate() {
     _valid = false;
     unregister_object_path();
+
+    std::scoped_lock lock(_child_access_mutex);
+    for (auto& child_data : _children) {
+        child_data.second->invalidate();
+    }
+}
+
+void Proxy::revalidate() {
+    _valid = true;
+    register_object_path();
 }
 
 std::string Proxy::path() const { return _path; }
@@ -56,12 +70,20 @@ void Proxy::unregister_object_path() {
     }
 }
 
-// ----- INTROSPECTION -----
+void Proxy::notify_parent_signal_received() {
+    auto parent = _parent.lock();
+    auto self = weak_from_this().lock();
+    if (parent && self) {
+        parent->on_child_signal_received(self);
+    }
+}
 
-std::string Proxy::introspect() {
-    auto query_msg = Message::create_method_call(_bus_name, _path, "org.freedesktop.DBus.Introspectable", "Introspect");
-    auto reply_msg = _conn->send_with_reply_and_block(query_msg);
-    return reply_msg.extract().get<std::string>();
+void Proxy::register_introspectable_interface() {
+    std::scoped_lock lock(_interface_access_mutex);
+    if (!interface_exists("org.freedesktop.DBus.Introspectable")) {
+        _interfaces.emplace("org.freedesktop.DBus.Introspectable",
+                            std::make_shared<SimpleDBus::Interfaces::Introspectable>(_conn, shared_from_this()));
+    }
 }
 
 // ----- INTERFACE HANDLING -----
@@ -101,7 +123,7 @@ void Proxy::interfaces_load(Holder managed_interfaces) {
                 _interfaces.emplace(std::make_pair(iface_name, InterfaceRegistry::getInstance().create(
                                                                    iface_name, _conn, shared_from_this(), options)));
             } else {
-                LOG_WARN("Interface {} not registered within SimpleDBus", iface_name);
+                LOG_WARN(fmt::format("Interface {} not registered within SimpleDBus", iface_name));
             }
         } else {
             _interfaces[iface_name]->load(options);
@@ -160,9 +182,13 @@ void Proxy::path_add(const std::string& path, SimpleDBus::Holder managed_interfa
         return;
     }
 
+    revalidate();
+
     // If the path is already in the map, perform a reload of all interfaces.
     if (path_exists(path)) {
-        path_get(path)->interfaces_load(managed_interfaces);
+        auto child = path_get(path);
+        child->revalidate();
+        child->interfaces_load(managed_interfaces);
         return;
     }
 
@@ -172,6 +198,7 @@ void Proxy::path_add(const std::string& path, SimpleDBus::Holder managed_interfa
     if (PathUtils::is_child(_path, path)) {
         // If the path is a direct child of the proxy path, create a new proxy for it.
         std::shared_ptr<Proxy> child = path_create(path);
+        child->_parent = weak_from_this();
         child->interfaces_load(managed_interfaces);
         _children.emplace(std::make_pair(path, child));
         on_child_created(path);
@@ -191,6 +218,7 @@ void Proxy::path_add(const std::string& path, SimpleDBus::Holder managed_interfa
             // This path will be taken if an empty proxy object needs to be created for an intermediate path.
             std::string child_path = PathUtils::next_child(_path, path);
             std::shared_ptr<Proxy> child = path_create(child_path);
+            child->_parent = weak_from_this();
             _children.emplace(std::make_pair(child_path, child));
             child->path_add(path, managed_interfaces);
             on_child_created(child_path);
@@ -292,7 +320,10 @@ void Proxy::path_append_child(const std::string& path, std::shared_ptr<Proxy> ch
 
     // As children will be extensively accessed, we need to lock the child access mutex.
     std::scoped_lock lock(_child_access_mutex);
-    _children.emplace(std::make_pair(path, child));
+    auto emplace_result = _children.emplace(std::make_pair(path, child));
+    if (emplace_result.second) {
+        child->_parent = weak_from_this();
+    }
 }
 
 void Proxy::path_remove_child(const std::string& path) {
@@ -305,6 +336,9 @@ void Proxy::path_remove_child(const std::string& path) {
     }
 
     std::scoped_lock lock(_child_access_mutex);
+    if (path_exists(path)) {
+        _children.at(path)->_parent.reset();
+    }
     _children.erase(path);
 }
 
@@ -318,14 +352,21 @@ void Proxy::message_handle(Message& msg) {
         interface_get(msg.get_interface())->message_handle(msg);
         handled = true;
     } else {
-        LOG_WARN("Unhandled message for interface {}: {}", msg.get_interface(), msg.to_string());
+        LOG_WARN(fmt::format("Unhandled message for interface {}: {}", msg.get_interface(), msg.to_string()));
+        if (msg.get_type() == Message::Type::METHOD_CALL) {
+            Message reply = Message::create_error(msg, "org.freedesktop.DBus.Error.UnknownInterface",
+                                                  "Unknown interface: " + msg.get_interface());
+            _conn->send(reply);
+            handled = true;
+        }
     }
 
     if (msg.get_type() == Message::Type::SIGNAL) {
         on_signal_received();
+        notify_parent_signal_received();
     }
 
     if (!handled) {
-        LOG_ERROR("Unhandled message: {}", msg.to_string());
+        LOG_ERROR(fmt::format("Unhandled message: {}", msg.to_string()));
     }
 }

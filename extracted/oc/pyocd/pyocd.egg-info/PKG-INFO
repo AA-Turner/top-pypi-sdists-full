@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyocd
-Version: 0.44.1
+Version: 0.45.0
 Summary: Cortex-M debugger for Python
 Home-page: https://github.com/pyocd/pyOCD
 Maintainer: Chris Reed
@@ -26,18 +26,18 @@ Classifier: Operating System :: POSIX :: BSD
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Debuggers
 Classifier: Topic :: Software Development :: Embedded Systems
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8.0
+Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: capstone<6.0,>=5.0
@@ -129,7 +129,7 @@ Configuration and customization is supported through [config files](https://pyoc
 Requirements
 ------------
 
-- Python 3.8.0 or later.†
+- Python 3.9.0 or later.†
 - macOS, Linux, Windows 7 or newer, or FreeBSD
 - A recent version of [libusb](https://libusb.info/). See [libusb installation](#libusb-installation) for details.
 - Microcontroller with an Arm Cortex-M CPU

@@ -286,7 +286,7 @@ class fpvalue_t:
         """
         ...
     def to_sval(self, round: bool = False) -> fpvalue_error_t:
-        r"""Convert IEEE to integer (+-0.5 if round)
+        r"""Convert IEEE to integer (+-0.5 if round).
         
         """
         ...

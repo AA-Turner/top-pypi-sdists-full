@@ -58,10 +58,12 @@ dev = [
 test = [
   "covdefaults>=2.3",
   "diff-cover>=10.2",
+  "exceptiongroup>=1.2; python_version<'3.11'",
   "pytest>=9.0.3",
   "pytest-asyncio>=1.3",
   "pytest-cov>=7.1",
   "pytest-mock>=3.15.1",
+  "pytest-randomly>=3.16",
   "pytest-timeout>=2.4",
   "virtualenv>=21.2",
 ]
@@ -79,7 +81,9 @@ docs = [
   "sphinx-design>=0.7",
   "sphinx-sitemap>=2.9",
   "sphinxcontrib-mermaid>=2.0.1",
+  "sphinxcontrib-towncrier>=0.5.0a0",
   "sphinxext-opengraph>=0.13",
+  "towncrier>=24.8",
 ]
 coverage = [
   "covdefaults>=2.3",
@@ -95,9 +99,7 @@ pkg-meta = [
   "uv>=0.11.5",
 ]
 release = [
-  "gitpython>=3.1.46",
-  "pygithub>=2.9",
-  "pyyaml>=6.0.3",
+  "towncrier>=24.8",
 ]
 
 [tool.hatch]
@@ -178,6 +180,10 @@ ini_options.testpaths = [
 ]
 ini_options.filterwarnings = [
   "error",
+  # multiprocessing's leaked Finalize objects clean up descriptors from their own finalizer; that is a CPython
+  # behavior, not a filelock bug, and pytest-randomly can collect one during any test. A filelock finalizer issue
+  # would not carry "Finalize" in the message and still errors.
+  "ignore:Exception ignored in.*Finalize:pytest.PytestUnraisableExceptionWarning",
   "ignore:unclosed database in <sqlite3.Connection object at:ResourceWarning",
   "ignore:unclosed file <_io.TextIOWrapper:ResourceWarning",
 ]
@@ -191,6 +197,10 @@ run.concurrency = [
   "thread",
 ]
 run.parallel = true
+run.patch = [
+  "_exit",
+  "subprocess",
+]
 run.plugins = [
   "covdefaults",
 ]
@@ -202,11 +212,26 @@ paths.other = [
 ]
 paths.source = [
   "src",
-  ".tox/*/lib/*/site-packages",
-  ".tox\\*\\Lib\\site-packages",
+  "*/.tox/*/lib/*/site-packages",
+  "*/.tox/*/Lib/site-packages",
   "**/src",
   "**\\src",
 ]
 report.fail_under = 76
 html.show_contexts = true
 html.skip_covered = false
+
+[tool.towncrier]
+name = "filelock"
+directory = "docs/changelog"
+filename = "docs/changelog.rst"
+template = "docs/changelog/template.jinja2"
+title_format = false
+issue_format = ":pr:`{issue}`"
+type = [
+  { directory = "breaking", name = "Backward incompatible changes", showcontent = true },
+  { directory = "feature", name = "Features", showcontent = true },
+  { directory = "bugfix", name = "Bug fixes", showcontent = true },
+  { directory = "doc", name = "Improved documentation", showcontent = true },
+  { directory = "packaging", name = "Packaging updates", showcontent = true },
+]

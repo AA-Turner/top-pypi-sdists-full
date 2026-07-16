@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use rkyv::Archive;
 use serde::ser::{SerializeMap, SerializeSeq};
 
+use crate::hashing;
+
 // A bridging layer between Serde and Rkyv.
 // Based on Rkyv Examples: https://github.com/rkyv/rkyv/blob/main/rkyv/examples/json_like_schema.rs
 #[derive(
@@ -59,6 +61,136 @@ impl RkyvValue {
                 .collect::<Result<_, _>>()
                 .map(Self::Object),
         }
+    }
+
+    fn push_stable_hash(&self, values: &mut hashing::U64HashBuilder) {
+        match self {
+            Self::Null => values.push(0),
+            Self::Bool(value) => {
+                values.push(1);
+                values.push(u64::from(*value));
+            }
+            Self::Number(value) => {
+                values.push(2);
+                match value {
+                    RkyvNumber::PosInt(value) => {
+                        values.push(0);
+                        values.push(*value);
+                    }
+                    RkyvNumber::NegInt(value) => {
+                        values.push(1);
+                        values.push(*value as u64);
+                    }
+                    RkyvNumber::Float(value) => {
+                        values.push(2);
+                        values.push(value.to_bits());
+                    }
+                }
+            }
+            Self::String(value) => {
+                values.push(3);
+                values.push(hashing::hash_one(value.as_bytes()));
+            }
+            Self::Array(array) => {
+                values.push(4);
+                values.push(array.len() as u64);
+                for value in array {
+                    value.push_stable_hash(values);
+                }
+            }
+            Self::Object(object) => {
+                values.push(5);
+                push_stable_object_hash(
+                    values,
+                    object.iter().map(|(key, value)| (key.as_str(), value)),
+                );
+            }
+        }
+    }
+}
+
+impl ArchivedRkyvValue {
+    fn push_stable_hash(&self, values: &mut hashing::U64HashBuilder) {
+        match self {
+            Self::Null => values.push(0),
+            Self::Bool(value) => {
+                values.push(1);
+                values.push(u64::from(*value));
+            }
+            Self::Number(value) => {
+                values.push(2);
+                match value {
+                    ArchivedRkyvNumber::PosInt(value) => {
+                        values.push(0);
+                        values.push(value.to_native());
+                    }
+                    ArchivedRkyvNumber::NegInt(value) => {
+                        values.push(1);
+                        values.push(value.to_native() as u64);
+                    }
+                    ArchivedRkyvNumber::Float(value) => {
+                        values.push(2);
+                        values.push(value.to_native().to_bits());
+                    }
+                }
+            }
+            Self::String(value) => {
+                values.push(3);
+                values.push(hashing::hash_one(value.as_bytes()));
+            }
+            Self::Array(array) => {
+                values.push(4);
+                values.push(array.len() as u64);
+                for value in array.iter() {
+                    value.push_stable_hash(values);
+                }
+            }
+            Self::Object(object) => {
+                values.push(5);
+                push_stable_object_hash(
+                    values,
+                    object.iter().map(|(key, value)| (key.as_str(), value)),
+                );
+            }
+        }
+    }
+}
+
+pub(crate) trait StableHashValue {
+    fn push_hash(&self, values: &mut hashing::U64HashBuilder);
+}
+
+impl StableHashValue for RkyvValue {
+    fn push_hash(&self, values: &mut hashing::U64HashBuilder) {
+        self.push_stable_hash(values);
+    }
+}
+
+impl StableHashValue for ArchivedRkyvValue {
+    fn push_hash(&self, values: &mut hashing::U64HashBuilder) {
+        self.push_stable_hash(values);
+    }
+}
+
+pub(crate) fn stable_object_hash<'a, T: StableHashValue + 'a>(
+    entries: impl Iterator<Item = (&'a str, &'a T)>,
+) -> u64 {
+    let mut values = hashing::U64HashBuilder::new();
+    values.push(2);
+    push_stable_object_hash(&mut values, entries);
+    values.finish()
+}
+
+pub(crate) fn push_stable_object_hash<'a, T: StableHashValue + 'a>(
+    values: &mut hashing::U64HashBuilder,
+    entries: impl Iterator<Item = (&'a str, &'a T)>,
+) {
+    let mut entries = entries.collect::<Vec<_>>();
+    entries.sort_unstable_by_key(|(key, _)| *key);
+    values.push(entries.len() as u64);
+    for (key, value) in entries {
+        values.push(hashing::hash_one(key.as_bytes()));
+        value.push_hash(values);
     }
 }
 

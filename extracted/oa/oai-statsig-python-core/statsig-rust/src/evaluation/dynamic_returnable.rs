@@ -1,14 +1,15 @@
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, num::NonZeroU64, sync::Arc};
 
 use rkyv::{collections::swiss_table::ArchivedHashMap, string::ArchivedString};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{
     value::{to_raw_value, RawValue},
     Value as JsonValue,
 };
 
 use crate::{
-    evaluation::rkyv_value::{ArchivedRkyvValue, RkyvValue},
+    evaluation::rkyv_value::{stable_object_hash, ArchivedRkyvValue, RkyvValue},
+    hashing,
     interned_values::InternedStore,
     log_e,
 };
@@ -19,24 +20,28 @@ lazy_static::lazy_static! {
     static ref EMPTY_DYNAMIC_RETURNABLE: DynamicReturnable = DynamicReturnable {
         hash: 0,
         value: DynamicReturnableValue::Null,
+        stable_hash: NonZeroU64::new(hashing::hash_u64_slice(&[0])),
     };
 
     static ref TRUE_DYNAMIC_RETURNABLE: DynamicReturnable = DynamicReturnable {
         hash: 0,
         value: DynamicReturnableValue::Bool(true),
+        stable_hash: NonZeroU64::new(hashing::hash_u64_slice(&[1, 1])),
     };
 
     static ref FALSE_DYNAMIC_RETURNABLE: DynamicReturnable = DynamicReturnable {
         hash: 0,
         value: DynamicReturnableValue::Bool(false),
+        stable_hash: NonZeroU64::new(hashing::hash_u64_slice(&[1, 0])),
     };
 
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub struct DynamicReturnable {
     pub hash: u64,
     pub value: DynamicReturnableValue,
+    stable_hash: Option<NonZeroU64>,
 }
 
 impl DynamicReturnable {
@@ -106,6 +111,57 @@ impl DynamicReturnable {
     pub fn get_hash(&self) -> u64 {
         self.hash
     }
+
+    pub(crate) fn get_stable_hash(&self) -> u64 {
+        self.stable_hash
+            .map_or_else(|| stable_hash(&self.value), NonZeroU64::get)
+    }
+
+    pub(crate) fn from_interned_value(hash: u64, value: DynamicReturnableValue) -> Self {
+        Self {
+            hash,
+            stable_hash: NonZeroU64::new(stable_hash(&value)),
+            value,
+        }
+    }
+
+    pub(crate) fn from_archived_value(
+        hash: u64,
+        value: &'static ArchivedHashMap<ArchivedString, ArchivedRkyvValue>,
+    ) -> Self {
+        Self {
+            hash,
+            value: DynamicReturnableValue::JsonArchived(value),
+            stable_hash: None,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn has_precomputed_stable_hash(&self) -> bool {
+        self.stable_hash.is_some()
+    }
+}
+
+impl PartialEq for DynamicReturnable {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash && self.value == other.value
+    }
+}
+
+fn stable_hash(value: &DynamicReturnableValue) -> u64 {
+    match value {
+        DynamicReturnableValue::Null => hashing::hash_u64_slice(&[0]),
+        DynamicReturnableValue::Bool(value) => hashing::hash_u64_slice(&[1, u64::from(*value)]),
+        DynamicReturnableValue::JsonPointer(value) => {
+            stable_object_hash(value.iter().map(|(key, value)| (key.as_str(), value)))
+        }
+        DynamicReturnableValue::JsonStatic(value) => {
+            stable_object_hash(value.iter().map(|(key, value)| (key.as_str(), value)))
+        }
+        DynamicReturnableValue::JsonArchived(value) => {
+            stable_object_hash(value.iter().map(|(key, value)| (key.as_str(), value)))
+        }
+    }
 }
 
 impl<'de> Deserialize<'de> for DynamicReturnable {
@@ -127,19 +183,15 @@ impl Serialize for DynamicReturnable {
             DynamicReturnableValue::JsonPointer(raw) => raw.serialize(serializer),
             DynamicReturnableValue::JsonStatic(raw) => raw.serialize(serializer),
             DynamicReturnableValue::JsonArchived(raw) => {
-                let owned = archived_hashmap_to_owned(raw).map_err(serde::ser::Error::custom)?;
-                owned.serialize(serializer)
+                let mut map = serializer.serialize_map(Some(raw.len()))?;
+                for (key, value) in raw.iter() {
+                    map.serialize_entry(key.as_str(), value)?;
+                }
+                map.end()
             }
             DynamicReturnableValue::Null => serializer.serialize_none(),
             DynamicReturnableValue::Bool(value) => serializer.serialize_bool(*value),
         }
-    }
-}
-
-impl Drop for DynamicReturnable {
-    fn drop(&mut self) {
-        self.value = DynamicReturnableValue::Null;
-        InternedStore::release_returnable(self.hash);
     }
 }
 

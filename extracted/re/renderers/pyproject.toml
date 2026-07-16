@@ -1,12 +1,18 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "renderers"
-version = "0.1.7"
+# Derived from git tags by hatch-vcs (see [tool.hatch.version] below).
+# Untagged commits get PEP 440 dev versions like ``0.1.8.dev3+g4c877be4``
+# so any commit is uniquely installable; tagged commits get clean
+# release versions like ``0.1.8``.
+dynamic = ["version"]
 description = "Chat template renderers — deterministic message-to-token conversion for LLM training"
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "numpy",
@@ -17,8 +23,55 @@ dependencies = [
     # Used by GptOssRenderer to render and parse harmony tokens. Vendoring
     # OpenAI's reference implementation keeps us byte-identical with vLLM
     # (which also uses it) and saves us mirroring a 330-line Jinja template.
-    "openai-harmony>=0.0.8",
+    #
+    # Floor is ``>=0.0.4`` (not the latest 0.0.8) on purpose: every SGLang
+    # release through 0.5.12.post1 hard-pins ``openai-harmony==0.0.4``, so a
+    # higher floor makes ``renderers`` uninstallable alongside SGLang. The
+    # GptOssRenderer renders byte-identically on 0.0.4 (verified token-for-token
+    # against 0.0.8) and ``tests/test_gpt_oss_harmony_parity.py`` passes on it,
+    # so the older harmony is safe.
+    "openai-harmony>=0.0.4",
+    # ``BaseRendererConfig`` inherits from ``pydantic_config.BaseConfig`` so
+    # the typed-config surface stays uniform with prime-rl / verifiers config
+    # bases. Transitively brings pydantic, which ``renderers.configs`` also
+    # imports directly.
+    "prime-pydantic-config>=0.3.0.dev83",
 ]
+
+[tool.hatch.version]
+source = "vcs"
+# Tags look like ``renderers-v0.1.8`` (prefix matches the publish.yml
+# release contract); strip the prefix to get a PEP 440 version. The
+# regex accepts any PEP 440-valid suffix after the prefix so we can
+# tag pre-releases like ``renderers-v0.2.0rc1`` later if needed.
+tag-pattern = '^renderers-v(?P<version>.+)$'
+# Used when building from a context without VCS metadata (e.g. an
+# sdist consumed by a downstream that doesn't ship .git). Real
+# builds from a checkout get the resolved version; this fallback
+# only fires when the resolver has nothing to go on.
+fallback-version = "0.0.0"
+
+[tool.hatch.version.raw-options]
+# Only stable ``renderers-v<MAJOR>.<MINOR>.<PATCH>`` tags participate in
+# version resolution; legacy per-commit ``.devN`` tags are excluded.
+# Untagged commits get a clean PEP 440 dev version derived from distance
+# to the latest stable tag (e.g. ``0.1.8.dev46``), with no ``+gHASH``
+# local segment so PyPI accepts the wheel directly. setuptools-scm
+# refuses to bump a pre-existing ``.devN`` tag, so matching only stable
+# tags also unblocks local ``uv lock`` / ``uv build`` on untagged
+# branches. Mirrors verifiers' setup.
+local_scheme = "no-local-version"
+git_describe_command = [
+    "git", "describe", "--tags", "--long",
+    "--match", "renderers-v[0-9]*.[0-9]*.[0-9]*",
+    "--exclude", "*dev*",
+]
+
+[tool.hatch.build.hooks.vcs]
+# Write the resolved version to a Python file so it can be inspected
+# at runtime via ``renderers.__version__`` without re-parsing the
+# wheel metadata.
+version-file = "renderers/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["renderers"]
@@ -36,7 +89,18 @@ dev = [
 ]
 
 [tool.uv]
+# Enforce a uv version that supports the friendly-duration form
+# (`"7 days"`) in the static pyproject parser. Older uvs silently parse
+# the value as an RFC 3339 date, emit a TOML parse warning, and proceed
+# *without* the cooldown — bypassing this security policy.
+required-version = ">=0.11.1"
 exclude-newer = "7 days"
+
+[tool.uv.exclude-newer-package]
+# PrimeIntellect-published packages in this project's dependency closure —
+# fast-track so first-party releases can land same-day. Only packages that
+# appear in `uv tree` are listed.
+prime-pydantic-config = false
 
 [tool.ty.environment]
 python-version = "3.13"

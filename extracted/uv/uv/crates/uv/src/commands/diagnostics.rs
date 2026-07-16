@@ -10,8 +10,7 @@ use uv_distribution_types::{
 };
 use uv_errors::{Hint, Hints};
 use uv_normalize::PackageName;
-use uv_pep440::Version;
-use uv_resolver::SentinelRange;
+use uv_pep440::{Version, strip_local_version_sentinels};
 
 use crate::commands::pip;
 use crate::commands::pip::install::ExternallyManagedError;
@@ -105,15 +104,14 @@ impl OperationDiagnostic {
                 dist_error(kind, dist, &chain, Arc::new(*err));
                 None
             }
+            pip::operations::Error::Requirements(err) if let Some(context) = self.context => {
+                let err = miette::Report::msg(format!("{err}"))
+                    .context(format!("Failed to resolve {context} requirement"));
+                anstream::eprint!("{err:?}");
+                None
+            }
             pip::operations::Error::Requirements(err) => {
-                if let Some(context) = self.context {
-                    let err = miette::Report::msg(format!("{err}"))
-                        .context(format!("Failed to resolve {context} requirement"));
-                    anstream::eprint!("{err:?}");
-                    None
-                } else {
-                    Some(pip::operations::Error::Requirements(err))
-                }
+                Some(pip::operations::Error::Requirements(err))
             }
             err @ pip::operations::Error::OutdatedEnvironment(..) => {
                 anstream::eprintln!("{}", err);
@@ -213,10 +211,11 @@ fn dependencies_error(
 
 /// Render a [`uv_resolver::NoSolutionError`].
 fn no_solution(err: &uv_resolver::NoSolutionError, context: Option<&'static str>) {
+    let header = uv_resolver::NoSolutionHeader::new(err.environment().clone());
     let header = if let Some(context) = context {
-        err.header().with_context(context)
+        header.with_context(context)
     } else {
-        err.header()
+        header
     };
     let report = miette::Report::msg(err.report().to_string()).context(header);
     anstream::eprint!("{report:?}");
@@ -413,7 +412,7 @@ fn format_chain(name: &PackageName, version: Option<&Version>, chain: &Derivatio
         } else {
             message = format!("{message} {} depends on", format_step(step, range));
         }
-        range = Some(SentinelRange::from(&step.range).strip());
+        range = Some(strip_local_version_sentinels(&step.range));
     }
     if let Some(range) = range.filter(|range| *range != Ranges::empty() && *range != Ranges::full())
     {

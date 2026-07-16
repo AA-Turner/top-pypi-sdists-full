@@ -1,4 +1,4 @@
-from typing import Required, Union, TypedDict
+from typing import Union, Required, TypedDict
 
 
 class ClockTick(TypedDict, total=False):

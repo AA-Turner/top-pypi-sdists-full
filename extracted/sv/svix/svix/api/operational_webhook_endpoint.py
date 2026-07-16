@@ -13,7 +13,7 @@ from ..models import (
     OperationalWebhookEndpointSecretOut,
     OperationalWebhookEndpointUpdate,
 )
-from .common import ApiBase, BaseOptions, serialize_params
+from .common import ApiBaseAsync, ApiBaseSync, BaseOptions, serialize_params
 
 
 @dataclass
@@ -59,7 +59,7 @@ class OperationalWebhookEndpointRotateSecretOptions(BaseOptions):
         )
 
 
-class OperationalWebhookEndpointAsync(ApiBase):
+class OperationalWebhookEndpointAsync(ApiBaseAsync):
     async def list(
         self,
         options: OperationalWebhookEndpointListOptions = (
@@ -112,7 +112,7 @@ class OperationalWebhookEndpointAsync(ApiBase):
         endpoint_id: str,
         operational_webhook_endpoint_update: OperationalWebhookEndpointUpdate,
     ) -> OperationalWebhookEndpointOut:
-        """Update an operational webhook endpoint."""
+        """Create or update an operational webhook endpoint."""
         response = await self._request_asyncio(
             method="put",
             path="/api/v1/operational-webhook/endpoint/{endpoint_id}",
@@ -133,36 +133,6 @@ class OperationalWebhookEndpointAsync(ApiBase):
             path_params={
                 "endpoint_id": endpoint_id,
             },
-        )
-
-    async def get_headers(
-        self, endpoint_id: str
-    ) -> OperationalWebhookEndpointHeadersOut:
-        """Get the additional headers to be sent with the operational webhook."""
-        response = await self._request_asyncio(
-            method="get",
-            path="/api/v1/operational-webhook/endpoint/{endpoint_id}/headers",
-            path_params={
-                "endpoint_id": endpoint_id,
-            },
-        )
-        return OperationalWebhookEndpointHeadersOut.model_validate(response.json())
-
-    async def update_headers(
-        self,
-        endpoint_id: str,
-        operational_webhook_endpoint_headers_in: OperationalWebhookEndpointHeadersIn,
-    ) -> None:
-        """Set the additional headers to be sent with the operational webhook."""
-        await self._request_asyncio(
-            method="put",
-            path="/api/v1/operational-webhook/endpoint/{endpoint_id}/headers",
-            path_params={
-                "endpoint_id": endpoint_id,
-            },
-            json_body=operational_webhook_endpoint_headers_in.model_dump_json(
-                exclude_unset=True, by_alias=True
-            ),
         )
 
     async def get_secret(self, endpoint_id: str) -> OperationalWebhookEndpointSecretOut:
@@ -203,8 +173,38 @@ class OperationalWebhookEndpointAsync(ApiBase):
             ),
         )
 
+    async def get_headers(
+        self, endpoint_id: str
+    ) -> OperationalWebhookEndpointHeadersOut:
+        """Get the additional headers to be sent with the operational webhook."""
+        response = await self._request_asyncio(
+            method="get",
+            path="/api/v1/operational-webhook/endpoint/{endpoint_id}/headers",
+            path_params={
+                "endpoint_id": endpoint_id,
+            },
+        )
+        return OperationalWebhookEndpointHeadersOut.model_validate(response.json())
 
-class OperationalWebhookEndpoint(ApiBase):
+    async def update_headers(
+        self,
+        endpoint_id: str,
+        operational_webhook_endpoint_headers_in: OperationalWebhookEndpointHeadersIn,
+    ) -> None:
+        """Set the additional headers to be sent with the operational webhook."""
+        await self._request_asyncio(
+            method="put",
+            path="/api/v1/operational-webhook/endpoint/{endpoint_id}/headers",
+            path_params={
+                "endpoint_id": endpoint_id,
+            },
+            json_body=operational_webhook_endpoint_headers_in.model_dump_json(
+                exclude_unset=True, by_alias=True
+            ),
+        )
+
+
+class OperationalWebhookEndpoint(ApiBaseSync):
     def list(
         self,
         options: OperationalWebhookEndpointListOptions = (
@@ -257,7 +257,7 @@ class OperationalWebhookEndpoint(ApiBase):
         endpoint_id: str,
         operational_webhook_endpoint_update: OperationalWebhookEndpointUpdate,
     ) -> OperationalWebhookEndpointOut:
-        """Update an operational webhook endpoint."""
+        """Create or update an operational webhook endpoint."""
         response = self._request_sync(
             method="put",
             path="/api/v1/operational-webhook/endpoint/{endpoint_id}",
@@ -278,34 +278,6 @@ class OperationalWebhookEndpoint(ApiBase):
             path_params={
                 "endpoint_id": endpoint_id,
             },
-        )
-
-    def get_headers(self, endpoint_id: str) -> OperationalWebhookEndpointHeadersOut:
-        """Get the additional headers to be sent with the operational webhook."""
-        response = self._request_sync(
-            method="get",
-            path="/api/v1/operational-webhook/endpoint/{endpoint_id}/headers",
-            path_params={
-                "endpoint_id": endpoint_id,
-            },
-        )
-        return OperationalWebhookEndpointHeadersOut.model_validate(response.json())
-
-    def update_headers(
-        self,
-        endpoint_id: str,
-        operational_webhook_endpoint_headers_in: OperationalWebhookEndpointHeadersIn,
-    ) -> None:
-        """Set the additional headers to be sent with the operational webhook."""
-        self._request_sync(
-            method="put",
-            path="/api/v1/operational-webhook/endpoint/{endpoint_id}/headers",
-            path_params={
-                "endpoint_id": endpoint_id,
-            },
-            json_body=operational_webhook_endpoint_headers_in.model_dump_json(
-                exclude_unset=True, by_alias=True
-            ),
         )
 
     def get_secret(self, endpoint_id: str) -> OperationalWebhookEndpointSecretOut:
@@ -342,6 +314,34 @@ class OperationalWebhookEndpoint(ApiBase):
             query_params=options._query_params(),
             header_params=options._header_params(),
             json_body=operational_webhook_endpoint_secret_in.model_dump_json(
+                exclude_unset=True, by_alias=True
+            ),
+        )
+
+    def get_headers(self, endpoint_id: str) -> OperationalWebhookEndpointHeadersOut:
+        """Get the additional headers to be sent with the operational webhook."""
+        response = self._request_sync(
+            method="get",
+            path="/api/v1/operational-webhook/endpoint/{endpoint_id}/headers",
+            path_params={
+                "endpoint_id": endpoint_id,
+            },
+        )
+        return OperationalWebhookEndpointHeadersOut.model_validate(response.json())
+
+    def update_headers(
+        self,
+        endpoint_id: str,
+        operational_webhook_endpoint_headers_in: OperationalWebhookEndpointHeadersIn,
+    ) -> None:
+        """Set the additional headers to be sent with the operational webhook."""
+        self._request_sync(
+            method="put",
+            path="/api/v1/operational-webhook/endpoint/{endpoint_id}/headers",
+            path_params={
+                "endpoint_id": endpoint_id,
+            },
+            json_body=operational_webhook_endpoint_headers_in.model_dump_json(
                 exclude_unset=True, by_alias=True
             ),
         )

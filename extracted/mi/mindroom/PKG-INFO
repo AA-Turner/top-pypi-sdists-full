@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.7.164
+Version: 2026.7.178
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -164,6 +164,11 @@ Requires-Dist: google-api-python-client>=2.178; extra == 'google-calendar'
 Requires-Dist: google-auth-httplib2>=0.2; extra == 'google-calendar'
 Requires-Dist: google-auth-oauthlib>=1.2.2; extra == 'google-calendar'
 Requires-Dist: google-auth>=2.40.3; extra == 'google-calendar'
+Provides-Extra: google-docs
+Requires-Dist: google-api-python-client>=2.178; extra == 'google-docs'
+Requires-Dist: google-auth-httplib2>=0.2; extra == 'google-docs'
+Requires-Dist: google-auth-oauthlib>=1.2.2; extra == 'google-docs'
+Requires-Dist: google-auth>=2.40.3; extra == 'google-docs'
 Provides-Extra: google-drive
 Requires-Dist: google-api-python-client>=2.178; extra == 'google-drive'
 Requires-Dist: google-auth-httplib2>=0.2; extra == 'google-drive'
@@ -344,7 +349,7 @@ https://github.com/user-attachments/assets/1f121c89-5418-4f42-bdfe-fb9de0fecd03
 
 - **Multi-agent orchestration** — define specialist agents and teams in `config.yaml`; a built-in router picks the responder when you don't @-mention one, and mentioning several agents makes them collaborate in a thread.
 - **Persistent memory** — agents remember people, preferences, and context across conversations and platforms (Mem0 + ChromaDB, stored on your disk).
-- **100+ tool integrations** — Gmail, GitHub, Google Drive, Home Assistant, shell, Python, web search, and more, plus native Matrix tools and a per-thread `todo` planner, with sandboxed execution and per-tool approval rules.
+- **100+ tool integrations** — Gmail, GitHub, Google Docs, Google Drive, Home Assistant, shell, Python, web search, and more, plus native Matrix tools and a per-thread `todo` planner, with sandboxed execution and per-tool approval rules.
 - **Knowledge bases (RAG)** — point an agent at a folder of files; MindRoom indexes it and can watch it for changes.
 - **Scheduling & automation** — cron or natural-language scheduled tasks (`!schedule`), background work with human escalation.
 - **Model routing** — a different model per agent, room, or thread (`!model`); route sensitive rooms to local Ollama and everything else to a cloud model.

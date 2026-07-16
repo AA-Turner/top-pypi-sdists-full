@@ -5,20 +5,29 @@ from typing import TYPE_CHECKING, Any, Protocol, Unpack, cast, overload
 
 import numpy as np
 import numpy.typing as npt
-from scipy.special import binom  # type:ignore[import-untyped,unused-ignore]
+from scipy.special import binom
 
 from .. import kdb
-from ..enclosure import LayerEnclosure
+from ..cross_section import (
+    AnyCrossSectionInput,
+    CrossSectionSpecDict,
+    DCrossSectionSpecDict,
+)
+from ..enclosure import LayerEnclosure, extrude_path_cross_section
 from ..kcell import KCell
 from ..layout import CellKWargs, KCLayout
 from ..port import rename_by_direction, rename_clockwise
 from ..settings import Info
 from ..typings import KC, KC_co, MetaData, um
+from .utils import (
+    _is_additional_info_func,
+    boundary_from_shapes,
+    cross_section_from_width,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from ..enclosure import LayerEnclosure
     from ..kcell import KCell
 
 __all__ = ["bend_s_bezier_factory"]
@@ -27,26 +36,35 @@ __all__ = ["bend_s_bezier_factory"]
 class BezierFactory(Protocol[KC_co]):
     def __call__(
         self,
-        width: um,
+        *,
         height: um,
         length: um,
-        layer: kdb.LayerInfo,
         nb_points: int = 99,
         t_start: float = 0,
         t_stop: float = 1,
+        cross_section: str
+        | AnyCrossSectionInput
+        | CrossSectionSpecDict
+        | DCrossSectionSpecDict
+        | None = None,
+        width: um | None = None,
+        layer: kdb.LayerInfo | None = None,
         enclosure: LayerEnclosure | None = None,
     ) -> KC_co:
-        """Creat a bezier bend.
+        """Create a bezier bend.
+
+        Either pass a ``cross_section`` or the legacy ``width``/``layer``/``enclosure``.
 
         Args:
-            width: Width of the core. [um]
             height: height difference of left/right. [um]
             length: Length of the bend. [um]
-            layer: Layer index of the core.
             nb_points: Number of points of the backbone.
             t_start: start
             t_stop: end
-            enclosure: Slab/Exclude definition. [dbu]
+            cross_section: Cross section of the bend.
+            width: Width of the core. [um] (legacy; requires ``layer``)
+            layer: Layer index of the core. (legacy)
+            enclosure: Slab/Exclude definition. (legacy)
         """
         ...
 
@@ -108,24 +126,22 @@ def bend_s_bezier_factory(
     port_type: str = "optical",
     **cell_kwargs: Unpack[CellKWargs],
 ) -> BezierFactory[KC]:
-    """Returns a function generating bezier s-bends.
+    """Returns a function generating bezier s-bends (generic interface).
 
     Args:
         kcl: The KCLayout which will be owned
         additional_info: Add additional key/values to the
             [`KCell.info`][kfactory.settings.Info]. Can be a static dict
-            mapping info name to info value. Or can a callable which takes the straight
+            mapping info name to info value. Or can a callable which takes the bend
             functions' parameters as kwargs and returns a dict with the mapping.
-        basename: Overwrite the prefix of the resulting KCell's name. By default
-            the KCell will be named 'straight_dbu[...]'.
         cell_kwargs: Additional arguments passed as `@kcl.cell(**cell_kwargs)`.
     """
-    if callable(additional_info) and additional_info is not None:
+    _additional_info: dict[str, MetaData] = {}
+    if _is_additional_info_func(additional_info):
         _additional_info_func: Callable[
             ...,
             dict[str, MetaData],
         ] = additional_info
-        _additional_info: dict[str, MetaData] = {}
     else:
 
         def additional_info_func(
@@ -134,7 +150,7 @@ def bend_s_bezier_factory(
             return {}
 
         _additional_info_func = additional_info_func
-        _additional_info = additional_info or {}
+        _additional_info = additional_info or {}  # ty:ignore[invalid-assignment]
 
     ports = cell_kwargs.get("ports")
     if ports is None:
@@ -142,6 +158,8 @@ def bend_s_bezier_factory(
             cell_kwargs["ports"] = {"left": ["o1"], "right": ["o2"]}
         elif kcl.rename_function == rename_by_direction:
             cell_kwargs["ports"] = {"left": ["W0"], "right": ["E0"]}
+    cell_kwargs.setdefault("basename", "bend_s_bezier")
+    basename = cell_kwargs["basename"]
 
     if output_type is not None:
         cell = kcl.cell(output_type=output_type, **cell_kwargs)
@@ -149,29 +167,17 @@ def bend_s_bezier_factory(
         cell = kcl.cell(output_type=cast("type[KC]", KCell), **cell_kwargs)
 
     @cell
-    def bend_s_bezier(
-        width: um,
+    def _bend_s_bezier(
+        cross_section: str | AnyCrossSectionInput,
         height: um,
         length: um,
-        layer: kdb.LayerInfo,
         nb_points: int = 99,
         t_start: float = 0,
         t_stop: float = 1,
-        enclosure: LayerEnclosure | None = None,
     ) -> KCell:
-        """Creat a bezier bend.
-
-        Args:
-            width: Width of the core. [um]
-            height: height difference of left/right. [um]
-            length: Length of the bend. [um]
-            layer: Layer index of the core.
-            nb_points: Number of points of the backbone.
-            t_start: start
-            t_stop: end
-            enclosure: Slab/Exclude definition. [dbu]
-        """
+        """Bezier bend [um] from a cross section."""
         c = kcl.kcell()
+        xs = kcl.get_base_cross_section(cross_section)
         _length, _height = length, height
         pts = bezier_curve(
             control_points=[
@@ -183,36 +189,32 @@ def bend_s_bezier_factory(
             t=np.linspace(t_start, t_stop, nb_points),
         )
 
-        if enclosure is None:
-            enclosure = LayerEnclosure()
-
-        enclosure.extrude_path(
-            c, path=pts, main_layer=layer, width=width, start_angle=0, end_angle=0
-        )
+        extrude_path_cross_section(c, pts, xs, start_angle=0, end_angle=0)
 
         c.create_port(
-            width=int(width / c.kcl.dbu),
+            name="o1",
+            cross_section=xs,
             trans=kdb.Trans(2, False, 0, 0),
-            layer=c.kcl.layer(layer),
             port_type=port_type,
         )
         c.create_port(
-            width=int(width / c.kcl.dbu),
+            name="o2",
+            cross_section=xs,
             trans=kdb.Trans(0, False, c.bbox().right, kcl.to_dbu(height)),
-            layer=c.kcl.layer(layer),
             port_type=port_type,
         )
+        boundary = boundary_from_shapes(c)
+        if boundary is not None:
+            c.boundary = boundary
         _info: dict[str, MetaData] = {}
         _info.update(
             _additional_info_func(
-                width=width,
+                cross_section=xs,
                 height=height,
                 length=length,
-                layer=layer,
                 nb_points=nb_points,
                 t_start=t_start,
                 t_stop=t_stop,
-                enclosure=enclosure,
             )
         )
         _info.update(_additional_info)
@@ -221,5 +223,39 @@ def bend_s_bezier_factory(
         c.auto_rename_ports()
 
         return c
+
+    @kcl.generic_factory(name=basename)
+    def bend_s_bezier(
+        *,
+        height: um,
+        length: um,
+        nb_points: int = 99,
+        t_start: float = 0,
+        t_stop: float = 1,
+        cross_section: str
+        | AnyCrossSectionInput
+        | CrossSectionSpecDict
+        | DCrossSectionSpecDict
+        | None = None,
+        width: um | None = None,
+        layer: kdb.LayerInfo | None = None,
+        enclosure: LayerEnclosure | None = None,
+    ) -> KC:
+        if cross_section is None:
+            if width is None or layer is None:
+                raise ValueError(
+                    "Provide a cross_section, or width and layer (legacy call)."
+                )
+            xs = cross_section_from_width(kcl, kcl.to_dbu(width), layer, enclosure)
+        else:
+            xs = kcl.get_icross_section(cross_section)
+        return _bend_s_bezier(
+            cross_section=xs,
+            height=height,
+            length=length,
+            nb_points=nb_points,
+            t_start=t_start,
+            t_stop=t_stop,
+        )
 
     return bend_s_bezier

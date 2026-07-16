@@ -95,12 +95,15 @@ rusty_fork_test! {
         )]);
         let pointer = DynamicReturnable::from_map(value.clone());
         assert!(matches!(pointer.value, DynamicReturnableValue::JsonPointer(_)));
+        assert!(pointer.has_precomputed_stable_hash());
+        let pointer_hash = pointer.get_stable_hash();
 
         assert!(InternedStore::preload(EVAL_PROJ_JSON).is_ok());
         let static_value = DynamicReturnable::from_map(value.clone());
         assert!(matches!(static_value.value, DynamicReturnableValue::JsonStatic(_)));
 
         assert_eq!(&pointer.value, &static_value.value);
+        assert_eq!(pointer_hash, static_value.get_stable_hash());
     }
 
     #[test]
@@ -111,6 +114,7 @@ rusty_fork_test! {
         )]);
         let pointer = DynamicReturnable::from_map(value.clone());
         assert!(matches!(pointer.value, DynamicReturnableValue::JsonPointer(_)));
+        let pointer_hash = pointer.get_stable_hash();
 
         fetch_mmap_from_mock_specs(MMAP_ARCHIVED_EQ_SDK_KEY);
         assert!(InternedStore::preload_mmap(MMAP_ARCHIVED_EQ_SDK_KEY).is_ok());
@@ -120,8 +124,15 @@ rusty_fork_test! {
             archived.value,
             DynamicReturnableValue::JsonArchived(_)
         ));
+        assert!(!archived.has_precomputed_stable_hash());
 
         assert_eq!(&pointer.value, &archived.value);
+        assert_eq!(pointer, archived);
+        assert_eq!(pointer_hash, archived.get_stable_hash());
+        assert_eq!(
+            serde_json::to_value(&archived).unwrap(),
+            serde_json::json!({"value": "control"})
+        );
     }
 
     #[test]

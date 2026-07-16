@@ -45,8 +45,22 @@ class BoolLit:
     pos: int
 
 
+@dataclass(frozen=True)
+class TimestampLit:
+    """``ISO '2025-01-01T00:00:00Z'`` TIMESTAMPTZ literal."""
+    value: int  # UTC Unix microseconds
+    pos: int
+
+
+@dataclass(frozen=True)
+class IntervalLit:
+    """``INTERVAL 'P1D'`` duration literal, stored as microseconds."""
+    value: int
+    pos: int
+
+
 # Literal alias for use in ListLit (a list contains only simple literals).
-Literal = Union[IntLit, FloatLit, StringLit, BoolLit]
+Literal = Union[IntLit, FloatLit, StringLit, BoolLit, TimestampLit]
 
 
 @dataclass(frozen=True)
@@ -213,6 +227,31 @@ class TextMatchOp:
     pos: int
 
 
+@dataclass(frozen=True)
+class GeometryOp:
+    """``geometry_contains/within/intersects(field, 'WKT')`` spatial predicate."""
+    op: str
+    field: FieldRef
+    geometry: StringLit
+    pos: int
+
+
+@dataclass(frozen=True)
+class GeometryIsValidOp:
+    """``ST_ISVALID(field)`` spatial predicate."""
+    field: FieldRef
+    pos: int
+
+
+@dataclass(frozen=True)
+class GeometryDWithinOp:
+    """``ST_DWITHIN(field, 'WKT', distance)`` spatial predicate."""
+    field: FieldRef
+    geometry: StringLit
+    distance: Union[IntLit, FloatLit]
+    pos: int
+
+
 # ── Array filter functions ────────────────────────────────────────────────
 
 @dataclass(frozen=True)
@@ -242,12 +281,12 @@ class ArrayAccessOp:
 # ── Type alias for the union of all node types ──────────────────────────────
 
 Expr = Union[
-    IntLit, FloatLit, StringLit, BoolLit,
+    IntLit, FloatLit, StringLit, BoolLit, TimestampLit, IntervalLit,
     ListLit,
     FieldRef,
     CmpOp, InOp, And, Or, Not,
     ArithOp, LikeOp, IsNullOp,
     MetaAccess, JsonAccess,
-    TextMatchOp,
+    TextMatchOp, GeometryOp, GeometryIsValidOp, GeometryDWithinOp,
     ArrayContainsOp, ArrayLengthOp, ArrayAccessOp,
 ]

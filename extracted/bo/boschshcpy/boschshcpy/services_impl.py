@@ -658,6 +658,37 @@ class PowerSwitchService(SHCDeviceService):
         print(f"    automaticPowerOffTime    : {self.powerofftime}")
 
 
+class BoilerHeatingService(SHCDeviceService):
+    """Multiroom Boiler Control's heat-demand state.
+
+    Documented in the official OpenAPI spec
+    (MultiroomBoilerControl-local-openapi-v3.yml) but not previously
+    implemented in this library -- NOT live-tested (no owned Boiler
+    hardware); implemented directly from the spec.
+    """
+
+    class HeatDemand(Enum):
+        HEAT_DEMAND = "HEAT_DEMAND"
+        NO_HEAT_DEMAND = "NO_HEAT_DEMAND"
+        UNKNOWN = "UNKNOWN"
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.state.get("enabled", False))
+
+    @property
+    def heat_demand(self) -> HeatDemand:
+        try:
+            return self.HeatDemand(self.state.get("heatDemand"))
+        except ValueError:
+            return self.HeatDemand.UNKNOWN
+
+    @property
+    def rooms_heat_state(self) -> dict[str, str]:
+        """Map of room ID -> raw heatDemand string for that room."""
+        return dict(self.state.get("roomsHeatState", {}))
+
+
 class PowerMeterService(SHCDeviceService):
     @property
     def powerconsumption(self) -> float:
@@ -674,6 +705,11 @@ class PowerMeterService(SHCDeviceService):
         # field → return None so the HA layer can skip the yield entities.
         value = self.state.get("energyYield")
         return None if value is None else float(value)
+
+    @property
+    def energy_consumption_start_date(self) -> int | None:
+        """Epoch-ms timestamp the accumulated energyConsumption counts from."""
+        return self.state.get("energyConsumptionStartDate")
 
     async def async_reset_energy_summation(self) -> None:
         """Async: reset the accumulated energy counter (hass#120 audit).
@@ -990,6 +1026,10 @@ class BlindsControlService(SHCDeviceService):
         if raw is None:
             return None
         return self.BlindsType(raw)
+
+    @property
+    def blade_adjustment_time_ms(self) -> int | None:
+        return self.state.get("bladeAdjustmentTimeInMillis")
 
     def summary(self) -> None:
         super().summary()
@@ -2722,63 +2762,6 @@ class KeypadTriggerService(SHCDeviceService):
         print(f"    idsToTrigger             : {self.ids_to_trigger}")
 
 
-class SoftwareUpdateService(SHCDeviceService):
-    """Per-device firmware update state (read-only).
-
-    Mirrors the controller-level ShcInfo softwareUpdateState block (see
-    SHCInformation, hass#186) but at the individual-device level. Like the
-    controller case, the local API exposes no install action — updates are
-    started from the Bosch app — so this is a read-only status surface only.
-    Spec-grounded from APK 10.33; not yet confirmed in a per-device rawscan, so
-    all access is .get/try-guarded and any device may or may not carry it.
-    """
-
-    class SwUpdateState(Enum):
-        NO_UPDATE_AVAILABLE = "NO_UPDATE_AVAILABLE"
-        UPDATE_AVAILABLE = "UPDATE_AVAILABLE"
-        DOWNLOADING = "DOWNLOADING"
-        INSTALLING = "INSTALLING"
-        UPDATE_IN_PROGRESS = "UPDATE_IN_PROGRESS"
-        UPDATE_SUCCESS = "UPDATE_SUCCESS"
-        UPDATE_FAILED = "UPDATE_FAILED"
-        UNKNOWN = "UNKNOWN"
-
-    @property
-    def sw_update_state(self) -> SoftwareUpdateService.SwUpdateState:
-        raw = self.state.get("swUpdateState")
-        if raw is None:
-            return self.SwUpdateState.UNKNOWN
-        try:
-            return self.SwUpdateState(raw)
-        except ValueError:
-            return self.SwUpdateState.UNKNOWN
-
-    @property
-    def sw_update_last_result(self) -> str | None:
-        raw = self.state.get("swUpdateLastResult")
-        return str(raw) if raw is not None else None
-
-    @property
-    def sw_update_available_version(self) -> str | None:
-        raw = self.state.get("swUpdateAvailableVersion")
-        return str(raw) if raw is not None else None
-
-    @property
-    def sw_installed_version(self) -> str | None:
-        raw = self.state.get("swInstalledVersion")
-        return str(raw) if raw is not None else None
-
-    @property
-    def automatic_updates_enabled(self) -> bool:
-        return bool(self.state.get("automaticUpdatesEnabled", False))
-
-    def summary(self) -> None:
-        super().summary()
-        print(f"    swUpdateState            : {self.sw_update_state}")
-        print(f"    swInstalledVersion       : {self.sw_installed_version}")
-        print(f"    swUpdateAvailableVersion : {self.sw_update_available_version}")
-
-
 class DimmerConfigurationService(SHCDeviceService):
     """Micromodule dimmer calibration config (#123).
 
@@ -2880,6 +2863,7 @@ SERVICE_MAPPING = {
     "BinarySwitch": BinarySwitchService,
     "BlindsControl": BlindsControlService,
     "BlindsSceneControl": BlindsSceneControlService,
+    "BoilerHeating": BoilerHeatingService,
     "Bypass": BypassService,
     "CameraAmbientLight": CameraAmbientLightService,
     "CameraFrontLight": CameraFrontLightService,
@@ -2928,7 +2912,6 @@ SERVICE_MAPPING = {
     "SmartSensitivityControl": SmartSensitivityControlService,
     "SmokeSensitivity": SmokeSensitivityService,
     "SmokeDetectorCheck": SmokeDetectorCheckService,
-    "SoftwareUpdate": SoftwareUpdateService,
     "SurveillanceAlarm": SurveillanceAlarmService,
     "SwitchConfiguration": SwitchConfiguration,
     "TemperatureLevel": TemperatureLevelService,

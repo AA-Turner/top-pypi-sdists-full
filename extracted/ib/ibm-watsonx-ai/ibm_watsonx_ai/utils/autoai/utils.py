@@ -359,7 +359,7 @@ def fetch_pipelines(
                     so = ort.SessionOptions()
                     so.register_custom_ops_library(extensions.get_library_path())
                     pipelines[pipeline_name] = ort.InferenceSession(
-                        io.BytesIO(file_binary),
+                        file_binary.read(),
                         providers=["CPUExecutionProvider"],
                         sess_options=so,
                     )
@@ -379,13 +379,13 @@ def fetch_pipelines(
                     )
 
         if onnx_model and store:
-            for name, pipeline in pipelines.items():
+            for (name, pipeline), model_path in zip(pipelines.items(), model_paths):
                 file_binary = load_file_from_file_system(
                     api_client=api_client, file_path=model_path
                 )
-                local_model_path = os.path.join(path, pipeline_name)
-                with open(local_model_path + ".onnx", "wb") as f:
-                    f.write(file_binary)
+                local_model_path = os.path.join(path, name) + ".onnx"
+                with open(local_model_path, "wb") as f:
+                    f.write(file_binary.read())
 
                 # note: display download link to the model
                 create_model_download_link(local_model_path)

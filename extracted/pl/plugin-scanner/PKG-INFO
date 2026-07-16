@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plugin-scanner
-Version: 2.0.1074
+Version: 2.0.1091
 Summary: Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows.
 Project-URL: Homepage, https://hol.org/guard
 Project-URL: Documentation, https://github.com/hashgraph-online/hol-guard/tree/main/docs/guard
@@ -42,6 +42,8 @@ Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest>=9.0.3; extra == 'dev'
 Requires-Dist: pyyaml>=6.0.3; extra == 'dev'
 Requires-Dist: ruff>=0.15.15; extra == 'dev'
+Provides-Extra: mdm-build
+Requires-Dist: pyinstaller<7,>=6.16; extra == 'mdm-build'
 Provides-Extra: publish
 Requires-Dist: twine>=6.2.0; extra == 'publish'
 Description-Content-Type: text/markdown
@@ -166,6 +168,9 @@ pipx run hol-guard supply-chain sync
 pipx run hol-guard supply-chain scan
 pipx run hol-guard supply-chain explain minimist@1.2.5 --ecosystem npm
 pipx run hol-guard explain install-connect
+pipx run hol-guard command test 'git reset --hard HEAD~1'
+pipx run hol-guard command explain 'grep "rm -rf|git clean" README.md'
+pipx run hol-guard command extensions
 ```
 
 What you get from Guard:
@@ -178,6 +183,31 @@ What you get from Guard:
 - Keeps sync optional until you actually want shared history
 
 See [docs/guard/get-started.md](docs/guard/get-started.md) for the full local flow.
+
+### Inspect command protection without running it
+
+Command safety extensions make Guard's shell, Git, filesystem, system, Windows, data-protection, container,
+Kubernetes, encoded-execution, and self-protection behavior inspectable. Required core extensions cannot be mistaken
+for optional integrations. They are built-in capability boundaries over the same parser used by harness hooks, not
+downloadable regex bundles.
+
+Each extension publishes stable rule IDs and structured rule metadata. Command inspection also returns a canonical,
+side-effect-free parse model with wrapper, pipeline, environment-override, provenance, and confidence details so
+automation can distinguish exact parsing from malformed or unsupported input.
+
+Use `command test` for a concise classification and `command explain` for the complete evaluation trace. Both are
+side-effect free: they do not execute the command, evaluate final policy, create an approval, or record a receipt.
+Use `--json` for a stable automation contract.
+
+```bash
+hol-guard command test 'rm -rf ./build'
+hol-guard command explain 'grep "rm -rf|git clean" README.md'
+hol-guard command extensions command.git --json
+```
+
+Structured core rules preserve every match in a compound command. A Git preview such as `git clean -ndx` remains
+safe, while an unrelated destructive segment still produces review. New structured coverage feeds the same runtime
+artifact and policy pipeline as existing command classifications.
 
 <details>
 <summary>Guard commands at a glance</summary>

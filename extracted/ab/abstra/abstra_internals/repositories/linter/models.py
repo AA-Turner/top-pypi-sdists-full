@@ -69,6 +69,10 @@ class LinterCheck:
     type: str
     issues: List[LinterIssue]
     fix_with_ai: bool
+    # "failed" means the rule crashed and produced no verdict: the empty
+    # issues list must not be read as a pass (UI reports partial coverage,
+    # the deploy gate treats failed blocking rules as blocking).
+    status: str
 
     def __init__(
         self,
@@ -77,12 +81,14 @@ class LinterCheck:
         type: str,
         issues: List[LinterIssue],
         fix_with_ai: bool = False,
+        status: str = "ok",
     ):
         self.name = name
         self.label = label
         self.type = type
         self.issues = issues
         self.fix_with_ai = fix_with_ai
+        self.status = status
 
     def to_dict(self):
         return dict(
@@ -91,7 +97,23 @@ class LinterCheck:
             type=self.type,
             issues=[issue.to_dict() for issue in self.issues],
             fixWithAi=self.fix_with_ai,
+            status=self.status,
         )
+
+
+def deploy_gate_message(blocking: List["LinterCheck"]) -> str:
+    """User-facing reason for a blocked deploy. Real issues take precedence
+    (they must be fixed regardless); a could-not-verify message only shows
+    when failed blocking rules are the sole reason for the block."""
+    if any(check.issues for check in blocking):
+        return "Please fix all linter issues before deploying your project."
+    failed = ", ".join(
+        check.label or check.name for check in blocking if check.status == "failed"
+    )
+    return (
+        f"Could not verify before deploy: {failed}. Please try again. "
+        "If the problem persists, contact support."
+    )
 
 
 class LinterRule:

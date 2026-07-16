@@ -222,6 +222,11 @@ class IdentityView(DashboardModel):
     rebuild fail-softed" (port now bound by something else,
     cert load throws). The latter is silent in the logs
     without this flag.
+
+    ``listener_host`` / ``listener_addresses`` / ``listener_port``
+    are the mDNS-advertised pairing address: host ``None`` without
+    an attached advertiser, addresses ``[]`` until it registers,
+    port ``None`` while the listener is unbound.
     """
 
     dashboard_id: str
@@ -229,3 +234,6 @@ class IdentityView(DashboardModel):
     server_version: str
     esphome_version: str
     listener_bound: bool = False
+    listener_host: str | None = None
+    listener_addresses: list[str] = field(default_factory=list)
+    listener_port: int | None = None

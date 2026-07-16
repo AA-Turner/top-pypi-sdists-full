@@ -344,7 +344,7 @@ class dirspec_t:
         r"""get the entry name. for example, the structure name 
                 
         :param inode: inode number of the entry
-        :param name_flags: how exactly the name should be retrieved. combination of bits for get_...name() methods bits
+        :param name_flags: how exactly the name should be retrieved. combination of bits for get_...name() methods  bits
         :returns: false if the entry does not exist.
         """
         ...
@@ -1081,7 +1081,7 @@ class dirtree_t:
     def __hash__(self) -> int:
         r"""Return hash(self)."""
         ...
-    def __init__(self, ds: dirspec_t) -> Any:
+    def __init__(self, *args: Any) -> Any:
         ...
     def __init_subclass__(self) -> Any:
         r"""This method is called when a class is subclassed.
@@ -1192,6 +1192,14 @@ class dirtree_t:
         :returns: success
         """
         ...
+    def fold_common_prefix(self, *args: Any) -> int:
+        r"""Collapse single child folders into a single folder item The default separator (DIRTREE_FOLDED_SEP, ASCII 0x1D) is rendered as '/' by the UI but is not split by the path parser, so folded folders behave like a single item for rmdir/cd/rename/etc. 
+                
+        :param path: starting directory; nullptr or "/" means root
+        :param sep: character used to join names
+        :returns: dterr_t error code
+        """
+        ...
     @overload
     def get_abspath(self, cursor: dirtree_cursor_t, name_flags: int = ...) -> str:
         r"""Get absolute path pointed by the cursor 
@@ -1224,7 +1232,7 @@ class dirtree_t:
         r"""Get entry name 
                 
         :param de: directory entry
-        :param name_flags: how exactly the name should be retrieved. combination of bits for get_...name() methods bits
+        :param name_flags: how exactly the name should be retrieved. combination of bits for get_...name() methods  bits
         :returns: name
         """
         ...
@@ -1491,17 +1499,25 @@ class dirtree_visitor_t:
         """
         ...
 
+def dirtree_restore_prefix_sep(s: str) -> None:
+    r"""Replace DIRTREE_FOLDED_SEP bytes by '/' in-place, for display only. The result is NOT safe for using with dirtree path APIs (rmdir, cd, ...); the embedded '/' would be interpreted as a path separator. 
+            
+    """
+    ...
+
 def get_std_dirtree(id: dirtree_id_t) -> dirtree_t:
     ...
 
 DIRTREE_BPTS: int  # 5
-DIRTREE_END: int  # 7
+DIRTREE_END: int  # 8
+DIRTREE_FOLDED_SEP: str  # 
 DIRTREE_FUNCS: int  # 1
 DIRTREE_IDAPLACE_BOOKMARKS: int  # 4
 DIRTREE_IMPORTS: int  # 3
 DIRTREE_LOCAL_TYPES: int  # 0
 DIRTREE_LTYPES_BOOKMARKS: int  # 6
 DIRTREE_NAMES: int  # 2
+DIRTREE_SNIPPETS: int  # 7
 DTE_ALREADY_EXISTS: int  # 1
 DTE_BAD_PATH: int  # 5
 DTE_CANT_RENAME: int  # 6
@@ -1517,5 +1533,6 @@ DTN_DISPLAY_NAME: int  # 1
 DTN_FULL_NAME: int  # 0
 SWIG_PYTHON_LEGACY_BOOL: int  # 1
 annotations: _Feature  # _Feature((3, 7, 0, 'beta', 1), None, 16777216)
+cvar: swigvarlink  # (DIRTREE_FOLDED_SEP)
 ida_idaapi: module
 weakref: module

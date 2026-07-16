@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pgqueuer
-Version: 1.1.1
+Version: 1.2.0
 Summary: Pgqueuer is a Python library leveraging PostgreSQL for efficient job queuing.
 Author: JeyBee
 License: MIT License
@@ -70,6 +70,7 @@ Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "dev"
 Requires-Dist: opentelemetry-semantic-conventions>=0.41b0; extra == "dev"
 Requires-Dist: pytest-mock>=3.14.0; extra == "dev"
 Requires-Dist: pytest-timeout>=2.3.1; extra == "dev"
+Requires-Dist: pytest-xdist>=3.8.0; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: tqdm; extra == "dev"
 Requires-Dist: types-croniter; extra == "dev"

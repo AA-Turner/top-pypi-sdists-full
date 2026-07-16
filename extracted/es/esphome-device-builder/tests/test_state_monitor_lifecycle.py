@@ -169,11 +169,26 @@ async def _start_with_captured_dispatch(
     return captured["dispatch"]
 
 
-async def _let_ping_loop_run_briefly(monitor: DeviceStateMonitor) -> None:
-    """Yield long enough for the ping loop (paired with ``_shrink_ping_intervals``) to sweep."""
+async def _wait_for_ping_sweep(
+    monitor: DeviceStateMonitor, *, until: Callable[[], bool] | None = None
+) -> None:
+    """
+    Poll *until* (deadline-bounded, raising on timeout), or one fixed yield without it.
+
+    The bare-yield form is for negative assertions — nothing to wait for.
+    """
     if monitor._ping_task is None:
         return
-    await asyncio.sleep(0.05)
+    if until is None:
+        await asyncio.sleep(0.05)
+        return
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 5.0
+    while not until():
+        if loop.time() >= deadline:
+            msg = "ping loop did not reach the expected state within 5s"
+            raise AssertionError(msg)
+        await asyncio.sleep(0.01)
 
 
 async def _stop_and_drain(monitor: DeviceStateMonitor) -> None:
@@ -1418,7 +1433,7 @@ def test_revisit_importable_seeds_nothing_on_cache_miss(
 
 
 def _shrink_ping_intervals(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Collapse the bootstrap delay + interval so ``_let_ping_loop_run_briefly`` sees sweeps."""
+    """Collapse the bootstrap delay + interval so ``_wait_for_ping_sweep`` sees sweeps."""
     monkeypatch.setattr(ping_module.PingSource, "_bootstrap_delay", 0)
     monkeypatch.setattr(ping_module.PingSource, "_interval", 0.001)
 
@@ -1446,7 +1461,9 @@ async def test_start_drives_ping_pipeline_to_online_state(
 
     await _start_with_captured_dispatch(monitor, monkeypatch, park_ping_loop=False)
     try:
-        await _let_ping_loop_run_briefly(monitor)
+        await _wait_for_ping_sweep(
+            monitor, until=lambda: device.runtime_state.state == DeviceState.ONLINE
+        )
         assert device.runtime_state.state == DeviceState.ONLINE
     finally:
         await _stop_and_drain(monitor)
@@ -1504,7 +1521,9 @@ async def test_start_marks_offline_on_icmp_exception(
 
     await _start_with_captured_dispatch(monitor, monkeypatch, park_ping_loop=False)
     try:
-        await _let_ping_loop_run_briefly(monitor)
+        await _wait_for_ping_sweep(
+            monitor, until=lambda: device.runtime_state.state == DeviceState.OFFLINE
+        )
         assert device.runtime_state.state == DeviceState.OFFLINE
     finally:
         await _stop_and_drain(monitor)
@@ -1535,7 +1554,7 @@ async def test_start_skips_ping_for_cached_dns_failures(
     with caplog.at_level(logging.DEBUG, logger=ping_module.__name__):
         await _start_with_captured_dispatch(monitor, monkeypatch, park_ping_loop=False)
         try:
-            await _let_ping_loop_run_briefly(monitor)
+            await _wait_for_ping_sweep(monitor)
         finally:
             await _stop_and_drain(monitor)
 
@@ -1563,7 +1582,7 @@ async def test_start_logs_ping_count_at_debug(
     with caplog.at_level(logging.DEBUG, logger=ping_module.__name__):
         await _start_with_captured_dispatch(monitor, monkeypatch, park_ping_loop=False)
         try:
-            await _let_ping_loop_run_briefly(monitor)
+            await _wait_for_ping_sweep(monitor)
         finally:
             await _stop_and_drain(monitor)
 
@@ -1591,7 +1610,7 @@ async def test_repeat_sweep_with_unchanged_targets_logs_once(
     monitor.state.dns_cache.async_resolve = AsyncMock(return_value=["192.0.2.5"])
     monitor.state.dns_cache.has_cached_failure = MagicMock(return_value=False)
     # The shrunk interval gives the loop plenty of room to run
-    # several sweeps inside ``_let_ping_loop_run_briefly``'s window — a
+    # several sweeps inside ``_wait_for_ping_sweep``'s window — a
     # regression that re-logs every cycle would emit multiple
     # "Pinging" lines instead of one.
     _shrink_ping_intervals(monkeypatch)
@@ -1599,7 +1618,7 @@ async def test_repeat_sweep_with_unchanged_targets_logs_once(
     with caplog.at_level(logging.DEBUG, logger=ping_module.__name__):
         await _start_with_captured_dispatch(monitor, monkeypatch, park_ping_loop=False)
         try:
-            await _let_ping_loop_run_briefly(monitor)
+            await _wait_for_ping_sweep(monitor)
         finally:
             await _stop_and_drain(monitor)
 
@@ -1681,7 +1700,7 @@ async def test_start_skips_devices_without_address(
 
     await _start_with_captured_dispatch(monitor, monkeypatch, park_ping_loop=False)
     try:
-        await _let_ping_loop_run_briefly(monitor)
+        await _wait_for_ping_sweep(monitor)
         monitor.state.dns_cache.async_resolve.assert_not_called()
     finally:
         await _stop_and_drain(monitor)
@@ -1778,11 +1797,37 @@ async def test_start_uses_v6_fallback_when_only_v6_in_mdns_cache(
 
     await _start_with_captured_dispatch(monitor, monkeypatch, park_ping_loop=False)
     try:
-        await _let_ping_loop_run_briefly(monitor)
+        await _wait_for_ping_sweep(
+            monitor, until=lambda: device.runtime_state.state == DeviceState.ONLINE
+        )
         assert device.runtime_state.state == DeviceState.ONLINE
         assert device.ip == "fe80::1%en0"
     finally:
         await _stop_and_drain(monitor)
+
+
+async def test_ping_pass_failure_for_one_device_does_not_skip_the_rest(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A raising per-device probe is logged; the workers keep draining the queue."""
+    bad = _device(name="bad", address="bad.example.com")
+    good = _device(name="good", address="good.example.com")
+    monitor, _callbacks = _make_monitor([bad, good])
+    monitor.state.dns_cache.has_cached_failure = MagicMock(return_value=False)
+    probed: list[str] = []
+
+    async def _probe(device: Device) -> None:
+        probed.append(device.name)
+        if device.name == "bad":
+            raise RuntimeError("boom")
+
+    monitor.ping._resolve_and_ping = _probe  # type: ignore[method-assign]
+
+    with caplog.at_level(logging.WARNING):
+        await monitor.ping._ping_sweep()
+
+    assert sorted(probed) == ["bad", "good"]
+    assert "Ping pass failed for bad; continuing" in caplog.text
 
 
 def test_apply_ip_short_circuits_when_value_unchanged() -> None:

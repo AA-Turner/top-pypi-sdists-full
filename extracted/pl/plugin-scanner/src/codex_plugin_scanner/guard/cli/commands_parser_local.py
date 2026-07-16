@@ -168,6 +168,35 @@ def _configure_guard_local_parsers(
     protect_parser.add_argument("--package-shim-ui", action="store_true", help=argparse.SUPPRESS)
     protect_parser.add_argument("protect_command", nargs=argparse.REMAINDER)
 
+    command_parser = guard_subparsers.add_parser(
+        "command",
+        help="Inspect commands and built-in command safety extensions without executing anything",
+    )
+    command_subparsers = command_parser.add_subparsers(dest="command_command", required=True, metavar="COMMAND")
+    for command_name in ("test", "explain"):
+        inspect_parser = command_subparsers.add_parser(
+            command_name,
+            help=f"{command_name.title()} how Guard classifies one shell command",
+        )
+        inspect_parser.add_argument(
+            "command_text",
+            help="Exact shell command to inspect; quote to preserve shell syntax",
+        )
+        inspect_parser.add_argument("--json", action="store_true")
+    extensions_parser = command_subparsers.add_parser(
+        "extensions",
+        help="List or inspect built-in command safety extensions",
+    )
+    extensions_parser.add_argument("extension_id", nargs="?")
+    extensions_parser.add_argument("--json", action="store_true")
+    setup_parser = command_subparsers.add_parser(
+        "setup",
+        help="Detect command ecosystems and preview recommended protection",
+    )
+    setup_parser.add_argument("--detect", action="store_true", required=True)
+    setup_parser.add_argument("--workspace", default=".")
+    setup_parser.add_argument("--json", action="store_true")
+
     preflight_parser = guard_subparsers.add_parser(
         "preflight",
         help="Scan an artifact before you add it to a harness config or install path",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smda
-Version: 4.2.13
+Version: 4.2.16
 Summary: A recursive disassmbler optimized for CFG recovery from memory dumps. Based on capstone.
 Author-email: Daniel Plohmann <daniel.plohmann@mailbox.org>
 License: BSD 2-Clause
@@ -31,6 +31,8 @@ Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: tqdm; extra == "dev"
 Requires-Dist: twine; extra == "dev"
+Provides-Extra: ida
+Requires-Dist: ida-domain>=0.5.0; extra == "ida"
 Provides-Extra: profile
 Requires-Dist: py-spy; extra == "profile"
 Requires-Dist: memray; extra == "profile"
@@ -43,8 +45,8 @@ Dynamic: license-file
 # SMDA
 
 SMDA is a minimalist recursive disassembler library that is optimized for accurate Control Flow Graph (CFG) recovery from memory dumps.
-It is based on [Capstone](http://www.capstone-engine.org/) and currently supports x86/x64 Intel machine code, experimental CIL (.NET) disassembly, and Dalvik bytecode from raw DEX files.
-As input, arbitrary memory dumps (ideally with known base address) can be processed, and raw DEX files can be analyzed directly.
+It is based on [Capstone](http://www.capstone-engine.org/) and currently provides native backends for x86/x64 Intel and AArch64 (ARM64) machine code, experimental CIL (.NET) disassembly, and Dalvik bytecode from raw DEX files.
+As input, PE, ELF, and Mach-O files (including fat/universal binaries), arbitrary memory dumps (ideally with known base address), and raw DEX files can be processed.
 The output is a collection of functions, basic blocks, and instructions with their respective edges between blocks and functions (in/out).
 Optionally, references to the Windows API can be inferred by using the ApiScout method.
 
@@ -89,9 +91,24 @@ There is also a demo script:
 
 * analyze.py -- example usage: perform disassembly on a file or memory dump and optionally store results in JSON to a given output path.
 
+### IDA Pro integration
+
+SMDA can also turn an IDA-analyzed database into a SMDA report instead of running its own disassembly. Inside the IDA GUI, SMDA supports the existing IDAPython integrations for IDA 7.x, 8.x, and 9.x. On IDA 9.1 or newer, it prefers the higher-level [IDA Domain API](https://ida-domain.docs.hex-rays.com/) when the optional package is installed and otherwise falls back to IDAPython.
+
+Inside the IDA GUI, run `export.py` to export IDA's existing analysis to a `.smda` file next to the database. Run `ida_analyze.py` to have SMDA independently recover functions from the loaded bytes and add missing function starts and names back to IDA. This augmentation workflow is useful when IDA analyzes a raw or mapped buffer conservatively. Both scripts can be launched via *File -> Script file...*.
+
+For headless export of IDA's analysis (no GUI), use `ida_domain_export.py`:
+
+```
+python -m pip install "smda[ida]"
+python ida_domain_export.py /path/to/sample.i64 -o sample.smda
+```
+
+Headless export requires IDA 9.1+ and the optional `ida-domain>=0.5.0` dependency. Make sure `IDADIR` points at the IDA installation when it cannot be discovered automatically (see the [getting started guide](https://ida-domain.docs.hex-rays.com/getting_started/)). Standard SMDA installations do not include `ida-domain`.
+
 For Dalvik, the current scope is raw single-DEX inputs. APK, multi-dex container handling, and ODEX/VDEX/CDEX runtime-artifact analysis are not yet first-class workflows in SMDA.
 
-The code should be fully compatible with Python 3.8+.
+The code should be fully compatible with Python 3.10+.
 Further explanation on the innerworkings follow in separate publications but will be referenced here.
 
 To take full advantage of SMDA's capabilities, make sure to (optionally) install:
@@ -143,10 +160,13 @@ Run tests with:
 ```bash
 make test
 ```
-
+´
 ## Version History
+ * 2026-07-15: v4.2.16 - Aarch64: add platform-specific function-candidate sources (PE ARM64 exception directory, ELF .eh_frame FDEs, Mach-O function-pointer metadata), wire the analysis-timeout callback into candidate identification, and extend README platform support wording. (THX: @r0ny123)
+ * 2026-07-15: v4.2.15 - Improved interoperability with IDA Pro: Now using `ida_domain` if available, supporting headless IDB->SMDA report conversion. (THX: @r0ny123)
+ * 2026-07-15: v4.2.14 - Improved consistency for capstone instance retrieval from SmdaReport. (THX: @r0ny123)
  * 2026-07-14: v4.2.13 - Adressed an issue where a lazy data structure caused issues after (un)marshalling.
- * 2026-07-14: v4.2.12 - Better exposure of getInstructionEscaper(), which no returns the correct instance based on the respective architecture. 
+ * 2026-07-14: v4.2.12 - Better exposure of getInstructionEscaper(), which no returns the correct instance based on the respective architecture.
  * 2026-07-14: v4.2.11 - Performance: skip redundant Aarch64 report-time data-ref re-derivation and complete the set.update([x]) -> set.add(x) sweep (both behavior-preserving). (THX: @r0ny123)
  * 2026-07-14: v4.2.10 - Aarch64: deduplicate shared raw-word GOT/reference decode constants and register-field helpers into definitions.py. (THX: @r0ny123)
  * 2026-07-14: v4.2.9 - Aarch64: shared constant-propagation dataflow module enabling cross-block indirect-call resolution and deeper jump-table recovery (predecessor-resolved bases/sizes, ldr+extend chains). (THX: @r0ny123)

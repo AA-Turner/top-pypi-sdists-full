@@ -19,6 +19,7 @@ import typer
 from dazzle.core.ir.fields import FieldModifier, FieldTypeKind
 from dazzle.core.manifest import load_manifest
 from dazzle.core.model_defaults import DEFAULT_JUDGMENT_MODEL
+from dazzle.log_setup import ensure_dazzle_logging_configured
 from dazzle.qa.capture import build_capture_plan, capture_screenshots, write_manifest
 from dazzle.qa.signing_seed import (
     SeededDoc,
@@ -39,6 +40,46 @@ qa_app = typer.Typer(
     help="QA toolkit — visual quality evaluation and screenshot capture.",
     no_args_is_help=True,
 )
+
+
+# Third-party loggers that drown trial stdout when root is DEBUG (TR-47).
+_TRIAL_QUIET_LOGGERS = (
+    "httpx",
+    "httpcore",
+    "h11",
+    "hpack",
+    "faker",
+    "urllib3",
+    "asyncio",
+    "anthropic",
+    "openai",
+    "mcp",
+    "anyio",
+)
+
+
+def _configure_trial_logging() -> None:
+    """Keep ``dazzle qa trial`` stdout report-shaped, not a DEBUG dump.
+
+    TR-47: with root at DEBUG, faker locale probes, httpcore wire logs, and
+    anthropic request options (including full system prompts + tool schemas)
+    flood stdout — noise for operators and a secret-leak surface. Default
+    trial logging is INFO for ``dazzle.*``; noisy libraries are WARNING.
+    Opt into DEBUG via ``DAZZLE_LOG_LEVEL=DEBUG``.
+    """
+    import logging
+
+    desired = os.environ.get("DAZZLE_LOG_LEVEL", "INFO").upper()
+    ensure_dazzle_logging_configured(level=desired)
+
+    root = logging.getLogger()
+    # Pull root back from DEBUG unless the operator asked for it.
+    if desired != "DEBUG" and (root.level == logging.NOTSET or root.level < logging.INFO):
+        root.setLevel(logging.INFO)
+
+    quiet = logging.WARNING if desired != "DEBUG" else logging.DEBUG
+    for name in _TRIAL_QUIET_LOGGERS:
+        logging.getLogger(name).setLevel(quiet)
 
 
 # Patterns for classifying seed circuit-breaker failures (#1207).
@@ -715,10 +756,10 @@ def _seed_signable_rows(
     ``token_state="expired"`` mints already-expired tokens so *_token_expired*
     scenarios exercise the real "Invalid or expired link" page (TR-51).
 
-    ``token_state="already_signed"`` (TR-50) seeds a normal token then immediately
-    signs the row via the production ``POST /api/sign/...`` path (stub signature
-    PNG), so ``*_already_signed`` scenarios re-open a genuinely signed document
-    with completion page + signed-copy download instead of a pending form.
+    ``token_state="already_signed"`` (TR-49 / #1571) seeds a normal token then
+    immediately signs the row via the production ``POST /api/sign/...`` path
+    (stub signature PNG), so ``*_already_signed`` scenarios re-open a genuinely
+    signed document with completion page + signed-copy download.
 
     ``signable_ids`` (#1382) maps entity name → a pre-generated UUID to insert
     the row under (so it matches the armed ``DAZZLE_QA_SIGNING_REJECT_IDS``).
@@ -787,8 +828,10 @@ def _seed_signable_rows(
         token = mint_token(record_id=row_id, email=effective_email, expires_hours=expires_hours)
 
         if token_state == "already_signed":
-            # TR-50: pre-sign through the real API so the row is status=signed
-            # with signed_document artifact (#1571 completion page works).
+            # TR-49 / #1571: pre-sign through the real API so the row is
+            # status=signed with a durable signed_document (completion page
+            # + Download). Persistence uses FileService.upload with a
+            # storage-only fallback when metadata fails (see signing routes).
             sign_url = f"{base_url}/api/sign/{entity.name}/{row_id}"
             sign_resp = httpx.post(
                 sign_url,
@@ -800,6 +843,19 @@ def _seed_signable_rows(
                 timeout=30.0,
             )
             sign_resp.raise_for_status()
+            # Fail loud if re-open still has no download CTA (harness contract).
+            open_url = f"{base_url}/sign/{entity.name}/{row_id}"
+            open_resp = httpx.get(open_url, params={"token": token}, timeout=15.0)
+            open_body = open_resp.text or ""
+            if open_resp.status_code != 200 or (
+                "signed-copy" not in open_body and "Download" not in open_body
+            ):
+                raise RuntimeError(
+                    f"TR-49 already_signed pre-sign did not yield a downloadable "
+                    f"completion page for {entity.name}/{row_id} "
+                    f"(HTTP {open_resp.status_code}, body={open_body[:200]!r}). "
+                    f"Check FileService / dazzle_files / signing storage."
+                )
 
         docs.append(
             SeededDoc(
@@ -1230,17 +1286,19 @@ def qa_trial(
         True, "--headless/--headed", help="Run browser headless (default) or visible"
     ),
     model: str | None = typer.Option(
-        None, "--model", help="Override LLM model (default: Claude Sonnet)"
+        None,
+        "--model",
+        help="Override LLM model (default: Claude Sonnet or Grok 4.5 per driver)",
     ),
     llm_driver: str | None = typer.Option(
         None,
         "--llm-driver",
         help=(
-            "How the trial persona reaches the model: 'claude-cli' "
-            "(Claude Code CLI, billed to your Claude subscription — no API "
-            "key) or 'anthropic-api' (metered, ANTHROPIC_API_KEY). Default: "
-            "DAZZLE_LLM_DRIVER env, then [llm] driver in dazzle.toml, then "
-            "auto-detect. See docs/reference/llm-drivers.md."
+            "How the trial persona reaches the model: 'claude-cli' (Claude "
+            "subscription via Claude Code CLI), 'grok-cli' (Grok subscription "
+            "via Grok Build CLI), or 'anthropic-api' (metered ANTHROPIC_API_KEY). "
+            "Default: DAZZLE_LLM_DRIVER env, then [llm] driver in dazzle.toml, "
+            "then auto-detect. See docs/reference/llm-drivers.md."
         ),
     ),
     fresh_db: bool = typer.Option(
@@ -1272,6 +1330,9 @@ def qa_trial(
         # → dev_docs/qa-trial-<scenario>-<timestamp>.md
 
     """
+    # TR-47: before any library import that may log at DEBUG.
+    _configure_trial_logging()
+
     import sys
     import time
     import tomllib
@@ -1350,11 +1411,14 @@ def qa_trial(
         typer.echo(f"LLM driver: {exc}", err=True)
         raise typer.Exit(code=2) from exc
 
-    billing_note = (
-        "Claude subscription via Claude Code CLI"
-        if resolved_driver == "claude-cli"
-        else "Anthropic API (metered)"
-    )
+    from dazzle.llm.driver import is_subscription_driver
+
+    if resolved_driver == "claude-cli":
+        billing_note = "Claude subscription via Claude Code CLI"
+    elif resolved_driver == "grok-cli":
+        billing_note = "Grok subscription via Grok Build CLI"
+    else:
+        billing_note = "Anthropic API (metered)"
     typer.echo(f"Trial scenario: {scenario_name} (as persona {login_persona})")
     typer.echo(f"LLM driver: {resolved_driver} ({billing_note})")
 
@@ -1374,7 +1438,7 @@ def qa_trial(
     if signing_token_state == "already_signed":
         typer.echo(
             "Signing trial harness: pre-signing the seeded row so re-open "
-            "exercises the already-signed completion path (TR-50)."
+            "exercises the already-signed completion path (TR-49 / #1571)."
         )
 
     # Optional per-scenario validator-reject arming (#1382). When true, the
@@ -1559,9 +1623,10 @@ def qa_trial(
                         observer=observer_inner,
                         executor=executor_inner,
                         model=model,
-                        # Native tool use needs the SDK; the claude-cli
-                        # driver carries tools over the text protocol.
-                        use_tool_calls=resolved_driver != "claude-cli",
+                        # Native tool use needs the Anthropic SDK;
+                        # subscription CLIs (claude-cli / grok-cli) use
+                        # the text protocol instead.
+                        use_tool_calls=not is_subscription_driver(resolved_driver),
                         llm_driver=resolved_driver,
                     )
                     mission_inner = build_trial_mission(

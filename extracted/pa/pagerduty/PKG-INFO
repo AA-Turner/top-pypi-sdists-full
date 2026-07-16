@@ -1,11 +1,11 @@
 Metadata-Version: 2.3
 Name: pagerduty
-Version: 6.3.0
+Version: 7.0.0
 Summary: Clients for PagerDuty's Public APIs
-Requires-Dist: httpx
+Requires-Dist: httpx2
 Maintainer: Demitri Morgan, Mandi Walls, PagerDuty Customer Support
 Maintainer-email: Demitri Morgan <demitri@pagerduty.com>, Mandi Walls <mwalls@pagerduty.com>, PagerDuty Customer Support <support@pagerduty.com>
-Requires-Python: >=3.6
+Requires-Python: >=3.10
 Project-URL: Documentation, https://pagerduty.github.io/python-pagerduty
 Project-URL: Repository, https://github.com/PagerDuty/python-pagerduty
 Project-URL: PyPI, https://pypi.org/project/pagerduty

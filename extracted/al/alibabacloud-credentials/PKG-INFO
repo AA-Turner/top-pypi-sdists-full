@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: alibabacloud_credentials
-Version: 1.0.9
+Version: 1.0.10
 Summary: The alibabacloud credentials module of alibabaCloud Python SDK.
 Home-page: https://github.com/aliyun/credentials-python
 Author: Alibaba Cloud

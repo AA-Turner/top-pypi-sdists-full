@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.19.1
+Version: 2.20.0
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -21,7 +21,7 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Requires-Python: >=3.12
-Requires-Dist: agent-client-protocol==0.10.1
+Requires-Dist: agent-client-protocol==0.11.0
 Requires-Dist: annotated-types==0.7.0
 Requires-Dist: anyio==4.14.1
 Requires-Dist: attrs==26.1.0
@@ -58,11 +58,11 @@ Requires-Dist: jsonschema==4.26.0
 Requires-Dist: keyring==25.7.0
 Requires-Dist: linkify-it-py==2.1.0
 Requires-Dist: markdown-it-py==4.0.0
-Requires-Dist: markdownify==1.2.2
+Requires-Dist: markdownify==1.2.3
 Requires-Dist: mcp==1.28.1
 Requires-Dist: mdit-py-plugins==0.5.0
 Requires-Dist: mdurl==0.1.2
-Requires-Dist: mistralai==2.5.2
+Requires-Dist: mistralai==2.6.0
 Requires-Dist: more-itertools==11.0.2
 Requires-Dist: opentelemetry-api==1.39.1
 Requires-Dist: opentelemetry-exporter-otlp-proto-common==1.39.1

@@ -155,6 +155,7 @@ from docling_core.types.doc.labels import (
 )
 from docling_core.types.doc.tokens import DocumentToken, TableToken
 from docling_core.types.doc.utils import (
+    _ensure_within_size_limit,
     is_remote_path,
     parse_otsl_table_content,
     relative_path,
@@ -4871,6 +4872,11 @@ class DoclingDocument(BaseModel):
                 (default: 512 MiB).
             max_total_size: Maximum cumulative uncompressed size in bytes for all members
                 (default: 2 GiB).
+
+        Notes:
+            ``document.xml`` is additionally capped by ``settings.max_doclang_xml_bytes`` before
+            parsing. Archive ``assets/`` and ``pages/`` images are capped by
+            ``settings.max_image_decoded_size`` before Pillow opens them.
         """
         from docling_core.transforms.deserializer.doclang import DocLangDocDeserializer
 
@@ -4888,6 +4894,14 @@ class DoclingDocument(BaseModel):
         document_xml = artifacts_dir / "document.xml"
         if not document_xml.is_file():
             raise ValueError(f"DocLang archive missing document.xml: {filename}")
+
+        # Fail closed before reading/parsing: zip member caps are far larger than a
+        # safe DocLang DOM budget.
+        _ensure_within_size_limit(
+            document_xml,
+            max_size=settings.max_doclang_xml_bytes,
+            label="DocLang document.xml",
+        )
 
         if validate:
             from doclang.validation import validate as doclang_validate
@@ -4924,6 +4938,11 @@ class DoclingDocument(BaseModel):
             if page_no not in doc.pages:
                 continue
 
+            _ensure_within_size_limit(
+                resolved,
+                max_size=settings.max_image_decoded_size,
+                label="Archive page image",
+            )
             with PILImage.open(resolved) as pil:
                 pil_copy = pil.copy()
             mimetype = mimetypes.guess_type(page_file.name)[0] or "image/png"

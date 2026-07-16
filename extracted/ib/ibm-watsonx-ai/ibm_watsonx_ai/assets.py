@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, TypeAlias, cast
 from warnings import warn
 
 from httpx import Response
@@ -23,6 +23,8 @@ if TYPE_CHECKING:
     from pandas import DataFrame
 
     from ibm_watsonx_ai import APIClient
+
+ListType: TypeAlias = list
 
 
 class Assets(WMLResource):
@@ -735,23 +737,55 @@ class Assets(WMLResource):
                 str(e),
             )
 
+    def _determine_final_downloaded_attachment_name(
+        self,
+        filename: str | Path | None,
+        attachment_name: str | None,
+        index_of_attachment: int,
+    ) -> Path:
+        final_filename = filename
+
+        if filename is None and attachment_name is None:
+            raise TypeError(
+                "Missing positional argument 'filename' while attachment details not containing filename."
+            )
+        elif filename and index_of_attachment > 0:
+            final_filename = self._prepare_file_path(filename)
+            final_filename = "{}_{}.{}".format(
+                final_filename.stem, index_of_attachment, final_filename.suffix
+            )
+
+        resolved = final_filename if final_filename else attachment_name
+        if resolved is None:
+            raise ValueError(
+                "Cannot determine a filename: 'filename' was not provided and the attachment details contain no filename."
+            )
+        return self._prepare_file_path(resolved)
+
     def download(
         self,
-        asset_id: str | None = None,
+        asset_id: str | None = None,  # asset_id is optional for backward compatibility,
         filename: str | Path | None = None,
+        get_all: bool = False,
         **kwargs: Any,
-    ) -> str:  # asset_id is optional for backward compatibility,
-        # filename should be not optional, however, as asset_id is, filename also must be
-        """Download and store the content of a data asset.
+    ) -> str | ListType[str]:
+        """Download and store the content of a data asset. Only first attachment on list will be downloaded by default.
+
+        If `get_all` is set to True, the function will attempt to download all existing attachments
+        and will return list of filenames of downloaded attachments. The name will be created from passed `filename`,
+        or if no `filename` will be passed, taken from attachment details.
 
         :param asset_id: unique ID of the data asset to be downloaded
         :type asset_id: str
 
         :param filename: filename to be used for the downloaded file
-        :type filename: str | Path
+        :type filename: str | Path, optional
 
-        :return: normalized path to the downloaded asset content
-        :rtype: str
+        :param get_all: all attachment will be downloaded, and list of filenames will be returned, defaults to False
+        :type get_all: bool, optional
+
+        :return: normalized path to the downloaded asset content or list of paths if ``get_all`` is True
+        :rtype: str | list[str]
 
         **Example:**
 
@@ -761,14 +795,28 @@ class Assets(WMLResource):
 
         """
         asset_id = _get_id_from_deprecated_uid(kwargs, asset_id, "asset")
-        if filename is None:
-            raise TypeError("Missing required positional argument 'filename'")
+        Assets._validate_type(asset_id, "asset_id", str, True)
 
-        prepared_filename = self._prepare_file_path(filename)
+        if not get_all:
+            if filename is None:
+                raise TypeError("Missing required positional argument 'filename'")
 
-        content = self.get_content(asset_id)
+            return self._write_content_to_file(
+                cast(bytes, self.get_content(asset_id)),
+                self._prepare_file_path(filename),
+            )
 
-        return self._write_content_to_file(content, prepared_filename)
+        final_filenames: list[str] = []
+        for index, att_details in enumerate(
+            cast(list, self.get_content(asset_id, list_format=True))
+        ):
+            attachment_name, content = att_details
+            final_filename = self._determine_final_downloaded_attachment_name(
+                filename, attachment_name, index
+            )
+            final_filenames += self._write_content_to_file(content, final_filename)
+
+        return final_filenames
 
     async def adownload(self, asset_id: str, filename: str | Path) -> str:
         """Download and store the content of a data asset asynchronously.
@@ -814,15 +862,21 @@ class Assets(WMLResource):
         return att_response.content
 
     def get_content(
-        self, asset_id: str | None = None, **kwargs: Any
-    ) -> bytes:  # asset_id is optional for backward compatibility
-        """Download the content of a data asset.
+        self,
+        asset_id: str | None = None,  # asset_id is optional for backward compatibility
+        list_format: bool = False,
+        **kwargs: Any,
+    ) -> bytes | ListType[tuple[str, bytes]]:
+        """Download the content of a data asset. If there will be more than one attachment, the function will attempt to download all of them.
 
         :param asset_id: unique ID of the data asset to be downloaded
         :type asset_id: str
 
-        :return: the asset content
-        :rtype: bytes
+        :param list_format: determines if the result is returned in list format with attachment name and content, defaults to False
+        :type: bool, optional
+
+        :return: the asset content or list with attachment name and content if ``list_format`` is True
+        :rtype: bytes | list[tuple[str, bytes]]
 
         **Example:**
 
@@ -841,8 +895,35 @@ class Assets(WMLResource):
             headers=self._client._get_headers(),
         )
         asset_details = self._handle_response(200, "get assets", asset_response)
+        errors: list[Exception] = []
+        result: list[tuple[str, bytes]] = []
 
-        attachment_id = asset_details["attachments"][0]["id"]
+        for index, attachment_details in enumerate(asset_details["attachments"]):
+            try:
+                result.append(
+                    self._get_attachment_with_file_name(
+                        asset_id, attachment_details["id"], asset_details
+                    )
+                )
+
+                if not list_format:  # return first content right after it is downloaded
+                    return result[0][1]
+            except Exception as e:
+                errors.append(e)
+                download_asset_warning = f"Downloading the attachment {attachment_details['id']} failed with error: {e}"
+                warn(download_asset_warning)
+
+        # if all downloads fail, throw an error
+        if len(errors) == len(asset_details["attachments"]) and len(errors) > 0:
+            if len(errors) == 1:
+                raise errors[0]
+            raise ExceptionGroup("All attachment downloads failed", errors)
+
+        return result
+
+    def _get_attachment_with_file_name(
+        self, asset_id: str, attachment_id: str, asset_details: dict
+    ) -> tuple[str, bytes]:
         response = self._client.httpx_client.get(
             url=self._client._href_definitions.get_attachment_href(
                 asset_id, attachment_id
@@ -852,6 +933,8 @@ class Assets(WMLResource):
         )
 
         self._validate_attachment_response(response)
+        attachment_details = response.json()
+        attachment_name = attachment_details.get("name")
 
         if (
             "connection_id" in asset_details["attachments"][0]
@@ -867,7 +950,7 @@ class Assets(WMLResource):
                 )
             )
             if attachment_data_source_type == cos_conn_data_source_id:
-                attachment_signed_url = response.json()["url"]
+                attachment_signed_url = attachment_details["url"]
                 att_response = self._client.httpx_client.get(url=attachment_signed_url)
             else:
                 raise WMLClientError(
@@ -884,7 +967,7 @@ class Assets(WMLResource):
                     url=self._credentials.url + attachment_signed_url
                 )
 
-        return self._validate_final_download_response(att_response)
+        return attachment_name, self._validate_final_download_response(att_response)
 
     async def aget_content(self, asset_id: str) -> bytes:
         """Download the content of a data asset asynchronously.
@@ -1013,10 +1096,10 @@ class Assets(WMLResource):
 
     def delete(
         self,
-        asset_id: str | None = None,
+        asset_id: str | None = None,  # asset_id is optional for backward compatibility
         purge_on_delete: bool | None = None,
         **kwargs: Any,
-    ) -> dict | str:  # asset_id is optional for backward compatibility
+    ) -> dict | str:
         """Soft delete the stored data asset. The asset will be moved to trashed assets
         and will not be visible in asset list. To permanently delete assets set `purge_on_delete` parameter to True.
 

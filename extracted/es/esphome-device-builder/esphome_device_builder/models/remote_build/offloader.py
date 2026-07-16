@@ -187,6 +187,10 @@ class PairingSummary(DashboardModel):
     # Per-pairing enable toggle the Settings UI renders the
     # switch from; ``False`` skips the row in pick_build_path.
     enabled: bool = True
+    # Receiver capability from the session handshake: a mismatched
+    # target version is built in a venv provisioned with the
+    # offloader's own esphome.
+    auto_provision_supported: bool = False
 
 
 @dataclass
@@ -271,3 +275,5 @@ class RemoteBuildPeer(DashboardModel):
     # (default-off mode).
     pin_sha256: str = ""
     remote_build_port: int = 0
+    # Peer advertised the ``ha_addon`` TXT key (it is the HA add-on).
+    ha_addon: bool = False

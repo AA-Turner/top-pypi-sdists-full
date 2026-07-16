@@ -3,13 +3,16 @@
 #
 
 from .primitives import Allocation, IdType, Memory, Pool, System
+from .primitives.vector_clock import ensure_uniform_dim
 
 
 def _check_unique_ids(entities: tuple[Memory | Pool | Allocation, ...]) -> None:
     seen: dict[IdType, int] = {}
     for idx, entity in enumerate(entities):
         if entity.id in seen:
-            raise ValueError(f"duplicate id {entity.id!r} at indices")
+            raise ValueError(
+                f"duplicate id {entity.id!r} at indices {seen[entity.id]} and {idx}"
+            )
         seen[entity.id] = idx
 
 
@@ -40,6 +43,7 @@ def _validate_allocations(
     allocations: tuple[Allocation, ...], require_allocated: bool
 ) -> None:
     _check_unique_ids(allocations)
+    ensure_uniform_dim(allocations)
     _check_overlaps(allocations, require_allocated)
 
 
@@ -53,11 +57,21 @@ def _validate_pools(pools: tuple[Pool, ...], require_allocated: bool) -> None:
             raise ValueError(f"in pool {pool.id!r}, {e}") from e
 
 
+def _check_capacity(memory: Memory) -> None:
+    if memory.size is None or not memory.is_allocated:
+        return
+    if memory.used_size > memory.size:
+        raise ValueError(
+            f"used size {memory.used_size} exceeds memory size {memory.size}"
+        )
+
+
 def _validate_memories(memories: tuple[Memory, ...], require_allocated: bool) -> None:
     _check_unique_ids(memories)
     for memory in memories:
         try:
             _validate_pools(memory.pools, require_allocated)
+            _check_capacity(memory)
         except ValueError as e:
             raise ValueError(f"in memory {memory.id!r}, {e}") from e
 
@@ -82,6 +96,7 @@ def validate_allocation(
             _validate_memories(entity.memories, require_allocated)
         elif isinstance(entity, Memory):
             _validate_pools(entity.pools, require_allocated)
+            _check_capacity(entity)
         elif isinstance(entity, Pool):
             _validate_allocations(entity.allocations, require_allocated)
         else:

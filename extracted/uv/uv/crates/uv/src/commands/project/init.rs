@@ -258,8 +258,8 @@ async fn init_script(
     let requires_python = init_script_python_requirement(
         python.as_deref(),
         &install_mirrors,
-        &CWD,
-        pin_python,
+        script_path.parent().unwrap_or(&CWD),
+        !pin_python,
         python_preference,
         python_downloads,
         no_config,
@@ -553,7 +553,7 @@ async fn determine_requires_python(
                 (requires_python, python_pin)
             }
             python_request @ PythonRequest::Version(VersionRequest::Range(specifiers, variant)) => {
-                let requires_python = RequiresPython::from_specifiers(specifiers);
+                let requires_python = RequiresPython::from_specifiers(specifiers.clone());
 
                 let python_pin = if pin_python {
                     let interpreter = PythonInstallation::find_or_download(

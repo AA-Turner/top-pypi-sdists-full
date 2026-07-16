@@ -18,8 +18,10 @@ import inspect
 import keyword
 import re
 import subprocess
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from functools import cached_property
+from numbers import Real
 from operator import attrgetter
 from pathlib import Path
 from typing import (
@@ -27,7 +29,6 @@ from typing import (
     Annotated,
     Any,
     Concatenate,
-    Generic,
     Literal,
     Self,
     TypedDict,
@@ -37,12 +38,18 @@ from typing import (
 )
 
 from cachetools import Cache, cached
+from kfnetlist import (
+    Net,
+    Netlist,
+    NetlistPort,
+    PortArrayRef,
+    PortRef,
+)
 from pydantic import (
     AfterValidator,
     BaseModel,
     Field,
     PrivateAttr,
-    RootModel,
     field_serializer,
     field_validator,
     model_validator,
@@ -50,25 +57,38 @@ from pydantic import (
 from ruamel.yaml import YAML
 
 from . import kdb
-from .conf import PROPID, logger
+from .conf import logger
 from .decorators import WrappedKCellFunc, WrappedVKCellFunc
-from .instance import DInstance, Instance, VInstance
+from .instance import Instance, VInstance
 from .kcell import DKCell, KCell, ProtoTKCell, VKCell
 from .layout import KCLayout, get_default_kcl, kcls
-from .netlist import Net, Netlist, NetlistInstance, NetlistPort, PortArrayRef, PortRef
+from .port import BasePort, ProtoPort
 from .port import DPort as DKCellPort
 from .port import Port as KCellPort
-from .port import ProtoPort
+from .routing.generic import ManhattanRoute  # noqa: TC001
+from .routing.manhattan import ManhattanRouter  # noqa: TC001
 from .settings import Info
-from .typings import KC, JSONSerializable, TUnit, dbu, um
+from .typings import KC, JSONSerializable, dbu, um
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
-    from .cross_section import CrossSection, DCrossSection
-    from .kcell import DKCell, KCell, ProtoTKCell, VKCell
+    from klayout import rdb
 
-__all__ = ["DSchematic", "Schematic", "get_schematic", "read_schematic"]
+    from .cross_section import (
+        AsymmetricCrossSection,
+        CrossSection,
+        DAsymmetricCrossSection,
+        DCrossSection,
+    )
+
+__all__ = [
+    "Constraint",
+    "DSchematic",
+    "PathLengthMatch",
+    "Schematic",
+    "read_schematic",
+]
 
 
 yaml = YAML(typ="safe")
@@ -94,7 +114,7 @@ def _valid_varname(name: str) -> str:
     return name if name.isidentifier() and not keyword.iskeyword(name) else f"_{name}"
 
 
-def _gez(value: TUnit) -> TUnit:
+def _gez[T: Real](value: T) -> T:
     """Validate that a unit-like value is >= 0.
 
     Raises:
@@ -200,7 +220,7 @@ _anchorref_mapping: dict[str, str] = {
 }
 
 
-class Placement(MirrorPlacement, Generic[TUnit], extra="forbid"):
+class Placement[T: (int, float)](MirrorPlacement, extra="forbid"):
     """Absolute placement and orientation for an instance.
 
     Coordinates may be absolute (`x`, `y`) with
@@ -220,11 +240,11 @@ class Placement(MirrorPlacement, Generic[TUnit], extra="forbid"):
         mirror: Whether the instance is to be mirrored or not.
     """
 
-    x: TUnit | PortRef | PortArrayRef | AnchorRefX = cast("TUnit", 0)
-    dx: TUnit = cast("TUnit", 0)
-    y: TUnit | PortRef | PortArrayRef | AnchorRefY = cast("TUnit", 0)
-    dy: TUnit = cast("TUnit", 0)
-    orientation: float = 0
+    x: int | T | PortArrayRef | PortRef | AnchorRefX = 0
+    dx: int | T = 0
+    y: int | T | PortArrayRef | PortRef | AnchorRefY = 0
+    dy: int | T = 0
+    orientation: float | PortRef = 0
     anchor: FixedAnchor | PortAnchor | None = None
 
     @model_validator(mode="before")
@@ -252,10 +272,12 @@ class Placement(MirrorPlacement, Generic[TUnit], extra="forbid"):
             placeable = placeable and self.y.name in placed_ports
         elif isinstance(self.y, AnchorRefY):
             placeable = placeable and self.y.instance in placed_instances
+        if isinstance(self.orientation, PortRef):
+            placeable = placeable and self.orientation.instance in placed_instances
         return placeable
 
 
-class RegularArray(BaseModel, Generic[TUnit], extra="forbid"):
+class RegularArray[T: (int, float)](BaseModel, extra="forbid"):
     """Rectangular array with uniform row/column pitch.
 
     Attributes:
@@ -266,15 +288,15 @@ class RegularArray(BaseModel, Generic[TUnit], extra="forbid"):
     """
 
     columns: int = Field(gt=0, default=1)
-    column_pitch: TUnit
+    column_pitch: T
     rows: int = Field(gt=0, default=1)
-    row_pitch: TUnit
+    row_pitch: T
 
     def __repr__(self) -> str:
         return f"RegularArray(columns={self.columns}, columns_pitch=)"
 
 
-class Array(BaseModel, Generic[TUnit], extra="forbid"):
+class Array[T: (int, float)](BaseModel, extra="forbid"):
     """General 2D array parameterization using two pitch vectors.
 
     Attributes:
@@ -288,11 +310,11 @@ class Array(BaseModel, Generic[TUnit], extra="forbid"):
 
     na: int = Field(gt=1, default=1)
     nb: int = Field(gt=0, default=1)
-    pitch_a: tuple[Annotated[TUnit, AfterValidator(_gez)], TUnit]
-    pitch_b: tuple[TUnit, Annotated[TUnit, AfterValidator(_gez)]]
+    pitch_a: tuple[Annotated[T, AfterValidator(_gez)], T]
+    pitch_b: tuple[T, Annotated[T, AfterValidator(_gez)]]
 
 
-class Ports(BaseModel, Generic[TUnit]):
+class Ports[T: (int, float)]:
     """Indexer for an instance's ports to produce `PortRef`/`PortArrayRef`.
 
     Example:
@@ -300,7 +322,10 @@ class Ports(BaseModel, Generic[TUnit]):
         `inst.ports["out", 1, 0]` -> `PortArrayRef` (requires instance array)
     """
 
-    instance: SchematicInstance[TUnit]
+    __slots__ = ("instance",)
+
+    def __init__(self, instance: SchematicInstance[T]) -> None:
+        self.instance = instance
 
     def __getitem__(self, key: str | tuple[str, int, int]) -> PortRef | PortArrayRef:
         """Return a port reference for a (standard or array) port."""
@@ -316,8 +341,25 @@ class Ports(BaseModel, Generic[TUnit]):
         return PortRef(instance=self.instance.name, port=key)
 
 
-class SchematicInstance(
-    BaseModel, Generic[TUnit], extra="forbid", arbitrary_types_allowed=True
+class Pins[T: (int, float)]:
+    """Indexer for an instance's pins to produce `PinRef`.
+
+    Example:
+        `inst.pins["dc"]` -> `PinRef`
+    """
+
+    __slots__ = ("instance",)
+
+    def __init__(self, instance: SchematicInstance[T]) -> None:
+        self.instance = instance
+
+    def __getitem__(self, key: str) -> PinRef:
+        """Return a pin reference."""
+        return PinRef(instance=self.instance.name, pin=key)
+
+
+class SchematicInstance[T: (int, float)](
+    BaseModel, extra="forbid", arbitrary_types_allowed=True
 ):
     """Instance record within a schematic.
 
@@ -343,10 +385,10 @@ class SchematicInstance(
     name: str = Field(exclude=True, frozen=True)
     component: str
     settings: dict[str, JSONSerializable] = Field(default_factory=dict)
-    array: RegularArray[TUnit] | Array[TUnit] | None = None
+    array: RegularArray[T] | Array[T] | None = None
     kcl: KCLayout = Field(default_factory=get_default_kcl)
     virtual: bool = False
-    _schematic: TSchematic[TUnit] = PrivateAttr()
+    _schematic: TSchematic[T] = PrivateAttr()
 
     @field_validator("kcl", mode="before")
     @classmethod
@@ -360,32 +402,40 @@ class SchematicInstance(
         return kcl.name
 
     @property
-    def parent_schematic(self) -> TSchematic[TUnit]:
+    def parent_schematic(self) -> TSchematic[T]:
         if self._schematic is None:
             raise RuntimeError("Schematic instance has no parent set.")
         return self._schematic
 
     @property
-    def placement(self) -> MirrorPlacement | Placement[TUnit] | None:
+    def placement(self) -> Placement[T] | MirrorPlacement | None:
         return self.parent_schematic.placements.get(self.name)
+
+    def get_placement(self) -> Placement[T] | MirrorPlacement:
+        placement = self.placement
+        if placement is None:
+            raise ValueError(
+                f"SchematicInstance {self.name!r} does not have a placement"
+            )
+        return placement
 
     def place(
         self,
-        x: TUnit | PortRef | AnchorRefX = 0,
-        y: TUnit | PortRef | AnchorRefY = 0,
-        dx: TUnit = 0,
-        dy: TUnit = 0,
-        orientation: float = 0,
+        x: T | PortRef | AnchorRefX = 0,
+        y: T | PortRef | AnchorRefY = 0,
+        dx: T = 0,
+        dy: T = 0,
+        orientation: float | PortRef = 0,
         mirror: bool = False,
         anchor: FixedAnchorDict | PortAnchorDict | None = None,
-    ) -> Placement[TUnit]:
+    ) -> Placement[T]:
         """Declare placement/orientation/mirroring for this instance.
 
         Returns:
             The created `Placement` (also stored under `self.placement` which references
             `self.parent_schematic.placements`).
         """
-        placement = Placement[TUnit](
+        placement = Placement[T](
             x=x,
             y=y,
             dx=dx,
@@ -415,8 +465,8 @@ class SchematicInstance(
     def connect(
         self,
         port: str | tuple[str, int, int],
-        other: Port[TUnit] | PortRef,
-    ) -> Connection[TUnit]:
+        other: Port[T] | PortRef,
+    ) -> Connection[T]:
         """Connect one of my ports to `other` and register it on the schematic."""
         if isinstance(port, str):
             pref = PortRef(instance=self.name, port=port)
@@ -424,8 +474,8 @@ class SchematicInstance(
             pref = PortArrayRef(
                 instance=self.name, port=port[0], ia=port[1], ib=port[2]
             )
-        conn = Connection[TUnit]((other, pref))
-        self.parent_schematic.connections.append(conn)
+        conn = Connection[T](net=(other, pref))
+        self.parent_schematic.nets.append(conn)
         return conn
 
     @property
@@ -445,8 +495,12 @@ class SchematicInstance(
             self.placement.mirror = value
 
     @cached_property
-    def ports(self) -> Ports[TUnit]:
+    def ports(self) -> Ports[T]:
         return Ports(instance=self)
+
+    @cached_property
+    def pins(self) -> Pins[T]:
+        return Pins(instance=self)
 
     @property
     def xmin(self) -> AnchorRefX:
@@ -472,38 +526,29 @@ class SchematicInstance(
         )
 
 
-class Route(BaseModel, Generic[TUnit], extra="forbid"):
+class Route[T: (int, float)](BaseModel, extra="forbid"):
     """Bundle of `Link`s routed using a named strategy.
 
     Attributes:
         name: Route identifier (key in `(D)Schematic.routes`).
-        links: Pairs of start/end ports to be routed.
         routing_strategy: Name of routing function registered on the
             `Schematic.create_cell` or registered in `KCLayout` if none are given.
         settings: Keyword arguments forwarded to the routing strategy.
     """
 
     name: str = Field(exclude=True)
-    links: list[Link[TUnit]]
     routing_strategy: str = "route_bundle"
     settings: dict[str, JSONSerializable]
 
     @model_validator(mode="before")
     @classmethod
-    def _parse_links(cls, data: dict[str, Any]) -> dict[str, Any]:
-        links = cast("dict[str, str]| None", data.get("links"))
-
-        if isinstance(links, dict):
-            data["links"] = [
-                (tuple(str(k).rsplit(",", 1)), tuple(str(v).rsplit(",", 1)))
-                for k, v in links.items()
-            ]
+    def _parse_nets(cls, data: dict[str, Any]) -> dict[str, Any]:
         if "settings" not in data:
             data["settings"] = {}
         return data
 
 
-class Port(BaseModel, Generic[TUnit], extra="forbid"):
+class Port[T: (int, float)](BaseModel, extra="forbid"):
     """A schematic-level, placeable port.
 
     This port is on the Schematic's cell's level, i.e. equivalent of `(D)KCell.ports`
@@ -523,42 +568,70 @@ class Port(BaseModel, Generic[TUnit], extra="forbid"):
 
     Methods:
         is_placeable: True if all references resolve to already placed instances.
-        place: Materialize the port on a `KCell` using provided cross-sections.
     """
 
     name: str = Field(exclude=True)
-    x: TUnit | PortRef | AnchorRefX
-    y: TUnit | PortRef | AnchorRefY
-    dx: TUnit = cast("TUnit", 0)
-    dy: TUnit = cast("TUnit", 0)
+    x: T | PortRef | AnchorRefX
+    y: T | PortRef | AnchorRefY
+    dx: T = 0
+    dy: T = 0
     cross_section: str
     orientation: Literal[0, 90, 180, 270] | PortRef
 
-    def __lt__(self, other: Port[Any] | PortRef) -> bool:
-        if isinstance(other, Port):
-            return self._as_tuple() < other._as_tuple()
-        return True
+    def __lt__(self, other: Port[T] | PortRef) -> bool:
+        if not isinstance(other, Port):
+            return True
+        if self.name != other.name:
+            return self.name < other.name
+        x = self.x
+        ox = other.x
+        if _is_real(x):
+            if _is_real(ox):
+                return x < ox
+            if x != ox:
+                return False
+        elif _is_port_ref(x):
+            if _is_real(ox):
+                return False
+            if _is_port_ref(ox):
+                return x < ox
+            return True
+        else:
+            if _is_real(ox) or _is_port_ref(ox):
+                return False
+            return x < ox  # ty:ignore[unsupported-operator]
+        y = self.y
+        oy = other.y
+        if _is_real(y):
+            if _is_real(oy):
+                return y < oy
+            if y != oy:
+                return False
+        elif _is_port_ref(y):
+            if _is_real(oy):
+                return False
+            if _is_port_ref(oy):
+                return y < oy
+            return True
+        else:
+            if _is_real(oy) or _is_port_ref(oy):
+                return False
+            return y < oy  # ty:ignore[unsupported-operator]
 
-    def _as_tuple(
-        self,
-    ) -> tuple[
-        str,
-        TUnit | PortRef | AnchorRefX,
-        TUnit | PortRef | AnchorRefY,
-        TUnit,
-        TUnit,
-        Literal[0, 90, 180, 270] | PortRef,
-        str,
-    ]:
-        return (
-            self.name,
-            self.x,
-            self.y,
-            self.dx,
-            self.dy,
-            self.orientation,
-            self.cross_section,
-        )
+        if self.dx != other.dx:
+            return self.dx < other.dx
+        if self.dy != other.dy:
+            return self.dy < other.dy
+        if self.cross_section != other.cross_section:
+            return self.cross_section < other.cross_section
+        if isinstance(self.orientation, int | float):
+            if isinstance(other, int | float):
+                return self.orientation < other.orientation
+            return False
+        if isinstance(other.orientation, PortRef):
+            return self.orientation < other.orientation
+
+        return True
 
     def is_placeable(self, placed_instances: set[str]) -> bool:
         placeable = True
@@ -569,79 +642,6 @@ class Port(BaseModel, Generic[TUnit], extra="forbid"):
         if isinstance(self.orientation, PortRef):
             placeable = placeable and self.orientation.instance in placed_instances
         return placeable
-
-    def place(
-        self,
-        cell: KCell,
-        schematic: TSchematic[TUnit],
-        name: str,
-        cross_sections: Mapping[str, CrossSection | DCrossSection],
-    ) -> KCellPort:
-        if isinstance(self.x, PortRef):
-            if isinstance(self.x, PortArrayRef):
-                x: float = (
-                    cell.insts[self.x.instance]
-                    .ports[self.x.port, self.x.ia, self.x.ib]
-                    .x
-                )
-            else:
-                x = cell.insts[self.x.instance].ports[self.x.port].x
-        elif isinstance(self.x, AnchorRefX):
-            match self.x.x:
-                case "left":
-                    x = cell.insts[self.x.instance].xmin
-                case "center":
-                    x = cell.insts[self.x.instance].bbox().center().x
-                case "right":
-                    x = cell.insts[self.x.instance].xmax
-        else:
-            x = self.x
-        x += self.dx
-        if isinstance(self.y, PortRef):
-            if isinstance(self.y, PortArrayRef):
-                y: float = (
-                    cell.insts[self.y.instance]
-                    .ports[self.y.port, self.y.ia, self.y.ib]
-                    .y
-                )
-            else:
-                y = cell.insts[self.y.instance].ports[self.y.port].y
-        elif isinstance(self.y, AnchorRefY):
-            match self.y.y:
-                case "bottom":
-                    y = cell.insts[self.y.instance].ymin
-                case "center":
-                    y = cell.insts[self.y.instance].bbox().center().y
-                case "top":
-                    y = cell.insts[self.y.instance].ymax
-        else:
-            y = self.y
-        y += self.dy
-        if isinstance(self.orientation, PortRef):
-            orientation = (
-                cell.insts[self.orientation.instance]
-                .ports[self.orientation.port]
-                .orientation
-            )
-        else:
-            orientation = self.orientation
-
-        if schematic.unit == "dbu":
-            return cell.create_port(
-                dcplx_trans=kdb.DCplxTrans(
-                    rot=orientation,
-                    x=cell.kcl.to_um(cast("int", x)),
-                    y=cell.kcl.to_um(cast("int", y)),
-                ),
-                cross_section=cross_sections[self.cross_section],
-                name=self.name,
-            )
-
-        return cell.create_port(
-            dcplx_trans=kdb.DCplxTrans(rot=orientation, x=x, y=y),
-            cross_section=cross_sections[self.cross_section],
-            name=self.name,
-        )
 
     def __str__(self) -> str:
         return self.as_python_str()
@@ -659,32 +659,93 @@ class Port(BaseModel, Generic[TUnit], extra="forbid"):
         return f"{schematic_name}.ports[{self.name!r}]"
 
 
-class Link(
-    RootModel[
-        tuple[
-            PortArrayRef | PortRef | Port[TUnit], PortArrayRef | PortRef | Port[TUnit]
-        ]
-    ],
-    Generic[TUnit],
-):
+class PinRef(BaseModel, extra="forbid"):
+    """Reference to a pin on a schematic instance.
+
+    Produced by ``inst.pins["name"]`` and used as the ``pin`` argument of
+    `TSchematic.add_pin` to expose an instance pin as a top-level
+    schematic pin.
+    """
+
+    instance: str
+    pin: str
+
+    @property
+    def name(self) -> str:
+        return self.pin
+
+    def __lt__(self, other: PinRef) -> bool:
+        return (self.instance, self.pin) < (other.instance, other.pin)
+
+    def __hash__(self) -> int:
+        return hash((self.instance, self.pin))
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, PinRef)
+            and self.instance == other.instance
+            and self.pin == other.pin
+        )
+
+    def as_python_str(self, inst_name: str | None = None) -> str:
+        return f"{inst_name or self.instance}.pins[{self.pin!r}]"
+
+
+class Pin(BaseModel, extra="forbid"):
+    """A schematic-level pin grouping one or more schematic-level ports.
+
+    The pin will be materialized on the resulting cell at ``create_cell``
+    time as a `kfactory.Pin`. The ``ports`` list references entries
+    in `TSchematic.ports` by name.
+
+    Attributes:
+        name: Pin name (key in `TSchematic.pins`).
+        ports: Names of schematic-level ports that belong to this pin.
+        pin_type: Pin type (default ``"DC"``).
+        info: Free-form info attached to the pin.
+    """
+
+    name: str = Field(exclude=True)
+    ports: list[str]
+    pin_type: str = "DC"
+    info: dict[str, JSONSerializable] = Field(default_factory=dict)
+
+
+class SchematicNet[T: (int, float)](BaseModel):
     """Undirected association between two ports (refs or schematic ports).
 
     The pair is stored in sorted order to ensure stable equality and hashing.
     """
 
-    root: tuple[
-        PortArrayRef | PortRef | Port[TUnit], PortArrayRef | PortRef | Port[TUnit]
-    ]
+    net: tuple[PortRef | Port[T], PortRef | Port[T]]
+
+
+class RouteNet[T: (int, float)](SchematicNet[T]):
+    """Undirected association between two ports (refs or schematic ports).
+
+    The pair is stored in sorted order to ensure stable equality and hashing.
+    """
+
+    route: str
+    net: tuple[PortRef, ...]
+
+
+class VirtualConnection[T: (int, float)](SchematicNet[T]):
+    type: Literal["virtual"] = "virtual"
+    net: tuple[PortRef | Port[T], ...]
 
     @model_validator(mode="after")
     def _sort_data(self) -> Self:
-        self.root = tuple(sorted(self.root))  # type: ignore[assignment]
+        self.net = tuple(sorted(self.net))
+        if isinstance(self.net[1], Port):
+            raise TypeError(
+                "Two cell ports cannot be connected together. This would cause an "
+                "invalid netlist."
+            )
         return self
 
 
-class Connection(
-    RootModel[tuple[Port[TUnit] | PortArrayRef | PortRef, PortArrayRef | PortRef]]
-):
+class Connection[T: (int, float)](SchematicNet[T]):
     """Hard connection between two ports.
 
     Enforced as {PortRef | PortArrayRef | Port} x {PortRef | PortArrayRef}.
@@ -694,22 +755,40 @@ class Connection(
         TypeError: If connection attempts to join two `Port` objects.
     """
 
-    root: tuple[PortArrayRef | PortRef | Port[TUnit], PortArrayRef | PortRef]
+    net: tuple[PortArrayRef | PortRef | Port[T], PortArrayRef | PortRef] = Field(
+        frozen=True
+    )
 
-    @model_validator(mode="after")
-    def _sort_data(self) -> Self:
-        self.root = tuple(sorted(self.root))  # type: ignore[assignment]
-        if isinstance(self.root[1], Port):
+    @field_validator("net", mode="before")
+    @classmethod
+    def _sort_and_validate_net(
+        cls,
+        v: tuple[PortArrayRef | PortRef | Port[T], ...],
+    ) -> tuple[PortArrayRef | PortRef | Port[T], ...]:
+        # Allow list/iterable input; normalize to a 2-tuple
+        if not isinstance(v, tuple):
+            v = tuple(v)
+        if len(v) != 2:
+            raise TypeError("net must contain exactly two endpoints")
+
+        a, b = v
+
+        # Sort without mutating the model instance (important for frozen fields/models)
+        net_sorted = tuple(sorted((a, b)))
+
+        # After sorting, ensure the RHS isn't a cell Port (your original invariant)
+        if isinstance(net_sorted[1], Port):
             raise TypeError(
                 "Two cell ports cannot be connected together. This would cause an "
                 "invalid netlist."
             )
-        return self
+
+        return net_sorted
 
     @classmethod
     def from_list(
         cls, data: list[Any] | tuple[Any, ...] | dict[str, Any]
-    ) -> Connection[TUnit]:
+    ) -> Connection[T]:
         """Parse a Connection from a compact list/tuple/dict representation.
 
         Used for parsing legacy gdsfactory like connections.
@@ -736,17 +815,183 @@ class Connection(
             else:
                 p2 = {"instance": data[1][0], "port": data[1][1]}
 
-            return Connection.model_validate((p1, p2))
-        return Connection(**data)
+            return Connection[T].model_validate({"net": (p1, p2)})
+        return Connection[T](**data)
 
 
-class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
+class Constraint(BaseModel, ABC, arbitrary_types_allowed=True):
+    """Base class for schematic constraints.
+
+    Constraints operate in two phases:
+
+    1. **enforce** — called by the routing function during the post-process phase,
+       before instances are placed. Receives the `ManhattanRouter` objects and routing
+       context kwargs (e.g. ``separation``, ``bend90_radius``).
+
+    2. **check** — called by `TSchematic.create_cell` after routing is complete.
+       Receives the materialized cell, the schematic, the resolved `Instance` objects
+       for `instance_names`, and the `ManhattanRoute` results for `route_names`.
+
+    Attributes:
+        route_names: Names of the routes this constraint applies to.
+        instance_names: Names of the instances this constraint applies to.
+        on_failure: Behaviour when `check` returns False. ``"error"`` raises a
+            `ValueError`. ``"show_error"`` additionally opens the cell in KLayout
+            with an lyrdb marker database. ``None`` silently ignores failures.
+    """
+
+    route_names: list[str]
+    instance_names: list[str] = Field(default=[])
+    on_failure: Literal["error", "show_error"] | None = "error"
+    _routes: dict[str | None, list[ManhattanRoute]] = PrivateAttr(default={})
+    _routers: dict[str | None, list[ManhattanRouter]] = PrivateAttr(default={})
+
+    @abstractmethod
+    def enforce(
+        self,
+        c: KCell,
+        routers: Sequence[ManhattanRouter],
+        route_name: str | None,
+    ) -> None:
+        """Enforce the constraint on the routers before placement.
+
+        Called by the routing function. ``**kwargs`` contains routing context
+        such as ``separation`` and ``bend90_radius``.
+        """
+        ...
+
+    @abstractmethod
+    def check(
+        self,
+        c: KCell,
+        schematic: TSchematic[Any],
+        instances: dict[str, Instance],
+        routes: dict[str, list[ManhattanRoute]],
+    ) -> bool:
+        """Return True if the constraint is satisfied after routing."""
+        ...
+
+    def lyrdb_markers(
+        self,
+        c: KCell,
+        schematic: TSchematic[Any],
+        instances: dict[str, Instance],
+        routes: dict[str, list[ManhattanRoute]],
+    ) -> rdb.ReportDatabase:
+        """Build an lyrdb marker database for failing routes.
+
+        The default implementation highlights route backbones. Override for
+        constraint-specific visualisation.
+        """
+        from klayout import rdb as _rdb
+
+        db = _rdb.ReportDatabase(f"{self.__class__.__name__} Constraint Failure")
+        cat = db.create_category("Failing Routes")
+        cell = db.create_cell(c.name)
+        for name in self.route_names:
+            for route in routes.get(name, []):
+                if len(route.backbone) >= 2:
+                    item = db.create_item(cell, cat)
+                    item.add_value(
+                        kdb.DPath(
+                            [kdb.DPoint(p) * c.kcl.dbu for p in route.backbone],
+                            route.start_port.dwidth,
+                        ).polygon()
+                    )
+        return db
+
+
+class PathLengthMatch(Constraint):
+    """Constraint that equalises optical path lengths across a set of routes.
+
+    Uses the loop-based path-length matching already built into the optical
+    router.  The `enforce` method injects meander loops into the shorter
+    routers so that all routes reach the same length before instances are
+    placed.  The `check` method verifies the final `ManhattanRoute` lengths
+    are within `tolerance` of each other.
+
+    Attributes:
+        loops: Number of meander loops to use per route.
+        loop_side: Which side of the route to place the loop on.
+        loop_position: Where along the route to place the loop.
+        element: Index of the straight segment to insert the loop into.
+        tolerance: Maximum allowed length difference after enforcement.
+    """
+
+    loops: int = 1
+    loop_side: int = -1  # LoopSide.left
+    loop_position: int = -1  # LoopPosition.start
+    element: int = -1
+    tolerance: int = 0
+    length: int | None = None
+    all: bool = False
+
+    def enforce(
+        self,
+        c: KCell,
+        routers: Sequence[ManhattanRouter],
+        route_name: str | None,
+    ) -> None:
+        from .routing.optical import LoopPosition, LoopSide, path_length_match
+
+        if self.all or (len(self.route_names) - len(self._routers)) == 1:
+            path_length_match(
+                routers=routers,
+                element=self.element,
+                loops=self.loops,
+                loop_side=LoopSide(self.loop_side),
+                loop_position=LoopPosition(self.loop_position),
+                path_length=self.length,
+            )
+
+        self._routers[route_name] = list(routers)
+
+    def check(
+        self,
+        c: KCell,
+        schematic: TSchematic[Any],
+        instances: dict[str, Instance],
+        routes: dict[str, list[ManhattanRoute]],
+    ) -> bool:
+        all_routes = [r for name in self.route_names for r in routes.get(name, [])]
+        if not all_routes:
+            return True
+        lengths = [r.length for r in all_routes]
+        return (max(lengths) - min(lengths)) <= self.tolerance
+
+    def lyrdb_markers(
+        self,
+        c: KCell,
+        schematic: TSchematic[Any],
+        instances: dict[str, Instance],
+        routes: dict[str, list[ManhattanRoute]],
+    ) -> rdb.ReportDatabase:
+        from klayout import rdb as _rdb
+
+        all_routes = [r for name in self.route_names for r in routes.get(name, [])]
+        lengths = [r.length for r in all_routes] if all_routes else []
+        target = max(lengths) if lengths else 0
+
+        db = _rdb.ReportDatabase("PathLengthMatch Constraint Failure")
+        cat = db.create_category("Length Mismatch")
+        cell = db.create_cell(c.name)
+        for name in self.route_names:
+            for route in routes.get(name, []):
+                delta = target - route.length
+                if delta > self.tolerance and len(route.backbone) >= 2:
+                    item = db.create_item(cell, cat)
+                    item.add_value(
+                        kdb.DPath(
+                            [kdb.DPoint(p) * c.kcl.dbu for p in route.backbone],
+                            route.start_port.dwidth,
+                        ).polygon()
+                    )
+                    item.add_value(f"length={route.length}, delta={delta}")
+        return db
+
+
+class TSchematic[T: (int, float)](BaseModel, extra="forbid"):
     """Schematic of a cell / component.
-
-    Parameters:
-        unit: Base coordinate unit ("dbu" or "um"). Fixed by subclass.
-        kcl: `KCLayout` context (excluded from model serialization). Needed for
-            referencing and creation of the cell.
 
     Attributes:
         name: Optional schematic name.
@@ -755,18 +1000,26 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
         connections: List of `Connection`s.
         routes: Mapping of route name -> `Route`.
         ports: Mapping of port name -> `Port`/`PortRef`/`PortArrayRef`.
+        pins: Mapping of pin name -> `Pin`/`PinRef`. Pins are top-level
+            groupings of schematic ports (purely structural — they do not
+            participate in nets/connections).
         info: dict which will be mapped to `KCell.info` (or any other derivate like
             Component).
+        unit: Base coordinate unit ("dbu" or "um"). Fixed by subclass.
+        kcl: `KCLayout` context (excluded from model serialization). Needed for
+            referencing and creation of the cell.
     """
 
     name: str | None = None
-    instances: dict[str, SchematicInstance[TUnit]] = Field(default_factory=dict)
-    placements: dict[str, Placement[TUnit] | MirrorPlacement] = Field(
-        default_factory=dict
+    instances: dict[str, SchematicInstance[T]] = Field(default_factory=dict)
+    placements: dict[str, Placement[T] | MirrorPlacement] = Field(default_factory=dict)
+    nets: list[RouteNet[T] | Connection[T] | VirtualConnection[T]] = Field(
+        default_factory=list
     )
-    connections: list[Connection[TUnit]] = Field(default_factory=list)
-    routes: dict[str, Route[TUnit]] = Field(default_factory=dict)
-    ports: dict[str, Port[TUnit] | PortArrayRef | PortRef] = Field(default_factory=dict)
+    routes: dict[str, Route[T]] = Field(default_factory=dict)
+    ports: dict[str, Port[T] | PortArrayRef | PortRef] = Field(default_factory=dict)
+    pins: dict[str, Pin | PinRef] = Field(default_factory=dict)
+    constraints: list[Constraint] = Field(default_factory=list)
     kcl: KCLayout = Field(exclude=True, default_factory=get_default_kcl)
     unit: Literal["dbu", "um"]
     info: dict[str, JSONSerializable] = Field(default_factory=dict)
@@ -776,11 +1029,11 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
         name: str,
         component: str,
         settings: dict[str, JSONSerializable] | None = None,
-        array: RegularArray[TUnit] | Array[TUnit] | None = None,
-        placement: Placement[TUnit] | None = None,
+        array: RegularArray[T] | Array[T] | None = None,
+        placement: Placement[T] | None = None,
         kcl: KCLayout | None = None,
         virtual: bool = False,
-    ) -> SchematicInstance[TUnit]:
+    ) -> SchematicInstance[T]:
         """Create a schema instance.
 
         This would be an SREF or AREF in the resulting GDS cell.
@@ -800,7 +1053,7 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
         Returns:
             Schematic instance representing the args.
         """
-        inst = SchematicInstance[TUnit].model_validate(
+        inst = SchematicInstance[T].model_validate(
             {
                 "name": name,
                 "component": component,
@@ -845,12 +1098,12 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
         self,
         name: str,
         cross_section: str,
-        x: PortRef | PortArrayRef | TUnit,
-        y: PortRef | PortArrayRef | TUnit,
-        dx: TUnit = 0,
-        dy: TUnit = 0,
+        x: PortRef | PortArrayRef | T,
+        y: PortRef | PortArrayRef | T,
+        dx: T = 0,
+        dy: T = 0,
         orientation: Literal[0, 90, 180, 270] = 0,
-    ) -> Port[TUnit]:
+    ) -> Port[T]:
         """Create a schematic-level, placeable port.
 
         Returns:
@@ -868,9 +1121,174 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
         self.ports[p.name] = p
         return p
 
+    def place_port(
+        self,
+        name: str,
+        cell: KCell,
+        cross_sections: Mapping[
+            str,
+            CrossSection
+            | DCrossSection
+            | AsymmetricCrossSection
+            | DAsymmetricCrossSection,
+        ],
+        instances: Mapping[str, Instance | VInstance] | None = None,
+    ) -> BasePort:
+        """Materialize a schematic-level port on `cell`.
+
+        Looks up `self.ports[name]` and dispatches by port type:
+
+        - `PortArrayRef` / `PortRef`: forwards an instance port through
+          `cell.add_port` (using `cell.vinsts` for virtual instances).
+        - `Port[T]`: resolves `(x, y, orientation)` (which may themselves be
+          references), then creates the port via `cell.create_port`.
+        """
+        port = self.ports[name]
+
+        def target_instance(port_ref: PortRef) -> Instance | VInstance:
+            if instances is not None:
+                return instances[port_ref.instance]
+            inst = self.instances[port_ref.instance]
+            return (
+                cell.vinsts[port_ref.instance]
+                if inst.virtual
+                else cell.insts[port_ref.instance]
+            )
+
+        if isinstance(port, PortArrayRef):
+            return cell.add_port(
+                port=target_instance(port).ports[port.port, port.ia, port.ib],
+                name=name,
+            ).base
+        if isinstance(port, PortRef):
+            return cell.add_port(
+                port=target_instance(port).ports[port.port], name=name
+            ).base
+
+        if isinstance(port.x, PortRef):
+            if isinstance(port.x, PortArrayRef):
+                x: float = (
+                    cell.insts[port.x.instance]
+                    .ports[port.x.port, port.x.ia, port.x.ib]
+                    .x
+                )
+            else:
+                x = cell.insts[port.x.instance].ports[port.x.port].x
+        elif isinstance(port.x, AnchorRefX):
+            match port.x.x:
+                case "left":
+                    x = cell.insts[port.x.instance].xmin
+                case "center":
+                    x = cell.insts[port.x.instance].bbox().center().x
+                case "right":
+                    x = cell.insts[port.x.instance].xmax
+        else:
+            x = cast("int | T", port.x)
+        x += port.dx
+        if isinstance(port.y, PortRef):
+            if isinstance(port.y, PortArrayRef):
+                y: float = (
+                    cell.insts[port.y.instance]
+                    .ports[port.y.port, port.y.ia, port.y.ib]
+                    .y
+                )
+            else:
+                y = cell.insts[port.y.instance].ports[port.y.port].y
+        elif isinstance(port.y, AnchorRefY):
+            match port.y.y:
+                case "bottom":
+                    y = cell.insts[port.y.instance].ymin
+                case "center":
+                    y = cell.insts[port.y.instance].bbox().center().y
+                case "top":
+                    y = cell.insts[port.y.instance].ymax
+        else:
+            y = cast("int | T", port.y)
+        y += port.dy
+        if isinstance(port.orientation, PortRef):
+            orientation = (
+                cell.insts[port.orientation.instance]
+                .ports[port.orientation.port]
+                .orientation
+            )
+        else:
+            orientation = port.orientation
+
+        if self.unit == "dbu":
+            return cell.create_port(
+                dcplx_trans=kdb.DCplxTrans(
+                    rot=orientation,
+                    x=cell.kcl.to_um(cast("int", x)),
+                    y=cell.kcl.to_um(cast("int", y)),
+                ),
+                cross_section=cross_sections[port.cross_section],
+                name=name,
+            ).base
+
+        return cell.create_port(
+            dcplx_trans=kdb.DCplxTrans(rot=orientation, x=x, y=y),
+            cross_section=cross_sections[port.cross_section],
+            name=name,
+        ).base
+
+    def create_pin(
+        self,
+        name: str,
+        ports: list[str],
+        pin_type: str = "DC",
+        info: dict[str, JSONSerializable] | None = None,
+    ) -> Pin:
+        """Create a schematic-level pin grouping existing schematic ports.
+
+        Args:
+            name: Pin name. Must be unique within the schematic.
+            ports: Names of schematic ports (entries of ``self.ports``) that
+                belong to this pin. Each name must already be registered as a
+                schematic port.
+            pin_type: Pin type (default ``"DC"``).
+            info: Optional info dict attached to the pin.
+
+        Returns:
+            The created `Pin`, also stored in `self.pins`.
+
+        Raises:
+            ValueError: If a pin with ``name`` already exists, ``ports`` is
+                empty, or any port name is not present in ``self.ports``.
+        """
+        if name in self.pins:
+            raise ValueError(f"Pin with name {name!r} already exists")
+        if not ports:
+            raise ValueError(
+                f"At least one port must be provided to create pin named {name!r}"
+            )
+        missing = [p for p in ports if p not in self.ports]
+        if missing:
+            raise ValueError(
+                f"Cannot create pin {name!r}: port(s) {missing!r} are not "
+                "registered as schematic ports."
+            )
+        pin = Pin(name=name, ports=list(ports), pin_type=pin_type, info=info or {})
+        self.pins[name] = pin
+        return pin
+
+    def add_pin(self, name: str | None = None, *, pin: PinRef) -> None:
+        """Expose an existing instance pin as a schematic top-level pin.
+
+        Args:
+            name: Name for the schematic pin; defaults to the underlying pin name.
+            pin: Pin reference to expose.
+
+        Raises:
+            ValueError: If a schematic pin with ``name`` already exists.
+        """
+        name = name or pin.pin
+        if name in self.pins:
+            raise ValueError(f"Pin with name {name!r} already exists")
+        self.pins[name] = pin
+
     def create_connection(
-        self, port1: PortRef | Port[TUnit], port2: PortRef
-    ) -> Connection[TUnit]:
+        self, port1: PortRef | Port[T], port2: PortRef
+    ) -> Connection[T]:
         """Create and register a connection between two instance ports.
 
         Args:
@@ -884,7 +1302,7 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
             The created `Connection`.
         """
 
-        conn = Connection[TUnit]((port1, port2))
+        conn = Connection[T](net=(port1, port2))
         if isinstance(port1, PortRef):
             if port1.instance not in self.instances:
                 raise ValueError(
@@ -896,7 +1314,7 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
             raise ValueError(
                 f"Cannot create connection to unknown instance {port2.instance}"
             )
-        self.connections.append(conn)
+        self.nets.append(conn)
         return conn
 
     def netlist(
@@ -916,34 +1334,15 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
         netlist is sorted for stable output.
         """
 
-        nets: list[Net] = []
-        if self.routes is not None:
-            nets.extend(
+        nets = [
+            Net(
                 [
-                    Net(
-                        [
-                            NetlistPort(name=port.name)
-                            if isinstance(port, Port)
-                            else port
-                            for port in link.root
-                        ]
-                    )
-                    for route in self.routes.values()
-                    for link in route.links
+                    NetlistPort(name=p.name) if isinstance(p, Port) else p
+                    for p in net.net
                 ]
             )
-        if self.connections:
-            nets.extend(
-                [
-                    Net(
-                        [
-                            NetlistPort(name=p.name) if isinstance(p, Port) else p
-                            for p in connection.root
-                        ]
-                    )
-                    for connection in self.connections
-                ]
-            )
+            for net in self.nets
+        ]
 
         if self.ports:
             nets.extend(
@@ -954,16 +1353,15 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                 ]
             )
         if add_defaults:
-            kcl_factories: dict[
-                str, Callable[..., ProtoTKCell[Any]] | Callable[..., VKCell]
-            ]
             if external_factories is None:
                 all_factories: dict[
                     str,
                     dict[str, Callable[..., ProtoTKCell[Any]] | Callable[..., VKCell]],
                 ] = defaultdict(dict)
                 for kcl_ in kcls.values():
-                    kcl_factories = {f.name: f._f for f in kcl_.factories._all}
+                    kcl_factories: dict[
+                        str, Callable[..., ProtoTKCell[Any]] | Callable[..., VKCell]
+                    ] = {f.name: f._f for f in kcl_.factories._all}
                     kcl_factories.update(
                         {vf.name: vf._f for vf in kcl_.virtual_factories._all}
                     )
@@ -972,9 +1370,13 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                 all_factories = external_factories.copy()
             if factories is not None:
                 all_factories[self.kcl.name] = factories
-            nl = Netlist(
-                instances={
-                    inst.name: NetlistInstance(
+            nl = Netlist()
+            for name in self.ports:
+                nl.create_port(name)
+            if self.instances:
+                for inst in self.instances.values():
+                    na, nb = _array_dims(inst.array)
+                    nl.create_inst(
                         name=inst.name,
                         kcl=inst.kcl.name,
                         component=inst.component,
@@ -984,37 +1386,34 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                                 all_factories[inst.kcl.name][inst.component]
                             ),
                         ),
+                        na=na,
+                        nb=nb,
                     )
-                    for inst in self.instances.values()
-                }
-                if self.instances
-                else {},
-                nets=nets,
-                ports=[NetlistPort(name=name) for name in self.ports],
-            )
+            for net in nets:
+                nl.add_net(net)
         else:
-            nl = Netlist(
-                instances={
-                    inst.name: NetlistInstance(
+            nl = Netlist()
+            for name in self.ports:
+                nl.create_port(name)
+            if self.instances:
+                for inst in self.instances.values():
+                    na, nb = _array_dims(inst.array)
+                    nl.create_inst(
                         name=inst.name,
                         kcl=inst.kcl.name,
                         component=inst.component,
                         settings=inst.settings,
+                        na=na,
+                        nb=nb,
                     )
-                    for inst in self.instances.values()
-                }
-                if self.instances
-                else {},
-                nets=nets,
-                ports=[NetlistPort(name=name) for name in self.ports],
-            )
+            for net in nets:
+                nl.add_net(net)
         nl.sort()
         return nl
 
     @model_validator(mode="before")
     @classmethod
     def _validate_schematic(cls, data: dict[str, Any]) -> dict[str, Any]:
-        data.pop("nets", None)
         data.pop("warnings", None)
         if not isinstance(data, dict):
             return data
@@ -1025,53 +1424,56 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
             for name, instance in instances.items():
                 instance["name"] = name
                 instance.pop("info", None)
+
+        nets: list[dict[str, str]] = data.get("nets", [])
+        built_nets: list[RouteNet[T] | Connection[T] | VirtualConnection[T]] = []
+        data["nets"] = built_nets
+        if nets:
+            built_nets.extend(
+                [
+                    VirtualConnection[T](
+                        net=(
+                            _get_instance_and_port(net["p1"]),
+                            _get_instance_and_port(net["p2"]),
+                        )
+                    )
+                    for net in nets
+                ]
+            )
+
+        connections = data.pop("connections", None)
+        if connections is not None and isinstance(connections, dict):
+            built_nets.extend(
+                [
+                    Connection[T](
+                        net=(
+                            _get_instance_and_port(conn_ref1),
+                            _get_instance_and_port(conn_ref2),
+                        )
+                    )
+                    for conn_ref1, conn_ref2 in connections.items()
+                ]
+            )
         routes = data.get("routes")
         if routes:
             for name, route in routes.items():
                 route["name"] = name
-        connections = data.get("connections")
-        if connections is not None and isinstance(connections, dict):
-            built_connections: list[Connection[TUnit]] = []
-            connections_: list[tuple[tuple[str, str], tuple[str, str]]] = [
-                (k.rsplit(",", 1), v.rsplit(",", 1)) for k, v in connections.items()
-            ]
-            for connection_ in connections_:
-                connection_0: (
-                    tuple[str, str] | tuple[tuple[str, tuple[int, ...]], str]
-                ) = connection_[0]
-                match = re.match(r"(.*?)(<\d+\.\d+>)$", connection_[0][0])
-                if match:
-                    connection_0 = (
-                        (
-                            match.group(1),
-                            tuple(
-                                int(j) for j in match.group(2).strip("<>").split(".")
+                built_nets.extend(
+                    [
+                        RouteNet[T](
+                            route=name,
+                            net=(
+                                _get_instance_and_port(link1),
+                                _get_instance_and_port(link2),
                             ),
-                        ),
-                        connection_[0][1],
-                    )
-                connection_1: (
-                    tuple[str, str] | tuple[tuple[str, tuple[int, ...]], str]
-                ) = connection_[1]
-                match = re.match(r"(.*?)(<\d+\.\d+>)$", connection_[1][0])
-                if match:
-                    connection_1 = (
-                        (
-                            match.group(1),
-                            tuple(
-                                int(j) for j in match.group(2).strip("<>").split(".")
-                            ),
-                        ),
-                        connection_[1][1],
-                    )
-                built_connections.append(
-                    Connection.from_list((connection_0, connection_1))
+                        )
+                        for link1, link2 in route["links"].items()
+                    ]
                 )
-            data["connections"] = built_connections
+                route.pop("links")
         placements = data.get("placements")
         if placements:
             for placement in placements.values():
-                anchor: FixedAnchorDict | None = None
                 if "port" in placement:
                     port = placement.pop("port")
                     if port in [
@@ -1089,7 +1491,7 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                         placement["anchor"] = _anchor_mapping[port]
                     else:
                         placement["anchor"] = {"port": port}
-                anchor = placement.get("anchor", {})
+                anchor: FixedAnchorDict = placement.get("anchor", {})
                 if "xmin" in placement:
                     anchor["x"] = "left"
                     placement["x"] = placement.pop("xmin")
@@ -1127,7 +1529,27 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
 
                 if isinstance(placement.get("y"), str):
                     raise NotImplementedError
+        ports = data.get("ports")
+        if ports:
+            for name, port_val in ports.items():
+                if isinstance(port_val, str):
+                    ports[name] = _get_instance_and_port(port_val)
+        pins = data.get("pins")
+        if pins:
+            for name, pin in pins.items():
+                if isinstance(pin, str):
+                    inst, pname = pin.rsplit(",", 1)
+                    pins[name] = {"instance": inst, "pin": pname}
+                elif isinstance(pin, dict) and "ports" in pin:
+                    pin["name"] = name
         return data
+
+    @field_serializer("placements")
+    @classmethod
+    def _serialize_placements(
+        cls, v: dict[str, Placement[Any] | MirrorPlacement]
+    ) -> dict[str, dict[str, Any]]:
+        return {k: p.model_dump(warnings=False) for k, p in v.items()}
 
     @model_validator(mode="after")
     def assign_backrefs(self) -> Self:
@@ -1142,14 +1564,20 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
             str, Callable[..., KCell] | Callable[..., DKCell] | Callable[..., VKCell]
         ]
         | None = None,
-        cross_sections: Mapping[str, CrossSection | DCrossSection] | None = None,
+        cross_sections: Mapping[
+            str,
+            CrossSection
+            | DCrossSection
+            | AsymmetricCrossSection
+            | DAsymmetricCrossSection,
+        ]
+        | None = None,
         routing_strategies: dict[
             str,
             Callable[
                 Concatenate[
                     ProtoTKCell[Any],
-                    Sequence[ProtoPort[Any]],
-                    Sequence[ProtoPort[Any]],
+                    Sequence[Sequence[ProtoPort[Any]]],
                     ...,
                 ],
                 Any,
@@ -1157,6 +1585,7 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
         ]
         | None = None,
         place_unknown: bool = False,
+        ignore_errors: bool = False,
     ) -> KC:
         """Materialize the schematic into a `KCell`/`DKCell`/`Component`.
 
@@ -1193,22 +1622,25 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
         # must be isolated from other islands either through no connection at all or
         # routes
 
+        connections = self.connections
+
         islands, instance_connections = _get_island_connections(
-            self.instances, self.connections
+            instances=self.instances, connections=connections
         )
 
         placed_insts: set[str] = set()
         placed_ports: set[str] = set()
 
         for name, port in self.ports.items():
+            if isinstance(port, PortRef | PortArrayRef):
+                continue
             if port.is_placeable(placed_instances=placed_insts):
-                p = port.place(
+                p = self.place_port(
+                    name,
                     cell=c,
-                    schematic=self,
-                    name=name,
                     cross_sections=cross_sections,
                 )
-                placed_ports.add(p.name)  # type: ignore[arg-type]
+                placed_ports.add(p.name)
 
         instances: dict[str, Instance | VInstance] = {}
         placed_islands: list[set[str]] = []
@@ -1238,69 +1670,92 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                 placed_islands.append(island)
                 placed_insts |= island
 
+        cell_ports_by_name = c.ports.get_all_named()
+        nets_per_route = self.routes_nets()
+
         # routes
+        route_results: dict[str, list[Any]] = {}
         for route in self.routes.values():
-            start_ports: list[ProtoPort[Any]] = []
-            end_ports: list[ProtoPort[Any]] = []
-            for link in route.links:
-                l1, l2 = link.root[0], link.root[1]
-                if isinstance(l1, Port):
-                    p1: KCellPort | DKCellPort = c.ports[l1.name]
-                elif isinstance(l1, PortArrayRef):
-                    if self.instances[l1.instance].virtual:
-                        p1 = c.vinsts[l1.instance].ports[l1.port, l1.ia, l1.ib]
+            resolved_ports: list[tuple[ProtoPort[Any], ...]] = []
+            for net in nets_per_route[route.name]:
+                resolved_port_list: list[KCellPort | DKCellPort] = []
+                for port_ref in net.net:
+                    if isinstance(port_ref, Port):
+                        p: KCellPort | DKCellPort = cell_ports_by_name[port_ref.name]
                     else:
-                        p1 = c.insts[l1.instance].ports[l1.port, l1.ia, l1.ib]
-                elif self.instances[l1.instance].virtual:
-                    p1 = c.vinsts[l1.instance].ports[l1.port]
-                else:
-                    p1 = c.insts[l1.instance].ports[l1.port]
-                start_ports.append(p1)
-                if isinstance(l2, Port):
-                    p2: KCellPort | DKCellPort = c.ports[l2.name]
-                elif isinstance(l2, PortArrayRef):
-                    if self.instances[l2.instance].virtual:
-                        p2 = c.vinsts[l2.instance].ports[l2.port, l2.ia, l2.ib]
-                    else:
-                        p2 = c.insts[l2.instance].ports[l2.port, l2.ia, l2.ib]
-                elif self.instances[l2.instance].virtual:
-                    p2 = c.vinsts[l2.instance].ports[l2.port]
-                else:
-                    p2 = c.insts[l2.instance].ports[l2.port]
-                end_ports.append(p2)
+                        target = instances[port_ref.instance]
+                        if isinstance(port_ref, PortArrayRef):
+                            p = target.ports[port_ref.port, port_ref.ia, port_ref.ib]
+                        else:
+                            p = target.ports[port_ref.port]
+                    resolved_port_list.append(p)
+                resolved_ports.append(tuple(resolved_port_list))
             route_c = output_type(base=c.base)
+            relevant_constraints = [
+                ct for ct in self.constraints if route.name in ct.route_names
+            ]
+            extra_kwargs: dict[str, Any] = (
+                {"constraints": relevant_constraints} if relevant_constraints else {}
+            )
             if isinstance(route_c, KCell):
-                routing_strategies[route.routing_strategy](
-                    output_type(base=c.base), start_ports, end_ports, **route.settings
+                result = routing_strategies[route.routing_strategy](
+                    output_type(base=c.base),
+                    resolved_ports,
+                    **route.settings,
+                    **extra_kwargs,
                 )
             else:
-                routing_strategies[route.routing_strategy](
+                result = routing_strategies[route.routing_strategy](
                     output_type(base=c.base),
-                    [DKCellPort(base=sp.base) for sp in start_ports],
-                    [DKCellPort(base=ep.base) for ep in end_ports],
+                    [
+                        tuple(DKCellPort(base=p.base) for p in net_ports)
+                        for net_ports in resolved_ports
+                    ],
                     **route.settings,
+                    **extra_kwargs,
+                )
+            route_results[route.name] = result or []
+
+        # check constraints
+        if self.constraints:
+            failed: list[Constraint] = []
+            for ct in self.constraints:
+                resolved_instances = {
+                    n: c.insts[n] for n in ct.instance_names if n in c.insts
+                }
+                resolved_routes = {n: route_results.get(n, []) for n in ct.route_names}
+                if not ct.check(c, self, resolved_instances, resolved_routes):
+                    if ct.on_failure == "show_error":
+                        c_ = c.dup()
+                        c_.name = c.kcl._future_cell_name or c.name
+                        c_.show(
+                            lyrdb=ct.lyrdb_markers(
+                                c_, self, resolved_instances, resolved_routes
+                            )
+                        )
+                    if ct.on_failure in ("error", "show_error"):
+                        failed.append(ct)
+            if failed:
+                raise ValueError(
+                    f"Constraints not satisfied in schematic {self.name!r}:\n"
+                    + "\n".join(repr(ct) for ct in failed)
                 )
 
         # verify connections
-        port_connection_transformation_errors: list[Connection[TUnit]] = []
-        connection_transformation_errors: list[Connection[TUnit]] = []
-        for conn in self.connections:
-            c1 = conn.root[0]
-            c2 = conn.root[1]
+        cell_ports_by_name = c.ports.get_all_named()
+        port_connection_transformation_errors: list[Connection[T]] = []
+        connection_transformation_errors: list[Connection[T]] = []
+        for conn in connections:
+            c1 = conn.net[0]
+            c2 = conn.net[1]
             if isinstance(c1, Port):
-                p1 = c.ports[c1.name]
-                p2 = c.insts[c2.instance].ports[c2.port]
+                p1 = cell_ports_by_name[c1.name]
+                p2 = instances[c2.instance].ports[c2.port]
                 if p1.dcplx_trans != p2.dcplx_trans:
                     port_connection_transformation_errors.append(conn)
             else:
-                if self.instances[c1.instance].virtual:
-                    inst1: Instance | VInstance = c.vinsts[c1.instance]
-                else:
-                    inst1 = c.insts[c1.instance]
-                if self.instances[c2.instance].virtual:
-                    inst2: Instance | VInstance = c.vinsts[c2.instance]
-                else:
-                    inst2 = c.insts[c2.instance]
+                inst1 = instances[c1.instance]
+                inst2 = instances[c2.instance]
                 if isinstance(c1, PortArrayRef):
                     p1 = inst1.ports[c1.port, c1.ia, c1.ib]
                 else:
@@ -1315,36 +1770,134 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                 if (t1 != t2 * kdb.DCplxTrans.R180) and (t1 != t2 * kdb.DCplxTrans.M90):
                     connection_transformation_errors.append(conn)
 
-        if connection_transformation_errors or port_connection_transformation_errors:
+        if not ignore_errors and (
+            connection_transformation_errors or port_connection_transformation_errors
+        ):
             raise ValueError(
                 f"Not all connections in schema {self.name}"
                 " could be satisfied. Missing or wrong connections:\n"
                 + "\n".join(
-                    f"{conn.root[0]} - {conn.root[1]}"
+                    f"{conn.net[0]} - {conn.net[1]}"
                     for conn in connection_transformation_errors
                     + port_connection_transformation_errors
                 )
             )
+
+        # materialize pins on the resulting cell. ports must already be created.
+        if self.pins:
+            # map (instance, original port name) -> schematic-port key name
+            # only PortRef-style schematic ports map to instance ports; cell
+            # port names equal the schematic-port keys (see PortRef.place).
+            ref_to_schematic_port: dict[tuple[str, str], str] = {}
+            for sname, sport in self.ports.items():
+                if isinstance(sport, PortRef) and not isinstance(sport, PortArrayRef):
+                    ref_to_schematic_port[(sport.instance, sport.port)] = sname
+
+        for pin_name, pin_def in self.pins.items():
+            if isinstance(pin_def, PinRef):
+                inst = self.instances.get(pin_def.instance)
+                if inst is None:
+                    raise ValueError(
+                        f"Pin {pin_name!r} references unknown instance "
+                        f"{pin_def.instance!r}."
+                    )
+                if inst.virtual:
+                    inst_pins = c.vinsts[pin_def.instance].cell.pins
+                else:
+                    inst_pins = c.insts[pin_def.instance].cell.pins
+                if pin_def.pin not in [p.name for p in inst_pins]:
+                    raise ValueError(
+                        f"Pin {pin_name!r} references unknown pin "
+                        f"{pin_def.pin!r} on instance {pin_def.instance!r}."
+                    )
+                inst_pin = inst_pins[pin_def.pin]
+                cell_port_names: list[str] = []
+                missing: list[str] = []
+                for p in inst_pin.ports:
+                    if p.name is None:
+                        missing.append("<unnamed>")
+                        continue
+                    key = (pin_def.instance, p.name)
+                    if key not in ref_to_schematic_port:
+                        missing.append(p.name)
+                    else:
+                        cell_port_names.append(ref_to_schematic_port[key])
+                if missing:
+                    raise ValueError(
+                        f"Cannot materialize pin {pin_name!r} from "
+                        f"{pin_def.instance!r}.{pin_def.pin!r}: underlying "
+                        f"port(s) {missing!r} are not exposed as top-level"
+                        " schematic ports (use schematic.add_port for each)."
+                    )
+                c.create_pin(
+                    name=pin_name,
+                    ports=[cell_ports_by_name[n] for n in cell_port_names],
+                    pin_type=inst_pin.pin_type,
+                    info=inst_pin.info.model_dump(),
+                )
+            else:
+                missing = [p for p in pin_def.ports if p not in cell_ports_by_name]
+                if missing:
+                    raise ValueError(
+                        f"Cannot materialize pin {pin_name!r}: port(s) "
+                        f"{missing!r} are not registered on the cell."
+                    )
+                c.create_pin(
+                    name=pin_name,
+                    ports=[cell_ports_by_name[p] for p in pin_def.ports],
+                    pin_type=pin_def.pin_type,
+                    info=dict(pin_def.info),
+                )
+
         c.schematic = self
         if self.name:
             c.name = self.name
 
         return output_type(base=c.base)
 
+    def add_constraint(self, constraint: Constraint) -> Constraint:
+        """Register a constraint on this schematic.
+
+        Validates that all ``route_names`` and ``instance_names`` referenced by
+        the constraint already exist in the schematic.
+
+        Args:
+            constraint: The constraint to add.
+
+        Returns:
+            The added constraint (for chaining).
+
+        Raises:
+            ValueError: If any referenced route or instance name is unknown.
+        """
+        missing_routes = [n for n in constraint.route_names if n not in self.routes]
+        if missing_routes:
+            raise ValueError(
+                f"Constraint references unknown route(s): {missing_routes}"
+            )
+        missing_insts = [
+            n for n in constraint.instance_names if n not in self.instances
+        ]
+        if missing_insts:
+            raise ValueError(
+                f"Constraint references unknown instance(s): {missing_insts}"
+            )
+        self.constraints.append(constraint)
+        return constraint
+
     def add_route(
         self,
         name: str,
-        start_ports: list[PortRef | Port[TUnit]],
-        end_ports: list[PortRef | Port[TUnit]],
+        nets: Sequence[Sequence[PortRef]],
         routing_strategy: str,
-        **settings: JSONSerializable,
-    ) -> Route[TUnit]:
+        settings: dict[str, JSONSerializable],
+    ) -> Route[T]:
         """Create a multi-link route bundle.
 
         Args:
             name: Route identifier (must be unique).
-            start_ports: Start ports for each link.
-            end_ports: End ports for each link.
+            nets: List of net tuples. Each tuple contains 2 or more ports
+                that belong to the same net.
             routing_strategy: Name of the routing strategy function.
             **settings: Extra keyword args forwarded to the strategy.
 
@@ -1352,30 +1905,62 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
             The created `Route`.
 
         Raises:
-            ValueError: If `name` already exists.
+            ValueError: If `name` already exists or a net has fewer than 2 ports.
         """
 
         if name in self.routes:
             raise ValueError(f"Route with name {name!r} already exists")
-        route = Route[TUnit](
+        route = Route[T](
             name=name,
             routing_strategy=routing_strategy,
-            links=[
-                Link((sp, ep)) for sp, ep in zip(start_ports, end_ports, strict=True)
-            ],
             settings=settings,
         )
         self.routes[name] = route
+        for net in nets:
+            if len(net) < 2:
+                raise ValueError(
+                    f"Each route net must have at least 2 ports, got {len(net)} in "
+                    f"route {name!r}"
+                )
+            self.nets.append(RouteNet[T](route=name, net=tuple(net)))
         return route
 
+    @overload
     def connect(
-        self, port1: PortRef | Port[TUnit], port2: PortRef
-    ) -> Connection[TUnit]:
-        conn = Connection[TUnit]((port1, port2))
-        self.connections.append(conn)
+        self,
+        port1: PortRef | Port[T],
+        port2: PortRef,
+        *,
+        virtual: Literal[False] = False,
+    ) -> Connection[T]: ...
+
+    @overload
+    def connect(
+        self,
+        port1: PortRef | Port[T],
+        port2: PortRef | Port[T],
+        *ports: PortRef | Port[T],
+        virtual: Literal[True] = True,
+    ) -> VirtualConnection[T]: ...
+    def connect(
+        self,
+        port1: PortRef | Port[T],
+        port2: PortRef | Port[T],
+        *ports: PortRef | Port[T],
+        virtual: bool = False,
+    ) -> Connection[T] | VirtualConnection[T]:
+        conn: Connection[T] | VirtualConnection[T]
+        if virtual:
+            conn = VirtualConnection[T](net=(port1, port2, *ports))
+        else:
+            assert isinstance(port2, PortRef), (
+                "non-virtual connect requires port2 to be a PortRef"
+            )
+            conn = Connection[T](net=(port1, port2))
+        self.nets.append(conn)
         return conn
 
-    def __getitem__(self, key: str) -> Port[TUnit] | PortRef:
+    def __getitem__(self, key: str) -> Port[T] | PortRef:
         return self.ports[key]
 
     def code_str(
@@ -1512,6 +2097,32 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                         f"name={name!r},"
                         f"port={port.as_python_str(names[port.instance])})\n"
                     )
+        if self.pins:
+            schematic_cell += f"\n{_ind()}# Schematic pins\n"
+            for name, pin in sorted(
+                self.pins.items(),
+                key=lambda named_pin: (
+                    named_pin[1].__class__.__name__,
+                    named_pin[0],
+                ),
+            ):
+                if isinstance(pin, Pin):
+                    schematic_cell += f"{_ind()}schematic.create_pin(\n"
+                    indent += 2
+                    schematic_cell += f"{_ind()}name={name!r},\n"
+                    schematic_cell += f"{_ind()}ports={pin.ports!r},\n"
+                    if pin.pin_type != "DC":
+                        schematic_cell += f"{_ind()}pin_type={pin.pin_type!r},\n"
+                    if pin.info:
+                        schematic_cell += f"{_ind()}info={pin.info!r},\n"
+                    indent -= 2
+                    schematic_cell += f"{_ind()})\n"
+                else:
+                    schematic_cell += (
+                        f"{_ind()}schematic.add_pin("
+                        f"name={name!r},"
+                        f"pin={pin.as_python_str(names[pin.instance])})\n"
+                    )
         if self.placements:
             schematic_cell += f"\n{_ind()}# Schematic instance placements\n"
 
@@ -1545,12 +2156,12 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                     schematic_cell += f"{_ind()})\n"
                 else:
                     schematic_cell += f"{_ind()}{inst_name}.mirror = True\n"
-
-        if self.connections:
+        connections = self.connections
+        if connections:
             schematic_cell += f"\n{_ind()}# Schematic connections\n"
 
-            for connection in self.connections:
-                ref1, ref2 = connection.root
+            for connection in connections:
+                ref1, ref2 = connection.net
                 if isinstance(ref1, PortRef):
                     schematic_cell += f"{_ind()}{names[ref1.instance]}.connect(\n"
                     indent += 2
@@ -1579,6 +2190,7 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                     indent -= 2
                     schematic_cell += f"{_ind()})\n"
         if self.routes:
+            nets_per_route = self.routes_nets()
             schematic_cell += f"\n{_ind()}# Schematic routes\n"
             for route in self.routes.values():
                 schematic_cell += f"{_ind()}schematic.add_route(\n"
@@ -1587,8 +2199,8 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                 schematic_cell += f"{_ind()}name={route.name!r},\n"
                 start_ports: list[str] = []
                 end_ports: list[str] = []
-                for link in route.links:
-                    p1, p2 = link.root
+                for net in nets_per_route[route.name]:
+                    p1, p2 = net.net
                     if isinstance(p1, Port):
                         start_ports.append(p1.as_python_str())
                     else:
@@ -1653,11 +2265,10 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
             component: str, /, **settings: Any
         ) -> dict[str | None, float]:
             factory = factories[component]
-            is_schematic_inst = False
             if isinstance(factory, WrappedKCellFunc):
                 is_schematic_inst = factory.schematic_driven()
                 if is_schematic_inst:
-                    _schematic = factory._f_schematic(**settings)  # type: ignore[misc]
+                    _schematic = factory._f_schematic(**settings)  # ty:ignore[call-non-callable]
                     port_positions = _schematic.get_port_positions(factories=factories)
                     port_directions: dict[str | None, float] = {}
                     for port_name in port_positions["right"]:
@@ -1685,11 +2296,10 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                         get_port_orientation_f=get_port_orientation_function,
                     )
                     factory = factories[inst.component]
-                    is_schematic_inst = False
                     if isinstance(factory, WrappedKCellFunc):
                         is_schematic_inst = factory.schematic_driven()
                         if is_schematic_inst:
-                            _schematic = factory._f_schematic(**inst.settings)  # type: ignore[misc]
+                            _schematic = factory._f_schematic(**inst.settings)  # ty:ignore[call-non-callable]
                             inst_ports = _schematic.get_port_positions(
                                 factories=factories
                             )
@@ -1718,7 +2328,6 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                                 for inst_port in inst_ports["bottom"]:
                                     if inst_port == port:
                                         port_orientation = 270
-                                        found = True
                                         break
                             if port_orientation is None:
                                 raise ValueError(
@@ -1729,9 +2338,9 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                             cell = factory(**inst.settings)
                             port_orientation = cell.ports[port.name].dcplx_trans.angle
                     if inst.mirror:
-                        orientation = (orientation - port_orientation) % 360  # type: ignore[operator]
+                        orientation = (orientation - port_orientation) % 360  # ty:ignore[unsupported-operator]
                     else:
-                        orientation = (orientation + port_orientation) % 360  # type: ignore[operator]
+                        orientation = (orientation + port_orientation) % 360  # ty:ignore[unsupported-operator]
 
                     match orientation:
                         case 0:
@@ -1762,11 +2371,10 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                     get_port_orientation_f=get_port_orientation_function,
                 )
                 factory = factories[inst.component]
-                is_schematic_inst = False
                 if isinstance(factory, WrappedKCellFunc):
                     is_schematic_inst = factory.schematic_driven()
                     if is_schematic_inst:
-                        _schematic = factory._f_schematic(**inst.settings)  # type: ignore[misc]
+                        _schematic = factory._f_schematic(**inst.settings)  # ty:ignore[call-non-callable]
                         inst_ports = _schematic.get_port_positions(factories=factories)
                         found = False
 
@@ -1793,7 +2401,6 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                             for inst_port in inst_ports["bottom"]:
                                 if inst_port == port.port:
                                     port_orientation = 270
-                                    found = True
                                     break
                         if port_orientation is None:
                             raise ValueError(
@@ -1802,11 +2409,11 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                             )
                     else:
                         cell = factory(**inst.settings)
-                        port_orientation = cell.ports[port.name].dcplx_trans.angle
+                        port_orientation = cell.ports[port.port].dcplx_trans.angle
                 if inst.mirror:
-                    orientation = (orientation - port_orientation) % 360  # type: ignore[operator]
+                    orientation = (orientation - port_orientation) % 360  # ty:ignore[unsupported-operator]
                 else:
-                    orientation = (orientation + port_orientation) % 360  # type: ignore[operator]
+                    orientation = (orientation + port_orientation) % 360  # ty:ignore[unsupported-operator]
 
                 match orientation:
                     case 0:
@@ -1818,16 +2425,27 @@ class TSchematic(BaseModel, Generic[TUnit], extra="forbid"):
                     case 270:
                         sorted_ports["bottom"].append(port_name)
         for side in ("right", "top", "left", "bottom"):
-            sorted_ports[side].sort()  # type: ignore[literal-required]
+            sorted_ports[side].sort()
         return sorted_ports
 
+    def routes_nets(self) -> dict[str, list[RouteNet[T]]]:
+        nets: dict[str, list[RouteNet[T]]] = defaultdict(list)
+        for net in self.nets:
+            if isinstance(net, RouteNet):
+                nets[net.route].append(net)
+        return nets
 
-def _get_instance_orientation(
+    @property
+    def connections(self) -> list[Connection[T]]:
+        return [net for net in self.nets if isinstance(net, Connection)]
+
+
+def _get_instance_orientation[T: (int, float)](
     instance: str,
-    schematic: TSchematic[Any],
+    schematic: TSchematic[T],
     visited_instances: set[str],
     get_port_orientation_f: Callable[..., dict[str | None, float]],
-    instance_connections: defaultdict[str, list[Connection[TUnit]]] | None = None,
+    instance_connections: defaultdict[str, list[Connection[T]]] | None = None,
     instance_orientations: dict[str, float] | None = None,
 ) -> float | None:
     s_inst = schematic.instances[instance]
@@ -1837,10 +2455,12 @@ def _get_instance_orientation(
     if isinstance(placement, Placement):
         if isinstance(placement.orientation, PortRef):
             return _get_instance_orientation(
-                placement.orientation,
+                placement.orientation.instance,
                 schematic,
                 instance_connections=instance_connections,
                 instance_orientations=instance_orientations,
+                visited_instances=visited_instances,
+                get_port_orientation_f=get_port_orientation_f,
             )
         return placement.orientation
     if instance_connections is None:
@@ -1854,20 +2474,20 @@ def _get_instance_orientation(
     s_inst_sign = -1 if s_inst.mirror else 1
 
     for connection in instance_connections[instance]:
-        if isinstance(connection.root[0], Port):
-            if isinstance(connection.root[0].orientation, PortRef):
+        if isinstance(connection.net[0], Port):
+            if isinstance(connection.net[0].orientation, PortRef):
                 continue
             return (
                 s_inst_sign
                 * (
-                    connection.root[0].orientation
+                    connection.net[0].orientation
                     - get_port_orientation_f(s_inst.component, **s_inst.settings)[
-                        connection.root[1].port
+                        connection.net[1].port
                     ]
                 )
             ) % 360
-        if connection.root[0].instance == instance:
-            conn_inst = connection.root[1].instance
+        if connection.net[0].instance == instance:
+            conn_inst = connection.net[1].instance
             conn_orientation = _get_possible_orienation(conn_inst, schematic)
             if conn_orientation is not None:
                 s_conn_inst = schematic.instances[conn_inst]
@@ -1878,17 +2498,17 @@ def _get_instance_orientation(
                         conn_orientation
                         + get_port_orientation_f(
                             s_conn_inst.component, **s_conn_inst.settings
-                        )[connection.root[1].port]
+                        )[connection.net[1].port]
                     )
                     + 180
                     - s_inst_sign
                     * get_port_orientation_f(s_inst.component, **s_inst.settings)[
-                        connection.root[0].port
+                        connection.net[0].port
                     ]
                 ) % 360
-            potential_instances.add(connection.root[1].instance)
+            potential_instances.add(connection.net[1].instance)
         else:
-            conn_inst = connection.root[0].instance
+            conn_inst = connection.net[0].instance
             conn_orientation = _get_possible_orienation(conn_inst, schematic)
             if conn_orientation is not None:
                 s_conn_inst = schematic.instances[conn_inst]
@@ -1899,16 +2519,16 @@ def _get_instance_orientation(
                         conn_orientation
                         + get_port_orientation_f(
                             s_conn_inst.component, **s_conn_inst.settings
-                        )[connection.root[0].port]
+                        )[connection.net[0].port]
                     )
                     + 180
                     - s_inst_sign
                     * get_port_orientation_f(s_inst.component, **s_inst.settings)[
-                        connection.root[1].port
+                        connection.net[1].port
                     ]
                 ) % 360
 
-            potential_instances.add(connection.root[0].instance)
+            potential_instances.add(connection.net[0].instance)
 
     visited_instances_ = visited_instances | potential_instances
 
@@ -1924,9 +2544,9 @@ def _get_instance_orientation(
         )
         if orientation is not None:
             for connection in instance_connections[instance]:
-                if isinstance(connection.root[0], Port):
+                if isinstance(connection.net[0], Port):
                     continue
-                if connection.root[0].instance == inst:
+                if connection.net[0].instance == inst:
                     s_conn_inst = schematic.instances[inst]
                     s_conn_sign = -1 if s_conn_inst.mirror else 1
                     return (
@@ -1935,15 +2555,15 @@ def _get_instance_orientation(
                             orientation
                             + get_port_orientation_f(
                                 s_conn_inst.component, **s_conn_inst.settings
-                            )[connection.root[0].port]
+                            )[connection.net[0].port]
                         )
                         + 180
                         - s_inst_sign
                         * get_port_orientation_f(s_inst.component, **s_inst.settings)[
-                            connection.root[1].port
+                            connection.net[1].port
                         ]
                     ) % 360
-                if connection.root[1].instance == inst:
+                if connection.net[1].instance == inst:
                     s_conn_inst = schematic.instances[inst]
                     s_conn_sign = -1 if s_conn_inst.mirror else 1
                     return (
@@ -1952,12 +2572,12 @@ def _get_instance_orientation(
                             orientation
                             + get_port_orientation_f(
                                 s_conn_inst.component, **s_conn_inst.settings
-                            )[connection.root[1].port]
+                            )[connection.net[1].port]
                         )
                         + 180
                         - s_inst_sign
                         * get_port_orientation_f(s_inst.component, **s_inst.settings)[
-                            connection.root[0].port
+                            connection.net[0].port
                         ]
                     ) % 360
 
@@ -2034,17 +2654,15 @@ class DSchema(DSchematic):
         super().__init__(**data)
 
 
-def _create_kinst(
+def _create_kinst[T: (int, float)](
     c: KCell,
-    schematic_inst: SchematicInstance[TUnit],
+    schematic_inst: SchematicInstance[T],
     factories: Mapping[
         str, Callable[..., KCell] | Callable[..., DKCell] | Callable[..., VKCell]
     ]
     | None,
 ) -> Instance | VInstance:
-    kinst: Instance | DInstance
     if factories:
-        is_factory = schematic_inst.component in factories
         cell_: ProtoTKCell[Any] | VKCell = factories[schematic_inst.component](
             **schematic_inst.settings
         )
@@ -2191,16 +2809,23 @@ def _dvec(x: float, y: float, c: KCell, unit: Literal["dbu", "um"]) -> kdb.DVect
     return kdb.DVector(x, y)
 
 
-def _place_island(
+def _is_int_schematic(s: TSchematic[Any]) -> TypeGuard[Schematic[int]]:
+    return s.unit == "dbu"
+
+
+def _place_island[T: (int, float)](
     c: KCell,
     schematic_island: set[str],
     instances: dict[str, Instance | VInstance],
-    connections: dict[str, list[Connection[TUnit]]],
-    schematic_instances: dict[str, SchematicInstance[TUnit]],
+    connections: dict[str, list[Connection[T]]],
+    schematic_instances: dict[str, SchematicInstance[T]],
     placed_insts: set[str],
     placed_ports: set[str],
-    schematic: TSchematic[TUnit],
-    cross_sections: Mapping[str, CrossSection | DCrossSection],
+    schematic: TSchematic[T],
+    cross_sections: Mapping[
+        str,
+        CrossSection | DCrossSection | AsymmetricCrossSection | DAsymmetricCrossSection,
+    ],
     factories: Mapping[
         str, Callable[..., KCell] | Callable[..., DKCell] | Callable[..., VKCell]
     ]
@@ -2213,13 +2838,13 @@ def _place_island(
         schema_inst = schematic_instances[inst]
         kinst = _create_kinst(c, schema_inst, factories=factories)
         instances[inst] = kinst
-        if schema_inst.placement and isinstance(schema_inst.placement, Placement):
+        p = schema_inst.placement
+        if isinstance(p, Placement):
+            p = cast("Placement[int]", p)
             logger.debug("Placing {}", schema_inst.name)
-            p = schema_inst.placement
-            assert p is not None
 
             if p.is_placeable(placed_insts, placed_ports):
-                if schematic.unit == "dbu":
+                if _is_int_schematic(schematic):
                     if isinstance(p.x, PortRef):
                         x: float = KCellPort(
                             base=instances[p.x.instance].ports[p.x.port].base
@@ -2250,11 +2875,19 @@ def _place_island(
                                 y = bb.center().y
                     else:
                         y = p.y
+                    if isinstance(p.orientation, PortRef):
+                        rot: float = (
+                            instances[p.orientation.instance]
+                            .ports[p.orientation.port]
+                            .orientation
+                        )
+                    else:
+                        rot = p.orientation
                     if p.anchor is None:
                         kinst.transform(
                             kdb.ICplxTrans(
                                 mag=1,
-                                rot=p.orientation,
+                                rot=rot,
                                 x=x + p.dx,
                                 y=y + p.dy,
                             )
@@ -2263,7 +2896,7 @@ def _place_island(
                         kinst.transform(
                             kdb.ICplxTrans(
                                 mag=1,
-                                rot=p.orientation,
+                                rot=rot,
                                 x=x + p.dx,
                                 y=y + p.dy,
                             )
@@ -2288,7 +2921,7 @@ def _place_island(
                         kinst.transform(
                             kdb.ICplxTrans(
                                 mag=1,
-                                rot=p.orientation,
+                                rot=rot,
                                 x=x + p.dx,
                                 y=y + p.dy,
                             )
@@ -2325,11 +2958,19 @@ def _place_island(
                                 y = bb.center().y
                     else:
                         y = p.y
+                    if isinstance(p.orientation, PortRef):
+                        drot: float = (
+                            instances[p.orientation.instance]
+                            .ports[p.orientation.port]
+                            .orientation
+                        )
+                    else:
+                        drot = p.orientation
                     if p.anchor is None:
                         kinst.transform(
                             kdb.DCplxTrans(
                                 mag=1,
-                                rot=p.orientation,
+                                rot=drot,
                                 x=x + p.dx,
                                 y=y + p.dy,
                             )
@@ -2338,7 +2979,7 @@ def _place_island(
                         kinst.transform(
                             kdb.DCplxTrans(
                                 mag=1,
-                                rot=p.orientation,
+                                rot=drot,
                                 x=x + p.dx,
                                 y=y + p.dy,
                             )
@@ -2369,7 +3010,7 @@ def _place_island(
                         kinst.transform(
                             kdb.DCplxTrans(
                                 mag=1,
-                                rot=p.orientation,
+                                rot=drot,
                                 x=x + p.dx,
                                 y=y + p.dy,
                             )
@@ -2434,15 +3075,18 @@ def _place_island(
     return placed_insts
 
 
-def _get_and_place_insts_and_ports(
+def _get_and_place_insts_and_ports[T: (int, float)](
     c: KCell,
     placed_insts: set[str],
     placed_ports: set[str],
-    connections: dict[str, list[Connection[TUnit]]],
-    schematic: TSchematic[TUnit],
+    connections: dict[str, list[Connection[T]]],
+    schematic: TSchematic[T],
     instances: dict[str, Instance | VInstance],
     placed_island_insts: set[str],
-    cross_sections: Mapping[str, CrossSection | DCrossSection],
+    cross_sections: Mapping[
+        str,
+        CrossSection | DCrossSection | AsymmetricCrossSection | DAsymmetricCrossSection,
+    ],
 ) -> bool:
     placeable_insts, placeable_ports = _get_placeable(
         placed_insts=placed_insts,
@@ -2458,8 +3102,11 @@ def _get_and_place_insts_and_ports(
         placed_instances=placed_insts,
     )
     for port in placeable_ports:
-        schematic.ports[port].place(
-            cell=c, schematic=schematic, name=port, cross_sections=cross_sections
+        schematic.place_port(
+            port,
+            cell=c,
+            cross_sections=cross_sections,
+            instances=instances,
         )
         placed_ports.add(port)
     placed_insts |= placeable_insts
@@ -2468,34 +3115,34 @@ def _get_and_place_insts_and_ports(
     return bool(placeable_insts) or bool(placeable_ports)
 
 
-def _connect_instances(
+def _connect_instances[T: (int, float)](
     instances: dict[str, Instance | VInstance],
     place_insts: set[str],
-    connections: dict[str, list[Connection[TUnit]]],
+    connections: dict[str, list[Connection[T]]],
     placed_instances: set[str],
 ) -> None:
     for inst_name in place_insts:
         inst = instances[inst_name]
         for conn in connections[inst_name]:
-            if isinstance(conn.root[0], Port):
+            if isinstance(conn.net[0], Port):
                 continue
             if (
-                conn.root[0].instance == inst_name
-                and conn.root[1].instance in placed_instances
+                conn.net[0].instance == inst_name
+                and conn.net[1].instance in placed_instances
             ):
                 inst.connect(
-                    conn.root[0].port,
-                    instances[conn.root[1].instance],
-                    conn.root[1].port,
+                    conn.net[0].port,
+                    instances[conn.net[1].instance],
+                    conn.net[1].port,
                     use_angle=True,
                     use_mirror=False,
                 )
                 break
-            if conn.root[0].instance in placed_instances:
+            if conn.net[0].instance in placed_instances:
                 inst.connect(
-                    conn.root[1].port,
-                    instances[conn.root[0].instance],
-                    conn.root[0].port,
+                    conn.net[1].port,
+                    instances[conn.net[0].instance],
+                    conn.net[0].port,
                     use_angle=True,
                     use_mirror=False,
                 )
@@ -2504,17 +3151,17 @@ def _connect_instances(
             raise ValueError("Could not connect all instances")
 
 
-def _get_placeable(
+def _get_placeable[T: (int, float)](
     placed_insts: set[str],
-    connections: dict[str, list[Connection[TUnit]]],
+    connections: dict[str, list[Connection[T]]],
     placed_ports: set[str],
-    schematic: TSchematic[TUnit],
+    schematic: TSchematic[T],
 ) -> tuple[set[str], set[str]]:
     placeable_insts: set[str] = set()
     placeable_ports: set[str] = set()
     for inst in placed_insts:
         for connection in connections[inst]:
-            ref1, ref2 = connection.root
+            ref1, ref2 = connection.net
             if isinstance(ref1, Port):
                 if ref1 in placed_ports:
                     placeable_insts.add(ref2.instance)
@@ -2535,51 +3182,6 @@ def _get_placeable(
             if port.instance in placed_insts:
                 placeable_ports.add(name)
     return placeable_insts - placed_insts, placeable_ports
-
-
-@overload
-def get_schematic(
-    c: KCell,
-    exclude_port_types: Sequence[str] | None = ("placement", "pad", "bump"),
-) -> TSchematic[int]: ...
-
-
-@overload
-def get_schematic(
-    c: DKCell,
-    exclude_port_types: Sequence[str] | None = ("placement", "pad", "bump"),
-) -> TSchematic[float]: ...
-
-
-def get_schematic(
-    c: KCell | DKCell,
-    exclude_port_types: Sequence[str] | None = ("placement", "pad", "bump"),
-) -> TSchematic[int] | TSchematic[float]:
-    """NOT FUNCTIONAL YET.
-
-    Create a minimal `TSchematic` from an existing cell.
-
-    Currently extracts named instances only. Port extraction is not yet implemented.
-
-    Args:
-        c: Source cell.
-        exclude_port_types: Port types to ignore (reserved for future use).
-
-    Returns:
-        A `Schematic` if `c` is `KCell`, otherwise a `DSchematic`.
-    """
-
-    if isinstance(c, KCell):
-        schematic: TSchematic[int] | TSchematic[float] = Schematic(name=c.name)
-    else:
-        schematic = DSchematic(name=c.name)
-
-    for inst in c.insts:
-        name = inst.property(PROPID.NAME)
-        if name is not None:
-            schematic.create_inst(name, inst.cell.factory_name or inst.cell.name)
-
-    return schematic
 
 
 @overload
@@ -2630,14 +3232,14 @@ def _get_full_settings(
     return params
 
 
-def _get_island_connections(
-    instances: dict[str, SchematicInstance[TUnit]],
-    connections: list[Connection[TUnit]],
-) -> tuple[dict[str, set[str]], defaultdict[str, list[Connection[TUnit]]]]:
+def _get_island_connections[T: (int, float)](
+    instances: dict[str, SchematicInstance[T]],
+    connections: list[Connection[T]],
+) -> tuple[dict[str, set[str]], defaultdict[str, list[Connection[T]]]]:
     islands: dict[str, set[str]] = {}
-    instance_connections: defaultdict[str, list[Connection[TUnit]]] = defaultdict(list)
+    instance_connections: defaultdict[str, list[Connection[T]]] = defaultdict(list)
     for connection in connections:
-        pr1, pr2 = connection.root
+        pr1, pr2 = connection.net
         if isinstance(pr1, Port):
             continue
         instance_connections[pr1.instance].append(connection)
@@ -2667,3 +3269,32 @@ def _get_island_connections(
             islands[inst_name] = {inst_name}
 
     return islands, instance_connections
+
+
+def _is_real(v: Any) -> TypeGuard[Real]:
+    return isinstance(v, Real)
+
+
+def _is_port_ref(v: Any) -> TypeGuard[PortRef]:
+    return isinstance(v, PortRef)
+
+
+def _array_dims(array: RegularArray[Any] | Array[Any] | None) -> tuple[int, int]:
+    if array is None:
+        return 0, 0
+    if isinstance(array, RegularArray):
+        return array.columns, array.rows
+    return array.na, array.nb
+
+
+def _get_instance_and_port(s: str) -> PortRef:
+    instance, port = s.rsplit(",", 1)
+    match = re.match(r"(.*?)<(\d+)\.(\d+)>$", instance)
+    if match:
+        return PortArrayRef(
+            instance=match.group(1),
+            port=port,
+            ia=int(match.group(2)),
+            ib=int(match.group(3)),
+        )
+    return PortRef(instance=instance, port=port)

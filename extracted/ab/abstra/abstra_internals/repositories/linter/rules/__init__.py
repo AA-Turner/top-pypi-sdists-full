@@ -1,4 +1,3 @@
-import os
 from typing import List
 
 from abstra_internals.repositories.linter.models import LinterRule
@@ -23,7 +22,6 @@ from .missing_abstra_in_requirements import MissingAbstraInRequirements
 from .missing_entrypoint import MissingEntrypoint
 from .missing_env import MissingEnv
 from .missing_render_in_page import MissingRenderInPage
-from .new_version_of_abstra_available import NewVersionOfAbstraAvailable
 from .psycopg2 import Psycopg2MustBeBinary
 from .send_task_without_transition import SendTaskWithoutTransition
 from .syntax_errors import SyntaxErrors
@@ -58,10 +56,6 @@ _js_syntax = JsSyntax()
 _abstra_dir_reference = AbstraDirReference()
 _internal_page_reference = InternalPageReference()
 
-_new_version: List[LinterRule] = []
-if not os.getenv("ABSTRA_RUNNING_IN_BUNDLED_APP"):
-    _new_version = [NewVersionOfAbstraAvailable()]
-
 # --- Trigger-based rule groups ---
 # Instead of running all rules on every file change, run only the
 # rules whose result can actually become stale for a given event.
@@ -80,7 +74,6 @@ run_after_py_change: List[LinterRule] = [
     _imports_analyzer,
     _abstra_dir_reference,
     _internal_page_reference,
-    *_new_version,
 ]
 
 run_after_requirements_change: List[LinterRule] = [

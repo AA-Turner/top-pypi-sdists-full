@@ -14,8 +14,10 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/epilogue.cmake)
 
 include(GenerateExportHeader)
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 option(SIMPLEBLE_PLAIN "Use plain version of SimpleBLE" OFF)
+option(SIMPLEBLE_INSTALL "Install SimpleBLE targets and package files" ON)
 
 if(SIMPLEBLE_TEST)
     message(STATUS "Building tests requires plain version of SimpleBLE")
@@ -75,6 +77,11 @@ set_target_properties(simpleble PROPERTIES
     MINSIZEREL_POSTFIX "-minsizerel"
     DEBUG_POSTFIX "-debug")
 
+if(MSVC)
+    # Avoid <experimental/coroutine> being triggered by winrt/base.h, which fails for MSVC 19.51+.
+    set_target_properties(simpleble PROPERTIES CXX_STANDARD 20)
+endif()
+
 generate_export_header(
     simpleble
     BASE_NAME simpleble
@@ -95,6 +102,11 @@ append_sanitize_options("${SIMPLEBLE_SANITIZE}")
 if(NOT SIMPLEBLE_LOG_LEVEL)
     set(SIMPLEBLE_LOG_LEVEL "INFO")
 endif()
+
+# The installed package config needs to mirror whether this build exported a
+# public Threads dependency, so plain builds do not require Threads downstream.
+set(SIMPLEBLE_REQUIRES_THREADS OFF)
+set(SIMPLEBLE_REQUIRES_DBUS OFF)
 
 list(APPEND PRIVATE_COMPILE_DEFINITIONS SIMPLEBLE_LOG_LEVEL=SIMPLEBLE_LOG_LEVEL_${SIMPLEBLE_LOG_LEVEL})
 list(APPEND PRIVATE_COMPILE_DEFINITIONS SIMPLEBLE_VERSION="${SIMPLEBLE_VERSION}")
@@ -198,6 +210,9 @@ elseif(SIMPLEBLE_BACKEND_LINUX)
     message(STATUS "Linux Host Detected")
 
     find_package(DBus1 REQUIRED)
+    find_package(Threads REQUIRED)
+    set(SIMPLEBLE_REQUIRES_DBUS ON)
+    set(SIMPLEBLE_REQUIRES_THREADS ON)
 
     if(NOT SIMPLEDBUS_LOG_LEVEL)
         set(SIMPLEDBUS_LOG_LEVEL "FATAL")
@@ -256,6 +271,8 @@ elseif(SIMPLEBLE_BACKEND_LINUX)
         ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/base/Logging.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/base/Message.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/base/Path.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/base/UnixSocket.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/interfaces/Introspectable.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/interfaces/ObjectManager.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/interfaces/Properties.cpp
 
@@ -294,7 +311,7 @@ elseif(SIMPLEBLE_BACKEND_LINUX)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/interfaces/ObjectManager.cpp
     )
 
-    target_link_libraries(simpleble PUBLIC pthread)
+    target_link_libraries(simpleble PUBLIC Threads::Threads)
     target_link_libraries(simpleble PRIVATE ${DBus1_LIBRARIES})
 
     target_include_directories(simpleble PRIVATE
@@ -403,37 +420,63 @@ apply_build_options(simpleble
     "${PRIVATE_LINK_OPTIONS}"
     "${PUBLIC_LINK_OPTIONS}")
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/simpleble.pc.in
-            ${CMAKE_CURRENT_BINARY_DIR}/simpleble.pc @ONLY)
+if(SIMPLEBLE_INSTALL)
+    set(SIMPLEBLE_CMAKE_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/simpleble)
+    set(SIMPLEBLE_PC_REQUIRES_PRIVATE "")
 
-install(
-    TARGETS simpleble
-    EXPORT simpleble-config
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    if(SIMPLEBLE_REQUIRES_DBUS)
+        set(SIMPLEBLE_PC_REQUIRES_PRIVATE "dbus-1")
+    endif()
 
-install(
-    EXPORT simpleble-config
-    NAMESPACE simpleble::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/simpleble)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/simpleble.pc.in
+                ${CMAKE_CURRENT_BINARY_DIR}/simpleble.pc @ONLY)
 
-install(
-    DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/simpleble/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simpleble)
+    configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/simpleble-config.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/simpleble-config.cmake
+        INSTALL_DESTINATION ${SIMPLEBLE_CMAKE_INSTALL_DIR})
 
-install(
-    FILES
-        ${CMAKE_CURRENT_LIST_DIR}/../dependencies/external/kvn/kvn_bytearray.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simpleble/kvn)
+    write_basic_package_version_file(
+        ${CMAKE_CURRENT_BINARY_DIR}/simpleble-config-version.cmake
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion)
 
-install(
-    DIRECTORY ${PROJECT_BINARY_DIR}/export/simpleble/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simpleble)
+    install(
+        TARGETS simpleble
+        EXPORT simpleble-targets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/simpleble.pc
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+    install(
+        EXPORT simpleble-targets
+        FILE simpleble-targets.cmake
+        NAMESPACE simpleble::
+        DESTINATION ${SIMPLEBLE_CMAKE_INSTALL_DIR})
+
+    install(
+        FILES
+            ${CMAKE_CURRENT_BINARY_DIR}/simpleble-config.cmake
+            ${CMAKE_CURRENT_BINARY_DIR}/simpleble-config-version.cmake
+        DESTINATION ${SIMPLEBLE_CMAKE_INSTALL_DIR})
+
+    install(
+        DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/simpleble/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simpleble)
+
+    install(
+        FILES
+            ${CMAKE_CURRENT_LIST_DIR}/../dependencies/external/kvn/kvn_bytearray.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simpleble/kvn)
+
+    install(
+        DIRECTORY ${PROJECT_BINARY_DIR}/export/simpleble/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/simpleble)
+
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/simpleble.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+endif()
 
 if(SIMPLEBLE_TEST)
     message(STATUS "Building Tests")

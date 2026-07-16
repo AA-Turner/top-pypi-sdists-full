@@ -1698,6 +1698,62 @@ class EssbasicClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateBatchAdminChangeInvitations(self, request):
+        r"""本接口（CreateBatchAdminChangeInvitations）用于批量创建企业超管信息变更。
+        该接口为提交任务接口,如果需要获得链接， 需要使用接口创建超管变更链接(CreateBatchAdminChangeInvitationsUrl)。
+
+        批量创建链接有以下限制：
+
+        单次最多创建10个企业的超管变更。
+        同一批创建的企业不能重复,唯一值为企业 Id或者企业 OrganizationOpenId。
+
+        :param request: Request instance for CreateBatchAdminChangeInvitations.
+        :type request: :class:`tencentcloud.essbasic.v20210526.models.CreateBatchAdminChangeInvitationsRequest`
+        :rtype: :class:`tencentcloud.essbasic.v20210526.models.CreateBatchAdminChangeInvitationsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateBatchAdminChangeInvitations", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateBatchAdminChangeInvitationsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateBatchAdminChangeInvitationsUrl(self, request):
+        r"""此接口用于获取企业批量变更超管链接，包含多条超管变更任务。
+        一次性最多获取 500 条任务。
+
+        前提条件：已调用 [CreateBatchAdminChangeInvitations生成批量变更超管任务接口](https://qian.tencent.com/developers/partnerApis/accounts/CreateBatchAdminChangeInvitations) 确保任务提交。
+        此链接包含多条超管变更流程，使用该链接可以批量的对企业进行超管变更。
+
+        :param request: Request instance for CreateBatchAdminChangeInvitationsUrl.
+        :type request: :class:`tencentcloud.essbasic.v20210526.models.CreateBatchAdminChangeInvitationsUrlRequest`
+        :rtype: :class:`tencentcloud.essbasic.v20210526.models.CreateBatchAdminChangeInvitationsUrlResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateBatchAdminChangeInvitationsUrl", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateBatchAdminChangeInvitationsUrlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateBatchInitOrganizationUrl(self, request):
         r"""支持企业进行批量初始化操作：
 
@@ -3074,6 +3130,69 @@ class EssbasicClient(AbstractClient):
             body = self.call("ModifyFlowDeadline", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyFlowDeadlineResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyOrganizationBusinessInfo(self, request):
+        r"""本接口用于企业完成工商变更登记后，**在电子签侧同步更新企业基础信息**，并上传最新的营业执照作为变更凭证。
+
+        >  **调用权限**：仅限企业**超级管理员**或**法人**有权调用（即 `Agent.ProxyOperator.OpenId` 必须传入超管或法人的 OpenId）。
+
+
+        * **不会OCR**：系统**不会**自动识别营业执照图片。变更后的新信息（企业名称、法人、地址、类型）必须通过对应字段（`OrganizationName` / `LegalName` 等）显式传入。
+        * **增量更新（只传变了的）**：仅传入**已变更**的字段新值，未变更的字段留空，系统会自动沿用电子签侧的当前值。若无任何字段变更，请勿调用此接口。
+        * **未完结合同限制**：若**企业名称**发生变更，系统会拦截检查是否存在全平台（同名的saas自建企业和子客企业）未完结的签署合同（针对白名单企业豁免，可联系对接的客户经理沟通）。若存在，须先撤销或完成签署，否则无法变更。
+        * **每日频控**：同一个操作人（`ProxyOperator.OpenId`）每日核验上限为 **10 次**。
+
+        ---
+
+        ##  变更审核流程
+
+        接口在处理变更时，会先进行工商三要素（企业名称、法人姓名、统一社会信用代码）核验，流程分为以下两条路径：
+        <img src="https://qcloudimg.tencent-cloud.cn/raw/123767975de1754bd30b24617661ea65.png" width="380" >
+
+        ### 触发人工审核（收录流程）的具体场景：
+
+        1. **三要素不一致**：传入的“新企业名称”或“新法人姓名”，与该统一社会信用代码（USCC）在官方工商登记中的记录不匹配。
+        2. **工商状态异常**：该 USCC 在工商库中的状态为异常（如查无此企业、已注销、已吊销等）。
+
+        ---
+
+        ##  变更成功后的影响
+
+        企业信息变更成功后，系统会自动执行以下关联操作：
+
+        | 变更维度 | 级联影响 |
+        | --- | --- |
+        | **法人变更** | 1. **作废**当前企业下的原法人印章。2. 原法人账号**降级**为普通员工。3. 向新法人手机号发送激活/通知短信。 |
+        | **企业名称变更** | 1. **作废**该企业当前的 CA 证书并**颁发新证书**。2. **生成**新的企业公章。 |
+        | **地址变更** | 仅同步修改企业登记地址。 |
+        | **企业类型变更** | 仅同步修改企业类型。 |
+
+        ---
+
+        ##  相关回调事件
+
+        * **变更直接成功/确认成功后**：触发 [企业基础信息修改通知回调](https://www.google.com/search?q=https://qian.tencent.com/developers/partner/callback_types_staffs/%23%25E5%258D%2581%25E5%259B%259B-%25E4%25BC%2581%25E4%25B8%259A%25E5%259F%25BA%25E7%25A1%2580%25E4%25BF%25A1%25E6%2581%25AF%25E4%25BF%25AE%25E6%2594%25B9%25E9%2580%259A%25E7%259F%25A5)
+        * **人工收录审核产生结果后**：触发 [企业收录申请审核结果回调](https://www.google.com/search?q=https://qian.tencent.com/developers/partner/callback_types_staffs/%23%25E5%258D%2581%25E5%2585%25AD-%25E4%25BC%2581%25E4%25B8%259A%25E6%2594%25B6%25E5%25BD%2595%25E7%2594%25B3%25E8%25AF%25B7%25E5%25AE%25A1%25E6%25A0%25B8%25E7%25BB%2593%25E6%259E%259C%25E5%259B%259E%25E8%25B0%2583)
+
+        :param request: Request instance for ModifyOrganizationBusinessInfo.
+        :type request: :class:`tencentcloud.essbasic.v20210526.models.ModifyOrganizationBusinessInfoRequest`
+        :rtype: :class:`tencentcloud.essbasic.v20210526.models.ModifyOrganizationBusinessInfoResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyOrganizationBusinessInfo", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyOrganizationBusinessInfoResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

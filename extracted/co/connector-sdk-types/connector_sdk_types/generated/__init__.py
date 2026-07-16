@@ -166,6 +166,10 @@ from .models.get_last_activity import GetLastActivity
 from .models.get_last_activity200_response import GetLastActivity200Response
 from .models.get_last_activity_request import GetLastActivityRequest
 from .models.get_last_activity_response import GetLastActivityResponse
+from .models.get_non_human_account_last_activity import GetNonHumanAccountLastActivity
+from .models.get_non_human_account_last_activity200_response import GetNonHumanAccountLastActivity200Response
+from .models.get_non_human_account_last_activity_request import GetNonHumanAccountLastActivityRequest
+from .models.get_non_human_account_last_activity_response import GetNonHumanAccountLastActivityResponse
 from .models.handle_authorization_callback import HandleAuthorizationCallback
 from .models.handle_authorization_callback200_response import HandleAuthorizationCallback200Response
 from .models.handle_authorization_callback_request import HandleAuthorizationCallbackRequest
@@ -245,6 +249,7 @@ from .models.list_updated_accounts200_response import ListUpdatedAccounts200Resp
 from .models.list_updated_accounts_request import ListUpdatedAccountsRequest
 from .models.list_updated_accounts_response import ListUpdatedAccountsResponse
 from .models.non_human_account import NonHumanAccount
+from .models.non_human_account_last_activity import NonHumanAccountLastActivity
 from .models.noop_effect import NoopEffect
 from .models.noop_effect_reason import NoopEffectReason
 from .models.normalized_expense_approval_status import NormalizedExpenseApprovalStatus
@@ -490,6 +495,10 @@ __all__ = [
     "GetLastActivity200Response",
     "GetLastActivityRequest",
     "GetLastActivityResponse",
+    "GetNonHumanAccountLastActivity",
+    "GetNonHumanAccountLastActivity200Response",
+    "GetNonHumanAccountLastActivityRequest",
+    "GetNonHumanAccountLastActivityResponse",
     "HandleAuthorizationCallback",
     "HandleAuthorizationCallback200Response",
     "HandleAuthorizationCallbackRequest",
@@ -569,6 +578,7 @@ __all__ = [
     "ListUpdatedAccountsRequest",
     "ListUpdatedAccountsResponse",
     "NonHumanAccount",
+    "NonHumanAccountLastActivity",
     "NoopEffect",
     "NoopEffectReason",
     "NormalizedExpenseApprovalStatus",

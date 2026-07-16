@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tccli
-Version: 3.1.127.1
+Version: 3.1.128.1
 Summary: Universal Command Line Environment for Tencent Cloud
 Project-URL: Homepage, https://github.com/TencentCloud/tencentcloud-cli
 Project-URL: Bug Tracker, https://github.com/TencentCloud/tencentcloud-cli/issues
@@ -16,7 +16,7 @@ Requires-Dist: cos-python-sdk-v5>=1.9.0
 Requires-Dist: futures>=3.2.0; python_version < '3.2'
 Requires-Dist: jmespath>=0.10.0
 Requires-Dist: six>=1.16.0
-Requires-Dist: tencentcloud-sdk-python>=3.1.127
+Requires-Dist: tencentcloud-sdk-python>=3.1.128
 Description-Content-Type: text/markdown
 
 # 腾讯云命令行工具简介

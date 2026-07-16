@@ -35,6 +35,8 @@ def test_round_trip_all_supported_types():
         FieldSchema(name="i16", dtype=DataType.INT16),
         FieldSchema(name="i32", dtype=DataType.INT32),
         FieldSchema(name="data", dtype=DataType.JSON),
+        FieldSchema(name="shape", dtype=DataType.GEOMETRY),
+        FieldSchema(name="tsz", dtype=DataType.TIMESTAMPTZ, nullable=True),
     ])
     proto = milvus_lite_to_milvus_schema("test", schema)
     decoded = milvus_to_milvus_lite_schema(proto)
@@ -50,6 +52,7 @@ def test_round_trip_all_supported_types():
     assert by_name["vec"].dim == 128
     # varchar max_length preserved
     assert by_name["title"].max_length == 512
+    assert by_name["tsz"].nullable is True
 
 
 def test_round_trip_dynamic_field_flag():
@@ -215,6 +218,34 @@ def test_round_trip_default_value_int64():
     decoded = milvus_to_milvus_lite_schema(proto)
     by_name = {f.name: f for f in decoded.fields}
     assert by_name["count"].default_value == 0
+
+
+def test_round_trip_default_value_timestamptz():
+    schema = CollectionSchema(fields=[
+        FieldSchema(name="id", dtype=DataType.INT64, is_primary=True),
+        FieldSchema(name="vec", dtype=DataType.FLOAT_VECTOR, dim=4),
+        FieldSchema(
+            name="created_at",
+            dtype=DataType.TIMESTAMPTZ,
+            default_value="2025-01-01T00:00:00Z",
+        ),
+    ])
+    proto = milvus_lite_to_milvus_schema("dv", schema)
+    decoded = milvus_to_milvus_lite_schema(proto)
+    by_name = {f.name: f for f in decoded.fields}
+    assert by_name["created_at"].default_value > 0
+
+
+def test_round_trip_default_value_geometry():
+    schema = CollectionSchema(fields=[
+        FieldSchema(name="id", dtype=DataType.INT64, is_primary=True),
+        FieldSchema(name="vec", dtype=DataType.FLOAT_VECTOR, dim=4),
+        FieldSchema(name="shape", dtype=DataType.GEOMETRY, default_value="POINT(0 0)"),
+    ])
+    proto = milvus_lite_to_milvus_schema("dv", schema)
+    decoded = milvus_to_milvus_lite_schema(proto)
+    by_name = {f.name: f for f in decoded.fields}
+    assert by_name["shape"].default_value == "POINT(0 0)"
 
 
 def test_round_trip_default_value_bool():

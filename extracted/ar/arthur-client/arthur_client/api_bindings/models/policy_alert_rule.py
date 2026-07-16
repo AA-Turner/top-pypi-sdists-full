@@ -23,6 +23,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Union
 from arthur_client.api_bindings.models.alert_bound import AlertBound
 from arthur_client.api_bindings.models.alert_rule_interval import AlertRuleInterval
 from arthur_client.api_bindings.models.policy_alert_guardrail_rule import PolicyAlertGuardrailRule
+from arthur_client.api_bindings.models.resource_permissions import ResourcePermissions
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -42,7 +43,8 @@ class PolicyAlertRule(BaseModel):
     metric_name: StrictStr = Field(description="The name of the metric returned by the query.")
     interval: AlertRuleInterval = Field(description="The evaluation interval for the alert rule.")
     dependent_resource: Optional[PolicyAlertGuardrailRule] = None
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy_id", "name", "description", "threshold", "bound", "query", "metric_name", "interval", "dependent_resource"]
+    permissions: Optional[ResourcePermissions] = None
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy_id", "name", "description", "threshold", "bound", "query", "metric_name", "interval", "dependent_resource", "permissions"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,6 +91,9 @@ class PolicyAlertRule(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of dependent_resource
         if self.dependent_resource:
             _dict['dependent_resource'] = self.dependent_resource.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of permissions
+        if self.permissions:
+            _dict['permissions'] = self.permissions.to_dict()
         # set to None if description (nullable) is None
         # and model_fields_set contains the field
         if self.description is None and "description" in self.model_fields_set:
@@ -98,6 +103,11 @@ class PolicyAlertRule(BaseModel):
         # and model_fields_set contains the field
         if self.dependent_resource is None and "dependent_resource" in self.model_fields_set:
             _dict['dependent_resource'] = None
+
+        # set to None if permissions (nullable) is None
+        # and model_fields_set contains the field
+        if self.permissions is None and "permissions" in self.model_fields_set:
+            _dict['permissions'] = None
 
         return _dict
 
@@ -122,7 +132,8 @@ class PolicyAlertRule(BaseModel):
             "query": obj.get("query"),
             "metric_name": obj.get("metric_name"),
             "interval": AlertRuleInterval.from_dict(obj["interval"]) if obj.get("interval") is not None else None,
-            "dependent_resource": PolicyAlertGuardrailRule.from_dict(obj["dependent_resource"]) if obj.get("dependent_resource") is not None else None
+            "dependent_resource": PolicyAlertGuardrailRule.from_dict(obj["dependent_resource"]) if obj.get("dependent_resource") is not None else None,
+            "permissions": ResourcePermissions.from_dict(obj["permissions"]) if obj.get("permissions") is not None else None
         })
         return _obj
 

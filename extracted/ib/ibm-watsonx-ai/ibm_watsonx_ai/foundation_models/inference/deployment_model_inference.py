@@ -567,14 +567,12 @@ class DeploymentModelInference(BaseModelInference):
             tool_choice_option=tool_choice_option,
         )
 
-        post_params: dict[str, Any] = {
-            "url": deployment_chat_url,
-            "json": payload,
-            "params": self._client._params(skip_for_create=True, skip_userfs=True),
-            "headers": self._client._get_headers(),
-        }
-
-        response_scoring = self._post(self._client.httpx_client, **post_params)
+        response_scoring = self._post_with_retry(
+            url=deployment_chat_url,
+            json=payload,
+            params=self._client._params(skip_for_create=True, skip_userfs=True),
+            headers=self._client._get_headers(),
+        )
 
         if response_scoring.status_code == 404:
             raise UnsupportedOperation(
@@ -607,14 +605,12 @@ class DeploymentModelInference(BaseModelInference):
             tool_choice_option=tool_choice_option,
         )
 
-        post_params: dict[str, Any] = {
-            "url": deployment_chat_url,
-            "json": payload,
-            "params": self._client._params(skip_for_create=True, skip_userfs=True),
-            "headers": await self._client._aget_headers(),
-        }
-
-        response = await self._apost(self._client.async_httpx_client, **post_params)
+        response = await self._async_post_with_retry(
+            url=deployment_chat_url,
+            json=payload,
+            params=self._client._params(skip_for_create=True, skip_userfs=True),
+            headers=await self._client._aget_headers(),
+        )
 
         if response.status_code == 404:
             raise UnsupportedOperation(
@@ -707,20 +703,13 @@ class DeploymentModelInference(BaseModelInference):
             tool_choice_option=tool_choice_option,
         )
 
-        if hasattr(self._client.httpx_client, "post_stream"):
-            stream_function = self._client.httpx_client.post_stream
-        else:
-            stream_function = self._client.httpx_client.stream
-
-        kw_args: dict = {
-            "method": "POST",
-            "url": deployment_chat_stream_url,
-            "json": payload,
-            "headers": self._client._get_headers(),
-            "params": self._client._params(skip_for_create=True, skip_userfs=True),
-        }
-
-        with self._stream(stream_function, **kw_args) as resp:
+        with self._stream_with_retry(
+            method="POST",
+            url=deployment_chat_stream_url,
+            json=payload,
+            headers=self._client._get_headers(),
+            params=self._client._params(skip_for_create=True, skip_userfs=True),
+        ) as resp:
             if resp.status_code == 200:
                 resp_iter = (
                     resp.iter_lines()
@@ -766,21 +755,13 @@ class DeploymentModelInference(BaseModelInference):
             tool_choice=tool_choice,
             tool_choice_option=tool_choice_option,
         )
-
-        if hasattr(self._client.async_httpx_client, "post_stream"):
-            stream_function = self._client.async_httpx_client.post_stream
-        else:
-            stream_function = self._client.async_httpx_client.stream
-
-        kw_args: dict = {
-            "method": "POST",
-            "url": deployment_chat_stream_url,
-            "json": payload,
-            "headers": await self._client._aget_headers(),
-            "params": self._client._params(skip_for_create=True, skip_userfs=True),
-        }
-
-        async with self._astream(stream_function, **kw_args) as resp:
+        async with self._async_stream_with_retry(
+            method="POST",
+            url=deployment_chat_stream_url,
+            json=payload,
+            headers=await self._client._aget_headers(),
+            params=self._client._params(skip_for_create=True, skip_userfs=True),
+        ) as resp:
             if resp.status_code == 200:
                 resp_iter = resp.aiter_lines()
 

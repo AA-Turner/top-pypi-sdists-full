@@ -11,6 +11,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -53,6 +54,8 @@ class AdapterMac : public AdapterBase {
     void delegate_did_connect_peripheral(void* opaque_peripheral);
     void delegate_did_fail_to_connect_peripheral(void* opaque_peripheral, void* opaque_error);
     void delegate_did_disconnect_peripheral(void* opaque_peripheral, void* opaque_error);
+    void delegate_did_power_on();
+    void delegate_did_power_off();
 
   protected:
     /**
@@ -70,6 +73,7 @@ class AdapterMac : public AdapterBase {
      */
     std::map<void*, std::shared_ptr<PeripheralMac>> peripherals_;
     std::map<void*, std::shared_ptr<PeripheralMac>> seen_peripherals_;
+    std::mutex peripherals_mutex_;
 
   private:
     BluetoothAddress address() const;

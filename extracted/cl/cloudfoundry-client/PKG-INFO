@@ -1,7 +1,8 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: cloudfoundry_client
-Version: 1.40.3
+Version: 1.40.4
 Summary: A client library for CloudFoundry
+License-File: LICENSE
 Keywords: cloudfoundry,cf
 Author: Benjamin Einaudi
 Author-email: antechrestos@gmail.com
@@ -11,11 +12,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: PyYAML (>=6.0)
 Requires-Dist: aiohttp (>=3.8.0)
 Requires-Dist: oauth2-client (==1.4.2)
 Requires-Dist: polling2 (==0.5.0)
-Requires-Dist: protobuf (==6.33.5)
+Requires-Dist: protobuf (==7.35.1)
 Requires-Dist: requests (>=2.5.0)
 Requires-Dist: websocket-client (>=1.9.0,<1.10.0)
 Project-URL: Documentation, https://pypi.org/project/cloudfoundry-client/

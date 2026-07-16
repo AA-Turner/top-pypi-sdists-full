@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import StrEnum, auto
 import platform
 from typing import TYPE_CHECKING, Any, cast
 
@@ -11,9 +12,32 @@ from vibe.core.telemetry.types import LaunchContext
 if TYPE_CHECKING:
     from sentry_sdk.types import Event, Hint
 
-# Injected at build time
-_SENTRY_DSN = "https://ff60802de3bbb471e9b15c7a0fe64a7b@o4507101628137472.ingest.de.sentry.io/4511630498332752"
-_SERVER_NAME = "vibe-cli"
+# Injected at build time. Each DSN routes to its own Sentry project: the CLI/TUI
+# reports to `vibe-cli`, the ACP agent to `vibe-acp`.
+_CLI_SENTRY_DSN = "https://ff60802de3bbb471e9b15c7a0fe64a7b@o4507101628137472.ingest.de.sentry.io/4511630498332752"
+_ACP_SENTRY_DSN = "https://e5cefbd71b8c4658f72123098cf5358f@o4507101628137472.ingest.de.sentry.io/4511709880647760"
+
+
+class SentryTarget(StrEnum):
+    CLI = auto()
+    ACP = auto()
+
+    @property
+    def dsn(self) -> str | None:
+        match self:
+            case SentryTarget.CLI:
+                return _CLI_SENTRY_DSN
+            case SentryTarget.ACP:
+                return _ACP_SENTRY_DSN
+
+    @property
+    def server_name(self) -> str:
+        match self:
+            case SentryTarget.CLI:
+                return "vibe-cli"
+            case SentryTarget.ACP:
+                return "vibe-acp"
+
 
 # Benign exceptions to drop before reporting (e.g. clean Ctrl-C quit).
 _FILTERED_EXCEPTIONS: tuple[type[BaseException], ...] = (KeyboardInterrupt,)
@@ -55,7 +79,11 @@ def _before_send(event: Event, hint: Hint) -> Event | None:
 
 
 def init_sentry(
-    config: AnyVibeConfig, *, headless: bool, launch_context: LaunchContext
+    config: AnyVibeConfig,
+    *,
+    headless: bool,
+    launch_context: LaunchContext,
+    target: SentryTarget = SentryTarget.CLI,
 ) -> bool:
     if not config.enable_telemetry:
         return False
@@ -64,11 +92,11 @@ def init_sentry(
     from sentry_sdk.integrations.asyncio import AsyncioIntegration
 
     sentry_sdk.init(
-        dsn=_SENTRY_DSN,
+        dsn=target.dsn,
         release=f"vibe@{__version__}",
         integrations=[AsyncioIntegration()],
         auto_enabling_integrations=False,
-        server_name=_SERVER_NAME,  # default is socket.gethostname(). It leaks host machine's name
+        server_name=target.server_name,  # default is socket.gethostname(). It leaks host machine's name
         include_local_variables=False,
         before_send=_before_send,
     )

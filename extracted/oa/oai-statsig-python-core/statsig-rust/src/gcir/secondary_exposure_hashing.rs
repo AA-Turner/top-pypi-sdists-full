@@ -113,7 +113,7 @@ impl<'a> SecondaryExposureHashProcessor<'a> {
             }
             None => {
                 let hash = self.hashing.hash(&exposure.gate, self.hash_algorithm);
-                let interned_hash = InternedString::from_string(hash);
+                let interned_hash = InternedString::from_string_uninterned(hash);
                 let old = std::mem::replace(&mut exposure.gate, interned_hash.clone());
                 self.memo.insert(old, interned_hash);
             }

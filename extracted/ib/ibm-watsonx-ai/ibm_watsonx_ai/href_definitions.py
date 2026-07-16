@@ -323,6 +323,23 @@ def is_id(s: str) -> bool:
 
 
 class HrefDefinitions:
+    AWS_PROD_URLS = {
+        "https://us-east-1.aws.wxai.ibm.com",
+        "https://private.us-east-1.aws.wxai.ibm.com",
+        "https://ap-south-1.aws.wxai.ibm.com",
+        "https://private.ap-south-1.aws.wxai.ibm.com",
+    }
+
+    AWS_GOV_CLOUD_PRE_PROD_URLS = {
+        "https://wxai.prep.ibmforusgov.com",
+        "https://private.internal.wxai.prep.ibmforusgov.com",
+    }
+
+    AWS_GOV_CLOUD_PROD_URLS = {
+        "https://wxai.ibmforusgov.com",
+        "https://private.internal.wxai.ibmforusgov.com",
+    }
+
     def __init__(
         self,
         url: str,
@@ -509,56 +526,38 @@ class HrefDefinitions:
         return IAM_TOKEN_API.format(apikey)
 
     def get_aws_token_url(self) -> str:
-        # On AWS GovCloud PreProd & Prod IAM endpoints are not available from outside, because of this,
-        # normal path is available internally for services  by setting WATSONX_USE_PRIVATE_TOKEN_URL=true,
-        # while the users received new endpoints `/api/rest/mcsp/apikeys/token`, with the same usage as original one.
+        use_private_token_url = (
+            os.getenv("WATSONX_USE_PRIVATE_TOKEN_URL", "").strip().lower() == "true"
+        )
 
-        match self.url:
-            case (
-                "https://us-east-1.aws.wxai.ibm.com"
-                | "https://private.us-east-1.aws.wxai.ibm.com"
-                | "https://ap-south-1.aws.wxai.ibm.com"
-                | "https://private.ap-south-1.aws.wxai.ibm.com"
-            ):
-                # AWS regions (US East, Mumbai)
-                base_auth_url = "https://account-iam.platform.saas.ibm.com"
-            case (
-                "https://wxai.prep.ibmforusgov.com"
-                | "https://private.internal.wxai.prep.ibmforusgov.com"
-            ):
-                # PreProd AWS GovCloud
-                if (
-                    os.getenv("WATSONX_USE_PRIVATE_TOKEN_URL", "").lower().strip()
-                    == "true"
-                ):  # path for internal services
-                    base_auth_url = "https://account-iam.awsg.usge1.private.platform.prep.ibmforusgov.com"
-                else:  # path for users
-                    return "{}/api/rest/mcsp/apikeys/token".format(
-                        self.platform_url.replace("internal.", "").replace(
-                            "https://api.", "https://"
-                        )
-                    )
-            case (
-                "https://wxai.ibmforusgov.com"
-                | "https://private.internal.wxai.ibmforusgov.com"
-            ):
-                # Prod AWS GovCloud
-                if (
-                    os.getenv("WATSONX_USE_PRIVATE_TOKEN_URL", "").lower().strip()
-                    == "true"
-                ):  # path for internal services
-                    base_auth_url = "https://account-iam.awsg.usge1.private.platform.ibmforusgov.com"
-                else:  # path for users
-                    return "{}/api/rest/mcsp/apikeys/token".format(
-                        self.platform_url.replace("internal.", "").replace(
-                            "https://api.", "https://"
-                        )
-                    )
-            case _:
-                # AWS Dev
-                base_auth_url = "https://account-iam.platform.test.saas.ibm.com"
+        if (
+            self.url in self.AWS_GOV_CLOUD_PROD_URLS | self.AWS_GOV_CLOUD_PRE_PROD_URLS
+            and not use_private_token_url
+        ):
+            # On AWS GovCloud PreProd & Prod, IAM endpoints are not available from the outside.
+            # Because of this, the regular path is made available only internally for services
+            # by setting `WATSONX_USE_PRIVATE_TOKEN_URL` environment variable to `true`, while the
+            # users can use the `/api/rest/mcsp/apikeys/token` endpoint with the same behavior.
+            platform_url = self.platform_url.replace("internal.", "").replace(
+                "https://api.", "https://"
+            )
 
-        return AWS_TOKEN_URL.format(base_auth_url)
+            return f"{platform_url}/api/rest/mcsp/apikeys/token"
+
+        if self.url in self.AWS_PROD_URLS:
+            # AWS Prod IAM URL
+            url = "https://account-iam.platform.saas.ibm.com"
+        elif self.url in self.AWS_GOV_CLOUD_PRE_PROD_URLS:
+            # AWS GovCloud PreProd IAM URL
+            url = "https://account-iam.awsg.usge1.private.platform.prep.ibmforusgov.com"
+        elif self.url in self.AWS_GOV_CLOUD_PROD_URLS:
+            # AWS GovCloud Prod IAM URL
+            url = "https://account-iam.awsg.usge1.private.platform.ibmforusgov.com"
+        else:
+            # AWS Dev & Test IAM URL
+            url = "https://account-iam.platform.test.saas.ibm.com"
+
+        return AWS_TOKEN_URL.format(url)
 
     def get_aws_public_keys_url(self) -> str:
         return AWS_PUBLIC_KEYS_URL.format(

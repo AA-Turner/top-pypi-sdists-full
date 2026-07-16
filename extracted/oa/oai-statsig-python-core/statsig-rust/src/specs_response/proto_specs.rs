@@ -387,15 +387,21 @@ impl SpecsResponseFull {
     ) -> Result<(), StatsigErr> {
         let name = InternedString::from_string(envelope.name);
 
-        if let Some(spec) = preload_fetcher(&name) {
-            if spec.as_spec_ref().checksum.as_deref() == Some(&envelope.checksum) {
-                new_map.insert(name, spec);
-                return Ok(());
+        let mut preloaded = preload_fetcher(&name);
+        if let Some(spec) = &preloaded {
+            match spec.view().checksum().map(|value| value.as_str()) {
+                Some(existing_checksum) if existing_checksum == envelope.checksum => {
+                    new_map.insert(name, preloaded.expect("preloaded spec must exist"));
+                    return Ok(());
+                }
+                Some(_) | None => preloaded = None,
             }
         }
 
         if let Some(spec_ptr) = exiting_map.get(&name) {
-            if spec_ptr.as_spec_ref().checksum.as_deref() == Some(&envelope.checksum) {
+            if spec_ptr.view().checksum().map(|value| value.as_str())
+                == Some(envelope.checksum.as_str())
+            {
                 new_map.insert(name, spec_ptr.clone());
                 return Ok(());
             }
@@ -404,6 +410,7 @@ impl SpecsResponseFull {
         let envelope_data = validate_envelope_data(tag, envelope.data)?;
         let pb_spec = pb::Spec::decode(envelope_data).map_err(|e| map_decode_err(tag, e))?;
         let spec = spec_from_pb(envelope.checksum, pb_spec)?;
+        debug_assert!(preloaded.is_none());
         new_map.insert(name, SpecPointer::from_spec(spec));
 
         Ok(())
@@ -645,8 +652,10 @@ fn checksum_for_condition(condition: &Condition) -> Option<u32> {
 }
 
 fn checksum_for_spec(pointer: &SpecPointer) -> Option<u32> {
-    let spec: &Spec = pointer.as_spec_ref();
-    checksum_to_u32(spec.checksum.as_ref())
+    pointer
+        .view()
+        .checksum()
+        .and_then(|checksum| checksum.as_str().parse::<u32>().ok())
 }
 
 fn checksum_for_param_store(store: &ParameterStore) -> Option<u32> {

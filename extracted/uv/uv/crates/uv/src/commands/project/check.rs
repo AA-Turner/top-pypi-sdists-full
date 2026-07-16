@@ -302,7 +302,7 @@ pub(crate) async fn check(
             Err(err) => return Err(err.into()),
         };
 
-        let marker_environment = venv.interpreter().resolver_marker_environment();
+        let marker_environment = venv.interpreter().to_resolver_marker_environment();
         if ty_path.is_none()
             && ty_version.is_none()
             && result
@@ -530,7 +530,7 @@ pub(crate) async fn check(
                 let resolution = project::toolchain::resolution_from_lock(
                     project,
                     result.lock(),
-                    tool.package(),
+                    &tool,
                     &base_interpreter,
                     &settings.resolver.build_options,
                 )?;

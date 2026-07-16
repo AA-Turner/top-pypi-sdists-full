@@ -18,10 +18,7 @@ from typing import (
 )
 from warnings import warn
 
-from ibm_watsonx_ai._wrappers.httpx_wrapper import (
-    _get_async_httpx_client,
-    _get_httpx_client,
-)
+from ibm_watsonx_ai._wrappers.httpx import httpx_client_factory
 from ibm_watsonx_ai.foundation_models.schema import (
     Crypto,
     TextChatParameters,
@@ -1309,10 +1306,12 @@ class ModelInference(WMLResource):
         """
         Calling this method closes the current `httpx.Client` and recreates a new `httpx.Client` with default values:
         timeout: httpx.Timeout(timeout=30 * 60, connect=10)
-        limit: httpx.Limits(max_connections=10, max_keepalive_connections=10, keepalive_expiry=HTTPX_KEEPALIVE_EXPIRY)
+        limit: httpx.Limits(max_connections=10, max_keepalive_connections=10, keepalive_expiry=5)
         """
         self._client.httpx_client.close()
-        self._client.httpx_client = _get_httpx_client(self._client)
+        self._client.httpx_client = httpx_client_factory(
+            is_async=False, api_client=self._client
+        )
 
     def set_api_client(self, api_client: APIClient) -> None:
         """
@@ -1403,10 +1402,12 @@ class ModelInference(WMLResource):
         """
         Calling this method closes the current `httpx.AsyncClient` and recreates a new `httpx.AsyncClient` with default values:
         timeout: httpx.Timeout(timeout=30 * 60, connect=10)
-        limit: httpx.Limits(max_connections=10, max_keepalive_connections=10, keepalive_expiry=HTTPX_KEEPALIVE_EXPIRY)
+        limit: httpx.Limits(max_connections=10, max_keepalive_connections=10, keepalive_expiry=5)
         """
         await self._client.async_httpx_client.aclose()
-        self._client.async_httpx_client = _get_async_httpx_client(self._client)
+        self._client.async_httpx_client = httpx_client_factory(
+            is_async=True, api_client=self._client
+        )
 
     def _return_guardrails_stats(  # Added for backward compatibility
         self, single_response: dict

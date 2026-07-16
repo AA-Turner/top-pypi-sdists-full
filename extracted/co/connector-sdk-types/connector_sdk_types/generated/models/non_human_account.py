@@ -38,6 +38,14 @@ class NonHumanAccount(BaseModel):
         description='Source-specific account kind (e.g. "github_app_installation", "iam_role") - connector-only data.'
     )
     status: AccountStatus = Field(description="The current status of the account.")
+    last_login: Optional[StrictStr] = Field(
+        default=None,
+        description="ISO 8601 timestamp of the account's last authentication/login, when the listing endpoint returns it. Lets connectors report activity inline and avoid a separate get_non_human_account_last_activity call.",
+    )
+    last_activity: Optional[StrictStr] = Field(
+        default=None,
+        description="ISO 8601 timestamp of the account's last observed activity, when the listing endpoint returns it.",
+    )
     custom_attributes: Optional[Dict[str, StrictStr]] = Field(
         default=None,
         description="Custom attributes associated with the non-human account. See the list_custom_attributes_schema capability.",
@@ -52,6 +60,8 @@ class NonHumanAccount(BaseModel):
         "label",
         "type",
         "status",
+        "last_login",
+        "last_activity",
         "custom_attributes",
         "extra_data",
     ]
@@ -103,6 +113,8 @@ class NonHumanAccount(BaseModel):
                 "label": obj.get("label"),
                 "type": obj.get("type"),
                 "status": obj.get("status"),
+                "last_login": obj.get("last_login"),
+                "last_activity": obj.get("last_activity"),
                 "custom_attributes": obj.get("custom_attributes"),
                 "extra_data": obj.get("extra_data"),
             }

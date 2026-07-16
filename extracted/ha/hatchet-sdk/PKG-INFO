@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hatchet-sdk
-Version: 1.33.18
+Version: 1.34.0
 Summary: This is the official Python SDK for Hatchet, a distributed, fault-tolerant task queue. The SDK allows you to easily integrate Hatchet's task scheduling and workflow orchestration capabilities into your Python applications.
 Author-email: Alexander Belanger <alexander@hatchet.run>, Matt Kaye <matt@hatchet.run>, Gabe Ruttner <gabe@hatchet.run>, Mohammed Nafees <nafees@hatchet.run>
 License: MIT
@@ -28,7 +28,7 @@ Requires-Dist: mkdocstrings[python]<2,>=1.0.4; extra == 'docs'
 Requires-Dist: openai<3,>=2.44.0; extra == 'docs'
 Requires-Dist: pydoclint>=0.9.1; extra == 'docs'
 Requires-Dist: types-beautifulsoup4>=4.12.0.20250204; extra == 'docs'
-Requires-Dist: uvicorn<1,>=0.49.0; extra == 'docs'
+Requires-Dist: uvicorn<1,>=0.51.0; extra == 'docs'
 Provides-Extra: lint
 Requires-Dist: black==26.3.1; extra == 'lint'
 Requires-Dist: click>=8.4.2; extra == 'lint'
@@ -38,7 +38,7 @@ Requires-Dist: ruff==0.15.10; extra == 'lint'
 Requires-Dist: types-grpcio>=1.0.0.20260614; extra == 'lint'
 Requires-Dist: types-protobuf>=5.28.3.20241030; extra == 'lint'
 Requires-Dist: types-psutil>=7.2.2.20260518; extra == 'lint'
-Requires-Dist: types-requests>=2.33.0.20260518; extra == 'lint'
+Requires-Dist: types-requests>=2.33.0.20260712; extra == 'lint'
 Provides-Extra: openai
 Requires-Dist: openai-agents; extra == 'openai'
 Provides-Extra: otel
@@ -49,8 +49,8 @@ Requires-Dist: opentelemetry-exporter-otlp<2,>=1.28.0; extra == 'otel'
 Requires-Dist: opentelemetry-instrumentation>=0.49b0; extra == 'otel'
 Requires-Dist: opentelemetry-sdk<2,>=1.28.0; extra == 'otel'
 Provides-Extra: test
-Requires-Dist: boto3[s3]>=1.43.34; extra == 'test'
-Requires-Dist: botocore>=1.43.41; extra == 'test'
+Requires-Dist: boto3[s3]>=1.43.41; extra == 'test'
+Requires-Dist: botocore>=1.43.46; extra == 'test'
 Requires-Dist: psycopg[pool]<4,>=3.3.4; extra == 'test'
 Requires-Dist: pytest-asyncio>=1.4.0; extra == 'test'
 Requires-Dist: pytest-env>=1.6.0; extra == 'test'

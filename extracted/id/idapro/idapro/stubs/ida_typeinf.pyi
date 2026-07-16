@@ -263,7 +263,7 @@ class argloc_t:
         """
         ...
     def atype(self) -> argloc_type_t:
-        r"""Get type (Argument location types)
+        r"""Get type (Argument location types ).
         
         """
         ...
@@ -528,7 +528,7 @@ class argpart_t(argloc_t):
         """
         ...
     def atype(self) -> argloc_type_t:
-        r"""Get type (Argument location types)
+        r"""Get type (Argument location types ).
         
         """
         ...
@@ -1257,7 +1257,7 @@ class callregs_t:
         """
         ...
     def set(self, _policy: argreg_policy_t, gprs: int, fprs: int) -> None:
-        r"""Init policy & registers (arrays are -1-terminated)
+        r"""Init policy & registers (arrays are -1-terminated).
         
         """
         ...
@@ -1477,7 +1477,7 @@ class custom_callcnv_t:
         :returns: success
         """
         ...
-    def decorate_name(self, name: str, should_decorate: bool, cc: callcnv_t, type: tinfo_t) -> bool:
+    def decorate_name(self, name: str, should_decorate: bool, cc: callcnv_t, type: tinfo_t) -> str:
         r"""Function to be overloaded for custom calling conventions.
         
         Decorate a function name. Some compilers decorate names depending on the calling convention. This function provides the means to handle it for custom callcnvs. Please note that this is about name decoration (C), not name mangling (C++). 
@@ -2373,6 +2373,99 @@ class enum_type_data_t(edmvec_t):
     def truncate(self) -> None:
         ...
 
+class field_path_t:
+    @property
+    def cumul_bitoff(self) -> int: ...
+    @property
+    def leaf_tif(self) -> tinfo_t: ...
+    @property
+    def leaf_udm_tid(self) -> int: ...
+    @property
+    def stroff_path(self) -> qvector: ...
+    @property
+    def top_tif(self) -> tinfo_t: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
 class func_type_data_t(funcargvec_t):
     @property
     def flags(self) -> int: ...
@@ -2540,9 +2633,17 @@ class func_type_data_t(funcargvec_t):
         ...
     def is_pure(self) -> bool:
         ...
+    def is_rust_cc(self) -> bool:
+        ...
     def is_static(self) -> bool:
         ...
     def is_swift_cc(self) -> bool:
+        ...
+    def is_swiftasync(self) -> bool:
+        ...
+    def is_swiftthrows(self) -> bool:
+        ...
+    def is_synchronized(self) -> bool:
         ...
     def is_user_cc(self) -> bool:
         ...
@@ -2675,6 +2776,9 @@ class funcarg_t:
         """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def is_swiftself(self) -> bool:
+        r""":returns: true if this funcarg is the implicit Swift `self` (X20/R13-bound)."""
         ...
 
 class funcargvec_t:
@@ -4372,6 +4476,95 @@ class stkarg_area_info_t:
     def __swig_destroy__(self, object: Any) -> Any:
         ...
 
+class stkarg_part_t:
+    @property
+    def dst(self) -> int: ...
+    @property
+    def off(self) -> int: ...
+    @property
+    def src(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
 class text_sink_t:
     def __delattr__(self, name: Any) -> Any:
         r"""Implement delattr(self, name)."""
@@ -4672,7 +4865,7 @@ class til_t:
         """
         ...
     def is_dirty(self) -> bool:
-        r"""Has the til been modified? (TIL_MOD)
+        r"""Has the til been modified? (TIL_MOD).
         
         """
         ...
@@ -4695,7 +4888,7 @@ class til_t:
         """
         ...
     def set_dirty(self) -> None:
-        r"""Mark the til as modified (TIL_MOD)
+        r"""Mark the til as modified (TIL_MOD).
         
         """
         ...
@@ -4972,7 +5165,7 @@ class tinfo_t:
         r"""Add a function argument. 
                 
         :param farg: argument to add
-        :param etf_flags: type changing flags flags
+        :param etf_flags: type changing flags  flags
         :param idx: the index in the funcarg array where the new funcarg should be placed. if the specified index cannot be honored because it would spoil the funcarg sorting order, it is silently ignored.
         """
         ...
@@ -5014,7 +5207,7 @@ class tinfo_t:
         :param offset: delta in bytes to add to all calculations. used internally during recursion.
         """
         ...
-    def build_anon_type_name(self) -> bool:
+    def build_anon_type_name(self) -> Union[str, None]:
         r"""Generate a name like $hex_numbers based on the field types and names.
         
         """
@@ -5033,7 +5226,7 @@ class tinfo_t:
         """
         ...
     def calc_score(self) -> int:
-        r"""Calculate the type score (the higher - the nicer is the type)
+        r"""Calculate the type score (the higher - the nicer is the type).
         
         """
         ...
@@ -5063,7 +5256,7 @@ class tinfo_t:
     def compare(self, r: tinfo_t) -> int:
         ...
     def compare_with(self, r: tinfo_t, tcflags: int = 0) -> bool:
-        r"""Compare two types, based on given flags (see tinfo_t comparison flags)
+        r"""Compare two types, based on given flags (see tinfo_t comparison flags).
         
         """
         ...
@@ -5159,7 +5352,7 @@ class tinfo_t:
         """
         ...
     def del_udms(self, idx1: int, idx2: int, etf_flags: int = 0) -> int:
-        r"""Delete structure/union members in the range [idx1, idx2)
+        r"""Delete structure/union members in the range [idx1, idx2).
         
         """
         ...
@@ -5300,7 +5493,7 @@ class tinfo_t:
         """
         ...
     def get_attrs(self, tav: type_attrs_t, all_attrs: bool = False) -> bool:
-        r"""Get type attributes (all_attrs: include attributes of referenced types, if any)
+        r"""Get type attributes (all_attrs: include attributes of referenced types, if any).
         
         """
         ...
@@ -5417,11 +5610,11 @@ class tinfo_t:
         """
         ...
     def get_final_ordinal(self) -> int:
-        r"""Get final type ordinal (0 if none)
+        r"""Get final type ordinal (0 if none).
         
         """
         ...
-    def get_final_type_name(self) -> bool:
+    def get_final_type_name(self) -> Union[str, None]:
         r"""Use in the case of typedef chain (TYPE1 -> TYPE2 -> TYPE3...TYPEn). 
                 
         :returns: the name of the last type in the chain (TYPEn). if there is no chain, returns TYPE1
@@ -5443,9 +5636,15 @@ class tinfo_t:
         """
         ...
     def get_func_frame(self, pfn: func_t) -> bool:
+        r"""Create a tinfo_t object for the function frame
+        
+        :param pfn: function
+        """
+        ...
+    def get_function_frame(self, func_ea: ida_idaapi.ea_t) -> bool:
         r"""Create a tinfo_t object for the function frame 
                 
-        :param pfn: function
+        :param func_ea: any address inside function
         """
         ...
     def get_innermost_member_type(self, bitoffset: int) -> tinfo_t:
@@ -5482,13 +5681,15 @@ class tinfo_t:
         
         """
         ...
-    def get_next_type_name(self) -> bool:
-        r"""Use In the case of typedef chain (TYPE1 -> TYPE2 -> TYPE3...TYPEn). 
-                
-        :returns: the name of the next type in the chain (TYPE2). if there is no chain, returns failure
+    def get_next_type_name(self) -> Union[str, None]:
+        r"""In the case of a typedef chain (TYPE1 -> TYPE2 -> TYPE3 ... TYPEn),
+        return the name of the next type in the chain (TYPE2).
+        
+        :returns: the next type name in the chain, or None if there is no
+                  chain.
         """
         ...
-    def get_nice_type_name(self) -> bool:
+    def get_nice_type_name(self) -> Union[str, None]:
         r"""Get the beautified type name. Get the referenced name and apply regular expressions from goodname.cfg to beautify the name 
                 
         """
@@ -5510,7 +5711,7 @@ class tinfo_t:
         """
         ...
     def get_ordinal(self) -> int:
-        r"""Get type ordinal (only if the type was created as a numbered type, 0 if none)
+        r"""Get type ordinal (only if the type was created as a numbered type, 0 if none).
         
         """
         ...
@@ -5588,18 +5789,19 @@ class tinfo_t:
         ...
     def get_type_by_tid(self, tid: int) -> bool:
         ...
-    def get_type_cmt(self) -> int:
-        r"""Get type comment 
-                
-        :returns: 0-failed, 1-returned regular comment, 2-returned repeatable comment
+    def get_type_cmt(self) -> Union[str, None]:
+        r"""Get the type comment.
+        
+        :returns: the regular or repeatable comment, or None if there is no
+                  comment.
         """
         ...
-    def get_type_name(self) -> bool:
+    def get_type_name(self) -> Union[str, None]:
         r"""Does a type refer to a name? If yes, fill the provided buffer with the type name and return true. Names are returned for numbered types too: either a user-defined nice name or, if a user-provided name does not exist, an ordinal name (like #xx, see create_numbered_type_name()). 
                 
         """
         ...
-    def get_type_rptcmt(self) -> bool:
+    def get_type_rptcmt(self) -> Union[str, None]:
         r"""Get type comment only if it is repeatable.
         
         """
@@ -5671,6 +5873,11 @@ class tinfo_t:
         """
         ...
     def is_aliased(self) -> bool:
+        ...
+    def is_anonymous_type_name(self) -> bool:
+        r"""Is an anonymous type?
+        
+        """
         ...
     def is_anonymous_udt(self) -> bool:
         r"""Is an anonymous struct/union? We assume that types with names are anonymous if the name starts with $ 
@@ -5916,12 +6123,12 @@ class tinfo_t:
         """
         ...
     def is_empty_enum(self) -> bool:
-        r"""Is an empty enum? (has no constants)
+        r"""Is an empty enum? (has no constants).
         
         """
         ...
     def is_empty_udt(self) -> bool:
-        r"""Is an empty struct/union? (has no fields)
+        r"""Is an empty struct/union? (has no fields).
         
         """
         ...
@@ -6094,7 +6301,7 @@ class tinfo_t:
         """
         ...
     def is_small_udt(self) -> bool:
-        r"""Is a small udt? (can fit a register or a pair of registers)
+        r"""Is a small udt? (can fit a register or a pair of registers).
         
         """
         ...
@@ -6315,11 +6522,11 @@ class tinfo_t:
                 
         :param decl: a type declaration
         :param til: type library to use
-        :param pt_flags: combination of Type parsing flags bits
+        :param pt_flags: combination of Type parsing flags  bits
         """
         ...
     def present(self) -> bool:
-        r"""Is the type really present? (not a reference to a missing type, for example)
+        r"""Is the type really present? (not a reference to a missing type, for example).
         
         """
         ...
@@ -6362,12 +6569,14 @@ class tinfo_t:
                 
         """
         ...
-    def requires_qualifier(self, name: str, offset: int) -> bool:
-        r"""Requires full qualifier? (name is not unique) 
-                
+    def requires_qualifier(self, name: str, offset: int) -> Union[str, None]:
+        r"""Check whether a field name requires a full qualifier because it is
+        not unique within the type.
+        
         :param name: field name
         :param offset: field offset in bits
-        :returns: if the name is not unique, returns true
+        :returns: a qualifier string (possibly empty) if the name is not
+                  unique, or None if the name is already unique.
         """
         ...
     def save_type(self, *args: Any) -> int:
@@ -8690,7 +8899,7 @@ def begin_type_updating(utp: update_type_t) -> None:
 def calc_arglocs(fti: func_type_data_t) -> bool:
     ...
 
-def calc_c_cpp_name(name: str, type: tinfo_t, ccn_flags: int) -> str:
+def calc_c_cpp_name(name: str, type: tinfo_t, ccn_flags: int) -> Union[str, None]:
     r"""Get C or C++ form of the name. 
             
     :param name: original (mangled or decorated) name
@@ -8762,7 +8971,7 @@ def compare_tinfo(t1: typid_t, t2: typid_t, tcflags: int) -> bool:
     ...
 
 def convert_pt_flags_to_hti(pt_flags: int) -> int:
-    r"""Convert Type parsing flags to Type formatting flags. Type parsing flags lesser than 0x10 don't have stable meaning and will be ignored (more on these flags can be seen in idc.idc) 
+    r"""Convert Type parsing flags  to Type formatting flags . Type parsing flags lesser than 0x10 don't have stable meaning and will be ignored (more on these flags can be seen in idc.idc) 
             
     """
     ...
@@ -8770,9 +8979,9 @@ def convert_pt_flags_to_hti(pt_flags: int) -> int:
 def copy_named_type(dsttil: til_t, srctil: til_t, name: str) -> int:
     r"""Copy a named type from one til to another. This function will copy the specified type and all dependent types from the source type library to the destination library. 
             
-    :param dsttil: Destination til. It must have original types enabled
+    :param dsttil: Destination til. It must have ordinal types enabled
     :param srctil: Source til.
-    :param name: name of the type to copy
+    :param name: name of the type to copy, can not be an ordinal name is_ordinal_name()
     :returns: ordinal number of the copied type. 0 means error
     """
     ...
@@ -8793,24 +9002,34 @@ def create_enum_type(enum_name: str, ei: enum_type_data_t, enum_width: int, sign
     """
     ...
 
-def create_numbered_type_name(ord: int) -> str:
-    r"""Create anonymous name for numbered type. This name can be used to reference a numbered type by its ordinal Ordinal names have the following format: '#' + set_de(ord) Returns: -1 if error, otherwise the name length 
-            
+def create_numbered_type_name(ord: int) -> Union[str, None]:
+    r"""Create anonymous name for a numbered type.
+    
+    This name can be used to reference a numbered type by its ordinal.
+    Ordinal names have the format ``'#' + set_de(ord)``.
+    
+    :param ord: the ordinal
+    :returns: the ordinal name, or None on error.
     """
     ...
 
 def create_tinfo(_this: tinfo_t, bt: bytes, bt2: bytes, ptr: Any) -> bool:
     ...
 
-def decorate_name(*args: Any) -> str:
-    r"""Decorate/undecorate a C symbol name. 
-            
-    :param out: output buffer
+def decorate_name(*args: Any) -> Union[str, None]:
+    r"""Decorate/undecorate a C symbol name.
+    
+    This function has the following signatures:
+    
+        1. decorate_name(name: str, should_decorate: bool) -> Union[str, None]
+        2. decorate_name(name: str, should_decorate: bool, cc: int,
+                         type: tinfo_t = None) -> Union[str, None]
+    
     :param name: name of symbol
-    :param should_decorate: true-decorate name, false-undecorate
-    :param cc: calling convention
-    :param type: name type (nullptr-unknown)
-    :returns: success
+    :param should_decorate: True to decorate, False to undecorate
+    :param cc: calling convention (form 2)
+    :param type: type info (form 2, may be None)
+    :returns: the (un)decorated name, or None on failure.
     """
     ...
 
@@ -8874,8 +9093,8 @@ def detach_tinfo_t(_this: tinfo_t) -> bool:
 def dstr_tinfo(tif: tinfo_t) -> str:
     ...
 
-def dump_func_type_data(fti: func_type_data_t, praloc_bits: int) -> str:
-    r"""Use func_type_data_t::dump()
+def dump_func_type_data(fti: func_type_data_t, praloc_bits: int) -> Union[str, None]:
+    r"""Use func_type_data_t::dump().
     
     """
     ...
@@ -8887,7 +9106,7 @@ def enable_numbered_types(ti: til_t, enable: bool) -> bool:
     ...
 
 def end_type_updating(utp: update_type_t) -> None:
-    r"""Mark the end of a large update operation on the types (see begin_type_updating())
+    r"""Mark the end of a large update operation on the types (see begin_type_updating()).
     
     """
     ...
@@ -8924,7 +9143,7 @@ def for_all_arglocs(vv: aloc_visitor_t, vloc: argloc_t, size: int, off: int = 0)
     ...
 
 def for_all_const_arglocs(vv: const_aloc_visitor_t, vloc: argloc_t, size: int, off: int = 0) -> int:
-    r"""See for_all_arglocs()
+    r"""See for_all_arglocs().
     
     """
     ...
@@ -8947,8 +9166,8 @@ def gcc_layout() -> bool:
     """
     ...
 
-def gen_decorate_name(name: str, should_decorate: bool, cc: callcnv_t, type: tinfo_t) -> str:
-    r"""Generic function for decorate_name() (may be used in IDP modules)
+def gen_decorate_name(name: str, should_decorate: bool, cc: callcnv_t, type: tinfo_t) -> Union[str, None]:
+    r"""Generic function for decorate_name() (may be used in IDP modules).
     
     """
     ...
@@ -8959,10 +9178,10 @@ def gen_use_arg_tinfos(_this: argtinfo_helper_t, caller: ida_idaapi.ea_t, fti: f
     """
     ...
 
-def get_abi_name() -> str:
-    r"""Get ABI name. 
-            
-    :returns: length of the name (>=0)
+def get_abi_name() -> Union[str, None]:
+    r"""Get the current ABI name.
+    
+    :returns: the ABI name, or None if no ABI is set.
     """
     ...
 
@@ -8981,18 +9200,18 @@ def get_arg_addrs(caller: ida_idaapi.ea_t) -> Any:
     ...
 
 def get_base_type(t: bytes) -> bytes:
-    r"""Get basic type bits (TYPE_BASE_MASK)
+    r"""Get basic type bits (TYPE_BASE_MASK).
     
     """
     ...
 
-def get_c_header_path() -> str:
+def get_c_header_path() -> Union[str, None]:
     r"""Get the include directory path of the target compiler.
     
     """
     ...
 
-def get_c_macros() -> str:
+def get_c_macros() -> Union[str, None]:
     r"""Get predefined macros for the target compiler.
     
     """
@@ -9037,7 +9256,7 @@ def get_custom_callcnvs(names: qstrvec_t, codes: callcnvs_t) -> int:
     """
     ...
 
-def get_enum_member_expr(tif: tinfo_t, serial: int, value: int) -> str:
+def get_enum_member_expr(tif: tinfo_t, serial: int, value: int) -> Union[str, None]:
     r"""Return a C expression that can be used to represent an enum member. If the value does not correspond to any single enum member, this function tries to find a bitwise combination of enum members that correspond to it. If more than half of value bits do not match any enum members, it fails. 
             
     :param tif: enumeration type
@@ -9048,7 +9267,7 @@ def get_enum_member_expr(tif: tinfo_t, serial: int, value: int) -> str:
     ...
 
 def get_full_type(t: bytes) -> bytes:
-    r"""Get basic type bits + type flags (TYPE_FULL_MASK)
+    r"""Get basic type bits + type flags (TYPE_FULL_MASK).
     
     """
     ...
@@ -9128,6 +9347,15 @@ def get_ordinal_limit(ti: til_t = None) -> int:
     """
     ...
 
+def get_realtype(til: til_t, type: bytes) -> bytes:
+    r"""Get the resolved base type. 
+            
+    :param til: type information library or nullptr
+    :param type: type string
+    :returns: resolved base type
+    """
+    ...
+
 def get_scalar_bt(size: int) -> bytes:
     ...
 
@@ -9140,7 +9368,7 @@ def get_stkarg_area_info(out: stkarg_area_info_t, cc: callcnv_t) -> bool:
 def get_stock_tinfo(tif: tinfo_t, id: stock_type_id_t) -> bool:
     ...
 
-def get_tid_name(tid: int) -> str:
+def get_tid_name(tid: int) -> Union[str, None]:
     r"""Get a type name for the specified TID 
             
     :param tid: type TID
@@ -9189,7 +9417,7 @@ def get_tinfo_size(p_effalign: int, typid: typid_t, gts_code: int) -> int:
     ...
 
 def get_type_flags(t: bytes) -> bytes:
-    r"""Get type flags (TYPE_FLAGS_MASK)
+    r"""Get type flags (TYPE_FLAGS_MASK).
     
     """
     ...
@@ -9226,7 +9454,7 @@ def get_vftable_ordinal(vftable_ea: ida_idaapi.ea_t) -> int:
     ...
 
 def guess_func_cc(fti: func_type_data_t, npurged: int, cc_flags: int) -> callcnv_t:
-    r"""Use func_type_data_t::guess_cc()
+    r"""Use func_type_data_t::guess_cc().
     
     """
     ...
@@ -9238,31 +9466,31 @@ def guess_tinfo(out: tinfo_t, id: int) -> int:
     """
     ...
 
-def idc_get_local_type(ordinal: int, flags: int) -> str:
+def idc_get_local_type(ordinal: int, flags: int) -> Union[str, None]:
     ...
 
-def idc_get_local_type_name(ordinal: int) -> str:
+def idc_get_local_type_name(ordinal: int) -> Union[str, None]:
     ...
 
-def idc_get_local_type_raw(ordinal: Any) -> Tuple[bytes, bytes]:
+def idc_get_local_type_raw(ordinal: Any) -> Union[Tuple[bytes, bytes], None]:
     ...
 
-def idc_get_type(ea: ida_idaapi.ea_t) -> str:
+def idc_get_type(ea: ida_idaapi.ea_t) -> Union[str, None]:
     ...
 
 def idc_get_type_raw(ea: ida_idaapi.ea_t) -> Any:
     ...
 
-def idc_guess_type(ea: ida_idaapi.ea_t) -> str:
+def idc_guess_type(ea: ida_idaapi.ea_t) -> Union[str, None]:
     ...
 
-def idc_parse_decl(til: til_t, decl: str, flags: int) -> Tuple[str, bytes, bytes]:
+def idc_parse_decl(til: til_t, decl: str, flags: int) -> Union[Tuple[str, bytes, bytes], None]:
     ...
 
 def idc_parse_types(input: str, flags: int) -> int:
     ...
 
-def idc_print_type(type: bytes, fields: bytes, name: str, flags: int) -> str:
+def idc_print_type(type: bytes, fields: bytes, name: str, flags: int) -> Union[str, None]:
     ...
 
 def idc_set_local_type(ordinal: int, dcl: str, flags: int) -> int:
@@ -9355,6 +9583,12 @@ def is_restype_struni(til: til_t, type: bytes) -> bool:
 def is_restype_void(til: til_t, type: bytes) -> bool:
     ...
 
+def is_rust_cc(cc: callcnv_t) -> bool:
+    r"""Rust language calling convention?
+    
+    """
+    ...
+
 def is_sdacl_byte(t: bytes) -> bool:
     r"""Identify an sdacl byte. The first sdacl byte has the following format: 11xx000x. The sdacl bytes are appended to udt fields. They indicate the start of type attributes (as the tah-bytes do). The sdacl bytes are used in the udt headers instead of the tah-byte. This is done for compatibility with old databases, they were already using sdacl bytes in udt headers and as udt field postfixes. (see "sdacl-typeattrs" in the type bit definitions) 
             
@@ -9374,7 +9608,7 @@ def is_tah_byte(t: bytes) -> bool:
     ...
 
 def is_type_arithmetic(t: bytes) -> bool:
-    r"""Is the type an arithmetic type? (floating or integral)
+    r"""Is the type an arithmetic type? (floating or integral).
     
     """
     ...
@@ -9398,7 +9632,7 @@ def is_type_bool(t: bytes) -> bool:
     ...
 
 def is_type_char(t: bytes) -> bool:
-    r"""Does the type specify a char value? (signed or unsigned, see Basic type: integer)
+    r"""Does the type specify a char value? (signed or unsigned, see Basic type: integer ).
     
     """
     ...
@@ -9436,13 +9670,13 @@ def is_type_enum(t: bytes) -> bool:
     ...
 
 def is_type_ext_arithmetic(t: bytes) -> bool:
-    r"""Is the type an extended arithmetic type? (arithmetic or enum)
+    r"""Is the type an extended arithmetic type? (arithmetic or enum).
     
     """
     ...
 
 def is_type_ext_integral(t: bytes) -> bool:
-    r"""Is the type an extended integral type? (integral or enum)
+    r"""Is the type an extended integral type? (integral or enum).
     
     """
     ...
@@ -9466,31 +9700,31 @@ def is_type_func(t: bytes) -> bool:
     ...
 
 def is_type_int(bt: bytes) -> bool:
-    r"""Does the type_t specify one of the basic types in Basic type: integer?
+    r"""Does the type_t specify one of the basic types in Basic type: integer ?
     
     """
     ...
 
 def is_type_int128(t: bytes) -> bool:
-    r"""Does the type specify a 128-bit value? (signed or unsigned, see Basic type: integer)
+    r"""Does the type specify a 128-bit value? (signed or unsigned, see Basic type: integer ).
     
     """
     ...
 
 def is_type_int16(t: bytes) -> bool:
-    r"""Does the type specify a 16-bit value? (signed or unsigned, see Basic type: integer)
+    r"""Does the type specify a 16-bit value? (signed or unsigned, see Basic type: integer ).
     
     """
     ...
 
 def is_type_int32(t: bytes) -> bool:
-    r"""Does the type specify a 32-bit value? (signed or unsigned, see Basic type: integer)
+    r"""Does the type specify a 32-bit value? (signed or unsigned, see Basic type: integer ).
     
     """
     ...
 
 def is_type_int64(t: bytes) -> bool:
-    r"""Does the type specify a 64-bit value? (signed or unsigned, see Basic type: integer)
+    r"""Does the type specify a 64-bit value? (signed or unsigned, see Basic type: integer ).
     
     """
     ...
@@ -9514,7 +9748,7 @@ def is_type_paf(t: bytes) -> bool:
     ...
 
 def is_type_partial(t: bytes) -> bool:
-    r"""Identifies an unknown or void type with a known size (see Basic type: unknown & void)
+    r"""Identifies an unknown or void type with a known size (see Basic type: unknown & void).
     
     """
     ...
@@ -9736,15 +9970,20 @@ def pack_object_to_idb(obj: Any, til: til_t, type: bytes, fields: bytes, ea: ida
     """
     ...
 
-def parse_decl(out_tif: tinfo_t, til: til_t, decl: str, pt_flags: int) -> str:
-    r"""Parse ONE declaration. If the input string contains more than one declaration, the first complete type declaration (PT_TYP) or the last variable declaration (PT_VAR) will be used. 
-            
-    :param out_tif: type info
-    :param til: type library to use. may be nullptr
+def parse_decl(out_tif: tinfo_t, til: til_t, decl: str, pt_flags: int) -> Union[str, None]:
+    r"""Parse ONE declaration.
+    
+    If the input string contains more than one declaration, the first complete
+    type declaration (PT_TYP) or the last variable declaration (PT_VAR) will
+    be used.
+    
+    :param out_tif: (output) receives the parsed type info
+    :param til: type library to use. May be None
     :param decl: C declaration to parse
-    :param pt_flags: combination of Type parsing flags bits
-    :returns: true: ok
-    :returns: false: declaration is bad, the error message is displayed if !PT_SIL
+    :param pt_flags: combination of PT_... bits
+    :returns: the declared name on success (may be empty), or None if the
+              declaration is bad. On failure, an error message is displayed
+              unless PT_SIL is set.
     """
     ...
 
@@ -9780,15 +10019,15 @@ def print_decls(printer: text_sink_t, til: til_t, ordinals: List[int], flags: in
     """
     ...
 
-def print_tinfo(prefix: str, indent: int, cmtindent: int, flags: int, tif: tinfo_t, name: str, cmt: str) -> str:
+def print_tinfo(prefix: str, indent: int, cmtindent: int, flags: int, tif: tinfo_t, name: str, cmt: str) -> Union[str, None]:
     ...
 
-def print_type(ea: ida_idaapi.ea_t, prtype_flags: int) -> str:
-    r"""Get type declaration for the specified address. 
-            
+def print_type(ea: ida_idaapi.ea_t, prtype_flags: int) -> Union[str, None]:
+    r"""Get the type declaration for the specified address.
+    
     :param ea: address
-    :param prtype_flags: combination of Type printing flags
-    :returns: success
+    :param prtype_flags: combination of PRTYPE_... flags
+    :returns: the type declaration, or None if the address has no type.
     """
     ...
 
@@ -9835,6 +10074,18 @@ def replace_ordinal_typerefs(til: til_t, tif: tinfo_t) -> int:
     """
     ...
 
+def resolve_field_path(out: field_path_t, til: til_t, dotted_path: str) -> bool:
+    r"""Resolve a dotted field path like "Top.Field1.Field2.Leaf".
+    The first segment must be a registered TIL type name (a type, not a member). Each subsequent segment is looked up as a member in the current type. Every segment must be spelled out explicitly.
+    On success, `out` is filled with the leaf info plus the chain of union selections needed to disambiguate the path for op_stroff().
+    
+    :param out: result; cleared on entry
+    :param til: type library; nullptr means current idati
+    :param dotted_path: dotted field path
+    :returns: true on success
+    """
+    ...
+
 def resolve_typedef(til: til_t, type: bytes) -> bytes:
     ...
 
@@ -9848,7 +10099,7 @@ def serialize_tinfo(type: qtype, fields: qtype, fldcmts: qtype, tif: tinfo_t, su
     ...
 
 def set_abi_name(abiname: str, user_level: bool = False) -> bool:
-    r"""Set abi name (see Compiler IDs)
+    r"""Set abi name (see Compiler IDs ).
     
     """
     ...
@@ -9876,7 +10127,7 @@ def set_compiler(cc: compiler_info_t, flags: int, abiname: str = None) -> bool:
     ...
 
 def set_compiler_id(id: comp_t, abiname: str = None) -> bool:
-    r"""Set the compiler id (see Compiler IDs)
+    r"""Set the compiler id (see Compiler IDs ).
     
     """
     ...
@@ -9950,6 +10201,12 @@ def switch_to_golang() -> None:
     """
     ...
 
+def switch_to_rust() -> None:
+    r"""switch to RUST calling convention (to be used as default CC)
+    
+    """
+    ...
+
 def tinfo_errstr(code: int) -> str:
     r"""Helper function to convert an error code into a printable string. Additional arguments are handled using the functions from err.h 
             
@@ -10011,10 +10268,16 @@ def use_golang_cc() -> bool:
     """
     ...
 
+def use_rust_cc() -> bool:
+    r"""is RUST calling convention used by default?
+    
+    """
+    ...
+
 def value_repr_t__from_opinfo(_this: value_repr_t, flags: int, afl: aflags_t, opinfo: opinfo_t, ap: array_parameters_t) -> bool:
     ...
 
-def value_repr_t__print_(_this: value_repr_t, colored: bool) -> str:
+def value_repr_t__print_(_this: value_repr_t, colored: bool) -> Union[str, None]:
     ...
 
 def verify_argloc(vloc: argloc_t, size: int, gaps: rangeset_t) -> int:
@@ -10188,6 +10451,7 @@ CC_ALLOW_REGHOLES: int  # 4
 CC_CDECL_OK: int  # 1
 CC_GOLANG_OK: int  # 16
 CC_HAS_ELLIPSIS: int  # 8
+CC_RUST_OK: int  # 32
 CM_CC_CDECL: int  # 48
 CM_CC_ELLIPSIS: int  # 64
 CM_CC_FASTCALL: int  # 112
@@ -10199,6 +10463,7 @@ CM_CC_LAST_USERCALL: int  # 255
 CM_CC_MASK: int  # 240
 CM_CC_PASCAL: int  # 96
 CM_CC_RESERVE3: int  # 192
+CM_CC_RUST: int  # 257
 CM_CC_SPECIAL: int  # 240
 CM_CC_SPECIALE: int  # 208
 CM_CC_SPECIALP: int  # 224
@@ -10250,6 +10515,7 @@ FAI_ARRAY: int  # 8
 FAI_HIDDEN: int  # 1
 FAI_RETPTR: int  # 2
 FAI_STRUCT: int  # 4
+FAI_SWIFTSELF: int  # 32
 FAI_UNUSED: int  # 16
 FIRST_NONTRIVIAL_TYPID: int  # 256
 FMTFUNC_PRINTF: int  # 0
@@ -10275,7 +10541,7 @@ FRB_STRLIT: int  # 10
 FRB_STROFF: int  # 11
 FRB_TABFORM: int  # 4096
 FRB_UNK: int  # 0
-FTI_ALL: int  # 8191
+FTI_ALL: int  # 65535
 FTI_ARGLOCS: int  # 256
 FTI_CALLTYPE: int  # 192
 FTI_CONST: int  # 1024
@@ -10291,6 +10557,9 @@ FTI_NORET: int  # 2
 FTI_PURE: int  # 4
 FTI_SPOILED: int  # 1
 FTI_STATIC: int  # 16
+FTI_SWIFTASYNC: int  # 16384
+FTI_SWIFTTHROWS: int  # 32768
+FTI_SYNCHRONIZED: int  # 8192
 FTI_VIRTUAL: int  # 32
 GTD_CALC_ARGLOCS: int  # 0
 GTD_CALC_LAYOUT: int  # 0
@@ -10570,7 +10839,6 @@ TINFO_DEFINITE: int  # 1
 TINFO_DELAYFUNC: int  # 2
 TINFO_GUESSED: int  # 0
 TINFO_STRICT: int  # 4
-TPOS_LNNUM: str  # 
 TPOS_REGCMT: str  # 
 TVIS_CMT: int  # 4
 TVIS_NAME: int  # 2

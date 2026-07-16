@@ -45,10 +45,7 @@ from packaging import version
 
 from ibm_watsonx_ai import __version__ as package_version
 from ibm_watsonx_ai import package_name
-from ibm_watsonx_ai._wrappers.httpx_wrapper import (
-    HTTPX_DEFAULT_LIMIT,
-    HTTPX_DEFAULT_TIMEOUT,
-)
+from ibm_watsonx_ai._wrappers.httpx import GlobalHttpxSettings
 from ibm_watsonx_ai.href_definitions import HrefDefinitions
 from ibm_watsonx_ai.wml_client_error import (
     CannotInstallLibrary,
@@ -141,12 +138,17 @@ class HttpClientConfig:
 
     from httpx import Limits, Timeout
 
-    timeout: Timeout = field(default_factory=lambda: HTTPX_DEFAULT_TIMEOUT)
-    limits: Limits = field(default_factory=lambda: HTTPX_DEFAULT_LIMIT)
+    timeout: Timeout = field(
+        default_factory=lambda: GlobalHttpxSettings.HTTPX_DEFAULT_TIMEOUT
+    )
+    limits: Limits = field(
+        default_factory=lambda: GlobalHttpxSettings.HTTPX_DEFAULT_LIMIT
+    )
 
 
 DEFAULT_HTTP_CLIENT_CONFIG = HttpClientConfig(
-    timeout=HTTPX_DEFAULT_TIMEOUT, limits=HTTPX_DEFAULT_LIMIT
+    timeout=GlobalHttpxSettings.HTTPX_DEFAULT_TIMEOUT,
+    limits=GlobalHttpxSettings.HTTPX_DEFAULT_LIMIT,
 )
 
 

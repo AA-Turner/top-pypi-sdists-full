@@ -401,12 +401,15 @@ class Datafile:
         if node.get("mode") and node["mode"] not in ["append", "replace"]:
             raise DatafileValidationError("COPY node mode must be append or replace")
         # copy schedule must be @on-demand or a cron-expression
-        if (
-            node.get("copy_schedule")
-            and node["copy_schedule"] != ON_DEMAND
-            and not croniter.is_valid(node["copy_schedule"])
-        ):
-            raise DatafileValidationError("COPY node schedule must be @on-demand or a valid cron expression.")
+        copy_schedule = node.get("copy_schedule")
+        if copy_schedule and copy_schedule != ON_DEMAND:
+            if isinstance(copy_schedule, str) and "tb_secret" in copy_schedule:
+                raise DatafileValidationError(
+                    "COPY_SCHEDULE does not support { tb_secret(...) }. "
+                    'Use a literal cron expression (for example "0 * * * *") or @on-demand.'
+                )
+            if not croniter.is_valid(copy_schedule):
+                raise DatafileValidationError("COPY node schedule must be @on-demand or a valid cron expression.")
         for key in node.keys():
             if key not in CopyParameters.valid_params():
                 raise DatafileValidationError(
@@ -503,10 +506,16 @@ class Datafile:
 
         # Validate schedule format (common for both Kafka and S3/GCS)
         export_schedule = node.get("export_schedule")
-        if export_schedule and export_schedule != ON_DEMAND and not croniter.is_valid(export_schedule):
-            raise DatafileValidationError(
-                f"Sink node {repr(node['name'])} has invalid export_schedule '{export_schedule}'. Must be @on-demand or a valid cron expression."
-            )
+        if export_schedule and export_schedule != ON_DEMAND:
+            if isinstance(export_schedule, str) and "tb_secret" in export_schedule:
+                raise DatafileValidationError(
+                    f"Sink node {repr(node['name'])}: EXPORT_SCHEDULE does not support {{ tb_secret(...) }}. "
+                    'Use a literal cron expression (for example "0 * * * *") or @on-demand.'
+                )
+            if not croniter.is_valid(export_schedule):
+                raise DatafileValidationError(
+                    f"Sink node {repr(node['name'])} has invalid export_schedule '{export_schedule}'. Must be @on-demand or a valid cron expression."
+                )
 
     def validate(self):
         if self.kind == DatafileKind.pipe:

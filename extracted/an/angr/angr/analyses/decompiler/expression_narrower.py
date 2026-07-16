@@ -64,15 +64,14 @@ class EffectiveSizeExtractor(AILBlockWalker[None, None, None]):
 
     A single walk records information for all virtual variables in the statement, so one walker instance can be
     queried for many different variables without re-walking the statement. Constraints that parent expressions impose
-    on their children are tracked per expression node (keyed by object identity) during the walk; results are
+    on their children are tracked per expression node (keyed by the node's ``idx``) during the walk; results are
     aggregated per (varid, expression idx) so that repeated occurrences of the same variable are kept separate.
     """
 
     def __init__(self, ignore_call_args: bool = True):
         super().__init__()
         self._ignore_call_args = ignore_call_args
-        # transient per-node constraints established during the walk, keyed by id() of the expression node. all nodes
-        # are kept alive by the statement being walked, so ids are stable for the duration of the walk.
+        # transient per-node constraints established during the walk, keyed by the expression node's ``idx``.
         self._node_effective_bits: dict[int, tuple[int, int]] = {}
         # varid -> {occurrence idx -> (lo_bits, hi_bits)}
         self.vvar_effective_bits: dict[int, dict[int, tuple[int, int]]] = {}
@@ -82,7 +81,7 @@ class EffectiveSizeExtractor(AILBlockWalker[None, None, None]):
         self.vvars_used_as_insert_base: set[int] = set()
 
     def _update_effective_bits(self, expr, lo_bits: int, hi_bits: int):
-        key = id(expr)
+        key = expr.idx
         existing = self._node_effective_bits.get(key)
         if existing is None:
             self._node_effective_bits[key] = lo_bits, hi_bits
@@ -90,7 +89,7 @@ class EffectiveSizeExtractor(AILBlockWalker[None, None, None]):
             self._node_effective_bits[key] = max(existing[0], lo_bits), min(existing[1], hi_bits)
 
     def _record_vvar_occurrence(self, expr: VirtualVariable) -> None:
-        constraint = self._node_effective_bits.get(id(expr))
+        constraint = self._node_effective_bits.get(expr.idx)
         per_idx = self.vvar_effective_bits.get(expr.varid)
         if per_idx is None:
             per_idx = {}
@@ -131,7 +130,9 @@ class EffectiveSizeExtractor(AILBlockWalker[None, None, None]):
 
     def _handle_Extract(self, expr_idx: int, expr, stmt_idx: int, stmt: Statement | None, block: Block | None):
         if isinstance(expr.offset, Const) and isinstance(expr.offset.value, int):
-            self._update_effective_bits(expr.base, expr.offset.value, expr.offset.value + expr.bits)
+            # Extract offsets are in bytes
+            offset_bits = expr.offset.value * 8
+            self._update_effective_bits(expr.base, offset_bits, offset_bits + expr.bits)
         self._handle_expr(0, expr.base, stmt_idx, stmt, block)
         self._handle_expr(1, expr.offset, stmt_idx, stmt, block)
 
@@ -151,9 +152,10 @@ class EffectiveSizeExtractor(AILBlockWalker[None, None, None]):
                     self.vvar_call_arg_effective_bits[arg.operand.varid] = 0, arg.to_bits
                 if isinstance(arg, Extract) and isinstance(arg.offset, Const) and isinstance(arg.base, VirtualVariable):
                     handled = True
+                    # Extract offsets are in bytes
                     self.vvar_call_arg_effective_bits[arg.base.varid] = (
-                        arg.offset.value,
-                        arg.offset.value + arg.bits,
+                        arg.offset.value * 8,
+                        arg.offset.value * 8 + arg.bits,
                     )
 
             if not handled:
@@ -173,7 +175,7 @@ class EffectiveSizeExtractor(AILBlockWalker[None, None, None]):
     def _handle_BinaryOp(
         self, expr_idx: int, expr: BinaryOp, stmt_idx: int, stmt: Statement | None, block: Block | None
     ):
-        effective_bits = self._node_effective_bits.get(id(expr))
+        effective_bits = self._node_effective_bits.get(expr.idx)
         if effective_bits is None:
             effective_bits = 0, expr.bits
         if expr.op == "And" and isinstance(expr.operands[1], Const):
@@ -209,7 +211,7 @@ class EffectiveSizeExtractor(AILBlockWalker[None, None, None]):
         self._handle_expr(0, expr.operand, stmt_idx, stmt, block)
 
     def _handle_Convert(self, expr_idx: int, expr: Convert, stmt_idx: int, stmt: Statement | None, block: Block | None):
-        effective_bits = self._node_effective_bits.get(id(expr))
+        effective_bits = self._node_effective_bits.get(expr.idx)
         if effective_bits is None or effective_bits[1] > expr.to_bits:
             effective_bits = 0, expr.to_bits
         self._update_effective_bits(expr.operand, effective_bits[0], effective_bits[1])

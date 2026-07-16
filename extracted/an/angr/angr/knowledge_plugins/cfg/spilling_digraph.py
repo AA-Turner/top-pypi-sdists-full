@@ -1,3 +1,4 @@
+# pylint:disable=protected-access
 """
 SpillingDiGraph - a networkx.DiGraph subclass with LMDB-backed edge spilling.
 
@@ -21,7 +22,7 @@ import lmdb
 import networkx
 from archinfo.arch_soot import SootAddressDescriptor, SootMethodDescriptor
 
-from angr.protos import cfg_pb2
+from angr.protos import cfg_pb2, primitives_pb2
 from angr.utils.enums_conv import cfg_jumpkind_from_pb, cfg_jumpkind_to_pb
 from angr.utils.json_utils import json_decode, json_encode
 
@@ -169,18 +170,23 @@ class SpillingAdjDict(MutableMapping):
             return evicted_any
 
     def _evict_n(self, n: int) -> int:
+        if self.rtdb is None:
+            # without a RuntimeDb we cannot persist evicted entries; evicting anyway would silently lose data
+            # (this happens e.g. while unpickling, before an rtdb is re-attached via CFGManager.set_kb()).
+            return 0
         if not self._lru_order:
             return 0
 
         evicted = 0
         entries_to_save: list[tuple[K, DirtyDict[K, dict]]] = []
 
-        for lru_key in list(self._lru_order):
+        keys_to_remove = []
+        for lru_key in self._lru_order:
             if evicted >= n:
                 break
 
             if lru_key not in self._data:
-                self._lru_order.pop(lru_key)
+                keys_to_remove.append(lru_key)
                 continue
 
             inner_dict = self._data[lru_key]
@@ -188,9 +194,12 @@ class SpillingAdjDict(MutableMapping):
                 entries_to_save.append((lru_key, inner_dict))
 
             del self._data[lru_key]
-            del self._lru_order[lru_key]
+            keys_to_remove.append(lru_key)
             self._spilled_keys.add(lru_key)
             evicted += 1
+
+        for lru_key in keys_to_remove:
+            del self._lru_order[lru_key]
 
         if entries_to_save:
             self._save_to_lmdb(entries_to_save)
@@ -212,30 +221,35 @@ class SpillingAdjDict(MutableMapping):
             self._edgesdb = None
 
     #
-    #  Serialization helpers  (Edge protobuf)
+    #  Serialization helpers  (edge data)
     #
+
+    # Edge attribute dicts hold exactly three fields (jumpkind, ins_addr, stmt_idx). They are packed with struct
+    # instead of protobuf for speed: the jumpkind as its protobuf enum value, and ins_addr/stmt_idx with the same
+    # None-sentinels that the previous CFGEdgeData protobuf encoding used.
+    # Note that this encoding only ever lives in the RuntimeDb, so there is no format-versioning concern.
+    _EDGE_DATA_STRUCT = struct.Struct("<BQi")
 
     @staticmethod
     def _serialize_edge_data(edge_data: dict) -> bytes:
-        """Serialize an edge attribute dict to CFGEdgeData protobuf bytes."""
-        edge = cfg_pb2.CFGEdgeData()  # type:ignore
+        """Serialize an edge attribute dict to packed bytes."""
         jk = cfg_jumpkind_to_pb(edge_data.get("jumpkind"))
-        edge.jumpkind = cfg_pb2.CFGEdgeData.UnknownJumpkind if jk is None else jk  # type:ignore
-        v = edge_data.get("ins_addr")
-        edge.ins_addr = v if v is not None else 0xFFFF_FFFF_FFFF_FFFF
-        v = edge_data.get("stmt_idx")
-        edge.stmt_idx = v if v is not None else -1
-        return edge.SerializeToString()
+        ins_addr = edge_data.get("ins_addr")
+        stmt_idx = edge_data.get("stmt_idx")
+        return SpillingAdjDict._EDGE_DATA_STRUCT.pack(
+            primitives_pb2.Edge.UnknownJumpkind if jk is None else jk,  # type:ignore
+            ins_addr if ins_addr is not None else 0xFFFF_FFFF_FFFF_FFFF,
+            stmt_idx if stmt_idx is not None else -1,
+        )
 
     @staticmethod
     def _deserialize_edge_data(data: bytes) -> dict:
-        """Deserialize CFGEdgeData protobuf bytes to an edge attribute dict."""
-        edge = cfg_pb2.CFGEdgeData()  # type:ignore
-        edge.ParseFromString(data)
+        """Deserialize packed bytes to an edge attribute dict."""
+        jk, ins_addr, stmt_idx = SpillingAdjDict._EDGE_DATA_STRUCT.unpack(data)
         return {
-            "jumpkind": cfg_jumpkind_from_pb(edge.jumpkind),
-            "ins_addr": edge.ins_addr if edge.ins_addr != 0xFFFF_FFFF_FFFF_FFFF else None,
-            "stmt_idx": edge.stmt_idx if edge.stmt_idx != -1 else None,
+            "jumpkind": cfg_jumpkind_from_pb(jk),
+            "ins_addr": ins_addr if ins_addr != 0xFFFF_FFFF_FFFF_FFFF else None,
+            "stmt_idx": stmt_idx if stmt_idx != -1 else None,
         }
 
     def _serialize_inner_dict(self, inner_dict: DirtyDict[K, dict]) -> bytes:
@@ -438,17 +452,25 @@ class SpillingAdjDict(MutableMapping):
     #
 
     def __getstate__(self) -> dict:
+        # Load all spilled entries before pickling.
+        # We must load the entire store into memory; otherwise pickling loses data!
         self.load_all_spilled()
         return {
+            "addr_type": self.addr_type,
             "cache_limit": self._cache_limit,
             "db_batch_size": self._db_batch_size,
             "data": dict(self._data),
         }
 
     def __setstate__(self, state: dict) -> None:
+        self.addr_type = state.get("addr_type", "int")
         self._cache_limit = state["cache_limit"]
         self._db_batch_size = state["db_batch_size"]
         self._data = state["data"]
+        for inner_dict in self._data.values():
+            # entries restored from a pickle have no LMDB backing store behind them; mark them dirty so that
+            # they will be written out if they are ever evicted again (after an rtdb is re-attached)
+            inner_dict.dirty = True
         self._spilled_keys = set()
         self.rtdb = None
         self._lru_order = OrderedDict()
@@ -555,10 +577,34 @@ class SpillingDiGraph(networkx.DiGraph):
         self._adj.load_all_spilled()
         self._pred.load_all_spilled()
 
+    def set_rtdb(self, rtdb: RuntimeDb | None) -> None:
+        """
+        (Re-)attach a RuntimeDb to this graph and its adjacency containers. This is used after unpickling
+        (rtdb references are not preserved across pickling) so that edge spilling works again.
+        """
+        self._rtdb = rtdb
+        if isinstance(self._adj, SpillingAdjDict):
+            self._adj.rtdb = rtdb
+        if isinstance(self._pred, SpillingAdjDict):
+            self._pred.rtdb = rtdb
+
     def evict_all_cached_edges(self) -> None:
         """Evict all cached adjacency entries to LMDB."""
         self._adj.evict_all_cached()
         self._pred.evict_all_cached()
+
+    def set_edge_eviction_enabled(self, enabled: bool) -> None:
+        """
+        Enable or disable eviction of adjacency entries. Disabling eviction is useful during bulk edge insertion;
+        call spill_down_edges() afterwards to bring the caches back within their limits.
+        """
+        self._adj._eviction_enabled = enabled
+        self._pred._eviction_enabled = enabled
+
+    def spill_down_edges(self) -> None:
+        """Evict least-recently-used adjacency entries until the caches are back within their limits."""
+        self._adj._evict_lru()
+        self._pred._evict_lru()
 
     #
     #  Pickling
@@ -574,10 +620,20 @@ class SpillingDiGraph(networkx.DiGraph):
             addr_type=addr_type,
         )
         # Restore node and adjacency data
+        # Entries restored from a pickle have no LMDB backing store behind them. We mark them dirty so that they will
+        # be written out when evicted again.
         g._node.update(node_dict)
         for k, v in adj.items():
+            if isinstance(v, DirtyDict):
+                v.dirty = True
+            else:
+                v = DirtyDict(v, dirty=True)
             g._adj[k] = v
         for k, v in pred.items():
+            if isinstance(v, DirtyDict):
+                v.dirty = True
+            else:
+                v = DirtyDict(v, dirty=True)
             g._pred[k] = v
         return g
 

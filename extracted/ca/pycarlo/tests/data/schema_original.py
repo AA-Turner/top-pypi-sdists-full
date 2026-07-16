@@ -8220,6 +8220,19 @@ class TriageBatchSource(sgqlc.types.Enum):
     __choices__ = ("ALERT", "FEED")
 
 
+class TriageDenialReason(sgqlc.types.Enum):
+    """Why triage is unavailable for the account — availability surface.
+
+    Enumeration Choices:
+
+    * `AI_FEATURES_OFF`None
+    * `MONTHLY_USAGE_LIMIT_REACHED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AI_FEATURES_OFF", "MONTHLY_USAGE_LIMIT_REACHED")
+
+
 class TriagePriority(sgqlc.types.Enum):
     """Single-axis triage priority surfaced on the alerts feed.
     Derived from the latest :class:`TriageAgentRunV2Model` for an
@@ -8260,6 +8273,18 @@ class TriageScore(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("HIGH", "LOW", "MEDIUM")
+
+
+class TriageTriggerSource(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `MANUAL_UI`None
+    * `MCP`None
+    * `SLACK`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("MANUAL_UI", "MCP", "SLACK")
 
 
 class TsaAnalysisStatus(sgqlc.types.Enum):
@@ -10365,6 +10390,7 @@ class ConversationFiltersInput(sgqlc.types.Input):
         "min_duration",
         "max_duration",
         "cluster_keys",
+        "run_uuid",
     )
     conversation_id_search = sgqlc.types.Field(String, graphql_name="conversationIdSearch")
     """Case-insensitive substring search on conversation_id"""
@@ -10419,6 +10445,20 @@ class ConversationFiltersInput(sgqlc.types.Input):
     """Filter the list to conversations assigned to these intent clusters
     (within the query's clusteringSpaceUuid). Empty or omitted applies
     no cluster filter; requires clusteringSpaceUuid to be set.
+    """
+
+    run_uuid = sgqlc.types.Field(UUID, graphql_name="runUuid")
+    """Filter to the conversations evaluated in a monitor run: pass an
+    agent evaluation monitor run's jobExecutionUuid (as surfaced on
+    monitor chart datapoints) to keep only conversations that were
+    scored in that run. Combines (ANDs) with the other filters. Only
+    conversation-aggregation agent evaluation runs carry per-
+    conversation score linkage: span-scored runs return an empty page,
+    and trace-aggregation runs are rejected, as are runs that
+    evaluated more than 500 conversations (rather than returning an
+    incomplete list). startTime/endTime still bound the span scan —
+    pass a window generously covering the run's period so boundary
+    conversations aggregate completely.
     """
 
 
@@ -16214,7 +16254,13 @@ class TransformInput(sgqlc.types.Input):
 
 class TriageAlertsInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("incident_ids", "source", "feed_search_params", "post_to_slack")
+    __field_names__ = (
+        "incident_ids",
+        "source",
+        "feed_search_params",
+        "post_to_slack",
+        "trigger_source",
+    )
     incident_ids = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
         graphql_name="incidentIds",
@@ -16245,6 +16291,15 @@ class TriageAlertsInput(sgqlc.types.Input):
     duplicated. Does NOT affect the alert message's own triage state —
     the in-progress status, completed priority dot, and Triage-button
     removal always sync — nor the in-product completion notification.
+    """
+
+    trigger_source = sgqlc.types.Field(TriageTriggerSource, graphql_name="triggerSource")
+    """The surface this triage was dispatched from, recorded on the per-
+    incident triage claim (usage accounting / analytics). Programmatic
+    callers should declare themselves (MCP for the MCP triage tool,
+    SLACK for the chat agent in the Slack bot). When omitted, defaults
+    to SLACK if postToSlack is false (today's only such caller is the
+    Slack-bot chat agent) and MANUAL_UI otherwise (the web app).
     """
 
 
@@ -23757,6 +23812,7 @@ class BillingMonitorUsage(sgqlc.types.Type):
         "troubleshooting_agent_monitor_credits",
         "agent_observability_monitor_credits",
         "pr_agent_monitor_credits",
+        "triage_monitor_credits",
     )
     date = sgqlc.types.Field(Date, graphql_name="date")
     """The date for this data point"""
@@ -23812,6 +23868,9 @@ class BillingMonitorUsage(sgqlc.types.Type):
 
     pr_agent_monitor_credits = sgqlc.types.Field(Float, graphql_name="prAgentMonitorCredits")
     """Credits used by the PR Agent"""
+
+    triage_monitor_credits = sgqlc.types.Field(Float, graphql_name="triageMonitorCredits")
+    """Credits used by automated alert triage"""
 
 
 class BillingMonitorUsageResults(sgqlc.types.Type):
@@ -35470,8 +35529,10 @@ class GenieCollectorStatus(sgqlc.types.Type):
         sgqlc.types.non_null(GenieCollectorInstallStatus), graphql_name="installStatus"
     )
     """Collector install lifecycle: PENDING, INSTALLED, PERMISSION_DENIED
-    (Monte Carlo's principal lacks the workspace/jobs grant — self-
-    heals once granted), or ERROR.
+    (Monte Carlo's principal lacks the workspace/jobs grant, or the
+    connection's Databricks credential is no longer valid — self-heals
+    once the grant is added or the credential is re-authenticated), or
+    ERROR.
     """
 
     run_status = sgqlc.types.Field(GenieCollectorRunStatus, graphql_name="runStatus")
@@ -35487,8 +35548,10 @@ class GenieCollectorStatus(sgqlc.types.Type):
     """
 
     install_error = sgqlc.types.Field(String, graphql_name="installError")
-    """Detail + remediation for the most recent failed collector install
-    (when installStatus is 'permission_denied' or 'error'); null once
+    """Detail + remediation for the most recent failed collector install,
+    or an auth failure surfaced during a later scheduled
+    reconcile/run/poll on an already-installed collector (when
+    installStatus is 'permission_denied' or 'error'); null once
     installed. Distinct from lastError, which covers run failures.
     """
 
@@ -40688,6 +40751,7 @@ class Mutation(sgqlc.types.Type):
         "delete_agentic_domain",
         "configure_agentic_platform",
         "trigger_agentic_platform_pipeline",
+        "run_monitoring_for_domain",
         "update_agentic_platform_pipeline",
         "update_triage_automation_config",
         "create_or_update_agentic_notification_route",
@@ -56329,6 +56393,32 @@ class Mutation(sgqlc.types.Type):
     * `pipeline_uuid` (`UUID!`): UUID of the pipeline to run.
     """
 
+    run_monitoring_for_domain = sgqlc.types.Field(
+        "RunMonitoringForDomain",
+        graphql_name="runMonitoringForDomain",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Runs a one-off, suggest-mode monitoring pass for a
+    metadata domain without the persistent side effects of
+    enableAgentAssistance — no agent user is provisioned, no schedule
+    is enabled, and the domain's agentAssistant stays null for a cold
+    domain. Poll the run via getMonitoringRunForDomain.
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain to run
+      monitoring for.
+    """
+
     update_agentic_platform_pipeline = sgqlc.types.Field(
         "UpdateAgenticPlatformPipeline",
         graphql_name="updateAgenticPlatformPipeline",
@@ -58854,6 +58944,10 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("metadata", sgqlc.types.Arg(String, graphql_name="metadata", default=None)),
                 ("metadata_url", sgqlc.types.Arg(String, graphql_name="metadataUrl", default=None)),
+                (
+                    "recovery_code_confirmation",
+                    sgqlc.types.Arg(String, graphql_name="recoveryCodeConfirmation", default=None),
+                ),
             )
         ),
     )
@@ -58869,6 +58963,11 @@ class Mutation(sgqlc.types.Type):
     * `metadata` (`String`): The metadata in XML format, encoded as
       base64
     * `metadata_url` (`String`): The URL of the metadata file
+    * `recovery_code_confirmation` (`String`): One of the account's
+      active SSO recovery codes, confirming the admin has saved them.
+      Required when the account uses SSO recovery codes; the submitted
+      code is consumed. Generate a set with generateSsoRecoveryCodes
+      first.
     """
 
     delete_saml_identity_provider = sgqlc.types.Field(
@@ -67218,6 +67317,7 @@ class Query(sgqlc.types.Type):
         "get_incident_tables",
         "get_incident_warehouse_tables",
         "get_alert_warehouse_tables",
+        "get_triage_availability",
         "get_monitor_tuning_runs",
         "get_monitor_tuning_suggestions",
         "agentic_notification_routes",
@@ -67441,6 +67541,8 @@ class Query(sgqlc.types.Type):
         "get_agentic_platform_pipelines",
         "get_agentic_platform_pipeline_executions",
         "get_triage_automation_config",
+        "get_monitoring_run_for_domain",
+        "get_triage_cost_estimate",
         "get_agent_operation_logs",
         "get_gcp_agent_logs",
         "get_azure_agent_logs",
@@ -70235,6 +70337,12 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
                     ),
                 ),
+                (
+                    "asset_selection",
+                    sgqlc.types.Arg(
+                        AssetSelectionInput, graphql_name="assetSelection", default=None
+                    ),
+                ),
             )
         ),
     )
@@ -70244,6 +70352,9 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `warehouse_uuid` (`UUID!`)None
+    * `asset_selection` (`AssetSelectionInput`): Optional monitor
+      asset selection. When provided, tag existence is checked only on
+      fields belonging to matching tables.
     """
 
     get_pii_scan_inventory_export_csv = sgqlc.types.Field(
@@ -81803,6 +81914,13 @@ class Query(sgqlc.types.Type):
     * `alert_id` (`UUID!`): The alert UUID
     """
 
+    get_triage_availability = sgqlc.types.Field(
+        sgqlc.types.non_null("TriageAvailability"), graphql_name="getTriageAvailability"
+    )
+    """(experimental) Triage availability and free-allowance status for
+    the caller's account.
+    """
+
     get_monitor_tuning_runs = sgqlc.types.Field(
         MonitorTuningRunConnection,
         graphql_name="getMonitorTuningRuns",
@@ -89863,6 +89981,57 @@ class Query(sgqlc.types.Type):
     overrides, and the effective per-domain resolution.
     """
 
+    get_monitoring_run_for_domain = sgqlc.types.Field(
+        AgenticPlatformPipelineExecutionOutput,
+        graphql_name="getMonitoringRunForDomain",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Returns the latest monitoring-run execution for a
+    domain, or null when no monitoring run has been requested for it.
+    Poll this after runMonitoringForDomain to track the run's state.
+    RUNNING executions are reconciled against the agent on read, so a
+    freshly-completed run reports its terminal status immediately.
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain whose
+      latest monitoring run to fetch.
+    """
+
+    get_triage_cost_estimate = sgqlc.types.Field(
+        sgqlc.types.non_null("TriageCostEstimateOutput"),
+        graphql_name="getTriageCostEstimate",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "last_ndays",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Int), graphql_name="lastNDays", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Estimate what automatically triaging the account's
+    recent alerts would cost: counts the alerts from the trailing
+    window that the current triage configuration would triage, and
+    projects the credits after the monthly free allowance.
+
+    Arguments:
+
+    * `last_ndays` (`Int!`): Trailing window, in days, to estimate
+      over (1-90).
+    """
+
     get_agent_operation_logs = sgqlc.types.Field(
         sgqlc.types.list_of(AgentLogEntry),
         graphql_name="getAgentOperationLogs",
@@ -90378,9 +90547,13 @@ class QueryListObject(sgqlc.types.Type):
         "rows_produced",
         "rows_updated",
         "rows_inserted",
+        "rows_deleted",
+        "bytes_deleted",
         "rows_produced_float",
         "rows_updated_float",
         "rows_inserted_float",
+        "rows_deleted_float",
+        "bytes_deleted_float",
         "status",
     )
     query_id = sgqlc.types.Field(String, graphql_name="queryId")
@@ -90407,11 +90580,19 @@ class QueryListObject(sgqlc.types.Type):
 
     rows_inserted = sgqlc.types.Field(Int, graphql_name="rowsInserted")
 
+    rows_deleted = sgqlc.types.Field(Int, graphql_name="rowsDeleted")
+
+    bytes_deleted = sgqlc.types.Field(Int, graphql_name="bytesDeleted")
+
     rows_produced_float = sgqlc.types.Field(Float, graphql_name="rowsProducedFloat")
 
     rows_updated_float = sgqlc.types.Field(Float, graphql_name="rowsUpdatedFloat")
 
     rows_inserted_float = sgqlc.types.Field(Float, graphql_name="rowsInsertedFloat")
+
+    rows_deleted_float = sgqlc.types.Field(Float, graphql_name="rowsDeletedFloat")
+
+    bytes_deleted_float = sgqlc.types.Field(Float, graphql_name="bytesDeletedFloat")
 
     status = sgqlc.types.Field(String, graphql_name="status")
 
@@ -91509,6 +91690,31 @@ class RunMonitor(sgqlc.types.Type):
         UUID, graphql_name="manualMonitorExecutionUuid"
     )
     """UUID of the ManualMonitorExecutionModel created for this run"""
+
+
+class RunMonitoringForDomain(sgqlc.types.Type):
+    """Run a one-off, suggest-mode monitoring pass for a metadata domain.
+    Dispatches the coverage (monitoring) agent for ``domainUuid``
+    without the persistent side effects of ``enableAgentAssistance``:
+    no per-domain agent user or internal group is provisioned, no
+    scheduled pipeline is enabled, and the domain's ``agentAssistant``
+    stays null for a cold (never-assisted) domain. The run always uses
+    SUGGEST mode — it emits the staged finding tree for the user to
+    review and apply, and never deploys monitors live. There is no
+    create-mode option; deploying the suggested monitors is a
+    separate, Write-gated step.  Poll the resulting run's state via
+    ``getMonitoringRunForDomain``.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("execution",)
+    execution = sgqlc.types.Field(
+        sgqlc.types.non_null(AgenticPlatformPipelineExecutionOutput), graphql_name="execution"
+    )
+    """The monitoring-run execution. A freshly created RUNNING row, or
+    the already-in-flight run when an equivalent one is still
+    executing.
+    """
 
 
 class RunMonitors(sgqlc.types.Type):
@@ -97741,6 +97947,95 @@ class TriageAutomationDomainConfigOutput(sgqlc.types.Type):
     """Effective troubleshooting-agent threshold for this domain. OFF
     whenever effectiveTriageEnabled is false.
     """
+
+
+class TriageAvailability(sgqlc.types.Type):
+    """Whether triage can run for the caller's account, plus the free-
+    allowance snapshot. Accounts restricted to the free tier pause
+    triage — automated and manual — when the month's allowance is used
+    up.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "enabled",
+        "reasons",
+        "monthly_free_budget",
+        "monthly_completed_count",
+        "remaining_free_budget",
+    )
+    enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
+    """True when triage is available to the account right now."""
+
+    reasons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TriageDenialReason))),
+        graphql_name="reasons",
+    )
+    """Why triage is unavailable; empty when enabled."""
+
+    monthly_free_budget = sgqlc.types.Field(Int, graphql_name="monthlyFreeBudget")
+    """Free triages per calendar month (UTC) for accounts restricted to
+    the free allowance; null when the account is unrestricted.
+    """
+
+    monthly_completed_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="monthlyCompletedCount"
+    )
+    """Billable triages completed this calendar month (UTC)."""
+
+    remaining_free_budget = sgqlc.types.Field(Int, graphql_name="remainingFreeBudget")
+    """Free triages left this month for restricted accounts (never
+    negative); null when the account is unrestricted.
+    """
+
+
+class TriageCostEstimateOutput(sgqlc.types.Type):
+    """Projected automated-triage volume and cost over a trailing window,
+    computed from the alerts the account's current triage
+    configuration would have triaged.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "last_ndays",
+        "triageable_alert_count",
+        "billable_alert_count",
+        "estimated_credits",
+        "free_monthly_allowance",
+        "credits_per_alert",
+    )
+    last_ndays = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="lastNDays")
+    """The trailing window, in days, the estimate was computed over."""
+
+    triageable_alert_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="triageableAlertCount"
+    )
+    """Alerts created in the window that the current configuration would
+    triage (non-actionable alert types and triage-disabled domains
+    excluded).
+    """
+
+    billable_alert_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="billableAlertCount"
+    )
+    """Triageable alerts past the monthly free allowance, applied per
+    calendar month (UTC) within the window.
+    """
+
+    estimated_credits = sgqlc.types.Field(
+        sgqlc.types.non_null(Float), graphql_name="estimatedCredits"
+    )
+    """Projected credits for the billable alerts in the window."""
+
+    free_monthly_allowance = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="freeMonthlyAllowance"
+    )
+    """Automated triages included at no cost each calendar month."""
+
+    credits_per_alert = sgqlc.types.Field(
+        sgqlc.types.non_null(Float), graphql_name="creditsPerAlert"
+    )
+    """Credits charged per automated triage past the free allowance."""
 
 
 class TriggerAgenticPlatformPipeline(sgqlc.types.Type):

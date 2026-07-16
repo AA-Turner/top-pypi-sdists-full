@@ -7,7 +7,6 @@ A connector test:
     import os
     import pytest
     from application_sdk.testing.e2e import BaseE2ETest, RunMode
-    from application_sdk.testing.e2e.payload import AgentSpec
 
     @pytest.mark.e2e
     class TestOpenAPIE2E(BaseE2ETest):
@@ -15,8 +14,10 @@ A connector test:
         connection_name_prefix = "e2e-ci"
         expected_min_asset_counts = {"APISpec": 1, "APIPath": 10}
 
-        def agent_spec(self) -> AgentSpec:
-            return AgentSpec(agent_name=f"openapi-e2e-ci-{self.run_id}")
+    # agent_spec() is derived from ATLAN_APPLICATION_NAME + ATLAN_DEPLOYMENT_NAME
+    # by default (matching the worker's atlan-{app}-{deployment} queue, including
+    # any per-leg suffix the CI action sets). Override it only to pin an explicit
+    # queue — a run_id-keyed override would silently drop per-leg isolation.
 
 The base class handles submit + native-status poll + Atlas-side
 Connection assertion + per-node duration reporting. Subclasses provide
@@ -32,6 +33,7 @@ To skip the whole class when the harness env isn't configured::
 from __future__ import annotations
 
 import os
+import secrets
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -160,6 +162,26 @@ class BaseE2ETest:
 
     ae_poll_interval_seconds: ClassVar[int] = 10
     ae_poll_timeout_seconds: ClassVar[int] = 600
+    # Fail-fast stall guard (test-harness only — this module is never imported
+    # by the production execution path). If no DAG node has started within this
+    # window, run_full_dag raises NoWorkerOnTaskQueueError instead of hanging
+    # for the full ae_poll_timeout_seconds. Catches the common wedge where a
+    # test's agent_spec().agent_name doesn't match the deployed worker's queue
+    # (or a second run_full_dag() in one test targets a different agent_name).
+    #
+    # On by default at 180s: e2e runs against a dedicated worker (the CI
+    # docker-compose container) that long-polls and picks work up within
+    # seconds, so a healthy run never trips it, and the full
+    # ae_poll_timeout_seconds still bounds real work. Set to 0 to disable on a
+    # suite that runs against shared / KEDA-autoscaled infra (e.g. some
+    # RunMode.DIRECT setups hitting a prod pod that may be scaled to zero),
+    # where legitimate pickup can take longer than any fixed grace.
+    #
+    # The guard fires at the first poll where elapsed >= grace, so real
+    # detection latency is grace + up to one ae_poll_interval_seconds
+    # (negligible at the 180/10 defaults; only noticeable if a subclass sets a
+    # grace close to the interval).
+    ae_stall_grace_seconds: ClassVar[int] = 180
     atlas_poll_interval_seconds: ClassVar[int] = 30
     atlas_poll_timeout_seconds: ClassVar[int] = 1500
     # Asset counts use a much shorter poll window: Elasticsearch is eventually
@@ -251,6 +273,22 @@ class BaseE2ETest:
                 type(self).__name__,
             )
 
+        # The stall guard assumes a dedicated worker that picks work up within
+        # seconds. Under RunMode.DIRECT extraction runs on the tenant's own
+        # deployed pod, which may be KEDA-idle and cold-start slower than the
+        # grace — tripping a spurious NoWorkerOnTaskQueueError on an otherwise
+        # healthy run. Nudge the operator toward the opt-out rather than fail.
+        if self.mode is RunMode.DIRECT and self.ae_stall_grace_seconds > 0:
+            logger.warning(
+                "%s runs in RunMode.DIRECT with ae_stall_grace_seconds=%ds — "
+                "extraction runs on the tenant's own (possibly KEDA-idle) pod, "
+                "whose cold-start can exceed the grace and raise a spurious "
+                "NoWorkerOnTaskQueueError. Set ae_stall_grace_seconds = 0 on the "
+                "test class to disable the stall guard if you see false failures.",
+                type(self).__name__,
+                self.ae_stall_grace_seconds,
+            )
+
         tenant_url = os.environ.get("ATLAN_BASE_URL", "").rstrip("/")
         api_token = os.environ.get("ATLAN_API_KEY", "")
         if not tenant_url or not api_token:
@@ -279,12 +317,20 @@ class BaseE2ETest:
         # connection_type overrides connector_short_name when the Atlan
         # catalog type segment differs from the connector's app name (e.g.
         # OpenAPI: connector_short_name="openapi", connection_type="api").
-        # The name is pure epoch seconds so Atlas never rejects it for
-        # containing hyphens or alpha characters.
+        #
+        # The trailing segment must be unique per test *instance*: with the e2e
+        # matrix, each suite runs as a separate parallel job whose setup_method
+        # can land in the same wall-clock second as another leg's, and rapid
+        # same-ref pushes can overlap too. A shared connection QN would let one
+        # leg's teardown purge another's assets and mix Atlas counts. epoch
+        # alone (1-second resolution) can't guarantee that, so append random
+        # digits. Kept PURE NUMERIC so Atlas never rejects the name for hyphens
+        # or alpha characters (agent queue + AE slug are already run-id-scoped
+        # and unique per run; this closes the connection-QN gap).
         _conn_type = self.connection_type or self.connector_short_name
-        _epoch = int(time.time())
-        self.connection_qualified_name = f"default/{_conn_type}/{_epoch}"
-        self.connection_display_name = f"{_conn_type}-{_epoch}"
+        _unique = f"{int(time.time())}{secrets.randbelow(1_000_000):06d}"
+        self.connection_qualified_name = f"default/{_conn_type}/{_unique}"
+        self.connection_display_name = f"{_conn_type}-{_unique}"
 
         # Atlas requires at least one non-empty admin list on a Connection
         # (ATLAS-400-00-114). When the subclass leaves all three admin attrs
@@ -413,13 +459,83 @@ class BaseE2ETest:
     # ------------------------------------------------------------------
 
     def agent_spec(self) -> AgentSpec | None:
-        """Agent identity (tier 4 only). Return None for direct mode."""
+        """Agent identity (tier 4 only). Return None for direct mode.
+
+        Default (AGENT mode): derive the agent identity from the worker's own
+        deployment env so the extract node is dispatched to exactly the queue
+        the deployed worker polls — no per-connector hard-coding. The worker
+        derives its Temporal queue as
+        ``atlan-{ATLAN_APPLICATION_NAME}-{ATLAN_DEPLOYMENT_NAME}`` (see
+        :func:`application_sdk.main._derive_task_queue`); mirroring that here as
+        ``agent_name = {ATLAN_APPLICATION_NAME}-{ATLAN_DEPLOYMENT_NAME}`` makes
+        :meth:`_extract_task_queue` (``atlan-{agent_name}``) equal the worker
+        queue automatically. In particular this picks up any *per-leg*
+        ``ATLAN_DEPLOYMENT_NAME`` the CI action sets to give each parallel
+        matrix leg its own worker + queue (avoiding cross-worker artifact
+        invisibility under the two-store posture). Subclasses may still override
+        to pin an explicit agent identity.
+
+        Only the two-var shape is derivable from env. When the deployment env is
+        absent — e.g. a developer running ``pytest`` locally without the CI
+        action's ``ATLAN_DEPLOYMENT_NAME`` — this falls back to
+        ``{connector_short_name}-{connection_name_prefix}-{run_id}`` (the same
+        run-id-keyed shape connectors used to hard-code in an override). That
+        keeps local runs working with no override while CI (which always exports
+        the per-leg ``ATLAN_DEPLOYMENT_NAME``) still gets the exact worker queue.
+        For a local full-DAG run you must start the connector worker on this same
+        run-id queue explicitly — it is **not** what ``main._derive_task_queue``
+        builds from the same partial env, so the worker won't land there on its
+        own. A one-line ``logger.warning`` is emitted on the fallback path so a
+        CI leg that reaches it (env genuinely mis-set) gets an actionable log
+        line rather than a silent stall.
+
+        Subclasses should **not** override this to pin a hard-coded run-id name:
+        doing so drops the per-leg suffix the worker inherits and desyncs the two
+        queues (conformance rule T017). Override only to pin a genuinely
+        different agent identity (and then read the deployment env yourself).
+        """
         if self.mode is RunMode.DIRECT:
             return None
-        raise HarnessMethodNotImplementedError(
-            message="subclass must override agent_spec() for AGENT mode",
-            operation="agent_spec",
+        app_name = os.environ.get("ATLAN_APPLICATION_NAME", "")
+        deployment_name = os.environ.get("ATLAN_DEPLOYMENT_NAME", "")
+        if app_name and deployment_name:
+            return AgentSpec(agent_name=f"{app_name}-{deployment_name}")
+        # Local fallback: no CI-exported deployment env. Reproduce the exact
+        # {connector}-{connection_name_prefix}-{run_id} shape connectors used to
+        # hard-code in a working local override, so a local run lands on its own
+        # queue without needing a per-connector override. NB this does NOT match
+        # what a worker's main._derive_task_queue() would build from the same
+        # partial env — that returns atlan-{app}-{deployment} (both vars),
+        # bare {app} (only app), or {ClassName}-queue (neither), never a run-id
+        # queue. So for a local full-DAG run the worker must be started on this
+        # same agent_name queue explicitly; CI is unaffected (it always exports
+        # both vars, taking the exact-match branch above).
+        agent_name = (
+            f"{self.connector_short_name}-{self.connection_name_prefix}-{self.run_id}"
         )
+        # The real Temporal queue is atlan-{agent_name} (_extract_task_queue
+        # prepends "atlan-"). Render that one consistent, fully-qualified queue
+        # everywhere in the message so a reader doesn't see the name two ways.
+        queue = f"atlan-{agent_name}"
+        # Fire loud: in CI both vars are always exported, so reaching this branch
+        # there means the env is mis-set and the worker will poll a different
+        # queue → silent stall until the run-full-dag stall guard trips. Naming
+        # both vars makes a mis-set CI leg immediately actionable. (On a genuine
+        # local run this is just an FYI that you must start the worker on this
+        # queue.)
+        logger.warning(
+            "AGENT-mode agent_spec fell back to extract queue %s because "
+            "ATLAN_APPLICATION_NAME and/or ATLAN_DEPLOYMENT_NAME is unset "
+            "(app=%r deployment=%r). In CI both are always exported, so a mis-set "
+            "leg here will stall — the worker polls atlan-{app}-{deployment}, not "
+            "%s. Locally, start the connector worker on %s.",
+            queue,
+            app_name,
+            deployment_name,
+            queue,
+            queue,
+        )
+        return AgentSpec(agent_name=agent_name)
 
     def connection_spec(self) -> ConnectionSpec:
         """Where the resulting Atlas Connection will live."""
@@ -589,6 +705,20 @@ class BaseE2ETest:
     # The actual flow
     # ------------------------------------------------------------------
 
+    def _extract_task_queue(self) -> str:
+        """Task queue the ``extract`` node is dispatched to.
+
+        Single source of truth for both the seed DAG (which pins the extract
+        node's ``task_queue`` to this value) and the stall-guard diagnostic. In
+        AGENT mode this must equal the queue the deployed worker polls
+        (``atlan-{ATLAN_APPLICATION_NAME}-{ATLAN_DEPLOYMENT_NAME}``), so the
+        test's ``agent_spec().agent_name`` has to match that suffix.
+        """
+        agent = self.agent_spec()
+        if agent is not None:
+            return f"atlan-{agent.agent_name}"
+        return f"atlan-{self.connector_short_name}-default"
+
     def _bootstrap_workflow(self) -> str:
         """Ensure an AE workflow exists with a published version.
 
@@ -611,11 +741,7 @@ class BaseE2ETest:
         logger.info("Created (or reused) AE workflow: name=%s slug=%s", name, slug)
         time.sleep(3)
 
-        agent = self.agent_spec()
-        if agent is not None:
-            extract_queue = f"atlan-{agent.agent_name}"
-        else:
-            extract_queue = f"atlan-{self.connector_short_name}-default"
+        extract_queue = self._extract_task_queue()
 
         if self.manifest_path:
             seed_dag = self._seed_dag_from_manifest(extract_queue)
@@ -649,6 +775,8 @@ class BaseE2ETest:
             run_id,
             interval_seconds=self.ae_poll_interval_seconds,
             timeout_seconds=self.ae_poll_timeout_seconds,
+            stall_grace_seconds=self.ae_stall_grace_seconds,
+            stall_task_queue=self._extract_task_queue(),
         )
 
         asset_counts: dict[str, int] = {}

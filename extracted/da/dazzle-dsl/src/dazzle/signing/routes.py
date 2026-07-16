@@ -44,6 +44,7 @@ from pydantic import BaseModel
 from dazzle.core.ir import EntitySpec
 from dazzle.http.runtime.byte_serving import AccessDecision, serve_bytes
 from dazzle.http.runtime.document_routes import _extract_file_id
+from dazzle.http.runtime.file_storage import FileMetadata
 from dazzle.http.runtime.http_errors import require_found
 from dazzle.signing.service import PdfBranding, async_sign_pdf, generate_pdf
 from dazzle.signing.tokens import (
@@ -294,21 +295,20 @@ async def _handle_get(
 
     status = _row_get(row, "status")
     if status not in _active_signing_states(entity):
-        # #1571: a signatory reopening their ORIGINAL link after signing gets a
-        # completion page with the durable signed-copy download, not a dead end.
-        # Gated on the exact credential that signed (token_hash match) AND the
-        # persisted artifact existing (the upload can fail best-effort at sign
-        # time, leaving signed_document null).
-        if (
-            status == "signed"
-            and _row_get(row, "signed_document")
-            and token_hash(token) == _row_get(row, "signing_token_hash")
-        ):
+        # #1571 / TR-49: a signatory reopening their ORIGINAL link after signing
+        # must not land on the dead-end "Document unavailable" terminal page.
+        # Gate on status=signed + the exact credential that signed (token_hash).
+        # The durable download CTA is shown when signed_document is present;
+        # when the best-effort upload failed at sign time we still show a
+        # completion page (not a terminal dead end) so the signatory knows
+        # the document is signed and how to recover a copy.
+        if status == "signed" and token_hash(token) == _row_get(row, "signing_token_hash"):
             body = _signed_completion_page(
                 entity_name=entity.name,
                 record_id=str(record_id),
                 token=token,
                 support_contact=support_contact,
+                has_copy=bool(_row_get(row, "signed_document")),
             )
             return HTMLResponse(body, status_code=200)  # nosemgrep
         body = _terminal_page(status)
@@ -427,33 +427,20 @@ async def _handle_post(
         "signer_user_agent": request.headers.get("user-agent", "")[:500],
     }
 
+    # TR-49 / #1571: always try to leave a durable signed_document pointer so
+    # the signatory's re-open link can offer Download. Full FileService.upload
+    # is preferred (metadata in dazzle_files); if that fails (table missing,
+    # validator glitch, …) fall back to storage.store only so the PDF is still
+    # on disk and the field URL still embeds a resolvable id/key.
     if file_service is not None:
-        import io as _io
-
-        filename = f"{entity.name}-{record_id}.pdf"
-        try:
-            metadata = await file_service.upload(
-                _io.BytesIO(signed_pdf),
-                filename=filename,
-                content_type="application/pdf",
-                entity_name=entity.name,
-                entity_id=str(record_id),
-                field_name="signed_document",
-                path_prefix=f"signing/{entity.name}",
-            )
-            # `signed_document` is a `file` field; the framework stores
-            # path/URL strings. Use the storage backend's public URL so
-            # the document is fetchable through the file-routes
-            # download path.
-            patch["signed_document"] = metadata.url
-        except Exception:
-            log.warning(
-                "Failed to persist signed PDF for %s/%s — PDF still "
-                "returned inline; signed_document field left null",
-                entity.name,
-                record_id,
-                exc_info=True,
-            )
+        url = await _persist_signed_pdf(
+            file_service,
+            signed_pdf,
+            entity_name=entity.name,
+            record_id=str(record_id),
+        )
+        if url:
+            patch["signed_document"] = url
 
     await repo.update(record_id, patch)
 
@@ -934,17 +921,39 @@ def _terminal_page(status: str) -> str:
 
 
 def _signed_completion_page(
-    *, entity_name: str, record_id: str, token: str, support_contact: str = ""
+    *,
+    entity_name: str,
+    record_id: str,
+    token: str,
+    support_contact: str = "",
+    has_copy: bool = True,
 ) -> str:
-    """Post-signing landing for the signatory's ORIGINAL link (#1571): instead
-    of the dead-end terminal page, offer the durable signed-copy download."""
+    """Post-signing landing for the signatory's ORIGINAL link (#1571 / TR-49).
+
+    Prefer a durable signed-copy download when the artifact was persisted at
+    sign time. When the best-effort upload failed, still show a completion
+    page (never the terminal "Document unavailable" dead end).
+    """
     from urllib.parse import quote
 
-    copy_href = html.escape(
-        f"/sign/{quote(entity_name, safe='')}/{quote(record_id, safe='')}"
-        f"/signed-copy?token={quote(token, safe='')}",
-        quote=True,
-    )
+    if has_copy:
+        copy_href = html.escape(
+            f"/sign/{quote(entity_name, safe='')}/{quote(record_id, safe='')}"
+            f"/signed-copy?token={quote(token, safe='')}",
+            quote=True,
+        )
+        primary = (
+            f'<p><a href="{copy_href}" style="display:inline-block;padding:0.6rem 1.2rem;'
+            'background:#111;color:#fff;border-radius:0.4rem;text-decoration:none;">'
+            "Download your signed copy</a></p>"
+            "<p>Keep this link — it works whenever you need the document again.</p>"
+        )
+    else:
+        primary = (
+            "<p>This document has already been signed. A certified copy was produced "
+            "at signing time, but a re-download is not available from this link right "
+            "now. Contact the sender or support if you need another copy.</p>"
+        )
     return (
         "<!DOCTYPE html>"
         '<html lang="en"><head><meta charset="utf-8">'
@@ -953,10 +962,7 @@ def _signed_completion_page(
         "<h1>Document signed</h1>"
         "<p>This document has already been signed. A digitally certified copy is "
         "stored securely.</p>"
-        f'<p><a href="{copy_href}" style="display:inline-block;padding:0.6rem 1.2rem;'
-        'background:#111;color:#fff;border-radius:0.4rem;text-decoration:none;">'
-        "Download your signed copy</a></p>"
-        "<p>Keep this link — it works whenever you need the document again.</p>"
+        f"{primary}"
         f"{_support_line(support_contact)}"
         "</body></html>"
     )
@@ -1014,44 +1020,160 @@ async def _handle_signed_copy(
         )
 
     stored = _row_get(row, "signed_document")
+    if file_service is None or not stored:
+        body = _error_page(
+            "Signed copy unavailable — please contact support",
+            support_contact=support_contact,
+        )
+        return HTMLResponse(body, status_code=404)  # nosemgrep
+
     file_id = _extract_file_id(stored)
-    if file_service is None or file_id is None:
-        # Best-effort upload failed at sign time (the logged-warning branch in
-        # _handle_post) — the copy genuinely doesn't exist server-side.
-        body = _error_page(
-            "Signed copy unavailable — please contact support",
-            support_contact=support_contact,
-        )
-        return HTMLResponse(body, status_code=404)  # nosemgrep
-
-    metadata = await file_service.get_metadata(file_id)
-    if metadata is None or (
+    # FileService.get_metadata is synchronous (returns FileMetadata | None).
+    metadata = file_service.get_metadata(file_id) if file_id is not None else None
+    if metadata is not None and (
         (getattr(metadata, "entity_name", None), getattr(metadata, "entity_id", None))
-        != (entity.name, str(record_id))
+        == (entity.name, str(record_id))
     ):
-        # The stored pointer must resolve to a file attached to THIS record —
-        # the same entity/record triple check the authenticated file routes
-        # apply in _resolve_access.
-        body = _error_page(
-            "Signed copy unavailable — please contact support",
-            support_contact=support_contact,
+        decision = AccessDecision(
+            user_id=None,
+            entity=entity.name,
+            record_id=str(record_id),
+            field="signed_document",
+            matched_policy="signing_token",
+            verb="read",
         )
-        return HTMLResponse(body, status_code=404)  # nosemgrep
+        return await serve_bytes(
+            decision=decision,
+            file_service=file_service,
+            metadata=metadata,
+            file_id=file_id,
+            range_header=request.headers.get("range"),
+            disposition_kind="attachment",
+            audit=getattr(getattr(request.app, "state", None), "byte_audit", None),
+        )
 
-    decision = AccessDecision(
-        user_id=None,
-        entity=entity.name,
-        record_id=str(record_id),
-        field="signed_document",
-        matched_policy="signing_token",
-        verb="read",
+    # TR-49 fallback: metadata row missing (upload saved bytes but dazzle_files
+    # insert failed) — serve from storage key derived from the public URL.
+    content = await _retrieve_signed_pdf_from_storage(file_service, stored)
+    if content is not None:
+        return Response(
+            content=content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="{entity.name}-{record_id}-signed.pdf"'
+                )
+            },
+        )
+
+    body = _error_page(
+        "Signed copy unavailable — please contact support",
+        support_contact=support_contact,
     )
-    return await serve_bytes(
-        decision=decision,
-        file_service=file_service,
-        metadata=metadata,
-        file_id=file_id,
-        range_header=request.headers.get("range"),
-        disposition_kind="attachment",
-        audit=getattr(getattr(request.app, "state", None), "byte_audit", None),
-    )
+    return HTMLResponse(body, status_code=404)  # nosemgrep
+
+
+async def _persist_signed_pdf(
+    file_service: Any,
+    signed_pdf: bytes,
+    *,
+    entity_name: str,
+    record_id: str,
+) -> str | None:
+    """Persist signed PDF; return public URL for ``signed_document`` or None.
+
+    Prefers full :meth:`FileService.upload` (metadata + storage). On failure
+    falls back to storage-only so re-open download still works (TR-49).
+    """
+    import io as _io
+
+    filename = f"{entity_name}-{record_id}.pdf"
+    path_prefix = f"signing/{entity_name}"
+    try:
+        metadata = await file_service.upload(
+            _io.BytesIO(signed_pdf),
+            filename=filename,
+            content_type="application/pdf",
+            entity_name=entity_name,
+            entity_id=str(record_id),
+            field_name="signed_document",
+            path_prefix=path_prefix,
+        )
+        return str(metadata.url)
+    except Exception:
+        log.warning(
+            "FileService.upload failed for signed PDF %s/%s — trying storage-only fallback",
+            entity_name,
+            record_id,
+            exc_info=True,
+        )
+
+    storage = getattr(file_service, "storage", None)
+    if storage is None:
+        return None
+    try:
+        meta = await storage.store(
+            _io.BytesIO(signed_pdf),
+            filename,
+            "application/pdf",
+            path_prefix,
+        )
+        # Best-effort metadata so authenticated /files routes still work later.
+        ms = getattr(file_service, "metadata_store", None)
+        if ms is not None:
+            try:
+                enriched = FileMetadata(
+                    **{
+                        **meta.model_dump(),
+                        "entity_name": entity_name,
+                        "entity_id": str(record_id),
+                        "field_name": "signed_document",
+                    }
+                )
+                ms.save(enriched)
+                return str(enriched.url)
+            except Exception:
+                log.warning(
+                    "signed PDF metadata save failed for %s/%s — URL still durable via storage",
+                    entity_name,
+                    record_id,
+                    exc_info=True,
+                )
+        return str(meta.url)
+    except Exception:
+        log.warning(
+            "Failed to persist signed PDF for %s/%s — PDF still returned inline; "
+            "signed_document field left null",
+            entity_name,
+            record_id,
+            exc_info=True,
+        )
+        return None
+
+
+async def _retrieve_signed_pdf_from_storage(file_service: Any, stored: Any) -> bytes | None:
+    """Resolve PDF bytes from a public storage URL when metadata is missing."""
+    storage = getattr(file_service, "storage", None)
+    if storage is None or stored is None:
+        return None
+    text = str(stored).strip()
+    if not text:
+        return None
+    base = (getattr(storage, "base_url", None) or "/files").rstrip("/")
+    key: str | None = None
+    if text.startswith(base + "/"):
+        key = text[len(base) + 1 :]
+    elif text.startswith("/files/"):
+        key = text[len("/files/") :]
+    if not key:
+        return None
+    try:
+        data = await storage.retrieve(key)
+    except Exception:
+        log.debug("storage retrieve failed for signed copy key=%s", key, exc_info=True)
+        return None
+    if data is None:
+        return None
+    if isinstance(data, (bytes, bytearray)):
+        return bytes(data)
+    return None

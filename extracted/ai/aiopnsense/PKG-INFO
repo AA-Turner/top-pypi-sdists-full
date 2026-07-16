@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiopnsense
-Version: 1.1.1
+Version: 1.1.3
 Summary: Async Python client library for OPNsense
 Author: Snuffy2
 License-Expression: Apache-2.0

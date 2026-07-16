@@ -414,7 +414,7 @@ class RecursiveDisassembler:
         # once we are initialized, add OEP
         if binary_info.oep is not None:
             self.fc_manager.symbol_addresses.append(binary_info.base_addr + binary_info.oep)
-        self.fc_manager.init(self.disassembly)
+        self.fc_manager.init(self.disassembly, cbAnalysisTimeout)
         self.capstone = self.backend.createCapstone(self.disassembly.binary_info.bitness)
         self._tfidf = self.backend.createTfIdf(self.disassembly.binary_info.bitness)
         LOGGER.debug("Starting heuristical analysis.")
@@ -427,6 +427,12 @@ class RecursiveDisassembler:
             "Finished heuristical analysis, functions: %d",
             len(self.disassembly.functions),
         )
+        # deferred candidate sources need the primary pass's code_map claims to filter
+        # against; they run before gap analysis so accepted starts anchor real functions
+        for deferred_addr in self.fc_manager.locateDeferredCandidates():
+            if cbAnalysisTimeout and cbAnalysisTimeout():
+                break
+            state = self.analyzeFunction(deferred_addr)
         # second pass, analyze remaining gaps for additional candidates in an iterative way
         gap_candidate = self.fc_manager.nextGapCandidate()
         while gap_candidate is not None:

@@ -52,19 +52,25 @@ ansi_escape = re.compile(
     re.VERBOSE,
 )
 
+ansi_osc_escape = re.compile(r"\x1B\].*?(?:\x07|\x1B\\)")
+
 
 def normalize(text):
+    text = ansi_osc_escape.sub("", text)
     text = ansi_escape.sub("", text)
 
     # fix windows problems
     text = text.replace("\u2500", "-")
+    text = text.replace("\u2502", "|")
+    for c in "┌┐└┘\u256d\u256e\u2570\u256f":
+        text = text.replace(c, "+")
     text = text.replace("\r", "")
     return text
 
 
 @contextmanager
-def deterministic_uuid():
-    rd = random.Random(0)
+def deterministic_uuid(seed=0):
+    rd = random.Random(seed)
 
     def f():
         return uuid.UUID(int=rd.getrandbits(128), version=4)
@@ -99,17 +105,10 @@ def parse_outcomes(lines):
     return {to_plural.get(k, k): v for k, v in ret.items()}
 
 
-conftest_footer = """
-import uuid
-import random
-
-rd = random.Random(0)
-
-def f():
-    return uuid.UUID(int=rd.getrandbits(128), version=4)
-
-uuid.uuid4 = f
-"""
+def _pytest_error_line(line: str) -> str | None:
+    if line and line.lstrip()[:2] in ("> ", "E "):
+        return line
+    return None
 
 
 @contextmanager
@@ -123,6 +122,39 @@ def chdir(path):
 
 
 console = Console(width=80)
+
+
+def _subprocess_env() -> dict[str, str]:
+    env_keys = [
+        "PATH",
+        "PWD",
+        "VIRTUAL_ENV",
+        "TOP",
+        "COVERAGE_PROCESS_START",
+        "PYTHONIOENCODING",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD",
+        "PYTEST_PLUGINS",
+    ]
+    if platform.system() == "Windows":  # pragma: no cover
+        env_keys.extend(
+            [
+                "APPDATA",
+                "COMSPEC",
+                "LOCALAPPDATA",
+                "PATHEXT",
+                "PROGRAMDATA",
+                "PROGRAMFILES",
+                "PROGRAMFILES(X86)",
+                "SYSTEMDRIVE",
+                "SYSTEMROOT",
+                "TEMP",
+                "TMP",
+                "USERPROFILE",
+                "WINDIR",
+            ]
+        )
+
+    return {key: os.environ[key] for key in env_keys if key in os.environ}
 
 
 @contextmanager
@@ -165,6 +197,7 @@ class TestingException(Exception):
 
 class Example:
     files: dict[str, str | bytes]
+    seed: int
 
     def __init__(self, files: str | bytes | dict[str, str | bytes]):
         """
@@ -176,6 +209,16 @@ class Example:
             files = {"tests/test_something.py": files}
 
         self.files = files
+        self.seed = 0
+
+    def _new_example(self, files: dict[str, str | bytes]) -> Example:
+        e = Example(files)
+        e.seed = self.seed
+        return e
+
+    def _next_seed(self):
+        self.seed += 1
+        return self
 
     def dump_files(self):
 
@@ -191,6 +234,19 @@ class Example:
             if isinstance(content, str):
                 content = content.encode("utf-8")
             filename.write_bytes(content)
+
+    def conftest_footer(self):
+        return f"""
+import uuid
+import random
+
+rd = random.Random({self.seed})
+
+def f():
+    return uuid.UUID(int=rd.getrandbits(128), version=4)
+
+uuid.uuid4 = f
+"""
 
     def _read_files(self, dir: Path):
 
@@ -220,7 +276,7 @@ class Example:
         Arguments:
             extra_files: dictionary of filenames and file contents.
         """
-        return Example({**self.files, **extra_files})
+        return self._new_example({**self.files, **extra_files})
 
     def read_file(self, filename: str) -> str:
         """
@@ -235,16 +291,23 @@ class Example:
 
     read_text = read_file
 
-    def change_code(self, mapping: Callable[[str], str]) -> Example:
+    def change_code(
+        self, mapping: Callable[[str], str], *, filename: str | None = None
+    ) -> Example:
         """
-        Changes example tests by mapping every file with the given function.
+        Changes example tests by mapping every file (if filename is None) with the given function.
 
         Arguments:
             mapping: function to apply to each file's content.
+            filename: if given, only this file is changed
         """
-        return Example(
+        return self._new_example(
             {
-                name: mapping(text) if isinstance(text, str) else text
+                name: (
+                    mapping(text)
+                    if isinstance(text, str) and (name == filename or filename is None)
+                    else text
+                )
                 for name, text in self.files.items()
             }
         )
@@ -266,8 +329,23 @@ class Example:
         Arguments:
             filename: the file to be removed.
         """
-        return Example(
+        return self._new_example(
             {name: file for name, file in self.files.items() if name != filename}
+        )
+
+    def move_file(self, old_filename: str, new_filename: str) -> Example:
+        """
+        Moves a file in the example.
+
+        Arguments:
+            old_filename: the file to be moved.
+            new_filename: the new location of the file.
+        """
+        return self._new_example(
+            {
+                (new_filename if name == old_filename else name): file
+                for name, file in self.files.items()
+            }
         )
 
     def format(self, filename: str = "tests/test_something.py") -> Example:
@@ -289,7 +367,7 @@ class Example:
             file_path = tmp_path / filename
             formatted = format_code(content, file_path)
 
-        return Example({**self.files, filename: formatted})
+        return self._new_example({**self.files, filename: formatted})
 
     def is_formatted(self, filename: str = "tests/test_something.py") -> bool:
         """
@@ -369,7 +447,7 @@ class Example:
             raised_exception = []
 
             with ExitStack() as stack:
-                stack.enter_context(deterministic_uuid())
+                stack.enter_context(deterministic_uuid(self.seed))
                 stack.enter_context(chdir(tmp_path))
                 stack.enter_context(temp_environ(TERM="unknown"))
 
@@ -511,7 +589,7 @@ class Example:
             if report is not None:
                 assert report == normalize(report_output.getvalue())
 
-            return Example(self._read_files(tmp_path))
+            return self._new_example(self._read_files(tmp_path))._next_seed()
 
     def _changed_files(self, tmp_path):
         current_files = {}
@@ -537,6 +615,7 @@ class Example:
         report: Snapshot[str] | None = None,
         error: SnapshotArg[str] = "",
         stderr: SnapshotArg[str] = "",
+        stdout: SnapshotArg[str] | None = None,
         returncode: SnapshotArg[int] = 0,
         stdin: bytes = b"",
         outcomes: SnapshotArg[dict[str, int]] = {"passed": 1},
@@ -552,6 +631,7 @@ class Example:
             changed_files: snapshot of files changed by this run.
             report: snapshot of the report at the end of the pytest run.
             stderr: pytest stderr output
+            stdout: raw pytest stdout output with ansi escape sequences (this is still **experimental** and the datatype might change or it might be removed again in the future).
             returncode: snapshot of the pytest return code.
 
         Returns:
@@ -565,16 +645,17 @@ class Example:
 
             self._write_files(tmp_path)
 
-            cmd = [sys.executable, "-m", "pytest", "-p", "no:randomly", *args]
+            pytest_args = list(args)
+            pytest_args = ["--color=yes", *pytest_args]
 
-            command_env = dict(os.environ)
-            command_env["TERM"] = "unknown"
+            cmd = [sys.executable, "-m", "pytest", "-p", "no:randomly", *pytest_args]
+
+            command_env = _subprocess_env()
+            command_env["TERM"] = "xterm-256color"
             command_env["COLUMNS"] = str(
                 term_columns + 1 if platform.system() == "Windows" else term_columns
             )
-            command_env.pop("CI", None)
-            command_env.pop("GITHUB_ACTIONS", None)
-            command_env.pop("PYTEST_XDIST_WORKER", None)
+            command_env["PY_COLORS"] = "1"
 
             if stdin:
                 # makes Console.is_terminal == True
@@ -583,7 +664,7 @@ class Example:
             command_env.update(env)
 
             with change_file(
-                tmp_path / "conftest.py", lambda text: text + conftest_footer
+                tmp_path / "conftest.py", lambda text: text + self.conftest_footer()
             ):
                 result = sp.run(
                     cmd, cwd=tmp_path, capture_output=True, env=command_env, input=stdin
@@ -591,16 +672,20 @@ class Example:
 
             result_stdout = result.stdout.decode("utf-8")
             result_stderr = result.stderr.decode("utf-8")
+            plain_stdout = normalize(result_stdout)
 
             console.print("run>", *cmd)
 
-            console.print(Panel(Text(result_stdout), title="stdout"))
+            console.print(Panel(Text.from_ansi(result_stdout), title="stdout"))
             if result_stderr:
                 console.print(Panel(Text(result_stderr), title="stderr"))
 
             assert result.returncode == snapshot_arg(returncode)
 
-            original = result_stderr.splitlines()
+            if stdout is not None:
+                assert snapshot_arg(stdout) == result_stdout
+
+            original = normalize(result_stderr).splitlines()
             lines = [
                 line
                 for line in original
@@ -619,8 +704,8 @@ class Example:
 
                 report_list = []
                 record = False
-                for line in result_stdout.splitlines():
-                    line = normalize(line.strip())
+                for line in plain_stdout.splitlines():
+                    line = line.strip()
                     if line.startswith("===="):
                         record = False
 
@@ -640,9 +725,9 @@ class Example:
             error_str = (
                 "\n".join(
                     [
-                        line
-                        for line in result_stdout.splitlines()
-                        if line and line[:2] in ("> ", "E ")
+                        error_line
+                        for line in plain_stdout.splitlines()
+                        if (error_line := _pytest_error_line(line)) is not None
                     ]
                 )
                 + "\n"
@@ -656,6 +741,6 @@ class Example:
 
             assert snapshot_arg(changed_files) == self._changed_files(tmp_path)
 
-            assert snapshot_arg(outcomes) == parse_outcomes(result_stdout.splitlines())
+            assert snapshot_arg(outcomes) == parse_outcomes(plain_stdout.splitlines())
 
-            return Example(self._read_files(tmp_path))
+            return self._new_example(self._read_files(tmp_path))._next_seed()

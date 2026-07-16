@@ -26,7 +26,7 @@ class Choose:
     CHCOL_DRAGHINT: int  # 2097152
     CHCOL_EA: int  # 262144
     CHCOL_FNAME: int  # 327680
-    CHCOL_FORMAT: int  # 458752
+    CHCOL_FORMAT: int  # 983040
     CHCOL_HEX: int  # 131072
     CHCOL_INODENAME: int  # 4194304
     CHCOL_PATH: int  # 65536
@@ -89,6 +89,16 @@ class Choose:
         Return the TWidget underlying this view.
         
         :returns: The TWidget underlying this view, or None.
+        
+        """
+        ...
+    def OnCheckedLine(self, n: Any, state: Any) -> Any:
+        r"""
+        User changed the checkbox state
+        
+        :param n: element number (0-based)
+        :param state: the new state: 0-unchecked, 1-partially checked, 2-checked
+        :returns: a tuple (changed, selection)
         
         """
         ...
@@ -1599,6 +1609,12 @@ class UI_Hooks:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
+    def about_to_exit(self) -> None:
+        r"""IDA is exiting. QApplication is still alive but is about to be destroyed. Last chance to perform cleanup that needs both the UI runtime and the scripting runtime (e.g., IDAPython) to still be usable. Unlike ui_database_closed, this fires only at exit, not on every database close. Unlike qatexit() handlers, which fire after PLUGIN_FIX plugins have been unloaded, this fires while those plugins are still fully operational. 
+                  
+        :returns: void
+        """
+        ...
     def create_desktop_widget(self, title: str, cfg: jobj_wrapper_t) -> Any:
         r"""create a widget, to be placed in the widget tree (at desktop-creation time.) 
                   
@@ -1682,15 +1698,14 @@ class UI_Hooks:
                   
         :param viewer: (TWidget*) viewer
         :param place: (place_t *) current position in the viewer
-        :returns: 0: continue collecting hints with other subscribers
-        :returns: 1: stop collecting hints
+        :returns: hint: (qstring *) the output string, on input contains hints from the previous subscribers; important_lines: (int *) number of important lines, should be incremented, if zero, the result is ignored
         """
         ...
     def get_ea_hint(self, ea: ida_idaapi.ea_t) -> Any:
         r"""ui wants to display a simple hint for an address. Use this event to generate a custom hint See also more generic ui_get_item_hint 
                   
-        :param ea: (::ea_t)
-        :returns: true if generated a hint
+        :param ea: (ea_t)
+        :returns: buf: (qstring *)
         """
         ...
     def get_item_hint(self, ea: ida_idaapi.ea_t, max_lines: int) -> Any:
@@ -1698,7 +1713,7 @@ class UI_Hooks:
                   
         :param ea: (ea_t) or item id like a structure or enum member
         :param max_lines: (int) maximal number of lines
-        :returns: true if generated a hint
+        :returns: hint: (qstring *) the output string; important_lines: (int *) number of important lines. if zero, output is ignored
         """
         ...
     def get_lines_rendering_info(self, out: lines_rendering_output_t, widget: TWidget, info: lines_rendering_input_t) -> None:
@@ -2133,11 +2148,17 @@ class action_ctx_base_t:
     @property
     def cur_fchunk(self) -> func_t: ...
     @property
+    def cur_fchunk_info(self) -> fchunk_info_t: ...
+    @property
     def cur_flags(self) -> int: ...
     @property
     def cur_func(self) -> func_t: ...
     @property
+    def cur_func_info(self) -> func_entry_info_t: ...
+    @property
     def cur_seg(self) -> segment_t: ...
+    @property
+    def cur_seg_info(self) -> segment_info_t: ...
     @property
     def cur_sel(self) -> action_ctx_base_cur_sel_t: ...
     @property
@@ -3160,6 +3181,332 @@ class chooser_stdact_desc_t:
         """
         ...
 
+class cli_completion_t:
+    @property
+    def doc(self) -> str: ...
+    @property
+    def hint(self) -> str: ...
+    @property
+    def text(self) -> str: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
+class cli_completion_vec_t:
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getitem__(self, i: int) -> cli_completion_t:
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self, *args: Any) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __iter__(self) -> Iterator[cli_completion_t]:
+        r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __len__(self) -> int:
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __setitem__(self, i: int, v: cli_completion_t) -> None:
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def append(self, x: cli_completion_t) -> None:
+        ...
+    def at(self, _idx: int) -> cli_completion_t:
+        ...
+    def back(self) -> Any:
+        ...
+    def begin(self, *args: Any) -> qvector:
+        ...
+    def capacity(self) -> int:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def end(self, *args: Any) -> qvector:
+        ...
+    def erase(self, *args: Any) -> qvector:
+        ...
+    def extend(self, x: cli_completion_vec_t) -> None:
+        ...
+    def extract(self) -> cli_completion_t:
+        ...
+    def front(self) -> Any:
+        ...
+    def grow(self, *args: Any) -> None:
+        ...
+    def inject(self, s: cli_completion_t, len: int) -> None:
+        ...
+    def insert(self, it: cli_completion_t, x: cli_completion_t) -> qvector:
+        ...
+    def pop_back(self) -> None:
+        ...
+    def push_back(self, *args: Any) -> cli_completion_t:
+        ...
+    def qclear(self) -> None:
+        ...
+    def reserve(self, cnt: int) -> None:
+        ...
+    def resize(self, *args: Any) -> None:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: cli_completion_vec_t) -> None:
+        ...
+    def truncate(self) -> None:
+        ...
+
+class cli_completions_t:
+    @property
+    def cb(self) -> int: ...
+    @property
+    def entries(self) -> cli_completion_vec_t: ...
+    @property
+    def match_end(self) -> int: ...
+    @property
+    def match_start(self) -> int: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+    def clear(self) -> None:
+        ...
+    def empty(self) -> bool:
+        ...
+    def size(self) -> int:
+        ...
+    def swap(self, r: cli_completions_t) -> None:
+        ...
+
 class cli_t:
     r"""
     cli_t wrapper class.
@@ -3178,14 +3525,15 @@ class cli_t:
         
         """
         ...
-    def OnFindCompletions(self, line: Any, x: Any) -> Any:
+    def OnFindCompletions(self, line: Any, x: Any, max_count: Any) -> Any:
         r"""
-        The user pressed Tab. Return a list of completions
+        The user pressed Tab. Return a list of completions.
         
         This callback is optional.
         
         :param line: the current line (string)
         :param x: the index where the cursor is (int)
+        :param max_count: do not return more than this many results
         
         :returns: None if no completion could be generated, otherwise a tuple:
             (completions : Sequence[str], hints : Sequence[str], docs: Sequence[str],
@@ -6781,6 +7129,11 @@ class tagged_line_section_t(line_section_t):
         ...
     def contains(self, x: cpidx_t) -> bool:
         ...
+    def get_addr(self, line: str) -> ida_idaapi.ea_t:
+        r"""For COLOR_ADDR sections, decode the address embedded in `line`. `line` must be the same raw line the section was parsed from. Returns BADADDR if this is not a COLOR_ADDR section or `line` does not match. 
+                
+        """
+        ...
     def is_closed(self) -> bool:
         ...
     def is_open(self) -> bool:
@@ -7053,6 +7406,8 @@ class tagged_line_sections_t(tagged_line_section_vec_t):
         ...
     def inject(self, s: tagged_line_section_t, len: int) -> None:
         ...
+    def innermost_at(self, x: cpidx_t, tag: color_t = 0) -> tagged_line_section_t:
+        ...
     def insert(self, it: tagged_line_section_t, x: tagged_line_section_t) -> qvector:
         ...
     def nearest_after(self, range: tagged_line_section_t, start: cpidx_t, tag: color_t = 0) -> tagged_line_section_t:
@@ -7060,6 +7415,8 @@ class tagged_line_sections_t(tagged_line_section_vec_t):
     def nearest_at(self, x: cpidx_t, tag: color_t = 0) -> tagged_line_section_t:
         ...
     def nearest_before(self, range: tagged_line_section_t, start: cpidx_t, tag: color_t = 0) -> tagged_line_section_t:
+        ...
+    def next(self, anchor: tagged_line_section_t, tag: color_t) -> tagged_line_section_t:
         ...
     def pop_back(self) -> None:
         ...
@@ -8113,7 +8470,7 @@ def addon_count() -> int:
     ...
 
 def analyzer_options() -> None:
-    r"""Allow the user to set analyzer options. (show a dialog box) (ui_analyzer_options)
+    r"""Allow the user to set analyzer options. (show a dialog box) (ui_analyzer_options).
     
     """
     ...
@@ -8159,7 +8516,7 @@ def ask_form(*args: Any) -> Any:
     """
     ...
 
-def ask_ident(defval: str, prompt: str) -> bool:
+def ask_ident(defval: str, prompt: str) -> Union[str, None]:
     r"""Display a dialog box and wait for the user to input an identifier. If the user enters a non-valid identifier, this function displays a warning and allows the user to correct it. CPU register names are usually forbidden. 
             
     :returns: false if the user cancelled the dialog, otherwise returns true.
@@ -8389,11 +8746,18 @@ def choose_find(title: str) -> Union[object, None]:
     ...
 
 def choose_func(title: str, default_ea: ida_idaapi.ea_t) -> Optional[func_t]:
-    r"""Choose a function (ui_choose, chtype_func). 
+    r""":param title: chooser title
+    :param default_ea: ea of function to select by default
+    :returns: pointer to function that was selected, nullptr if none selected
+    """
+    ...
+
+def choose_func_ea(title: str, default_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Choose a function (ui_choose, chtype_func_ea). 
             
     :param title: chooser title
     :param default_ea: ea of function to select by default
-    :returns: pointer to function that was selected, nullptr if none selected
+    :returns: start ea of the selected function, BADADDR if none selected
     """
     ...
 
@@ -8419,7 +8783,16 @@ def choose_refresh(_self: Any) -> None:
     ...
 
 def choose_segm(title: str, default_ea: ida_idaapi.ea_t) -> Optional[segment_t]:
-    r"""Choose a segment (ui_choose, chtype_segm). 
+    r"""Choose a segment (ui_choose, chtype_segm).
+    
+    :param title: chooser title
+    :param default_ea: ea of segment to select by default
+    :returns: pointer to segment that was selected, nullptr if none selected
+    """
+    ...
+
+def choose_segment(title: str, default_ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
+    r"""Choose a segment (ui_choose, chtype_segment). 
             
     :param title: chooser title
     :param default_ea: ea of segment to select by default
@@ -8436,10 +8809,17 @@ def choose_srcp(title: str) -> sreg_range_t:
     ...
 
 def choose_stkvar_xref(pfn: func_t, srkvar_tid: int) -> ida_idaapi.ea_t:
-    r"""Choose an xref to a stack variable (ui_choose, chtype_name). 
-            
-    :param pfn: function
+    r""":param pfn: function
     :param srkvar_tid: frame variable TID
+    :returns: ea of the selected xref, BADADDR if none selected
+    """
+    ...
+
+def choose_stkvar_xref_ea(func_ea: ida_idaapi.ea_t, stkvar_tid: int) -> ida_idaapi.ea_t:
+    r"""Choose an xref to a stack variable (ui_choose, chtype_stkvar_xref_ea). 
+            
+    :param func_ea: function start address
+    :param stkvar_tid: frame variable TID
     :returns: ea of the selected xref, BADADDR if none selected
     """
     ...
@@ -8454,7 +8834,7 @@ def choose_struct(out: tinfo_t, title: str) -> bool:
     """
     ...
 
-def choose_til() -> str:
+def choose_til() -> Union[str, None]:
     r"""Choose a type library (ui_choose, chtype_idatil). 
             
     :returns: true: 'buf' was filled with the name of the selected til
@@ -8487,7 +8867,7 @@ def close_widget(widget: TWidget, options: int) -> None:
     ...
 
 def clr_cancelled() -> None:
-    r"""Clear "Cancelled" flag (ui_clr_cancelled)
+    r"""Clear "Cancelled" flag (ui_clr_cancelled).
     
     """
     ...
@@ -8618,7 +8998,7 @@ def display_widget(widget: TWidget, options: int, dest_ctrl: str = None) -> None
     """
     ...
 
-def ea2str(ea: ida_idaapi.ea_t) -> str:
+def ea2str(ea: ida_idaapi.ea_t) -> Union[str, None]:
     r"""Convert linear address to UTF-8 string.
     
     """
@@ -8752,7 +9132,7 @@ def get_action_icon(name: str) -> int:
     """
     ...
 
-def get_action_label(name: str) -> str:
+def get_action_label(name: str) -> Union[str, None]:
     r"""Get an action's label (ui_get_action_attr). 
             
     :param name: the action name
@@ -8760,7 +9140,7 @@ def get_action_label(name: str) -> str:
     """
     ...
 
-def get_action_shortcut(name: str) -> str:
+def get_action_shortcut(name: str) -> Union[str, None]:
     r"""Get an action's shortcut (ui_get_action_attr). 
             
     :param name: the action name
@@ -8776,7 +9156,7 @@ def get_action_state(name: str) -> action_state_t:
     """
     ...
 
-def get_action_tooltip(name: str) -> str:
+def get_action_tooltip(name: str) -> Union[str, None]:
     r"""Get an action's tooltip (ui_get_action_attr). 
             
     :param name: the action name
@@ -8819,7 +9199,7 @@ def get_builtin_widgets_state() -> uint128:
     """
     ...
 
-def get_chooser_data(title: str, n: int) -> List[str]:
+def get_chooser_data(title: str, n: int) -> Union[List[str], None]:
     r"""Get the text corresponding to the index N in the chooser data.
     Use -1 to get the header.
     
@@ -8854,7 +9234,7 @@ def get_curline() -> str:
     ...
 
 def get_current_viewer() -> TWidget:
-    r"""Get current ida viewer (idaview or custom viewer) (ui_get_current_viewer)
+    r"""Get current ida viewer (idaview or custom viewer) (ui_get_current_viewer).
     
     """
     ...
@@ -8953,14 +9333,14 @@ def get_icon_id_by_name(icon_name: str) -> int:
     """
     ...
 
-def get_kernel_version() -> str:
+def get_kernel_version() -> Union[str, None]:
     r"""Get IDA kernel version (in a string like "5.1").
     
     """
     ...
 
 def get_key_code(keyname: str) -> int:
-    r"""Get keyboard key code by its name (ui_get_key_code)
+    r"""Get keyboard key code by its name (ui_get_key_code).
     
     """
     ...
@@ -8988,12 +9368,12 @@ def get_navband_pixel(ea: Any) -> Any:
     ...
 
 def get_opnum() -> int:
-    r"""Get current operand number, -1 means no operand (ui_get_opnum)
+    r"""Get current operand number, -1 means no operand (ui_get_opnum).
     
     """
     ...
 
-def get_output_curline(mouse: bool) -> str:
+def get_output_curline(mouse: bool) -> Union[str, None]:
     r"""Get current line of output window (ui_get_output_curline). 
             
     :param mouse: current for mouse pointer?
@@ -9009,7 +9389,7 @@ def get_output_cursor() -> Any:
     """
     ...
 
-def get_output_selected_text() -> str:
+def get_output_selected_text() -> Union[str, None]:
     r"""Returns selected text from output window (ui_get_output_selected_text). 
             
     :returns: true if there is a selection
@@ -9035,7 +9415,7 @@ def get_place_class_id(name: str) -> int:
     ...
 
 def get_place_class_template(id: int) -> place_t:
-    r"""See get_place_class()
+    r"""See get_place_class().
     
     """
     ...
@@ -9048,7 +9428,7 @@ def get_registered_actions() -> List[str]:
     ...
 
 def get_screen_ea() -> ida_idaapi.ea_t:
-    r"""Get the address at the screen cursor (ui_screenea)
+    r"""Get the address at the screen cursor (ui_screenea).
     
     """
     ...
@@ -9081,7 +9461,7 @@ def get_user_strlist_options(out: strwinsetup_t) -> None:
     ...
 
 def get_view_renderer_type(v: TWidget) -> tcc_renderer_type_t:
-    r"""Get the type of renderer currently in use in the given view (ui_get_renderer_type)
+    r"""Get the type of renderer currently in use in the given view (ui_get_renderer_type).
     
     """
     ...
@@ -9093,12 +9473,12 @@ def get_viewer_place_type(viewer: TWidget) -> tcc_place_type_t:
     ...
 
 def get_viewer_user_data(viewer: TWidget) -> None:
-    r"""Get the user data from a custom viewer (ui_get_viewer_user_data)
+    r"""Get the user data from a custom viewer (ui_get_viewer_user_data).
     
     """
     ...
 
-def get_widget_title(widget: TWidget) -> str:
+def get_widget_title(widget: TWidget) -> Union[str, None]:
     r"""Get the TWidget's title (ui_get_widget_title).
     
     """
@@ -9128,7 +9508,7 @@ def info(*args: Any) -> int:
     ...
 
 def install_command_interpreter(py_obj: Any) -> int:
-    r"""Install command line interpreter (ui_install_cli)
+    r"""Install command line interpreter (ui_install_cli).
     
     """
     ...
@@ -9164,7 +9544,7 @@ def is_idaq() -> Any:
     ...
 
 def is_idaview(v: TWidget) -> bool:
-    r"""Is the given custom view an idaview? (ui_is_idaview)
+    r"""Is the given custom view an idaview? (ui_is_idaview).
     
     """
     ...
@@ -9176,12 +9556,15 @@ def is_msg_inited() -> bool:
     ...
 
 def is_place_class_ea_capable(id: int) -> bool:
-    r"""See get_place_class()
+    r"""See get_place_class().
     
     """
     ...
 
 def is_refresh_requested(mask: builtin_widgets_mask_t) -> bool:
+    ...
+
+def is_teams_widget(t: twidget_type_t) -> bool:
     ...
 
 def is_tif_cursor_footer(c: tif_cursor_t) -> bool:
@@ -9338,11 +9721,19 @@ def open_form(*args: Any) -> Any:
     ...
 
 def open_frame_window(pfn: func_t, offset: int) -> TWidget:
-    r"""Open the frame window for the given function (ui_open_builtin). 
-            
-    :param pfn: function to analyze
+    r""":param pfn: function to analyze
     :param offset: offset where the cursor is placed
     :returns: pointer to resulting window if 'pfn' is a valid function and the window was displayed, 
+     nullptr otherwise
+    """
+    ...
+
+def open_frame_window_ea(func_ea: ida_idaapi.ea_t, offset: int) -> TWidget:
+    r"""Open the frame window for the given function (ui_open_builtin2). 
+            
+    :param func_ea: function start address
+    :param offset: offset where the cursor is placed
+    :returns: pointer to resulting window if 'func_ea' is a valid function and the window was displayed, 
      nullptr otherwise
     """
     ...
@@ -9360,6 +9751,34 @@ def open_hexdump_window(window_title: str) -> TWidget:
             
     :param window_title: title of view to open
     :returns: pointer to resulting window
+    """
+    ...
+
+def open_ida_link(uri: str) -> bool:
+    r"""Open a resource using URL-style navigation with ida:// scheme. 
+    * identifies the data source (currently only used by hcli)
+    * empty source (ida:///...) matches any source 
+    * functions, addresses, strings, segments
+    * names, imports, exports, types, bookmarks
+    
+    
+    Parameters:
+    * rva=ADDRESS: relative virtual address, offset from imagebase (required for most resources, mutually exclusive with ea)
+    * ea=ADDRESS: absolute target address (mutually exclusive with rva)
+    * name=STRING: type name (required for types resource)
+    * view=TYPE: target view (disasm, pseudocode, hexdump, graph, functions, segments, names, imports, exports, strings, types, bookmarks)
+    
+    
+    Examples:
+    * ida:///myfile.i64/functions?rva=0x1000&view=pseudocode
+    * ida:///myfile.i64/types?name=MyStruct&view=types
+    * ida:///addresses?ea=0x401000 (current source, current IDB)
+    * ida:///myfile.i64/functions?rva=0x1000 (current source, specific IDB)
+    
+    
+    
+    :param uri: Resource URI in format: ida://<source>/<idb-name>/<resource>?<params>
+    :returns: true on success, false on failure (displays warning dialog on error)
     """
     ...
 
@@ -9497,7 +9916,7 @@ def open_trace_window() -> TWidget:
     ...
 
 def open_url(url: str) -> None:
-    r"""Open the given url (ui_open_url)
+    r"""Open the given url (ui_open_url).
     
     """
     ...
@@ -9549,13 +9968,19 @@ def process_ui_action(name: str, flags: int = 0) -> Any:
     """
     ...
 
-def prompt_function_prototype(out_tif: tinfo_t, pfn: func_t, tif: tinfo_t, name: str) -> str:
+def prompt_function_prototype(*args: Any, **kwargs: Any) -> Union[str, None]:
+    r"""Open function prototype editor to edit function type and create new type (ui_prompt_function_prototype). Allows to change the function prototype either in the "old" one-liner mode or in the new multi-line editor, which supports shortcuts, etc. Note: changes will not apply! It is the caller's job to apply the resulting out_tif and out_name. 
+            
+    :param out_tif: (tinfo_t *) tif for created type
+    :param func_ea: (ea_t) function start address
+    :param tif: (tinfo_t *) current function type
+    :param name: (const char *) function name
+    :returns: true if new type created successfully
+    """
     ...
 
-def prompt_function_prototype_ex(out_tif: tinfo_t, pfn: func_t, tif: tinfo_t, name: str) -> str:
-    r"""Open function prototype editor to edit function type and create new type. Allows to change the function prototype either in the "old" one-liner mode or in the new multi-line editor, which supports shortcuts, etc. Note: changes will not apply! It is the caller's job to apply the resulting out_tif and out_name. Parameters: 
-            
-    :param out_tif: - (tinfo_t *) tif for created type
+def prompt_function_prototype_ex(out_tif: tinfo_t, pfn: func_t, tif: tinfo_t, name: str) -> Union[str, None]:
+    r""":param out_tif: - (tinfo_t *) tif for created type
     :param pfn: - (func_t *) editing function
     :param tif: - (tinfo_t *) current function type
     :param name: - (const char *) function name
@@ -9713,13 +10138,13 @@ def refresh_choosers() -> None:
     ...
 
 def refresh_custom_viewer(custom_viewer: TWidget) -> None:
-    r"""Refresh custom ida viewer (ui_refresh_custom_viewer)
+    r"""Refresh custom ida viewer (ui_refresh_custom_viewer).
     
     """
     ...
 
 def refresh_idaview() -> None:
-    r"""Refresh marked windows (ui_refreshmarked)
+    r"""Refresh marked windows (ui_refreshmarked).
     
     """
     ...
@@ -9774,13 +10199,13 @@ def register_timer(interval: Any, callback: Any) -> Any:
     ...
 
 def remove_command_interpreter(cli_idx: int) -> None:
-    r"""Remove command line interpreter (ui_install_cli)
+    r"""Remove command line interpreter (ui_install_cli).
     
     """
     ...
 
 def repaint_custom_viewer(custom_viewer: TWidget) -> None:
-    r"""Repaint the given widget immediately (ui_repaint_qwidget)
+    r"""Repaint the given widget immediately (ui_repaint_qwidget).
     
     """
     ...
@@ -9807,8 +10232,14 @@ def restore_database_snapshot(snapshot: Any, callback: Any, userdata: Any) -> bo
     """
     ...
 
+def serve() -> None:
+    r"""Block the main thread, dispatching queued requests as they arrive (ui_serve). Semantically equivalent to Qt's QApplication::exec(): puts the calling thread to sleep on a semaphore that is signaled whenever something is queued for the main thread (execute_sync requests from worker threads), dispatches the queued work, then sleeps again. Returns when stop_serving() is called In GUI mode this is a no-op because Qt's own event loop already serves this role. Must be called from the main thread. 
+            
+    """
+    ...
+
 def set_cancelled() -> None:
-    r"""Set "Cancelled" flag (ui_set_cancelled)
+    r"""Set "Cancelled" flag (ui_set_cancelled).
     
     """
     ...
@@ -9860,7 +10291,7 @@ def set_code_viewer_user_data(code_viewer: TWidget, ud: Any) -> bool:
     ...
 
 def set_custom_viewer_qt_aware(custom_viewer: TWidget) -> bool:
-    r"""Allow the given viewer to interpret Qt events (ui_set_custom_viewer_handler)
+    r"""Allow the given viewer to interpret Qt events (ui_set_custom_viewer_handler).
     
     """
     ...
@@ -9933,7 +10364,7 @@ def set_nav_colorizer(callback: Any) -> Any:
     ...
 
 def set_view_renderer_type(v: TWidget, rt: tcc_renderer_type_t) -> None:
-    r"""Set the type of renderer to use in a view (ui_set_renderer_type)
+    r"""Set the type of renderer to use in a view (ui_set_renderer_type).
     
     """
     ...
@@ -9960,6 +10391,12 @@ def show_wait_box(message: str) -> None:
     Also, in case the plugin knows the wait dialog is currently displayed, 
     alternatively it can call replace_wait_box(), to replace the text of the
     dialog without pushing the currently-displayed text on the stack. 
+            
+    """
+    ...
+
+def stop_serving() -> None:
+    r"""Ask the serve() loop to return (ui_stop_serving). Thread-safe; callable from any thread, including from inside a callback that is currently running on the main thread under serve(). Has no effect in GUI mode. 
             
     """
     ...
@@ -10014,7 +10451,7 @@ def sync_sources(what: sync_source_t, _with: sync_source_t, sync: bool) -> bool:
     """
     ...
 
-def take_database_snapshot(snapshot: Any) -> Tuple[bool, str]:
+def take_database_snapshot(snapshot: Any) -> Tuple[bool, Union[str, None]]:
     r"""Take a database snapshot.
     
     :param snapshot: the snapshot object
@@ -10080,7 +10517,7 @@ def ui_run_debugger(dbgopts: str, exename: str, argc: int, argv: Any) -> bool:
     ...
 
 def unmark_selection() -> None:
-    r"""Unmark selection (ui_unmarksel)
+    r"""Unmark selection (ui_unmarksel).
     
     """
     ...
@@ -10247,9 +10684,14 @@ BWN_CV_LINE_INFOS: int  # 51
 BWN_DISASM: int  # 27
 BWN_DISASMS: int  # 27
 BWN_DISASM_ARROWS: int  # 50
+BWN_DSC_INDEX: int  # 74
+BWN_DSC_STRINGS: int  # 76
+BWN_DSC_SYMBOLS: int  # 75
+BWN_EXAMPLE_SCRIPTS_TREE: int  # 81
 BWN_EXPORTS: int  # 0
 BWN_FRAME: int  # 25
 BWN_FUNCS: int  # 3
+BWN_GIT_REPOS: int  # 78
 BWN_HEXVIEW: int  # 28
 BWN_IMPORTS: int  # 1
 BWN_LOCALS: int  # 33
@@ -10261,13 +10703,16 @@ BWN_NAMES: int  # 2
 BWN_NAVBAND: int  # 26
 BWN_NOTEPAD: int  # 29
 BWN_OUTPUT: int  # 30
+BWN_PATHFINDER: int  # 83
 BWN_PROBS: int  # 12
 BWN_PSEUDOCODE: int  # 46
+BWN_RECENT_SCRIPTS_TREE: int  # 80
 BWN_RESERVED_1: int  # 11
 BWN_RESERVED_2: int  # 47
 BWN_RESERVED_3: int  # 48
 BWN_SCRIPTS_CSR: int  # 56
 BWN_SEARCH: int  # 19
+BWN_SEARCH_SCRIPTS_TREE: int  # 82
 BWN_SEGREGS: int  # 6
 BWN_SEGS: int  # 5
 BWN_SELS: int  # 7
@@ -10276,12 +10721,24 @@ BWN_SHORTCUTWIN: int  # 37
 BWN_SIGNS: int  # 8
 BWN_SNIPPETS: int  # 43
 BWN_SNIPPETS_CSR: int  # 55
+BWN_SNIPPETS_TREE: int  # 55
 BWN_SO_OFFSETS: int  # 40
 BWN_SO_STRUCTS: int  # 39
 BWN_SRCPTHMAP_CSR: int  # 52
 BWN_SRCPTHUND_CSR: int  # 53
 BWN_STKVIEW: int  # 34
 BWN_STRINGS: int  # 4
+BWN_TEAMS_COMMITS: int  # 64
+BWN_TEAMS_COMMIT_FILES: int  # 70
+BWN_TEAMS_EXT_ASSOCS: int  # 71
+BWN_TEAMS_FILE_HISTORY: int  # 69
+BWN_TEAMS_LOCAL_FILES: int  # 65
+BWN_TEAMS_OPENED_FILES: int  # 72
+BWN_TEAMS_SITES: int  # 67
+BWN_TEAMS_USERS: int  # 68
+BWN_TEAMS_VAULT_FILES: int  # 63
+BWN_TEAMS_VAULT_FILE_PICKER: int  # 73
+BWN_TEAMS_WORKLISTS: int  # 66
 BWN_THREADS: int  # 14
 BWN_TICSR: int  # 10
 BWN_TILIST: int  # 58
@@ -10295,6 +10752,8 @@ BWN_UNDOHIST: int  # 54
 BWN_UNKNOWN: int  # -1
 BWN_WATCH: int  # 32
 BWN_XREFS: int  # 18
+BWN_XREF_GRAPH: int  # 77
+BWN_XREF_GRAPH_MANAGER: int  # 79
 BWN_XREF_TREE: int  # 62
 CB_CANCEL: int  # -7
 CB_CLOSE: int  # -3
@@ -10310,6 +10769,8 @@ CDVH_LINES_ALIGNMENT: int  # 1009
 CDVH_LINES_CLICK: int  # 1002
 CDVH_LINES_DBLCLICK: int  # 1003
 CDVH_LINES_DRAWICON: int  # 1005
+CDVH_LINES_FOLD_STATE: int  # 1010
+CDVH_LINES_FOLD_TOGGLE: int  # 1011
 CDVH_LINES_ICONMARGIN: int  # 1007
 CDVH_LINES_LINENUM: int  # 1006
 CDVH_LINES_POPUP: int  # 1004
@@ -10318,17 +10779,24 @@ CDVH_SRCVIEW: int  # 1001
 CDVH_USERDATA: int  # 1000
 CH2_HAS_INODE2INDEX: int  # 2
 CH2_LAZY_LOADED: int  # 1
+CHCOL_CHECKBOX: int  # 8388608
 CHCOL_DEC: int  # 196608
 CHCOL_DEFHIDDEN: int  # 1048576
 CHCOL_DRAGHINT: int  # 2097152
 CHCOL_EA: int  # 262144
 CHCOL_FNAME: int  # 327680
-CHCOL_FORMAT: int  # 458752
+CHCOL_FORMAT: int  # 983040
 CHCOL_HEX: int  # 131072
 CHCOL_INODENAME: int  # 4194304
 CHCOL_PATH: int  # 65536
 CHCOL_PLAIN: int  # 0
+CHCOL_SIZE: int  # 393216
+CHCOL_TIMESTAMP: int  # 458752
 CHITEM_BOLD: int  # 1
+CHITEM_CHKST_CHECKED: int  # 64
+CHITEM_CHKST_MASK: int  # 96
+CHITEM_CHKST_PARTIAL: int  # 32
+CHITEM_CHKST_UNCHECKED: int  # 0
 CHITEM_GRAY: int  # 16
 CHITEM_ITALIC: int  # 2
 CHITEM_STRIKE: int  # 8
@@ -10624,7 +11092,11 @@ IWID_CV_LINE_INFOS: int  # 2251799813685248
 IWID_DISASM: int  # 134217728
 IWID_DISASMS: int  # 134217728
 IWID_DISASM_ARROWS: int  # 1125899906842624
+IWID_DSC_INDEX: int  # 18889465931478580854784
+IWID_DSC_STRINGS: int  # 75557863725914323419136
+IWID_DSC_SYMBOLS: int  # 37778931862957161709568
 IWID_EA_LISTING: int  # 70369146830848
+IWID_EXAMPLE_SCRIPTS_TREE: int  # 2417851639229258349412352
 IWID_EXPORTS: int  # 1
 IWID_FRAME: int  # 33554432
 IWID_FUNCS: int  # 8
@@ -10638,10 +11110,13 @@ IWID_NAMES: int  # 4
 IWID_NAVBAND: int  # 67108864
 IWID_NOTEPAD: int  # 536870912
 IWID_OUTPUT: int  # 1073741824
+IWID_PATHFINDER: int  # 9671406556917033397649408
 IWID_PROBS: int  # 4096
 IWID_PSEUDOCODE: int  # 70368744177664
+IWID_RECENT_SCRIPTS_TREE: int  # 1208925819614629174706176
 IWID_SCRIPTS_CSR: int  # 72057594037927936
 IWID_SEARCH: int  # 524288
+IWID_SEARCH_SCRIPTS_TREE: int  # 4835703278458516698824704
 IWID_SEGREGS: int  # 64
 IWID_SEGS: int  # 32
 IWID_SELS: int  # 128
@@ -10650,12 +11125,24 @@ IWID_SHORTCUTWIN: int  # 137438953472
 IWID_SIGNS: int  # 256
 IWID_SNIPPETS: int  # 8796093022208
 IWID_SNIPPETS_CSR: int  # 36028797018963968
+IWID_SNIPPETS_TREE: int  # 36028797018963968
 IWID_SO_OFFSETS: int  # 1099511627776
 IWID_SO_STRUCTS: int  # 549755813888
 IWID_SRCPTHMAP_CSR: int  # 4503599627370496
 IWID_SRCPTHUND_CSR: int  # 9007199254740992
 IWID_STKVIEW: int  # 17179869184
 IWID_STRINGS: int  # 16
+IWID_TEAMS_COMMITS: int  # 18446744073709551616
+IWID_TEAMS_COMMIT_FILES: int  # 1180591620717411303424
+IWID_TEAMS_EXT_ASSOCS: int  # 2361183241434822606848
+IWID_TEAMS_FILE_HISTORY: int  # 590295810358705651712
+IWID_TEAMS_LOCAL_FILES: int  # 36893488147419103232
+IWID_TEAMS_OPENED_FILES: int  # 4722366482869645213696
+IWID_TEAMS_SITES: int  # 147573952589676412928
+IWID_TEAMS_USERS: int  # 295147905179352825856
+IWID_TEAMS_VAULT_FILES: int  # 9223372036854775808
+IWID_TEAMS_VAULT_FILE_PICKER: int  # 9444732965739290427392
+IWID_TEAMS_WORKLISTS: int  # 73786976294838206464
 IWID_THREADS: int  # 16384
 IWID_TICSR: int  # 1024
 IWID_TILIST: int  # 288230376151711744
@@ -10668,6 +11155,7 @@ IWID_TYPE_EDITOR: int  # 1152921504606846976
 IWID_UNDOHIST: int  # 18014398509481984
 IWID_WATCH: int  # 4294967296
 IWID_XREFS: int  # 262144
+IWID_XREF_GRAPH: int  # 151115727451828646838272
 IWID_XREF_TREE: int  # 4611686018427387904
 LECVT_CANCELED: int  # -1
 LECVT_ERROR: int  # 0
@@ -10765,18 +11253,22 @@ chtype_entry: int  # 2
 chtype_enum: int  # 12
 chtype_enum_by_value_and_size: int  # 13
 chtype_func: int  # 6
+chtype_func_ea: int  # 16
 chtype_generic: int  # 0
 chtype_idasgn: int  # 1
 chtype_idatil: int  # 9
 chtype_name: int  # 3
 chtype_segm: int  # 7
+chtype_segment: int  # 14
 chtype_srcp: int  # 10
 chtype_stkvar_xref: int  # 4
+chtype_stkvar_xref_ea: int  # 15
 chtype_strpath: int  # 8
 chtype_struct: int  # 11
 chtype_xref: int  # 5
 ctypes: module
 cvar: swigvarlink  # (errorexit, batch, debug, IDALIB_API_MAGIC)
+ida_funcs: module
 ida_ida: _module_wrapper_t
 ida_idaapi: module
 ida_pro: module

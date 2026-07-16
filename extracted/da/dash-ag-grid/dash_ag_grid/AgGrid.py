@@ -3,15 +3,20 @@
 import typing  # noqa: F401
 from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
+try:
+    from dash.types import NumberType  # noqa: F401
+except ImportError:
+    # Backwards compatibility for dash<=4.1.0
+    if typing.TYPE_CHECKING:
+        raise
+    NumberType = typing.Union[  # noqa: F401
+        typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+    ]
 
 ComponentSingleType = typing.Union[str, int, float, Component, None]
 ComponentType = typing.Union[
     ComponentSingleType,
     typing.Sequence[ComponentSingleType],
-]
-
-NumberType = typing.Union[
-    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
 ]
 
 
@@ -114,6 +119,10 @@ Keyword arguments:
 
     - timestamp (boolean | number | string | dict | list; optional):
         Timestamp of when the event was fired.
+
+- chartsLicenseKey (string; optional):
+    License key for AG Charts Enterprise when dashChartMode is
+    \"enterprise\". If not provided, licenseKey is used.
 
 - className (string; default ''):
     The class for the ag-grid.  Can specify the ag-grid theme here.
@@ -229,6 +238,12 @@ Keyword arguments:
     If your app stores Dash layouts for later retrieval this is
     dangerous because it can lead to cross-site-scripting attacks.
 
+- dashChartMode (a value equal to: 'enterprise', 'community'; optional):
+    Load enterprise AG Charts modules for integrated charts. Set to
+    \"enterprise\" to load enterprise chart modules or use
+    \"community\" for community chart modules and set
+    dashGridOptions.enableCharts=True.
+
 - dashGridOptions (dict; optional):
     Other ag-grid options.
 
@@ -250,7 +265,9 @@ Keyword arguments:
 
     `detailCellRendererParams` is a dict with keys:
 
-    - detailGridOptions (boolean | number | string | dict | list; optional):
+    - detailGridOptions (boolean
+
+      Or number | string | dict | list; optional):
         Grid options for detail grid in master-detail view.
 
     - detailColName (string; optional):
@@ -260,7 +277,11 @@ Keyword arguments:
     - suppressCallback (boolean; optional):
         Default: True. If True, suppresses the Dash callback in favor
         of using the data embedded in rowData at the given
-        detailColName.
+        detailColName. | dict with keys:
+
+    - function (string; optional):
+        JavaScript function that receives detail row params and
+        returns detailCellRendererParams.
 
 - enableEnterpriseModules (boolean; default False):
     If True, enable ag-grid Enterprise modules. Recommended to use
@@ -666,9 +687,7 @@ Keyword arguments:
     DetailCellRendererParams = TypedDict(
         "DetailCellRendererParams",
             {
-            "detailGridOptions": NotRequired[typing.Any],
-            "detailColName": NotRequired[str],
-            "suppressCallback": NotRequired[bool]
+            "function": NotRequired[str]
         }
     )
 
@@ -746,7 +765,9 @@ Keyword arguments:
         cellRendererData: typing.Optional["CellRendererData"] = None,
         getRowsResponse: typing.Optional["GetRowsResponse"] = None,
         licenseKey: typing.Optional[str] = None,
+        chartsLicenseKey: typing.Optional[str] = None,
         enableEnterpriseModules: typing.Optional[bool] = None,
+        dashChartMode: typing.Optional[Literal["enterprise", "community"]] = None,
         virtualRowData: typing.Optional[typing.Sequence[dict]] = None,
         scrollTo: typing.Optional["ScrollTo"] = None,
         eventListeners: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Sequence]] = None,
@@ -756,7 +777,7 @@ Keyword arguments:
         rowModelType: typing.Optional[Literal["clientSide", "infinite", "viewport", "serverSide"]] = None,
         rowData: typing.Optional[typing.Sequence[dict]] = None,
         masterDetail: typing.Optional[bool] = None,
-        detailCellRendererParams: typing.Optional["DetailCellRendererParams"] = None,
+        detailCellRendererParams: typing.Optional[typing.Union["DetailCellRendererParams"]] = None,
         rowStyle: typing.Optional[dict] = None,
         rowClass: typing.Optional[str] = None,
         rowClassRules: typing.Optional[dict] = None,
@@ -769,9 +790,9 @@ Keyword arguments:
         dashRenderType: typing.Optional[str] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'cellClicked', 'cellDoubleClicked', 'cellRendererData', 'cellValueChanged', 'className', 'columnDefs', 'columnSize', 'columnSizeOptions', 'columnState', 'csvExportParams', 'dangerously_allow_code', 'dashGridOptions', 'dashRenderType', 'defaultColDef', 'deleteSelectedRows', 'deselectAll', 'detailCellRendererParams', 'enableEnterpriseModules', 'eventData', 'eventListeners', 'exportDataAsCsv', 'filterModel', 'getDetailRequest', 'getDetailResponse', 'getRowId', 'getRowStyle', 'getRowsRequest', 'getRowsResponse', 'licenseKey', 'masterDetail', 'paginationGoTo', 'paginationInfo', 'persisted_props', 'persistence', 'persistence_type', 'resetColumnState', 'rowClass', 'rowClassRules', 'rowData', 'rowModelType', 'rowStyle', 'rowTransaction', 'scrollTo', 'selectAll', 'selectedRows', 'style', 'suppressDragLeaveHidesColumns', 'updateColumnState', 'virtualRowData']
+        self._prop_names = ['id', 'cellClicked', 'cellDoubleClicked', 'cellRendererData', 'cellValueChanged', 'chartsLicenseKey', 'className', 'columnDefs', 'columnSize', 'columnSizeOptions', 'columnState', 'csvExportParams', 'dangerously_allow_code', 'dashChartMode', 'dashGridOptions', 'dashRenderType', 'defaultColDef', 'deleteSelectedRows', 'deselectAll', 'detailCellRendererParams', 'enableEnterpriseModules', 'eventData', 'eventListeners', 'exportDataAsCsv', 'filterModel', 'getDetailRequest', 'getDetailResponse', 'getRowId', 'getRowStyle', 'getRowsRequest', 'getRowsResponse', 'licenseKey', 'masterDetail', 'paginationGoTo', 'paginationInfo', 'persisted_props', 'persistence', 'persistence_type', 'resetColumnState', 'rowClass', 'rowClassRules', 'rowData', 'rowModelType', 'rowStyle', 'rowTransaction', 'scrollTo', 'selectAll', 'selectedRows', 'style', 'suppressDragLeaveHidesColumns', 'updateColumnState', 'virtualRowData']
         self._valid_wildcard_attributes =            []
-        self.available_properties = ['id', 'cellClicked', 'cellDoubleClicked', 'cellRendererData', 'cellValueChanged', 'className', 'columnDefs', 'columnSize', 'columnSizeOptions', 'columnState', 'csvExportParams', 'dangerously_allow_code', 'dashGridOptions', 'dashRenderType', 'defaultColDef', 'deleteSelectedRows', 'deselectAll', 'detailCellRendererParams', 'enableEnterpriseModules', 'eventData', 'eventListeners', 'exportDataAsCsv', 'filterModel', 'getDetailRequest', 'getDetailResponse', 'getRowId', 'getRowStyle', 'getRowsRequest', 'getRowsResponse', 'licenseKey', 'masterDetail', 'paginationGoTo', 'paginationInfo', 'persisted_props', 'persistence', 'persistence_type', 'resetColumnState', 'rowClass', 'rowClassRules', 'rowData', 'rowModelType', 'rowStyle', 'rowTransaction', 'scrollTo', 'selectAll', 'selectedRows', 'style', 'suppressDragLeaveHidesColumns', 'updateColumnState', 'virtualRowData']
+        self.available_properties = ['id', 'cellClicked', 'cellDoubleClicked', 'cellRendererData', 'cellValueChanged', 'chartsLicenseKey', 'className', 'columnDefs', 'columnSize', 'columnSizeOptions', 'columnState', 'csvExportParams', 'dangerously_allow_code', 'dashChartMode', 'dashGridOptions', 'dashRenderType', 'defaultColDef', 'deleteSelectedRows', 'deselectAll', 'detailCellRendererParams', 'enableEnterpriseModules', 'eventData', 'eventListeners', 'exportDataAsCsv', 'filterModel', 'getDetailRequest', 'getDetailResponse', 'getRowId', 'getRowStyle', 'getRowsRequest', 'getRowsResponse', 'licenseKey', 'masterDetail', 'paginationGoTo', 'paginationInfo', 'persisted_props', 'persistence', 'persistence_type', 'resetColumnState', 'rowClass', 'rowClassRules', 'rowData', 'rowModelType', 'rowStyle', 'rowTransaction', 'scrollTo', 'selectAll', 'selectedRows', 'style', 'suppressDragLeaveHidesColumns', 'updateColumnState', 'virtualRowData']
         self.available_wildcard_properties =            []
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -22,6 +22,7 @@ Implementation discipline (from grpc-adapter-design.md §15):
 from __future__ import annotations
 
 import logging
+import json
 from typing import TYPE_CHECKING
 
 import grpc
@@ -48,7 +49,8 @@ from milvus_lite.adapter.grpc.translators.schema import (
 )
 from milvus_lite.adapter.grpc.translators.search import parse_search_request
 from milvus_lite._version import get_version
-from milvus_lite.exceptions import MilvusLiteError
+from milvus_lite.db import DEFAULT_DATABASE_NAME
+from milvus_lite.exceptions import CollectionNotFoundError, MilvusLiteError
 from milvus_lite.schema.types import DataType
 
 if TYPE_CHECKING:
@@ -70,6 +72,44 @@ def _extract_anns_field(sub_req) -> str | None:
     return None
 
 
+def _kv_pairs_to_dict(pairs) -> dict[str, str]:
+    return {
+        str(p.key): str(p.value)
+        for p in pairs
+        if getattr(p, "key", None)
+    }
+
+
+def _dict_to_kv_pairs(values: dict) -> list[common_pb2.KeyValuePair]:
+    return [
+        common_pb2.KeyValuePair(key=str(key), value=str(value))
+        for key, value in values.items()
+    ]
+
+
+def _decode_kv_value(value: str):
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return value
+
+
+def _extract_timezone(pairs) -> str | None:
+    for kv in pairs:
+        if kv.key == "timezone":
+            value = _decode_kv_value(kv.value)
+            return value if isinstance(value, str) and value else None
+    return None
+
+
+def _extract_time_fields(pairs) -> str | None:
+    for kv in pairs:
+        if kv.key == "time_fields":
+            value = _decode_kv_value(kv.value)
+            return value if isinstance(value, str) and value else None
+    return None
+
+
 def _hit_score_for_chain(hit: dict, metric_type: str) -> float:
     """Convert Collection.search() hit distance to chain score.
 
@@ -79,11 +119,9 @@ def _hit_score_for_chain(hit: dict, metric_type: str) -> float:
     """
     distance = hit["distance"]
     metric = metric_type.upper()
-    if metric == "COSINE":
-        return 1.0 - distance
     if metric == "BM25":
         return -distance
-    if metric in {"IP", "L2"}:
+    if metric in {"COSINE", "IP", "L2"}:
         return distance
     return distance
 
@@ -98,6 +136,22 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def __init__(self, db: "MilvusLite") -> None:
         self._db = db
+
+    def _database_name(self, request, context=None) -> str:
+        db_name = getattr(request, "db_name", "")
+        if db_name:
+            return db_name
+        if context is not None:
+            for key, value in context.invocation_metadata():
+                if key.lower() == "dbname" and value:
+                    return value
+        return DEFAULT_DATABASE_NAME
+
+    def _get_collection(self, request, context):
+        return self._db.get_collection(
+            request.collection_name,
+            database_name=self._database_name(request, context),
+        )
 
     # ── Connection-level RPCs ───────────────────────────────────
     #
@@ -150,7 +204,13 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
             proto_schema = schema_pb2.CollectionSchema()
             proto_schema.ParseFromString(request.schema)
             milvus_lite_schema = milvus_to_milvus_lite_schema(proto_schema)
-            self._db.create_collection(request.collection_name, milvus_lite_schema)
+            properties = _kv_pairs_to_dict(getattr(request, "properties", []))
+            self._db.create_collection(
+                request.collection_name,
+                milvus_lite_schema,
+                properties=properties,
+                database_name=self._database_name(request, context),
+            )
             return common_pb2.Status(**success_status_kwargs())
         except MilvusLiteError as e:
             return common_pb2.Status(**to_status_kwargs(e))
@@ -160,7 +220,10 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def DropCollection(self, request, context):
         try:
-            self._db.drop_collection(request.collection_name)
+            self._db.drop_collection(
+                request.collection_name,
+                database_name=self._database_name(request, context),
+            )
             return common_pb2.Status(**success_status_kwargs())
         except MilvusLiteError as e:
             return common_pb2.Status(**to_status_kwargs(e))
@@ -170,7 +233,10 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def HasCollection(self, request, context):
         try:
-            exists = self._db.has_collection(request.collection_name)
+            exists = self._db.has_collection(
+                request.collection_name,
+                database_name=self._database_name(request, context),
+            )
             return milvus_pb2.BoolResponse(
                 status=common_pb2.Status(**success_status_kwargs()),
                 value=exists,
@@ -187,7 +253,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
         Collection.describe() output is rebuilt into Milvus's
         DescribeCollectionResponse shape."""
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             proto_schema = milvus_lite_to_milvus_schema(col.name, col.schema)
             return milvus_pb2.DescribeCollectionResponse(
                 status=common_pb2.Status(**success_status_kwargs()),
@@ -195,6 +261,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
                 collection_name=col.name,
                 shards_num=1,
                 num_partitions=len(col.list_partitions()),
+                properties=_dict_to_kv_pairs(col.schema.properties),
             )
         except MilvusLiteError as e:
             return milvus_pb2.DescribeCollectionResponse(
@@ -211,7 +278,9 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
         carries timestamps and IDs which we don't track — those slots
         stay empty."""
         try:
-            names = self._db.list_collections()
+            names = self._db.list_collections(
+                database_name=self._database_name(request, context),
+            )
             return milvus_pb2.ShowCollectionsResponse(
                 status=common_pb2.Status(**success_status_kwargs()),
                 collection_names=names,
@@ -230,9 +299,11 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
         inserted IDs (which double as the success indicator for
         pymilvus's MilvusClient.insert)."""
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             records = fields_data_to_records(
-                request.fields_data, request.num_rows
+                request.fields_data,
+                request.num_rows,
+                default_timezone=col._effective_timezone(),  # noqa: SLF001
             )
             partition_name = request.partition_name or "_default"
             inserted_pks = col.insert(records, partition_name=partition_name)
@@ -256,9 +327,11 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
         """Upsert with partial update — merges new fields onto existing
         records so callers don't need to provide every field."""
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             records = fields_data_to_records(
-                request.fields_data, request.num_rows
+                request.fields_data,
+                request.num_rows,
+                default_timezone=col._effective_timezone(),  # noqa: SLF001
             )
             partition_name = request.partition_name or "_default"
             upserted_pks = col.upsert(records, partition_name=partition_name)
@@ -290,7 +363,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
            to honor delete-by-filter without engine-native support.
         """
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             partition_name = request.partition_name or None
 
             pks = self._extract_pks_from_expr(request.expr, col)
@@ -336,13 +409,15 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
         fields_data via the records translator.
         """
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             partition_names = list(request.partition_names) or None
             output_fields = list(request.output_fields) or None
 
             # Extract limit and offset from query_params KV list.
             limit = None
             offset = 0
+            timezone = _extract_timezone(request.query_params)
+            time_fields = _extract_time_fields(request.query_params)
             for kv in request.query_params:
                 if kv.key == "limit":
                     try:
@@ -363,7 +438,11 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
             if output_fields and "count(*)" in output_fields:
                 expr = request.expr if request.expr else None
                 if expr:
-                    rows = col.query(expr, partition_names=partition_names)
+                    rows = col.query(
+                        expr,
+                        partition_names=partition_names,
+                        timezone=timezone,
+                    )
                     count = len(rows)
                 else:
                     count = col.num_entities
@@ -391,12 +470,17 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
                     partition_names=partition_names,
                     limit=limit,
                     offset=offset,
+                    timezone=timezone,
                 )
 
             return milvus_pb2.QueryResults(
                 status=common_pb2.Status(**success_status_kwargs()),
                 fields_data=records_to_fields_data(
-                    rows, col.schema, output_fields=output_fields,
+                    rows,
+                    col.schema,
+                    output_fields=output_fields,
+                    time_fields=time_fields,
+                    timezone=col._effective_timezone(timezone),  # noqa: SLF001
                 ),
                 collection_name=col.name,
                 output_fields=output_fields or [],
@@ -432,12 +516,18 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
             from milvus_lite.function.dataframe import DataFrame
             from milvus_lite.function.types import ID_FIELD, SCORE_FIELD
 
-            col = self._db.get_collection(request.collection_name)
-            # Pull the canonical metric from the first IndexSpec if any.
-            first_spec = col._index_specs.get(col._vector_name) if col._index_specs else None  # noqa: SLF001
-            if first_spec is None and col._index_specs:
-                first_spec = next(iter(col._index_specs.values()))
-            default_metric = first_spec.metric_type if first_spec else "COSINE"
+            col = self._get_collection(request, context)
+            # Pull the canonical metric from a vector index if any.
+            first_spec = (
+                col._index_specs.get(col._vector_name)  # noqa: SLF001
+                if col._index_specs and col._vector_name is not None  # noqa: SLF001
+                else None
+            )
+            default_metric = (
+                first_spec.metric_type
+                if first_spec is not None and first_spec.metric_type != "NONE"
+                else "COSINE"
+            )
             parsed = parse_search_request(request, default_metric_type=default_metric)
 
             group_by_field = parsed.get("group_by_field")
@@ -486,6 +576,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
                 range_filter=parsed.get("range_filter"),
                 offset=search_offset,
                 ranker=parsed.get("ranker"),
+                timezone=parsed.get("timezone"),
             )
 
             if l2_func is not None:
@@ -552,6 +643,8 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
                 pk_name=col._pk_name,  # noqa: SLF001
                 output_fields=requested_output_fields,
                 group_by_field=group_by_field,
+                time_fields=parsed.get("time_fields"),
+                timezone=col._effective_timezone(parsed.get("timezone")),  # noqa: SLF001
             )
 
             return milvus_pb2.SearchResults(
@@ -581,10 +674,8 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
         consumes.
         """
         try:
-            col = self._db.get_collection(request.collection_name)
-            params = kv_pairs_to_index_params_dict(
-                request.extra_params, field_name=request.field_name
-            )
+            col = self._get_collection(request, context)
+            params = kv_pairs_to_index_params_dict(request.extra_params)
             col.create_index(request.field_name, params)
             return common_pb2.Status(**success_status_kwargs())
         except MilvusLiteError as e:
@@ -595,7 +686,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def DropIndex(self, request, context):
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             field_name = request.field_name or None
             # Resolve index_name → field_name if field_name not provided
             if field_name is None and request.index_name:
@@ -627,7 +718,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
         try:
             from milvus_lite.exceptions import IndexNotFoundError as _INFE
 
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             all_specs = col._index_specs  # noqa: SLF001
 
             if not all_specs:
@@ -690,7 +781,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def LoadCollection(self, request, context):
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             col.load()
             return common_pb2.Status(**success_status_kwargs())
         except MilvusLiteError as e:
@@ -701,7 +792,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def ReleaseCollection(self, request, context):
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             col.release()
             return common_pb2.Status(**success_status_kwargs())
         except MilvusLiteError as e:
@@ -718,7 +809,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
         is in 'loading' state we still report 0; if released, 0.
         """
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             progress = 100 if col.load_state == "loaded" else 0
             return milvus_pb2.GetLoadingProgressResponse(
                 status=common_pb2.Status(**success_status_kwargs()),
@@ -742,12 +833,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
             loaded   → LoadStateLoaded    (3)
         """
         try:
-            if not self._db.has_collection(request.collection_name):
-                return milvus_pb2.GetLoadStateResponse(
-                    status=common_pb2.Status(**success_status_kwargs()),
-                    state=common_pb2.LoadState.LoadStateNotExist,
-                )
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             mapping = {
                 "released": common_pb2.LoadState.LoadStateNotLoad,
                 "loading":  common_pb2.LoadState.LoadStateLoading,
@@ -756,6 +842,11 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
             return milvus_pb2.GetLoadStateResponse(
                 status=common_pb2.Status(**success_status_kwargs()),
                 state=mapping.get(col.load_state, common_pb2.LoadState.LoadStateNotLoad),
+            )
+        except CollectionNotFoundError:
+            return milvus_pb2.GetLoadStateResponse(
+                status=common_pb2.Status(**success_status_kwargs()),
+                state=common_pb2.LoadState.LoadStateNotExist,
             )
         except MilvusLiteError as e:
             return milvus_pb2.GetLoadStateResponse(
@@ -771,7 +862,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def CreatePartition(self, request, context):
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             col.create_partition(request.partition_name)
             return common_pb2.Status(**success_status_kwargs())
         except MilvusLiteError as e:
@@ -782,7 +873,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def DropPartition(self, request, context):
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             col.drop_partition(request.partition_name)
             return common_pb2.Status(**success_status_kwargs())
         except MilvusLiteError as e:
@@ -793,7 +884,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def HasPartition(self, request, context):
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             exists = col.has_partition(request.partition_name)
             return milvus_pb2.BoolResponse(
                 status=common_pb2.Status(**success_status_kwargs()),
@@ -813,7 +904,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def ShowPartitions(self, request, context):
         try:
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             names = col.list_partitions()
             return milvus_pb2.ShowPartitionsResponse(
                 status=common_pb2.Status(**success_status_kwargs()),
@@ -833,10 +924,13 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
         """Flush all named collections. pymilvus sends the collection
         name(s) in request.collection_names (plural)."""
         try:
+            db_name = self._database_name(request, context)
             for cname in request.collection_names:
-                if self._db.has_collection(cname):
-                    col = self._db.get_collection(cname)
-                    col.flush()
+                try:
+                    col = self._db.get_collection(cname, database_name=db_name)
+                except CollectionNotFoundError:
+                    continue
+                col.flush()
             return milvus_pb2.FlushResponse(
                 status=common_pb2.Status(**success_status_kwargs()),
             )
@@ -862,7 +956,10 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
         """Return row_count as a KeyValuePair list. pymilvus's
         get_collection_stats parses these pairs into a dict."""
         try:
-            stats = self._db.get_collection_stats(request.collection_name)
+            stats = self._db.get_collection_stats(
+                request.collection_name,
+                database_name=self._database_name(request, context),
+            )
             kv_pairs = [
                 common_pb2.KeyValuePair(key=str(k), value=str(v))
                 for k, v in stats.items()
@@ -885,7 +982,9 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
         """Return row_count for one partition."""
         try:
             stats = self._db.get_partition_stats(
-                request.collection_name, request.partition_name
+                request.collection_name,
+                request.partition_name,
+                database_name=self._database_name(request, context),
             )
             kv_pairs = [
                 common_pb2.KeyValuePair(key=str(k), value=str(v))
@@ -908,7 +1007,10 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
     def TruncateCollection(self, request, context):
         """Clear collection data while preserving schema and aliases."""
         try:
-            self._db.truncate_collection(request.collection_name)
+            self._db.truncate_collection(
+                request.collection_name,
+                database_name=self._database_name(request, context),
+            )
             return milvus_pb2.TruncateCollectionResponse(
                 status=common_pb2.Status(**success_status_kwargs()),
             )
@@ -922,12 +1024,76 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
                 status=common_pb2.Status(code=_UNEXPECTED_ERROR, reason=str(e)),
             )
 
+    def CreateDatabase(self, request, context):
+        try:
+            properties = _kv_pairs_to_dict(getattr(request, "properties", []))
+            self._db.create_database(request.db_name, properties=properties or None)
+            return common_pb2.Status(**success_status_kwargs())
+        except MilvusLiteError as e:
+            return common_pb2.Status(**to_status_kwargs(e))
+        except Exception as e:
+            logger.exception("CreateDatabase failed: %s", e)
+            return common_pb2.Status(code=_UNEXPECTED_ERROR, reason=str(e))
+
+    def DropDatabase(self, request, context):
+        try:
+            self._db.drop_database(request.db_name)
+            return common_pb2.Status(**success_status_kwargs())
+        except MilvusLiteError as e:
+            return common_pb2.Status(**to_status_kwargs(e))
+        except Exception as e:
+            logger.exception("DropDatabase failed: %s", e)
+            return common_pb2.Status(code=_UNEXPECTED_ERROR, reason=str(e))
+
     def ListDatabases(self, request, context):
-        """MilvusLite has no database concept; return a single default."""
-        return milvus_pb2.ListDatabasesResponse(
-            status=common_pb2.Status(**success_status_kwargs()),
-            db_names=["default"],
-        )
+        try:
+            return milvus_pb2.ListDatabasesResponse(
+                status=common_pb2.Status(**success_status_kwargs()),
+                db_names=self._db.list_databases(),
+            )
+        except MilvusLiteError as e:
+            return milvus_pb2.ListDatabasesResponse(
+                status=common_pb2.Status(**to_status_kwargs(e)),
+            )
+        except Exception as e:
+            logger.exception("ListDatabases failed: %s", e)
+            return milvus_pb2.ListDatabasesResponse(
+                status=common_pb2.Status(code=_UNEXPECTED_ERROR, reason=str(e)),
+            )
+
+    def DescribeDatabase(self, request, context):
+        try:
+            desc = self._db.describe_database(self._database_name(request, context))
+            return milvus_pb2.DescribeDatabaseResponse(
+                status=common_pb2.Status(**success_status_kwargs()),
+                db_name=desc["name"],
+                properties=_dict_to_kv_pairs(desc["properties"]),
+            )
+        except MilvusLiteError as e:
+            return milvus_pb2.DescribeDatabaseResponse(
+                status=common_pb2.Status(**to_status_kwargs(e)),
+            )
+        except Exception as e:
+            logger.exception("DescribeDatabase failed: %s", e)
+            return milvus_pb2.DescribeDatabaseResponse(
+                status=common_pb2.Status(code=_UNEXPECTED_ERROR, reason=str(e)),
+            )
+
+    def AlterDatabase(self, request, context):
+        try:
+            properties = _kv_pairs_to_dict(getattr(request, "properties", []))
+            delete_keys = list(getattr(request, "delete_keys", [])) or None
+            self._db.alter_database_properties(
+                self._database_name(request, context),
+                properties=properties or None,
+                delete_keys=delete_keys,
+            )
+            return common_pb2.Status(**success_status_kwargs())
+        except MilvusLiteError as e:
+            return common_pb2.Status(**to_status_kwargs(e))
+        except Exception as e:
+            logger.exception("AlterDatabase failed: %s", e)
+            return common_pb2.Status(code=_UNEXPECTED_ERROR, reason=str(e))
 
     # ── Explicitly UNIMPLEMENTED stubs ─────────────────────────
     #
@@ -958,7 +1124,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
                 merge_boost_rankers,
             )
 
-            col = self._db.get_collection(request.collection_name)
+            col = self._get_collection(request, context)
             all_specs = col._index_specs or {}  # noqa: SLF001
 
             # Parse rank_params
@@ -967,6 +1133,10 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
             top_level_l0_ranker = function_score.get("boost")
             top_level_l2_func = function_score.get("rerank")
             requested_output_fields = list(request.output_fields) or None
+            hybrid_timezone = _extract_timezone(request.rank_params)
+            hybrid_time_fields = _extract_time_fields(request.rank_params)
+            output_timezone = hybrid_timezone
+            output_time_fields = hybrid_time_fields
 
             gb_field = rp.get("group_by_field")
             internal_output_fields = []
@@ -994,6 +1164,11 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
                     first_spec = next(iter(all_specs.values()), None)
                     sub_default_metric = first_spec.metric_type if first_spec else "COSINE"
                 parsed = parse_search_request(sub_req, default_metric_type=sub_default_metric)
+                route_timezone = parsed.get("timezone") or hybrid_timezone
+                if output_timezone is None and parsed.get("timezone") is not None:
+                    output_timezone = parsed.get("timezone")
+                if output_time_fields is None and parsed.get("time_fields") is not None:
+                    output_time_fields = parsed.get("time_fields")
                 sub_ranker = merge_boost_rankers(
                     parsed.get("ranker"),
                     top_level_l0_ranker,
@@ -1015,6 +1190,7 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
                     output_fields=route_output_fields,
                     anns_field=parsed.get("anns_field"),
                     ranker=sub_ranker,
+                    timezone=route_timezone,
                 )
                 all_results.append(results)
                 route_metrics.append(parsed["metric_type"])
@@ -1087,6 +1263,8 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
                 pk_name=col._pk_name,  # noqa: SLF001
                 output_fields=output_fields,
                 group_by_field=gb_field,
+                time_fields=output_time_fields,
+                timezone=col._effective_timezone(output_timezone),  # noqa: SLF001
             )
 
             return milvus_pb2.SearchResults(
@@ -1106,7 +1284,11 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def RenameCollection(self, request, context):
         try:
-            self._db.rename_collection(request.oldName, request.newName)
+            self._db.rename_collection(
+                request.oldName,
+                request.newName,
+                database_name=self._database_name(request, context),
+            )
             return common_pb2.Status(**success_status_kwargs())
         except MilvusLiteError as e:
             return common_pb2.Status(**to_status_kwargs(e))
@@ -1116,7 +1298,11 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def CreateAlias(self, request, context):
         try:
-            self._db.create_alias(request.collection_name, request.alias)
+            self._db.create_alias(
+                request.collection_name,
+                request.alias,
+                database_name=self._database_name(request, context),
+            )
             return common_pb2.Status(**success_status_kwargs())
         except MilvusLiteError as e:
             return common_pb2.Status(**to_status_kwargs(e))
@@ -1126,7 +1312,11 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def AlterAlias(self, request, context):
         try:
-            self._db.alter_alias(request.collection_name, request.alias)
+            self._db.alter_alias(
+                request.collection_name,
+                request.alias,
+                database_name=self._database_name(request, context),
+            )
             return common_pb2.Status(**success_status_kwargs())
         except MilvusLiteError as e:
             return common_pb2.Status(**to_status_kwargs(e))
@@ -1136,7 +1326,10 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def DropAlias(self, request, context):
         try:
-            self._db.drop_alias(request.alias)
+            self._db.drop_alias(
+                request.alias,
+                database_name=self._database_name(request, context),
+            )
             return common_pb2.Status(**success_status_kwargs())
         except MilvusLiteError as e:
             return common_pb2.Status(**to_status_kwargs(e))
@@ -1146,7 +1339,10 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
 
     def DescribeAlias(self, request, context):
         try:
-            info = self._db.describe_alias(request.alias)
+            info = self._db.describe_alias(
+                request.alias,
+                database_name=self._database_name(request, context),
+            )
             return milvus_pb2.DescribeAliasResponse(
                 status=common_pb2.Status(**success_status_kwargs()),
                 alias=info["alias"],
@@ -1165,9 +1361,13 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
     def ListAliases(self, request, context):
         try:
             collection_name = request.collection_name or None
-            aliases = self._db.list_aliases(collection_name)
+            db_name = self._database_name(request, context)
+            aliases = self._db.list_aliases(
+                collection_name,
+                database_name=db_name,
+            )
             resolved = (
-                self._db.resolve_collection_name(collection_name)
+                self._db.resolve_collection_name(collection_name, database_name=db_name)
                 if collection_name else ""
             )
             return milvus_pb2.ListAliasesResponse(
@@ -1186,10 +1386,21 @@ class MilvusServicer(milvus_pb2_grpc.MilvusServiceServicer):
             )
 
     def AlterCollection(self, request, context):
-        return self._unimplemented(
-            context, "AlterCollection",
-            "schema is immutable in MilvusLite — create a new collection instead",
-        )
+        try:
+            properties = _kv_pairs_to_dict(getattr(request, "properties", []))
+            delete_keys = list(getattr(request, "delete_keys", [])) or None
+            self._db.alter_collection_properties(
+                request.collection_name,
+                properties=properties or None,
+                delete_keys=delete_keys,
+                database_name=self._database_name(request, context),
+            )
+            return common_pb2.Status(**success_status_kwargs())
+        except MilvusLiteError as e:
+            return common_pb2.Status(**to_status_kwargs(e))
+        except Exception as e:
+            logger.exception("AlterCollection failed: %s", e)
+            return common_pb2.Status(code=_UNEXPECTED_ERROR, reason=str(e))
 
     def LoadPartitions(self, request, context):
         return self._unimplemented(

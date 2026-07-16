@@ -1,140 +1,207 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: typing-validation
-Version: 1.2.12
-Summary: A simple library for runtime type-checking.
-Home-page: https://github.com/hashberg-io/typing-validation
-Author: hashberg
-Author-email: sg495@users.noreply.github.com
-Project-URL: Bug Tracker, https://github.com/hashberg-io/typing-validation/issues
-Classifier: Development Status :: 4 - Beta
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Operating System :: OS Independent
-Classifier: Natural Language :: English
-Classifier: Typing :: Typed
-Requires-Python: >=3.7
-Description-Content-Type: text/x-rst
+Version: 2.2.0
+Summary: A library to perform runtime validation of Python objects using type hints.
+Project-URL: Documentation, https://typing-validation.readthedocs.io
+Project-URL: Repository, https://github.com/hashberg-io/typing-validation
+Project-URL: Issues, https://github.com/hashberg-io/typing-validation/issues
+Author: Hashberg
+License-Expression: LGPL-3.0-or-later
 License-File: LICENSE
-Requires-Dist: typing_extensions>=4.6.0; python_version < "3.11"
-Provides-Extra: dev
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: pylint; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: rich; extra == "dev"
+Classifier: Development Status :: 4 - Beta
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
+Requires-Python: >=3.14
+Description-Content-Type: text/markdown
 
+# typing-validation
 
-typing-validation: Validation using Type Hints
-==============================================
+[![Python versions](https://img.shields.io/badge/python-3.14+-green.svg)](https://docs.python.org/3.14/)
+[![PyPI version](https://img.shields.io/pypi/v/typing-validation.svg)](https://pypi.python.org/pypi/typing-validation/)
+[![PyPI status](https://img.shields.io/pypi/status/typing-validation.svg)](https://pypi.python.org/pypi/typing-validation/)
+[![Checked with Mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](https://github.com/python/mypy)
+[![Documentation Status](https://readthedocs.org/projects/typing-validation/badge/?version=latest)](https://typing-validation.readthedocs.io/en/latest/?badge=latest)
 
-.. image:: https://img.shields.io/badge/python-3.7+-green.svg
-    :target: https://docs.python.org/3.7/
-    :alt: Python versions
+A library to perform runtime validation of Python objects using type hints.
 
-.. image:: https://img.shields.io/pypi/v/typing-validation.svg
-    :target: https://pypi.python.org/pypi/typing-validation/
-    :alt: PyPI version
+## Install
 
-.. image:: https://img.shields.io/pypi/status/typing-validation.svg
-    :target: https://pypi.python.org/pypi/typing-validation/
-    :alt: PyPI status
+Install the latest release from [PyPI](https://pypi.org/project/typing-validation/):
 
-.. image:: http://www.mypy-lang.org/static/mypy_badge.svg
-    :target: https://github.com/python/mypy
-    :alt: Checked with Mypy
+```console
+$ pip install --upgrade typing-validation
+```
 
-.. image:: https://readthedocs.org/projects/typing-validation/badge/?version=latest
-    :target: https://typing-validation.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
+## Usage
 
-.. image:: https://github.com/hashberg-io/typing-validation/actions/workflows/python-pytest.yml/badge.svg
-    :target: https://github.com/hashberg-io/typing-validation/actions/workflows/python-pytest.yml
-    :alt: Python package status
+Validate a value against a type hint. `validate` returns `True` on success and raises on failure:
 
-.. image:: https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square
-    :target: https://github.com/RichardLitt/standard-readme
-    :alt: standard-readme compliant
-
-Typing-validation is a small library to perform runtime validation of Python objects using `PEP 484 type hints <https://www.python.org/dev/peps/pep-0484/>`_.
-
-.. contents::
-
-
-Install
--------
-
-You can install the latest release from `PyPI <https://pypi.org/project/typing-validation/>`_ as follows:
-
-.. code-block::
-
-    pip install --upgrade typing-validation
-
-
-Usage
------
-
-The core functionality of this library is provided by the `validate <https://typing-validation.readthedocs.io/en/latest/api/typing_validation.validation.html#typing_validation.validation.validate>`_ function:
-
-
+```python
 >>> from typing_validation import validate
+>>> validate([1, 2, 3], list[int])
+True
+```
 
-The `validate <https://typing-validation.readthedocs.io/en/latest/api/typing_validation.validation.html#typing_validation.validation.validate>`_ function is invoked with a value and a type as its arguments and it returns nothing when the given value is valid for the given type:
+The `True` return exists so that validation can be gated behind an assertion, and compiled out entirely under `-O`:
 
->>> validate(12, int)
-True # no error raised => 12 is a valid int
+```python
+assert validate(val, t)
+```
 
-If the value is invalid for the given type, the `validate <https://typing-validation.readthedocs.io/en/latest/api/typing_validation.validation.html#typing_validation.validation.validate>`_ function raises a `TypeError <https://docs.python.org/3/library/exceptions.html#TypeError>`_:
+When a value does not conform, the error says **where**:
 
->>> validate(12, str)
-TypeError: Runtime validation error raised by validate(val, t), details below.
-For type <class 'str'>, invalid value: 12
+```python
+>>> validate({"a": [1, "b"]}, dict[str, list[int]])
+Traceback (most recent call last):
+  ...
+typing_validation.errors.ValidationError: For type dict[str, list[int]]: a component failed
+  For type list[int] value at key 'a': a component failed
+    For type <class 'int'> index 1: not an instance, got 'b'
+```
 
-For nested types (e.g. parametric collection/mapping types), the full chain of validation failures is shown by the type error:
+The structured explanation is on the exception, for reading programmatically:
 
->>> validate([0, 1, "hi"], list[int])
-TypeError: Runtime validation error raised by validate(val, t), details below.
-For type list[int], invalid value at idx: 2
-  For type <class 'int'>, invalid value: 'hi'
+```python
+>>> try:
+...     validate([1, "b"], list[int])
+... except ValidationError as e:
+...     print(e.failure.causes[0].location.at)
+1
+```
 
+### Validating the same type repeatedly
 
-The function `is_valid` is a variant of the `validate <https://typing-validation.readthedocs.io/en/latest/api/typing_validation.validation.html#typing_validation.validation.validate>`_ function which returns `False` in case of validation failure, instead of raising `TypeError <https://docs.python.org/3/library/exceptions.html#TypeError>`_:
+`validate` analyses the type on every call. When you validate many values against
+one type, `validator` analyses it once and hands back a function:
 
->>> from typing_validation import is_valid
->>> is_valid([0, 1, "hi"], list[int])
+```python
+>>> from typing_validation import validator
+>>> check = validator(list[int])
+>>> check([1, 2, 3])
+True
+```
+
+Same contract, same verdict, **2.7× faster per call**, and it repays the cost of
+building it within a handful of values.
+
+And when the values keep coming in very large numbers, `compiled_validator`
+emits Python specialised to the type and compiles it:
+
+```python
+>>> from typing_validation import compiled_validator
+>>> check = compiled_validator(list[int])
+>>> check([1, 2, 3])
+True
+```
+
+That runs at **11.5 ns per type-node against a hand-written check's 11.1** — it
+is, within a few percent, the code you would have written yourself. It costs more
+to build, and it only helps where there is structure to unroll: for a recursive
+alias or a NumPy array it stops unrolling and hands back a `validator`, and the
+table says `never` rather than pretending otherwise.
+
+So: `validate` for one-off checks, `validator` when the type is fixed and the
+values keep coming, `compiled_validator` when there are very many of them.
+
+| Type | `validate` | `validator` | `compiled_validator` | hand-written |
+|---|---|---|---|---|
+| `list[int]` (1000 items) | 58.1 µs | 21.4 µs | 13.5 µs | 12.4 µs |
+| `list[int]` (20 items) | 1.5 µs | 540 ns | 287 ns | 284 ns |
+| `dict[str, int]` (20 items) | 2.7 µs | 1.0 µs | 559 ns | 548 ns |
+| `tuple[int, str]` | 428 ns | 215 ns | 80 ns | 64 ns |
+| `int` | 49 ns | 46 ns | 46 ns | 27 ns |
+
+**[`benchmark/RESULTS.md`](benchmark/RESULTS.md)** has the full table — every
+case, both outcomes, construction costs, and the break-even points that say
+exactly how many values each mechanism needs before it repays — with the machine
+it was measured on. Run `python -m benchmark` for your own numbers, or
+`python -m benchmark --write` to regenerate it.
+
+One difference, and it is deliberate. Both `validator` and `compiled_validator`
+analyse the whole type before seeing any value, so they **reject an unsupported
+type immediately**:
+
+```python
+validator(list[Callable[[int], int]])     # UnsupportedTypeError, at once
+validate([], list[Callable[[int], int]])  # True — no value reached the Callable
+```
+
+### The rest of the surface
+
+```python
+from typing_validation import is_valid, validated, validated_iter
+
+is_valid([1, "a"], list[int])       # False — a boolean, at boolean prices
+validated(payload, list[int])       # returns payload, for use in an expression
+validated_iter(stream, Iterator[int])  # checks each item as it is yielded
+```
+
+`is_valid` deliberately builds no explanation: a caller who wants one calls `validate` and catches the exception.
+
+`validated_iter` is not a convenience wrapper. Determining the items of a one-shot iterator consumes it, so `Iterator[int]` cannot check its items eagerly without destroying the value — checking them on the way past is the only honest way.
+
+### Asking about a type
+
+Support is all-or-nothing: if any component of a type is unsupported, the whole type is. `can_validate` answers up front:
+
+```python
+>>> from typing_validation import can_validate, inspect_type
+>>> can_validate(list[int])
+True
+>>> can_validate(tuple[int, Callable[[int], int]])   # poisoned by the Callable
 False
+```
 
-The function `latest_validation_failure <https://typing-validation.readthedocs.io/en/latest/api/typing_validation.validation.html#typing_validation.validation_failure.latest_validation_failure>`_ can be used to access detailed information immediately after a failure:
+`inspect_type` returns the whole structure and names precisely what poisoned it, so "unsupported" is never opaque:
 
->>> from typing_validation import latest_validation_failure
->>> is_valid([0, 1, "hi"], list[int])
-False
->>> failure = latest_validation_failure()
->>> print(failure)
-Runtime validation error raised by validate(val, t), details below.
-For type list[int], invalid value at idx: 2
-  For type <class 'int'>, invalid value: 'hi'
+```python
+>>> node = inspect_type(tuple[int, Callable[[int], int]])
+>>> [c.t for c in node.unsupported_components()]
+[typing.Callable[[int], int]]
+```
 
-Please note that `latest_validation_failure <https://typing-validation.readthedocs.io/en/latest/api/typing_validation.validation.html#typing_validation.validation_failure.latest_validation_failure>`_ clears the internal failure logs after returning the latest failure, so the latter must be manually stored if it needs to be accessed multiple times.
+### NumPy
 
+NumPy array types are supported by an extension, which you enable by importing:
 
-API
----
+```python
+import typing_validation.numpy   # required
+from numpy.typing import NDArray
 
-For the full API documentation, see https://typing-validation.readthedocs.io/
+validate(np.array([1, 2], dtype=np.uint8), NDArray[np.uint8])
+```
 
+The import is required rather than automatic, so that the supported surface never depends on whether some unrelated dependency happened to import NumPy.
 
-Contributing
-------------
+### Extending
 
-Please see `<CONTRIBUTING.md>`_.
+A parametrised class can say how its own type arguments are validated:
 
+```python
+class Box[T]:
+    @classmethod
+    def __validate__(cls, val, args):
+        return is_valid(val.item, args[0])
+```
 
-License
--------
+For classes you do not own, use `register_validator(cls, check)`.
 
-`MIT © Hashberg Ltd. <LICENSE>`_
+## API
+
+The full API documentation is available at
+[typing-validation.readthedocs.io](https://typing-validation.readthedocs.io/).
+
+## Structure
+
+- `typing_validation/` — the package source.
+- `knowledge/` — design documents: the architecture, and the catalogue of supported type forms.
+- `test/` — the conformance suite, with the case corpus in `test/cases.py`.
+- `benchmark/` — the benchmark suite; run it with `python -m benchmark`.
+- `docs/` — the Sphinx documentation pipeline.
+
+## License
+
+[LGPL-3.0-or-later](LICENSE) © Hashberg Ltd

@@ -1,10 +1,19 @@
 r"""
 Compute network centralities.
 
-Two centrality methods are available, using shortest-path (metric) or simplest-path (angular) heuristics:
+If you are using `cityseer` for the first time, use the [`CityNetwork`](/api/network) class instead of this module:
+it builds the network automatically (including cleaning and the dual graph) and exposes the same centrality methods.
+The functions here are the lower-level functional API, for direct control over the ``NetworkStructure`` and nodes
+``GeoDataFrame``.
+
+Two centrality functions are available, using shortest-path (metric) or simplest-path (angular) heuristics:
 
 - [`centrality_shortest`](#centrality_shortest)
 - [`centrality_simplest`](#centrality_simplest)
+
+[`node_centrality_shortest`](#node_centrality_shortest), [`node_centrality_simplest`](#node_centrality_simplest),
+and [`segment_centrality`](#segment_centrality) are **deprecated**. They are backwards-compatibility shims for
+pre-5.0 code and will be removed in a future major release; do not use them in new work.
 
 Metrics are specified as ``{name: expression}`` dicts using variables ``c`` (cost) and ``p`` (normalised
 progress). For shortest paths, ``c`` is metric distance and ``p = c / threshold``. For simplest paths,
@@ -34,7 +43,7 @@ When `sample=True`, only a subset of nodes are used as sources for centrality co
 corrected to approximate the full computation.
 
 :::note
-The reasons for picking one approach over another are varied:
+Cautions that apply when computing centralities with these lower-level functions:
 
 - Columns prefixed ``cc_`` are managed by cityseer: recomputing a metric for the same distance overwrites the
 matching ``cc_`` columns in place (intended for re-runs). Don't store your own data under this prefix.
@@ -42,11 +51,14 @@ matching ``cc_`` columns in place (intended for re-runs). Don't store your own d
 (used to describe road curvature) or overly complex representations of street intersections. Clean the network
 first using the [`graph`](/tools/graphs) module (see the
 [automatic graph cleaning](/guide/fundamentals#automatic-graph-cleaning) for examples).
-- `harmonic` centrality can produce inflated values when nodes are very close together, because the
-inverse-distance calculation amplifies small distances. This is more likely with simplest-path measures or short
-distance thresholds.
-- Simplest (angular) measures require a dual graph representation. Convert primal graphs with
-  [`graphs.nx_to_dual`](/tools/graphs#nx_to_dual) before ingesting them.
+- `harmonic` closeness sums inverse distances (``1/c``), so a pair of nodes separated by only a few metres
+contributes a very large value, and a pair below 1 m can inflate a node's score severely. `CityNetwork`
+construction removes near-duplicate edges and short self-loops automatically; when building the network manually,
+consolidate nearby nodes (see [`nx_consolidate_nodes`](/tools/graphs#nx_consolidate_nodes)) before computing
+harmonic closeness.
+- Simplest (angular) measures require a dual graph representation. `CityNetwork` builds the dual automatically;
+this step only applies to the manual method, where primal graphs must be converted with
+[`graphs.nx_to_dual`](/tools/graphs#nx_to_dual) before ingestion.
 - Metrics should only be compared across networks that use the same graph representation (both primal or both
 dual), because the differing number of nodes and edges between representations affects the metric values. For
 example, a four-way intersection consisting of one node with four edges on a primal graph translates to four
@@ -104,12 +116,20 @@ class _SegmentWeightContext:
         if segment_weighted:
             if not network_structure.is_dual:
                 raise ValueError("segment_weighted requires a dual graph where each node represents a street segment.")
-            if "primal_edge" not in nodes_gdf.columns:
-                raise ValueError("segment_weighted requires primal_edge geometries in nodes_gdf (from a dual graph).")
+            # Segment lengths come from the `primal_edge` geometry column (the nx_to_dual /
+            # network_structure_from_nx path) or the numeric `seg_length` column (CityNetwork).
+            if "primal_edge" in nodes_gdf.columns:
+                seg_lengths = nodes_gdf["primal_edge"].length.values
+            elif "seg_length" in nodes_gdf.columns:
+                seg_lengths = nodes_gdf["seg_length"].values
+            else:
+                raise ValueError(
+                    "segment_weighted requires a primal_edge geometry column or a seg_length column in nodes_gdf "
+                    "(both come from a dual graph build)."
+                )
             node_idxs = network_structure.node_indices()
             self._saved_weights = [(i, network_structure.get_node_weight(i)) for i in node_idxs]
             ns_indices = nodes_gdf["ns_node_idx"].values
-            seg_lengths = nodes_gdf["primal_edge"].length.values
             for ns_idx, seg_len in zip(ns_indices, seg_lengths, strict=True):
                 network_structure.set_node_weight(int(ns_idx), float(seg_len))
 
@@ -495,7 +515,7 @@ def build_od_matrix(
         Origin-destination flow data with columns for origin zone, destination zone, and weight.
     zones_gdf : gpd.GeoDataFrame
         Zone boundaries (polygons) or centroids (points). Must be in a projected CRS
-        matching the network, or in EPSG:4326 (will be auto-reprojected).
+        matching the network, or in ``EPSG:4326`` (will be auto-reprojected).
     network_structure : rustalgos.graph.NetworkStructure
         The network to snap zone centroids to.
     origin_col : str
@@ -660,12 +680,11 @@ def betweenness_demand(
     Trips are allocated between weighted origins (e.g. population) and weighted destinations (e.g.
     attractors) using a **singly (origin-)constrained** spatial interaction model, then routed along
     shortest network paths so that intermediate nodes accumulate the flow that passes through them.
-    For each origin :math:`o` and reachable destination :math:`d` the allocated flow is
+    For each origin $o$ and reachable destination $d$ the allocated flow is
 
-    .. math::
-        W_{od} = W_o \cdot \frac{W_d \cdot f(c_{od})}{\sum_{d'} W_{d'} \cdot f(c_{od'})}
+    $$W_{od} = W_o \cdot \frac{W_d \cdot f(c_{od})}{\sum_{d'} W_{d'} \cdot f(c_{od'})}$$
 
-    where :math:`f` is ``decay_fn`` and :math:`c_{od}` is the network distance. Each origin's full
+    where $f$ is ``decay_fn`` and $c_{od}$ is the network distance. Each origin's full
     weight is conserved and distributed across reachable destinations (destination totals are not
     constrained — that would require a doubly-constrained / Furness model). The gravity model is the
     classic instance of this form, recovered with an exponential ``decay_fn``.

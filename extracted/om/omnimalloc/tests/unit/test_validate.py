@@ -244,3 +244,42 @@ def test_validate_complex_hierarchy_with_error() -> None:
 
     system = System(id=1, memories=(memory1, memory2))
     assert validate_allocation(system, raise_on_error=False) is False
+
+
+def test_validate_memory_over_capacity_fails() -> None:
+    pool = Pool(
+        id="p", allocations=(Allocation(id=1, size=100, start=0, end=5, offset=0),)
+    )
+    memory = Memory(id="m", size=50, pools=(pool,))
+    with pytest.raises(ValueError, match="exceeds memory size"):
+        validate_allocation(memory)
+
+
+def test_validate_memory_within_capacity_passes() -> None:
+    pool = Pool(
+        id="p", allocations=(Allocation(id=1, size=100, start=0, end=5, offset=0),)
+    )
+    memory = Memory(id="m", size=100, pools=(pool,))
+    assert validate_allocation(memory) is True
+
+
+def test_validate_pool_vector_conflict_at_same_offset() -> None:
+    alloc1 = Allocation(id=1, size=100, start=(0, 5), end=(1, 6), offset=0)
+    alloc2 = Allocation(id=2, size=100, start=(2, 0), end=(3, 1), offset=0)
+    pool = Pool(id=1, allocations=(alloc1, alloc2))
+    assert validate_allocation(pool, raise_on_error=False) is False
+
+
+def test_validate_pool_vector_ordered_at_same_offset() -> None:
+    alloc1 = Allocation(id=1, size=100, start=(0, 0), end=(2, 1), offset=0)
+    alloc2 = Allocation(id=2, size=100, start=(2, 1), end=(3, 2), offset=0)
+    pool = Pool(id=1, allocations=(alloc1, alloc2))
+    assert validate_allocation(pool, raise_on_error=False) is True
+
+
+def test_validate_pool_mixed_dimensions_rejected() -> None:
+    alloc1 = Allocation(id=1, size=100, start=0, end=10, offset=0)
+    alloc2 = Allocation(id=2, size=100, start=(20, 0), end=(30, 1), offset=200)
+    pool = Pool(id=1, allocations=(alloc1, alloc2))
+    with pytest.raises(ValueError, match="share one clock dimension"):
+        validate_allocation(pool)

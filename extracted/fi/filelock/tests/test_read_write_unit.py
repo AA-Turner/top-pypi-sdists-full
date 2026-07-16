@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 import threading
 from typing import TYPE_CHECKING, Literal
 
@@ -9,21 +8,13 @@ import pytest
 pytest.importorskip("sqlite3")
 
 import sqlite3
-
-from conftest import pytest_sessionfinish
+from pathlib import Path
 
 from filelock import Timeout
-from filelock._read_write import (
-    _MAX_SQLITE_TIMEOUT_MS,
-    ReadWriteLock,
-    _all_connections,
-    _cleanup_connections,
-    timeout_for_sqlite,
-)
+from filelock._read_write import _MAX_SQLITE_TIMEOUT_MS, ReadWriteLock, timeout_for_sqlite
 
 if TYPE_CHECKING:
     from collections.abc import Generator
-    from pathlib import Path
 
     from pytest_mock import MockerFixture
 
@@ -112,7 +103,7 @@ def test_init_sets_attributes(lock_file: str) -> None:
     assert lock._lock_level == 0
     assert lock._current_mode is None
     assert lock._write_thread_id is None
-    assert lock._con is not None
+    assert Path(lock_file).is_file()
 
 
 def test_acquire_release_read(lock_file: str) -> None:
@@ -204,8 +195,7 @@ def test_release_force_resets_level(lock_file: str) -> None:
 )
 def test_lock_context_manager(lock_file: str, mode: Literal["read", "write"]) -> None:
     lock = ReadWriteLock(lock_file, is_singleton=False)
-    ctx = lock.read_lock() if mode == "read" else lock.write_lock()
-    with ctx:
+    with lock.read_lock() if mode == "read" else lock.write_lock():
         assert lock._lock_level == 1
         assert lock._current_mode == mode
     assert lock._lock_level == 0
@@ -221,8 +211,7 @@ def test_lock_context_manager(lock_file: str, mode: Literal["read", "write"]) ->
 )
 def test_lock_uses_instance_defaults(lock_file: str, mode: Literal["read", "write"]) -> None:
     lock = ReadWriteLock(lock_file, timeout=3.0, blocking=True, is_singleton=False)
-    ctx = lock.read_lock() if mode == "read" else lock.write_lock()
-    with ctx:
+    with lock.read_lock() if mode == "read" else lock.write_lock():
         assert lock._current_mode == mode
 
 
@@ -245,14 +234,14 @@ def test_close_releases_lock_and_closes_connection(lock_file: str) -> None:
     lock.close()
     assert lock._lock_level == 0
     with pytest.raises(sqlite3.ProgrammingError, match="Cannot operate on a closed database"):
-        lock._con.execute("SELECT 1;")
+        lock.acquire_read()
 
 
 def test_close_on_unheld_lock_closes_connection(lock_file: str) -> None:
     lock = ReadWriteLock(lock_file, is_singleton=False)
     lock.close()
     with pytest.raises(sqlite3.ProgrammingError, match="Cannot operate on a closed database"):
-        lock._con.execute("SELECT 1;")
+        lock.acquire_read()
 
 
 def test_write_lock_reentrant_from_different_thread_prohibited(lock_file: str) -> None:
@@ -284,11 +273,9 @@ def test_write_lock_reentrant_from_different_thread_prohibited(lock_file: str) -
 )
 def test_sequential_mode_switch(lock_file: str, first: str, second: str) -> None:
     lock = ReadWriteLock(lock_file, is_singleton=False)
-    first_ctx = lock.read_lock() if first == "read" else lock.write_lock()
-    second_ctx = lock.read_lock() if second == "read" else lock.write_lock()
-    with first_ctx:
+    with lock.read_lock() if first == "read" else lock.write_lock():
         pass
-    with second_ctx:
+    with lock.read_lock() if second == "read" else lock.write_lock():
         pass
 
 
@@ -386,9 +373,8 @@ def test_non_blocking_transaction_lock_timeout(lock_file: str, mode: Literal["re
     lock = ReadWriteLock(lock_file, is_singleton=False)
     lock._transaction_lock.acquire()
     try:
-        acquire = lock.acquire_read if mode == "read" else lock.acquire_write
         with pytest.raises(Timeout):
-            acquire(blocking=False)
+            (lock.acquire_read if mode == "read" else lock.acquire_write)(blocking=False)
     finally:
         lock._transaction_lock.release()
 
@@ -404,9 +390,8 @@ def test_non_blocking_with_timeout_no_value_error(lock_file: str, mode: Literal[
     lock = ReadWriteLock(lock_file, is_singleton=False)
     lock._transaction_lock.acquire()
     try:
-        acquire = lock.acquire_read if mode == "read" else lock.acquire_write
         with pytest.raises(Timeout):
-            acquire(blocking=False, timeout=5.0)
+            (lock.acquire_read if mode == "read" else lock.acquire_write)(blocking=False, timeout=5.0)
     finally:
         lock._transaction_lock.release()
 
@@ -422,9 +407,8 @@ def test_finite_timeout_transaction_lock(lock_file: str, mode: Literal["read", "
     lock = ReadWriteLock(lock_file, is_singleton=False)
     lock._transaction_lock.acquire()
     try:
-        acquire = lock.acquire_read if mode == "read" else lock.acquire_write
         with pytest.raises(Timeout):
-            acquire(timeout=0.1)
+            (lock.acquire_read if mode == "read" else lock.acquire_write)(timeout=0.1)
     finally:
         lock._transaction_lock.release()
 
@@ -447,7 +431,7 @@ def test_double_check_read_reentrance(lock_file: str, mocker: MockerFixture) -> 
     assert proxy is not None
     lock._lock_level = 0
     lock._current_mode = None
-    lock._con.rollback()
+    lock.release(force=True)
 
 
 def test_double_check_write_reentrance(lock_file: str, mocker: MockerFixture) -> None:
@@ -470,7 +454,7 @@ def test_double_check_write_reentrance(lock_file: str, mocker: MockerFixture) ->
     lock._lock_level = 0
     lock._current_mode = None
     lock._write_thread_id = None
-    lock._con.rollback()
+    lock.release(force=True)
 
 
 @pytest.mark.parametrize(
@@ -499,41 +483,10 @@ def test_double_check_wrong_mode_raises(
     mock_lock.acquire = fake_acquire
     mock_lock.release = real_lock.release
     lock._transaction_lock = mock_lock
-    acquire = lock.acquire_read if acquire_mode == "read" else lock.acquire_write
     with pytest.raises(RuntimeError, match=match):
-        acquire()
+        (lock.acquire_read if acquire_mode == "read" else lock.acquire_write)()
     lock._lock_level = 0
     lock._current_mode = None
-
-
-@pytest.mark.parametrize(
-    ("error_msg", "expected_exception"),
-    [
-        pytest.param("disk I/O error", sqlite3.OperationalError, id="non-locked-reraised"),
-        pytest.param("database is locked", Timeout, id="locked-becomes-timeout"),
-    ],
-)
-@pytest.mark.parametrize(
-    "mode",
-    [
-        pytest.param("read", id="read"),
-        pytest.param("write", id="write"),
-    ],
-)
-def test_operational_error_handling(
-    lock_file: str,
-    mocker: MockerFixture,
-    error_msg: str,
-    expected_exception: type[Exception],
-    mode: Literal["read", "write"],
-) -> None:
-    lock = ReadWriteLock(lock_file, is_singleton=False)
-    con_mock = mocker.MagicMock()
-    con_mock.execute.side_effect = sqlite3.OperationalError(error_msg)
-    lock._con = con_mock
-    acquire = lock.acquire_read if mode == "read" else lock.acquire_write
-    with pytest.raises(expected_exception):
-        acquire()
 
 
 def test_write_lock_context_manager_overrides_defaults(lock_file: str) -> None:
@@ -552,163 +505,19 @@ def test_write_lock_context_manager_overrides_defaults(lock_file: str) -> None:
 def test_busy_timeout_recomputed_after_journal_mode(
     lock_file: str, mocker: MockerFixture, mode: Literal["read", "write"]
 ) -> None:
-    counter = iter([0.0, 0.0, 0.5])
+    counter = iter([0.0, 0.0, 0.0, 0.5])
     mocker.patch("filelock._read_write.time.perf_counter", side_effect=counter)
     lock = ReadWriteLock(lock_file, is_singleton=False)
-    acquire = lock.acquire_read if mode == "read" else lock.acquire_write
-    acquire(timeout=2.0)
+    (lock.acquire_read if mode == "read" else lock.acquire_write)(timeout=2.0)
     lock.release()
 
 
-def test_connection_tracked_in_all_connections(lock_file: str) -> None:
+def test_acquire_converts_connect_lock_error_to_timeout(lock_file: str, mocker: MockerFixture) -> None:
     lock = ReadWriteLock(lock_file, is_singleton=False)
-    assert lock._con in _all_connections
-    lock.close()
+    mocker.patch(
+        "filelock._read_write._connect",
+        side_effect=sqlite3.OperationalError("database is locked"),
+    )
 
-
-def test_cleanup_connections_closes_all(tmp_path: Path) -> None:
-    lock1 = ReadWriteLock(str(tmp_path / "a.db"), is_singleton=False)
-    lock2 = ReadWriteLock(str(tmp_path / "b.db"), is_singleton=False)
-    con1, con2 = lock1._con, lock2._con
-    _cleanup_connections()
-    with pytest.raises(sqlite3.ProgrammingError, match="Cannot operate on a closed database"):
-        con1.execute("SELECT 1;")
-    with pytest.raises(sqlite3.ProgrammingError, match="Cannot operate on a closed database"):
-        con2.execute("SELECT 1;")
-
-
-def test_release_rollback_serialised_against_concurrent_acquire(lock_file: str) -> None:
-    # release() rolls back the transaction on the shared connection; a concurrent acquire on another thread
-    # must not be able to BEGIN while that rollback is still in flight. Park the rollback with the lock level
-    # already back at 0 and confirm the racing acquire waits for it instead of erroring with "cannot start a
-    # transaction within a transaction".
-    lock = ReadWriteLock(lock_file, is_singleton=False)
-    lock.acquire_read()
-
-    started = threading.Event()
-    proceed = threading.Event()
-    real_con = lock._con
-
-    class _SlowRollbackCon:
-        def rollback(self) -> None:  # noqa: PLR6301
-            started.set()
-            proceed.wait(timeout=5)
-            real_con.rollback()
-
-        def __getattr__(self, name: str) -> object:
-            return getattr(real_con, name)
-
-    lock._con = _SlowRollbackCon()  # ty: ignore[invalid-assignment]
-    threading.Thread(target=lock.release, daemon=True).start()
-    assert started.wait(timeout=5)
-
-    result: dict[str, object] = {}
-
-    def acquirer() -> None:
-        try:
-            lock.acquire_read()
-            result["ok"] = True
-        except BaseException as exc:
-            result["exc"] = exc
-
-    thread = threading.Thread(target=acquirer, daemon=True)
-    thread.start()
-    thread.join(timeout=1)
-    assert thread.is_alive()  # blocked on _transaction_lock, not racing the rollback
-
-    proceed.set()
-    thread.join(timeout=5)
-    lock._con = real_con
-    assert result.get("ok") is True
-    assert "exc" not in result
-    lock.release()
-
-
-def test_read_acquire_rolls_back_begin_when_select_loses_lock_race(lock_file: str) -> None:
-    # A read acquire runs BEGIN (a deferred transaction that takes no lock) and only then the SELECT that takes
-    # the SHARED lock. If a writer grabs EXCLUSIVE between the two, the SELECT fails but BEGIN's transaction is
-    # left open on the shared connection; without a rollback the next acquire's BEGIN dies with "cannot start a
-    # transaction within a transaction" and the instance is wedged. Force that interleaving and confirm the
-    # connection is rolled back and the instance still works.
-    reader = ReadWriteLock(lock_file, is_singleton=False)
-    writer = ReadWriteLock(lock_file, is_singleton=False)
-    real_con = reader._con
-
-    class _RaceCon:
-        def execute(self, sql: str) -> object:  # noqa: PLR6301
-            if sql.lstrip().upper().startswith("SELECT") and not writer._con.in_transaction:
-                writer.acquire_write()  # writer slips in between the reader's BEGIN and SELECT
-            return real_con.execute(sql)
-
-        def __getattr__(self, name: str) -> object:
-            return getattr(real_con, name)
-
-    reader._con = _RaceCon()  # ty: ignore[invalid-assignment]
     with pytest.raises(Timeout):
-        reader.acquire_read(timeout=0.3)
-    reader._con = real_con
-    assert real_con.in_transaction is False
-
-    writer.release()
-    with reader.read_lock(timeout=1):
-        assert reader._current_mode == "read"
-    reader.close()
-    writer.close()
-
-
-def test_failed_reentrant_double_check_keeps_a_concurrent_holders_lock(lock_file: str) -> None:
-    # The acquire-failure handler must not roll back on a reentrant-validation RuntimeError: a writer that reaches
-    # _do_acquire_inner's double-check after a reader took the lock would otherwise roll back the reader's still-open
-    # transaction on the shared connection, dropping a lock the reader believes it holds. Force that interleaving.
-    lock = ReadWriteLock(lock_file, is_singleton=False)
-    writer_at_gate = threading.Event()
-    reader_acquired = threading.Event()
-    real_acquire_tx = lock._acquire_transaction_lock
-    writer_tid: dict[str, int] = {}
-    errors: dict[str, RuntimeError] = {}
-
-    def gated(*, blocking: bool, timeout: float) -> None:
-        if threading.get_ident() == writer_tid.get("id"):  # writer has passed its early check at lock_level == 0
-            writer_at_gate.set()
-            reader_acquired.wait(5)  # let the reader fully acquire (and open its transaction) first
-        real_acquire_tx(blocking=blocking, timeout=timeout)
-
-    def acquire_write_in_thread() -> None:
-        writer_tid["id"] = threading.get_ident()
-        try:
-            lock.acquire_write(timeout=5)
-        except RuntimeError as exc:
-            errors["writer"] = exc
-
-    lock._acquire_transaction_lock = gated  # ty: ignore[invalid-assignment]
-    thread = threading.Thread(target=acquire_write_in_thread)
-    thread.start()
-    assert writer_at_gate.wait(5)
-    lock.acquire_read(timeout=5)  # reader opens the SHARED transaction on the shared connection
-    reader_acquired.set()
-    thread.join(5)
-
-    assert "writer" in errors  # the upgrade was rejected with RuntimeError, as expected
-    assert lock._con.in_transaction is True  # the reader's transaction survived the writer's failure
-    assert lock._lock_level == 1
-    assert lock._current_mode == "read"
-    lock.release()
-    lock.close()
-
-
-def test_pytest_session_finish_calls_cleanup(mocker: MockerFixture) -> None:
-    mock = mocker.patch("conftest._cleanup_connections")
-    pytest_sessionfinish()
-    mock.assert_called_once_with()
-
-
-def test_pytest_session_finish_calls_cleanup_pypy(mocker: MockerFixture) -> None:
-    mocker.patch.object(sys, "pypy_version_info", (7, 3, 0), create=True)
-    mock = mocker.patch("conftest._cleanup_connections")
-    pytest_sessionfinish()
-    mock.assert_called_once_with()
-
-
-def test_pytest_session_finish_no_sqlite(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("conftest._cleanup_connections", None)
-    pytest_sessionfinish()  # must not raise, just skips cleanup
+        lock.acquire_read(timeout=0.1)

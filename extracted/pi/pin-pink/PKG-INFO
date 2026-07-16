@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pin-pink
-Version: 4.2.0
+Version: 4.3.0
 Summary: Inverse kinematics for articulated robot models, based on Pinocchio.
 Keywords: inverse,kinematics,pinocchio
 Author-email: Stéphane Caron <stephane.caron@normalesup.org>
@@ -15,12 +15,15 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 License-File: LICENSE
 Requires-Dist: loop-rate-limiters >=0.1.0
 Requires-Dist: numpy >=1.19.0
 Requires-Dist: pin >=2.6.3
 Requires-Dist: qpsolvers >=4.3.1
+Requires-Dist: typing-extensions
 Project-URL: Changelog, https://github.com/stephane-caron/pink/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://stephane-caron.github.io/pink/
 Project-URL: Homepage, https://stephane-caron.github.io/pink/
@@ -218,7 +221,7 @@ If you use Pink in your scientific works, please cite it *e.g.* as follows:
   author = {Caron, Stéphane and De Mont-Marin, Yann and Budhiraja, Rohan and Bang, Seung Hyeon and Domrachev, Ivan and Nedelchev, Simeon and Du, Peter and Escande, Adrien and Vaillant, Joris and Wingo, Bruce and Patapati, Santosh and San José Pro, Daniel and Marticorena Vidal, Nicolas Guillermo},
   license = {Apache-2.0},
   url = {https://github.com/stephane-caron/pink},
-  version = {4.2.0},
+  version = {4.3.0},
   year = {2026}
 }
 ```

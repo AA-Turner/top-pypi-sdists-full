@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyexasol
-Version: 2.2.2
+Version: 2.2.3
 Summary: Exasol python driver with extra features
 License-Expression: MIT
 License-File: LICENSE.txt

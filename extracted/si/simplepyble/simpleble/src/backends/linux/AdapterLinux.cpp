@@ -12,9 +12,20 @@ using namespace SimpleBLE;
 
 bool AdapterLinux::bluetooth_enabled() { return adapter_->powered(); }
 
-AdapterLinux::AdapterLinux(std::shared_ptr<SimpleBluez::Adapter> adapter) : adapter_(adapter) {}
+AdapterLinux::AdapterLinux(std::shared_ptr<SimpleBluez::Adapter> adapter) : adapter_(adapter) {
+    adapter_->set_on_powered_changed([this](bool powered) {
+        if (powered) {
+            SAFE_CALLBACK_CALL(this->_callback_on_power_on);
+        } else {
+            SAFE_CALLBACK_CALL(this->_callback_on_power_off);
+        }
+    });
+}
 
-AdapterLinux::~AdapterLinux() { adapter_->clear_on_device_updated(); }
+AdapterLinux::~AdapterLinux() {
+    adapter_->clear_on_device_updated();
+    adapter_->clear_on_powered_changed();
+}
 
 void* AdapterLinux::underlying() const { return adapter_.get(); }
 
@@ -29,29 +40,44 @@ void AdapterLinux::power_off() { adapter_->powered(false); }
 bool AdapterLinux::is_powered() { return adapter_->powered(); }
 
 void AdapterLinux::scan_start() {
-    seen_peripherals_.clear();
+    {
+        std::scoped_lock lock(peripherals_mutex_);
+        seen_peripherals_.clear();
+    }
 
     adapter_->set_on_device_updated([this](std::shared_ptr<SimpleBluez::Device> device) {
         if (!this->is_scanning_) {
             return;
         }
 
-        if (this->peripherals_.count(device->address()) == 0) {
-            // If the incoming peripheral has never been seen before, create and save a reference to it.
-            auto base_peripheral = std::make_shared<PeripheralLinux>(device, this->adapter_);
-            this->peripherals_.insert(std::make_pair(device->address(), base_peripheral));
+        auto address = device->address();
+        std::shared_ptr<PeripheralLinux> peripheral;
+        bool is_new_peripheral = false;
+
+        {
+            std::scoped_lock lock(this->peripherals_mutex_);
+            if (this->peripherals_.count(address) == 0) {
+                // If the incoming peripheral has never been seen before, create and save a reference to it.
+                auto base_peripheral = std::make_shared<PeripheralLinux>(device, this->adapter_);
+                this->peripherals_.insert(std::make_pair(address, base_peripheral));
+            }
+
+            // Update the received advertising data.
+            peripheral = this->peripherals_.at(address);
+
+            // Check if the device has been seen before, to forward the correct call to the user.
+            is_new_peripheral = this->seen_peripherals_.count(address) == 0;
+            if (is_new_peripheral) {
+                // Store it in our table of seen peripherals
+                this->seen_peripherals_.insert(std::make_pair(address, peripheral));
+            }
         }
 
-        // Update the received advertising data.
-        auto peripheral = this->peripherals_.at(device->address());
-
-        // Check if the device has been seen before, to forward the correct call to the user.
-        if (this->seen_peripherals_.count(device->address()) == 0) {
-            // Store it in our table of seen peripherals
-            this->seen_peripherals_.insert(std::make_pair(device->address(), peripheral));
-            SAFE_CALLBACK_CALL(this->_callback_on_scan_found, Factory::build(peripheral));
+        Peripheral public_peripheral = Factory::build(peripheral);
+        if (is_new_peripheral) {
+            SAFE_CALLBACK_CALL(this->_callback_on_scan_found, public_peripheral);
         } else {
-            SAFE_CALLBACK_CALL(this->_callback_on_scan_updated, Factory::build(peripheral));
+            SAFE_CALLBACK_CALL(this->_callback_on_scan_updated, public_peripheral);
         }
     });
 
@@ -82,14 +108,28 @@ void AdapterLinux::scan_for(int timeout_ms) {
 
 bool AdapterLinux::scan_is_active() { return is_scanning_ && adapter_->discovering(); }
 
-SharedPtrVector<PeripheralBase> AdapterLinux::scan_get_results() { return Util::values(seen_peripherals_); }
+SharedPtrVector<PeripheralBase> AdapterLinux::scan_get_results() {
+    std::scoped_lock lock(peripherals_mutex_);
+    return Util::values(seen_peripherals_);
+}
 
 SharedPtrVector<PeripheralBase> AdapterLinux::get_paired_peripherals() {
     SharedPtrVector<PeripheralBase> peripherals;
 
     auto paired_list = adapter_->device_paired_get();
     for (auto& device : paired_list) {
-        peripherals.push_back(std::make_shared<PeripheralLinux>(device, this->adapter_));
+        auto address = device->address();
+
+        // Reuse the cached wrapper for this device if one exists, as creating a
+        // second wrapper around the same device would clear the existing wrapper's
+        // callbacks once it gets destroyed.
+        std::scoped_lock lock(peripherals_mutex_);
+        if (peripherals_.count(address) == 0) {
+            auto base_peripheral = std::make_shared<PeripheralLinux>(device, this->adapter_);
+            peripherals_.insert(std::make_pair(address, base_peripheral));
+        }
+
+        peripherals.push_back(peripherals_.at(address));
     }
 
     return peripherals;

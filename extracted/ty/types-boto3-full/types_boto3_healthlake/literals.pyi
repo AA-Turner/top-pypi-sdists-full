@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_healthlake.literals import AnalyticsStatusType
+    from types_boto3_healthlake.literals import AgentInputMessageTypeType
 
-    data: AnalyticsStatusType = "DISABLED"
+    data: AgentInputMessageTypeType = "confirmation_response"
     ```
 """
 
@@ -22,9 +22,12 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AgentInputMessageTypeType",
+    "AgentOutputMessageTypeType",
     "AnalyticsStatusType",
     "AuthorizationStrategyType",
     "CmkTypeType",
+    "DataTransformationJobCompletedWaiterName",
     "DatastoreStatusType",
     "ErrorCategoryType",
     "FHIRDatastoreActiveWaiterName",
@@ -34,18 +37,30 @@ __all__ = (
     "FHIRVersionType",
     "HealthLakeServiceName",
     "JobStatusType",
+    "ListDataTransformationJobsPaginatorName",
+    "ListDataTransformationProfileVersionsPaginatorName",
+    "ListDataTransformationProfilesPaginatorName",
     "NlpStatusType",
+    "PaginatorName",
     "PreloadDataTypeType",
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
+    "SourceFormatType",
+    "TargetFormatType",
+    "TransformationJobStatusType",
     "ValidationLevelType",
     "WaiterName",
 )
 
+AgentInputMessageTypeType = Literal["confirmation_response", "normal"]
+AgentOutputMessageTypeType = Literal[
+    "INITIAL_GREETING", "choices", "complete", "confirmation", "error", "normal", "options"
+]
 AnalyticsStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "PAUSED", "PAUSING"]
 AuthorizationStrategyType = Literal["AWS_AUTH", "SMART_ON_FHIR", "SMART_ON_FHIR_V1"]
 CmkTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS_KEY"]
+DataTransformationJobCompletedWaiterName = Literal["data_transformation_job_completed"]
 DatastoreStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
@@ -67,8 +82,18 @@ JobStatusType = Literal[
     "QUEUED",
     "SUBMITTED",
 ]
+ListDataTransformationJobsPaginatorName = Literal["list_data_transformation_jobs"]
+ListDataTransformationProfileVersionsPaginatorName = Literal[
+    "list_data_transformation_profile_versions"
+]
+ListDataTransformationProfilesPaginatorName = Literal["list_data_transformation_profiles"]
 NlpStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING"]
 PreloadDataTypeType = Literal["SYNTHEA"]
+SourceFormatType = Literal["CCDA", "CSV"]
+TargetFormatType = Literal["FHIR_R4"]
+TransformationJobStatusType = Literal[
+    "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "IN_PROGRESS", "QUEUED", "SUBMITTED"
+]
 ValidationLevelType = Literal["minimal", "strict", "structure-only"]
 HealthLakeServiceName = Literal["healthlake"]
 ServiceName = Literal[
@@ -501,7 +526,13 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
+PaginatorName = Literal[
+    "list_data_transformation_jobs",
+    "list_data_transformation_profile_versions",
+    "list_data_transformation_profiles",
+]
 WaiterName = Literal[
+    "data_transformation_job_completed",
     "fhir_datastore_active",
     "fhir_datastore_deleted",
     "fhir_export_job_completed",

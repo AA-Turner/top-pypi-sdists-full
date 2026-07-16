@@ -12,10 +12,13 @@ OperatingSystem get_operating_system() {
     return OperatingSystem::MACOS;
 #elif TARGET_OS_IOS
     return OperatingSystem::IOS;
+#elif __ANDROID__
+#ifdef ANDROID
+#undef ANDROID
+#endif
+    return OperatingSystem::ANDROID;
 #elif __linux__
     return OperatingSystem::LINUX;
-#elif __ANDROID__
-    return OperatingSystem::ANDROID;
 #endif
 }
 

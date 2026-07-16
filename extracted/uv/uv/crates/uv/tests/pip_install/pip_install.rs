@@ -876,8 +876,8 @@ fn no_solution() {
 
     ----- stderr -----
       × No solution found when resolving dependencies:
-      ╰─▶ Because only flask<=3.0.2 is available and flask==3.0.2 depends on werkzeug>=3.0.0, we can conclude that flask>=3.0.2 depends on werkzeug>=3.0.0.
-          And because you require flask>=3.0.2 and werkzeug<1.0.0, we can conclude that your requirements are unsatisfiable.
+      ╰─▶ Because flask>=3.0.2 depends on werkzeug>=3.0.0 and you require flask>=3.0.2, we can conclude that you require werkzeug>=3.0.0.
+          And because you require werkzeug<1.0.0, we can conclude that your requirements are unsatisfiable.
     ");
 }
 
@@ -1213,7 +1213,7 @@ werkzeug==3.0.1
 
     ----- stderr -----
       × No solution found when resolving dependencies:
-      ╰─▶ Because flask==3.0.2 depends on click>=8.1.3 and you require click==7.0.0, we can conclude that your requirements and flask==3.0.2 are incompatible.
+      ╰─▶ Because flask>=3.0.2 depends on click>=8.1.3 and you require click==7.0.0, we can conclude that your requirements and flask>=3.0.2 are incompatible.
           And because you require flask==3.0.2, we can conclude that your requirements are unsatisfiable.
     "
     );
@@ -1754,6 +1754,21 @@ fn allow_incompatibilities() -> Result<()> {
 
     // This no longer works, since we have an incompatible version of Jinja2.
     context.assert_command("import flask").failure();
+
+    // Repeating the satisfied installation must still surface diagnostics in strict mode.
+    uv_snapshot!(context.pip_install()
+        .arg("-r")
+        .arg("requirements.txt")
+        .arg("--strict"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Checked 1 package in [TIME]
+    warning: The package `flask` requires `jinja2>=3.1.2`, but `2.11.3` is installed
+    "
+    );
 
     Ok(())
 }
@@ -3275,12 +3290,7 @@ fn install_git_private_https_pat_not_authorized() {
     // A revoked token
     let token = "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";
 
-    // TODO(john): We need this filter because we are displaying the token when
-    // an underlying process error message is being displayed. We should actually
-    // mask it.
-    let context = context
-        .with_filter((token, "***"))
-        .with_filter(("`.*/git fetch (.*)`", "`git fetch $1`"));
+    let context = context.with_filter(("`.*/git fetch (.*)`", "`git fetch $1`"));
 
     // We provide a username otherwise (since the token is invalid), the git cli will prompt for a password
     // and hang the test
@@ -3295,7 +3305,7 @@ fn install_git_private_https_pat_not_authorized() {
       × Failed to download and build `uv-private-pypackage @ git+https://git:****@github.com/astral-test/uv-private-pypackage`
       ├─▶ Git operation failed
       ├─▶ failed to clone into: [CACHE_DIR]/git-v0/db/8401f5508e3e612d
-      ╰─▶ process didn't exit successfully: `git fetch --force --update-head-ok 'https://git:***@github.com/astral-test/uv-private-pypackage' '+HEAD:refs/remotes/origin/HEAD'` (exit status: 128)
+      ╰─▶ process didn't exit successfully: `git fetch --force --update-head-ok 'https://git:****@github.com/astral-test/uv-private-pypackage' '+HEAD:refs/remotes/origin/HEAD'` (exit status: 128)
           --- stderr
           remote: Invalid username or token. Password authentication is not supported for Git operations.
           fatal: Authentication failed for 'https://github.com/astral-test/uv-private-pypackage/'
@@ -3403,10 +3413,15 @@ fn install_git_private_https_interactive() {
 #[test]
 fn reinstall_no_binary() {
     let context = uv_test::test_context!("3.12");
+    let server = PackseServer::new("simple/single-package.toml");
 
     // The first installation should use a pre-built wheel
     let mut command = context.pip_install();
-    command.arg("anyio").arg("--strict");
+    command
+        .arg("a")
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("--strict");
     uv_snapshot!(
         command,
         @"
@@ -3415,24 +3430,24 @@ fn reinstall_no_binary() {
     ----- stdout -----
 
     ----- stderr -----
-    Resolved 3 packages in [TIME]
-    Prepared 3 packages in [TIME]
-    Installed 3 packages in [TIME]
-     + anyio==4.3.0
-     + idna==3.6
-     + sniffio==1.3.1
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + a==2.0.0
     "
     );
 
-    context.assert_command("import anyio").success();
+    context.assert_command("import a").success();
 
     // Running installation again with `--no-binary` should be a no-op
     // The first installation should use a pre-built wheel
     let mut command = context.pip_install();
     command
-        .arg("anyio")
+        .arg("a")
+        .arg("--index-url")
+        .arg(server.index_url())
         .arg("--no-binary")
-        .arg(":all:")
+        .arg("a")
         .arg("--strict");
     uv_snapshot!(command, @"
     success: true
@@ -3444,17 +3459,19 @@ fn reinstall_no_binary() {
     "
     );
 
-    context.assert_command("import anyio").success();
+    context.assert_command("import a").success();
 
     // With `--reinstall`, `--no-binary` should have an affect
     let context = context.with_filtered_counts();
     let mut command = context.pip_install();
     command
-        .arg("anyio")
+        .arg("a")
+        .arg("--index-url")
+        .arg(server.index_url())
         .arg("--no-binary")
-        .arg(":all:")
+        .arg("a")
         .arg("--reinstall-package")
-        .arg("anyio")
+        .arg("a")
         .arg("--strict");
     uv_snapshot!(context.filters(), command, @"
     success: true
@@ -3466,11 +3483,11 @@ fn reinstall_no_binary() {
     Prepared [N] packages in [TIME]
     Uninstalled [N] packages in [TIME]
     Installed [N] packages in [TIME]
-     ~ anyio==4.3.0
+     ~ a==2.0.0
     "
     );
 
-    context.assert_command("import anyio").success();
+    context.assert_command("import a").success();
 }
 
 /// Overlapping usage of `--no-binary` and `--only-binary`
@@ -3619,15 +3636,18 @@ fn install_no_binary_env() {
 #[test]
 fn install_only_binary_overrides_no_binary_all() {
     let context = uv_test::test_context!("3.12");
+    let server = PackseServer::new("simple/single-package.toml");
 
     // The specific `--only-binary` should override the less specific `--no-binary`
     let mut command = context.pip_install();
     command
-        .arg("anyio")
+        .arg("a")
+        .arg("--index-url")
+        .arg(server.index_url())
         .arg("--no-binary")
         .arg(":all:")
         .arg("--only-binary")
-        .arg("idna")
+        .arg("a")
         .arg("--strict");
     uv_snapshot!(
         command,
@@ -3637,16 +3657,14 @@ fn install_only_binary_overrides_no_binary_all() {
     ----- stdout -----
 
     ----- stderr -----
-    Resolved 3 packages in [TIME]
-    Prepared 3 packages in [TIME]
-    Installed 3 packages in [TIME]
-     + anyio==4.3.0
-     + idna==3.6
-     + sniffio==1.3.1
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + a==2.0.0
     "
     );
 
-    context.assert_command("import anyio").success();
+    context.assert_command("import a").success();
 }
 
 /// Accept comma-separated values for `--only-binary` (pip compatibility)
@@ -4798,8 +4816,8 @@ fn build_prerelease_hint() -> Result<()> {
       × Failed to build `project @ file://[TEMP_DIR]/`
       ├─▶ Failed to resolve requirements from `build-system.requires`
       ├─▶ No solution found when resolving: `a`
-      ╰─▶ Because only b<=0.1 is available and a==0.1.0 depends on b>0.1, we can conclude that a==0.1.0 cannot be used.
-          And because only a==0.1.0 is available and you require a, we can conclude that your requirements are unsatisfiable.
+      ╰─▶ Because only b<=0.1 is available and all versions of a depend on b>0.1, we can conclude that all versions of a cannot be used.
+          And because you require a, we can conclude that your requirements are unsatisfiable.
 
     hint: Only pre-releases of `b` (e.g., 1.0.0a1) match these build requirements, and build environments can't enable pre-releases automatically. Add `b>=1.0.0a1` to `build-system.requires`, `[tool.uv.extra-build-dependencies]`, or supply it via `uv build --build-constraint`.
     "
@@ -8270,26 +8288,19 @@ fn require_hashes() -> Result<()> {
 /// Use `--require-hashes` when there are no hashes for build dependencies.
 #[test]
 fn require_hashes_build_dependencies() -> Result<()> {
+    let server = PackseServer::new("simple/single-package.toml");
     let context = uv_test::test_context!("3.12");
 
     // Write to a requirements file.
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt.write_str(indoc::indoc! {r"
-        anyio==4.0.0 \
-            --hash=sha256:cfdb2b588b9fc25ede96d8db56ed50848b0b649dca3dd1df0b11f683bb9e0b5f \
-            --hash=sha256:f7ed51751b2c2add651e5747c891b47e26d2a21be5d32d9311dfe9692f3e5d7a
-        idna==3.6 \
-            --hash=sha256:9ecdbbd083b06798ae1e86adcbfe8ab1479cf864e4ee30fe4e46a003d12491ca \
-            --hash=sha256:c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f
-            # via anyio
-        sniffio==1.3.1 \
-            --hash=sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2 \
-            --hash=sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc
-            # via anyio
+        a==1.0.0 \
+            --hash=sha256:3d2b4c28a4e112f3a1cef1db4dc5efa33fcbbcc38bc11ccc80321097db86c097
     "})?;
 
     uv_snapshot!(context.pip_install()
-        .arg("--no-binary").arg(":all:")
+        .arg("--index-url").arg(server.index_url())
+        .arg("--no-binary").arg("a")
         .arg("-r")
         .arg("requirements.txt")
         .arg("--require-hashes"), @"
@@ -8298,12 +8309,10 @@ fn require_hashes_build_dependencies() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-    Resolved 3 packages in [TIME]
-    Prepared 3 packages in [TIME]
-    Installed 3 packages in [TIME]
-     + anyio==4.0.0
-     + idna==3.6
-     + sniffio==1.3.1
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + a==1.0.0
     "
     );
 
@@ -11404,7 +11413,7 @@ fn direct_url_json_direct_url() -> Result<()> {
 #[test]
 fn dependency_group() -> Result<()> {
     // testing basic `uv pip install --group` functionality
-    fn new_context() -> Result<TestContext> {
+    fn new_context(server: &PackseServer) -> Result<TestContext> {
         let context = uv_test::test_context!("3.12");
 
         let pyproject_toml = context.temp_dir.child("pyproject.toml");
@@ -11422,15 +11431,27 @@ fn dependency_group() -> Result<()> {
             "#,
         )?;
 
-        context.lock().assert().success();
+        context
+            .lock()
+            .arg("--index-url")
+            .arg(server.index_url())
+            .assert()
+            .success();
         Ok(context)
     }
 
+    fn command(context: &TestContext, server: &PackseServer) -> Command {
+        let mut command = context.pip_install();
+        command.arg("--index-url").arg(server.index_url());
+        command
+    }
+
+    let server = PackseServer::new("simple/dependency-groups.toml");
     let mut context;
 
     // 'bar' using path sugar
-    context = new_context()?;
-    uv_snapshot!(context.filters(), context.pip_install()
+    context = new_context(&server)?;
+    uv_snapshot!(context.filters(), command(&context, &server)
         .arg("--group").arg("bar"), @"
     success: true
     exit_code: 0
@@ -11445,8 +11466,8 @@ fn dependency_group() -> Result<()> {
 
     // 'bar' using path sugar
     // and also pulling in the same pyproject.toml with -r
-    context = new_context()?;
-    uv_snapshot!(context.filters(), context.pip_install()
+    context = new_context(&server)?;
+    uv_snapshot!(context.filters(), command(&context, &server)
         .arg("-r").arg("pyproject.toml")
         .arg("--group").arg("bar"), @"
     success: true
@@ -11462,8 +11483,8 @@ fn dependency_group() -> Result<()> {
     ");
 
     // 'bar' with an explicit path
-    context = new_context()?;
-    uv_snapshot!(context.filters(), context.pip_install()
+    context = new_context(&server)?;
+    uv_snapshot!(context.filters(), command(&context, &server)
         .arg("--group").arg("pyproject.toml:bar"), @"
     success: true
     exit_code: 0
@@ -11478,8 +11499,8 @@ fn dependency_group() -> Result<()> {
 
     // 'bar' using explicit path
     // and also pulling in the same pyproject.toml with -r
-    context = new_context()?;
-    uv_snapshot!(context.filters(), context.pip_install()
+    context = new_context(&server)?;
+    uv_snapshot!(context.filters(), command(&context, &server)
         .arg("-r").arg("pyproject.toml")
         .arg("--group").arg("pyproject.toml:bar"), @"
     success: true
@@ -11495,8 +11516,8 @@ fn dependency_group() -> Result<()> {
     ");
 
     // 'bar' using path sugar
-    context = new_context()?;
-    uv_snapshot!(context.filters(), context.pip_install()
+    context = new_context(&server)?;
+    uv_snapshot!(context.filters(), command(&context, &server)
         .arg("--group").arg("foo"), @"
     success: true
     exit_code: 0
@@ -11511,8 +11532,8 @@ fn dependency_group() -> Result<()> {
 
     // 'foo' using path sugar
     // 'bar' using path sugar
-    context = new_context()?;
-    uv_snapshot!(context.filters(), context.pip_install()
+    context = new_context(&server)?;
+    uv_snapshot!(context.filters(), command(&context, &server)
         .arg("--group").arg("foo")
         .arg("--group").arg("bar"), @"
     success: true
@@ -11528,8 +11549,8 @@ fn dependency_group() -> Result<()> {
     ");
 
     // all together now!
-    context = new_context()?;
-    uv_snapshot!(context.filters(), context.pip_install()
+    context = new_context(&server)?;
+    uv_snapshot!(context.filters(), command(&context, &server)
         .arg("-r").arg("pyproject.toml")
         .arg("--group").arg("foo")
         .arg("--group").arg("bar"), @"
@@ -13057,6 +13078,70 @@ fn pep_751_install_registry_sdist() -> Result<()> {
 }
 
 #[test]
+fn pep_751_install_invalid_artifact_urls() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pylock_toml = context.temp_dir.child("pylock.toml");
+    pylock_toml.write_str(
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+        requires-python = ">=3.12"
+
+        [[packages]]
+        name = "foo"
+        version = "1.0.0"
+        wheels = [{ name = "foo-1.0.0-py3-none-any.whl", url = "data:application/octet-stream,ignored", hashes = { sha256 = "0000000000000000000000000000000000000000000000000000000000000000" } }]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("--offline")
+        .arg("--dry-run")
+        .arg("-r")
+        .arg("pylock.toml"), @"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Invalid artifact URL: `data:application/octet-stream,ignored`
+    "
+    );
+
+    pylock_toml.write_str(
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+        requires-python = ">=3.12"
+
+        [[packages]]
+        name = "foo"
+        version = "1.0.0"
+        sdist = { name = "foo-1.0.0.tar.gz", url = "data:application/octet-stream,ignored", hashes = { sha256 = "0000000000000000000000000000000000000000000000000000000000000000" } }
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("--offline")
+        .arg("--dry-run")
+        .arg("-r")
+        .arg("pylock.toml"), @"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Invalid artifact URL: `data:application/octet-stream,ignored`
+    "
+    );
+
+    Ok(())
+}
+
+#[test]
 fn pep_751_install_directory() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 
@@ -13303,27 +13388,33 @@ fn pep_751_install_url_wheel() -> Result<()> {
 
 #[test]
 fn pep_751_install_url_sdist() -> Result<()> {
+    let server = PackseServer::new("simple/single-package.toml");
     let context = uv_test::test_context!("3.12");
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
-    pyproject_toml.write_str(
+    pyproject_toml.write_str(&formatdoc! {
         r#"
         [project]
         name = "project"
         version = "0.1.0"
         requires-python = ">=3.12"
-        dependencies = ["anyio @ https://files.pythonhosted.org/packages/db/4d/3970183622f0330d3c23d9b8a5f52e365e50381fd484d08e3285104333d3/anyio-4.3.0.tar.gz"]
+        dependencies = ["a @ {sdist_url}"]
         "#,
-    )?;
+        sdist_url = server.file_url("a-1.0.0.tar.gz"),
+    })?;
 
     context
         .export()
+        .arg("--index-url")
+        .arg(server.index_url())
         .arg("-o")
         .arg("pylock.toml")
         .assert()
         .success();
 
     uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--index-url")
+        .arg(server.index_url())
         .arg("--preview")
         .arg("-r")
         .arg("pylock.toml"), @"
@@ -13332,15 +13423,15 @@ fn pep_751_install_url_sdist() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-    Prepared 3 packages in [TIME]
-    Installed 3 packages in [TIME]
-     + anyio==4.3.0 (from https://files.pythonhosted.org/packages/db/4d/3970183622f0330d3c23d9b8a5f52e365e50381fd484d08e3285104333d3/anyio-4.3.0.tar.gz)
-     + idna==3.6
-     + sniffio==1.3.1
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + a==1.0.0 (from http://[LOCALHOST]/files/a-1.0.0.tar.gz)
     "
     );
 
     uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--index-url")
+        .arg(server.index_url())
         .arg("--preview")
         .arg("-r")
         .arg("pylock.toml"), @"
@@ -13349,7 +13440,7 @@ fn pep_751_install_url_sdist() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-    Checked 3 packages in [TIME]
+    Checked 1 package in [TIME]
     "
     );
 
@@ -13435,6 +13526,57 @@ fn pep_751_install_path_wheel() -> Result<()> {
     Checked 1 package in [TIME]
     "
     );
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_prefers_path_over_url() -> Result<()> {
+    let context = uv_test::test_context!("3.13");
+
+    for wheel in [
+        "ok-1.0.0-py3-none-any.whl",
+        "basic_package-0.1.0-py3-none-any.whl",
+    ] {
+        fs::copy(
+            context.workspace_root.join("test/links").join(wheel),
+            context.temp_dir.child(wheel),
+        )?;
+    }
+
+    context.temp_dir.child("pylock.toml").write_str(
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "ok"
+        version = "1.0.0"
+        archive = { path = "ok-1.0.0-py3-none-any.whl", url = "https://example.invalid/ok-1.0.0.tar.gz", hashes = { sha256 = "79f0b33e6ce1e09eaa1784c8eee275dfe84d215d9c65c652f07c18e85fdaac5f" } }
+
+        [[packages]]
+        name = "basic-package"
+        version = "0.1.0"
+        wheels = [{ path = "basic_package-0.1.0-py3-none-any.whl", url = "https://example.invalid/basic_package-0.1.0-py3-none-any.whl", hashes = { sha256 = "7b6229db79b5800e4e98a351b5628c1c8a944533a2d428aeeaa7275a30d4ea82" } }]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("--offline")
+        .arg("--no-build")
+        .arg("-r")
+        .arg("pylock.toml"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Prepared 2 packages in [TIME]
+    Installed 2 packages in [TIME]
+     + basic-package==0.1.0
+     + ok==1.0.0 (from file://[TEMP_DIR]/ok-1.0.0-py3-none-any.whl)
+    ");
 
     Ok(())
 }
@@ -15110,9 +15252,11 @@ fn already_installed_url_dependency_no_sources() -> Result<()> {
 /// Test that build dependencies respect locked versions from the resolution.
 #[test]
 fn pip_install_build_dependencies_respect_locked_versions() -> Result<()> {
+    let server =
+        PackseServer::new("prereleases/package-prerelease-specified-only-final-available.toml");
     let context = uv_test::test_context!("3.12").with_filtered_counts();
 
-    // Write a test package that arbitrarily requires `anyio` at build time
+    // Write a test package that arbitrarily requires `a` at build time
     let child = context.temp_dir.child("child");
     child.create_dir_all()?;
     let child_pyproject_toml = child.child("pyproject.toml");
@@ -15123,41 +15267,41 @@ fn pip_install_build_dependencies_respect_locked_versions() -> Result<()> {
         requires-python = ">=3.9"
 
         [build-system]
-        requires = ["hatchling", "anyio"]
+        requires = ["hatchling", "a"]
         backend-path = ["."]
         build-backend = "build_backend"
     "#})?;
 
-    // Create a build backend that checks for a specific version of anyio
+    // Create a build backend that checks for a specific version of a
     let build_backend = child.child("build_backend.py");
     build_backend.write_str(indoc! {r#"
         import os
         import sys
         from hatchling.build import *
 
-        expected_version = os.environ.get("EXPECTED_ANYIO_VERSION", "")
+        expected_version = os.environ.get("EXPECTED_A_VERSION", "")
         if not expected_version:
-            print("`EXPECTED_ANYIO_VERSION` not set", file=sys.stderr)
+            print("`EXPECTED_A_VERSION` not set", file=sys.stderr)
             sys.exit(1)
 
         try:
-            import anyio
+            import a
         except ModuleNotFoundError:
-            print("Missing `anyio` module", file=sys.stderr)
+            print("Missing `a` module", file=sys.stderr)
             sys.exit(1)
 
         from importlib.metadata import version
-        anyio_version = version("anyio")
+        a_version = version("a")
 
-        if not anyio_version.startswith(expected_version):
-            print(f"Expected `anyio` version {expected_version} but got {anyio_version}", file=sys.stderr)
+        if not a_version.startswith(expected_version):
+            print(f"Expected `a` version {expected_version} but got {a_version}", file=sys.stderr)
             sys.exit(1)
 
-        print(f"Found expected `anyio` version {anyio_version}", file=sys.stderr)
+        print(f"Found expected `a` version {a_version}", file=sys.stderr)
     "#})?;
     child.child("src/child/__init__.py").touch()?;
 
-    // Create a project that will resolve to a non-latest version of `anyio`
+    // Create a project that will resolve to a non-latest version of `a`
     let parent = &context.temp_dir;
     let pyproject_toml = parent.child("pyproject.toml");
     pyproject_toml.write_str(indoc! {r#"
@@ -15165,7 +15309,7 @@ fn pip_install_build_dependencies_respect_locked_versions() -> Result<()> {
         name = "parent"
         version = "0.1.0"
         requires-python = ">=3.9"
-        dependencies = ["anyio<4.1"]
+        dependencies = ["a<0.3"]
 
         [build-system]
         requires = ["hatchling"]
@@ -15184,14 +15328,14 @@ fn pip_install_build_dependencies_respect_locked_versions() -> Result<()> {
         name = "parent"
         version = "0.1.0"
         requires-python = ">=3.9"
-        dependencies = ["anyio<4.1", "child"]
+        dependencies = ["a<0.3", "child"]
 
         [tool.uv.sources]
         child = { path = "child" }
     "#})?;
 
     // Ensure our build backend is checking the version correctly
-    uv_snapshot!(context.filters(), context.pip_install().arg(".").env(EnvVars::EXPECTED_ANYIO_VERSION, "3.0"), @"
+    uv_snapshot!(context.filters(), context.pip_install().arg("--index-url").arg(server.index_url()).arg(".").env("EXPECTED_A_VERSION", "0.1"), @"
     success: false
     exit_code: 1
     ----- stdout -----
@@ -15203,30 +15347,30 @@ fn pip_install_build_dependencies_respect_locked_versions() -> Result<()> {
       ╰─▶ Call to `build_backend.build_wheel` failed (exit status: 1)
 
           [stderr]
-          Expected `anyio` version 3.0 but got 4.3.0
+          Expected `a` version 0.1 but got 0.3.0
 
 
     hint: `child` was included because `parent` (v0.1.0) depends on `child`
     hint: Build failures usually indicate a problem with the package or the build environment
     ");
 
-    // Now constrain the `anyio` build dependency to match the runtime
+    // Now constrain the `a` build dependency to match the runtime
     pyproject_toml.write_str(indoc! {r#"
         [project]
         name = "parent"
         version = "0.1.0"
         requires-python = ">=3.9"
-        dependencies = ["anyio<4.1", "child"]
+        dependencies = ["a<0.3", "child"]
 
         [tool.uv.sources]
         child = { path = "child" }
 
         [tool.uv.extra-build-dependencies]
-        child = [{ requirement = "anyio", match-runtime = true }]
+        child = [{ requirement = "a", match-runtime = true }]
     "#})?;
 
-    // The child should be built with anyio 4.0
-    uv_snapshot!(context.filters(), context.pip_install().arg(".").env(EnvVars::EXPECTED_ANYIO_VERSION, "4.0"), @"
+    // The child should be built with a 0.2.
+    uv_snapshot!(context.filters(), context.pip_install().arg("--index-url").arg(server.index_url()).arg(".").env("EXPECTED_A_VERSION", "0.2"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -15235,31 +15379,29 @@ fn pip_install_build_dependencies_respect_locked_versions() -> Result<()> {
     Resolved [N] packages in [TIME]
     Prepared [N] packages in [TIME]
     Installed [N] packages in [TIME]
-     + anyio==4.0.0
+     + a==0.2.0
      + child==0.1.0 (from file://[TEMP_DIR]/child)
-     + idna==3.6
      + parent==0.1.0 (from file://[TEMP_DIR]/)
-     + sniffio==1.3.1
     ");
 
-    // Change the constraints on anyio
+    // Change the constraints on a.
     pyproject_toml.write_str(indoc! {r#"
         [project]
         name = "parent"
         version = "0.1.0"
         requires-python = ">=3.9"
-        dependencies = ["anyio<3.8", "child"]
+        dependencies = ["a<0.2", "child"]
 
         [tool.uv.sources]
         child = { path = "child" }
 
         [tool.uv.extra-build-dependencies]
-        child = [{ requirement = "anyio", match-runtime = true }]
+        child = [{ requirement = "a", match-runtime = true }]
     "#})?;
 
-    // The child should be rebuilt with anyio 3.7, without `--reinstall`
-    uv_snapshot!(context.filters(), context.pip_install().arg(".")
-        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "4.0"), @"
+    // The child should be rebuilt with a 0.1, without `--reinstall`.
+    uv_snapshot!(context.filters(), context.pip_install().arg("--index-url").arg(server.index_url()).arg(".")
+        .arg("--reinstall-package").arg("child").env("EXPECTED_A_VERSION", "0.2"), @"
     success: false
     exit_code: 1
     ----- stdout -----
@@ -15271,15 +15413,15 @@ fn pip_install_build_dependencies_respect_locked_versions() -> Result<()> {
       ╰─▶ Call to `build_backend.build_wheel` failed (exit status: 1)
 
           [stderr]
-          Expected `anyio` version 4.0 but got 3.7.1
+          Expected `a` version 0.2 but got 0.1.0
 
 
     hint: `child` was included because `parent` (v0.1.0) depends on `child`
     hint: Build failures usually indicate a problem with the package or the build environment
     ");
 
-    uv_snapshot!(context.filters(), context.pip_install().arg(".")
-        .arg("--reinstall-package").arg("child").env(EnvVars::EXPECTED_ANYIO_VERSION, "3.7"), @"
+    uv_snapshot!(context.filters(), context.pip_install().arg("--index-url").arg(server.index_url()).arg(".")
+        .arg("--reinstall-package").arg("child").env("EXPECTED_A_VERSION", "0.1"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -15289,8 +15431,8 @@ fn pip_install_build_dependencies_respect_locked_versions() -> Result<()> {
     Prepared [N] packages in [TIME]
     Uninstalled [N] packages in [TIME]
     Installed [N] packages in [TIME]
-     - anyio==4.0.0
-     + anyio==3.7.1
+     - a==0.2.0
+     + a==0.1.0
      ~ child==0.1.0 (from file://[TEMP_DIR]/child)
      ~ parent==0.1.0 (from file://[TEMP_DIR]/)
     ");

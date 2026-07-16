@@ -144,6 +144,13 @@ def prompt(
     """
     Send a prompt to the AI and get a response.
 
+    Note: for document types covered by the specialized parsers (`parse_nfe`,
+    `parse_boleto`, `parse_bank_statement`, ...), prefer those. For other text-heavy
+    documents (contracts, reports, official letters), prefer extracting the text
+    first with `extract_text` and passing the resulting string — more reliable than
+    passing the document Path directly. Pass file Paths directly only for visual
+    content (photos, screenshots, layouts).
+
     Args:
         prompt (Union[Prompt, List[Prompt]]): The prompt(s) to send to the AI model.
         instructions (Union[str, List[str]]): Additional instructions for the AI. Defaults to [].

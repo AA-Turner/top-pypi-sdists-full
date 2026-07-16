@@ -139,6 +139,20 @@ def linter_sidecar_enabled() -> bool:
     )
 
 
+def linter_sidecar_serial() -> bool:
+    """Whether the linter sidecar child runs its rules serially (one at a time)
+    instead of the thread-per-rule fan-out.
+
+    Only the web editor (pod) runs serial: there, thread-per-rule would inflate
+    the cgroup's CFS throttle and steal CPU from the editor's HTTP serving
+    threads. A local install has no cgroup budget to protect, so it keeps the
+    parallel fan-out — a full lint pass (boot, deploy gate) then finishes in
+    roughly the time of its slowest rule instead of the sum of all rules. Read
+    at call time (the spawned child inherits ABSTRA_EDITOR_MODE) so operators
+    and tests can flip it without re-importing."""
+    return (os.getenv("ABSTRA_EDITOR_MODE") or "local").strip().lower() == "web"
+
+
 # NOTE on ABSTRA_WORKER_LOG_TO_QUEUE: it only ever made sense for queue-based
 # log streaming. On the DB backend the editor poller streams logs/events straight
 # from Postgres, so the queue path is bypassed and the env var is IGNORED. Sites

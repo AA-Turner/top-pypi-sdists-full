@@ -1,13 +1,14 @@
 """GitHub Actions workflow generator for deploying documentation to GitHub Pages."""
 
+from types import MethodType
 from typing import Any
 
 from pyrig.rig.configs.base.workflow import WorkflowConfigFile
 from pyrig.rig.configs.version_control.remote.workflows.release import (
     ReleaseWorkflowConfigFile,
 )
-from pyrig.rig.tools.docs_builder import DocsBuilder
-from pyrig.rig.tools.package_manager import PackageManager
+from pyrig.rig.tools.docs.builder import DocsBuilder
+from pyrig.rig.tools.packages.manager import PackageManager
 
 
 class DeployWorkflowConfigFile(WorkflowConfigFile):
@@ -15,6 +16,55 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
 
     Runs automatically when the release workflow completes successfully.
     """
+
+    def job(  # noqa: PLR0913
+        self,
+        method: MethodType,
+        *,
+        needs: list[str] | None = None,
+        strategy: dict[str, Any] | None = None,
+        permissions: dict[str, Any] | None = None,
+        runs_on: str = WorkflowConfigFile.UBUNTU_LATEST,
+        if_condition: str | None = None,
+        steps: list[dict[str, Any]] | None = None,
+        job: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Build a job gated on the triggering workflow run having succeeded.
+
+        Args:
+            method: Method representing this job; its name is used to derive
+                the job ID.
+            needs: IDs of jobs that must complete before this job starts.
+            strategy: Matrix or other strategy configuration.
+            permissions: Job-level permissions override.
+            runs_on: Runner label. Defaults to `ubuntu-latest`.
+            if_condition: GitHub Actions conditional expression controlling
+                whether the job runs.
+            steps: Ordered list of step configurations.
+            job: Additional job-level keys to merge into the configuration.
+
+        Returns:
+            Dict mapping the derived job ID to its configuration.
+        """
+        if_condition = if_condition or self.if_workflow_run_is_success()
+        return super().job(
+            method,
+            if_condition=if_condition,
+            needs=needs,
+            strategy=strategy,
+            permissions=permissions,
+            runs_on=runs_on,
+            steps=steps,
+            job=job,
+        )
+
+    def jobs(self) -> dict[str, Any]:
+        """Build the top-level jobs configuration.
+
+        Returns:
+            Dict containing the documentation job.
+        """
+        return {**self.job_documentation()}
 
     def stem(self) -> str:
         """Return `"deploy"`, the workflow file's stem."""
@@ -27,30 +77,8 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
             Trigger configuration dict with a `workflow_run` entry.
         """
         return self.on_workflow_run(
-            workflows=[ReleaseWorkflowConfigFile.I.workflow_name()]
+            workflows=[ReleaseWorkflowConfigFile.I.workflow_name()],
         )
-
-    def job(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        """Build a job gated on the triggering workflow run having succeeded.
-
-        Args:
-            *args: Positional arguments forwarded to the base implementation.
-            **kwargs: Keyword arguments forwarded to the base implementation.
-
-        Returns:
-            Dict mapping the derived job ID to its configuration.
-        """
-        return super().job(
-            *args, if_condition=self.if_workflow_run_is_success(), **kwargs
-        )
-
-    def jobs(self) -> dict[str, Any]:
-        """Build the top-level jobs configuration.
-
-        Returns:
-            Dict containing the documentation job.
-        """
-        return {**self.job_documentation()}
 
     def job_documentation(self) -> dict[str, Any]:
         """Build the job that builds and deploys the documentation site.
@@ -63,7 +91,7 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         """
         return self.job(
             self.job_documentation,
-            permissions={"pages": "write", "id-token": "write"},
+            permissions={"id-token": "write", "pages": "write"},
             steps=self.steps_documentation(),
         )
 
@@ -128,27 +156,7 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         return self.step(
             self.step_configure_pages,
             uses="actions/configure-pages@main",
-            with_={"token": self.insert_repo_token(), "enablement": "true"},
-            step=step,
-        )
-
-    def step_upload_documentation(
-        self,
-        *,
-        step: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Build a step that uploads the `site/` directory as a Pages artifact.
-
-        Args:
-            step: Additional keys to merge into the step configuration.
-
-        Returns:
-            Step using `actions/upload-pages-artifact@main`.
-        """
-        return self.step(
-            self.step_upload_documentation,
-            uses="actions/upload-pages-artifact@main",
-            with_={"path": DocsBuilder.I.site_dir().as_posix()},
+            with_={"enablement": "true", "token": self.insert_repo_token()},
             step=step,
         )
 
@@ -171,5 +179,25 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         return self.step(
             self.step_deploy_documentation,
             uses="actions/deploy-pages@main",
+            step=step,
+        )
+
+    def step_upload_documentation(
+        self,
+        *,
+        step: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Build a step that uploads the `site/` directory as a Pages artifact.
+
+        Args:
+            step: Additional keys to merge into the step configuration.
+
+        Returns:
+            Step using `actions/upload-pages-artifact@main`.
+        """
+        return self.step(
+            self.step_upload_documentation,
+            uses="actions/upload-pages-artifact@main",
+            with_={"path": DocsBuilder.I.site_dir().as_posix()},
             step=step,
         )

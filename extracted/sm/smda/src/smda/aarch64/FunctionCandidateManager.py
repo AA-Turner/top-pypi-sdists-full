@@ -16,8 +16,13 @@ x86 byte-level scans with AArch64-aware ones:
   unanalyzed executable bytes, recovering unreferenced / indirect-only functions
   that none of the above reaches.
 
-x86-only passes (PLT/stub chains, PE ``.pdata`` exception tables) do not apply and
-remain future iterate-steps; for a statically linked ELF there is no PLT to recover.
+* PE ARM64 exception-directory discovery (opt-in via
+  ``USE_PE_ARM64_PDATA_CANDIDATES``) seeds guaranteed function starts from the
+  image's ``.pdata`` RUNTIME_FUNCTION records, in place of the x86-shaped
+  12-byte-record pass.
+
+The x86-only PLT/stub-chain pass does not apply and remains a future
+iterate-step; for a statically linked ELF there is no PLT to recover.
 """
 
 import contextlib
@@ -26,7 +31,9 @@ import struct
 
 import lief
 
+from smda.common.EhFrameDecoder import decodeEhFrameFdeRanges
 from smda.intel.FunctionCandidateManager import FunctionCandidateManager as _IntelFunctionCandidateManager
+from smda.utility.MachoBinary import get_active_macho_binary, get_macho_address_adjustment, get_macho_stub_ranges
 
 from .definitions import (
     ADD_IMM64_MASK,
@@ -60,21 +67,28 @@ LOGGER = logging.getLogger(__name__)
 
 
 class FunctionCandidateManager(_IntelFunctionCandidateManager):
-    def init(self, disassembly):
-        super().init(disassembly)
+    def init(self, disassembly, cbAnalysisTimeout=None):
+        # Reset the memoized executable-section ranges and Mach-O fixup state
+        # BEFORE base initialization: super().init() runs candidate discovery,
+        # so a reused manager instance would otherwise consume the previous
+        # binary's cached data during the scans.
+        self._exec_ranges = None
+        self._macho_fixup_state = None
+        super().init(disassembly, cbAnalysisTimeout)
         # The base init() builds an x86 capstone purely for its NOP-based gap scan,
         # which this backend disables (see nextGapCandidate); drop the stale handle.
         self.capstone = None
-        # Drop the memoized executable-section ranges so a reused manager instance
-        # recomputes them for the new binary instead of leaking stale ranges.
-        self._exec_ranges = None
 
     def locateCandidates(self):
-        # AArch64 candidate discovery: symbols, BL call references, stored function
-        # pointers (.init_array/.fini_array + data tables), then entry prologues.
-        # The x86-only PLT/stub-chain and PE .pdata passes do not apply and are
-        # omitted; the NOP-based gap scan is disabled (see nextGapCandidate).
+        # AArch64 candidate discovery: symbols, PE ARM64 exception-directory entries
+        # (opt-in), BL call references, stored function pointers (.init_array/
+        # .fini_array + data tables), then entry prologues. The x86-only PLT/
+        # stub-chain pass does not apply and is omitted; the NOP-based gap scan is
+        # disabled (see nextGapCandidate).
         self.locateSymbolCandidates()
+        if self._candidateTimeoutTripped():
+            return
+        self.locatePeExceptionCandidates()
         if self._candidateTimeoutTripped():
             return
         self.locateReferenceCandidates()
@@ -107,16 +121,296 @@ class FunctionCandidateManager(_IntelFunctionCandidateManager):
                 ranges.append((section.virtual_address, section.virtual_address + section.size))
         return ranges
 
+    @staticmethod
+    def _peExecutableSectionRanges(lief_binary, base_addr):
+        # Absolute [start, end) VAs of executable PE sections (IMAGE_SCN_MEM_EXECUTE).
+        ranges = []
+        for section in lief_binary.sections:
+            if section.characteristics & 0x20000000 and section.virtual_size:
+                section_start = base_addr + section.virtual_address
+                ranges.append((section_start, section_start + section.virtual_size))
+        return ranges
+
+    def _isValidArm64UnwindInfo(self, xdata_rva):
+        # ARM64 .xdata header word: FunctionLength[17:0] (in words, must be nonzero),
+        # Vers[19:18] (only version 0 is defined), X[20], E[21], EpilogCount[26:22],
+        # CodeWords[31:27]. Records are 4-byte aligned and must lie inside the image.
+        if xdata_rva == 0 or xdata_rva % 4 != 0:
+            return False
+        header = self.disassembly.getRawBytes(xdata_rva, 4)
+        if header is None or len(header) < 4:
+            return False
+        header_word = int.from_bytes(header, "little")
+        function_length = header_word & 0x3FFFF
+        version = (header_word >> 18) & 0x3
+        return version == 0 and function_length > 0
+
+    def locatePeExceptionCandidates(self):
+        # PE ARM64 exception directory: every RUNTIME_FUNCTION record names a
+        # guaranteed function (or fragment) start, so accepted entries go through
+        # the high-confidence exception-candidate path. Classic ARM64 (0xAA64)
+        # images only; ARM64X/ARM64EC hybrids interleave x64 code and metadata
+        # and are skipped. Bounds come from the Exception Directory data
+        # directory's exact RVA/size, not page-rounded .pdata section bounds.
+        if not self.config.USE_PE_ARM64_PDATA_CANDIDATES:
+            return
+        binary_info = self.disassembly.binary_info
+        lief_binary = binary_info.getLiefBinary()
+        if not isinstance(lief_binary, lief.PE.Binary):
+            return
+        if lief_binary.header.machine != lief.PE.Header.MACHINE_TYPES.ARM64:
+            return
+        # is_arm64x/is_arm64ec and chpe_metadata need lief >= 0.17; on older lief an
+        # ARM64X hybrid cannot be told apart, so absence of the accessors means skip.
+        if getattr(lief_binary, "is_arm64x", True) or getattr(lief_binary, "is_arm64ec", True):
+            return
+        load_config = getattr(lief_binary, "load_configuration", None)
+        if load_config is not None and getattr(load_config, "chpe_metadata", None) is not None:
+            return
+        exception_dir = lief_binary.data_directory(lief.PE.DataDirectory.TYPES.EXCEPTION_TABLE)
+        if exception_dir is None or not exception_dir.rva or not exception_dir.size:
+            return
+        base_addr = binary_info.base_addr
+        exec_ranges = self._peExecutableSectionRanges(lief_binary, base_addr)
+        if not exec_ranges:
+            return
+        # 8-byte records: <BeginRVA, UnwindData>; UnwindData bits 0-1 select the format
+        for record_index, record_rva in enumerate(
+            range(exception_dir.rva, exception_dir.rva + exception_dir.size - 7, 8)
+        ):
+            if record_index % 4096 == 0 and self._candidateTimeoutTripped():
+                return
+            packed_entry = self.disassembly.getRawBytes(record_rva, 8)
+            if packed_entry is None or len(packed_entry) < 8:
+                break
+            begin_rva, unwind_data = struct.unpack("<II", packed_entry)
+            if begin_rva == 0:
+                break
+            flag = unwind_data & 0x3
+            if flag == 0:
+                # UnwindData is the RVA of a full .xdata record; validate its header
+                if not self._isValidArm64UnwindInfo(unwind_data):
+                    continue
+            elif flag != 1:
+                # flag 2: packed fragment of another function's body; flag 3: reserved
+                continue
+            if begin_rva % INSTRUCTION_SIZE != 0:
+                continue
+            addr = base_addr + begin_rva
+            if not any(start <= addr < end for start, end in exec_ranges):
+                continue
+            self.addExceptionCandidate(addr)
+
+    def locateDeferredCandidates(self):
+        # ELF .eh_frame FDE starts (opt-in): every FDE names a code range that
+        # unwinding treats as one routine, so an FDE start the primary pass left
+        # unclaimed is strong evidence of a missed function (e.g. a wrapper only
+        # reached through data). Runs after the primary pass so code_map claims
+        # can veto entries: an already-claimed start would split existing
+        # functions, which this pass must never do. Accepted starts get ordinary
+        # candidate bookkeeping - deliberately NOT the PE exception-candidate
+        # priority, since .eh_frame commonly also covers non-function ranges.
+        if not self.config.USE_ELF_EH_FRAME_CANDIDATES:
+            return
+        binary_info = self.disassembly.binary_info
+        lief_binary = binary_info.getLiefBinary()
+        if not isinstance(lief_binary, lief.ELF.Binary):
+            return
+        eh_frame = next((section for section in lief_binary.sections if section.name == ".eh_frame"), None)
+        if eh_frame is None or not eh_frame.virtual_address or not eh_frame.size:
+            return
+        section_bytes = self.disassembly.getBytes(eh_frame.virtual_address, eh_frame.size)
+        if not section_bytes:
+            return
+        pointer_size = 8 if binary_info.bitness == 64 else 4
+        fde_ranges = decodeEhFrameFdeRanges(bytes(section_bytes), eh_frame.virtual_address, pointer_size=pointer_size)
+        exec_ranges = self._cachedExecutableSectionRanges()
+
+        def in_exec(addr):
+            return any(start <= addr < end for start, end in exec_ranges)
+
+        accepted = []
+        for fde_start in sorted({fde_range[0] for fde_range in fde_ranges}):
+            if self._candidateTimeoutTripped():
+                return
+            if fde_start % INSTRUCTION_SIZE != 0 or not in_exec(fde_start):
+                continue
+            if not self._passesCodeFilter(fde_start):
+                continue
+            if self.disassembly.isCode(fde_start):
+                continue
+            self.ensureCandidate(fde_start)
+            # MAX_FUNCTION_CANDIDATES can reject the registration; never analyze
+            # a start that was not actually recorded
+            if fde_start in self.candidates:
+                accepted.append(fde_start)
+        # register ALL accepted starts as known function starts before analyzing
+        # any of them: the branch classifier consults getFunctionStartCandidates()
+        # during analysis, so an earlier deferred function could otherwise absorb
+        # a later FDE start it branches or tailcalls into
+        self._candidate_offsets.update(accepted)
+        for fde_start in accepted:
+            if self._candidateTimeoutTripped():
+                return
+            # re-checked per yield: an earlier deferred candidate's analysis may
+            # still have claimed this start in the meantime (e.g. as a callee)
+            if self.disassembly.isCode(fde_start):
+                continue
+            yield fde_start
+
+    def _machoActiveBinaryAndAdjustment(self):
+        binary_info = self.disassembly.binary_info
+        lief_binary = binary_info.getLiefBinary()
+        if not isinstance(lief_binary, (lief.MachO.Binary, lief.MachO.FatBinary)):
+            return None, 0
+        macho = get_active_macho_binary(lief_binary, bitness=binary_info.bitness, architecture=binary_info.architecture)
+        if macho is None or not isinstance(macho, lief.MachO.Binary):
+            return None, 0
+        adjustment = get_macho_address_adjustment(
+            macho,
+            base_addr=binary_info.base_addr,
+            bitness=binary_info.bitness,
+            architecture=binary_info.architecture,
+        )
+        return macho, adjustment
+
+    @staticmethod
+    def _machoInstructionSectionRanges(macho, adjustment, pure_only=False):
+        # SMDA-VA [start, end) ranges of Mach-O sections holding instructions.
+        # pure_only restricts to S_ATTR_PURE_INSTRUCTIONS sections (no mixed
+        # code/data), for scans that decode every word as an instruction.
+        ins_flags = lief.MachO.Section.FLAGS.PURE_INSTRUCTIONS.value
+        if not pure_only:
+            ins_flags += lief.MachO.Section.FLAGS.SOME_INSTRUCTIONS.value
+        ranges = []
+        for section in macho.sections:
+            if section.virtual_address and section.flags.value & ins_flags:
+                start = section.virtual_address + adjustment
+                ranges.append((start, start + section.size))
+        return ranges
+
+    def _machoFixupState(self, macho):
+        """(rebase map {LIEF slot VA -> LIEF target VA}, binding slot VAs, has_chained).
+
+        With dyld chained fixups the mapped image holds packed fixup words, so a
+        stored pointer is only meaningful through its RelocationFixup target; a
+        binding slot holds an import and never a local function pointer.
+        """
+        # getattr: locateCandidates() runs inside the base init() before this
+        # backend's init() epilogue can reset the cache attribute
+        if getattr(self, "_macho_fixup_state", None) is None:
+            rebases = {}
+            for relocation in macho.relocations:
+                target = getattr(relocation, "target", None)
+                if target is not None:
+                    rebases[relocation.address] = target
+            bindings = set()
+            for binding in getattr(macho, "bindings", []):
+                address = getattr(binding, "address", 0)
+                if address:
+                    bindings.add(address)
+            has_chained = getattr(macho, "dyld_chained_fixups", None) is not None
+            self._macho_fixup_state = (rebases, bindings, has_chained)
+        return self._macho_fixup_state
+
+    def _resolveMachoStoredPointer(self, slot_lief_va, adjustment, fixup_state):
+        """Resolve the pointer stored at a Mach-O slot to an SMDA VA, or None."""
+        rebases, bindings, has_chained = fixup_state
+        if slot_lief_va in bindings:
+            return None  # import slot, never a local function
+        if slot_lief_va in rebases:
+            return rebases[slot_lief_va] + adjustment
+        if has_chained:
+            return None  # unresolved chained slot: the raw word is packed metadata
+        raw = self.disassembly.getBytes(slot_lief_va + adjustment, 8)
+        if raw is None or len(raw) != 8:
+            return None
+        value = int.from_bytes(raw, "little") & self.getBitMask()
+        if not value:
+            return None
+        return value + adjustment
+
+    def _locateMachoFunctionPointerMetadataCandidates(self):
+        # Explicit Mach-O function-pointer metadata only - the platform-native
+        # equivalent of ELF .init_array/.fini_array: mod-init/term and TLV-init
+        # pointer sections, __init_offsets tables, and interposing pairs. Broad
+        # regular-data sweeps are deliberately NOT performed; GOT/lazy pointers,
+        # imports and stub islands are excluded.
+        macho, adjustment = self._machoActiveBinaryAndAdjustment()
+        if macho is None:
+            return
+        section_types = lief.MachO.Section.TYPE
+        pointer_types = {
+            section_types.MOD_INIT_FUNC_POINTERS,
+            section_types.MOD_TERM_FUNC_POINTERS,
+            section_types.THREAD_LOCAL_INIT_FUNCTION_POINTERS,
+        }
+        init_offsets_type = getattr(section_types, "INIT_FUNC_OFFSETS", None)
+        interposing_type = section_types.INTERPOSING
+        exec_ranges = self._machoInstructionSectionRanges(macho, adjustment)
+        if not exec_ranges:
+            return
+        binary_info = self.disassembly.binary_info
+        stub_ranges = get_macho_stub_ranges(
+            macho,
+            base_addr=binary_info.base_addr,
+            bitness=binary_info.bitness,
+            architecture=binary_info.architecture,
+        )
+        fixup_state = self._machoFixupState(macho)
+
+        def seed(target, source_va):
+            if target is None or target % INSTRUCTION_SIZE != 0:
+                return
+            if not any(start <= target < end for start, end in exec_ranges):
+                return
+            if any(start <= target < end for start, end in stub_ranges):
+                return
+            if not self._passesCodeFilter(target) or not self.disassembly.isAddrWithinMemoryImage(target):
+                return
+            self.addReferenceCandidate(target, source_va)
+            self.setInitialCandidate(target)
+
+        for section in macho.sections:
+            if not section.virtual_address or not section.size:
+                continue
+            section_type = section.type
+            if section_type in pointer_types:
+                for slot_va in range(section.virtual_address, section.virtual_address + section.size - 7, 8):
+                    if self._candidateTimeoutTripped():
+                        return
+                    seed(self._resolveMachoStoredPointer(slot_va, adjustment, fixup_state), slot_va + adjustment)
+            elif init_offsets_type is not None and section_type == init_offsets_type:
+                # __init_offsets: 32-bit offsets from the image base, no fixups involved
+                for slot_va in range(section.virtual_address, section.virtual_address + section.size - 3, 4):
+                    if self._candidateTimeoutTripped():
+                        return
+                    raw = self.disassembly.getBytes(slot_va + adjustment, 4)
+                    if raw is None or len(raw) != 4:
+                        continue
+                    seed(macho.imagebase + int.from_bytes(raw, "little") + adjustment, slot_va + adjustment)
+            elif section_type == interposing_type:
+                # interposing entries are <replacement, replacee> pointer pairs; only
+                # the replacement of a complete pair is a local function
+                for pair_va in range(section.virtual_address, section.virtual_address + section.size - 15, 16):
+                    if self._candidateTimeoutTripped():
+                        return
+                    seed(self._resolveMachoStoredPointer(pair_va, adjustment, fixup_state), pair_va + adjustment)
+
     def locateDataPointerCandidates(self):
         # Seed candidates from stored function pointers. ELF .init_array/.fini_array
         # entries are authoritative constructor/destructor pointers; other data
         # sections are scanned for aligned words pointing into executable code.
+        # Mach-O images use their explicit function-pointer metadata instead.
         # This recovers functions reached only indirectly (CRT init stubs, pointer
         # / dispatch tables) that no direct BL or recognized prologue would find,
         # and anchors true entries so the prologue scan no longer mislabels an
         # inner block as the function start.
         binary_info = self.disassembly.binary_info
         lief_binary = binary_info.getLiefBinary()
+        if isinstance(lief_binary, (lief.MachO.Binary, lief.MachO.FatBinary)):
+            self._locateMachoFunctionPointerMetadataCandidates()
+            return
         if not isinstance(lief_binary, lief.ELF.Binary) or not lief_binary.sections:
             return
         exec_ranges = self._executableSectionRanges(lief_binary)
@@ -167,9 +461,23 @@ class FunctionCandidateManager(_IntelFunctionCandidateManager):
         # common in position-independent code.
         binary_info = self.disassembly.binary_info
         lief_binary = binary_info.getLiefBinary()
-        if not isinstance(lief_binary, lief.ELF.Binary) or not lief_binary.sections:
+        adjustment = 0
+        macho_fixup_state = None
+        if isinstance(lief_binary, lief.ELF.Binary) and lief_binary.sections:
+            exec_ranges = self._executableSectionRanges(lief_binary)
+        elif self.config.USE_MACHO_ADDRESS_REF_CANDIDATES and isinstance(
+            lief_binary, (lief.MachO.Binary, lief.MachO.FatBinary)
+        ):
+            # opt-in Mach-O extension: scan only S_ATTR_PURE_INSTRUCTIONS sections
+            # (every word is decoded as an instruction) and resolve loaded slots
+            # through local fixups before trusting stored words
+            macho, adjustment = self._machoActiveBinaryAndAdjustment()
+            if macho is None:
+                return
+            exec_ranges = self._machoInstructionSectionRanges(macho, adjustment, pure_only=True)
+            macho_fixup_state = self._machoFixupState(macho)
+        else:
             return
-        exec_ranges = self._executableSectionRanges(lief_binary)
         if not exec_ranges:
             return
         base = binary_info.base_addr
@@ -183,7 +491,15 @@ class FunctionCandidateManager(_IntelFunctionCandidateManager):
             target &= bit_mask
             if target % INSTRUCTION_SIZE != 0 or not in_exec(target):
                 return
-            if self._passesCodeFilter(target) and self.disassembly.isAddrWithinMemoryImage(target):
+            if not (self._passesCodeFilter(target) and self.disassembly.isAddrWithinMemoryImage(target)):
+                return
+            if macho_fixup_state is not None:
+                # Mach-O targets are weak address evidence, not inbound call refs:
+                # register the bare candidate without a reference source so it gains
+                # no call-reference score (addCandidate would touch the queue, which
+                # does not exist yet during candidate identification)
+                self.ensureCandidate(target)
+            else:
                 self.addReferenceCandidate(target, source)
 
         for low, high in exec_ranges:
@@ -220,7 +536,11 @@ class FunctionCandidateManager(_IntelFunctionCandidateManager):
                     if rn in pages:
                         imm = ((word >> 10) & 0xFFF) * 8
                         slot_addr = pages[rn] + imm
-                        if self.disassembly.isAddrWithinMemoryImage(slot_addr):
+                        if macho_fixup_state is not None:
+                            val = self._resolveMachoStoredPointer(slot_addr - adjustment, adjustment, macho_fixup_state)
+                            if val is not None:
+                                seed(val, addr)
+                        elif self.disassembly.isAddrWithinMemoryImage(slot_addr):
                             raw_val = self.disassembly.getBytes(slot_addr, 8)
                             if raw_val and len(raw_val) == 8:
                                 val = struct.unpack("<Q", raw_val)[0]

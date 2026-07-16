@@ -132,7 +132,7 @@ def EVAL_FAILURE(code: Any) -> Any:
     """
     ...
 
-def GetCommentEx(ea: ida_idaapi.ea_t, rptble: bool) -> str:
+def GetCommentEx(ea: ida_idaapi.ea_t, rptble: bool) -> Any:
     r"""Get an indented comment. 
             
     :param ea: linear address. may point to tail byte, the function will find start of the item
@@ -241,11 +241,15 @@ def SetType(ea: Any, newtype: Any) -> Any:
 
 def SizeOf(typestr: Any) -> Any:
     r"""
-    Returns the size of the type. It is equivalent to IDC's sizeof().
-    :param typestr: can be specified as a typeinfo tuple (e.g. the result of get_tinfo()),
+    Returns the size of the type. It is equivalent
+    to IDC's sizeof().
+    
+    :param typestr: can be specified as a typeinfo tuple
+            (e.g. the result of get_tinfo()),
             serialized type byte string,
             or a string with C declaration (e.g. "int")
-    :returns: -1 if typestring is not valid or has no size. otherwise size of the type
+    :returns: -1 if typestring is not valid or has no
+             size. otherwise size of the type
     
     """
     ...
@@ -422,27 +426,40 @@ def add_struc_member(sid: Any, name: Any, offset: Any, flag: Any, typeid: Any, n
     :param sid: structure type ID
     :param name: name of the new member
     :param offset: offset of the new member
-                   -1 means to add at the end of the structure
+                   -1 means to add at the end of the
+                   structure
     :param flag: type of the new member. Should be one of
-                 FF_BYTE..FF_PACKREAL (see above) combined with FF_DATA
-    :param typeid: if is_struct(flag) then typeid specifies the structure id for the member
-                   if is_off0(flag) then typeid specifies the offset base.
-                   if is_strlit(flag) then typeid specifies the string type (STRTYPE_...).
-                   if is_stroff(flag) then typeid specifies the structure id
-                   if is_enum(flag) then typeid specifies the enum id
-                   if is_custom(flags) then typeid specifies the dtid and fid: dtid|(fid<<16)
+                 FF_BYTE..FF_PACKREAL (see above)
+                 combined with FF_DATA
+    :param typeid: if is_struct(flag) then typeid
+                   specifies the structure id for the
+                   member.
+                   if is_off0(flag) then typeid specifies
+                   the offset base.
+                   if is_strlit(flag) then typeid specifies
+                   the string type (STRTYPE_...).
+                   if is_stroff(flag) then typeid specifies
+                   the structure id.
+                   if is_enum(flag) then typeid specifies
+                   the enum id.
+                   if is_custom(flags) then typeid
+                   specifies the dtid and fid:
+                   dtid|(fid<<16).
                    Otherwise typeid should be -1.
     :param nbytes: number of bytes in the new member
     
-    :param target: target address of the offset expr. You may specify it as
-                   -1, ida will calculate it itself
+    :param target: target address of the offset expr.
+                   You may specify it as -1, ida will
+                   calculate it itself
     :param tdelta: offset target delta. usually 0
     :param reftype: see REF_... definitions
     
-    NOTE: The remaining arguments are allowed only if is_off0(flag) and you want
-           to specify a complex offset expression
+    NOTE: The remaining arguments are allowed only if
+    is_off0(flag) and you want to specify a complex
+    offset expression
     
-    :returns: 0 - ok, otherwise error code (one of typeinf.TERR_*)
+    :returns: 0 - ok, otherwise error code
+              (one of typeinf.TERR_*)
     
     
     """
@@ -568,7 +585,7 @@ def batch(batch: Any) -> Any:
     """
     ...
 
-def byte_value(F: Any) -> Any:
+def byte_value(f: Any) -> Any:
     r"""
     Get byte value from flags
     Get value of byte provided that the byte is initialized.
@@ -1117,10 +1134,12 @@ def eval_idc(expr: Any) -> Any:
     
     :param expr: an expression
     
-    :returns: the expression value. If there are problems, the returned value will be "IDC_FAILURE: xxx"
+    :returns: the expression value. If there are problems,
+             the returned value will be "IDC_FAILURE: xxx"
              where xxx is the error description
     
-    NOTE: Python implementation evaluates IDC only, while IDC can call other registered languages
+    NOTE: Python implementation evaluates IDC only,
+          while IDC can call other registered languages
     
     """
     ...
@@ -1152,7 +1171,70 @@ def fgetc(handle: Any) -> Any:
 def filelength(handle: Any) -> Any:
     ...
 
-def find_bytes(bs: Any, range_start: int, range_size: typing.Optional[int] = None, range_end: typing.Optional[int] = 18446744073709551615, mask: Any = None, flags: typing.Optional[int] = 8, radix: typing.Optional[int] = 16, strlit_encoding: Any = 0) -> int:
+def find_bytes(bs: Any, range_start: int, range_size: typing.Optional[int] = None, range_end: typing.Optional[int] = 18446744073709551615, mask: typing.Optional[bytes] = None, flags: typing.Optional[int] = 8, radix: typing.Optional[int] = 16, strlit_encoding: Any = 0) -> int:
+    r"""
+    Search for bytes in the program.
+    
+    The pattern can be either a textual binary pattern (`str`) or a raw
+    `bytes` buffer optionally combined with `mask`. A textual pattern is
+    a space-separated sequence of hex bytes, `?` wildcards, and quoted
+    string literals. A `?` may also stand in for a single hex nibble
+    inside a 2-char hex byte token (e.g. `A?` or `?5`), as long as the
+    token is whitespace/comma-delimited on both sides. Examples (pattern
+    contents, without surrounding Python quotes):
+      * `B8 ? ? ? ? 90`  -- byte `0xB8`, four wildcards, byte `0x90`
+                            (`mov eax, imm32; nop` with any immediate)
+      * `48 8? ?? 24`    -- 0x48, any byte starting with 0x8, any byte,
+                            0x24 (e.g. matches `mov [rsp+...]` family)
+      * `"Hello", 0`     -- the bytes of "Hello" followed by a null byte
+    
+    The search range can be specified three ways. From highest to lowest
+    precedence:
+      * by size, via `range_size` (then `range_end = range_start + range_size`)
+      * by `range_t` passed as `range_start` (its `start_ea` and `end_ea`
+        become the search range's start and end addresses)
+      * by end address, via `range_end`
+    
+    The function returns `ida_idaapi.BADADDR` when no further match is
+    found. To iterate over all matches in a window:
+      * forward (default): after a match at `ea`, set `range_start = ea + 1`
+        and call again.
+      * backward (`BIN_SEARCH_BACKWARD`): the window is unchanged but the
+        highest-address match is returned; after a match at `ea`, set
+        `range_end = ea` and call again.
+    
+    :param bs: the pattern. If `str`, parsed as a textual binary pattern
+               (see the intro above for the syntax); quoted string literals
+               inside it are converted to bytes per `strlit_encoding`. If
+               `bytes`, used literally and combined with `mask` if provided.
+    :param range_start: start address of the search range (inclusive); or
+               a `range_t` (see precedence list above).
+    :param range_size: size of the search range (see precedence list above).
+    :param range_end: end address of the search range (exclusive). The
+               entire pattern must fit within the range, i.e. a match is
+               accepted only when `match_ea + len(pattern) <= range_end`.
+               Defaults to `BADADDR`.
+    :param mask: optional byte mask, applied when `bs` is `bytes`. A non-zero
+               mask byte means the corresponding pattern byte must match;
+               a zero mask byte makes that position a wildcard. Ignored for
+               textual patterns (the mask is derived from `?` wildcards in
+               the pattern).
+    :param flags: combination of `BIN_SEARCH_*` flags. Direction is
+               controlled by `BIN_SEARCH_FORWARD` (default) or
+               `BIN_SEARCH_BACKWARD`. Case sensitivity only affects quoted
+               string literals in a textual pattern: they match
+               case-insensitively by default; pass `BIN_SEARCH_CASE` to
+               require exact case. Hex byte tokens are unaffected (they
+               are literal byte values, not text). Use `BIN_SEARCH_BITMASK`
+               for bit-granular `mask` interpretation. Note: these are
+               *not* interchangeable with `ida_search.SEARCH_*` (which
+               belong to the legacy `find_text`/`find_imm` API).
+    :param radix: numeric base for tokens in a textual pattern (8, 10, or 16).
+    :param strlit_encoding: encoding (name or index) used to convert quoted
+               string literals inside a textual pattern into bytes.
+    :returns: address of the next match, or `ida_idaapi.BADADDR` if no match.
+    
+    """
     ...
 
 def find_code(ea: ida_idaapi.ea_t, sflag: int) -> ida_idaapi.ea_t:
@@ -1211,7 +1293,8 @@ def first_func_chunk(funcea: Any) -> Any:
     
     :returns: the function entry point or BADADDR
     
-    NOTE: This function returns the first (main) chunk of the specified function
+    NOTE: This function returns the first (main) chunk
+    of the specified function
     
     """
     ...
@@ -1301,7 +1384,8 @@ def gen_flow_graph(outfile: Any, title: Any, ea1: Any, ea2: Any, flags: Any) -> 
     :param ea2: end of the range to flow chart.
     :param flags: combination of CHART_... constants
     
-    NOTE: If ea2 == BADADDR then ea1 is treated as an address within a function.
+    NOTE: If ea2 == BADADDR then ea1 is treated as
+           an address within a function.
            That function will be flow charted.
     
     """
@@ -1311,9 +1395,10 @@ def gen_simple_call_chart(outfile: Any, title: Any, flags: Any) -> Any:
     r"""
     Generate a function call graph GDL file
     
-    :param outfile: output file name. GDL extension will be used
+    :param outfile: output file name. GDL ext will be used
     :param title:   graph title
-    :param flags:   combination of CHART_GEN_GDL, CHART_WINGRAPH, CHART_NOLIBFUNCS
+    :param flags:   combination of CHART_GEN_GDL,
+                    CHART_WINGRAPH, CHART_NOLIBFUNCS
     
     """
     ...
@@ -1434,10 +1519,9 @@ def get_bytes(ea: Any, size: Any, use_dbg: Any = False) -> Any:
     Return the specified number of bytes of the program
     
     :param ea: linear address
-    
     :param size: size of buffer in normal 8-bit bytes
-    
-    :param use_dbg: if True, use debugger memory, otherwise just the database
+    :param use_dbg: if True, use debugger memory,
+                    otherwise just the database
     
     :returns: None on failure
              otherwise a string containing the read bytes
@@ -1453,7 +1537,7 @@ def get_call_tev_callee(n: int) -> ida_idaapi.ea_t:
     """
     ...
 
-def get_cmt(ea: ida_idaapi.ea_t, rptble: bool) -> str:
+def get_cmt(ea: ida_idaapi.ea_t, rptble: bool) -> Any:
     r"""Get an indented comment. 
             
     :param ea: linear address. may point to tail byte, the function will find start of the item
@@ -1506,7 +1590,7 @@ def get_entry(ord: int) -> ida_idaapi.ea_t:
     """
     ...
 
-def get_entry_name(ord: int) -> str:
+def get_entry_name(ord: int) -> Any:
     r"""Get name of the entry point by its ordinal. 
             
     :param ord: ordinal number of entry point
@@ -1553,7 +1637,8 @@ def get_enum_cmt(enum_id: Any) -> Any:
 def get_enum_flag(enum_id: Any) -> Any:
     r"""
     Get flags determining the representation of the enum.
-    (currently they define the numeric base: octal, decimal, hex, bin) and signness.
+    (currently they define the numeric base: octal,
+    decimal, hex, bin) and signness.
     
     :param enum_id: enum TID
     
@@ -1807,7 +1892,8 @@ def get_fchunk_attr(ea: Any, attr: Any) -> Any:
     Get a function chunk attribute
     
     :param ea: any address in the chunk
-    :param attr: one of: FUNCATTR_START, FUNCATTR_END, FUNCATTR_OWNER, FUNCATTR_REFQTY
+    :param attr: one of: FUNCATTR_START, FUNCATTR_END,
+                 FUNCATTR_OWNER, FUNCATTR_REFQTY
     
     :returns: desired attribute or -1
     
@@ -1863,10 +1949,12 @@ def get_first_enum_member(enum_id: Any, bmask: Any = -1) -> Any:
     Get first constant in the enum
     
     :param enum_id: id of enum
-    :param bmask: bitmask of the constant (ordinary enums accept only -1 as a bitmask)
+    :param bmask: bitmask of the constant
+                  (ordinary enums accept only -1)
     
-    :returns: value of constant or -1 if no constants are defined
-             All constants are sorted by their values as unsigned longs.
+    :returns: value of constant or -1 if no constants
+             are defined. All constants are sorted by
+             their values as unsigned longs.
     
     """
     ...
@@ -1980,11 +2068,11 @@ def get_fixup_target_type(ea: Any) -> Any:
     """
     ...
 
-def get_forced_operand(ea: ida_idaapi.ea_t, n: int) -> str:
+def get_forced_operand(ea: ida_idaapi.ea_t, n: int) -> Any:
     r"""Get forced operand. 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number
+    :param n: 0..#UA_MAXOP-1 operand number
     :returns: size of the forced operand or -1
     """
     ...
@@ -2168,7 +2256,7 @@ def get_inf_attr(attr: Any) -> Any:
     """
     ...
 
-def get_input_file_path() -> str:
+def get_input_file_path() -> Any:
     r"""Get full path of the input file.
     
     """
@@ -2213,7 +2301,8 @@ def get_last_enum_member(enum_id: Any, bmask: Any = -1) -> Any:
     Get last constant in the enum
     
     :param enum_id: id of enum
-    :param bmask: bitmask of the constant (ordinary enums accept only -1 as a bitmask)
+    :param bmask: bitmask of the constant
+                  (ordinary enums accept only -1)
     
     :returns: value of constant or -1 if no constants are defined
              All constants are sorted by their values
@@ -2256,7 +2345,7 @@ def get_local_tinfo(ordinal: Any) -> Any:
     """
     ...
 
-def get_manual_insn(ea: ida_idaapi.ea_t) -> str:
+def get_manual_insn(ea: ida_idaapi.ea_t) -> Any:
     r"""Retrieve the user-specified string for the manual instruction. 
             
     :param ea: linear address of the instruction or data item
@@ -2516,7 +2605,8 @@ def get_next_enum_member(enum_id: Any, value: Any, bmask: Any = -1) -> Any:
     Get next constant in the enum
     
     :param enum_id: id of enum
-    :param bmask: bitmask of the constant ordinary enums accept only -1 as a bitmask
+    :param bmask: bitmask of the constant
+                  (ordinary enums accept only -1)
     :param value: value of the current constant
     
     :returns: value of a constant with value higher than the specified
@@ -2806,14 +2896,14 @@ def get_ret_tev_return(n: int) -> ida_idaapi.ea_t:
     """
     ...
 
-def get_root_filename() -> str:
+def get_root_filename() -> Any:
     r"""Get file name only of the input file.
     
     """
     ...
 
 def get_screen_ea() -> ida_idaapi.ea_t:
-    r"""Get the address at the screen cursor (ui_screenea)
+    r"""Get the address at the screen cursor (ui_screenea).
     
     """
     ...
@@ -2888,9 +2978,11 @@ def get_sp_delta(ea: Any) -> Any:
     :param ea: end address of the instruction
                i.e.the last address of the instruction+1
     
-    :returns: Get modification of SP made at the specified location
-             If the specified location doesn't contain a SP change point, return 0
-             Otherwise return delta of SP modification
+    :returns: Get modification of SP made at the
+             specified location.
+             If the specified location doesn't contain
+             a SP change point, return 0.
+             Otherwise return delta of SP modification.
     
     """
     ...
@@ -2903,7 +2995,8 @@ def get_spd(ea: Any) -> Any:
                i.e.the last address of the instruction+1
     
     :returns: The difference between the original SP upon
-             entering the function and SP for the specified address
+             entering the function and SP for the specified address,
+             or None if 'ea' does not belong to a function.
     
     """
     ...
@@ -2917,9 +3010,10 @@ def get_sreg(ea: Any, reg: Any) -> Any:
     
     :returns: the value of the segment register or -1 on error
     
-    NOTE: The segment registers in 32bit program usually contain selectors,
-           so to get paragraph pointed to by the segment register you need to
-           call sel2para() function.
+    NOTE: The segment registers in 32bit program
+           usually contain selectors, so to get
+           paragraph pointed to by the segment
+           register you need to call sel2para().
     
     """
     ...
@@ -2946,8 +3040,10 @@ def get_strlit_contents(ea: Any, length: Any = -1, strtype: Any = 0) -> Any:
     r"""
     Get string contents
     :param ea: linear address
-    :param length: string length. -1 means to calculate the max string length
-    :param strtype: the string type (one of STRTYPE_... constants)
+    :param length: string length. -1 means to calculate
+                   the max string length
+    :param strtype: the string type
+                    (one of STRTYPE_... constants)
     
     :returns: string contents or empty string
     
@@ -3009,7 +3105,7 @@ def get_tinfo(ea: Any) -> Any:
     """
     ...
 
-def get_trace_file_desc(filename: str) -> str:
+def get_trace_file_desc(filename: str) -> Any:
     r"""Get the file header of the specified trace file.
     
     """
@@ -3081,13 +3177,18 @@ def guess_type(ea: Any) -> Any:
     """
     ...
 
-def hasName(F: Any) -> Any:
+def hasName(f: Any) -> Any:
     ...
 
-def hasUserName(F: Any) -> Any:
+def hasUserName(f: Any) -> Any:
     ...
 
-def has_value(F: Any) -> Any:
+def has_value(f: Any) -> Any:
+    r"""
+    Do flags contain byte value? (i.e. has the byte a value?)
+    if not, the byte is uninitialized.
+    
+    """
     ...
 
 def here() -> Any:
@@ -3116,37 +3217,37 @@ def import_type(idx: Any, type_name: Any) -> Any:
     """
     ...
 
-def isBin0(F: Any) -> Any:
+def isBin0(f: Any) -> Any:
     ...
 
-def isBin1(F: Any) -> Any:
+def isBin1(f: Any) -> Any:
     ...
 
-def isDec0(F: Any) -> Any:
+def isDec0(f: Any) -> Any:
     ...
 
-def isDec1(F: Any) -> Any:
+def isDec1(f: Any) -> Any:
     ...
 
-def isExtra(F: Any) -> Any:
+def isExtra(f: Any) -> Any:
     ...
 
-def isHex0(F: Any) -> Any:
+def isHex0(f: Any) -> Any:
     ...
 
-def isHex1(F: Any) -> Any:
+def isHex1(f: Any) -> Any:
     ...
 
-def isOct0(F: Any) -> Any:
+def isOct0(f: Any) -> Any:
     ...
 
-def isOct1(F: Any) -> Any:
+def isOct1(f: Any) -> Any:
     ...
 
-def isRef(F: Any) -> Any:
+def isRef(f: Any) -> Any:
     ...
 
-def is_align(F: Any) -> Any:
+def is_align(f: Any) -> Any:
     ...
 
 def is_bf(enum_id: Any) -> Any:
@@ -3160,37 +3261,37 @@ def is_bf(enum_id: Any) -> Any:
     """
     ...
 
-def is_byte(F: Any) -> Any:
+def is_byte(f: Any) -> Any:
     ...
 
-def is_char0(F: Any) -> Any:
+def is_char0(f: Any) -> Any:
     ...
 
-def is_char1(F: Any) -> Any:
+def is_char1(f: Any) -> Any:
     ...
 
-def is_code(F: Any) -> Any:
+def is_code(f: Any) -> Any:
     ...
 
-def is_data(F: Any) -> Any:
+def is_data(f: Any) -> Any:
     ...
 
-def is_defarg0(F: Any) -> Any:
+def is_defarg0(f: Any) -> Any:
     ...
 
-def is_defarg1(F: Any) -> Any:
+def is_defarg1(f: Any) -> Any:
     ...
 
-def is_double(F: Any) -> Any:
+def is_double(f: Any) -> Any:
     ...
 
-def is_dword(F: Any) -> Any:
+def is_dword(f: Any) -> Any:
     ...
 
-def is_enum0(F: Any) -> Any:
+def is_enum0(f: Any) -> Any:
     ...
 
-def is_enum1(F: Any) -> Any:
+def is_enum1(f: Any) -> Any:
     ...
 
 def is_event_handled() -> Any:
@@ -3202,23 +3303,23 @@ def is_event_handled() -> Any:
     """
     ...
 
-def is_float(F: Any) -> Any:
+def is_float(f: Any) -> Any:
     ...
 
-def is_flow(F: Any) -> Any:
+def is_flow(f: Any) -> Any:
     ...
 
-def is_head(F: Any) -> Any:
+def is_head(f: Any) -> Any:
     ...
 
 def is_loaded(ea: Any) -> Any:
     r"""Is the byte initialized?"""
     ...
 
-def is_manual0(F: Any) -> Any:
+def is_manual0(f: Any) -> Any:
     ...
 
-def is_manual1(F: Any) -> Any:
+def is_manual1(f: Any) -> Any:
     ...
 
 def is_mapped(ea: Any) -> Any:
@@ -3236,49 +3337,49 @@ def is_member_id(sid: Any) -> Any:
     """
     ...
 
-def is_off0(F: Any) -> Any:
+def is_off0(f: Any) -> Any:
     ...
 
-def is_off1(F: Any) -> Any:
+def is_off1(f: Any) -> Any:
     ...
 
-def is_oword(F: Any) -> Any:
+def is_oword(f: Any) -> Any:
     ...
 
-def is_pack_real(F: Any) -> Any:
+def is_pack_real(f: Any) -> Any:
     ...
 
-def is_qword(F: Any) -> Any:
+def is_qword(f: Any) -> Any:
     ...
 
-def is_seg0(F: Any) -> Any:
+def is_seg0(f: Any) -> Any:
     ...
 
-def is_seg1(F: Any) -> Any:
+def is_seg1(f: Any) -> Any:
     ...
 
-def is_stkvar0(F: Any) -> Any:
+def is_stkvar0(f: Any) -> Any:
     ...
 
-def is_stkvar1(F: Any) -> Any:
+def is_stkvar1(f: Any) -> Any:
     ...
 
-def is_strlit(F: Any) -> Any:
+def is_strlit(f: Any) -> Any:
     ...
 
-def is_stroff0(F: Any) -> Any:
+def is_stroff0(f: Any) -> Any:
     ...
 
-def is_stroff1(F: Any) -> Any:
+def is_stroff1(f: Any) -> Any:
     ...
 
-def is_struct(F: Any) -> Any:
+def is_struct(f: Any) -> Any:
     ...
 
-def is_tail(F: Any) -> Any:
+def is_tail(f: Any) -> Any:
     ...
 
-def is_tbyte(F: Any) -> Any:
+def is_tbyte(f: Any) -> Any:
     ...
 
 def is_union(sid: Any) -> Any:
@@ -3295,7 +3396,7 @@ def is_union(sid: Any) -> Any:
     """
     ...
 
-def is_unknown(F: Any) -> Any:
+def is_unknown(f: Any) -> Any:
     ...
 
 def is_valid_trace_file(filename: str) -> bool:
@@ -3304,7 +3405,7 @@ def is_valid_trace_file(filename: str) -> bool:
     """
     ...
 
-def is_word(F: Any) -> Any:
+def is_word(f: Any) -> Any:
     ...
 
 @overload
@@ -3331,7 +3432,7 @@ def load_and_run_plugin(name: str, arg: int) -> bool:
 def load_debugger(dbgname: str, use_remote: bool) -> bool:
     ...
 
-def load_trace_file(filename: str) -> str:
+def load_trace_file(filename: str) -> Any:
     r"""Load a recorded trace file in the 'Tracing' window. If the call succeeds and 'buf' is not null, the description of the trace stored in the binary trace file will be returned in 'buf' 
             
     """
@@ -3350,8 +3451,9 @@ def make_array(ea: Any, nitems: Any) -> Any:
     :param ea: linear address
     :param nitems: size of array in items
     
-    NOTE: This function will create an array of the items with the same type as
-    the type of the item at 'ea'. If the byte at 'ea' is undefined, then
+    NOTE: This function will create an array of the
+    items with the same type as the type of the item
+    at 'ea'. If the byte at 'ea' is undefined, then
     this function will create an array of bytes.
     
     """
@@ -3443,7 +3545,7 @@ def op_enum(ea: ida_idaapi.ea_t, n: int, id: int, serial: int = 0) -> bool:
     r"""Set operand representation to be enum type If applied to unexplored bytes, converts them to 16-/32-bit word data 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all operands
     :param id: id of enum
     :param serial: the serial number of the constant in the enumeration, usually 0. the serial numbers are used if the enumeration contains several constants with the same value
     :returns: success
@@ -3466,7 +3568,7 @@ def op_man(ea: ida_idaapi.ea_t, n: int, op: str) -> bool:
     r"""Set forced operand. 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number
+    :param n: 0..#UA_MAXOP-1 operand number
     :param op: text of operand
     * nullptr: do nothing (return 0)
     * "" : delete forced operand
@@ -3487,7 +3589,7 @@ def op_oct(ea: ida_idaapi.ea_t, n: int) -> bool:
     ...
 
 def op_offset(*args: Any) -> bool:
-    r"""See op_offset_ex()
+    r"""See op_offset_ex().
     
     """
     ...
@@ -3555,7 +3657,7 @@ def op_seg(ea: ida_idaapi.ea_t, n: int) -> bool:
     r"""Set operand representation to be 'segment'. If applied to unexplored bytes, converts them to 16-/32-bit word data 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all operands
     :returns: success
     """
     ...
@@ -3564,7 +3666,7 @@ def op_stkvar(ea: ida_idaapi.ea_t, n: int) -> bool:
     r"""Set operand representation to be 'stack variable'. Should be applied to an instruction within a function. Should be applied after creating a stack var using insn_t::create_stkvar(). 
             
     :param ea: linear address
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all operands
     :returns: success
     """
     ...
@@ -3579,8 +3681,9 @@ def op_stroff(ea: Any, n: Any, strid: Any, delta: Any) -> Any:
         - 1 - the second, third and all other operands
         - -1 - all operands
     :param strid: id of a structure type
-    :param delta: struct offset delta. usually 0. denotes the difference
-                    between the structure base and the pointer into the structure.
+    :param delta: struct offset delta. usually 0. denotes the
+                    difference between the structure base and
+                    the pointer into the structure.
     
     
     """
@@ -3934,7 +4037,7 @@ def resume_thread(tid: int) -> int:
     """
     ...
 
-def retrieve_input_file_md5() -> bytes:
+def retrieve_input_file_md5() -> Any:
     r"""Get input file md5.
     
     """
@@ -4028,9 +4131,11 @@ def selector_by_name(segname: Any) -> Any:
     ...
 
 def send_dbg_command(cmd: Any) -> Any:
-    r"""Sends a command to the debugger module and returns the output string.
-    An exception will be raised if the debugger is not running or the current debugger does not export
-    the 'send_dbg_command' IDC command.
+    r"""Sends a command to the debugger module and
+    returns the output string.
+    An exception will be raised if the debugger is
+    not running or the current debugger does not
+    export the 'send_dbg_command' IDC command.
     
     """
     ...
@@ -4259,7 +4364,9 @@ def set_enum_width(enum_id: Any, nbytes: Any) -> Any:
     Set the width of enum base type
     
     :param enum_id: enum TID
-    :param nbytes: width of enum base type, allowed values: 0 (unspecified),1,2,4,8,16,32,64
+    :param nbytes: width of enum base type, allowed
+                   values: 0 (unspecified),1,2,4,8,16,
+                   32,64
     
     :returns: success
     
@@ -4337,6 +4444,9 @@ def set_func_cmt(ea: Any, cmt: Any, repeatable: Any) -> Any:
     :param cmt: a function comment line
     :param repeatable: 1: get repeatable comment
             0: get regular comment
+    
+    :returns: True on success, False on failure,
+             or None if 'ea' does not belong to a function.
     
     """
     ...
@@ -4461,23 +4571,34 @@ def set_member_type(sid: Any, member_offset: Any, flag: Any, typeid: Any, nitems
     :param sid: structure type ID
     :param member_offset: offset of the member
     :param flag: new type of the member. Should be one of
-                 FF_BYTE..FF_PACKREAL (see above) combined with FF_DATA
-    :param typeid: if is_struct(flag) then typeid specifies the structure id for the member
-                   if is_off0(flag) then typeid specifies the offset base.
-                   if is_strlit(flag) then typeid specifies the string type (STRTYPE_...).
-                   if is_stroff(flag) then typeid specifies the structure id
-                   if is_enum(flag) then typeid specifies the enum id
-                   if is_custom(flags) then typeid specifies the dtid and fid: dtid|(fid<<16)
+                 FF_BYTE..FF_PACKREAL (see above)
+                 combined with FF_DATA
+    :param typeid: if is_struct(flag) then typeid
+                   specifies the structure id for the
+                   member.
+                   if is_off0(flag) then typeid specifies
+                   the offset base.
+                   if is_strlit(flag) then typeid specifies
+                   the string type (STRTYPE_...).
+                   if is_stroff(flag) then typeid specifies
+                   the structure id.
+                   if is_enum(flag) then typeid specifies
+                   the enum id.
+                   if is_custom(flags) then typeid
+                   specifies the dtid and fid:
+                   dtid|(fid<<16).
                    Otherwise typeid should be -1.
     :param nitems: number of items in the member
     
-    :param target: target address of the offset expr. You may specify it as
-                   -1, ida will calculate it itself
+    :param target: target address of the offset expr.
+                   You may specify it as -1, ida will
+                   calculate it itself
     :param tdelta: offset target delta. usually 0
     :param reftype: see REF_... definitions
     
-    NOTE: The remaining arguments are allowed only if is_off0(flag) and you want
-           to specify a complex offset expression
+    NOTE: The remaining arguments are allowed only if
+    is_off0(flag) and you want to specify a complex
+    offset expression
     
     :returns: !=0 - ok.
     
@@ -4702,11 +4823,15 @@ def set_trace_file_desc(filename: str, description: str) -> bool:
 
 def sizeof(typestr: Any) -> Any:
     r"""
-    Returns the size of the type. It is equivalent to IDC's sizeof().
-    :param typestr: can be specified as a typeinfo tuple (e.g. the result of get_tinfo()),
+    Returns the size of the type. It is equivalent
+    to IDC's sizeof().
+    
+    :param typestr: can be specified as a typeinfo tuple
+            (e.g. the result of get_tinfo()),
             serialized type byte string,
             or a string with C declaration (e.g. "int")
-    :returns: -1 if typestring is not valid or has no size. otherwise size of the type
+    :returns: -1 if typestring is not valid or has no
+             size. otherwise size of the type
     
     """
     ...
@@ -4720,9 +4845,11 @@ def split_sreg_range(ea: Any, reg: Any, value: Any, tag: Any = 2) -> Any:
     :param value: new value of the segment register.
     :param tag: of SR_... constants
     
-    NOTE: IDA keeps tracks of all the points where segment register change their
-          values. This function allows you to specify the correct value of a segment
-          register if IDA is not able to find the correct value.
+    NOTE: IDA keeps tracks of all the points where
+          segment register change their values.
+          This function allows you to specify the
+          correct value of a segment register if IDA
+          is not able to find the correct value.
     
     """
     ...
@@ -4890,7 +5017,8 @@ def write_dbg_memory(ea: Any, data: Any) -> Any:
     :param data: string to write
     :returns: number of written bytes (-1 - network/debugger error)
     
-    Thread-safe function (may be called only from the main thread and debthread)
+    Thread-safe function (may be called only from
+    the main thread and debthread)
     
     """
     ...
@@ -4925,6 +5053,7 @@ ADDSEG_QUIET: int  # 8
 ADDSEG_SPARSE: int  # 32
 AF2_DOEH: int  # 1
 AF2_DORTTI: int  # 2
+AF2_HFOUTLINE: int  # 16
 AF2_MACRO: int  # 4
 AF2_MERGESTR: int  # 8
 AF_ANORET: int  # 16384
@@ -5171,16 +5300,16 @@ FT_SREC: int  # 13
 FT_W32RUN: int  # 19
 FT_WIN: int  # 4
 FT_ZIP: int  # 14
-FUNCATTR_ARGSIZE: int  # 48
-FUNCATTR_COLOR: int  # 64
-FUNCATTR_END: int  # 8
-FUNCATTR_FLAGS: int  # 16
-FUNCATTR_FPD: int  # 56
-FUNCATTR_FRAME: int  # 24
-FUNCATTR_FRREGS: int  # 40
-FUNCATTR_FRSIZE: int  # 32
-FUNCATTR_OWNER: int  # 24
-FUNCATTR_REFQTY: int  # 32
+FUNCATTR_ARGSIZE: int  # 6
+FUNCATTR_COLOR: int  # 8
+FUNCATTR_END: int  # 1
+FUNCATTR_FLAGS: int  # 2
+FUNCATTR_FPD: int  # 7
+FUNCATTR_FRAME: int  # 3
+FUNCATTR_FRREGS: int  # 5
+FUNCATTR_FRSIZE: int  # 4
+FUNCATTR_OWNER: int  # 9
+FUNCATTR_REFQTY: int  # 10
 FUNCATTR_START: int  # 0
 FUNC_BOTTOMBP: int  # 256
 FUNC_FAR: int  # 2
@@ -5333,6 +5462,7 @@ LFLG_DBG_NOPATH: int  # 128
 LFLG_FLAT_OFF32: int  # 16
 LFLG_ILP32: int  # 4096
 LFLG_IS_DLL: int  # 8
+LFLG_IS_EXE_DLL: int  # 8192
 LFLG_KERNMODE: int  # 2048
 LFLG_MSF: int  # 32
 LFLG_PACK: int  # 512
@@ -5351,17 +5481,17 @@ LN_PUBLIC: int  # 2
 LN_WEAK: int  # 8
 MAXADDR: int  # 0
 MOVE_SEGM_CHUNK: int  # -4
-MOVE_SEGM_DEBUG: tuple  # (-8,)
+MOVE_SEGM_DEBUG: int  # -8
 MOVE_SEGM_IDP: int  # -3
-MOVE_SEGM_INVAL: tuple  # (-11,)
+MOVE_SEGM_INVAL: int  # -11
 MOVE_SEGM_LOADER: int  # -5
-MOVE_SEGM_MAPPING: tuple  # (-10,)
+MOVE_SEGM_MAPPING: int  # -10
 MOVE_SEGM_ODD: int  # -6
 MOVE_SEGM_OK: int  # 0
-MOVE_SEGM_ORPHAN: tuple  # (-7,)
+MOVE_SEGM_ORPHAN: int  # -7
 MOVE_SEGM_PARAM: int  # -1
 MOVE_SEGM_ROOM: int  # -2
-MOVE_SEGM_SOURCEFILES: tuple  # (-9,)
+MOVE_SEGM_SOURCEFILES: int  # -9
 MSF_FIXONCE: int  # 8
 MSF_LDKEEP: int  # 4
 MSF_NOFIX: int  # 2
@@ -5481,23 +5611,23 @@ SCF_SHHID_FUNC: int  # 64
 SCF_SHHID_ITEM: int  # 32
 SCF_SHHID_SEGM: int  # 128
 SCF_TESTMODE: int  # 16
-SEGATTR_ALIGN: int  # 40
-SEGATTR_BITNESS: int  # 43
-SEGATTR_COLOR: int  # 188
-SEGATTR_COMB: int  # 41
-SEGATTR_CS: int  # 64
-SEGATTR_DS: int  # 80
-SEGATTR_END: int  # 8
-SEGATTR_ES: int  # 56
-SEGATTR_FLAGS: int  # 44
-SEGATTR_FS: int  # 88
-SEGATTR_GS: int  # 96
-SEGATTR_ORGBASE: int  # 32
-SEGATTR_PERM: int  # 42
-SEGATTR_SEL: int  # 48
-SEGATTR_SS: int  # 72
+SEGATTR_ALIGN: int  # 3
+SEGATTR_BITNESS: int  # 6
+SEGATTR_COLOR: int  # 16
+SEGATTR_COMB: int  # 4
+SEGATTR_CS: int  # 10
+SEGATTR_DS: int  # 12
+SEGATTR_END: int  # 1
+SEGATTR_ES: int  # 9
+SEGATTR_FLAGS: int  # 7
+SEGATTR_FS: int  # 13
+SEGATTR_GS: int  # 14
+SEGATTR_ORGBASE: int  # 2
+SEGATTR_PERM: int  # 5
+SEGATTR_SEL: int  # 8
+SEGATTR_SS: int  # 11
 SEGATTR_START: int  # 0
-SEGATTR_TYPE: int  # 184
+SEGATTR_TYPE: int  # 15
 SEGMOD_KEEP: int  # 2
 SEGMOD_KILL: int  # 1
 SEGMOD_SILENT: int  # 4
@@ -5692,6 +5822,4 @@ scPub2: int  # 4
 scPub3: int  # 7
 scStack: int  # 5
 struct: module
-sys: module  # <module 'sys' (built-in)>
 time: module  # <module 'time' (built-in)>
-types: module

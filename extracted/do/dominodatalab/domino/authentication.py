@@ -1,10 +1,13 @@
 import os
 import re
 
-from requests.auth import AuthBase, HTTPBasicAuth
+from requests.auth import AuthBase
 
-from .constants import DOMINO_TOKEN_FILE_KEY_NAME, DOMINO_USER_API_KEY_KEY_NAME, \
-    DOMINO_API_PROXY
+from .constants import (
+    DOMINO_API_PROXY,
+    DOMINO_TOKEN_FILE_KEY_NAME,
+    DOMINO_USER_API_KEY_KEY_NAME,
+)
 
 
 class ProxyAuth(AuthBase):
@@ -16,7 +19,10 @@ class ProxyAuth(AuthBase):
     def __init__(self, api_proxy):
         match = re.search("(https?://)?([^/]+:[0-9]+)$", api_proxy)
         if not match:
-            raise RuntimeError("Bad proxy URL: '%s', must be host:port or scheme://host:port" % api_proxy)
+            raise RuntimeError(
+                "Bad proxy URL: '%s', must be host:port or scheme://host:port"
+                % api_proxy
+            )
         if not match.group(1):
             proxy_str = "http://" + match.group(2)
         else:
@@ -35,8 +41,20 @@ class ProxyAuth(AuthBase):
         return r
 
     def _replaceHostWithProxy(self, url):
-        return re.sub('^.*?://[^/]+', self.api_proxy, url)
+        return re.sub("^.*?://[^/]+", self.api_proxy, url)
 
+
+class ApiKeyAuth(AuthBase):
+    """
+    Class for authenticating requests using a Domino API key header.
+    """
+
+    def __init__(self, api_key):
+        self.api_key = api_key
+
+    def __call__(self, r):
+        r.headers["X-Domino-Api-Key"] = self.api_key
+        return r
 
 
 class BearerAuth(AuthBase):
@@ -66,7 +84,9 @@ class BearerAuth(AuthBase):
         return r
 
 
-def get_auth_by_type(api_key=None, auth_token=None, domino_token_file=None, api_proxy=None):
+def get_auth_by_type(
+    api_key=None, auth_token=None, domino_token_file=None, api_proxy=None
+):
     """
     Return appropriate authentication object for requests.
 
@@ -89,7 +109,7 @@ def get_auth_by_type(api_key=None, auth_token=None, domino_token_file=None, api_
     elif domino_token_file:
         return BearerAuth(domino_token_file=domino_token_file)
     elif api_key:
-        return HTTPBasicAuth("", api_key)
+        return ApiKeyAuth(api_key)
     else:
         # In the case that no authentication type was passed when this method
         # called, fall back to deriving the auth info from the environment.
@@ -98,7 +118,9 @@ def get_auth_by_type(api_key=None, auth_token=None, domino_token_file=None, api_
         domino_token_file_from_env = os.getenv(DOMINO_TOKEN_FILE_KEY_NAME)
         if api_key_from_env or domino_token_file_from_env or api_proxy_from_env:
             return get_auth_by_type(
-                api_key=api_key_from_env, domino_token_file=domino_token_file_from_env, api_proxy=api_proxy_from_env
+                api_key=api_key_from_env,
+                domino_token_file=domino_token_file_from_env,
+                api_proxy=api_proxy_from_env,
             )
         else:
             # All attempts failed -- nothing to do but raise an error.

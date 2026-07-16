@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import os
 import socket
+import subprocess  # noqa: S404  # a clean interpreter isolates the blocked fcntl import
 import sys
 from errno import EIO, ENOSYS
-from typing import TYPE_CHECKING
+from textwrap import dedent
+from typing import TYPE_CHECKING, Final
 
 import pytest
 
 from filelock import SoftFileLock, UnixFileLock
+from filelock._identity import process_start_token
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -16,14 +19,57 @@ if TYPE_CHECKING:
 
     from pytest_mock import MockerFixture
 
-unix_only = pytest.mark.skipif(sys.platform == "win32", reason="unix-only flock fallback")
-_ENOSYS_SIDE_EFFECT = OSError(ENOSYS, "Function not implemented")
-_FLOCK_PATCH_TARGET = "filelock._unix.fcntl.flock"
+_UNIX_ONLY: Final[pytest.MarkDecorator] = pytest.mark.skipif(sys.platform == "win32", reason="unix-only flock fallback")
 
 
-@unix_only
-def test_fallback_emits_warning(tmp_path: Path, mocker: MockerFixture) -> None:
-    mocker.patch(_FLOCK_PATCH_TARGET, side_effect=_ENOSYS_SIDE_EFFECT)
+@_UNIX_ONLY
+def test_import_without_fcntl_uses_soft_aliases_and_descriptor_errors() -> None:
+    script: Final[str] = dedent(
+        """
+        import json
+        import sys
+        import warnings
+        from collections.abc import Callable
+        from errno import ENOSYS
+
+        sys.modules["fcntl"] = None
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            import filelock
+
+        def operation_errno(operation: Callable[[int], bool | None]) -> int | None:
+            try:
+                operation(-1)
+            except OSError as exception:
+                return exception.errno
+            return None
+
+        print(json.dumps({
+            "aliases": [
+                filelock.FileLock is filelock.SoftFileLock,
+                filelock.AsyncFileLock is filelock.AsyncSoftFileLock,
+            ],
+            "errors": [
+                operation_errno(filelock.lock_descriptor) == ENOSYS,
+                operation_errno(filelock.unlock_descriptor) == ENOSYS,
+            ],
+            "warnings": [str(item.message) for item in caught],
+        }, sort_keys=True))
+        """,
+    )
+    result: Final[subprocess.CompletedProcess[str]] = subprocess.run(
+        [sys.executable, "-c", script], check=True, capture_output=True, text=True
+    )
+
+    assert (result.stdout, result.stderr) == (
+        '{"aliases": [true, true], "errors": [true, true], "warnings": ["only soft file lock is available"]}\n',
+        "",
+    )
+
+
+@_UNIX_ONLY
+@pytest.mark.usefixtures("unsupported_flock")
+def test_fallback_emits_warning(tmp_path: Path) -> None:
     lock = UnixFileLock(tmp_path / "test.lock")
 
     with pytest.warns(UserWarning, match="flock not supported on this filesystem, falling back to SoftFileLock"):
@@ -31,10 +77,10 @@ def test_fallback_emits_warning(tmp_path: Path, mocker: MockerFixture) -> None:
     lock.release()
 
 
-@unix_only
+@_UNIX_ONLY
 @pytest.mark.filterwarnings("default::UserWarning")
-def test_fallback_swaps_to_soft(tmp_path: Path, mocker: MockerFixture) -> None:
-    mocker.patch(_FLOCK_PATCH_TARGET, side_effect=_ENOSYS_SIDE_EFFECT)
+@pytest.mark.usefixtures("unsupported_flock")
+def test_fallback_swaps_to_soft(tmp_path: Path) -> None:
     lock = UnixFileLock(tmp_path / "test.lock")
 
     with lock:
@@ -42,23 +88,25 @@ def test_fallback_swaps_to_soft(tmp_path: Path, mocker: MockerFixture) -> None:
         assert isinstance(lock, SoftFileLock)
 
 
-@unix_only
+@_UNIX_ONLY
 @pytest.mark.filterwarnings("default::UserWarning")
-def test_fallback_writes_pid_and_hostname(tmp_path: Path, mocker: MockerFixture) -> None:
+@pytest.mark.usefixtures("unsupported_flock")
+def test_fallback_writes_pid_and_hostname(tmp_path: Path) -> None:
     lock_path = tmp_path / "test.lock"
-    mocker.patch(_FLOCK_PATCH_TARGET, side_effect=_ENOSYS_SIDE_EFFECT)
-    lock = UnixFileLock(lock_path)
 
-    with lock:
-        content = lock_path.read_text(encoding="utf-8")
-        assert content == f"{os.getpid()}\n{socket.gethostname()}\n"
+    with UnixFileLock(lock_path):
+        lines = lock_path.read_text(encoding="utf-8").splitlines()
+    expected = [str(os.getpid()), socket.gethostname()]
+    if (token := process_start_token(os.getpid())) is not None:
+        expected.append(str(token))
+    assert lines == expected
 
 
-@unix_only
+@_UNIX_ONLY
 @pytest.mark.filterwarnings("default::UserWarning")
-def test_fallback_release_unlinks_file(tmp_path: Path, mocker: MockerFixture) -> None:
+@pytest.mark.usefixtures("unsupported_flock")
+def test_fallback_release_unlinks_file(tmp_path: Path) -> None:
     lock_path = tmp_path / "test.lock"
-    mocker.patch(_FLOCK_PATCH_TARGET, side_effect=_ENOSYS_SIDE_EFFECT)
     lock = UnixFileLock(lock_path)
 
     lock.acquire()
@@ -67,25 +115,24 @@ def test_fallback_release_unlinks_file(tmp_path: Path, mocker: MockerFixture) ->
     assert not lock_path.exists()
 
 
-@unix_only
+@_UNIX_ONLY
 @pytest.mark.filterwarnings("default::UserWarning")
-def test_fallback_subsequent_acquire_skips_flock(tmp_path: Path, mocker: MockerFixture) -> None:
-    flock_mock: MagicMock = mocker.patch(_FLOCK_PATCH_TARGET, side_effect=_ENOSYS_SIDE_EFFECT)
+def test_fallback_subsequent_acquire_skips_flock(tmp_path: Path, unsupported_flock: MagicMock) -> None:
     lock = UnixFileLock(tmp_path / "test.lock")
 
     lock.acquire()
     lock.release()
-    flock_mock.reset_mock()
+    unsupported_flock.reset_mock()
 
     lock.acquire()
     lock.release()
-    flock_mock.assert_not_called()
+    unsupported_flock.assert_not_called()
 
 
-@unix_only
+@_UNIX_ONLY
 @pytest.mark.filterwarnings("default::UserWarning")
-def test_fallback_reentrant_locking(tmp_path: Path, mocker: MockerFixture) -> None:
-    mocker.patch(_FLOCK_PATCH_TARGET, side_effect=_ENOSYS_SIDE_EFFECT)
+@pytest.mark.usefixtures("unsupported_flock")
+def test_fallback_reentrant_locking(tmp_path: Path) -> None:
     lock = UnixFileLock(tmp_path / "test.lock")
 
     with lock:
@@ -95,13 +142,13 @@ def test_fallback_reentrant_locking(tmp_path: Path, mocker: MockerFixture) -> No
     assert not lock.is_locked
 
 
-@unix_only
+@_UNIX_ONLY
 def test_release_suppresses_eio_on_close(tmp_path: Path, mocker: MockerFixture) -> None:
     lock = UnixFileLock(tmp_path / "test.lock")
     lock.acquire()
 
-    real_close = os.close
-    fd_to_fail = lock._context.lock_file_fd
+    real_close = os.close  # capture before the patch so the fd still closes for real
+    fd_to_fail = lock._context.lock_file_fd  # _release() nulls this before closing, so read it now
 
     def _close_eio(fd: int) -> None:
         real_close(fd)
@@ -111,3 +158,26 @@ def test_release_suppresses_eio_on_close(tmp_path: Path, mocker: MockerFixture) 
     mocker.patch("filelock._unix.os.close", side_effect=_close_eio)
     lock.release()
     assert not lock.is_locked
+
+
+@_UNIX_ONLY
+def test_acquire_flock_error_clears_pending_descriptor(tmp_path: Path, mocker: MockerFixture) -> None:
+    lock = UnixFileLock(tmp_path / "test.lock")
+    mocker.patch(
+        "filelock._unix.fcntl.flock",
+        side_effect=[OSError(EIO, "Input/output error"), None, None],
+    )
+
+    with pytest.raises(OSError, match="Input/output error"):
+        lock.acquire(timeout=0)
+    assert not lock.is_locked
+
+    lock.acquire(timeout=0)
+    assert lock.is_locked
+    lock.release()
+    assert not lock.is_locked
+
+
+@pytest.fixture
+def unsupported_flock(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("filelock._unix.fcntl.flock", side_effect=OSError(ENOSYS, "Function not implemented"))

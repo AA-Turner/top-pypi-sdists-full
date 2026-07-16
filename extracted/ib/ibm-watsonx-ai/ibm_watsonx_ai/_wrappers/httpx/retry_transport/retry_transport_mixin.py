@@ -4,8 +4,8 @@
 #  -----------------------------------------------------------------------------------------
 
 from abc import ABC
-from collections.abc import Iterable
 from functools import cached_property
+from typing import Iterable
 
 import httpx
 

@@ -5,7 +5,7 @@
 
 from ibm_watsonx_ai.libs.repo.swagger_client.apis.repository_api import RepositoryApi
 from ibm_watsonx_ai.libs.repo.swagger_client.rest import ApiException
-from ibm_watsonx_ai._wrappers.httpx_wrapper import set_verify_for_httpx
+from ibm_watsonx_ai._wrappers.httpx import GlobalHttpxSettings
 
 import httpx
 import certifi, os
@@ -38,7 +38,7 @@ class MLRepositoryApi(RepositoryApi):
     def upload_pipeline_version(self, pipeline_id, version_id, content_stream):
         os.environ["DEPLOYMENT_PLATFORM"] = "private"
         if 'DEPLOYMENT_PLATFORM' in os.environ and os.environ['DEPLOYMENT_PLATFORM'] == 'private':
-            decorated_put = set_verify_for_httpx(httpx.put)
+            decorated_put = GlobalHttpxSettings.set_default_verify(httpx.put)
 
             r = decorated_put(url='{}/v3/ml_assets/training_definitions/{}/versions/{}/content'.format(
                 self.api_client.repository_path,
@@ -51,7 +51,7 @@ class MLRepositoryApi(RepositoryApi):
             if r.status_code != 200:
                 raise ApiException(r.status_code, r.text)
         else:
-            decorated_put = set_verify_for_httpx(httpx.put)
+            decorated_put = GlobalHttpxSettings.set_default_verify(httpx.put)
             r = decorated_put(url='{}/v3/ml_assets/training_definitions/{}/versions/{}/content'.format(
                 self.api_client.repository_path,
                 pipeline_id,
@@ -71,7 +71,7 @@ class MLRepositoryApi(RepositoryApi):
 
 
         if 'DEPLOYMENT_PLATFORM' in os.environ and os.environ['DEPLOYMENT_PLATFORM'] == 'private':
-            decorated_put = set_verify_for_httpx(httpx.put)
+            decorated_put = GlobalHttpxSettings.set_default_verify(httpx.put)
             r = decorated_put(url='{}/ml/v4/models/{}/content'.format(
                 self.api_client.repository_path,
                 model_id
@@ -84,7 +84,7 @@ class MLRepositoryApi(RepositoryApi):
             if (r.status_code != 200 and r.status_code !=202):
                 raise ApiException(r.status_code, r.text)
         else:
-            decorated_put = set_verify_for_httpx(httpx.put)
+            decorated_put = GlobalHttpxSettings.set_default_verify(httpx.put)
             r = decorated_put(url='{}/ml/v4/models/{}/content'.format(
                 self.api_client.repository_path,
                 model_id
@@ -96,7 +96,7 @@ class MLRepositoryApi(RepositoryApi):
             )
 
             if r.status_code not in (200, 202):
-                decorated_delete = set_verify_for_httpx(httpx.delete)
+                decorated_delete = GlobalHttpxSettings.set_default_verify(httpx.delete)
                 r = decorated_delete(url='{}/ml/v4/models/{}'.format(
                     self.api_client.repository_path,
                     model_id
@@ -113,7 +113,7 @@ class MLRepositoryApi(RepositoryApi):
         else:
             query_parameters = {}
 
-        decorated_put = set_verify_for_httpx(httpx.put)
+        decorated_put = GlobalHttpxSettings.set_default_verify(httpx.put)
         r = decorated_put(url='{}/ml/v4/models/{}/content'.format(
             self.api_client.repository_path,
             model_id
@@ -125,7 +125,7 @@ class MLRepositoryApi(RepositoryApi):
         )
         if (r.status_code != 201 and r.status_code !=202):
             if no_delete is False or no_delete is None:
-                decorated_delete = set_verify_for_httpx(httpx.delete)
+                decorated_delete = GlobalHttpxSettings.set_default_verify(httpx.delete)
                 r = decorated_delete(url='{}/ml/v4/models/{}'.format(
                     self.api_client.repository_path,
                     model_id
@@ -209,7 +209,7 @@ class MLRepositoryApi(RepositoryApi):
 
         os.environ["DEPLOYMENT_PLATFORM"] = "private"
         if 'DEPLOYMENT_PLATFORM' in os.environ and os.environ['DEPLOYMENT_PLATFORM'] == 'private':
-            decorated_put = set_verify_for_httpx(httpx.put)
+            decorated_put = GlobalHttpxSettings.set_default_verify(httpx.put)
             r = decorated_put(url='{}/v4/functions/{}/revisions/{}/content'.format(
                 self.api_client.repository_path,
                 function_id,
@@ -221,7 +221,7 @@ class MLRepositoryApi(RepositoryApi):
             if r.status_code != 200:
                 raise ApiException(r.status_code, r.text)
         else:
-            decorated_put = set_verify_for_httpx(httpx.put)
+            decorated_put = GlobalHttpxSettings.set_default_verify(httpx.put)
             r = decorated_put(url='{}/v4/functions/{}/revisions/{}/content'.format(
                 self.api_client.repository_path,
                 function_id,
@@ -236,7 +236,7 @@ class MLRepositoryApi(RepositoryApi):
     def upload_libraries(self, library_id, content_stream):
 
         if 'DEPLOYMENT_PLATFORM' in os.environ and os.environ['DEPLOYMENT_PLATFORM'] == 'private':
-            decorated_put = set_verify_for_httpx(httpx.put)
+            decorated_put = GlobalHttpxSettings.set_default_verify(httpx.put)
             r = decorated_put(url='{}/v4/libraries/{}/content'.format(
                 self.api_client.repository_path,
                 library_id),
@@ -246,7 +246,7 @@ class MLRepositoryApi(RepositoryApi):
             if r.status_code != 200 and r.status_code !=202:
                 raise ApiException(r.status_code, r.text)
         else:
-            decorated_put = set_verify_for_httpx(httpx.put)
+            decorated_put = GlobalHttpxSettings.set_default_verify(httpx.put)
             r = decorated_put(url='{}/v4/libraries/{}/content'.format(
                 self.api_client.repository_path,
                 library_id),
@@ -262,7 +262,7 @@ class MLRepositoryApi(RepositoryApi):
         tmp_headers.update(header_params)
 
         if 'DEPLOYMENT_PLATFORM' in os.environ and os.environ['DEPLOYMENT_PLATFORM'] == 'private':
-            decorated_put = set_verify_for_httpx(httpx.put)
+            decorated_put = GlobalHttpxSettings.set_default_verify(httpx.put)
             r = decorated_put(url='{}/v4/runtimes/{}/content'.format(
                 self.api_client.repository_path,
                 runtimespec_id
@@ -273,7 +273,7 @@ class MLRepositoryApi(RepositoryApi):
             if r.status_code != 200 and r.status_code !=202:
                 raise ApiException(r.status_code, r.text)
         else:
-            decorated_put = set_verify_for_httpx(httpx.put)
+            decorated_put = GlobalHttpxSettings.set_default_verify(httpx.put)
             r = decorated_put(url='{}/v4/runtimes/{}/content'.format(
                 self.api_client.repository_path,
                 runtimespec_id

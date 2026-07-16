@@ -60,10 +60,11 @@ class TestSemLockRegression(unittest.TestCase):
     """
 
     def setUp(self):
-        self.test_dir = Path(__file__).parent / ".abstra_regr"
-        if self.test_dir.exists():
-            shutil.rmtree(self.test_dir)
-        self.test_dir.mkdir()
+        # Unique dir per test: methods run concurrently under `pytest -n auto`
+        # (xdist), and a shared fixed dir let their executions leak into each
+        # other's counts (SqlStorage lives under Settings.root_path).
+        self.test_dir = Path(__file__).parent / f".abstra_regr_{uuid4().hex}"
+        self.test_dir.mkdir(exist_ok=True)
         Settings.set_root_path(str(self.test_dir))
 
     def tearDown(self):

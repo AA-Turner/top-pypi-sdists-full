@@ -1,144 +1,135 @@
 Metadata-Version: 2.4
 Name: kfactory
-Version: 2.6.1
+Version: 3.0.0
 Summary: KLayout API implementation of gdsfactory
 Author-email: gdsfactory community <contact@gdsfactory.com>
-Classifier: Programming Language :: Python :: 3.11
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Operating System :: OS Independent
-Requires-Python: >=3.11
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aenum<4,>=3.1.16
-Requires-Dist: cachetools>=6.2.4
-Requires-Dist: klayout~=0.30.8
+Requires-Dist: aenum<4,>=3.1.17
+Requires-Dist: cachetools<7.2,>=7.1.4
+Requires-Dist: kfnetlist>=0.2.2
+Requires-Dist: klayout<0.31,>=0.30.9
 Requires-Dist: loguru<0.8,>=0.7.3
-Requires-Dist: pydantic<2.13,>=2.12.5
-Requires-Dist: pydantic-extra-types>=2.11
-Requires-Dist: pydantic-settings<3,>=2.12
-Requires-Dist: pygit2<2,>=1.19.1
-Requires-Dist: rapidfuzz<4,>=3.14.3
-Requires-Dist: rectangle-packer<3,>=2.0.5
-Requires-Dist: requests<3,>=2.32.5
-Requires-Dist: ruamel.yaml<0.20,>=0.19.1
-Requires-Dist: ruamel.yaml.string<0.2,>=0.1.1
+Requires-Dist: pydantic<2.14,>=2.13.4
+Requires-Dist: pydantic-extra-types<2.12,>=2.11.1
+Requires-Dist: pydantic-settings<3,>=2.14.2
+Requires-Dist: pygit2<2,>=1.19.3
+Requires-Dist: rapidfuzz<4,>=3.14.5
+Requires-Dist: rectangle-packer<3,>=2.1
+Requires-Dist: requests<3,>=2.34.2
+Requires-Dist: ruamel-yaml<0.20,>=0.19.1
+Requires-Dist: ruamel-yaml-string<0.2,>=0.1.1
+Requires-Dist: scipy<2,>=1.18
 Requires-Dist: semver<4,>=3.0.4
-Requires-Dist: scipy<2,>=1.17.0
-Requires-Dist: toolz<2,>=1.1.0
-Requires-Dist: typer<0.25,>=0.21.1
+Requires-Dist: toolz<2,>=1.1
+Requires-Dist: typer<0.27,>=0.26.8
+Provides-Extra: ci
+Requires-Dist: pytest<9.2,>=9.1.1; extra == "ci"
+Requires-Dist: pytest-cov<7.2,>=7.1; extra == "ci"
+Requires-Dist: pytest-datadir<1.9,>=1.8; extra == "ci"
+Requires-Dist: pytest-randomly<4.2,>=4.1; extra == "ci"
+Requires-Dist: pytest-regressions<2.12,>=2.11; extra == "ci"
+Requires-Dist: pytest-xdist<3.9,>=3.8; extra == "ci"
+Requires-Dist: types-cachetools<7.1,>=7.0.0.20260713; extra == "ci"
+Requires-Dist: types-requests<2.34,>=2.33.0.20260712; extra == "ci"
+Requires-Dist: uv<0.12,>=0.11.28; extra == "ci"
 Provides-Extra: dev
 Requires-Dist: kfactory[ci]; extra == "dev"
-Requires-Dist: mypy>=1.15.0; extra == "dev"
-Requires-Dist: pre-commit>=4.2.0; extra == "dev"
-Requires-Dist: pylsp-mypy>=0.7.0; extra == "dev"
-Requires-Dist: python-lsp-server[all]>=1.13.1; extra == "dev"
-Requires-Dist: ruff>=0.9.2; extra == "dev"
-Requires-Dist: rust-just>=1.42.4; extra == "dev"
-Requires-Dist: tbump>=6.11.0; extra == "dev"
-Requires-Dist: ty>=0.0.1a17; extra == "dev"
-Requires-Dist: types-cachetools>=5.5.0.20240820; extra == "dev"
-Requires-Dist: types-docutils>=0.21.0.20241128; extra == "dev"
-Requires-Dist: types-pygments>=2.19.0.20250305; extra == "dev"
-Requires-Dist: types-requests>=2.32.0.20250328; extra == "dev"
-Requires-Dist: types-setuptools>=76.0.0.20250328; extra == "dev"
-Requires-Dist: scipy-stubs; extra == "dev"
+Requires-Dist: pre-commit<4.7,>=4.6; extra == "dev"
+Requires-Dist: python-lsp-server[all]<1.15,>=1.14; extra == "dev"
+Requires-Dist: ruff<0.16,>=0.15.21; extra == "dev"
+Requires-Dist: rust-just~=1.56.0; extra == "dev"
+Requires-Dist: scipy-stubs<1.19,>=1.18; extra == "dev"
+Requires-Dist: tbump<6.12,>=6.11; extra == "dev"
+Requires-Dist: ty<0.1,>=0.0.59; extra == "dev"
+Requires-Dist: types-cachetools<7.1,>=7.0.0.20260713; extra == "dev"
+Requires-Dist: types-docutils<0.23,>=0.22.3.20260712; extra == "dev"
+Requires-Dist: types-pygments<2.21,>=2.20.0.20260518; extra == "dev"
+Requires-Dist: types-requests<2.34,>=2.33.0.20260712; extra == "dev"
+Requires-Dist: types-setuptools<83.1,>=83.0.0.20260706; extra == "dev"
 Provides-Extra: docs
-Requires-Dist: kfactory[ipy]; extra == "docs"
-Requires-Dist: erdantic>=1.1.1; extra == "docs"
-Requires-Dist: markdown-exec>=1.10.3; extra == "docs"
-Requires-Dist: mkdocs>=1.6.1; extra == "docs"
-Requires-Dist: mkdocs-gen-files>=0.5.0; extra == "docs"
-Requires-Dist: mkdocs-jupyter>=0.25.1; extra == "docs"
-Requires-Dist: mkdocs-literate-nav>=0.6.2; extra == "docs"
-Requires-Dist: mkdocs-material>=9.6.9; extra == "docs"
-Requires-Dist: mkdocs-section-index>=0.3.9; extra == "docs"
-Requires-Dist: mkdocs-video>=1.5.0; extra == "docs"
-Requires-Dist: mkdocstrings[python]>=0.29.0; extra == "docs"
-Requires-Dist: pymdown-extensions>=10.14.3; extra == "docs"
-Requires-Dist: griffe-pydantic>=1.1.4; extra == "docs"
-Requires-Dist: griffe-inherited-docstrings>=1.1.1; extra == "docs"
-Requires-Dist: griffe-warnings-deprecated>=1.1.0; extra == "docs"
-Requires-Dist: ruff>=0.9.2; extra == "docs"
-Provides-Extra: ci
-Requires-Dist: pytest>=8.3.5; extra == "ci"
-Requires-Dist: pytest-cov>=6.0.0; extra == "ci"
-Requires-Dist: pytest-randomly>=3.16.0; extra == "ci"
-Requires-Dist: pytest-regressions>=2.7.0; extra == "ci"
-Requires-Dist: pytest-xdist>=3.6.1; extra == "ci"
-Requires-Dist: pytest-regressions>=2.8.3; extra == "ci"
-Requires-Dist: pytest-datadir>=1.8.0; extra == "ci"
-Requires-Dist: types-cachetools>=5.5.0.20240820; extra == "ci"
-Requires-Dist: types-requests>=2.32.0.20250328; extra == "ci"
+Requires-Dist: erdantic<1.3,>=1.2.1; extra == "docs"
+Requires-Dist: griffe-inherited-docstrings<1.2,>=1.1.3; extra == "docs"
+Requires-Dist: griffe-pydantic<1.4,>=1.3.1; extra == "docs"
+Requires-Dist: griffe-warnings-deprecated<1.2,>=1.1.1; extra == "docs"
+Requires-Dist: kfactory[notebooks]; extra == "docs"
+Requires-Dist: mkdocs-literate-nav<0.7,>=0.6.3; extra == "docs"
+Requires-Dist: mkdocs-video<1.6,>=1.5; extra == "docs"
+Requires-Dist: mkdocstrings[python]<1.1,>=1.0.6; extra == "docs"
+Requires-Dist: pymdown-extensions<11.1,>=11.0.1; extra == "docs"
+Requires-Dist: ruff<0.16,>=0.15.21; extra == "docs"
+Requires-Dist: zensical<0.1,>=0.0.50; extra == "docs"
 Provides-Extra: ipy
-Requires-Dist: ipyevents>=2.0.2; extra == "ipy"
-Requires-Dist: ipython>=9.0.2; extra == "ipy"
-Requires-Dist: ipytree>=0.2.2; extra == "ipy"
-Requires-Dist: ipywidgets>=8.1.5; extra == "ipy"
+Requires-Dist: ipyevents<2.1,>=2.0.4; extra == "ipy"
+Requires-Dist: ipython<9.16,>=9.15; extra == "ipy"
+Requires-Dist: ipytree<0.3,>=0.2.2; extra == "ipy"
+Requires-Dist: ipywidgets<8.2,>=8.1.8; extra == "ipy"
+Provides-Extra: notebooks
+Requires-Dist: ipykernel<7.4,>=7.3; extra == "notebooks"
+Requires-Dist: jupytext<1.20,>=1.19.4; extra == "notebooks"
+Requires-Dist: kfactory[ipy]; extra == "notebooks"
+Requires-Dist: nbconvert<7.18,>=7.17.1; extra == "notebooks"
 Dynamic: license-file
 
-# KFactory 2.6.1
+# KFactory 3.0.0rc2
 
 [![codecov](https://codecov.io/gh/gdsfactory/kfactory/graph/badge.svg?token=dArcfnQE4w)](https://codecov.io/gh/gdsfactory/kfactory)
 
-Kfactory is the backend for [gdsfactory](https://github.com/gdsfactory/gdsfactory). It is built upon [KLayout](https://klayout.de).
-It offers basic operations like gdsfactory, so it can be used on its own as a layout tool as well.
+KFactory is a Python framework for photonic and electronic chip layout, built on [KLayout](https://klayout.de)'s C++ geometry engine.
+It provides parametric cells with caching, optical and electrical routing, enclosures via Minkowski sums, and schematic-driven design with LVS.
 
-It is recommended to pin the version of KFactory in `requirements.txt` or `pyproject.toml` with `kfactory==2.6.1` for example.
+## Key Features
 
-Features similar to gdsfactory:
-
-- [x] Cells & decorator for caching & storing cells
-- [x] Simple routing (point to point and simpl bundle routes for electrical routes)
-- [x] Basic cells like euler/circular bends, taper, waveguide
-- [x] Path extrusion (no interface with CrossSections)
-- [x] Jupyter integration
-- [x] PDK/package configuration
-- [x] Plugin system (simulations etc.) - Check [kplugins](https://github.com/gdsfactory/kplugins)
-- [x] Generic PDK example - Check [kgeneric](https://github.com/gdsfactory/kgeneric)
-- [x] CrossSection
-- [x] Netlist/Schematics and LVS
-
-Notable missing Features:
-
-- [ ] More advanced routing
-
-
-New/Improved Features:
-
-- Fully hierarchical bi-directional conversion to YAML
-- Automatic snapping to grid thanks to KLayout
-- More features for vector geometries due to concept of Point/Edge/Vector/Polygon from Klayout
-- Easy booleans thanks to KLayout Regions
-- Enclosures: use the concept of enclosures, similar to cross sections, to allow automatic
-  calculation of boolean layers for structures based on [minkowski sum](https://en.wikipedia.org/wiki/Minkowski_addition),
-  which are built into KLayout
-
+- **Cell caching** — the `@kf.cell` decorator deduplicates identical components automatically
+- **Routing** — optical and electrical bundle routing, Manhattan primitives, all-angle routing, and path-length matching
+- **Cross-sections & enclosures** — define waveguide profiles and automatic boolean cladding layers via Minkowski sums
+- **Schematics** — place-and-connect workflow with netlist extraction and layout-vs-schematic verification
+- **Virtual cells** — hierarchical logical containers for schematic-driven design
+- **Dual coordinate systems** — `KCell` (integer DBU) and `DKCell` (float µm) work side by side
+- **KLayout integration** — full access to `kdb.Region`, `kdb.Polygon`, DRC, and GDS/OASIS I/O
+- **Jupyter & KLive** — live preview in KLayout while editing notebooks
+- **PDK system** — bundle layers, factories, cross-sections, and technology into reusable packages
 
 ## Getting Started
 
 ### Installation
 
-kfactory is available as [`kfactory`](https://pypi.org/project/kfactory/) on PyPI
-
-Install kfactory with `uv`, or `pip`:
+KFactory is available on [PyPI](https://pypi.org/project/kfactory/) and requires Python 3.12+.
 
 ```bash
-# Add kfactory to your project.
 uv add kfactory
 
-# With pip.
+# or with pip
 pip install kfactory
 ```
 
-At the moment kfactory works only on python 3.11 and above
-
-### Development Installation
-
-A development environment can be installed with
+### Development
 
 ```bash
 just dev
 ```
 
-For committing `pre-commit` should be installed with `pre-commit install` (this is done with `just dev`).
+This installs the development environment and sets up pre-commit hooks.
+
+## Ecosystem
+
+| Package | Description |
+|---|---|
+| [gdsfactory](https://github.com/gdsfactory/gdsfactory) | Full-featured chip design framework — KFactory is its layout backend |
+| [kfnetlist](https://github.com/gdsfactory/kfnetlist) | Standalone netlist extraction and generation |
+
+## Documentation
+
+Full documentation is available at [gdsfactory.github.io/kfactory](https://gdsfactory.github.io/kfactory).
+
+Upgrading from an earlier version? See the [migration guide](migration.md).
+
+## License
+
+[MIT](LICENSE)

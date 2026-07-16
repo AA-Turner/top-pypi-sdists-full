@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: milvus-lite
-Version: 3.0
+Version: 3.1.0
 Summary: Lightweight version of Milvus for local development and testing
 Project-URL: Homepage, https://github.com/milvus-io/milvus-lite
 Project-URL: Repository, https://github.com/milvus-io/milvus-lite
@@ -283,7 +283,7 @@ The command reads rows through `pymilvus` query iterators and writes BulkWriter 
 | Area | Support |
 |---|---|
 | Vector types | `FLOAT_VECTOR`, `SPARSE_FLOAT_VECTOR` |
-| Scalar types | `BOOL`, integer types, `FLOAT`, `DOUBLE`, `VARCHAR`, `JSON`, `ARRAY` |
+| Scalar types | `BOOL`, integer types, `FLOAT`, `DOUBLE`, `VARCHAR`, `JSON`, `ARRAY`, `TIMESTAMPTZ` |
 | Metrics | `COSINE`, `L2`, `IP`, `BM25` |
 | Indexes | `HNSW`, `HNSW_SQ`, `IVF_FLAT`, `IVF_SQ8`, `FLAT`, `BRUTE_FORCE`, `AUTOINDEX`, `SPARSE_INVERTED_INDEX` |
 | CRUD | insert, upsert, partial update, delete by ID/filter, get, query, search, truncate |

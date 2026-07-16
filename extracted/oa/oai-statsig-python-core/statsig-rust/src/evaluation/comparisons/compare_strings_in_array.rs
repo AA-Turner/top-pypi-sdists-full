@@ -1,14 +1,14 @@
 use crate::{
-    evaluation::evaluator_value::MemoizedEvaluatorValue,
-    specs_response::spec_types::ConditionOperator, unwrap_or_return,
-    user::user_value::UserValueRef,
+    evaluation::evaluator_value::EvaluatorValueRef, specs_response::spec_types::ConditionOperator,
+    unwrap_or_return, user::user_value::UserValueRef,
 };
 
-pub(crate) fn compare_strings_in_array(
+pub(crate) fn compare_strings_in_array<'a>(
     value: UserValueRef<'_>,
-    target_value: &MemoizedEvaluatorValue,
+    target_value: impl Into<EvaluatorValueRef<'a>>,
     op: ConditionOperator,
 ) -> bool {
+    let target_value = target_value.into();
     let ignore_case = !matches!(
         op,
         ConditionOperator::AnyCaseSensitive | ConditionOperator::NoneCaseSensitive
@@ -28,46 +28,35 @@ pub(crate) fn compare_strings_in_array(
 
 fn compare_strings_in_array_impl(
     value: UserValueRef<'_>,
-    target_value: &MemoizedEvaluatorValue,
+    target_value: EvaluatorValueRef<'_>,
     op: ConditionOperator,
     ignore_case: bool,
 ) -> bool {
-    if let Some(keyed_lookup) = &target_value.object_value {
-        if matches!(op, ConditionOperator::Any | ConditionOperator::NoneOf) {
-            let contains = match value.lowercased_lookup_key() {
-                Some(key) => keyed_lookup.contains_key(key),
-                None => value
-                    .lowercased_string_value()
-                    .is_some_and(|lowercased_value| {
-                        keyed_lookup
-                            .keys()
-                            .any(|value| value.as_str() == lowercased_value.as_ref())
-                    }),
-            };
-            return contains;
-        }
-    }
-
-    let array_value = unwrap_or_return!(&target_value.array_value, false);
-    if matches!(op, ConditionOperator::Any | ConditionOperator::NoneOf) {
-        let contains = match value.lowercased_lookup_key() {
-            Some(key) => array_value.contains_key(key),
+    if target_value.object_len().is_some()
+        && matches!(op, ConditionOperator::Any | ConditionOperator::NoneOf)
+    {
+        return match value.lowercased_lookup_key() {
+            Some(key) => target_value.object_contains_key(key),
             None => value
                 .lowercased_string_value()
-                .is_some_and(|lowercased_value| {
-                    array_value
-                        .keys()
-                        .any(|value| value.as_str() == lowercased_value.as_ref())
-                }),
+                .is_some_and(|value| target_value.object_contains_key_str(value.as_ref())),
         };
-        return contains;
+    }
+
+    unwrap_or_return!(target_value.array_len(), false);
+    if matches!(op, ConditionOperator::Any | ConditionOperator::NoneOf) {
+        return match value.lowercased_lookup_key() {
+            Some(key) => target_value.array_contains_key(key),
+            None => value
+                .lowercased_string_value()
+                .is_some_and(|value| target_value.array_contains_lowercase(value.as_ref())),
+        };
     }
 
     let value_str = value.string_value().unwrap_or_default();
     let lowercased_value = value.lowercased_string_value().unwrap_or_default();
 
-    let mut comparison_result = false;
-    for (lowercase_str, (_, current_str)) in array_value {
+    target_value.any_array_entry(|lowercase_str, _, current_str| {
         let left = if ignore_case {
             lowercased_value.as_ref()
         } else {
@@ -80,25 +69,19 @@ fn compare_strings_in_array_impl(
             current_str
         };
 
-        comparison_result = match op {
+        match op {
             ConditionOperator::Any
             | ConditionOperator::NoneOf
             | ConditionOperator::AnyCaseSensitive
-            | ConditionOperator::NoneCaseSensitive => left == right.as_str(),
-            ConditionOperator::StrStartsWithAny => left.starts_with(right.as_str()),
-            ConditionOperator::StrEndsWithAny => left.ends_with(right.as_str()),
+            | ConditionOperator::NoneCaseSensitive => left == right,
+            ConditionOperator::StrStartsWithAny => left.starts_with(right),
+            ConditionOperator::StrEndsWithAny => left.ends_with(right),
             ConditionOperator::StrContainsAny | ConditionOperator::StrContainsNone => {
-                contains_substring(left, right.as_str())
+                contains_substring(left, right)
             }
             _ => false, // todo: unsupported?
-        };
-
-        if comparison_result {
-            break;
         }
-    }
-
-    comparison_result
+    })
 }
 
 #[inline]

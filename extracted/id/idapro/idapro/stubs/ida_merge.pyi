@@ -764,7 +764,7 @@ def create_nodeval_merge_handlers(out: merge_handlers_t, mhp: merge_handler_para
 def destroy_moddata_merge_handlers(data_id: int) -> None:
     ...
 
-def get_ea_diffpos_name(ea: ida_idaapi.ea_t) -> str:
+def get_ea_diffpos_name(ea: ida_idaapi.ea_t) -> Union[str, None]:
     r"""Get nice name for EA diffpos 
             
     :param ea: diffpos
@@ -772,7 +772,7 @@ def get_ea_diffpos_name(ea: ida_idaapi.ea_t) -> str:
     ...
 
 def is_diff_merge_mode() -> bool:
-    r"""Return TRUE if IDA is running in diff mode (MERGE_POLICY_MDIFF/MERGE_POLICY_VDIFF)
+    r"""Return TRUE if IDA is running in diff mode (MERGE_POLICY_MDIFF/MERGE_POLICY_VDIFF).
     
     """
     ...

@@ -452,10 +452,16 @@ class PromptsClient:
     def compatible_projects(
         self,
         *,
+        archived: typing.Optional[bool] = None,
+        ids: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
         ordering: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
         project_type: typing.Optional[CompatibleProjectsPromptsRequestProjectType] = None,
+        source_interface_id: typing.Optional[float] = None,
+        state: typing.Optional[str] = None,
+        title: typing.Optional[str] = None,
+        workspaces: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedAllRolesProjectListList:
         """
@@ -463,6 +469,12 @@ class PromptsClient:
 
         Parameters
         ----------
+        archived : typing.Optional[bool]
+            Filter by projects that belong to archived workspaces
+
+        ids : typing.Optional[typing.Union[int, typing.Sequence[int]]]
+            Multiple values may be separated by commas.
+
         ordering : typing.Optional[str]
             Which field to use when ordering the results.
 
@@ -474,6 +486,14 @@ class PromptsClient:
 
         project_type : typing.Optional[CompatibleProjectsPromptsRequestProjectType]
             Skill to filter by
+
+        source_interface_id : typing.Optional[float]
+
+        state : typing.Optional[str]
+
+        title : typing.Optional[str]
+
+        workspaces : typing.Optional[int]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -493,15 +513,21 @@ class PromptsClient:
         client.prompts.compatible_projects()
         """
         _response = self._raw_client.compatible_projects(
+            archived=archived,
+            ids=ids,
             ordering=ordering,
             page=page,
             page_size=page_size,
             project_type=project_type,
+            source_interface_id=source_interface_id,
+            state=state,
+            title=title,
+            workspaces=workspaces,
             request_options=request_options,
         )
         return _response.data
 
-    def get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> ModelInterfaceSerializerGet:
+    def get(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> ModelInterfaceSerializerGet:
         """
         <Card href="https://humansignal.com/goenterprise">
                 <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
@@ -513,7 +539,8 @@ class PromptsClient:
 
         Parameters
         ----------
-        id : str
+        id : int
+            A unique integer value identifying this model interface.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -531,13 +558,13 @@ class PromptsClient:
             api_key="YOUR_API_KEY",
         )
         client.prompts.get(
-            id="id",
+            id=1,
         )
         """
         _response = self._raw_client.get(id, request_options=request_options)
         return _response.data
 
-    def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+    def delete(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> None:
         """
         <Card href="https://humansignal.com/goenterprise">
                 <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
@@ -549,7 +576,8 @@ class PromptsClient:
 
         Parameters
         ----------
-        id : str
+        id : int
+            A unique integer value identifying this model interface.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -566,7 +594,7 @@ class PromptsClient:
             api_key="YOUR_API_KEY",
         )
         client.prompts.delete(
-            id="id",
+            id=1,
         )
         """
         _response = self._raw_client.delete(id, request_options=request_options)
@@ -574,7 +602,7 @@ class PromptsClient:
 
     def update(
         self,
-        id: str,
+        id: int,
         *,
         associated_projects: typing.Optional[typing.Sequence[int]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
@@ -597,7 +625,8 @@ class PromptsClient:
 
         Parameters
         ----------
-        id : str
+        id : int
+            A unique integer value identifying this model interface.
 
         associated_projects : typing.Optional[typing.Sequence[int]]
 
@@ -634,7 +663,7 @@ class PromptsClient:
             api_key="YOUR_API_KEY",
         )
         client.prompts.update(
-            id="id",
+            id=1,
         )
         """
         _response = self._raw_client.update(
@@ -1148,10 +1177,16 @@ class AsyncPromptsClient:
     async def compatible_projects(
         self,
         *,
+        archived: typing.Optional[bool] = None,
+        ids: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
         ordering: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
         project_type: typing.Optional[CompatibleProjectsPromptsRequestProjectType] = None,
+        source_interface_id: typing.Optional[float] = None,
+        state: typing.Optional[str] = None,
+        title: typing.Optional[str] = None,
+        workspaces: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaginatedAllRolesProjectListList:
         """
@@ -1159,6 +1194,12 @@ class AsyncPromptsClient:
 
         Parameters
         ----------
+        archived : typing.Optional[bool]
+            Filter by projects that belong to archived workspaces
+
+        ids : typing.Optional[typing.Union[int, typing.Sequence[int]]]
+            Multiple values may be separated by commas.
+
         ordering : typing.Optional[str]
             Which field to use when ordering the results.
 
@@ -1170,6 +1211,14 @@ class AsyncPromptsClient:
 
         project_type : typing.Optional[CompatibleProjectsPromptsRequestProjectType]
             Skill to filter by
+
+        source_interface_id : typing.Optional[float]
+
+        state : typing.Optional[str]
+
+        title : typing.Optional[str]
+
+        workspaces : typing.Optional[int]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1197,16 +1246,22 @@ class AsyncPromptsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.compatible_projects(
+            archived=archived,
+            ids=ids,
             ordering=ordering,
             page=page,
             page_size=page_size,
             project_type=project_type,
+            source_interface_id=source_interface_id,
+            state=state,
+            title=title,
+            workspaces=workspaces,
             request_options=request_options,
         )
         return _response.data
 
     async def get(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self, id: int, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ModelInterfaceSerializerGet:
         """
         <Card href="https://humansignal.com/goenterprise">
@@ -1219,7 +1274,8 @@ class AsyncPromptsClient:
 
         Parameters
         ----------
-        id : str
+        id : int
+            A unique integer value identifying this model interface.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1242,7 +1298,7 @@ class AsyncPromptsClient:
 
         async def main() -> None:
             await client.prompts.get(
-                id="id",
+                id=1,
             )
 
 
@@ -1251,7 +1307,7 @@ class AsyncPromptsClient:
         _response = await self._raw_client.get(id, request_options=request_options)
         return _response.data
 
-    async def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+    async def delete(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> None:
         """
         <Card href="https://humansignal.com/goenterprise">
                 <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
@@ -1263,7 +1319,8 @@ class AsyncPromptsClient:
 
         Parameters
         ----------
-        id : str
+        id : int
+            A unique integer value identifying this model interface.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1285,7 +1342,7 @@ class AsyncPromptsClient:
 
         async def main() -> None:
             await client.prompts.delete(
-                id="id",
+                id=1,
             )
 
 
@@ -1296,7 +1353,7 @@ class AsyncPromptsClient:
 
     async def update(
         self,
-        id: str,
+        id: int,
         *,
         associated_projects: typing.Optional[typing.Sequence[int]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
@@ -1319,7 +1376,8 @@ class AsyncPromptsClient:
 
         Parameters
         ----------
-        id : str
+        id : int
+            A unique integer value identifying this model interface.
 
         associated_projects : typing.Optional[typing.Sequence[int]]
 
@@ -1361,7 +1419,7 @@ class AsyncPromptsClient:
 
         async def main() -> None:
             await client.prompts.update(
-                id="id",
+                id=1,
             )
 
 

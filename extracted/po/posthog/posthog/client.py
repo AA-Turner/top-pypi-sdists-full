@@ -16,6 +16,7 @@ from typing_extensions import Unpack
 
 from posthog._async_utils import _BackgroundEventLoopRunner
 from posthog.args import ID_TYPES, ExceptionArg, OptionalCaptureArgs, OptionalSetArgs
+from posthog.metrics_capture import PostHogMetrics
 from posthog.capture_compression import (
     CaptureCompression,
     _resolve_capture_compression,
@@ -270,6 +271,7 @@ class Client(object):
         capture_compression: Optional[Union[CaptureCompression, str]] = None,
         secret_key=None,
         _dedicated_ai_endpoint=False,
+        metrics: Optional[dict] = None,
     ):
         """
         Initialize a new PostHog client instance.
@@ -423,6 +425,9 @@ class Client(object):
         self._flag_definition_cache_provider_async_runner_lock = threading.Lock()
         self.disabled = disabled or not self.api_key
         self.disable_geoip = disable_geoip
+        self._metrics_config = metrics
+        self._metrics: Optional[PostHogMetrics] = None
+        self._metrics_lock = threading.Lock()
         self.is_server = is_server
         self.historical_migration = historical_migration
         # Selects the capture wire protocol (V0 legacy `/batch/` vs V1
@@ -1599,6 +1604,12 @@ class Client(object):
         self._flag_definition_cache_provider_async_runner = None
         self._flag_definition_cache_provider_async_runner_lock = threading.Lock()
 
+        # Metrics locks may have been held by a parent thread at fork time; replace
+        # them (never acquire them) so the child can't deadlock on a vanished holder.
+        self._metrics_lock = threading.Lock()
+        if self._metrics is not None:
+            self._metrics._reinit_after_fork()
+
         # If using Redis cache, we must reinitialize to get a fresh connection (fork-safe).
         # If using Memory cache, we keep it as-is to benefit from the inherited warm cache.
         if isinstance(self.flag_cache, RedisFlagCache):
@@ -1715,6 +1726,30 @@ class Client(object):
             self.log.warning("analytics-python queue is full")
             return None
 
+    @property
+    def metrics(self) -> PostHogMetrics:
+        """
+        The `posthog.metrics` API: a statsd-style pre-aggregating metrics client — alpha.
+
+        Samples fold into per-series aggregates in memory and flush as one OTLP
+        data point per series per window, so recording from hot paths is cheap.
+        Configure via the ``metrics`` client option; pending metrics flush on
+        ``shutdown()``.
+
+        Examples:
+            ```python
+            client = Posthog("<ph_project_api_key>", metrics={"service_name": "billing-worker"})
+            client.metrics.count("invoices.processed", 1, attributes={"plan": "pro"})
+            client.metrics.gauge("queue.depth", 42)
+            client.metrics.histogram("job.duration", 187, unit="ms")
+            ```
+        """
+        if self._metrics is None:
+            with self._metrics_lock:
+                if self._metrics is None:
+                    self._metrics = PostHogMetrics(self, self._metrics_config)
+        return self._metrics
+
     def flush(self, timeout_seconds: Optional[float] = 10) -> None:
         """
         Force a flush from the internal queue to the server. Do not use directly, call `shutdown()` instead.
@@ -1789,6 +1824,12 @@ class Client(object):
             ```
         """
         self.flush(timeout_seconds=None)
+        if self._metrics is not None:
+            try:
+                self._metrics.flush()
+            except Exception:
+                self.log.exception("Failed to flush metrics on shutdown")
+            self._metrics.reset()
         self.join()
         self.distinct_ids_feature_flags_reported.clear()
 
@@ -2319,6 +2360,19 @@ class Client(object):
                 flag_result = self._get_stale_flag_fallback(distinct_id, key)
 
         if send_feature_flag_events:
+            # Locally-evaluated flags carry has_experiment in the stored definition;
+            # remotely-evaluated flags carry it in the response metadata. None when
+            # the server (older deployment) does not report it.
+            has_experiment: Optional[bool] = None
+            if flag_was_locally_evaluated:
+                local_def = (self.feature_flags_by_key or {}).get(key)
+                if isinstance(local_def, dict):
+                    has_experiment = local_def.get("has_experiment")
+            elif isinstance(flag_details, FeatureFlag) and isinstance(
+                flag_details.metadata, FlagMetadata
+            ):
+                has_experiment = flag_details.metadata.has_experiment
+
             self._capture_feature_flag_called(
                 distinct_id,
                 key,
@@ -2331,6 +2385,7 @@ class Client(object):
                 evaluated_at,
                 flag_details,
                 feature_flag_error,
+                has_experiment,
             )
 
         return flag_result
@@ -2610,6 +2665,7 @@ class Client(object):
         evaluated_at: Optional[int],
         flag_details: Optional[FeatureFlag],
         feature_flag_error: Optional[str] = None,
+        has_experiment: Optional[bool] = None,
     ):
         properties: dict[str, Any] = {
             "$feature_flag": key,
@@ -2644,6 +2700,7 @@ class Client(object):
             properties=properties,
             groups=groups,
             disable_geoip=disable_geoip,
+            has_experiment=has_experiment,
         )
 
     def _capture_feature_flag_called_if_needed(
@@ -2655,6 +2712,7 @@ class Client(object):
         properties: dict[str, Any],
         groups: Optional[Mapping[str, Union[str, int]]] = None,
         disable_geoip: Optional[bool] = None,
+        has_experiment: Optional[bool] = None,
     ) -> None:
         """Fire a ``$feature_flag_called`` event if the (distinct_id, flag, response,
         groups) tuple hasn't already been reported on this client. Group context is
@@ -2662,6 +2720,10 @@ class Client(object):
         user is evaluated under. Shared by the single-flag evaluation path and
         ``FeatureFlagEvaluations.is_enabled() / get_flag()`` so both paths dedupe
         identically.
+
+        ``has_experiment`` is the server-reported signal for whether the flag is linked
+        to an experiment; when the server reported it, it is recorded on the event as
+        ``$feature_flag_has_experiment``. ``None`` (unknown) omits the property.
         """
         groups_key = (
             tuple(sorted((str(k), str(v)) for k, v in groups.items())) if groups else ()
@@ -2675,6 +2737,11 @@ class Client(object):
 
         if feature_flag_reported_key in reported_flags:
             return
+
+        # Record the server's experiment signal so the server can optimize ingestion.
+        # Omitted when unknown (older servers that don't report has_experiment).
+        if has_experiment is not None:
+            properties["$feature_flag_has_experiment"] = has_experiment
 
         self.capture(
             "$feature_flag_called",
@@ -2993,6 +3060,7 @@ class Client(object):
                 version=None,
                 reason="Evaluated locally",
                 locally_evaluated=True,
+                has_experiment=flag_def.get("has_experiment"),
             )
             locally_evaluated_keys.add(key)
 
@@ -3055,6 +3123,11 @@ class Client(object):
                             else None
                         ),
                         locally_evaluated=False,
+                        has_experiment=(
+                            detail.metadata.has_experiment
+                            if isinstance(detail.metadata, FlagMetadata)
+                            else None
+                        ),
                     )
             except QuotaLimitError as e:
                 self.log.warning(f"[FEATURE FLAGS] Quota limit exceeded: {e}")

@@ -184,6 +184,7 @@ values:
     - nm_property_tax_rebate
     - ny_real_property_tax_credit
     - ok_ptc
+    - pa_property_tax_or_rent_rebate
     - ri_property_tax_credit
     - ut_homeowner_renter_relief
     - vt_renter_credit

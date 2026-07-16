@@ -12,7 +12,7 @@ from ...core.parse_error import ParsingError
 from ...core.request_options import RequestOptions
 from ...core.unchecked_base_model import construct_type
 from ...types.gcssa_export_storage import GcssaExportStorage
-from ...types.status_c5a_enum import StatusC5AEnum
+from ...types.storage_status_enum import StorageStatusEnum
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -97,7 +97,7 @@ class RawGcsSaClient:
         meta: typing.Optional[typing.Any] = OMIT,
         prefix: typing.Optional[str] = OMIT,
         regex_filter: typing.Optional[str] = OMIT,
-        status: typing.Optional[StatusC5AEnum] = OMIT,
+        status: typing.Optional[StorageStatusEnum] = OMIT,
         synchronizable: typing.Optional[bool] = OMIT,
         target_service_account_email: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
@@ -149,7 +149,7 @@ class RawGcsSaClient:
         regex_filter : typing.Optional[str]
             Cloud storage regex for filtering objects
 
-        status : typing.Optional[StatusC5AEnum]
+        status : typing.Optional[StorageStatusEnum]
 
         synchronizable : typing.Optional[bool]
 
@@ -195,9 +195,6 @@ class RawGcsSaClient:
                 "traceback": traceback,
                 "use_blob_urls": use_blob_urls,
             },
-            headers={
-                "content-type": "application/json",
-            },
             request_options=request_options,
             omit=OMIT,
         )
@@ -234,7 +231,7 @@ class RawGcsSaClient:
         meta: typing.Optional[typing.Any] = OMIT,
         prefix: typing.Optional[str] = OMIT,
         regex_filter: typing.Optional[str] = OMIT,
-        status: typing.Optional[StatusC5AEnum] = OMIT,
+        status: typing.Optional[StorageStatusEnum] = OMIT,
         synchronizable: typing.Optional[bool] = OMIT,
         target_service_account_email: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
@@ -286,7 +283,7 @@ class RawGcsSaClient:
         regex_filter : typing.Optional[str]
             Cloud storage regex for filtering objects
 
-        status : typing.Optional[StatusC5AEnum]
+        status : typing.Optional[StorageStatusEnum]
 
         synchronizable : typing.Optional[bool]
 
@@ -330,9 +327,6 @@ class RawGcsSaClient:
                 "title": title,
                 "traceback": traceback,
                 "use_blob_urls": use_blob_urls,
-            },
-            headers={
-                "content-type": "application/json",
             },
             request_options=request_options,
             omit=OMIT,
@@ -450,7 +444,7 @@ class RawGcsSaClient:
         prefix: typing.Optional[str] = OMIT,
         project: typing.Optional[int] = OMIT,
         regex_filter: typing.Optional[str] = OMIT,
-        status: typing.Optional[StatusC5AEnum] = OMIT,
+        status: typing.Optional[StorageStatusEnum] = OMIT,
         synchronizable: typing.Optional[bool] = OMIT,
         target_service_account_email: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
@@ -504,7 +498,7 @@ class RawGcsSaClient:
         regex_filter : typing.Optional[str]
             Cloud storage regex for filtering objects
 
-        status : typing.Optional[StatusC5AEnum]
+        status : typing.Optional[StorageStatusEnum]
 
         synchronizable : typing.Optional[bool]
 
@@ -702,7 +696,7 @@ class AsyncRawGcsSaClient:
         meta: typing.Optional[typing.Any] = OMIT,
         prefix: typing.Optional[str] = OMIT,
         regex_filter: typing.Optional[str] = OMIT,
-        status: typing.Optional[StatusC5AEnum] = OMIT,
+        status: typing.Optional[StorageStatusEnum] = OMIT,
         synchronizable: typing.Optional[bool] = OMIT,
         target_service_account_email: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
@@ -754,7 +748,7 @@ class AsyncRawGcsSaClient:
         regex_filter : typing.Optional[str]
             Cloud storage regex for filtering objects
 
-        status : typing.Optional[StatusC5AEnum]
+        status : typing.Optional[StorageStatusEnum]
 
         synchronizable : typing.Optional[bool]
 
@@ -800,9 +794,6 @@ class AsyncRawGcsSaClient:
                 "traceback": traceback,
                 "use_blob_urls": use_blob_urls,
             },
-            headers={
-                "content-type": "application/json",
-            },
             request_options=request_options,
             omit=OMIT,
         )
@@ -839,7 +830,7 @@ class AsyncRawGcsSaClient:
         meta: typing.Optional[typing.Any] = OMIT,
         prefix: typing.Optional[str] = OMIT,
         regex_filter: typing.Optional[str] = OMIT,
-        status: typing.Optional[StatusC5AEnum] = OMIT,
+        status: typing.Optional[StorageStatusEnum] = OMIT,
         synchronizable: typing.Optional[bool] = OMIT,
         target_service_account_email: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
@@ -891,7 +882,7 @@ class AsyncRawGcsSaClient:
         regex_filter : typing.Optional[str]
             Cloud storage regex for filtering objects
 
-        status : typing.Optional[StatusC5AEnum]
+        status : typing.Optional[StorageStatusEnum]
 
         synchronizable : typing.Optional[bool]
 
@@ -935,9 +926,6 @@ class AsyncRawGcsSaClient:
                 "title": title,
                 "traceback": traceback,
                 "use_blob_urls": use_blob_urls,
-            },
-            headers={
-                "content-type": "application/json",
             },
             request_options=request_options,
             omit=OMIT,
@@ -1057,7 +1045,7 @@ class AsyncRawGcsSaClient:
         prefix: typing.Optional[str] = OMIT,
         project: typing.Optional[int] = OMIT,
         regex_filter: typing.Optional[str] = OMIT,
-        status: typing.Optional[StatusC5AEnum] = OMIT,
+        status: typing.Optional[StorageStatusEnum] = OMIT,
         synchronizable: typing.Optional[bool] = OMIT,
         target_service_account_email: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
@@ -1111,7 +1099,7 @@ class AsyncRawGcsSaClient:
         regex_filter : typing.Optional[str]
             Cloud storage regex for filtering objects
 
-        status : typing.Optional[StatusC5AEnum]
+        status : typing.Optional[StorageStatusEnum]
 
         synchronizable : typing.Optional[bool]
 

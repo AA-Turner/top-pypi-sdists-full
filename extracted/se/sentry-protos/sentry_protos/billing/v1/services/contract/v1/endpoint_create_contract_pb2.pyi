@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import sentry_protos.billing.v1.common.v1.address_pb2
+import sentry_protos.billing.v1.common.v1.sponsored_type_pb2
 import sentry_protos.billing.v1.services.contract.v1.billing_config_pb2
 import sentry_protos.billing.v1.services.contract.v1.invoice_pb2
 import sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2
@@ -30,6 +31,7 @@ class CreateContractRequest(google.protobuf.message.Message):
     HAS_SOFT_CAP_FIELD_NUMBER: builtins.int
     TAX_TRANSACTION_CODE_FIELD_NUMBER: builtins.int
     SPONSORED_TYPE_FIELD_NUMBER: builtins.int
+    SPONSORSHIP_TYPE_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     package_uid: builtins.str
     month_interval: builtins.int
@@ -52,6 +54,8 @@ class CreateContractRequest(google.protobuf.message.Message):
     tax document was opened.
     """
     sponsored_type: sentry_protos.billing.v1.services.contract.v1.billing_config_pb2.SponsoredType.ValueType
+    """DEPRECATED: used sponsorship_type instead."""
+    sponsorship_type: sentry_protos.billing.v1.common.v1.sponsored_type_pb2.SponsoredType.ValueType
     """The sponsored type of the contract. If unset, then this is a non-sponsored
     contract.
     """
@@ -74,11 +78,14 @@ class CreateContractRequest(google.protobuf.message.Message):
         has_soft_cap: builtins.bool = ...,
         tax_transaction_code: builtins.str | None = ...,
         sponsored_type: sentry_protos.billing.v1.services.contract.v1.billing_config_pb2.SponsoredType.ValueType | None = ...,
+        sponsorship_type: sentry_protos.billing.v1.common.v1.sponsored_type_pb2.SponsoredType.ValueType | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_sponsored_type", b"_sponsored_type", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "sponsored_type", b"sponsored_type", "tax_transaction_code", b"tax_transaction_code"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_sponsored_type", b"_sponsored_type", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "billing_type", b"billing_type", "has_soft_cap", b"has_soft_cap", "line_items", b"line_items", "month_interval", b"month_interval", "organization_id", b"organization_id", "package_uid", b"package_uid", "sponsored_type", b"sponsored_type", "tax_transaction_code", b"tax_transaction_code", "user_configs", b"user_configs"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_sponsored_type", b"_sponsored_type", "_sponsorship_type", b"_sponsorship_type", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "sponsored_type", b"sponsored_type", "sponsorship_type", b"sponsorship_type", "tax_transaction_code", b"tax_transaction_code"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_sponsored_type", b"_sponsored_type", "_sponsorship_type", b"_sponsorship_type", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "billing_type", b"billing_type", "has_soft_cap", b"has_soft_cap", "line_items", b"line_items", "month_interval", b"month_interval", "organization_id", b"organization_id", "package_uid", b"package_uid", "sponsored_type", b"sponsored_type", "sponsorship_type", b"sponsorship_type", "tax_transaction_code", b"tax_transaction_code", "user_configs", b"user_configs"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_sponsored_type", b"_sponsored_type"]) -> typing.Literal["sponsored_type"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_sponsorship_type", b"_sponsorship_type"]) -> typing.Literal["sponsorship_type"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_tax_transaction_code", b"_tax_transaction_code"]) -> typing.Literal["tax_transaction_code"] | None: ...
 

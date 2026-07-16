@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nebius
-Version: 0.3.93
+Version: 0.3.95
 Summary: Nebius Python SDK
 Author-email: Daniil Drizhuk <complynx@nebius.com>, Ivan Kornilov <ivan.kornilov@nebius.com>, Marat Reymers <marat-reymers@nebius.com>, Andrei Zenkov <andrei.zenkov@nebius.com>
 License: The MIT License (MIT)

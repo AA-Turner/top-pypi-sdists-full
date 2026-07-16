@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import inspect
 import re
 from abc import ABC
 from typing import ClassVar
@@ -31,12 +32,19 @@ class Registered(ABC):
             return
 
         # Skip abstract classes from registration
-        if getattr(cls, "__abstractmethods__", None):
+        if inspect.isabstract(cls):
             return
 
         # Child class - register in parent's registry
         for base in reversed(cls.__mro__[1:]):
             if Registered in base.__bases__ and issubclass(base, Registered):
+                registered = base._registry.get(cls._name)  # noqa: SLF001
+                if registered is not None and registered is not cls:
+                    raise RuntimeError(
+                        f"Registry name '{cls._name}' already taken by "
+                        f"{registered.__qualname__}; cannot register "
+                        f"{cls.__qualname__}"
+                    )
                 base._registry[cls._name] = cls  # noqa: SLF001
                 return
 
@@ -64,6 +72,15 @@ class Registered(ABC):
         raise KeyError(
             f"'{name}' not in {cls.__name__} registry. Available: {available}"
         )
+
+    @classmethod
+    def resolve(cls, value: "Self | type[Self] | str") -> Self:
+        """Normalize a registry name, class, or instance into an instance."""
+        if isinstance(value, str):
+            value = cls.get(value)
+        if isinstance(value, type):
+            return value()
+        return value
 
 
 def _camel_to_snake(name: str) -> str:

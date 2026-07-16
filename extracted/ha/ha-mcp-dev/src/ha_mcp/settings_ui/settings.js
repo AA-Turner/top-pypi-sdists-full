@@ -1053,6 +1053,14 @@ const BACKUP_FIELD_LABELS = {
     label: 'Calendar lookahead (days)',
     help: 'How far ahead to query for calendar events when capturing pre-edit snapshots. Range 1–365.',
   },
+  enable_snapshot_delete: {
+    label: 'Allow snapshot deletion',
+    help: 'Lets ha_manage_backup delete full HA snapshot tarballs. Off by default: a snapshot may be the last recovery point after a mistaken change. Even when on, scheduled backups, the newest remaining snapshot, and anything younger than the age floor below stay protected.',
+  },
+  snapshot_delete_min_age_days: {
+    label: 'Minimum snapshot age to delete (days)',
+    help: 'A snapshot must be at least this old before it can be deleted. Range 0–365; 0 disables the floor (the newest-snapshot and scheduled-backup protections still apply).',
+  },
 };
 
 const BACKUP_ORIGIN_LABELS = {
@@ -1104,6 +1112,7 @@ function renderBackupConfig() {
       let max = 10000;
       if (f.field === 'auto_backup_throttle_minutes') { min = 0; max = 1440; }
       else if (f.field === 'auto_backup_calendar_lookahead_days') { min = 1; max = 365; }
+      else if (f.field === 'snapshot_delete_min_age_days') { min = 0; max = 365; }
       controlHtml = `<input type="number" name="backup:${escapeHtml(f.field)}" data-field="${escapeHtml(f.field)}" aria-labelledby="label-backup-${escapeHtml(f.field)}" value="${Number(f.value)}" min="${min}" max="${max}" ${f.editable ? '' : 'disabled'}>`;
     }
     let originMsg;
@@ -1615,10 +1624,6 @@ const FEATURE_META = {
   enable_filesystem_tools: {
     label: "Enable filesystem tools (beta)",
     help: "Sets HAMCP_ENABLE_FILESYSTEM_TOOLS=true. Enables direct file read/write access to your Home Assistant filesystem. WARNING: This gives the MCP server sensitive direct file access to your system. Only enable if you trust the AI assistant with file operations. Requires restart to take effect.",
-  },
-  enable_custom_component_integration: {
-    label: "Enable custom component integration (beta)",
-    help: "Sets HAMCP_ENABLE_CUSTOM_COMPONENT_INTEGRATION=true. Enables the ha_install_mcp_tools installer tool, which can help install the ha_mcp_tools custom component. This setting does not control whether the MCP server loads or interacts with the custom component, and it is not required for filesystem tools to function. Only enable if you want to allow the AI assistant to use the installer tool. Requires restart to take effect.",
   },
   enable_code_mode: {
     label: "Enable code-mode sandbox (beta)",

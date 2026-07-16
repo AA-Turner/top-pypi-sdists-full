@@ -7,7 +7,7 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .control_tag_weight import ControlTagWeight
-from .sampling_de5enum import SamplingDe5Enum
+from .project_sampling_enum import ProjectSamplingEnum
 from .skip_queue_enum import SkipQueueEnum
 from .user_simple import UserSimple
 
@@ -50,7 +50,7 @@ class LseProjectCreate(UncheckedBaseModel):
     custom_interface_params: typing.Optional[typing.Any] = None
     description: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Project Description
+    Description (Public)
     """
 
     enable_empty_annotation: typing.Optional[bool] = pydantic.Field(default=None)
@@ -80,6 +80,11 @@ class LseProjectCreate(UncheckedBaseModel):
 
     id: typing.Optional[int] = None
     input_schema: typing.Optional[typing.Any] = None
+    internal_description: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    """
+    Description (Internal)
+    """
+
     is_draft: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Whether or not the project is in the middle of being created
@@ -135,7 +140,7 @@ class LseProjectCreate(UncheckedBaseModel):
     Reveal pre-annotations interactively
     """
 
-    sampling: typing.Optional[SamplingDe5Enum] = None
+    sampling: typing.Optional[ProjectSamplingEnum] = None
     show_annotation_history: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Show annotation history to annotator

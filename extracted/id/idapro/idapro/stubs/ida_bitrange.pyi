@@ -138,12 +138,12 @@ class bitrange_t:
         """
         ...
     def shift_down(self, cnt: int) -> None:
-        r"""Shift range down (left)
+        r"""Shift range down (left).
         
         """
         ...
     def shift_up(self, cnt: int) -> None:
-        r"""Shift range up (right)
+        r"""Shift range up (right).
         
         """
         ...

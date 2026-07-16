@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot-apache
-Version: 5.6.0
+Version: 5.7.0
 Summary: Apache plugin for Certbot
 Author: Certbot Project
 License-Expression: Apache-2.0
@@ -25,7 +25,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: certbot[apache]>=5.6.0
+Requires-Dist: certbot[apache]>=5.7.0
 Dynamic: license-file
 Dynamic: requires-dist
 

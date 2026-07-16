@@ -19,14 +19,14 @@ from .exceptions import (
     InvalidOS,
     InvalidPropertyType,
     NonFirefoxFingerprint,
-    UnknownProperty,
 )
-from .fingerprints import from_browserforge, generate_fingerprint
+from .fingerprints import from_browserforge, from_preset, generate_fingerprint, get_random_preset, _generate_random_font_subset, _generate_random_voice_subset
+from .geolocation import geoip_allowed, get_geolocation
 from .ip import Proxy, public_ip, valid_ipv4, valid_ipv6
-from .locale import geoip_allowed, get_geolocation, handle_locales
+from .locales import handle_locales
 from .pkgman import OS_NAME, get_path, installed_verstr, launch_path
 from .virtdisplay import VirtualDisplay
-from .warnings import LeakWarning
+from ._warnings import LeakWarning
 from .webgl import sample_webgl
 
 ListOrString: TypeAlias = Union[Tuple[str, ...], List[str], str]
@@ -39,6 +39,39 @@ CACHE_PREFS = {
     'browser.cache.disk_cache_ssl': True,
     'browser.cache.disk.smart_size.enabled': True,
 }
+
+
+def _generate_fontconfig(fontconfig_path: str) -> str:
+    """
+    Generates a runtime fontconfig that resolves bundled font paths absolutely.
+    The bundled fonts.conf uses prefix="cwd" relative paths which break when
+    Playwright's working directory differs from the browser install directory.
+    Writes a patched copy to ~/.cache/camoufox/fontconfig/ (deterministic,
+    only regenerated when content changes).
+    """
+    import hashlib
+
+    fonts_dir = get_path("fonts")
+    fonts_conf_src = os.path.join(fontconfig_path, "fonts.conf")
+
+    with open(fonts_conf_src, 'r') as f:
+        conf_content = f.read()
+
+    conf_content = conf_content.replace(
+        '<dir prefix="cwd">fonts</dir>',
+        f'<dir>{fonts_dir}</dir>',
+    )
+
+    cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'camoufox', 'fontconfig')
+    os.makedirs(cache_dir, exist_ok=True)
+
+    content_hash = hashlib.sha256(conf_content.encode()).hexdigest()[:12]
+    runtime_conf = os.path.join(cache_dir, f'fonts-{content_hash}.conf')
+    if not os.path.exists(runtime_conf):
+        with open(runtime_conf, 'w') as f:
+            f.write(conf_content)
+
+    return runtime_conf
 
 
 def get_env_vars(
@@ -68,8 +101,29 @@ def get_env_vars(
             sys.exit(1)
 
     if OS_NAME == 'lin':
-        fontconfig_path = get_path(os.path.join("fontconfig", user_agent_os))
-        env_vars['FONTCONFIG_PATH'] = fontconfig_path
+        # https://github.com/coryking/camoufox/commit/f21eeb2850a74cc104fb57e17e0a2fa27b7a2a28
+        # Thanks @coryking
+        # the user_agent_os is either 'lin', 'mac', or 'win' but our fontconfig directory is 'linux', 'macos', or 'windows'
+        directory_map = {
+            'lin': 'linux',
+            'mac': 'macos',
+            'win': 'windows',
+        }
+        os_dir = directory_map.get(user_agent_os, user_agent_os)
+
+        # v150+ uses "fontconfig/" (matching the Go launcher); older bundles shipped "fontconfigs/".
+        fontconfig_path = get_path(os.path.join("fontconfig", os_dir))
+        if not os.path.exists(os.path.join(fontconfig_path, "fonts.conf")):
+            fontconfig_path = get_path(os.path.join("fontconfigs", os_dir))
+
+        # assert that fonts.conf exists in the directory
+        if not os.path.exists(os.path.join(fontconfig_path, "fonts.conf")):
+            # puke violently if fonts.conf doesn't exist!!
+            raise FileNotFoundError(
+                f"fonts.conf not found in {fontconfig_path}!  Something ain't right with your camoufox bundle."
+            )
+
+        env_vars['FONTCONFIG_FILE'] = _generate_fontconfig(fontconfig_path)
 
     return env_vars
 
@@ -97,7 +151,8 @@ def validate_config(config_map: Dict[str, str], path: Optional[Path] = None) -> 
     for key, value in config_map.items():
         expected_type = property_types.get(key)
         if not expected_type:
-            raise UnknownProperty(f"Unknown property {key} in config")
+            print(f'Skipping unknown patch {key} : {value}')
+            continue  # Property not supported by this browser version; skip silently
 
         if not validate_type(value, expected_type):
             raise InvalidPropertyType(
@@ -302,9 +357,13 @@ async def async_attach_vd(
     _close = browser.close
 
     async def new_close(*args: Any, **kwargs: Any):
-        await _close(*args, **kwargs)
-        if virtual_display:
-            virtual_display.kill()
+        try:
+            await _close(*args, **kwargs)
+        except Exception:
+            raise
+        finally:
+            if virtual_display:
+                virtual_display.kill()
 
     browser.close = new_close
     browser._virtual_display = virtual_display
@@ -324,9 +383,13 @@ def sync_attach_vd(
     _close = browser.close
 
     def new_close(*args: Any, **kwargs: Any):
-        _close(*args, **kwargs)
-        if virtual_display:
-            virtual_display.kill()
+        try:
+            _close(*args, **kwargs)
+        except Exception:
+            raise
+        finally:
+            if virtual_display:
+                virtual_display.kill()
 
     browser.close = new_close
     browser._virtual_display = virtual_display
@@ -344,6 +407,7 @@ def launch_options(
     disable_coop: Optional[bool] = None,
     webgl_config: Optional[Tuple[str, str]] = None,
     geoip: Optional[Union[str, bool]] = None,
+    geoip_db: Optional[str] = None,
     humanize: Optional[Union[bool, float]] = None,
     locale: Optional[Union[str, List[str]]] = None,
     addons: Optional[List[str]] = None,
@@ -353,10 +417,12 @@ def launch_options(
     screen: Optional[Screen] = None,
     window: Optional[Tuple[int, int]] = None,
     fingerprint: Optional[Fingerprint] = None,
+    fingerprint_preset: Optional[Union[bool, Dict[str, Any]]] = None,
     ff_version: Optional[int] = None,
     headless: Optional[bool] = None,
     main_world_eval: Optional[bool] = None,
     executable_path: Optional[Union[str, Path]] = None,
+    browser: Optional[str] = None,
     firefox_user_prefs: Optional[Dict[str, Any]] = None,
     proxy: Optional[Dict[str, str]] = None,
     enable_cache: Optional[bool] = None,
@@ -390,6 +456,9 @@ def launch_options(
         geoip (Optional[Union[str, bool]]):
             Calculate longitude, latitude, timezone, country, & locale based on the IP address.
             Pass the target IP address to use, or `True` to find the IP address automatically.
+        geoip_db (Optional[str]):
+            Name of the GeoIP database to use (e.g., "MaxMind").
+            If not specified, uses the configured default.
         humanize (Optional[Union[bool, float]]):
             Humanize the cursor movement.
             Takes either `True`, or the MAX duration in seconds of the cursor movement.
@@ -414,6 +483,10 @@ def launch_options(
             Use a custom BrowserForge fingerprint. Note: Not all values will be implemented.
             If not provided, a random fingerprint will be generated based on the provided
             `os` & `screen` constraints.
+        fingerprint_preset (Optional[Union[bool, Dict[str, Any]]]):
+            Opt into using real fingerprint presets instead of BrowserForge.
+            Pass `True` to use a random bundled preset, or pass a preset dict directly.
+            By default (None), BrowserForge is used for infinite unique fingerprints.
         ff_version (Optional[int]):
             Firefox version to use. Defaults to the current Camoufox version.
             To prevent leaks, only use this for special cases.
@@ -426,6 +499,12 @@ def launch_options(
             To use this, prepend "mw:" to the script: page.evaluate("mw:" + script).
         executable_path (Optional[Union[str, Path]]):
             Custom Camoufox browser executable path.
+        browser (Optional[str]):
+            Select a specific installed browser version. Can be:
+            - Repo/build like "official/beta.20"
+            - Build alone like "beta.20"
+            - Full version like "134.0.2-beta.20"
+            If not specified, uses the active version.
         firefox_user_prefs (Optional[Dict[str, Any]]):
             Firefox user preferences to set.
         proxy (Optional[Dict[str, str]]):
@@ -472,6 +551,11 @@ def launch_options(
     # Handle virtual display
     if virtual_display:
         env['DISPLAY'] = virtual_display
+        # Virtual display uses Xvfb (X11). If the host session forces Wayland via env vars,
+        # GTK/Firefox may try Wayland and ignore DISPLAY, breaking Xvfb usage.
+        env['GDK_BACKEND'] = 'x11'
+        env.pop('WAYLAND_DISPLAY', None)
+        env["MOZ_ENABLE_WAYLAND"] = "0"
 
     # Warn the user for manual config settings
     if not i_know_what_im_doing:
@@ -501,22 +585,35 @@ def launch_options(
         ff_version_str = installed_verstr().split('.', 1)[0]
 
     # Generate a fingerprint
-    if fingerprint is None:
+    _used_preset = False
+    if fingerprint is not None:
+        # User passed a custom BrowserForge fingerprint
+        if not i_know_what_im_doing:
+            check_custom_fingerprint(fingerprint)
+    elif fingerprint_preset is not None:
+        # User opted into real fingerprint presets
+        if isinstance(fingerprint_preset, dict):
+            preset = fingerprint_preset
+        else:
+            preset = get_random_preset(os=os, ff_version=ff_version_str)
+        if preset:
+            merge_into(config, from_preset(preset, ff_version_str))
+            _used_preset = True
+
+    if not _used_preset and fingerprint is None:
+        # Default: BrowserForge synthetic generation (infinite unique fingerprints)
         fingerprint = generate_fingerprint(
             screen=screen or get_screen_cons(headless or 'DISPLAY' in env),
             window=window,
             os=os,
         )
-    else:
-        # Or use the one passed by the user
-        if not i_know_what_im_doing:
-            check_custom_fingerprint(fingerprint)
 
-    # Inject the fingerprint into the config
-    merge_into(
-        config,
-        from_browserforge(fingerprint, ff_version_str),
-    )
+    if not _used_preset and fingerprint is not None:
+        # Inject the BrowserForge fingerprint into the config
+        merge_into(
+            config,
+            from_browserforge(fingerprint, ff_version_str),
+        )
 
     target_os = get_target_os(config)
 
@@ -530,16 +627,29 @@ def launch_options(
     if custom_fonts_only:
         firefox_user_prefs['gfx.bundled-fonts.activate'] = 0
         if fonts:
-            # The user has passed their own fonts, and OS fonts are disabled.
             LeakWarning.warn('custom_fonts_only')
         else:
-            # OS fonts are disabled, and the user has not passed their own fonts either.
             raise ValueError('No custom fonts were passed, but `custom_fonts_only` is enabled.')
-    else:
-        update_fonts(config, target_os)
+    elif 'fonts' not in config or not config.get('fonts'):
+        # Generate a unique random font subset from the OS font list
+        os_name = {'win': 'windows', 'mac': 'macos', 'lin': 'linux'}.get(target_os, 'macos')
+        try:
+            config['fonts'] = _generate_random_font_subset(os_name)
+        except Exception:
+            update_fonts(config, target_os)
 
-    # Set a fixed font spacing seed
-    set_into(config, 'fonts:spacing_seed', randint(0, 1_073_741_823))  # nosec
+    # Generate a unique random voice subset
+    if 'voices' not in config:
+        os_name_v = {'win': 'windows', 'mac': 'macos', 'lin': 'linux'}.get(target_os, 'macos')
+        try:
+            config['voices'] = _generate_random_voice_subset(os_name_v)
+        except Exception:
+            pass
+
+    # Set random seeds for fingerprint noise (per launch)
+    set_into(config, 'fonts:spacing_seed', randint(1, 4_294_967_295))  # nosec
+    set_into(config, 'audio:seed', randint(1, 4_294_967_295))  # nosec
+    set_into(config, 'canvas:seed', randint(1, 4_294_967_295))  # nosec
 
     # Set geolocation
     if geoip:
@@ -560,8 +670,13 @@ def launch_options(
             elif valid_ipv6(geoip):
                 set_into(config, 'webrtc:ipv6', geoip)
 
-        geolocation = get_geolocation(geoip)
-        config.update(geolocation.as_config())
+        geolocation = get_geolocation(geoip, geoip_db=geoip_db)
+        geo_config = geolocation.as_config()
+        for key, value in geo_config.items():
+            if key in ('timezone', 'locale:language', 'locale:region', 'locale:script'):
+                config.setdefault(key, value)
+            else:
+                config[key] = value
 
     # Raise a warning when a proxy is being used without spoofing geolocation.
     # This is a very bad idea; the warning cannot be ignored with i_know_what_im_doing.
@@ -604,6 +719,9 @@ def launch_options(
         # If the user has provided a specific WebGL vendor/renderer pair, use it
         if webgl_config:
             webgl_fp = sample_webgl(target_os, *webgl_config)
+        elif config.get('webGl:vendor') and config.get('webGl:renderer'):
+            # Preset already set vendor/renderer — sample matching WebGL params
+            webgl_fp = sample_webgl(target_os, config['webGl:vendor'], config['webGl:renderer'])
         else:
             webgl_fp = sample_webgl(target_os)
         enable_webgl2 = webgl_fp.pop('webGl2Enabled')
@@ -618,15 +736,6 @@ def launch_options(
                 'webgl.force-enabled': True,
             },
         )
-
-    # Canvas anti-fingerprinting
-    merge_into(
-        config,
-        {
-            'canvas:aaOffset': randint(-50, 50),  # nosec
-            'canvas:aaCapOffset': True,
-        },
-    )
 
     # Cache previous pages, requests, etc (uses more memory)
     if enable_cache:
@@ -648,15 +757,31 @@ def launch_options(
     # Prepare the executable path
     if executable_path:
         executable_path = str(executable_path)
+    elif browser:
+        # Select a specific installed browser version
+        from .multiversion import find_installed_version
+
+        browser_path = find_installed_version(browser)
+        if not browser_path:
+            raise ValueError(
+                f"Browser version '{browser}' not found. Run `camoufox list` to see installed versions."
+            )
+        executable_path = launch_path(browser_path)
     else:
         executable_path = launch_path()
 
-    return {
+    result = {
         "executable_path": executable_path,
         "args": args,
         "env": env_vars,
         "firefox_user_prefs": firefox_user_prefs,
-        "proxy": proxy,
         "headless": headless,
         **(launch_options if launch_options is not None else {}),
     }
+    # Only include proxy if it's not None (Playwright 1.55+ validates this)
+    # https://github.com/coryking/camoufox/commit/1336e8e509e8c12a896a09d9ee51f131f739f106
+    # Thanks @coryking
+    if proxy is not None:
+        result["proxy"] = proxy
+
+    return result

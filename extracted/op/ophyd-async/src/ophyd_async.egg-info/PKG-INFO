@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ophyd-async
-Version: 0.19.3
+Version: 0.19.4
 Summary: Asynchronous Bluesky hardware abstraction code, compatible with control systems like EPICS and Tango
 Author-email: Tom Cobb <tom.cobb@diamond.ac.uk>
 License: BSD 3-Clause License
@@ -64,6 +64,7 @@ Provides-Extra: demo
 Requires-Dist: ipython; extra == "demo"
 Requires-Dist: matplotlib; extra == "demo"
 Requires-Dist: pyqt6; extra == "demo"
+Requires-Dist: pytest; extra == "demo"
 Dynamic: license-file
 
 [![CI](https://github.com/bluesky/ophyd-async/actions/workflows/ci.yml/badge.svg)](https://github.com/bluesky/ophyd-async/actions/workflows/ci.yml)

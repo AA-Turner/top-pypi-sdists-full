@@ -30,7 +30,11 @@ class MlClient:
         return self._raw_client
 
     def list(
-        self, *, project: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        is_interactive: typing.Optional[bool] = None,
+        project: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.List[MlBackend]:
         """
 
@@ -42,6 +46,8 @@ class MlClient:
 
         Parameters
         ----------
+        is_interactive : typing.Optional[bool]
+
         project : typing.Optional[int]
             Project ID
 
@@ -62,7 +68,9 @@ class MlClient:
         )
         client.ml.list()
         """
-        _response = self._raw_client.list(project=project, request_options=request_options)
+        _response = self._raw_client.list(
+            is_interactive=is_interactive, project=project, request_options=request_options
+        )
         return _response.data
 
     def create(
@@ -385,7 +393,7 @@ class MlClient:
 
         See [Set up machine learning](https://labelstud.io/guide/ml.html) for more details about a Label Studio ML backend.
 
-        Reference the ML backend ID in the path of this API call. Get the ML backend ID by [listing the ML backends for a project](https://labelstud.io/api/#operation/api_ml_list).
+        Reference the ML backend ID in the path of this API call. Get the ML backend ID by [listing the ML backends for a project](api:GET/api/ml/).
 
         Parameters
         ----------
@@ -428,7 +436,7 @@ class MlClient:
                 After you add an ML backend, call this API with the ML backend ID to start training with
                 already-labeled tasks.
 
-                Get the ML backend ID by [listing the ML backends for a project](https://labelstud.io/api/#operation/api_ml_list).
+                Get the ML backend ID by [listing the ML backends for a project](api:GET/api/ml/).
 
 
         Parameters
@@ -509,7 +517,11 @@ class AsyncMlClient:
         return self._raw_client
 
     async def list(
-        self, *, project: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        is_interactive: typing.Optional[bool] = None,
+        project: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.List[MlBackend]:
         """
 
@@ -521,6 +533,8 @@ class AsyncMlClient:
 
         Parameters
         ----------
+        is_interactive : typing.Optional[bool]
+
         project : typing.Optional[int]
             Project ID
 
@@ -549,7 +563,9 @@ class AsyncMlClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list(project=project, request_options=request_options)
+        _response = await self._raw_client.list(
+            is_interactive=is_interactive, project=project, request_options=request_options
+        )
         return _response.data
 
     async def create(
@@ -912,7 +928,7 @@ class AsyncMlClient:
 
         See [Set up machine learning](https://labelstud.io/guide/ml.html) for more details about a Label Studio ML backend.
 
-        Reference the ML backend ID in the path of this API call. Get the ML backend ID by [listing the ML backends for a project](https://labelstud.io/api/#operation/api_ml_list).
+        Reference the ML backend ID in the path of this API call. Get the ML backend ID by [listing the ML backends for a project](api:GET/api/ml/).
 
         Parameters
         ----------
@@ -963,7 +979,7 @@ class AsyncMlClient:
                 After you add an ML backend, call this API with the ML backend ID to start training with
                 already-labeled tasks.
 
-                Get the ML backend ID by [listing the ML backends for a project](https://labelstud.io/api/#operation/api_ml_list).
+                Get the ML backend ID by [listing the ML backends for a project](api:GET/api/ml/).
 
 
         Parameters

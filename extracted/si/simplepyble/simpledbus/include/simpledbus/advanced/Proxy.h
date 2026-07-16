@@ -35,10 +35,6 @@ class Proxy : public std::enable_shared_from_this<Proxy> {
 
     virtual std::shared_ptr<Proxy> path_create(const std::string& path);
 
-    // ----- INTROSPECTION -----
-    // ! TODO: This should be moved to the Introspectable interface.
-    std::string introspect();
-
     // ----- INTERFACE HANDLING -----
     // // ! We are making the assumption that the Properties interface is always available.
     // std::shared_ptr<Properties> properties() {
@@ -95,15 +91,18 @@ class Proxy : public std::enable_shared_from_this<Proxy> {
     }
 
     template <typename T>
-    static std::shared_ptr<T> create(std::shared_ptr<Connection> conn, const std::string& bus_name, const std::string& path) {
+    static std::shared_ptr<T> create(std::shared_ptr<Connection> conn, const std::string& bus_name,
+                                     const std::string& path) {
         auto child = std::make_shared<T>(conn, bus_name, path);
         child->on_registration();
+        child->register_introspectable_interface();
         child->register_object_path();
         return std::dynamic_pointer_cast<T>(child);
     }
 
     // ----- INTERNAL CALLBACKS -----
     virtual void on_registration();
+    virtual void on_child_signal_received(std::shared_ptr<Proxy> child);
 
   protected:
     bool _valid;
@@ -111,6 +110,7 @@ class Proxy : public std::enable_shared_from_this<Proxy> {
     std::string _bus_name;
 
     std::shared_ptr<Connection> _conn;
+    std::weak_ptr<Proxy> _parent;
 
     std::map<std::string, std::shared_ptr<Interface>> _interfaces;
     std::map<std::string, std::shared_ptr<Proxy>> _children;
@@ -121,8 +121,11 @@ class Proxy : public std::enable_shared_from_this<Proxy> {
   private:
     // ----- PATH HANDLING -----
     bool _registered;
+    void notify_parent_signal_received();
+    void revalidate();
     void register_object_path();
     void unregister_object_path();
+    void register_introspectable_interface();
 };
 
 }  // namespace SimpleDBus

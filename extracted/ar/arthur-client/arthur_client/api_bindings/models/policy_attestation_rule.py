@@ -20,6 +20,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from arthur_client.api_bindings.models.resource_permissions import ResourcePermissions
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -34,7 +35,8 @@ class PolicyAttestationRule(BaseModel):
     name: StrictStr = Field(description="The name of the attestation rule.")
     description: Optional[StrictStr] = None
     validity_period_days: StrictInt = Field(description="The validity period in days for attestation.")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy_id", "name", "description", "validity_period_days"]
+    permissions: Optional[ResourcePermissions] = None
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy_id", "name", "description", "validity_period_days", "permissions"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -75,10 +77,18 @@ class PolicyAttestationRule(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of permissions
+        if self.permissions:
+            _dict['permissions'] = self.permissions.to_dict()
         # set to None if description (nullable) is None
         # and model_fields_set contains the field
         if self.description is None and "description" in self.model_fields_set:
             _dict['description'] = None
+
+        # set to None if permissions (nullable) is None
+        # and model_fields_set contains the field
+        if self.permissions is None and "permissions" in self.model_fields_set:
+            _dict['permissions'] = None
 
         return _dict
 
@@ -98,7 +108,8 @@ class PolicyAttestationRule(BaseModel):
             "policy_id": obj.get("policy_id"),
             "name": obj.get("name"),
             "description": obj.get("description"),
-            "validity_period_days": obj.get("validity_period_days")
+            "validity_period_days": obj.get("validity_period_days"),
+            "permissions": ResourcePermissions.from_dict(obj["permissions"]) if obj.get("permissions") is not None else None
         })
         return _obj
 

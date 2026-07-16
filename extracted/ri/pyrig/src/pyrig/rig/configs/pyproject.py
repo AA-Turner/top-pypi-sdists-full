@@ -11,6 +11,7 @@ from pyrig_runtime.core.strings import (
 )
 from pyrig_runtime.rig.cli import main
 
+from pyrig.core.iterate import deep_sort_dict
 from pyrig.core.resources import (
     resource_content,
 )
@@ -20,13 +21,13 @@ from pyrig.rig.configs.base.config_file import Priority
 from pyrig.rig.configs.base.toml import TOMLConfigFile
 from pyrig.rig.tools.base.tool import Tool
 from pyrig.rig.tools.dependencies.checker import DependencyChecker
-from pyrig.rig.tools.docs_builder import DocsBuilder
+from pyrig.rig.tools.docs.builder import DocsBuilder
 from pyrig.rig.tools.linting.python import PythonLinter
-from pyrig.rig.tools.package_manager import PackageManager
+from pyrig.rig.tools.packages.manager import PackageManager
 from pyrig.rig.tools.pyrigger import Pyrigger
 from pyrig.rig.tools.testing.project import ProjectTester
 from pyrig.rig.tools.version_control.controller import VersionController
-from pyrig.rig.tools.version_control.remote import (
+from pyrig.rig.tools.version_control.remote.controller import (
     RemoteVersionController,
 )
 
@@ -50,8 +51,12 @@ class PyprojectConfigFile(TOMLConfigFile):
         # pyproject.toml sometimes has info other config files need and vice versa.
         # to avoid local imports of PyprojectConfigFile spread across the project
         # we centralize local imports of the other config files here.
-        from pyrig.rig.configs.license import LicenseConfigFile  # noqa: PLC0415
-        from pyrig.rig.configs.readme import ReadmeConfigFile  # noqa: PLC0415
+        from pyrig.rig.configs.community.license import (  # noqa: PLC0415
+            LicenseConfigFile,
+        )
+        from pyrig.rig.configs.readme import (  # noqa: PLC0415
+            ReadmeConfigFile,
+        )
 
         return {
             "project": {
@@ -60,64 +65,71 @@ class PyprojectConfigFile(TOMLConfigFile):
                 "description": self.project_description(),
                 "readme": ReadmeConfigFile.I.path().as_posix(),
                 "requires-python": self.requires_python(),
-                "dependencies": self.merge_additional_dependencies(
-                    dependencies=self.dependencies(),
-                    additional=self.additional_dependencies(),
-                ),
+                "license": LicenseConfigFile.I.spdx_identifier(),
+                "license-files": [LicenseConfigFile.I.path().as_posix()],
                 "authors": [
                     {"name": VersionController.I.repo_owner()},
                 ],
                 "maintainers": [
                     {"name": VersionController.I.repo_owner()},
                 ],
-                "license": LicenseConfigFile.I.spdx_identifier(),
-                "license-files": [LicenseConfigFile.I.path().as_posix()],
-                "urls": {
-                    "Homepage": RemoteVersionController.I.repo_url(),
-                    "Documentation": DocsBuilder.I.documentation_url(),
-                    "Source": RemoteVersionController.I.repo_url(),
-                    "Issues": RemoteVersionController.I.issues_url(),
-                    "Changelog": RemoteVersionController.I.releases_url(),
-                },
+                "dependencies": self.merge_additional_dependencies(
+                    dependencies=self.dependencies(),
+                    additional=self.additional_dependencies(),
+                ),
+                "urls": deep_sort_dict(self.url_configs()),
                 "scripts": {
                     PackageManager.I.project_name(): (
                         f"{main.__name__}:{main.main.__name__}"
-                    )
+                    ),
                 },
             },
             "dependency-groups": {
                 "dev": self.merge_additional_dependencies(
                     dependencies=self.dev_dependencies(),
                     additional=self.additional_dev_dependencies(),
-                )
+                ),
             },
             "build-system": {
                 "requires": PackageManager.I.build_system_requires(),
                 "build-backend": PackageManager.I.build_backend(),
             },
-            "tool": {
-                PythonLinter.I.config_name(): {
-                    "lint": {
-                        "select": ["ALL"],
-                        "ignore": ["COM812", "ANN401"],
-                        "per-file-ignores": {
-                            f"{ProjectTester.I.package_name()}/**/*.py": ["S101"],
-                        },
-                        "pydocstyle": {"convention": PythonLinter.I.pydocstyle()},
+            "tool": deep_sort_dict(self.tool_configs()),
+        }
+
+    def url_configs(self) -> dict[str, Any]:
+        """Assemble the required `urls` section of `pyproject.toml`."""
+        return {
+            "Changelog": RemoteVersionController.I.releases_url(),
+            "Documentation": DocsBuilder.I.documentation_url(),
+            "Homepage": RemoteVersionController.I.repo_url(),
+            "Issues": RemoteVersionController.I.issues_url(),
+            "Source": RemoteVersionController.I.repo_url(),
+        }
+
+    def tool_configs(self) -> dict[str, Any]:
+        """Assemble the required `tool` section of `pyproject.toml`."""
+        return {
+            DependencyChecker.I.config_name(): {
+                "root": PackageManager.I.source_root().as_posix(),
+                "per_rule_ignores": {"DEP002": [Pyrigger.I.runtime_dependency()]},
+            },
+            ProjectTester.I.config_name(): {
+                "testpaths": [ProjectTester.I.package_root().as_posix()],
+                "addopts": sorted(ProjectTester.I.additional_args()),
+                "filterwarnings": ["error"],
+                "strict": True,
+            },
+            PythonLinter.I.config_name(): {
+                "lint": {
+                    "select": ["ALL"],
+                    "per-file-ignores": {
+                        f"{ProjectTester.I.package_name()}/**/*.py": ["S101"],
                     },
-                    "format": {
-                        "docstring-code-format": True,
-                    },
+                    "pydocstyle": {"convention": PythonLinter.I.pydocstyle()},
                 },
-                ProjectTester.I.config_name(): {
-                    "testpaths": [ProjectTester.I.package_root().as_posix()],
-                    "addopts": list(ProjectTester.I.additional_args()),
-                    "filterwarnings": ["error"],
-                    "strict": True,
-                },
-                DependencyChecker.I.config_name(): {
-                    "root": PackageManager.I.source_root().as_posix(),
-                    "per_rule_ignores": {"DEP002": [Pyrigger.I.runtime_dependency()]},
+                "format": {
+                    "docstring-code-format": True,
                 },
             },
         }
@@ -193,28 +205,6 @@ class PyprojectConfigFile(TOMLConfigFile):
         )
         return sorted({*dependencies, *additional})
 
-    def project_description(self) -> str:
-        """Read the project description from `pyproject.toml`.
-
-        Returns:
-            Description string from `pyproject.toml`. Defaults to uv's initial
-            scaffold value, `"Add your description here"`, if absent.
-        """
-        return (
-            self.load()
-            .get("project", {})
-            .get("description", "Add your description here")
-        )
-
-    def project_version(self) -> str:
-        """Read the project version from `pyproject.toml`.
-
-        Returns:
-            Version string from `pyproject.toml`, or `"0.1.0"` if absent
-            (matching uv's initial scaffold value).
-        """
-        return self.load().get("project", {}).get("version", "0.1.0")
-
     def first_supported_python_version(self) -> Version:
         """Return the minimum Python version required by the project.
 
@@ -233,7 +223,8 @@ class PyprojectConfigFile(TOMLConfigFile):
         return lower
 
     def latest_possible_python_version(
-        self, level: Literal["major", "minor", "micro"] = "minor"
+        self,
+        level: Literal["major", "minor", "micro"] = "minor",
     ) -> Version:
         """Return the highest Python version allowed by the requires-python constraint.
 
@@ -250,7 +241,7 @@ class PyprojectConfigFile(TOMLConfigFile):
         constraint = self.requires_python()
         version_constraint = VersionConstraint(constraint)
         version = version_constraint.find_upper_inclusive(
-            default=self.latest_python_version(level=level)
+            default=self.latest_python_version(level=level),
         )
         return adjust_version_to_level(version, level)
 
@@ -275,7 +266,8 @@ class PyprojectConfigFile(TOMLConfigFile):
         )
 
     def latest_python_version(
-        self, level: Literal["major", "minor", "micro"] = "minor"
+        self,
+        level: Literal["major", "minor", "micro"] = "minor",
     ) -> Version:
         """Return the latest known stable Python version.
 
@@ -294,7 +286,7 @@ class PyprojectConfigFile(TOMLConfigFile):
         Returns:
             Latest stable Python version as a string (e.g., `"3.14.4"`).
         """
-        return resource_content("LATEST_PYTHON_VERSION", resources)
+        return resource_content("LATEST_PYTHON_VERSION", resources).strip()
 
     def requires_python(self) -> str:
         """Read the requires-python constraint from `pyproject.toml`.
@@ -306,10 +298,33 @@ class PyprojectConfigFile(TOMLConfigFile):
             PEP 440 version specifier string (e.g., `">=3.13"`).
         """
         current_version = adjust_version_to_level(
-            Version(platform.python_version()), level="minor"
+            Version(platform.python_version()),
+            level="minor",
         )
         return (
             self.load()
             .get("project", {})
             .get("requires-python", f">={current_version}")
         )
+
+    def project_description(self) -> str:
+        """Read the project description from `pyproject.toml`.
+
+        Returns:
+            Description string from `pyproject.toml`. Defaults to uv's initial
+            scaffold value, `"Add your description here"`, if absent.
+        """
+        return (
+            self.load()
+            .get("project", {})
+            .get("description", "Add your description here")
+        )
+
+    def project_version(self) -> str:
+        """Read the project version from `pyproject.toml`.
+
+        Returns:
+            Version string from `pyproject.toml`, or `"0.1.0"` if absent
+            (matching uv's initial scaffold value).
+        """
+        return self.load().get("project", {}).get("version", "0.1.0")

@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.policy_alert_rule import PolicyAlertRule
 from arthur_client.api_bindings.models.policy_attestation_rule import PolicyAttestationRule
+from arthur_client.api_bindings.models.resource_permissions import ResourcePermissions
 from arthur_client.api_bindings.models.user import User
 from typing import Optional, Set
 from typing_extensions import Self
@@ -42,7 +43,8 @@ class Policy(BaseModel):
     alert_rules: List[PolicyAlertRule] = Field(description="Alert rules attached to this policy.")
     attestation_rules: List[PolicyAttestationRule] = Field(description="Attestation rules attached to this policy.")
     last_updated_by_user: Optional[User] = None
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "organization_id", "name", "description", "owner_group_id", "webhook_id", "enforcement_delay_days", "alert_rules", "attestation_rules", "last_updated_by_user"]
+    permissions: Optional[ResourcePermissions] = None
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "organization_id", "name", "description", "owner_group_id", "webhook_id", "enforcement_delay_days", "alert_rules", "attestation_rules", "last_updated_by_user", "permissions"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -100,6 +102,9 @@ class Policy(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of last_updated_by_user
         if self.last_updated_by_user:
             _dict['last_updated_by_user'] = self.last_updated_by_user.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of permissions
+        if self.permissions:
+            _dict['permissions'] = self.permissions.to_dict()
         # set to None if description (nullable) is None
         # and model_fields_set contains the field
         if self.description is None and "description" in self.model_fields_set:
@@ -109,6 +114,11 @@ class Policy(BaseModel):
         # and model_fields_set contains the field
         if self.last_updated_by_user is None and "last_updated_by_user" in self.model_fields_set:
             _dict['last_updated_by_user'] = None
+
+        # set to None if permissions (nullable) is None
+        # and model_fields_set contains the field
+        if self.permissions is None and "permissions" in self.model_fields_set:
+            _dict['permissions'] = None
 
         return _dict
 
@@ -133,7 +143,8 @@ class Policy(BaseModel):
             "enforcement_delay_days": obj.get("enforcement_delay_days"),
             "alert_rules": [PolicyAlertRule.from_dict(_item) for _item in obj["alert_rules"]] if obj.get("alert_rules") is not None else None,
             "attestation_rules": [PolicyAttestationRule.from_dict(_item) for _item in obj["attestation_rules"]] if obj.get("attestation_rules") is not None else None,
-            "last_updated_by_user": User.from_dict(obj["last_updated_by_user"]) if obj.get("last_updated_by_user") is not None else None
+            "last_updated_by_user": User.from_dict(obj["last_updated_by_user"]) if obj.get("last_updated_by_user") is not None else None,
+            "permissions": ResourcePermissions.from_dict(obj["permissions"]) if obj.get("permissions") is not None else None
         })
         return _obj
 

@@ -22,6 +22,18 @@ from typing import TYPE_CHECKING
 
 from dazzle.render.fragment.context import RenderContext
 from dazzle.render.fragment.icon_html import lucide_icon_html
+from dazzle.render.fragment.ingest import CohortStrip as CohortStripSeam
+from dazzle.render.fragment.ingest import DashboardCard as DashboardCardSeam
+from dazzle.render.fragment.ingest import DayTimeline as DayTimelineSeam
+from dazzle.render.fragment.ingest import EntityCard as EntityCardSeam
+from dazzle.render.fragment.ingest import TaskInbox as TaskInboxSeam
+from dazzle.render.fragment.ingest import (
+    render_cohort_strip,
+    render_dashboard_card,
+    render_day_timeline,
+    render_entity_card,
+    render_task_inbox,
+)
 from dazzle.render.fragment.primitives import (
     CohortStripRegion,
     DashboardCard,
@@ -189,18 +201,21 @@ class _RenderDashboardMixin:
             f"</div>"
         )
 
-        return (
-            # #1494: addressable wrapper id (`card-{name}-{card_id}`, derivable
-            # from the body's `region-{name}-{card_id}` hx-target) so an empty
-            # `when_empty: suppress` region can self-remove via htmx OOB-delete.
-            f'<div id="card-{ctx.escape_attr(c.name)}-{ctx.escape_attr(c.card_id)}" '
+        # #1494: addressable wrapper id (`card-{name}-{card_id}`, derivable
+        # from the body's `region-{name}-{card_id}` hx-target) so an empty
+        # `when_empty: suppress` region can self-remove via htmx OOB-delete.
+        # Dual-lock sole-emitter roots data-dz-dashboard-card on the wrapper.
+        attrs = (
+            f'id="card-{ctx.escape_attr(c.name)}-{ctx.escape_attr(c.card_id)}" '
             f'data-card-id="{ctx.escape_attr(c.card_id)}" '
             f'data-card-region="{ctx.escape_attr(c.name)}" '
             f'data-card-col-span="{c.col_span}" '
             f'data-card-row-order="{c.row_order}" '
             f'class="{ctx.escape_attr(wrapper_class)}" '
             f'style="grid-column: span {c.col_span} / span {c.col_span};" '
-            f'tabindex="0">'
+            f'tabindex="0"'
+        )
+        article = (
             f'<article class="dz-card" role="article" '
             f'aria-labelledby="card-title-{ctx.escape_attr(c.card_id)}">'
             f"{header_html}"
@@ -208,8 +223,8 @@ class _RenderDashboardMixin:
             f"{body_html}"
             f"</article>"
             f'<div class="dz-card-resize" aria-hidden="true"></div>'
-            f"</div>"
         )
+        return render_dashboard_card(DashboardCardSeam(attrs=attrs, body_html=article))
 
     def _emit_cohort_strip_region(self, c: CohortStripRegion, ctx: RenderContext) -> str:
         """Render a CohortStripRegion (#1018).
@@ -297,15 +312,13 @@ class _RenderDashboardMixin:
                     )
             cells_html = f'<div class="dz-cohort-strip-cells">{"".join(cell_parts)}</div>'
 
-        return (
-            f'<div class="dz-cohort-strip-region" '
-            f'data-dz-region-name="{region_name_attr}">'
+        body = (
             f"{lens_bar}"
             f'<div class="dz-cohort-strip-body" id="region-{region_name_attr}-body">'
             f"{cells_html}"
             f"</div>"
-            f"</div>"
         )
+        return render_cohort_strip(CohortStripSeam(region_name=c.region_name, body_html=body))
 
     def _emit_day_timeline_region(self, t: DayTimelineRegion, ctx: RenderContext) -> str:
         """Render a DayTimelineRegion (#1016).
@@ -320,7 +333,6 @@ class _RenderDashboardMixin:
         produced by the runtime adapter — this primitive does not
         re-escape it. Empty timelines emit a single empty-state
         paragraph."""
-        region_name_attr = ctx.escape_attr(t.region_name)
         if not t.slots:
             body = f'<p class="dz-day-timeline-empty">{ctx.escape(t.empty_message)}</p>'
         else:
@@ -356,12 +368,7 @@ class _RenderDashboardMixin:
                     )
             body = f'<ol class="dz-day-timeline-slots">{"".join(slot_parts)}</ol>'
 
-        return (
-            f'<div class="dz-day-timeline-region" '
-            f'data-dz-region-name="{region_name_attr}">'
-            f"{body}"
-            f"</div>"
-        )
+        return render_day_timeline(DayTimelineSeam(region_name=t.region_name, body_html=body))
 
     def _emit_entity_card_region(self, p: EntityCardRegion, ctx: RenderContext) -> str:
         """Render an EntityCardRegion (#1017).
@@ -377,7 +384,6 @@ class _RenderDashboardMixin:
         project CSS owns the breakpoint layout and per-mode density
         styling. The wrapper carries `data-dz-region-name` and an
         optional heading derived from `record_label`."""
-        region_name_attr = ctx.escape_attr(p.region_name)
         heading_html = (
             f'<h3 class="dz-entity-card-heading">{ctx.escape(p.record_label)}</h3>'
             if p.record_label
@@ -409,12 +415,11 @@ class _RenderDashboardMixin:
             else '<p class="dz-entity-card-empty">No record context available.</p>'
         )
 
-        return (
-            f'<div class="dz-entity-card-region" '
-            f'data-dz-region-name="{region_name_attr}">'
-            f"{heading_html}"
-            f"{body}"
-            f"</div>"
+        return render_entity_card(
+            EntityCardSeam(
+                region_name=p.region_name,
+                body_html=f"{heading_html}{body}",
+            )
         )
 
     def _emit_task_inbox_region(self, t: TaskInboxRegion, ctx: RenderContext) -> str:
@@ -429,8 +434,6 @@ class _RenderDashboardMixin:
         meta + urgency-tone tint via `data-dz-urgency`. When there
         are zero items AND zero summary chips, the empty-state path
         emits a single paragraph in place of both."""
-        region_name_attr = ctx.escape_attr(t.region_name)
-
         chip_parts: list[str] = []
         for chip in t.summary_chips:
             inner = (
@@ -500,9 +503,9 @@ class _RenderDashboardMixin:
         else:
             body = f'{chips_html}<ul class="dz-task-inbox-items">{"".join(item_parts)}</ul>'
 
-        return (
-            f'<div class="dz-task-inbox-region" '
-            f'data-dz-region-name="{region_name_attr}">'
-            f"{body}"
-            f"</div>"
+        return render_task_inbox(
+            TaskInboxSeam(
+                region_name=t.region_name,
+                body_html=body,
+            )
         )

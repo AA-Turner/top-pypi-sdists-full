@@ -35,7 +35,6 @@ class Trajectory {
     Container<double> cumulative_times;
 
     Vector<double> independent_min_durations;
-    Vector<Bound> position_extrema;
 
     size_t continue_calculation_counter {0};
 
@@ -156,7 +155,6 @@ public:
 
         profiles[0].resize(dofs);
         independent_min_durations.resize(dofs);
-        position_extrema.resize(dofs);
     }
 
 #if defined WITH_CLOUD_CLIENT
@@ -170,7 +168,6 @@ public:
         resize(max_number_of_waypoints);
 
         independent_min_durations.resize(dofs);
-        position_extrema.resize(dofs);
     }
 #endif
 
@@ -266,7 +263,7 @@ public:
     }
 
     //! Get the min/max values of the position for each DoF
-    Vector<Bound> get_position_extrema() {
+    void get_position_extrema(CustomVector<Bound, DOFs>& position_extrema) const {
         for (size_t dof = 0; dof < degrees_of_freedom; ++dof) {
             position_extrema[dof] = profiles[0][dof].get_position_extrema();
         }
@@ -284,8 +281,6 @@ public:
                 }
             }
         }
-
-        return position_extrema;
     }
 
     //! Get the time that this trajectory passes a specific position of a given DoF the first time

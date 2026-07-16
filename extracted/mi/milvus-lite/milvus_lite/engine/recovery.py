@@ -24,8 +24,10 @@ import os
 from typing import TYPE_CHECKING, Iterator, List, Tuple
 
 from milvus_lite.engine.operation import DeleteOp, InsertOp, Operation
+from milvus_lite.index.files import parse_index_sidecar_name
 from milvus_lite.storage.delta_index import DeltaIndex
 from milvus_lite.storage.memtable import MemTable
+from milvus_lite.storage.snapshots import snapshot_references
 from milvus_lite.storage.wal import WAL
 
 if TYPE_CHECKING:
@@ -174,7 +176,7 @@ def _cleanup_orphan_files(data_dir: str, manifest: "Manifest") -> None:
 
     Walks every partition's data/ and delta/ subdirectories.
 
-    Phase 9.4: also walks ``indexes/`` and removes any .idx whose
+    Also walks ``indexes/`` and removes any index sidecar whose
     source data file (matched by filename stem) is no longer in the
     manifest. This handles the case where a crash happens after
     compaction wrote new segments but before the old indexes were
@@ -190,9 +192,16 @@ def _cleanup_orphan_files(data_dir: str, manifest: "Manifest") -> None:
     referenced_delta: dict[str, set[str]] = {
         p: set(files) for p, files in manifest.get_all_delta_files().items()
     }
+    snapshot_data_refs, snapshot_delta_refs, snapshot_index_refs = snapshot_references(
+        data_dir
+    )
+    for partition, files in snapshot_data_refs.items():
+        referenced_data.setdefault(partition, set()).update(files)
+    for partition, files in snapshot_delta_refs.items():
+        referenced_delta.setdefault(partition, set()).update(files)
     # For index orphan detection we need the bare stems (without the
     # "data/" prefix and ".parquet" suffix) so we can compare against
-    # .idx file stems.
+    # index sidecar source stems.
     referenced_data_stems: dict[str, set[str]] = {}
     for p, files in referenced_data.items():
         stems: set[str] = set()
@@ -200,6 +209,9 @@ def _cleanup_orphan_files(data_dir: str, manifest: "Manifest") -> None:
             stem = os.path.splitext(os.path.basename(rel))[0]
             stems.add(stem)
         referenced_data_stems[p] = stems
+    referenced_index: dict[str, set[str]] = {
+        p: set(files) for p, files in snapshot_index_refs.items()
+    }
 
     for partition in os.listdir(partitions_root):
         partition_dir = os.path.join(partitions_root, partition)
@@ -239,23 +251,11 @@ def _cleanup_orphan_files(data_dir: str, manifest: "Manifest") -> None:
         if os.path.isdir(index_subdir):
             valid_stems = referenced_data_stems.get(partition, set())
             for fn in os.listdir(index_subdir):
-                # Index filename convention:
-                #   <data_stem>.<field_name>.<index_type_lower>.idx
-                # Strip .idx, then rpartition twice to peel off index_type
-                # and field_name, leaving the data_stem.
-                # E.g. "data_000001_000050.dense.hnsw.idx"
-                #  → base = "data_000001_000050.dense.hnsw"
-                #  → after first rpartition: ("data_000001_000050.dense", "hnsw")
-                #  → after second rpartition: ("data_000001_000050", "dense")
-                if not fn.endswith(".idx"):
+                sidecar = parse_index_sidecar_name(fn)
+                if sidecar is None:
                     continue
-                base = fn[:-len(".idx")]
-                stem_field, _, _index_type = base.rpartition(".")
-                stem, _, _field_name = stem_field.rpartition(".")
-                if not stem:
-                    # Malformed name; remove defensively.
-                    stem = stem_field or base
-                if stem not in valid_stems:
+                rel = os.path.join("indexes", fn)
+                if sidecar.source_stem not in valid_stems and rel not in referenced_index.get(partition, set()):
                     abs_path = os.path.join(index_subdir, fn)
                     try:
                         os.remove(abs_path)

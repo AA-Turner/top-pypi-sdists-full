@@ -9,11 +9,16 @@ from pydantic import ValidationError
 from . import kdb
 from .conf import config
 from .cross_section import (
+    AsymmetricalCrossSection,
+    AsymmetricCrossSection,
     CrossSection,
-    CrossSectionSpec,
+    CrossSectionSpecDict,
+    DAsymmetricalCrossSection,
+    DAsymmetricCrossSection,
     DCrossSection,
-    DCrossSectionSpec,
+    DCrossSectionSpecDict,
     SymmetricalCrossSection,
+    TAsymmetricCrossSection,
 )
 from .port import (
     BasePort,
@@ -22,26 +27,28 @@ from .port import (
     ProtoPort,
     filter_direction,
     filter_layer,
+    filter_layer_info,
     filter_orientation,
     filter_port_type,
     filter_regex,
 )
-from .typings import Angle, MetaData, TPort, TUnit
 from .utilities import pprint_ports
 
 if TYPE_CHECKING:
     from .layer import LayerEnum
     from .layout import KCLayout
+    from .typings import Angle, MetaData, TPort
 
 
 __all__ = ["DPorts", "Ports", "ProtoPorts"]
 
 
-def _filter_ports(
+def _filter_ports[TPort: ProtoPort[Any]](
     ports: Iterable[TPort],
     angle: Angle | None = None,
     orientation: float | None = None,
     layer: LayerEnum | int | None = None,
+    layer_info: kdb.LayerInfo | None = None,
     port_type: str | None = None,
     regex: str | None = None,
 ) -> list[TPort]:
@@ -49,6 +56,8 @@ def _filter_ports(
         ports = filter_regex(ports, regex)
     if layer is not None:
         ports = filter_layer(ports, layer)
+    if layer_info is not None:
+        ports = filter_layer_info(ports, layer_info)
     if port_type:
         ports = filter_port_type(ports, port_type)
     if angle is not None:
@@ -58,12 +67,13 @@ def _filter_ports(
     return list(ports)
 
 
-class ProtoPorts(Protocol[TUnit]):
+class ProtoPorts[T: (int, float)](Protocol):
     """Base class for kf.Ports, kf.DPorts."""
 
     _kcl: KCLayout
     _locked: bool
     _bases: list[BasePort]
+    _name_cache: dict[str | None, BasePort] | None
 
     @overload
     def __init__(self, *, kcl: KCLayout) -> None: ...
@@ -84,12 +94,22 @@ class ProtoPorts(Protocol[TUnit]):
         bases: list[BasePort] | None = None,
     ) -> None: ...
 
+    @overload
+    def __init__(
+        self,
+        *,
+        kcl: KCLayout,
+        bases: list[BasePort],
+        name_cache: dict[str | None, BasePort] | None = None,
+    ) -> None: ...
+
     def __init__(
         self,
         *,
         kcl: KCLayout,
         ports: Iterable[ProtoPort[Any]] | None = None,
         bases: list[BasePort] | None = None,
+        name_cache: dict[str | None, BasePort] | None = None,
     ) -> None:
         """Initialize the Ports.
 
@@ -97,6 +117,7 @@ class ProtoPorts(Protocol[TUnit]):
             kcl: The KCLayout instance.
             ports: The ports to add.
             bases: The bases to add.
+            name_cache: Optional shared name lookup cache.
         """
         self.kcl = kcl
         if bases is not None:
@@ -105,6 +126,7 @@ class ProtoPorts(Protocol[TUnit]):
             self._bases = [p.base for p in ports]
         else:
             self._bases = []
+        self._name_cache = name_cache
         self._locked = False
 
     def __len__(self) -> int:
@@ -115,6 +137,42 @@ class ProtoPorts(Protocol[TUnit]):
     def bases(self) -> list[BasePort]:
         """Get the bases."""
         return self._bases
+
+    def _rebuild_name_cache(self) -> dict[str | None, BasePort]:
+        if self._name_cache is None:
+            return {}
+        self._name_cache.clear()
+        for base in self._bases:
+            self._name_cache.setdefault(base.name, base)
+        return self._name_cache
+
+    def _find_base_by_name(self, key: str | None) -> BasePort:
+        for base in self._bases:
+            if base.name == key:
+                return base
+        raise KeyError(key)
+
+    def _get_base_by_name(self, key: str | None) -> BasePort:
+        name_cache = self._name_cache
+        if name_cache is None:
+            return self._find_base_by_name(key)
+
+        if not name_cache and self._bases:
+            self._rebuild_name_cache()
+
+        base = name_cache.get(key)
+        if base is not None and base.name == key:
+            return base
+
+        name_cache = self._rebuild_name_cache()
+        base = name_cache.get(key)
+        if base is not None:
+            return base
+        raise KeyError(key)
+
+    def _add_to_name_cache(self, base: BasePort) -> None:
+        if self._name_cache is not None:
+            self._name_cache.setdefault(base.name, base)
 
     @property
     def kcl(self) -> KCLayout:
@@ -129,7 +187,7 @@ class ProtoPorts(Protocol[TUnit]):
     @abstractmethod
     def copy(
         self,
-        rename_function: Callable[[Sequence[ProtoPort[TUnit]]], None] | None = None,
+        rename_function: Callable[[Sequence[ProtoPort[T]]], None] | None = None,
     ) -> Self:
         """Get a copy of each port."""
         ...
@@ -143,7 +201,7 @@ class ProtoPorts(Protocol[TUnit]):
         return DPorts(kcl=self.kcl, bases=self._bases)
 
     @abstractmethod
-    def __iter__(self) -> Iterator[ProtoPort[TUnit]]:
+    def __iter__(self) -> Iterator[ProtoPort[T]]:
         """Iterator over the Ports."""
         ...
 
@@ -154,12 +212,12 @@ class ProtoPorts(Protocol[TUnit]):
         port: ProtoPort[Any],
         name: str | None = None,
         keep_mirror: bool = False,
-    ) -> ProtoPort[TUnit]:
+    ) -> ProtoPort[T]:
         """Add a port."""
         ...
 
     @abstractmethod
-    def get_all_named(self) -> Mapping[str, ProtoPort[TUnit]]:
+    def get_all_named(self) -> Mapping[str, ProtoPort[T]]:
         """Get all ports in a dictionary with names as keys.
 
         This filters out Ports with `None` as name.
@@ -180,7 +238,7 @@ class ProtoPorts(Protocol[TUnit]):
 
     @overload
     @abstractmethod
-    def __getitem__(self, key: int | str | None) -> ProtoPort[TUnit]:
+    def __getitem__(self, key: int | str | None) -> ProtoPort[T]:
         """Get a port by index or name."""
         ...
 
@@ -196,9 +254,10 @@ class ProtoPorts(Protocol[TUnit]):
         angle: Angle | None = None,
         orientation: float | None = None,
         layer: LayerEnum | int | None = None,
+        layer_info: kdb.LayerInfo | None = None,
         port_type: str | None = None,
         regex: str | None = None,
-    ) -> Sequence[ProtoPort[TUnit]]:
+    ) -> Sequence[ProtoPort[T]]:
         """Filter ports.
 
         Args:
@@ -216,11 +275,17 @@ class ProtoPorts(Protocol[TUnit]):
             return port.base in self._bases
         if isinstance(port, BasePort):
             return port in self._bases
-        return any(_port.name == port for _port in self._bases)
+        try:
+            self._get_base_by_name(port)
+        except KeyError:
+            return False
+        return True
 
     def clear(self) -> None:
         """Deletes all ports."""
         self._bases.clear()
+        if self._name_cache is not None:
+            self._name_cache.clear()
 
     def __eq__(self, other: object) -> bool:
         """Support for `ports1 == ports2` comparisons."""
@@ -259,13 +324,16 @@ class ICreatePort(ABC):
     def create_port(
         self,
         *,
+        name: str,
         trans: kdb.Trans,
-        cross_section: CrossSectionSpec
-        | DCrossSectionSpec
+        cross_section: CrossSectionSpecDict
+        | DCrossSectionSpecDict
         | CrossSection
         | DCrossSection
-        | SymmetricalCrossSection,
-        name: str | None = None,
+        | SymmetricalCrossSection
+        | AsymmetricalCrossSection
+        | AsymmetricCrossSection
+        | DAsymmetricCrossSection,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> Port: ...
@@ -274,10 +342,10 @@ class ICreatePort(ABC):
     def create_port(
         self,
         *,
+        name: str,
         trans: kdb.Trans,
         width: int,
         layer: int,
-        name: str | None = None,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> Port: ...
@@ -286,10 +354,10 @@ class ICreatePort(ABC):
     def create_port(
         self,
         *,
+        name: str,
         dcplx_trans: kdb.DCplxTrans,
         width: int,
         layer: LayerEnum | int,
-        name: str | None = None,
         port_type: str = "optical",
     ) -> Port: ...
 
@@ -297,11 +365,11 @@ class ICreatePort(ABC):
     def create_port(
         self,
         *,
+        name: str,
         width: int,
         layer: LayerEnum | int,
         center: tuple[int, int],
         angle: Angle,
-        name: str | None = None,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> Port: ...
@@ -310,10 +378,10 @@ class ICreatePort(ABC):
     def create_port(
         self,
         *,
+        name: str,
         trans: kdb.Trans,
         width: int,
         layer_info: kdb.LayerInfo,
-        name: str | None = None,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> Port: ...
@@ -322,11 +390,11 @@ class ICreatePort(ABC):
     def create_port(
         self,
         *,
+        name: str,
         width: int,
         layer_info: kdb.LayerInfo,
         center: tuple[int, int],
         angle: Angle,
-        name: str | None = None,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> Port: ...
@@ -335,14 +403,17 @@ class ICreatePort(ABC):
     def create_port(
         self,
         *,
+        name: str,
         layer_info: kdb.LayerInfo,
         trans: kdb.Trans,
-        cross_section: CrossSectionSpec
-        | DCrossSectionSpec
+        cross_section: CrossSectionSpecDict
+        | DCrossSectionSpecDict
         | CrossSection
         | DCrossSection
-        | SymmetricalCrossSection,
-        name: str | None = None,
+        | SymmetricalCrossSection
+        | AsymmetricalCrossSection
+        | AsymmetricCrossSection
+        | DAsymmetricCrossSection,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> Port: ...
@@ -350,13 +421,16 @@ class ICreatePort(ABC):
     def create_port(
         self,
         *,
+        name: str,
         dcplx_trans: kdb.DCplxTrans,
-        cross_section: CrossSectionSpec
-        | DCrossSectionSpec
+        cross_section: CrossSectionSpecDict
+        | DCrossSectionSpecDict
         | CrossSection
         | DCrossSection
-        | SymmetricalCrossSection,
-        name: str | None = None,
+        | SymmetricalCrossSection
+        | AsymmetricalCrossSection
+        | AsymmetricCrossSection
+        | DAsymmetricCrossSection,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> Port: ...
@@ -364,7 +438,7 @@ class ICreatePort(ABC):
     def create_port(
         self,
         *,
-        name: str | None = None,
+        name: str,
         width: int | None = None,
         layer: LayerEnum | int | None = None,
         layer_info: kdb.LayerInfo | None = None,
@@ -374,16 +448,25 @@ class ICreatePort(ABC):
         center: tuple[int, int] | None = None,
         angle: Angle | None = None,
         mirror_x: bool = False,
-        cross_section: CrossSectionSpec
-        | DCrossSectionSpec
+        cross_section: CrossSectionSpecDict
+        | DCrossSectionSpecDict
         | CrossSection
         | DCrossSection
         | SymmetricalCrossSection
+        | AsymmetricalCrossSection
+        | DAsymmetricalCrossSection
+        | AsymmetricCrossSection
+        | DAsymmetricCrossSection
         | None = None,
         info: dict[str, MetaData] | None = None,
     ) -> Port:
         """Create a port."""
-
+        xs: (
+            CrossSection
+            | AsymmetricCrossSection
+            | SymmetricalCrossSection
+            | AsymmetricalCrossSection
+        )
         if cross_section is None:
             if width is None:
                 raise ValueError(
@@ -399,7 +482,7 @@ class ICreatePort(ABC):
             assert layer_info is not None
             try:
                 xs = self.kcl.get_icross_section(
-                    CrossSectionSpec(layer=layer_info, width=width, unit="dbu")
+                    CrossSectionSpecDict(layer=layer_info, width=width, unit="dbu")
                 )
             except ValidationError as e:
                 raise ValueError(
@@ -407,6 +490,15 @@ class ICreatePort(ABC):
                     "and greater than 0"
                     f". 1 DBU is {self.kcl.dbu} um."
                 ) from e
+        elif isinstance(
+            cross_section,
+            (
+                AsymmetricalCrossSection,
+                DAsymmetricalCrossSection,
+                TAsymmetricCrossSection,
+            ),
+        ):
+            xs = self.kcl.get_iasymmetric_cross_section(cross_section)
         else:
             xs = self.kcl.get_icross_section(cross_section)
         if trans is not None:
@@ -469,7 +561,7 @@ class DCreatePort(ABC):
         trans: kdb.Trans,
         width: float,
         layer: int,
-        name: str | None = None,
+        name: str,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> DPort: ...
@@ -481,7 +573,7 @@ class DCreatePort(ABC):
         dcplx_trans: kdb.DCplxTrans,
         width: float,
         layer: LayerEnum | int,
-        name: str | None = None,
+        name: str,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> DPort: ...
@@ -494,7 +586,7 @@ class DCreatePort(ABC):
         layer: LayerEnum | int,
         center: tuple[float, float],
         orientation: float,
-        name: str | None = None,
+        name: str,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> DPort: ...
@@ -506,7 +598,7 @@ class DCreatePort(ABC):
         trans: kdb.Trans,
         width: float,
         layer_info: kdb.LayerInfo,
-        name: str | None = None,
+        name: str,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> DPort: ...
@@ -518,7 +610,7 @@ class DCreatePort(ABC):
         dcplx_trans: kdb.DCplxTrans,
         width: float,
         layer_info: kdb.LayerInfo,
-        name: str | None = None,
+        name: str,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> DPort: ...
@@ -531,7 +623,7 @@ class DCreatePort(ABC):
         layer_info: kdb.LayerInfo,
         center: tuple[float, float],
         orientation: float,
-        name: str | None = None,
+        name: str,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> DPort: ...
@@ -541,12 +633,15 @@ class DCreatePort(ABC):
         self,
         *,
         trans: kdb.Trans,
-        cross_section: CrossSectionSpec
-        | DCrossSectionSpec
+        cross_section: CrossSectionSpecDict
+        | DCrossSectionSpecDict
         | CrossSection
         | DCrossSection
-        | SymmetricalCrossSection,
-        name: str | None = None,
+        | SymmetricalCrossSection
+        | AsymmetricalCrossSection
+        | AsymmetricCrossSection
+        | DAsymmetricCrossSection,
+        name: str,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> DPort: ...
@@ -555,12 +650,15 @@ class DCreatePort(ABC):
         self,
         *,
         dcplx_trans: kdb.DCplxTrans,
-        cross_section: CrossSectionSpec
-        | DCrossSectionSpec
+        cross_section: CrossSectionSpecDict
+        | DCrossSectionSpecDict
         | CrossSection
         | DCrossSection
-        | SymmetricalCrossSection,
-        name: str | None = None,
+        | SymmetricalCrossSection
+        | AsymmetricalCrossSection
+        | AsymmetricCrossSection
+        | DAsymmetricCrossSection,
+        name: str,
         port_type: str = "optical",
         info: dict[str, MetaData] | None = None,
     ) -> DPort: ...
@@ -568,7 +666,7 @@ class DCreatePort(ABC):
     def create_port(
         self,
         *,
-        name: str | None = None,
+        name: str,
         width: float | None = None,
         layer: LayerEnum | int | None = None,
         layer_info: kdb.LayerInfo | None = None,
@@ -578,15 +676,25 @@ class DCreatePort(ABC):
         center: tuple[float, float] | None = None,
         orientation: float | None = None,
         mirror_x: bool = False,
-        cross_section: CrossSectionSpec
-        | DCrossSectionSpec
+        cross_section: CrossSectionSpecDict
+        | DCrossSectionSpecDict
         | CrossSection
         | DCrossSection
         | SymmetricalCrossSection
+        | AsymmetricalCrossSection
+        | DAsymmetricalCrossSection
+        | AsymmetricCrossSection
+        | DAsymmetricCrossSection
         | None = None,
         info: dict[str, MetaData] | None = None,
     ) -> DPort:
         """Create a port."""
+        xs: (
+            DCrossSection
+            | DAsymmetricCrossSection
+            | SymmetricalCrossSection
+            | AsymmetricalCrossSection
+        )
         if cross_section is None:
             if width is None:
                 raise ValueError(
@@ -602,7 +710,7 @@ class DCreatePort(ABC):
             assert layer_info is not None
             try:
                 xs = self.kcl.get_dcross_section(
-                    DCrossSectionSpec(layer=layer_info, width=width, unit="um")
+                    DCrossSectionSpecDict(layer=layer_info, width=width, unit="um")
                 )
             except ValidationError as e:
                 raise ValueError(
@@ -611,6 +719,15 @@ class DCreatePort(ABC):
                     f". 1 DBU is {self.kcl.dbu} um. Port width must be a "
                     f"multiple of {2 * self.kcl.dbu} um."
                 ) from e
+        elif isinstance(
+            cross_section,
+            (
+                AsymmetricalCrossSection,
+                DAsymmetricalCrossSection,
+                TAsymmetricCrossSection,
+            ),
+        ):
+            xs = self.kcl.get_dasymmetric_cross_section(cross_section)
         else:
             xs = self.kcl.get_dcross_section(cross_section)
         if trans is not None:
@@ -685,7 +802,7 @@ class Ports(ProtoPorts[int], ICreatePort):
             port: The port to add
             name: Overwrite the name of the port
             keep_mirror: Keep the mirror flag from the original port if `True`,
-                else set [Port.trans.mirror][kfactory.kcell.Port.trans] (or the complex
+                else set [Port.trans.mirror][kfactory.Port.trans] (or the complex
                 equivalent) to `False`.
         """
         if port.kcl == self.kcl:
@@ -698,6 +815,7 @@ class Ports(ProtoPorts[int], ICreatePort):
             if name is not None:
                 base.name = name
             self._bases.append(base)
+            self._add_to_name_cache(base)
             port_ = Port(base=base)
         else:
             dcplx_trans = port.dcplx_trans.dup()
@@ -707,14 +825,22 @@ class Ports(ProtoPorts[int], ICreatePort):
             base.trans = kdb.Trans.R0
             base.dcplx_trans = None
             base.kcl = self.kcl
-            base.cross_section = self.kcl.get_symmetrical_cross_section(
-                port.cross_section.base.to_dtype(port.kcl)
-            )
+            if port.is_symmetric():
+                base.cross_section = self.kcl.get_symmetrical_cross_section(
+                    port.symmetric_cross_section.base.to_dtype(port.kcl)
+                )
+                base.asymmetric_cross_section = None
+            else:
+                base.asymmetric_cross_section = self.kcl.get_asymmetrical_cross_section(
+                    port.asymmetric_cross_section.base.to_dtype(port.kcl)
+                )
+                base.cross_section = None
             if name is not None:
                 base.name = name
             port_ = Port(base=base)
             port_.dcplx_trans = dcplx_trans
             self._bases.append(port_.base)
+            self._add_to_name_cache(port_.base)
         return port_
 
     def get_all_named(self) -> Mapping[str, Port]:
@@ -735,8 +861,8 @@ class Ports(ProtoPorts[int], ICreatePort):
         if isinstance(key, slice):
             return self.__class__(bases=self._bases[key], kcl=self.kcl)
         try:
-            return Port(base=next(filter(lambda base: base.name == key, self._bases)))
-        except StopIteration as e:
+            return Port(base=self._get_base_by_name(key))
+        except KeyError as e:
             raise KeyError(
                 f"{key=} is not a valid port name or index. "
                 f"Available ports: {[v.name for v in self._bases]}"
@@ -756,6 +882,7 @@ class Ports(ProtoPorts[int], ICreatePort):
         angle: Angle | None = None,
         orientation: float | None = None,
         layer: LayerEnum | int | None = None,
+        layer_info: kdb.LayerInfo | None = None,
         port_type: str | None = None,
         regex: str | None = None,
     ) -> list[Port]:
@@ -773,6 +900,7 @@ class Ports(ProtoPorts[int], ICreatePort):
             angle,
             orientation,
             layer,
+            layer_info,
             port_type,
             regex,
         )
@@ -808,7 +936,7 @@ class DPorts(ProtoPorts[float], DCreatePort):
             port: The port to add
             name: Overwrite the name of the port
             keep_mirror: Keep the mirror flag from the original port if `True`,
-                else set [Port.trans.mirror][kfactory.kcell.Port.trans] (or the complex
+                else set [Port.trans.mirror][kfactory.Port.trans] (or the complex
                 equivalent) to `False`.
         """
         if port.kcl == self.kcl:
@@ -821,6 +949,7 @@ class DPorts(ProtoPorts[float], DCreatePort):
             if name is not None:
                 base.name = name
             self._bases.append(base)
+            self._add_to_name_cache(base)
             port_ = DPort(base=base)
         else:
             dcplx_trans = port.dcplx_trans.dup()
@@ -830,12 +959,20 @@ class DPorts(ProtoPorts[float], DCreatePort):
             base.trans = kdb.Trans.R0
             base.dcplx_trans = None
             base.kcl = self.kcl
-            base.cross_section = self.kcl.get_symmetrical_cross_section(
-                port.cross_section.base.to_dtype(port.kcl)
-            )
+            if port.is_symmetric():
+                base.cross_section = self.kcl.get_symmetrical_cross_section(
+                    port.symmetric_cross_section.base.to_dtype(port.kcl)
+                )
+                base.asymmetric_cross_section = None
+            else:
+                base.asymmetric_cross_section = self.kcl.get_asymmetrical_cross_section(
+                    port.asymmetric_cross_section.base.to_dtype(port.kcl)
+                )
+                base.cross_section = None
             port_ = DPort(base=base)
             port_.dcplx_trans = dcplx_trans
             self._bases.append(port_.base)
+            self._add_to_name_cache(port_.base)
         return port_
 
     def get_all_named(self) -> Mapping[str, DPort]:
@@ -856,8 +993,8 @@ class DPorts(ProtoPorts[float], DCreatePort):
         if isinstance(key, slice):
             return self.__class__(bases=self._bases[key], kcl=self.kcl)
         try:
-            return DPort(base=next(filter(lambda base: base.name == key, self._bases)))
-        except StopIteration as e:
+            return DPort(base=self._get_base_by_name(key))
+        except KeyError as e:
             raise KeyError(
                 f"{key=} is not a valid port name or index. "
                 f"Available ports: {[v.name for v in self._bases]}"
@@ -877,6 +1014,7 @@ class DPorts(ProtoPorts[float], DCreatePort):
         angle: Angle | None = None,
         orientation: float | None = None,
         layer: LayerEnum | int | None = None,
+        layer_info: kdb.LayerInfo | None = None,
         port_type: str | None = None,
         regex: str | None = None,
     ) -> list[DPort]:
@@ -889,11 +1027,14 @@ class DPorts(ProtoPorts[float], DCreatePort):
             port_type: Filter by port type.
             regex: Filter by regex of the name.
         """
+        if layer is None and layer_info is not None:
+            layer = self.kcl.layout.layer(layer_info)
         return _filter_ports(
             (DPort(base=b) for b in self._bases),
             angle,
             orientation,
             layer,
+            layer_info,
             port_type,
             regex,
         )

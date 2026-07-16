@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tinker_cookbook
-Version: 0.4.3
+Version: 0.5.2
 Summary: Implementations of post-training algorithms using the Tinker API
 Project-URL: Homepage, https://thinkingmachines.ai/tinker
 Project-URL: Repository, https://github.com/thinking-machines-lab/tinker-cookbook
@@ -35,21 +35,29 @@ Requires-Dist: google-genai>=1.0.0; extra == 'all'
 Requires-Dist: huggingface-hub>=0.20.0; extra == 'all'
 Requires-Dist: inspect-ai>=0.3.100; extra == 'all'
 Requires-Dist: inspect-evals>=0.3.106; extra == 'all'
+Requires-Dist: jiwer>=3.0.0; extra == 'all'
 Requires-Dist: langdetect; extra == 'all'
 Requires-Dist: litellm!=1.82.7,!=1.82.8,>=1.80.0; extra == 'all'
 Requires-Dist: math-verify>=0.5.0; extra == 'all'
-Requires-Dist: modal>=1.0.0; extra == 'all'
+Requires-Dist: modal>=1.5.1; extra == 'all'
 Requires-Dist: neptune-scale>=0.27.0; extra == 'all'
 Requires-Dist: nltk; extra == 'all'
 Requires-Dist: openai>=1.0.0; extra == 'all'
 Requires-Dist: plotly>=5.0.0; extra == 'all'
 Requires-Dist: pylatexenc>=2.0; extra == 'all'
+Requires-Dist: soundfile>=0.12.0; extra == 'all'
 Requires-Dist: syllapy; extra == 'all'
 Requires-Dist: sympy>=1.12.0; extra == 'all'
 Requires-Dist: textarena>=0.7.4; extra == 'all'
+Requires-Dist: tinker>=0.23.0; extra == 'all'
+Requires-Dist: tml-renderers>=0.0.1; extra == 'all'
+Requires-Dist: torch>=2.10; extra == 'all'
 Requires-Dist: trackio<1.0.0; extra == 'all'
 Requires-Dist: verifiers<0.1.10,>=0.1.9; extra == 'all'
 Requires-Dist: wandb>=0.16.0; extra == 'all'
+Provides-Extra: audio
+Requires-Dist: jiwer>=3.0.0; extra == 'audio'
+Requires-Dist: soundfile>=0.12.0; extra == 'audio'
 Provides-Extra: cloud
 Requires-Dist: adlfs>=2023.1.0; extra == 'cloud'
 Requires-Dist: fsspec>=2023.1.0; extra == 'cloud'
@@ -66,7 +74,7 @@ Requires-Dist: antlr4-python3-runtime<4.14,>=4.11; extra == 'eval'
 Requires-Dist: emoji; extra == 'eval'
 Requires-Dist: langdetect; extra == 'eval'
 Requires-Dist: math-verify>=0.5.0; extra == 'eval'
-Requires-Dist: modal>=1.0.0; extra == 'eval'
+Requires-Dist: modal>=1.5.1; extra == 'eval'
 Requires-Dist: nltk; extra == 'eval'
 Requires-Dist: pylatexenc>=2.0; extra == 'eval'
 Requires-Dist: syllapy; extra == 'eval'
@@ -79,17 +87,21 @@ Requires-Dist: langdetect; extra == 'eval-ifbench'
 Requires-Dist: nltk; extra == 'eval-ifbench'
 Requires-Dist: syllapy; extra == 'eval-ifbench'
 Provides-Extra: eval-livecodebench
-Requires-Dist: modal>=1.0.0; extra == 'eval-livecodebench'
+Requires-Dist: modal>=1.5.1; extra == 'eval-livecodebench'
 Provides-Extra: eval-math500
 Requires-Dist: math-verify>=0.5.0; extra == 'eval-math500'
 Requires-Dist: pylatexenc>=2.0; extra == 'eval-math500'
 Requires-Dist: sympy>=1.12.0; extra == 'eval-math500'
 Provides-Extra: eval-mbpp
-Requires-Dist: modal>=1.0.0; extra == 'eval-mbpp'
+Requires-Dist: modal>=1.5.1; extra == 'eval-mbpp'
 Provides-Extra: eval-swe-bench
-Requires-Dist: modal>=1.0.0; extra == 'eval-swe-bench'
+Requires-Dist: modal>=1.5.1; extra == 'eval-swe-bench'
 Provides-Extra: eval-terminal-bench
-Requires-Dist: modal>=1.0.0; extra == 'eval-terminal-bench'
+Requires-Dist: modal>=1.5.1; extra == 'eval-terminal-bench'
+Provides-Extra: inkling
+Requires-Dist: tinker>=0.23.0; extra == 'inkling'
+Requires-Dist: tml-renderers>=0.0.1; extra == 'inkling'
+Requires-Dist: torch>=2.10; extra == 'inkling'
 Provides-Extra: inspect
 Requires-Dist: inspect-ai>=0.3.100; extra == 'inspect'
 Requires-Dist: inspect-evals>=0.3.106; extra == 'inspect'
@@ -100,7 +112,7 @@ Requires-Dist: math-verify>=0.5.0; extra == 'math-rl'
 Requires-Dist: pylatexenc>=2.0; extra == 'math-rl'
 Requires-Dist: sympy>=1.12.0; extra == 'math-rl'
 Provides-Extra: modal
-Requires-Dist: modal>=1.0.0; extra == 'modal'
+Requires-Dist: modal>=1.5.1; extra == 'modal'
 Provides-Extra: multiplayer-rl
 Requires-Dist: textarena>=0.7.4; extra == 'multiplayer-rl'
 Provides-Extra: neptune-scale
@@ -157,6 +169,27 @@ We provide two libraries for the broader community to customize their language m
    uv pip install 'tinker-cookbook @ git+https://github.com/thinking-machines-lab/tinker-cookbook.git@nightly'
    ```
 
+## Using Inkling
+
+Inkling is Thinking Machines Lab's model tailored for Tinker. It is a
+general-purpose model that can code, reason, call tools, and process image and
+audio inputs. Tinker Cookbook supports sampling and post-training Inkling
+through the standalone `tml-renderers` library; install it with the `inkling`
+extra, which also pulls in the required `torch>=2.10`:
+
+```bash
+uv pip install 'tinker-cookbook[inkling]'
+```
+
+Pass `model_name="thinkingmachines/Inkling"` anywhere the cookbook accepts a
+model name. The appropriate renderer and tokenizer are selected automatically.
+
+Inkling supports [controllable reasoning effort](https://tinker-docs.thinkingmachines.ai/cookbook/inkling/thinking-effort/)
+and multimodal [audio](https://tinker-docs.thinkingmachines.ai/cookbook/inkling/audio/)
+and [image](https://tinker-docs.thinkingmachines.ai/cookbook/inkling/images/)
+inputs. See the [Inkling documentation](https://tinker-docs.thinkingmachines.ai/cookbook/inkling/)
+for setup and usage details.
+
 ## Tinker
 
 Here we introduce a few Tinker primitives — the basic components to fine-tune LLMs (see the [quickstart guide](https://tinker-docs.thinkingmachines.ai/tinker/quickstart/) for more details):
@@ -203,6 +236,8 @@ We also include more complete examples in the [`tinker_cookbook/recipes/`](tinke
 - **[Distillation](tinker_cookbook/recipes/distillation/)**: on-policy and off-policy knowledge distillation with single- and multi-teacher configurations.
 - **[Tool use](tinker_cookbook/recipes/search_tool/)**: RL for retrieval-augmented generation (Search-R1 replication).
 - **[Multi-agent](tinker_cookbook/recipes/multiplayer_rl/)**: multi-agent RL with self-play and cross-play.
+- **[Audio](tinker_cookbook/recipes/audio/)**: SFT and RL for Inkling audio inputs, including speech recognition and speaking-style classification.
+- **[VLM image classification](tinker_cookbook/recipes/vlm_classifier/)**: supervised training and evaluation for vision-language models.
 
 The [recipes README](tinker_cookbook/recipes/README.md) covers all available recipes, including Harbor RL, rubric-based grading, VLM classification, and SDFT. Each recipe includes a `README.md` with implementation details, launch commands, and expected results.
 

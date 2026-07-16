@@ -1368,12 +1368,12 @@ def take[T](count: int32, xs: FSharpList[T]) -> FSharpList[T]:
             else:
                 i_mut = i - int32.ONE
 
-                def _arrow90(acc: Any = acc, xs_1: Any = xs_1) -> FSharpList[T]:
+                def _arrow83(acc: Any = acc, xs_1: Any = xs_1) -> FSharpList[T]:
                     t: FSharpList[Any] = FSharpList(FSharpList__get_Head(xs_1), None)
                     acc.tail_ = t
                     return t
 
-                acc_mut = _arrow90()
+                acc_mut = _arrow83()
                 xs_1_mut = FSharpList__get_Tail(xs_1)
                 continue
 
@@ -1398,12 +1398,12 @@ def take_while[T](predicate: Callable[[T], bool], xs: FSharpList[T]) -> FSharpLi
 
             else:
 
-                def _arrow92(acc: Any = acc, xs_1: Any = xs_1) -> FSharpList[T]:
+                def _arrow91(acc: Any = acc, xs_1: Any = xs_1) -> FSharpList[T]:
                     t: FSharpList[Any] = FSharpList(FSharpList__get_Head(xs_1), None)
                     acc.tail_ = t
                     return t
 
-                acc_mut = _arrow92()
+                acc_mut = _arrow91()
                 xs_1_mut = FSharpList__get_Tail(xs_1)
                 continue
 

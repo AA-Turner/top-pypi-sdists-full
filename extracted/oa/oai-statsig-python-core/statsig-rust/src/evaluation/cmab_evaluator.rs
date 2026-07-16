@@ -62,7 +62,7 @@ pub fn get_cmab_ranked_list(ctx: &mut EvaluatorContext, name: &str) -> Vec<CMABR
         }
     };
 
-    let unit_id = get_unit_id(ctx, &cmab.id_type);
+    let unit_id = get_unit_id(ctx, (&cmab.id_type).into());
     let input = format!("{}.{}", cmab.salt, unit_id);
     let user_hash = ctx.hashing.evaluation_hash(&input);
 
@@ -119,7 +119,7 @@ pub(crate) fn evaluate_cmab(
     let cmab = unwrap_or_return!(cmabs.get(spec_name), false);
 
     if !is_cmab_started(cmab) {
-        ctx.result.id_type = Some(InternedString::from_str_ref(&cmab.id_type.value));
+        ctx.result.id_type = Some(cmab.id_type.value.clone());
         ctx.result.version = Some(cmab.version);
         ctx.result.is_experiment_active = cmab.enabled;
         ctx.result.bool_value = false;
@@ -129,7 +129,7 @@ pub(crate) fn evaluate_cmab(
     }
 
     if !get_passes_targeting(ctx, cmab) {
-        ctx.result.id_type = Some(InternedString::from_dynamic_string(&cmab.id_type));
+        ctx.result.id_type = Some(cmab.id_type.value.clone());
         ctx.result.version = Some(cmab.version);
         ctx.result.is_experiment_active = cmab.enabled;
         ctx.result.bool_value = false;
@@ -138,11 +138,11 @@ pub(crate) fn evaluate_cmab(
         return true;
     }
 
-    ctx.result.id_type = Some(InternedString::from_dynamic_string(&cmab.id_type));
+    ctx.result.id_type = Some(cmab.id_type.value.clone());
     ctx.result.version = Some(cmab.version);
     ctx.result.is_experiment_active = cmab.enabled;
 
-    let unit_id = get_unit_id(ctx, &cmab.id_type);
+    let unit_id = get_unit_id(ctx, (&cmab.id_type).into());
     let input = format!("{}.{}", cmab.salt, unit_id);
     let user_hash = ctx.hashing.evaluation_hash(&input);
     let config = match &cmab.config {
@@ -180,7 +180,7 @@ fn get_passes_targeting<'a>(ctx: &mut EvaluatorContext<'a>, cmab: &'a CMABConfig
         }
     }
 
-    let result = match Evaluator::evaluate(ctx, targeting_gate_name.as_str(), &SpecType::Gate) {
+    let result = match Evaluator::evaluate_with_name(ctx, targeting_gate_name, &SpecType::Gate) {
         Ok(_) => ctx.result.bool_value,
         Err(_) => false,
     };
@@ -222,7 +222,7 @@ fn apply_random_group<'a>(
     ctx.result.bool_value = true;
     ctx.result.rule_id = Some(group.id.clone());
     ctx.result.rule_id_suffix = Some(EXPLORE_RULE_ID_SUFFIX);
-    ctx.result.group_name = Some(InternedString::from_str_ref(&group.name));
+    ctx.result.group_name = Some(InternedString::from_string_uninterned(group.name.clone()));
     ctx.result.json_value = Some(group.parameter_values.clone());
 }
 
@@ -253,7 +253,8 @@ fn apply_sampling_group<'a>(
             ctx.result.rule_id = Some(group.id.clone());
             ctx.result.rule_id_suffix = Some(EXPLORE_RULE_ID_SUFFIX);
             ctx.result.bool_value = true;
-            ctx.result.group_name = Some(InternedString::from_str_ref(&group.name));
+            ctx.result.group_name =
+                Some(InternedString::from_string_uninterned(group.name.clone()));
             ctx.result.json_value = Some(group.parameter_values.clone());
             return true;
         }
@@ -294,7 +295,9 @@ fn apply_best_group<'a>(
     }
     ctx.result.bool_value = true;
     ctx.result.rule_id = Some(best_group.id.clone());
-    ctx.result.group_name = Some(InternedString::from_str_ref(&best_group.name));
+    ctx.result.group_name = Some(InternedString::from_string_uninterned(
+        best_group.name.clone(),
+    ));
     ctx.result.json_value = Some(best_group.parameter_values.clone());
 }
 

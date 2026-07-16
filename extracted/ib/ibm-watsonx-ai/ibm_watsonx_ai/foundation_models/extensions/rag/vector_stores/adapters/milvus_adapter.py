@@ -39,9 +39,9 @@ if not is_lib_installed(ext := "pymilvus"):
 from pymilvus import MilvusException
 
 from .milvus_utils import (
-    DEFAULT_INDEX_PARAM,
     MilvusBM25BuiltinFunction,
     _LangchainEmbeddings,
+    resolve_index_params,
 )
 
 logger = logging.getLogger(__name__)
@@ -246,8 +246,7 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
 
         # For backward compatibility
         distance_metric = kwargs.pop("distance_metric", None)
-        if distance_metric == "cosine":
-            kwargs["index_params"] = DEFAULT_INDEX_PARAM
+        kwargs.setdefault("index_params", resolve_index_params(distance_metric))
 
         self._embedding_function = embedding_function
         self._builtin_function = kwargs.pop("builtin_function", None)

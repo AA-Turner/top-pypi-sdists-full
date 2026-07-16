@@ -116,6 +116,8 @@ class HummingWeightSchema(BaseWeightSchema):
                 },
             }
 
+            assert self.weight_scale_type in [WeightScaleType.GROUP, WeightScaleType.GROUP_TENSOR]
+
         if self.has_zero_point and self.is_fp_zero_point:
             tensor_meta["zero_point"] = {
                 "shape": (shape_n, shape_k // group_size),
@@ -256,15 +258,19 @@ class HummingInputSchema(BaseInputSchema):
     quant_method: str = "humming"
     a_dtype: dtypes.DataType | None = None
     input_scale_group_size: int = 0
+    input_scale_dtype: dtypes.DataType | None = None
 
     KWARGS_ALIAS: ClassVar[dict[str, list[str]]] = {
         "a_dtype": ["input_dtype", "dtype"],
         "input_scale_group_size": ["group_size"],
+        "input_scale_dtype": ["scale_dtype"],
     }
 
     def __post_init__(self):
         if isinstance(self.a_dtype, str):
             self.a_dtype = dtypes.DataType.from_str(str(self.a_dtype))
+        if isinstance(self.input_scale_dtype, str):
+            self.input_scale_dtype = dtypes.DataType.from_str(str(self.input_scale_dtype))
 
     def get_activation_bits(self):
         if self.a_dtype is None:

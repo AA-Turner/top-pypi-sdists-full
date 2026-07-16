@@ -45,22 +45,8 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
@@ -110,7 +96,7 @@ class Dependable(metaclass=jsii.JSIIAbstractClass, jsii_type="constructs.Dependa
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__679510e0e5074b5be594d161aaffe1bcbf759129512d69821982adde36fb905d)
+            type_hints = cached_type_hints(_typecheckingstub__679510e0e5074b5be594d161aaffe1bcbf759129512d69821982adde36fb905d)
             check_type(argname="argument instance", value=instance, expected_type=type_hints["instance"])
         return typing.cast("Dependable", jsii.sinvoke(cls, "get", [instance]))
 
@@ -123,7 +109,7 @@ class Dependable(metaclass=jsii.JSIIAbstractClass, jsii_type="constructs.Dependa
         :param trait: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fccfa163f8f38b89195d804e18f7122f2b59a7ba7b57ea51cf581e4ae5719bf9)
+            type_hints = cached_type_hints(_typecheckingstub__fccfa163f8f38b89195d804e18f7122f2b59a7ba7b57ea51cf581e4ae5719bf9)
             check_type(argname="argument instance", value=instance, expected_type=type_hints["instance"])
             check_type(argname="argument trait", value=trait, expected_type=type_hints["trait"])
         return typing.cast(None, jsii.sinvoke(cls, "implement", [instance, trait]))
@@ -136,7 +122,7 @@ class Dependable(metaclass=jsii.JSIIAbstractClass, jsii_type="constructs.Dependa
         :param instance: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54a9441299838c86c77ad919b31ab158da6bd872c3bf8bf55f147c17abeea083)
+            type_hints = cached_type_hints(_typecheckingstub__54a9441299838c86c77ad919b31ab158da6bd872c3bf8bf55f147c17abeea083)
             check_type(argname="argument instance", value=instance, expected_type=type_hints["instance"])
         return typing.cast("Dependable", jsii.sinvoke(cls, "of", [instance]))
 
@@ -235,7 +221,7 @@ class _IMixinProxy:
         :param construct: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef3057d7b2239a822adb30db5073786298478cd3fa000528394c84d1aeecee1f)
+            type_hints = cached_type_hints(_typecheckingstub__ef3057d7b2239a822adb30db5073786298478cd3fa000528394c84d1aeecee1f)
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast(None, jsii.invoke(self, "applyTo", [construct]))
 
@@ -246,7 +232,7 @@ class _IMixinProxy:
         :param construct: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55ea6788f825fe03077ad971427d715ae61f5ac50df36f708925449c85f4b3b6)
+            type_hints = cached_type_hints(_typecheckingstub__55ea6788f825fe03077ad971427d715ae61f5ac50df36f708925449c85f4b3b6)
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast(builtins.bool, jsii.invoke(self, "supports", [construct]))
 
@@ -310,7 +296,7 @@ class MetadataEntry:
         :param trace: Stack trace at the point of adding the metadata. Only available if ``addMetadata()`` is called with ``stackTrace: true``. Default: - no trace information
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac0c2f394c95b32376bd2487bfa65b455507f8363a71e56bbcfef3a690552658)
+            type_hints = cached_type_hints(_typecheckingstub__ac0c2f394c95b32376bd2487bfa65b455507f8363a71e56bbcfef3a690552658)
             check_type(argname="argument data", value=data, expected_type=type_hints["data"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument trace", value=trace, expected_type=type_hints["trace"])
@@ -382,7 +368,7 @@ class MetadataOptions:
         :param trace_from_function: A JavaScript function to begin tracing from. This option is ignored unless ``stackTrace`` is ``true``. Default: addMetadata()
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75d38f18f5b98ff8e52a193cc40da1d25ab1a4740362b86cea0782ada618178b)
+            type_hints = cached_type_hints(_typecheckingstub__75d38f18f5b98ff8e52a193cc40da1d25ab1a4740362b86cea0782ada618178b)
             check_type(argname="argument stack_trace", value=stack_trace, expected_type=type_hints["stack_trace"])
             check_type(argname="argument stack_trace_override", value=stack_trace_override, expected_type=type_hints["stack_trace_override"])
             check_type(argname="argument trace_from_function", value=trace_from_function, expected_type=type_hints["trace_from_function"])
@@ -451,7 +437,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :param id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3d6f98f49be8b52dd81458a10a699ba3c2baedf270e915aff9ad4a199629f16)
+            type_hints = cached_type_hints(_typecheckingstub__a3d6f98f49be8b52dd81458a10a699ba3c2baedf270e915aff9ad4a199629f16)
             check_type(argname="argument host", value=host, expected_type=type_hints["host"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
@@ -469,20 +455,32 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e976ef1a5da0fe82b55c8d7dec2b729e665c685a6fd4cf13e79d119b83e883b)
+            type_hints = cached_type_hints(_typecheckingstub__6e976ef1a5da0fe82b55c8d7dec2b729e665c685a6fd4cf13e79d119b83e883b)
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast("Node", jsii.sinvoke(cls, "of", [construct]))
 
     @jsii.member(jsii_name="addDependency")
     def add_dependency(self, *deps: "IDependable") -> None:
-        '''Add an ordering dependency on another construct.
+        '''Add an ordering dependency on a Dependable (a construct or set of constructs).
 
-        An ``IDependable``
+        It is up to the target document language to decide what an ordering
+        relationship means and how it should be rendered; for example, in the AWS
+        CDK for CloudFormation it means a dependency from every resource in scope
+        of the current construct to every resource in scope of the target set
+        of constructs, that get realized as either stack dependencies or
+        ``DependsOn`` relationships in the synthesized template.
+
+        ``IDependable`` is a marker interface that indicates that a class has used
+        ``Dependable.implement()`` to implement the ``IDependable`` interface. It
+        can be used to make the target object represent more than one set of
+        constructs at a time. For example, a ``DependencyGroup`` uses this
+        interface to represent an explicit list of 0 or more constructs that should
+        be involved in the dependency relationship.
 
         :param deps: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45cad7dd42c6c671e9f87ba7d66096044214dd8c5bfed807ecb8eee7b41edd21)
+            type_hints = cached_type_hints(_typecheckingstub__45cad7dd42c6c671e9f87ba7d66096044214dd8c5bfed807ecb8eee7b41edd21)
             check_type(argname="argument deps", value=deps, expected_type=typing.Tuple[type_hints["deps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addDependency", [*deps]))
 
@@ -511,7 +509,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :param trace_from_function: A JavaScript function to begin tracing from. This option is ignored unless ``stackTrace`` is ``true``. Default: addMetadata()
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__023b8c3b11b2c1279fbfa8d54f858cec54fb8d9621c584addfbcccc63dbce202)
+            type_hints = cached_type_hints(_typecheckingstub__023b8c3b11b2c1279fbfa8d54f858cec54fb8d9621c584addfbcccc63dbce202)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument data", value=data, expected_type=type_hints["data"])
         options = MetadataOptions(
@@ -532,7 +530,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :param validation: The validation object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67eb37a7475000d487d8124e00d1a8f5c0da44f9b68527dd02d18a3a789e11a0)
+            type_hints = cached_type_hints(_typecheckingstub__67eb37a7475000d487d8124e00d1a8f5c0da44f9b68527dd02d18a3a789e11a0)
             check_type(argname="argument validation", value=validation, expected_type=type_hints["validation"])
         return typing.cast(None, jsii.invoke(self, "addValidation", [validation]))
 
@@ -546,7 +544,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :param order: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc361d795aa7b43307a9b4d8126549b970305e1487dfba0b95baabe4805e7c1b)
+            type_hints = cached_type_hints(_typecheckingstub__bc361d795aa7b43307a9b4d8126549b970305e1487dfba0b95baabe4805e7c1b)
             check_type(argname="argument order", value=order, expected_type=type_hints["order"])
         return typing.cast(typing.List["IConstruct"], jsii.invoke(self, "findAll", [order]))
 
@@ -561,7 +559,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :return: Child with the given id.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fad30dac2587986f1ad461ddbfadd8c7bdb66542692e2272c9ea5e2487f4fa5f)
+            type_hints = cached_type_hints(_typecheckingstub__fad30dac2587986f1ad461ddbfadd8c7bdb66542692e2272c9ea5e2487f4fa5f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         return typing.cast("IConstruct", jsii.invoke(self, "findChild", [id]))
 
@@ -579,7 +577,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :return: The context object or an empty object if there is discovered context
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b2abb9ce64f01035fe598b09baa8049b185b7c4ad02e47befe0c70908a1e000)
+            type_hints = cached_type_hints(_typecheckingstub__7b2abb9ce64f01035fe598b09baa8049b185b7c4ad02e47befe0c70908a1e000)
             check_type(argname="argument defaults", value=defaults, expected_type=type_hints["defaults"])
         return typing.cast(typing.Any, jsii.invoke(self, "getAllContext", [defaults]))
 
@@ -594,7 +592,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :return: The context value or throws error if there is no context value for this key
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fdfdfb2b2e83a2845cb899305c37d4e37ae13634e2150fa9895e715f45e2752)
+            type_hints = cached_type_hints(_typecheckingstub__1fdfdfb2b2e83a2845cb899305c37d4e37ae13634e2150fa9895e715f45e2752)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
         return typing.cast(typing.Any, jsii.invoke(self, "getContext", [key]))
 
@@ -607,6 +605,20 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         '''
         return typing.cast(None, jsii.invoke(self, "lock", []))
 
+    @jsii.member(jsii_name="removeDependency")
+    def remove_dependency(self, *deps: "IDependable") -> None:
+        '''Remove an ordering dependency on a Dependenable (a construct or set of constructs).
+
+        This removes any dependency added using ``node.addDependency()``. It must
+        use the exact same object that was involved in the ``addDependency()`` call.
+
+        :param deps: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f3fac4c2d303a634641712c3d8f9bc03e22fbacc698256977b80179762f660fd)
+            check_type(argname="argument deps", value=deps, expected_type=typing.Tuple[type_hints["deps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "removeDependency", [*deps]))
+
     @jsii.member(jsii_name="setContext")
     def set_context(self, key: builtins.str, value: typing.Any) -> None:
         '''This can be used to set contextual values.
@@ -618,7 +630,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :param value: The context value.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4c20143e21f2a664bb5dbe7722603b1619d511e670df423c20328efe6ebfea2)
+            type_hints = cached_type_hints(_typecheckingstub__f4c20143e21f2a664bb5dbe7722603b1619d511e670df423c20328efe6ebfea2)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "setContext", [key, value]))
@@ -632,7 +644,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :return: the child if found, or undefined
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dd332a688f70d4b16d58ad213f452996e4d14aa0f1ab9a377000ebd711a387e)
+            type_hints = cached_type_hints(_typecheckingstub__0dd332a688f70d4b16d58ad213f452996e4d14aa0f1ab9a377000ebd711a387e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         return typing.cast(typing.Optional["IConstruct"], jsii.invoke(self, "tryFindChild", [id]))
 
@@ -647,7 +659,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :return: The context value or ``undefined`` if there is no context value for this key.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__736aac5a797564303e88fbc9bbd5d9ec05b62a898284a05b7d16b1761c28b181)
+            type_hints = cached_type_hints(_typecheckingstub__736aac5a797564303e88fbc9bbd5d9ec05b62a898284a05b7d16b1761c28b181)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
         return typing.cast(typing.Any, jsii.invoke(self, "tryGetContext", [key]))
 
@@ -660,7 +672,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :return: Whether a child with the given name was deleted.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cebd94ba5b2c7d277443dcec352c8c4c87ccbf209e78088ca08a915eb956e36)
+            type_hints = cached_type_hints(_typecheckingstub__0cebd94ba5b2c7d277443dcec352c8c4c87ccbf209e78088ca08a915eb956e36)
             check_type(argname="argument child_name", value=child_name, expected_type=type_hints["child_name"])
         return typing.cast(builtins.bool, jsii.invoke(self, "tryRemoveChild", [child_name]))
 
@@ -692,7 +704,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :return: This construct for chaining
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08017fffbec51308314e453ccc5dcda053ba7a1a5d6079525d13922f66480b0b)
+            type_hints = cached_type_hints(_typecheckingstub__08017fffbec51308314e453ccc5dcda053ba7a1a5d6079525d13922f66480b0b)
             check_type(argname="argument mixins", value=mixins, expected_type=typing.Tuple[type_hints["mixins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("IConstruct", jsii.invoke(self, "with", [*mixins]))
 
@@ -732,7 +744,11 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
     @builtins.property
     @jsii.member(jsii_name="dependencies")
     def dependencies(self) -> typing.List["IConstruct"]:
-        '''Return all dependencies registered on this node (non-recursive).'''
+        '''Constructs that this construct depends on directly.
+
+        This expands the sets of ``Dependables`` to the set of ``Constructs`` that they
+        represent.
+        '''
         return typing.cast(typing.List["IConstruct"], jsii.get(self, "dependencies"))
 
     @builtins.property
@@ -824,7 +840,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
     @default_child.setter
     def default_child(self, value: typing.Optional["IConstruct"]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bbcfb9c1c2a97493a49545b146e41d7f6c46f63ff45f96526d7abf737620ea6)
+            type_hints = cached_type_hints(_typecheckingstub__4bbcfb9c1c2a97493a49545b146e41d7f6c46f63ff45f96526d7abf737620ea6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultChild", value) # pyright: ignore[reportArgumentType]
 
@@ -842,7 +858,7 @@ class DependencyGroup(metaclass=jsii.JSIIMeta, jsii_type="constructs.DependencyG
         :param deps: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__352fc9ab190809e73b4fcb80cbc3398602d98955aad9386dfbc7162176aa6cbc)
+            type_hints = cached_type_hints(_typecheckingstub__352fc9ab190809e73b4fcb80cbc3398602d98955aad9386dfbc7162176aa6cbc)
             check_type(argname="argument deps", value=deps, expected_type=typing.Tuple[type_hints["deps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         jsii.create(self.__class__, self, [*deps])
 
@@ -853,7 +869,7 @@ class DependencyGroup(metaclass=jsii.JSIIMeta, jsii_type="constructs.DependencyG
         :param scopes: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0e6908dfe4df8e9318ecca332ccd3a1a3e28fcf76f414daa5a764cba186ef02)
+            type_hints = cached_type_hints(_typecheckingstub__b0e6908dfe4df8e9318ecca332ccd3a1a3e28fcf76f414daa5a764cba186ef02)
             check_type(argname="argument scopes", value=scopes, expected_type=typing.Tuple[type_hints["scopes"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "add", [*scopes]))
 
@@ -907,7 +923,7 @@ class _IConstructProxy(
         :return: This construct for chaining
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46ffe71712de730652fef13db2a6a7bf3168d82f7537656ad03e0ad2b5db5b61)
+            type_hints = cached_type_hints(_typecheckingstub__46ffe71712de730652fef13db2a6a7bf3168d82f7537656ad03e0ad2b5db5b61)
             check_type(argname="argument mixins", value=mixins, expected_type=typing.Tuple[type_hints["mixins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("IConstruct", jsii.invoke(self, "with", [*mixins]))
 
@@ -930,7 +946,7 @@ class Construct(metaclass=jsii.JSIIMeta, jsii_type="constructs.Construct"):
         :param id: The scoped construct ID. Must be unique amongst siblings. If the ID includes a path separator (``/``), then it will be replaced by double dash ``--``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__020ca90e326a91c7b0f70a5c5df3471c78175b709d5adcbee2cb463d0367e387)
+            type_hints = cached_type_hints(_typecheckingstub__020ca90e326a91c7b0f70a5c5df3471c78175b709d5adcbee2cb463d0367e387)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         jsii.create(self.__class__, self, [scope, id])
@@ -959,7 +975,7 @@ class Construct(metaclass=jsii.JSIIMeta, jsii_type="constructs.Construct"):
         :return: true if ``x`` is an object created from a class which extends ``Construct``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd6a4114560af835bb1c07485e906499cadbf16cf78d7e344bc100586fce523f)
+            type_hints = cached_type_hints(_typecheckingstub__fd6a4114560af835bb1c07485e906499cadbf16cf78d7e344bc100586fce523f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isConstruct", [x]))
 
@@ -982,7 +998,7 @@ class Construct(metaclass=jsii.JSIIMeta, jsii_type="constructs.Construct"):
         :return: This construct for chaining
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcdf5ec1470924572ba805d2d121897d3ef8160905bcb57bc551eb0b9e2e35a7)
+            type_hints = cached_type_hints(_typecheckingstub__dcdf5ec1470924572ba805d2d121897d3ef8160905bcb57bc551eb0b9e2e35a7)
             check_type(argname="argument mixins", value=mixins, expected_type=typing.Tuple[type_hints["mixins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("IConstruct", jsii.invoke(self, "with", [*mixins]))
 
@@ -1010,7 +1026,7 @@ class RootConstruct(
         :param id: The scoped construct ID. Must be unique amongst siblings. If the ID includes a path separator (``/``), then it will be replaced by double dash ``--``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43869d89939a2770444321abd60b2fdb0daaa395e2fa7d025fe7acd93e2d4dc3)
+            type_hints = cached_type_hints(_typecheckingstub__43869d89939a2770444321abd60b2fdb0daaa395e2fa7d025fe7acd93e2d4dc3)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         jsii.create(self.__class__, self, [id])
 
@@ -1138,6 +1154,12 @@ def _typecheckingstub__7b2abb9ce64f01035fe598b09baa8049b185b7c4ad02e47befe0c7090
 
 def _typecheckingstub__1fdfdfb2b2e83a2845cb899305c37d4e37ae13634e2150fa9895e715f45e2752(
     key: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3fac4c2d303a634641712c3d8f9bc03e22fbacc698256977b80179762f660fd(
+    *deps: IDependable,
 ) -> None:
     """Type checking stubs"""
     pass

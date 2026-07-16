@@ -1,4 +1,5 @@
 import functools
+from typing import Any, cast
 
 import pytest
 
@@ -9,14 +10,14 @@ from tests.conftest import Layers
 def test_cell_decorator(kcl: kf.KCLayout, layers: Layers) -> None:
     count: int = 0
 
-    def rectangle_post_process(cell: kf.kcell.TKCell) -> None:
+    def rectangle_post_process(cell: kf.ProtoTKCell[Any]) -> None:
         assert cell.name == kf.serialization.clean_name(
             f"rectangle_W{cell.settings['width']}_H{cell.settings['height']}_LWG"
         )
         nonlocal count
         count += 1
 
-    @kcl.cell(post_process=[rectangle_post_process])  # type: ignore[type-var]
+    @kcl.cell(post_process=[rectangle_post_process])
     def rectangle(width: float, height: float, layer: kf.kdb.LayerInfo) -> kf.DKCell:
         c = kcl.dkcell()
         c.shapes(layer).insert(kf.kdb.DBox(0, 0, width, height))
@@ -143,7 +144,7 @@ def test_cell_parameters(kcl: kf.KCLayout) -> None:
         return kcl.kcell(name=name)
 
     with pytest.raises(TypeError):
-        test_cell_with_empty_parameters(name="test_cell_with_empty_parameters")  # type: ignore[call-arg]
+        test_cell_with_empty_parameters(name="test_cell_with_empty_parameters")  # ty:ignore[missing-argument]
 
 
 def test_check_instances(kcl: kf.KCLayout) -> None:
@@ -222,7 +223,7 @@ def test_cell_decorator_types(kcl: kf.KCLayout) -> None:
     with pytest.raises(ValueError):
 
         @kcl.cell
-        def test_no_output_type():  # type: ignore[no-untyped-def]  # noqa: ANN202
+        def test_no_output_type():  # noqa: ANN202
             return kf.KCell()
 
         test_no_output_type()
@@ -262,3 +263,35 @@ def test_kclayout_assign(kcl: kf.KCLayout, layers: Layers) -> None:
     kcl.assign(kcl2.layout)
     assert len(kcl2.kcells) == 1
     assert len(list(kcl2.layout.each_cell())) == 1
+
+
+def test_kclayout_clear_keep_layers(kcl: kf.KCLayout, layers: Layers) -> None:
+    kf.factories.straight.straight_dbu_factory(kcl)(
+        length=1000, width=1000, layer=layers.WG
+    )
+    assert len(kcl.kcells) == 1
+    assert len(list(kcl.layout.each_cell())) == 1
+    infos_before = kcl.infos
+
+    kcl.clear(keep_layers=True)
+
+    assert len(kcl.kcells) == 0
+    assert len(list(kcl.layout.each_cell())) == 0
+    assert kcl.infos == infos_before
+    assert kcl.layers["WG"].layer == layers.WG.layer
+    assert kcl.layers["WG"].datatype == layers.WG.datatype
+
+
+def test_kclayout_clear_drop_layers(kcl: kf.KCLayout, layers: Layers) -> None:
+    kf.factories.straight.straight_dbu_factory(kcl)(
+        length=1000, width=1000, layer=layers.WG
+    )
+    assert len(kcl.kcells) == 1
+    assert len(list(kcl.layout.each_cell())) == 1
+
+    kcl.clear(keep_layers=False)
+
+    assert len(kcl.kcells) == 0
+    assert len(list(kcl.layout.each_cell())) == 0
+    assert kcl.infos == kf.LayerInfos()
+    assert len(list(cast("Any", kcl.layers))) == 0

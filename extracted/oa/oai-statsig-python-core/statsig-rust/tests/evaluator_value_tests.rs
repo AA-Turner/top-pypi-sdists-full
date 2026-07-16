@@ -1,7 +1,12 @@
 use std::collections::HashMap;
 
 use serde_json::json;
-use statsig_rust::{dyn_value, test_only_make_eval_value, user::user_value::UserValueRef};
+use statsig_rust::{
+    dyn_value,
+    evaluation::evaluator_value::{EvaluatorValueType, MemoizedEvaluatorValue},
+    test_only_make_eval_value,
+    user::user_value::UserValueRef,
+};
 
 #[test]
 fn test_own_bool_comparison() {
@@ -108,6 +113,17 @@ fn test_dyn_value_array_comparison() {
 
     assert!(ev_array.is_equal_to_user_value(UserValueRef::Dynamic(&dv_array_1)));
     assert!(!ev_array.is_equal_to_user_value(UserValueRef::Dynamic(&dv_array_2)));
+
+    let reordered = dyn_value!(json!(vec![3, 2, 1]));
+    assert!(!ev_array.is_equal_to_user_value(UserValueRef::Dynamic(&reordered)));
+
+    let empty = MemoizedEvaluatorValue::from(json!([]));
+    let empty_value = dyn_value!(json!([]));
+    assert!(empty.is_equal_to_user_value(UserValueRef::Dynamic(&empty_value)));
+
+    let missing = MemoizedEvaluatorValue::new(EvaluatorValueType::Array);
+    let null_value = dyn_value!(json!(null));
+    assert!(missing.is_equal_to_user_value(UserValueRef::Dynamic(&null_value)));
 }
 
 #[test]
@@ -118,4 +134,15 @@ fn test_dyn_value_object_comparison() {
 
     assert!(ev_object.is_equal_to_user_value(UserValueRef::Dynamic(&dv_object_1)));
     assert!(!ev_object.is_equal_to_user_value(UserValueRef::Dynamic(&dv_object_2)));
+
+    let same_key_different_value = dyn_value!(json!({"1": 3}));
+    assert!(!ev_object.is_equal_to_user_value(UserValueRef::Dynamic(&same_key_different_value)));
+
+    let empty = MemoizedEvaluatorValue::from(json!({}));
+    let empty_value = dyn_value!(json!({}));
+    assert!(empty.is_equal_to_user_value(UserValueRef::Dynamic(&empty_value)));
+
+    let missing = MemoizedEvaluatorValue::new(EvaluatorValueType::Object);
+    let null_value = dyn_value!(json!(null));
+    assert!(missing.is_equal_to_user_value(UserValueRef::Dynamic(&null_value)));
 }

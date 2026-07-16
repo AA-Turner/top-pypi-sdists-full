@@ -102,8 +102,8 @@ class IDB_Hooks:
     def __swig_destroy__(self, object: Any) -> Any:
         ...
     def adding_segm(self, s: segment_t) -> None:
-        r"""A segment is being created. 
-                  
+        r"""A segment is being created.
+        
         :param s: (segment_t *)
         """
         ...
@@ -135,21 +135,21 @@ class IDB_Hooks:
     def byte_patched(self, ea: ida_idaapi.ea_t, old_value: int) -> None:
         r"""A byte has been patched. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param old_value: (uint32)
         """
         ...
     def callee_addr_changed(self, ea: ida_idaapi.ea_t, callee: ida_idaapi.ea_t) -> None:
         r"""Callee address has been updated by the user. 
                   
-        :param ea: (::ea_t)
-        :param callee: (::ea_t)
+        :param ea: (ea_t)
+        :param callee: (ea_t)
         """
         ...
     def changing_cmt(self, ea: ida_idaapi.ea_t, repeatable_cmt: bool, newcmt: str) -> None:
         r"""An item comment is to be changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param repeatable_cmt: (bool)
         :param newcmt: (const char *)
         """
@@ -157,7 +157,7 @@ class IDB_Hooks:
     def changing_op_ti(self, ea: ida_idaapi.ea_t, n: int, new_type: bytes, new_fnames: p_list) -> None:
         r"""An operand typestring (c/c++ prototype) is to be changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param n: (int)
         :param new_type: (const type_t *)
         :param new_fnames: (const p_list *)
@@ -166,7 +166,7 @@ class IDB_Hooks:
     def changing_op_type(self, ea: ida_idaapi.ea_t, n: int, opinfo: opinfo_t) -> None:
         r"""An operand type (offset, hex, etc...) is to be changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param n: (int) eventually or'ed with OPND_OUTER or OPND_ALL
         :param opinfo: (const opinfo_t *) additional operand info
         """
@@ -181,38 +181,67 @@ class IDB_Hooks:
         """
         ...
     def changing_segm_class(self, s: segment_t) -> None:
-        r"""Segment class is being changed. 
-                  
+        r"""Segment class is being changed.
+        
         :param s: (segment_t *)
         """
         ...
     def changing_segm_end(self, s: segment_t, new_end: ida_idaapi.ea_t, segmod_flags: int) -> None:
-        r"""Segment end address is to be changed. 
-                  
+        r"""Segment end address is to be changed.
+        
         :param s: (segment_t *)
-        :param new_end: (::ea_t)
+        :param new_end: (ea_t)
         :param segmod_flags: (int)
         """
         ...
     def changing_segm_name(self, s: segment_t, oldname: str) -> None:
-        r"""Segment name is being changed. 
-                  
+        r"""Segment name is being changed.
+        
         :param s: (segment_t *)
         :param oldname: (const char *)
         """
         ...
     def changing_segm_start(self, s: segment_t, new_start: ida_idaapi.ea_t, segmod_flags: int) -> None:
+        r"""Segment start address is to be changed.
+        
+        :param s: (segment_t *)
+        :param new_start: (ea_t)
+        :param segmod_flags: (int)
+        """
+        ...
+    def changing_segment_class(self, seg_start_ea: ida_idaapi.ea_t) -> None:
+        r"""Segment class is being changed. 
+                  
+        :param seg_start_ea: (ea_t)
+        """
+        ...
+    def changing_segment_end(self, seg_start_ea: ida_idaapi.ea_t, new_end: ida_idaapi.ea_t, segmod_flags: int) -> None:
+        r"""Segment end address is to be changed. 
+                  
+        :param seg_start_ea: (ea_t)
+        :param new_end: (ea_t)
+        :param segmod_flags: (int)
+        """
+        ...
+    def changing_segment_name(self, seg_start_ea: ida_idaapi.ea_t, oldname: str) -> None:
+        r"""Segment name is being changed. 
+                  
+        :param seg_start_ea: (ea_t)
+        :param oldname: (const char *)
+        """
+        ...
+    def changing_segment_start(self, seg_start_ea: ida_idaapi.ea_t, new_start: ida_idaapi.ea_t, segmod_flags: int) -> None:
         r"""Segment start address is to be changed. 
                   
-        :param s: (segment_t *)
-        :param new_start: (::ea_t)
+        :param seg_start_ea: (ea_t)
+        :param new_start: (ea_t)
         :param segmod_flags: (int)
         """
         ...
     def changing_ti(self, ea: ida_idaapi.ea_t, new_type: bytes, new_fnames: p_list) -> None:
         r"""An item typestring (c/c++ prototype) is to be changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param new_type: (const type_t *)
         :param new_fnames: (const p_list *)
         """
@@ -225,7 +254,7 @@ class IDB_Hooks:
     def cmt_changed(self, ea: ida_idaapi.ea_t, repeatable_cmt: bool) -> None:
         r"""An item comment has been changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param repeatable_cmt: (bool)
         """
         ...
@@ -236,22 +265,35 @@ class IDB_Hooks:
         """
         ...
     def deleting_func(self, pfn: func_t) -> None:
-        r"""The kernel is about to delete a function. 
-                  
+        r"""The kernel is about to delete a function.
+        
         :param pfn: (func_t *)
         """
         ...
     def deleting_func_tail(self, pfn: func_t, tail: range_t) -> None:
+        r"""A function tail chunk is to be removed.
+        
+        :param pfn: (func_t *)
+        :param tail: (const range_t *)
+        """
+        ...
+    def deleting_function(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""The kernel is about to delete a function. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        """
+        ...
+    def deleting_function_tail(self, func_ea: ida_idaapi.ea_t, tail: range_t) -> None:
         r"""A function tail chunk is to be removed. 
                   
-        :param pfn: (func_t *)
+        :param func_ea: (ea_t) function entry start address
         :param tail: (const range_t *)
         """
         ...
     def deleting_segm(self, start_ea: ida_idaapi.ea_t) -> None:
         r"""A segment is to be deleted. 
                   
-        :param start_ea: (::ea_t)
+        :param start_ea: (ea_t)
         """
         ...
     def deleting_tryblks(self, range: range_t) -> None:
@@ -263,23 +305,23 @@ class IDB_Hooks:
     def destroyed_items(self, ea1: ida_idaapi.ea_t, ea2: ida_idaapi.ea_t, will_disable_range: bool) -> None:
         r"""Instructions/data have been destroyed in [ea1,ea2). 
                   
-        :param ea1: (::ea_t)
-        :param ea2: (::ea_t)
+        :param ea1: (ea_t)
+        :param ea2: (ea_t)
         :param will_disable_range: (bool)
         """
         ...
     def determined_main(self, main: ida_idaapi.ea_t) -> None:
         r"""The main() function has been determined. 
                   
-        :param main: (::ea_t) address of the main() function
+        :param main: (ea_t) address of the main() function
         """
         ...
     def dirtree_bulk_move(self, dt: dirtree_t, sources: dirtree_bulk_results_t, moved_items: dirtree_cursor_vec_t, dstdir: str, dstrank: int) -> None:
         r"""Dirtree: many items have been moved. 
                   
         :param dt: (dirtree_t *)
-        :param sources: (::dirtree_bulk_results_t *)
-        :param moved_items: (::dirtree_cursor_vec_t *)
+        :param sources: (dirtree_bulk_results_t *)
+        :param moved_items: (dirtree_cursor_vec_t *)
         :param dstdir: (::const char *)
         :param dstrank: (ssize_t) SOURCES and MOVED_ITEMS correspond to each other
         """
@@ -353,7 +395,7 @@ class IDB_Hooks:
     def extra_cmt_changed(self, ea: ida_idaapi.ea_t, line_idx: int, cmt: str) -> None:
         r"""An extra comment has been changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param line_idx: (int)
         :param cmt: (const char *)
         """
@@ -367,27 +409,27 @@ class IDB_Hooks:
     def frame_created(self, func_ea: ida_idaapi.ea_t) -> None:
         r"""A function frame has been created. 
                   
-        :param func_ea: (::ea_t) idb_event::frame_deleted
+        :param func_ea: (ea_t) idb_event::frame_deleted
         """
         ...
     def frame_deleted(self, pfn: func_t) -> None:
-        r"""The kernel has deleted a function frame. 
-                  
+        r"""The kernel has deleted a function frame.
+        
         :param pfn: (func_t *) idb_event::frame_created
         """
         ...
     def frame_expanded(self, func_ea: ida_idaapi.ea_t, udm_tid: int, delta: int) -> None:
         r"""A frame type has been expanded/shrank. 
                   
-        :param func_ea: (::ea_t)
+        :param func_ea: (ea_t)
         :param udm_tid: (tid_t) the gap was added/removed before this member
-        :param delta: (::adiff_t) number of added/removed bytes
+        :param delta: (adiff_t) number of added/removed bytes
         """
         ...
     def frame_udm_changed(self, func_ea: ida_idaapi.ea_t, udm_tid: int, udmold: udm_t, udmnew: udm_t) -> None:
         r"""Frame member has been changed. 
                   
-        :param func_ea: (::ea_t)
+        :param func_ea: (ea_t)
         :param udm_tid: (tid_t)
         :param udmold: (::const udm_t *)
         :param udmnew: (::const udm_t *)
@@ -396,14 +438,14 @@ class IDB_Hooks:
     def frame_udm_created(self, func_ea: ida_idaapi.ea_t, udm: udm_t) -> None:
         r"""Frame member has been added. 
                   
-        :param func_ea: (::ea_t)
+        :param func_ea: (ea_t)
         :param udm: (::const udm_t *)
         """
         ...
     def frame_udm_deleted(self, func_ea: ida_idaapi.ea_t, udm_tid: int, udm: udm_t) -> None:
         r"""Frame member has been deleted. 
                   
-        :param func_ea: (::ea_t)
+        :param func_ea: (ea_t)
         :param udm_tid: (tid_t)
         :param udm: (::const udm_t *)
         """
@@ -411,47 +453,99 @@ class IDB_Hooks:
     def frame_udm_renamed(self, func_ea: ida_idaapi.ea_t, udm: udm_t, oldname: str) -> None:
         r"""Frame member has been renamed. 
                   
-        :param func_ea: (::ea_t)
+        :param func_ea: (ea_t)
         :param udm: (::const udm_t *)
         :param oldname: (::const char *)
         """
         ...
     def func_added(self, pfn: func_t) -> None:
-        r"""The kernel has added a function. 
-                  
+        r"""The kernel has added a function.
+        
         :param pfn: (func_t *)
         """
         ...
     def func_deleted(self, func_ea: ida_idaapi.ea_t) -> None:
         r"""A function has been deleted. 
                   
-        :param func_ea: (::ea_t)
+        :param func_ea: (ea_t)
         """
         ...
     def func_noret_changed(self, pfn: func_t) -> None:
-        r"""FUNC_NORET bit has been changed. 
-                  
+        r"""FUNC_NORET bit has been changed.
+        
         :param pfn: (func_t *)
         """
         ...
     def func_tail_appended(self, pfn: func_t, tail: func_t) -> None:
-        r"""A function tail chunk has been appended. 
-                  
+        r"""A function tail chunk has been appended.
+        
         :param pfn: (func_t *)
         :param tail: (func_t *)
         """
         ...
     def func_tail_deleted(self, pfn: func_t, tail_ea: ida_idaapi.ea_t) -> None:
-        r"""A function tail chunk has been removed. 
-                  
+        r"""A function tail chunk has been removed.
+        
         :param pfn: (func_t *)
-        :param tail_ea: (::ea_t)
+        :param tail_ea: (ea_t)
         """
         ...
     def func_updated(self, pfn: func_t) -> None:
+        r"""The kernel has updated a function.
+        
+        :param pfn: (func_t *)
+        """
+        ...
+    def function_added(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""The kernel has added a function. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        """
+        ...
+    def function_frame_deleted(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""The kernel has deleted a function frame. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        """
+        ...
+    def function_noret_changed(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""FUNC_NORET bit has been changed. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        """
+        ...
+    def function_stkpnts_changed(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""Stack change points have been modified. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        """
+        ...
+    def function_tail_appended(self, func_ea: ida_idaapi.ea_t, tail: func_tail_info_t) -> None:
+        r"""A function tail chunk has been appended. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        :param tail: (func_tail_info_t *)
+        """
+        ...
+    def function_tail_deleted(self, func_ea: ida_idaapi.ea_t, tail_ea: ida_idaapi.ea_t) -> None:
+        r"""A function tail chunk has been removed. 
+                  
+        :param func_ea: (ea_t) function entry start address
+        :param tail_ea: (ea_t)
+        """
+        ...
+    def function_tail_owner_changed(self, tail: func_tail_info_t, owner_func: ida_idaapi.ea_t, old_owner: ida_idaapi.ea_t) -> None:
+        r"""A tail chunk owner has been changed. 
+                  
+        :param tail: (func_tail_info_t *)
+        :param owner_func: (ea_t)
+        :param old_owner: (ea_t)
+        """
+        ...
+    def function_updated(self, fchunk_ea: ida_idaapi.ea_t) -> None:
         r"""The kernel has updated a function. 
                   
-        :param pfn: (func_t *)
+        :param fchunk_ea: (ea_t) function entry or tail start address
         """
         ...
     def hook(self) -> bool:
@@ -465,7 +559,7 @@ class IDB_Hooks:
     def idasgn_matched_ea(self, ea: ida_idaapi.ea_t, name: str, lib_name: str) -> None:
         r"""A FLIRT match has been found 
                   
-        :param ea: (::ea_t) the matching address
+        :param ea: (ea_t) the matching address
         :param name: (::const char *) the matched name
         :param lib_name: (::const char *) library name extracted from signature file
         """
@@ -473,7 +567,7 @@ class IDB_Hooks:
     def item_color_changed(self, ea: ida_idaapi.ea_t, color: int) -> None:
         r"""An item color has been changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param color: (bgcolor_t) if color==DEFCOLOR, the color is deleted.
         """
         ...
@@ -576,7 +670,7 @@ class IDB_Hooks:
                   
         :param udtname: (::const char *)
         :param udm_tid: (tid_t) the gap was added/removed before this member
-        :param delta: (::adiff_t) number of added/removed bytes
+        :param delta: (adiff_t) number of added/removed bytes
         """
         ...
     def make_code(self, insn: insn_t) -> None:
@@ -588,16 +682,25 @@ class IDB_Hooks:
     def make_data(self, ea: ida_idaapi.ea_t, flags: int, tid: int, len: int) -> None:
         r"""A data item is being created. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param flags: (flags64_t)
         :param tid: (tid_t)
-        :param len: (::asize_t)
+        :param len: (asize_t)
+        """
+        ...
+    def moving_range_cmt(self, kind: range_kind_t, oldea: ida_idaapi.ea_t, newea: ida_idaapi.ea_t, repeatable: bool) -> None:
+        r"""Range comment is to be moved. 
+                  
+        :param kind: (range_kind_t)
+        :param oldea: (ea_t)
+        :param newea: (ea_t)
+        :param repeatable: (bool)
         """
         ...
     def op_ti_changed(self, ea: ida_idaapi.ea_t, n: int, type: bytes, fnames: p_list) -> None:
         r"""An operand typestring (c/c++ prototype) has been changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param n: (int)
         :param type: (const type_t *)
         :param fnames: (const p_list *)
@@ -606,7 +709,7 @@ class IDB_Hooks:
     def op_type_changed(self, ea: ida_idaapi.ea_t, n: int) -> None:
         r"""An operand type (offset, hex, etc...) has been set or deleted. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param n: (int) eventually or'ed with OPND_OUTER or OPND_ALL
         """
         ...
@@ -622,7 +725,7 @@ class IDB_Hooks:
     def renamed(self, ea: ida_idaapi.ea_t, new_name: str, local_name: bool, old_name: str) -> None:
         r"""The kernel has renamed a byte. See also the rename event 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param new_name: (const char *) can be nullptr
         :param local_name: (bool)
         :param old_name: (const char *) can be nullptr
@@ -634,20 +737,20 @@ class IDB_Hooks:
         """
         ...
     def segm_added(self, s: segment_t) -> None:
-        r"""A new segment has been created. 
-                  
+        r"""A new segment has been created.
+        
         :param s: (segment_t *) See also adding_segm
         """
         ...
     def segm_attrs_updated(self, s: segment_t) -> None:
-        r"""Segment attributes has been changed. 
-                  
+        r"""Segment attributes has been changed.
+        
         :param s: (segment_t *) This event is generated for secondary segment attributes (examples: color, permissions, etc)
         """
         ...
     def segm_class_changed(self, s: segment_t, sclass: str) -> None:
-        r"""Segment class has been changed. 
-                  
+        r"""Segment class has been changed.
+        
         :param s: (segment_t *)
         :param sclass: (const char *)
         """
@@ -655,97 +758,157 @@ class IDB_Hooks:
     def segm_deleted(self, start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, flags: int) -> None:
         r"""A segment has been deleted. 
                   
-        :param start_ea: (::ea_t)
-        :param end_ea: (::ea_t)
+        :param start_ea: (ea_t)
+        :param end_ea: (ea_t)
         :param flags: (int)
         """
         ...
     def segm_end_changed(self, s: segment_t, oldend: ida_idaapi.ea_t) -> None:
-        r"""Segment end address has been changed. 
-                  
+        r"""Segment end address has been changed.
+        
         :param s: (segment_t *)
-        :param oldend: (::ea_t)
+        :param oldend: (ea_t)
         """
         ...
     def segm_moved(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, size: int, changed_netmap: bool) -> None:
         r"""Segment has been moved. 
                   
-        :param to: (::ea_t)
-        :param size: (::asize_t)
+        :param to: (ea_t)
+        :param size: (asize_t)
         :param changed_netmap: (bool) See also idb_event::allsegs_moved
         """
         ...
     def segm_name_changed(self, s: segment_t, name: str) -> None:
-        r"""Segment name has been changed. 
-                  
+        r"""Segment name has been changed.
+        
         :param s: (segment_t *)
         :param name: (const char *)
         """
         ...
     def segm_start_changed(self, s: segment_t, oldstart: ida_idaapi.ea_t) -> None:
+        r"""Segment start address has been changed.
+        
+        :param s: (segment_t *)
+        :param oldstart: (ea_t)
+        """
+        ...
+    def segment_added(self, seg_start_ea: ida_idaapi.ea_t) -> None:
+        r"""A new segment has been created. 
+                  
+        :param seg_start_ea: (ea_t)
+        """
+        ...
+    def segment_attrs_updated(self, seg_start_ea: ida_idaapi.ea_t) -> None:
+        r"""Segment attributes has been changed. 
+                  
+        :param seg_start_ea: (ea_t) This event is generated for secondary segment attributes (examples: color, permissions, etc)
+        """
+        ...
+    def segment_class_changed(self, seg_start_ea: ida_idaapi.ea_t, sclass: str) -> None:
+        r"""Segment class has been changed. 
+                  
+        :param seg_start_ea: (ea_t)
+        :param sclass: (const char *)
+        """
+        ...
+    def segment_end_changed(self, seg_start_ea: ida_idaapi.ea_t, oldend: ida_idaapi.ea_t) -> None:
+        r"""Segment end address has been changed. 
+                  
+        :param seg_start_ea: (ea_t)
+        :param oldend: (ea_t)
+        """
+        ...
+    def segment_name_changed(self, seg_start_ea: ida_idaapi.ea_t, name: str) -> None:
+        r"""Segment name has been changed. 
+                  
+        :param seg_start_ea: (ea_t)
+        :param name: (const char *)
+        """
+        ...
+    def segment_start_changed(self, seg_start_ea: ida_idaapi.ea_t, oldstart: ida_idaapi.ea_t) -> None:
         r"""Segment start address has been changed. 
                   
-        :param s: (segment_t *)
-        :param oldstart: (::ea_t)
+        :param seg_start_ea: (ea_t)
+        :param oldstart: (ea_t)
         """
         ...
     def set_func_end(self, pfn: func_t, new_end: ida_idaapi.ea_t) -> None:
-        r"""Function chunk end address will be changed. 
-                  
+        r"""Function chunk end address will be changed.
+        
         :param pfn: (func_t *)
-        :param new_end: (::ea_t)
+        :param new_end: (ea_t)
         """
         ...
     def set_func_start(self, pfn: func_t, new_start: ida_idaapi.ea_t) -> None:
+        r"""Function chunk start address will be changed.
+        
+        :param pfn: (func_t *)
+        :param new_start: (ea_t)
+        """
+        ...
+    def set_function_end(self, fchunk: fchunk_info_t, new_end: ida_idaapi.ea_t) -> None:
+        r"""Function chunk end address will be changed. 
+                  
+        :param fchunk: (fchunk_info_t *)
+        :param new_end: (ea_t)
+        """
+        ...
+    def set_function_start(self, fchunk: fchunk_info_t, new_start: ida_idaapi.ea_t) -> None:
         r"""Function chunk start address will be changed. 
                   
-        :param pfn: (func_t *)
-        :param new_start: (::ea_t)
+        :param fchunk: (fchunk_info_t *)
+        :param new_start: (ea_t)
         """
         ...
     def sgr_changed(self, start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, regnum: int, value: int, old_value: int, tag: int) -> None:
         r"""The kernel has changed a segment register value. 
                   
-        :param start_ea: (::ea_t)
-        :param end_ea: (::ea_t)
+        :param start_ea: (ea_t)
+        :param end_ea: (ea_t)
         :param regnum: (int)
-        :param value: (::sel_t)
-        :param old_value: (::sel_t)
+        :param value: (sel_t)
+        :param old_value: (sel_t)
         :param tag: (uchar) Segment register range tags
         """
         ...
     def sgr_deleted(self, start_ea: ida_idaapi.ea_t, end_ea: ida_idaapi.ea_t, regnum: int) -> None:
         r"""The kernel has deleted a segment register value. 
                   
-        :param start_ea: (::ea_t)
-        :param end_ea: (::ea_t)
+        :param start_ea: (ea_t)
+        :param end_ea: (ea_t)
         :param regnum: (int)
         """
         ...
     def stkpnts_changed(self, pfn: func_t) -> None:
-        r"""Stack change points have been modified. 
-                  
+        r"""Stack change points have been modified.
+        
         :param pfn: (func_t *)
         """
         ...
     def tail_owner_changed(self, tail: func_t, owner_func: ida_idaapi.ea_t, old_owner: ida_idaapi.ea_t) -> None:
-        r"""A tail chunk owner has been changed. 
-                  
+        r"""A tail chunk owner has been changed.
+        
         :param tail: (func_t *)
-        :param owner_func: (::ea_t)
-        :param old_owner: (::ea_t)
+        :param owner_func: (ea_t)
+        :param old_owner: (ea_t)
         """
         ...
     def thunk_func_created(self, pfn: func_t) -> None:
+        r"""A thunk bit has been set for a function.
+        
+        :param pfn: (func_t *)
+        """
+        ...
+    def thunk_function_created(self, func_ea: ida_idaapi.ea_t) -> None:
         r"""A thunk bit has been set for a function. 
                   
-        :param pfn: (func_t *)
+        :param func_ea: (ea_t) function entry start address
         """
         ...
     def ti_changed(self, ea: ida_idaapi.ea_t, type: bytes, fnames: p_list) -> None:
         r"""An item typestring (c/c++ prototype) has been changed. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param type: (const type_t *)
         :param fnames: (const p_list *)
         """
@@ -753,7 +916,7 @@ class IDB_Hooks:
     def tryblks_updated(self, tbv: tryblks_t) -> None:
         r"""Updated tryblk information 
                   
-        :param tbv: (const ::tryblks_t *)
+        :param tbv: (const tryblks_t *)
         """
         ...
     def unhook(self) -> bool:
@@ -761,7 +924,7 @@ class IDB_Hooks:
     def updating_tryblks(self, tbv: tryblks_t) -> None:
         r"""About to update tryblk information 
                   
-        :param tbv: (const ::tryblks_t *)
+        :param tbv: (const tryblks_t *)
         """
         ...
     def upgraded(self, _from: int) -> None:
@@ -857,7 +1020,7 @@ class IDP_Hooks:
     def ev_add_cref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, type: cref_t) -> int:
         r"""A code reference is being created. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param type: (cref_t)
         :returns: <0: cancel cref creation
         :returns: 0: not implemented or continue
@@ -866,7 +1029,7 @@ class IDP_Hooks:
     def ev_add_dref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, type: dref_t) -> int:
         r"""A data reference is being created. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param type: (dref_t)
         :returns: <0: cancel dref creation
         :returns: 0: not implemented or continue
@@ -887,7 +1050,7 @@ class IDP_Hooks:
                   
         :param sig: (const idasgn_t *)
         :param libfun: (const libfunc_t *)
-        :param ea: (::ea_t *)
+        :param ea: (ea_t *)
         :returns: 1: the ea_t pointed to by the third argument was modified.
         :returns: <=0: not modified. use default algorithm.
         """
@@ -896,7 +1059,7 @@ class IDP_Hooks:
         r"""Called from apply_fixup before converting operand to reference. Can be used for changing the reference info. (e.g. the PPC module adds REFINFO_NOBASE for some references) 
                   
         :param ri: (refinfo_t *)
-        :param ea: (::ea_t) instruction address
+        :param ea: (ea_t) instruction address
         :param n: (int) operand number
         :param fd: (const fixup_data_t *)
         :returns: <0: do not create an offset
@@ -914,7 +1077,7 @@ class IDP_Hooks:
     def ev_analyze_prolog(self, ea: ida_idaapi.ea_t) -> int:
         r"""Analyzes function prolog, epilog, and updates purge, and function attributes 
                   
-        :param ea: (::ea_t) start of function
+        :param ea: (ea_t) start of function
         :returns: 1: ok
         :returns: 0: not implemented
         """
@@ -929,10 +1092,10 @@ class IDP_Hooks:
     def ev_arg_addrs_ready(self, caller: ida_idaapi.ea_t, n: int, tif: tinfo_t, addrs: int) -> int:
         r"""Argument address info is ready. 
                   
-        :param caller: (::ea_t)
+        :param caller: (ea_t)
         :param n: (int) number of formal arguments
         :param tif: (tinfo_t *) call prototype
-        :param addrs: (::ea_t *) argument intilization addresses
+        :param addrs: (ea_t *) argument intilization addresses
         :returns: <0: do not save into idb; other values mean "ok to save"
         """
         ...
@@ -945,12 +1108,12 @@ class IDP_Hooks:
     def ev_assemble(self, ea: ida_idaapi.ea_t, cs: ida_idaapi.ea_t, ip: ida_idaapi.ea_t, use32: bool, line: str) -> Any:
         r"""Assemble an instruction. (display a warning if an error occurs). 
                   
-        :param ea: (::ea_t) linear address of instruction
-        :param cs: (::ea_t) cs of instruction
-        :param ip: (::ea_t) ip of instruction
+        :param ea: (ea_t) linear address of instruction
+        :param cs: (ea_t) cs of instruction
+        :param ip: (ea_t) ip of instruction
         :param use32: (bool) is 32-bit segment?
         :param line: (const char *) line to assemble
-        :returns: size of the instruction in bytes
+        :returns: bin: (uchar *) pointer to output opcode buffer
         """
         ...
     def ev_auto_queue_empty(self, type: atype_t) -> int:
@@ -972,7 +1135,7 @@ class IDP_Hooks:
     def ev_calc_cdecl_purged_bytes(self, ea: ida_idaapi.ea_t) -> int:
         r"""Calculate number of purged bytes after call. 
                   
-        :param ea: (::ea_t) address of the call instruction
+        :param ea: (ea_t) address of the call instruction
         :returns: number of purged bytes (usually add sp, N)
         """
         ...
@@ -1000,7 +1163,7 @@ class IDP_Hooks:
                   
         :param retloc: (argloc_t *)
         :param rettype: (const tinfo_t *)
-        :param cc: (::callcnv_t)
+        :param cc: (callcnv_t)
         :returns: 0: not implemented
         :returns: 1: ok,
         :returns: -1: error
@@ -1018,8 +1181,8 @@ class IDP_Hooks:
     def ev_calc_step_over(self, target: int, ip: ida_idaapi.ea_t) -> int:
         r"""Calculate the address of the instruction which will be executed after "step over". The kernel will put a breakpoint there. If the step over is equal to step into or we cannot calculate the address, return BADADDR. 
                   
-        :param target: (::ea_t *) pointer to the answer
-        :param ip: (::ea_t) instruction address
+        :param target: (ea_t *) pointer to the answer
+        :param ip: (ea_t) instruction address
         :returns: 0: unimplemented
         :returns: 1: implemented
         """
@@ -1029,7 +1192,7 @@ class IDP_Hooks:
                   
         :param casevec: (::casevec_t *) vector of case values (may be nullptr)
         :param targets: (eavec_t *) corresponding target addresses (my be nullptr)
-        :param insn_ea: (::ea_t) address of the 'indirect jump' instruction
+        :param insn_ea: (ea_t) address of the 'indirect jump' instruction
         :param si: (switch_info_t *) switch information
         :returns: 1: ok
         :returns: <=0: failed
@@ -1064,7 +1227,7 @@ class IDP_Hooks:
     def ev_clean_tbit(self, ea: ida_idaapi.ea_t, getreg: regval_getter_t, regvalues: regval_t) -> int:
         r"""Clear the TF bit after an insn like pushf stored it in memory. 
                   
-        :param ea: (::ea_t) instruction address
+        :param ea: (ea_t) instruction address
         :param getreg: (::processor_t::regval_getter_t *) function to get register values
         :param regvalues: (const regval_t *) register values array
         :returns: 1: ok
@@ -1084,16 +1247,16 @@ class IDP_Hooks:
     def ev_coagulate(self, start_ea: ida_idaapi.ea_t) -> int:
         r"""Try to define some unexplored bytes. This notification will be called if the kernel tried all possibilities and could not find anything more useful than to convert to array of bytes. The module can help the kernel and convert the bytes into something more useful. 
                   
-        :param start_ea: (::ea_t)
+        :param start_ea: (ea_t)
         :returns: number of converted bytes
         """
         ...
     def ev_coagulate_dref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, may_define: bool, code_ea: int) -> int:
         r"""Data reference is being analyzed. plugin may correct 'code_ea' (e.g. for thumb mode refs, we clear the last bit) 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param may_define: (bool)
-        :param code_ea: (::ea_t *)
+        :param code_ea: (ea_t *)
         :returns: <0: failed dref analysis, >0 done dref analysis
         :returns: 0: not implemented or continue
         """
@@ -1101,15 +1264,23 @@ class IDP_Hooks:
     def ev_create_flat_group(self, image_base: ida_idaapi.ea_t, bitness: int, dataseg_sel: int) -> int:
         r"""Create special segment representing the flat group. 
                   
-        :param image_base: (::ea_t)
+        :param image_base: (ea_t)
         :param bitness: (int)
-        :param dataseg_sel: (::sel_t) return value is ignored
+        :param dataseg_sel: (sel_t) return value is ignored
         """
         ...
     def ev_create_func_frame(self, pfn: func_t) -> int:
-        r"""Create a function frame for a newly created function Set up frame size, its attributes etc 
-                  
+        r"""Create a function frame for a newly created function
+        
         :param pfn: (func_t *)
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
+    def ev_create_function_frame(self, func_ea: ida_idaapi.ea_t) -> int:
+        r"""Create a function frame for a newly created function. Set up frame size, its attributes etc 
+                  
+        :param func_ea: (ea_t) function entry start address
         :returns: 1: ok
         :returns: 0: not implemented
         """
@@ -1124,15 +1295,23 @@ class IDP_Hooks:
     def ev_create_switch_xrefs(self, jumpea: ida_idaapi.ea_t, si: switch_info_t) -> int:
         r"""Create xrefs for a custom jump table. 
                   
-        :param jumpea: (::ea_t) address of the jump insn
+        :param jumpea: (ea_t) address of the jump insn
         :param si: (const switch_info_t *) switch information
         :returns: must return 1 Must be implemented if module uses custom jump tables, SWI_CUSTOM
         """
         ...
     def ev_creating_segm(self, seg: segment_t) -> int:
+        r"""A new segment is about to be created.
+        
+        :param seg: (segment_t *)
+        :returns: 1: ok
+        :returns: <0: segment should not be created
+        """
+        ...
+    def ev_creating_segment(self, seg_info: segment_info_t) -> int:
         r"""A new segment is about to be created. 
                   
-        :param seg: (segment_t *)
+        :param seg_info: (segment_info_t *)
         :returns: 1: ok
         :returns: <0: segment should not be created
         """
@@ -1140,7 +1319,7 @@ class IDP_Hooks:
     def ev_cvt64_hashval(self, node: int, tag: int, name: str, data: int) -> int:
         r"""perform 32-64 conversion for a hash value 
                   
-        :param node: (::nodeidx_t)
+        :param node: (nodeidx_t)
         :param tag: (uchar)
         :param name: (const ::char *)
         :param data: (const uchar *)
@@ -1152,9 +1331,9 @@ class IDP_Hooks:
     def ev_cvt64_supval(self, node: int, tag: int, idx: int, data: int) -> int:
         r"""perform 32-64 conversion for a netnode array element 
                   
-        :param node: (::nodeidx_t)
+        :param node: (nodeidx_t)
         :param tag: (uchar)
-        :param idx: (::nodeidx_t)
+        :param idx: (nodeidx_t)
         :param data: (const uchar *)
         :returns: 0: nothing was done
         :returns: 1: converted successfully
@@ -1166,15 +1345,14 @@ class IDP_Hooks:
                   
         :param name: (const char *) name of symbol
         :param mangle: (bool) true-mangle, false-unmangle
-        :param cc: (::callcnv_t) calling convention
-        :returns: 1: if success
-        :returns: 0: not implemented or failed
+        :param cc: (callcnv_t) calling convention
+        :returns: outbuf: (qstring *) output buffer
         """
         ...
     def ev_del_cref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, expand: bool) -> int:
         r"""A code reference is being deleted. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param expand: (bool)
         :returns: <0: cancel cref deletion
         :returns: 0: not implemented or continue
@@ -1183,7 +1361,7 @@ class IDP_Hooks:
     def ev_del_dref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t) -> int:
         r"""A data reference is being deleted. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :returns: <0: cancel dref deletion
         :returns: 0: not implemented or continue
         """
@@ -1191,7 +1369,7 @@ class IDP_Hooks:
     def ev_delay_slot_insn(self, ea: ida_idaapi.ea_t, bexec: bool, fexec: bool) -> Any:
         r"""Get delay slot instruction 
                   
-        :param ea: (::ea_t *) in: instruction address in question, out: (if the answer is positive) if the delay slot contains valid insn: the address of the delay slot insn else: BADADDR (invalid insn, e.g. a branch)
+        :param ea: (ea_t *) in: instruction address in question, out: (if the answer is positive) if the delay slot contains valid insn: the address of the delay slot insn else: BADADDR (invalid insn, e.g. a branch)
         :param bexec: (bool *) execute slot if jumping, initially set to 'true'
         :param fexec: (bool *) execute slot if not jumping, initially set to 'true'
         :returns: 1: positive answer
@@ -1204,8 +1382,7 @@ class IDP_Hooks:
         :param name: (const char *) mangled name
         :param disable_mask: (uint32) flags to inhibit parts of output or compiler info/other (see MNG_)
         :param demreq: (demreq_type_t) operation to perform
-        :returns: 1: if success
-        :returns: 0: not implemented
+        :returns: out: (qstring *) output buffer. may be nullptr; res: (int32 *) value to return from demangle_name()
         """
         ...
     def ev_emu_insn(self, insn: insn_t) -> bool:
@@ -1256,8 +1433,7 @@ class IDP_Hooks:
                   
         :param pinsn: (const insn_t *) instruction
         :param opn: (int) operand index
-        :returns: 1: if implemented, and value was found
-        :returns: 0: not implemented, -1 decoding failed, or no value found
+        :returns: out: (uval_t *) pointer to the found value
         """
         ...
     def ev_find_reg_value(self, pinsn: insn_t, reg: int) -> Any:
@@ -1265,16 +1441,24 @@ class IDP_Hooks:
                   
         :param pinsn: (const insn_t *) instruction
         :param reg: (int) register index
-        :returns: 1: if implemented, and value was found
-        :returns: 0: not implemented, -1 decoding failed, or no value found
+        :returns: out: (uval_t *) pointer to the found value
         """
         ...
     def ev_func_bounds(self, possible_return_code: int, pfn: func_t, max_func_end_ea: ida_idaapi.ea_t) -> int:
-        r"""find_func_bounds() finished its work. The module may fine tune the function bounds 
-                  
+        r"""find_func_bounds() finished its work.
+        
         :param possible_return_code: (int *), in/out
         :param pfn: (func_t *)
-        :param max_func_end_ea: (::ea_t) (from the kernel's point of view)
+        :param max_func_end_ea: (ea_t) (from the kernel's point of view)
+        :returns: void: 
+        """
+        ...
+    def ev_function_bounds(self, possible_return_code: int, fi: fchunk_info_t, max_func_end_ea: ida_idaapi.ea_t) -> int:
+        r"""find_function_bounds() finished its work. The module may fine tune the function bounds 
+                  
+        :param possible_return_code: (int *), in/out
+        :param fi: (fchunk_info_t *)
+        :param max_func_end_ea: (ea_t) (from the kernel's point of view)
         :returns: void: 
         """
         ...
@@ -1345,15 +1529,14 @@ class IDP_Hooks:
         r"""Callback: get dynamic auto comment. Will be called if the autocomments are enabled and the comment retrieved from ida.int starts with '$!'. 'insn' contains valid info. 
                   
         :param insn: (const insn_t*) the instruction
-        :returns: 1: new comment has been generated
-        :returns: 0: callback has not been handled. the buffer must not be changed in this case
+        :returns: buf: (qstring *) output buffer
         """
         ...
     def ev_get_bg_color(self, color: int, ea: ida_idaapi.ea_t) -> int:
         r"""Get item background color. Plugins can hook this callback to color disassembly lines dynamically 
                   
         :param color: (bgcolor_t *), out
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :returns: 0: not implemented
         :returns: 1: color set
         """
@@ -1362,7 +1545,7 @@ class IDP_Hooks:
         r"""Get register allocation convention for given calling convention 
                   
         :param regs: (callregs_t *), out
-        :param cc: (::callcnv_t)
+        :param cc: (callcnv_t)
         :returns: 1: 
         :returns: 0: not implemented
         """
@@ -1390,12 +1573,7 @@ class IDP_Hooks:
         """
         ...
     def ev_get_frame_retsize(self, frsize: int, pfn: func_t) -> int:
-        r"""Get size of function return address in bytes If this event is not implemented, the kernel will assume
-        * 8 bytes for 64-bit function
-        * 4 bytes for 32-bit function
-        * 2 bytes otherwise
-        
-        
+        r"""Get size of function return address in bytes
         
         :param frsize: (int *) frame size (out)
         :param pfn: (const func_t *), can't be nullptr
@@ -1403,11 +1581,25 @@ class IDP_Hooks:
         :returns: 0: not implemented
         """
         ...
+    def ev_get_function_retsize(self, frsize: int, func_ea: ida_idaapi.ea_t) -> int:
+        r"""Get size of function return address in bytes. If this event is not implemented, the kernel will assume
+        * 8 bytes for 64-bit function
+        * 4 bytes for 32-bit function
+        * 2 bytes otherwise
+        
+        
+        
+        :param frsize: (int *) frame size (out)
+        :param func_ea: (ea_t) function entry start address
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
     def ev_get_macro_insn_head(self, head: int, ip: ida_idaapi.ea_t) -> int:
         r"""Calculate the start of a macro instruction. This notification is called if IP points to the middle of an instruction 
                   
-        :param head: (::ea_t *), out: answer, BADADDR means normal instruction
-        :param ip: (::ea_t) instruction address
+        :param head: (ea_t *), out: answer, BADADDR means normal instruction
+        :param ip: (ea_t) instruction address
         :returns: 0: unimplemented
         :returns: 1: implemented
         """
@@ -1417,8 +1609,7 @@ class IDP_Hooks:
                   
         :param insn: (const insn_t*) the instruction
         :param opnum: (int) operand number, -1 means any string operand
-        :returns: 0: no string (or empty string)
-        :returns: >0: original string length without terminating zero
+        :returns: buf: (qstring *)
         """
         ...
     def ev_get_procmod(self) -> int:
@@ -1459,8 +1650,7 @@ class IDP_Hooks:
         :param reg: (int) internal register number as defined in the processor module
         :param width: (size_t) register width in bytes
         :param reghi: (int) if not -1 then this function will return the register pair
-        :returns: -1: if error
-        :returns: strlen(buf): if success
+        :returns: buf: (qstring *) output buffer
         """
         ...
     def ev_get_simd_types(self, out: simd_info_vec_t, simd_attrs: simd_info_t, argloc: argloc_t, create_tifs: bool, insn: insn_t, op: op_t) -> int:
@@ -1480,9 +1670,19 @@ class IDP_Hooks:
         r"""Get some metrics of the stack argument area. 
                   
         :param out: (stkarg_area_info_t *) ptr to stkarg_area_info_t
-        :param cc: (::callcnv_t) calling convention
+        :param cc: (callcnv_t) calling convention
         :returns: 1: if success
         :returns: 0: not implemented
+        """
+        ...
+    def ev_get_stkarg_parts(self, insn: insn_t, parts: stkarg_part_t, max_parts: int) -> int:
+        r"""Enumerate the stkarg stores performed by an instruction. Used by the kernel to drive multi-slot stkarg propagation (e.g. ARM "STMIA SP, {R0-R3}" writes 4 slots). When the processor returns 0, the kernel falls back to argtinfo_helper_t::is_stkarg_load. 
+                  
+        :param insn: (const insn_t *)
+        :param parts: (stkarg_part_t *) output array
+        :param max_parts: (int) size of the output array
+        :returns: N>0: produced N parts (use them)
+        :returns: 0: not implemented for this insn
         """
         ...
     def ev_get_stkvar_scale_factor(self) -> int:
@@ -1490,6 +1690,11 @@ class IDP_Hooks:
                   
         :returns: scaling factor
         :returns: 0: not implemented
+        """
+        ...
+    def ev_get_swift_abi_regs(self) -> int:
+        r"""Reserved.
+        
         """
         ...
     def ev_getreg(self, regval: uval_t, regnum: int) -> int:
@@ -1542,7 +1747,7 @@ class IDP_Hooks:
     def ev_is_alloca_probe(self, ea: ida_idaapi.ea_t) -> int:
         r"""Does the function at 'ea' behave like __alloca_probe? 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :returns: 1: yes
         :returns: 0: no
         """
@@ -1611,14 +1816,33 @@ class IDP_Hooks:
         """
         ...
     def ev_is_jump_func(self, pfn: func_t, jump_target: int, func_pointer: int) -> int:
-        r"""Is the function a trivial "jump" function? 
-                  
+        r"""Is the function a trivial "jump" function?
+        
         :param pfn: (func_t *)
-        :param jump_target: (::ea_t *)
-        :param func_pointer: (::ea_t *)
+        :param jump_target: (ea_t *)
+        :param func_pointer: (ea_t *)
         :returns: <0: no
         :returns: 0: don't know
         :returns: 1: yes, see 'jump_target' and 'func_pointer'
+        """
+        ...
+    def ev_is_jump_function(self, fi: func_entry_info_t, jump_target: int, func_pointer: int) -> int:
+        r"""Is the function a trivial "jump" function? 
+                  
+        :param fi: (func_entry_info_t *)
+        :param jump_target: (ea_t *)
+        :param func_pointer: (ea_t *)
+        :returns: <0: no
+        :returns: 0: don't know
+        :returns: 1: yes, see 'jump_target' and 'func_pointer'
+        """
+        ...
+    def ev_is_outlined_function(self, func_ea: ida_idaapi.ea_t) -> int:
+        r"""The kernel is creating a function and wants to know whether it is an outlined helper (sets FUNC_OUTLINE). 
+                  
+        :param func_ea: (ea_t) function entry start address
+        :returns: 1: the function is outlined
+        :returns: 0: not implemented / not outlined
         """
         ...
     def ev_is_ret_insn(self, insn: insn_t, flags: int) -> int:
@@ -1662,6 +1886,14 @@ class IDP_Hooks:
         ...
     def ev_last_cb_before_loader(self) -> int:
         ...
+    def ev_load_unmapped_address(self, ea: ida_idaapi.ea_t) -> int:
+        r"""Load the dependency covering the provided address. 
+                  
+        :param ea: (ea_t) the (currently unmapped) address
+        :returns: 1: if success
+        :returns: 0: not implemented or failed
+        """
+        ...
     def ev_loader(self) -> int:
         r"""This code and higher ones are reserved for the loaders. The arguments and the return values are defined by the loaders 
                   
@@ -1670,7 +1902,7 @@ class IDP_Hooks:
     def ev_lower_func_type(self, argnums: intvec_t, fti: func_type_data_t) -> int:
         r"""Get function arguments which should be converted to pointers when lowering function prototype. The processor module can also modify 'fti' in order to make non-standard conversion of some arguments. 
                   
-        :param argnums: (intvec_t *), out - numbers of arguments to be converted to pointers in acsending order
+        :param argnums: (intvec_t *), out - numbers of arguments to be converted to pointers in ascending order
         :param fti: (func_type_data_t *), inout func type details
         :returns: 0: not implemented
         :returns: 1: argnums was filled
@@ -1694,16 +1926,26 @@ class IDP_Hooks:
     def ev_may_show_sreg(self, current_ea: ida_idaapi.ea_t) -> int:
         r"""The kernel wants to display the segment registers in the messages window. 
                   
-        :param current_ea: (::ea_t)
+        :param current_ea: (ea_t)
         :returns: <0: if the kernel should not show the segment registers. (assuming that the module has done it)
         :returns: 0: not implemented
         """
         ...
     def ev_moving_segm(self, seg: segment_t, to: ida_idaapi.ea_t, flags: int) -> int:
+        r"""May the kernel move the segment?
+        
+        :param seg: (segment_t *) segment to move
+        :param to: (ea_t) new segment start address
+        :param flags: (int) combination of Move segment flags
+        :returns: 0: yes
+        :returns: <0: the kernel should stop
+        """
+        ...
+    def ev_moving_segment(self, seg_start_ea: ida_idaapi.ea_t, to: ida_idaapi.ea_t, flags: int) -> int:
         r"""May the kernel move the segment? 
                   
-        :param seg: (segment_t *) segment to move
-        :param to: (::ea_t) new segment start address
+        :param seg_start_ea: (ea_t)
+        :param to: (ea_t) new segment start address
         :param flags: (int) combination of Move segment flags
         :returns: 0: yes
         :returns: <0: the kernel should stop
@@ -1720,9 +1962,9 @@ class IDP_Hooks:
                   
         :param filename: (char *) binary file name
         :param fileoff: (qoff64_t) offset in the file
-        :param basepara: (::ea_t) base loading paragraph
-        :param binoff: (::ea_t) loader offset
-        :param nbytes: (::uint64) number of bytes to load
+        :param basepara: (ea_t) base loading paragraph
+        :param binoff: (ea_t) loader offset
+        :param nbytes: (uint64) number of bytes to load
         """
         ...
     def ev_newfile(self, fname: int) -> int:
@@ -1743,8 +1985,8 @@ class IDP_Hooks:
     def ev_next_exec_insn(self, target: int, ea: ida_idaapi.ea_t, tid: int, getreg: regval_getter_t, regvalues: regval_t) -> int:
         r"""Get next address to be executed This function must return the next address to be executed. If the instruction following the current one is executed, then it must return BADADDR Usually the instructions to consider are: jumps, branches, calls, returns. This function is essential if the 'single step' is not supported in hardware. 
                   
-        :param target: (::ea_t *), out: pointer to the answer
-        :param ea: (::ea_t) instruction address
+        :param target: (ea_t *), out: pointer to the answer
+        :param ea: (ea_t) instruction address
         :param tid: (int) current therad id
         :param getreg: (::processor_t::regval_getter_t *) function to get register values
         :param regvalues: (const regval_t *) register values array
@@ -1780,6 +2022,24 @@ class IDP_Hooks:
                   
         :param outctx: (outctx_t *)
         :returns: void: 
+        """
+        ...
+    def ev_out_function_footer(self, outctx: outctx_t, func_ea: ida_idaapi.ea_t) -> int:
+        r"""Generate function footer lines. If this event is not implemented, the kernel will use asm_t::out_func_footer if available, or display a comment line. 
+                  
+        :param outctx: (outctx_t *)
+        :param func_ea: (ea_t)
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
+    def ev_out_function_header(self, outctx: outctx_t, func_ea: ida_idaapi.ea_t) -> int:
+        r"""Generate function header lines. If this event is not implemented, the kernel will use asm_t::out_func_header if available, or display function headers as normal lines. 
+                  
+        :param outctx: (outctx_t *)
+        :param func_ea: (ea_t)
+        :returns: 1: ok
+        :returns: 0: not implemented
         """
         ...
     def ev_out_header(self, outctx: outctx_t) -> int:
@@ -1823,17 +2083,35 @@ class IDP_Hooks:
         """
         ...
     def ev_out_segend(self, outctx: outctx_t, seg: segment_t) -> int:
-        r"""Function to produce end of segment 
-                  
+        r"""Function to produce end of segment
+        
         :param outctx: (outctx_t *)
         :param seg: (segment_t *)
         :returns: 1: ok
         :returns: 0: not implemented
         """
         ...
-    def ev_out_segstart(self, outctx: outctx_t, seg: segment_t) -> int:
+    def ev_out_segment_end(self, outctx: outctx_t, seg_start_ea: ida_idaapi.ea_t) -> int:
+        r"""Function to produce end of segment 
+                  
+        :param outctx: (outctx_t *)
+        :param seg_start_ea: (ea_t)
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
+    def ev_out_segment_start(self, outctx: outctx_t, seg_start_ea: ida_idaapi.ea_t) -> int:
         r"""Function to produce start of segment 
                   
+        :param outctx: (outctx_t *)
+        :param seg_start_ea: (ea_t)
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
+    def ev_out_segstart(self, outctx: outctx_t, seg: segment_t) -> int:
+        r"""Function to produce start of segment
+        
         :param outctx: (outctx_t *)
         :param seg: (segment_t *)
         :returns: 1: ok
@@ -1854,9 +2132,18 @@ class IDP_Hooks:
         r"""Privrange interval has been moved to a new location. Most common actions to be done by module in this case: fix indices of netnodes used by module 
                   
         :param old_privrange: (const range_t *) - old privrange interval
-        :param delta: (::adiff_t)
+        :param delta: (adiff_t)
         :returns: 0: Ok
         :returns: -1: error (and message in errbuf)
+        """
+        ...
+    def ev_query_unmapped_address(self, out: unmapped_info_t, ea: ida_idaapi.ea_t) -> int:
+        r"""Get information about an unmapped address 
+                  
+        :param out: (unmapped_info_t *) output information (can be nullptr)
+        :param ea: (ea_t) the (currently unmapped) address
+        :returns: 1: the address can be loaded
+        :returns: 0: not implemented or failed
         """
         ...
     def ev_realcvt(self, m: Any, e: fpvalue_t, swt: int) -> int:
@@ -1871,7 +2158,7 @@ class IDP_Hooks:
     def ev_rename(self, ea: ida_idaapi.ea_t, new_name: str) -> int:
         r"""The kernel is going to rename a byte. 
                   
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :param new_name: (const char *)
         :returns: <0: if the kernel should not rename it.
         :returns: 2: to inhibit the notification. I.e., the kernel should not rename, but 'set_name()' should return 'true'. also see renamed the return value is ignored when kernel is going to delete name
@@ -1883,6 +2170,15 @@ class IDP_Hooks:
         :param action_name: (const char *) action that we perform undo/redo for. may be nullptr for intermediate buffers.
         :param vec: (const undo_records_t *)
         :param is_undo: (bool) true if performing undo, false if performing redo This event may be generated multiple times per undo/redo
+        """
+        ...
+    def ev_sanitize_name(self, name: str, cc: callcnv_t) -> int:
+        r"""Apply processor/language-specific rewrites to a candidate name before the kernel validates its character set. E.g. the golang plugin uses this to rewrite "*" -> "_ptr_", "[]" -> "_slice_", ... 
+                  
+        :param name: (qstring *) name to sanitize (in/out)
+        :param cc: (callcnv_t) calling convention hint (pass CM_CC_UNKNOWN if not known; plugins can resolve via get_effective_cc())
+        :returns: 1: handled (name may have been modified)
+        :returns: 0: not implemented
         """
         ...
     def ev_set_code16_mode(self, ea: ida_idaapi.ea_t, code16: bool) -> int:
@@ -1934,10 +2230,10 @@ class IDP_Hooks:
     def ev_treat_hindering_item(self, hindering_item_ea: ida_idaapi.ea_t, new_item_flags: int, new_item_ea: ida_idaapi.ea_t, new_item_length: int) -> int:
         r"""An item hinders creation of another item. 
                   
-        :param hindering_item_ea: (::ea_t)
+        :param hindering_item_ea: (ea_t)
         :param new_item_flags: (flags64_t) (0 for code)
-        :param new_item_ea: (::ea_t)
-        :param new_item_length: (::asize_t)
+        :param new_item_ea: (ea_t)
+        :param new_item_length: (asize_t)
         :returns: 0: no reaction
         :returns: !=0: the kernel may delete the hindering item
         """
@@ -1965,7 +2261,7 @@ class IDP_Hooks:
     def ev_use_arg_types(self, ea: ida_idaapi.ea_t, fti: func_type_data_t, rargs: funcargvec_t) -> int:
         r"""Use information about callee arguments. 
                   
-        :param ea: (::ea_t) address of the call instruction
+        :param ea: (ea_t) address of the call instruction
         :param fti: (func_type_data_t *) info about function type
         :param rargs: (funcargvec_t *) array of register arguments
         :returns: 1: (and removes handled arguments from fti and rargs)
@@ -1975,16 +2271,19 @@ class IDP_Hooks:
     def ev_use_regarg_type(self, ea: ida_idaapi.ea_t, rargs: funcargvec_t) -> Any:
         r"""Use information about register argument. 
                   
-        :param ea: (::ea_t) address of the instruction
+        :param ea: (ea_t) address of the instruction
         :param rargs: (const funcargvec_t *) vector of register arguments (including regs extracted from scattered arguments)
-        :returns: 1: 
-        :returns: 0: not implemented
+        :returns: idx: (int *) pointer to the returned value, may contain:
+        * idx of the used argument, if the argument is defined in the current instruction, a comment will be applied by the kernel
+        * idx | REG_SPOIL - argument is spoiled by the instruction
+        * -1 if the instruction doesn't change any registers
+        * -2 if the instruction spoils all registers
         """
         ...
     def ev_use_stkarg_type(self, ea: ida_idaapi.ea_t, arg: funcarg_t) -> int:
         r"""Use information about a stack argument. 
                   
-        :param ea: (::ea_t) address of the push instruction which pushes the function argument into the stack
+        :param ea: (ea_t) address of the push instruction which pushes the function argument into the stack
         :param arg: (const funcarg_t *) argument info
         :returns: 1: ok
         :returns: <=0: failed, the kernel will create a comment with the argument name or type for the instruction
@@ -1993,22 +2292,37 @@ class IDP_Hooks:
     def ev_validate_flirt_func(self, start_ea: ida_idaapi.ea_t, funcname: str) -> int:
         r"""Flirt has recognized a library function. This callback can be used by a plugin or proc module to intercept it and validate such a function. 
                   
-        :param start_ea: (::ea_t)
+        :param start_ea: (ea_t)
         :param funcname: (const char *)
         :returns: -1: do not create a function,
         :returns: 0: function is validated
         """
         ...
-    def ev_verify_noreturn(self, pfn: func_t) -> int:
+    def ev_verify_function_noreturn(self, func_ea: ida_idaapi.ea_t) -> int:
         r"""The kernel wants to set 'noreturn' flags for a function. 
                   
+        :param func_ea: (ea_t) function entry start address
+        :returns: 0: ok. any other value: do not set 'noreturn' flag
+        """
+        ...
+    def ev_verify_function_sp(self, func_ea: ida_idaapi.ea_t) -> int:
+        r"""All function instructions have been analyzed. Now the processor module can analyze the stack pointer for the whole function 
+                  
+        :param func_ea: (ea_t) function entry start address
+        :returns: 0: ok
+        :returns: <0: bad stack pointer
+        """
+        ...
+    def ev_verify_noreturn(self, pfn: func_t) -> int:
+        r"""The kernel wants to set 'noreturn' flags for a function.
+        
         :param pfn: (func_t *)
         :returns: 0: ok. any other value: do not set 'noreturn' flag
         """
         ...
     def ev_verify_sp(self, pfn: func_t) -> int:
-        r"""All function instructions have been analyzed. Now the processor module can analyze the stack pointer for the whole function 
-                  
+        r"""All function instructions have been analyzed.
+        
         :param pfn: (func_t *)
         :returns: 0: ok
         :returns: <0: bad stack pointer
@@ -2474,12 +2788,14 @@ class processor_t(IDP_Hooks):
         ...
     def deleting_func(self, pfn: Any) -> Any:
         ...
+    def deleting_function(self, func_ea: Any) -> Any:
+        ...
     def determined_main(self, *args: Any) -> Any:
         ...
     def ev_add_cref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, type: cref_t) -> int:
         r"""A code reference is being created. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param type: (cref_t)
         :returns: <0: cancel cref creation
         :returns: 0: not implemented or continue
@@ -2488,7 +2804,7 @@ class processor_t(IDP_Hooks):
     def ev_add_dref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, type: dref_t) -> int:
         r"""A data reference is being created. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param type: (dref_t)
         :returns: <0: cancel dref creation
         :returns: 0: not implemented or continue
@@ -2509,7 +2825,7 @@ class processor_t(IDP_Hooks):
                   
         :param sig: (const idasgn_t *)
         :param libfun: (const libfunc_t *)
-        :param ea: (::ea_t *)
+        :param ea: (ea_t *)
         :returns: 1: the ea_t pointed to by the third argument was modified.
         :returns: <=0: not modified. use default algorithm.
         """
@@ -2518,7 +2834,7 @@ class processor_t(IDP_Hooks):
         r"""Called from apply_fixup before converting operand to reference. Can be used for changing the reference info. (e.g. the PPC module adds REFINFO_NOBASE for some references) 
                   
         :param ri: (refinfo_t *)
-        :param ea: (::ea_t) instruction address
+        :param ea: (ea_t) instruction address
         :param n: (int) operand number
         :param fd: (const fixup_data_t *)
         :returns: <0: do not create an offset
@@ -2530,7 +2846,7 @@ class processor_t(IDP_Hooks):
     def ev_analyze_prolog(self, ea: ida_idaapi.ea_t) -> int:
         r"""Analyzes function prolog, epilog, and updates purge, and function attributes 
                   
-        :param ea: (::ea_t) start of function
+        :param ea: (ea_t) start of function
         :returns: 1: ok
         :returns: 0: not implemented
         """
@@ -2545,10 +2861,10 @@ class processor_t(IDP_Hooks):
     def ev_arg_addrs_ready(self, caller: ida_idaapi.ea_t, n: int, tif: tinfo_t, addrs: int) -> int:
         r"""Argument address info is ready. 
                   
-        :param caller: (::ea_t)
+        :param caller: (ea_t)
         :param n: (int) number of formal arguments
         :param tif: (tinfo_t *) call prototype
-        :param addrs: (::ea_t *) argument intilization addresses
+        :param addrs: (ea_t *) argument intilization addresses
         :returns: <0: do not save into idb; other values mean "ok to save"
         """
         ...
@@ -2574,7 +2890,7 @@ class processor_t(IDP_Hooks):
     def ev_calc_cdecl_purged_bytes(self, ea: ida_idaapi.ea_t) -> int:
         r"""Calculate number of purged bytes after call. 
                   
-        :param ea: (::ea_t) address of the call instruction
+        :param ea: (ea_t) address of the call instruction
         :returns: number of purged bytes (usually add sp, N)
         """
         ...
@@ -2602,7 +2918,7 @@ class processor_t(IDP_Hooks):
                   
         :param retloc: (argloc_t *)
         :param rettype: (const tinfo_t *)
-        :param cc: (::callcnv_t)
+        :param cc: (callcnv_t)
         :returns: 0: not implemented
         :returns: 1: ok,
         :returns: -1: error
@@ -2624,7 +2940,7 @@ class processor_t(IDP_Hooks):
                   
         :param casevec: (::casevec_t *) vector of case values (may be nullptr)
         :param targets: (eavec_t *) corresponding target addresses (my be nullptr)
-        :param insn_ea: (::ea_t) address of the 'indirect jump' instruction
+        :param insn_ea: (ea_t) address of the 'indirect jump' instruction
         :param si: (switch_info_t *) switch information
         :returns: 1: ok
         :returns: <=0: failed
@@ -2652,7 +2968,7 @@ class processor_t(IDP_Hooks):
     def ev_clean_tbit(self, ea: ida_idaapi.ea_t, getreg: regval_getter_t, regvalues: regval_t) -> int:
         r"""Clear the TF bit after an insn like pushf stored it in memory. 
                   
-        :param ea: (::ea_t) instruction address
+        :param ea: (ea_t) instruction address
         :param getreg: (::processor_t::regval_getter_t *) function to get register values
         :param regvalues: (const regval_t *) register values array
         :returns: 1: ok
@@ -2668,12 +2984,14 @@ class processor_t(IDP_Hooks):
     def ev_create_flat_group(self, image_base: ida_idaapi.ea_t, bitness: int, dataseg_sel: int) -> int:
         r"""Create special segment representing the flat group. 
                   
-        :param image_base: (::ea_t)
+        :param image_base: (ea_t)
         :param bitness: (int)
-        :param dataseg_sel: (::sel_t) return value is ignored
+        :param dataseg_sel: (sel_t) return value is ignored
         """
         ...
     def ev_create_func_frame(self, pfn: Any) -> int:
+        ...
+    def ev_create_function_frame(self, func_ea: Any) -> int:
         ...
     def ev_create_merge_handlers(self, md: merge_data_t) -> int:
         r"""Create merge handlers, if needed 
@@ -2686,10 +3004,12 @@ class processor_t(IDP_Hooks):
         ...
     def ev_creating_segm(self, s: Any) -> int:
         ...
+    def ev_creating_segment(self, si: Any) -> int:
+        ...
     def ev_cvt64_hashval(self, node: int, tag: int, name: str, data: int) -> int:
         r"""perform 32-64 conversion for a hash value 
                   
-        :param node: (::nodeidx_t)
+        :param node: (nodeidx_t)
         :param tag: (uchar)
         :param name: (const ::char *)
         :param data: (const uchar *)
@@ -2701,9 +3021,9 @@ class processor_t(IDP_Hooks):
     def ev_cvt64_supval(self, node: int, tag: int, idx: int, data: int) -> int:
         r"""perform 32-64 conversion for a netnode array element 
                   
-        :param node: (::nodeidx_t)
+        :param node: (nodeidx_t)
         :param tag: (uchar)
-        :param idx: (::nodeidx_t)
+        :param idx: (nodeidx_t)
         :param data: (const uchar *)
         :returns: 0: nothing was done
         :returns: 1: converted successfully
@@ -2715,15 +3035,14 @@ class processor_t(IDP_Hooks):
                   
         :param name: (const char *) name of symbol
         :param mangle: (bool) true-mangle, false-unmangle
-        :param cc: (::callcnv_t) calling convention
-        :returns: 1: if success
-        :returns: 0: not implemented or failed
+        :param cc: (callcnv_t) calling convention
+        :returns: outbuf: (qstring *) output buffer
         """
         ...
     def ev_del_cref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t, expand: bool) -> int:
         r"""A code reference is being deleted. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :param expand: (bool)
         :returns: <0: cancel cref deletion
         :returns: 0: not implemented or continue
@@ -2732,7 +3051,7 @@ class processor_t(IDP_Hooks):
     def ev_del_dref(self, _from: ida_idaapi.ea_t, to: ida_idaapi.ea_t) -> int:
         r"""A data reference is being deleted. 
                   
-        :param to: (::ea_t)
+        :param to: (ea_t)
         :returns: <0: cancel dref deletion
         :returns: 0: not implemented or continue
         """
@@ -2740,7 +3059,7 @@ class processor_t(IDP_Hooks):
     def ev_delay_slot_insn(self, ea: ida_idaapi.ea_t, bexec: bool, fexec: bool) -> Any:
         r"""Get delay slot instruction 
                   
-        :param ea: (::ea_t *) in: instruction address in question, out: (if the answer is positive) if the delay slot contains valid insn: the address of the delay slot insn else: BADADDR (invalid insn, e.g. a branch)
+        :param ea: (ea_t *) in: instruction address in question, out: (if the answer is positive) if the delay slot contains valid insn: the address of the delay slot insn else: BADADDR (invalid insn, e.g. a branch)
         :param bexec: (bool *) execute slot if jumping, initially set to 'true'
         :param fexec: (bool *) execute slot if not jumping, initially set to 'true'
         :returns: 1: positive answer
@@ -2753,8 +3072,7 @@ class processor_t(IDP_Hooks):
         :param name: (const char *) mangled name
         :param disable_mask: (uint32) flags to inhibit parts of output or compiler info/other (see MNG_)
         :param demreq: (demreq_type_t) operation to perform
-        :returns: 1: if success
-        :returns: 0: not implemented
+        :returns: out: (qstring *) output buffer. may be nullptr; res: (int32 *) value to return from demangle_name()
         """
         ...
     def ev_emu_insn(self, *args: Any) -> bool:
@@ -2795,8 +3113,7 @@ class processor_t(IDP_Hooks):
                   
         :param pinsn: (const insn_t *) instruction
         :param opn: (int) operand index
-        :returns: 1: if implemented, and value was found
-        :returns: 0: not implemented, -1 decoding failed, or no value found
+        :returns: out: (uval_t *) pointer to the found value
         """
         ...
     def ev_find_reg_value(self, pinsn: insn_t, reg: int) -> Any:
@@ -2804,11 +3121,12 @@ class processor_t(IDP_Hooks):
                   
         :param pinsn: (const insn_t *) instruction
         :param reg: (int) register index
-        :returns: 1: if implemented, and value was found
-        :returns: 0: not implemented, -1 decoding failed, or no value found
+        :returns: out: (uval_t *) pointer to the found value
         """
         ...
     def ev_func_bounds(self, _possible_return_code: Any, pfn: Any, max_func_end_ea: Any) -> int:
+        ...
+    def ev_function_bounds(self, _possible_return_code: Any, fchunk: Any, max_func_end_ea: Any) -> int:
         ...
     def ev_gen_asm_or_lst(self, starting: bool, fp: Any, is_asm: bool, flags: int, outline: html_line_cb_t) -> int:
         r"""Callback: generating asm or lst file. The kernel calls this callback twice, at the beginning and at the end of listing generation. The processor module can intercept this event and adjust its output 
@@ -2852,7 +3170,7 @@ class processor_t(IDP_Hooks):
         r"""Get item background color. Plugins can hook this callback to color disassembly lines dynamically 
                   
         :param color: (bgcolor_t *), out
-        :param ea: (::ea_t)
+        :param ea: (ea_t)
         :returns: 0: not implemented
         :returns: 1: color set
         """
@@ -2861,7 +3179,7 @@ class processor_t(IDP_Hooks):
         r"""Get register allocation convention for given calling convention 
                   
         :param regs: (callregs_t *), out
-        :param cc: (::callcnv_t)
+        :param cc: (callcnv_t)
         :returns: 1: 
         :returns: 0: not implemented
         """
@@ -2890,11 +3208,13 @@ class processor_t(IDP_Hooks):
         ...
     def ev_get_frame_retsize(self, frsize: Any, pfn: Any) -> int:
         ...
+    def ev_get_function_retsize(self, frsize: Any, func_ea: Any) -> int:
+        ...
     def ev_get_macro_insn_head(self, head: int, ip: ida_idaapi.ea_t) -> int:
         r"""Calculate the start of a macro instruction. This notification is called if IP points to the middle of an instruction 
                   
-        :param head: (::ea_t *), out: answer, BADADDR means normal instruction
-        :param ip: (::ea_t) instruction address
+        :param head: (ea_t *), out: answer, BADADDR means normal instruction
+        :param ip: (ea_t) instruction address
         :returns: 0: unimplemented
         :returns: 1: implemented
         """
@@ -2939,8 +3259,7 @@ class processor_t(IDP_Hooks):
         :param reg: (int) internal register number as defined in the processor module
         :param width: (size_t) register width in bytes
         :param reghi: (int) if not -1 then this function will return the register pair
-        :returns: -1: if error
-        :returns: strlen(buf): if success
+        :returns: buf: (qstring *) output buffer
         """
         ...
     def ev_get_simd_types(self, out: simd_info_vec_t, simd_attrs: simd_info_t, argloc: argloc_t, create_tifs: bool, insn: insn_t, op: op_t) -> int:
@@ -2960,9 +3279,19 @@ class processor_t(IDP_Hooks):
         r"""Get some metrics of the stack argument area. 
                   
         :param out: (stkarg_area_info_t *) ptr to stkarg_area_info_t
-        :param cc: (::callcnv_t) calling convention
+        :param cc: (callcnv_t) calling convention
         :returns: 1: if success
         :returns: 0: not implemented
+        """
+        ...
+    def ev_get_stkarg_parts(self, insn: insn_t, parts: stkarg_part_t, max_parts: int) -> int:
+        r"""Enumerate the stkarg stores performed by an instruction. Used by the kernel to drive multi-slot stkarg propagation (e.g. ARM "STMIA SP, {R0-R3}" writes 4 slots). When the processor returns 0, the kernel falls back to argtinfo_helper_t::is_stkarg_load. 
+                  
+        :param insn: (const insn_t *)
+        :param parts: (stkarg_part_t *) output array
+        :param max_parts: (int) size of the output array
+        :returns: N>0: produced N parts (use them)
+        :returns: 0: not implemented for this insn
         """
         ...
     def ev_get_stkvar_scale_factor(self) -> int:
@@ -2970,6 +3299,11 @@ class processor_t(IDP_Hooks):
                   
         :returns: scaling factor
         :returns: 0: not implemented
+        """
+        ...
+    def ev_get_swift_abi_regs(self) -> int:
+        r"""Reserved.
+        
         """
         ...
     def ev_getreg(self, regval: uval_t, regnum: int) -> int:
@@ -3048,14 +3382,33 @@ class processor_t(IDP_Hooks):
     def ev_is_insn_table_jump(self, *args: Any) -> int:
         ...
     def ev_is_jump_func(self, pfn: func_t, jump_target: int, func_pointer: int) -> int:
-        r"""Is the function a trivial "jump" function? 
-                  
+        r"""Is the function a trivial "jump" function?
+        
         :param pfn: (func_t *)
-        :param jump_target: (::ea_t *)
-        :param func_pointer: (::ea_t *)
+        :param jump_target: (ea_t *)
+        :param func_pointer: (ea_t *)
         :returns: <0: no
         :returns: 0: don't know
         :returns: 1: yes, see 'jump_target' and 'func_pointer'
+        """
+        ...
+    def ev_is_jump_function(self, fi: func_entry_info_t, jump_target: int, func_pointer: int) -> int:
+        r"""Is the function a trivial "jump" function? 
+                  
+        :param fi: (func_entry_info_t *)
+        :param jump_target: (ea_t *)
+        :param func_pointer: (ea_t *)
+        :returns: <0: no
+        :returns: 0: don't know
+        :returns: 1: yes, see 'jump_target' and 'func_pointer'
+        """
+        ...
+    def ev_is_outlined_function(self, func_ea: ida_idaapi.ea_t) -> int:
+        r"""The kernel is creating a function and wants to know whether it is an outlined helper (sets FUNC_OUTLINE). 
+                  
+        :param func_ea: (ea_t) function entry start address
+        :returns: 1: the function is outlined
+        :returns: 0: not implemented / not outlined
         """
         ...
     def ev_is_ret_insn(self, *args: Any) -> int:
@@ -3068,6 +3421,14 @@ class processor_t(IDP_Hooks):
         ...
     def ev_last_cb_before_loader(self) -> int:
         ...
+    def ev_load_unmapped_address(self, ea: ida_idaapi.ea_t) -> int:
+        r"""Load the dependency covering the provided address. 
+                  
+        :param ea: (ea_t) the (currently unmapped) address
+        :returns: 1: if success
+        :returns: 0: not implemented or failed
+        """
+        ...
     def ev_loader(self) -> int:
         r"""This code and higher ones are reserved for the loaders. The arguments and the return values are defined by the loaders 
                   
@@ -3076,7 +3437,7 @@ class processor_t(IDP_Hooks):
     def ev_lower_func_type(self, argnums: intvec_t, fti: func_type_data_t) -> int:
         r"""Get function arguments which should be converted to pointers when lowering function prototype. The processor module can also modify 'fti' in order to make non-standard conversion of some arguments. 
                   
-        :param argnums: (intvec_t *), out - numbers of arguments to be converted to pointers in acsending order
+        :param argnums: (intvec_t *), out - numbers of arguments to be converted to pointers in ascending order
         :param fti: (func_type_data_t *), inout func type details
         :returns: 0: not implemented
         :returns: 1: argnums was filled
@@ -3095,6 +3456,8 @@ class processor_t(IDP_Hooks):
         ...
     def ev_moving_segm(self, s: Any, to_ea: Any, flags: Any) -> int:
         ...
+    def ev_moving_segment(self, seg_start_ea: Any, to_ea: Any, flags: Any) -> int:
+        ...
     def ev_newasm(self, asmnum: int) -> int:
         r"""Before setting a new assembler. 
                   
@@ -3110,8 +3473,8 @@ class processor_t(IDP_Hooks):
     def ev_next_exec_insn(self, target: int, ea: ida_idaapi.ea_t, tid: int, getreg: regval_getter_t, regvalues: regval_t) -> int:
         r"""Get next address to be executed This function must return the next address to be executed. If the instruction following the current one is executed, then it must return BADADDR Usually the instructions to consider are: jumps, branches, calls, returns. This function is essential if the 'single step' is not supported in hardware. 
                   
-        :param target: (::ea_t *), out: pointer to the answer
-        :param ea: (::ea_t) instruction address
+        :param target: (ea_t *), out: pointer to the answer
+        :param ea: (ea_t) instruction address
         :param tid: (int) current therad id
         :param getreg: (::processor_t::regval_getter_t *) function to get register values
         :param regvalues: (const regval_t *) register values array
@@ -3127,6 +3490,24 @@ class processor_t(IDP_Hooks):
         ...
     def ev_out_footer(self, *args: Any) -> int:
         ...
+    def ev_out_function_footer(self, outctx: outctx_t, func_ea: ida_idaapi.ea_t) -> int:
+        r"""Generate function footer lines. If this event is not implemented, the kernel will use asm_t::out_func_footer if available, or display a comment line. 
+                  
+        :param outctx: (outctx_t *)
+        :param func_ea: (ea_t)
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
+    def ev_out_function_header(self, outctx: outctx_t, func_ea: ida_idaapi.ea_t) -> int:
+        r"""Generate function header lines. If this event is not implemented, the kernel will use asm_t::out_func_header if available, or display function headers as normal lines. 
+                  
+        :param outctx: (outctx_t *)
+        :param func_ea: (ea_t)
+        :returns: 1: ok
+        :returns: 0: not implemented
+        """
+        ...
     def ev_out_header(self, *args: Any) -> int:
         ...
     def ev_out_insn(self, *args: Any) -> bool:
@@ -3139,6 +3520,10 @@ class processor_t(IDP_Hooks):
         ...
     def ev_out_segend(self, ctx: Any, s: Any) -> int:
         ...
+    def ev_out_segment_end(self, ctx: Any, seg_start_ea: Any) -> int:
+        ...
+    def ev_out_segment_start(self, ctx: Any, seg_start_ea: Any) -> int:
+        ...
     def ev_out_segstart(self, ctx: Any, s: Any) -> int:
         ...
     def ev_out_special_item(self, *args: Any) -> int:
@@ -3147,9 +3532,18 @@ class processor_t(IDP_Hooks):
         r"""Privrange interval has been moved to a new location. Most common actions to be done by module in this case: fix indices of netnodes used by module 
                   
         :param old_privrange: (const range_t *) - old privrange interval
-        :param delta: (::adiff_t)
+        :param delta: (adiff_t)
         :returns: 0: Ok
         :returns: -1: error (and message in errbuf)
+        """
+        ...
+    def ev_query_unmapped_address(self, out: unmapped_info_t, ea: ida_idaapi.ea_t) -> int:
+        r"""Get information about an unmapped address 
+                  
+        :param out: (unmapped_info_t *) output information (can be nullptr)
+        :param ea: (ea_t) the (currently unmapped) address
+        :returns: 1: the address can be loaded
+        :returns: 0: not implemented or failed
         """
         ...
     def ev_realcvt(self, m: Any, e: fpvalue_t, swt: int) -> int:
@@ -3169,6 +3563,15 @@ class processor_t(IDP_Hooks):
         :param action_name: (const char *) action that we perform undo/redo for. may be nullptr for intermediate buffers.
         :param vec: (const undo_records_t *)
         :param is_undo: (bool) true if performing undo, false if performing redo This event may be generated multiple times per undo/redo
+        """
+        ...
+    def ev_sanitize_name(self, name: str, cc: callcnv_t) -> int:
+        r"""Apply processor/language-specific rewrites to a candidate name before the kernel validates its character set. E.g. the golang plugin uses this to rewrite "*" -> "_ptr_", "[]" -> "_slice_", ... 
+                  
+        :param name: (qstring *) name to sanitize (in/out)
+        :param cc: (callcnv_t) calling convention hint (pass CM_CC_UNKNOWN if not known; plugins can resolve via get_effective_cc())
+        :returns: 1: handled (name may have been modified)
+        :returns: 0: not implemented
         """
         ...
     def ev_set_code16_mode(self, ea: ida_idaapi.ea_t, code16: bool) -> int:
@@ -3214,7 +3617,7 @@ class processor_t(IDP_Hooks):
     def ev_use_arg_types(self, ea: ida_idaapi.ea_t, fti: func_type_data_t, rargs: funcargvec_t) -> int:
         r"""Use information about callee arguments. 
                   
-        :param ea: (::ea_t) address of the call instruction
+        :param ea: (ea_t) address of the call instruction
         :param fti: (func_type_data_t *) info about function type
         :param rargs: (funcargvec_t *) array of register arguments
         :returns: 1: (and removes handled arguments from fti and rargs)
@@ -3224,16 +3627,19 @@ class processor_t(IDP_Hooks):
     def ev_use_regarg_type(self, ea: ida_idaapi.ea_t, rargs: funcargvec_t) -> Any:
         r"""Use information about register argument. 
                   
-        :param ea: (::ea_t) address of the instruction
+        :param ea: (ea_t) address of the instruction
         :param rargs: (const funcargvec_t *) vector of register arguments (including regs extracted from scattered arguments)
-        :returns: 1: 
-        :returns: 0: not implemented
+        :returns: idx: (int *) pointer to the returned value, may contain:
+        * idx of the used argument, if the argument is defined in the current instruction, a comment will be applied by the kernel
+        * idx | REG_SPOIL - argument is spoiled by the instruction
+        * -1 if the instruction doesn't change any registers
+        * -2 if the instruction spoils all registers
         """
         ...
     def ev_use_stkarg_type(self, ea: ida_idaapi.ea_t, arg: funcarg_t) -> int:
         r"""Use information about a stack argument. 
                   
-        :param ea: (::ea_t) address of the push instruction which pushes the function argument into the stack
+        :param ea: (ea_t) address of the push instruction which pushes the function argument into the stack
         :param arg: (const funcarg_t *) argument info
         :returns: 1: ok
         :returns: <=0: failed, the kernel will create a comment with the argument name or type for the instruction
@@ -3241,11 +3647,17 @@ class processor_t(IDP_Hooks):
         ...
     def ev_validate_flirt_func(self, *args: Any) -> int:
         ...
+    def ev_verify_function_noreturn(self, func_ea: Any) -> int:
+        ...
+    def ev_verify_function_sp(self, func_ea: Any) -> int:
+        ...
     def ev_verify_noreturn(self, pfn: Any) -> int:
         ...
     def ev_verify_sp(self, pfn: Any) -> int:
         ...
     def func_added(self, pfn: Any) -> Any:
+        ...
+    def function_added(self, func_ea: Any) -> Any:
         ...
     def get_auxpref(self, insn: Any) -> Any:
         r"""This function returns insn.auxpref value"""
@@ -3277,6 +3689,10 @@ class processor_t(IDP_Hooks):
     def set_func_end(self, *args: Any) -> Any:
         ...
     def set_func_start(self, *args: Any) -> Any:
+        ...
+    def set_function_end(self, *args: Any) -> Any:
+        ...
+    def set_function_start(self, *args: Any) -> Any:
         ...
     def sgr_changed(self, *args: Any) -> Any:
         ...
@@ -3729,6 +4145,95 @@ class reg_info_t:
     def compare(self, r: reg_info_t) -> int:
         ...
 
+class unmapped_info_t:
+    @property
+    def offset(self) -> ida_idaapi.ea_t: ...
+    @property
+    def qualifier(self) -> str: ...
+    @property
+    def symbol(self) -> str: ...
+    def __delattr__(self, name: Any) -> Any:
+        r"""Implement delattr(self, name)."""
+        ...
+    def __dir__(self) -> Any:
+        r"""Default dir() implementation."""
+        ...
+    def __eq__(self, value: Any) -> bool:
+        r"""Return self==value."""
+        ...
+    def __format__(self, format_spec: Any) -> str:
+        r"""Default object formatter.
+        
+        Return str(self) if format_spec is empty. Raise TypeError otherwise.
+        """
+        ...
+    def __ge__(self, value: Any) -> bool:
+        r"""Return self>=value."""
+        ...
+    def __getattribute__(self, name: Any) -> Any:
+        r"""Return getattr(self, name)."""
+        ...
+    def __getstate__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __gt__(self, value: Any) -> bool:
+        r"""Return self>value."""
+        ...
+    def __hash__(self) -> int:
+        r"""Return hash(self)."""
+        ...
+    def __init__(self) -> Any:
+        ...
+    def __init_subclass__(self) -> Any:
+        r"""This method is called when a class is subclassed.
+        
+        The default implementation does nothing. It may be
+        overridden to extend subclasses.
+        
+        """
+        ...
+    def __le__(self, value: Any) -> bool:
+        r"""Return self<=value."""
+        ...
+    def __lt__(self, value: Any) -> bool:
+        r"""Return self<value."""
+        ...
+    def __ne__(self, value: Any) -> bool:
+        r"""Return self!=value."""
+        ...
+    def __new__(self, *args: Any, **kwargs: Any) -> Any:
+        r"""Create and return a new object.  See help(type) for accurate signature."""
+        ...
+    def __reduce__(self) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __reduce_ex__(self, protocol: Any) -> Any:
+        r"""Helper for pickle."""
+        ...
+    def __repr__(self) -> Any:
+        ...
+    def __setattr__(self, name: Any, value: Any) -> Any:
+        r"""Implement setattr(self, name, value)."""
+        ...
+    def __sizeof__(self) -> Any:
+        r"""Size of object in memory, in bytes."""
+        ...
+    def __str__(self) -> str:
+        r"""Return str(self)."""
+        ...
+    def __subclasshook__(self, object: Any) -> Any:
+        r"""Abstract classes can override this to customize issubclass().
+        
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        
+        """
+        ...
+    def __swig_destroy__(self, object: Any) -> Any:
+        ...
+
 def AssembleLine(ea: Any, cs: Any, ip: Any, use32: Any, line: Any) -> Any:
     r"""Assemble an instruction to a string (display a warning if an error is found)
     
@@ -3784,7 +4289,7 @@ def get_idb_notifier_addr(arg1: Any) -> Any:
 def get_idb_notifier_ud_addr(hooks: IDB_Hooks) -> Any:
     ...
 
-def get_idp_name() -> str:
+def get_idp_name() -> Union[str, None]:
     r"""Get name of the current processor module. The name is derived from the file name. For example, for IBM PC the module is named "pc.w32" (windows version), then the module name is "PC" (uppercase). If no processor module is loaded, this function will return nullptr 
             
     """
@@ -3985,7 +4490,7 @@ def sizeof_ldbl() -> int:
     ...
 
 def str2reg(p: str) -> int:
-    r"""Get any register number (-1 on error)
+    r"""Get any register number (-1 on error).
     
     """
     ...
@@ -4157,6 +4662,7 @@ PLFM_M7700: int  # 41
 PLFM_M7900: int  # 45
 PLFM_MC6812: int  # 11
 PLFM_MC6816: int  # 44
+PLFM_MCORE: int  # 77
 PLFM_MIPS: int  # 12
 PLFM_MN102L00: int  # 53
 PLFM_MSP430: int  # 58
@@ -4264,6 +4770,10 @@ changing_segm_class: int  # 27
 changing_segm_end: int  # 23
 changing_segm_name: int  # 25
 changing_segm_start: int  # 21
+changing_segment_class: int  # 99
+changing_segment_end: int  # 95
+changing_segment_name: int  # 97
+changing_segment_start: int  # 93
 changing_ti: int  # 12
 cik_filename: int  # 1
 cik_path: int  # 2
@@ -4273,6 +4783,8 @@ cmt_changed: int  # 55
 compiler_changed: int  # 11
 deleting_func: int  # 36
 deleting_func_tail: int  # 40
+deleting_function: int  # 106
+deleting_function_tail: int  # 108
 deleting_segm: int  # 19
 deleting_tryblks: int  # 47
 destroyed_items: int  # 51
@@ -4302,8 +4814,17 @@ func_noret_changed: int  # 43
 func_tail_appended: int  # 39
 func_tail_deleted: int  # 41
 func_updated: int  # 33
+function_added: int  # 102
+function_frame_deleted: int  # 114
+function_noret_changed: int  # 111
+function_stkpnts_changed: int  # 112
+function_tail_appended: int  # 107
+function_tail_deleted: int  # 109
+function_tail_owner_changed: int  # 110
+function_updated: int  # 103
 ida_funcs: module
 ida_idaapi: module
+ida_name: module
 ida_pro: module
 ida_segment: module
 ida_ua: module
@@ -4325,9 +4846,10 @@ lt_udm_renamed: int  # 75
 lt_udt_expanded: int  # 77
 make_code: int  # 49
 make_data: int  # 50
+moving_range_cmt: int  # 115
 op_ti_changed: int  # 15
 op_type_changed: int  # 17
-ph: __ph  # <ida_idp.__ph object at 0x000001FCE2866900>
+ph: __ph  # <ida_idp.__ph object at 0x0000022E32A95550>
 range_cmt_changed: int  # 57
 renamed: int  # 52
 savebase: int  # 1
@@ -4339,13 +4861,22 @@ segm_end_changed: int  # 24
 segm_moved: int  # 30
 segm_name_changed: int  # 26
 segm_start_changed: int  # 22
+segment_added: int  # 92
+segment_attrs_updated: int  # 101
+segment_class_changed: int  # 100
+segment_end_changed: int  # 96
+segment_name_changed: int  # 98
+segment_start_changed: int  # 94
 set_func_end: int  # 35
 set_func_start: int  # 34
+set_function_end: int  # 105
+set_function_start: int  # 104
 sgr_changed: int  # 48
 sgr_deleted: int  # 62
 stkpnts_changed: int  # 44
 tail_owner_changed: int  # 42
 thunk_func_created: int  # 38
+thunk_function_created: int  # 113
 ti_changed: int  # 13
 tryblks_updated: int  # 46
 updating_tryblks: int  # 45

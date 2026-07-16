@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: montecarlodata
-Version: 0.170.0
+Version: 0.171.0
 Summary: Monte Carlo's CLI
 Home-page: https://www.montecarlodata.com/
 Author: Monte Carlo Data, Inc
@@ -76,6 +76,10 @@ MCD tokens can be generated from the [dashboard](https://getmontecarlo.com/get-t
 
 Use the `--help` flag for details on any advanced options (e.g. creating multiple montecarlo profiles) or
 see docs [here][cli-docs].
+
+**Non-interactive / scripted use:** when stdin is not a terminal (CI, scheduled jobs), `montecarlo configure`
+defaults to API key auth and prints a notice to stderr. Pass `--api-key --mcd-id <ID> --mcd-token <TOKEN>`
+to configure without prompts, or `--oauth` to use OAuth client credentials.
 
 That's it! You can always validate your connection with:
 

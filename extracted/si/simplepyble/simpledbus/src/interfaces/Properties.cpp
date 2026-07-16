@@ -22,7 +22,7 @@ Properties::Properties(std::shared_ptr<Connection> conn, std::shared_ptr<Proxy> 
 Properties::~Properties() = default;
 
 Holder Properties::Get(const std::string& interface_name, const std::string& property_name) {
-    Message query_msg = Message::create_method_call(_bus_name, _path, "org.freedesktop.DBus.Properties", "Get");
+    Message query_msg = create_method_call("Get");
 
     Holder h_interface = Holder::create<std::string>(interface_name);
     query_msg.append_argument(h_interface, "s");
@@ -36,7 +36,7 @@ Holder Properties::Get(const std::string& interface_name, const std::string& pro
 }
 
 Holder Properties::GetAll(const std::string& interface_name) {
-    Message query_msg = Message::create_method_call(_bus_name, _path, "org.freedesktop.DBus.Properties", "GetAll");
+    Message query_msg = create_method_call("GetAll");
 
     Holder h_interface = Holder::create<std::string>(interface_name);
     query_msg.append_argument(h_interface, "s");
@@ -47,7 +47,7 @@ Holder Properties::GetAll(const std::string& interface_name) {
 }
 
 void Properties::Set(const std::string& interface_name, const std::string& property_name, const Holder& value) {
-    Message query_msg = Message::create_method_call(_bus_name, _path, "org.freedesktop.DBus.Properties", "Set");
+    Message query_msg = create_method_call("Set");
 
     Holder h_interface = Holder::create<std::string>(interface_name);
     query_msg.append_argument(h_interface, "s");
@@ -116,9 +116,9 @@ void Properties::message_handle(Message& msg) {
 
         std::shared_ptr<Interface> interface = proxy()->interface_get(iface_name);
 
-        bool property_exists = interface->property_exists(property_name);
+        bool property_valid = interface->property_valid(property_name);
 
-        if (property_exists) {
+        if (property_valid) {
             Holder property_value = interface->handle_property_get(property_name);
             Message reply = Message::create_method_return(msg);
             reply.append_argument(property_value, "v");

@@ -9,7 +9,7 @@ import sys
 from collections.abc import Callable, Mapping, Sequence
 from enum import Enum
 from types import UnionType
-from typing import Any, Generic, TypeVar, Union, overload
+from typing import Any, Generic, Protocol, TypeVar, Union, overload
 
 from reflex_base.components.component import Component
 from reflex_base.event import EventType, PointerEventInfo
@@ -18,6 +18,7 @@ from reflex_base.vars.function import ArgsFunctionOperation, FunctionVar
 from reflex_components_core.core.breakpoints import Breakpoints
 
 EMPTY_VAR_COMPONENT: Var[Component]
+DEFAULT_MEMO_WRAPPER: FunctionVar
 
 class MemoParamKind(str, Enum):
     VALUE = "value"
@@ -79,6 +80,7 @@ class MemoFunctionDefinition(MemoDefinition):
 class MemoComponentDefinition(MemoDefinition):
     export_name: str
     passthrough_hole_child: Component | None
+    wrapper: Var | None
 
     @property
     def component(self) -> Component: ...
@@ -185,13 +187,33 @@ def create_component_memo(
 
 _MemoVarT = TypeVar("_MemoVarT")
 
+class _MemoDecorator(Protocol):
+    @overload
+    def __call__(self, fn: Callable[..., Component]) -> _MemoComponentWrapper: ...
+    @overload
+    def __call__(self, fn: Callable[..., Var[_MemoVarT]]) -> _MemoFunctionWrapper: ...
+
 @overload
 def memo(fn: Callable[..., Component]) -> _MemoComponentWrapper: ...
 @overload
 def memo(fn: Callable[..., Var[_MemoVarT]]) -> _MemoFunctionWrapper: ...
-def memo(fn: Callable[..., Any]) -> _MemoComponentWrapper | _MemoFunctionWrapper: ...
+@overload
+def memo() -> _MemoDecorator: ...
+@overload
+def memo(
+    *, wrapper: Var | None
+) -> Callable[[Callable[..., Component]], _MemoComponentWrapper]: ...
+def memo(
+    fn: Callable[..., Any] | None = None, *, wrapper: Var | None = DEFAULT_MEMO_WRAPPER
+) -> (
+    _MemoComponentWrapper
+    | _MemoFunctionWrapper
+    | _MemoDecorator
+    | Callable[[Callable[..., Component]], _MemoComponentWrapper]
+): ...
 
 __all__ = [
+    "DEFAULT_MEMO_WRAPPER",
     "EMPTY_VAR_COMPONENT",
     "MEMOS",
     "MemoComponent",

@@ -53,6 +53,7 @@ from spmd_types._type_attr import (  # noqa: F401
 # Collectives and operations -- runtime API (no _checker dependency)
 from spmd_types.runtime import (  # noqa: F401
     assert_local_type,
+    assert_local_type_like,
     assert_type,
     assert_type_like,
     Infer,
@@ -84,6 +85,7 @@ from spmd_types.types import (  # noqa: F401
     Replicate,
     S,
     Shard,
+    SpmdType,
     SpmdTypeError,
     TensorSharding,
     V,

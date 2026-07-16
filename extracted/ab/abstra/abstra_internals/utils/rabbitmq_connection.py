@@ -478,7 +478,8 @@ class RabbitMQConnection:
 
         try:
             if self._recv_channel and self._recv_channel.is_open:
-                self._recv_channel.cancel()
+                if self._consumer_started:
+                    self._recv_channel.cancel()
                 self._recv_channel.close()
         except Exception as e:
             AbstraLogger.error(

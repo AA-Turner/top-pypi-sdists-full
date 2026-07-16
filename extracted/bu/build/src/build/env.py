@@ -4,16 +4,12 @@ from __future__ import annotations
 __lazy_modules__ = [
     'abc',
     'contextlib',
-    f'{__spec__.parent}._compat.importlib',
     f'{__spec__.parent}._ctx',
     f'{__spec__.parent}._exceptions',
     f'{__spec__.parent}._util',
     'importlib',
     'importlib.util',
     'os',
-    'packaging',
-    'packaging.requirements',
-    'packaging.utils',
     'platform',
     'shutil',
     'subprocess',
@@ -37,13 +33,9 @@ import tempfile
 import typing
 import warnings
 
-from packaging.requirements import InvalidRequirement, Requirement
-from packaging.utils import canonicalize_name
-
 from . import _ctx
-from ._compat.importlib import metadata as importlib_metadata
 from ._ctx import run_subprocess
-from ._exceptions import BuildException, FailedProcessError
+from ._exceptions import FailedProcessError
 from ._util import check_dependency
 
 
@@ -51,6 +43,8 @@ TYPE_CHECKING = False
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Mapping
+
+    from ._compat.importlib import metadata as importlib_metadata
 
     if sys.version_info < (3, 11):
         from typing_extensions import Self
@@ -77,7 +71,7 @@ class IsolatedEnv(typing.Protocol):
 
 
 def _has_dependency(
-    name: str, minimum_version_str: str | None = None, /, **distargs: list[str]
+    name: str, minimum_version_str: str | None = None, /, **distargs: object
 ) -> importlib_metadata.Distribution | None:
     """
     Given a distribution name, see if it is present and return the distribution
@@ -86,8 +80,10 @@ def _has_dependency(
     """
     from packaging.version import Version
 
+    from ._compat import importlib
+
     try:
-        distribution = next(iter(importlib_metadata.distributions(name=name, **distargs)))
+        distribution = next(iter(importlib.metadata.distributions(name=name, **distargs)))
     except StopIteration:
         return None
 
@@ -109,29 +105,12 @@ class DefaultIsolatedEnv(IsolatedEnv):
         self,
         *,
         installer: Installer = 'pip',
-        path: str | None = None,
     ) -> None:
         self.installer: Installer = installer
-        self._requested_path = path
 
     def __enter__(self) -> Self:
-        if self._requested_path is None:
-            path = tempfile.mkdtemp(prefix='build-env-')
-        else:
-            path = self._requested_path
-            if os.path.exists(path) and not os.path.isdir(path):
-                msg = f'Build environment location is not a directory: {path}'
-                raise BuildException(msg)
-            if os.path.isdir(path):
-                with os.scandir(path) as entries:
-                    if next(entries, None) is not None:
-                        msg = f'Build environment location is not empty: {path}'
-                        raise BuildException(msg)
-            os.makedirs(path, exist_ok=True)
-
-        # Set early so ``__exit__`` can clean up even if the calls below fail.
-        self._path = path
         try:
+            path = tempfile.mkdtemp(prefix='build-env-')
             # Call ``realpath`` to prevent spurious warning from being emitted
             # that the venv location has changed on Windows for the venv impl.
             # The username is DOS-encoded in the output of tempfile - the location is the same
@@ -158,10 +137,7 @@ class DefaultIsolatedEnv(IsolatedEnv):
         return self
 
     def __exit__(self, *args: object) -> None:
-        # A temporary location is always cleaned up. A caller-specified location is kept when the build fails so
-        # its environment can be inspected, but removed on success so the same location can be reused.
-        if self._requested_path is None or args[0] is None:
-            shutil.rmtree(self._path, ignore_errors=True)
+        shutil.rmtree(self._path, ignore_errors=True)
 
     @property
     def path(self) -> str:
@@ -185,28 +161,10 @@ class DefaultIsolatedEnv(IsolatedEnv):
             'PYTHONPATH': '',
         }
 
-    def installed_versions(self, requirements: Collection[str]) -> dict[str, str]:
-        """
-        Map the canonical name of each requirement to the version installed in the environment.
-
-        Requirements that resolved to nothing installed are omitted. Reads the distribution metadata
-        directly from the environment's ``purelib`` so no subprocess is spawned in the isolated environment.
-
-        :param requirements: PEP 508 requirement specifications to look up; non-PEP 508 entries (such as local
-            paths or URLs accepted by :meth:`install`) are skipped since their installed name cannot be derived
-        """
-        wanted = {name for requirement in requirements if (name := _canonical_requirement_name(requirement)) is not None}
-        distributions = importlib_metadata.distributions(path=[self._env_backend.purelib])
-        return {
-            name: distribution.version
-            for distribution in distributions
-            if (name := canonicalize_name(distribution.name)) in wanted
-        }
-
     def install(
         self,
         requirements: Collection[str],
-        constraints: Collection[str] = (),
+        constraints: Collection[str] = [],
         *,
         _fresh: bool = False,  # Used internally by CLI to support preset PYTHONPATH
     ) -> None:
@@ -228,17 +186,9 @@ class DefaultIsolatedEnv(IsolatedEnv):
         self._env_backend.install_dependencies(requirements, constraints, _fresh=_fresh)
 
 
-def _canonical_requirement_name(requirement: str) -> str | None:
-    try:
-        return canonicalize_name(Requirement(requirement).name)
-    except InvalidRequirement:
-        return None
-
-
 class _EnvBackend(typing.Protocol):  # pragma: no cover
     python_executable: str
     scripts_dir: str
-    purelib: str
 
     def create(self, path: str) -> None: ...
 
@@ -302,6 +252,8 @@ class _PipBackend(_EnvBackend):
         from build. This verifies that virtualenv and all of its
         dependencies are installed as required by build.
         """
+        from packaging.requirements import Requirement
+
         name = 'virtualenv'
 
         return importlib.util.find_spec(name) is not None and not any(
@@ -312,8 +264,7 @@ class _PipBackend(_EnvBackend):
     def _get_minimum_pip_version_str() -> str:
         if platform.system() == 'Darwin':
             release, _, machine = platform.mac_ver()
-            major = release.split('.', 1)[0]
-            if major and int(major) >= 11:
+            if int(release[: release.find('.')]) >= 11:
                 # macOS 11+ name scheme change requires 20.3. Intel macOS 11.0 can be
                 # told to report 10.16 for backwards compatibility; but that also fixes
                 # earlier versions of pip so this is only needed for 11+.
@@ -348,7 +299,6 @@ class _PipBackend(_EnvBackend):
             # The creator attributes are `pathlib.Path`s.
             self.python_executable = str(result.creator.exe)
             self.scripts_dir = str(result.creator.script_dir)
-            self.purelib = str(result.creator.purelib)
 
         else:
             import venv
@@ -362,7 +312,6 @@ class _PipBackend(_EnvBackend):
                 raise FailedProcessError(exc, 'Failed to create venv. Maybe try installing virtualenv.') from None
 
             self.python_executable, self.scripts_dir, purelib = _find_executable_and_scripts(path)
-            self.purelib = purelib
 
             if with_pip:
                 minimum_pip_version_str = self._get_minimum_pip_version_str()
@@ -413,7 +362,7 @@ class _PipBackend(_EnvBackend):
             with tempfile.NamedTemporaryFile(
                 'w', prefix='build-requirements-', suffix='.txt', delete=False, encoding='utf-8'
             ) as requirement_file:
-                requirement_file.write('\n'.join(requirements))
+                requirement_file.write(os.linesep.join(requirements))
             exit_stack.callback(functools.partial(os.unlink, requirement_file.name))
 
             cmd += ['-r', os.path.abspath(requirement_file.name)]
@@ -422,7 +371,7 @@ class _PipBackend(_EnvBackend):
                 with tempfile.NamedTemporaryFile(
                     'w', prefix='build-constraints-', suffix='.txt', delete=False, encoding='utf-8'
                 ) as constraint_file:
-                    constraint_file.write('\n'.join(constraints))
+                    constraint_file.write(os.linesep.join(constraints))
                 exit_stack.callback(functools.partial(os.unlink, constraint_file.name))
 
                 cmd += ['-c', os.path.abspath(constraint_file.name)]
@@ -454,7 +403,7 @@ class _UvBackend(_EnvBackend):
             self._uv_bin = uv_bin
 
         venv.EnvBuilder(symlinks=_fs_supports_symlink(), with_pip=False).create(self._env_path)
-        self.python_executable, self.scripts_dir, self.purelib = _find_executable_and_scripts(self._env_path)
+        self.python_executable, self.scripts_dir, _ = _find_executable_and_scripts(self._env_path)
 
     def install_dependencies(  # pragma: no cover -- uv tests are skipped on PyPy, covered on CPython
         self,
@@ -475,7 +424,7 @@ class _UvBackend(_EnvBackend):
                 with tempfile.NamedTemporaryFile(
                     'w', prefix='build-constraints-', suffix='.txt', delete=False, encoding='utf-8'
                 ) as constraint_file:
-                    constraint_file.write('\n'.join(constraints))
+                    constraint_file.write(os.linesep.join(constraints))
                 exit_stack.callback(functools.partial(os.unlink, constraint_file.name))
 
                 cmd += ['-c', os.path.abspath(constraint_file.name)]
@@ -500,7 +449,7 @@ def _fs_supports_symlink() -> bool:
 
     # Windows may support symlinks (setting in Windows 10)
     with tempfile.NamedTemporaryFile(prefix='build-symlink-') as tmp_file:  # pragma: win32 cover
-        dest = f'{tmp_file.name}-b'
+        dest = f'{tmp_file}-b'
         try:
             os.symlink(tmp_file.name, dest)
             os.unlink(dest)

@@ -73,7 +73,6 @@ class sreg_range_t:
         r"""Size of object in memory, in bytes."""
         ...
     def __str__(self) -> str:
-        r"""Return str(self)."""
         ...
     def __subclasshook__(self, object: Any) -> Any:
         r"""Abstract classes can override this to customize issubclass().
@@ -211,9 +210,19 @@ def set_default_dataseg(ds_sel: int) -> None:
     ...
 
 def set_default_sreg_value(sg: segment_t, rg: int, value: int) -> bool:
+    r"""Set default value of a segment register for a segment.
+    
+    :param sg: pointer to segment structure if nullptr, then set the register for all segments
+    :param rg: number of segment register
+    :param value: its default value. this value will be used by get_sreg() if value of the register is unknown at the specified address.
+    :returns: success
+    """
+    ...
+
+def set_default_sreg_value_ea(seg_ea: ida_idaapi.ea_t, rg: int, value: int) -> bool:
     r"""Set default value of a segment register for a segment. 
             
-    :param sg: pointer to segment structure if nullptr, then set the register for all segments
+    :param seg_ea: any address within the segment, if BADADDR, then set the register for all segments
     :param rg: number of segment register
     :param value: its default value. this value will be used by get_sreg() if value of the register is unknown at the specified address.
     :returns: success

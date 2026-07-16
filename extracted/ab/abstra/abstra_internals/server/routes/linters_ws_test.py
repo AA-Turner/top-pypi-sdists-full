@@ -53,7 +53,7 @@ class TestLinterEventsWebSocket(unittest.TestCase):
         msg = ws.receive(timeout=5)
         if msg is None:
             self.fail("no initial payload received within 5s")
-        self.assertEqual(json.loads(msg), {"checks": []})
+        self.assertEqual(json.loads(msg), {"checks": [], "status": "ok"})
 
     def test_initial_checks_payload_sent_on_connect(self):
         ws = self._connect()
@@ -82,7 +82,7 @@ class TestLinterEventsWebSocket(unittest.TestCase):
         msg = ws.receive(timeout=5)
         if msg is None:
             self.fail("no broadcast received within 5s")
-        self.assertEqual(json.loads(msg), {"checks": []})
+        self.assertEqual(json.loads(msg), {"checks": [], "status": "ok"})
 
     def test_client_disconnect_unregisters_listener(self):
         ws = self._connect()
@@ -92,6 +92,17 @@ class TestLinterEventsWebSocket(unittest.TestCase):
         ws.close()
 
         self.assertTrue(wait_until(lambda: len(self.listeners) == 0))
+
+    def test_degraded_source_is_reflected_in_payload(self):
+        class FakeRepo:
+            degraded = True
+
+        LinterEventController.set_degraded_source(FakeRepo())
+        try:
+            payload = json.loads(LinterEventController.build_payload([]))
+            self.assertEqual(payload, {"checks": [], "status": "degraded"})
+        finally:
+            LinterEventController.set_degraded_source(None)
 
 
 if __name__ == "__main__":

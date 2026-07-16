@@ -149,10 +149,11 @@ class PartitionSpec(tuple[PartitionSpecEntry, ...]):
     A partition spec describes how tensor dimensions map to mesh axes.
 
     Each element corresponds to a tensor dimension and specifies zero, one, or
-    multiple mesh axes that shard that dimension. For example:
-        - PartitionSpec(tp, None) means dim 0 is sharded on tp, dim 1 is replicated
-        - PartitionSpec((dp, tp), None) means dim 0 is sharded on both dp and tp
-        - PartitionSpec() means fully replicated
+    multiple mesh axes that shard that dimension. For example::
+
+        PartitionSpec(tp, None)       # dim 0 is sharded on tp, dim 1 is replicated
+        PartitionSpec((dp, tp), None) # dim 0 is sharded on both dp and tp
+        PartitionSpec()               # fully replicated
     """
 
     def __new__(
@@ -224,6 +225,62 @@ def normalize_partition_spec(spec: PartitionSpec) -> PartitionSpec:
             normalized_entries.append(normalized_axes)
     _check_orthogonality(all_axes)
     return PartitionSpec(*normalized_entries)
+
+
+# =============================================================================
+# SpmdType
+# =============================================================================
+
+
+@dataclass
+class SpmdType:
+    """Tensor type as local per-axis types plus optional global shard metadata.
+
+    ``local_type`` maps each mesh axis to its local per-axis SPMD type. ``S(dim)``
+    entries are kept verbatim until ``assert_type`` applies the type to a tensor
+    and can resolve them against the tensor rank.
+    """
+
+    local_type: PerMeshAxisSpmdTypes
+    partition_spec: PartitionSpec | None = None
+
+    def __post_init__(self) -> None:
+        if self.partition_spec is not None:
+            shard_axes = [
+                axis for axis, typ in self.local_type.items() if isinstance(typ, Shard)
+            ]
+            if shard_axes:
+                raise SpmdTypeError(
+                    "Cannot construct a SpmdType with both S(i) entries and "
+                    "an explicit PartitionSpec."
+                )
+
+            for entry in self.partition_spec:
+                if entry is None:
+                    continue
+                axes = entry if isinstance(entry, tuple) else (entry,)
+                for axis in axes:
+                    typ = self.local_type.get(axis)
+                    if typ is not None and typ is not V:
+                        raise SpmdTypeError(
+                            f"Mesh axis {format_axis(axis)} appears in PartitionSpec "
+                            f"(implying Varying/Shard) but is specified as {typ}."
+                        )
+
+        for axis, typ in self.local_type.items():
+            if not isinstance(typ, (PerMeshAxisLocalSpmdType, Shard)):
+                raise TypeError(
+                    f"Expected SPMD type (R, I, V, P, or S(i)) on axis "
+                    f"{format_axis(axis)}, got {typ!r}"
+                )
+
+        if self.partition_spec is not None:
+            for i, entry in enumerate(self.partition_spec):
+                if isinstance(entry, tuple) and len(entry) == 0:
+                    raise ValueError(
+                        f"PartitionSpec entry at dim {i} is an empty tuple. "
+                        f"Use None for replicated dimensions."
+                    )
 
 
 # =============================================================================
@@ -300,7 +357,7 @@ class _PytreeTuple:
 
 
 class TensorSharding(_PytreeTuple):
-    """A tuple of ``DimSharding``s describing the sharding for a Tensor.
+    """A tuple of ``DimSharding`` objects describing the sharding for a Tensor.
 
     Each element maps one tensor dimension to zero, one, or multiple mesh axis
     names.  For example::
@@ -436,35 +493,35 @@ def normalize_axis(axis: DeviceMeshAxis) -> MeshAxis:
 def _check_orthogonality(axes: list[MeshAxis]) -> None:
     """Check that all mesh axes are mutually orthogonal.
 
-    Axes must tile different dimensions of the device mesh without rank
-    collisions. Overlapping axes (e.g., a flattened ``dp_cp`` axis alongside
-    an individual ``dp`` axis) produce incorrect type inference results because
-    type inference reasons about each axis independently.
+    Axes must tile independent radix dimensions of the device mesh. Overlapping
+    axes (e.g., a flattened ``dp_cp`` axis alongside an individual ``dp`` axis)
+    and arbitrary non-radix layouts produce incorrect type inference results
+    because type inference reasons about each axis independently.
 
     Args:
         axes: The mesh axes to check.
 
     Raises:
-        SpmdTypeError: If any two axes overlap (share ranks).
+        SpmdTypeError: If the axes are not independent mesh dimensions.
     """
     if len(axes) < 2:
         return  # 0 or 1 axes are trivially orthogonal.
     # Fast path: check all axes at once.
     if axes[0].isorthogonal(*axes[1:]):
         return
-    # Slow path: find the specific overlapping pair for a clear error message.
+    # Slow path: find a specific conflicting pair for a clear error message.
     for i in range(len(axes)):
         for j in range(i + 1, len(axes)):
             if not axes[i].isorthogonal(axes[j]):
                 raise SpmdTypeError(
                     f"Mesh axes {format_axis(axes[i])} and "
-                    f"{format_axis(axes[j])} are not orthogonal (they share "
-                    f"ranks). All axes in a LocalSpmdType must be mutually "
+                    f"{format_axis(axes[j])} are not orthogonal (their layouts "
+                    f"are not independent radix dimensions). All axes in a "
+                    f"LocalSpmdType must be mutually "
                     f"orthogonal."
                 )
-    # If no pair is non-orthogonal but the group fails, it means a three-way
-    # collision. This shouldn't happen with standard mesh layouts but handle
-    # it for completeness.
+    # Pairs can be radix-separable even when the full group is not; for example
+    # strides 5, 6, and 7 are pairwise separable but not jointly separable.
     axis_names = ", ".join(format_axis(a) for a in axes)
     raise SpmdTypeError(f"Mesh axes [{axis_names}] are not mutually orthogonal.")
 
@@ -476,13 +533,13 @@ def normalize_mesh(axes: frozenset[MeshAxis]) -> frozenset[MeshAxis]:
 
     1. Size-1 (singleton) axes are dropped -- they carry no sharding
        information and keeping them causes spurious strict-mode errors.
-    2. Remaining axes are mutually orthogonal (no shared ranks).
+    2. Remaining axes are mutually orthogonal independent mesh dimensions.
 
     Args:
         axes: The mesh axes to normalize.
 
     Raises:
-        SpmdTypeError: If any two (non-singleton) axes overlap.
+        SpmdTypeError: If the axes are not independent mesh dimensions.
     """
     filtered = frozenset(a for a in axes if a.size() > 1)
     _check_orthogonality(list(filtered))
@@ -500,7 +557,7 @@ def normalize_local_type(spmd_type: LocalSpmdType) -> LocalSpmdType:
     3. Size-1 (singleton) axes are dropped -- they carry no information since
        there is only one rank, and dropping them keeps the key set consistent
        across tensors and ``Scalar`` objects.
-    4. Remaining axes are mutually orthogonal (no shared ranks).
+    4. Remaining axes are mutually orthogonal independent mesh dimensions.
 
     Higher-level validators (e.g., ``_validate`` in ``_checker.py``) may add
     further checks (rejection of internal sentinel types) on top of this
@@ -511,7 +568,7 @@ def normalize_local_type(spmd_type: LocalSpmdType) -> LocalSpmdType:
 
     Raises:
         TypeError: If any value is not a PerMeshAxisLocalSpmdType.
-        SpmdTypeError: If any two axes overlap (share ranks).
+        SpmdTypeError: If the axes are not independent mesh dimensions.
     """
     result: LocalSpmdType = {}
     for axis, typ in spmd_type.items():

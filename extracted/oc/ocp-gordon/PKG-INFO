@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ocp_gordon
-Version: 0.2.0
+Version: 0.2.2
 Summary: A Python library for Gordon Surface interpolation using B-splines.
 Author-email: Fan Gong <gongfan99@hotmail.com>
 License-Expression: Apache-2.0

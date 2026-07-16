@@ -9,9 +9,13 @@ repo doesn't auto-propagate.
 from __future__ import annotations
 
 import re
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from renderers.base import TRUSTED_REVISIONS, load_tokenizer
+import pytest
+
+from renderers import base
+from renderers.base import TOKENIZER_SOURCE_OVERRIDES, TRUSTED_REVISIONS, load_tokenizer
 
 
 # ---------------------------------------------------------------------------
@@ -71,6 +75,23 @@ def test_kimi_loads_with_pinned_revision(mock_from_pretrained):
 
 
 @patch("transformers.AutoTokenizer.from_pretrained")
+def test_meta_llama_loads_tokenizer_from_unsloth_mirror(mock_from_pretrained):
+    """Canonical Meta Llama repos are gated; load their tokenizer/chat
+    template from the audited unrestricted mirror while preserving the
+    canonical name for renderer auto-resolution."""
+    canonical = "meta-llama/Llama-3.2-1B-Instruct"
+    mirror = "unsloth/Llama-3.2-1B-Instruct"
+    mock_from_pretrained.return_value = SimpleNamespace(name_or_path=mirror)
+
+    tok = load_tokenizer(canonical)
+
+    args, kwargs = mock_from_pretrained.call_args
+    assert args == (mirror,)
+    assert kwargs == {"trust_remote_code": False}
+    assert tok.name_or_path == canonical
+
+
+@patch("transformers.AutoTokenizer.from_pretrained")
 def test_unknown_path_falls_through_to_no_remote_code(mock_from_pretrained):
     """Unknown / fine-tuned model paths — including ``moonshotai/Kimi-K2*``
     look-alikes that aren't in the allow-list — must fall through to
@@ -90,6 +111,33 @@ def test_unknown_path_falls_through_to_no_remote_code(mock_from_pretrained):
         assert kwargs == {"trust_remote_code": False}, (
             f"{name}: unlisted path leaked trust_remote_code=True"
         )
+
+
+def test_tokenizer_source_overrides_are_exact_llama_mirrors():
+    """Mirror overrides are intentionally narrow: only verified
+    byte-identical Llama tokenizer/template mirrors should live here."""
+    assert TOKENIZER_SOURCE_OVERRIDES == {
+        "meta-llama/Llama-3.2-1B-Instruct": "unsloth/Llama-3.2-1B-Instruct",
+        "meta-llama/Llama-3.2-3B-Instruct": "unsloth/Llama-3.2-3B-Instruct",
+    }
+
+
+def test_get_offset_tokenizer_rejects_offsetless_byo():
+    """BYO tokenizers without ``return_offsets_mapping`` support raise a
+    clear error. Hand-coded renderers concatenate scaffold + body in one
+    BPE pass and attribute tokens via the fast tokenizer's offset map;
+    no transparent reload-from-name_or_path fallback exists. The
+    contract is: pass a fast tokenizer or get a loud error at construct
+    time, not silent BPE drift at the wrap/body boundary."""
+
+    class _NoOffsets:
+        name_or_path = "anywhere/anything"
+
+        def __call__(self, *args, **kwargs):
+            raise NotImplementedError("BYO tokenizer has no offsets")
+
+    with pytest.raises(RuntimeError, match="fast tokenizer.*offsets"):
+        base._get_offset_tokenizer(_NoOffsets())
 
 
 # ---------------------------------------------------------------------------

@@ -552,7 +552,13 @@ def get_next_fcref_to(to: ida_idaapi.ea_t, current: ida_idaapi.ea_t) -> ida_idaa
     ...
 
 def has_external_refs(pfn: func_t, ea: ida_idaapi.ea_t) -> bool:
-    r"""Does 'ea' have references from outside of 'pfn'?
+    r"""Does 'ea' have references from outside of the function at 'func_ea'?
+    
+    """
+    ...
+
+def has_external_refs_ea(func_ea: ida_idaapi.ea_t, ea: ida_idaapi.ea_t) -> bool:
+    r"""Does 'ea' have references from outside of the function at 'func_ea'?
     
     """
     ...

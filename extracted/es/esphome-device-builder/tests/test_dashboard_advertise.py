@@ -42,6 +42,7 @@ def _make_advertiser(
     hostname: str | None = None,
     port: int = 6052,
     pin_sha256: str | None = None,
+    on_ha_addon: bool = False,
 ) -> DashboardAdvertiser:
     return DashboardAdvertiser(
         port=port,
@@ -50,6 +51,7 @@ def _make_advertiser(
         pin_sha256=pin_sha256,
         name=name,
         hostname=hostname,
+        on_ha_addon=on_ha_addon,
     )
 
 
@@ -409,6 +411,23 @@ def test_build_service_info_omits_remote_build_port_when_unset() -> None:
     assert "remote_build_port" not in decoded
 
 
+def test_build_service_info_carries_ha_addon_when_on_addon() -> None:
+    """The add-on tags its broadcast; peers label it from the container hostname."""
+    advertiser = _make_advertiser(name="5c53de3b-esphome", hostname="green.local", on_ha_addon=True)
+    info = advertiser.build_service_info()
+    decoded = {k.decode(): v.decode() for k, v in info.properties.items()}
+    assert decoded["ha_addon"] == "1"
+    assert decoded["friendly_name"] == "5c53de3b-esphome"
+
+
+def test_build_service_info_omits_ha_addon_off_addon() -> None:
+    """``ha_addon`` is absent for a normal (non-add-on) dashboard."""
+    advertiser = _make_advertiser(name="green", hostname="green.local")
+    info = advertiser.build_service_info()
+    decoded = {k.decode(): v.decode() for k, v in info.properties.items()}
+    assert "ha_addon" not in decoded
+
+
 def test_set_remote_build_port_updates_subsequent_advertise() -> None:
     """``set_remote_build_port`` makes the next advertise carry the new port."""
     advertiser = _make_advertiser()
@@ -516,6 +535,23 @@ async def test_service_instance_name_returns_published_name_after_register(
     finally:
         await advertiser.unregister()
     assert advertiser.service_instance_name is None
+
+
+async def test_hostname_and_addresses_accessors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``hostname`` is static; ``addresses`` mirror the published ServiceInfo."""
+    monkeypatch.setattr(dashboard_advertise, "_local_addresses", lambda: ["192.168.1.10"])
+    advertiser = _make_advertiser(name="green", hostname="green.local")
+    assert advertiser.hostname == "green.local"
+    assert advertiser.addresses == []
+    zc = _make_zeroconf_mock()
+    await advertiser.register(zc)
+    try:
+        assert advertiser.addresses == ["192.168.1.10"]
+    finally:
+        await advertiser.unregister()
+    assert advertiser.addresses == []
 
 
 def test_service_target_endpoint_returns_none_before_register() -> None:
@@ -999,6 +1035,8 @@ async def test_device_builder_advertises_in_ha_addon_mode(
             self.set_pin_sha256 = MagicMock()
             self.set_remote_build_port = MagicMock()
             self.refresh = AsyncMock()
+            self.hostname = "esphome-builder-test.local"
+            self.addresses = []
             instances.append(self)
 
     monkeypatch.setattr(db_module, "DashboardAdvertiser", _FakeAdvertiser)
@@ -1048,6 +1086,8 @@ async def test_device_builder_constructs_advertiser_when_zeroconf_present(
             self.set_pin_sha256 = MagicMock()
             self.set_remote_build_port = MagicMock()
             self.refresh = AsyncMock()
+            self.hostname = "esphome-builder-test.local"
+            self.addresses = []
             instances.append(self)
 
     monkeypatch.setattr(db_module, "DashboardAdvertiser", _FakeAdvertiser)

@@ -9,7 +9,10 @@ import os
 import unittest
 from unittest.mock import patch
 
-from abstra_internals.environment import linter_sidecar_enabled
+from abstra_internals.environment import (
+    linter_sidecar_enabled,
+    linter_sidecar_serial,
+)
 from abstra_internals.repositories.factory import build_editor_repositories
 from abstra_internals.repositories.linter.repository import LocalLinterRepository
 from abstra_internals.repositories.linter.sidecar.client import (
@@ -33,6 +36,24 @@ class LinterSidecarEnabledTest(unittest.TestCase):
         for value in ("1", "true", "True"):
             with patch.dict(os.environ, {"ABSTRA_LINTER_SIDECAR": value}):
                 self.assertTrue(linter_sidecar_enabled(), value)
+
+
+class LinterSidecarSerialTest(unittest.TestCase):
+    """The sidecar child runs rules serially only in the web editor (pod); a
+    local install keeps the parallel fan-out."""
+
+    def test_web_editor_runs_serial(self):
+        with patch.dict(os.environ, {"ABSTRA_EDITOR_MODE": "web"}):
+            self.assertTrue(linter_sidecar_serial())
+
+    def test_local_editor_runs_parallel(self):
+        with patch.dict(os.environ, {"ABSTRA_EDITOR_MODE": "local"}):
+            self.assertFalse(linter_sidecar_serial())
+
+    def test_unset_defaults_to_parallel(self):
+        env = {k: v for k, v in os.environ.items() if k != "ABSTRA_EDITOR_MODE"}
+        with patch.dict(os.environ, env, clear=True):
+            self.assertFalse(linter_sidecar_serial())
 
 
 class EditorFactoryWiringTest(unittest.TestCase):

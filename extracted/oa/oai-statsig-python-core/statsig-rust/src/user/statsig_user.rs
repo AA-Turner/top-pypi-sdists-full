@@ -156,17 +156,25 @@ impl StatsigUser {
     // ---------------------------------------- [Unit ID]
 
     pub fn get_unit_id(&self, id_type: &DynamicString) -> Option<&DynamicValue> {
-        if id_type.lowercased_value.eq("userid") {
+        self.get_unit_id_by_name(id_type.value.as_str(), id_type.lowercased_value.as_str())
+    }
+
+    pub(crate) fn get_unit_id_by_name(
+        &self,
+        id_type: &str,
+        lowercased_id_type: &str,
+    ) -> Option<&DynamicValue> {
+        if lowercased_id_type == "userid" {
             return self.data.user_id.as_ref();
         }
 
         let custom_ids = self.data.custom_ids.as_ref()?;
 
-        if let Some(custom_id) = custom_ids.get(id_type.value.as_str()) {
+        if let Some(custom_id) = custom_ids.get(id_type) {
             return Some(custom_id);
         }
 
-        custom_ids.get(id_type.lowercased_value.as_str())
+        custom_ids.get(lowercased_id_type)
     }
 
     // ---------------------------------------- [ Statsig Environment ]

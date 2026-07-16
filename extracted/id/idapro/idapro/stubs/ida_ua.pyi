@@ -1077,6 +1077,16 @@ class outctx_t(outctx_base_t):
         ...
     def gen_func_header(self, pfn: func_t) -> None:
         ...
+    def gen_function_footer(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""Generate function footer lines. This function is called to generate the closing lines of a function, typically a comment with the function name. 
+                
+        """
+        ...
+    def gen_function_header(self, func_ea: ida_idaapi.ea_t) -> None:
+        r"""Generate function header lines. This function is called to generate the opening lines of a function, including border, comments, attributes, and the function name. 
+                
+        """
+        ...
     def gen_header(self, *args: Any) -> None:
         ...
     def gen_header_extra(self) -> None:
@@ -1196,7 +1206,7 @@ class outctx_t(outctx_base_t):
     def out_one_operand(self, n: int) -> bool:
         r"""Use this function to output an operand of an instruction. This function checks for the existence of a manually defined operand and will output it if it exists. It should be called from processor_t::ev_out_insn() and it will call processor_t::ev_out_operand(). This function outputs colored text. 
                 
-        :param n: 0..UA_MAXOP-1 operand number
+        :param n: 0..#UA_MAXOP-1 operand number
         :returns: 1: operand is displayed
         :returns: 0: operand is hidden
         """
@@ -1232,6 +1242,15 @@ class outctx_t(outctx_base_t):
     def out_tagon(self, tag: color_t) -> None:
         r"""Output "turn color on" escape sequence.
         
+        """
+        ...
+    def out_unmapped_addr(self, addr: ida_idaapi.ea_t, radix: int = 16) -> None:
+        r"""Output a reference to an address that is not (yet) mapped in the database.
+        The processor module is queried (processor_t::query_unmapped_address) for symbolic information about `addr`.
+        If the not-yet-mapped address is mappable, a colored symbolic expression is emitted (e.g. "qualifier:symbol+offset", prefixed with a "outgoing" arrow). Otherwise the raw numeric value is emitted, tagged with COLOR_ERROR.
+        
+        :param addr: the unmapped address
+        :param radix: radix for the numeric fallback (default 16)
         """
         ...
     def out_value(self, x: op_t, outf: int = 0) -> int:
@@ -1347,7 +1366,7 @@ def decode_prev_insn(out: insn_t, ea: ida_idaapi.ea_t) -> ida_idaapi.ea_t:
             
     :param out: the resulting instruction
     :param ea: the address to decode the previous instruction from
-    :returns: the previous instruction address (BADADDR-no such insn)
+    :returns: the previous instruction address (#BADADDR-no such insn)
     """
     ...
 
@@ -1373,7 +1392,7 @@ def get_immvals(ea: ida_idaapi.ea_t, n: int, F: int = 0) -> Any:
     r"""Get immediate values at the specified address. This function decodes instruction at the specified address or inspects the data item. It finds immediate values and copies them to 'out'. This function will store the original value of the operands in 'out', unless the last bits of 'F' are "...0 11111111", in which case the transformed values (as needed for printing) will be stored instead. 
             
     :param ea: address to analyze
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all the operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all the operands
     :param F: flags for the specified address
     :returns: number of immediate values (0..2*UA_MAXOP)
     """
@@ -1389,7 +1408,7 @@ def get_printable_immvals(ea: ida_idaapi.ea_t, n: int, F: int = 0) -> Any:
     r"""Get immediate ready-to-print values at the specified address 
             
     :param ea: address to analyze
-    :param n: 0..UA_MAXOP-1 operand number, OPND_ALL all the operands
+    :param n: 0..#UA_MAXOP-1 operand number, OPND_ALL all the operands
     :param F: flags for the specified address
     :returns: number of immediate values (0..2*UA_MAXOP)
     """
@@ -1434,7 +1453,7 @@ def outctx_base_t__from_ptrval__(ptrval: int) -> outctx_base_t:
 def outctx_t__from_ptrval__(ptrval: int) -> outctx_t:
     ...
 
-def print_insn_mnem(ea: ida_idaapi.ea_t) -> str:
+def print_insn_mnem(ea: ida_idaapi.ea_t) -> Union[str, None]:
     r"""Print instruction mnemonics. 
             
     :param ea: linear address of the instruction
@@ -1446,14 +1465,14 @@ def print_operand(ea: ida_idaapi.ea_t, n: int, getn_flags: int = 0, newtype: pri
     r"""Generate text representation for operand #n. This function will generate the text representation of the specified operand (includes color codes.) 
             
     :param ea: the item address (instruction or data)
-    :param n: 0..UA_MAXOP-1 operand number, meaningful only for instructions
+    :param n: 0..#UA_MAXOP-1 operand number, meaningful only for instructions
     :param getn_flags: Name expression flags Currently only GETN_NODUMMY is accepted.
     :param newtype: if specified, print the operand using the specified type
     :returns: success
     """
     ...
 
-def ua_mnem(ea: ida_idaapi.ea_t) -> str:
+def ua_mnem(ea: ida_idaapi.ea_t) -> Any:
     r"""Print instruction mnemonics. 
             
     :param ea: linear address of the instruction

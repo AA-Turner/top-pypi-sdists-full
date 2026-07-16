@@ -1,3 +1,11 @@
+try:
+    from renderers._version import __version__
+except ImportError:
+    # Source checkout without a built artifact (e.g. editable install
+    # before the first ``uv build`` populates ``_version.py``). Real
+    # installs always have it.
+    __version__ = "0+unknown"
+
 from renderers.base import (
     Content,
     ContentPart,
@@ -7,76 +15,187 @@ from renderers.base import (
     MultiModalData,
     MultimodalRenderer,
     ParsedResponse,
+    ParsedToolCall,
     PlaceholderRange,
     RenderedConversation,
     RenderedTokens,
+    RenderedTrainingSample,
     Renderer,
     RendererPool,
     TextPart,
     ThinkingPart,
     ToolCall,
     ToolCallFunction,
+    ToolCallParseStatus,
     ToolSpec,
     VideoPart,
+    attribute_text_segments,
     build_training_sample,
     build_trajectory_step,
     create_renderer,
     create_renderer_pool,
+    extract_message_tool_names,
     is_multimodal,
     reject_assistant_in_extension,
     trim_to_turn_close,
 )
-from renderers.deepseek_v3 import DeepSeekV3Renderer
-from renderers.default import DefaultRenderer
-from renderers.glm5 import GLM5Renderer
-from renderers.glm45 import GLM45Renderer
-from renderers.gpt_oss import GptOssRenderer
-from renderers.kimi_k2 import KimiK2Renderer
-from renderers.kimi_k25 import KimiK25Renderer
-from renderers.minimax_m2 import MiniMaxM2Renderer
-from renderers.nemotron3 import Nemotron3Renderer
-from renderers.qwen3 import Qwen3Renderer
-from renderers.qwen3_vl import Qwen3VLRenderer
-from renderers.qwen35 import Qwen35Renderer
-from renderers.qwen36 import Qwen36Renderer
+from renderers.client import OverlongPromptError
+from renderers.configs import (
+    AutoRendererConfig,
+    BaseRendererConfig,
+    config_from_name,
+    DefaultRendererConfig,
+    DeepSeekR1RendererConfig,
+    DeepSeekV3RendererConfig,
+    GLM45RendererConfig,
+    GLM51RendererConfig,
+    GLM5RendererConfig,
+    GptOssRendererConfig,
+    Hy3RendererConfig,
+    KimiK25RendererConfig,
+    KimiK2RendererConfig,
+    LagunaXS2RendererConfig,
+    LagunaXS21RendererConfig,
+    Llama3RendererConfig,
+    MiniMaxM2RendererConfig,
+    Nemotron3RendererConfig,
+    Nemotron3UltraRendererConfig,
+    PrimeQwen3RendererConfig,
+    Qwen35RendererConfig,
+    Qwen36RendererConfig,
+    Qwen3RendererConfig,
+    Qwen3VLRendererConfig,
+    RendererConfig,
+)
+
+# Concrete renderer classes are lazy-loaded so that consumers needing
+# only the config layer (``RendererConfig`` discriminated union) don't
+# pay the ``transformers`` import cost. Each renderer module does
+# ``from transformers.tokenization_utils import PreTrainedTokenizer``
+# at module level, so eager imports here would drag ``transformers``
+# into every downstream ``import renderers``. ``__getattr__`` (PEP 562)
+# resolves the names on first attribute access, so ``from renderers
+# import DefaultRenderer`` and ``renderers.DefaultRenderer`` both work
+# transparently. ``create_renderer`` doesn't depend on these eager
+# imports — ``renderers.base._populate_registry`` lazy-imports the
+# concrete classes itself when a renderer is instantiated.
+_LAZY_RENDERERS: dict[str, str] = {
+    "DeepSeekR1Renderer": "renderers.deepseek_r1",
+    "DeepSeekV3Renderer": "renderers.deepseek_v3",
+    "DefaultRenderer": "renderers.default",
+    "GLM45Renderer": "renderers.glm45",
+    "GLM51Renderer": "renderers.glm5",
+    "GLM5Renderer": "renderers.glm5",
+    "GptOssRenderer": "renderers.gpt_oss",
+    "Hy3Renderer": "renderers.hy3",
+    "KimiK25Renderer": "renderers.kimi_k25",
+    "KimiK2Renderer": "renderers.kimi_k2",
+    "LagunaXS21Renderer": "renderers.laguna_xs2",
+    "LagunaXS2Renderer": "renderers.laguna_xs2",
+    "Llama3Renderer": "renderers.llama_3",
+    "MiniMaxM2Renderer": "renderers.minimax_m2",
+    "Nemotron3Renderer": "renderers.nemotron3",
+    "Nemotron3UltraRenderer": "renderers.nemotron3",
+    "PrimeQwen3Renderer": "renderers.prime_qwen3",
+    "Qwen35Renderer": "renderers.qwen35",
+    "Qwen36Renderer": "renderers.qwen36",
+    "Qwen3Renderer": "renderers.qwen3",
+    "Qwen3VLRenderer": "renderers.qwen3_vl",
+}
+
+
+def __getattr__(name: str):
+    if name in _LAZY_RENDERERS:
+        import importlib
+
+        module = importlib.import_module(_LAZY_RENDERERS[name])
+        value = getattr(module, name)
+        globals()[name] = value  # cache for subsequent lookups
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals().keys()) | set(_LAZY_RENDERERS))
+
 
 __all__ = [
+    "AutoRendererConfig",
+    "BaseRendererConfig",
     "Content",
     "ContentPart",
+    "DeepSeekR1Renderer",
+    "DeepSeekR1RendererConfig",
     "DeepSeekV3Renderer",
+    "DeepSeekV3RendererConfig",
     "DefaultRenderer",
+    "DefaultRendererConfig",
     "GLM45Renderer",
+    "GLM45RendererConfig",
+    "GLM51Renderer",
+    "GLM51RendererConfig",
     "GLM5Renderer",
+    "GLM5RendererConfig",
     "GptOssRenderer",
+    "GptOssRendererConfig",
+    "Hy3Renderer",
+    "Hy3RendererConfig",
     "ImagePart",
-    "KimiK2Renderer",
     "KimiK25Renderer",
+    "KimiK25RendererConfig",
+    "KimiK2Renderer",
+    "KimiK2RendererConfig",
+    "LagunaXS2Renderer",
+    "LagunaXS2RendererConfig",
+    "LagunaXS21Renderer",
+    "LagunaXS21RendererConfig",
+    "Llama3Renderer",
+    "Llama3RendererConfig",
     "MULTIMODAL_MODELS",
     "Message",
     "MiniMaxM2Renderer",
+    "MiniMaxM2RendererConfig",
     "MultiModalData",
     "MultimodalRenderer",
     "Nemotron3Renderer",
+    "Nemotron3RendererConfig",
+    "Nemotron3UltraRenderer",
+    "Nemotron3UltraRendererConfig",
+    "OverlongPromptError",
     "ParsedResponse",
+    "ParsedToolCall",
     "PlaceholderRange",
-    "Qwen3Renderer",
-    "Qwen3VLRenderer",
+    "PrimeQwen3Renderer",
+    "PrimeQwen3RendererConfig",
     "Qwen35Renderer",
+    "Qwen35RendererConfig",
     "Qwen36Renderer",
+    "Qwen36RendererConfig",
+    "Qwen3Renderer",
+    "Qwen3RendererConfig",
+    "Qwen3VLRenderer",
+    "Qwen3VLRendererConfig",
     "RenderedConversation",
     "RenderedTokens",
+    "RenderedTrainingSample",
     "Renderer",
+    "RendererConfig",
     "RendererPool",
     "TextPart",
     "ThinkingPart",
     "ToolCall",
     "ToolCallFunction",
+    "ToolCallParseStatus",
     "ToolSpec",
     "VideoPart",
+    "__version__",
+    "attribute_text_segments",
     "build_training_sample",
     "build_trajectory_step",
+    "config_from_name",
     "create_renderer",
     "create_renderer_pool",
+    "extract_message_tool_names",
     "is_multimodal",
     "reject_assistant_in_extension",
     "trim_to_turn_close",

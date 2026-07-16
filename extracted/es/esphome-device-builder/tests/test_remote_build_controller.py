@@ -72,6 +72,7 @@ from esphome_device_builder.helpers.peer_link_identity import PeerLinkIdentitySt
 from esphome_device_builder.helpers.remote_build_layout import RemoteBuildPath
 from esphome_device_builder.helpers.version_compat import VersionMatchPolicy
 from esphome_device_builder.models import (
+    DEFAULT_CLEANUP_TTL_SECONDS,
     ErrorCode,
     EventType,
     IdentityView,
@@ -106,6 +107,7 @@ def _fake_service_info(
     server_version: str = "1.2.3",
     esphome_version: str = "2026.5.0",
     friendly_name: str = "",
+    ha_addon: bool = False,
 ) -> MagicMock:
     """Build a stand-in for ``AsyncServiceInfo`` carrying the fields we read."""
     info = MagicMock()
@@ -119,6 +121,8 @@ def _fake_service_info(
     }
     if friendly_name:
         info.properties[b"friendly_name"] = friendly_name.encode("utf-8")
+    if ha_addon:
+        info.properties[b"ha_addon"] = b"1"
     return info
 
 
@@ -235,6 +239,7 @@ def test_peer_from_service_info_handles_missing_txt_keys() -> None:
     assert peer.server_version == ""
     assert peer.esphome_version == ""
     assert peer.friendly_name == ""
+    assert peer.ha_addon is False
 
 
 def test_peer_from_service_info_reads_friendly_name_from_txt() -> None:
@@ -243,6 +248,14 @@ def test_peer_from_service_info_reads_friendly_name_from_txt() -> None:
     peer = peer_from_service_info(f"esphome-builder-jwywnve.{SERVICE_TYPE}", info)
     assert peer.name == "esphome-builder-jwywnve"
     assert peer.friendly_name == "MacBook-Pro"
+
+
+def test_peer_from_service_info_reads_ha_addon_from_txt() -> None:
+    """The ``ha_addon`` TXT flag surfaces so peers can label the add-on."""
+    info = _fake_service_info(friendly_name="Home Assistant", ha_addon=True)
+    peer = peer_from_service_info(f"desktop.{SERVICE_TYPE}", info)
+    assert peer.ha_addon is True
+    assert peer.friendly_name == "Home Assistant"
 
 
 # ---------------------------------------------------------------------------
@@ -1392,6 +1405,20 @@ async def test_set_settings_round_trips(tmp_path: Path) -> None:
     assert read == RemoteBuildSettingsView(enabled=True)
 
 
+async def test_settings_snapshot_tracks_ram_canonical_settings(tmp_path: Path) -> None:
+    """``settings_snapshot`` reads the RAM-canonical scalars, following writes."""
+    controller = _make_controller(config_dir=tmp_path)
+    assert controller.receiver.settings_snapshot() == {
+        "enabled": True,
+        "cleanup_ttl_seconds": DEFAULT_CLEANUP_TTL_SECONDS,
+    }
+    await controller.receiver.set_settings(enabled=False, cleanup_ttl_seconds=7200)
+    assert controller.receiver.settings_snapshot() == {
+        "enabled": False,
+        "cleanup_ttl_seconds": 7200,
+    }
+
+
 async def test_set_settings_rejects_non_bool(tmp_path: Path) -> None:
     """
     Non-boolean ``enabled`` raises ``INVALID_ARGS``, doesn't coerce.
@@ -1907,7 +1934,12 @@ def test_validate_port_rejects_out_of_range(port: int) -> None:
 
 
 def _stub_identity_db(
-    controller: RemoteBuildController, *, listener_bound: bool = False
+    controller: RemoteBuildController,
+    *,
+    listener_bound: bool = False,
+    listener_host: str | None = None,
+    listener_addresses: list[str] | None = None,
+    listener_port: int | None = None,
 ) -> AsyncMock:
     """
     Wire the controller's ``_db`` for an identity-rotation test.
@@ -1929,6 +1961,9 @@ def _stub_identity_db(
     reload_mock = AsyncMock(return_value=listener_bound)
     controller.offloader._db.reload_remote_build_identity = reload_mock
     controller.offloader._db.is_remote_build_listener_bound = listener_bound
+    controller.offloader._db.remote_build_listener_host = listener_host
+    controller.offloader._db.remote_build_listener_addresses = listener_addresses or []
+    controller.offloader._db.remote_build_listener_port = listener_port
     controller.offloader._db.bus = MagicMock()
     return reload_mock
 
@@ -1981,6 +2016,35 @@ async def test_get_identity_reflects_listener_bound_state(tmp_path: Path) -> Non
     _stub_identity_db(controller, listener_bound=False)
     unbound_view = await controller.receiver.get_identity()
     assert unbound_view.listener_bound is False
+
+
+async def test_identity_views_report_listener_address(tmp_path: Path) -> None:
+    """Both identity views mirror the advertised address; empty while down."""
+    controller = _make_controller(config_dir=tmp_path)
+    _stub_identity_db(
+        controller,
+        listener_bound=True,
+        listener_host="esphome-builder-abc.local",
+        listener_addresses=["192.168.1.5"],
+        listener_port=6055,
+    )
+    bound_view = await controller.receiver.get_identity()
+    assert bound_view.listener_host == "esphome-builder-abc.local"
+    assert bound_view.listener_addresses == ["192.168.1.5"]
+    assert bound_view.listener_port == 6055
+
+    # The rotate path builds its view through separate control flow
+    # (reload_remote_build_identity) — pin the same fields there.
+    rotated_view = await controller.receiver.rotate_identity()
+    assert rotated_view.listener_host == "esphome-builder-abc.local"
+    assert rotated_view.listener_addresses == ["192.168.1.5"]
+    assert rotated_view.listener_port == 6055
+
+    _stub_identity_db(controller, listener_bound=False)
+    unbound_view = await controller.receiver.get_identity()
+    assert unbound_view.listener_host is None
+    assert unbound_view.listener_addresses == []
+    assert unbound_view.listener_port is None
 
 
 async def test_get_identity_does_not_leak_cert_or_key_pem(tmp_path: Path) -> None:
@@ -4829,6 +4893,16 @@ async def test_get_offloader_settings_returns_master_plus_pairings(tmp_path: Pat
     assert view.remote_builds_enabled is False
     assert [p.pin_sha256 for p in view.pairings] == [pairing.pin_sha256]
     assert view.pairings[0].enabled is True  # Default for the seeded row.
+
+
+def test_pairing_summary_surfaces_auto_provision_supported() -> None:
+    """``PairingSummary.auto_provision_supported`` mirrors the storage-shape field."""
+    pairing = _valid_stored_pairing()
+    pairing.auto_provision_supported = True
+    summary = pairing_summary(pairing, connected=False)
+    assert summary.auto_provision_supported is True
+    pairing.auto_provision_supported = False
+    assert pairing_summary(pairing, connected=False).auto_provision_supported is False
 
 
 def test_pairing_summary_surfaces_enabled_field(tmp_path: Path) -> None:

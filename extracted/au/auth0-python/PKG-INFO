@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: auth0-python
-Version: 5.8.0
+Version: 6.0.0
 Summary: Auth0 Python SDK - Management and Authentication APIs
 License: MIT
 License-File: LICENSE

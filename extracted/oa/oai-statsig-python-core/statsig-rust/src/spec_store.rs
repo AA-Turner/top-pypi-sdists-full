@@ -204,13 +204,9 @@ impl SpecStore {
         let entity_name = InternedString::from_str_ref(entity_name);
         let entity = entities.get(&entity_name);
 
-        match entity {
-            Some(entity) => match &entity.as_spec_ref().fields_used {
-                Some(fields) => fields.iter().map(|f| f.unperformant_to_string()).collect(),
-                None => vec![],
-            },
-            None => vec![],
-        }
+        entity
+            .map(|entity| entity.view().fields_used())
+            .unwrap_or_default()
     }
 
     pub fn unperformant_keys_entity_filter(
@@ -247,7 +243,7 @@ impl SpecStore {
 
         values
             .iter()
-            .filter(|(_, v)| v.as_spec_ref().entity == entity_type)
+            .filter(|(_, v)| v.view().entity().as_str() == entity_type)
             .map(|(k, _)| k.unperformant_to_string())
             .collect()
     }

@@ -1,16 +1,16 @@
 use crate::{
-    evaluation::evaluator_value::MemoizedEvaluatorValue,
-    specs_response::spec_types::ConditionOperator, unwrap_or_return,
-    user::user_value::UserValueRef,
+    evaluation::evaluator_value::EvaluatorValueRef, specs_response::spec_types::ConditionOperator,
+    unwrap_or_return, user::user_value::UserValueRef,
 };
 
-pub(crate) fn compare_numbers(
+pub(crate) fn compare_numbers<'a>(
     left: UserValueRef<'_>,
-    right: &MemoizedEvaluatorValue,
+    right: impl Into<EvaluatorValueRef<'a>>,
     op: ConditionOperator,
 ) -> bool {
+    let right = right.into();
     let left_num = unwrap_or_return!(left.float_value(), false);
-    let right_num = unwrap_or_return!(right.float_value, false);
+    let right_num = unwrap_or_return!(right.float_value(), false);
 
     match op {
         ConditionOperator::Gt => left_num > right_num,

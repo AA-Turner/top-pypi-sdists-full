@@ -278,13 +278,15 @@ class SpillingFunctionDict(UserDict[K, Function], FunctionDictBase[K]):
         self._cache_limit = state["cache_limit"]
         self._db_batch_size = state["db_batch_size"]
         self.data = {}
+        self._backref = None
+        self._key_types = state.get("key_types", int)
         self.rtdb = None  # type: ignore
         self._lru_order = OrderedDict()
         self._spilled_keys = set()
         self._list = SortedList()
         self.irange = self._list.irange
 
-        self._meta_func_cache = LRUCache(maxsize=self._cache_limit)
+        self._meta_func_cache = SmartLRUCache(maxsize=self._cache_limit, evict=self._meta_func_cache_evicted)
         self._funcsdb = None
         self._eviction_enabled = True
         self._loading_from_lmdb = False
@@ -292,12 +294,18 @@ class SpillingFunctionDict(UserDict[K, Function], FunctionDictBase[K]):
         self._db_store_lock = threading.Lock()
 
         for k, v in state["items"].items():
+            # Functions restored from a pickle have no LMDB backing store behind them; mark them dirty so that
+            # they will be written out if they are ever evicted again.
+            v.mark_dirty()
+            v.evicted = False
             self[k] = v
 
     def __getstate__(self):
+        self.load_all_spilled()
         return {
             "cache_limit": self._cache_limit,
             "db_batch_size": self._db_batch_size,
+            "key_types": self._key_types,
             "items": dict(self.items()),
         }
 
@@ -486,18 +494,23 @@ class SpillingFunctionDict(UserDict[K, Function], FunctionDictBase[K]):
 
         :return: The number of functions that were successfully evicted.
         """
+        if self.rtdb is None:
+            # without a RuntimeDb we cannot persist evicted functions; evicting anyway would silently lose
+            # data (this happens e.g. while unpickling, before an rtdb is re-attached via set_kb()).
+            return 0
         if not self._lru_order:
             return 0
 
         evicted = 0
         funcs_to_evict = []
-        for lru_addr in list(self._lru_order):
+        addrs_to_remove = []
+        for lru_addr in self._lru_order:
             if evicted >= n:
                 break
 
-            # Don't evict if it's not in memory
+            # Don't evict if it's not in memory; still schedule its stale LRU entry for removal
             if not self.is_cached(lru_addr):
-                self._lru_order.pop(lru_addr)
+                addrs_to_remove.append(lru_addr)
                 continue
 
             # Get the function
@@ -509,14 +522,17 @@ class SpillingFunctionDict(UserDict[K, Function], FunctionDictBase[K]):
             # Remove from in-memory map
             super().__delitem__(lru_addr)
 
-            # Remove from LRU order
-            del self._lru_order[lru_addr]
+            # Schedule removal from LRU order
+            addrs_to_remove.append(lru_addr)
 
             # Add to spilled set
             self._spilled_keys.add(lru_addr)
             evicted += 1
 
             # l.debug("Evicted function %s", hex(lru_addr) if isinstance(lru_addr, int) else lru_addr)
+
+        for lru_addr in addrs_to_remove:
+            del self._lru_order[lru_addr]
 
         if funcs_to_evict:
             self._save_to_lmdb(funcs_to_evict)
@@ -627,6 +643,87 @@ class SpillingFunctionDict(UserDict[K, Function], FunctionDictBase[K]):
             if self._eviction_enabled and self._cache_limit is not None and self.cached_count > self._cache_limit:
                 self._evict_lru()
 
+    def bulk_import_serialized(self, items: list[tuple[K, bytes]]) -> None:
+        """
+        Bulk-import already-serialized functions directly into the LMDB backing store and register them as spilled,
+        without deserializing them. The serialized bytes must be serialized function_pb2.Function messages, i.e., the
+        exact format that _save_to_lmdb() writes.
+
+        Imported functions are deserialized lazily upon first access, through the regular _load_from_lmdb() path.
+
+        :param items:   A list of (address, serialized function bytes) tuples.
+        """
+
+        if not items:
+            return
+
+        self._init_lmdb()
+        assert self._funcsdb is not None
+
+        with self._db_store_lock:
+            while True:
+                try:
+                    with self.rtdb.begin_txn(self._funcsdb, write=True) as txn:
+                        for addr, blob in items:
+                            txn.put(str(addr).encode("utf-8"), blob)
+                    break
+                except lmdb.MapFullError:
+                    # Increase map size and retry
+                    self.rtdb.increase_lmdb_map_size()
+
+            for addr, _ in items:
+                if self.is_cached(addr):
+                    # drop the stale in-memory copy; LMDB now holds the authoritative data
+                    super().__delitem__(addr)
+                    self._lru_order.pop(addr, None)
+                elif addr not in self._spilled_keys:
+                    self._list.add(addr)
+                self._spilled_keys.add(addr)
+                if addr in self._meta_func_cache:
+                    del self._meta_func_cache[addr]
+
+    def export_serialized(self) -> list[tuple[K, bytes, bool]]:
+        """
+        Export all functions as serialized bytes, e.g., for dumping into an angr database.
+
+        Functions whose LMDB records are guaranteed to be current are copied directly from the LMDB backing store
+        (in a single read transaction) without being deserialized and re-serialized. This applies to all spilled
+        functions and to cached functions that are clean: a Function instance is only ever clean if it was
+        deserialized from serialized bytes and has not been modified since (eviction relies on the same invariant
+        to skip writing clean functions back to LMDB). Dirty functions, and functions whose LMDB record is missing,
+        are serialized from their in-memory objects through the regular path.
+
+        :return: A list of (address, serialized function bytes, copied_from_lmdb) tuples, ordered by address.
+        """
+
+        # determine which functions may be copied directly from LMDB
+        copy_addrs = []
+        for addr in self._list:
+            func = self.data.get(addr)
+            if func is None or not func.dirty:
+                copy_addrs.append(addr)
+
+        copied: dict[K, bytes] = {}
+        if copy_addrs and self.rtdb is not None and self._funcsdb is not None:
+            with self._db_load_lock, self.rtdb.begin_txn(self._funcsdb) as txn:
+                for addr in copy_addrs:
+                    value = txn.get(str(addr).encode("utf-8"))
+                    if value is not None:
+                        copied[addr] = value
+
+        result: list[tuple[K, bytes, bool]] = []
+        for addr in self._list:
+            blob = copied.get(addr)
+            if blob is not None:
+                result.append((addr, blob, True))
+            else:
+                func = self.data.get(addr)
+                if func is None:
+                    # the function is spilled but its LMDB record is missing; fall back to the regular access path
+                    func = self.get(addr)
+                result.append((addr, func.serialize(), False))
+        return result
+
     def load_all_spilled(self) -> None:
         """
         Load all spilled functions back into memory (disables eviction temporarily).
@@ -699,8 +796,12 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
         self._unknown_returning_func_addrs: set[K] = set()
         # function number of blocks cache
         self._func_block_counts: dict[K, int] = {}
-        # function name cache
+        # function name to address cache
         self._func_name_to_addrs: defaultdict[str, set[K]] = defaultdict(set)
+        # function address to current name cache
+        self._func_names: dict[K, str] = {}
+        # function signature-source cache (function address to Function.from_signature)
+        self._func_from_signature: dict[K, str | None] = {}
         # historical function name cache
         self._old_func_name_to_addrs: defaultdict[str, set[K]] = defaultdict(set)
         # key function addresses cache
@@ -720,6 +821,8 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
         self._unknown_returning_func_addrs = set()
         self._func_block_counts = {}
         self._func_name_to_addrs = defaultdict(set)
+        self._func_names = {}
+        self._func_from_signature = {}
         self._old_func_name_to_addrs = defaultdict(set)
         self.function_addrs_set = set()
 
@@ -732,6 +835,8 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
                 self._non_returning_func_addrs.add(func.addr)
             self._func_block_counts[func.addr] = len(func.block_addrs_set)
             self._func_name_to_addrs[func.name].add(func.addr)
+            self._func_names[func.addr] = func.name
+            self._func_from_signature[func.addr] = func.from_signature
             for old_name in func.previous_names:
                 self._old_func_name_to_addrs[old_name].add(func.addr)
             self.function_addrs_set.add(func.addr)
@@ -770,6 +875,8 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
         fm._unknown_returning_func_addrs = self._unknown_returning_func_addrs.copy()
         fm._func_block_counts = self._func_block_counts.copy()
         fm._func_name_to_addrs = defaultdict(set, {k: v.copy() for k, v in self._func_name_to_addrs.items()})
+        fm._func_names = self._func_names.copy()
+        fm._func_from_signature = self._func_from_signature.copy()
         fm._old_func_name_to_addrs = defaultdict(set, {k: v.copy() for k, v in self._old_func_name_to_addrs.items()})
         fm._key_func_addrs = defaultdict(set, {k: v.copy() for k, v in self._key_func_addrs.items()})
 
@@ -795,6 +902,8 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
         self._unknown_returning_func_addrs = set()
         self._func_block_counts = {}
         self._func_name_to_addrs = defaultdict(set)
+        self._func_names = {}
+        self._func_from_signature = {}
         self._old_func_name_to_addrs = defaultdict(set)
         self._key_func_addrs = defaultdict(set)
 
@@ -886,6 +995,7 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
                     del self._func_name_to_addrs[old_name]
             self._old_func_name_to_addrs[old_name].add(addr)
         self._func_name_to_addrs[new_name].add(addr)
+        self._func_names[addr] = new_name
 
     def _add_node(self, function_addr, node, syscall=None, size=None):
         if isinstance(node, self.address_types):
@@ -1085,6 +1195,8 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
             self._unknown_returning_func_addrs.discard(k)
             self._func_block_counts.pop(k, None)
             self._func_name_to_addrs.pop(k, None)
+            self._func_names.pop(k, None)
+            self._func_from_signature.pop(k, None)
             if func_meta is not None:
                 for old_name in func_meta.previous_names:
                     self._old_func_name_to_addrs.get(old_name, set()).discard(k)
@@ -1147,6 +1259,9 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
 
         # update the function block count cache
         self.set_func_block_count(func.addr, len(func.block_addrs_set))
+
+        # update the signature-source cache
+        self._func_from_signature[func.addr] = func.from_signature
 
         # update key function address cache
         for key, value in func.info.items():
@@ -1419,6 +1534,50 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
         :return:            The set of matching function addresses.
         """
         return {addr for addr, count in self._func_block_counts.items() if count == block_count}
+
+    #
+    # Function name / signature-source caches
+    #
+
+    def get_func_name(self, addr: K) -> str | None:
+        """
+        Get the name of a function without loading the (possibly spilled) Function object.
+
+        :param addr:    Address of the function.
+        :return:        The function's name, or None if unknown.
+        """
+        return self._func_names.get(addr)
+
+    def get_from_signature(self, addr: K) -> str | None:
+        """
+        Get the ``from_signature`` value of a function without loading the (possibly spilled) Function
+        object.
+
+        :param addr:    Address of the function.
+        :return:        The function's ``from_signature`` value (e.g. ``"flirt"``), or None.
+        """
+        return self._func_from_signature.get(addr)
+
+    def set_from_signature(self, addr: K, from_signature: str | None) -> None:
+        """
+        Update the cached ``from_signature`` value for a function. Called by Function.from_signature's
+        setter.
+
+        :param addr:            Address of the function.
+        :param from_signature:  The new ``from_signature`` value.
+        :return:                None
+        """
+        self._func_from_signature[addr] = from_signature
+
+    def get_all_funcaddrs_from_signature(self, from_signature: str = "flirt") -> set[K]:
+        """
+        Get the addresses of all functions whose ``from_signature`` matches, without loading any
+        Function object.
+
+        :param from_signature:  The ``from_signature`` value to match (default ``"flirt"``).
+        :return:                The set of matching function addresses.
+        """
+        return {addr for addr, value in self._func_from_signature.items() if value == from_signature}
 
     #
     # Key functions

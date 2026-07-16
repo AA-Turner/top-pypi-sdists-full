@@ -9,6 +9,7 @@ from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any, cast
 
 from angr.ailment import Block, Expr, Stmt, Tmp
+from angr.ailment.block_walker import _dispatch_key
 from angr.ailment.constant import UNDETERMINED_SIZE
 from angr.ailment.expression import BinaryOp, StackBaseOffset
 from angr.analyses.analysis import Analysis, register_analysis
@@ -190,6 +191,45 @@ def type_equals(t0: SimType, t1: SimType) -> bool:
         }:
             return True
     return t0 == t1
+
+
+def _safe_type_size(ty) -> int:
+    sz = getattr(ty, "size", -1)
+    return sz if isinstance(sz, int) else -1
+
+
+def type_layout_key(ty, _seen: frozenset = frozenset()) -> str:
+    """
+    A structural sort key for a type, derived purely from its memory layout (sizes, field offsets, and the
+    layouts of field/element/pointee types) and not from any user-renamable struct or field name. This lets
+    the code generator order type definitions stably without their order changing when the user renames a struct
+    or a field. Cycles through recursive struct/pointer references are broken with a marker.
+    """
+    ty = unpack_typeref(ty)
+    if isinstance(ty, SimStruct):
+        if id(ty) in _seen:
+            return "@"  # a reference back to an enclosing struct (recursive type)
+        _seen = _seen | {id(ty)}
+        offsets = ty.offsets
+        fields = sorted(f"{offsets.get(fname, -1)}:{type_layout_key(fty, _seen)}" for fname, fty in ty.fields.items())
+        return f"S[{_safe_type_size(ty)};{int(bool(getattr(ty, 'packed', False)))};{';'.join(fields)}]"
+    if isinstance(ty, SimTypePointer):
+        return f"P({type_layout_key(ty.pts_to, _seen)})"
+    if isinstance(ty, (SimTypeArray, SimTypeFixedSizeArray)):
+        return f"A{getattr(ty, 'length', None)}({type_layout_key(ty.elem_type, _seen)})"
+    return f"T:{type(ty).__name__}:{_safe_type_size(ty)}:{getattr(ty, 'signed', None)}"
+
+
+def cextern_sort_key(cextern) -> tuple:
+    """
+    A stable sort key for extern variables, based on the variable's address. Unlike the variable name, the
+    address does not change when the user renames the variable, so the ordering of extern definitions stays put
+    across renames.
+    """
+    addr = getattr(cextern.variable, "addr", None)
+    if isinstance(addr, int):
+        return (0, addr)
+    return (1, str(addr) if addr is not None else "")
 
 
 def type_to_c_repr_chunks(
@@ -618,6 +658,8 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
         name_to_structtypes = {}
         if self.codegen.show_local_types:
             local_types = [unpack_typeref(ty) for ty in self.variable_manager.types.iter_own()]
+            # First, discover all (possibly nested) struct types. This must run to completion before emitting,
+            # so that emission can be reordered without disturbing discovery.
             for ty in local_types:
                 if isinstance(ty, SimStruct):
                     name_to_structtypes[ty.name] = ty
@@ -636,11 +678,25 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
                                 name_to_structtypes[field.name] = field
                             local_types.append(field)
 
-                    # drop unreferenced structs
-                    if ty.name in referenced_struct_names:
-                        yield from type_to_c_repr_chunks(
-                            ty, full=True, indent_str=indent_str, indent_delta=self.codegen.indent_delta
-                        )
+            # Emit in a stable order. variable_manager.types iterates in the (run-dependent) order variables were
+            # typed, so emitting in iteration order makes the output non-deterministic. Sort by the type's
+            # structural layout so the ordering is deterministic AND does not change when the user renames a
+            # struct or a field. Structurally identical structs (e.g. isomorphic recursive types) are broken by
+            # the translator's name-independent definition order, also rename-proof; the name is only a final
+            # fallback for types with no such order (e.g. library structs not produced by type inference).
+            def _local_type_sort_key(ty) -> tuple:
+                order = getattr(ty, "_def_order", None)
+                tiebreak = (
+                    (0, order) if order is not None else (1, ty.name if isinstance(ty, SimStruct) and ty.name else "")
+                )
+                return (type_layout_key(ty), tiebreak)
+
+            for ty in sorted(local_types, key=_local_type_sort_key):
+                # drop unreferenced structs
+                if isinstance(ty, SimStruct) and ty.name in referenced_struct_names:
+                    yield from type_to_c_repr_chunks(
+                        ty, full=True, indent_str=indent_str, indent_delta=self.codegen.indent_delta
+                    )
 
         if self.codegen.show_externs and self.codegen.cexterns:
             # Emit struct definitions for types used by externs
@@ -650,7 +706,9 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
                 if self.codegen.show_local_types
                 else set()
             )
-            for v in self.codegen.cexterns:
+            # iterate externs in a stable, rename-independent order (by variable address) so the emission order of the
+            # discovered struct types are deterministic
+            for v in sorted(self.codegen.cexterns, key=cextern_sort_key):
                 if v.variable not in self.variables_in_use or v.type is None:
                     continue
                 ty = unpack_typeref(v.type)
@@ -684,8 +742,8 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
                     ty, full=True, indent_str=indent_str, indent_delta=self.codegen.indent_delta
                 )
 
-            # Emit extern declarations
-            for v in sorted(self.codegen.cexterns, key=lambda v: str(v.variable.name)):
+            # Emit extern declarations (ordered by variable address so renames do not reshuffle them)
+            for v in sorted(self.codegen.cexterns, key=cextern_sort_key):
                 if v.variable not in self.variables_in_use:
                     continue
                 varname = v.c_repr() if v.type is None else v.variable.name
@@ -3442,7 +3500,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         if (node, is_expr) in self.ailexpr2cnode:
             return self.ailexpr2cnode[(node, is_expr)]
 
-        handler: Callable | None = self._handlers.get(node.__class__, None)
+        handler: Callable | None = self._handlers.get(_dispatch_key(node), None)
         if handler is not None:
             # special case for Call
             converted = (
@@ -3452,7 +3510,9 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
             )
             self.ailexpr2cnode[(node, is_expr)] = converted
             return converted
-        raise UnsupportedNodeTypeError(f"Node type {type(node)} is not supported yet.")
+        raise UnsupportedNodeTypeError(
+            f"Node type {getattr(node, 'kind', None) or type(node).__name__} is not supported yet."
+        )
 
     def _handle_Code(self, node, **kwargs):
         return self._handle(node.node, is_expr=False)
@@ -3589,7 +3649,11 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
             try:
                 cstmt = self._handle(stmt, is_expr=False)
             except UnsupportedNodeTypeError:
-                l.warning("Unsupported AIL statement or expression %s.", type(stmt), exc_info=True)
+                l.warning(
+                    "Unsupported AIL statement or expression %s.",
+                    getattr(stmt, "kind", None) or type(stmt).__name__,
+                    exc_info=True,
+                )
                 cstmt = CUnsupportedStatement(stmt, codegen=self)
             cstmts.append(cstmt)
 

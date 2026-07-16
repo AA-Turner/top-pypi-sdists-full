@@ -4,10 +4,11 @@
 import filecmp
 import pathlib
 import shutil
+from typing import Any
 
 import kfactory as kf
 from kfactory import DKCell, KCLayout, kdb
-from kfactory.kcell import TKCell
+from kfactory.kcell import ProtoTKCell
 
 
 class GeometryDifferenceError(Exception):
@@ -18,8 +19,8 @@ PathType = pathlib.Path | str
 
 
 def xor(
-    old: KCLayout,
-    new: KCLayout,
+    old: ProtoTKCell[Any],
+    new: ProtoTKCell[Any],
     test_name: str = "",
     ignore_sliver_differences: bool = False,
     ignore_cell_name_differences: bool = False,
@@ -93,16 +94,16 @@ def xor(
         print("Text only in new")
         get_texts(ld.layer_index_b(), b_texts).insert(bnota)
 
-    ld.on_cell_in_a_only = lambda anotb: cell_diff_a(anotb)  # type: ignore[assignment]
-    ld.on_cell_in_b_only = lambda anotb: cell_diff_b(anotb)  # type: ignore[assignment]
-    ld.on_text_in_a_only = lambda anotb, prop_id: text_diff_a(anotb, prop_id)  # type: ignore[assignment]
-    ld.on_text_in_b_only = lambda anotb, prop_id: text_diff_b(anotb, prop_id)  # type: ignore[assignment]
+    ld.on_cell_in_a_only = cell_diff_a  # ty:ignore[invalid-assignment]
+    ld.on_cell_in_b_only = cell_diff_b  # ty:ignore[invalid-assignment]
+    ld.on_text_in_a_only = text_diff_a  # ty:ignore[invalid-assignment]
+    ld.on_text_in_b_only = text_diff_b  # ty:ignore[invalid-assignment]
 
-    ld.on_polygon_in_a_only = lambda anotb, prop_id: polygon_diff_a(anotb, prop_id)  # type: ignore[assignment]
-    ld.on_polygon_in_b_only = lambda anotb, prop_id: polygon_diff_b(anotb, prop_id)  # type: ignore[assignment]
+    ld.on_polygon_in_a_only = polygon_diff_a  # ty:ignore[invalid-assignment]
+    ld.on_polygon_in_b_only = polygon_diff_b  # ty:ignore[invalid-assignment]
 
     if ignore_cell_name_differences:
-        ld.on_cell_name_differs = lambda anotb: print(f"cell name differs {anotb.name}")  # type: ignore[assignment]
+        ld.on_cell_name_differs = lambda anotb: print(f"cell name differs {anotb.name}")  # ty:ignore[invalid-assignment]
         equal = ld.compare(
             old.kdb_cell,
             new.kdb_cell,
@@ -284,16 +285,16 @@ def diff(
         print("Text only in new")
         get_texts(ld.layer_index_b(), b_texts).insert(bnota)
 
-    ld.on_cell_in_a_only = cell_diff_a  # type: ignore[assignment]
-    ld.on_cell_in_b_only = cell_diff_b  # type: ignore[assignment]
-    ld.on_text_in_a_only = text_diff_a  # type: ignore[assignment]
-    ld.on_text_in_b_only = text_diff_b  # type: ignore[assignment]
+    ld.on_cell_in_a_only = cell_diff_a  # ty:ignore[invalid-assignment]
+    ld.on_cell_in_b_only = cell_diff_b  # ty:ignore[invalid-assignment]
+    ld.on_text_in_a_only = text_diff_a  # ty:ignore[invalid-assignment]
+    ld.on_text_in_b_only = text_diff_b  # ty:ignore[invalid-assignment]
 
-    ld.on_polygon_in_a_only = polygon_diff_a  # type: ignore[assignment]
-    ld.on_polygon_in_b_only = polygon_diff_b  # type: ignore[assignment]
+    ld.on_polygon_in_a_only = polygon_diff_a  # type: ignore[assignment]  # ty:ignore[invalid-assignment]
+    ld.on_polygon_in_b_only = polygon_diff_b  # type: ignore[assignment]  # ty:ignore[invalid-assignment]
 
     if ignore_cell_name_differences:
-        ld.on_cell_name_differs = lambda anotb: print(f"cell name differs {anotb.name}")  # type: ignore[assignment]
+        ld.on_cell_name_differs = lambda anotb: print(f"cell name differs {anotb.name}")  # ty:ignore[invalid-assignment]
         equal = ld.compare(
             old.kdb_cell,
             new.kdb_cell,
@@ -400,7 +401,7 @@ def diff(
 
 
 def difftest(
-    component: TKCell,
+    component: ProtoTKCell[Any],
     dirpath: pathlib.Path,
     dirpath_run: pathlib.Path,
     test_name: str | None = None,
@@ -496,6 +497,6 @@ def read_top_cell(arg0: pathlib.Path) -> kf.DKCell:
     kcell = kcl.dkcells[kcl.top_cell().name]
 
     if hasattr(kcl, "cross_sections"):
-        for cross_section in kcl.cross_sections.cross_sections.values():
-            kf.kcl.get_symmetrical_cross_section(cross_section)
+        for cross_section in set(kcl.cross_sections.cross_sections.values()):
+            kf.kcl.get_base_cross_section(cross_section, symmetrical=None)
     return kcell

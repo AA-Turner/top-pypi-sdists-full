@@ -1,13 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    evaluation::evaluator::SpecType,
+    evaluation::{evaluation_data::SpecView, evaluator::SpecType},
     hashing::{HashAlgorithm, HashUtil},
     interned_string::InternedString,
     specs_response::{
-        cmab_types::CMABConfig,
-        spec_types::{Spec, SpecsResponseFull},
-        specs_hash_map::SpecsHashMap,
+        cmab_types::CMABConfig, spec_types::SpecsResponseFull, specs_hash_map::SpecsHashMap,
     },
 };
 
@@ -100,35 +98,36 @@ fn build_spec_plan(
     pipeline_override_names: &HashSet<InternedString>,
     experiment_to_layer: &HashMap<String, String>,
     hashing: &HashUtil,
-    get_spec_type: impl Fn(&Spec) -> SpecType,
+    get_spec_type: impl Fn(SpecView<'_>) -> SpecType,
 ) -> Vec<PlannedEvaluation> {
     let mut keys = specs_map.keys().cloned().collect::<Vec<_>>();
-    keys.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+    keys.sort_unstable_by(|a, b| a.as_str().cmp(b.as_str()));
 
     keys.into_iter()
         .filter_map(|name| {
-            let spec = specs_map.get(&name)?.as_spec_ref();
-            if spec.entity == "segment"
-                || spec.entity == "holdout"
+            let spec = specs_map.get(&name)?.view();
+            let entity = spec.entity();
+            if entity.as_str() == "segment"
+                || entity.as_str() == "holdout"
                 || pipeline_override_names.contains(&name)
             {
                 return None;
             }
 
             let is_experiment_in_layer =
-                spec.entity == "experiment" && experiment_to_layer.contains_key(name.as_str());
+                entity.as_str() == "experiment" && experiment_to_layer.contains_key(name.as_str());
 
             Some(PlannedEvaluation {
-                hashed_djb2: InternedString::from_string(
+                hashed_djb2: InternedString::from_string_uninterned(
                     hashing.hash(name.as_str(), &HashAlgorithm::Djb2),
                 ),
-                hashed_sha256: InternedString::from_string(
+                hashed_sha256: InternedString::from_string_uninterned(
                     hashing.hash(name.as_str(), &HashAlgorithm::Sha256),
                 ),
                 name,
-                entity: InternedString::from_str_ref(spec.entity.as_str()),
+                entity: entity.to_interned(),
                 spec_type: get_spec_type(spec),
-                target_app_ids: spec.target_app_ids.clone(),
+                target_app_ids: spec.target_app_ids(),
                 is_experiment_in_layer,
             })
         })
@@ -144,23 +143,23 @@ fn build_cmab_plan(
     };
 
     let mut keys = cmab_configs.keys().cloned().collect::<Vec<_>>();
-    keys.sort();
+    keys.sort_unstable();
 
     keys.into_iter()
         .map(|name| PlannedCmabEvaluation {
-            hashed_djb2: InternedString::from_string(
+            hashed_djb2: InternedString::from_string_uninterned(
                 hashing.hash(name.as_str(), &HashAlgorithm::Djb2),
             ),
-            hashed_sha256: InternedString::from_string(
+            hashed_sha256: InternedString::from_string_uninterned(
                 hashing.hash(name.as_str(), &HashAlgorithm::Sha256),
             ),
-            name: InternedString::from_string(name),
+            name: InternedString::from_string_uninterned(name),
         })
         .collect()
 }
 
-fn dynamic_config_type(spec: &Spec) -> SpecType {
-    if spec.entity == "dynamic_config" {
+fn dynamic_config_type(spec: SpecView<'_>) -> SpecType {
+    if spec.entity().as_str() == "dynamic_config" {
         SpecType::DynamicConfig
     } else {
         SpecType::Experiment
@@ -182,4 +181,78 @@ fn get_pipeline_override_names(specs: &SpecsResponseFull) -> HashSet<InternedStr
                 .collect()
         })
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GcirEvaluationPlan;
+    use crate::{
+        dcs_str::DCS_STR, hashing::HashUtil, interned_string::InternedStringValue,
+        specs_response::spec_types::SpecsResponseFull,
+    };
+
+    #[test]
+    fn generated_response_names_do_not_use_the_global_interner() {
+        let specs: SpecsResponseFull = serde_json::from_str(DCS_STR).unwrap();
+        let plan = GcirEvaluationPlan::new(&specs, &HashUtil::new());
+
+        for (planned, source) in [
+            (&plan.feature_gates, &specs.feature_gates),
+            (&plan.dynamic_configs, &specs.dynamic_configs),
+            (&plan.layer_configs, &specs.layer_configs),
+        ] {
+            for evaluation in planned {
+                let original = source
+                    .keys()
+                    .find(|name| name.as_str() == evaluation.name.as_str())
+                    .unwrap();
+                match (&evaluation.name.value, &original.value) {
+                    (InternedStringValue::Pointer(left), InternedStringValue::Pointer(right))
+                    | (
+                        InternedStringValue::Uninterned(left),
+                        InternedStringValue::Uninterned(right),
+                    ) => {
+                        assert!(std::sync::Arc::ptr_eq(left, right));
+                    }
+                    (InternedStringValue::Static(left), InternedStringValue::Static(right)) => {
+                        assert!(std::ptr::eq(*left, *right));
+                    }
+                    (left, right) => {
+                        panic!("planned name changed representation: {left:?} vs {right:?}")
+                    }
+                }
+            }
+        }
+
+        for planned in plan
+            .feature_gates
+            .iter()
+            .chain(&plan.dynamic_configs)
+            .chain(&plan.layer_configs)
+        {
+            assert!(matches!(
+                planned.hashed_djb2.value,
+                InternedStringValue::Uninterned(_)
+            ));
+            assert!(matches!(
+                planned.hashed_sha256.value,
+                InternedStringValue::Uninterned(_)
+            ));
+        }
+
+        for planned in &plan.cmab_configs {
+            assert!(matches!(
+                planned.name.value,
+                InternedStringValue::Uninterned(_)
+            ));
+            assert!(matches!(
+                planned.hashed_djb2.value,
+                InternedStringValue::Uninterned(_)
+            ));
+            assert!(matches!(
+                planned.hashed_sha256.value,
+                InternedStringValue::Uninterned(_)
+            ));
+        }
+    }
 }

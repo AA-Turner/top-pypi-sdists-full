@@ -10,8 +10,8 @@ from .agreement_methodology_enum import AgreementMethodologyEnum
 from .assignment_settings import AssignmentSettings
 from .blueprint_list import BlueprintList
 from .control_tag_weight import ControlTagWeight
+from .project_sampling_enum import ProjectSamplingEnum
 from .review_settings import ReviewSettings
-from .sampling_de5enum import SamplingDe5Enum
 from .skip_queue_enum import SkipQueueEnum
 from .user_simple import UserSimple
 
@@ -116,7 +116,7 @@ class AllRolesProjectList(UncheckedBaseModel):
     data_types: typing.Optional[typing.Dict[str, typing.Any]] = None
     description: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Description
+    Description (Public)
     """
 
     description_short: typing.Optional[str] = None
@@ -145,7 +145,13 @@ class AllRolesProjectList(UncheckedBaseModel):
 
     id: typing.Optional[int] = None
     input_schema: typing.Optional[typing.Any] = None
-    is_dimensions_enabled: typing.Optional[str] = None
+    internal_description: typing.Optional[typing.List[typing.Any]] = pydantic.Field(default=None)
+    """
+    Description (Internal)
+    """
+
+    internal_description_short: typing.Optional[str] = None
+    is_dimensions_enabled: typing.Optional[bool] = None
     is_draft: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Whether or not the project is in the middle of being created
@@ -171,7 +177,7 @@ class AllRolesProjectList(UncheckedBaseModel):
     Annotations per task
     """
 
-    members: typing.Optional[str] = None
+    members: typing.Optional[typing.List[typing.Dict[str, typing.Any]]] = None
     members_count: typing.Optional[int] = None
     min_annotations_to_start_training: typing.Optional[int] = pydantic.Field(default=None)
     """
@@ -206,10 +212,10 @@ class AllRolesProjectList(UncheckedBaseModel):
     Pinned date and time
     """
 
-    prompts: typing.Optional[str] = None
+    prompts: typing.Optional[typing.List[typing.Dict[str, typing.Any]]] = None
     queue_done: typing.Optional[int] = None
     queue_left: typing.Optional[int] = None
-    queue_total: typing.Optional[str] = None
+    queue_total: typing.Optional[int] = None
     ready: typing.Optional[bool] = None
     rejected: typing.Optional[int] = None
     require_comment_on_skip: typing.Optional[bool] = pydantic.Field(default=None)
@@ -226,7 +232,7 @@ class AllRolesProjectList(UncheckedBaseModel):
     review_total_tasks: typing.Optional[int] = None
     reviewed_number: typing.Optional[int] = None
     reviewer_queue_total: typing.Optional[int] = None
-    sampling: typing.Optional[SamplingDe5Enum] = None
+    sampling: typing.Optional[ProjectSamplingEnum] = None
     show_annotation_history: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Show Data Manager to Annotators
@@ -263,7 +269,7 @@ class AllRolesProjectList(UncheckedBaseModel):
     """
 
     skip_queue: typing.Optional[SkipQueueEnum] = None
-    skipped_annotations_number: typing.Optional[str] = None
+    skipped_annotations_number: typing.Optional[int] = None
     source_interface_id: typing.Optional[int] = None
     source_interface_version: typing.Optional[int] = pydantic.Field(default=None)
     """
@@ -291,11 +297,11 @@ class AllRolesProjectList(UncheckedBaseModel):
     Project Name
     """
 
-    total_annotations_number: typing.Optional[str] = None
+    total_annotations_number: typing.Optional[int] = None
     total_predictions_number: typing.Optional[int] = None
     use_custom_interface: typing.Optional[bool] = None
     useful_annotation_number: typing.Optional[int] = None
-    workspace: typing.Optional[str] = None
+    workspace: typing.Optional[int] = None
     workspace_title: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:

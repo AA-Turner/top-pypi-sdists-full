@@ -24,10 +24,14 @@ from renderers.base import (
     ParsedResponse,
     RenderedTokens,
     ToolSpec,
+    attribute_text_segments,
+    extract_message_tool_names,
     reject_assistant_in_extension,
-    should_preserve_past_thinking,
+    resolve_thinking_retention,
+    should_rerender_for_thinking_retention,
     trim_to_turn_close,
 )
+from renderers.configs import Nemotron3RendererConfig, Nemotron3UltraRendererConfig
 from renderers.parsing import parse_qwen35
 
 # ---------------------------------------------------------------------------
@@ -72,23 +76,74 @@ def _render_extra_keys(obj: dict[str, Any], handled_keys: set[str]) -> list[str]
     return lines
 
 
+# The Nemotron-3 family ships two chat-template variants. Nano / Super share
+# one (renderer ``Nemotron3Renderer`` / config ``name="nemotron-3"``); Ultra
+# differs in the reasoning-block glue — no ``\n`` around ``</think>`` — and is
+# the ``Nemotron3UltraRenderer`` subclass (``name="nemotron-3-ultra"``). Which
+# variant a checkpoint uses is carried by ``MODEL_RENDERER_MAP``, so the right
+# renderer class is constructed and the variant is encoded by the class itself.
+
+
+def _is_super(tokenizer) -> bool:
+    """Does this checkpoint use the **Super** flavour of the shared Nano/Super
+    template — i.e. the one whose Jinja defines the ``low_effort`` kwarg?
+
+    Nano and Super share one config (``nemotron-3``), so the model name is the
+    only signal that separates them. Detected by substring; unknown / fine-tuned
+    checkpoints default to ``False`` so ``low_effort`` is a no-op there —
+    matching how the Nano template silently ignores it.
+    """
+    return "super" in (getattr(tokenizer, "name_or_path", "") or "").lower()
+
+
 class Nemotron3Renderer:
-    """Deterministic message → token renderer for Nemotron 3 models."""
+    """Deterministic message → token renderer for Nemotron-3 Nano / Super.
+
+    The Ultra variant (distinct ``</think>`` glue) is the
+    :class:`Nemotron3UltraRenderer` subclass below; both are registered under
+    their own discriminator and differ only by the class-level hooks here.
+    """
+
+    # Variant hooks (overridden by ``Nemotron3UltraRenderer``): the default
+    # config to build when none is passed, and whether to use Ultra's
+    # reasoning-block glue.
+    _config_cls: type = Nemotron3RendererConfig
+    _ultra: bool = False
 
     def __init__(
         self,
         tokenizer: PreTrainedTokenizer,
-        *,
-        enable_thinking: bool = True,
-        preserve_all_thinking: bool = False,
-        preserve_thinking_between_tool_calls: bool = False,
+        config: Nemotron3RendererConfig | Nemotron3UltraRendererConfig | None = None,
     ):
         self._tokenizer = tokenizer
-        self._enable_thinking = enable_thinking
-        self._preserve_all_thinking = preserve_all_thinking
-        self._preserve_thinking_between_tool_calls = (
-            preserve_thinking_between_tool_calls
+        cfg = config or type(self)._config_cls()
+        self.config = cfg
+        if not cfg.truncate_history_thinking:
+            implied_thinking_retention = "all"
+        elif not cfg.enable_thinking:
+            implied_thinking_retention = "all"
+        else:
+            implied_thinking_retention = "tool_cycle"
+        self.effective_thinking_retention = resolve_thinking_retention(
+            cfg,
+            implied_thinking_retention,
         )
+
+        # Resolve the per-variant reasoning-effort hint appended to the last
+        # user message. Ultra honours ``medium_effort``; Super honours
+        # ``low_effort``; Nano honours neither. The non-matching kwarg is
+        # silently ignored (empty hint), exactly as ``apply_chat_template``
+        # ignores a template variable the variant's Jinja never defines.
+        if self._ultra:
+            self._effort_hint = (
+                "\n\n{reasoning effort: efficient}"
+                if getattr(cfg, "medium_effort", False)
+                else ""
+            )
+        elif getattr(cfg, "low_effort", False) and _is_super(tokenizer):
+            self._effort_hint = "\n\n{reasoning effort: low}"
+        else:
+            self._effort_hint = ""
 
         # Look up special token IDs from the tokenizer (not hardcoded).
         # <|endoftext|> is optional: Nemotron-3 Nano / Super tokenizers ship
@@ -240,17 +295,45 @@ class Nemotron3Renderer:
 
         tokens: list[int] = []
         indices: list[int] = []
+        sampled: list[bool] = []
+        content_mask: list[bool] = []
 
-        def emit_ids(ids: list[int], msg_idx: int) -> None:
+        def emit_ids(
+            ids: list[int], msg_idx: int, *, is_sampled: bool, is_content: bool
+        ) -> None:
             tokens.extend(ids)
             indices.extend([msg_idx] * len(ids))
+            sampled.extend([is_sampled] * len(ids))
+            content_mask.extend([is_content] * len(ids))
 
-        def emit_special(token_id: int, msg_idx: int) -> None:
+        def emit_special(
+            token_id: int, msg_idx: int, *, is_sampled: bool, is_content: bool
+        ) -> None:
             tokens.append(token_id)
             indices.append(msg_idx)
+            sampled.append(is_sampled)
+            content_mask.append(is_content)
 
-        def emit_text(text: str, msg_idx: int) -> None:
-            emit_ids(self._encode(text), msg_idx)
+        def emit_text(
+            text: str, msg_idx: int, *, is_sampled: bool, is_content: bool
+        ) -> None:
+            emit_ids(
+                self._encode(text),
+                msg_idx,
+                is_sampled=is_sampled,
+                is_content=is_content,
+            )
+
+        def emit_text_segments(
+            segments: list[tuple[str, bool]], msg_idx: int, *, is_sampled: bool
+        ) -> None:
+            for tok_id, is_content in attribute_text_segments(
+                self._tokenizer, segments
+            ):
+                tokens.append(tok_id)
+                indices.append(msg_idx)
+                sampled.append(is_sampled)
+                content_mask.append(is_content)
 
         # ── 1. System message + optional tools ──────────────────────
         first_is_system = messages[0].get("role") == "system"
@@ -259,12 +342,14 @@ class Nemotron3Renderer:
             # Nemotron 3: system prompt BEFORE tools block
             sys_idx = orig_idx(0) if first_is_system else -1
 
-            emit_special(self._im_start, sys_idx)
-            emit_text("system\n", sys_idx)
+            emit_special(self._im_start, sys_idx, is_sampled=False, is_content=False)
 
-            # Build system content: user's system text first, then tools
+            # Build system content: user's system text first, then tools.
+            # The template emits ``system_message`` verbatim (no trim) and
+            # gates the ``\n\n`` separator on its raw length, so keep the
+            # caller's content unstripped.
             if first_is_system:
-                sys_content = self._render_content(messages[0].get("content")).strip()
+                sys_content = self._render_content(messages[0].get("content"))
             else:
                 sys_content = ""
 
@@ -279,38 +364,48 @@ class Nemotron3Renderer:
                 + _TOOLS_INSTRUCTIONS
             )
 
+            # Body = caller's system text only; tools block (header, per-
+            # tool XML, footer, instructions) is scaffold.
+            sys_segments: list[tuple[str, bool]] = [("system\n", False)]
             if sys_content:
-                full_sys = sys_content + "\n\n" + tools_block
-            else:
-                full_sys = tools_block
-
-            emit_text(full_sys, sys_idx)
-            emit_special(self._im_end, sys_idx)
-            emit_text("\n", sys_idx)
+                sys_segments.append((sys_content, True))
+                sys_segments.append(("\n\n", False))
+            sys_segments.append((tools_block, False))
+            emit_text_segments(sys_segments, sys_idx, is_sampled=False)
+            emit_special(self._im_end, sys_idx, is_sampled=False, is_content=False)
+            emit_text("\n", sys_idx, is_sampled=False, is_content=False)
 
         elif first_is_system:
             sys_idx = orig_idx(0)
-            sys_content = self._render_content(messages[0].get("content")).strip()
-            emit_special(self._im_start, sys_idx)
-            emit_text("system\n" + sys_content, sys_idx)
-            emit_special(self._im_end, sys_idx)
-            emit_text("\n", sys_idx)
+            sys_content = self._render_content(messages[0].get("content"))
+            emit_special(self._im_start, sys_idx, is_sampled=False, is_content=False)
+            sys_segments2: list[tuple[str, bool]] = [("system\n", False)]
+            if sys_content:
+                sys_segments2.append((sys_content, True))
+            emit_text_segments(sys_segments2, sys_idx, is_sampled=False)
+            emit_special(self._im_end, sys_idx, is_sampled=False, is_content=False)
+            emit_text("\n", sys_idx, is_sampled=False, is_content=False)
 
-        # Track the most-recent plain (non-tool-call) assistant so we can
-        # preserve its reasoning while stripping reasoning from earlier
-        # assistants — the Nemotron-3 template matches this pattern.
-        last_plain_assistant_idx = -1
+        # All Nemotron-3 variants (Nano / Super / Ultra) truncate historical
+        # thinking on every assistant turn *before the last user message* —
+        # the template rule ``truncate_history_thinking and loop.index0 <
+        # last_user_idx`` is byte-identical across the three chat templates.
+        # Compute the last-user index over the normalized ``messages`` list (a
+        # leading system never holds a user, so the relative comparison is
+        # unaffected).
+        last_user_idx_norm = -1
         for j in range(len(messages) - 1, -1, -1):
-            if messages[j].get("role") == "assistant" and not messages[j].get(
-                "tool_calls"
-            ):
-                last_plain_assistant_idx = j
+            if messages[j].get("role") == "user":
+                last_user_idx_norm = j
                 break
 
         # ── 2. Iterate messages ─────────────────────────────────────
         for i, msg in enumerate(messages):
             role = msg["role"]
-            content = self._render_content(msg.get("content")).strip()
+            # Keep content unstripped: the template emits user / system / tool
+            # content verbatim, and assistant trimming happens inside
+            # ``_assistant_body`` exactly where the template applies it.
+            content = self._render_content(msg.get("content"))
             msg_orig_idx = orig_idx(i)
 
             if role == "system":
@@ -319,28 +414,37 @@ class Nemotron3Renderer:
                 continue  # Already handled above
 
             elif role == "user":
-                emit_special(self._im_start, msg_orig_idx)
-                emit_text("user\n" + content, msg_orig_idx)
-                emit_special(self._im_end, msg_orig_idx)
-                emit_text("\n", msg_orig_idx)
+                emit_special(
+                    self._im_start, msg_orig_idx, is_sampled=False, is_content=False
+                )
+                user_segments: list[tuple[str, bool]] = [("user\n", False)]
+                if content:
+                    user_segments.append((content, True))
+                # Reasoning-effort hint rides on the LAST user message only,
+                # glued to the content so BPE sees them as one chunk (matching
+                # the template's ``content + '\n\n{reasoning effort: …}'``). It
+                # is template scaffold, not caller content → is_content=False.
+                if self._effort_hint and i == last_user_idx_norm:
+                    user_segments.append((self._effort_hint, False))
+                emit_text_segments(user_segments, msg_orig_idx, is_sampled=False)
+                emit_special(
+                    self._im_end, msg_orig_idx, is_sampled=False, is_content=False
+                )
+                emit_text("\n", msg_orig_idx, is_sampled=False, is_content=False)
 
             elif role == "assistant":
-                is_last_turn = i >= last_plain_assistant_idx
-                preserve_thinking = msg_orig_idx >= 0 and should_preserve_past_thinking(
-                    original_messages,
-                    msg_orig_idx,
-                    preserve_all_thinking=self._preserve_all_thinking,
-                    preserve_thinking_between_tool_calls=self._preserve_thinking_between_tool_calls,
+                # Template: ``include_content = not (truncate_history_thinking
+                # and loop.index0 < last_user_idx)``.
+                include_content = (
+                    not self.config.truncate_history_thinking or i >= last_user_idx_norm
                 )
                 self._render_assistant(
                     msg,
                     msg_orig_idx,
                     content,
-                    is_last_turn=is_last_turn,
-                    preserve_thinking=preserve_thinking,
+                    include_content=include_content,
                     emit_special=emit_special,
                     emit_text=emit_text,
-                    emit_ids=emit_ids,
                 )
 
             elif role == "tool":
@@ -352,6 +456,7 @@ class Nemotron3Renderer:
                     auto_system_injected=auto_system_injected,
                     emit_special=emit_special,
                     emit_text=emit_text,
+                    emit_text_segments=emit_text_segments,
                 )
 
             else:
@@ -359,17 +464,24 @@ class Nemotron3Renderer:
 
         # ── 3. Generation prompt ────────────────────────────────────
         if add_generation_prompt:
-            emit_special(self._im_start, -1)
-            emit_text("assistant\n", -1)
-            if self._enable_thinking:
-                emit_special(self._think, -1)
-                emit_text("\n", -1)
+            emit_special(self._im_start, -1, is_sampled=False, is_content=False)
+            emit_text("assistant\n", -1, is_sampled=False, is_content=False)
+            if self.config.enable_thinking:
+                emit_special(self._think, -1, is_sampled=False, is_content=False)
+                emit_text("\n", -1, is_sampled=False, is_content=False)
             else:
                 # Disable-thinking suffix: <think></think> with no trailing newlines
-                emit_special(self._think, -1)
-                emit_special(self._think_end, -1)
+                emit_special(self._think, -1, is_sampled=False, is_content=False)
+                emit_special(self._think_end, -1, is_sampled=False, is_content=False)
 
-        return RenderedTokens(token_ids=tokens, message_indices=indices)
+        return RenderedTokens(
+            token_ids=tokens,
+            message_indices=indices,
+            sampled_mask=sampled,
+            is_content=content_mask,
+            message_roles=[m.get("role") or "" for m in original_messages],
+            message_tool_names=extract_message_tool_names(original_messages),
+        )
 
     def render_ids(
         self,
@@ -384,7 +496,12 @@ class Nemotron3Renderer:
             add_generation_prompt=add_generation_prompt,
         ).token_ids
 
-    def parse_response(self, token_ids: list[int]) -> ParsedResponse:
+    def parse_response(
+        self,
+        token_ids: list[int],
+        *,
+        tools: list[ToolSpec] | None = None,
+    ) -> ParsedResponse:
         stop_ids = {self._im_end}
         if self._endoftext is not None:
             stop_ids.add(self._endoftext)
@@ -396,6 +513,7 @@ class Nemotron3Renderer:
             think_end_id=self._think_end,
             tool_call_id=self._tool_call,
             tool_call_end_id=self._tool_call_end,
+            tools=tools,
         )
 
     def get_stop_token_ids(self) -> list[int]:
@@ -416,6 +534,17 @@ class Nemotron3Renderer:
             not previous_prompt_ids
             or not new_messages
             or reject_assistant_in_extension(new_messages)
+            # An active effort hint rides on the *last* user message. Appending
+            # a new turn can move which user is last, which would strand the
+            # hint on the frozen previous prompt — the append-only bridge can't
+            # rewrite it. Bail so the caller does a full, correct re-render.
+            or self._effort_hint
+        ):
+            return None
+
+        if should_rerender_for_thinking_retention(
+            self.effective_thinking_retention,
+            new_messages,
         ):
             return None
 
@@ -432,26 +561,76 @@ class Nemotron3Renderer:
             return None
 
         ext: list[int] = []
+        ext_indices: list[int] = []
+        ext_sampled: list[bool] = []
+        ext_content: list[bool] = []
 
-        def emit_special(token_id: int, _msg_idx: int = -1) -> None:
+        # Bridge populates ``message_indices`` (relative to ``new_messages``)
+        # and ``sampled_mask`` (uniformly ``False`` — every token the
+        # bridge emits is template scaffolding for the next prompt, not
+        # something the model sampled). ``is_content`` follows the same
+        # rules as in :meth:`render` so consumers can walk the trajectory
+        # and read each step's own body mask.
+        def emit_special(
+            token_id: int,
+            msg_idx: int = -1,
+            *,
+            is_sampled: bool = False,
+            is_content: bool = False,
+        ) -> None:
             ext.append(token_id)
+            ext_indices.append(msg_idx)
+            ext_sampled.append(is_sampled)
+            ext_content.append(is_content)
 
-        def emit_text(text: str, _msg_idx: int = -1) -> None:
-            ext.extend(self._encode(text))
+        def emit_text(
+            text: str,
+            msg_idx: int = -1,
+            *,
+            is_sampled: bool = False,
+            is_content: bool = False,
+        ) -> None:
+            ids = self._encode(text)
+            ext.extend(ids)
+            ext_indices.extend([msg_idx] * len(ids))
+            ext_sampled.extend([is_sampled] * len(ids))
+            ext_content.extend([is_content] * len(ids))
+
+        def emit_text_segments(
+            segments: list[tuple[str, bool]],
+            msg_idx: int = -1,
+            *,
+            is_sampled: bool = False,
+        ) -> None:
+            for tok_id, is_content in attribute_text_segments(
+                self._tokenizer, segments
+            ):
+                ext.append(tok_id)
+                ext_indices.append(msg_idx)
+                ext_sampled.append(is_sampled)
+                ext_content.append(is_content)
 
         emit_text("\n", -1)
 
         for i, msg in enumerate(new_messages):
             role = msg.get("role")
-            content = self._render_content(msg.get("content")).strip()
+            # Unstripped — the template emits user / system / tool content
+            # verbatim (see :meth:`render`).
+            content = self._render_content(msg.get("content"))
             if role == "user":
                 emit_special(self._im_start, i)
-                emit_text("user\n" + content, i)
+                user_segments: list[tuple[str, bool]] = [("user\n", False)]
+                if content:
+                    user_segments.append((content, True))
+                emit_text_segments(user_segments, i)
                 emit_special(self._im_end, i)
                 emit_text("\n", i)
             elif role == "system":
                 emit_special(self._im_start, i)
-                emit_text("system\n" + content, i)
+                sys_segments: list[tuple[str, bool]] = [("system\n", False)]
+                if content:
+                    sys_segments.append((content, True))
+                emit_text_segments(sys_segments, i)
                 emit_special(self._im_end, i)
                 emit_text("\n", i)
             elif role == "tool":
@@ -463,6 +642,7 @@ class Nemotron3Renderer:
                     auto_system_injected=False,
                     emit_special=emit_special,
                     emit_text=emit_text,
+                    emit_text_segments=emit_text_segments,
                 )
             else:
                 return None
@@ -470,14 +650,22 @@ class Nemotron3Renderer:
         # Generation prompt.
         emit_special(self._im_start, -1)
         emit_text("assistant\n", -1)
-        if self._enable_thinking:
+        if self.config.enable_thinking:
             emit_special(self._think, -1)
             emit_text("\n", -1)
         else:
             emit_special(self._think, -1)
             emit_special(self._think_end, -1)
 
-        return RenderedTokens(token_ids=previous_ids + ext)
+        total_len = len(previous_ids) + len(ext)
+        return RenderedTokens(
+            token_ids=previous_ids + ext,
+            message_indices=[-1] * len(previous_ids) + ext_indices,
+            sampled_mask=[False] * total_len,
+            is_content=[False] * len(previous_ids) + ext_content,
+            message_roles=[m.get("role") or "" for m in new_messages],
+            message_tool_names=extract_message_tool_names(new_messages),
+        )
 
     # ------------------------------------------------------------------
     # Assistant message rendering
@@ -489,103 +677,122 @@ class Nemotron3Renderer:
         msg_idx: int,
         content: str,
         *,
-        is_last_turn: bool,
-        preserve_thinking: bool = False,
+        include_content: bool,
         emit_special,
         emit_text,
-        emit_ids,
     ) -> None:
-        # Extract reasoning_content
-        reasoning_content = ""
-        if isinstance(msg.get("reasoning_content"), str):
-            reasoning_content = msg["reasoning_content"]
-        elif "</think>" in content:
-            before_think_end, after_think_end = content.split("</think>", 1)
-            if "<think>" in before_think_end:
-                reasoning_content = before_think_end.split("<think>")[-1].lstrip("\n")
+        # ``<|im_start|>assistant\n`` is template-injected scaffolding —
+        # at inference the chat template emits these as the generation
+        # prompt and the model never samples them. Marking the role tag
+        # as ``is_sampled=False`` keeps the SFT loss mask aligned with
+        # what the model would actually have produced. On assistant the
+        # invariant ``is_content == sampled_mask`` holds.
+        emit_special(self._im_start, msg_idx, is_sampled=False, is_content=False)
+        emit_text("assistant\n", msg_idx, is_sampled=False, is_content=False)
+
+        # Build the body (everything between ``assistant\n`` and ``<|im_end|>``)
+        # as a single string mirroring the chat template's own string algebra,
+        # then tokenise it in one pass. The ``<think>`` / ``</think>`` /
+        # ``<tool_call>`` / ``</tool_call>`` markers are added tokens, so the
+        # tokenizer isolates them — encoding the assembled body yields the same
+        # ids as ``apply_chat_template`` (which likewise encodes a rendered
+        # string). The whole body is sampled content; ``<|im_end|>`` is the
+        # model's stop signal (sampled), and the inter-turn ``\n`` is not.
+        body = self._assistant_body(msg, content, include_content=include_content)
+        if body:
+            emit_text(body, msg_idx, is_sampled=True, is_content=True)
+        emit_special(self._im_end, msg_idx, is_sampled=True, is_content=True)
+        emit_text("\n", msg_idx, is_sampled=False, is_content=False)
+
+    def _assistant_body(
+        self, msg: Message, raw_content: str, *, include_content: bool
+    ) -> str:
+        """Assemble the assistant body string exactly as the chat template.
+
+        ``include_content`` is the template's ``not (truncate_history_thinking
+        and loop.index0 < last_user_idx)`` (already OR-ed with the
+        ``thinking_retention`` override by the caller): ``True`` keeps the
+        full think+content block,
+        ``False`` collapses historical thinking to an empty ``<think></think>``.
+        """
+        ultra = self._ultra
+
+        # 1. Assemble ``content`` — wrap a ``reasoning_content`` field in
+        #    <think> tags (raw, not stripped: interior whitespace is part of
+        #    the reasoning), else prepend an empty <think></think> only when
+        #    the content carries no inline think tags of its own (which are
+        #    passed through verbatim, like the template).
+        reasoning = msg.get("reasoning_content")
+        if isinstance(reasoning, str) and reasoning.strip():
+            if ultra:
+                content = "<think>\n" + reasoning + "</think>" + raw_content
             else:
-                reasoning_content = before_think_end.lstrip("\n")
-            reasoning_content = reasoning_content.rstrip("\n")
-            content = after_think_end.lstrip("\n")
-
-        reasoning_content = reasoning_content.strip()
-
-        emit_special(self._im_start, msg_idx)
-        emit_text("assistant\n", msg_idx)
-
-        # Nemotron 3 keeps reasoning on the most-recent plain assistant but
-        # strips it from historical turns, which collapse to an empty
-        # <think></think> block. Empty <think></think> is also emitted when
-        # the turn has no reasoning at all. The trailing ``\n`` (when
-        # tool_calls follow) is glued to ``content`` in a single emit_text
-        # so BPE sees ``content\n`` as one chunk, matching how
-        # apply_chat_template tokenises the concatenated template string.
-        tool_calls = msg.get("tool_calls") or []
-        # A \n is always required between the text/think block and the first
-        # <tool_call>, whether the content is empty or not.
-        content_suffix = "\n" if tool_calls else ""
-
-        if reasoning_content and (is_last_turn or preserve_thinking):
-            emit_special(self._think, msg_idx)
-            emit_text("\n" + reasoning_content + "\n", msg_idx)
-            emit_special(self._think_end, msg_idx)
-            # Single \n separator (not \n\n like Qwen3.5)
-            emit_text("\n" + content + content_suffix, msg_idx)
-        elif reasoning_content:
-            # Historical assistant whose reasoning got stripped — template
-            # keeps a single \n between the collapsed <think></think> and
-            # the content as a marker that reasoning existed.
-            emit_special(self._think, msg_idx)
-            emit_special(self._think_end, msg_idx)
-            emit_text("\n" + content + content_suffix, msg_idx)
+                content = "<think>\n" + reasoning + "\n</think>\n" + raw_content
         else:
-            # No reasoning ever — <think></think> glued directly to content.
-            emit_special(self._think, msg_idx)
-            emit_special(self._think_end, msg_idx)
-            emit_text(content + content_suffix, msg_idx)
+            content = raw_content
+            if "<think>" not in content and "</think>" not in content:
+                content = "<think></think>" + content
 
-        # Tool calls (leading \n was glued to the content above; each
-        # iteration's trailing \n after </tool_call> handles the
-        # separator to the next block).
+        tool_calls = msg.get("tool_calls") or []
+
         if tool_calls:
-            for tc_idx, tc in enumerate(tool_calls):
-                func = tc.get("function") or tc
-                name = func.get("name", "")
-                arguments = func.get("arguments", {})
+            parts: list[str] = []
+            if content.strip():
+                if include_content:
+                    parts.append(content.strip() + "\n")
+                else:
+                    # Drop historical thinking: keep only what follows the last
+                    # </think> (or precedes a dangling <think>), then re-stamp
+                    # an empty block. Nano/Super trim the remainder; Ultra glues
+                    # it raw (its template omits the trailing ``| trim``).
+                    c = content
+                    if "</think>" in c:
+                        c = c.split("</think>")[-1]
+                    elif "<think>" in c:
+                        c = c.split("<think>")[0]
+                    c = "<think></think>" + (c if ultra else c.strip())
+                    if c:
+                        parts.append(c + "\n")
+            else:
+                # Non-string / empty content: bare collapsed think block, no \n.
+                parts.append("<think></think>")
+            for tc in tool_calls:
+                parts.append(self._format_tool_call(tc))
+            return "".join(parts)
 
-                emit_special(self._tool_call, msg_idx)
-                emit_text("\n<function=" + name + ">\n", msg_idx)
+        # No tool calls.
+        if include_content:
+            return content.strip()
+        c = content
+        if "<think>" in c and "</think>" in c:
+            c = "<think></think>" + c.split("</think>")[-1]
+        return c.strip()
 
-                # Render arguments
-                # OpenAI canonical form: arguments is a JSON string. Parse it so the
-                # per-argument rendering below still works.
-                if isinstance(arguments, str):
-                    try:
-                        arguments = json.loads(arguments)
-                    except json.JSONDecodeError:
-                        arguments = {}
-                if isinstance(arguments, dict):
-                    for arg_name, arg_value in arguments.items():
-                        if isinstance(arg_value, (dict, list)):
-                            value_str = json.dumps(arg_value, ensure_ascii=False)
-                        else:
-                            value_str = str(arg_value)
-                        emit_text(
-                            "<parameter="
-                            + arg_name
-                            + ">\n"
-                            + value_str
-                            + "\n</parameter>\n",
-                            msg_idx,
-                        )
-
-                emit_text("</function>\n", msg_idx)
-                emit_special(self._tool_call_end, msg_idx)
-                # Trailing \n after </tool_call> (Nemotron 3 specific)
-                emit_text("\n", msg_idx)
-
-        emit_special(self._im_end, msg_idx)
-        emit_text("\n", msg_idx)
+    @staticmethod
+    def _format_tool_call(tc: dict[str, Any]) -> str:
+        """Render one tool call as ``<tool_call>…</tool_call>\\n`` XML."""
+        func = tc.get("function") or tc
+        name = func.get("name", "")
+        arguments = func.get("arguments", {})
+        # OpenAI canonical form: arguments is a JSON string. Parse it so the
+        # per-argument rendering below still works.
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError:
+                arguments = {}
+        parts = ["<tool_call>\n<function=" + name + ">\n"]
+        if isinstance(arguments, dict):
+            for arg_name, arg_value in arguments.items():
+                if isinstance(arg_value, (dict, list)):
+                    value_str = json.dumps(arg_value, ensure_ascii=False)
+                else:
+                    value_str = str(arg_value)
+                parts.append(
+                    "<parameter=" + arg_name + ">\n" + value_str + "\n</parameter>\n"
+                )
+        parts.append("</function>\n</tool_call>\n")
+        return "".join(parts)
 
     # ------------------------------------------------------------------
     # Tool message rendering
@@ -601,8 +808,13 @@ class Nemotron3Renderer:
         auto_system_injected: bool,
         emit_special,
         emit_text,
+        emit_text_segments,
     ) -> None:
-        # Consecutive tool messages are grouped under a single <|im_start|>user block
+        # Tool messages are conversation history injected by the runtime
+        # between assistant turns — the model never samples any of these
+        # tokens, so every emission is is_sampled=False. The ``content``
+        # body bytes get ``is_content=True``; the surrounding wrap is
+        # scaffold.
         prev_is_tool = msg_idx > 0 and messages[msg_idx - 1]["role"] == "tool"
         next_is_tool = (
             msg_idx + 1 < len(messages) and messages[msg_idx + 1]["role"] == "tool"
@@ -610,17 +822,33 @@ class Nemotron3Renderer:
         oi = msg_orig_idx
 
         if not prev_is_tool:
-            emit_special(self._im_start, oi)
-            emit_text("user\n", oi)
+            emit_special(self._im_start, oi, is_sampled=False, is_content=False)
+            emit_text("user\n", oi, is_sampled=False, is_content=False)
         # else: the previous tool's trailing \n already provides the
         # separator into this block.
 
-        emit_special(self._tool_response, oi)
-        emit_text("\n" + content + "\n", oi)
-        emit_special(self._tool_response_end, oi)
+        emit_special(self._tool_response, oi, is_sampled=False, is_content=False)
+        emit_text_segments(
+            [("\n", False), (content, True), ("\n", False)], oi, is_sampled=False
+        )
+        emit_special(self._tool_response_end, oi, is_sampled=False, is_content=False)
         # Nemotron 3: trailing \n after </tool_response>
-        emit_text("\n", oi)
+        emit_text("\n", oi, is_sampled=False, is_content=False)
 
         if not next_is_tool:
-            emit_special(self._im_end, oi)
-            emit_text("\n", oi)
+            emit_special(self._im_end, oi, is_sampled=False, is_content=False)
+            emit_text("\n", oi, is_sampled=False, is_content=False)
+
+
+class Nemotron3UltraRenderer(Nemotron3Renderer):
+    """Renderer for Nemotron-3 **Ultra**.
+
+    Identical to :class:`Nemotron3Renderer` except the reasoning block is glued
+    as ``<think>\\n{reasoning}</think>{content}`` (no ``\\n`` around
+    ``</think>``) and truncated historical turns collapse to
+    ``<think></think>{content}`` (no ``\\n``) — the difference is carried by the
+    ``_ultra`` class hook. Honours the Ultra-only ``medium_effort`` kwarg.
+    """
+
+    _config_cls = Nemotron3UltraRendererConfig
+    _ultra = True

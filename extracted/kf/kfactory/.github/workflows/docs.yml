@@ -23,10 +23,19 @@ jobs:
         shell: bash -l {0}
         run: |
           DEBIAN_FRONTEND=noninteractive sudo apt install graphviz graphviz-dev
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
       - uses: extractions/setup-just@v4
-      - name: Test coverage
+      - name: Cache executed notebooks
+        uses: actions/cache@v6
+        with:
+          path: |
+            docs/.build-cache
+            docs/source-built
+          key: docs-source-built-${{ matrix.python-version }}-${{ hashFiles('docs/source/**/*.py', 'docs/source/**/*.md', 'src/kfactory/**/*.py', 'docs/scripts/build_docs_source.py') }}
+          restore-keys: |
+            docs-source-built-${{ matrix.python-version }}-
+      - name: Build docs
         run: just docs

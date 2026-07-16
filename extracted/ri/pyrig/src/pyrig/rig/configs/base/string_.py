@@ -16,13 +16,21 @@ class StringConfigFile(ListConfigFile):
     """
 
     @abstractmethod
-    def lines(self) -> list[str]:
-        """Return the lines that must be present in the file.
+    def content(self) -> str:
+        """Return the text that must be present in the file.
 
         Returns:
-            Required lines, checked via substring matching rather than
-            exact line equality.
+            Required text, checked via substring matching rather than
+            exact content equality.
         """
+
+    def lines(self) -> list[str]:
+        """Return the required content split into individual lines.
+
+        Returns:
+            The result of splitting `content()` into lines.
+        """
+        return self.split_lines(self.content())
 
     def _configs(self) -> list[str]:
         """Return the required lines."""
@@ -50,7 +58,8 @@ class StringConfigFile(ListConfigFile):
             `True` if every required line is present in the file.
         """
         return self.all_lines_in_content(
-            lines=self.configs(), content=self.read_content()
+            lines=self.configs(),
+            content=self.read_content(),
         )
 
     def all_lines_in_content(self, lines: Iterable[str], content: str) -> bool:

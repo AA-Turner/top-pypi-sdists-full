@@ -33,7 +33,9 @@ from .consts import MAX_STACK_VAR_SIZE
 from .traversal_state import TraversalState, Value, has_conflicting_value_types
 
 if TYPE_CHECKING:
+    from angr.analyses.decompiler import VariableMap
     from angr.analyses.decompiler.ssailification.ssailification import Def, Kind
+    from angr.calling_conventions import SimCC
     from angr.project import Project
 
 CUTOFF = 15  # arbitrary; be mindful of performance as various parts will be O(N^2)
@@ -94,10 +96,11 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
         self.stackvars = stackvars
         self.use_tmps = use_tmps
         self.functions = functions
-        self.variable_map = variable_map
+        self.variable_map: VariableMap | None = variable_map
         self.def_info: dict[Def, DefInfo] = {}
+        # stack offset -> code location, StackBaseOffset expr, set of (offset, size) tuples, required, no_reaching_def
         self.pending_ptr_defines_nonlocal: dict[
-            int, tuple[AILCodeLocation, StackBaseOffset, set[tuple[int, int]], bool]
+            int, tuple[AILCodeLocation, StackBaseOffset, set[tuple[int, int]], bool, bool]
         ] = {}
         # the state which skipped the last few statements; the state that breaks the loop
         self.hclb_side_exit_state: TraversalState | None = None
@@ -113,12 +116,21 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
         for k, lst in self.state.pending_ptr_defines.items():
             v1, v2 = lst[0]
             if k not in self.pending_ptr_defines_nonlocal:
-                self.pending_ptr_defines_nonlocal[k] = (v1, v2, set(), k not in self.state.live_stackvars)
+                # make sure the pending pointer def has a definition of its own
+                no_reaching_def = k not in self.state.stackvar_defs
+                required = k not in self.state.live_stackvars or no_reaching_def
+                self.pending_ptr_defines_nonlocal[k] = v1, v2, set(), required, no_reaching_def
                 self.state.pending_ptr_defines_nonlocal_live.add(k)
         self.state.pending_ptr_defines.clear()  # just in case
 
     def finalize(self):
-        for stack_offset, (loc, def_, suggestions, required) in self.pending_ptr_defines_nonlocal.items():
+        for stack_offset, (
+            loc,
+            def_,
+            suggestions,
+            required,
+            no_reaching_def,
+        ) in self.pending_ptr_defines_nonlocal.items():
             if not required:
                 continue
             full_offset, full_endoffset = stack_offset, stack_offset + 1
@@ -134,7 +146,7 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
                 full_endoffset - full_offset,
                 stack_offset,
                 0,
-                loc,
+                AILCodeLocation.make_extern(0) if no_reaching_def else loc,
             )
 
         # sketchy situation. we want to make sure everything in the extern set
@@ -380,7 +392,7 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
             for suboff in range(offset, end_offset):
                 self.state.stackvar_defs[suboff] = def_as
 
-    def register_get(self, offset: int, size: int, def_: Def) -> Value:
+    def register_get(self, offset: int, size: int, def_: Def | None) -> Value:
         full_offset, full_size, popped = self.state.register_unify(offset, size)
 
         secret_stash: defaultdict[int, set[Def]] = defaultdict(set)
@@ -408,8 +420,10 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
                 break
 
         defs: set[Def] = set().union(*secret_stash.values())
+        blacked_out = full_offset in self.state.register_blackout
         def_as = None
-        if not defs or full_offset in self.state.register_blackout:
+        if not defs or blacked_out:
+            assert def_ is not None, "register_get() requires def_, but no definition reaches this point"
             self.perform_def(
                 "reg",
                 def_,
@@ -417,10 +431,11 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
                 full_size,
                 offset,
                 size,
-                AILCodeLocation.make_extern(0) if full_offset not in self.state.register_blackout else None,
+                AILCodeLocation.make_extern(0) if not blacked_out else None,
             )
             def_as = {def_}
-            self.state.register_blackout.discard(full_offset)
+            for suboff in range(full_offset, full_offset + full_size):
+                self.state.register_blackout.discard(suboff)
         else:
             def_as = defs
 
@@ -440,9 +455,9 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
         for suboff in range(offset, offset + size):
             self.state.register_defs.pop(suboff, None)
             self.state.register_bases[suboff] = (offset, size)
+            self.state.register_blackout.discard(suboff)
 
         self.perform_def("reg", def_, offset, size, offset, size)
-        self.state.register_blackout.discard(offset)
 
         for suboff in range(offset, offset + size):
             self.state.register_defs[suboff] = {def_}
@@ -574,6 +589,8 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
                 self._expr(argexpr)
 
         # kill caller-saved registers
+
+        # determine the calling convention of the call
         expr_cc = self.variable_map.calling_convention(expr) if self.variable_map is not None else None
         if expr_cc is not None:
             cc = expr_cc
@@ -584,20 +601,48 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
             assert cc is not None
             cc = cc(self.arch)
 
+        # Conservative argument-register uses.
+        # When we are not sure about the exact number of arguments that this call takes, assume every argument register
+        # is potentially used by the call.
+        if not isinstance(expr.target, str) and (
+            (proto is None and expr.args is None)
+            or (proto is not None and proto.variadic and (expr.args is None or len(expr.args) <= len(proto.args)))
+        ):
+            self._use_potential_arg_regs(cc)
+
+        # kill caller-saved registers
         for reg_name in call_clobbered_regs(cc, target, self.arch):
             reg_offset, _ = self.arch.registers[reg_name]
             base_off, base_size = get_reg_offset_base_and_size(reg_offset, self.arch)
             self.state.live_registers.pop(base_off, None)
-            self.state.register_blackout.add(base_off)
             for suboff in range(base_off, base_off + base_size):
+                self.state.register_blackout.add(suboff)
                 self.state.register_defs.pop(suboff, None)
         for reg in cc.arch.vex_cc_regs or []:
             self.state.live_registers.pop(reg.vex_offset, None)
-            self.state.register_blackout.add(reg.vex_offset)
             for suboff in range(reg.vex_offset, reg.vex_offset + reg.size):
+                self.state.register_blackout.add(suboff)
                 self.state.register_defs.pop(suboff, None)
 
         return set()
+
+    def _use_potential_arg_regs(self, cc: SimCC) -> None:
+        """
+        Record a conservative set of argument registers as used by the call when we are not sure about the exact
+        function prototype.
+        """
+        for reg_name in chain(cc.ARG_REGS or [], cc.FP_ARG_REGS or []):
+            if reg_name not in self.arch.registers:
+                continue
+            reg_offset, reg_size = self.arch.registers[reg_name]
+            base_off, _ = get_reg_offset_base_and_size(reg_offset, self.arch)
+            if base_off in self.state.register_blackout:
+                # the register was clobbered by a preceding call; no definition can reach here
+                continue
+            if not any(suboff in self.state.register_defs for suboff in range(reg_offset, reg_offset + reg_size)):
+                # no definition of this register reaches this call site; do not synthesize an extern definition
+                continue
+            self.register_get(reg_offset, reg_size, None)
 
     def _handle_stmt_Dummy(self, stmt):
         pass

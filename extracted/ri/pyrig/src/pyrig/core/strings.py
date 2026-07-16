@@ -3,39 +3,22 @@
 import re
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 UTF_8_ENCODING = "utf-8"
 
 
-def file_has_content(path: Path) -> bool:
-    """Check whether a file has non-empty content.
-
-    Args:
-        path: Path to the file to check.
-
-    Returns:
-        `True` if the file has non-empty content; `False` if the file is
-        empty (zero bytes).
-
-    Raises:
-        FileNotFoundError: If the file does not exist.
-    """
-    return path.stat().st_size > 0
-
-
-def open_path_with_utf8(path: Path, *args: Any, **kwargs: Any) -> Any:
+def open_path_with_utf8(path: Path, *, mode: str = "r") -> IO[Any]:
     """Open a file with UTF-8 encoding.
 
     Args:
         path: Path to the file to open.
-        *args: Additional positional arguments for opening the file.
-        **kwargs: Additional keyword arguments for opening the file.
+        mode: Mode in which to open the file (default is `"r"` for reading).
 
     Returns:
         The opened file object.
     """
-    return path.open(*args, encoding=UTF_8_ENCODING, **kwargs)
+    return path.open(mode=mode, encoding=UTF_8_ENCODING, newline="\n")
 
 
 def read_text_utf8(path: Path) -> str:
@@ -59,6 +42,18 @@ def write_text_utf8(path: Path, content: str) -> int:
 def fstring_var_name(fstring: str) -> str:
     """Extract the variable name from the output of a debug f-string expression."""
     return fstring.split("=", maxsplit=1)[0].strip()
+
+
+def is_multiline(string: str) -> bool:
+    """Check if a string contains one or more newline characters.
+
+    Args:
+        string: The string to check.
+
+    Returns:
+        `True` if the string contains at least one newline character; `False` otherwise.
+    """
+    return "\n" in string
 
 
 def make_linked_badge_markdown(

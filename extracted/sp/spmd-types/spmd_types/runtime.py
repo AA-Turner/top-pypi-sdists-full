@@ -57,6 +57,7 @@ from spmd_types.types import (
     PerMeshAxisSpmdTypes,
     Shard,
     shard_types_to_partition_spec,
+    SpmdType,
     SpmdTypeError,
     to_local_type,
     V,
@@ -290,7 +291,7 @@ _TensorOrSequence = torch.Tensor | list[torch.Tensor] | tuple[torch.Tensor, ...]
 @api_boundary
 def assert_type(  # noqa: C901
     tensor: _TensorOrSequence,
-    type: PerMeshAxisSpmdTypes | PerMeshAxisLocalSpmdType,
+    type: SpmdType | PerMeshAxisSpmdTypes | PerMeshAxisLocalSpmdType,
     partition_spec: PartitionSpec | None = None,
 ) -> _TensorOrSequence:
     """Assert or set the SPMD type on a tensor or sequence of tensors.
@@ -349,8 +350,8 @@ def assert_type(  # noqa: C901
     - PartitionSpec ordering matters: (tp, dp) != (dp, tp).
 
     Args:
-        tensor: The tensor to assert or set SPMD type on. type: A dict mapping
-        mesh axes to per-axis SPMD types.
+        tensor: The tensor to assert or set SPMD type on.
+        type: A dict mapping mesh axes to per-axis SPMD types.
             Accepts R, I, V, P, or S(i). S(i) entries are syntax sugar for
             setting V on the axis and storing a PartitionSpec that maps tensor
             dim ``i`` to that mesh axis.
@@ -375,6 +376,18 @@ def assert_type(  # noqa: C901
             "operates on local tensors only; DTensor tracks its own "
             "placement metadata."
         )
+
+    ############ Expand SpmdType ############
+    if isinstance(type, SpmdType):
+        if partition_spec is not None:
+            raise TypeError(
+                "assert_type() cannot take both a SpmdType and a separate "
+                "partition_spec."
+            )
+        # ``local_type`` may still hold S(dim) entries (deferred construction);
+        # the canonicalization below resolves them against ``tensor.ndim``.
+        partition_spec = type.partition_spec
+        type = type.local_type
 
     ############ Expand bare PerMeshAxisLocalSpmdType ############
     if isinstance(type, PerMeshAxisLocalSpmdType):
@@ -551,6 +564,21 @@ def assert_type_like(
     one axis changes::
 
         assert_type_like(out, x, {mesh.CP: R})
+    """
+    full_type = {**get_local_type(source), **(overrides or {})}
+    assert_type(tensor, full_type, get_partition_spec(source))
+
+
+def assert_local_type_like(
+    tensor: torch.Tensor,
+    source: torch.Tensor,
+    overrides: dict[MeshAxis, LocalSpmdType] | None = None,
+) -> None:
+    """Like ``assert_type_like`` but copies only the per-axis local types.
+
+    Unlike ``assert_type_like``, the source's global ``PartitionSpec`` is not
+    propagated -- use this when only the local SPMD types should be carried
+    over and the result is not (or not yet) globally sharded.
     """
     full_type = {**get_local_type(source), **(overrides or {})}
     assert_type(tensor, full_type)

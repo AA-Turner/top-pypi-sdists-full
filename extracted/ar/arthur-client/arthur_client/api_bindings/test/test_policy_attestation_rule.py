@@ -41,7 +41,10 @@ class TestPolicyAttestationRule(unittest.TestCase):
                 policy_id = '',
                 name = '',
                 description = '',
-                validity_period_days = 56
+                validity_period_days = 56,
+                permissions = arthur_client.api_bindings.models.resource_permissions.ResourcePermissions(
+                    can_update = True, 
+                    can_delete = True, )
             )
         else:
             return PolicyAttestationRule(

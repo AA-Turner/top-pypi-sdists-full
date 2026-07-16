@@ -158,7 +158,20 @@ def has_unoptimized_join(sql: str, left_table: Optional[Union[Tuple[str, str], T
             raise UnoptimizedJoinException(sql)
 
 
-def format_where_for_mutation_command(where_clause: str, lightweight: bool = False) -> str:
+def _format_fragment_for_mutation_command(fragment: str) -> str:
+    """Normalize a SQL fragment the way CH stores it in the
+    `system.mutations.command` column: format the expression with CH's own
+    formatter, then escape it as it appears inside the serialized command
+    (string literals keep backslash-escaped quotes)."""
+    formatted = chquery.format(f"""SELECT {fragment}""").split("SELECT ")[1]
+    formatted = formatted.replace("\\", "\\\\").replace("'", "''")
+    quoted = chquery.format(f"SELECT '{formatted}'").split("SELECT ")[1]
+    return quoted[1:-1]
+
+
+def format_where_for_mutation_command(
+    where_clause: str, lightweight: bool = False, partition: Optional[str] = None
+) -> str:
     """
     >>> format_where_for_mutation_command("numnights = 99")
     'DELETE WHERE numnights = 99'
@@ -172,12 +185,18 @@ def format_where_for_mutation_command(where_clause: str, lightweight: bool = Fal
     "DELETE WHERE reservationid = \\\\'\\\\\\\\\\\\'foo\\\\'"
     >>> format_where_for_mutation_command("number < 3", lightweight=True)
     'UPDATE _row_exists = 0 WHERE number < 3'
+    >>> format_where_for_mutation_command("number < 3", lightweight=True, partition="201901")
+    'UPDATE _row_exists = 0 IN PARTITION 201901 WHERE number < 3'
+    >>> format_where_for_mutation_command("number < 3", lightweight=True, partition="'2019-01-01'")
+    "UPDATE _row_exists = 0 IN PARTITION \\\\'2019-01-01\\\\' WHERE number < 3"
     """
-    formatted_condition = chquery.format(f"""SELECT {where_clause}""").split("SELECT ")[1]
-    formatted_condition = formatted_condition.replace("\\", "\\\\").replace("'", "''")
-    quoted_condition = chquery.format(f"SELECT '{formatted_condition}'").split("SELECT ")[1]
-    prefix = "UPDATE _row_exists = 0 WHERE" if lightweight else "DELETE WHERE"
-    return f"{prefix} {quoted_condition[1:-1]}"
+    quoted_condition = _format_fragment_for_mutation_command(where_clause)
+    prefix = "UPDATE _row_exists = 0" if lightweight else "DELETE"
+    # Partition-scoped mutations store the partition expression in the
+    # command (`… IN PARTITION <expr> WHERE <cond>`), normalized by the same
+    # CH formatter, so it must be part of the match.
+    partition_clause = f" IN PARTITION {_format_fragment_for_mutation_command(partition)}" if partition else ""
+    return f"{prefix}{partition_clause} WHERE {quoted_condition}"
 
 
 # Functions that take table/dictionary names as string literal arguments.

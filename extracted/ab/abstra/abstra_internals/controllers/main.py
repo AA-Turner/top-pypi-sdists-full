@@ -59,6 +59,7 @@ from abstra_internals.repositories.execution_logs import (
 )
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.repositories.keyvalue import KVRepository
+from abstra_internals.repositories.linter.models import deploy_gate_message
 from abstra_internals.repositories.passwordless import PasswordlessRepository
 from abstra_internals.repositories.producer import ProducerRepository
 from abstra_internals.repositories.project.project import (
@@ -194,9 +195,7 @@ class MainController:
         LinterEventController.broadcast(self.linter_repository.checks)
 
         if len(issues) > 0:
-            raise Exception(
-                "Please fix all linter issues before deploying your project."
-            )
+            raise Exception(deploy_gate_message(issues))
 
         deploy_without_git(show_start_message=False)
 
@@ -1596,7 +1595,8 @@ class MainController:
                 - enabled (bool): Enable/disable flag
 
             **JobStage properties:**
-                - schedule (str): Cron expression (e.g., "0 9 * * *")
+                - schedule (str): Cron expression, evaluated in UTC once deployed
+                  (e.g., "0 9 * * *" runs daily at 09:00 UTC)
 
         Example:
             ```python

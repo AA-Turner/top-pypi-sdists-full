@@ -13,7 +13,7 @@ pub mod workspaces;
 
 use models::{
     CreateRepoRequest, GitCredential, ListBranchesResponse, ListOperationsResponse,
-    ListRefsResponse, ListReposResponse, MintGitTokenRequest, RepoInfo,
+    ListRefsResponse, ListReposResponse, MintGitTokenRequest, RepoInfo, RepoMetaInfo,
 };
 
 #[derive(Clone)]
@@ -117,11 +117,25 @@ impl ArtifactStorageClient {
         repo: &str,
         default_branch: Option<&str>,
     ) -> Result<Traced<()>, SdkError> {
+        self.create_repo_of_kind(project_id, repo, default_branch, None)
+            .await
+    }
+
+    /// Create a repo of an explicit kind ("repository" | "filesystem"). `None` omits the field
+    /// entirely, which pre-kind servers require.
+    pub async fn create_repo_of_kind(
+        &self,
+        project_id: &str,
+        repo: &str,
+        default_branch: Option<&str>,
+        kind: Option<&str>,
+    ) -> Result<Traced<()>, SdkError> {
         let credential = self.git_credential_for_project(project_id).await?;
         self.create_repo_with_credential(
             project_id,
             repo,
             default_branch,
+            kind,
             &credential.git_username,
             &credential.token,
         )
@@ -133,11 +147,13 @@ impl ArtifactStorageClient {
         project_id: &str,
         repo: &str,
         default_branch: Option<&str>,
+        kind: Option<&str>,
         git_username: &str,
         git_token: &str,
     ) -> Result<Traced<()>, SdkError> {
         let request = CreateRepoRequest {
             default_branch: default_branch.unwrap_or("main").to_string(),
+            kind: kind.map(str::to_string),
         };
         let (request_builder, trace_id) = self.git_request(
             Method::POST,
@@ -190,7 +206,9 @@ impl ArtifactStorageClient {
     }
 
     pub async fn delete_repo(&self, project_id: &str, repo: &str) -> Result<Traced<()>, SdkError> {
-        let credential = self.git_credential_for_repo(project_id, repo).await?;
+        // Structural repo management needs the `repo:write` scope, which repo-scoped mints
+        // deliberately omit — mint project-wide, like `create_repo`/`fork_repo`.
+        let credential = self.git_credential_for_project(project_id).await?;
         self.delete_repo_with_credential(
             project_id,
             repo,
@@ -233,7 +251,8 @@ impl ArtifactStorageClient {
         repo: &str,
         status: &str,
     ) -> Result<Traced<()>, SdkError> {
-        let credential = self.git_credential_for_repo(project_id, repo).await?;
+        // Archive/restore is structural (`repo:write`), which repo-scoped mints omit.
+        let credential = self.git_credential_for_project(project_id).await?;
         self.set_repo_status_with_credential(
             project_id,
             repo,
@@ -269,23 +288,63 @@ impl ArtifactStorageClient {
         &self,
         project_id: &str,
     ) -> Result<Traced<ListReposResponse>, SdkError> {
+        self.list_repos_of_kind(project_id, None).await
+    }
+
+    /// List repos restricted to one kind ("repository" | "filesystem"). `None` lists all kinds
+    /// and sends no filter, which pre-kind servers require.
+    pub async fn list_repos_of_kind(
+        &self,
+        project_id: &str,
+        kind: Option<&str>,
+    ) -> Result<Traced<ListReposResponse>, SdkError> {
         let credential = self.git_credential_for_project(project_id).await?;
-        self.list_repos_with_credential(project_id, &credential.git_username, &credential.token)
-            .await
+        self.list_repos_with_credential(
+            project_id,
+            kind,
+            &credential.git_username,
+            &credential.token,
+        )
+        .await
     }
 
     pub async fn list_repos_with_credential(
         &self,
         project_id: &str,
+        kind: Option<&str>,
         git_username: &str,
         git_token: &str,
     ) -> Result<Traced<ListReposResponse>, SdkError> {
-        let url = format!(
+        let mut url = format!(
             "{}/project/{}/repos",
             self.git_base_url,
             encode_path_segment(project_id)
         );
+        if let Some(kind) = kind {
+            url.push_str(&format!("?kind={}", urlencoding::encode(kind)));
+        }
         let (request, trace_id) = self.git_request_url(Method::GET, url, git_username, git_token);
+        let response = request.send().await?;
+        decode_json(response, trace_id).await
+    }
+
+    /// Authoritative point-read of one repo's meta (kind, default branch, status). 404 =>
+    /// SdkError::ServerError with status 404.
+    pub async fn repo_meta_with_credential(
+        &self,
+        project_id: &str,
+        repo: &str,
+        git_username: &str,
+        git_token: &str,
+    ) -> Result<Traced<RepoMetaInfo>, SdkError> {
+        let (request, trace_id) = self.git_request(
+            Method::GET,
+            project_id,
+            repo,
+            Some("meta"),
+            git_username,
+            git_token,
+        )?;
         let response = request.send().await?;
         decode_json(response, trace_id).await
     }
@@ -455,7 +514,8 @@ impl ArtifactStorageClient {
         project_id: &str,
         repo: &str,
     ) -> Result<Traced<ListOperationsResponse>, SdkError> {
-        let credential = self.git_credential_for_repo(project_id, repo).await?;
+        // The operation log is `project:admin`-gated, which repo-scoped mints omit.
+        let credential = self.git_credential_for_project(project_id).await?;
         self.list_operations_with_credential(
             project_id,
             repo,
@@ -485,6 +545,25 @@ impl ArtifactStorageClient {
             None => base,
         };
         Ok(self.git_request_url(method, path, git_username, git_token))
+    }
+
+    /// A project-scope request (`/project/{project}/{suffix}`) with a git credential —
+    /// the URL shape for endpoints that span repos, like the workspace fleet.
+    fn project_git_request(
+        &self,
+        method: Method,
+        project_id: &str,
+        suffix: &str,
+        git_username: &str,
+        git_token: &str,
+    ) -> (reqwest::RequestBuilder, String) {
+        let url = format!(
+            "{}/project/{}/{}",
+            self.git_base_url,
+            encode_path_segment(project_id),
+            suffix
+        );
+        self.git_request_url(method, url, git_username, git_token)
     }
 
     fn git_request_url(

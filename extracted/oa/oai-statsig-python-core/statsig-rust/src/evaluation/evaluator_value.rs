@@ -1,5 +1,8 @@
 use fancy_regex::Regex as FancyRegex;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    ser::{SerializeMap, SerializeSeq},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 use serde_json::{
     value::{to_raw_value, RawValue},
     Value as JsonValue, Value,
@@ -7,7 +10,14 @@ use serde_json::{
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use crate::{
-    interned_string::InternedString, interned_values::InternedStore, log_e, unwrap_or_return,
+    evaluation::evaluation_data::InternedStrRef,
+    hashing,
+    interned_string::InternedString,
+    interned_values::{
+        mmap_data_v2::{ArchivedMmapEvaluatorValue, ArchivedMmapEvaluatorValueType},
+        InternedStore,
+    },
+    log_e,
     value_parsing::try_parse_timestamp,
 };
 use crate::{user::user_value::UserValueRef, DynamicValue};
@@ -23,10 +33,37 @@ lazy_static::lazy_static! {
 
 const TAG: &str = "EvaluatorValue";
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[non_exhaustive]
 pub enum EvaluatorValueInner {
     Pointer(Arc<MemoizedEvaluatorValue>),
     Static(&'static MemoizedEvaluatorValue),
+    Mmap(MmapEvaluatorValueHandle),
+}
+
+#[derive(Clone, Copy)]
+pub struct MmapEvaluatorValueHandle {
+    value: &'static ArchivedMmapEvaluatorValue,
+    regex: Option<&'static FancyRegex>,
+}
+
+impl MmapEvaluatorValueHandle {
+    pub(crate) fn new(
+        value: &'static ArchivedMmapEvaluatorValue,
+        regex: Option<&'static FancyRegex>,
+    ) -> Self {
+        Self { value, regex }
+    }
+}
+
+impl std::fmt::Debug for EvaluatorValueInner {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Pointer(value) => formatter.debug_tuple("Pointer").field(value).finish(),
+            Self::Static(value) => formatter.debug_tuple("Static").field(value).finish(),
+            Self::Mmap(_) => formatter.write_str("Mmap"),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -71,6 +108,21 @@ impl EvaluatorValue {
                 // static values are immutable and should already be compiled during `InternedStore::preload(..)`
                 log_e!(TAG, "Cannot compile regex for static EvaluatorValue");
             }
+            EvaluatorValueInner::Mmap(handle) => {
+                if handle.regex.is_some() {
+                    return;
+                }
+
+                let handle = *handle;
+                let mut materialized = InternedStore::materialize_mmap_evaluator_value_owned(
+                    handle.value,
+                    handle.regex,
+                );
+                materialized.compile_regex();
+                let inner = Arc::new(materialized);
+                InternedStore::replace_mmap_evaluator_value(self.hash, inner.clone());
+                self.inner = EvaluatorValueInner::Pointer(inner);
+            }
         }
     }
 }
@@ -80,8 +132,449 @@ impl AsRef<MemoizedEvaluatorValue> for EvaluatorValue {
         match &self.inner {
             EvaluatorValueInner::Pointer(inner) => inner,
             EvaluatorValueInner::Static(inner) => inner,
+            EvaluatorValueInner::Mmap(handle) => InternedStore::materialize_mmap_evaluator_value(
+                self.hash,
+                handle.value,
+                handle.regex,
+            ),
         }
     }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum EvaluatorValueRef<'a> {
+    Owned(&'a MemoizedEvaluatorValue),
+    Mmap(&'a ArchivedMmapEvaluatorValue, Option<&'a FancyRegex>),
+}
+
+impl<'a> From<&'a MemoizedEvaluatorValue> for EvaluatorValueRef<'a> {
+    fn from(value: &'a MemoizedEvaluatorValue) -> Self {
+        Self::Owned(value)
+    }
+}
+
+impl EvaluatorValue {
+    pub(crate) fn as_value_ref(&self) -> EvaluatorValueRef<'_> {
+        match &self.inner {
+            EvaluatorValueInner::Pointer(value) => EvaluatorValueRef::Owned(value),
+            EvaluatorValueInner::Static(value) => EvaluatorValueRef::Owned(value),
+            EvaluatorValueInner::Mmap(handle) => {
+                EvaluatorValueRef::Mmap(handle.value, handle.regex)
+            }
+        }
+    }
+}
+
+impl<'a> EvaluatorValueRef<'a> {
+    pub(crate) fn bool_value(self) -> Option<bool> {
+        match self {
+            Self::Owned(value) => value.bool_value,
+            Self::Mmap(value, _) => value.bool_value.as_ref().copied(),
+        }
+    }
+
+    pub(crate) fn float_value(self) -> Option<f64> {
+        match self {
+            Self::Owned(value) => value.float_value,
+            Self::Mmap(value, _) => value.float_value.as_ref().map(|value| value.to_native()),
+        }
+    }
+
+    pub(crate) fn string_value(self) -> Option<&'a str> {
+        match self {
+            Self::Owned(value) => value
+                .string_value
+                .as_ref()
+                .map(|value| value.value.as_str()),
+            Self::Mmap(value, _) => {
+                let hash = value.string_value.as_ref().map(|hash| hash.to_native())?;
+                InternedStore::get_mmap_string(hash)
+            }
+        }
+    }
+
+    pub(crate) fn interned_string_value(self) -> Option<InternedStrRef<'a>> {
+        match self {
+            Self::Owned(value) => value
+                .string_value
+                .as_ref()
+                .map(|value| (&value.value).into()),
+            Self::Mmap(value, _) => value
+                .string_value
+                .as_ref()
+                .map(|hash| InternedStrRef::from_mmap(hash.to_native())),
+        }
+    }
+
+    pub(crate) fn regex_value(self) -> Option<&'a FancyRegex> {
+        match self {
+            Self::Owned(value) => value.regex_value.as_ref(),
+            Self::Mmap(_, regex) => regex,
+        }
+    }
+
+    pub(crate) fn timestamp_value(self) -> Option<i64> {
+        match self {
+            Self::Owned(value) => value.timestamp_value,
+            Self::Mmap(value, _) => value
+                .timestamp_value
+                .as_ref()
+                .map(|value| value.to_native()),
+        }
+    }
+
+    pub(crate) fn array_len(self) -> Option<usize> {
+        match self {
+            Self::Owned(value) => value.array_value.as_ref().map(HashMap::len),
+            Self::Mmap(value, _) => value.array_value.as_ref().map(|value| value.len()),
+        }
+    }
+
+    pub(crate) fn object_len(self) -> Option<usize> {
+        match self {
+            Self::Owned(value) => value.object_value.as_ref().map(HashMap::len),
+            Self::Mmap(value, _) => value.object_value.as_ref().map(|value| value.len()),
+        }
+    }
+
+    pub(crate) fn array_contains_key(self, key: &InternedString) -> bool {
+        match self {
+            Self::Owned(value) => value
+                .array_value
+                .as_ref()
+                .is_some_and(|array| array.contains_key(key)),
+            Self::Mmap(value, _) => value.array_value.as_ref().is_some_and(|array| {
+                array.contains_key(&rkyv::primitive::ArchivedU64::from_native(key.hash))
+            }),
+        }
+    }
+
+    pub(crate) fn array_contains_lowercase(self, key: &str) -> bool {
+        match self {
+            Self::Owned(value) => value
+                .array_value
+                .as_ref()
+                .is_some_and(|array| array.keys().any(|candidate| candidate.as_str() == key)),
+            Self::Mmap(value, _) => value.array_value.as_ref().is_some_and(|array| {
+                let hash = hashing::hash_one(key.as_bytes());
+                array.contains_key(&rkyv::primitive::ArchivedU64::from_native(hash))
+            }),
+        }
+    }
+
+    pub(crate) fn object_contains_key(self, key: &InternedString) -> bool {
+        match self {
+            Self::Owned(value) => value
+                .object_value
+                .as_ref()
+                .is_some_and(|object| object.contains_key(key)),
+            Self::Mmap(value, _) => value.object_value.as_ref().is_some_and(|object| {
+                object.contains_key(&rkyv::primitive::ArchivedU64::from_native(key.hash))
+            }),
+        }
+    }
+
+    pub(crate) fn object_contains_key_str(self, key: &str) -> bool {
+        match self {
+            Self::Owned(value) => value
+                .object_value
+                .as_ref()
+                .is_some_and(|object| object.keys().any(|candidate| candidate.as_str() == key)),
+            Self::Mmap(value, _) => value.object_value.as_ref().is_some_and(|object| {
+                let hash = hashing::hash_one(key.as_bytes());
+                object.contains_key(&rkyv::primitive::ArchivedU64::from_native(hash))
+            }),
+        }
+    }
+
+    pub(crate) fn any_array_entry(
+        self,
+        mut predicate: impl FnMut(&str, usize, &str) -> bool,
+    ) -> bool {
+        match self {
+            Self::Owned(value) => value.array_value.as_ref().is_some_and(|array| {
+                array.iter().any(|(lowercase, (index, original))| {
+                    predicate(lowercase.as_str(), *index, original.as_str())
+                })
+            }),
+            Self::Mmap(value, _) => value.array_value.as_ref().is_some_and(|array| {
+                array.iter().any(|(lowercase, entry)| {
+                    let Some(lowercase) = InternedStore::get_mmap_string(lowercase.to_native())
+                    else {
+                        return false;
+                    };
+                    let Some(original) = InternedStore::get_mmap_string(entry.1.to_native()) else {
+                        return false;
+                    };
+                    predicate(lowercase, entry.0.to_native() as usize, original)
+                })
+            }),
+        }
+    }
+
+    fn all_array_entries(self, mut predicate: impl FnMut(&str, usize, &str) -> bool) -> bool {
+        match self {
+            Self::Owned(value) => value.array_value.as_ref().is_some_and(|array| {
+                array.iter().all(|(lowercase, (index, original))| {
+                    predicate(lowercase.as_str(), *index, original.as_str())
+                })
+            }),
+            Self::Mmap(value, _) => value.array_value.as_ref().is_some_and(|array| {
+                array.iter().all(|(lowercase, entry)| {
+                    let Some(lowercase) = InternedStore::get_mmap_string(lowercase.to_native())
+                    else {
+                        return false;
+                    };
+                    let Some(original) = InternedStore::get_mmap_string(entry.1.to_native()) else {
+                        return false;
+                    };
+                    predicate(lowercase, entry.0.to_native() as usize, original)
+                })
+            }),
+        }
+    }
+
+    fn all_object_entries(self, mut predicate: impl FnMut(&str, &str) -> bool) -> bool {
+        match self {
+            Self::Owned(value) => value.object_value.as_ref().is_some_and(|object| {
+                object
+                    .iter()
+                    .all(|(key, value)| predicate(key.as_str(), value.value.as_str()))
+            }),
+            Self::Mmap(value, _) => value.object_value.as_ref().is_some_and(|object| {
+                object.iter().all(|(key, value)| {
+                    let Some(key) = InternedStore::get_mmap_string(key.to_native()) else {
+                        return false;
+                    };
+                    let Some(value) = InternedStore::get_mmap_string(value.to_native()) else {
+                        return false;
+                    };
+                    predicate(key, value)
+                })
+            }),
+        }
+    }
+
+    fn value_type(self) -> EvaluatorValueType {
+        match self {
+            Self::Owned(value) => value.value_type,
+            Self::Mmap(value, _) => match value.value_type {
+                ArchivedMmapEvaluatorValueType::Null => EvaluatorValueType::Null,
+                ArchivedMmapEvaluatorValueType::Bool => EvaluatorValueType::Bool,
+                ArchivedMmapEvaluatorValueType::Number => EvaluatorValueType::Number,
+                ArchivedMmapEvaluatorValueType::String => EvaluatorValueType::String,
+                ArchivedMmapEvaluatorValueType::Array => EvaluatorValueType::Array,
+                ArchivedMmapEvaluatorValueType::Object => EvaluatorValueType::Object,
+            },
+        }
+    }
+
+    pub(crate) fn is_equal_to_user_value(self, other: UserValueRef<'_>) -> bool {
+        match self.value_type() {
+            EvaluatorValueType::Null => other.is_null(),
+            EvaluatorValueType::Bool => self.bool_value() == other.bool_value(),
+            EvaluatorValueType::Number => self.float_value() == other.float_value(),
+            EvaluatorValueType::String => self.string_value() == other.string_value(),
+            EvaluatorValueType::Array => {
+                let Some(len) = self.array_len() else {
+                    return other.array_len().is_none();
+                };
+                if other.array_len() != Some(len) {
+                    return false;
+                }
+                self.all_array_entries(|_, index, expected| {
+                    other.array_item(index).and_then(UserValueRef::string_value) == Some(expected)
+                })
+            }
+            EvaluatorValueType::Object => {
+                let Some(len) = self.object_len() else {
+                    return other.object_len().is_none();
+                };
+                if other.object_len() != Some(len) {
+                    return false;
+                }
+                self.all_object_entries(|key, expected| {
+                    other.object_get(key).and_then(UserValueRef::string_value) == Some(expected)
+                })
+            }
+        }
+    }
+
+    fn array_entry(self, lowercase: &str) -> Option<(usize, &'a str)> {
+        match self {
+            Self::Owned(value) => {
+                value
+                    .array_value
+                    .as_ref()?
+                    .iter()
+                    .find_map(|(candidate, (index, original))| {
+                        (candidate.as_str() == lowercase).then_some((*index, original.as_str()))
+                    })
+            }
+            Self::Mmap(value, _) => {
+                let hash = hashing::hash_one(lowercase.as_bytes());
+                let entry = value
+                    .array_value
+                    .as_ref()?
+                    .get(&rkyv::primitive::ArchivedU64::from_native(hash))?;
+                Some((
+                    entry.0.to_native() as usize,
+                    InternedStore::get_mmap_string(entry.1.to_native())?,
+                ))
+            }
+        }
+    }
+
+    fn object_entry(self, key: &str) -> Option<&'a str> {
+        match self {
+            Self::Owned(value) => {
+                value
+                    .object_value
+                    .as_ref()?
+                    .iter()
+                    .find_map(|(candidate, value)| {
+                        (candidate.as_str() == key).then_some(value.value.as_str())
+                    })
+            }
+            Self::Mmap(value, _) => {
+                let hash = hashing::hash_one(key.as_bytes());
+                let value = value
+                    .object_value
+                    .as_ref()?
+                    .get(&rkyv::primitive::ArchivedU64::from_native(hash))?;
+                InternedStore::get_mmap_string(value.to_native())
+            }
+        }
+    }
+
+    fn is_equal_to_evaluator_value(self, other: EvaluatorValueRef<'_>) -> bool {
+        if let (EvaluatorValueRef::Owned(left), EvaluatorValueRef::Owned(right)) = (self, other) {
+            return left == right;
+        }
+        let iterate_other = matches!(
+            (self, other),
+            (EvaluatorValueRef::Mmap(_, _), EvaluatorValueRef::Owned(_))
+        );
+
+        if self.value_type() != other.value_type() {
+            return false;
+        }
+
+        match self.value_type() {
+            EvaluatorValueType::Null => true,
+            EvaluatorValueType::Bool => self.bool_value() == other.bool_value(),
+            EvaluatorValueType::Number => self.float_value() == other.float_value(),
+            EvaluatorValueType::String => self.string_value() == other.string_value(),
+            EvaluatorValueType::Array => match (self.array_len(), other.array_len()) {
+                (None, None) => true,
+                (Some(left), Some(right)) if left == right => {
+                    if iterate_other {
+                        other.all_array_entries(|lowercase, index, original| {
+                            self.array_entry(lowercase) == Some((index, original))
+                        })
+                    } else {
+                        self.all_array_entries(|lowercase, index, original| {
+                            other.array_entry(lowercase) == Some((index, original))
+                        })
+                    }
+                }
+                _ => false,
+            },
+            EvaluatorValueType::Object => match (self.object_len(), other.object_len()) {
+                (None, None) => true,
+                (Some(left), Some(right)) if left == right => {
+                    if iterate_other {
+                        other.all_object_entries(|key, value| self.object_entry(key) == Some(value))
+                    } else {
+                        self.all_object_entries(|key, value| other.object_entry(key) == Some(value))
+                    }
+                }
+                _ => false,
+            },
+        }
+    }
+}
+
+struct SerializedDynamicString<'a>(&'a str);
+
+impl Serialize for SerializedDynamicString<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self.0.parse::<bool>() {
+            Ok(value) => serializer.serialize_bool(value),
+            Err(_) => serializer.serialize_str(self.0),
+        }
+    }
+}
+
+impl Serialize for EvaluatorValueRef<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let value = match *self {
+            Self::Owned(value) => return value.serialize(serializer),
+            Self::Mmap(value, _) => value,
+        };
+
+        match value.value_type {
+            ArchivedMmapEvaluatorValueType::Null => serializer.serialize_unit(),
+            ArchivedMmapEvaluatorValueType::Bool => {
+                value.bool_value.as_ref().copied().serialize(serializer)
+            }
+            ArchivedMmapEvaluatorValueType::Number => value
+                .float_value
+                .as_ref()
+                .map(|value| value.to_native())
+                .serialize(serializer),
+            ArchivedMmapEvaluatorValueType::String => {
+                let Some(hash) = value.string_value.as_ref() else {
+                    return serializer.serialize_none();
+                };
+                let raw = mmap_string_for_serialization::<S>(hash.to_native())?;
+                SerializedDynamicString(raw).serialize(serializer)
+            }
+            ArchivedMmapEvaluatorValueType::Array => {
+                let Some(array) = value.array_value.as_ref() else {
+                    return serializer.serialize_none();
+                };
+                let mut entries = Vec::with_capacity(array.len());
+                for (_, entry) in array.iter() {
+                    let raw = mmap_string_for_serialization::<S>(entry.1.to_native())?;
+                    entries.push((entry.0.to_native(), raw));
+                }
+                entries.sort_unstable_by_key(|(index, _)| *index);
+
+                let mut sequence = serializer.serialize_seq(Some(entries.len()))?;
+                for (_, raw) in entries {
+                    sequence.serialize_element(raw)?;
+                }
+                sequence.end()
+            }
+            ArchivedMmapEvaluatorValueType::Object => {
+                let Some(object) = value.object_value.as_ref() else {
+                    return serializer.serialize_none();
+                };
+                let mut map = serializer.serialize_map(Some(object.len()))?;
+                for (key, value) in object.iter() {
+                    let key = mmap_string_for_serialization::<S>(key.to_native())?;
+                    let value = mmap_string_for_serialization::<S>(value.to_native())?;
+                    map.serialize_entry(key, &SerializedDynamicString(value))?;
+                }
+                map.end()
+            }
+        }
+    }
+}
+
+fn mmap_string_for_serialization<S: Serializer>(hash: u64) -> Result<&'static str, S::Error> {
+    InternedStore::get_mmap_string(hash).ok_or_else(|| {
+        serde::ser::Error::custom(format!(
+            "Interned mmap evaluator value references missing string hash {hash}"
+        ))
+    })
 }
 
 impl<'de> Deserialize<'de> for EvaluatorValue {
@@ -101,38 +594,20 @@ impl Serialize for EvaluatorValue {
     where
         S: Serializer,
     {
-        match &self.inner {
-            EvaluatorValueInner::Pointer(inner) => inner.serialize(serializer),
-            EvaluatorValueInner::Static(inner) => inner.serialize(serializer),
-        }
+        self.as_value_ref().serialize(serializer)
     }
 }
 
 impl PartialEq for EvaluatorValue {
     fn eq(&self, other: &Self) -> bool {
-        let left = match &self.inner {
-            EvaluatorValueInner::Pointer(inner) => inner,
-            EvaluatorValueInner::Static(inner) => *inner,
-        };
-        let right = match &other.inner {
-            EvaluatorValueInner::Pointer(inner) => inner,
-            EvaluatorValueInner::Static(inner) => *inner,
-        };
-
-        left == right
-    }
-}
-
-impl Drop for EvaluatorValue {
-    fn drop(&mut self) {
-        self.inner = EMPTY_EVALUATOR_VALUE.inner.clone();
-        InternedStore::release_evaluator_value(self.hash);
+        self.as_value_ref()
+            .is_equal_to_evaluator_value(other.as_value_ref())
     }
 }
 
 // ------------------------------------------------------------------------------- [ MemoizedEvaluatorValue ]
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum EvaluatorValueType {
     Null,
 
@@ -207,64 +682,7 @@ impl MemoizedEvaluatorValue {
     }
 
     pub fn is_equal_to_user_value(&self, other: UserValueRef<'_>) -> bool {
-        match self.value_type {
-            EvaluatorValueType::Null => other.is_null(),
-            EvaluatorValueType::Bool => self.bool_value == other.bool_value(),
-            EvaluatorValueType::Number => self.float_value == other.float_value(),
-            EvaluatorValueType::String => {
-                self.string_value.as_ref().map(|value| value.value.as_str()) == other.string_value()
-            }
-            EvaluatorValueType::Array => {
-                let self_keyed_arr = match &self.array_value {
-                    Some(map) => map,
-                    None => return other.array_len().is_none(),
-                };
-
-                let other_len = match other.array_len() {
-                    Some(len) => len,
-                    None => return false,
-                };
-
-                if self_keyed_arr.len() != other_len {
-                    return false;
-                }
-
-                for (i, self_value) in self_keyed_arr.values() {
-                    let other_str = unwrap_or_return!(other.array_item(*i), false);
-                    let other_str = unwrap_or_return!(other_str.string_value(), false);
-                    if self_value.as_str() != other_str {
-                        return false;
-                    }
-                }
-
-                true
-            }
-            EvaluatorValueType::Object => {
-                let self_obj = match &self.object_value {
-                    Some(map) => map,
-                    None => return other.object_len().is_none(),
-                };
-
-                let other_len = match other.object_len() {
-                    Some(len) => len,
-                    None => return false,
-                };
-
-                if self_obj.len() != other_len {
-                    return false;
-                }
-
-                for (k, v) in self_obj {
-                    let other_value = unwrap_or_return!(other.object_get(k.as_str()), false);
-                    let other_str = unwrap_or_return!(other_value.string_value(), false);
-                    if other_str != v.value.as_str() {
-                        return false;
-                    }
-                }
-
-                true
-            }
-        }
+        EvaluatorValueRef::from(self).is_equal_to_user_value(other)
     }
 
     pub fn is_equal_to_dynamic_value(&self, other: &DynamicValue) -> bool {

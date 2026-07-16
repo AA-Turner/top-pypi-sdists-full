@@ -16,6 +16,9 @@ cmake_minimum_required(VERSION 2.8.12...3.27)
 #    LEXBOR_BUILD_TESTS                  default: OFF; Build tests
 #    LEXBOR_BUILD_TESTS_CPP              default: OFF; Build C++ tests.
 #                                         Used with LEXBOR_BUILD_TESTS
+#    LEXBOR_ENABLE_TEST_HTML_WPT         default: OFF; Enable WPT HTML tree
+#                                         construction tests. Used with
+#                                         LEXBOR_BUILD_TESTS
 #    LEXBOR_TEST_AMALGAMATION            default: OFF; Testing all modules to create a single header file.
 #                                         Used with LEXBOR_BUILD_TESTS
 #    LEXBOR_BUILD_BENCHMARKS             default: OFF; Build benchmarks.
@@ -56,6 +59,7 @@ option(LEXBOR_BUILD_WASM "Build WASM modules (requires Emscripten)" OFF)
 option(LEXBOR_BUILD_EXAMPLES "Build examples" OFF)
 option(LEXBOR_BUILD_TESTS "Build tests" OFF)
 option(LEXBOR_BUILD_TESTS_CPP "Build C++ tests" OFF)
+option(LEXBOR_ENABLE_TEST_HTML_WPT "Enable WPT HTML tree construction tests" OFF)
 option(LEXBOR_TEST_AMALGAMATION "Testing all modules to create a single header file" OFF)
 option(LEXBOR_BUILD_UTILS "Build utils" OFF)
 option(LEXBOR_BUILD_BENCHMARKS "Build with benchmarks" OFF)
@@ -206,8 +210,10 @@ IF(LEXBOR_BUILD_SHARED)
     if(UNIX)
         set_target_properties(${LEXBOR_LIB_NAME} PROPERTIES SOVERSION ${PROJECT_VERSION_MAJOR} VERSION ${PROJECT_VERSION})
     endif()
-    if ((WIN32) AND (CMAKE_VERSION VERSION_GREATER_EQUAL "3.27"))
-        set_target_properties(${LEXBOR_LIB_NAME} PROPERTIES DLL_NAME_WITH_SOVERSION 1)
+    if (WIN32)
+        if (NOT CMAKE_VERSION VERSION_LESS "3.27")
+            set_target_properties(${LEXBOR_LIB_NAME} PROPERTIES DLL_NAME_WITH_SOVERSION 1)
+        endif()
     endif()
     target_include_directories(${LEXBOR_LIB_NAME} PUBLIC $<BUILD_INTERFACE:${LEXBOR_SOURCE}>
                                                          $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
@@ -376,6 +382,10 @@ ENDIF()
 ################
 ## Tests
 #########################
+IF(LEXBOR_ENABLE_TEST_HTML_WPT AND NOT LEXBOR_BUILD_TESTS)
+    message(FATAL_ERROR "LEXBOR_ENABLE_TEST_HTML_WPT requires LEXBOR_BUILD_TESTS=ON.")
+ENDIF()
+
 IF(LEXBOR_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)

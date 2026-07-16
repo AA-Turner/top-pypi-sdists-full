@@ -17,7 +17,8 @@ import logging
 import os
 from typing import Any
 
-from dazzle.core.model_defaults import DEFAULT_JUDGMENT_MODEL
+from dazzle.core.model_defaults import DEFAULT_JUDGMENT_MODEL, default_model_for_driver
+from dazzle.llm.driver import call_subscription_cli, is_subscription_driver
 
 logger = logging.getLogger(__name__)
 _FALLBACK_SYSTEM_PROMPT = """\
@@ -92,18 +93,17 @@ def synthesize_verdict(
     )
     user_msg = "Write the verdict now. One paragraph, in character."
 
-    if llm_driver == "claude-cli":
+    if is_subscription_driver(llm_driver):
         try:
-            from dazzle.llm.driver import call_claude_cli
-
-            text, _tokens = call_claude_cli(
+            text, _tokens = call_subscription_cli(
+                llm_driver,
                 user_msg,
                 system_prompt=prompt,
-                model=model or DEFAULT_JUDGMENT_MODEL,
+                model=model or default_model_for_driver(llm_driver),
             )
             return text.strip()
         except Exception:
-            logger.debug("ignored exception in verdict fallback (claude-cli)", exc_info=True)
+            logger.debug("ignored exception in verdict fallback (%s)", llm_driver, exc_info=True)
             return ""
 
     try:

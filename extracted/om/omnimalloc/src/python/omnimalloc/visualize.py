@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Final
 
 from omnimalloc.common.optional import require_optional
-from omnimalloc.common.units import MB
 from omnimalloc.primitives import Allocation, BufferKind, IdType, Memory, Pool, System
+from omnimalloc.primitives.vector_clock import ensure_uniform_dim, time_components
 
 try:
     import matplotlib.pyplot as plt
@@ -39,12 +39,39 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+_BYTE_UNITS: Final[tuple[tuple[int, str], ...]] = (
+    (1024**3, "GB"),
+    (1024**2, "MB"),
+    (1024, "KB"),
+)
+
+
+def _byte_unit(value: float) -> tuple[int, str]:
+    """Largest byte unit that keeps `value` at least 1 in that unit."""
+    for divisor, suffix in _BYTE_UNITS:
+        if value >= divisor:
+            return divisor, suffix
+    return 1, "B"
+
+
+def _format_bytes(value: float) -> str:
+    """Human-readable byte count, auto-scaled so small values don't read as 0.0 MB."""
+    divisor, suffix = _byte_unit(value)
+    return f"{value / divisor:.1f}{suffix}"
+
+
 KIND_COLOR_MAP: Final[dict[BufferKind, str]] = {
     BufferKind.WORKSPACE: "C0",
     BufferKind.CONSTANT: "C1",
     BufferKind.INPUT: "C2",
     BufferKind.OUTPUT: "C3",
 }
+
+LANE_CAVEAT: Final[str] = (
+    "Lanes show each thread's local timeline: overlaps within a lane are real "
+    "conflicts, but cross-thread conflicts may not be visible anywhere; "
+    "validate_allocation() is the authority."
+)
 
 
 def _get_allocation_color(kind: BufferKind | None) -> str:
@@ -55,13 +82,29 @@ def _get_allocation_color(kind: BufferKind | None) -> str:
     return KIND_COLOR_MAP[kind]
 
 
-def _get_x_limits(system: System) -> tuple[int, int]:
-    max_len = 0
+def _memory_dim(memory: Memory) -> int:
+    # Dimension is uniform per pool (the validate.py contract), but pools of
+    # one memory may mix, e.g. after linearizing one pool; lanes cover the max.
+    return max(
+        (ensure_uniform_dim(pool.allocations) for pool in memory.pools), default=1
+    )
+
+
+def _lane_extent(alloc: Allocation, lane: int) -> tuple[int, int]:
+    """Project an allocation's lifetime onto one thread's local timeline."""
+    return time_components(alloc.start)[lane], time_components(alloc.end)[lane]
+
+
+def _get_x_limits(system: System) -> dict[int, tuple[int, int]]:
+    """Per-lane x-limits, shared across memories so aligned lanes compare."""
+    max_ends: dict[int, int] = {}
     for memory in system.memories:
         for pool in memory.pools:
             for alloc in pool.allocations:
-                max_len = max(max_len, alloc.start + alloc.duration)
-    return 0, max_len
+                for lane, end in enumerate(time_components(alloc.end)):
+                    max_ends[lane] = max(max_ends.get(lane, 0), end)
+    # Clamp to at least 1 so empty lanes keep a non-degenerate x-axis
+    return {lane: (0, max(end, 1)) for lane, end in max_ends.items()}
 
 
 def _get_y_limits(system: System) -> dict[Memory, tuple[int, int]]:
@@ -69,9 +112,6 @@ def _get_y_limits(system: System) -> dict[Memory, tuple[int, int]]:
     for memory in system.memories:
         size = memory.size
         used = memory.used_size
-
-        if used is None:
-            raise ValueError(f"Memory {memory!r} has undefined used size")
 
         if size is None:
             # No size limit defined, scale to 1.2x used
@@ -89,7 +129,9 @@ def _get_y_limits(system: System) -> dict[Memory, tuple[int, int]]:
             # Usage below 50% of size, scale to 2x usage
             y_limit = used * 2
 
-        limits[memory] = (0, int(y_limit))
+        # Clamp to at least 1 so downstream tick spacing stays positive
+        # even for entities with zero used memory.
+        limits[memory] = (0, max(int(y_limit), 1))
 
     return limits
 
@@ -108,13 +150,20 @@ def _get_y_offsets(system: System) -> dict[Memory, dict[Pool, int]]:
     return offsets
 
 
-def _draw_allocation(ax: Axes, alloc: Allocation, offset: int, color: str) -> None:
-    """Draw a single allocation rectangle."""
+def _draw_allocation(
+    ax: Axes, alloc: Allocation, offset: int, color: str, lane: int
+) -> None:
+    """Draw a single allocation rectangle, projected onto the given lane."""
     assert alloc.offset is not None
+    if lane >= alloc.dim:
+        return  # Lower-dim allocation in a mixed memory; no such thread lane
+    start, end = _lane_extent(alloc, lane)
+    if start == end:
+        return  # No local time on this thread; not visible in this lane
     y_pos = offset + alloc.offset
     rect = Rectangle(
-        xy=(alloc.start, y_pos),
-        width=alloc.duration,
+        xy=(start, y_pos),
+        width=end - start,
         height=alloc.size,
         edgecolor="black",
         facecolor=color,
@@ -122,7 +171,7 @@ def _draw_allocation(ax: Axes, alloc: Allocation, offset: int, color: str) -> No
     )
     ax.add_patch(rect)
     ax.text(
-        alloc.start + alloc.duration / 2,
+        (start + end) / 2,
         y_pos + alloc.size / 2,
         f"{alloc.id}",
         ha="center",
@@ -132,11 +181,10 @@ def _draw_allocation(ax: Axes, alloc: Allocation, offset: int, color: str) -> No
 
 
 def _draw_pool_background(
-    ax: Axes, y_offset: int, pool_size: int, color: str | set[str]
+    ax: Axes, y_offset: int, pool_size: int, colors: set[str]
 ) -> None:
-    """Draw background rectangle for allocation pool."""
-    if isinstance(color, set):
-        color = "gray" if len(color) > 1 else color.pop()
+    """Draw background rectangle for allocation pool (gray for mixed/empty kinds)."""
+    color = next(iter(colors)) if len(colors) == 1 else "gray"
     x_min, x_max = ax.get_xlim()
     rect = Rectangle(
         xy=(x_min, y_offset),
@@ -155,7 +203,7 @@ def _draw_limit_lines(ax: Axes, limits: dict[str, int]) -> None:
     for name, value in limits.items():
         ax.axhline(value, color="black", linestyle="--", linewidth=1, alpha=0.8)
         ax.annotate(
-            f"{value / MB:.2f} MB\n{name}",
+            f"{_format_bytes(value)}\n{name}",
             xy=(x_max, value),
             xytext=(x_max * 1.02, value * 1.01),
             ha="left",
@@ -176,22 +224,28 @@ def _draw_limit_lines(ax: Axes, limits: dict[str, int]) -> None:
 def _set_axes_ticks(ax: Axes, y_limit: int, num_ticks: int = 8) -> None:
     """Configure axis ticks and formatters."""
     tick_size = y_limit / num_ticks
+    divisor, unit = _byte_unit(y_limit)
     ax.yaxis.set_major_locator(MultipleLocator(tick_size))
-    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{x / MB:.1f}"))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{x / divisor:.1f}"))
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{int(x):,}"))
     ax.grid(visible=True, alpha=0.5)
+    ax.set_ylabel(f"Memory ({unit})")
 
 
 def _set_axes_labels(
-    ax: Axes, memory: Memory, memory_size: int | None, num_pools: int
+    ax: Axes,
+    memory: Memory,
+    memory_size: int | None,
+    num_pools: int,
+    lane: int,
+    dim: int,
 ) -> None:
-    size_str = (
-        f"{memory_size / MB:.1f}MB" if memory_size is not None else "Unknown Size"
-    )
-    ax.set_title(f"{memory.id} ({size_str}, {num_pools} pools)")
-    ax.set_xlabel("Time (Step)")
-    ax.set_ylabel("Memory (MB)")
+    size_str = _format_bytes(memory_size) if memory_size is not None else "Unknown Size"
+    threads_str = f", {dim} threads" if dim > 1 else ""
+    if lane == 0:
+        ax.set_title(f"{memory.id} ({size_str}, {num_pools} pools{threads_str})")
+    ax.set_xlabel("Time (Step)" if dim == 1 else f"Thread {lane} Time (Step)")
 
 
 def _set_axes_limits(
@@ -239,36 +293,39 @@ def _visualize_system(
     show_inline: bool,
     memory_limits: dict[str, dict[IdType, int]],
 ) -> Path | None:
-    num_memories = len(system.memories)
-    fig_height = max(9, num_memories * 6)
+    dims = {memory: _memory_dim(memory) for memory in system.memories}
+    lanes = [
+        (memory, lane) for memory in system.memories for lane in range(dims[memory])
+    ]
+    fig_height = max(9, len(lanes) * 6)
     fig_width = 12
     fig, axs = plt.subplots(
-        nrows=num_memories,
+        nrows=len(lanes),
         ncols=1,
         figsize=(fig_width, fig_height),
         layout="constrained",
     )
-    axs = [axs] if num_memories == 1 else axs
+    axs = [axs] if len(lanes) == 1 else axs
 
     x_limits = _get_x_limits(system)
     y_limits = _get_y_limits(system)
     y_offsets = _get_y_offsets(system)
 
-    for ax, memory in zip(axs, system.memories, strict=True):
+    for ax, (memory, lane) in zip(axs, lanes, strict=True):
         memory_y_limits = y_limits[memory]
-        _set_axes_labels(ax, memory, memory.size, len(memory.pools))
-        _set_axes_limits(ax, x_limits, memory_y_limits, memory.size)
+        _set_axes_labels(ax, memory, memory.size, len(memory.pools), lane, dims[memory])
+        _set_axes_limits(ax, x_limits.get(lane, (0, 1)), memory_y_limits, memory.size)
         _set_axes_ticks(ax, memory_y_limits[1])
 
-        colors: set[str] = set()
         for pool in memory.pools:
             y_offset = y_offsets[memory][pool]
 
+            colors: set[str] = set()
             for alloc in pool.allocations:
                 color = _get_allocation_color(alloc.kind)
-                _draw_allocation(ax, alloc, y_offset, color)
+                _draw_allocation(ax, alloc, y_offset, color, lane)
                 colors.add(color)
-            _draw_pool_background(ax, y_offset, pool.size, color)
+            _draw_pool_background(ax, y_offset, pool.size, colors)
 
         # Draw memory limit lines
         limits: dict[str, int] = {"used": memory.used_size}
@@ -280,6 +337,10 @@ def _visualize_system(
 
         _draw_limit_lines(ax, limits)
 
+    if any(dim > 1 for dim in dims.values()):
+        # Lanes are per-thread projections of a partial order: same-lane
+        # collisions are real, but cross-thread conflicts need not be visible.
+        fig.suptitle(LANE_CAVEAT, fontsize=8)
     _add_legend(fig)
 
     if show_inline:
@@ -288,7 +349,7 @@ def _visualize_system(
     if file_path is not None:
         file_path = Path(file_path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(file_path, bbox_inches="tight", format="pdf")
+        fig.savefig(file_path, bbox_inches="tight")
 
     plt.close(fig)
 
@@ -301,6 +362,10 @@ def _canonicalize(system: System) -> System:
     def _id_sort_key(id_val: IdType) -> tuple[int, int | str]:
         return (0, id_val) if isinstance(id_val, int) else (1, id_val)
 
+    def _alloc_sort_key(alloc: Allocation) -> tuple[object, ...]:
+        # Lexicographic on the (possibly vector) start, then original id
+        return time_components(alloc.start), _id_sort_key(alloc.id)
+
     # Collect all allocations and assign sequential IDs
     all_allocations = [
         alloc
@@ -309,8 +374,7 @@ def _canonicalize(system: System) -> System:
         for alloc in pool.allocations
     ]
 
-    # Sort by (start, original_id) for stable ordering
-    all_allocations.sort(key=lambda a: (a.start, _id_sort_key(a.id)))
+    all_allocations.sort(key=_alloc_sort_key)
 
     # Create mapping from old allocation to new ID
     alloc_to_new_id = {
@@ -335,10 +399,7 @@ def _canonicalize(system: System) -> System:
                             offset=alloc.offset,
                             kind=alloc.kind,
                         )
-                        for alloc in sorted(
-                            pool.allocations,
-                            key=lambda a: (a.start, _id_sort_key(a.id)),
-                        )
+                        for alloc in sorted(pool.allocations, key=_alloc_sort_key)
                     ),
                 )
                 for pool in sorted(memory.pools, key=lambda p: _id_sort_key(p.id))

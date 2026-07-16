@@ -1106,6 +1106,11 @@ class InfoModule(BaseIntegrationModule):
             raise ValueError(f"Model {name} does not have a model_json_schema method")
 
         schema = self._get_model_extended_json_schema(model)
+        # Convert anyOf-with-null to nullable format for OpenAPI 3.0 compatibility, the same as
+        # the auth/credential and request/response schemas — otherwise optional (`X | None`)
+        # settings emit `{"type": "null"}`, which is invalid in the declared 3.0 spec and breaks
+        # strict OAS 3.0 consumers (e.g. the connector-client `app_info` introspection).
+        schema = self._convert_null_type(schema)
         spec.components["schemas"]["Settings"] = schema
         used_refs.add("Settings")
 

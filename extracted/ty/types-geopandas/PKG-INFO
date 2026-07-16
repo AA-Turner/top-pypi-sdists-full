@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-geopandas
-Version: 1.1.4.20260628
+Version: 1.1.4.20260716
 Summary: Typing stubs for geopandas
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -13,9 +13,9 @@ Classifier: Typing :: Stubs Only
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: types-shapely
 Requires-Dist: numpy>=1.20
 Requires-Dist: pandas-stubs
+Requires-Dist: types-shapely
 Requires-Dist: pyproj
 Dynamic: license-file
 
@@ -35,8 +35,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.1.0
+* [mypy](https://github.com/python/mypy/) 2.3.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`cc36aca8beba9fdbc8f59babbfb253d7fc9d03df`](https://github.com/python/typeshed/commit/cc36aca8beba9fdbc8f59babbfb253d7fc9d03df).
+[`c6d107067232008558616e8d0a13d150567b29d0`](https://github.com/python/typeshed/commit/c6d107067232008558616e8d0a13d150567b29d0).

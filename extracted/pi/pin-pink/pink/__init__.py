@@ -2,9 +2,6 @@
 # -*- coding: utf-8 -*-
 #
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2022 Stéphane Caron
-# Copyright 2024 Inria
-# Copyright 2026 CNRS
 
 """Inverse kinematics for articulated robot models, based on Pinocchio."""
 
@@ -21,7 +18,7 @@ from .tasks import (
 )
 from .utils import custom_configuration_vector
 
-__version__ = "4.2.0"
+__version__ = "4.3.0"
 
 __all__ = [
     "Configuration",

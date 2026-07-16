@@ -1557,19 +1557,21 @@ def _fetch_records_chunk(
     chunk: List[str],
     fields: List[str],
 ) -> List[Dict[str, Any]]:
-    """Single-chunk direct fetch (fallback path when the Batch API is out)."""
-    field_list = ",".join(
-        dict.fromkeys(["sys_id", *fields, "sys_updated_on", "sys_updated_by", "sys_mod_count"])
-    )
-    params = GenericQueryParams(
-        table=table,
-        query=f"sys_idIN{','.join(chunk)}",
-        fields=field_list,
-        limit=len(chunk),
-        offset=0,
-        display_value=False,
-    )
-    return sn_query(config, auth_manager, params).get("results") or []
+    """Single-chunk direct fetch (fallback path when the Batch API is out).
+
+    Raw GET, NOT sn_query: the verdict scan compares source BODIES, so a field
+    >50k chars must not be clipped by sn_query's truncate_results (a context-
+    budget safeguard). The primary Batch API path already reads raw/untruncated;
+    this fallback must match it or a >50KB body would falsely verdict as drifted.
+    """
+    url = f"{config.instance_url.rstrip('/')}{_table_chunk_url(table, chunk, fields)}"
+    headers = auth_manager.get_headers()
+    resp = auth_manager.make_request("GET", url, headers=headers)
+    if resp.status_code >= 400:
+        raise ValueError(
+            f"Failed to fetch {table} chunk: HTTP {resp.status_code} — {resp.text[:200]}"
+        )
+    return resp.json().get("result") or []
 
 
 def _verdict_scan(config: ServerConfig, auth_manager: AuthManager, root: Path) -> Dict[str, Any]:
@@ -1633,9 +1635,15 @@ def _verdict_scan(config: ServerConfig, auth_manager: AuthManager, root: Path) -
             rows = served["body"].get("result")
         if rows is None:
             table_name = work[idx][0]
-            rows = _fetch_records_chunk(
-                config, auth_manager, table_name, chunk, _table_source_fields(table_name)
-            )
+            try:
+                rows = _fetch_records_chunk(
+                    config, auth_manager, table_name, chunk, _table_source_fields(table_name)
+                )
+            except (ValueError, OSError) as exc:
+                # A failed fallback chunk must not abort the whole scan — its
+                # records simply go unresolved and surface as 'missing_remote'.
+                logger.warning("verdict scan: chunk fetch failed for %s: %s", table_name, exc)
+                rows = []
             http_requests += 1
         for rec in rows or []:
             sid = str(rec.get("sys_id") or "")
@@ -2050,8 +2058,14 @@ def update_remote_from_local(
         "sys_scope",
     ]
     try:
+        # full=True: raw untruncated GET. The default sn_query path clips any
+        # field >50k chars (truncate_results), so a long body (e.g. a >50KB
+        # widget client_script) would come back capped and compare against the
+        # FULL local copy as a bogus "~100% replacement" conflict — the exact
+        # asymmetry that made diff (full=True) and push disagree on the same
+        # record. The comparison read MUST be untruncated, like diff_local_component.
         remote_record = _fetch_portal_component_record(
-            config, auth_manager, resolved.table, resolved.sys_id, all_fields
+            config, auth_manager, resolved.table, resolved.sys_id, all_fields, full=True
         )
     except ValueError as e:
         return {"error": str(e)}
@@ -2299,50 +2313,77 @@ def update_remote_from_local(
             )
 
         if is_acl:
-            if record_hold:
-                hint = (
-                    f"HTTP 403 — and this record is currently held by '{record_hold['held_by']}' "
-                    f"in the uncommitted update set '{record_hold['update_set']}'. A Table-API "
-                    "write can be rejected while another user's open update set holds the record. "
-                    "This is NOT a problem with your current update set or scope. Options: ask "
-                    f"'{record_hold['held_by']}' to commit/close '{record_hold['update_set']}', or "
-                    "edit the record in the ServiceNow UI (it prompts to continue in your own "
-                    "update set). Local files and _sync_meta are UNCHANGED."
+            # Report the FACTS, not a guessed cause. A Table-API 403 does not tell
+            # us WHY, so we lead with what is certain, name the most-likely cause
+            # for this table type, and give a remedy that holds regardless of cause.
+            # The record_hold is surfaced as CONTEXT — an open update set tracks
+            # changes, it does not by itself lock a record against a write, so it is
+            # deliberately NOT presented as the cause (that sent users chasing the
+            # wrong fix).
+            is_sp = resolved.table.startswith("sp_")
+            parts = [
+                f"HTTP 403: ServiceNow received the Table-API write to "
+                f"{resolved.table}/{resolved.sys_id} on '{active}' and rejected it. Local files "
+                "and _sync_meta are UNCHANGED. A Table-API 403 does not report its own cause."
+            ]
+            if is_sp:
+                parts.append(
+                    f"Most likely cause: '{resolved.table}' is a Service Portal table whose write "
+                    "is gated by protections beyond role/ACL — a script-field source-context "
+                    "(Referer) check, sys_policy record protection, or a condition-scripted field "
+                    "ACL — that the generic Table API cannot satisfy. This routinely passes on one "
+                    "instance and 403s on another with identical roles (works on dev, blocked on "
+                    "test)."
                 )
             else:
-                hint = (
-                    "HTTP 403 ACL Exception — the write reached ServiceNow and was rejected. No "
-                    "other user is holding this record in an open update set, and the session "
-                    "scope was already aligned, so do NOT blindly retry. Remaining causes: (1) the "
-                    "account lacks write ACL on this table/scope in the target instance (verify "
-                    "roles), or (2) a Service Portal table's extra protections (see note below). "
-                    "Local files and _sync_meta are UNCHANGED. NEXT: for a bulk dev→test "
-                    "promotion that keeps 403-ing here, stop the per-record Table-API write and "
-                    "use an Update Set — commit the change on the source (manage_changeset), then "
-                    "retrieve + commit it on the target in the ServiceNow UI; that path bypasses "
-                    "the per-table / Service Portal ACLs a Table-API write cannot."
+                parts.append(
+                    "Likely cause: the account lacks write ACL on this table/scope on the target "
+                    "instance — verify roles. The session scope was already aligned, so do NOT "
+                    "blindly retry."
                 )
-            # Service Portal tables carry protections BEYOND the table role ACL.
-            # The user's account can hold sp_admin and the update set can be open,
-            # yet a Table-API write to an sp_* script field still 403s because the
-            # request lacks the SP Designer context (Referer/source check) or the
-            # record/field has an instance-specific protection policy or
-            # condition-scripted field ACL. This commonly differs per instance
-            # (works on dev, blocked on test) even with identical roles.
-            if resolved.table.startswith("sp_"):
-                hint += (
-                    f" NOTE: '{resolved.table}' is a Service Portal table — its write is "
-                    "gated by protections layered on top of role/ACL (script-field source-"
-                    "context checks, sys_policy record protection, condition-scripted field "
-                    "ACLs) that the generic Table API path does not satisfy and that can "
-                    "differ per instance even with sp_admin. If roles + update set check out, "
-                    "edit this record in the SP Designer UI on that instance, or compare the "
-                    "record's ACLs/protection policy between the working and blocked instances."
+            if record_hold:
+                parts.append(
+                    f"Context (NOT a confirmed cause): this record was last changed by "
+                    f"'{record_hold['held_by']}' in the still-open update set "
+                    f"'{record_hold['update_set']}'. An open update set only TRACKS changes; it "
+                    "does not by itself lock a record against a Table-API write — so do not assume "
+                    "closing it will unblock this push."
                 )
+            remedy = (
+                "Reliable paths (independent of the exact cause): "
+                + (
+                    "edit this record in the SP Designer UI on that instance (the UI carries the "
+                    "source-context the Table API lacks), or "
+                    if is_sp
+                    else "edit this record in the ServiceNow UI on that instance, or "
+                )
+                + "promote via an Update Set — commit the change on the source (manage_changeset), "
+                "then retrieve + commit it on the target in the UI."
+            )
+            parts.append(remedy)
+            hint = " ".join(parts)
         else:
             hint = (
                 "Remote rejected the write. Local files and _sync_meta are UNCHANGED; "
                 "resolve the error and retry."
+            )
+        # Single, unambiguous next step so the CALLER never has to infer one from
+        # prose (and never loops on a retry/close-the-update-set dead end). This is
+        # the deterministic signal; `hint` carries the human-readable detail.
+        if is_acl:
+            ui_name = "SP Designer" if resolved.table.startswith("sp_") else "record form (Studio)"
+            blocked_reason = "target_write_acl_denied"
+            recommended_action = (
+                f"Edit '{resolved.name}' directly in the {active} UI ({ui_name}), then re-run "
+                f"diff_local_component to verify. Do NOT retry this Table-API push and do NOT wait "
+                f"on any user's update set — neither changes this ACL result. Only a role/ACL fix "
+                f"on '{active}' (or the UI edit) will land it."
+            )
+        else:
+            blocked_reason = "target_rejected_write"
+            recommended_action = (
+                "Resolve the server error above, then re-push. Local files are UNCHANGED. Do NOT "
+                "blind-retry the same payload."
             )
         response: Dict[str, Any] = {
             "success": False,
@@ -2356,6 +2397,8 @@ def update_remote_from_local(
             },
             "fields_attempted": list(update_data.keys()),
             "sync_meta_updated": False,
+            "blocked_reason": blocked_reason,
+            "recommended_action": recommended_action,
             "hint": hint,
         }
         if active_sets:
@@ -2379,8 +2422,11 @@ def update_remote_from_local(
     verify_fields = list(update_data.keys()) + ["sys_updated_on", "sys_updated_by"]
     fresh_remote: Optional[Dict[str, Any]] = None
     try:
+        # full=True: same untruncated read as the pre-push gate — a >50k field
+        # clipped by sn_query would still differ from the full local copy after a
+        # perfect push and raise a false WRITE_NOT_LANDED.
         fresh_remote = _fetch_portal_component_record(
-            config, auth_manager, resolved.table, resolved.sys_id, verify_fields
+            config, auth_manager, resolved.table, resolved.sys_id, verify_fields, full=True
         )
     except ValueError as e:
         logger.warning("Post-write landing verification could not re-read record: %s", e)

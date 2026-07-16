@@ -56,6 +56,14 @@ from milvus_lite.exceptions import (
     SchemaValidationError,
 )
 from milvus_lite.index.brute_force import BruteForceIndex
+from milvus_lite.index.factory import KNOWN_VECTOR_INDEX_TYPES
+from milvus_lite.index.files import index_sidecar_suffix, parse_index_sidecar_name
+from milvus_lite.index.scalar import (
+    IMPLEMENTED_SCALAR_INDEX_TYPES,
+    KNOWN_SCALAR_INDEX_TYPES,
+    SUPPORTED_DTYPES_BY_SCALAR_INDEX_TYPE,
+    plan_indexed_filter,
+)
 from milvus_lite.index.spec import IndexSpec
 from milvus_lite.schema.types import DataType, FunctionType
 from milvus_lite.schema.arrow_builder import (
@@ -70,12 +78,14 @@ from milvus_lite.schema.validation import (
     validate_record,
     validate_schema,
 )
+from milvus_lite.schema.timestamptz import validate_timezone_name
 from milvus_lite.search.assembler import assemble_candidates
 from milvus_lite.search.executor import execute_search
 from milvus_lite.search.executor_indexed import execute_search_with_index
 from milvus_lite.storage.manifest import Manifest
 from milvus_lite.storage.memtable import MemTable
 from milvus_lite.storage.segment import Segment
+from milvus_lite.storage.snapshots import snapshot_references
 from milvus_lite.storage.wal import WAL
 
 if False:  # TYPE_CHECKING
@@ -85,6 +95,47 @@ if False:  # TYPE_CHECKING
 # Segment cache key: (partition, relative_path) — relative_path is what
 # the manifest stores so two segments cannot collide on the same name.
 _SegmentKey = Tuple[str, str]
+
+
+def _validate_scalar_index_request(dtype: DataType, index_type: str) -> None:
+    if index_type not in KNOWN_SCALAR_INDEX_TYPES:
+        raise SchemaValidationError(
+            f"unknown scalar index_type {index_type!r}; supported scalar index_type: INVERTED"
+        )
+    if index_type not in IMPLEMENTED_SCALAR_INDEX_TYPES:
+        raise SchemaValidationError(
+            f"scalar index_type {index_type!r} is not implemented; supported: INVERTED"
+        )
+    if dtype not in SUPPORTED_DTYPES_BY_SCALAR_INDEX_TYPE[index_type]:
+        raise SchemaValidationError(
+            f"field type {dtype.name} does not support scalar index"
+        )
+
+
+def _is_scalar_index_spec(spec: Optional[IndexSpec]) -> bool:
+    return spec is not None and spec.index_type in IMPLEMENTED_SCALAR_INDEX_TYPES
+
+
+def _index_file_suffix(spec: IndexSpec) -> str:
+    return index_sidecar_suffix(
+        spec.field_name, spec.index_type, scalar=_is_scalar_index_spec(spec),
+    )
+
+
+def _schema_field(
+    schema: CollectionSchema,
+    field_name: str,
+    *,
+    error_message: Optional[str] = None,
+):
+    field = next((f for f in schema.fields if f.name == field_name), None)
+    if field is None:
+        raise SchemaValidationError(error_message or f"unknown field {field_name!r}")
+    return field
+
+
+def _field_dtype(schema: CollectionSchema, field_name: str) -> DataType:
+    return _schema_field(schema, field_name).dtype
 
 
 def _row_matches_filter(record: dict, compiled_filter) -> bool:
@@ -145,8 +196,12 @@ class Collection:
         name: str,
         data_dir: str,
         schema: CollectionSchema,
+        database_properties: Optional[Dict[str, Any]] = None,
     ) -> None:
-        validate_schema(schema)
+        self._database_properties = (
+            database_properties if database_properties is not None else {}
+        )
+        validate_schema(schema, default_properties=self._database_properties)
 
         self._name = name
         self._data_dir = data_dir
@@ -273,6 +328,8 @@ class Collection:
                 if not self._manifest.has_partition(bucket):
                     self._manifest.add_partition(bucket)
 
+        self._schedule_bg_maintenance()
+
     # ── public API ──────────────────────────────────────────────
 
     def insert(
@@ -311,7 +368,11 @@ class Collection:
 
         # 3. validate every record up-front
         for r in records:
-            validate_record(r, self._schema)
+            validate_record(
+                r,
+                self._schema,
+                default_properties=self._database_properties,
+            )
 
         # 4. partition key routing
         if self._partition_key_field is not None:
@@ -504,6 +565,7 @@ class Collection:
         partition_names: Optional[List[str]] = None,
         expr: Optional[str] = None,
         output_fields: Optional[List[str]] = None,
+        timezone: Optional[str] = None,
     ) -> List[dict]:
         """Point read across MemTable + segments.
 
@@ -526,7 +588,7 @@ class Collection:
         self._require_loaded()
 
         partition_filter = set(partition_names) if partition_names else None
-        compiled_filter = self._compile_filter(expr) if expr else None
+        compiled_filter = self._compile_filter(expr, timezone=timezone) if expr else None
         # Snapshot tombstones so the bg worker's gc_below doesn't
         # invalidate entries we rely on during this read.
         seg_snap, delta_snap = self._read_snapshot()
@@ -591,6 +653,7 @@ class Collection:
         range_filter: Optional[float] = None,
         offset: int = 0,
         ranker: Optional[dict] = None,
+        timezone: Optional[str] = None,
     ) -> List[List[dict]]:
         """Vector top-k search.
 
@@ -630,11 +693,11 @@ class Collection:
 
         # Validate group_by_field
         if group_by_field is not None:
-            gf = next((f for f in self._schema.fields if f.name == group_by_field), None)
-            if gf is None:
-                raise SchemaValidationError(
-                    f"group_by_field {group_by_field!r} not found in schema"
-                )
+            gf = _schema_field(
+                self._schema,
+                group_by_field,
+                error_message=f"group_by_field {group_by_field!r} not found in schema",
+            )
             _GROUP_BY_ALLOWED = (
                 DataType.INT8, DataType.INT16, DataType.INT32, DataType.INT64,
                 DataType.BOOL, DataType.VARCHAR,
@@ -684,6 +747,7 @@ class Collection:
                 partition_names=partition_names,
                 expr=expr,
                 output_fields=output_fields,
+                timezone=timezone,
             )
         else:
             # Dense float vector search — auto-embed text queries if needed
@@ -693,7 +757,8 @@ class Collection:
                 raise ValueError(
                     f"query_vectors must be a 2-D list, got shape {q_arr.shape}"
                 )
-            compiled_filter = self._compile_filter(expr) if expr else None
+            compiled_filter = self._compile_filter(expr, timezone=timezone) if expr else None
+            indexed_filter_plan = self._indexed_filter_plan(compiled_filter)
             seg_snap, delta_snap = self._read_snapshot()
             raw_results = execute_search_with_index(
                 query_vectors=q_arr,
@@ -707,6 +772,7 @@ class Collection:
                 partition_names=partition_names,
                 compiled_filter=compiled_filter,
                 output_fields=output_fields,
+                indexed_filter_plan=indexed_filter_plan,
             )
 
         # Apply range filter (before group_by)
@@ -725,7 +791,7 @@ class Collection:
                 ranker,
                 metric_type=metric_type,
                 pk_name=self._pk_name,
-                compile_filter=self._compile_filter,
+                compile_filter=lambda s: self._compile_filter(s, timezone=timezone),
                 row_matches_filter=_row_matches_filter,
             )
 
@@ -738,11 +804,7 @@ class Collection:
             raw_results = [hits[offset:offset + top_k] for hits in raw_results]
         elif ranker is not None:
             raw_results = [hits[:top_k] for hits in raw_results]
-        # Convert IP distances to Milvus convention
-        if metric_type == "IP":
-            for hits in raw_results:
-                for hit in hits:
-                    hit["distance"] = -hit["distance"]
+        _convert_hits_to_milvus_distances(raw_results, metric_type)
 
         if _boost_field_injected or _group_by_field_injected:
             raw_results = _strip_injected_output_fields(raw_results, _user_output_fields)
@@ -765,11 +827,11 @@ class Collection:
                 )
             return self._vector_name
 
-        field = next((f for f in self._schema.fields if f.name == anns_field), None)
-        if field is None:
-            raise SchemaValidationError(
-                f"anns_field {anns_field!r} not found in schema"
-            )
+        field = _schema_field(
+            self._schema,
+            anns_field,
+            error_message=f"anns_field {anns_field!r} not found in schema",
+        )
         if field.dtype not in (DataType.FLOAT_VECTOR, DataType.SPARSE_FLOAT_VECTOR):
             raise SchemaValidationError(
                 f"anns_field {anns_field!r} is not a vector field "
@@ -786,6 +848,7 @@ class Collection:
         partition_names: Optional[List[str]],
         expr: Optional[str],
         output_fields: Optional[List[str]],
+        timezone: Optional[str] = None,
     ) -> List[List[dict]]:
         """Sparse vector search using per-segment cached BM25 indexes.
 
@@ -820,6 +883,8 @@ class Collection:
         # Convert query vectors upfront
         query_sparse = self._prepare_sparse_queries(query_vectors)
         nq = len(query_sparse)
+        compiled_filter = self._compile_filter(expr, timezone=timezone) if expr else None
+        indexed_filter_plan = self._indexed_filter_plan(compiled_filter)
 
         # Per-source candidates: (distance, global_pk, source_ref)
         Candidate = Tuple[float, Any, Any]  # (dist, pk, (tbl, row_idx))
@@ -879,11 +944,11 @@ class Collection:
                     valid_mask[i] = False
 
             # Apply scalar filter
-            if expr:
-                compiled = self._compile_filter(expr)
-                from milvus_lite.search.filter.eval import evaluate as filter_evaluate
-                fmask = filter_evaluate(compiled, table).to_numpy(zero_copy_only=False)
-                valid_mask = valid_mask & fmask
+            if compiled_filter is not None:
+                from milvus_lite.search.indexed_filter import evaluate_segment_filter
+                valid_mask = valid_mask & evaluate_segment_filter(
+                    seg, compiled_filter, indexed_filter_plan,
+                )
 
             if not valid_mask.any():
                 continue
@@ -917,13 +982,12 @@ class Collection:
         if mt_pks:
             mt_valid = np.ones(len(mt_pks), dtype=bool)
 
-            if expr:
-                compiled = self._compile_filter(expr)
+            if compiled_filter is not None:
                 from milvus_lite.search.filter.eval.python_backend import _eval_row
                 for i in range(len(mt_pks)):
                     if mt_valid[i]:
                         record, _seq = mt_refs[i]
-                        if not _eval_row(compiled.ast, record):
+                        if not _eval_row(compiled_filter.ast, record):
                             mt_valid[i] = False
 
             mt_idx = SparseInvertedIndex(k1=bm25_k1, b=bm25_b)
@@ -1053,6 +1117,7 @@ class Collection:
         partition_names: Optional[List[str]] = None,
         limit: Optional[int] = None,
         offset: int = 0,
+        timezone: Optional[str] = None,
     ) -> List[dict]:
         """Pure scalar query — no vector, no distance.
 
@@ -1079,7 +1144,8 @@ class Collection:
 
         self._require_loaded()
 
-        compiled_filter = self._compile_filter(expr) if expr else None
+        compiled_filter = self._compile_filter(expr, timezone=timezone) if expr else None
+        indexed_filter_plan = self._indexed_filter_plan(compiled_filter)
 
         seg_snap, delta_snap = self._read_snapshot()
 
@@ -1089,6 +1155,7 @@ class Collection:
             vector_field=self._vector_name,
             partition_names=partition_names,
             filter_compiled=compiled_filter,
+            indexed_filter_plan=indexed_filter_plan,
         )
 
         if not all_pks:
@@ -1121,7 +1188,7 @@ class Collection:
         Layout: ``data_dir/partitions/<partition>/indexes/``
 
         The directory is created on demand by build_or_load_index when
-        the first .idx is written.
+        the first index sidecar is written.
         """
         return os.path.join(self._data_dir, "partitions", partition, "indexes")
 
@@ -1138,20 +1205,60 @@ class Collection:
                 f"call load() before search/get/query"
             )
 
-    def _compile_filter(self, expr_str: str) -> "CompiledExpr":
+    def _compile_filter(
+        self,
+        expr_str: str,
+        timezone: Optional[str] = None,
+    ) -> "CompiledExpr":
         """Parse + compile a filter expression, with LRU caching.
 
-        The cache is keyed only on the expression string because the
-        schema is implicit (this Collection's). Schema is immutable for
-        the lifetime of a Collection, so cached entries never go stale.
+        The cache is keyed on the expression string plus the effective
+        timezone, because naive TIMESTAMPTZ literals are normalized at
+        parse time.
         """
-        cached = self._filter_cache.get(expr_str)
+        default_timezone = self._effective_timezone(timezone)
+        cache_key = (expr_str, default_timezone)
+        cached = self._filter_cache.get(cache_key)
         if cached is not None:
             return cached
         from milvus_lite.search.filter import compile_filter
-        compiled = compile_filter(expr_str, self._schema)
-        self._filter_cache.put(expr_str, compiled)
+        compiled = compile_filter(
+            expr_str,
+            self._schema,
+            default_timezone=default_timezone,
+        )
+        self._filter_cache.put(cache_key, compiled)
         return compiled
+
+    def _indexed_filter_plan(self, compiled_filter):
+        if compiled_filter is None:
+            return None
+        indexed_fields = {
+            field_name for field_name in compiled_filter.fields
+            if _is_scalar_index_spec(self._index_specs.get(field_name))
+        }
+        if not indexed_fields:
+            return None
+        return plan_indexed_filter(compiled_filter, indexed_fields)
+
+    def _build_or_load_segment_index(self, seg: Segment, spec: IndexSpec) -> None:
+        index_dir = self._index_dir(seg.partition)
+        if _is_scalar_index_spec(spec):
+            seg.build_or_load_scalar_index(
+                spec,
+                index_dir,
+                _field_dtype(self._schema, spec.field_name),
+            )
+        else:
+            seg.build_or_load_index(spec, index_dir)
+
+    def _effective_timezone(self, timezone: Optional[str] = None) -> Optional[str]:
+        if timezone is not None and timezone != "":
+            return validate_timezone_name(timezone)
+        return (
+            self._schema.properties.get("timezone")
+            or self._database_properties.get("timezone")
+        )
 
     def _project_record(
         self,
@@ -1258,8 +1365,27 @@ class Collection:
             self._data_dir, "partitions", partition_name
         )
         if os.path.exists(partition_dir):
-            import shutil
-            shutil.rmtree(partition_dir, ignore_errors=False)
+            snapshot_data_refs, snapshot_delta_refs, snapshot_index_refs = snapshot_references(
+                self._data_dir
+            )
+            pinned = set()
+            pinned.update(snapshot_data_refs.get(partition_name, set()))
+            pinned.update(snapshot_delta_refs.get(partition_name, set()))
+            pinned.update(snapshot_index_refs.get(partition_name, set()))
+
+            for root, dirs, files in os.walk(partition_dir, topdown=False):
+                for filename in files:
+                    abs_path = os.path.join(root, filename)
+                    rel = os.path.relpath(abs_path, partition_dir)
+                    if rel in pinned:
+                        continue
+                    os.remove(abs_path)
+                for dirname in dirs:
+                    abs_dir = os.path.join(root, dirname)
+                    if not os.listdir(abs_dir):
+                        os.rmdir(abs_dir)
+            if not os.listdir(partition_dir):
+                os.rmdir(partition_dir)
 
     def list_partitions(self) -> List[str]:
         """Return all partition names, sorted."""
@@ -1307,23 +1433,34 @@ class Collection:
                     f"call drop_index first"
                 )
 
-            # Validate the field is in the schema and is a vector type.
-            target = next((f for f in self._schema.fields if f.name == field_name), None)
-            if target is None:
-                raise SchemaValidationError(
-                    f"unknown field {field_name!r} for create_index"
-                )
-            if target.dtype not in (DataType.FLOAT_VECTOR, DataType.SPARSE_FLOAT_VECTOR):
-                raise SchemaValidationError(
-                    f"field {field_name!r} has type {target.dtype.name}; "
-                    f"create_index only supports vector fields"
-                )
+            target = _schema_field(
+                self._schema,
+                field_name,
+                error_message=f"unknown field {field_name!r} for create_index",
+            )
+
+            index_type = str(index_params["index_type"]).upper()
+            build_params = dict(index_params.get("params") or {})
+            metric_type = index_params.get("metric_type")
+            if target.dtype in (DataType.FLOAT_VECTOR, DataType.SPARSE_FLOAT_VECTOR):
+                if metric_type is None:
+                    raise SchemaValidationError(
+                        "create_index missing required 'metric_type' parameter"
+                    )
+            else:
+                if index_type in KNOWN_VECTOR_INDEX_TYPES:
+                    raise SchemaValidationError(
+                        f"field {field_name!r} has type {target.dtype.name}; "
+                        f"create_index with index_type {index_type!r} requires a vector field"
+                    )
+                _validate_scalar_index_request(target.dtype, index_type)
+                metric_type = metric_type or "NONE"
 
             spec = IndexSpec(
                 field_name=field_name,
-                index_type=index_params["index_type"],
-                metric_type=index_params["metric_type"],
-                build_params=dict(index_params.get("params") or {}),
+                index_type=index_type,
+                metric_type=metric_type,
+                build_params=build_params,
                 search_params=dict(index_params.get("search_params") or {}),
             )
 
@@ -1337,11 +1474,11 @@ class Collection:
             if self._load_state == "loaded":
                 for seg in self._segment_cache.values():
                     if seg.num_rows > 0:
-                        seg.build_or_load_index(spec, self._index_dir(seg.partition))
+                        self._build_or_load_segment_index(seg, spec)
 
     def drop_index(self, field_name: Optional[str] = None) -> None:
         """Remove the IndexSpec, release in-memory indexes, and delete
-        on-disk .idx files.
+        on-disk index sidecars.
 
         Args:
             field_name: optional; if given, must match the existing
@@ -1352,7 +1489,7 @@ class Collection:
             IndexNotFoundError: no index has been created
 
         Phase 9.4: also walks every partition's ``indexes/`` directory
-        and deletes the .idx files matching the dropped index_type.
+        and deletes the index sidecars matching the dropped index_type.
         Other index_type files (if any — currently impossible since we
         only support one index per Collection) are left alone.
         """
@@ -1368,7 +1505,23 @@ class Collection:
             # is loaded. Caller must release() first.
             if self._load_state == "loaded":
                 raise SchemaValidationError(
-                    "vector index cannot be dropped on loaded collection; "
+                    "index cannot be dropped on loaded collection; "
+                    "call release() first"
+                )
+
+        self._wait_for_bg()
+
+        with self._maintenance_lock:
+            if not self._index_specs:
+                raise IndexNotFoundError("no index to drop")
+            if field_name is not None and field_name not in self._index_specs:
+                raise IndexNotFoundError(
+                    f"no index on field {field_name!r}; "
+                    f"indexed fields: {list(self._index_specs.keys())}"
+                )
+            if self._load_state == "loaded":
+                raise SchemaValidationError(
+                    "index cannot be dropped on loaded collection; "
                     "call release() first"
                 )
 
@@ -1383,16 +1536,21 @@ class Collection:
                 for seg in self._segment_cache.values():
                     seg.release_index(field_name=spec.field_name)
 
-            # Delete on-disk .idx files matching the dropped (field, type)
-            # pair. File format: <stem>.<field>.<type>.idx
+            # Delete on-disk sidecars matching the dropped (field, type)
+            # pair, unless a snapshot still references them.
+            _snapshot_data_refs, _snapshot_delta_refs, snapshot_index_refs = snapshot_references(
+                self._data_dir
+            )
             for spec in drop_specs:
-                suffix = f".{spec.field_name}.{spec.index_type.lower()}.idx"
+                suffix = _index_file_suffix(spec)
                 for partition in self._manifest.list_partitions():
                     index_dir = self._index_dir(partition)
                     if not os.path.exists(index_dir):
                         continue
+                    pinned = snapshot_index_refs.get(partition, set())
                     for entry in os.listdir(index_dir):
-                        if entry.endswith(suffix):
+                        rel = os.path.join("indexes", entry)
+                        if entry.endswith(suffix) and rel not in pinned:
                             try:
                                 os.remove(os.path.join(index_dir, entry))
                             except OSError:
@@ -1438,7 +1596,7 @@ class Collection:
         segment if an IndexSpec exists; idempotent if already loaded.
 
         Phase 9.4: indexes are persisted to disk. The first load() after
-        a fresh create_index builds them and writes .idx sidecars; every
+        a fresh create_index builds them and writes index sidecars; every
         subsequent load() (including after process restart) reads them
         back via Segment.build_or_load_index, so cold-start is fast.
 
@@ -1457,9 +1615,7 @@ class Collection:
                     for seg in self._segment_cache.values():
                         if seg.num_rows == 0:
                             continue
-                        seg.build_or_load_index(
-                            spec, self._index_dir(seg.partition)
-                        )
+                        self._build_or_load_segment_index(seg, spec)
                 self._load_state = "loaded"
             except Exception:
                 self._load_state = "released"
@@ -1499,6 +1655,30 @@ class Collection:
     def schema(self) -> CollectionSchema:
         """Collection schema (read-only)."""
         return self._schema
+
+    def alter_properties(
+        self,
+        properties: Optional[Dict[str, Any]] = None,
+        delete_keys: Optional[List[str]] = None,
+    ) -> None:
+        """Update mutable collection properties.
+
+        The schema structure remains immutable; only schema-level
+        properties such as TIMESTAMPTZ timezone are updated.
+        """
+        import copy
+
+        next_schema = copy.deepcopy(self._schema)
+        next_props = dict(next_schema.properties)
+        for key in delete_keys or []:
+            next_props.pop(str(key), None)
+        for key, value in (properties or {}).items():
+            next_props[str(key)] = value
+        next_schema.properties = next_props
+        validate_schema(next_schema, default_properties=self._database_properties)
+
+        self._schema.properties = dict(next_schema.properties)
+        self._filter_cache.clear()
 
     @property
     def num_entities(self) -> int:
@@ -1579,6 +1759,7 @@ class Collection:
                     for f in self._schema.fields
                 ],
                 "enable_dynamic_field": self._schema.enable_dynamic_field,
+                "properties": dict(self._schema.properties),
             },
             "partitions": self.list_partitions(),
             "num_entities": self.num_entities,
@@ -1699,7 +1880,7 @@ class Collection:
                 self._cleanup_orphan_index_files()
 
             # Phase B: index build — outside the lock. build_or_load_index
-            # operates on an immutable Segment and writes a dedicated .idx
+            # operates on an immutable Segment and writes a dedicated sidecar
             # file, so concurrent user-thread flushes are safe.
             import time as _time
             t0 = _time.monotonic()
@@ -1737,20 +1918,25 @@ class Collection:
         built = 0
         for spec in specs:
             for seg in segs:
-                if spec.field_name not in seg.indexes and seg.num_rows > 0:
-                    seg.build_or_load_index(
-                        spec, self._index_dir(seg.partition)
-                    )
+                if seg.num_rows == 0:
+                    continue
+                has_index = (
+                    spec.field_name in seg.scalar_indexes
+                    if _is_scalar_index_spec(spec)
+                    else spec.field_name in seg.indexes
+                )
+                if not has_index:
+                    self._build_or_load_segment_index(seg, spec)
                     built += 1
         return built
 
     def _cleanup_orphan_index_files(self) -> None:
-        """Phase 9.4: delete .idx files whose source segment is gone.
+        """Delete index sidecars whose source segment is gone.
 
         Called from _trigger_flush after _refresh_segment_cache (which
         evicts compaction-removed segments). The cleanup compares the
         on-disk indexes/ directories against the manifest's data file
-        list and removes any .idx whose stem doesn't match a current
+        list and removes any sidecar whose stem doesn't match a current
         data file.
 
         This is the architectural safety net for invariant §11
@@ -1759,13 +1945,17 @@ class Collection:
         if not self._index_specs:
             return
 
-        # File format: <data_stem>.<field>.<index_type>.idx
+        # File format: <data_stem>.<field>.<index_type>.idx/.sidx
         # Build {field → index_type_lower} so we can validate both parts.
         expected: Dict[str, str] = {
             spec.field_name: spec.index_type.lower()
             for spec in self._index_specs.values()
         }
+        _snapshot_data_refs, _snapshot_delta_refs, snapshot_index_refs = snapshot_references(
+            self._data_dir
+        )
         for partition, data_files in self._manifest.get_all_data_files().items():
+            pinned_indexes = snapshot_index_refs.get(partition, set())
             index_dir = self._index_dir(partition)
             if not os.path.exists(index_dir):
                 continue
@@ -1773,17 +1963,15 @@ class Collection:
                 os.path.splitext(os.path.basename(df))[0] for df in data_files
             }
             for entry in os.listdir(index_dir):
-                if not entry.endswith(".idx"):
+                sidecar = parse_index_sidecar_name(entry)
+                if sidecar is None:
                     continue
-                base = entry[: -len(".idx")]
-                stem_field, _, idx_type = base.rpartition(".")
-                stem, _, field = stem_field.rpartition(".")
-                # Drop if (a) source data gone, or (b) field/type no
-                # longer in the active index_specs (dropped index).
+                rel = os.path.join("indexes", entry)
+                if rel in pinned_indexes:
+                    continue
                 if (
-                    not stem
-                    or stem not in valid_stems
-                    or expected.get(field) != idx_type
+                    sidecar.source_stem not in valid_stems
+                    or expected.get(sidecar.field_name) != sidecar.index_type
                 ):
                     try:
                         os.remove(os.path.join(index_dir, entry))
@@ -2056,36 +2244,53 @@ def _apply_range_filter(
     """Filter search results by distance range.
 
     Milvus range search semantics:
-        L2/COSINE: radius = max distance (outer), range_filter = min distance (inner)
-            Keep: range_filter <= distance <= radius
-        IP: radius = min score (inner), range_filter = max score (outer)
-            Keep: radius <= distance <= range_filter
-            (note: at this point IP distances are still internal -dot form)
+        L2: range_filter <= distance < radius
+        IP/COSINE: radius < score <= range_filter
 
     Either bound can be None (no bound on that side).
     After filtering, truncates to *limit* hits per query.
     """
+    metric = metric_type.upper()
     out: List[List[dict]] = []
     for query_hits in results:
         filtered = []
         for hit in query_hits:
-            d = hit["distance"]
-            if metric_type == "IP":
-                # IP internal convention: -dot (smaller = more similar)
-                # radius/range_filter are user-facing (positive dot values)
-                # but _apply_range_filter runs BEFORE IP sign flip, so
-                # negate the bounds for comparison
-                if radius is not None and not (d <= -radius):
+            d = _internal_distance_to_milvus_distance(hit["distance"], metric)
+            if metric in {"IP", "COSINE"}:
+                if radius is not None and not (d > radius):
                     continue
-                if range_filter is not None and not (d >= -range_filter):
+                if range_filter is not None and not (d <= range_filter):
                     continue
             else:
-                # L2/COSINE: smaller distance = closer
-                # radius = outer bound (max), range_filter = inner bound (min)
-                if radius is not None and not (d <= radius):
+                if radius is not None and not (d < radius):
                     continue
                 if range_filter is not None and not (d >= range_filter):
                     continue
             filtered.append(hit)
         out.append(filtered[:limit])
     return out
+
+
+def _convert_hits_to_milvus_distances(
+    results: List[List[dict]],
+    metric_type: str,
+) -> None:
+    """Convert internal search distances to Milvus public score semantics."""
+    metric = metric_type.upper()
+
+    for hits in results:
+        for hit in hits:
+            hit["distance"] = _internal_distance_to_milvus_distance(
+                hit["distance"], metric,
+            )
+
+
+def _internal_distance_to_milvus_distance(distance: float, metric_type: str) -> float:
+    """Map the engine's smaller-is-better distance to Milvus public semantics."""
+    if metric_type == "COSINE":
+        return 1.0 - distance
+    if metric_type == "IP":
+        return -distance
+    if metric_type == "L2":
+        return distance * distance
+    return distance

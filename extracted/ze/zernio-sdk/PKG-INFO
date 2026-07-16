@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zernio-sdk
-Version: 1.4.252
+Version: 1.4.264
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -374,6 +374,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.list_pinterest_boards_for_selection()` | List Pinterest boards |
 | `connect.list_snapchat_profiles()` | List Snapchat profiles |
 | `connect.list_whats_app_phone_numbers()` | List numbers for selection |
+| `connect.create_pinterest_board()` | Create Pinterest board |
 | `connect.get_connect_url()` | Get OAuth connect URL |
 | `connect.get_facebook_pages()` | List Facebook pages |
 | `connect.get_gmb_locations()` | List GBP locations |
@@ -479,6 +480,8 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ads.get_dsa_defaults()` | Get ad account DSA defaults |
 | `ads.get_dsa_recommendations()` | List DSA beneficiary/payor suggestions |
 | `ads.get_lead_form()` | Get a lead form |
+| `ads.get_linked_in_bid_pricing()` | Suggested bid and budget bounds (LinkedIn) |
+| `ads.get_linked_in_supply_forecast()` | Impressions, clicks and spend forecast (LinkedIn) |
 | `ads.update_ad()` | Update ad |
 | `ads.update_ad_account()` | Update ad account settings |
 | `ads.update_ad_status()` | Pause or resume a single ad |
@@ -731,6 +734,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `sms.list_sms_registrations()` | List carrier registrations |
 | `sms.get_sms_registration()` | Get a carrier registration |
 | `sms.appeal_sms_registration()` | Appeal a rejected campaign |
+| `sms.deactivate_sms_registration()` | Deactivate a brand/campaign registration |
 | `sms.disable_sms_on_number()` | Disable SMS on a number |
 | `sms.enable_sms_on_number()` | Enable SMS on a number |
 | `sms.lookup_sms_number()` | Look up carrier + line type |
@@ -739,6 +743,8 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `sms.send_sms()` | Send an SMS/MMS |
 | `sms.share_sms_registration()` | Create a registration share link |
 | `sms.start_sms_registration()` | Start a carrier registration |
+| `sms.upload_sms_opt_in_proof()` | Upload opt-in form proof for an appeal |
+| `sms.upload_sms_opt_in_proof_file()` | Upload opt-in form proof |
 | `sms.verify_sms_registration_otp()` | Submit the sole-prop OTP |
 
 ### Tracking Tags

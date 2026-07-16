@@ -8,6 +8,7 @@ from abstra_internals.controllers.git import GitController
 from abstra_internals.controllers.linter_events import LinterEventController
 from abstra_internals.controllers.main import MainController
 from abstra_internals.interface.cli.deploy_messages import DeployMessages
+from abstra_internals.repositories.linter.models import deploy_gate_message
 from abstra_internals.usage import editor_usage
 
 
@@ -46,13 +47,12 @@ def get_editor_bp(main_controller: MainController):
                 )
 
                 if len(issues) > 0:
-                    DeployMessages.error(
-                        "Please fix all linter issues before deploying your project."
-                    )
+                    message = deploy_gate_message(issues)
+                    DeployMessages.error(message)
                     return (
                         AbstraLibApiEditorDeployPostResponse(
                             success=False,
-                            message="Please fix all linter issues before deploying your project.",
+                            message=message,
                         ).to_dict(),
                         400,
                     )

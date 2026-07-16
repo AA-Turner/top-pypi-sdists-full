@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mjlab
-Version: 1.5.0
+Version: 1.5.1
 Summary: Isaac Lab API, powered by MuJoCo-Warp, for RL and robotics research.
 Keywords: mujoco,mujoco-warp,simulation,reinforcement-learning,robotics
 Author: The MjLab Developers
@@ -26,7 +26,7 @@ Requires-Dist: tyro>=1.0.1
 Requires-Dist: torch>=2.7.0
 Requires-Dist: torchrunx>=0.3.4
 Requires-Dist: warp-lang>=1.14.0
-Requires-Dist: mujoco-warp~=3.10.0,>=3.10.0.1
+Requires-Dist: mujoco-warp~=3.10.0,>=3.10.0.2
 Requires-Dist: mujoco~=3.10.0
 Requires-Dist: trimesh>=4.8.3
 Requires-Dist: scipy>=1.15
@@ -56,6 +56,7 @@ Description-Content-Type: text/markdown
 [![GitHub Actions](https://img.shields.io/github/actions/workflow/status/mujocolab/mjlab/ci.yml?branch=main)](https://github.com/mujocolab/mjlab/actions/workflows/ci.yml?query=branch%3Amain)
 [![Documentation](https://github.com/mujocolab/mjlab/actions/workflows/docs.yml/badge.svg)](https://mujocolab.github.io/mjlab/)
 [![License](https://img.shields.io/github/license/mujocolab/mjlab)](https://github.com/mujocolab/mjlab/blob/main/LICENSE)
+[![MuJoCo Warp](https://img.shields.io/badge/MuJoCo_Warp-3.10.0.2-blue)](https://github.com/google-deepmind/mujoco_warp/releases/tag/v3.10.0.2)
 [![Nightly Benchmarks](https://img.shields.io/badge/Nightly-Benchmarks-blue)](https://mujocolab.github.io/mjlab/nightly/)
 [![PyPI](https://img.shields.io/pypi/v/mjlab)](https://pypi.org/project/mjlab/)
 [![PyPI downloads](https://img.shields.io/pypi/dm/mjlab?color=blue)](https://pypistats.org/packages/mjlab)

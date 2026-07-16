@@ -1,7 +1,11 @@
 """Detection of unused, missing, and transitive Python dependencies."""
 
+from typing import Any
+
 from pyrig.core.subprocesses import Args
 from pyrig.rig.tools.base.tool import Group, Tool
+from pyrig.rig.tools.typing.checker import TypeChecker
+from pyrig.rig.tools.version_control.hooks.manager import VersionControlHookManager
 
 
 class DependencyChecker(Tool):
@@ -13,7 +17,7 @@ class DependencyChecker(Tool):
 
     def image_url(self) -> str:
         """Return the Shields.io badge URL advertising `deptry`."""
-        return "https://img.shields.io/badge/dependencies-deptry-blue"
+        return f"https://img.shields.io/badge/dependencies-{self.shield_name()}-blue"
 
     def link_url(self) -> str:
         """Return the URL of the `deptry` project page."""
@@ -33,3 +37,37 @@ class DependencyChecker(Tool):
             Args for running `deptry` with the given flags.
         """
         return self.args(*args)
+
+    def version_control_hooks(self) -> tuple[dict[str, Any], ...]:
+        """Return the dependency usage check hook.
+
+        Returns:
+            `check_dependencies_hook`, wrapped in a single-element tuple.
+        """
+        return (self.check_dependencies_hook(),)
+
+    def check_dependencies_hook(self) -> dict[str, Any]:
+        """Return the hook metadata for detecting unused or missing dependencies.
+
+        Ties its priority to `TypeChecker.check_types_hook` so it runs
+        alongside the rest of the checks tier rather than after it.
+
+        Returns:
+            Hook metadata dict for `deptry`.
+        """
+        return VersionControlHookManager.I.hook(
+            self.check_dependencies,
+            priority=VersionControlHookManager.I.hook_priority(
+                TypeChecker.I.check_types_hook(),
+            ),
+            types_or=["python", "pyproject"],
+            pass_filenames=False,
+        )
+
+    def check_dependencies(self) -> Args:
+        """Return the `Args` this hook's entry runs.
+
+        Returns:
+            Args for `deptry`.
+        """
+        return self.check_args()

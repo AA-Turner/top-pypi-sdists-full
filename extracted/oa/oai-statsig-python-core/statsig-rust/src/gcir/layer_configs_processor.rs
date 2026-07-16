@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use crate::{
     evaluation::{
         dynamic_returnable::DynamicReturnable,
+        evaluation_data::SpecView,
         evaluation_types::LayerEvaluation,
         evaluation_types_initialize_v2::LayerEvaluationInitV2,
         evaluation_types_v2::LayerEvaluationV2,
@@ -17,7 +18,6 @@ use crate::{
     },
     hashing::HashUtil,
     interned_string::InternedString,
-    specs_response::spec_types::Spec,
     ClientInitResponseOptions, SecondaryExposure, StatsigErr,
 };
 
@@ -177,9 +177,9 @@ fn try_hash_allocated_experiment_name(
     };
 
     let hashed_name = hashing.hash(&name, options.get_hash_algorithm());
-    allocated_experiment_name.replace(InternedString::from_string(hashed_name));
+    allocated_experiment_name.replace(InternedString::from_string_uninterned(hashed_name));
 }
 
-fn get_layer_spec_type(_: &Spec) -> SpecType {
+fn get_layer_spec_type(_: SpecView<'_>) -> SpecType {
     SpecType::Layer
 }

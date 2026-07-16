@@ -8,6 +8,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_AAAA, _TYPE_PTR, _TYPE_SRV, _TYPE_TXT
 
 from esphome_device_builder.controllers._device_state_monitor import mdns as mdns_module
 from esphome_device_builder.controllers._device_state_monitor import shared
@@ -25,10 +26,12 @@ _SERVICE_NAME = "kitchen._esphomelib._tcp.local."
 def _prime_sweep(monitor: Any, *, cache_trace: bool = True, live_ptr: bool = False) -> None:
     """Wire the fake zeroconf plus the two cache reads the sweep filter makes."""
     monitor.mdns._zeroconf = MagicMock()
-    monitor.mdns.get_mdns_cache_info = MagicMock(  # type: ignore[method-assign]
-        return_value=MagicMock() if cache_trace else None
+    monitor.mdns.has_cached_trace = MagicMock(  # type: ignore[method-assign]
+        return_value=cache_trace
     )
-    monitor.mdns.has_live_ptr = MagicMock(return_value=live_ptr)  # type: ignore[method-assign]
+    monitor.mdns.live_ptr_service_names = MagicMock(  # type: ignore[method-assign]
+        return_value={_SERVICE_NAME} if live_ptr else set()
+    )
 
 
 async def test_sweep_claims_mdns_for_ping_owned_online_device(
@@ -217,6 +220,54 @@ def test_has_live_ptr_reads_the_browser_cache() -> None:
 
     monitor.mdns._zeroconf = None
     assert monitor.mdns.has_live_ptr("kitchen") is False
+
+
+def test_live_ptr_service_names_snapshots_unexpired_aliases() -> None:
+    """One cache pass yields the live aliases; expired entries drop out."""
+    monitor, _callbacks = make_state_monitor_with_callbacks([make_online_api_device()])
+    fake_zeroconf = MagicMock()
+    monitor.mdns._zeroconf = fake_zeroconf
+    live = MagicMock(alias=_SERVICE_NAME)
+    live.is_expired.return_value = False
+    expired = MagicMock(alias="porch._esphomelib._tcp.local.")
+    expired.is_expired.return_value = True
+    fake_zeroconf.zeroconf.cache.get_all_by_details.return_value = [live, expired]
+
+    assert monitor.mdns.live_ptr_service_names() == {_SERVICE_NAME}
+    fake_zeroconf.zeroconf.cache.get_all_by_details.assert_called_once_with(
+        "_esphomelib._tcp.local.", _TYPE_PTR, _CLASS_IN
+    )
+
+    monitor.mdns._zeroconf = None
+    assert monitor.mdns.live_ptr_service_names() == set()
+
+
+def test_has_cached_trace_checks_each_record_bucket() -> None:
+    """Address, SRV, TXT, and live-PTR buckets each independently count as a trace."""
+    monitor, _callbacks = make_state_monitor_with_callbacks([make_online_api_device()])
+    fake_zeroconf = MagicMock()
+    monitor.mdns._zeroconf = fake_zeroconf
+    cache = fake_zeroconf.zeroconf.cache
+    buckets: dict[tuple[str, int], list[Any]] = {}
+    cache.get_all_by_details.side_effect = lambda name, type_, _cls: buckets.get((name, type_), [])
+    cache.current_entry_with_name_and_alias.return_value = None
+    assert monitor.mdns.has_cached_trace("kitchen") is False
+
+    for bucket_key in [
+        ("kitchen.local.", _TYPE_A),
+        ("kitchen.local.", _TYPE_AAAA),
+        (_SERVICE_NAME, _TYPE_SRV),
+        (_SERVICE_NAME, _TYPE_TXT),
+    ]:
+        buckets[bucket_key] = [MagicMock()]
+        assert monitor.mdns.has_cached_trace("kitchen") is True, bucket_key
+        buckets.clear()
+
+    cache.current_entry_with_name_and_alias.return_value = MagicMock()
+    assert monitor.mdns.has_cached_trace("kitchen") is True
+
+    monitor.mdns._zeroconf = None
+    assert monitor.mdns.has_cached_trace("kitchen") is False
 
 
 def _gated_wire(info: MagicMock, *, result: bool) -> tuple[asyncio.Event, list[int]]:

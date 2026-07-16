@@ -39,9 +39,9 @@ def _rule(name):
 
 
 class SidecarWindowsStdioTest(unittest.TestCase):
-    """Light fixture (init_dir, no BaseTest consumer/executor pool), with
-    NewVersionOfAbstraAvailable kept out of the child's registry so the resync
-    full pass never hits the network."""
+    """Light fixture (init_dir, no BaseTest consumer/executor pool), run in
+    bundled mode so the child's resync full pass stays offline (deterministic,
+    no network)."""
 
     def setUp(self):
         self._old_bundled = os.environ.get("ABSTRA_RUNNING_IN_BUNDLED_APP")

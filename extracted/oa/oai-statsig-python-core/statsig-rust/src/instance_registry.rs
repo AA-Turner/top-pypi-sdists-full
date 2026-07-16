@@ -26,8 +26,15 @@ impl InstanceRegistry {
         let id_tuple = (short_type_name, Uuid::new_v4());
         let id_hash = hash_one(id_tuple);
 
-        let mut registry = Self::get_write_lock()?;
-        registry.insert(id_hash, instance);
+        let replaced = {
+            let mut registry = Self::get_write_lock()?;
+            registry.insert(id_hash, instance)
+        };
+
+        // Registered instances may run arbitrary shutdown logic when dropped.
+        // Keep that work outside the global registry lock in the unlikely event
+        // of an ID collision.
+        drop(replaced);
 
         Some(id_hash)
     }
@@ -41,27 +48,29 @@ impl InstanceRegistry {
     }
 
     pub fn get<T: Send + Sync + 'static>(id: &u64) -> Option<Arc<T>> {
-        let registry = match REGISTRY.try_read_for(Duration::from_secs(5)) {
-            Some(guard) => guard,
-            None => {
-                log_e!(TAG, "Failed to acquire read lock: Failed to lock REGISTRY");
-                return None;
-            }
+        let instance = {
+            let registry = match REGISTRY.try_read_for(Duration::from_secs(5)) {
+                Some(guard) => guard,
+                None => {
+                    log_e!(TAG, "Failed to acquire read lock: Failed to lock REGISTRY");
+                    return None;
+                }
+            };
+
+            registry.get(id).cloned()
         };
 
-        registry
-            .get(id)
-            .and_then(|any_arc| match any_arc.clone().downcast::<T>() {
-                Ok(t) => Some(t),
-                Err(_) => {
-                    log_e!(
-                        TAG,
-                        "Failed to downcast instance with ref '{}' to generic type",
-                        id
-                    );
-                    None
-                }
-            })
+        instance.and_then(|any_arc| match any_arc.downcast::<T>() {
+            Ok(t) => Some(t),
+            Err(_) => {
+                log_e!(
+                    TAG,
+                    "Failed to downcast instance with ref '{}' to generic type",
+                    id
+                );
+                None
+            }
+        })
     }
 
     pub fn get_raw(id: &u64) -> Option<Arc<dyn Any + Send + Sync>> {
@@ -77,19 +86,29 @@ impl InstanceRegistry {
     }
 
     pub fn remove(id: &u64) {
-        let mut registry = match Self::get_write_lock() {
-            Some(registry) => registry,
-            None => return,
+        let removed = {
+            let mut registry = match Self::get_write_lock() {
+                Some(registry) => registry,
+                None => return,
+            };
+            registry.remove(id)
         };
-        registry.remove(id);
+
+        // Instance destructors can run shutdown hooks and callbacks.
+        drop(removed);
     }
 
     pub fn remove_all() {
-        let mut registry = match Self::get_write_lock() {
-            Some(registry) => registry,
-            None => return,
+        let removed = {
+            let mut registry = match Self::get_write_lock() {
+                Some(registry) => registry,
+                None => return,
+            };
+            std::mem::take(&mut *registry)
         };
-        registry.clear();
+
+        // Drop all instances after the registry is available to other callers.
+        drop(removed);
     }
 
     fn get_write_lock() -> Option<RwLockWriteGuard<'static, AHashMap<u64, AnyInstance>>> {

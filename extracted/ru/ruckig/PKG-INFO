@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.1
 Name: ruckig
-Version: 0.17.3
+Version: 0.19.4
 Summary: Instantaneous Motion Generation for Robots and Machines.
 Keywords: robotics,trajectory-generation,real-time,jerk-constrained,time-optimal
 Author-Email: Lars Berscheid <lars.berscheid@ruckig.com>
@@ -39,7 +39,7 @@ Description-Content-Type: text/markdown
 
 Ruckig generates trajectories on-the-fly, allowing robots and machines to react instantaneously to sensor input. Ruckig calculates a trajectory to a *target* waypoint (with position, velocity, and acceleration) starting from *any* initial state limited by velocity, acceleration, and jerk constraints. Besides the target state, Ruckig allows to define intermediate positions for waypoint following. For state-to-state motions, Ruckig guarantees a time-optimal solution. With intermediate waypoints, Ruckig calculates the path and its time parametrization jointly, resulting in significantly faster trajectories compared to traditional methods.
 
-More information can be found at [ruckig.com](https://ruckig.com) and in the corresponding paper [Jerk-limited Real-time Trajectory Generation with Arbitrary Target States](https://arxiv.org/abs/2105.04830), accepted for the *Robotics: Science and Systems (RSS), 2021* conference.
+More information can be found at [ruckig.com](https://ruckig.com) and in the corresponding paper [Jerk-limited Real-time Trajectory Generation with Arbitrary Target States](https://arxiv.org/abs/2105.04830). Documentation is published at [docs.ruckig.com](https://docs.ruckig.com).
 
 
 ## Installation
@@ -162,11 +162,11 @@ Vector max_velocity;
 Vector max_acceleration;
 Vector max_jerk; // Initialized to infinity
 
+Vector max_position; // Initialized to infinity (only in Pro Version)
+Vector min_position; // Initialized to -infinity (only in Pro Version)
+
 std::optional<Vector> min_velocity; // If not given, the negative maximum velocity will be used.
 std::optional<Vector> min_acceleration; // If not given, the negative maximum acceleration will be used.
-
-std::optional<Vector> min_position; // (only in Pro Version)
-std::optional<Vector> max_position; // (only in Pro Version)
 
 std::array<bool, DOFs> enabled; // Initialized to true
 std::optional<double> minimum_duration;
@@ -248,7 +248,7 @@ double duration; // Duration of the trajectory
 std::array<double, DOFs> independent_min_durations; // Time-optimal profile for each independent DoF
 
 <...> at_time(double time); // Get the kinematic state of the trajectory at a given time
-<...> get_position_extrema(); // Returns information about the position extrema and their times
+void get_position_extrema(Vector<Bound>& position_extrema); // Passes information about the position extrema and their times
 ```
 Again, we refer to the [API documentation](https://docs.ruckig.com) for the exact signatures.
 
@@ -395,6 +395,7 @@ Ruckig is used by over hundred research labs, companies, and open-source project
 - [Gestalt Robotics](https://www.gestalt-robotics.com)
 - [AgiBot Genie Sim](https://github.com/AgibotTech/genie_sim)
 - [Struckig](https://github.com/stefanbesler/struckig), a port of Ruckig to Structered Text (ST - IEC61131-3) for usage on PLCs.
+- [Ruckig-Scl](https://github.com/core-engineering/ruckig-scl), a port of Ruckig to SCL (ST - IEC61131-3) for Siemens PLCs
 - [Frankx](https://github.com/pantor/frankx) for controlling the Franka Emika robot arm.
 - [TidyBot++](https://github.com/jimmyyhwu/tidybot2)
 - [Wiredworks](https://wiredworks.com) made a simple Kivy [GUI application](https://github.com/wiredworks/ruckig-showcase)

@@ -1,23 +1,23 @@
 use crate::{
-    evaluation::evaluator_value::MemoizedEvaluatorValue,
-    specs_response::spec_types::ConditionOperator, unwrap_or_return,
-    user::user_value::UserValueRef,
+    evaluation::evaluator_value::EvaluatorValueRef, specs_response::spec_types::ConditionOperator,
+    unwrap_or_return, user::user_value::UserValueRef,
 };
 use chrono::Duration;
 
-pub(crate) fn compare_time(
+pub(crate) fn compare_time<'a>(
     left: UserValueRef<'_>,
-    right: &MemoizedEvaluatorValue,
+    right: impl Into<EvaluatorValueRef<'a>>,
     op: ConditionOperator,
 ) -> bool {
+    let right = right.into();
     let raw_left_ts = unwrap_or_return!(left.timestamp_value().or(left.int_value()), false);
     let left_ts = to_millis(raw_left_ts);
 
     // dcs will always be in milliseconds
     let right_ts = unwrap_or_return!(
         right
-            .timestamp_value
-            .or(right.float_value.map(|x| x as i64)),
+            .timestamp_value()
+            .or_else(|| right.float_value().map(|x| x as i64)),
         false
     );
 

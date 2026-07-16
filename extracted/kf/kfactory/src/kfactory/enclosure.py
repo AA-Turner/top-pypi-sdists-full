@@ -18,6 +18,7 @@ from typing import (
     Any,
     NotRequired,
     TypeGuard,
+    cast,
     overload,
 )
 
@@ -34,6 +35,7 @@ from typing_extensions import TypedDict
 
 from . import kdb
 from .conf import config, logger
+from .exceptions import CrossSectionNamingConflictError
 
 if TYPE_CHECKING:
     from collections.abc import (
@@ -43,6 +45,7 @@ if TYPE_CHECKING:
         Sequence,
     )
 
+    from .cross_section import AnyCrossSection
     from .kcell import KCell
     from .layout import KCLayout
     from .port import Port
@@ -51,6 +54,7 @@ __all__ = [
     "KCellEnclosure",
     "LayerEnclosure",
     "extrude_path",
+    "extrude_path_cross_section",
     "extrude_path_dynamic",
     "extrude_path_dynamic_points",
     "extrude_path_points",
@@ -90,17 +94,25 @@ def path_pts_to_polygon(
     return kdb.DPolygon(pts_top + pts_bot)
 
 
-def extrude_path_points(
+def _extrude_path_band_points(
     path: Sequence[kdb.DPoint],
-    width: float,
+    lo: float,
+    hi: float,
     start_angle: float | None = None,
     end_angle: float | None = None,
 ) -> tuple[list[kdb.DPoint], list[kdb.DPoint]]:
-    """Extrude a path from a list of points and a static width.
+    """Generate the two edges of a signed band along ``path``.
+
+    The band covers the signed offsets ``[lo, hi]`` from the path center line, in the
+    same units as ``path`` (``+`` is the left-hand side of the travel direction). The
+    returned ``(top, bottom)`` edges sit at offset ``hi`` and ``lo`` respectively. The
+    symmetric case is ``lo=-width/2, hi=width/2`` (what `extrude_path_points` passes),
+    which reproduces the previous ``±width/2`` + ``R180``-mirror behavior exactly.
 
     Args:
         path: list of floating-points points
-        width: width in um
+        lo: signed offset of the bottom edge from the center line
+        hi: signed offset of the top edge from the center line
         start_angle: optionally specify a custom starting angle if `None` will
             be autocalculated from the first two elements
         end_angle: optionally specify a custom ending angle if `None`
@@ -118,9 +130,10 @@ def extrude_path_points(
     start_trans = kdb.DCplxTrans(1, start_angle, False, p_start.x, p_start.y)
     end_trans = kdb.DCplxTrans(1, end_angle, False, p_end.x, p_end.y)
 
-    ref_vector = kdb.DCplxTrans(kdb.DVector(0, width / 2))
-    vector_top = [start_trans * ref_vector]
-    vector_bot = [(start_trans * kdb.DCplxTrans.R180) * ref_vector]
+    top_vector = kdb.DCplxTrans(kdb.DVector(0, hi))
+    bot_vector = kdb.DCplxTrans(kdb.DVector(0, lo))
+    vector_top = [start_trans * top_vector]
+    vector_bot = [start_trans * bot_vector]
 
     p_old = path[0]
     p = path[1]
@@ -130,15 +143,36 @@ def extrude_path_points(
         v = p_new - p_old
         angle = np.rad2deg(np.arctan2(v.y, v.x))
         transformation = kdb.DCplxTrans(1, angle, False, p.x, p.y)
-        vector_top.append(transformation * ref_vector)
-        vector_bot.append(transformation * kdb.DCplxTrans.R180 * ref_vector)
+        vector_top.append(transformation * top_vector)
+        vector_bot.append(transformation * bot_vector)
         p_old = p
         p = p_new
 
-    vector_top.append(end_trans * ref_vector)
-    vector_bot.append(end_trans * kdb.DCplxTrans.R180 * ref_vector)
+    vector_top.append(end_trans * top_vector)
+    vector_bot.append(end_trans * bot_vector)
 
     return [v.disp.to_p() for v in vector_top], [v.disp.to_p() for v in vector_bot]
+
+
+def extrude_path_points(
+    path: Sequence[kdb.DPoint],
+    width: float,
+    start_angle: float | None = None,
+    end_angle: float | None = None,
+) -> tuple[list[kdb.DPoint], list[kdb.DPoint]]:
+    """Extrude a path from a list of points and a static width.
+
+    Args:
+        path: list of floating-points points
+        width: width in um
+        start_angle: optionally specify a custom starting angle if `None` will
+            be autocalculated from the first two elements
+        end_angle: optionally specify a custom ending angle if `None`
+            will be autocalculated from the last two elements
+    """
+    return _extrude_path_band_points(
+        path, -width / 2, width / 2, start_angle, end_angle
+    )
 
 
 def extrude_path(
@@ -203,6 +237,65 @@ def extrude_path(
     return ret_path
 
 
+def extrude_path_cross_section(
+    target: KCell,
+    path: list[kdb.DPoint],
+    cross_section: AnyCrossSection,
+    start_angle: float | None = None,
+    end_angle: float | None = None,
+) -> None:
+    """Extrude a (symmetric or asymmetric) cross section along a path.
+
+    The standard static-width extrusion that takes a cross section instead of a
+    ``(layer, width, enclosure)`` triple. Symmetric cross sections are extruded exactly
+    as `extrude_path` (centered ``width`` + enclosure sections — byte-identical output).
+    Asymmetric cross sections are extruded as one signed band ``[section_min,
+    section_max]`` per strip (the main strip plus each aux section), so the profile
+    keeps its left/right offsets; strips sharing a layer are merged.
+
+    Args:
+        target: the cell where to insert the shapes to (and get the database unit from)
+        path: list of floating-points points (in um)
+        cross_section: the cross section to extrude
+        start_angle: optionally specify a custom starting angle if `None` will
+            be autocalculated from the first two elements
+        end_angle: optionally specify a custom ending angle if `None` will be
+            autocalculated from the last two elements
+    """
+    from .cross_section import AsymmetricalCrossSection
+
+    if not isinstance(cross_section, AsymmetricalCrossSection):
+        # Symmetric: identical to the legacy width + enclosure path.
+        extrude_path(
+            target,
+            cross_section.main_layer,
+            path,
+            target.kcl.to_um(cross_section.width),
+            cross_section.enclosure,
+            start_angle,
+            end_angle,
+        )
+        return
+
+    to_um = target.kcl.to_um
+    # One signed band [section_min, section_max] per strip; strips merged per layer.
+    strips: dict[kdb.LayerInfo, list[tuple[float, float]]] = defaultdict(list)
+    strips[cross_section.layer].append(
+        (to_um(cross_section.section_min), to_um(cross_section.section_max))
+    )
+    for sec in cross_section.sections:
+        strips[sec.layer].append((to_um(sec.section_min), to_um(sec.section_max)))
+
+    for _layer, bands in strips.items():
+        reg = kdb.Region()
+        for lo, hi in bands:
+            polygon = path_pts_to_polygon(
+                *_extrude_path_band_points(path, lo, hi, start_angle, end_angle)
+            )
+            reg.insert(target.kcl.to_dbu(polygon))
+        target.shapes(target.kcl.layer(_layer)).insert(reg.merge())
+
+
 def extrude_path_dynamic_points(
     path: list[kdb.DPoint],
     widths: Callable[[float], float] | list[float],
@@ -236,14 +329,14 @@ def extrude_path_dynamic_points(
     if callable(widths):
         length = sum(((p2 - p1).abs() for p2, p1 in itertools.pairwise(path)))
         z: float = 0
-        ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths(z / length) / 2))
+        ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths(z / length) / 2))  # ty:ignore[call-top-callable, unsupported-operator]
         vector_top = [start_trans * ref_vector]
         vector_bot = [start_trans * kdb.DCplxTrans.R180 * ref_vector]
         p_old = path[0]
         p = path[1]
         z += (p - p_old).abs()
         for point in path[2:]:
-            ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths(z / length) / 2))
+            ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths(z / length) / 2))  # ty:ignore[call-top-callable, unsupported-operator]
             p_new = point
             v = p_new - p_old
             angle = np.rad2deg(np.arctan2(v.y, v.x))
@@ -253,7 +346,7 @@ def extrude_path_dynamic_points(
             z += (p_new - p).abs()
             p_old = p
             p = p_new
-        ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths(z / length) / 2))
+        ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths(z / length) / 2))  # ty:ignore[call-top-callable, unsupported-operator]
     else:
         ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths[0] / 2))
         vector_top = [start_trans * ref_vector]
@@ -359,10 +452,7 @@ def extrude_path_dynamic(
         for layer_, layer_sec in layer_list.items():
             reg = kdb.Region()
             for section in layer_sec.sections:
-                max_widths = [
-                    w + 2 * section.d_max * target.kcl.dbu
-                    for w in widths  # type: ignore[union-attr]
-                ]
+                max_widths = [w + 2 * section.d_max * target.kcl.dbu for w in widths]  # ty:ignore[not-iterable]
                 r = kdb.Region(
                     target.kcl.to_dbu(
                         path_pts_to_polygon(
@@ -378,7 +468,7 @@ def extrude_path_dynamic(
                 if section.d_min is not None:
                     min_widths = [
                         w + 2 * section.d_min * target.kcl.dbu
-                        for w in widths  # type: ignore[union-attr]
+                        for w in widths  # ty:ignore[not-iterable]
                     ]
                     r -= kdb.Region(
                         target.kcl.to_dbu(
@@ -459,13 +549,11 @@ class LayerSection(BaseModel):
         if sec.d_min is not None:
             while i < len(self.sections) and sec.d_min > self.sections[i].d_max:
                 i += 1
-            while (
-                i < len(self.sections) and sec.d_max >= self.sections[i].d_min  # type: ignore[operator]
-            ):
+            while i < len(self.sections) and sec.d_max >= self.sections[i].d_min:  # ty:ignore[unsupported-operator]
                 sec.d_max = max(self.sections[i].d_max, sec.d_max)
                 sec.d_min = min(
-                    self.sections[i].d_min,
-                    sec.d_min,  # type: ignore[type-var]
+                    self.sections[i].d_min,  # ty:ignore[invalid-argument-type]
+                    sec.d_min,
                 )
                 self.sections.pop(i)
                 if i == len(self.sections):
@@ -509,6 +597,20 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
     main_layer: kdb.LayerInfo | None
     bbox_sections: dict[kdb.LayerInfo, int]
 
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, LayerEnclosure):
+            if self.main_layer is not None and other.main_layer is not None:
+                layer_info_equal = self.main_layer.is_equivalent(other.main_layer)
+            else:
+                layer_info_equal = self.main_layer == other.main_layer
+            return (
+                self.layer_sections == other.layer_sections
+                and self.name == other.name
+                and layer_info_equal
+                and self.bbox_sections == other.bbox_sections
+            )
+        return False
+
     def __init__(
         self,
         sections: Sequence[
@@ -542,10 +644,10 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
             assert kcl is not None, "If sections in um are defined, kcl must be set"
             sections = list(sections)
             for section in dsections:
-                if len(section) == 2:  # noqa: PLR2004
+                if len(section) == 2:
                     sections.append((section[0], kcl.to_dbu(section[1])))
 
-                elif len(section) == 3:  # noqa: PLR2004
+                elif len(section) == 3:
                     sections.append(
                         (
                             section[0],
@@ -563,8 +665,8 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
             else:
                 ls = LayerSection()
                 layer_sections[sec[0]] = ls
-            ls.add_section(Section(d_max=sec[1])) if len(sec) < 3 else ls.add_section(  # noqa: PLR2004
-                Section(d_max=sec[2], d_min=sec[1])
+            ls.add_section(Section(d_max=sec[1])) if len(sec) < 3 else ls.add_section(
+                Section(d_max=sec[2], d_min=sec[1])  # ty:ignore[index-out-of-bounds]
             )
         super().__init__(
             main_layer=main_layer,
@@ -572,7 +674,7 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
             layer_sections=layer_sections,
             bbox_sections={t[0]: t[1] for t in bbox_sections},
         )
-        self._name = name
+        self._name = name  # ty:ignore[invalid-assignment]
 
     @model_serializer
     def _serialize(self) -> dict[str, Any]:
@@ -611,6 +713,28 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
         """Get name of the Enclosure."""
         return self.__str__()
 
+    @property
+    def is_named(self) -> bool:
+        """Whether an explicit name was given (vs. a derived structural name)."""
+        return self._name is not None
+
+    @property
+    def unnamed_key(self) -> str:
+        """Deterministic structural key, independent of the explicit name.
+
+        This is the same hash an unnamed enclosure is named after. Exposing it on
+        named enclosures as well lets the registry alias the structural signature
+        to a named enclosure.
+        """
+        list_to_hash: list[tuple[str, ...]] = [(str(self.main_layer),)]
+        for layer, layer_section in self.layer_sections.items():
+            list_to_hash.append((str(layer), str(layer_section.sections)))
+        for layer, offset in sorted(
+            self.bbox_sections.items(), key=lambda kv: str(kv[0])
+        ):
+            list_to_hash.append((str(layer), "bbox", str(offset)))
+        return sha1(str(list_to_hash).encode("UTF-8")).hexdigest()[-8:]  # noqa: S324
+
     def minkowski_region(
         self,
         r: kdb.Region,
@@ -635,7 +759,7 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
             return r.minkowski_sum(shape(d))
         shape_ = shape(abs(d))
         if isinstance(shape_, list):
-            box_shape = kdb.Polygon(shape_)
+            box_shape = kdb.Polygon(cast("list[kdb.Point]", shape_))
             bbox_maxsize = max(
                 box_shape.bbox().width(),
                 box_shape.bbox().height(),
@@ -795,7 +919,7 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
                     " Therefore the layer must be defined in calls"
                 )
         tp = kdb.TilingProcessor()
-        tp.frame = c.dbbox()  # type: ignore[misc, assignment]
+        tp.frame = c.dbbox()  # ty:ignore[invalid-assignment]
         tp.dbu = c.kcl.dbu
         tp.threads = n_threads or config.n_threads
         maxsize = 0
@@ -976,12 +1100,7 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
         """
         if self._name is not None:
             return self._name
-        list_to_hash: Any = [
-            self.main_layer,
-        ]
-        for layer, layer_section in self.layer_sections.items():
-            list_to_hash.append([str(layer), str(layer_section.sections)])
-        return sha1(str(list_to_hash).encode("UTF-8")).hexdigest()[-8:]  # noqa: S324
+        return self.unnamed_key
 
     def extrude_path(
         self,
@@ -1127,8 +1246,8 @@ class KCellLayerEnclosures(BaseModel):
             )
 
         if enclosure not in self.enclosures:
-            self.enclosures.append(enclosure)  # type: ignore[arg-type]
-        return enclosure  # type: ignore[return-value]
+            self.enclosures.append(enclosure)  # ty:ignore[invalid-argument-type]
+        return enclosure  # ty:ignore[invalid-return-type]
 
 
 class RegionOperator(kdb.TileOutputReceiver):
@@ -1311,7 +1430,7 @@ class KCellEnclosure(BaseModel):
             return r.minkowski_sum(shape(d))
         shape_ = shape(abs(d))
         if isinstance(shape_, list):
-            box_shape = kdb.Polygon(shape_)
+            box_shape = kdb.Polygon(cast("list[kdb.Point]", shape_))
             bbox_maxsize = max(
                 box_shape.bbox().width(),
                 box_shape.bbox().height(),
@@ -1451,7 +1570,7 @@ class KCellEnclosure(BaseModel):
             carve_out_ports: Carves out a box of port_width +
         """
         tp = kdb.TilingProcessor()
-        tp.frame = c.dbbox()  # type: ignore[misc, assignment]
+        tp.frame = c.dbbox()  # ty:ignore[invalid-assignment]
         tp.dbu = c.kcl.dbu
         tp.threads = n_threads or config.n_threads
         inputs: set[str] = set()
@@ -1499,7 +1618,7 @@ class KCellEnclosure(BaseModel):
             tuple[int, LayerSection], RegionTilesOperator
         ] = {}
 
-        logger.debug("Starting KCellEnclosure on {}", c.kcl.future_cell_name or c.name)
+        logger.debug("Starting KCellEnclosure on {}", c.kcl._future_cell_name or c.name)
 
         n_enc = len(self.enclosures.enclosures)
 
@@ -1580,7 +1699,7 @@ class KCellEnclosure(BaseModel):
                             "{}/{}: Queuing string for {} on layer {}: '{}'",
                             i + 1,
                             n_enc,
-                            c.kcl.future_cell_name or c.name,
+                            c.kcl._future_cell_name or c.name,
                             layer,
                             queue_str,
                         )
@@ -1589,7 +1708,7 @@ class KCellEnclosure(BaseModel):
         c.kcl.start_changes()
         logger.debug(
             "Starting enclosure {}",
-            c.kcl.future_cell_name or c.name,
+            c.kcl._future_cell_name or c.name,
             enc.name,
         )
         tp.execute(f"Minkowski {c.name}")
@@ -1603,7 +1722,7 @@ class KCellEnclosure(BaseModel):
         else:
             for operator in layer_regiontilesoperators.values():
                 operator.insert()
-        logger.debug("Finished KCellEnclosure on {}", c.kcl.future_cell_name or c.name)
+        logger.debug("Finished KCellEnclosure on {}", c.kcl._future_cell_name or c.name)
 
 
 class LayerEnclosureModel(RootModel[dict[str, LayerEnclosure]]):
@@ -1627,13 +1746,26 @@ class LayerEnclosureModel(RootModel[dict[str, LayerEnclosure]]):
         """Add a new LayerEnclosure."""
         self.root[__key] = __val
 
+    def _canonical_for_unnamed_key(self, unnamed_key: str) -> LayerEnclosure | None:
+        """Return the registered enclosure whose structural signature matches."""
+        for enc in self.root.values():
+            if enc.unnamed_key == unnamed_key:
+                return enc
+        return None
+
     def get_enclosure(
         self,
         enclosure: str | LayerEnclosure | LayerEnclosureSpec,
         kcl: KCLayout,
     ) -> LayerEnclosure:
         if isinstance(enclosure, str):
-            return self[enclosure]
+            if enclosure in self.root:
+                return self.root[enclosure]
+            # Also addressable by the structural (unnamed) key.
+            existing = self._canonical_for_unnamed_key(enclosure)
+            if existing is not None:
+                return existing
+            return self.root[enclosure]
         if isinstance(enclosure, dict):
             if "dsections" in enclosure:
                 enclosure = LayerEnclosure(
@@ -1649,11 +1781,36 @@ class LayerEnclosureModel(RootModel[dict[str, LayerEnclosure]]):
                     main_layer=enclosure["main_layer"],
                     kcl=kcl,
                 )
+        enclosure = cast("LayerEnclosure", enclosure)
+        key = enclosure.unnamed_key
+        existing = self._canonical_for_unnamed_key(key)
 
-        if enclosure.name not in self.root:
+        if not enclosure.is_named:
+            # Unnamed request: reuse the canonical entry if the signature is known.
+            if existing is not None:
+                return existing
             self.root[enclosure.name] = enclosure
             return enclosure
-        return self.root[enclosure.name]
+
+        # Named request.
+        name = enclosure.name
+        if name in self.root:
+            # The name is already claimed: preserve the existing (lenient) name-keyed
+            # behavior and return the registered enclosure.
+            return self.root[name]
+        if existing is None:
+            self.root[name] = enclosure
+            return enclosure
+        if existing.is_named:
+            raise CrossSectionNamingConflictError(
+                f"Cannot register enclosure {name!r}: an enclosure with the same "
+                f"structural signature is already registered as {existing.name!r}. "
+                "A structure can have at most one name."
+            )
+        # Promote: the named enclosure replaces the existing unnamed one.
+        self.root.pop(existing.name, None)
+        self.root[name] = enclosure
+        return enclosure
 
 
 def _add_section(
@@ -1671,6 +1828,12 @@ def _add_section(
         layer_sections[layer].add_section(section)
     else:
         layer_sections[layer] = LayerSection(sections=[section])
+
+
+def _point_list_guard(
+    shape: list[kdb.Point] | kdb.Box | kdb.Edge | kdb.Polygon,
+) -> TypeGuard[list[kdb.Point]]:
+    return isinstance(shape, list)
 
 
 LayerEnclosureModel.model_rebuild()

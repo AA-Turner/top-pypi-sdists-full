@@ -358,7 +358,7 @@ class ioports_fallback_t:
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
-    def handle(self, ports: ioports_t, line: str) -> bool:
+    def handle(self, ports: ioports_t, line: str) -> Union[str, None]:
         r""":param ports: i/o port definitions
         :param line: input line to parse
         :returns: success or fills ERRBUF with an error message
@@ -426,7 +426,7 @@ def get_ida_subdirs(subdir: str, flags: int = 0) -> qstrvec_t:
 def get_linput_type(li: linput_t) -> linput_type_t:
     ...
 
-def get_special_folder(csidl: int) -> str:
+def get_special_folder(csidl: int) -> Union[str, None]:
     r"""Get a folder location by CSIDL (see Common CSIDLs). Path should be of at least MAX_PATH size 
             
     """
@@ -444,7 +444,7 @@ def get_user_idadir() -> str:
     """
     ...
 
-def getsysfile(filename: str, subdir: str) -> str:
+def getsysfile(filename: str, subdir: str) -> Union[str, None]:
     r"""Search for IDA system file. This function searches for a file in:
     0. each directory specified by IDAUSR%
     1. ida directory [+ subdir]
@@ -467,7 +467,7 @@ def idadir(subdir: str) -> str:
 def open_linput(file: str, remote: bool) -> linput_t:
     ...
 
-def qlgetz(li: linput_t, fpos: int) -> str:
+def qlgetz(li: linput_t, fpos: int) -> Union[str, None]:
     ...
 
 def read_ioports(ports: ioports_t, device: str, file: str, callback: ioports_fallback_t = None) -> int:
@@ -476,6 +476,8 @@ def read_ioports(ports: ioports_t, device: str, file: str, callback: ioports_fal
 CFG_SUBDIR: str  # cfg
 CSIDL_APPDATA: int  # 26
 CSIDL_LOCAL_APPDATA: int  # 28
+CSIDL_PERSONAL: int  # 5
+CSIDL_PROFILE: int  # 40
 CSIDL_PROGRAM_FILES: int  # 38
 CSIDL_PROGRAM_FILESX86: int  # 42
 CSIDL_PROGRAM_FILES_COMMON: int  # 43

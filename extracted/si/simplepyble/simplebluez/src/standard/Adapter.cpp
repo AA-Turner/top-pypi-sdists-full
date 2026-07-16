@@ -1,5 +1,7 @@
 #include <simplebluez/standard/Adapter.h>
 
+#include <utility>
+
 using namespace SimpleBluez;
 
 Adapter::Adapter(std::shared_ptr<SimpleDBus::Connection> conn, const std::string& bus_name, const std::string& path)
@@ -25,9 +27,16 @@ void Adapter::on_registration() {
 }
 
 std::shared_ptr<SimpleDBus::Proxy> Adapter::path_create(const std::string& path) {
-    auto child = Proxy::create<Device>(_conn, _bus_name, path);
-    child->on_signal_received.load([this, child]() { _on_device_updated(child); });
-    return child;
+    return Proxy::create<Device>(_conn, _bus_name, path);
+}
+
+void Adapter::on_child_signal_received(std::shared_ptr<SimpleDBus::Proxy> child) {
+    auto device = std::dynamic_pointer_cast<Device>(child);
+    if (device) {
+        _on_device_updated(device);
+    }
+
+    Proxy::on_child_signal_received(child);
 }
 
 std::shared_ptr<Adapter1> Adapter::adapter1() {
@@ -55,13 +64,13 @@ std::string Adapter::address() { return adapter1()->Address; }
 
 std::string Adapter::alias() { return adapter1()->Alias(); }
 
-void Adapter::alias(std::string alias) { adapter1()->Alias.set(alias).emit(); }
+void Adapter::alias(std::string alias) { adapter1()->Alias.set(alias).write(); }
 
 bool Adapter::discovering() { return adapter1()->Discovering.refresh(); }
 
 bool Adapter::powered() { return adapter1()->Powered.refresh(); }
 
-void Adapter::powered(bool powered) { adapter1()->Powered.set(powered).emit(); }
+void Adapter::powered(bool powered) { adapter1()->Powered.set(powered).write(); }
 
 void Adapter::discovery_filter(const DiscoveryFilter& filter) { adapter1()->SetDiscoveryFilter(filter); }
 
@@ -81,10 +90,9 @@ std::vector<std::shared_ptr<Device>> Adapter::device_paired_get() {
     // Traverse all child paths and return only those that are paired.
     std::vector<std::shared_ptr<Device>> paired_devices;
 
-    for (auto& [path, child] : _children) {
-        if (!child->valid()) continue;
+    for (auto& device : children_casted<Device>()) {
+        if (!device || !device->valid()) continue;
 
-        std::shared_ptr<Device> device = std::dynamic_pointer_cast<Device>(child);
         if (device->paired()) {
             paired_devices.push_back(device);
         }
@@ -97,10 +105,9 @@ std::vector<std::shared_ptr<Device>> Adapter::device_bonded_get() {
     // Traverse all child paths and return only those that are bonded.
     std::vector<std::shared_ptr<Device>> bonded_devices;
 
-    for (auto& [path, child] : _children) {
-        if (!child->valid()) continue;
+    for (auto& device : children_casted<Device>()) {
+        if (!device || !device->valid()) continue;
 
-        std::shared_ptr<Device> device = std::dynamic_pointer_cast<Device>(child);
         if (device->bonded()) {
             bonded_devices.push_back(device);
         }
@@ -125,6 +132,12 @@ void Adapter::clear_on_device_updated() {
     on_child_created.unload();
 }
 
+void Adapter::set_on_powered_changed(std::function<void(bool powered)> callback) {
+    adapter1()->Powered.on_changed.load(std::move(callback));
+}
+
+void Adapter::clear_on_powered_changed() { adapter1()->Powered.on_changed.unload(); }
+
 void Adapter::register_advertisement(const std::shared_ptr<Advertisement>& advertisement) {
     if (supported_advertisement_instances() == 0) {
         throw std::runtime_error("No available advertisement instances");
@@ -147,6 +160,14 @@ uint8_t Adapter::active_advertisement_instances() {
 
 uint8_t Adapter::supported_advertisement_instances() {
     return le_advertising_manager1()->SupportedInstances.refresh();
+}
+
+std::vector<std::string> Adapter::supported_secondary_channels() {
+    auto& supported_secondary_channels = le_advertising_manager1()->SupportedSecondaryChannels;
+    if (supported_secondary_channels.valid()) {
+        supported_secondary_channels.refresh();
+    }
+    return supported_secondary_channels.get();
 }
 
 void Adapter::register_application(const std::string& application_path) {

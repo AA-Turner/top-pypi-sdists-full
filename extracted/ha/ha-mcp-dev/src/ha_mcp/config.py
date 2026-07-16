@@ -257,14 +257,6 @@ class Settings(BaseSettings):
     # other gated capability.
     enable_filesystem_tools: bool = Field(False, alias="HAMCP_ENABLE_FILESYSTEM_TOOLS")
 
-    # Custom-component installer (``ha_install_mcp_tools``) — pulls the
-    # ``ha_mcp_tools`` integration into HACS. Same env-var-direct
-    # background as ``enable_filesystem_tools``; promoted for the same
-    # reason.
-    enable_custom_component_integration: bool = Field(
-        False, alias="HAMCP_ENABLE_CUSTOM_COMPONENT_INTEGRATION"
-    )
-
     # Dashboard screenshot mode — the ``ha_get_dashboard_screenshot`` tool
     # plus the ``include_screenshot`` / ``return_screenshot`` params on the
     # dashboard get/set tools. Renders responsive Lovelace images via a
@@ -355,16 +347,36 @@ class Settings(BaseSettings):
         7, ge=1, le=365, alias="HAMCP_AUTO_BACKUP_CALENDAR_LOOKAHEAD_DAYS"
     )
 
+    # Snapshot-tarball deletion gate (#1861). Off by default: an agent
+    # deleting a full HA snapshot is categorically riskier than the
+    # lightweight `edits`-scope auto-backups (which already delete freely),
+    # since a snapshot may be the last recovery point after the agent
+    # itself broke something. A human must opt in via env var, the web
+    # settings UI override file, or (in the add-on) the Supervisor options
+    # — never something the agent can flip on itself.
+    enable_snapshot_delete: bool = Field(False, alias="ENABLE_SNAPSHOT_DELETE")
+
+    # Minimum age (days) a snapshot must have before it's deletable. This is
+    # the load-bearing guard, not `enable_snapshot_delete`: a count-based
+    # "keep the last N" rule is defeatable by an agent flooding new
+    # snapshots before deleting old ones, but it cannot forge a backup's
+    # HA-stamped creation date. 0 disables the age floor (still gated by
+    # enable_snapshot_delete + the newest-snapshot / automatic-backup
+    # guards enforced in tools/backup.py).
+    snapshot_delete_min_age_days: int = Field(
+        7, ge=0, le=365, alias="SNAPSHOT_DELETE_MIN_AGE_DAYS"
+    )
+
     # Mirror the legacy ``os.getenv("FLAG", "").lower() in ("true", ...)``
-    # semantics for the two ex-direct-getenv flags: an empty env var
-    # value MUST be treated as False rather than raising
+    # semantics for the ex-direct-getenv ``enable_filesystem_tools`` flag (and
+    # its sibling toggles listed above): an empty env var value MUST be treated
+    # as False rather than raising
     # ``ValidationError``. Pydantic v2's bool parser raises on ``""``
     # which broke ``test_tools_filesystem.py::TestFeatureFlag::
     # test_disabled_with_empty_string`` after the migration; this
     # validator restores the contract callers rely on.
     @field_validator(
         "enable_filesystem_tools",
-        "enable_custom_component_integration",
         "enable_dashboard_screenshot",
         mode="before",
     )
@@ -693,11 +705,6 @@ FEATURE_FLAG_FIELDS: tuple[FeatureFlagField, ...] = (
     FeatureFlagField("enable_yaml_packages_scene", "ENABLE_YAML_PACKAGES_SCENE", bool),
     FeatureFlagField("enable_lite_docstrings", "ENABLE_LITE_DOCSTRINGS", bool),
     FeatureFlagField("enable_filesystem_tools", "HAMCP_ENABLE_FILESYSTEM_TOOLS", bool),
-    FeatureFlagField(
-        "enable_custom_component_integration",
-        "HAMCP_ENABLE_CUSTOM_COMPONENT_INTEGRATION",
-        bool,
-    ),
     # ``enable_code_mode`` lives in this tuple so the override file (and
     # the web UI Server Settings tab) can write the flag. Without this
     # entry, the UI save logic would have nowhere to land the value.
@@ -744,7 +751,6 @@ BETA_FEATURE_FIELDS: tuple[str, ...] = (
     "enable_yaml_packages_script",
     "enable_yaml_packages_scene",
     "enable_filesystem_tools",
-    "enable_custom_component_integration",
     "enable_code_mode",
     "enable_lite_docstrings",
     "enable_dashboard_screenshot",
@@ -1500,6 +1506,10 @@ BACKUP_OVERRIDE_FIELDS: tuple[BackupOverrideField, ...] = (
         "HAMCP_AUTO_BACKUP_CALENDAR_LOOKAHEAD_DAYS",
         int,
     ),
+    BackupOverrideField("enable_snapshot_delete", "ENABLE_SNAPSHOT_DELETE", bool),
+    BackupOverrideField(
+        "snapshot_delete_min_age_days", "SNAPSHOT_DELETE_MIN_AGE_DAYS", int
+    ),
 )
 
 # Override-file location is the same data dir that holds tool_config.json
@@ -1651,6 +1661,13 @@ def _coerce_backup_int_value(field_name: str, raw: object) -> tuple[bool, Any]:
         logger.warning(
             "backup_settings.json: auto_backup_calendar_lookahead_days=%d out of "
             "range 1..365; ignoring",
+            coerced,
+        )
+        return False, None
+    if field_name == "snapshot_delete_min_age_days" and not 0 <= coerced <= 365:
+        logger.warning(
+            "backup_settings.json: snapshot_delete_min_age_days=%d out of "
+            "range 0..365; ignoring",
             coerced,
         )
         return False, None

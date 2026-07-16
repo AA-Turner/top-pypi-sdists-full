@@ -1,18 +1,16 @@
 use crate::{
-    evaluation::evaluator_value::MemoizedEvaluatorValue,
-    specs_response::spec_types::ConditionOperator, unwrap_or_return,
-    user::user_value::UserValueRef,
+    evaluation::evaluator_value::EvaluatorValueRef, specs_response::spec_types::ConditionOperator,
+    unwrap_or_return, user::user_value::UserValueRef,
 };
 
-pub(crate) fn compare_versions(
+pub(crate) fn compare_versions<'a>(
     left: UserValueRef<'_>,
-    right: &MemoizedEvaluatorValue,
+    right: impl Into<EvaluatorValueRef<'a>>,
     op: ConditionOperator,
 ) -> bool {
+    let right = right.into();
     let left_str = unwrap_or_return!(left.string_value(), false);
-    let right_dyn_str = unwrap_or_return!(&right.string_value, false);
-
-    let right_str = &right_dyn_str.value;
+    let right_str = unwrap_or_return!(right.string_value(), false);
 
     let result = match compare_versions_impl(left_str, right_str) {
         ComparisonResult::Ok(result) => result,

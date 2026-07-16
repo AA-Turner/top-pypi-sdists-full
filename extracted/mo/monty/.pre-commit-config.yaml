@@ -1,5 +1,7 @@
 exclude: ^(docs|tests/test_files|tasks.py)
 
+default_install_hook_types: [pre-commit, commit-msg]
+
 ci:
   autoupdate_schedule: monthly
   skip: [mypy]
@@ -8,9 +10,9 @@ ci:
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.12
+    rev: v0.15.15
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix]
       - id: ruff-format
 
@@ -24,7 +26,7 @@ repos:
         exclude: ^tests
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.20.2
+    rev: v2.1.0
     hooks:
       - id: mypy
 
@@ -34,14 +36,6 @@ repos:
       - id: codespell
         stages: [pre-commit, commit-msg]
         exclude_types: [html]
-        additional_dependencies: [tomli] # needed to read pyproject.toml below py3.11
-
-  - repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.19.0
-    hooks:
-      - id: cython-lint
-        args: [--no-pycodestyle]
-      - id: double-quote-cython-strings
 
   - repo: https://github.com/adamchainz/blacken-docs
     rev: 1.20.0

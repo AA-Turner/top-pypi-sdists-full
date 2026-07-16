@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: g4f
-Version: 7.8.8
+Version: 7.8.9
 Summary: The official gpt4free repository | various collection of powerful language models
 Home-page: https://github.com/xtekky/gpt4free
 Author: Tekky
@@ -46,6 +46,9 @@ Requires-Dist: cloudscraper; extra == "all"
 Requires-Dist: wasmtime; extra == "all"
 Requires-Dist: numpy; extra == "all"
 Requires-Dist: PyYAML; extra == "all"
+Requires-Dist: prompt_optimizer; extra == "all"
+Requires-Dist: websocket-client; extra == "all"
+Requires-Dist: pystray; extra == "all"
 Provides-Extra: slim
 Requires-Dist: curl_cffi>=0.6.2; extra == "slim"
 Requires-Dist: certifi; extra == "slim"
@@ -67,6 +70,8 @@ Requires-Dist: python-dotenv; extra == "slim"
 Requires-Dist: aiofile; extra == "slim"
 Requires-Dist: cloudscraper; extra == "slim"
 Requires-Dist: PyYAML; extra == "slim"
+Requires-Dist: websocket-client; extra == "slim"
+Requires-Dist: pystray; extra == "slim"
 Provides-Extra: image
 Requires-Dist: pillow; extra == "image"
 Requires-Dist: cairosvg; extra == "image"

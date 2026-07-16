@@ -21,6 +21,40 @@ if TYPE_CHECKING:
 from ._commands_shared import *
 from .commands_parser_helpers import *
 
+def _run_guard_command_inspection_command(
+    args: argparse.Namespace,
+    *,
+    input_text: str | None = None,
+    output_stream: TextIO | None = None,
+) -> int:
+    from ..runtime.command_inspection import command_extensions_payload, inspect_command
+
+    command_command = str(getattr(args, "command_command", ""))
+    try:
+        if command_command == "setup":
+            from ..runtime.command_ecosystem_detection import command_setup_detection_payload
+
+            workspace = Path(str(getattr(args, "workspace", "."))).resolve()
+            if not workspace.is_dir():
+                raise ValueError("Command setup workspace must be an existing directory")
+            payload = command_setup_detection_payload(workspace)
+            _emit("command-setup", payload, bool(getattr(args, "json", False)))
+            return 0
+        if command_command == "extensions":
+            payload = command_extensions_payload(getattr(args, "extension_id", None))
+            _emit("command-extensions", payload, bool(getattr(args, "json", False)))
+            return 0
+        if command_command not in {"test", "explain"}:
+            print("Choose command test, command explain, command extensions, or command setup.", file=sys.stderr)
+            return 2
+        payload = inspect_command(str(getattr(args, "command_text", "")), cwd=Path.cwd(), home_dir=Path.home())
+    except ValueError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 2
+    payload["mode"] = command_command
+    _emit("command-inspection", payload, bool(getattr(args, "json", False)))
+    return 0
+
 def _run_guard_scan_command(
     args: argparse.Namespace,
     *,
@@ -90,6 +124,25 @@ def _run_guard_update_command(
 ) -> int:
     if guard_home is None:
         raise RuntimeError("Guard home is required")
+    from ..mdm.policy import load_managed_policy
+
+    managed_policy = load_managed_policy()
+    if managed_policy.status in {"invalid", "inaccessible", "tampered"} or (
+        managed_policy.policy is not None and managed_policy.policy.install_owner == "mdm"
+    ):
+        _emit(
+            "update",
+            {
+                "status": "managed",
+                "changed": False,
+                "reason_code": (
+                    "managed_policy_invalid" if managed_policy.policy is None else "managed_update_owned_by_mdm"
+                ),
+                "message": "Version changes are owned by the device management service.",
+            },
+            getattr(args, "json", False),
+        )
+        return 0
     dry_run = bool(getattr(args, "dry_run", False))
     store: GuardStore | None
     update_store_error: OSError | RuntimeError | sqlite3.Error | None = None
@@ -392,6 +445,7 @@ def _run_guard_mcp_command(
 __all__ = [
     "_run_guard_apps_command",
     "_run_guard_bootstrap_command",
+    "_run_guard_command_inspection_command",
     "_run_guard_dashboard_command",
     "_run_guard_detect_command",
     "_run_guard_init_command",

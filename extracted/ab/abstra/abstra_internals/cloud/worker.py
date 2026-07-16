@@ -14,6 +14,7 @@ from abstra_internals.controllers.execution.consumer import (  # noqa: E402
 from abstra_internals.controllers.main import MainController  # noqa: E402
 from abstra_internals.environment import (  # noqa: E402
     DEFAULT_PORT,
+    IS_PRODUCTION,
     RABBITMQ_CONNECTION_URI,
 )
 from abstra_internals.logger import AbstraLogger  # noqa: E402
@@ -24,12 +25,30 @@ from abstra_internals.repositories.consumer import (  # noqa: E402
 from abstra_internals.repositories.factory import build_prod_repositories  # noqa: E402
 from abstra_internals.settings import SettingsController  # noqa: E402
 from abstra_internals.signals import SignalHandlers  # noqa: E402
+from abstra_internals.utils.multiprocessing import (  # noqa: E402
+    cleanup_stale_multiprocessing_semaphores,
+)
 from abstra_internals.utils.packages import get_local_package_version  # noqa: E402
 
 
 def run():
     SignalHandlers.init()
     AbstraLogger.init("cloud")
+
+    # Worker pods run this module as PID 1, so a SIGKILL (e.g. OOM) also kills
+    # the multiprocessing resource tracker before it can unlink semaphores,
+    # leaking them into the pod-scoped /dev/shm until Queue() fails with
+    # ENOSPC. Sweep leftovers before any multiprocessing primitive exists.
+    # Gated to the cloud pod: on a shared host these files may belong to
+    # other processes.
+    if IS_PRODUCTION:
+        stale_semaphores = cleanup_stale_multiprocessing_semaphores()
+        if stale_semaphores:
+            AbstraLogger.warning(
+                f"[abstra-worker] Removed {stale_semaphores} stale multiprocessing "
+                "semaphore files from /dev/shm (leaked by a previous container "
+                "incarnation, e.g. after an OOM kill)"
+            )
     try:
         abstra_version = str(get_local_package_version())
     except PackageNotFoundError:

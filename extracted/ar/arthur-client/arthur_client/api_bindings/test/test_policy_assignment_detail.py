@@ -65,7 +65,10 @@ class TestPolicyAssignmentDetail(unittest.TestCase):
                                 count = 56, ), 
                             dependent_resource = arthur_client.api_bindings.models.policy_alert_guardrail_rule.PolicyAlertGuardrailRule(
                                 resource_type = 'guardrail', 
-                                resource_name = 'KeywordRule', ), )
+                                resource_name = 'KeywordRule', ), 
+                            permissions = arthur_client.api_bindings.models.resource_permissions.ResourcePermissions(
+                                can_update = True, 
+                                can_delete = True, ), )
                         ], 
                     attestation_rules = [
                         arthur_client.api_bindings.models.policy_attestation_rule.PolicyAttestationRule(
@@ -89,7 +92,10 @@ class TestPolicyAssignmentDetail(unittest.TestCase):
                         user_type = 'user', 
                         data_plane_id = '', 
                         client_id = '', 
-                        organization_name = '', ), ),
+                        organization_name = '', ), 
+                    permissions = arthur_client.api_bindings.models.resource_permissions.ResourcePermissions(
+                        can_update = True, 
+                        can_delete = True, ), ),
                 model = arthur_client.api_bindings.models.model_summary.ModelSummary(
                     id = '', 
                     name = '', 
@@ -248,7 +254,10 @@ class TestPolicyAssignmentDetail(unittest.TestCase):
                                 count = 56, ), 
                             dependent_resource = arthur_client.api_bindings.models.policy_alert_guardrail_rule.PolicyAlertGuardrailRule(
                                 resource_type = 'guardrail', 
-                                resource_name = 'KeywordRule', ), )
+                                resource_name = 'KeywordRule', ), 
+                            permissions = arthur_client.api_bindings.models.resource_permissions.ResourcePermissions(
+                                can_update = True, 
+                                can_delete = True, ), )
                         ], 
                     attestation_rules = [
                         arthur_client.api_bindings.models.policy_attestation_rule.PolicyAttestationRule(
@@ -272,7 +281,10 @@ class TestPolicyAssignmentDetail(unittest.TestCase):
                         user_type = 'user', 
                         data_plane_id = '', 
                         client_id = '', 
-                        organization_name = '', ), ),
+                        organization_name = '', ), 
+                    permissions = arthur_client.api_bindings.models.resource_permissions.ResourcePermissions(
+                        can_update = True, 
+                        can_delete = True, ), ),
                 model = arthur_client.api_bindings.models.model_summary.ModelSummary(
                     id = '', 
                     name = '', 

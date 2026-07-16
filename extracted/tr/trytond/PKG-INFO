@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trytond
-Version: 8.0.6
+Version: 8.0.7
 Summary: Tryton server
 Project-URL: homepage, https://www.tryton.org/
 Project-URL: documentation, https://docs.tryton.org/server/
@@ -56,7 +56,7 @@ Requires-Dist: python-levenshtein; extra == 'levenshtein'
 Provides-Extra: mjml
 Requires-Dist: mrml; (python_version < '3.14') and extra == 'mjml'
 Provides-Extra: postgresql
-Requires-Dist: psycopg[pool]>=3; extra == 'postgresql'
+Requires-Dist: psycopg[pool]>=3.1; extra == 'postgresql'
 Provides-Extra: qrcode
 Requires-Dist: qrcode[pil]; extra == 'qrcode'
 Requires-Dist: webcolors; extra == 'qrcode'

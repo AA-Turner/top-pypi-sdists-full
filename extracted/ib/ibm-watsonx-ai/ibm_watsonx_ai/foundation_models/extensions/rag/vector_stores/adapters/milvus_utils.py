@@ -13,13 +13,72 @@ from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai.utils.utils import ensure_submodule_available, is_lib_installed
 from ibm_watsonx_ai.wml_client_error import MissingExtension
 
-__all__ = ["MilvusBM25BuiltinFunction", "MilvusSpladeEmbeddingFunction"]
+__all__ = [
+    "MilvusBM25BuiltinFunction",
+    "MilvusSpladeEmbeddingFunction",
+    "resolve_index_params",
+]
 
+# Default index params for dense (float) vectors — used with COSINE, L2, IP.
+# HNSW is not compatible with binary vectors.
 DEFAULT_INDEX_PARAM = {
     "metric_type": "COSINE",
     "index_type": "HNSW",
     "params": {"M": 8, "efConstruction": 64},
 }
+
+# Base index params for binary vectors — used with HAMMING and JACCARD.
+# BIN_IVF_FLAT is the standard Milvus index type for binary vectors.
+# `metric_type` is intentionally absent — it is always set explicitly at call site
+# via {**DEFAULT_BINARY_INDEX_PARAM, "metric_type": <resolved_metric_type>}.
+# `nlist=128` is a conservative IVF cluster count suitable for small/medium collections
+# (analogous to M=8, efConstruction=64 in the dense HNSW default above).
+DEFAULT_BINARY_INDEX_PARAM = {
+    "index_type": "BIN_IVF_FLAT",
+    "params": {"nlist": 128},
+}
+
+# Mapping from user-facing distance_metric strings to Milvus metric_type values.
+# Supported Milvus metric types: COSINE, L2, IP, HAMMING, JACCARD
+MILVUS_DISTANCE_METRIC_MAP: dict[str, str] = {
+    "cosine": "COSINE",
+    "euclidean": "L2",
+    "l2": "L2",
+    "inner_product": "IP",
+    "ip": "IP",
+    "hamming": "HAMMING",
+    "jaccard": "JACCARD",
+}
+
+# Metrics that require binary vector index types (BIN_*).
+MILVUS_BINARY_METRICS: frozenset[str] = frozenset({"HAMMING", "JACCARD"})
+
+
+def resolve_index_params(distance_metric: str | None) -> dict | None:
+    """Resolve Milvus ``index_params`` from a user-facing *distance_metric* string.
+
+    Returns a ready-to-use ``index_params`` dict when *distance_metric* is a known
+    value, or ``None`` when *distance_metric* is ``None`` or unrecognised (so the
+    caller can fall back to a default).
+
+    :param distance_metric: user-facing metric name (case-insensitive), e.g.
+        ``"cosine"``, ``"euclidean"``, ``"hamming"``.
+    :type distance_metric: str | None
+    :return: ``index_params`` dict or ``None``
+    :rtype: dict | None
+    """
+    if distance_metric is None:
+        return None
+    metric_type = MILVUS_DISTANCE_METRIC_MAP.get(distance_metric.lower())
+    if metric_type is None:
+        return None
+    base = (
+        DEFAULT_BINARY_INDEX_PARAM
+        if metric_type in MILVUS_BINARY_METRICS
+        else DEFAULT_INDEX_PARAM
+    )
+    return {**base, "metric_type": metric_type}
+
 
 if TYPE_CHECKING:
     from pymilvus import Function

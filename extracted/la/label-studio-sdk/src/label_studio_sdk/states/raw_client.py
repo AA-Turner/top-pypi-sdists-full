@@ -167,6 +167,17 @@ class RawStatesClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 403:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
@@ -453,7 +464,7 @@ class RawStatesClient:
                     ),
                 )
                 _items = _parsed_response.results
-                _has_next = True
+                _has_next = len(_items or []) > 0
                 _get_next = lambda: self.state_history(
                     entity_name,
                     entity_id,
@@ -687,6 +698,17 @@ class AsyncRawStatesClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 403:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
@@ -973,7 +995,7 @@ class AsyncRawStatesClient:
                     ),
                 )
                 _items = _parsed_response.results
-                _has_next = True
+                _has_next = len(_items or []) > 0
 
                 async def _get_next():
                     return await self.state_history(

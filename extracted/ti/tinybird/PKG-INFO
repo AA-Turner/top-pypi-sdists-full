@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.10
+Version: 4.6.12
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,18 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.6.12
+********
+
+- `Added` Forward sink pipes support ``{{ tb_secret(...) }}`` in ``EXPORT_*`` metadata (for example ``EXPORT_BUCKET_URI``). Secrets are resolved at deploy time and baked into the sink settings; changing a secret requires a redeploy.
+- `Fixed` Forward deploy now raises an error when a secret used in sink metadata resolves to an empty value.
+- `Fixed` Forward deploy now rejects ``{{ tb_secret(...) }}`` in ``EXPORT_SCHEDULE`` and ``COPY_SCHEDULE``. Use a literal cron expression (for example ``0 * * * *``) or ``@on-demand``.
+
+4.6.11
+********
+
+- `Added` `tb datasource sample` support for DynamoDB connectors.
 
 4.6.10
 ********

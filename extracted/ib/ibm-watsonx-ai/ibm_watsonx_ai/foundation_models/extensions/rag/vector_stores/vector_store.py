@@ -60,7 +60,7 @@ class VectorStore(BaseVectorStore):
     :type datasource_type: VectorStoreDataSourceType, str, optional
 
     :param distance_metric: metric used for determining vector distance, defaults to None
-    :type distance_metric: Literal["euclidean", "cosine"], optional
+    :type distance_metric: Literal["cosine", "euclidean", "l2", "inner_product", "ip", "hamming", "jaccard"], optional
 
     :param langchain_vector_store: use LangChain vector store, defaults to None
     :type langchain_vector_store: VectorStore, optional
@@ -148,7 +148,10 @@ class VectorStore(BaseVectorStore):
         embeddings: BaseEmbeddings | None = None,
         index_name: str | None = None,
         datasource_type: VectorStoreDataSourceType | str | None = None,
-        distance_metric: Literal["euclidean", "cosine"] | None = None,
+        distance_metric: Literal[
+            "cosine", "euclidean", "l2", "inner_product", "ip", "hamming", "jaccard"
+        ]
+        | None = None,
         langchain_vector_store: LangChainVectorStore | None = None,
         document_name_field: str = DEFAULT_DOCUMENT_NAME_FIELD,
         chunk_sequence_number_field: str = DEFAULT_CHUNK_SEQUENCE_NUMBER_FIELD,

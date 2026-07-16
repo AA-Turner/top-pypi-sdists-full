@@ -470,6 +470,7 @@ __all__ = (
     "HarnessGatewayOutboundAuthOutputTypeDef",
     "HarnessGatewayOutboundAuthTypeDef",
     "HarnessGatewayOutboundAuthUnionTypeDef",
+    "HarnessGeminiModelConfigOutputTypeDef",
     "HarnessGeminiModelConfigTypeDef",
     "HarnessInlineFunctionConfigOutputTypeDef",
     "HarnessInlineFunctionConfigTypeDef",
@@ -1893,6 +1894,16 @@ class HarnessBedrockModelConfigTypeDef(TypedDict):
     additionalParams: NotRequired[Mapping[str, Any]]
 
 
+class HarnessGeminiModelConfigOutputTypeDef(TypedDict):
+    modelId: str
+    apiKeyArn: str
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    topK: NotRequired[int]
+    additionalParams: NotRequired[dict[str, Any]]
+
+
 class HarnessGeminiModelConfigTypeDef(TypedDict):
     modelId: str
     apiKeyArn: str
@@ -1900,6 +1911,7 @@ class HarnessGeminiModelConfigTypeDef(TypedDict):
     temperature: NotRequired[float]
     topP: NotRequired[float]
     topK: NotRequired[int]
+    additionalParams: NotRequired[Mapping[str, Any]]
 
 
 class HarnessInlineFunctionConfigOutputTypeDef(TypedDict):
@@ -3898,7 +3910,7 @@ HarnessManagedMemoryConfigurationUnionTypeDef = Union[
 class HarnessModelConfigurationOutputTypeDef(TypedDict):
     bedrockModelConfig: NotRequired[HarnessBedrockModelConfigOutputTypeDef]
     openAiModelConfig: NotRequired[HarnessOpenAiModelConfigOutputTypeDef]
-    geminiModelConfig: NotRequired[HarnessGeminiModelConfigTypeDef]
+    geminiModelConfig: NotRequired[HarnessGeminiModelConfigOutputTypeDef]
     liteLlmModelConfig: NotRequired[HarnessLiteLlmModelConfigOutputTypeDef]
 
 

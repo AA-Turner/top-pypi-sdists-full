@@ -103,22 +103,22 @@ def setver(ctx: Context) -> None:
 
 
 @task
-def release_github(ctx: Context) -> None:
+def release_github(ctx: Context, version: str = NEW_VER) -> None:
     with open("docs/changelog.md", encoding="utf-8") as f:
         contents = f.read()
     toks = re.split("##", contents)
     desc = toks[1].strip()
     payload = {
-        "tag_name": f"v{NEW_VER}",
-        "target_commitish": "master",
-        "name": f"v{NEW_VER}",
+        "tag_name": f"v{version}",
+        "target_commitish": "main",
+        "name": f"v{version}",
         "body": desc,
         "draft": False,
         "prerelease": False,
     }
 
     response = requests.post(
-        "https://api.github.com/repos/materialsvirtuallab/monty/releases",
+        "https://api.github.com/repos/materialyzeai/monty/releases",
         data=json.dumps(payload),
         headers={"Authorization": "token " + os.environ["GITHUB_RELEASES_TOKEN"]},
     )
@@ -147,9 +147,9 @@ def release(ctx: Context, notest: bool = False, version: str = NEW_VER) -> None:
     if not notest:
         test(ctx)
     # update_doc(ctx)
+    print(f"Release Version: {version}")
     commit(ctx)
-    release_github(ctx)
+    release_github(ctx, version=version)
     ctx.run("python -m build", warn=True)
     ctx.run("python -m build --wheel", warn=True)
-    ctx.run("twine upload --skip-existing dist/*.whl", warn=True)
-    ctx.run("twine upload --skip-existing dist/*.tar.gz", warn=True)
+

@@ -1,10 +1,11 @@
 """Badge-augmented Markdown configuration base class."""
 
 import re
+from abc import abstractmethod
 from typing import Any
 
 from pyrig.rig.configs.base.markdown import MarkdownConfigFile
-from pyrig.rig.configs.license import LicenseConfigFile
+from pyrig.rig.configs.community.license import LicenseConfigFile
 from pyrig.rig.configs.pyproject import PyprojectConfigFile
 from pyrig.rig.configs.version_control.remote.workflows.deploy import (
     DeployWorkflowConfigFile,
@@ -13,8 +14,7 @@ from pyrig.rig.configs.version_control.remote.workflows.health_check import (
     HealthCheckWorkflowConfigFile,
 )
 from pyrig.rig.tools.base.tool import Group, Tool
-from pyrig.rig.tools.package_manager import PackageManager
-from pyrig.rig.tools.version_control.remote import (
+from pyrig.rig.tools.version_control.remote.controller import (
     RemoteVersionController,
 )
 
@@ -28,34 +28,39 @@ class BadgesConfigFile(MarkdownConfigFile):
     possible, preserving any user additions.
     """
 
-    def lines(self) -> list[str]:
+    @abstractmethod
+    def heading(self) -> str:
+        """Return the heading text for the project name.
+
+        Returns:
+            Heading text to use in the Markdown file.
+        """
+
+    def content(self) -> str:
         """Return the project header: title, grouped badge rows, and description.
 
         Badge rows are grouped under HTML comment category labels; the project
         description is formatted as a blockquote.
 
         Returns:
-            Markdown lines forming the project header section.
+            Markdown content forming the project header section.
         """
-        project_name = PackageManager.I.project_name()
-        badges = self.badges()
-        badges_lines: list[str] = []
-        for badge_category, badge_list in badges.items():
-            badges_lines.append(f"<!-- {badge_category} -->")
-            badges_lines.extend(badge_list)
+        badges_block = self.join_lines(
+            line
+            for category, badge_list in self.badges().items()
+            for line in (f"<!-- {category} -->", *badge_list)
+        )
         description = PyprojectConfigFile.I.project_description()
-        return [
-            f"# {project_name}",
-            "",
-            *badges_lines,
-            "",
-            "---",
-            "",
-            f"> {description}",
-            "",
-            "---",
-            "",
-        ]
+        return f"""# {self.heading()}
+
+{badges_block}
+
+---
+
+> {description}
+
+---
+"""
 
     def merge_configs(self) -> list[Any]:
         """Return merged file content with current badge URLs and project description.
@@ -116,7 +121,9 @@ class BadgesConfigFile(MarkdownConfigFile):
             alt_text = alt_text_match.group(1)
             pattern = rf".*\[!\[{re.escape(alt_text)}\].*"
             badges_content = re.sub(
-                pattern, lambda _, badge=badge: badge, badges_content
+                pattern,
+                lambda _, badge=badge: badge,
+                badges_content,
             )
         return content.replace(old_badges_content, badges_content, 1)
 
@@ -125,7 +132,7 @@ class BadgesConfigFile(MarkdownConfigFile):
 
         The result includes badges for each registered tool, a license badge in
         the `"project-info"` group, and CI/CD workflow status badges for the
-        health check and deploy workflows in the `"ci/cd"` group.
+        health check and deploy workflows in the `"project-status"` group.
 
         Returns:
             Category name to list of badge Markdown strings, with keys `"ci/cd"`,
@@ -133,20 +140,21 @@ class BadgesConfigFile(MarkdownConfigFile):
         """
         badge_groups = Tool.grouped_badges()
 
-        badge_groups[Group.PROJECT_INFO].extend(
-            [
-                LicenseConfigFile.I.license_badge(),
-            ]
-        )
-        badge_groups[Group.CI_CD].extend(
-            [
-                RemoteVersionController.I.cicd_badge(
-                    HealthCheckWorkflowConfigFile.I.stem(), "CI"
-                ),
-                RemoteVersionController.I.cicd_badge(
-                    DeployWorkflowConfigFile.I.stem(), "CD"
-                ),
-            ]
-        )
+        badge_groups[Group.PROJECT_INFO] = [
+            *badge_groups[Group.PROJECT_INFO],
+            LicenseConfigFile.I.license_badge(),
+        ]
+
+        badge_groups[Group.PROJECT_STATUS] = [
+            RemoteVersionController.I.cicd_badge(
+                HealthCheckWorkflowConfigFile.I.stem(),
+                "CI",
+            ),
+            RemoteVersionController.I.cicd_badge(
+                DeployWorkflowConfigFile.I.stem(),
+                "CD",
+            ),
+            *badge_groups[Group.PROJECT_STATUS],
+        ]
 
         return badge_groups

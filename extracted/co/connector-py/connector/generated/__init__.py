@@ -139,6 +139,18 @@ from connector_sdk_types.generated.models.get_last_activity200_response import (
 )
 from connector_sdk_types.generated.models.get_last_activity_request import GetLastActivityRequest
 from connector_sdk_types.generated.models.get_last_activity_response import GetLastActivityResponse
+from connector_sdk_types.generated.models.get_non_human_account_last_activity import (
+    GetNonHumanAccountLastActivity,
+)
+from connector_sdk_types.generated.models.get_non_human_account_last_activity200_response import (
+    GetNonHumanAccountLastActivity200Response,
+)
+from connector_sdk_types.generated.models.get_non_human_account_last_activity_request import (
+    GetNonHumanAccountLastActivityRequest,
+)
+from connector_sdk_types.generated.models.get_non_human_account_last_activity_response import (
+    GetNonHumanAccountLastActivityResponse,
+)
 from connector_sdk_types.generated.models.handle_authorization_callback import (
     HandleAuthorizationCallback,
 )
@@ -228,6 +240,9 @@ from connector_sdk_types.generated.models.list_resources200_response import List
 from connector_sdk_types.generated.models.list_resources_request import ListResourcesRequest
 from connector_sdk_types.generated.models.list_resources_response import ListResourcesResponse
 from connector_sdk_types.generated.models.non_human_account import NonHumanAccount
+from connector_sdk_types.generated.models.non_human_account_last_activity import (
+    NonHumanAccountLastActivity,
+)
 from connector_sdk_types.generated.models.noop_effect import NoopEffect
 from connector_sdk_types.generated.models.noop_effect_reason import NoopEffectReason
 from connector_sdk_types.generated.models.normalized_expense_approval_status import (
@@ -407,6 +422,10 @@ __all__ = [
     "GetLastActivity200Response",
     "GetLastActivityRequest",
     "GetLastActivityResponse",
+    "GetNonHumanAccountLastActivity",
+    "GetNonHumanAccountLastActivity200Response",
+    "GetNonHumanAccountLastActivityRequest",
+    "GetNonHumanAccountLastActivityResponse",
     "HandleAuthorizationCallback",
     "HandleAuthorizationCallback200Response",
     "HandleAuthorizationCallbackRequest",
@@ -456,6 +475,7 @@ __all__ = [
     "ListResourcesRequest",
     "ListResourcesResponse",
     "NonHumanAccount",
+    "NonHumanAccountLastActivity",
     "NoopEffect",
     "NoopEffectReason",
     "NormalizedExpenseApprovalStatus",

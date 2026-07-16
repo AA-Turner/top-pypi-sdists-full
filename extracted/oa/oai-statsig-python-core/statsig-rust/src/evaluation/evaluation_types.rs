@@ -165,7 +165,7 @@ impl GCIRHashable for DynamicConfigEvaluation {
         let version_hashes = optional_version_hash_values(&self.base.version);
         let hash_array = [
             name.hash,
-            self.value.get_hash(),
+            self.value.get_stable_hash(),
             self.base.rule_id.hash,
             hash_secondary_exposures(&self.base.secondary_exposures),
             self.passed as u64,
@@ -210,7 +210,7 @@ impl GCIRHashable for ExperimentEvaluation {
         let version_hashes = optional_version_hash_values(&self.base.version);
         let hash_array = [
             name.hash,
-            self.value.get_hash(),
+            self.value.get_stable_hash(),
             self.base.rule_id.hash,
             hash_secondary_exposures(&self.base.secondary_exposures),
             self.is_in_layer as u64,
@@ -278,7 +278,7 @@ impl GCIRHashable for LayerEvaluation {
         let version_hashes = optional_version_hash_values(&self.base.version);
         let mut hash_array = hashing::U64HashBuilder::new();
         hash_array.push(name.hash);
-        hash_array.push(self.value.get_hash());
+        hash_array.push(self.value.get_stable_hash());
         hash_array.push(self.base.rule_id.hash);
         hash_array.push(hash_secondary_exposures(&self.base.secondary_exposures));
         hash_array.push(self.group_name.as_ref().map_or(0, |g| g.hash));
@@ -333,13 +333,12 @@ fn hash_explicit_parameters(explicit_parameters: Option<&ExplicitParameters>) ->
 }
 
 fn hash_parameter_rule_ids(parameter_rule_ids: &HashMap<InternedString, InternedString>) -> u64 {
-    let mut param_rule_ids_hash =
-        hashing::U64HashBuilder::with_capacity(parameter_rule_ids.len() * 2);
-    for (param_name, rule_id) in parameter_rule_ids {
-        param_rule_ids_hash.push(param_name.hash);
-        param_rule_ids_hash.push(rule_id.hash);
-    }
-    param_rule_ids_hash.finish()
+    hashing::hash_unordered(
+        parameter_rule_ids
+            .iter()
+            .map(|(param_name, rule_id)| hashing::hash_u64_slice(&[param_name.hash, rule_id.hash]))
+            .collect(),
+    )
 }
 
 fn optional_version_hash_values(version: &Option<u32>) -> [u64; 2] {
@@ -348,12 +347,44 @@ fn optional_version_hash_values(version: &Option<u32>) -> [u64; 2] {
 
 #[cfg(test)]
 mod tests {
-    use super::optional_version_hash_values;
+    use std::collections::HashMap;
+
+    use super::{hash_parameter_rule_ids, optional_version_hash_values};
+    use crate::interned_string::InternedString;
 
     #[test]
     fn optional_version_hash_values_distinguish_missing_from_zero() {
         assert_eq!(optional_version_hash_values(&None), [0, 0]);
         assert_eq!(optional_version_hash_values(&Some(0)), [1, 0]);
         assert_eq!(optional_version_hash_values(&Some(1)), [1, 1]);
+    }
+
+    #[test]
+    fn parameter_rule_id_hash_ignores_map_order() {
+        let first = HashMap::from([
+            (
+                InternedString::from_str_ref("alpha"),
+                InternedString::from_str_ref("rule-a"),
+            ),
+            (
+                InternedString::from_str_ref("beta"),
+                InternedString::from_str_ref("rule-b"),
+            ),
+        ]);
+        let second = HashMap::from([
+            (
+                InternedString::from_str_ref("beta"),
+                InternedString::from_str_ref("rule-b"),
+            ),
+            (
+                InternedString::from_str_ref("alpha"),
+                InternedString::from_str_ref("rule-a"),
+            ),
+        ]);
+
+        assert_eq!(
+            hash_parameter_rule_ids(&first),
+            hash_parameter_rule_ids(&second)
+        );
     }
 }

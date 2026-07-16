@@ -13,6 +13,7 @@ from abstra_internals.server.routes import code_markers as code_markers_router
 from abstra_internals.server.routes import codebase as codebase_router
 from abstra_internals.server.routes import connectors as connectors_router
 from abstra_internals.server.routes import deploy as deploy_router
+from abstra_internals.server.routes import editor_status as editor_status_router
 from abstra_internals.server.routes import env_vars as envvars_router
 from abstra_internals.server.routes import executions as executions_router
 from abstra_internals.server.routes import file_history as file_history_router
@@ -102,6 +103,9 @@ def _get_api_bp(controller: MainController):
 
     linters_bp = linters_router.get_editor_bp(controller)
     bp.register_blueprint(linters_bp, url_prefix="/linters")
+
+    editor_status_bp = editor_status_router.get_editor_bp()
+    bp.register_blueprint(editor_status_bp, url_prefix="/editor-status")
 
     ai_bp = ai_router.get_editor_bp(controller)
     bp.register_blueprint(ai_bp, url_prefix="/ai")

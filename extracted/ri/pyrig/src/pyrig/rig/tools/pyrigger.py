@@ -11,9 +11,9 @@ import pyrig
 from pyrig.core.subprocesses import Args
 from pyrig.rig.cli.subcommands import sync
 from pyrig.rig.tools.base.tool import Group, Tool
-from pyrig.rig.tools.package_manager import PackageManager
+from pyrig.rig.tools.packages.manager import PackageManager
 from pyrig.rig.tools.version_control.controller import VersionController
-from pyrig.rig.tools.version_control.hook_manager import (
+from pyrig.rig.tools.version_control.hooks.manager import (
     VersionControlHookManager,
 )
 
@@ -31,7 +31,7 @@ class Pyrigger(Tool):
 
     def image_url(self) -> str:
         """Return the badge image URL for pyrig."""
-        return f"https://img.shields.io/badge/built%20with-{self.name()}-3776AB?logo=buildkite&logoColor=black"
+        return f"https://img.shields.io/badge/built%20with-{self.shield_name()}-3776AB?logo=buildkite&logoColor=black"
 
     def link_url(self) -> str:
         """Return the badge link URL for pyrig."""
@@ -44,22 +44,6 @@ class Pyrigger(Tool):
             `'pyrig'`.
         """
         return snake_to_kebab_case(pyrig.__name__)
-
-    def cmd_args(self, *args: str, cmd: FunctionType) -> Args:
-        """Construct `Args` for a top-level pyrig CLI command.
-
-        Derives the command name from `cmd.__name__`, converted from
-        snake_case to kebab-case (e.g. `my_command` becomes `my-command`).
-
-        Args:
-            *args: Additional arguments appended after the command name.
-            cmd: Callable whose `__name__` is used as the command name.
-
-        Returns:
-            Args for `pyrig <cmd_name> [args...]`.
-        """
-        cmd_name = snake_to_kebab_case(cmd.__name__)
-        return self.args(cmd_name, *args)
 
     def group_cmd_args(self, *args: str, group: str, cmd: FunctionType) -> Args:
         """Construct `Args` for a pyrig CLI subcommand within a command group.
@@ -82,8 +66,8 @@ class Pyrigger(Tool):
     def init_project(self) -> None:
         """Run the ordered project initialization sequence with a progress bar.
 
-        The process stops immediately if any step exits with a non-zero
-        return code.
+        Each step can independently choose to tolerate a non-zero return
+        code; otherwise the process stops immediately at the failing step.
 
         Note:
             Intended to be run once during initial project setup, not as
@@ -113,7 +97,7 @@ class Pyrigger(Tool):
             (PackageManager.I.add_args(self.runtime_dependency()), {}),
             (
                 PackageManager.I.add_dev_dependencies_args(
-                    *Tool.subclasses_dev_dependencies()
+                    *Tool.subclasses_dev_dependencies(),
                 ),
                 {},
             ),
@@ -124,11 +108,26 @@ class Pyrigger(Tool):
             (VersionController.I.add_all_args(), {}),
             (
                 VersionController.I.commit_with_msg_args(
-                    msg=f"{self.name()}: Initial commit"
+                    msg=f"{self.name()}: Initial commit",
                 ),
                 {},
             ),
         ]
+
+    def cmd_args(self, *args: str, cmd: FunctionType) -> Args:
+        """Construct `Args` for a top-level pyrig CLI command.
+
+        Derives the command name from `cmd.__name__`, converted from
+        snake_case to kebab-case (e.g. `my_command` becomes `my-command`).
+
+        Args:
+            *args: Additional arguments appended after the command name.
+            cmd: Callable whose `__name__` is used as the command name.
+
+        Returns:
+            Args for `pyrig <cmd_name> [args...]`.
+        """
+        return self.args(snake_to_kebab_case(cmd.__name__), *args)
 
     def runtime_dependency(self) -> str:
         """Return the package name of pyrig's runtime dependency.
@@ -137,3 +136,34 @@ class Pyrigger(Tool):
             `'pyrig-runtime'`.
         """
         return snake_to_kebab_case(pyrig_runtime.__name__)
+
+    def version_control_hooks(self) -> tuple[dict[str, Any], ...]:
+        """Return the project-synchronization hook.
+
+        Returns:
+            `synchronize_project_hook`, wrapped in a single-element tuple.
+        """
+        return (self.synchronize_project_hook(),)
+
+    def synchronize_project_hook(self) -> dict[str, Any]:
+        """Return the hook metadata for the `pyrig sync` hook.
+
+        Returns:
+            Hook metadata dictionary for the `pyrig sync` hook.
+        """
+        return VersionControlHookManager.I.hook(
+            self.synchronize_project,
+            priority=VersionControlHookManager.I.increase_priority(
+                PackageManager.I.install_dependencies_hook(),
+            ),
+            always_run=True,
+            pass_filenames=False,
+        )
+
+    def synchronize_project(self) -> Args:
+        """Return the `Args` this hook's entry runs.
+
+        Returns:
+            Args for `pyrig sync`.
+        """
+        return self.cmd_args(cmd=sync)

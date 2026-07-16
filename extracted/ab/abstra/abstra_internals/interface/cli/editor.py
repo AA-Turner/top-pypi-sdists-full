@@ -11,6 +11,10 @@ from werkzeug.serving import make_server
 
 from abstra_internals.cloud_api import connect_tunnel
 from abstra_internals.controllers.codebase_events import CodebaseEventController
+from abstra_internals.controllers.editor_status_events import (
+    EditorStatusEventController,
+)
+from abstra_internals.controllers.editor_update import EditorUpdateController
 from abstra_internals.controllers.execution.consumer import ConsumerController
 from abstra_internals.controllers.linter_events import LinterEventController
 from abstra_internals.controllers.main import MainController
@@ -349,6 +353,11 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
     if _set_on_checks_updated is not None:
         _set_on_checks_updated(LinterEventController.broadcast)
 
+    # Every broadcast reports whether the checks come from a fresh run or from
+    # a stale mirror (sidecar dead/degraded), so the UI can stop claiming
+    # "no issues found" over data it could not actually verify.
+    LinterEventController.set_degraded_source(repositories.linter)
+
     storage = _wire_editor_storage(
         main_controller,
         is_web_editor=is_web_editor,
@@ -398,6 +407,8 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
 
     # Run all linters once on startup in a background thread
     def _initial_lint():
+        EditorUpdateController.refresh()
+        EditorStatusEventController.broadcast()
         checks = repositories.linter.update_checks()
         LinterEventController.broadcast(checks)
 

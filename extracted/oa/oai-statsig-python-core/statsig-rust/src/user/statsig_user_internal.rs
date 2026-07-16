@@ -9,7 +9,7 @@ use super::{
     user_value::{UserValue, UserValueRef},
     StatsigUserLoggable,
 };
-use crate::evaluation::dynamic_value::DynamicValue;
+use crate::evaluation::{dynamic_value::DynamicValue, evaluation_data::DynamicStringRef};
 use crate::hashing::djb2_number;
 use crate::{evaluation::dynamic_string::DynamicString, Statsig};
 use crate::{log_w, statsig_metadata, StatsigUser};
@@ -68,9 +68,20 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
     }
 
     pub fn get_unit_id(&self, id_type: &DynamicString) -> Option<UserValueRef<'_>> {
+        self.get_unit_id_ref(id_type.into())
+    }
+
+    pub(crate) fn get_unit_id_ref(
+        &self,
+        id_type: DynamicStringRef<'_>,
+    ) -> Option<UserValueRef<'_>> {
         match self.user_ref {
-            InternalUserRef::Public(user) => user.get_unit_id(id_type).map(UserValueRef::Dynamic),
-            InternalUserRef::Fast(user) => user.get_unit_id(id_type).map(UserValueRef::User),
+            InternalUserRef::Public(user) => user
+                .get_unit_id_by_name(id_type.value(), id_type.lowercased_value())
+                .map(UserValueRef::Dynamic),
+            InternalUserRef::Fast(user) => user
+                .get_unit_id_by_name(id_type.value(), id_type.lowercased_value())
+                .map(UserValueRef::User),
         }
     }
 

@@ -31,6 +31,10 @@ class ExecutorDiedError(RuntimeError):
     pass
 
 
+class ExecutorPoolNotReadyError(RuntimeError):
+    pass
+
+
 def _executor_target(*args, **kwargs):
     from abstra_internals.controllers.execution.executor_process import executor_main
 

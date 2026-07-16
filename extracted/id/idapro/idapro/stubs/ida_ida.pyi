@@ -685,7 +685,7 @@ def get_dbctx_qty() -> int:
     """
     ...
 
-def getinf_str(tag: inftag_t) -> str:
+def getinf_str(tag: inftag_t) -> Union[str, None]:
     r"""Get program specific information (a non-scalar value) 
             
     :param tag: one of inftag_t constants
@@ -1026,6 +1026,9 @@ def inf_get_demname_form() -> int:
 def inf_get_demnames() -> int:
     ...
 
+def inf_get_effective_addrsize() -> int:
+    ...
+
 def inf_get_filetype() -> filetype_t:
     ...
 
@@ -1109,7 +1112,7 @@ def inf_get_privrange_end_ea() -> ida_idaapi.ea_t:
 def inf_get_privrange_start_ea() -> ida_idaapi.ea_t:
     ...
 
-def inf_get_procname() -> str:
+def inf_get_procname() -> Union[str, None]:
     ...
 
 def inf_get_refcmtnum() -> int:
@@ -1142,7 +1145,7 @@ def inf_get_strlit_break() -> int:
 def inf_get_strlit_flags() -> int:
     ...
 
-def inf_get_strlit_pref() -> str:
+def inf_get_strlit_pref() -> Union[str, None]:
     ...
 
 def inf_get_strlit_sernum() -> int:
@@ -1181,6 +1184,9 @@ def inf_hide_comments() -> bool:
 def inf_hide_libfuncs() -> bool:
     ...
 
+def inf_hide_outlined() -> bool:
+    ...
+
 def inf_huge_arg_align(*args: Any) -> bool:
     ...
 
@@ -1206,6 +1212,9 @@ def inf_is_be() -> bool:
     ...
 
 def inf_is_dll() -> bool:
+    ...
+
+def inf_is_exe_dll() -> bool:
     ...
 
 def inf_is_flat_off32() -> bool:
@@ -1481,6 +1490,9 @@ def inf_set_demnames(_v: int) -> bool:
 def inf_set_dll(_v: bool = True) -> bool:
     ...
 
+def inf_set_exe_dll(_v: bool = True) -> bool:
+    ...
+
 def inf_set_filetype(_v: filetype_t) -> bool:
     ...
 
@@ -1530,6 +1542,9 @@ def inf_set_hide_comments(_v: bool = True) -> bool:
     ...
 
 def inf_set_hide_libfuncs(_v: bool = True) -> bool:
+    ...
+
+def inf_set_hide_outlined(_v: bool = True) -> bool:
     ...
 
 def inf_set_highoff(_v: ida_idaapi.ea_t) -> bool:
@@ -1997,6 +2012,7 @@ ABI_STACK_LDBL: int  # 8
 ABI_STACK_VARARGS: int  # 16
 AF2_DOEH: int  # 1
 AF2_DORTTI: int  # 2
+AF2_HFOUTLINE: int  # 16
 AF2_MACRO: int  # 4
 AF2_MERGESTR: int  # 8
 AF_ANORET: int  # 16384
@@ -2183,6 +2199,7 @@ LFLG_DBG_NOPATH: int  # 128
 LFLG_FLAT_OFF32: int  # 16
 LFLG_ILP32: int  # 4096
 LFLG_IS_DLL: int  # 8
+LFLG_IS_EXE_DLL: int  # 8192
 LFLG_KERNMODE: int  # 2048
 LFLG_MSF: int  # 32
 LFLG_PACK: int  # 512

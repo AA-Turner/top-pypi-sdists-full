@@ -4,12 +4,12 @@ build-backend = "uv_build"
 
 [project]
 name = "pyhpke"
-version = "0.6.4"
+version = "0.6.5"
 description = "A Python implementation of HPKE."
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
 dependencies = [
-    "cryptography>=42.0.1,<47",
+    "cryptography>=42.0.1,<52",
 ]
 authors = [{ name = "Ajitomi Daisuke", email = "dajiaji@gmail.com" }]
 license = "MIT"
@@ -33,6 +33,8 @@ Repository = "https://github.com/dajiaji/pyhpke"
 [dependency-groups]
 dev = [
     "mypy>=1.19.1",
+    "pip-audit>=2.10.1",
+    "pip-licenses>=5.5.5",
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
     "pytest-cov>=7.0.0",
@@ -45,6 +47,14 @@ docs = [
     "sphinx-rtd-theme>=3.0.2",
 ]
 
+[tool.uv]
+# Relative `exclude-newer` spans require uv 0.11+; older versions would read the
+# backwards-compatibility sentinel date written into uv.lock and resolve nothing.
+required-version = ">=0.11"
+# Only consider packages uploaded more than 2 days ago (security verification window).
+exclude-newer = "2 days"
+default-groups = "all"
+
 [tool.uv.build-backend]
 source-include = [
     "tests/**",
@@ -53,21 +63,6 @@ source-include = [
 source-exclude = [
     "docs/_build/**",
 ]
-
-[tool.mypy]
-ignore_missing_imports = true
-pretty = true
-warn_unused_ignores = true
-check_untyped_defs = true
-warn_return_any = true
-no_implicit_optional = true
-strict_equality = true
-python_version = "3.10"
-exclude = "^(tests|examples|dist)/"
-
-[[tool.mypy.overrides]]
-module = ["tests.*"]
-ignore_errors = true
 
 [tool.ruff]
 target-version = "py310"
@@ -90,8 +85,9 @@ select = [
     "B",
     "E",
     "F",
-    "W",
     "I",
+    "S",
+    "W",
     "T10",
     "C4",
     "UP",
@@ -99,6 +95,26 @@ select = [
     "SIM",
 ]
 ignore = ["E203", "E501"]
+per-file-ignores = { "tests/**" = ["S101", "S106"] }
 
 [tool.ruff.lint.isort]
 known-first-party = ["pyhpke", "tests"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+# mypy_path = ["typings"]
+# warn_return_any = true
+# no_implicit_optional = true
+# strict_equality = true
+# warn_unused_ignores = true
+# disallow_any_generics = true
+disallow_any_unimported = true
+warn_unreachable = true
+ignore_missing_imports = false
+pretty = true
+
+# Ignore type errors in tests; they are covered by runtime pytest runs instead.
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+ignore_errors = true

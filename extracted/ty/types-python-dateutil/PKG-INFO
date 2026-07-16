@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-python-dateutil
-Version: 2.9.0.20260518
+Version: 2.9.0.20260716
 Summary: Typing stubs for python-dateutil
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -31,8 +31,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [mypy](https://github.com/python/mypy/) 2.3.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`c6d107067232008558616e8d0a13d150567b29d0`](https://github.com/python/typeshed/commit/c6d107067232008558616e8d0a13d150567b29d0).

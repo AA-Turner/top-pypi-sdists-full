@@ -8,10 +8,8 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 from enum import IntEnum, IntFlag, auto
-from typing import TYPE_CHECKING, Any, Generic, Literal, Self, overload
+from typing import TYPE_CHECKING, Any, Literal, Self, overload
 
-import klayout.db as kdb
-from klayout import rdb
 from pydantic import (
     BaseModel,
     model_serializer,
@@ -19,16 +17,21 @@ from pydantic import (
 )
 from typing_extensions import TypedDict
 
+from . import kdb, rdb
 from .conf import ANGLE_180, config
 from .cross_section import (
+    AnyCrossSectionInput,
+    AsymmetricalCrossSection,
+    AsymmetricCrossSection,
     CrossSection,
-    CrossSectionSpec,
+    CrossSectionSpecDict,
+    DAsymmetricCrossSection,
     DCrossSection,
     SymmetricalCrossSection,
+    TAsymmetricCrossSection,
     TCrossSection,
 )
 from .settings import Info
-from .typings import Angle, TPort, TUnit
 from .utilities import pprint_ports
 
 if TYPE_CHECKING:
@@ -37,6 +40,7 @@ if TYPE_CHECKING:
     from .kcell import AnyTKCell, KCell
     from .layer import LayerEnum
     from .layout import KCLayout
+    from .typings import Angle, TPort
 
 
 def create_port_error(
@@ -70,12 +74,8 @@ def create_port_error(
         label1 = f"{inst_name1}.{p1.name}" if inst_name1 else f"{c1.name}.{p1.name}"
         label2 = f"{inst_name2}.{p2.name}" if inst_name2 else f"{c2.name}.{p2.name}"
         it.add_value(f"Port Names: {label1}/{label2}")
-    it.add_value(
-        port_polygon(p1.cross_section.width).transformed(p1.trans).to_dtype(dbu)
-    )
-    it.add_value(
-        port_polygon(p2.cross_section.width).transformed(p2.trans).to_dtype(dbu)
-    )
+    it.add_value(port_polygon(p1.iwidth).transformed(p1.trans).to_dtype(dbu))
+    it.add_value(port_polygon(p2.iwidth).transformed(p2.trans).to_dtype(dbu))
 
 
 class PortCheck(IntFlag):
@@ -85,40 +85,49 @@ class PortCheck(IntFlag):
     """
 
     opposite = auto()
+    same = auto()
     width = auto()
     layer = auto()
+    cross_section = auto()
     port_type = auto()
-    all_opposite = opposite + width + port_type + layer  # type: ignore[operator]
-    all_overlap = width + port_type + layer  # type: ignore[operator]
+    position = auto()
+    all_opposite = opposite + width + port_type + layer  # ty:ignore[unsupported-operator]
+    all_overlap = width + port_type + layer  # ty:ignore[unsupported-operator]
 
 
 def port_check(
-    p1: Port, p2: Port, checks: PortCheck | int = PortCheck.all_opposite
+    p1: ProtoPort[Any],
+    p2: ProtoPort[Any],
+    checks: PortCheck | int = PortCheck.all_opposite,
 ) -> None:
     """Check if two ports are equal."""
-    if checks & PortCheck.opposite:
-        assert (
-            p1.trans == p2.trans * kdb.Trans.R180
-            or p1.trans == p2.trans * kdb.Trans.M90
-        ), f"Transformations of ports not matching for opposite check{p1=} {p2=}"
-    if (checks & PortCheck.opposite) == 0:
-        assert p1.trans == p2.trans or p1.trans == p2.trans * kdb.Trans.M0, (
+    if checks & PortCheck.opposite and not (
+        p1.trans == p2.trans * kdb.Trans.R180 or p1.trans == p2.trans * kdb.Trans.M90
+    ):
+        raise ValueError(
+            f"Transformations of ports not matching for opposite check{p1=} {p2=}"
+        )
+    if (checks & PortCheck.opposite) == 0 and not (
+        p1.trans == p2.trans or p1.trans == p2.trans * kdb.Trans.M0
+    ):
+        raise ValueError(
             f"Transformations of ports not matching for overlapping check {p1=} {p2=}"
         )
-    if checks & PortCheck.width:
-        assert p1.width == p2.width, f"Width mismatch for {p1=} {p2=}"
-    if checks & PortCheck.layer:
-        assert p1.layer == p2.layer, f"Layer mismatch for {p1=} {p2=}"
-    if checks & PortCheck.port_type:
-        assert p1.port_type == p2.port_type, f"Port type mismatch for {p1=} {p2=}"
+    if checks & PortCheck.width and not (p1.iwidth == p2.iwidth):
+        raise ValueError(f"Width mismatch for {p1=} {p2=}")
+    if checks & PortCheck.layer and not p1.layer_info.is_equivalent(p2.layer_info):
+        raise ValueError(f"Layer mismatch for {p1=} {p2=}")
+    if checks & PortCheck.port_type and not p1.port_type == p2.port_type:
+        raise ValueError(f"Port type mismatch for {p1=} {p2=}")
 
 
 class BasePortDict(TypedDict):
     """TypedDict for the BasePort."""
 
-    name: str | None
+    name: str
     kcl: KCLayout
-    cross_section: SymmetricalCrossSection
+    cross_section: SymmetricalCrossSection | None
+    asymmetric_cross_section: AsymmetricalCrossSection | None
     trans: kdb.Trans | None
     dcplx_trans: kdb.DCplxTrans | None
     info: Info
@@ -128,12 +137,15 @@ class BasePortDict(TypedDict):
 class BasePort(BaseModel, arbitrary_types_allowed=True):
     """Class representing the base port.
 
-    This does not have any knowledge of units.
+    This does not have any knowledge of units. Exactly one of
+    `cross_section` (symmetric) or `asymmetric_cross_section` (asymmetric)
+    must be set, mirroring the `trans` / `dcplx_trans` pattern.
     """
 
-    name: str | None
+    name: str
     kcl: KCLayout
-    cross_section: SymmetricalCrossSection
+    cross_section: SymmetricalCrossSection | None = None
+    asymmetric_cross_section: AsymmetricalCrossSection | None = None
     trans: kdb.Trans | None = None
     dcplx_trans: kdb.DCplxTrans | None = None
     info: Info = Info()
@@ -141,12 +153,32 @@ class BasePort(BaseModel, arbitrary_types_allowed=True):
 
     @model_validator(mode="after")
     def check_exclusivity(self) -> Self:
-        """Check if the port has a valid transformation."""
+        """Check that exactly one trans and exactly one cross_section is set."""
         if self.trans is None and self.dcplx_trans is None:
             raise ValueError("Both trans and dcplx_trans cannot be None.")
         if self.trans is not None and self.dcplx_trans is not None:
             raise ValueError("Only one of trans or dcplx_trans can be set.")
+        if self.cross_section is None and self.asymmetric_cross_section is None:
+            raise ValueError(
+                "Exactly one of cross_section or asymmetric_cross_section must be set."
+            )
+        if self.cross_section is not None and self.asymmetric_cross_section is not None:
+            raise ValueError(
+                "Only one of cross_section or asymmetric_cross_section can be set."
+            )
         return self
+
+    def is_symmetric(self) -> bool:
+        """Whether the port carries a symmetric cross section."""
+        return self.cross_section is not None
+
+    @property
+    def any_cross_section(self) -> SymmetricalCrossSection | AsymmetricalCrossSection:
+        """The cross section regardless of kind (symmetric or asymmetric)."""
+        if self.cross_section is not None:
+            return self.cross_section
+        assert self.asymmetric_cross_section is not None
+        return self.asymmetric_cross_section
 
     def __copy__(self) -> BasePort:
         """Copy the BasePort."""
@@ -154,6 +186,7 @@ class BasePort(BaseModel, arbitrary_types_allowed=True):
             name=self.name,
             kcl=self.kcl,
             cross_section=self.cross_section,
+            asymmetric_cross_section=self.asymmetric_cross_section,
             trans=self.trans.dup() if self.trans else None,
             dcplx_trans=self.dcplx_trans.dup() if self.dcplx_trans else None,
             info=self.info.model_copy(),
@@ -180,7 +213,7 @@ class BasePort(BaseModel, arbitrary_types_allowed=True):
         if isinstance(post_trans, kdb.Trans):
             post_trans = kdb.DCplxTrans(post_trans.to_dtype(self.kcl.dbu))
         dcplx_trans = self.dcplx_trans or kdb.DCplxTrans(
-            t=self.trans.to_dtype(self.kcl.dbu)  # type: ignore[union-attr]
+            t=self.trans.to_dtype(self.kcl.dbu)  # ty:ignore[unresolved-attribute]
         )
 
         base.trans = None
@@ -192,7 +225,7 @@ class BasePort(BaseModel, arbitrary_types_allowed=True):
         trans: kdb.Trans | kdb.DCplxTrans = kdb.Trans.R0,
         post_trans: kdb.Trans | kdb.DCplxTrans = kdb.Trans.R0,
     ) -> Self:
-        """Get a transformed copy of the BasePort."""
+        """Transform self."""
         base = self
         if (
             base.trans is not None
@@ -207,7 +240,7 @@ class BasePort(BaseModel, arbitrary_types_allowed=True):
         if isinstance(post_trans, kdb.Trans):
             post_trans = kdb.DCplxTrans(post_trans.to_dtype(self.kcl.dbu))
         dcplx_trans = self.dcplx_trans or kdb.DCplxTrans(
-            t=self.trans.to_dtype(self.kcl.dbu)  # type: ignore[union-attr]
+            t=self.trans.to_dtype(self.kcl.dbu)  # ty:ignore[unresolved-attribute]
         )
 
         base.trans = None
@@ -223,6 +256,7 @@ class BasePort(BaseModel, arbitrary_types_allowed=True):
             name=self.name,
             kcl=self.kcl,
             cross_section=self.cross_section,
+            asymmetric_cross_section=self.asymmetric_cross_section,
             trans=trans,
             dcplx_trans=dcplx_trans,
             info=self.info.model_copy(),
@@ -265,14 +299,59 @@ class BasePort(BaseModel, arbitrary_types_allowed=True):
                 )
                 and self.name == other.name
                 and self.kcl == other.kcl
-                and self.cross_section == other.cross_section
+                and self.any_cross_section == other.any_cross_section
                 and self.port_type == other.port_type
                 and self.info == other.info
             )
         )
 
+    def check_connection(
+        self,
+        other: BasePort,
+        tolerance: float = 0.1,
+        angle_tolerance: float = 0.01,
+        snapped: bool = False,
+    ) -> int:
+        tol_um = self.kcl.dbu * tolerance
+        check: int = 0
+        if snapped or (self.trans is not None and other.trans is not None):
+            t1 = self.get_trans()
+            t2 = other.get_trans()
+            if t1.disp == t2.disp:
+                check += PortCheck.position
+            orientation = (t1.angle - t2.angle) % 4
+            if orientation == 2:
+                check += PortCheck.opposite
+            elif orientation == 0:
+                check += PortCheck.same
+        else:
+            dt1 = self.get_dcplx_trans()
+            dt2 = other.get_dcplx_trans()
+            if (dt1.disp - dt2.disp).length() < tol_um:
+                check += PortCheck.position
+            angle_diff = (dt1.angle - dt2.angle) % 360
+            if abs(angle_diff - 180) < angle_tolerance:
+                check += PortCheck.opposite
+            elif abs(angle_diff) < angle_tolerance:
+                check += PortCheck.same
+        self_xs = self.any_cross_section
+        other_xs = other.any_cross_section
+        if self_xs == other_xs:
+            check += PortCheck.cross_section
+            check += PortCheck.layer
+            check += PortCheck.width
+        else:
+            if self_xs.main_layer.is_equivalent(other_xs.main_layer):
+                check += PortCheck.layer
+            if self_xs.width == other_xs.width:
+                check += PortCheck.width
+        if self.port_type == other.port_type:
+            check += PortCheck.port_type
 
-class ProtoPort(Generic[TUnit], ABC):  # noqa: PYI059
+        return check
+
+
+class ProtoPort[T: (int, float)](ABC):
     """Base class for kf.Port, kf.DPort."""
 
     yaml_tag: str = "!Port"
@@ -281,21 +360,21 @@ class ProtoPort(Generic[TUnit], ABC):  # noqa: PYI059
     @abstractmethod
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
-        width: TUnit | None = None,
+        width: T | None = None,
         layer: int | None = None,
         layer_info: kdb.LayerInfo | None = None,
         port_type: str = "optical",
         trans: kdb.Trans | str | None = None,
         dcplx_trans: kdb.DCplxTrans | str | None = None,
-        angle: TUnit | None = None,
-        center: tuple[TUnit, TUnit] | None = None,
+        angle: T | None = None,
+        center: tuple[T, T] | None = None,
         mirror_x: bool = False,
         port: Port | None = None,
         kcl: KCLayout | None = None,
         info: dict[str, int | float | str] = ...,
-        cross_section: TCrossSection[TUnit] | None = None,
+        cross_section: TCrossSection[T] | None = None,
         base: BasePort | None = None,
     ) -> None:
         """Initialise a ProtoPort."""
@@ -317,23 +396,62 @@ class ProtoPort(Generic[TUnit], ABC):  # noqa: PYI059
 
     @property
     @abstractmethod
-    def cross_section(self) -> TCrossSection[TUnit]:
-        """Get the cross section of the port."""
+    def cross_section(self) -> TCrossSection[T] | TAsymmetricCrossSection[T]:
+        """Get the cross section of the port, symmetric or asymmetric.
+
+        Returns the symmetric cross section if the port carries one, otherwise
+        the asymmetric cross section. Use `symmetric_cross_section` or
+        `asymmetric_cross_section` to require a specific kind (raising if the
+        port carries the other kind).
+        """
         ...
 
     @cross_section.setter
     @abstractmethod
     def cross_section(
+        self,
+        value: SymmetricalCrossSection
+        | AsymmetricalCrossSection
+        | TCrossSection[Any]
+        | TAsymmetricCrossSection[Any],
+    ) -> None: ...
+
+    @property
+    @abstractmethod
+    def symmetric_cross_section(self) -> TCrossSection[T]:
+        """Get the symmetric cross section of the port. Raises if asymmetric."""
+        ...
+
+    @symmetric_cross_section.setter
+    @abstractmethod
+    def symmetric_cross_section(
         self, value: SymmetricalCrossSection | TCrossSection[Any]
     ) -> None: ...
 
     @property
-    def name(self) -> str | None:
+    @abstractmethod
+    def asymmetric_cross_section(self) -> TAsymmetricCrossSection[T]:
+        """Get the asymmetric cross section of the port. Raises if symmetric."""
+        ...
+
+    @asymmetric_cross_section.setter
+    @abstractmethod
+    def asymmetric_cross_section(
+        self,
+        value: AsymmetricalCrossSection | TAsymmetricCrossSection[Any],
+    ) -> None: ...
+
+    def is_symmetric(self) -> bool:
+        """Whether the port carries a symmetric cross section."""
+        return self._base.is_symmetric()
+
+    @property
+    def name(self) -> str:
         """Name of the port."""
         return self._base.name
 
     @name.setter
-    def name(self, value: str | None) -> None:
+    def name(self, value: str) -> None:
         self._base.name = value
 
     @property
@@ -365,7 +483,7 @@ class ProtoPort(Generic[TUnit], ABC):  # noqa: PYI059
         index.
         """
         return self.kcl.find_layer(
-            self.cross_section.layer, allow_undefined_layers=True
+            self._base.any_cross_section.main_layer, allow_undefined_layers=True
         )
 
     @property
@@ -374,7 +492,7 @@ class ProtoPort(Generic[TUnit], ABC):  # noqa: PYI059
 
         This corresponds to the port's cross section's main layer.
         """
-        return self.cross_section.layer
+        return self._base.any_cross_section.main_layer
 
     def __eq__(self, other: object) -> bool:
         """Support for `port1 == port2` comparisons."""
@@ -482,43 +600,43 @@ class ProtoPort(Generic[TUnit], ABC):  # noqa: PYI059
         self,
         trans: kdb.Trans | kdb.DCplxTrans = kdb.Trans.R0,
         post_trans: kdb.Trans | kdb.DCplxTrans = kdb.Trans.R0,
-    ) -> ProtoPort[TUnit]:
+    ) -> ProtoPort[T]:
         """Copy the port with a transformation."""
         ...
 
     @property
-    def center(self) -> tuple[TUnit, TUnit]:
+    def center(self) -> tuple[T, T]:
         """Returns port center."""
         return (self.x, self.y)
 
     @center.setter
-    def center(self, value: tuple[TUnit, TUnit]) -> None:
+    def center(self, value: tuple[T, T]) -> None:
         self.x = value[0]
         self.y = value[1]
 
     @property
     @abstractmethod
-    def x(self) -> TUnit:
+    def x(self) -> T:
         """X coordinate of the port."""
         ...
 
     @x.setter
     @abstractmethod
-    def x(self, value: TUnit) -> None: ...
+    def x(self, value: T) -> None: ...
 
     @property
     @abstractmethod
-    def y(self) -> TUnit:
+    def y(self) -> T:
         """Y coordinate of the port."""
         ...
 
     @y.setter
     @abstractmethod
-    def y(self, value: TUnit) -> None: ...
+    def y(self, value: T) -> None: ...
 
     @property
     @abstractmethod
-    def width(self) -> TUnit:
+    def width(self) -> T:
         """Width of the port."""
         ...
 
@@ -557,7 +675,7 @@ class ProtoPort(Generic[TUnit], ABC):  # noqa: PYI059
     @property
     def iwidth(self) -> int:
         """Width of the port in dbu."""
-        return self._base.cross_section.width
+        return self._base.any_cross_section.width
 
     @property
     def dx(self) -> float:
@@ -616,7 +734,7 @@ class ProtoPort(Generic[TUnit], ABC):  # noqa: PYI059
     @property
     def dwidth(self) -> float:
         """Width of the port in um."""
-        return self.kcl.to_um(self._base.cross_section.width)
+        return self.kcl.to_um(self._base.any_cross_section.width)
 
     def print(self, print_type: Literal["dbu", "um"] | None = None) -> None:
         """Print the port pretty."""
@@ -668,7 +786,7 @@ class Port(ProtoPort[int]):
     def __init__(
         self,
         *,
-        name: str | None = None,
+        name: str,
         width: int,
         layer: LayerEnum | int,
         trans: kdb.Trans | str,
@@ -681,7 +799,7 @@ class Port(ProtoPort[int]):
     def __init__(
         self,
         *,
-        name: str | None = None,
+        name: str,
         width: int,
         layer: LayerEnum | int,
         dcplx_trans: kdb.DCplxTrans | str,
@@ -693,7 +811,7 @@ class Port(ProtoPort[int]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
         width: int,
         layer: LayerEnum | int,
@@ -708,7 +826,7 @@ class Port(ProtoPort[int]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
         width: int,
         layer_info: kdb.LayerInfo,
@@ -721,7 +839,7 @@ class Port(ProtoPort[int]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
         width: int,
         layer_info: kdb.LayerInfo,
@@ -734,7 +852,7 @@ class Port(ProtoPort[int]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
         width: int,
         layer_info: kdb.LayerInfo,
@@ -749,9 +867,9 @@ class Port(ProtoPort[int]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
-        cross_section: CrossSection | SymmetricalCrossSection,
+        cross_section: AnyCrossSectionInput,
         port_type: str = "optical",
         angle: int,
         center: tuple[int, int],
@@ -763,9 +881,9 @@ class Port(ProtoPort[int]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
-        cross_section: CrossSection | SymmetricalCrossSection,
+        cross_section: AnyCrossSectionInput,
         trans: kdb.Trans | str,
         kcl: KCLayout | None = None,
         info: dict[str, int | float | str] = ...,
@@ -775,9 +893,9 @@ class Port(ProtoPort[int]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
-        cross_section: CrossSection | SymmetricalCrossSection,
+        cross_section: AnyCrossSectionInput,
         dcplx_trans: kdb.DCplxTrans | str,
         kcl: KCLayout | None = None,
         info: dict[str, int | float | str] = ...,
@@ -806,7 +924,7 @@ class Port(ProtoPort[int]):
         port: ProtoPort[Any] | None = None,
         kcl: KCLayout | None = None,
         info: dict[str, int | float | str] | None = None,
-        cross_section: CrossSection | SymmetricalCrossSection | None = None,
+        cross_section: AnyCrossSectionInput | None = None,
         base: BasePort | None = None,
     ) -> None:
         """Create a port from dbu or um based units."""
@@ -818,10 +936,18 @@ class Port(ProtoPort[int]):
         if port is not None:
             self._base = port.base.__copy__()
             return
+
+        if name is None:
+            raise ValueError(
+                "Port must have a name. Only when passing another port or port base"
+                " name can be None."
+            )
         info_ = Info(**info)
         from .layout import get_default_kcl
 
         kcl_ = kcl or get_default_kcl()
+        sym_xs: SymmetricalCrossSection | None = None
+        asym_xs: AsymmetricalCrossSection | None = None
         if cross_section is None:
             if layer_info is None:
                 if layer is None:
@@ -832,19 +958,24 @@ class Port(ProtoPort[int]):
                     "any width and layer, or a cross_section must be given if the"
                     " 'port is None'"
                 )
-            cross_section_ = kcl_.get_symmetrical_cross_section(
-                CrossSectionSpec(layer=layer_info, width=width)
+            sym_xs = kcl_.get_symmetrical_cross_section(
+                CrossSectionSpecDict(layer=layer_info, width=width)
             )
         elif isinstance(cross_section, SymmetricalCrossSection):
-            cross_section_ = cross_section
+            sym_xs = cross_section
+        elif isinstance(cross_section, AsymmetricalCrossSection):
+            asym_xs = cross_section
+        elif isinstance(cross_section, TAsymmetricCrossSection):
+            asym_xs = cross_section.base
         else:
-            cross_section_ = cross_section.base
+            sym_xs = cross_section.base
         if trans is not None:
             trans_ = kdb.Trans.from_s(trans) if isinstance(trans, str) else trans.dup()
             self._base = BasePort(
                 name=name,
                 kcl=kcl_,
-                cross_section=cross_section_,
+                cross_section=sym_xs,
+                asymmetric_cross_section=asym_xs,
                 trans=trans_,
                 info=info_,
                 port_type=port_type,
@@ -857,7 +988,8 @@ class Port(ProtoPort[int]):
             self._base = BasePort(
                 name=name,
                 kcl=kcl_,
-                cross_section=cross_section_,
+                cross_section=sym_xs,
+                asymmetric_cross_section=asym_xs,
                 trans=kdb.Trans.R0,
                 info=info_,
                 port_type=port_type,
@@ -869,7 +1001,8 @@ class Port(ProtoPort[int]):
             self._base = BasePort(
                 name=name,
                 kcl=kcl_,
-                cross_section=cross_section_,
+                cross_section=sym_xs,
+                asymmetric_cross_section=asym_xs,
                 trans=trans_,
                 info=info_,
                 port_type=port_type,
@@ -941,18 +1074,91 @@ class Port(ProtoPort[int]):
         return self.iwidth
 
     @property
-    def cross_section(self) -> CrossSection:
-        """Get the cross section of the port."""
-        return CrossSection(kcl=self._base.kcl, base=self._base.cross_section)
+    def cross_section(self) -> CrossSection | AsymmetricCrossSection:
+        """Get the cross section of the port, symmetric or asymmetric.
+
+        Returns the symmetric cross section if the port carries one, otherwise
+        the asymmetric cross section. Use `symmetric_cross_section` or
+        `asymmetric_cross_section` to require a specific kind.
+        """
+        if self._base.cross_section is not None:
+            return CrossSection(kcl=self._base.kcl, base=self._base.cross_section)
+        assert self._base.asymmetric_cross_section is not None
+        return AsymmetricCrossSection(
+            kcl=self._base.kcl, base=self._base.asymmetric_cross_section
+        )
 
     @cross_section.setter
     def cross_section(
+        self,
+        value: SymmetricalCrossSection
+        | AsymmetricalCrossSection
+        | TCrossSection[Any]
+        | TAsymmetricCrossSection[Any],
+    ) -> None:
+        if isinstance(value, SymmetricalCrossSection):
+            self._base.cross_section = value
+            self._base.asymmetric_cross_section = None
+        elif isinstance(value, AsymmetricalCrossSection):
+            self._base.asymmetric_cross_section = value
+            self._base.cross_section = None
+        elif isinstance(value, TAsymmetricCrossSection):
+            self._base.asymmetric_cross_section = value.base
+            self._base.cross_section = None
+        else:
+            self._base.cross_section = value.base
+            self._base.asymmetric_cross_section = None
+
+    @property
+    def symmetric_cross_section(self) -> CrossSection:
+        """Get the symmetric cross section of the port.
+
+        Raises:
+            TypeError: if the port carries an asymmetric cross section.
+        """
+        if self._base.cross_section is None:
+            raise TypeError(
+                f"Port {self.name!r} carries an asymmetric cross section."
+                " Use `asymmetric_cross_section` instead."
+            )
+        return CrossSection(kcl=self._base.kcl, base=self._base.cross_section)
+
+    @symmetric_cross_section.setter
+    def symmetric_cross_section(
         self, value: SymmetricalCrossSection | TCrossSection[Any]
     ) -> None:
         if isinstance(value, SymmetricalCrossSection):
             self._base.cross_section = value
-            return
-        self._base.cross_section = value.base
+        else:
+            self._base.cross_section = value.base
+        self._base.asymmetric_cross_section = None
+
+    @property
+    def asymmetric_cross_section(self) -> AsymmetricCrossSection:
+        """Get the asymmetric cross section of the port.
+
+        Raises:
+            TypeError: if the port carries a symmetric cross section.
+        """
+        if self._base.asymmetric_cross_section is None:
+            raise TypeError(
+                f"Port {self.name!r} carries a symmetric cross section."
+                " Use `symmetric_cross_section` instead."
+            )
+        return AsymmetricCrossSection(
+            kcl=self._base.kcl, base=self._base.asymmetric_cross_section
+        )
+
+    @asymmetric_cross_section.setter
+    def asymmetric_cross_section(
+        self,
+        value: AsymmetricalCrossSection | TAsymmetricCrossSection[Any],
+    ) -> None:
+        if isinstance(value, AsymmetricalCrossSection):
+            self._base.asymmetric_cross_section = value
+        else:
+            self._base.asymmetric_cross_section = value.base
+        self._base.cross_section = None
 
 
 class DPort(ProtoPort[float]):
@@ -982,7 +1188,7 @@ class DPort(ProtoPort[float]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
         width: float,
         layer: LayerEnum | int,
@@ -995,7 +1201,7 @@ class DPort(ProtoPort[float]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
         width: float,
         layer: LayerEnum | int,
@@ -1008,7 +1214,7 @@ class DPort(ProtoPort[float]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
         width: float,
         layer: LayerEnum | int,
@@ -1023,7 +1229,7 @@ class DPort(ProtoPort[float]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
         width: float,
         layer_info: kdb.LayerInfo,
@@ -1036,7 +1242,7 @@ class DPort(ProtoPort[float]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
         width: float,
         layer_info: kdb.LayerInfo,
@@ -1049,7 +1255,7 @@ class DPort(ProtoPort[float]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
         width: float,
         layer_info: kdb.LayerInfo,
@@ -1064,9 +1270,9 @@ class DPort(ProtoPort[float]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
-        cross_section: DCrossSection | SymmetricalCrossSection,
+        cross_section: AnyCrossSectionInput,
         port_type: str = "optical",
         orientation: float,
         center: tuple[float, float],
@@ -1078,9 +1284,9 @@ class DPort(ProtoPort[float]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
-        cross_section: DCrossSection | SymmetricalCrossSection,
+        cross_section: AnyCrossSectionInput,
         trans: kdb.Trans | str,
         kcl: KCLayout | None = None,
         info: dict[str, int | float | str] = ...,
@@ -1090,9 +1296,9 @@ class DPort(ProtoPort[float]):
     @overload
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         *,
-        cross_section: DCrossSection | SymmetricalCrossSection,
+        cross_section: AnyCrossSectionInput,
         dcplx_trans: kdb.DCplxTrans | str,
         kcl: KCLayout | None = None,
         info: dict[str, int | float | str] = ...,
@@ -1121,7 +1327,7 @@ class DPort(ProtoPort[float]):
         port: ProtoPort[Any] | None = None,
         kcl: KCLayout | None = None,
         info: dict[str, int | float | str] | None = None,
-        cross_section: DCrossSection | SymmetricalCrossSection | None = None,
+        cross_section: AnyCrossSectionInput | None = None,
         base: BasePort | None = None,
     ) -> None:
         """Create a port from dbu or um based units."""
@@ -1133,11 +1339,19 @@ class DPort(ProtoPort[float]):
         if port is not None:
             self._base = port.base.__copy__()
             return
+
+        if name is None:
+            raise ValueError(
+                "DPort must have a name. Only when passing another port or port base"
+                " name can be None."
+            )
         info_ = Info(**info)
 
         from .layout import get_default_kcl
 
         kcl_ = kcl or get_default_kcl()
+        sym_xs: SymmetricalCrossSection | None = None
+        asym_xs: AsymmetricalCrossSection | None = None
         if cross_section is None:
             if layer_info is None:
                 if layer is None:
@@ -1153,19 +1367,24 @@ class DPort(ProtoPort[float]):
                     f"width needs to be even to snap to grid. Got {width}."
                     "Ports must have a grid width of multiples of 2."
                 )
-            cross_section_ = kcl_.get_symmetrical_cross_section(
-                CrossSectionSpec(layer=layer_info, width=kcl_.to_dbu(width))
+            sym_xs = kcl_.get_symmetrical_cross_section(
+                CrossSectionSpecDict(layer=layer_info, width=kcl_.to_dbu(width))
             )
         elif isinstance(cross_section, SymmetricalCrossSection):
-            cross_section_ = cross_section
+            sym_xs = cross_section
+        elif isinstance(cross_section, AsymmetricalCrossSection):
+            asym_xs = cross_section
+        elif isinstance(cross_section, TAsymmetricCrossSection):
+            asym_xs = cross_section.base
         else:
-            cross_section_ = cross_section.base
+            sym_xs = cross_section.base
         if trans is not None:
             trans_ = kdb.Trans.from_s(trans) if isinstance(trans, str) else trans.dup()
             self._base = BasePort(
                 name=name,
                 kcl=kcl_,
-                cross_section=cross_section_,
+                cross_section=sym_xs,
+                asymmetric_cross_section=asym_xs,
                 trans=trans_,
                 info=info_,
                 port_type=port_type,
@@ -1178,7 +1397,8 @@ class DPort(ProtoPort[float]):
             self._base = BasePort(
                 name=name,
                 kcl=kcl_,
-                cross_section=cross_section_,
+                cross_section=sym_xs,
+                asymmetric_cross_section=asym_xs,
                 trans=kdb.Trans.R0,
                 info=info_,
                 port_type=port_type,
@@ -1190,7 +1410,8 @@ class DPort(ProtoPort[float]):
             self._base = BasePort(
                 name=name,
                 kcl=kcl_,
-                cross_section=cross_section_,
+                cross_section=sym_xs,
+                asymmetric_cross_section=asym_xs,
                 dcplx_trans=dcplx_trans_,
                 info=info_,
                 port_type=port_type,
@@ -1266,18 +1487,91 @@ class DPort(ProtoPort[float]):
         return self.dwidth
 
     @property
-    def cross_section(self) -> DCrossSection:
-        """Get the cross section of the port."""
-        return DCrossSection(kcl=self._base.kcl, base=self._base.cross_section)
+    def cross_section(self) -> DCrossSection | DAsymmetricCrossSection:
+        """Get the cross section of the port, symmetric or asymmetric.
+
+        Returns the symmetric cross section if the port carries one, otherwise
+        the asymmetric cross section. Use `symmetric_cross_section` or
+        `asymmetric_cross_section` to require a specific kind.
+        """
+        if self._base.cross_section is not None:
+            return DCrossSection(kcl=self._base.kcl, base=self._base.cross_section)
+        assert self._base.asymmetric_cross_section is not None
+        return DAsymmetricCrossSection(
+            kcl=self._base.kcl, base=self._base.asymmetric_cross_section
+        )
 
     @cross_section.setter
     def cross_section(
+        self,
+        value: SymmetricalCrossSection
+        | AsymmetricalCrossSection
+        | TCrossSection[Any]
+        | TAsymmetricCrossSection[Any],
+    ) -> None:
+        if isinstance(value, SymmetricalCrossSection):
+            self._base.cross_section = value
+            self._base.asymmetric_cross_section = None
+        elif isinstance(value, AsymmetricalCrossSection):
+            self._base.asymmetric_cross_section = value
+            self._base.cross_section = None
+        elif isinstance(value, TAsymmetricCrossSection):
+            self._base.asymmetric_cross_section = value.base
+            self._base.cross_section = None
+        else:
+            self._base.cross_section = value.base
+            self._base.asymmetric_cross_section = None
+
+    @property
+    def symmetric_cross_section(self) -> DCrossSection:
+        """Get the symmetric cross section of the port.
+
+        Raises:
+            TypeError: if the port carries an asymmetric cross section.
+        """
+        if self._base.cross_section is None:
+            raise TypeError(
+                f"Port {self.name!r} carries an asymmetric cross section."
+                " Use `asymmetric_cross_section` instead."
+            )
+        return DCrossSection(kcl=self._base.kcl, base=self._base.cross_section)
+
+    @symmetric_cross_section.setter
+    def symmetric_cross_section(
         self, value: SymmetricalCrossSection | TCrossSection[Any]
     ) -> None:
         if isinstance(value, SymmetricalCrossSection):
             self._base.cross_section = value
-            return
-        self._base.cross_section = value.base
+        else:
+            self._base.cross_section = value.base
+        self._base.asymmetric_cross_section = None
+
+    @property
+    def asymmetric_cross_section(self) -> DAsymmetricCrossSection:
+        """Get the asymmetric cross section of the port.
+
+        Raises:
+            TypeError: if the port carries a symmetric cross section.
+        """
+        if self._base.asymmetric_cross_section is None:
+            raise TypeError(
+                f"Port {self.name!r} carries a symmetric cross section."
+                " Use `symmetric_cross_section` instead."
+            )
+        return DAsymmetricCrossSection(
+            kcl=self._base.kcl, base=self._base.asymmetric_cross_section
+        )
+
+    @asymmetric_cross_section.setter
+    def asymmetric_cross_section(
+        self,
+        value: AsymmetricalCrossSection | TAsymmetricCrossSection[Any],
+    ) -> None:
+        if isinstance(value, AsymmetricalCrossSection):
+            self._base.asymmetric_cross_section = value
+        else:
+            self._base.asymmetric_cross_section = value.base
+        self._base.cross_section = None
 
 
 class DIRECTION(IntEnum):
@@ -1309,6 +1603,7 @@ def autorename(
 def rename_clockwise(
     ports: Iterable[ProtoPort[Any]],
     layer: LayerEnum | int | None = None,
+    layer_info: kdb.LayerInfo | None = None,
     port_type: str | None = None,
     regex: str | None = None,
     prefix: str = "o",
@@ -1334,7 +1629,7 @@ def rename_clockwise(
             o8  o7
     ```
     """
-    ports_ = filter_layer_pt_reg(ports, layer, port_type, regex)
+    ports_ = filter_layer_pt_reg(ports, layer, layer_info, port_type, regex)
 
     def sort_key(port: ProtoPort[Any]) -> tuple[int, int, int]:
         match port.trans.angle:
@@ -1415,6 +1710,7 @@ def rename_clockwise_multi(
 def rename_by_direction(
     ports: Iterable[ProtoPort[Any]],
     layer: LayerEnum | int | None = None,
+    layer_info: kdb.LayerInfo | None = None,
     port_type: str | None = None,
     regex: str | None = None,
     dir_names: tuple[str, str, str, str] = ("E", "N", "W", "S"),
@@ -1441,7 +1737,7 @@ def rename_by_direction(
     ```
     """
     for angle in DIRECTION:
-        ports_ = filter_layer_pt_reg(ports, layer, port_type, regex)
+        ports_ = filter_layer_pt_reg(ports, layer, layer_info, port_type, regex)
         dir_2 = -1 if angle < ANGLE_180 else 1
         if angle % 2:
 
@@ -1457,9 +1753,10 @@ def rename_by_direction(
             p.name = f"{prefix}{dir_names[angle]}{i}"
 
 
-def filter_layer_pt_reg(
+def filter_layer_pt_reg[TPort: ProtoPort[Any]](
     ports: Iterable[TPort],
     layer: LayerEnum | int | None = None,
+    layer_info: kdb.LayerInfo | None = None,
     port_type: str | None = None,
     regex: str | None = None,
 ) -> Iterable[TPort]:
@@ -1467,6 +1764,8 @@ def filter_layer_pt_reg(
     ports_ = ports
     if layer is not None:
         ports_ = filter_layer(ports_, layer)
+    if layer_info is not None:
+        ports_ = filter_layer_info(ports_, layer_info)
     if port_type is not None:
         ports_ = filter_port_type(ports_, port_type)
     if regex is not None:
@@ -1475,8 +1774,10 @@ def filter_layer_pt_reg(
     return ports_
 
 
-def filter_direction(ports: Iterable[TPort], direction: int) -> filter[TPort]:
-    """Filter iterable/sequence of ports by direction :py:class:~`DIRECTION`."""
+def filter_direction[TPort: ProtoPort[Any]](
+    ports: Iterable[TPort], direction: int
+) -> filter[TPort]:
+    """Filter iterable/sequence of ports by direction `DIRECTION`."""
 
     def f_func(p: TPort) -> bool:
         return p.trans.angle == direction
@@ -1484,8 +1785,10 @@ def filter_direction(ports: Iterable[TPort], direction: int) -> filter[TPort]:
     return filter(f_func, ports)
 
 
-def filter_orientation(ports: Iterable[TPort], orientation: float) -> filter[TPort]:
-    """Filter iterable/sequence of ports by direction :py:class:~`DIRECTION`."""
+def filter_orientation[TPort: ProtoPort[Any]](
+    ports: Iterable[TPort], orientation: float
+) -> filter[TPort]:
+    """Filter iterable/sequence of ports by direction `DIRECTION`."""
 
     def f_func(p: TPort) -> bool:
         return p.dcplx_trans.angle == orientation
@@ -1493,7 +1796,9 @@ def filter_orientation(ports: Iterable[TPort], orientation: float) -> filter[TPo
     return filter(f_func, ports)
 
 
-def filter_port_type(ports: Iterable[TPort], port_type: str) -> filter[TPort]:
+def filter_port_type[TPort: ProtoPort[Any]](
+    ports: Iterable[TPort], port_type: str
+) -> filter[TPort]:
     """Filter iterable/sequence of ports by port_type."""
 
     def pt_filter(p: TPort) -> bool:
@@ -1502,7 +1807,9 @@ def filter_port_type(ports: Iterable[TPort], port_type: str) -> filter[TPort]:
     return filter(pt_filter, ports)
 
 
-def filter_layer(ports: Iterable[TPort], layer: int | LayerEnum) -> filter[TPort]:
+def filter_layer[TPort: ProtoPort[Any]](
+    ports: Iterable[TPort], layer: LayerEnum | int
+) -> filter[TPort]:
     """Filter iterable/sequence of ports by layer index / LayerEnum."""
 
     def layer_filter(p: TPort) -> bool:
@@ -1511,14 +1818,25 @@ def filter_layer(ports: Iterable[TPort], layer: int | LayerEnum) -> filter[TPort
     return filter(layer_filter, ports)
 
 
-def filter_regex(ports: Iterable[TPort], regex: str) -> filter[TPort]:
+def filter_layer_info[TPort: ProtoPort[Any]](
+    ports: Iterable[TPort], layer_info: kdb.LayerInfo
+) -> filter[TPort]:
+    """Filter iterable/sequence of ports by kdb.LayerInfo."""
+
+    def layer_filter(p: TPort) -> bool:
+        return p.layer_info.is_equivalent(layer_info)
+
+    return filter(layer_filter, ports)
+
+
+def filter_regex[TPort: ProtoPort[Any]](
+    ports: Iterable[TPort], regex: str
+) -> filter[TPort]:
     """Filter iterable/sequence of ports by port name."""
     pattern = re.compile(regex)
 
     def regex_filter(p: TPort) -> bool:
-        if p.name is not None:
-            return bool(pattern.match(p.name))
-        return False
+        return bool(pattern.match(p.name))
 
     return filter(regex_filter, ports)
 

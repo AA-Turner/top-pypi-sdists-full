@@ -1,5 +1,3 @@
-import json
-
 import flask
 import flask_sock
 
@@ -24,8 +22,7 @@ def get_editor_bp(controller: MainController):
         def _send_initial_checks(ws: flask_sock.Server) -> None:
             # Send cached checks immediately (no expensive recomputation)
             cached_checks = controller.linter_repository.checks
-            payload = {"checks": [c.to_dict() for c in cached_checks]}
-            ws.send(json.dumps(payload))
+            ws.send(LinterEventController.build_payload(cached_checks))
 
         serve_listener_websocket(
             ws,

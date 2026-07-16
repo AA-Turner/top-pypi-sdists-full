@@ -42,13 +42,17 @@ integration:
   tlim: 864000.0
   ncycle_out: 10
 outputs:
-  type: netcdf
+- type: netcdf
   variables:
   - prim
   dt: 10000.0
 distribute:
-  backend: gloo
   layout: cubed-sphere
   nb2: 1
   nb3: 1
+  blocks_per_process: 1
   verbose: false
+problem:
+  phi: 500
+  dphi: 10
+  radius: 500000.0

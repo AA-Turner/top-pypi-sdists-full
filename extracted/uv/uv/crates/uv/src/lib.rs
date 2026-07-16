@@ -615,7 +615,13 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         }
     }
 
-    let workspace_cache = WorkspaceCache::default();
+    // Workspace discovery excludes the cache root, so only reuse the earlier discovery when the
+    // resolved cache has the same root.
+    let workspace_cache = if cache.root() == discovery_cache.root() {
+        workspace_cache
+    } else {
+        WorkspaceCache::default()
+    };
 
     // Configure the global network settings.
     let client_builder = BaseClientBuilder::new(
@@ -1977,8 +1983,6 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
             Ok(ExitStatus::Success)
         }
         Commands::Publish(args) => {
-            show_settings!(args);
-
             if args.skip_existing {
                 bail!(
                     "`uv publish` does not support `--skip-existing` because there is not a \
@@ -1990,6 +1994,9 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
             }
 
             // Resolve the settings from the command-line arguments and workspace configuration.
+            let args = PublishSettings::resolve(args, filesystem);
+            show_settings!(args);
+
             let PublishSettings {
                 files,
                 username,
@@ -2003,7 +2010,7 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
                 check_url,
                 index,
                 index_locations,
-            } = PublishSettings::resolve(args, filesystem);
+            } = args;
 
             commands::publish(
                 files,
@@ -2673,8 +2680,13 @@ async fn run_project(
                 .network_settings
                 .check_refresh_conflict(&args.refresh);
 
-            // Initialize the cache.
-            let cache = cache.init().await?.with_refresh(
+            // Reading a project version only accesses `pyproject.toml` or the lockfile.
+            let cache = if args.value.is_none() && args.bump.is_empty() {
+                cache
+            } else {
+                cache.init().await?
+            }
+            .with_refresh(
                 args.refresh
                     .combine(Refresh::from(args.settings.reinstall.clone()))
                     .combine(Refresh::from(args.settings.resolver.upgrade.clone())),
@@ -2731,6 +2743,7 @@ async fn run_project(
                 args.lock_check,
                 args.frozen,
                 args.universal,
+                args.format,
                 args.depth,
                 args.prune,
                 args.package,
@@ -2750,6 +2763,7 @@ async fn run_project(
                 globals.concurrency,
                 no_config,
                 &cache,
+                workspace_cache,
                 printer,
                 globals.preview,
             ))
@@ -2799,6 +2813,7 @@ async fn run_project(
                 no_config,
                 globals.quiet > 0,
                 &cache,
+                workspace_cache,
                 printer,
                 globals.preview,
             )
@@ -2824,6 +2839,7 @@ async fn run_project(
                 args.show_version,
                 client_builder.subcommand(vec!["format".to_owned()]),
                 cache,
+                workspace_cache,
                 printer,
                 globals.preview,
                 args.no_project,
@@ -2913,6 +2929,7 @@ async fn run_project(
                 globals.concurrency,
                 no_config,
                 cache,
+                workspace_cache,
                 printer,
                 globals.preview,
                 args.output_format,

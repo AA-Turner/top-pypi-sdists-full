@@ -1614,6 +1614,7 @@ def run_aws_iamrole_connection_flow(
     connection_name: str,
     policy: str,
     local_unavailable: bool = False,
+    env: str = "local",
 ) -> Tuple[str, str, Optional[TinyB], Optional[TinyB]]:
     """
     Run the interactive AWS IAM Role connection flow for S3 or DynamoDB.
@@ -1628,6 +1629,9 @@ def run_aws_iamrole_connection_flow(
         connection_name: The name for the connection being created.
         policy: The access policy type ('read' or 'write').
         local_unavailable: If True, local environment is unavailable (e.g., missing AWS credentials).
+        env: The active target environment ('local' or 'cloud'). When not local, the
+            passed-in `client` is reused as the cloud client so secrets land in the
+            workspace the command targets (including branches).
 
     Returns:
         A tuple containing:
@@ -1736,12 +1740,15 @@ def run_aws_iamrole_connection_flow(
 
     if use_cloud:
         try:
-            cloud_client = TinyB(
-                token=config.get("token", ""),
-                host=config.get("host", ""),
-                staging=False,
-                request_from=getattr(client, "request_from", None),
-            )
+            if env != "local":
+                cloud_client = client
+            else:
+                cloud_client = TinyB(
+                    token=config.get("token", ""),
+                    host=config.get("host", ""),
+                    staging=False,
+                    request_from=getattr(client, "request_from", None),
+                )
         except Exception as e:
             click.echo(FeedbackManager.warning(message=f"Failed to initialize cloud client: {e}"))
             click.echo(FeedbackManager.warning(message="Continuing without cloud environment."))

@@ -89,6 +89,11 @@ class api(OrderAPI, DataAPI, AccountAPI, FeedAPI, OptionsAPI, TelegramAPI, Whats
         self.quote_callback = None
         self.quotes_callback = None
         self.depth_callback = None
+        self.order_callback = None
+
+        # Order-update storage (see FeedAPI.subscribe_orders)
+        self.order_data = []
+        self._orders_subscribed = False
 
         # Auto-reconnect state (additive — does not change any existing
         # public attribute or behaviour). Mirrors FeedAPI.__init__ so the
@@ -100,7 +105,7 @@ class api(OrderAPI, DataAPI, AccountAPI, FeedAPI, OptionsAPI, TelegramAPI, Whats
         self._reconnect_lock = _threading.Lock()
         self._active_subs = {1: {}, 2: {}, 3: {}}
 
-__version__ = "2.0.2"
+__version__ = "2.0.3"
 
 # Export main components for easy access
 __all__ = ['api', 'Strategy', 'ta', 'nbjit', 'prange', 'HAS_NUMBA']

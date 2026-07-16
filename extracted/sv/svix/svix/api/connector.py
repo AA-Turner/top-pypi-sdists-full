@@ -10,7 +10,7 @@ from ..models import (
     ConnectorUpdate,
     ListResponseConnectorOut,
 )
-from .common import ApiBase, BaseOptions, serialize_params
+from .common import ApiBaseAsync, ApiBaseSync, BaseOptions, serialize_params
 
 
 @dataclass
@@ -46,7 +46,7 @@ class ConnectorCreateOptions(BaseOptions):
         )
 
 
-class ConnectorAsync(ApiBase):
+class ConnectorAsync(ApiBaseAsync):
     async def list(
         self, options: ConnectorListOptions = (ConnectorListOptions())
     ) -> ListResponseConnectorOut:
@@ -90,7 +90,7 @@ class ConnectorAsync(ApiBase):
     async def update(
         self, connector_id: str, connector_update: ConnectorUpdate
     ) -> ConnectorOut:
-        """Update a connector."""
+        """Create or update a connector."""
         response = await self._request_asyncio(
             method="put",
             path="/api/v1/connector/{connector_id}",
@@ -130,7 +130,7 @@ class ConnectorAsync(ApiBase):
         return ConnectorOut.model_validate(response.json())
 
 
-class Connector(ApiBase):
+class Connector(ApiBaseSync):
     def list(
         self, options: ConnectorListOptions = (ConnectorListOptions())
     ) -> ListResponseConnectorOut:
@@ -174,7 +174,7 @@ class Connector(ApiBase):
     def update(
         self, connector_id: str, connector_update: ConnectorUpdate
     ) -> ConnectorOut:
-        """Update a connector."""
+        """Create or update a connector."""
         response = self._request_sync(
             method="put",
             path="/api/v1/connector/{connector_id}",

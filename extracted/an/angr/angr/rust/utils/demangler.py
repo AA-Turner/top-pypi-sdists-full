@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 
 import rust_demangler
 from rust_demangler.rust import TypeNotFoundError
@@ -17,10 +18,14 @@ XXX_AS_YYY_PATTERN = re.compile(r"<(?!impl\s)([^<]+?)\sas\s([^<]+?)>")
 IMPL_XXX_AS_YYY_PATTERN = re.compile(r"<impl\s([^<]+?)\sas\s([^<]+?)>")
 
 
+@lru_cache(maxsize=4096)
 def demangle(s):
     try:
         demangled = rust_demangler.demangle(s).split("::")
     except (TypeNotFoundError, UnableTov0Demangle, UnableToLegacyDemangle):
+        return s
+    except (IndexError, ValueError, RecursionError):
+        # work around bugs in rust_demangler. see angr issue #6598
         return s
     if len(demangled) >= 2 and _is_rust_hash(demangled[-1]):
         demangled = "::".join(demangled[:-1])

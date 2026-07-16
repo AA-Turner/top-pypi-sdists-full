@@ -6642,6 +6642,7 @@ class PoliciesV1Api:
         owner_group_id: Annotated[Optional[StrictStr], Field(description="Filter policies by owner group ID.")] = None,
         compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status. Returns policies with at least one assignment matching this status.")] = None,
         model_id: Annotated[Optional[StrictStr], Field(description="Filter by assigned application/model ID.")] = None,
+        include_permissions: Annotated[Optional[StrictBool], Field(description="When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -6673,6 +6674,8 @@ class PoliciesV1Api:
         :type compliance_status: ComplianceStatus
         :param model_id: Filter by assigned application/model ID.
         :type model_id: str
+        :param include_permissions: When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.
+        :type include_permissions: bool
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -6706,6 +6709,7 @@ class PoliciesV1Api:
             owner_group_id=owner_group_id,
             compliance_status=compliance_status,
             model_id=model_id,
+            include_permissions=include_permissions,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -6739,6 +6743,7 @@ class PoliciesV1Api:
         owner_group_id: Annotated[Optional[StrictStr], Field(description="Filter policies by owner group ID.")] = None,
         compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status. Returns policies with at least one assignment matching this status.")] = None,
         model_id: Annotated[Optional[StrictStr], Field(description="Filter by assigned application/model ID.")] = None,
+        include_permissions: Annotated[Optional[StrictBool], Field(description="When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -6770,6 +6775,8 @@ class PoliciesV1Api:
         :type compliance_status: ComplianceStatus
         :param model_id: Filter by assigned application/model ID.
         :type model_id: str
+        :param include_permissions: When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.
+        :type include_permissions: bool
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -6803,6 +6810,7 @@ class PoliciesV1Api:
             owner_group_id=owner_group_id,
             compliance_status=compliance_status,
             model_id=model_id,
+            include_permissions=include_permissions,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -6836,6 +6844,7 @@ class PoliciesV1Api:
         owner_group_id: Annotated[Optional[StrictStr], Field(description="Filter policies by owner group ID.")] = None,
         compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status. Returns policies with at least one assignment matching this status.")] = None,
         model_id: Annotated[Optional[StrictStr], Field(description="Filter by assigned application/model ID.")] = None,
+        include_permissions: Annotated[Optional[StrictBool], Field(description="When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -6867,6 +6876,8 @@ class PoliciesV1Api:
         :type compliance_status: ComplianceStatus
         :param model_id: Filter by assigned application/model ID.
         :type model_id: str
+        :param include_permissions: When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.
+        :type include_permissions: bool
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -6900,6 +6911,7 @@ class PoliciesV1Api:
             owner_group_id=owner_group_id,
             compliance_status=compliance_status,
             model_id=model_id,
+            include_permissions=include_permissions,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -6928,6 +6940,7 @@ class PoliciesV1Api:
         owner_group_id,
         compliance_status,
         model_id,
+        include_permissions,
         page,
         page_size,
         _request_auth,
@@ -6975,6 +6988,10 @@ class PoliciesV1Api:
         if model_id is not None:
             
             _query_params.append(('model_id', model_id))
+            
+        if include_permissions is not None:
+            
+            _query_params.append(('include_permissions', include_permissions))
             
         if page is not None:
             
@@ -7030,6 +7047,7 @@ class PoliciesV1Api:
         sort: Optional[PolicySort] = None,
         order: Optional[SortOrder] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter by name (partial match).")] = None,
+        include_permissions: Annotated[Optional[StrictBool], Field(description="When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7059,6 +7077,8 @@ class PoliciesV1Api:
         :type order: SortOrder
         :param name: Filter by name (partial match).
         :type name: str
+        :param include_permissions: When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.
+        :type include_permissions: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -7088,6 +7108,7 @@ class PoliciesV1Api:
             sort=sort,
             order=order,
             name=name,
+            include_permissions=include_permissions,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -7119,6 +7140,7 @@ class PoliciesV1Api:
         sort: Optional[PolicySort] = None,
         order: Optional[SortOrder] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter by name (partial match).")] = None,
+        include_permissions: Annotated[Optional[StrictBool], Field(description="When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7148,6 +7170,8 @@ class PoliciesV1Api:
         :type order: SortOrder
         :param name: Filter by name (partial match).
         :type name: str
+        :param include_permissions: When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.
+        :type include_permissions: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -7177,6 +7201,7 @@ class PoliciesV1Api:
             sort=sort,
             order=order,
             name=name,
+            include_permissions=include_permissions,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -7208,6 +7233,7 @@ class PoliciesV1Api:
         sort: Optional[PolicySort] = None,
         order: Optional[SortOrder] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter by name (partial match).")] = None,
+        include_permissions: Annotated[Optional[StrictBool], Field(description="When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7237,6 +7263,8 @@ class PoliciesV1Api:
         :type order: SortOrder
         :param name: Filter by name (partial match).
         :type name: str
+        :param include_permissions: When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.
+        :type include_permissions: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -7266,6 +7294,7 @@ class PoliciesV1Api:
             sort=sort,
             order=order,
             name=name,
+            include_permissions=include_permissions,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -7292,6 +7321,7 @@ class PoliciesV1Api:
         sort,
         order,
         name,
+        include_permissions,
         _request_auth,
         _content_type,
         _headers,
@@ -7335,6 +7365,10 @@ class PoliciesV1Api:
         if name is not None:
             
             _query_params.append(('name', name))
+            
+        if include_permissions is not None:
+            
+            _query_params.append(('include_permissions', include_permissions))
             
         # process the header parameters
         # process the form parameters
@@ -7717,6 +7751,7 @@ class PoliciesV1Api:
         sort: Optional[PolicySort] = None,
         order: Optional[SortOrder] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter by name (partial match).")] = None,
+        include_permissions: Annotated[Optional[StrictBool], Field(description="When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7746,6 +7781,8 @@ class PoliciesV1Api:
         :type order: SortOrder
         :param name: Filter by name (partial match).
         :type name: str
+        :param include_permissions: When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.
+        :type include_permissions: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -7775,6 +7812,7 @@ class PoliciesV1Api:
             sort=sort,
             order=order,
             name=name,
+            include_permissions=include_permissions,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -7806,6 +7844,7 @@ class PoliciesV1Api:
         sort: Optional[PolicySort] = None,
         order: Optional[SortOrder] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter by name (partial match).")] = None,
+        include_permissions: Annotated[Optional[StrictBool], Field(description="When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7835,6 +7874,8 @@ class PoliciesV1Api:
         :type order: SortOrder
         :param name: Filter by name (partial match).
         :type name: str
+        :param include_permissions: When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.
+        :type include_permissions: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -7864,6 +7905,7 @@ class PoliciesV1Api:
             sort=sort,
             order=order,
             name=name,
+            include_permissions=include_permissions,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -7895,6 +7937,7 @@ class PoliciesV1Api:
         sort: Optional[PolicySort] = None,
         order: Optional[SortOrder] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter by name (partial match).")] = None,
+        include_permissions: Annotated[Optional[StrictBool], Field(description="When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -7924,6 +7967,8 @@ class PoliciesV1Api:
         :type order: SortOrder
         :param name: Filter by name (partial match).
         :type name: str
+        :param include_permissions: When true, include the caller's capability flags (permissions.can_update / permissions.can_delete) on each record.
+        :type include_permissions: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -7953,6 +7998,7 @@ class PoliciesV1Api:
             sort=sort,
             order=order,
             name=name,
+            include_permissions=include_permissions,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -7979,6 +8025,7 @@ class PoliciesV1Api:
         sort,
         order,
         name,
+        include_permissions,
         _request_auth,
         _content_type,
         _headers,
@@ -8022,6 +8069,10 @@ class PoliciesV1Api:
         if name is not None:
             
             _query_params.append(('name', name))
+            
+        if include_permissions is not None:
+            
+            _query_params.append(('include_permissions', include_permissions))
             
         # process the header parameters
         # process the form parameters

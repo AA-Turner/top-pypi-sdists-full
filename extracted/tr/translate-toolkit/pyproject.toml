@@ -66,7 +66,7 @@ classifiers = [
 ]
 dependencies = [
   "lxml>=6.1.0,<7.0",
-  "unicode-segmentation-rs>=0.2.0,<0.3"
+  "unicode-segmentation-rs>=0.2.0,<0.4"
 ]
 description = "Tools and API for translation and localization engineering."
 dynamic = [
@@ -75,8 +75,14 @@ dynamic = [
 keywords = [
   "i18n l10n gettext translate"
 ]
-license = "GPL-2.0-or-later"
-license-files = ["COPYING"]
+license = "GPL-3.0-or-later"
+license-files = [
+  "COPYING",
+  "LICENSES/BSD-3-Clause.txt",
+  "LICENSES/GPL-2.0-or-later.txt",
+  "LICENSES/LicenseRef-Public-Domain.txt",
+  "LICENSES/PSF-2.0.txt"
+]
 name = "translate-toolkit"
 requires-python = ">=3.11"
 

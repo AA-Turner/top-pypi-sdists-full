@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-sympow
-Version: 10.8.5
+Version: 10.8.6
 Summary: passagemath: Special values of symmetric power elliptic curve L-functions with sympow
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -120,12 +120,12 @@ Examples
 
 Using the sympow program on the command line::
 
-    $ pipx run --pip-args="--prefer-binary" --spec "passagemath-sympow" sage -sh -c sympow
+    $ pipx run --spec "passagemath-sympow" sage -sh -c sympow
 
 
 Finding the installation location of the sympow executable::
 
-    $ pipx run --pip-args="--prefer-binary" --spec "passagemath-sympow[test]" ipython
+    $ pipx run --spec "passagemath-sympow[test]" ipython
 
     In [1]: from sage.features.lrs import LrsNash
 

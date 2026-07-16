@@ -10,6 +10,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from ..client.base import BaseClient
 
 
@@ -62,6 +64,7 @@ class SmsResource:
         idempotency_key: str | None = None,
         text: str | None = None,
         media_urls: list[str] | None = None,
+        send_at: datetime | str | None = None,
     ) -> dict[str, Any]:
         """Send an SMS/MMS"""
         payload = self._build_payload(
@@ -69,6 +72,7 @@ class SmsResource:
             to=to,
             text=text,
             media_urls=media_urls,
+            send_at=send_at,
         )
         return self._client._post("/v1/sms/messages", data=payload)
 
@@ -96,6 +100,8 @@ class SmsResource:
         *,
         brand: dict[str, Any] | None = None,
         campaign: dict[str, Any] | None = None,
+        wizard_values: dict[str, Any] | None = None,
+        resubmit_request_id: str | None = None,
         toll_free: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Start a carrier registration"""
@@ -104,13 +110,24 @@ class SmsResource:
             phone_numbers=phone_numbers,
             brand=brand,
             campaign=campaign,
+            wizard_values=wizard_values,
+            resubmit_request_id=resubmit_request_id,
             toll_free=toll_free,
         )
         return self._client._post("/v1/sms/registrations", data=payload)
 
-    def list_sms_registrations(self) -> dict[str, Any]:
+    def list_sms_registrations(
+        self, *, include_deactivated: bool | None = None
+    ) -> dict[str, Any]:
         """List carrier registrations"""
-        return self._client._get("/v1/sms/registrations")
+        params = self._build_params(
+            include_deactivated=include_deactivated,
+        )
+        return self._client._get("/v1/sms/registrations", params=params)
+
+    def deactivate_sms_registration(self, id: str) -> dict[str, Any]:
+        """Deactivate a brand/campaign registration"""
+        return self._client._delete(f"/v1/sms/registrations/{id}")
 
     def get_sms_registration(self, id: str) -> dict[str, Any]:
         """Get a carrier registration"""
@@ -147,6 +164,14 @@ class SmsResource:
         )
         return self._client._post(f"/v1/sms/registrations/{id}/appeal", data=payload)
 
+    def upload_sms_opt_in_proof_file(self) -> dict[str, Any]:
+        """Upload opt-in form proof"""
+        return self._client._post("/v1/sms/opt-in-proof")
+
+    def upload_sms_opt_in_proof(self, id: str) -> dict[str, Any]:
+        """Upload opt-in form proof for an appeal"""
+        return self._client._post(f"/v1/sms/registrations/{id}/opt-in-proof")
+
     def share_sms_registration(self, number_id: str) -> dict[str, Any]:
         """Create a registration share link"""
         payload = self._build_payload(
@@ -174,6 +199,7 @@ class SmsResource:
         idempotency_key: str | None = None,
         text: str | None = None,
         media_urls: list[str] | None = None,
+        send_at: datetime | str | None = None,
     ) -> dict[str, Any]:
         """Send an SMS/MMS (async)"""
         payload = self._build_payload(
@@ -181,6 +207,7 @@ class SmsResource:
             to=to,
             text=text,
             media_urls=media_urls,
+            send_at=send_at,
         )
         return await self._client._apost("/v1/sms/messages", data=payload)
 
@@ -208,6 +235,8 @@ class SmsResource:
         *,
         brand: dict[str, Any] | None = None,
         campaign: dict[str, Any] | None = None,
+        wizard_values: dict[str, Any] | None = None,
+        resubmit_request_id: str | None = None,
         toll_free: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Start a carrier registration (async)"""
@@ -216,13 +245,24 @@ class SmsResource:
             phone_numbers=phone_numbers,
             brand=brand,
             campaign=campaign,
+            wizard_values=wizard_values,
+            resubmit_request_id=resubmit_request_id,
             toll_free=toll_free,
         )
         return await self._client._apost("/v1/sms/registrations", data=payload)
 
-    async def alist_sms_registrations(self) -> dict[str, Any]:
+    async def alist_sms_registrations(
+        self, *, include_deactivated: bool | None = None
+    ) -> dict[str, Any]:
         """List carrier registrations (async)"""
-        return await self._client._aget("/v1/sms/registrations")
+        params = self._build_params(
+            include_deactivated=include_deactivated,
+        )
+        return await self._client._aget("/v1/sms/registrations", params=params)
+
+    async def adeactivate_sms_registration(self, id: str) -> dict[str, Any]:
+        """Deactivate a brand/campaign registration (async)"""
+        return await self._client._adelete(f"/v1/sms/registrations/{id}")
 
     async def aget_sms_registration(self, id: str) -> dict[str, Any]:
         """Get a carrier registration (async)"""
@@ -262,6 +302,14 @@ class SmsResource:
         return await self._client._apost(
             f"/v1/sms/registrations/{id}/appeal", data=payload
         )
+
+    async def aupload_sms_opt_in_proof_file(self) -> dict[str, Any]:
+        """Upload opt-in form proof (async)"""
+        return await self._client._apost("/v1/sms/opt-in-proof")
+
+    async def aupload_sms_opt_in_proof(self, id: str) -> dict[str, Any]:
+        """Upload opt-in form proof for an appeal (async)"""
+        return await self._client._apost(f"/v1/sms/registrations/{id}/opt-in-proof")
 
     async def ashare_sms_registration(self, number_id: str) -> dict[str, Any]:
         """Create a registration share link (async)"""

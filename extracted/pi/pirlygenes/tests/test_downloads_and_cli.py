@@ -46,6 +46,29 @@ def test_registry_loads_and_has_expected_categories():
     assert not any(code.startswith("TCGA_") for code in tcga_codes)
 
 
+def test_recount3_sources_are_oncoref_owned():
+    """recount3 build routes live only in oncoref (#528)."""
+    from oncoref.expression_builders import (
+        recount3_source_entries,
+        recount3_source_from_registry,
+    )
+
+    local = {
+        source.id: source
+        for source in downloads.load_registry()
+        if source.source_type == "recount3"
+    }
+    upstream_ids = {str(entry["id"]) for entry in recount3_source_entries()}
+
+    assert local
+    assert set(local) <= upstream_ids
+    for source_id, source in local.items():
+        upstream = recount3_source_from_registry(source_id)
+        assert source.builder is None
+        assert upstream.srp == source.recount3_srp
+        assert upstream.source_cohort == source.source_cohort
+
+
 def test_cache_root_honors_env_var(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("PIRLYGENES_CACHE", str(tmp_path / "override"))
     assert downloads.cache_root() == tmp_path / "override"
@@ -138,6 +161,13 @@ def test_cli_build_unknown_source_reports_clearly():
     assert "no source matches" in err
 
 
+def test_cli_build_recount3_source_redirects_to_oncoref():
+    rc, _, err = _run_cli(["build", "gse98894-midnet"])
+    assert rc == 2
+    assert "built and published by oncoref" in err
+    assert "build_recount3_source_matrices" in err
+
+
 def test_cli_build_ambiguous_cancer_code_lists_candidates():
     # CTCL is the cancer_code under exactly one source (gse171811-ctcl),
     # so it disambiguates cleanly. But there's no real "multi-source"
@@ -215,7 +245,7 @@ def test_get_data_resolves_csv_downloadable_by_bare_name_after_fetch(monkeypatch
     monkeypatch.setattr(data_bundle, "cache_dir", lambda: cache)
 
     def fake_ensure_local(*, auto_fetch: bool = True, verbose: bool = True):
-        # Stand in for the ~350 MB release fetch: drop the file the bundle carries.
+        # Stand in for the release fetch: drop the file the bundle carries.
         (cache / "pan-cancer-expression.csv").write_text("gene_id,COAD_TPM\nENSG1,5.0\n")
         return cache
 

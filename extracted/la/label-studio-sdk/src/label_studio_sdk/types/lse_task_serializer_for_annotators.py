@@ -15,10 +15,18 @@ class LseTaskSerializerForAnnotators(UncheckedBaseModel):
     Data Manager Task Serializer with FSM state support.
     """
 
-    annotations: typing.Optional[str] = None
+    annotations: typing.Optional[typing.List[typing.Dict[str, typing.Any]]] = pydantic.Field(default=None)
+    """
+    Return annotations for the task.
+    
+    If annotations_stub=True is in context (via feature flag
+    fflag_fix_all_fit_720_lazy_load_annotations), returns lightweight
+    annotation stubs without result data for improved performance.
+    """
+
     annotations_results: typing.Optional[str] = None
     cancelled_annotations: typing.Optional[int] = None
-    comment_count: typing.Optional[str] = None
+    comment_count: typing.Optional[int] = None
     comments: typing.Optional[str] = None
     created_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
@@ -50,7 +58,7 @@ class LseTaskSerializerForAnnotators(UncheckedBaseModel):
     state: typing.Optional[str] = None
     total_annotations: typing.Optional[int] = None
     total_predictions: typing.Optional[int] = None
-    unresolved_comment_count: typing.Optional[str] = None
+    unresolved_comment_count: typing.Optional[int] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

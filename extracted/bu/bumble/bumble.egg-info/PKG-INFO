@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bumble
-Version: 0.0.232
+Version: 0.0.233
 Summary: Bluetooth Stack for Apps, Emulation, Test and Experimentation
 Author-email: Google <bumble-dev@google.com>
 License-Expression: Apache-2.0

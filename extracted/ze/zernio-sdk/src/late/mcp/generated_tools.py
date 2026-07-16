@@ -2431,7 +2431,7 @@ def register_generated_tools(mcp, _get_client):
         - `catalog_sales`: Advantage+ catalog ads, for example vehicle inventory. Requires `promotedObject.productSetId`, `promotedObject.pixelId` and `promotedObject.customEventType`. Builds a catalog TEMPLATE creative from the copy fields, which may carry template tags like {{product.name}} or {{vehicle.make}}. No imageUrl or video is sent; Meta renders the visuals per catalog item. Discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets. Single shape only, no creatives[], adSetId, dynamicCreative or placementAssets.
 
         **TikTok**
-        - `conversions`: website-conversion ad group. Requires `promotedObject.pixelId`, your TikTok Pixel ID. Accepts an optional `promotedObject.customEventType` with a TikTok optimization_event code such as ON_WEB_ORDER, INITIATE_ORDER, ON_WEB_REGISTER or FORM. To inherit pixel and event from an existing ad group, pass `adSetId` instead.
+        - `conversions`: website-conversion ad group. Requires `promotedObject.pixelId`, your TikTok Pixel ID. Accepts an optional `promotedObject.customEventType` with a TikTok optimization_event code your pixel tracks (newer pixels use e.g. SHOPPING for purchase events; legacy pixels use ON_WEB_ORDER, INITIATE_ORDER, ON_WEB_REGISTER or FORM). To inherit pixel and event from an existing ad group, pass `adSetId` instead.
 
         **LinkedIn**
         - `engagement`, `traffic`, `awareness` and `video_views` create standalone Direct Sponsored Content ads. `traffic` requires `linkUrl`; `video_views` requires `video`.
@@ -3055,6 +3055,123 @@ def register_generated_tools(mcp, _get_client):
                 ad_account_id=ad_account_id,
                 spec=spec,
                 optimization_goal=optimization_goal,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Suggested bid and budget bounds (LinkedIn)",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ads_get_linked_in_bid_pricing(
+        account_id: str,
+        ad_account_id: str,
+        spec: dict[str, Any] | None,
+        campaign_type: str | None = None,
+        bid_type: str | None = None,
+        match_type: str | None = None,
+        currency: str | None = None,
+        objective_type: str | None = None,
+        optimization_target_type: str | None = None,
+        daily_budget: float | None = None,
+    ) -> str:
+        """Suggested bid and budget bounds (LinkedIn)
+
+        Args:
+            account_id: Zernio social account ID (LinkedIn). (required)
+            ad_account_id: LinkedIn ad account ID (numeric). (required)
+            spec: Same targeting spec used by POST /v1/ads/create. (required)
+            campaign_type: Defaults to SPONSORED_UPDATES.
+            bid_type: Defaults to CPM.
+            match_type: Defaults to EXACT.
+            currency: ISO 4217, defaults to USD.
+            objective_type: LinkedIn objectiveType, e.g. WEBSITE_VISIT, LEAD_GENERATION, VIDEO_VIEW.
+            optimization_target_type: LinkedIn optimizationTargetType, e.g. MAX_CLICK, MAX_IMPRESSION.
+            daily_budget: Optional daily budget in whole account-currency units. LinkedIn refines the suggested bid to this budget."""
+        client = _get_client()
+        try:
+            response = client.ads.get_linked_in_bid_pricing(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                spec=spec,
+                campaign_type=campaign_type,
+                bid_type=bid_type,
+                match_type=match_type,
+                currency=currency,
+                objective_type=objective_type,
+                optimization_target_type=optimization_target_type,
+                daily_budget=daily_budget,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Impressions, clicks and spend forecast (LinkedIn)",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ads_get_linked_in_supply_forecast(
+        account_id: str,
+        ad_account_id: str,
+        spec: dict[str, Any] | None,
+        time_range_start: int,
+        time_range_end: int,
+        campaign_type: str | None = None,
+        objective_type: str | None = None,
+        optimization_target: str | None = None,
+        daily_budget: float | None = None,
+        total_budget: float | None = None,
+        currency: str | None = None,
+        competing_bid: dict[str, Any] | None = None,
+        enable_audience_network: bool | None = None,
+        enable_audience_expansion: bool | None = None,
+        connected_television_only: bool | None = None,
+    ) -> str:
+        """Impressions, clicks and spend forecast (LinkedIn)
+
+        Args:
+            account_id: (required)
+            ad_account_id: (required)
+            spec: (required)
+            campaign_type: Defaults to SPONSORED_UPDATES.
+            time_range_start: Unix ms. Must be in the future. (required)
+            time_range_end: Unix ms. Must be after start and within LinkedIn's max horizon. (required)
+            objective_type
+            optimization_target: When set, the forecast assumes auto-bidding. When unset, competingBid is required.
+            daily_budget: Either dailyBudget or totalBudget is required.
+            total_budget
+            currency: ISO 4217, defaults to USD.
+            competing_bid: Required for manual-bid forecasts (when optimizationTarget is not set).
+            enable_audience_network: Defaults to false. Required true for connectedTelevisionOnly.
+            enable_audience_expansion: Defaults to false.
+            connected_television_only: Defaults to false."""
+        client = _get_client()
+        try:
+            response = client.ads.get_linked_in_supply_forecast(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                spec=spec,
+                campaign_type=campaign_type,
+                time_range_start=time_range_start,
+                time_range_end=time_range_end,
+                objective_type=objective_type,
+                optimization_target=optimization_target,
+                daily_budget=daily_budget,
+                total_budget=total_budget,
+                currency=currency,
+                competing_bid=competing_bid,
+                enable_audience_network=enable_audience_network,
+                enable_audience_expansion=enable_audience_expansion,
+                connected_television_only=connected_television_only,
             )
             return _format_response(response)
         except Exception as e:
@@ -6446,6 +6563,39 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 default_board_id=default_board_id,
                 default_board_name=default_board_name,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create Pinterest board",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_create_pinterest_board(
+        account_id: str,
+        name: str,
+        description: str | None = None,
+        privacy: str = "PUBLIC",
+    ) -> str:
+        """Create Pinterest board
+
+        Args:
+            account_id: (required)
+            name: Name of the board (required)
+            description: Board description
+            privacy: Board privacy setting"""
+        client = _get_client()
+        try:
+            response = client.connect.create_pinterest_board(
+                account_id=account_id,
+                name=name,
+                description=description,
+                privacy=privacy,
             )
             return _format_response(response)
         except Exception as e:
@@ -10785,6 +10935,7 @@ def register_generated_tools(mcp, _get_client):
         to: str,
         text: str | None = None,
         media_urls: list[str] | None = None,
+        send_at: str | None = None,
     ) -> str:
         """Send an SMS/MMS
 
@@ -10792,11 +10943,12 @@ def register_generated_tools(mcp, _get_client):
             from_: One of your SMS-enabled numbers (E.164; formatting is normalized). (required)
             to: Recipient number (E.164). (required)
             text: Message body. Required unless `mediaUrls` is set. Max 10 SMS segments (1530 GSM-7 or 670 unicode characters).
-            media_urls: Public media URLs to attach (sends as MMS). Max 10."""
+            media_urls: Public media URLs to attach (sends as MMS). Max 10.
+            send_at: Optional. Schedule the send for a future time (ISO 8601 with offset, e.g. `2026-08-01T12:00:00Z`). Must be in the future. The message is queued and the `message.delivered` webhook fires when it actually sends."""
         client = _get_client()
         try:
             response = client.sms.send_sms(
-                from_=from_, to=to, text=text, media_urls=media_urls
+                from_=from_, to=to, text=text, media_urls=media_urls, send_at=send_at
             )
             return _format_response(response)
         except Exception as e:
@@ -10856,6 +11008,8 @@ def register_generated_tools(mcp, _get_client):
         phone_numbers: list[str] | None,
         brand: dict[str, Any] | None = None,
         campaign: dict[str, Any] | None = None,
+        wizard_values: dict[str, Any] | None = None,
+        resubmit_request_id: str | None = None,
         toll_free: dict[str, Any] | None = None,
     ) -> str:
         """Start a carrier registration
@@ -10872,6 +11026,8 @@ def register_generated_tools(mcp, _get_client):
         name the registered brand and carry the disclosures — submissions
         that don't are rewritten to the compliant template before the
         campaign is filed.
+                wizard_values: Raw dashboard-wizard answers, stored only to prefill edit-and-resubmit. API integrators can omit.
+                resubmit_request_id: Resubmit a registration that was returned for changes — updates it in place instead of creating a new one.
                 toll_free: Required for toll_free."""
         client = _get_client()
         try:
@@ -10880,6 +11036,8 @@ def register_generated_tools(mcp, _get_client):
                 phone_numbers=phone_numbers,
                 brand=brand,
                 campaign=campaign,
+                wizard_values=wizard_values,
+                resubmit_request_id=resubmit_request_id,
                 toll_free=toll_free,
             )
             return _format_response(response)
@@ -10894,11 +11052,36 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def sms_list_sms_registrations() -> str:
-        """List carrier registrations"""
+    def sms_list_sms_registrations(include_deactivated: bool | None = None) -> str:
+        """List carrier registrations
+
+        Args:
+            include_deactivated: Deactivated (terminated) registrations are hidden by default — pass true to include them."""
         client = _get_client()
         try:
-            response = client.sms.list_sms_registrations()
+            response = client.sms.list_sms_registrations(
+                include_deactivated=include_deactivated
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Deactivate a brand/campaign registration",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def sms_deactivate_sms_registration(id: str) -> str:
+        """Deactivate a brand/campaign registration
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.sms.deactivate_sms_registration(id=id)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -10996,6 +11179,43 @@ def register_generated_tools(mcp, _get_client):
                 sample1=sample1,
                 sample2=sample2,
             )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Upload opt-in form proof",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def sms_upload_sms_opt_in_proof_file() -> str:
+        """Upload opt-in form proof"""
+        client = _get_client()
+        try:
+            response = client.sms.upload_sms_opt_in_proof_file()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Upload opt-in form proof for an appeal",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def sms_upload_sms_opt_in_proof(id: str) -> str:
+        """Upload opt-in form proof for an appeal
+
+        Args:
+            id: (required)"""
+        client = _get_client()
+        try:
+            response = client.sms.upload_sms_opt_in_proof(id=id)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"

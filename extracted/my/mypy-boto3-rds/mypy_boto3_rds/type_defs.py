@@ -2236,6 +2236,7 @@ class ModifyDBClusterMessageTypeDef(TypedDict):
     EnableLimitlessDatabase: NotRequired[bool]
     CACertificateIdentifier: NotRequired[str]
     MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
+    EngineLifecycleSupport: NotRequired[str]
 
 
 class DBSnapshotTypeDef(TypedDict):
@@ -3902,6 +3903,7 @@ class ModifyDBInstanceMessageTypeDef(TypedDict):
     AdditionalStorageVolumes: NotRequired[Sequence[ModifyAdditionalStorageVolumeTypeDef]]
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
     MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
+    EngineLifecycleSupport: NotRequired[str]
 
 
 class PromoteReadReplicaMessageTypeDef(TypedDict):

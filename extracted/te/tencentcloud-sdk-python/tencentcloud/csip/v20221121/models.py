@@ -47,7 +47,7 @@ class AIAgentAsset(AbstractModel):
         :type ExposureStatus: str
         :param _MetadataRiskURL: <p>metadata 有风险时对应路径</p>
         :type MetadataRiskURL: str
-        :param _SkillState: <p>无</p>
+        :param _SkillState: <p>凭据 Skill 安装状态</p>
         :type SkillState: :class:`tencentcloud.csip.v20221121.models.SkillState`
         :param _TrafficPluginState: <p>流量沙箱插件状态</p>
         :type TrafficPluginState: :class:`tencentcloud.csip.v20221121.models.TrafficPluginState`
@@ -195,7 +195,7 @@ class AIAgentAsset(AbstractModel):
 
     @property
     def SkillState(self):
-        r"""<p>无</p>
+        r"""<p>凭据 Skill 安装状态</p>
         :rtype: :class:`tencentcloud.csip.v20221121.models.SkillState`
         """
         return self._SkillState
@@ -14585,11 +14585,11 @@ class CosBucketId(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _AppId: appid
+        :param _AppId: <p>appid</p>
         :type AppId: str
-        :param _IsAutoMonitor: 
+        :param _IsAutoMonitor: <p>是否自动监测</p>
         :type IsAutoMonitor: int
-        :param _BucketIdSet: bucket id集合
+        :param _BucketIdSet: <p>bucket id集合</p>
         :type BucketIdSet: list of str
         """
         self._AppId = None
@@ -14598,7 +14598,7 @@ class CosBucketId(AbstractModel):
 
     @property
     def AppId(self):
-        r"""appid
+        r"""<p>appid</p>
         :rtype: str
         """
         return self._AppId
@@ -14609,7 +14609,7 @@ class CosBucketId(AbstractModel):
 
     @property
     def IsAutoMonitor(self):
-        r"""
+        r"""<p>是否自动监测</p>
         :rtype: int
         """
         return self._IsAutoMonitor
@@ -14620,7 +14620,7 @@ class CosBucketId(AbstractModel):
 
     @property
     def BucketIdSet(self):
-        r"""bucket id集合
+        r"""<p>bucket id集合</p>
         :rtype: list of str
         """
         return self._BucketIdSet
@@ -56830,7 +56830,7 @@ class DspmIdentifyCategoryItem(AbstractModel):
         :type Type: int
         :param _UpdateTime: <p>更新时间</p>
         :type UpdateTime: str
-        :param _ComplianceRelations: <p>无</p>
+        :param _ComplianceRelations: <p>关联的识别模板信息</p>
         :type ComplianceRelations: list of DspmIdentifyRefComplianceInfo
         """
         self._Id = None
@@ -56885,7 +56885,7 @@ class DspmIdentifyCategoryItem(AbstractModel):
 
     @property
     def ComplianceRelations(self):
-        r"""<p>无</p>
+        r"""<p>关联的识别模板信息</p>
         :rtype: list of DspmIdentifyRefComplianceInfo
         """
         return self._ComplianceRelations
@@ -57097,9 +57097,9 @@ class DspmIdentifyComplianceCategoryRelation(AbstractModel):
         :type CategoryType: int
         :param _CategoryGrade: <p>分类层级</p><p>单位：层</p>
         :type CategoryGrade: int
-        :param _RuleRelations: <p>无</p>
+        :param _RuleRelations: <p>关联的数据项信息</p>
         :type RuleRelations: list of DspmIdentifyComplianceRuleRelation
-        :param _Children: <p>无</p>
+        :param _Children: <p>子节点信息</p>
         :type Children: list of DspmIdentifyComplianceCategoryRelation
         """
         self._CategoryId = None
@@ -57179,7 +57179,7 @@ class DspmIdentifyComplianceCategoryRelation(AbstractModel):
 
     @property
     def RuleRelations(self):
-        r"""<p>无</p>
+        r"""<p>关联的数据项信息</p>
         :rtype: list of DspmIdentifyComplianceRuleRelation
         """
         return self._RuleRelations
@@ -57190,7 +57190,7 @@ class DspmIdentifyComplianceCategoryRelation(AbstractModel):
 
     @property
     def Children(self):
-        r"""<p>无</p>
+        r"""<p>子节点信息</p>
         :rtype: list of DspmIdentifyComplianceCategoryRelation
         """
         return self._Children
@@ -57977,7 +57977,7 @@ class DspmIdentifyLevelGroupItem(AbstractModel):
         :type LevelItems: list of DspmIdentifyLevelItem
         :param _UpdateTime: <p>更新时间</p><p>参数格式：YYYY-MM-DD hh:mm:ss</p>
         :type UpdateTime: str
-        :param _ComplianceRelations: <p>无</p>
+        :param _ComplianceRelations: <p>关联的识别模板信息</p>
         :type ComplianceRelations: list of DspmIdentifyRefComplianceInfo
         """
         self._Id = None
@@ -58056,7 +58056,7 @@ class DspmIdentifyLevelGroupItem(AbstractModel):
 
     @property
     def ComplianceRelations(self):
-        r"""<p>无</p>
+        r"""<p>关联的识别模板信息</p>
         :rtype: list of DspmIdentifyRefComplianceInfo
         """
         return self._ComplianceRelations
@@ -58345,7 +58345,7 @@ class DspmIdentifyRuleItem(AbstractModel):
         :type StructuredStatus: bool
         :param _UnStructuredStatus: <p>非结构化规则配置状态</p>
         :type UnStructuredStatus: bool
-        :param _ComplianceRelations: <p>无</p>
+        :param _ComplianceRelations: <p>关联的识别模板信息</p>
         :type ComplianceRelations: list of DspmIdentifyRefComplianceInfo
         """
         self._Id = None
@@ -58448,7 +58448,7 @@ class DspmIdentifyRuleItem(AbstractModel):
 
     @property
     def ComplianceRelations(self):
-        r"""<p>无</p>
+        r"""<p>关联的识别模板信息</p>
         :rtype: list of DspmIdentifyRefComplianceInfo
         """
         return self._ComplianceRelations
@@ -69250,6 +69250,85 @@ class ModifyAlarmRiskStatusRequest(AbstractModel):
 
 class ModifyAlarmRiskStatusResponse(AbstractModel):
     r"""ModifyAlarmRiskStatus返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyCosAuditBucketMonitorStatusRequest(AbstractModel):
+    r"""ModifyCosAuditBucketMonitorStatus请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BucketNameSet: 存储桶集合
+        :type BucketNameSet: list of str
+        :param _MonitorStatus: 0 关闭 1 开启
+        :type MonitorStatus: int
+        """
+        self._BucketNameSet = None
+        self._MonitorStatus = None
+
+    @property
+    def BucketNameSet(self):
+        r"""存储桶集合
+        :rtype: list of str
+        """
+        return self._BucketNameSet
+
+    @BucketNameSet.setter
+    def BucketNameSet(self, BucketNameSet):
+        self._BucketNameSet = BucketNameSet
+
+    @property
+    def MonitorStatus(self):
+        r"""0 关闭 1 开启
+        :rtype: int
+        """
+        return self._MonitorStatus
+
+    @MonitorStatus.setter
+    def MonitorStatus(self, MonitorStatus):
+        self._MonitorStatus = MonitorStatus
+
+
+    def _deserialize(self, params):
+        self._BucketNameSet = params.get("BucketNameSet")
+        self._MonitorStatus = params.get("MonitorStatus")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyCosAuditBucketMonitorStatusResponse(AbstractModel):
+    r"""ModifyCosAuditBucketMonitorStatus返回参数结构体
 
     """
 
@@ -80364,7 +80443,7 @@ class SkillCapabilityTag(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ID: 能力标签标识，适合程序判定、过滤或聚合使用
+        :param _ID: 能力标签标识
         :type ID: str
         :param _Name: 能力标签展示名称
         :type Name: str
@@ -80374,7 +80453,7 @@ class SkillCapabilityTag(AbstractModel):
 
     @property
     def ID(self):
-        r"""能力标签标识，适合程序判定、过滤或聚合使用
+        r"""能力标签标识
         :rtype: str
         """
         return self._ID
@@ -80415,7 +80494,8 @@ class SkillRuleCatalogItem(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _RuleID: 融合规则 ID（9xxxx）
+        :param _RuleID: 融合规则 ID
+参数格式：形如 9xxxx
         :type RuleID: str
         :param _RuleName: 风险类别名称
         :type RuleName: str
@@ -80425,7 +80505,8 @@ class SkillRuleCatalogItem(AbstractModel):
 
     @property
     def RuleID(self):
-        r"""融合规则 ID（9xxxx）
+        r"""融合规则 ID
+参数格式：形如 9xxxx
         :rtype: str
         """
         return self._RuleID
@@ -80471,7 +80552,7 @@ class SkillScanEngineResult(AbstractModel):
 AI：AI 引擎
 STATIC：静态分析引擎
         :type ScanType: str
-        :param _RuleList: 该引擎命中的规则列表
+        :param _RuleList: 命中规则列表
         :type RuleList: list of SkillScanRuleHit
         """
         self._ScanType = None
@@ -80493,7 +80574,7 @@ STATIC：静态分析引擎
 
     @property
     def RuleList(self):
-        r"""该引擎命中的规则列表
+        r"""命中规则列表
         :rtype: list of SkillScanRuleHit
         """
         return self._RuleList
@@ -80834,9 +80915,10 @@ class SkillScanRuleHit(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _RuleID: 融合规则编号（9xxxx），可与 RuleCatalog 交叉引用
+        :param _RuleID: 融合规则编号
+参数格式：形如 9xxxx
         :type RuleID: str
-        :param _Description: 当前命中规则的具体发现描述，包含文件位置、行为特征、风险点等信息
+        :param _Description: 风险发现描述
         :type Description: str
         """
         self._RuleID = None
@@ -80844,7 +80926,8 @@ class SkillScanRuleHit(AbstractModel):
 
     @property
     def RuleID(self):
-        r"""融合规则编号（9xxxx），可与 RuleCatalog 交叉引用
+        r"""融合规则编号
+参数格式：形如 9xxxx
         :rtype: str
         """
         return self._RuleID
@@ -80855,7 +80938,7 @@ class SkillScanRuleHit(AbstractModel):
 
     @property
     def Description(self):
-        r"""当前命中规则的具体发现描述，包含文件位置、行为特征、风险点等信息
+        r"""风险发现描述
         :rtype: str
         """
         return self._Description

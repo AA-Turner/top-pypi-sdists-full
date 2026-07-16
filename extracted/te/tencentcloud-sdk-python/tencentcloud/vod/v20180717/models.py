@@ -17522,69 +17522,26 @@ class AudioTemplateInfoForUpdate(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Codec: 音频流的编码格式。
-当外层参数 Container 为 mp3 时，可选值为：
-<li>libmp3lame。</li>
-当外层参数 Container 为 ogg 或 flac 时，可选值为：
-<li>flac。</li>
-当外层参数 Container 为 m4a 时，可选值为：
-<li>libfdk_aac；</li>
-<li>libmp3lame；</li>
-<li>ac3。</li>
-当外层参数 Container 为 mp4 或 flv 时，可选值为：
-<li>libfdk_aac：更适合 mp4；</li>
-<li>libmp3lame：更适合 flv；</li>
-<li>mp2。</li>
-当外层参数 Container 为 hls 时，可选值为：
-<li>libfdk_aac。</li>
-当外层参数 Format 为 HLS 或 MPEG-DASH 时，可选值为：
-<li>libfdk_aac。</li>
-当外层参数 Container 为 wav 时，可选值为：
-<li>pcm16。</li>
+        :param _Codec: <p>音频流的编码格式。<br>当外层参数 Container 为 mp3 时，可选值为：</p><li>libmp3lame。</li>当外层参数 Container 为 ogg 或 flac 时，可选值为：<li>flac。</li>当外层参数 Container 为 m4a 时，可选值为：<li>libfdk_aac；</li><li>libmp3lame；</li><li>ac3。</li>当外层参数 Container 为 mp4 或 flv 时，可选值为：<li>libfdk_aac：更适合 mp4；</li><li>libmp3lame：更适合 flv；</li><li>mp2。</li>当外层参数 Container 为 hls 时，可选值为：<li>libfdk_aac。</li>当外层参数 Format 为 HLS 或 MPEG-DASH 时，可选值为：<li>libfdk_aac。</li>当外层参数 Container 为 wav 时，可选值为：<li>pcm16。</li>
         :type Codec: str
-        :param _Bitrate: 音频流的码率，取值范围：0 和 [26, 256]，单位：kbps。 当取值为 0，表示由云点播自动设置码率。
+        :param _Bitrate: <p>音频流的码率，取值范围：0 和 [26, 256]，单位：kbps。 当取值为 0，表示由云点播自动设置码率。</p>
         :type Bitrate: int
-        :param _SampleRate: 音频流的采样率，可选值：
-<li>16000，仅当 Codec 为 pcm16 时可选。</li>
-<li>32000</li>
-<li>44100</li>
-<li>48000</li>
-单位：Hz。
+        :param _SampleRate: <p>音频流的采样率，可选值：</p><li>16000，仅当 Codec 为 pcm16 时可选。</li><li>32000</li><li>44100</li><li>48000</li>单位：Hz。
         :type SampleRate: int
-        :param _AudioChannel: 音频通道，可选值：
-<li>1：单通道</li>
-<li>2：双通道</li>
-<li>6：立体声</li>
-<li>0：音频声道数和原始音频保持一致</li>
-当媒体的封装格式是音频格式时（flac，ogg，mp3，m4a）时，声道数不允许设为立体声。
+        :param _AudioChannel: <p>音频通道，可选值：</p><li>1：单通道</li><li>2：双通道</li><li>6：立体声</li><li>0：音频声道数和原始音频保持一致</li>当媒体的封装格式是音频格式时（flac，ogg，mp3，m4a）时，声道数不允许设为立体声。
         :type AudioChannel: int
+        :param _StreamSelects: <p>指定输出要保留的音频轨道。默认是全部保留源的。</p><p>仅当在参数 OverrideParameter 中指定时生效，其他情况下不生效。</p>
+        :type StreamSelects: list of int
         """
         self._Codec = None
         self._Bitrate = None
         self._SampleRate = None
         self._AudioChannel = None
+        self._StreamSelects = None
 
     @property
     def Codec(self):
-        r"""音频流的编码格式。
-当外层参数 Container 为 mp3 时，可选值为：
-<li>libmp3lame。</li>
-当外层参数 Container 为 ogg 或 flac 时，可选值为：
-<li>flac。</li>
-当外层参数 Container 为 m4a 时，可选值为：
-<li>libfdk_aac；</li>
-<li>libmp3lame；</li>
-<li>ac3。</li>
-当外层参数 Container 为 mp4 或 flv 时，可选值为：
-<li>libfdk_aac：更适合 mp4；</li>
-<li>libmp3lame：更适合 flv；</li>
-<li>mp2。</li>
-当外层参数 Container 为 hls 时，可选值为：
-<li>libfdk_aac。</li>
-当外层参数 Format 为 HLS 或 MPEG-DASH 时，可选值为：
-<li>libfdk_aac。</li>
-当外层参数 Container 为 wav 时，可选值为：
-<li>pcm16。</li>
+        r"""<p>音频流的编码格式。<br>当外层参数 Container 为 mp3 时，可选值为：</p><li>libmp3lame。</li>当外层参数 Container 为 ogg 或 flac 时，可选值为：<li>flac。</li>当外层参数 Container 为 m4a 时，可选值为：<li>libfdk_aac；</li><li>libmp3lame；</li><li>ac3。</li>当外层参数 Container 为 mp4 或 flv 时，可选值为：<li>libfdk_aac：更适合 mp4；</li><li>libmp3lame：更适合 flv；</li><li>mp2。</li>当外层参数 Container 为 hls 时，可选值为：<li>libfdk_aac。</li>当外层参数 Format 为 HLS 或 MPEG-DASH 时，可选值为：<li>libfdk_aac。</li>当外层参数 Container 为 wav 时，可选值为：<li>pcm16。</li>
         :rtype: str
         """
         return self._Codec
@@ -17595,7 +17552,7 @@ class AudioTemplateInfoForUpdate(AbstractModel):
 
     @property
     def Bitrate(self):
-        r"""音频流的码率，取值范围：0 和 [26, 256]，单位：kbps。 当取值为 0，表示由云点播自动设置码率。
+        r"""<p>音频流的码率，取值范围：0 和 [26, 256]，单位：kbps。 当取值为 0，表示由云点播自动设置码率。</p>
         :rtype: int
         """
         return self._Bitrate
@@ -17606,12 +17563,7 @@ class AudioTemplateInfoForUpdate(AbstractModel):
 
     @property
     def SampleRate(self):
-        r"""音频流的采样率，可选值：
-<li>16000，仅当 Codec 为 pcm16 时可选。</li>
-<li>32000</li>
-<li>44100</li>
-<li>48000</li>
-单位：Hz。
+        r"""<p>音频流的采样率，可选值：</p><li>16000，仅当 Codec 为 pcm16 时可选。</li><li>32000</li><li>44100</li><li>48000</li>单位：Hz。
         :rtype: int
         """
         return self._SampleRate
@@ -17622,12 +17574,7 @@ class AudioTemplateInfoForUpdate(AbstractModel):
 
     @property
     def AudioChannel(self):
-        r"""音频通道，可选值：
-<li>1：单通道</li>
-<li>2：双通道</li>
-<li>6：立体声</li>
-<li>0：音频声道数和原始音频保持一致</li>
-当媒体的封装格式是音频格式时（flac，ogg，mp3，m4a）时，声道数不允许设为立体声。
+        r"""<p>音频通道，可选值：</p><li>1：单通道</li><li>2：双通道</li><li>6：立体声</li><li>0：音频声道数和原始音频保持一致</li>当媒体的封装格式是音频格式时（flac，ogg，mp3，m4a）时，声道数不允许设为立体声。
         :rtype: int
         """
         return self._AudioChannel
@@ -17636,12 +17583,24 @@ class AudioTemplateInfoForUpdate(AbstractModel):
     def AudioChannel(self, AudioChannel):
         self._AudioChannel = AudioChannel
 
+    @property
+    def StreamSelects(self):
+        r"""<p>指定输出要保留的音频轨道。默认是全部保留源的。</p><p>仅当在参数 OverrideParameter 中指定时生效，其他情况下不生效。</p>
+        :rtype: list of int
+        """
+        return self._StreamSelects
+
+    @StreamSelects.setter
+    def StreamSelects(self, StreamSelects):
+        self._StreamSelects = StreamSelects
+
 
     def _deserialize(self, params):
         self._Codec = params.get("Codec")
         self._Bitrate = params.get("Bitrate")
         self._SampleRate = params.get("SampleRate")
         self._AudioChannel = params.get("AudioChannel")
+        self._StreamSelects = params.get("StreamSelects")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -35330,14 +35289,14 @@ class DescribeAigcApiTokensRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubAppId: <b>点播[应用](/document/product/266/14574) ID。从2023年12月25日起开通点播的客户，如访问点播应用中的资源（无论是默认应用还是新创建的应用），必须将该字段填写为应用 ID。</b>
+        :param _SubAppId: <p><b>点播<a href="/document/product/266/14574">应用</a> ID。从2023年12月25日起开通点播的客户，如访问点播应用中的资源（无论是默认应用还是新创建的应用），必须将该字段填写为应用 ID。</b></p>
         :type SubAppId: int
         """
         self._SubAppId = None
 
     @property
     def SubAppId(self):
-        r"""<b>点播[应用](/document/product/266/14574) ID。从2023年12月25日起开通点播的客户，如访问点播应用中的资源（无论是默认应用还是新创建的应用），必须将该字段填写为应用 ID。</b>
+        r"""<p><b>点播<a href="/document/product/266/14574">应用</a> ID。从2023年12月25日起开通点播的客户，如访问点播应用中的资源（无论是默认应用还是新创建的应用），必须将该字段填写为应用 ID。</b></p>
         :rtype: int
         """
         return self._SubAppId
@@ -35366,17 +35325,20 @@ class DescribeAigcApiTokensResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ApiTokens: API Token 列表
+        :param _ApiTokens: <p>API Token 列表</p>
         :type ApiTokens: list of str
+        :param _ExtInfos: <p>ExtInfo信息，和API Token列表一一对应</p>
+        :type ExtInfos: list of str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._ApiTokens = None
+        self._ExtInfos = None
         self._RequestId = None
 
     @property
     def ApiTokens(self):
-        r"""API Token 列表
+        r"""<p>API Token 列表</p>
         :rtype: list of str
         """
         return self._ApiTokens
@@ -35384,6 +35346,17 @@ class DescribeAigcApiTokensResponse(AbstractModel):
     @ApiTokens.setter
     def ApiTokens(self, ApiTokens):
         self._ApiTokens = ApiTokens
+
+    @property
+    def ExtInfos(self):
+        r"""<p>ExtInfo信息，和API Token列表一一对应</p>
+        :rtype: list of str
+        """
+        return self._ExtInfos
+
+    @ExtInfos.setter
+    def ExtInfos(self, ExtInfos):
+        self._ExtInfos = ExtInfos
 
     @property
     def RequestId(self):
@@ -35399,6 +35372,7 @@ class DescribeAigcApiTokensResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._ApiTokens = params.get("ApiTokens")
+        self._ExtInfos = params.get("ExtInfos")
         self._RequestId = params.get("RequestId")
 
 
@@ -72906,6 +72880,137 @@ class OutputVideoStream(AbstractModel):
         
 
 
+class OverrideTranscodeParameter(AbstractModel):
+    r"""自定义视频转码参数。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Container: 封装格式，可选值：mp4、flv、hls、mp3、flac、ogg、m4a、wav。其中，mp3、flac、ogg、m4a、wav 为纯音频文件。
+        :type Container: str
+        :param _RemoveVideo: 是否去除视频数据，取值：
+<li>0：保留；<\li>
+<li>1：去除。<\li>
+        :type RemoveVideo: int
+        :param _RemoveAudio: 是否去除音频数据，取值：
+<li>0：保留；<\li>
+<li>1：去除。<\li>
+        :type RemoveAudio: int
+        :param _VideoTemplate: 视频流配置参数。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type VideoTemplate: :class:`tencentcloud.vod.v20180717.models.VideoTemplateInfoForUpdate`
+        :param _AudioTemplate: 音频流配置参数。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type AudioTemplate: :class:`tencentcloud.vod.v20180717.models.AudioTemplateInfoForUpdate`
+        :param _TEHDConfig: 极速高清转码配置参数。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TEHDConfig: :class:`tencentcloud.vod.v20180717.models.TEHDConfigForUpdate`
+        """
+        self._Container = None
+        self._RemoveVideo = None
+        self._RemoveAudio = None
+        self._VideoTemplate = None
+        self._AudioTemplate = None
+        self._TEHDConfig = None
+
+    @property
+    def Container(self):
+        r"""封装格式，可选值：mp4、flv、hls、mp3、flac、ogg、m4a、wav。其中，mp3、flac、ogg、m4a、wav 为纯音频文件。
+        :rtype: str
+        """
+        return self._Container
+
+    @Container.setter
+    def Container(self, Container):
+        self._Container = Container
+
+    @property
+    def RemoveVideo(self):
+        r"""是否去除视频数据，取值：
+<li>0：保留；<\li>
+<li>1：去除。<\li>
+        :rtype: int
+        """
+        return self._RemoveVideo
+
+    @RemoveVideo.setter
+    def RemoveVideo(self, RemoveVideo):
+        self._RemoveVideo = RemoveVideo
+
+    @property
+    def RemoveAudio(self):
+        r"""是否去除音频数据，取值：
+<li>0：保留；<\li>
+<li>1：去除。<\li>
+        :rtype: int
+        """
+        return self._RemoveAudio
+
+    @RemoveAudio.setter
+    def RemoveAudio(self, RemoveAudio):
+        self._RemoveAudio = RemoveAudio
+
+    @property
+    def VideoTemplate(self):
+        r"""视频流配置参数。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.vod.v20180717.models.VideoTemplateInfoForUpdate`
+        """
+        return self._VideoTemplate
+
+    @VideoTemplate.setter
+    def VideoTemplate(self, VideoTemplate):
+        self._VideoTemplate = VideoTemplate
+
+    @property
+    def AudioTemplate(self):
+        r"""音频流配置参数。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AudioTemplateInfoForUpdate`
+        """
+        return self._AudioTemplate
+
+    @AudioTemplate.setter
+    def AudioTemplate(self, AudioTemplate):
+        self._AudioTemplate = AudioTemplate
+
+    @property
+    def TEHDConfig(self):
+        r"""极速高清转码配置参数。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.vod.v20180717.models.TEHDConfigForUpdate`
+        """
+        return self._TEHDConfig
+
+    @TEHDConfig.setter
+    def TEHDConfig(self, TEHDConfig):
+        self._TEHDConfig = TEHDConfig
+
+
+    def _deserialize(self, params):
+        self._Container = params.get("Container")
+        self._RemoveVideo = params.get("RemoveVideo")
+        self._RemoveAudio = params.get("RemoveAudio")
+        if params.get("VideoTemplate") is not None:
+            self._VideoTemplate = VideoTemplateInfoForUpdate()
+            self._VideoTemplate._deserialize(params.get("VideoTemplate"))
+        if params.get("AudioTemplate") is not None:
+            self._AudioTemplate = AudioTemplateInfoForUpdate()
+            self._AudioTemplate._deserialize(params.get("AudioTemplate"))
+        if params.get("TEHDConfig") is not None:
+            self._TEHDConfig = TEHDConfigForUpdate()
+            self._TEHDConfig._deserialize(params.get("TEHDConfig"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ParseStreamingManifestRequest(AbstractModel):
     r"""ParseStreamingManifest请求参数结构体
 
@@ -94576,6 +94681,8 @@ class TranscodeTaskInput(AbstractModel):
         :type StartTimeOffset: float
         :param _EndTimeOffset: <p>转码后视频的终止时间偏移，单位：秒。</p><li>不填或填0，表示转码后的视频持续到原始视频的末尾终止；</li><li>当数值大于0时（假设为 n），表示转码后的视频持续到原始视频第 n 秒时终止；</li><li>当数值小于0时（假设为 -n），表示转码后的视频持续到原始视频结束 n 秒前终止。</li>
         :type EndTimeOffset: float
+        :param _OverrideParameter: <p>自定义视频转码参数。</p>
+        :type OverrideParameter: :class:`tencentcloud.vod.v20180717.models.OverrideTranscodeParameter`
         :param _SubtitleInfoSet: <p>字幕压制信息列表。最大可支持 2 个。</p>
         :type SubtitleInfoSet: list of SubtitleInfoInput
         """
@@ -94588,6 +94695,7 @@ class TranscodeTaskInput(AbstractModel):
         self._HeadTailSet = None
         self._StartTimeOffset = None
         self._EndTimeOffset = None
+        self._OverrideParameter = None
         self._SubtitleInfoSet = None
 
     @property
@@ -94690,6 +94798,17 @@ class TranscodeTaskInput(AbstractModel):
         self._EndTimeOffset = EndTimeOffset
 
     @property
+    def OverrideParameter(self):
+        r"""<p>自定义视频转码参数。</p>
+        :rtype: :class:`tencentcloud.vod.v20180717.models.OverrideTranscodeParameter`
+        """
+        return self._OverrideParameter
+
+    @OverrideParameter.setter
+    def OverrideParameter(self, OverrideParameter):
+        self._OverrideParameter = OverrideParameter
+
+    @property
     def SubtitleInfoSet(self):
         r"""<p>字幕压制信息列表。最大可支持 2 个。</p>
         :rtype: list of SubtitleInfoInput
@@ -94732,6 +94851,9 @@ class TranscodeTaskInput(AbstractModel):
                 self._HeadTailSet.append(obj)
         self._StartTimeOffset = params.get("StartTimeOffset")
         self._EndTimeOffset = params.get("EndTimeOffset")
+        if params.get("OverrideParameter") is not None:
+            self._OverrideParameter = OverrideTranscodeParameter()
+            self._OverrideParameter._deserialize(params.get("OverrideParameter"))
         if params.get("SubtitleInfoSet") is not None:
             self._SubtitleInfoSet = []
             for item in params.get("SubtitleInfoSet"):
@@ -95356,6 +95478,115 @@ class TrtcRecordInfo(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class UpdateAigcApiTokenRequest(AbstractModel):
+    r"""UpdateAigcApiToken请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SubAppId: <p><b>点播<a href="/document/product/266/14574">应用</a> ID。从2023年12月25日起开通点播的客户，如访问点播应用中的资源（无论是默认应用还是新创建的应用），必须将该字段填写为应用 ID。</b></p>
+        :type SubAppId: int
+        :param _ApiToken: <p>要更新Api Key</p>
+        :type ApiToken: str
+        :param _ActionType: <p>Merge（默认，对 ExtInfo JSON 按顶层 key 合并）、Overwrite（直接覆盖）</p>
+        :type ActionType: str
+        :param _ExtInfo: <p>token 的扩展信息</p>
+        :type ExtInfo: str
+        """
+        self._SubAppId = None
+        self._ApiToken = None
+        self._ActionType = None
+        self._ExtInfo = None
+
+    @property
+    def SubAppId(self):
+        r"""<p><b>点播<a href="/document/product/266/14574">应用</a> ID。从2023年12月25日起开通点播的客户，如访问点播应用中的资源（无论是默认应用还是新创建的应用），必须将该字段填写为应用 ID。</b></p>
+        :rtype: int
+        """
+        return self._SubAppId
+
+    @SubAppId.setter
+    def SubAppId(self, SubAppId):
+        self._SubAppId = SubAppId
+
+    @property
+    def ApiToken(self):
+        r"""<p>要更新Api Key</p>
+        :rtype: str
+        """
+        return self._ApiToken
+
+    @ApiToken.setter
+    def ApiToken(self, ApiToken):
+        self._ApiToken = ApiToken
+
+    @property
+    def ActionType(self):
+        r"""<p>Merge（默认，对 ExtInfo JSON 按顶层 key 合并）、Overwrite（直接覆盖）</p>
+        :rtype: str
+        """
+        return self._ActionType
+
+    @ActionType.setter
+    def ActionType(self, ActionType):
+        self._ActionType = ActionType
+
+    @property
+    def ExtInfo(self):
+        r"""<p>token 的扩展信息</p>
+        :rtype: str
+        """
+        return self._ExtInfo
+
+    @ExtInfo.setter
+    def ExtInfo(self, ExtInfo):
+        self._ExtInfo = ExtInfo
+
+
+    def _deserialize(self, params):
+        self._SubAppId = params.get("SubAppId")
+        self._ApiToken = params.get("ApiToken")
+        self._ActionType = params.get("ActionType")
+        self._ExtInfo = params.get("ExtInfo")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpdateAigcApiTokenResponse(AbstractModel):
+    r"""UpdateAigcApiToken返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
 
 
 class UrlSignatureAuthPolicy(AbstractModel):

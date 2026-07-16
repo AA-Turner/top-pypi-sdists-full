@@ -8,14 +8,12 @@ import copy
 import json
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextlib import asynccontextmanager, contextmanager
 from dataclasses import fields
 from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
     AsyncGenerator,
-    Callable,
     Generator,
     Literal,
 )
@@ -23,8 +21,7 @@ from warnings import warn
 
 import httpx
 
-from ibm_watsonx_ai._wrappers import httpx_wrapper
-from ibm_watsonx_ai._wrappers.httpx_wrapper import TokenBucket
+from ibm_watsonx_ai._wrappers.httpx import RateLimitedRetryDecorator, TokenBucket
 from ibm_watsonx_ai.foundation_models.schema import (
     TextChatParameters,
     TextGenParameters,
@@ -42,9 +39,6 @@ if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
 
 __all__ = ["BaseModelInference"]
-
-_RETRY_STATUS_CODES = [429, 503, 504, 520]
-LIMIT_RATE_HEADER = "x-requests-limit-rate"
 
 
 class BaseModelInference(WMLResource, ABC):
@@ -66,13 +60,30 @@ class BaseModelInference(WMLResource, ABC):
 
         WMLResource.__init__(self, name, client)
 
-        # Set initially 8 requests per second as it is default for prod instances
-        # if header "x-requests-limit-rate" is different capacity will be updated
-        self.rate_limiter = TokenBucket(rate=8, capacity=8)
+        # Token bucket uses 8 requests per second as it is the default for prod instances.
+        # If header `x-requests-limit-rate` is different, capacity will be updated.
+        self._retry_decorator = RateLimitedRetryDecorator(
+            api_client=client,
+            rate_limiter=TokenBucket(rate=8, capacity=8),
+            retry_status_codes=retry_status_codes,
+            max_retries=max_retries,
+            delay_time=delay_time,
+        )
 
-        self.retry_status_codes = retry_status_codes
-        self.max_retries = max_retries
-        self.delay_time = delay_time
+        self._post_with_retry = self._retry_decorator.rate_limited_retry(
+            self._client.httpx_client.post
+        )
+        self._stream_with_retry = self._retry_decorator.rate_limited_retry_stream(
+            self._client.httpx_client.stream
+        )
+        self._async_post_with_retry = self._retry_decorator.rate_limited_async_retry(
+            self._client.async_httpx_client.post
+        )
+        self._async_stream_with_retry = (
+            self._retry_decorator.rate_limited_async_retry_stream(
+                self._client.async_httpx_client.stream
+            )
+        )
 
     @abstractmethod
     def get_details(self) -> dict:
@@ -247,14 +258,12 @@ class BaseModelInference(WMLResource, ABC):
         payload: dict,
         generate_url: str,
     ) -> httpx.Response:
-        post_params: dict[str, Any] = dict(
+        return self._post_with_retry(
             url=generate_url,
             json=payload,
             params=self._client._params(skip_for_create=True, skip_userfs=True),
             headers=self._client._get_headers(),
         )
-
-        return self._post(http_client=self._client.httpx_client, **post_params)
 
     def _send_inference_payload(
         self,
@@ -278,8 +287,7 @@ class BaseModelInference(WMLResource, ABC):
         payload: dict,
         generate_url: str,
     ) -> dict:
-        response = await self._apost(
-            self._client.async_httpx_client,
+        response = await self._async_post_with_retry(
             url=generate_url,
             json=payload,
             headers=await self._client._aget_headers(),
@@ -293,67 +301,42 @@ class BaseModelInference(WMLResource, ABC):
         payload: dict,
         generate_url: str,
     ) -> AsyncGenerator:
-        if hasattr(self._client.async_httpx_client, "post_stream"):
-            stream_function = self._client.async_httpx_client.post_stream
-        else:
-            stream_function = self._client.async_httpx_client.stream
-
-        kw_args: dict = dict(
+        # We can skip this warning, as we have no control over the user's
+        # generator consumption. The issue appears when the generator is not
+        # fully exhausted, as the context manager cleanup will not be performed.
+        # pylint: disable-next=contextmanager-generator-missing-cleanup
+        async with self._async_stream_with_retry(
             method="POST",
             url=generate_url,
             json=payload,
             headers=await self._client._aget_headers(),
             params=self._client._params(skip_for_create=True, skip_userfs=True),
-        )
-
-        async with self._astream(stream_function, **kw_args) as resp:
-            if resp.status_code == 200:
-                resp_iter = resp.aiter_lines()
-
-                async for chunk in resp_iter:
-                    if chunk.rstrip() == "event: error":
-                        chunk = await anext(resp_iter)
-                        field_name, _, response = chunk.partition(":")
-                        raise WMLClientError(
-                            error_msg="Error event occurred during generating stream.",
-                            reason=response,
-                        )
-
-                    field_name, _, response = chunk.partition(":")
-                    if field_name == "data" and "generated_text" in chunk:
-                        try:
-                            parsed_response = json.loads(response)
-                        except json.JSONDecodeError:
-                            raise Exception(f"Could not parse {response} as json")
-
-                        yield parsed_response
-
-            elif resp.status_code != 200:
+        ) as resp:
+            if resp.status_code != 200:
                 await resp.aread()
                 raise WMLClientError(
                     f"Request failed with: ({resp.text} {resp.status_code})"
                 )
 
-    @httpx_wrapper._with_retry_stream()
-    @contextmanager
-    def _stream(
-        self,
-        stream_function: Callable,
-        **kw_args: Any,
-    ) -> Generator[httpx.Response, None, None]:
-        """Handles streaming with retry."""
-        with stream_function(**kw_args) as resp:
-            yield resp
+            resp_iter = resp.aiter_lines()
 
-    @httpx_wrapper._with_async_retry_stream()
-    @asynccontextmanager
-    async def _astream(
-        self,
-        stream_function: Callable,
-        **kw_args: Any,
-    ) -> AsyncGenerator[httpx.Response, None]:
-        async with stream_function(**kw_args) as resp:
-            yield resp
+            async for chunk in resp_iter:
+                if chunk.rstrip() == "event: error":
+                    chunk = await anext(resp_iter)
+                    field_name, _, response = chunk.partition(":")
+                    raise WMLClientError(
+                        error_msg="Error event occurred during generating stream.",
+                        reason=response,
+                    )
+
+                field_name, _, response = chunk.partition(":")
+                if field_name == "data" and "generated_text" in chunk:
+                    try:
+                        parsed_response = json.loads(response)
+                    except json.JSONDecodeError:
+                        raise Exception(f"Could not parse {response} as json")
+
+                    yield parsed_response
 
     def __make_request(
         self,
@@ -361,22 +344,22 @@ class BaseModelInference(WMLResource, ABC):
         generate_url: str,
     ) -> dict:
         """Rate-limited request with dynamic token adjustment and retry logic."""
-        self.rate_limiter.acquire()
+        self._retry_decorator.rate_limiter.acquire()
 
         inference_response = self._send_inference_payload_raw(
             payload=payload,
             generate_url=generate_url,
         )
-        rate_limit = int(inference_response.headers.get(LIMIT_RATE_HEADER, 8))
-        if rate_limit and rate_limit != self.rate_limiter.capacity:
-            self.rate_limiter.capacity = rate_limit
-
-        rate_limit_remaining = int(
-            inference_response.headers.get(
-                httpx_wrapper.REMAINING_LIMIT_HEADER, self.rate_limiter.capacity
-            )
+        rate_limit = self._retry_decorator.get_remaining_rate_limit(
+            inference_response, 8
         )
-        self.rate_limiter.adjust_tokens(rate_limit_remaining)
+        if rate_limit and rate_limit != self._retry_decorator.rate_limiter.capacity:
+            self._retry_decorator.rate_limiter.capacity = rate_limit
+
+        rate_limit_remaining = self._retry_decorator.get_remaining_rate_limit(
+            inference_response
+        )
+        self._retry_decorator.rate_limiter.adjust_tokens(rate_limit_remaining)
 
         return self._handle_response(
             200,
@@ -398,13 +381,13 @@ class BaseModelInference(WMLResource, ABC):
             # If CLOUD, use __make_request which uses token bucket for throttling
             if self._client.CLOUD_PLATFORM_SPACES:
                 func = self.__make_request
-            else:  # If CDP, don't use Token Bucket
+            else:  # If CPD, don't use Token Bucket
                 func = self._send_inference_payload
 
             inference_fn = partial(
                 func,
                 generate_url=generate_url,
-            )  # If CDP, don't use Token Bucket
+            )  # If CPD, don't use Token Bucket
 
             if (payloads_length := len(payloads)) <= concurrency_limit:
                 with ThreadPoolExecutor(max_workers=payloads_length) as executor:
@@ -413,7 +396,6 @@ class BaseModelInference(WMLResource, ABC):
                 with ThreadPoolExecutor(max_workers=concurrency_limit) as executor:
                     generated_responses = list(executor.map(inference_fn, payloads))
             return generated_responses
-
         else:
             response = [
                 self._send_inference_payload(
@@ -421,6 +403,7 @@ class BaseModelInference(WMLResource, ABC):
                     generate_url=generate_url,
                 )
             ]
+
         return response
 
     def _generate_with_url_async(
@@ -443,7 +426,7 @@ class BaseModelInference(WMLResource, ABC):
             # If CLOUD, use __make_request which uses token bucket for throttling
             if self._client.CLOUD_PLATFORM_SPACES:
                 func = self.__make_request
-            else:  # If CDP, don't use Token Bucket
+            else:  # If CPD, don't use Token Bucket
                 func = self._send_inference_payload
 
             inference_fn = partial(
@@ -489,20 +472,17 @@ class BaseModelInference(WMLResource, ABC):
         generate_stream_url: str,
         raw_response: bool = False,
     ) -> Generator:
-        if hasattr(self._client.httpx_client, "post_stream"):
-            stream_function = self._client.httpx_client.post_stream
-        else:
-            stream_function = self._client.httpx_client.stream
-
-        kw_args: dict = dict(
+        # We can skip this warning, as we have no control over the user's
+        # generator consumption. The issue appears when the generator is not
+        # fully exhausted, as the context manager cleanup will not be performed.
+        # pylint: disable-next=contextmanager-generator-missing-cleanup
+        with self._stream_with_retry(
             method="POST",
             url=generate_stream_url,
             json=payload,
             headers=self._client._get_headers(),
             params=self._client._params(skip_for_create=True, skip_userfs=True),
-        )
-
-        with self._stream(stream_function, **kw_args) as resp:
+        ) as resp:
             if resp.status_code == 200:
                 resp_iter = (
                     resp.iter_lines()
@@ -530,7 +510,6 @@ class BaseModelInference(WMLResource, ABC):
                         yield self._return_guardrails_stats(parsed_response)[
                             "generated_text"
                         ]
-
             else:
                 if isinstance(resp, httpx.Response):
                     resp.read()
@@ -645,13 +624,3 @@ class BaseModelInference(WMLResource, ABC):
             warn(invalid_params_warning)
 
         return valid_params
-
-    @httpx_wrapper._with_retry()
-    def _post(self, http_client: Any, *args: Any, **kwargs: Any) -> httpx.Response:
-        return http_client.post(*args, **kwargs)
-
-    @httpx_wrapper._with_async_retry()
-    async def _apost(
-        self, async_http_client: Any, *args: Any, **kwargs: Any
-    ) -> httpx.Response:
-        return await async_http_client.post(*args, **kwargs)
