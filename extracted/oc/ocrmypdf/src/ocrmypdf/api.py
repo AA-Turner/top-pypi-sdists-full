@@ -50,6 +50,8 @@ from pathlib import Path
 from typing import BinaryIO, overload
 from warnings import warn
 
+from pydantic import BaseModel
+
 from ocrmypdf._logging import PageNumberFilter
 from ocrmypdf._options import OcrOptions
 from ocrmypdf._pipelines.hocr_to_ocr_pdf import run_hocr_to_ocr_pdf_pipeline
@@ -106,7 +108,7 @@ def setup_plugin_infrastructure(
         plugin_manager = get_plugin_manager(plugins)
 
     # Initialize plugins (pass the underlying pluggy manager)
-    plugin_manager.initialize(plugin_manager=plugin_manager.pluggy)
+    plugin_manager.initialize(plugin_manager=plugin_manager.pluggy_manager)
 
     # Initialize plugin option registry
     from ocrmypdf._plugin_registry import PluginOptionRegistry
@@ -115,7 +117,7 @@ def setup_plugin_infrastructure(
 
     # Let plugins register their option models
     option_models = plugin_manager.register_options()
-    all_plugin_models: dict[str, type] = {}
+    all_plugin_models: dict[str, type[BaseModel]] = {}
     for plugin_options in option_models:
         if plugin_options:  # Skip None returns
             for namespace, model_class in plugin_options.items():

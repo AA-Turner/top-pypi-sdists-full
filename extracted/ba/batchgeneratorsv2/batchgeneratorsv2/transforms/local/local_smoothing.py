@@ -47,7 +47,7 @@ class LocalSmoothingTransform(ImageOnlyTransform, LocalTransform):
         sigma = sample_scalar(self.kernel_size)
 
         if self.same_for_all_channels:
-            kernel = self._generate_kernel(spatial).astype(np.float32)
+            kernel = self._generate_kernel(spatial)
             strength = sample_scalar(self.smoothing_strength)
 
             kernels = [kernel if apply else None for apply in apply_channel]
@@ -59,7 +59,7 @@ class LocalSmoothingTransform(ImageOnlyTransform, LocalTransform):
                     kernels.append(None)
                     strengths.append(None)
                     continue
-                kernel = self._generate_kernel(spatial).astype(np.float32)
+                kernel = self._generate_kernel(spatial)
                 strength = sample_scalar(self.smoothing_strength)
                 kernels.append(kernel)
                 strengths.append(strength)
@@ -74,9 +74,9 @@ class LocalSmoothingTransform(ImageOnlyTransform, LocalTransform):
             if kernel is None:
                 continue
 
-            kernel = kernel * strength  # scale kernel by smoothing strength
+            kernel = kernel * strength  # fresh owned array (shared param kernel is never mutated)
             smoothed = gaussian_filter(img_np[c], sigma=sigma)
-            img_np[c] = self.run_interpolation(img_np[c], smoothed, kernel)
+            img_np[c] = self.run_interpolation_inplace(img_np[c], smoothed, kernel)
 
         return torch.from_numpy(img_np).to(img.device, dtype=img.dtype)
 

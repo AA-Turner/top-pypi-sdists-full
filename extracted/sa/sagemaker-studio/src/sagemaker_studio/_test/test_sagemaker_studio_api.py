@@ -307,3 +307,52 @@ class TestSageMakerUIHelper(unittest.TestCase):
         ml_experiments_env_summary = self.get_mock_ml_experiments_environment_summary()
         ml_experiments_env_summary["provisionedResources"] = []
         return ml_experiments_env_summary
+
+    def test_get_aws_client_with_environment_override(self):
+        """Test _get_aws_client with environment override uses connection credentials."""
+        from sagemaker_studio.credentials import CredentialsVendingService
+
+        expected_creds = {
+            "accessKeyId": "bogus_access_key",
+            "secretAccessKey": "bogus_secret_key",
+            "sessionToken": "bogus_session_token",
+            "expiration": "2026-07-10T23:00:00Z",
+        }
+
+        # Replace credentials_api with a fresh instance using our mocked datazone_api
+        mock_datazone_api = self.sagemaker_studio.datazone_api
+        self.sagemaker_studio.credentials_api = CredentialsVendingService(
+            mock_datazone_api, self.sagemaker_studio.project_api
+        )
+
+        mock_datazone_api.list_connections.return_value = {
+            "items": [{"connectionId": "conn-123", "name": "default.iam"}]
+        }
+        mock_datazone_api.get_connection.return_value = {
+            "connectionId": "conn-123",
+            "name": "default.iam",
+            "type": "IAM",
+            "connectionCredentials": expected_creds,
+        }
+
+        service_override_config = {
+            "environment": {
+                "domain_identifier": "bogus_domain_id",
+                "project_identifier": "bogus_project_id",
+                "aws_region": "us-west-2",
+            }
+        }
+
+        client = self.sagemaker_studio._get_aws_client("sts", service_override_config)
+        self.assertIsNotNone(client)
+        mock_datazone_api.list_connections.assert_called_once_with(
+            domainIdentifier="bogus_domain_id",
+            projectIdentifier="bogus_project_id",
+            type="IAM",
+            name="default.iam",
+        )
+        mock_datazone_api.get_connection.assert_called_once_with(
+            domainIdentifier="bogus_domain_id",
+            identifier="conn-123",
+            withSecret=True,
+        )

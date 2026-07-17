@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from loguru import logger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from dreadnode.app.api.models import HumanPrompt
 
@@ -99,6 +99,12 @@ class TurnStartCommandPayload(BaseModel):
     agent: str | None = None
     reset: bool = False
     generate_params_extra: dict[str, t.Any] | None = None
+
+    @field_validator("model")
+    @classmethod
+    def normalize_empty_model(cls, model: str | None) -> str | None:
+        """Treat an empty model as unspecified across all turn consumers."""
+        return model or None
 
 
 class TurnCancelCommandPayload(BaseModel):

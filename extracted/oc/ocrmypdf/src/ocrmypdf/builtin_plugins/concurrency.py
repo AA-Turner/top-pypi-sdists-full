@@ -27,9 +27,12 @@ from ocrmypdf.exceptions import InputFileError
 from ocrmypdf.helpers import remove_all_log_handlers
 
 if TYPE_CHECKING:
+    from logging import LogRecord
     from typing import TypeAlias
 
-    Queue: TypeAlias = multiprocessing.queues.Queue | queue.Queue
+    Queue: TypeAlias = (
+        multiprocessing.queues.Queue[LogRecord | None] | queue.Queue[LogRecord | None]
+    )
     UserInit: TypeAlias = Callable[[], None]
     WorkerInit: TypeAlias = Callable[[Queue, UserInit, int], None]
 
@@ -99,7 +102,9 @@ def thread_init(q: Queue, user_init: UserInit, loglevel) -> None:
     return
 
 
-def setup_executor(use_threads: bool) -> tuple[Queue, Executor, WorkerInit]:
+def setup_executor(
+    use_threads: bool,
+) -> tuple[Queue, FuturesExecutorClass, WorkerInit]:
     if not use_threads:
         # Some execution environments like AWS Lambda and Termux do not support
         # semaphores. Check if semaphore support is available, and if not, fall back
@@ -112,6 +117,8 @@ def setup_executor(use_threads: bool) -> tuple[Queue, Executor, WorkerInit]:
         except ImportError:
             use_threads = True
 
+    loq_queue: Queue
+    executor_class: FuturesExecutorClass
     if use_threads:
         loq_queue = queue.Queue(-1)
         executor_class = ThreadPoolExecutor

@@ -104,6 +104,7 @@ setup(
     tests_require=["pytest"],
     test_suite="src.sagemaker_studio._test",
     extras_require={
+        "teradata": ["teradatasql>=20.0.0.50", "teradatasqlalchemy>=20.0.0.9"],
         "test": ["pytest >= 6", "pytest-cov", "toml", "coverage"],
         "dev": ["wheel", "invoke", "twine"],
     },

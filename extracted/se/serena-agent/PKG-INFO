@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: serena-agent
-Version: 1.5.3
+Version: 1.6.0
 Summary: A powerful MCP toolkit for coding, providing semantic retrieval and editing capabilities - the IDE for your agent
 Project-URL: Homepage, https://github.com/oraios/serena
 Author-email: Oraios AI <info@oraios-ai.de>
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.11
 Requires-Dist: anthropic==0.59.0
 Requires-Dist: beautifulsoup4==4.14.2
-Requires-Dist: cryptography==46.0.7
+Requires-Dist: cryptography==48.0.1
 Requires-Dist: docstring-parser==0.17.0
 Requires-Dist: dotenv==0.9.9
 Requires-Dist: filelock==3.25.2
@@ -23,6 +23,7 @@ Requires-Dist: jinja2==3.1.6
 Requires-Dist: joblib==1.5.1
 Requires-Dist: lsprotocol==2025.0.0
 Requires-Dist: mcp==1.27.0
+Requires-Dist: oslex==2.0.0
 Requires-Dist: overrides==7.7.0
 Requires-Dist: pathspec==0.12.1
 Requires-Dist: psutil==7.0.0
@@ -30,7 +31,7 @@ Requires-Dist: pydantic==2.12.5
 Requires-Dist: pygls==2.1.1
 Requires-Dist: pystray==0.19.5
 Requires-Dist: python-dotenv==1.2.2
-Requires-Dist: python-multipart==0.0.27
+Requires-Dist: python-multipart==0.0.31
 Requires-Dist: pythonnet==3.1.0; sys_platform == 'win32'
 Requires-Dist: pywebview==6.2
 Requires-Dist: pyyaml==6.0.2
@@ -38,19 +39,18 @@ Requires-Dist: regex==2026.2.28
 Requires-Dist: requests==2.33.0
 Requires-Dist: ruamel-yaml==0.18.14
 Requires-Dist: sensai-utils==1.5.0
-Requires-Dist: starlette==1.0.0
+Requires-Dist: starlette==1.3.1
 Requires-Dist: tiktoken==0.12.0
 Requires-Dist: tqdm==4.67.1
 Requires-Dist: types-pyyaml==6.0.12.20250516
 Requires-Dist: urllib3==2.7.0
 Requires-Dist: werkzeug==3.1.7
 Provides-Extra: agno
-Requires-Dist: agno==2.5.10; extra == 'agno'
+Requires-Dist: agno==2.6.6; extra == 'agno'
 Requires-Dist: sqlalchemy==2.0.41; extra == 'agno'
 Provides-Extra: dev
 Requires-Dist: jinja2==3.1.6; extra == 'dev'
 Requires-Dist: jupyter-book==1.0.4.post1; extra == 'dev'
-Requires-Dist: mypy==1.17.0; extra == 'dev'
 Requires-Dist: poethepoet==0.36.0; extra == 'dev'
 Requires-Dist: pyasn1==0.6.3; extra == 'dev'
 Requires-Dist: pyinstrument==5.1.1; extra == 'dev'
@@ -65,7 +65,8 @@ Requires-Dist: sphinx-toolbox==3.7.0; extra == 'dev'
 Requires-Dist: sphinx==7.4.7; extra == 'dev'
 Requires-Dist: syrupy==4.9.1; extra == 'dev'
 Requires-Dist: toml-sort==0.24.2; extra == 'dev'
-Requires-Dist: tornado==6.5.5; extra == 'dev'
+Requires-Dist: tornado==6.5.7; extra == 'dev'
+Requires-Dist: ty==0.0.24; extra == 'dev'
 Requires-Dist: types-pyyaml==6.0.12.20250516; extra == 'dev'
 Requires-Dist: types-requests==2.32.4.20250809; extra == 'dev'
 Requires-Dist: wheel==0.46.3; extra == 'dev'
@@ -185,7 +186,7 @@ Serena incorporates a powerful abstraction layer for the integration of language
 The underlying language servers are typically open-source projects or at least freely available for use.
 
 When using Serena's language server backend, we provide **support for over 40 programming languages**, including
-Ada / SPARK, AL, Angular, Ansible, Bash, BSL, C#, C/C++, Clojure, Crystal, CUE, Dart, Elixir, Elm, Erlang, Fortran, F#, GDScript, GLSL, Go, Groovy, Haskell, Haxe, HLSL, HTML, Java, JavaScript, JSON, Julia, Kotlin, Lean 4, Lua, Luau, Markdown, MATLAB, mSL, Nix, OCaml, Perl, PHP, PowerShell, Python, R, Ruby, Rust, Scala, SCSS / Sass / CSS, Solidity, Svelte, Swift, TOML, TypeScript, WGSL, YAML, and Zig.
+Ada / SPARK, AL, Angular, Ansible, Bash, BSL, C#, C/C++, Clojure, Crystal, CUE, Dart, Elixir, Elm, Erlang, Fortran, F#, GDScript, GLSL, Go, Groovy, Haskell, Haxe, HLSL, HTML, Java, JavaScript, JSON, Julia, Kotlin, LaTeX, Lean 4, Lua, Luau, Markdown, MATLAB, mSL, Nix, OCaml, Perl, PHP, PowerShell, Python, R, Ruby, Rust, Scala, SCSS / Sass / CSS, Solidity, Svelte, Swift, TOML, TypeScript, WGSL, YAML, and Zig.
 
 ### The Serena JetBrains Plugin
 

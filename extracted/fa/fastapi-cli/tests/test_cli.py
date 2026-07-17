@@ -1,3 +1,4 @@
+import logging
 import subprocess
 import sys
 from pathlib import Path
@@ -5,7 +6,10 @@ from unittest.mock import patch
 
 import pytest
 import uvicorn
+from fastapi.testclient import TestClient
+from httpx import Response
 from typer.testing import CliRunner
+from uvicorn.importer import import_from_string
 
 from fastapi_cli.cli import app
 from fastapi_cli.utils.cli import get_uvicorn_log_config
@@ -17,7 +21,8 @@ assets_path = Path(__file__).parent / "assets"
 
 
 @pytest.fixture(autouse=True)
-def force_rich_logs(monkeypatch: pytest.MonkeyPatch) -> None:
+def isolate_cli_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FASTAPI_ENV", raising=False)
     monkeypatch.setattr("fastapi_cli.cli.should_use_rich_logs", lambda: True)
 
 
@@ -40,20 +45,59 @@ def test_dev() -> None:
                 "forwarded_allow_ips": None,
                 "log_config": get_uvicorn_log_config(),
             }
-        assert "Using import string: single_file_app:app" in result.output
-        assert "Configuration sources:" in result.output
-        assert "Module: path CLI argument" in result.output
-        assert "App name: auto-discovery" in result.output
-        assert "You can configure an entrypoint in pyproject.toml" not in result.output
         assert "Starting FastAPI in development mode" in result.output
+        assert "Using import string: single_file_app:app" in result.output
         assert "Server started at http://127.0.0.1:8000" in result.output
         assert "Documentation at http://127.0.0.1:8000/docs" in result.output
-        assert (
-            "Running in development mode, for production use: fastapi run"
-            in result.output
-        )
+        # a passed path is explicit, so no source hint and no pyproject nudge
+        assert "(auto-discovered" not in result.output
+        assert "You can configure an entrypoint in pyproject.toml" not in result.output
+        # the step-by-step narration is --verbose only
+        assert "Searching for package file structure" not in result.output
+        assert "Configuration sources:" not in result.output
 
-        assert "🐍 single_file_app.py" in result.output
+
+def _get_fastapi_env_response(*, command: str, fastapi_env: str | None) -> Response:
+    module_name = "environment_app"
+    sys.modules.pop(module_name, None)
+
+    try:
+        with changing_dir(assets_path):
+            with patch.object(uvicorn, "run") as mock_run:
+                result = runner.invoke(
+                    app,
+                    [command, f"{module_name}.py"],
+                    env={"FASTAPI_ENV": fastapi_env},
+                )
+
+        assert result.exit_code == 0, result.output
+        assert mock_run.call_args
+        imported_app = import_from_string(mock_run.call_args.kwargs["app"])
+        with TestClient(imported_app) as test_client:
+            return test_client.get("/fastapi-env")
+    finally:
+        sys.modules.pop(module_name, None)
+
+
+def test_dev_sets_fastapi_env_before_app_import() -> None:
+    response = _get_fastapi_env_response(command="dev", fastapi_env=None)
+
+    assert response.status_code == 200
+    assert response.json() == {"fastapi_env": "development"}
+
+
+def test_dev_does_not_override_existing_fastapi_env() -> None:
+    response = _get_fastapi_env_response(command="dev", fastapi_env="chicken")
+
+    assert response.status_code == 200
+    assert response.json() == {"fastapi_env": "chicken"}
+
+
+def test_run_does_not_set_fastapi_env() -> None:
+    response = _get_fastapi_env_response(command="run", fastapi_env=None)
+
+    assert response.status_code == 200
+    assert response.json() == {"fastapi_env": None}
 
 
 def test_run_uses_uvicorn_default_log_config_without_rich_logs(
@@ -83,12 +127,16 @@ def test_dev_no_args_auto_discovery() -> None:
             assert mock_run.call_args.kwargs["host"] == "127.0.0.1"
             assert mock_run.call_args.kwargs["port"] == 8000
             assert mock_run.call_args.kwargs["reload"] is True
+        assert "Starting FastAPI in development mode" in result.output
         assert "Using import string: main:app" in result.output
-        assert "Configuration sources:" in result.output
-        assert "Import string: auto-discovery" in result.output
+        # Rich can wrap the rest of the hint based on terminal and emoji width
+        assert "(auto-discovered, use --verbose" in result.output
+        # auto-discovery nudges you to pin the entrypoint
         assert "You can configure an entrypoint in pyproject.toml" in result.output
         assert "[tool.fastapi]" in result.output
         assert 'entrypoint = "main:app"' in result.output
+        # the full breakdown stays behind --verbose
+        assert "Configuration sources:" not in result.output
 
 
 def test_dev_package() -> None:
@@ -110,22 +158,14 @@ def test_dev_package() -> None:
                 "forwarded_allow_ips": None,
                 "log_config": get_uvicorn_log_config(),
             }
-        assert "Using import string: nested_package.package:app" in result.output
-        assert "Module: path CLI argument" in result.output
-        assert "App name: auto-discovery" in result.output
-        assert "You can configure an entrypoint in pyproject.toml" not in result.output
         assert "Starting FastAPI in development mode" in result.output
+        assert "Using import string: nested_package.package:app" in result.output
         assert "Server started at http://127.0.0.1:8000" in result.output
         assert "Documentation at http://127.0.0.1:8000/docs" in result.output
-        assert (
-            "Running in development mode, for production use: fastapi run"
-            in result.output
-        )
-
-        assert "📁 package" in result.output
-        assert "└── 🐍 __init__.py" in result.output
-        assert "└── 📁 package" in result.output
-        assert "    └── 🐍 __init__.py" in result.output
+        assert "(auto-discovered" not in result.output
+        assert "You can configure an entrypoint in pyproject.toml" not in result.output
+        # the file tree is --verbose only
+        assert "📁 package" not in result.output
 
 
 def test_dev_args() -> None:
@@ -163,17 +203,12 @@ def test_dev_args() -> None:
                 "forwarded_allow_ips": None,
                 "log_config": get_uvicorn_log_config(),
             }
-        assert "Using import string: single_file_app:api" in result.output
-        assert "Module: path CLI argument" in result.output
-        assert "App name: --app CLI option" in result.output
-        assert "You can configure an entrypoint in pyproject.toml" not in result.output
         assert "Starting FastAPI in development mode" in result.output
+        assert "Using import string: single_file_app:api" in result.output
         assert "Server started at http://192.168.0.2:8080" in result.output
         assert "Documentation at http://192.168.0.2:8080/docs" in result.output
-        assert (
-            "Running in development mode, for production use: fastapi run"
-            in result.output
-        )
+        assert "(auto-discovered" not in result.output
+        assert "You can configure an entrypoint in pyproject.toml" not in result.output
 
 
 def test_dev_env_vars() -> None:
@@ -197,17 +232,10 @@ def test_dev_env_vars() -> None:
                 "forwarded_allow_ips": None,
                 "log_config": get_uvicorn_log_config(),
             }
-        assert "Using import string: single_file_app:app" in result.output
-        assert "Module: path CLI argument" in result.output
-        assert "App name: auto-discovery" in result.output
-        assert "You can configure an entrypoint in pyproject.toml" not in result.output
         assert "Starting FastAPI in development mode" in result.output
+        assert "Using import string: single_file_app:app" in result.output
         assert "Server started at http://127.0.0.1:8111" in result.output
         assert "Documentation at http://127.0.0.1:8111/docs" in result.output
-        assert (
-            "Running in development mode, for production use: fastapi run"
-            in result.output
-        )
 
 
 def test_dev_env_vars_and_args() -> None:
@@ -238,17 +266,68 @@ def test_dev_env_vars_and_args() -> None:
                 "forwarded_allow_ips": None,
                 "log_config": get_uvicorn_log_config(),
             }
-        assert "Using import string: single_file_app:app" in result.output
-        assert "Module: path CLI argument" in result.output
-        assert "App name: auto-discovery" in result.output
-        assert "You can configure an entrypoint in pyproject.toml" not in result.output
         assert "Starting FastAPI in development mode" in result.output
+        assert "Using import string: single_file_app:app" in result.output
         assert "Server started at http://127.0.0.1:8080" in result.output
         assert "Documentation at http://127.0.0.1:8080/docs" in result.output
-        assert (
-            "Running in development mode, for production use: fastapi run"
-            in result.output
-        )
+
+
+def test_dev_verbose() -> None:
+    """--verbose restores the full narration and the module file tree."""
+    with changing_dir(assets_path):
+        with patch.object(uvicorn, "run") as mock_run:
+            result = runner.invoke(app, ["dev", "nested_package/package", "--verbose"])
+            assert result.exit_code == 0, result.output
+            assert mock_run.called
+        assert "Starting FastAPI in development mode" in result.output
+        assert "Searching for package file structure" in result.output
+        assert "Importing from" in result.output
+        assert "Importing the FastAPI app object" in result.output
+        assert "from nested_package.package import app" in result.output
+        assert "Using import string: nested_package.package:app" in result.output
+        # module and app come from different sources here
+        assert "Configuration sources:" in result.output
+        assert "Module: path CLI argument" in result.output
+        assert "App name: auto-discovery" in result.output
+        # the file tree
+        assert "📁 package" in result.output
+        assert "🐍 __init__.py" in result.output
+        # the source hint is folded away in verbose mode
+        assert "(auto-discovered, use --verbose to learn more)" not in result.output
+
+
+def test_dev_verbose_auto_discovery() -> None:
+    """--verbose with auto-discovery shows the single 'import string' source."""
+    with changing_dir(assets_path / "default_files" / "default_main"):
+        with patch.object(uvicorn, "run") as mock_run:
+            result = runner.invoke(app, ["dev", "--verbose"])
+            assert result.exit_code == 0, result.output
+            assert mock_run.called
+        assert "Searching for package file structure" in result.output
+        assert "Importing the FastAPI app object" in result.output
+        assert "Using import string: main:app" in result.output
+        assert "Configuration sources:" in result.output
+        # module and app share the same source (auto-discovery)
+        assert "Import string: auto-discovery" in result.output
+        # auto-discovery still nudges to pin the entrypoint
+        assert "You can configure an entrypoint in pyproject.toml" in result.output
+
+
+def test_global_verbose_enables_debug_logging() -> None:
+    with changing_dir(assets_path):
+        with patch.object(uvicorn, "run"):
+            result = runner.invoke(app, ["--verbose", "dev", "single_file_app.py"])
+            assert result.exit_code == 0, result.output
+
+    assert logging.getLogger("fastapi_cli").level == logging.DEBUG
+
+    # a run without --verbose resets the level
+    with changing_dir(assets_path):
+        with patch.object(uvicorn, "run"):
+            result = runner.invoke(app, ["dev", "single_file_app.py"])
+            assert result.exit_code == 0, result.output
+
+    assert logging.getLogger("fastapi_cli").level == logging.INFO
 
 
 def test_entrypoint_mutually_exclusive_with_path() -> None:
@@ -287,11 +366,8 @@ def test_run() -> None:
                 "forwarded_allow_ips": None,
                 "log_config": get_uvicorn_log_config(),
             }
-        assert "Using import string: single_file_app:app" in result.output
-        assert "Module: path CLI argument" in result.output
-        assert "App name: auto-discovery" in result.output
-        assert "You can configure an entrypoint in pyproject.toml" not in result.output
         assert "Starting FastAPI in production mode" in result.output
+        assert "Using import string: single_file_app:app" in result.output
         assert "Server started at http://0.0.0.0:8000" in result.output
         assert "Documentation at http://0.0.0.0:8000/docs" in result.output
 
@@ -317,14 +393,10 @@ def test_run_trust_proxy() -> None:
                 "forwarded_allow_ips": "*",
                 "log_config": get_uvicorn_log_config(),
             }
-        assert "Using import string: single_file_app:app" in result.output
         assert "Starting FastAPI in production mode" in result.output
+        assert "Using import string: single_file_app:app" in result.output
         assert "Server started at http://0.0.0.0:8000" in result.output
         assert "Documentation at http://0.0.0.0:8000/docs" in result.output
-        assert (
-            "Running in development mode, for production use: fastapi run"
-            not in result.output
-        )
 
 
 def test_run_args() -> None:
@@ -365,17 +437,10 @@ def test_run_args() -> None:
                 "log_config": get_uvicorn_log_config(),
             }
 
-        assert "Using import string: single_file_app:api" in result.output
-        assert "Module: path CLI argument" in result.output
-        assert "App name: --app CLI option" in result.output
-        assert "You can configure an entrypoint in pyproject.toml" not in result.output
         assert "Starting FastAPI in production mode" in result.output
+        assert "Using import string: single_file_app:api" in result.output
         assert "Server started at http://192.168.0.2:8080" in result.output
         assert "Documentation at http://192.168.0.2:8080/docs" in result.output
-        assert (
-            "Running in development mode, for production use: fastapi run"
-            not in result.output
-        )
 
 
 def test_run_env_vars() -> None:
@@ -399,11 +464,8 @@ def test_run_env_vars() -> None:
                 "forwarded_allow_ips": None,
                 "log_config": get_uvicorn_log_config(),
             }
-        assert "Using import string: single_file_app:app" in result.output
-        assert "Module: path CLI argument" in result.output
-        assert "App name: auto-discovery" in result.output
-        assert "You can configure an entrypoint in pyproject.toml" not in result.output
         assert "Starting FastAPI in production mode" in result.output
+        assert "Using import string: single_file_app:app" in result.output
         assert "Server started at http://0.0.0.0:8111" in result.output
         assert "Documentation at http://0.0.0.0:8111/docs" in result.output
 
@@ -436,11 +498,8 @@ def test_run_env_vars_and_args() -> None:
                 "forwarded_allow_ips": None,
                 "log_config": get_uvicorn_log_config(),
             }
-        assert "Using import string: single_file_app:app" in result.output
-        assert "Module: path CLI argument" in result.output
-        assert "App name: auto-discovery" in result.output
-        assert "You can configure an entrypoint in pyproject.toml" not in result.output
         assert "Starting FastAPI in production mode" in result.output
+        assert "Using import string: single_file_app:app" in result.output
         assert "Server started at http://0.0.0.0:8080" in result.output
         assert "Documentation at http://0.0.0.0:8080/docs" in result.output
 
@@ -601,7 +660,8 @@ def test_dev_with_import_string() -> None:
                 "log_config": get_uvicorn_log_config(),
             }
         assert "Using import string: single_file_app:api" in result.output
-        assert "Import string: --entrypoint CLI option" in result.output
+        # an explicit entrypoint is not auto-discovery
+        assert "(auto-discovered" not in result.output
         assert "You can configure an entrypoint in pyproject.toml" not in result.output
 
 
@@ -625,7 +685,7 @@ def test_run_with_import_string() -> None:
                 "log_config": get_uvicorn_log_config(),
             }
         assert "Using import string: single_file_app:app" in result.output
-        assert "Import string: --entrypoint CLI option" in result.output
+        assert "(auto-discovered" not in result.output
         assert "You can configure an entrypoint in pyproject.toml" not in result.output
 
 

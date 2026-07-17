@@ -1,12 +1,14 @@
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
+use std::ffi::{OsStr, OsString};
+use std::future::Future;
+use std::path::Path;
+use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Result;
 use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 use prek_identify::parse_shebang;
-use tracing::{instrument, trace};
+use tracing::{Instrument, trace, trace_span};
 
 use crate::cli::reporter::HookInstallReporter;
 use crate::cli::run::HookRunReporter;
@@ -31,6 +33,7 @@ mod julia;
 mod lua;
 mod node;
 mod perl;
+mod php;
 mod pygrep;
 mod python;
 mod r;
@@ -41,35 +44,14 @@ mod swift;
 mod system;
 pub(crate) mod version;
 
-static BUN: bun::Bun = bun::Bun;
-static CONDA: conda::Conda = conda::Conda;
-static COURSIER: coursier::Coursier = coursier::Coursier;
-static DART: dart::Dart = dart::Dart;
-static DENO: deno::Deno = deno::Deno;
-static DOCKER: docker::Docker = docker::Docker;
-static DOCKER_IMAGE: docker_image::DockerImage = docker_image::DockerImage;
-static DOTNET: dotnet::Dotnet = dotnet::Dotnet;
-static FAIL: fail::Fail = fail::Fail;
-static GOLANG: golang::Golang = golang::Golang;
-static HASKELL: haskell::Haskell = haskell::Haskell;
-static JULIA: julia::Julia = julia::Julia;
-static LUA: lua::Lua = lua::Lua;
-static NODE: node::Node = node::Node;
-static PERL: perl::Perl = perl::Perl;
-static PYGREP: pygrep::Pygrep = pygrep::Pygrep;
-static PYTHON: python::Python = python::Python;
-static R: r::R = r::R;
-static RUBY: ruby::Ruby = ruby::Ruby;
-static RUST: rust::Rust = rust::Rust;
-static SCRIPT: script::Script = script::Script;
-static SWIFT: swift::Swift = swift::Swift;
-static SYSTEM: system::System = system::System;
-
-trait LanguageImpl {
+// Backend futures are awaited in place rather than spawned. Requiring `Send` here would impose a
+// stronger contract than callers need and rejects the borrowed async closures used by backends.
+#[async_trait::async_trait(?Send)]
+trait LanguageBackend: Sync {
     async fn install(
         &self,
-        hook: Arc<Hook>,
         store: &Store,
+        hook: Arc<Hook>,
         reporter: &HookInstallReporter,
     ) -> Result<InstalledHook>;
 
@@ -77,12 +59,14 @@ trait LanguageImpl {
 
     async fn run(
         &self,
+        store: &Store,
         hook: &InstalledHook,
         filenames: &[&Path],
-        store: &Store,
         reporter: &HookRunReporter,
     ) -> Result<(i32, Vec<u8>)>;
 }
+
+type LanguageFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShellSupport {
@@ -104,6 +88,7 @@ pub(crate) enum ShellSupport {
 // lua: only system version, support env, support additional deps
 // node: install requested version, support env, support additional deps (delegated to nodeenv)
 // perl: only system version, support env, support additional deps
+// php: only system version, support env, support additional deps
 // pygrep: only system version, no env, no additional deps
 // python: install requested version, support env, support additional deps (delegated to virtualenv)
 // r: only system version, support env, support additional deps
@@ -114,6 +99,35 @@ pub(crate) enum ShellSupport {
 // system: only system version, no env, no additional deps
 
 impl Language {
+    fn backend(self) -> &'static dyn LanguageBackend {
+        match self {
+            Self::Bun => &bun::Bun,
+            Self::Conda => &conda::Conda,
+            Self::Coursier => &coursier::Coursier,
+            Self::Dart => &dart::Dart,
+            Self::Deno => &deno::Deno,
+            Self::Docker => &docker::Docker,
+            Self::DockerImage => &docker_image::DockerImage,
+            Self::Dotnet => &dotnet::Dotnet,
+            Self::Fail => &fail::Fail,
+            Self::Golang => &golang::Golang,
+            Self::Haskell => &haskell::Haskell,
+            Self::Julia => &julia::Julia,
+            Self::Lua => &lua::Lua,
+            Self::Node => &node::Node,
+            Self::Perl => &perl::Perl,
+            Self::Php => &php::Php,
+            Self::Pygrep => &pygrep::Pygrep,
+            Self::Python => &python::Python,
+            Self::R => &r::R,
+            Self::Ruby => &ruby::Ruby,
+            Self::Rust => &rust::Rust,
+            Self::Script => &script::Script,
+            Self::Swift => &swift::Swift,
+            Self::System => &system::System,
+        }
+    }
+
     pub(crate) fn supports_install_env(self) -> bool {
         match self {
             Self::Bun
@@ -129,6 +143,7 @@ impl Language {
             | Self::Lua
             | Self::Node
             | Self::Perl
+            | Self::Php
             | Self::Pygrep
             | Self::Python
             | Self::R
@@ -151,6 +166,7 @@ impl Language {
             | Self::Lua
             | Self::Node
             | Self::Perl
+            | Self::Php
             | Self::Python
             | Self::Ruby
             | Self::Script
@@ -193,6 +209,7 @@ impl Language {
             | Self::Julia
             | Self::Lua
             | Self::Perl
+            | Self::Php
             | Self::R
             | Self::Script
             | Self::Swift
@@ -219,6 +236,7 @@ impl Language {
             | Self::Julia
             | Self::Lua
             | Self::Perl
+            | Self::Php
             | Self::R
             | Self::Ruby
             | Self::Script
@@ -250,6 +268,7 @@ impl Language {
             | Self::Julia
             | Self::Lua
             | Self::Perl
+            | Self::Php
             | Self::Pygrep
             | Self::R
             | Self::Script
@@ -276,6 +295,7 @@ impl Language {
             | Self::Lua
             | Self::Node
             | Self::Perl
+            | Self::Php
             | Self::Python
             | Self::R
             | Self::Ruby
@@ -290,122 +310,54 @@ impl Language {
         }
     }
 
-    pub(crate) async fn install(
-        &self,
+    pub(crate) fn install<'a>(
+        &'a self,
+        store: &'a Store,
         hook: Arc<Hook>,
-        store: &Store,
-        reporter: &HookInstallReporter,
-    ) -> Result<InstalledHook> {
-        match self {
-            Self::Dart => DART.install(hook, store, reporter).await,
-            Self::Bun => BUN.install(hook, store, reporter).await,
-            Self::Coursier => COURSIER.install(hook, store, reporter).await,
-            Self::Deno => DENO.install(hook, store, reporter).await,
-            Self::Docker => DOCKER.install(hook, store, reporter).await,
-            Self::DockerImage => DOCKER_IMAGE.install(hook, store, reporter).await,
-            Self::Dotnet => DOTNET.install(hook, store, reporter).await,
-            Self::Fail => FAIL.install(hook, store, reporter).await,
-            Self::Golang => GOLANG.install(hook, store, reporter).await,
-            Self::Haskell => HASKELL.install(hook, store, reporter).await,
-            Self::Julia => JULIA.install(hook, store, reporter).await,
-            Self::Lua => LUA.install(hook, store, reporter).await,
-            Self::Node => NODE.install(hook, store, reporter).await,
-            Self::Perl => PERL.install(hook, store, reporter).await,
-            Self::Pygrep => PYGREP.install(hook, store, reporter).await,
-            Self::Python => PYTHON.install(hook, store, reporter).await,
-            Self::R => R.install(hook, store, reporter).await,
-            Self::Ruby => RUBY.install(hook, store, reporter).await,
-            Self::Rust => RUST.install(hook, store, reporter).await,
-            Self::Script => SCRIPT.install(hook, store, reporter).await,
-            Self::Swift => SWIFT.install(hook, store, reporter).await,
-            Self::System => SYSTEM.install(hook, store, reporter).await,
-            Self::Conda => CONDA.install(hook, store, reporter).await,
-        }
+        reporter: &'a HookInstallReporter,
+    ) -> LanguageFuture<'a, InstalledHook> {
+        self.backend().install(store, hook, reporter)
     }
 
-    pub(crate) async fn check_health(&self, info: &InstallInfo) -> Result<()> {
-        match self {
-            Self::Dart => DART.check_health(info).await,
-            Self::Bun => BUN.check_health(info).await,
-            Self::Coursier => COURSIER.check_health(info).await,
-            Self::Deno => DENO.check_health(info).await,
-            Self::Docker => DOCKER.check_health(info).await,
-            Self::DockerImage => DOCKER_IMAGE.check_health(info).await,
-            Self::Dotnet => DOTNET.check_health(info).await,
-            Self::Fail => FAIL.check_health(info).await,
-            Self::Golang => GOLANG.check_health(info).await,
-            Self::Haskell => HASKELL.check_health(info).await,
-            Self::Julia => JULIA.check_health(info).await,
-            Self::Lua => LUA.check_health(info).await,
-            Self::Node => NODE.check_health(info).await,
-            Self::Perl => PERL.check_health(info).await,
-            Self::Pygrep => PYGREP.check_health(info).await,
-            Self::Python => PYTHON.check_health(info).await,
-            Self::R => R.check_health(info).await,
-            Self::Ruby => RUBY.check_health(info).await,
-            Self::Rust => RUST.check_health(info).await,
-            Self::Script => SCRIPT.check_health(info).await,
-            Self::Swift => SWIFT.check_health(info).await,
-            Self::System => SYSTEM.check_health(info).await,
-            Self::Conda => CONDA.check_health(info).await,
-        }
+    pub(crate) fn check_health<'a>(&'a self, info: &'a InstallInfo) -> LanguageFuture<'a, ()> {
+        self.backend().check_health(info)
     }
 
-    #[instrument(level = "trace", skip_all, fields(hook_id = %hook.id, language = %hook.language))]
-    pub(crate) async fn run(
-        &self,
-        hook: &InstalledHook,
-        filenames: &[&Path],
-        store: &Store,
-        reporter: &HookRunReporter,
-    ) -> Result<(i32, Vec<u8>)> {
-        match hook.repo() {
-            Repo::Meta { .. } => {
-                return hooks::MetaHooks::from_str(&hook.id)
+    pub(crate) fn run<'a, 'p>(
+        &'a self,
+        store: &'a Store,
+        hook: &'a InstalledHook,
+        filenames: &'a [&'p Path],
+        reporter: &'a HookRunReporter,
+    ) -> impl Future<Output = Result<(i32, Vec<u8>)>> + 'a
+    where
+        'p: 'a,
+    {
+        let future: LanguageFuture<'a, (i32, Vec<u8>)> = match hook.repo() {
+            Repo::Meta { .. } => Box::pin(
+                hooks::MetaHooks::from_str(&hook.id)
                     .unwrap()
-                    .run(store, hook, filenames, reporter)
-                    .await;
-            }
-            Repo::Builtin { .. } => {
-                return hooks::BuiltinHooks::from_str(&hook.id)
+                    .run(store, hook, filenames, reporter),
+            ),
+            Repo::Builtin { .. } => Box::pin(
+                hooks::BuiltinHooks::from_str(&hook.id)
                     .unwrap()
-                    .run(store, hook, filenames, reporter)
-                    .await;
+                    .run(store, hook, filenames, reporter),
+            ),
+            // Fast path for hooks implemented in Rust
+            Repo::Remote { .. } if hooks::check_fast_path(hook) => {
+                Box::pin(hooks::run_fast_path(store, hook, filenames, reporter))
             }
-            Repo::Remote { .. } => {
-                // Fast path for hooks implemented in Rust
-                if hooks::check_fast_path(hook) {
-                    return hooks::run_fast_path(store, hook, filenames, reporter).await;
-                }
+            Repo::Remote { .. } | Repo::Local { .. } => {
+                self.backend().run(store, hook, filenames, reporter)
             }
-            Repo::Local { .. } => {}
-        }
+        };
 
-        match self {
-            Self::Dart => DART.run(hook, filenames, store, reporter).await,
-            Self::Bun => BUN.run(hook, filenames, store, reporter).await,
-            Self::Coursier => COURSIER.run(hook, filenames, store, reporter).await,
-            Self::Deno => DENO.run(hook, filenames, store, reporter).await,
-            Self::Docker => DOCKER.run(hook, filenames, store, reporter).await,
-            Self::DockerImage => DOCKER_IMAGE.run(hook, filenames, store, reporter).await,
-            Self::Dotnet => DOTNET.run(hook, filenames, store, reporter).await,
-            Self::Fail => FAIL.run(hook, filenames, store, reporter).await,
-            Self::Golang => GOLANG.run(hook, filenames, store, reporter).await,
-            Self::Haskell => HASKELL.run(hook, filenames, store, reporter).await,
-            Self::Julia => JULIA.run(hook, filenames, store, reporter).await,
-            Self::Lua => LUA.run(hook, filenames, store, reporter).await,
-            Self::Node => NODE.run(hook, filenames, store, reporter).await,
-            Self::Perl => PERL.run(hook, filenames, store, reporter).await,
-            Self::Pygrep => PYGREP.run(hook, filenames, store, reporter).await,
-            Self::Python => PYTHON.run(hook, filenames, store, reporter).await,
-            Self::R => R.run(hook, filenames, store, reporter).await,
-            Self::Ruby => RUBY.run(hook, filenames, store, reporter).await,
-            Self::Rust => RUST.run(hook, filenames, store, reporter).await,
-            Self::Script => SCRIPT.run(hook, filenames, store, reporter).await,
-            Self::Swift => SWIFT.run(hook, filenames, store, reporter).await,
-            Self::System => SYSTEM.run(hook, filenames, store, reporter).await,
-            Self::Conda => CONDA.run(hook, filenames, store, reporter).await,
-        }
+        future.instrument(trace_span!(
+            "run",
+            hook_id = %hook.id,
+            language = %hook.language,
+        ))
     }
 }
 
@@ -428,6 +380,7 @@ pub(crate) async fn extract_metadata(hook: &mut Hook) -> Result<()> {
         | Language::Lua
         | Language::Node
         | Language::Perl
+        | Language::Php
         | Language::Pygrep
         | Language::R
         | Language::Ruby
@@ -439,7 +392,11 @@ pub(crate) async fn extract_metadata(hook: &mut Hook) -> Result<()> {
 }
 
 /// Resolve the actual process invocation, honoring shebangs and PATH lookups.
-pub(crate) fn resolve_command(mut cmds: Vec<String>, paths: Option<&OsStr>) -> Vec<String> {
+pub(crate) fn resolve_command(mut cmds: Vec<OsString>, paths: Option<&OsStr>) -> Vec<OsString> {
+    let Some(candidate) = cmds.first() else {
+        return cmds;
+    };
+
     let env_path = if paths.is_none() {
         EnvVars.var_os(EnvVars::PATH)
     } else {
@@ -447,50 +404,51 @@ pub(crate) fn resolve_command(mut cmds: Vec<String>, paths: Option<&OsStr>) -> V
     };
     let paths = paths.or(env_path.as_deref());
 
-    let candidate = &cmds[0];
-    let resolved_binary = match which::which_in(candidate, paths, &*CWD) {
-        Ok(p) => p,
-        Err(_) => PathBuf::from(candidate),
-    };
-    trace!("Resolved command: {}", resolved_binary.display());
+    let resolved_binary =
+        which::which_in(candidate, paths, &*CWD).unwrap_or_else(|_| Path::new(candidate).into());
 
-    if let Ok(mut shebang_argv) = parse_shebang(&resolved_binary) {
-        trace!("Found shebang: {:?}", shebang_argv);
-        #[allow(unused_mut)]
-        let mut interpreter = shebang_argv[0].as_str();
-        #[cfg(windows)]
+    let Ok(shebang_argv) = parse_shebang(&resolved_binary) else {
+        cmds[0] = resolved_binary.into_os_string();
+        return cmds;
+    };
+
+    let mut shebang_argv = shebang_argv
+        .into_iter()
+        .map(OsString::from)
+        .collect::<Vec<_>>();
+    trace!("Found shebang: {:?}", shebang_argv);
+    let interpreter = shebang_argv[0].as_os_str();
+    #[cfg(windows)]
+    let interpreter = {
+        let interpreter_path = Path::new(interpreter);
+        if !interpreter_path.exists()
+            && (interpreter_path.has_root() || interpreter_path.components().count() > 1)
         {
-            let interpreter_path = Path::new(interpreter);
             // Git for Windows behavior: if a shebang points to a Unix-style absolute
             // interpreter path (e.g. `/bin/sh`) that does not exist on Windows,
             // fall back to PATH lookup of its basename (`sh`).
-            if !interpreter_path.exists()
-                // Restrict this fallback to path-like interpreter values so plain
-                // commands (like `python`) keep their normal resolution path below.
-                && (interpreter_path.has_root() || interpreter.contains(['/', '\\']))
-                // Extract basename from shebang path (`/bin/sh` -> `sh`) and resolve it.
-                && let Some(file_name) = interpreter_path.file_name().and_then(OsStr::to_str)
-            {
-                interpreter = file_name;
-            }
+            interpreter_path.file_name().unwrap_or(interpreter)
+        } else {
+            interpreter
         }
-        // Resolve the interpreter path, convert "python3" to "python3.exe" on Windows
-        if let Ok(p) = which::which_in(interpreter, paths, &*CWD) {
-            shebang_argv[0] = p.to_string_lossy().into_owned();
-            trace!("Resolved interpreter: {}", shebang_argv[0]);
-        }
-        shebang_argv.push(resolved_binary.to_string_lossy().into_owned());
-        shebang_argv.extend_from_slice(&cmds[1..]);
-        shebang_argv
-    } else {
-        cmds[0] = resolved_binary.to_string_lossy().into_owned();
-        cmds
+    };
+
+    // Resolve the interpreter path, converting "python3" to "python3.exe" on Windows.
+    if let Ok(path) = which::which_in(interpreter, paths, &*CWD) {
+        shebang_argv[0] = path.into_os_string();
     }
+    shebang_argv.push(resolved_binary.into_os_string());
+    shebang_argv.extend(cmds.drain(1..));
+    shebang_argv
 }
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    use std::ffi::OsStr;
     use std::ffi::OsString;
+    #[cfg(unix)]
+    use std::os::unix::ffi::OsStringExt;
     use std::path::Path;
 
     use tempfile::tempdir;
@@ -504,18 +462,35 @@ mod tests {
 
     #[test]
     fn resolve_command_passthrough_when_not_found() {
-        let cmd = "__prek_nonexistent_command__".to_string();
+        let cmd = OsString::from("__prek_nonexistent_command__");
         let resolved = resolve_command(vec![cmd.clone()], None);
         assert_eq!(resolved, vec![cmd]);
     }
 
     #[test]
-    fn resolve_command_resolves_shebang_interpreter_from_path() {
+    fn resolve_command_passthrough_when_empty() {
+        assert_eq!(resolve_command(Vec::new(), None), Vec::<OsString>::new());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_command_preserves_non_utf8_arguments() {
+        let cmd = OsString::from("__prek_nonexistent_command__");
+        let arg = OsString::from_vec(vec![b'f', b'o', 0x80]);
+
+        assert_eq!(
+            resolve_command(vec![cmd.clone(), arg.clone()], Some(OsStr::new("")),),
+            vec![cmd, arg]
+        );
+    }
+
+    #[test]
+    fn resolve_command_resolves_shebang_and_preserves_arguments() {
         let dir = tempdir().expect("create temp dir");
         let script_path = dir.path().join("hook-script");
         write_file(
             &script_path,
-            "#!/usr/bin/env prek-test-interpreter\necho hi\n",
+            "#!/usr/bin/env -S prek-test-interpreter --from-shebang\necho hi\n",
         );
 
         #[cfg(windows)]
@@ -527,13 +502,21 @@ mod tests {
         make_executable(&interpreter_path).expect("set executable bit");
 
         let paths = OsString::from(dir.path().as_os_str());
+        let script = script_path.into_os_string();
         let resolved = resolve_command(
-            vec![script_path.to_string_lossy().into_owned()],
+            vec![script.clone(), OsString::from("--from-entry")],
             Some(paths.as_os_str()),
         );
 
-        assert_eq!(resolved[0], interpreter_path.to_string_lossy());
-        assert_eq!(resolved[1], script_path.to_string_lossy());
+        assert_eq!(
+            resolved,
+            vec![
+                interpreter_path.into_os_string(),
+                OsString::from("--from-shebang"),
+                script,
+                OsString::from("--from-entry"),
+            ]
+        );
     }
 
     #[cfg(windows)]
@@ -548,12 +531,12 @@ mod tests {
 
         let paths = OsString::from(dir.path().as_os_str());
         let resolved = resolve_command(
-            vec![script_path.to_string_lossy().into_owned()],
+            vec![script_path.as_os_str().to_owned()],
             Some(paths.as_os_str()),
         );
 
-        assert_eq!(resolved[0], sh_path.to_string_lossy());
-        assert_eq!(resolved[1], script_path.to_string_lossy());
+        assert_eq!(resolved[0].as_os_str(), sh_path.as_os_str());
+        assert_eq!(resolved[1].as_os_str(), script_path.as_os_str());
     }
 
     #[cfg(windows)]
@@ -575,12 +558,12 @@ mod tests {
 
         let paths = OsString::from(dir.path().as_os_str());
         let resolved = resolve_command(
-            vec![script_path.to_string_lossy().into_owned()],
+            vec![script_path.as_os_str().to_owned()],
             Some(paths.as_os_str()),
         );
 
         let resolved_interp = Path::new(&resolved[0]);
         assert_eq!(resolved_interp, interp_path.as_path());
-        assert_eq!(resolved[1], script_path.to_string_lossy());
+        assert_eq!(resolved[1].as_os_str(), script_path.as_os_str());
     }
 }

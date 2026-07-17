@@ -1461,6 +1461,16 @@ components:
         platform:
           type: string
           example: "youtube"
+        videoId:
+          type: string
+          description: Present only when demographics are scoped to a single video
+        title:
+          type: [string, "null"]
+          description: 'Video title (video mode only)'
+        publishedAt:
+          type: [string, "null"]
+          format: date-time
+          description: 'Video publish date (video mode only)'
         demographics:
           type: object
           description: Object keyed by breakdown dimension (age, gender, country)
@@ -4965,12 +4975,11 @@ components:
           type: object
           description: Current billing cycle. `start`/`end` are resolved for usage-based accounts only.
           properties:
-            start: { type: string, format: date-time, nullable: true }
-            end: { type: string, format: date-time, nullable: true }
+            start: { type: [string, "null"], format: date-time }
+            end: { type: [string, "null"], format: date-time }
             anchorDay: { type: integer, description: Day-of-month the cycle resets. }
         balance:
-          type: object
-          nullable: true
+          type: [object, "null"]
           description: Accrued spend + remaining credits this cycle. `null` for fixed-subscription (Stripe) plans.
           properties:
             accruedThisPeriodCents: { type: integer }
@@ -4979,16 +4988,16 @@ components:
           type: object
           properties:
             xSpendUsedCents: { type: integer }
-            xSpendLimitCents: { type: integer, nullable: true, description: Monthly X-API spend cap; null = unlimited. }
+            xSpendLimitCents: { type: [integer, "null"], description: Monthly X-API spend cap; null = unlimited. }
         status:
           type: object
           properties:
             hasAccess: { type: boolean }
             suspended: { type: boolean }
-            suspendedAt: { type: string, format: date-time, nullable: true }
-            suspensionReason: { type: string, nullable: true }
-            openInvoiceUrl: { type: string, nullable: true, description: Hosted invoice URL for dunning (Stripe). }
-            declineReason: { type: string, nullable: true }
+            suspendedAt: { type: [string, "null"], format: date-time }
+            suspensionReason: { type: [string, "null"] }
+            openInvoiceUrl: { type: [string, "null"], description: Hosted invoice URL for dunning (Stripe). }
+            declineReason: { type: [string, "null"] }
             autoUpgradeEnabled: { type: boolean }
         legacy:
           type: object
@@ -5089,9 +5098,9 @@ components:
             total + tax). Null when the account has no billing address on
             file, the total is zero or negative, or the estimate failed.
           properties:
-            taxUsd: { type: number, description: Estimated tax in USD, added on top of `totals.total`. }
-            ratePercent: { type: [number, "null"], description: Combined rate percentage, e.g. 21. }
-            jurisdictionLabel: { type: [string, "null"], description: Human jurisdiction label, e.g. "ES VAT" or "WA sales tax". }
+            taxUsd: { type: number, description: "Estimated tax in USD, added on top of `totals.total`." }
+            ratePercent: { type: [number, "null"], description: "Combined rate percentage, e.g. 21." }
+            jurisdictionLabel: { type: [string, "null"], description: 'Human jurisdiction label, e.g. "ES VAT" or "WA sales tax".' }
             reverseCharge: { type: boolean, description: True for EU/UK B2B reverse charge (0 tax added by design). }
     UsageStats:
       type: object
@@ -5871,15 +5880,15 @@ components:
               name: { type: string }
         cities:
           type: array
-          description: "City targeting. Optional `radius` + `distance_unit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on platforms whose capability map allows city radius (Meta)."
+          description: "City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on platforms whose capability map allows city radius (Meta)."
           items:
             type: object
             required: [key]
             properties:
               key: { type: string }
               name: { type: string }
-              radius: { type: number, description: "Radius around the city. Requires distance_unit." }
-              distance_unit: { type: string, enum: [mile, kilometer], description: "Required if radius is set." }
+              radius: { type: number, description: "Radius around the city. Requires distanceUnit. Meta enforces a minimum city radius (~17 km / 10 mi); smaller values resolve to a 0-size audience and the ad fails at launch. For a tighter catchment use customLocations (lat/lng), which allows a smaller radius." }
+              distanceUnit: { type: string, enum: [mile, kilometer], description: "Required if radius is set." }
         zips:
           type: array
           description: "Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X."
@@ -5926,14 +5935,14 @@ components:
                   name: { type: string }
             cities:
               type: array
-              description: "Cities to exclude. Optional `radius` + `distance_unit` exclude a catchment around the city (both must be set together or both omitted); Meta honours the radius on excluded cities."
+              description: "Cities to exclude. Optional `radius` + `distanceUnit` exclude a catchment around the city (both must be set together or both omitted); Meta honours the radius on excluded cities."
               items:
                 type: object
                 required: [key]
                 properties:
                   key: { type: string }
-                  radius: { type: number, description: "Radius around the excluded city. Requires distance_unit." }
-                  distance_unit: { type: string, enum: [mile, kilometer], description: "Required if radius is set." }
+                  radius: { type: number, description: "Radius around the excluded city. Requires distanceUnit." }
+                  distanceUnit: { type: string, enum: [mile, kilometer], description: "Required if radius is set." }
             zips:
               type: array
               items:
@@ -5983,7 +5992,7 @@ components:
             tiers on Google, and any income tier on LinkedIn / X / Pinterest, are rejected.
             On Meta, income/zip targeting requires the relevant `specialAdCategories` to be
             unset (housing/employment/credit ads cannot use it).
-        languages: { type: array, items: { type: string }, description: "Language codes (e.g. ['en'])." }
+        languages: { type: array, items: { type: string }, description: "Language codes restricting the audience by language. On Meta, ISO 639-1 codes (e.g. ['en']); a bare code targets all regional variants (\"en\" = all English), or use a region-qualified code (\"en_GB\", \"pt_BR\") for a specific one. Unknown codes are rejected." }
         interests:
           type: array
           description: "Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id."
@@ -9032,14 +9041,23 @@ paths:
       summary: Get YouTube demographics
       description: |
         Returns audience demographic insights for a YouTube channel, broken down by age, gender, and/or country.
+        Pass videoId to get the audience profile of a single video instead of the whole channel.
         Age and gender values are viewer percentages (0-100). Country values are view counts.
-        Data is based on signed-in viewers only, with a 2-3 day delay. Requires the Analytics add-on.
+        Data is based on signed-in viewers only, with a 2-3 day delay. YouTube suppresses demographics
+        for videos with too few signed-in views, so low-traffic videos can return empty breakdowns.
+        Requires the Analytics add-on.
       parameters:
         - name: accountId
           in: query
           required: true
           schema: { type: string }
           description: The Zernio SocialAccount ID for the YouTube account
+        - name: videoId
+          in: query
+          schema: { type: string }
+          description: |
+            YouTube video ID. When provided, demographics are scoped to this single video
+            (must belong to the connected channel; otherwise 404 video_not_found).
         - name: breakdown
           in: query
           schema: { type: string }
@@ -9050,7 +9068,8 @@ paths:
           in: query
           schema: { type: string, format: date }
           description: |
-            Start date in YYYY-MM-DD format. Defaults to 90 days ago.
+            Start date in YYYY-MM-DD format. Defaults to 90 days ago, or to the video's
+            publish date (lifetime) when videoId is provided.
         - name: endDate
           in: query
           schema: { type: string, format: date }
@@ -9090,6 +9109,33 @@ paths:
                       startDate: "2026-01-01"
                       endDate: "2026-03-31"
                     note: "Age/gender values are viewer percentages (0-100). Country values are view counts. Data based on signed-in viewers only, with 2-3 day delay."
+                singleVideo:
+                  summary: Demographics scoped to one video (videoId provided)
+                  value:
+                    success: true
+                    accountId: "64e1a2b3c4d5e6f7a8b9c0d1"
+                    platform: "youtube"
+                    videoId: "dQw4w9WgXcQ"
+                    title: "Product launch teaser"
+                    publishedAt: "2026-06-01T09:00:00.000Z"
+                    demographics:
+                      age:
+                        - dimension: "25-34"
+                          value: 41.2
+                      gender:
+                        - dimension: "male"
+                          value: 75.0
+                        - dimension: "female"
+                          value: 25.0
+                      country:
+                        - dimension: "MX"
+                          value: 394
+                        - dimension: "AR"
+                          value: 181
+                    dateRange:
+                      startDate: "2026-06-01"
+                      endDate: "2026-07-13"
+                    note: "Age/gender values are viewer percentages (0-100). Country values are view counts. Data based on signed-in viewers only, with 2-3 day delay."
         '400':
           description: Bad request (invalid parameters or not a YouTube account)
           content:
@@ -9117,7 +9163,7 @@ paths:
                 properties:
                   error: { type: string, example: "Access denied to this account" }
         '404':
-          description: Account not found
+          description: 'Account not found, or the video does not exist / does not belong to this YouTube channel'
           content:
             application/json:
               schema:
@@ -10603,6 +10649,7 @@ paths:
                     - "64e1f0a9e2b5af0012ab34cd"
                     - "64e1f0a9e2b5af0012ab34ce"
                     - "64e1f0a9e2b5af0012ab34cf"
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { description: Group name already exists }
@@ -10627,6 +10674,7 @@ paths:
                   message: { type: string }
               example:
                 message: "Account group deleted successfully"
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
   /v1/media/presign:
@@ -12751,6 +12799,7 @@ paths:
                   color: "#2196F3"
                   isDefault: true
                   createdAt: "2024-11-01T10:00:00Z"
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
@@ -13684,6 +13733,16 @@ paths:
           in: query
           schema: { type: boolean, default: false }
           description: Enable headless mode (same-token platforms only)
+        - name: force
+          in: query
+          schema: { type: boolean, default: false }
+          description: |
+            Force a fresh OAuth even when an account already exists. Normally the
+            endpoint returns `alreadyConnected: true` whenever a connected account
+            is found, keying off its active state rather than token liveness.
+            Set `force=true` to bypass that and always receivean `authUrl`.
+            Completing the returned OAuth refreshes the stored token
+            on the existing posting and ads accounts in place.
         - name: adAccountId
           in: query
           schema: { type: string }
@@ -14227,6 +14286,14 @@ paths:
                           properties:
                             comment: { type: string, description: Business owner reply }
                             updateTime: { type: string, format: date-time }
+                        photoCount: { type: integer, description: 'Number of photos attached to the review (photos only, videos are not counted)' }
+                        photos:
+                          type: array
+                          description: Photos attached to the review by the reviewer
+                          items:
+                            type: object
+                            properties:
+                              url: { type: string, format: uri }
                   averageRating: { type: number, description: Overall average rating }
                   totalReviewCount: { type: integer, description: Total number of reviews }
                   nextPageToken: { type: [string, "null"], description: Token for next page }
@@ -14249,6 +14316,8 @@ paths:
                     reviewReply:
                       comment: "Thank you for your kind words! We appreciate your support."
                       updateTime: "2024-01-16T08:00:00Z"
+                    photoCount: 0
+                    photos: []
                   - id: "AIe9_BGx0987654321"
                     name: "accounts/123456789/locations/9281089117903930794/reviews/AIe9_BGx0987654321"
                     reviewer:
@@ -14261,6 +14330,8 @@ paths:
                     createTime: "2024-01-10T14:20:00Z"
                     updateTime: "2024-01-10T14:20:00Z"
                     reviewReply: null
+                    photoCount: 0
+                    photos: []
                 averageRating: 4.5
                 totalReviewCount: 125
                 nextPageToken: "CiAKHAoUMTIzNDU2Nzg5"
@@ -18386,7 +18457,8 @@ paths:
         Returns Google Business Profile locations the connected account can access,
         plus the currently selected location. The list is bounded (see hasMore); for
         accounts that own many locations, use the search or filter query params to find
-        a specific one instead of loading them all.
+        a specific one instead of loading them all, or raise limit to enumerate an
+        account with more than 100 locations.
       parameters:
         - name: accountId
           in: path
@@ -18402,6 +18474,11 @@ paths:
           required: false
           schema: { type: string }
           description: Raw Google Business Information API filter expression (advanced; takes precedence over search), e.g. storeCode="LH279411".
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+          description: Max locations to return (default 100, max 500). Raise it to enumerate an account with more than 100 locations; for accounts with thousands, use search/filter instead.
       responses:
         '200':
           description: Locations list
@@ -18439,6 +18516,7 @@ paths:
                     websiteUrl: "https://mybusiness.com"
                 selectedLocationId: "12345678901234567890"
                 cached: true
+        '400': { description: Invalid query parameter (e.g. limit out of range) }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
     put:
@@ -19879,7 +19957,7 @@ paths:
         - name: all
           in: query
           required: false
-          schema: { type: string, enum: ['true'] }
+          schema: { type: string, enum: ['true', 'false'] }
           description: Set to 'true' to list all queues for the profile
       responses:
         '200':
@@ -19936,7 +20014,7 @@ paths:
                         slots: [{ dayOfWeek: 1, time: "18:00" }]
                         active: true
                     count: 2
-        '400': { description: Missing profileId }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Profile not found }
     post:
@@ -20068,7 +20146,8 @@ paths:
       tags: [Queue]
       summary: Delete schedule
       description: |
-        Delete a queue from a profile. Requires queueId to specify which queue to delete.
+        Delete a queue from a profile. Pass queueId to delete a specific queue;
+        omit it to delete all queues for the profile.
         If deleting the default queue, another queue will be promoted to default.
       parameters:
         - name: profileId
@@ -20077,9 +20156,9 @@ paths:
           schema: { type: string }
         - name: queueId
           in: query
-          required: true
+          required: false
           schema: { type: string }
-          description: Queue ID to delete
+          description: Queue ID to delete. Omit to delete all queues for the profile
       responses:
         '200':
           description: Queue schedule deleted
@@ -20090,8 +20169,9 @@ paths:
               example:
                 success: true
                 deleted: true
-        '400': { description: Missing profileId or queueId }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Profile or queue not found }
   /v1/queue/preview:
     get:
       operationId: previewQueue
@@ -21496,15 +21576,26 @@ paths:
                 buttons:
                   type: array
                   maxItems: 3
-                  description: Action buttons. Mutually exclusive with quickReplies. Max 3 items.
+                  description: |
+                    Action buttons. Mutually exclusive with quickReplies. Max 3 items.
+
+                    WhatsApp: buttons always render as interactive reply buttons.
+                    Only `title` and `payload` are used — `type`, `url`, and `phone`
+                    are ignored (WhatsApp has no URL/phone button in this field; use
+                    the `interactive` field with `type: cta_url` for a link button).
+                    `payload` becomes the button reply ID delivered on the
+                    `message.received` webhook when the user taps. To send a simple
+                    reply-button message, provide `title` + `payload` and set
+                    `type: postback`, e.g.
+                    `{ "type": "postback", "title": "Yes", "payload": "yes" }`.
                   items:
                     type: object
                     required: [type, title]
                     properties:
-                      type: { type: string, enum: [url, postback, phone], description: Button type. phone is Facebook only. }
+                      type: { type: string, enum: [url, postback, phone], description: "Button type. phone is Facebook only. Ignored on WhatsApp (buttons always render as reply buttons)." }
                       title: { type: string, maxLength: 20, description: Button label (max 20 chars) }
-                      url: { type: string, description: URL for url-type buttons }
-                      payload: { type: string, description: Payload for postback-type buttons }
+                      url: { type: string, description: URL for url-type buttons (Facebook/Instagram only) }
+                      payload: { type: string, description: "Payload for postback-type buttons. On WhatsApp, this is the reply ID returned on the message.received webhook when the button is tapped." }
                       phone: { type: string, description: Phone number for phone-type buttons (Facebook only) }
                 template:
                   type: object
@@ -23727,6 +23818,13 @@ paths:
                         photoCount:
                           type: integer
                           description: Number of photos attached to the review (photos only; videos are not counted). Google Business only; 0 for other platforms.
+                        photos:
+                          type: array
+                          description: 'Photos attached to the review. Google Business only; always an empty array for other platforms.'
+                          items:
+                            type: object
+                            properties:
+                              url: { type: string, format: uri }
                         reply:
                           type: [object, "null"]
                           properties:
@@ -25270,7 +25368,7 @@ paths:
                     description: { type: string, minLength: 40, maxLength: 4096 }
                     messageFlow: { type: string, minLength: 40, maxLength: 2048, description: "How a recipient ends up receiving your messages (the opt-in flow). Include a link to the page or form where they opt in — carrier reviewers reject campaigns whose consent they can't verify." }
                     sample1: { type: string, minLength: 20 }
-                    sample2: { type: string, minLength: 20, description: Second example message; carriers require two distinct samples, so it must differ from sample1. }
+                    sample2: { type: string, minLength: 20, description: "Second example message; carriers require two distinct samples, so it must differ from sample1." }
                     helpMessage: { type: string, minLength: 20, maxLength: 320 }
                     optinKeywords: { type: string }
                     optinMessage: { type: string, minLength: 20, maxLength: 320 }
@@ -29942,6 +30040,7 @@ paths:
                       limit: { type: integer }
                       skip: { type: integer }
                       hasMore: { type: boolean }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       operationId: createContact
@@ -29998,6 +30097,7 @@ paths:
                       platformIdentifier: { type: string }
                       displayIdentifier: { type: string }
                   warning: { type: string }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409': { description: Duplicate contact }
 
@@ -30052,6 +30152,7 @@ paths:
                         conversationId: { type: string }
                         lastActiveAt: { type: [string, "null"], format: date-time, description: 'Most recent message (either direction) in this channel''s conversation, or null if none.' }
                         createdAt: { type: string, format: date-time }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
@@ -30097,6 +30198,7 @@ paths:
                       isBlocked: { type: boolean }
                       notes: { type: string }
                       updatedAt: { type: string, format: date-time }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
@@ -30108,6 +30210,7 @@ paths:
         - { name: contactId, in: path, required: true, schema: { type: string } }
       responses:
         '200': { description: Contact deleted }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -30142,6 +30245,7 @@ paths:
                         conversationId: { type: string }
                         metadata: { type: object }
                         createdAt: { type: string, format: date-time }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -30188,6 +30292,7 @@ paths:
                   skipped: { type: integer }
                   errors: { type: array, items: { type: object } }
                   total: { type: integer }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /v1/contacts/{contactId}/fields/{slug}:
@@ -30394,6 +30499,7 @@ paths:
                       limit: { type: integer }
                       skip: { type: integer }
                       hasMore: { type: boolean }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       operationId: createBroadcast
@@ -30457,6 +30563,7 @@ paths:
                       accountId: { type: string }
                       status: { type: string }
                       createdAt: { type: string, format: date-time }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /v1/broadcasts/{broadcastId}:
@@ -30700,6 +30807,7 @@ paths:
                       limit: { type: integer }
                       skip: { type: integer }
                       hasMore: { type: boolean }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
@@ -30730,6 +30838,7 @@ paths:
                   success: { type: boolean }
                   added: { type: integer, description: Number of recipients successfully added }
                   skipped: { type: integer, description: Number skipped (duplicates or missing channels) }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -31304,6 +31413,7 @@ paths:
                       limit: { type: integer }
                       skip: { type: integer }
                       hasMore: { type: boolean }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       operationId: createSequence
@@ -31366,6 +31476,7 @@ paths:
                       status: { type: string }
                       stepsCount: { type: integer }
                       createdAt: { type: string, format: date-time }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /v1/sequences/{sequenceId}:
@@ -31410,6 +31521,7 @@ paths:
                       totalExited: { type: integer }
                       createdAt: { type: string, format: date-time }
                       updatedAt: { type: string, format: date-time }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
@@ -31474,6 +31586,7 @@ paths:
                       exitOnReply: { type: boolean }
                       exitOnUnsubscribe: { type: boolean }
                       updatedAt: { type: string, format: date-time }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
@@ -31485,6 +31598,7 @@ paths:
         - { name: sequenceId, in: path, required: true, schema: { type: string } }
       responses:
         '200': { description: Sequence deleted }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -31510,7 +31624,7 @@ paths:
                     properties:
                       id: { type: string }
                       status: { type: string }
-        '400': { description: Invalid status or no steps }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -31536,7 +31650,7 @@ paths:
                     properties:
                       id: { type: string }
                       status: { type: string }
-        '400': { description: Sequence is not active }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -31568,7 +31682,17 @@ paths:
                 properties:
                   success: { type: boolean }
                   enrolled: { type: integer, description: Number of contacts successfully enrolled }
-                  skipped: { type: integer, description: Number skipped (already enrolled or missing channel) }
+                  failed: { type: integer, description: 'Number that failed (already enrolled, or no subscribed channel on the sequence platform)' }
+                  results:
+                    type: array
+                    description: Per-contact outcome
+                    items:
+                      type: object
+                      properties:
+                        contactId: { type: string }
+                        success: { type: boolean }
+                        error: { type: string, description: Present when success is false }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -31583,6 +31707,7 @@ paths:
         - { name: contactId, in: path, required: true, schema: { type: string } }
       responses:
         '200': { description: Contact unenrolled }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -31630,6 +31755,7 @@ paths:
                       limit: { type: integer }
                       skip: { type: integer }
                       hasMore: { type: boolean }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -31694,6 +31820,7 @@ paths:
                             delivered: { type: integer, description: "DMs confirmed delivered (Messenger; IG emits no delivery receipt)." }
                             read: { type: integer, description: "DMs confirmed read (IG messaging_seen / Messenger message_reads)." }
                         createdAt: { type: string, format: date-time }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       operationId: createCommentAutomation
@@ -32130,13 +32257,15 @@ paths:
       tags: [Ad Campaigns]
       summary: Update a campaign
       description: |
-        Campaign-level edits. At least one of `budget` or `bidStrategy` is required.
+        Campaign-level edits. At least one of `budget`, `bidStrategy`, `name` or `platformSpecificData` is required.
 
         - `budget` updates the CBO (Campaign Budget Optimization) budget. For ABO campaigns
           (where the budget lives on the ad set), use PUT /v1/ads/ad-sets/{adSetId} instead — this endpoint
           will return 409 with code BUDGET_LEVEL_MISMATCH.
         - `bidStrategy` sets the campaign-level default bid strategy. Per Meta's spec, `bid_amount` and
           `bid_constraints` do NOT exist at the campaign level — pass them via PUT /v1/ads/ad-sets/{adSetId}.
+        - `platformSpecificData.spendCap` (Meta only) sets the campaign's lifetime spend cap, in the ad
+          account's currency.
 
         Meta-only for now. Other platforms return 501 Not Implemented.
       security:
@@ -32161,7 +32290,15 @@ paths:
                 bidStrategy:
                   allOf: [{ $ref: '#/components/schemas/BidStrategy' }]
                   description: "Campaign-level default. Ad sets inherit this unless they override."
-                name: { type: string, maxLength: 255, description: "Rename the campaign (Meta only; other platforms return 501). At least one of budget/bidStrategy/name is required." }
+                name: { type: string, maxLength: 255, description: "Rename the campaign (Meta only; other platforms return 501). At least one of budget/bidStrategy/name/platformSpecificData is required." }
+                platformSpecificData:
+                  type: object
+                  description: |
+                    Platform-specific campaign settings. The platform is implied by the `platform`
+                    body param (same convention as platformSpecificData on POST /v1/ads/create).
+                    Meta (facebook/instagram) only; other platforms return 400.
+                  properties:
+                    spendCap: { type: [number, "null"], description: "Campaign lifetime spend cap, in the ad account's currency (Meta `spend_cap`). Pass null to remove the cap (0 is rejected by Meta)." }
       responses:
         '200':
           description: Campaign updated
@@ -32174,6 +32311,7 @@ paths:
                   budget: { $ref: '#/components/schemas/AdBudget' }
                   budgetLevel: { type: string, enum: [campaign] }
                   bidStrategy: { $ref: '#/components/schemas/BidStrategy' }
+                  platformSpecificData: { type: object }
         '400': { description: Invalid input }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Campaign not found }
@@ -32293,6 +32431,17 @@ paths:
           carrying over budget / targeting / bid_type / bid_price /
           deep_bid_type / creative fields. Spark Ad linkage (`tiktok_item_id`)
           is preserved.
+        - **LinkedIn** has no native copy primitive; Zernio walks the source
+          CampaignGroup → Campaigns → Creatives and recreates each entity,
+          carrying over `type` / `costType` / `unitCost` /
+          `optimizationTargetType` / `creativeSelection` / `objectiveType` /
+          `format` / `dailyBudget` / `totalBudget` / `targetingCriteria` /
+          `runSchedule` and every Creative's `content` object verbatim.
+          `statusOption: INHERITED_FROM_SOURCE` is evaluated **per entity**:
+          any Group / Campaign / Creative whose source is `ACTIVE` gets its
+          clone activated too. Duplicating an ACTIVE campaign with
+          `INHERITED_FROM_SOURCE` starts a second front of spend the moment
+          the clone activates — the safe default is `PAUSED`.
 
         The new hierarchy is asynchronous to materialize in our DB — we
         trigger sync discovery automatically. Set `syncAfter: false` to
@@ -32311,12 +32460,18 @@ paths:
               type: object
               required: [platform]
               properties:
-                platform: { type: string, enum: [facebook, instagram, tiktok] }
+                platform: { type: string, enum: [facebook, instagram, tiktok, linkedin] }
                 deepCopy: { type: boolean, default: true, description: Copy child ad sets + ads + creatives + targeting }
                 statusOption:
                   type: string
                   enum: [ACTIVE, PAUSED, INHERITED_FROM_SOURCE]
                   default: PAUSED
+                  description: >
+                    ACTIVE = launch the clone immediately (spends the moment
+                    LinkedIn approves it). PAUSED = clone stays DRAFT, safe
+                    default. INHERITED_FROM_SOURCE = mirror each entity's
+                    source status per-entity. Duplicating an ACTIVE
+                    campaign this way starts a second front of spend.
                 startTime: { type: string, format: date-time, description: Reschedule the copied hierarchy's start time }
                 endTime: { type: string, format: date-time }
                 renameStrategy:
@@ -32350,13 +32505,18 @@ paths:
       summary: Update an ad set
       description: |
         Ad-set-level writes. Use this for ABO budget updates, ad-set-scoped
-        pause/resume, and bid-strategy edits. At least one of `budget`,
-        `status`, or `bidStrategy` is required.
+        pause/resume, bid-strategy edits, and Meta-only post-launch delivery
+        settings via `platformSpecificData`. At least one updatable field
+        is required.
 
         Bid strategy compatibility (per Meta's spec):
         - `LOWEST_COST_WITHOUT_CAP`: no `bidAmount`, no `roasAverageFloor`.
         - `LOWEST_COST_WITH_BID_CAP` / `COST_CAP`: `bidAmount` REQUIRED (whole currency units).
         - `LOWEST_COST_WITH_MIN_ROAS`: `roasAverageFloor` REQUIRED (decimal multiplier, e.g. 2.0 = 2.0x ROAS).
+
+        Delivery settings are validated by Meta against the campaign objective;
+        incompatible combinations (e.g. a billingEvent the optimization goal
+        doesn't allow) surface as 400s from Meta.
 
         When updating `budget` on an ABO campaign: if the parent campaign is
         CBO, the response is 409 with code BUDGET_LEVEL_MISMATCH — route to
@@ -32401,6 +32561,28 @@ paths:
                   description: |
                     Minimum ROAS as a decimal multiplier (2.0 = 2.0x). Required when bidStrategy is
                     LOWEST_COST_WITH_MIN_ROAS. Sent to Meta as `bid_constraints.roas_average_floor` × 10000.
+                platformSpecificData:
+                  type: object
+                  description: |
+                    Platform-specific post-launch delivery settings. The platform is implied by the
+                    `platform` body param. Meta only; other platforms return 400. Unknown keys are rejected.
+                  properties:
+                    optimizationGoal: { type: string, description: "Meta ad-set optimization_goal (e.g. OFFSITE_CONVERSIONS, LANDING_PAGE_VIEWS)." }
+                    billingEvent: { type: string, description: "Meta ad-set billing_event (e.g. IMPRESSIONS, LINK_CLICKS, THRUPLAY)." }
+                    startDate: { type: string, description: "Ad set start_time (ISO 8601)." }
+                    endDate: { type: string, description: "Ad set end_time (ISO 8601)." }
+                    promotedObject:
+                      type: object
+                      description: "Meta ad-set promoted_object, forwarded verbatim (same shape as /v1/ads/create)."
+                      properties:
+                        pixelId: { type: string }
+                        customEventType: { type: string }
+                        pageId: { type: string }
+                        applicationId: { type: string }
+                        objectStoreUrl: { type: string }
+                        customConversionId: { type: string }
+                        productCatalogId: { type: string }
+                        productSetId: { type: string }
       responses:
         '200':
           description: Ad set updated
@@ -32417,6 +32599,7 @@ paths:
                   bidStrategy: { $ref: '#/components/schemas/BidStrategy' }
                   bidAmount: { type: [number, "null"] }
                   roasAverageFloor: { type: [number, "null"] }
+                  platformSpecificData: { type: object }
         '400': { description: Invalid input }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Ad set not found }
@@ -33192,7 +33375,7 @@ paths:
                         timezoneOffsetHoursUtc: { type: number, description: "Signed UTC offset in hours, reflecting current DST (Meta only)." }
                         minimumDailyBudget: { type: number, description: "Meta only. Minimum daily budget for the account, in the account currency's major units. This is the impressions-billed minimum; other billing events have higher minimums. Absent when the connected token cannot read it." }
                         selectable: { type: boolean, description: "Meta only. Whether the account can create/run ads now. Absent (treat as true) on non-Meta platforms." }
-                        unusableReason: { type: string, nullable: true, description: "Meta only. Human-readable reason when selectable is false; null when selectable." }
+                        unusableReason: { type: [string, "null"], description: "Meta only. Human-readable reason when selectable is false; null when selectable." }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422':
           description: Platform ads connection required (TikTok Ads, X Ads) or Instagram missing linked Facebook account
@@ -33358,10 +33541,69 @@ paths:
                     endDate: { type: string, format: date-time, description: Required for lifetime budgets }
                 targeting:
                   type: object
+                  description: |
+                    Same geo/demographic fields as the `TargetingSpec` used by /v1/ads/create.
+                    Geo keys (`regions`/`cities`/`zips`/`metros`) resolve via
+                    GET /v1/ads/targeting/search?dimension=geo. City radius and lat/lng
+                    `customLocations` are Meta-only and preserve the boosted post's
+                    social proof (the ad references the existing post).
                   properties:
                     ageMin: { type: integer, minimum: 13, maximum: 65 }
                     ageMax: { type: integer, minimum: 13, maximum: 65 }
+                    gender: { type: string, enum: [all, male, female], description: "Meta only." }
+                    languages: { type: array, items: { type: string }, description: "Meta locale ids (numeric), passed through as given." }
                     countries: { type: array, items: { type: string }, description: "ISO country codes. Required for TikTok boosts (TikTok's ad group requires location_ids); optional on other platforms." }
+                    regions:
+                      type: array
+                      description: "Region/state targeting. `key` from /v1/ads/targeting/search?dimension=geo&geoType=region."
+                      items:
+                        type: object
+                        required: [key]
+                        properties:
+                          key: { type: string }
+                          name: { type: string }
+                    cities:
+                      type: array
+                      description: "City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits (both set together, Meta only)."
+                      items:
+                        type: object
+                        required: [key]
+                        properties:
+                          key: { type: string }
+                          name: { type: string }
+                          radius: { type: number, description: "Requires distanceUnit. Meta enforces a minimum city radius (~17 km / 10 mi); smaller values resolve to a 0-size audience and the ad fails at launch. For a tighter catchment use customLocations (lat/lng)." }
+                          distanceUnit: { type: string, enum: [mile, kilometer] }
+                    zips:
+                      type: array
+                      description: "Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`)."
+                      items:
+                        type: object
+                        required: [key]
+                        properties:
+                          key: { type: string }
+                          name: { type: string }
+                    metros:
+                      type: array
+                      description: "DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`)."
+                      items:
+                        type: object
+                        required: [key]
+                        properties:
+                          key: { type: string }
+                          name: { type: string }
+                    customLocations:
+                      type: array
+                      description: "Point-radius (lat/lng) targeting (Meta custom_locations). No geo `key` lookup needed."
+                      items:
+                        type: object
+                        required: [latitude, longitude, radius, distanceUnit]
+                        properties:
+                          latitude: { type: number, minimum: -90, maximum: 90 }
+                          longitude: { type: number, minimum: -180, maximum: 180 }
+                          radius: { type: number }
+                          distanceUnit: { type: string, enum: [mile, kilometer] }
+                          name: { type: string }
+                          address: { type: string, description: "Optional label, sent to Meta as `address_string`." }
                     interests:
                       type: array
                       description: "Interest objects from /v1/ads/interests. Each must include id and name."
@@ -33372,6 +33614,15 @@ paths:
                           id: { type: string }
                           name: { type: string }
                     advantage_audience: { type: integer, enum: [0, 1], description: "Meta only. 0 = disabled (default), 1 = enabled." }
+                rawTargeting:
+                  type: object
+                  additionalProperties: true
+                  description: |
+                    Meta only. A verbatim Meta-native targeting spec (e.g.
+                    `{ "geo_locations": { "cities": [{ "key": "...", "radius": 15, "distance_unit": "kilometer" }] } }`),
+                    forwarded unchanged. Mutually exclusive with `targeting` (sending both is a 400).
+                    Use for advanced fields the structured object does not expose (flexible_spec,
+                    excluded audiences, business places).
                 bidStrategy:
                   allOf: [{ $ref: '#/components/schemas/BidStrategy' }]
                   description: |
@@ -33561,6 +33812,7 @@ paths:
                     - `job_applicants` requires a `platformSpecificData.jobs` creative.
                     - For `lead_generation` or `conversions` on LinkedIn, or to promote an existing post, use POST /v1/ads/boost.
                 optimizationGoal: { type: string, description: "Meta only. Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations." }
+                billingEvent: { type: string, description: "Meta only. Explicit ad-set `billing_event`. Defaults to `IMPRESSIONS`. Forwarded verbatim to Meta, which validates compatibility with the optimization goal." }
                 budgetAmount: { type: number, description: "Required on legacy + multi-creative shapes. Inherited on attach." }
                 budgetType: { type: string, enum: [daily, lifetime], description: "Required on legacy + multi-creative shapes. Inherited on attach." }
                 status:
@@ -33650,21 +33902,30 @@ paths:
                     to build N full ads sharing one ad set: create the first ad
                     via the normal shape, then attach the rest one call each.
 
-                    Supported on Meta (facebook, instagram) and TikTok. On TikTok
-                    the `adSetId` is the ad group ID; the new ad inherits the
-                    ad group's bid + budget + targeting.
+                    Supported on Meta (facebook, instagram), TikTok, and
+                    LinkedIn. On TikTok the `adSetId` is the ad group ID; the
+                    new ad inherits the ad group's bid + budget + targeting.
+                    On LinkedIn the `adSetId` is the LinkedIn Campaign ID
+                    (numeric); we attach a new Creative to that Campaign, so
+                    the Campaign's `platformSpecificData` bidding, targeting,
+                    budget and schedule are inherited (passing those fields
+                    returns 400).
                 existingCampaignId:
                   type: string
                   description: |
-                    Meta only. Add the new ad set under this EXISTING campaign
-                    instead of creating a new one (multi-ad-set audience testing).
-                    The new ad set's budget is matched to the campaign's mode
-                    automatically: for a CBO campaign (campaign-level budget) omit
-                    `budgetAmount`/`budgetType` — the campaign owns the budget; for
-                    an ABO campaign pass them (they go on the new ad set). On
-                    failure only the new ad set is cleaned up; the existing campaign
-                    is left untouched and is never (re)activated. Mutually exclusive
-                    with `adSetId` and `creatives[]`.
+                    Meta + LinkedIn. On Meta: add the new ad set under this
+                    EXISTING campaign instead of creating a new one
+                    (multi-ad-set audience testing). The new ad set's budget
+                    is matched to the campaign's mode automatically: for a
+                    CBO campaign (campaign-level budget) omit
+                    `budgetAmount`/`budgetType` — the campaign owns the
+                    budget; for an ABO campaign pass them (they go on the new
+                    ad set). On LinkedIn: create a new Campaign (and its
+                    Creative) under this EXISTING CampaignGroup. On failure
+                    only the entities we authored are cleaned up; the
+                    pre-existing parent is left untouched and is never
+                    (re)activated. Mutually exclusive with `adSetId` and
+                    `creatives[]`.
                 existingCreativeId:
                   type: string
                   description: |
@@ -33678,7 +33939,16 @@ paths:
                 businessName: { type: string, maxLength: 25, description: "Google Display only" }
                 boardId: { type: string, description: "Pinterest only. Board ID (auto-creates if not provided)." }
                 organizationId: { type: string, description: "LinkedIn only. The Company Page that authors the Direct Sponsored Content (\"dark\") post backing the ad — accepts a numeric organization ID or a full `urn:li:organization:N` URN. Required unless the resolved `accountId` is a connected LinkedIn Company-Page account (defaults to that page) or the LinkedIn ad account is org-owned (defaults to the account's owning organization). The authenticated member must be an ADMINISTRATOR or DIRECT_SPONSORED_CONTENT_POSTER of this page (and the page must be associated with the ad account), or LinkedIn returns 403. Ignored by every other platform." }
-                countries: { type: array, items: { type: string }, description: "ISO 3166-1 alpha-2 country codes (e.g. ['NL']). Defaults to ['US'] when no `cities` or `regions` are provided. (LinkedIn currently honours country-level targeting only.)" }
+                targeting:
+                  description: |
+                    Nested targeting object — the same TargetingSpec shape as `POST /v1/ads/boost`,
+                    `POST /v1/ads/targeting/reach-estimate`, and `saved_targeting` audiences. Merged
+                    UNDER the flat inline targeting fields below: `savedTargetingId` < `targeting` <
+                    flat fields (a flat field present on the body replaces the nested value entirely).
+                    Both forms are equivalent; use whichever your integration already builds.
+                  allOf:
+                    - $ref: '#/components/schemas/TargetingSpec'
+                countries: { type: array, items: { type: string }, description: "ISO 3166-1 alpha-2 country codes (e.g. ['NL']). Defaults to ['US'] when no other geo targeting (flat or nested `targeting`) is provided. (LinkedIn currently honours country-level targeting only.)" }
                 cities:
                   type: array
                   description: |
@@ -33690,7 +33960,7 @@ paths:
                     required: [key]
                     properties:
                       key: { type: string, description: "Meta city ID, from /v1/ads/targeting/search results." }
-                      radius: { type: number, description: "Optional radius around the city. Must be set together with distance_unit." }
+                      radius: { type: number, description: "Optional radius around the city. Must be set together with distance_unit. Meta enforces a minimum city radius (~17 km / 10 mi); smaller values resolve to a 0-size audience and the ad fails at launch. For a tighter catchment use customLocations (lat/lng)." }
                       distance_unit: { type: string, enum: [mile, kilometer], description: "Unit for radius. Required if radius is set." }
                 regions:
                   type: array
@@ -33759,7 +34029,7 @@ paths:
                     Normalized household-income tier. Meta and TikTok express all four; Google maps only
                     `top_10`; rejected on LinkedIn, X, and Pinterest. On Meta, income targeting is incompatible
                     with housing/employment/credit `specialAdCategories`.
-                languages: { type: array, items: { type: string }, description: "Language codes (e.g. ['en']). Restricts the audience by language." }
+                languages: { type: array, items: { type: string }, description: "Language codes restricting the audience by language. On Meta, ISO 639-1 codes (e.g. ['en'], ['de']); a bare code targets all regional variants (\"en\" = all English), or use a region-qualified code for a specific one (\"en_GB\", \"pt_BR\", \"zh_TW\"). Unknown codes are rejected. Other ad platforms use their own language-code systems." }
                 placements:
                   type: object
                   description: |
@@ -35081,7 +35351,7 @@ paths:
                   numReceived: { type: integer }
                   numInvalid: { type: integer }
         '400':
-          description: Invalid input (empty users array, missing email/phone)
+          description: Invalid input (malformed audienceId, empty users array, missing email/phone)
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
@@ -36385,6 +36655,10 @@ paths:
                     TargetingGeoLocationCity. `key` is Meta's city ID
                     (lookupable via GET /v1/ads/targeting/search). `radius`
                     and `distance_unit` are coupled: set both or neither.
+                    Meta enforces a minimum city radius (~17 km / 10 mi);
+                    smaller values resolve to a 0-size audience and the ad
+                    fails at launch. For a tighter catchment use customLocations
+                    (lat/lng).
                   items:
                     type: object
                     required: [key]

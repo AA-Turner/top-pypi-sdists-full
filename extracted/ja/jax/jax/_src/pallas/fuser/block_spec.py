@@ -168,6 +168,7 @@ class PullRuleContext:
   scalar_prefetch_handler: Any | None
   grid_len: int | None
   strict_mode: bool = True
+  invars: tuple[core.Atom, ...] | None = None
 
 
 @dataclasses.dataclass
@@ -519,6 +520,7 @@ def _pull_block_transform(
         scalar_prefetch_handler=scalar_prefetch_handler,
         grid_len=grid_len,
         strict_mode=strict_mode,
+        invars=tuple(eqn.invars),
     )
     if eqn.primitive.multiple_results:
       in_block_transforms = rule(ctx, eqn_out_block_transforms, **eqn.params)
@@ -1074,6 +1076,7 @@ register_binop_rule(lax.ge_p)
 register_binop_rule(lax.or_p)
 register_binop_rule(lax.xor_p)
 register_binop_rule(lax.and_p)
+register_binop_rule(lax.ne_p)
 register_binop_rule(lax.shift_right_logical_p)
 register_binop_rule(ad_util.add_any_p)
 register_binop_rule(lax.pow_p)
@@ -1093,6 +1096,29 @@ def _select_n_pull_block_spec_rule(
   if in_aval.shape:
     return [block_transform] * len(ctx.avals_in)
   return [no_block_index_transform, *[block_transform] * (len(ctx.avals_in) - 1)]
+
+
+@register_eval_rule(lax.clamp_p)
+def _clamp_eval_rule(
+    ctx: KernelEvalContext, min: jax.Array, x: jax.Array, max: jax.Array
+):
+  return jax.lax.clamp(min, x, max)
+
+
+@register_pull_block_spec_rule(lax.clamp_p)
+def _clamp_pull_block_spec_rule(
+    ctx: PullRuleContext, block_transform: BlockIndexTransform,
+) -> Sequence[BlockIndexTransform]:
+  min_aval, _, max_aval = ctx.avals_in
+  assert hasattr(min_aval, 'shape')
+  assert hasattr(max_aval, 'shape')
+  min_block_transform = (
+      block_transform if min_aval.shape else no_block_index_transform
+  )
+  max_block_transform = (
+      block_transform if max_aval.shape else no_block_index_transform
+  )
+  return [min_block_transform, block_transform, max_block_transform]
 
 
 @register_eval_rule(lax.squeeze_p)
@@ -1178,7 +1204,7 @@ def _offset_indexer(
     case pallas_core.BoundedSlice(block_size):
       assert isinstance(indexer, indexing.Slice)
       _maybe_static_check(
-          indexer.start % block_size == 0,
+          slice_start % block_size == 0,
           f'slice_start is not a multiple of block_size {block_size}',
       )
       _maybe_static_check(
@@ -1284,13 +1310,38 @@ def _dynamic_slice_rule(
     *,
     slice_sizes: tuple[int, ...],
 ):
+  operand_aval = ctx.avals_in[0]
+  operand_shape = operand_aval.shape
+
+  static_clamped_starts = None
 
   def new_block_index_transform(*idxs):
-    slice_starts = ctx.scalar_prefetch_fn()
-    if len(slice_starts) != len(block_transform.block_shape):
+    nonlocal static_clamped_starts
+    if ctx.scalar_prefetch_fn is not None:
+      slice_starts = ctx.scalar_prefetch_fn()
+      clamped_starts = tuple(
+          jnp.clip(start, 0, op_dim - size)
+          for start, op_dim, size in zip(
+              slice_starts, operand_shape, slice_sizes, strict=True
+          )
+      )
+    else:
+      if static_clamped_starts is None:
+        assert ctx.invars is not None
+        assert all(isinstance(v, core.Literal) for v in ctx.invars[1:])
+        slice_starts = tuple(v.val for v in ctx.invars[1:])
+        static_clamped_starts = tuple(
+            int(np.clip(np.asarray(start), 0, op_dim - size))
+            for start, op_dim, size in zip(
+                slice_starts, operand_shape, slice_sizes, strict=True
+            )
+        )
+      clamped_starts = static_clamped_starts
+
+    if len(clamped_starts) != len(block_transform.block_shape):
       raise ValueError(
           f'Expected {len(block_transform.block_shape)} slice starts, got'
-          f' {len(slice_starts)}'
+          f' {len(clamped_starts)}'
       )
     idx = block_transform.block_index_transform(*idxs)
     assert len(idx) == len(block_transform.block_shape)
@@ -1309,7 +1360,11 @@ def _dynamic_slice_rule(
     block_indices = tuple(
         _offset_indexer(s, i, start, size)
         for i, s, start, size in zip(
-            idx, block_transform.block_shape, slice_starts, slice_sizes, strict=True
+            idx,
+            block_transform.block_shape,
+            clamped_starts,
+            slice_sizes,
+            strict=True,
         )
     )
     return block_indices
@@ -1318,6 +1373,10 @@ def _dynamic_slice_rule(
       block_index_transform=new_block_index_transform,
   )
   return [new_block_transform] + [no_block_index_transform] * (len(ctx.avals_in) - 1)
+
+
+# TODO(ivyzheng): Add support for dynamic_slice_update when we have a valid use
+# case.
 
 
 @register_pull_block_spec_rule(lax.dot_general_p)
@@ -2326,17 +2385,17 @@ def _reduce_sum_eval_rule(
 
 @register_usage_rule(pjit.jit_p)
 def _jit_usage_rule(
-    ctx, used_out: list[set[Usage]], *, jaxpr: core.ClosedJaxpr, **_
+    ctx, used_out: list[set[Usage]], *, jaxpr: core.Jaxpr, **_
 ):
   del ctx
-  read_usage_env = compute_usage(jaxpr.jaxpr, used_out)
-  in_usages = util.safe_map(read_usage_env, jaxpr.jaxpr.invars)
+  read_usage_env = compute_usage(jaxpr, used_out)
+  in_usages = util.safe_map(read_usage_env, jaxpr.invars)
   return in_usages
 
 
 @register_eval_rule(pjit.jit_p)
 def _jit_eval_rule(ctx: KernelEvalContext, *args, jaxpr, **kwargs):
-  jaxpr, consts = jaxpr.jaxpr, jaxpr.consts
+  jaxpr, consts = jaxpr, jaxpr.consts
   if consts:
     raise NotImplementedError('pjit with consts not supported yet')
   out_tree = tree_util.tree_structure(tuple(jaxpr.outvars))
@@ -2371,7 +2430,7 @@ def _jit_pull_block_spec_rule(
     ctx: PullRuleContext, out_block_specs, *, jaxpr, **kwargs
 ):
   del kwargs
-  jaxpr, consts = jaxpr.jaxpr, jaxpr.consts
+  jaxpr, consts = jaxpr, jaxpr.consts
   if consts:
     raise NotImplementedError('pjit with consts not supported yet')
 
@@ -2391,19 +2450,19 @@ def _jit_pull_block_spec_rule(
 
 @register_usage_rule(custom_derivatives.custom_jvp_call_p)
 def _custom_jvp_call_usage_rule(
-    ctx, used_out: list[set[Usage]], *, call_jaxpr: core.ClosedJaxpr, **_
+    ctx, used_out: list[set[Usage]], *, call_jaxpr: core.Jaxpr, **_
 ):
   del ctx
-  read_usage_env = compute_usage(call_jaxpr.jaxpr, used_out)
-  in_usages = util.safe_map(read_usage_env, call_jaxpr.jaxpr.invars)
+  read_usage_env = compute_usage(call_jaxpr, used_out)
+  in_usages = util.safe_map(read_usage_env, call_jaxpr.invars)
   return in_usages
 
 
 @register_eval_rule(custom_derivatives.custom_jvp_call_p)
 def _custom_jvp_call_eval_rule(
-    ctx: KernelEvalContext, *args, call_jaxpr: core.ClosedJaxpr, **kwargs
+    ctx: KernelEvalContext, *args, call_jaxpr: core.Jaxpr, **kwargs
 ):
-  jaxpr, consts = call_jaxpr.jaxpr, call_jaxpr.consts
+  jaxpr, consts = call_jaxpr, call_jaxpr.consts
   if consts:
     raise NotImplementedError('custom_jvp_call with consts not supported yet')
   out_tree = tree_util.tree_structure(tuple(jaxpr.outvars))
@@ -2438,7 +2497,7 @@ def _custom_jvp_call_pull_block_spec_rule(
     ctx: PullRuleContext, out_block_specs, *, call_jaxpr, **kwargs
 ):
   del kwargs
-  jaxpr, consts = call_jaxpr.jaxpr, call_jaxpr.consts
+  jaxpr, consts = call_jaxpr, call_jaxpr.consts
   if consts:
     raise NotImplementedError('custom_jvp_call with consts not supported yet')
 
@@ -2458,19 +2517,19 @@ def _custom_jvp_call_pull_block_spec_rule(
 
 @register_usage_rule(custom_derivatives.custom_vjp_call_p)
 def _custom_vjp_call_usage_rule(
-    ctx, used_out: list[set[Usage]], *, call_jaxpr: core.ClosedJaxpr, **_
+    ctx, used_out: list[set[Usage]], *, call_jaxpr: core.Jaxpr, **_
 ):
   del ctx
-  read_usage_env = compute_usage(call_jaxpr.jaxpr, used_out)
-  in_usages = util.safe_map(read_usage_env, call_jaxpr.jaxpr.invars)
+  read_usage_env = compute_usage(call_jaxpr, used_out)
+  in_usages = util.safe_map(read_usage_env, call_jaxpr.invars)
   return in_usages
 
 
 @register_eval_rule(custom_derivatives.custom_vjp_call_p)
 def _custom_vjp_call_eval_rule(
-    ctx: KernelEvalContext, *args, call_jaxpr: core.ClosedJaxpr, **kwargs
+    ctx: KernelEvalContext, *args, call_jaxpr: core.Jaxpr, **kwargs
 ):
-  jaxpr, consts = call_jaxpr.jaxpr, call_jaxpr.consts
+  jaxpr, consts = call_jaxpr, call_jaxpr.consts
   if consts:
     raise NotImplementedError('custom_vjp_call with consts not supported yet')
   out_tree = tree_util.tree_structure(tuple(jaxpr.outvars))
@@ -2505,7 +2564,7 @@ def _custom_vjp_call_pull_block_spec_rule(
     ctx: PullRuleContext, out_block_specs, *, call_jaxpr, **kwargs
 ):
   del kwargs
-  jaxpr, consts = call_jaxpr.jaxpr, call_jaxpr.consts
+  jaxpr, consts = call_jaxpr, call_jaxpr.consts
   if consts:
     raise NotImplementedError('custom_vjp_call with consts not supported yet')
 
@@ -2696,6 +2755,7 @@ register_binop_push_rule(lax.lt_p)
 register_binop_push_rule(lax.eq_p)
 register_binop_push_rule(lax.gt_p)
 register_binop_push_rule(lax.and_p)
+register_binop_push_rule(lax.ne_p)
 register_binop_push_rule(lax.pow_p)
 register_binop_push_rule(ad_util.add_any_p)
 
@@ -2762,6 +2822,27 @@ def _select_n_push_rule(
   return block_spec
 
 
+@register_push_block_spec_rule(lax.clamp_p)
+def _clamp_push_rule(
+    ctx: PushRuleContext,
+    min_block_spec: pallas_core.BlockSpec | pallas_core.NoBlockSpec,
+    x_block_spec: pallas_core.BlockSpec | pallas_core.NoBlockSpec,
+    max_block_spec: pallas_core.BlockSpec | pallas_core.NoBlockSpec,
+):
+  del ctx
+  if (
+      min_block_spec is not pallas_core.no_block_spec and
+      min_block_spec is not x_block_spec
+  ) or (
+      max_block_spec is not pallas_core.no_block_spec and
+      max_block_spec is not x_block_spec
+  ):
+    raise NotImplementedError(
+        'clamp with multiple differing inputs not supported yet.'
+    )
+  return x_block_spec
+
+
 @register_push_block_spec_rule(lax.dot_general_p)
 def _dot_general_push_rule(
     ctx: PushRuleContext,
@@ -2776,17 +2857,17 @@ def _dot_general_push_rule(
 
 @register_push_block_spec_rule(custom_derivatives.custom_jvp_call_p)
 def _custom_jvp_call_push_rule(
-    ctx, *block_specs, call_jaxpr: core.ClosedJaxpr, **_
+    ctx, *block_specs, call_jaxpr: core.Jaxpr, **_
 ):
   assert not call_jaxpr.consts
-  return _push_block_spec_jaxpr(call_jaxpr.jaxpr, *block_specs)
+  return _push_block_spec_jaxpr(call_jaxpr, *block_specs)
 
 
 @register_push_block_spec_rule(custom_derivatives.custom_vjp_call_p)
 def _custom_vjp_call_push_rule(
     ctx,
     *block_specs,
-    call_jaxpr: core.ClosedJaxpr,
+    call_jaxpr: core.Jaxpr,
     num_consts,
     fwd_jaxpr_thunk,
     bwd,
@@ -2794,7 +2875,7 @@ def _custom_vjp_call_push_rule(
     symbolic_zeros,
 ):
   del ctx, num_consts, fwd_jaxpr_thunk, bwd, out_trees, symbolic_zeros
-  return _push_block_spec_jaxpr(call_jaxpr.jaxpr, *block_specs)
+  return _push_block_spec_jaxpr(call_jaxpr, *block_specs)
 
 @register_push_block_spec_rule(hijax.call_hi_primitive_p)
 def _custom_call_hi_primitive_push_block_spec_rule(
@@ -2804,9 +2885,9 @@ def _custom_call_hi_primitive_push_block_spec_rule(
 
 
 @register_push_block_spec_rule(pjit.jit_p)
-def _pjit_push_rule(ctx, *block_specs, jaxpr: core.ClosedJaxpr, **_):
+def _pjit_push_rule(ctx, *block_specs, jaxpr: core.Jaxpr, **_):
   assert not jaxpr.consts
-  return _push_block_spec_jaxpr(jaxpr.jaxpr, *block_specs)
+  return _push_block_spec_jaxpr(jaxpr, *block_specs)
 
 
 def register_eltwise_rule(prim: core.Primitive):
@@ -2829,7 +2910,9 @@ register_eltwise_rule(lax.rsqrt_p)
 register_eltwise_rule(lax.square_p)
 register_eltwise_rule(lax.log_p)
 register_eltwise_rule(lax.integer_pow_p)
+register_eltwise_rule(lax.abs_p)
 register_eltwise_rule(lax.logistic_p)
+register_eltwise_rule(lax.round_p)
 register_eltwise_rule(pallas_primitives.multiple_of_p)
 
 

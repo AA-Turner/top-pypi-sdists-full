@@ -21,6 +21,7 @@ pub(crate) struct ConnectAsUser {
     pub(crate) domain: Option<String>,
     pub connect_database: Option<String>,
     pub distinguished_name: Option<String>,
+    pub(crate) totp: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]

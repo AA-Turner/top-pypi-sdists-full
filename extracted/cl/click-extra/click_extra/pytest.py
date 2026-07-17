@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from click_extra.parameters import missing_extra_message
+from .parameters import missing_extra_message
 
 try:
     import pytest
@@ -32,8 +32,9 @@ import click
 import cloup
 from extra_platforms import is_windows
 
-from click_extra.decorators import argument, command, group, option
-from click_extra.testing import (
+from .decorators import argument, command, group, option
+from .envvar import temporary_env
+from .testing import (
     CliRunner,
     RegexLineMismatch,
     regex_fullmatch_line_by_line,
@@ -41,6 +42,7 @@ from click_extra.testing import (
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from pathlib import Path
     from typing import Any
 
@@ -59,32 +61,78 @@ def runner():
     caller's ``HOME``: hermetic builders set ``HOME=/homeless-shelter``, which
     would otherwise leak into those assertions.
 
-    The environment is patched directly rather than through the ``monkeypatch``
-    fixture on purpose: depending on ``monkeypatch`` here would tear it down
-    *after* ``isolated_filesystem`` removed the working directory it tries
-    to restore, breaking unrelated tests that ``chdir`` within the runner.
+    The environment is patched directly (via
+    :func:`~click_extra.envvar.temporary_env`) rather than through the
+    ``monkeypatch`` fixture on purpose: depending on ``monkeypatch`` here would
+    tear it down *after* ``isolated_filesystem`` removed the working directory
+    it tries to restore, breaking unrelated tests that ``chdir`` within the
+    runner.
     """
     home_vars = ("HOME", "USERPROFILE", "XDG_CONFIG_HOME", "APPDATA", "LOCALAPPDATA")
     runner = CliRunner()
     with runner.isolated_filesystem():
         home = os.path.join(os.getcwd(), "home")
         os.mkdir(home)
-        saved = {var: os.environ.get(var) for var in home_vars}
-        os.environ.update(dict.fromkeys(home_vars, home))
-        try:
+        with temporary_env(dict.fromkeys(home_vars, home)):
             yield runner
-        finally:
-            for var, value in saved.items():
-                if value is None:
-                    os.environ.pop(var, None)
-                else:
-                    os.environ[var] = value
 
 
 @pytest.fixture
 def invoke(runner):
     """Invoke fixture shorthand for :meth:`click_extra.testing.CliRunner.invoke`."""
     return runner.invoke
+
+
+@pytest.fixture
+def isolated_app_dir(monkeypatch, tmp_path):
+    """Repoint configuration-file discovery at a fresh, empty directory.
+
+    The default ``--config`` search pattern derives from
+    :func:`click.get_app_dir`, which resolves to the *host* configuration
+    folder (``~/Library/Application Support/<app>`` on macOS,
+    ``~/.config/<app>`` on Unix, ``%APPDATA%\\<app>`` on Windows). Any
+    configuration file living there bleeds into every in-process CLI
+    invocation, making a test suite pass or fail depending on the developer's
+    personal configuration.
+
+    This fixture repoints ``get_app_dir`` (both ``click``'s and the reference
+    bound into click-extra's config machinery) at a per-test temporary
+    directory, whatever application name is requested. It returns that
+    directory, so a test can also plant a configuration file in it to
+    exercise the default discovery against a controlled file.
+
+    An explicit ``--config <path>`` bypasses the default search pattern and is
+    left unaffected.
+
+    .. note::
+        The :func:`runner` fixture pins ``HOME`` and its platform equivalents
+        inside an isolated filesystem, which also redirects the discovery
+        paths built from the home directory — but only for tests requesting
+        that fixture. This one intercepts ``get_app_dir`` directly, covering
+        any in-process invocation, without touching ``HOME`` (a suite may need
+        the real one elsewhere) and without leaking into subprocesses.
+
+    To make a whole suite hermetic, alias it to an ``autouse`` fixture in your
+    ``conftest.py``:
+
+    .. code-block:: python
+
+        import pytest
+
+
+        @pytest.fixture(autouse=True)
+        def isolate_user_config(isolated_app_dir):
+            return isolated_app_dir
+    """
+    app_dir = tmp_path / "app-dir"
+    app_dir.mkdir()
+
+    def patched_app_dir(*args, **kwargs) -> str:
+        return str(app_dir)
+
+    monkeypatch.setattr(click, "get_app_dir", patched_app_dir)
+    monkeypatch.setattr("click_extra.config.option.get_app_dir", patched_app_dir)
+    return app_dir
 
 
 skip_naked = pytest.mark.skip(reason="Naked decorator not supported.")
@@ -94,6 +142,38 @@ skip_naked = pytest.mark.skip(reason="Naked decorator not supported.")
     `Cloup does not yet support decorators without parenthesis
     <https://github.com/janluke/cloup/issues/127>`_.
 """
+
+
+def _expand_decorator_params(
+    matrix: Iterable[tuple[Any, str, str]],
+    *,
+    with_parenthesis: bool,
+    with_types: bool,
+) -> tuple[ParameterSet, ...]:
+    """Expand ``(decorator, framework, kind)`` triples into pytest parameters.
+
+    Each triple yields the naked variant, then (``with_parenthesis``) the
+    parenthesized one. Parameter IDs are ``<framework>.<kind>`` and
+    ``<framework>.<kind>()``. Naked Cloup decorators carry the
+    :data:`skip_naked` mark, since Cloup does not support the
+    parenthesis-less form. With ``with_types``, each parameter also carries
+    its ``{framework-tag, kind}`` descriptor set (the ``click_extra``
+    framework is tagged ``extra``).
+    """
+    params: list[ParameterSet] = []
+    for deco, framework, kind in matrix:
+        tags = {framework.removeprefix("click_"), kind}
+        variants: list[tuple[Any, str, tuple | MarkDecorator]] = [
+            (deco, f"{framework}.{kind}", skip_naked if framework == "cloup" else ()),
+        ]
+        if with_parenthesis:
+            variants.append((deco(), f"{framework}.{kind}()", ()))
+        for variant, label, marks in variants:
+            args: list[Any] = [variant]
+            if with_types:
+                args.append(tags)
+            params.append(pytest.param(*args, id=label, marks=marks))
+    return tuple(params)
 
 
 def command_decorators(
@@ -122,56 +202,26 @@ def command_decorators(
         - ``click_extra.group``
         - ``click_extra.group()``
     """
-    params: list[tuple[Any, set[str], str, tuple | MarkDecorator]] = []
-
-    if no_commands is False:
-        if not no_click:
-            params.append((click.command, {"click", "command"}, "click.command", ()))
-            if with_parenthesis:
-                params.append(
-                    (click.command(), {"click", "command"}, "click.command()", ()),
-                )
-
-        if not no_cloup:
-            params.append(
-                (cloup.command, {"cloup", "command"}, "cloup.command", skip_naked),
-            )
-            if with_parenthesis:
-                params.append(
-                    (cloup.command(), {"cloup", "command"}, "cloup.command()", ()),
-                )
-
-        if not no_extra:
-            params.append((command, {"extra", "command"}, "click_extra.command", ()))
-            if with_parenthesis:
-                params.append(
-                    (command(), {"extra", "command"}, "click_extra.command()", ()),
-                )
-
-    if not no_groups:
-        if not no_click:
-            params.append((click.group, {"click", "group"}, "click.group", ()))
-            if with_parenthesis:
-                params.append((click.group(), {"click", "group"}, "click.group()", ()))
-
-        if not no_cloup:
-            params.append((cloup.group, {"cloup", "group"}, "cloup.group", skip_naked))
-            if with_parenthesis:
-                params.append((cloup.group(), {"cloup", "group"}, "cloup.group()", ()))
-
-        if not no_extra:
-            params.append((group, {"extra", "group"}, "click_extra.group", ()))
-            if with_parenthesis:
-                params.append((group(), {"extra", "group"}, "click_extra.group()", ()))
-
-    decorator_params = []
-    for deco, deco_type, label, marks in params:
-        args = [deco]
-        if with_types:
-            args.append(deco_type)
-        decorator_params.append(pytest.param(*args, id=label, marks=marks))
-
-    return tuple(decorator_params)
+    # The decorator cells are typed ``Any``: mypy cannot join Click's overloaded
+    # callables with Click Extra's decorator protocols into one iterable type.
+    kind_rows: tuple[tuple[str, bool, tuple[Any, Any, Any]], ...] = (
+        ("command", no_commands, (click.command, cloup.command, command)),
+        ("group", no_groups, (click.group, cloup.group, group)),
+    )
+    matrix: list[tuple[Any, str, str]] = []
+    for kind, skip_kind, decorators in kind_rows:
+        if skip_kind:
+            continue
+        for deco, framework, skip_framework in zip(
+            decorators,
+            ("click", "cloup", "click_extra"),
+            (no_click, no_cloup, no_extra),
+        ):
+            if not skip_framework:
+                matrix.append((deco, framework, kind))
+    return _expand_decorator_params(
+        matrix, with_parenthesis=with_parenthesis, with_types=with_types
+    )
 
 
 def option_decorators(
@@ -200,64 +250,26 @@ def option_decorators(
         - ``click_extra.argument``
         - ``click_extra.argument()``
     """
-    params: list[tuple[Any, set[str], str, tuple | MarkDecorator]] = []
-
-    if no_options is False:
-        if not no_click:
-            params.append((click.option, {"click", "option"}, "click.option", ()))
-            if with_parenthesis:
-                params.append(
-                    (click.option(), {"click", "option"}, "click.option()", ()),
-                )
-
-        if not no_cloup:
-            params.append(
-                (cloup.option, {"cloup", "option"}, "cloup.option", skip_naked),
-            )
-            if with_parenthesis:
-                params.append(
-                    (cloup.option(), {"cloup", "option"}, "cloup.option()", ()),
-                )
-
-        if not no_extra:
-            params.append((option, {"extra", "option"}, "click_extra.option", ()))
-            if with_parenthesis:
-                params.append(
-                    (option(), {"extra", "option"}, "click_extra.option()", ()),
-                )
-
-    if no_arguments is False:
-        if not no_click:
-            params.append((click.argument, {"click", "argument"}, "click.argument", ()))
-            if with_parenthesis:
-                params.append(
-                    (click.argument(), {"click", "argument"}, "click.argument()", ()),
-                )
-
-        if not no_cloup:
-            params.append(
-                (cloup.argument, {"cloup", "argument"}, "cloup.argument", skip_naked),
-            )
-            if with_parenthesis:
-                params.append(
-                    (cloup.argument(), {"cloup", "argument"}, "cloup.argument()", ()),
-                )
-
-        if not no_extra:
-            params.append((argument, {"extra", "argument"}, "click_extra.argument", ()))
-            if with_parenthesis:
-                params.append(
-                    (argument(), {"extra", "argument"}, "click_extra.argument()", ()),
-                )
-
-    decorator_params = []
-    for deco, deco_type, label, marks in params:
-        args = [deco]
-        if with_types:
-            args.append(deco_type)
-        decorator_params.append(pytest.param(*args, id=label, marks=marks))
-
-    return tuple(decorator_params)
+    # The decorator cells are typed ``Any``: mypy cannot join Click's overloaded
+    # callables with Click Extra's decorator protocols into one iterable type.
+    kind_rows: tuple[tuple[str, bool, tuple[Any, Any, Any]], ...] = (
+        ("option", no_options, (click.option, cloup.option, option)),
+        ("argument", no_arguments, (click.argument, cloup.argument, argument)),
+    )
+    matrix: list[tuple[Any, str, str]] = []
+    for kind, skip_kind, decorators in kind_rows:
+        if skip_kind:
+            continue
+        for deco, framework, skip_framework in zip(
+            decorators,
+            ("click", "cloup", "click_extra"),
+            (no_click, no_cloup, no_extra),
+        ):
+            if not skip_framework:
+                matrix.append((deco, framework, kind))
+    return _expand_decorator_params(
+        matrix, with_parenthesis=with_parenthesis, with_types=with_types
+    )
 
 
 @pytest.fixture
@@ -320,6 +332,7 @@ default_options_uncolored_help = (
     r"  -q, --quiet                  Decrease the default WARNING verbosity by one\n"
     r"                               level for each additional repetition of the\n"
     r"                               option\.  \[default: 0\]\n"
+    r"  --tree                       Show the tree of nested subcommands and exit\.\n"
     r"  --man                        Show the command's man page \(roff\) and exit\.\n"
     r"  --version                    Show the version and exit\.\n"
     r"  -h, --help                   Show this message and exit\.\n"
@@ -365,6 +378,7 @@ default_options_colored_help = (
     r"  \x1b\[36m\x1b\[1m-q\x1b\[0m, \x1b\[36m\x1b\[1m--quiet\x1b\[0m                  Decrease the default \x1b\[35m\x1b\[1mWARNING\x1b\[0m verbosity by one\n"
     r"                               level for each additional repetition of the\n"
     r"                               option\.  \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3m0\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
+    r"  \x1b\[36m\x1b\[1m--tree\x1b\[0m                       Show the tree of nested subcommands and exit\.\n"
     r"  \x1b\[36m\x1b\[1m--man\x1b\[0m                        Show the command's man page \(roff\) and exit\.\n"
     r"  \x1b\[36m\x1b\[1m--version\x1b\[0m                    Show the version and exit\.\n"
     r"  \x1b\[36m\x1b\[1m-h\x1b\[0m, \x1b\[36m\x1b\[1m--help\x1b\[0m                   Show this message and exit\.\n"

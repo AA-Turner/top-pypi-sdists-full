@@ -13,6 +13,8 @@
 Output formatting utilities for Docker setup commands.
 """
 
+import shlex
+
 from ...display import bcolors
 from .models import SetupResult
 
@@ -66,9 +68,10 @@ class DockerSetupPrinter:
         print(f"\n{bcolors.BOLD}Step 1: Quit from this session{bcolors.ENDC}")
         print(f"  {bcolors.OKGREEN}quit{bcolors.ENDC}")
         
-        config_file = config_path if config_path else '~/.keeper/config.json'
+        from ... import utils
+        config_file = config_path if config_path else str(utils.get_default_path() / 'config.json')
         print(f"\n{bcolors.BOLD}Step 2: Delete the local config.json file{bcolors.ENDC}")
-        print(f"  {bcolors.OKGREEN}rm {config_file}{bcolors.ENDC}")
+        print(f"  {bcolors.OKGREEN}rm {shlex.quote(config_file)}{bcolors.ENDC}")
         print(f"  Why? Prevents device token conflicts - Docker will download its own config.")
         
         print(f"\n{bcolors.BOLD}Step 3: Review docker-compose.yml{bcolors.ENDC}")

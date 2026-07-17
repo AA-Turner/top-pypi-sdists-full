@@ -26,7 +26,7 @@ import math
 import os
 import pathlib
 import time
-from typing import Any, Generic, TypeVar
+from typing import Any
 import weakref
 
 import jax
@@ -38,6 +38,7 @@ from jax._src import sharding_impls
 from jax._src import util as jax_util
 from jax._src.interpreters import mlir
 from jax._src.lib import mosaic_gpu_dialect as dialect
+from jax._src.pallas.mosaic import error_handling as error
 from jax.extend import backend as jex_backend
 from jaxlib.mlir import ir
 from jaxlib.mlir import passmanager
@@ -61,11 +62,7 @@ from . import utils
 
 # Point Mosaic GPU tools (like nvdisasm) to the CUDA path
 cuda_root = lib.cuda_path or "/usr/local/cuda"
-# TODO(bchetioui): remove once minimum jaxlib version is 0.10.2
-if lib.jaxlib_extension_version < 463:
-  os.environ["CUDA_ROOT"] = cuda_root
-else:
-  os.environ["MOSAIC_GPU_CUDA_ROOT"] = cuda_root
+os.environ["MOSAIC_GPU_CUDA_ROOT"] = cuda_root
 PYTHON_RUNFILES = os.environ.get("PYTHON_RUNFILES")
 BAZEL_TEST = os.environ.get("BAZEL_TEST", "0")
 
@@ -308,11 +305,10 @@ mlir.register_lowering(mosaic_gpu_p, _mosaic_gpu_lowering_rule, "cuda")
 # ShapeTrees currently can not contain unions.
 ShapeTree = Any
 RefTree = Any
-T = TypeVar('T')
 
 
 @dataclasses.dataclass(frozen=True)
-class Union(Generic[T]):
+class Union[T]:
   members: Sequence[T]
 
   def __iter__(self):
@@ -614,7 +610,6 @@ def _launch(
     inout_buffers_ptr: ir.Value,
     profiler_spec: profiler.ProfilerSpec | None = None,
     maybe_prof_buffer: ir.Value | None = None,
-    device_collective_metadata: ir.Value | None = None,
     num_peers: int = 0,
     num_params: int = 0,
 ):
@@ -716,7 +711,6 @@ def _launch(
         cluster,
         inout_buffers_ptr,
         prof,
-        device_collective_metadata=device_collective_metadata,
         num_peers=num_peers,
         num_params=num_params,
         num_processes=jax.process_count(),
@@ -728,7 +722,8 @@ def _launch(
       )
       # TODO(apaszke): Skip fences if no barriers or TMEM is initialized.
       # TODO(apaszke): Only initialize cluster barriers before the cluster wait.
-      nvvm.fence_mbarrier_init()
+      if utils.get_arch().major >= 9:
+        nvvm.fence_mbarrier_init()
       if math.prod(cluster) != 1:
         nvvm.cluster_arrive_relaxed(aligned=True)
         nvvm.cluster_wait(aligned=True)
@@ -791,8 +786,14 @@ def _launch(
 
 def _infer_arch() -> tuple[int, int]:
   device: Any = jax.sharding.get_abstract_mesh().abstract_device
+  default_device = jex_backend.get_default_device()
   if device is None:
-    device = jex_backend.get_default_device()
+    device = default_device
+  elif (
+      hasattr(default_device, "compute_capability")
+      and device.device_kind == default_device.device_kind
+  ):
+    device = default_device
   if not hasattr(device, "compute_capability"):
     return (9, 0)  # TODO(apaszke): Remove this once we figure out the export story.
   arch_name = device.compute_capability
@@ -820,6 +821,7 @@ def _lower_as_gpu_kernel(
     prof_spec: profiler.ProfilerSpec | None = None,
     jax_mesh: mesh_lib.Mesh | None = None,
     base_loc: ir.Location | None = None,
+    uses_pdl: bool = False,
 ):
   ptr_ty = llvm.PointerType.get()
   token_ty = gpu.AsyncTokenType.get()
@@ -850,6 +852,8 @@ def _lower_as_gpu_kernel(
   arch_major, arch_minor = _infer_arch()
   attrs["mosaic_gpu.arch_major"] = ir.IntegerAttr.get(i32, arch_major)
   attrs["mosaic_gpu.arch_minor"] = ir.IntegerAttr.get(i32, arch_minor)
+  if uses_pdl:
+    attrs["mosaic_gpu.uses_pdl"] = ir.UnitAttr.get()
 
   # These are needed as nonlocal below.
   launch_ctx = None
@@ -880,13 +884,9 @@ def _lower_as_gpu_kernel(
         )
         arg_refs.append(arg_memref)
 
-      collective_metadata = None
       num_peers = 0
       num_params = 0
 
-      # Collective metadata parameter is used to lower collective operations
-      # in a single-process setup or in multi-process when nvshmem is not
-      # available.
       if (
           jax_mesh is not None
           and jax_mesh.size > 1
@@ -897,15 +897,6 @@ def _lower_as_gpu_kernel(
       ):
         num_params = len(arg_refs) + len(inout_ref_tys)
         num_peers = jax_mesh.size
-        metadata_ptr = llvm.load(
-            ptr_ty, utils.getelementptr(buffers, [num_params], ptr_ty)
-        )
-
-        metadata_ty = ir.MemRefType.get(
-            (launch_context.get_collective_metadata_size(num_params, num_peers),),
-            ir.IntegerType.get_signless(64),
-        )
-        collective_metadata = utils.ptr_as_memref(metadata_ptr, metadata_ty)
 
       prof_buffer = arg_refs.pop() if prof_spec is not None else None
 
@@ -920,7 +911,6 @@ def _lower_as_gpu_kernel(
           buffers,
           prof_spec,
           prof_buffer,
-          collective_metadata,
           num_peers,
           num_params,
       ) as (_launch_ctx, smem_refs):
@@ -930,7 +920,10 @@ def _lower_as_gpu_kernel(
   sym_tab = ir.SymbolTable(module.operation)
   sym_tab.insert(main.func_op)
   sym_tab.insert(global_scratch)
-  module.operation.verify()
+  try:
+    module.operation.verify()
+  except ir.MLIRError as e:
+    raise error.mlir_error_to_verification_error(e) from e
 
   assert launch_ctx is not None
   return module, out_shape, unwrap_output_tuple, launch_ctx
@@ -954,6 +947,8 @@ def _run_serde_pass(
   try:
     pipeline.run(module.operation)
     module.operation.verify()
+  except ir.MLIRError as e:
+    raise error.mlir_error_to_verification_error(e) from e
   finally:
     module.context.allow_unregistered_dialects = allow_unregistered_dialects
   return module
@@ -1011,7 +1006,7 @@ def _kernel_to_module(
   if thread_semantics == LoweringSemantics.Warpgroup and dialect is not None:
     # We need to run a pass that removes dead-code for which layout inference
     # does not work.
-    pm = mlir.passmanager.PassManager.parse("builtin.module(canonicalize)", module.context)
+    pm = mlir.passmanager.PassManager.parse("builtin.module(canonicalize,cse)", module.context)
     pm.run(module.operation)
 
     # Run Python lowering passes. The remaining passes will be run in C++ in
@@ -1020,7 +1015,10 @@ def _kernel_to_module(
     dialect_lowering.lower_mgpu_dialect(module, launch_ctx)
 
   launch_ctx.scratch.finalize_size()
-  module.operation.verify()
+  try:
+    module.operation.verify()
+  except ir.MLIRError as e:
+    raise error.mlir_error_to_verification_error(e) from e
 
   return (
       module,

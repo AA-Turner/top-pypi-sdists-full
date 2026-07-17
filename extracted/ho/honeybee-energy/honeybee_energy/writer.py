@@ -1,18 +1,30 @@
 # coding=utf-8
 """Methods to write to idf."""
-from .config import folders
-
-from ladybug_geometry.geometry3d import Face3D
-from honeybee.room import Room
-from honeybee.face import Face
-from honeybee.boundarycondition import Outdoors, Surface, Ground, boundary_conditions
-from honeybee.facetype import Wall, Floor, RoofCeiling, AirBoundary
-from honeybee.units import parse_distance_string, conversion_factor_to_meters
-
+import math
+from datetime import datetime
+import platform
+from collections import OrderedDict
+import xml.etree.ElementTree as ET
 try:
     from itertools import izip as zip  # python 2
 except ImportError:
     xrange = range  # python 3
+
+from ladybug_geometry.util import rounding_tolerance
+from ladybug_geometry.geometry3d import Vector3D, Plane, Face3D
+from honeybee.typing import clean_string
+from honeybee.room import Room
+from honeybee.face import Face
+from honeybee.shade import Shade
+from honeybee.boundarycondition import Outdoors, Surface, Ground, boundary_conditions
+from honeybee.facetype import Wall, Floor, RoofCeiling, AirBoundary
+from honeybee.units import parse_distance_string, conversion_factor_to_meters
+
+from .config import folders
+from .units import convert_ventilation_flow_per_zone
+
+
+"""____________IDF TRANSLATORS____________"""
 
 
 def generate_idf_string(object_type, values, comments=None):
@@ -982,7 +994,1272 @@ def _instance_in_array(object_instance, object_array):
     return False
 
 
-def _preprocess_model_for_trace(
+"""___________gbXML TRANSLATORS___________"""
+
+
+def face_3d_to_gbxml_element(
+    face_3d, tolerance=0.001, simple_rect_areas=False, explicit_holes=False,
+    parent_element=None, rect_origin=None
+):
+    """Get gbXML PlanarGeometry and RectangularGeometry Elements from a Face3D.
+
+    Args:
+        face_3d: A ladybug-geometry Face3D for which gbXML PlanarGeometry and
+            RectangularGeometry Elements will be returned.
+        tolerance: The minimum difference in coordinate values below which
+            vertices are considered to be identical. (Default: 0.001, suitable
+            for objects in Meters or Feet).
+        simple_rect_areas: Boolean to note whether the width and height of all
+            RectangularGeometry is set based on the bounding rectangle around
+            the geometry (False) or is set in a simplified manner with the
+            width always equal to geometry area and the height always equal
+            to one (True). Setting to True can ensure correct overall area of
+            the geometry in the destination software, particularly in cases where
+            the geometry is not rectangular. However, if the destination software
+            has a means of representing the 2D rectangular geometry in 3D, setting
+            this to True may not look correct. (Default: False).
+        explicit_holes: Boolean to note whether holes in the Face3D should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+        parent_element: An optional XML Element for the Surface or Opening XML
+            Element to which the geometry will be added. If None, a new XML Element
+            will be generated. (Default: None).
+        rect_origin: An optional Point3D to set the origin of the rectangular
+            geometry. This is used for sub faces, which need to use the origin
+            of the parent Face. If None, the Face3D's lower left corner will
+            be used. (Default: None).
+    """
+    # create the PlanarGeometry and RectangularGeometry elements
+    if parent_element is not None:
+        xml_rect_geo = ET.SubElement(parent_element, 'RectangularGeometry')
+        xml_plane_geo = ET.SubElement(parent_element, 'PlanarGeometry')
+    else:
+        xml_rect_geo = ET.Element('RectangularGeometry')
+        xml_plane_geo = ET.Element('PlanarGeometry')
+    decimal_count, _ = rounding_tolerance(tolerance)
+
+    # extract all of the rectangular geometry properties
+    rel_plane = face_3d.plane
+    llc = face_3d.lower_left_corner
+    urc = face_3d.upper_right_corner
+    origin = llc if rect_origin is None else rect_origin
+    if face_3d.is_horizontal(tolerance):  # horizontal; adjust azimuth
+        proj_x = Vector3D(1, 0, 0)
+        tilt, azimuth = 0, 0
+    else:  # vertical or tilted
+        proj_y = Vector3D(0, 0, 1).project(rel_plane.n)
+        proj_x = proj_y.rotate(rel_plane.n, math.pi / -2)
+        tilt = math.degrees(face_3d.tilt)
+        azimuth = math.degrees(face_3d.azimuth)
+    ref_plane = Plane(rel_plane.n, origin, proj_x)
+    min_2d = ref_plane.xyz_to_xy(llc)
+    max_2d = ref_plane.xyz_to_xy(urc)
+    if simple_rect_areas:
+        width = round(face_3d.area, decimal_count)
+        height = 1
+    else:
+        width = round(max_2d.x - min_2d.x, decimal_count)
+        height = round(max_2d.y - min_2d.y, decimal_count)
+    origin_coords = origin if rect_origin is None else min_2d
+
+    # add the rectangular geometry properties
+    xml_origin = ET.SubElement(xml_rect_geo, 'CartesianPoint')
+    for coord in origin_coords:
+        xml_coord = ET.SubElement(xml_origin, 'Coordinate')
+        xml_coord.text = str(round(coord, decimal_count))
+    if rect_origin is None:
+        xml_azimuth = ET.SubElement(xml_rect_geo, 'Azimuth')
+        xml_azimuth.text = str(round(azimuth))
+        xml_tilt = ET.SubElement(xml_rect_geo, 'Tilt')
+        xml_tilt.text = str(round(tilt))
+    xml_width = ET.SubElement(xml_rect_geo, 'Width')
+    xml_width.text = str(round(width, decimal_count))
+    xml_height = ET.SubElement(xml_rect_geo, 'Height')
+    xml_height.text = str(round(height, decimal_count))
+
+    # add the 3D vertices to PlanarGeometry
+    if explicit_holes and face_3d.has_holes:
+        xml_poly = ET.SubElement(xml_plane_geo, 'PolyLoop')
+        for pt in face_3d.boundary:
+            xml_pt = ET.SubElement(xml_poly, 'CartesianPoint')
+            for coord in pt:
+                xml_coord = ET.SubElement(xml_pt, 'Coordinate')
+                xml_coord.text = str(round(coord, decimal_count))
+        for hole in face_3d.holes:
+            xml_poly = ET.SubElement(xml_plane_geo, 'PolyLoop')
+            for pt in hole:
+                xml_pt = ET.SubElement(xml_poly, 'CartesianPoint')
+                for coord in pt:
+                    xml_coord = ET.SubElement(xml_pt, 'Coordinate')
+                    xml_coord.text = str(round(coord, decimal_count))
+    else:  # write all vertices into one poly loop
+        xml_poly = ET.SubElement(xml_plane_geo, 'PolyLoop')
+        for pt in face_3d.vertices:
+            xml_pt = ET.SubElement(xml_poly, 'CartesianPoint')
+            for coord in pt:
+                xml_coord = ET.SubElement(xml_pt, 'Coordinate')
+                xml_coord.text = str(round(coord, decimal_count))
+
+    return xml_rect_geo, xml_plane_geo
+
+
+def shade_to_gbxml_element(
+    shade, tolerance=0.001, simple_rect_areas=False, explicit_holes=False,
+    campus_element=None
+):
+    """Get a gbXML Surface Element from a honeybee Shade.
+
+    Args:
+        shade: A honeybee Shade for which an gbXML Surface Element will
+            be returned.
+        tolerance: The minimum difference in coordinate values below which
+            vertices are considered to be identical. (Default: 0.001, suitable
+            for objects in Meters or Feet).
+        simple_rect_areas: Boolean to note whether the width and height of all
+            RectangularGeometry is set based on the bounding rectangle around
+            the geometry (False) or is set in a simplified manner with the
+            width always equal to geometry area and the height always equal
+            to one (True). Setting to True can ensure correct overall area of
+            the geometry in the destination software, particularly in cases where
+            the geometry is not rectangular. However, if the destination software
+            has a means of representing the 2D rectangular geometry in 3D, setting
+            this to True may not look correct. (Default: False).
+        explicit_holes: Boolean to note whether holes in the Face3D should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+        campus_element: An optional XML Element for the Campus to which the
+            surface element will be added. If None, a new XML Element
+            will be generated. (Default: None).
+    """
+    # establish the properties of the shade object
+    surface_attr = {
+        'id': shade.identifier,
+        'surfaceType': 'Shade',
+        'constructionIdRef': 'Shading_Surface_Without_Construction'
+    }
+    # create the Surface element
+    if campus_element is not None:
+        xml_shade = ET.SubElement(campus_element, 'Surface', surface_attr)
+    else:
+        xml_shade = ET.Element('Surface', surface_attr)
+    # add the name and the associated space
+    xml_name = ET.SubElement(xml_shade, 'Name')
+    xml_name.text = str(shade.display_name)
+    if not isinstance(shade, Shade):  # orphaned Face, Aperture or Door object
+        ET.SubElement(xml_shade, 'AdjacentSpaceId', spaceIdRef='Detached_Shades')
+    elif isinstance(shade.top_level_parent, Room):
+        ET.SubElement(xml_shade, 'AdjacentSpaceId',
+                      spaceIdRef=shade.top_level_parent.identifier)
+    elif shade.is_detached:
+        ET.SubElement(xml_shade, 'AdjacentSpaceId', spaceIdRef='Detached_Shades')
+    else:
+        ET.SubElement(xml_shade, 'AdjacentSpaceId', spaceIdRef='Attached_Shades')
+    # add the geometry
+    face_3d_to_gbxml_element(
+        shade.geometry, tolerance=tolerance, simple_rect_areas=simple_rect_areas,
+        explicit_holes=explicit_holes, parent_element=xml_shade
+    )
+    return xml_shade
+
+
+def shade_mesh_to_gbxml_element(
+    shade_mesh, tolerance=0.001, simple_rect_areas=False, explicit_holes=False,
+    campus_element=None
+):
+    """Get a list of gbXML Elements from a honeybee ShadeMesh.
+
+    Args:
+        shade_mesh: A honeybee ShadeMesh for which a list of gbXML Surface Elements
+            will be returned.
+        tolerance: The minimum difference in coordinate values below which
+            vertices are considered to be identical. (Default: 0.001, suitable
+            for objects in Meters or Feet).
+        simple_rect_areas: Boolean to note whether the width and height of all
+            RectangularGeometry is set based on the bounding rectangle around
+            the geometry (False) or is set in a simplified manner with the
+            width always equal to geometry area and the height always equal
+            to one (True). Setting to True can ensure correct overall area of
+            the geometry in the destination software, particularly in cases where
+            the geometry is not rectangular. However, if the destination software
+            has a means of representing the 2D rectangular geometry in 3D, setting
+            this to True may not look correct. (Default: False).
+        explicit_holes: Boolean to note whether holes in the Face3D should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+        campus_element: An optional XML Element for the Campus to which all of the
+            surface elements will be added. If None, a new XML Element
+            will be generated. (Default: None).
+    """
+    # establish the properties of the shade object
+    surface_attr = {
+        'surfaceType': 'Shade',
+        'constructionIdRef': 'Shading_Surface_Without_Construction'
+    }
+    # create the Surface elements
+    xml_shades = []
+    for i, face in enumerate(shade_mesh.geometry.face_vertices):
+        surface_attr['id'] = '{}_{}'.format(shade_mesh.identifier, i)
+        if campus_element is not None:
+            xml_shade = ET.SubElement(campus_element, 'Surface', surface_attr)
+        else:
+            xml_shade = ET.Element('Surface', surface_attr)
+        # add the name and the associated space
+        xml_name = ET.SubElement(xml_shade, 'Name')
+        xml_name.text = '{} {}'.format(shade_mesh.display_name, i)
+        if shade_mesh.is_detached:
+            ET.SubElement(xml_shade, 'AdjacentSpaceId', spaceIdRef='Detached Shades')
+        else:
+            ET.SubElement(xml_shade, 'AdjacentSpaceId', spaceIdRef='Attached Shades')
+        # add the geometry
+        face_3d_to_gbxml_element(
+            Face3D(face), tolerance=tolerance, simple_rect_areas=simple_rect_areas,
+            parent_element=xml_shade
+        )
+        xml_shades.append(xml_shade)
+    return xml_shades
+
+
+def sub_face_to_gbxml_element(
+    sub_face, tolerance=0.001, simple_rect_areas=False, explicit_holes=False,
+    surface_element=None, rect_origin=None
+):
+    """Get a gbXML Opening Element from a honeybee Aperture or Door.
+
+    Args:
+        sub_face: A honeybee Aperture or Door for which a gbXML Opening Element
+            object will be returned.
+        tolerance: The minimum difference in coordinate values below which
+            vertices are considered to be identical. (Default: 0.001, suitable
+            for objects in Meters or Feet).
+        simple_rect_areas: Boolean to note whether the width and height of all
+            RectangularGeometry is set based on the bounding rectangle around
+            the geometry (False) or is set in a simplified manner with the
+            width always equal to geometry area and the height always equal
+            to one (True). Setting to True can ensure correct overall area of
+            the geometry in the destination software, particularly in cases where
+            the geometry is not rectangular. However, if the destination software
+            has a means of representing the 2D rectangular geometry in 3D, setting
+            this to True may not look correct. (Default: False).
+        explicit_holes: Boolean to note whether holes in the Face3D should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+        surface_element: An optional XML Element for the Surface to which the
+            opening element will be added. If None, a new XML Element
+            will be generated. (Default: None).
+        rect_origin: An optional Point3D to set the origin of the rectangular
+            geometry. This is used for sub faces, which need to use the origin
+            of the parent Face. If None, the Face3D's lower left corner will
+            be used. (Default: None).
+    """
+    # establish the properties of the opening object
+    construction = clean_string(sub_face.properties.energy.construction.identifier)
+    opening_attr = {
+        'id': sub_face.identifier,
+        'openingType': sub_face.gbxml_type,
+        'windowTypeIdRef': construction
+    }
+    # create the Opening element
+    if surface_element is not None:
+        xml_opening = ET.SubElement(surface_element, 'Opening', opening_attr)
+    else:
+        xml_opening = ET.Element('Opening', opening_attr)
+    # add the name and the associated space
+    xml_name = ET.SubElement(xml_opening, 'Name')
+    xml_name.text = str(sub_face.display_name)
+    # add the geometry
+    face_3d_to_gbxml_element(
+        sub_face.geometry, tolerance=tolerance, simple_rect_areas=simple_rect_areas,
+        explicit_holes=explicit_holes, parent_element=xml_opening, rect_origin=rect_origin
+    )
+    return xml_opening
+
+
+def face_to_gbxml_element(
+    face, tolerance=0.001, simple_rect_areas=False, explicit_holes=False,
+    campus_element=None
+):
+    """Get a gbXML Surface Element from a honeybee Face.
+
+    Note that the resulting Surface element includes all Apertures and Doors
+    assigned to the Face as gbXML Opening elements.
+
+    Args:
+        face: A honeybee Face for which an gbXML Surface Element will be returned.
+        tolerance: The minimum difference in coordinate values below which
+            vertices are considered to be identical. (Default: 0.001, suitable
+            for objects in Meters or Feet).
+        simple_rect_areas: Boolean to note whether the width and height of all
+            RectangularGeometry is set based on the bounding rectangle around
+            the geometry (False) or is set in a simplified manner with the
+            width always equal to geometry area and the height always equal
+            to one (True). Setting to True can ensure correct overall area of
+            the geometry in the destination software, particularly in cases where
+            the geometry is not rectangular. However, if the destination software
+            has a means of representing the 2D rectangular geometry in 3D, setting
+            this to True may not look correct. (Default: False).
+        explicit_holes: Boolean to note whether holes in the Face3D should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+        campus_element: An optional XML Element for the Campus to which the
+            surface element will be added. If None, a new XML Element
+            will be generated. (Default: None).
+    """
+    # establish the properties of the face object
+    construction = face.properties.energy.construction.identifier.replace(' ', '_')
+    sun_exposed = isinstance(face.boundary_condition, Outdoors) and \
+        face.boundary_condition.sun_exposure
+    surface_attr = {
+        'id': face.identifier,
+        'surfaceType': face.gbxml_type,
+        'constructionIdRef': construction,
+        'exposedToSun': str(sun_exposed).lower()
+    }
+    # create the Surface element
+    if campus_element is not None:
+        xml_face = ET.SubElement(campus_element, 'Surface', surface_attr)
+    else:
+        xml_face = ET.Element('Surface', surface_attr)
+    # add the name and the associated space
+    xml_name = ET.SubElement(xml_face, 'Name')
+    xml_name.text = str(face.display_name)
+    if face.has_parent:
+        ET.SubElement(xml_face, 'AdjacentSpaceId', spaceIdRef=face.parent.identifier)
+    if isinstance(face.boundary_condition, Surface):
+        adj_room = face.boundary_condition.boundary_condition_objects[-1]
+        ET.SubElement(xml_face, 'AdjacentSpaceId', spaceIdRef=adj_room)
+    # add the geometry
+    face_3d_to_gbxml_element(
+        face.geometry, tolerance=tolerance, simple_rect_areas=simple_rect_areas,
+        explicit_holes=explicit_holes, parent_element=xml_face,
+    )
+    # add the apertures and doors as Opening elements
+    sub_faces = face.sub_faces
+    if len(sub_faces) != 0:
+        rect_origin = face.geometry.lower_left_corner
+        for sf in sub_faces:
+            sub_face_to_gbxml_element(
+                sf, tolerance=tolerance, simple_rect_areas=simple_rect_areas,
+                explicit_holes=explicit_holes,
+                surface_element=xml_face, rect_origin=rect_origin
+            )
+
+    return xml_face
+
+
+def room_to_gbxml_element(
+    room, ip_units=False, include_shell_geometry=False, include_space_boundaries=False,
+    tolerance=0.001, explicit_holes=False, building_element=None
+):
+    """Get a gbXML Space Element from a honeybee Room.
+
+    Note that the Space elements of gbXML do not contain any geometry given that
+    all geometry is specified with Surface elements.
+
+    Args:
+        room: A honeybee Room for which an gbXML Space Element will be returned.
+        ip_units: A boolean to note whether the space loads should be reported
+            in IP units (True) or SI units (False). (Default: False).
+        include_shell_geometry: Boolean for whether shell geometry should be
+            included in the Space definition. (Default: False).
+        include_space_boundaries: Boolean for whether space boundaries should be
+            included in the Space definition. (Default: False).
+        tolerance: The minimum difference in coordinate values below which
+            vertices are considered to be identical. (Default: 0.001, suitable
+            for objects in Meters or Feet).
+        explicit_holes: Boolean to note whether holes in Face3Ds should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+        building_element: An optional XML Element for the Building to which the
+            space element will be added. If None, a new XML Element will be
+            generated. (Default: None).
+    """
+    # establish the properties of the room object
+    story = clean_string(room.story) if room.story is not None else 'Unknown_Level'
+    space_attr = {
+        'id': room.identifier,
+        'zoneIdRef': room.zone,
+        'buildingStoreyIdRef': story
+    }
+
+    # create the Space element
+    decimal_count, _ = rounding_tolerance(tolerance)
+    if building_element is not None:
+        xml_space = ET.SubElement(building_element, 'Space', space_attr)
+    else:
+        xml_space = ET.Element('Space', space_attr)
+    # add the name, area and volume properties
+    xml_name = ET.SubElement(xml_space, 'Name')
+    xml_name.text = str(room.display_name)
+    xml_area = ET.SubElement(xml_space, 'Area')
+    xml_area.text = str(round(room.floor_area)) \
+        if ip_units else str(round(room.floor_area, 1))
+    xml_volume = ET.SubElement(xml_space, 'Volume')
+    xml_volume.text = str(round(room.volume)) \
+        if ip_units else str(round(room.volume, 1))
+
+    # add the people loads if they exist
+    people = room.properties.energy.people
+    if people is not None:
+        if room.properties.energy._people is not None:  # assume it's a person count
+            people_value = people.people_per_area * room.floor_area
+            if ip_units:  # assume the room geometry is in square feet
+                people_value = people_value / 10.7639
+            unit = 'NumberOfPeople'
+        elif ip_units:
+            people_value, unit = people.people_per_area_ip, 'SquareFtPerPerson'
+        else:
+            people_value, unit = people.people_per_area_si, 'SquareMPerPerson'
+        xml_people = ET.SubElement(xml_space, 'PeopleNumber', unit=unit)
+        xml_people.text = str(round(people_value)) \
+            if ip_units else str(round(people_value, 1))
+        # write the people heat gain
+        if ip_units:
+            unit = 'BtuPerHourPerson'
+            sensible_ppl = people.activity_max_sensible_ip
+            latent_ppl = people.activity_max_latent_ip
+        else:
+            unit = 'WattPerPerson'
+            sensible_ppl = people.activity_max_sensible
+            latent_ppl = people.activity_max_latent
+        xml_s_ppl = ET.SubElement(xml_space, 'PeopleHeatGain',
+                                  unit=unit, heatGainType='Sensible')
+        xml_s_ppl.text = str(round(sensible_ppl))
+        xml_l_ppl = ET.SubElement(xml_space, 'PeopleHeatGain',
+                                  unit=unit, heatGainType='Latent')
+        xml_l_ppl.text = str(round(latent_ppl))
+
+    # add the lighting load if it exists
+    lighting = room.properties.energy.lighting
+    if lighting is not None:
+        if ip_units:
+            watts_per_area, unit = lighting.watts_per_area_ip, 'WattPerSquareFoot'
+        else:
+            watts_per_area, unit = lighting.watts_per_area_si, 'WattPerSquareMeter'
+        xml_lights = ET.SubElement(xml_space, 'LightPowerPerArea', unit=unit)
+        xml_lights.text = str(round(watts_per_area, decimal_count))
+
+    # add the equipment load if it exists
+    electric_equip = room.properties.energy.electric_equipment
+    gas_equip = room.properties.energy.gas_equipment
+    if electric_equip is not None or gas_equip is not None:
+        watts_per_area = 0
+        for equip in (electric_equip, gas_equip):
+            if equip is not None:
+                watts_per_area += equip.watts_per_area
+        unit = 'WattPerSquareMeter'
+        if ip_units:
+            unit = 'WattPerSquareFoot'
+            watts_per_area = watts_per_area / 10.7639
+        xml_equip = ET.SubElement(xml_space, 'EquipPowerPerArea', unit=unit)
+        xml_equip.text = str(round(watts_per_area, decimal_count))
+
+    # add the infiltration load if it exists
+    inf_obj = room.properties.energy.infiltration
+    if inf_obj is not None:
+        inf_per_area = inf_obj.flow_per_exterior_area
+        if inf_per_area <= 0.00015:
+            inf_class = 'Tight'
+        elif inf_per_area <= 0.00045:
+            inf_class = 'Average'
+        else:
+            inf_class = 'Loose'
+        inf_element = ET.SubElement(xml_space, 'InfiltrationFlow')
+        inf_element.set('type', inf_class)
+        total_inf = inf_per_area * room.exposed_area
+        total_ach = (total_inf * 3600) / room.volume
+        blower_element = ET.SubElement(inf_element, 'BlowerDoorValue')
+        blower_element.set('unit', 'AirChangesPerHour')
+        blower_element.text = str(round(total_ach, decimal_count))
+
+    # write the shell geometry and space boundaries if requested
+    if include_shell_geometry or include_space_boundaries:
+        geo_elements = []
+        for face in room:
+            # write the geometry of the face
+            geo_element = ET.Element('PlanarGeometry')
+            face_3d, xml_poly = face.geometry, None
+            if explicit_holes and face_3d.has_holes:
+                xml_poly = ET.SubElement(geo_element, 'PolyLoop')
+                for pt in face_3d.boundary:
+                    xml_pt = ET.SubElement(xml_poly, 'CartesianPoint')
+                    for coord in pt:
+                        xml_coord = ET.SubElement(xml_pt, 'Coordinate')
+                        xml_coord.text = str(round(coord, decimal_count))
+                for hole in face_3d.holes:
+                    xml_poly = ET.SubElement(geo_element, 'PolyLoop')
+                    for pt in hole:
+                        xml_pt = ET.SubElement(xml_poly, 'CartesianPoint')
+                        for coord in pt:
+                            xml_coord = ET.SubElement(xml_pt, 'Coordinate')
+                            xml_coord.text = str(round(coord, decimal_count))
+
+            # write all vertices into one poly loop for shell geometry
+            xml_poly = ET.SubElement(geo_element, 'PolyLoop') \
+                if xml_poly is None else ET.Element('PolyLoop')
+            for pt in face_3d.vertices:
+                xml_pt = ET.SubElement(xml_poly, 'CartesianPoint')
+                for coord in pt:
+                    xml_coord = ET.SubElement(xml_pt, 'Coordinate')
+                    xml_coord.text = str(round(coord, decimal_count))
+            geo_elements.append(xml_poly)
+
+            # write the geometry as a space boundary if requested
+            if include_space_boundaries:
+                sb_element = ET.Element('SpaceBoundary')
+                sb_element.set('isSecondLevelBoundary', 'false')
+                sb_element.set('surfaceIdRef', face.identifier)
+                sb_element.append(geo_element)
+                xml_space.append(sb_element)
+
+        # write it as shell geometry if requested
+        if include_shell_geometry:
+            shell_element = ET.SubElement(xml_space, 'ShellGeometry')
+            shell_element.set('id', '{}Shell'.format(room.identifier))
+            shell_geo_element = ET.SubElement(shell_element, 'ClosedShell')
+            for xml_geo in geo_elements:
+                shell_geo_element.append(xml_geo)
+
+    return xml_space
+
+
+def model_to_gbxml_element(
+    model, ip_units=False, include_shell_geometry=False, include_space_boundaries=False,
+    interior_face_type='InteriorFloor', ground_face_type='AutoAssign',
+    face_rename_format=None, subface_rename_format=None,
+    reset_geometry_ids=False, reset_resource_ids=False,
+    triangulate_subfaces=False, triangulate_non_planar=True,
+    simple_rect_areas=False, explicit_holes=False,
+    total_ventilation=True, program_name=None, program_version=None,
+    gbxml_schema_version=None
+):
+    """Get a gbXML ElementTree that represents ann entire model.
+
+    Args:
+        model: A honeybee Model for which a gbXML ElementTree will be returned.
+        ip_units: A boolean to note whether the geometry, space loads, and
+            construction properties are reported in IP units (True) or SI
+            units (False). (Default: False).
+        include_shell_geometry: Boolean for whether shell geometry should be included vs.
+            just the minimal required non-manifold geometry. (Default: False).
+        include_space_boundaries: Boolean for whether space boundaries should be included
+             vs. just the minimal required non-manifold geometry. (Default: False).
+        interior_face_type: Text string for the type to be used for all interior
+            floor/ceiling faces. (Default: InteriorFloor). Choose from the following.
+
+            * InteriorFloor
+            * Ceiling
+
+        ground_face_type: Text string for the type to be used for all ground-contact
+            floor faces. If AutoAssign, the ground types will be SlabOnGrade for floors
+            belonging to rooms with any above-ground walls and UndergroundSlab
+            for floors in rooms with all underground walls. Choose from the following.
+
+            * AutoAssign
+            * UndergroundSlab
+            * SlabOnGrade
+            * RaisedFloor
+
+        face_rename_format: An optional text string for the pattern with which
+            faces will be renamed. Any property on the honeybee Face class may be
+            used (eg. gbxml_str) and each property should be put in curly brackets.
+            Nested properties can be specified by using "." to denote nesting levels
+            (eg. properties.energy.construction.display_name). Functions that
+            return string outputs can also be passed here as long as these
+            functions defaults specified for all arguments.
+        subface_rename_format: An optional text string for the pattern with which
+            apertures and doors will be renamed. Any property that exists on both
+            the honeybee Aperture and honeybee Door class may be used (eg. gbxml_str)
+            and each property should be put in curly brackets. Nested
+            properties can be specified by using "." to denote nesting levels
+            (eg. properties.energy.construction.display_name). Functions that
+            return string outputs can also be passed here as long as these
+            functions defaults specified for all arguments.
+        reset_geometry_ids: Boolean to note whether a cleaned version of geometry
+            display names should be used for the IDs that appear within
+            the gbXML file. Using this flag will affect all Rooms, Faces,
+            Apertures, Doors, and Shades. It will generally result in more
+            read-able IDs in the gbXML file but this means that it will not be
+            easy to map results back to the input Model. Cases of duplicate IDs
+            resulting from non-unique names will be resolved by adding integers
+            to the ends of the new IDs that are derived from the name. (Default: False).
+        reset_resource_ids: Boolean to note whether a cleaned version of all
+            resource display names should be used for the IDs that appear within
+            the gbXML file. Using this flag will affect all Materials,
+            Constructions, ConstructionSets, Schedules, Loads, and ProgramTypes.
+            It will generally result in more read-able names for the resources
+            in the gbXML file. Cases of duplicate IDs resulting from non-unique
+            names will be resolved by adding integers to the ends of the new
+            IDs that are derived from the name. (Default: False).
+        triangulate_non_planar: Boolean to note whether any non-planar
+            orphaned geometry in the model should be triangulated.
+            This can be helpful because OpenStudio simply raises an error when
+            it encounters non-planar geometry, which would hinder the ability
+            to save files that are to be corrected later. (Default: False).
+        triangulate_subfaces: Boolean to note whether sub-faces (including
+            Apertures and Doors) should be triangulated if they have more
+            than 4 sides (True) or whether they should be left as they are (False).
+            This triangulation is necessary when exporting directly to EnergyPlus
+            since it cannot accept sub-faces with more than 4 vertices. (Default: True).
+        simple_rect_areas: Boolean to note whether the width and height of all
+            RectangularGeometry is set based on the bounding rectangle around
+            the geometry (False) or is set in a simplified manner with the
+            width always equal to geometry area and the height always equal
+            to one (True). Setting to True can ensure correct overall area of
+            the geometry in the destination software, particularly in cases where
+            the geometry is not rectangular. However, if the destination software
+            has a means of representing the 2D rectangular geometry in 3D, setting
+            this to True may not look correct. (Default: False).
+        explicit_holes: Boolean to note whether holes in Surfaces should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+        total_ventilation: Boolean to note whether outdoor air ventilation values
+            in the gbXML are written as a single total OAFlowPerZone (True)
+            or ventilation criteria are written as separate criteria (False).
+            That is, separate specifications for OAFlowPerPerson, OAFlowPerArea,
+            etc. Note that the total ventilation accounts for the ventilation
+            effectiveness while the individual flows do not. (Default: True).
+        program_name: Optional text to set the name of the software that will
+            appear under the programId and ProductName tags of the DocumentHistory
+            section. This can be set things like "Ladybug Tools" or "Pollination"
+            or some other software in which this gbXML export capability is being
+            run. If None, the "OpenStudio" will be used. (Default: None).
+        program_version: Optional text to set the version of the software that
+            will appear under the DocumentHistory section. If None, and the
+            program_name is also unspecified, only the version of OpenStudio will
+            appear. Otherwise, this will default to "0.0.0" given that the version
+            field is required. (Default: None).
+        gbxml_schema_version: Optional text to set the version of the gbXML schema
+            that is specified in the XML header (eg. "5.00"). If None, this
+            will default to the latest version.
+    """
+    # duplicate model to avoid mutating it as we edit it for energy simulation
+    original_model = model
+    model = model.duplicate()
+    # scale the model if the units are not meters
+    if ip_units:
+        model.convert_to_units('Feet')
+        scale_fac = conversion_factor_to_meters('Feet')
+    else:
+        model.convert_to_units('Meters')
+        scale_fac = 1
+    # as a good practice, remove degenerate geometry within model tolerance
+    tol = model.tolerance
+    decimal_count, _ = rounding_tolerance(tol)
+    try:
+        model.remove_degenerate_geometry(tol)
+    except ValueError:
+        error = 'Failed to remove degenerate Rooms.\nYour Model units system is: {}. ' \
+            'Is this correct?'.format(original_model.units)
+        raise ValueError(error)
+    if triangulate_non_planar:
+        model.triangulate_non_planar_quads(tol)
+
+    # auto-assign stories if there are none
+    if len(model.stories) == 0 and len(model.rooms) != 0:
+        model.assign_stories_by_floor_height()
+
+    # rename the faces, apertures, and doors if requested
+    if face_rename_format:
+        for room in model.rooms:
+            room.rename_faces_by_attribute(face_rename_format)
+    if subface_rename_format:
+        for room in model.rooms:
+            room.rename_apertures_by_attribute(subface_rename_format)
+            room.rename_doors_by_attribute(subface_rename_format)
+    # ensure all display_names are unique because some gbXML interfaces require this
+    model.assign_unique_names()
+    # reset the IDs to be derived from the display_names if requested
+    if reset_geometry_ids:
+        model.reset_ids()
+    if reset_resource_ids:
+        model.properties.energy.reset_resource_ids()
+
+    # resolve the properties across zones
+    zone_name_dict = {r.identifier: r.zone for r in model.rooms}
+    for room in model.rooms:  # set all zone IDs to be acceptable in gbXML
+        room.zone = clean_string(room.zone)
+    single_zones, zone_dict = model.properties.energy.resolve_zones()
+
+    # depending on the unit system, set the units for the file
+    if not ip_units:
+        t_units, result_units = 'C', 'true'
+        l_units, a_units, v_units = 'Meters', 'SquareMeters', 'CubicMeters'
+    else:
+        t_units, result_units = 'F', 'false'
+        l_units, a_units, v_units = 'Feet', 'SquareFeet', 'CubicFeet'
+
+    # create the ElementTree that holds everything
+    gbxml_version = '7.03' if gbxml_schema_version is None else gbxml_schema_version
+    xsd_template = 'http://gbxml.org/schema/{}/GreenBuildingXML_Ver{}.xsd'
+    xsd_url = xsd_template.format(gbxml_version.replace('.', '-'), gbxml_version)
+    gbxml_attr = {
+        'xmlns': 'http://www.gbxml.org/schema',
+        'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+        'xsi:schemaLocation': 'http://www.gbxml.org/schema {}'.format(xsd_url),
+        'temperatureUnit': t_units,
+        'lengthUnit': l_units,
+        'areaUnit': a_units,
+        'volumeUnit': v_units,
+        'useSIUnitsForResults': result_units,
+        'version': gbxml_version,
+        'SurfaceReferenceLocation': 'Centerline'
+    }
+    gbxml_root = ET.Element('gbXML', gbxml_attr)
+
+    # create the campus and building element
+    xml_campus = ET.SubElement(gbxml_root, 'Campus', id='Facility')
+    xml_campus_name = ET.SubElement(xml_campus, 'Name')
+    xml_campus_name.text = 'Facility'
+    xml_bldg = ET.SubElement(xml_campus, 'Building')
+    xml_bldg_name = ET.SubElement(xml_bldg, 'Name')
+    xml_bldg_name.text = str(model.display_name)
+    xml_floor_area = ET.SubElement(xml_bldg, 'Area')
+    xml_floor_area.text = str(round(model.floor_area)) \
+        if ip_units else str(round(model.floor_area, 1))
+
+    # write all of the rooms into the gbXML as spaces
+    story_dict, xml_rooms = OrderedDict(), []
+    for room in model.rooms:
+        xml_room = room_to_gbxml_element(
+            room, ip_units, include_shell_geometry, include_space_boundaries,
+            tol, explicit_holes, xml_bldg
+        )
+        xml_rooms.append(xml_room)
+        try:
+            story_dict[room.story].append(room)
+        except KeyError:
+            story_dict[room.story] = [room]
+
+    # add spaces for unassigned shades if they exist in the model
+    detached_shades, detached_sms, attached_shades, attached_sms = [], [], [], []
+    for face in model.orphaned_faces:
+        detached_shades.append(face)
+    for aperture in model.orphaned_apertures:
+        detached_shades.append(aperture)
+    for door in model.orphaned_doors:
+        detached_shades.append(door)
+    for shade in model.orphaned_shades:
+        if shade.is_detached:
+            detached_shades.append(shade)
+        else:
+            attached_shades.append(shade)
+    for shade_mesh in model.shade_meshes:
+        if shade_mesh.is_detached:
+            detached_sms.append(shade_mesh)
+        else:
+            attached_sms.append(shade_mesh)
+    if len(attached_shades) != 0 or len(attached_sms) != 0:
+        xml_shd_space = ET.SubElement(xml_bldg, 'Space', id='Attached_Shades')
+        xml_shd_name = ET.SubElement(xml_shd_space, 'Name')
+        xml_shd_name.text = 'Attached Shades'
+    if len(detached_shades) != 0 or len(detached_sms) != 0:
+        xml_shd_space = ET.SubElement(xml_bldg, 'Space', id='Detached_Shades')
+        xml_shd_name = ET.SubElement(xml_shd_space, 'Name')
+        xml_shd_name.text = 'Detached Shades'
+
+    # get the stories of the model and write them into the gbXML
+    for story_name, story_rooms in story_dict.items():
+        elevation = min(r.min.z for r in story_rooms)
+        xml_story = ET.SubElement(xml_bldg, 'BuildingStorey', id=clean_string(story_name))
+        xml_story_name = ET.SubElement(xml_story, 'Name')
+        xml_story_name.text = story_name
+        xml_story_elev = ET.SubElement(xml_story, 'Level')
+        xml_story_elev.text = str(round(elevation, decimal_count))
+
+    # all of the room faces and openings to the gbxml ad non-manifold geometry
+    adj_to_ignore = {}
+    for room in model.rooms:
+        for face in room.faces:
+            # ensure that interior surfaces are not added twice
+            fbc = face.boundary_condition
+            if isinstance(fbc, Surface):
+                if face.identifier in adj_to_ignore:
+                    continue
+                if isinstance(face.type, RoofCeiling) and interior_face_type == 'InteriorFloor':
+                    continue
+                elif isinstance(face.type, Floor) and interior_face_type == 'Ceiling':
+                    continue
+                adj_to_ignore[fbc.boundary_condition_object] = face.identifier
+            # add the face element to the gbxml
+            xml_face = face_to_gbxml_element(
+                face, tolerance=tol, simple_rect_areas=simple_rect_areas,
+                explicit_holes=explicit_holes, campus_element=xml_campus
+            )
+            # if the floor type was specified, overwrite it
+            if ground_face_type != 'AutoAssign' and isinstance(fbc, Ground):
+                if isinstance(face.type, Floor):
+                    xml_face.set('surfaceType', ground_face_type)
+
+    # if space boundaries were requested, loop through adj_to_ignore and replace them
+    if include_space_boundaries:
+        for xml_room in xml_rooms:
+            for xml_sb in xml_room.findall('SpaceBoundary'):
+                srf_id = xml_sb.get('surfaceIdRef')
+                if srf_id in adj_to_ignore:
+                    xml_sb.set('surfaceIdRef', adj_to_ignore[srf_id])
+
+    # add all of the shade geometries to the gbxml
+    for shade in attached_shades + detached_shades:
+        shade_to_gbxml_element(shade, tol, simple_rect_areas, explicit_holes, xml_campus)
+    for sm in attached_sms + detached_sms:
+        shade_mesh_to_gbxml_element(sm, tol, simple_rect_areas, explicit_holes, xml_campus)
+
+    # get the default generic construction set
+    # must be imported here to avoid circular imports
+    from .lib.constructionsets import generic_construction_set
+
+    # add the construction objects and window types to the gbxml
+    if len(attached_shades) != 0 or len(attached_sms) != 0 or \
+            len(detached_shades) != 0 or len(detached_sms) != 0:
+        xml_shd_con = ET.SubElement(gbxml_root, 'Construction')
+        xml_shd_con.set('id', 'Shading_Surface_Without_Construction')
+        xml_shd_con_name = ET.SubElement(xml_shd_con, 'Name')
+        xml_shd_con_name.text = 'Shading Surface Without Construction'
+    materials = []
+    all_constrs = model.properties.energy.constructions + \
+        generic_construction_set.constructions_unique
+    for constr in set(all_constrs):
+        try:
+            if constr.__class__.__name__ == 'OpaqueConstruction':
+                materials.extend(constr.materials)
+            try:  # first assume it is a window construction
+                constr.to_gbxml_element(ip_units=ip_units, parent_element=gbxml_root)
+            except TypeError:  # opaque or air boundary construction
+                constr.to_gbxml_element(parent_element=gbxml_root)
+        except AttributeError:  # ShadeConstruction; no need to write it
+            pass
+
+    # add the material objects to the gbxml
+    for mat in set(materials):
+        mat.to_gbxml_element(ip_units=ip_units, parent_element=gbxml_root)
+
+    # add the zone information to the gbxml
+    for room in single_zones:
+        e_prop = room.properties.energy
+        zone_dict[room.zone] = [(room,), None, e_prop.setpoint, e_prop.ventilation]
+    for zone_id, zone_data in zone_dict.items():
+        rooms, _, set_pt, vent = zone_data
+        xml_zone = ET.SubElement(gbxml_root, 'Zone', id=zone_id)
+        xml_zone_name = ET.SubElement(xml_zone, 'Name')
+        xml_zone_name.text = zone_name_dict[rooms[0].identifier]
+
+        # assign the setpoint to the zone
+        if set_pt:
+            xml_h_set = ET.SubElement(xml_zone, 'DesignHeatT', unit=t_units)
+            h_set = set_pt.heating_setpoint_ip if ip_units else set_pt.heating_setpoint
+            xml_h_set.text = str(round(h_set, 2))
+            xml_c_set = ET.SubElement(xml_zone, 'DesignCoolT', unit=t_units)
+            c_set = set_pt.cooling_setpoint_ip if ip_units else set_pt.cooling_setpoint
+            xml_c_set.text = str(round(c_set, 2))
+            if set_pt.humidifying_setpoint:
+                xml_hu_set = ET.SubElement(xml_zone, 'DesignHeatRH')
+                xml_hu_set.text = str(round(set_pt.humidifying_setpoint))
+                xml_dhu_set = ET.SubElement(xml_zone, 'DesignCoolRH')
+                xml_dhu_set.text = str(round(set_pt.dehumidifying_setpoint))
+
+        # assign the outdoor air criteria to the zone
+        if vent:
+            if total_ventilation:  # write ventilation as a single air flow
+                rooms_si, flow_units, unit_abbrev = rooms, 'LPerSec', 'si'
+                if ip_units:
+                    rooms_si = []
+                    for r in rooms:
+                        new_r = r.duplicate()
+                        new_r.scale(scale_fac)
+                        rooms_si.append(new_r)
+                    flow_units, unit_abbrev = 'CFM', 'ip'
+                total_flows = [vent.flow_per_zone]
+                if vent.flow_per_person != 0:
+                    person_flow = 0
+                    for r in rooms_si:
+                        people = r.properties.energy.people
+                        if people is not None:
+                            person_count = people.people_per_area * r.floor_area
+                            person_flow += vent.flow_per_person * person_count
+                    total_flows.append(person_flow)
+                if vent.flow_per_area != 0:
+                    total_area = sum(r.floor_area for r in rooms_si)
+                    total_flows.append(vent.flow_per_area * total_area)
+                if vent.air_changes_per_hour != 0:
+                    total_volume = sum(r.volume for r in rooms_si)
+                    total_flows.append((vent.air_changes_per_hour * total_volume) / 3600)
+                total_flow = sum(total_flows) if vent.method == 'Sum' else max(total_flows)
+                vent_eff = min(vent.effectiveness_cooling, vent.effectiveness_heating)
+                total_flow = total_flow / vent_eff
+                if total_flow != 0:
+                    flow_element = ET.SubElement(xml_zone, 'OAFlowPerZone')
+                    flow_element.set('unit', flow_units)
+                    flow = convert_ventilation_flow_per_zone(total_flow, unit_abbrev)
+                    flow_element.text = str(round(flow, 2))
+
+            else:  # write individual airflow criteria
+                ach = vent.air_changes_per_hour
+                if ip_units:
+                    per_person, per_area = vent.flow_per_person_ip, vent.flow_per_area_ip
+                    flow = vent.flow_per_zone_ip
+                    flow_units, per_area_units = 'CFM', 'CFMPerSquareFoot'
+                else:
+                    per_person, per_area = vent.flow_per_person_si, vent.flow_per_area_si
+                    flow = vent.flow_per_zone_si
+                    flow_units, per_area_units = 'LPerSec', 'LPerSecPerSquareM'
+                if per_person != 0:
+                    flow_element = ET.SubElement(xml_zone, 'OAFlowPerPerson')
+                    flow_element.set('unit', flow_units)
+                    flow_element.text = str(round(per_person, 2))
+                if per_area != 0:
+                    flow_element = ET.SubElement(xml_zone, 'OAFlowPerArea')
+                    flow_element.set('unit', per_area_units)
+                    flow_element.text = str(round(per_area, 3))
+                if ach != 0:
+                    flow_element = ET.SubElement(xml_zone, 'AirChangesPerHour')
+                    flow_element.text = str(round(ach, 3))
+                if flow != 0:
+                    flow_element = ET.SubElement(xml_zone, 'OAFlowPerZone')
+                    flow_element.set('unit', flow_units)
+                    flow_element.text = str(round(flow, 3))
+
+    # add the document history to the gbxml
+    program_name = 'Ladybug Tools Python SDK' \
+        if program_name is None else program_name
+    program_version = 'Unknown' if program_version is None else program_version
+    xml_history = ET.SubElement(gbxml_root, 'DocumentHistory')
+    prog_id = clean_string(program_name).lower()
+    created_info = {
+        'programId': prog_id,
+        'date': str(datetime.now().astimezone().isoformat(timespec='seconds')),
+        'personId': 'unknown'
+    }
+    ET.SubElement(xml_history, 'CreatedBy', created_info)
+    xml_p_info = ET.SubElement(xml_history, 'ProgramInfo', id=prog_id)
+    xml_p_name = ET.SubElement(xml_p_info, 'ProductName')
+    xml_p_name.text = program_name
+    xml_c_name = ET.SubElement(xml_p_info, 'CompanyName')
+    xml_c_name.text = 'Ladybug Tools'
+    xml_version = ET.SubElement(xml_p_info, 'Version')
+    xml_version.text = str(program_version)
+    xml_platform = ET.SubElement(xml_p_info, 'Platform')
+    xml_platform.text = platform.system()
+    xml_person = ET.SubElement(xml_history, 'PersonInfo', id='unknown')
+    xml_f_name = ET.SubElement(xml_person, 'FirstName')
+    xml_f_name.text = 'Unknown'
+    xml_l_name = ET.SubElement(xml_person, 'LastName')
+    xml_l_name.text = 'Unknown'
+
+    return gbxml_root
+
+
+def model_to_gbxml(
+    model, ip_units=False, include_shell_geometry=False, include_space_boundaries=False,
+    interior_face_type='InteriorFloor', ground_face_type='AutoAssign',
+    face_rename_format=None, subface_rename_format=None,
+    reset_geometry_ids=False, reset_resource_ids=False,
+    triangulate_subfaces=False, triangulate_non_planar=True,
+    simple_rect_areas=False, explicit_holes=False,
+    total_ventilation=True, program_name=None, program_version=None,
+    gbxml_schema_version=None
+):
+    """Get a gbXML string for a Model.
+
+    Args:
+        model: A honeybee Model for which a gbXML text string will be returned.
+        ip_units: A boolean to note whether the geometry, space loads, and
+            construction properties are reported in IP units (True) or SI
+            units (False). (Default: False).
+        include_shell_geometry: Boolean for whether shell geometry should be included vs.
+            just the minimal required non-manifold geometry. (Default: False).
+        include_space_boundaries: Boolean for whether space boundaries should be included
+             vs. just the minimal required non-manifold geometry. (Default: False).
+        interior_face_type: Text string for the type to be used for all interior
+            floor/ceiling faces. (Default: InteriorFloor). Choose from the following.
+
+            * InteriorFloor
+            * Ceiling
+
+        ground_face_type: Text string for the type to be used for all ground-contact
+            floor faces. If AutoAssign, the ground types will be SlabOnGrade for floors
+            belonging to rooms with any above-ground walls and UndergroundSlab
+            for floors in rooms with all underground walls. Choose from the following.
+
+            * AutoAssign
+            * UndergroundSlab
+            * SlabOnGrade
+            * RaisedFloor
+
+        face_rename_format: An optional text string for the pattern with which
+            faces will be renamed. Any property on the honeybee Face class may be
+            used (eg. gbxml_str) and each property should be put in curly brackets.
+            Nested properties can be specified by using "." to denote nesting levels
+            (eg. properties.energy.construction.display_name). Functions that
+            return string outputs can also be passed here as long as these
+            functions defaults specified for all arguments.
+        subface_rename_format: An optional text string for the pattern with which
+            apertures and doors will be renamed. Any property that exists on both
+            the honeybee Aperture and honeybee Door class may be used (eg. gbxml_str)
+            and each property should be put in curly brackets. Nested
+            properties can be specified by using "." to denote nesting levels
+            (eg. properties.energy.construction.display_name). Functions that
+            return string outputs can also be passed here as long as these
+            functions defaults specified for all arguments.
+        reset_geometry_ids: Boolean to note whether a cleaned version of geometry
+            display names should be used for the IDs that appear within
+            the gbXML file. Using this flag will affect all Rooms, Faces,
+            Apertures, Doors, and Shades. It will generally result in more
+            read-able IDs in the gbXML file but this means that it will not be
+            easy to map results back to the input Model. Cases of duplicate IDs
+            resulting from non-unique names will be resolved by adding integers
+            to the ends of the new IDs that are derived from the name. (Default: False).
+        reset_resource_ids: Boolean to note whether a cleaned version of all
+            resource display names should be used for the IDs that appear within
+            the gbXML file. Using this flag will affect all Materials,
+            Constructions, ConstructionSets, Schedules, Loads, and ProgramTypes.
+            It will generally result in more read-able names for the resources
+            in the gbXML file. Cases of duplicate IDs resulting from non-unique
+            names will be resolved by adding integers to the ends of the new
+            IDs that are derived from the name. (Default: False).
+        triangulate_non_planar: Boolean to note whether any non-planar
+            orphaned geometry in the model should be triangulated.
+            This can be helpful because OpenStudio simply raises an error when
+            it encounters non-planar geometry, which would hinder the ability
+            to save files that are to be corrected later. (Default: False).
+        triangulate_subfaces: Boolean to note whether sub-faces (including
+            Apertures and Doors) should be triangulated if they have more
+            than 4 sides (True) or whether they should be left as they are (False).
+            This triangulation is necessary when exporting directly to EnergyPlus
+            since it cannot accept sub-faces with more than 4 vertices. (Default: True).
+        simple_rect_areas: Boolean to note whether the width and height of all
+            RectangularGeometry is set based on the bounding rectangle around
+            the geometry (False) or is set in a simplified manner with the
+            width always equal to geometry area and the height always equal
+            to one (True). Setting to True can ensure correct overall area of
+            the geometry in the destination software, particularly in cases where
+            the geometry is not rectangular. However, if the destination software
+            has a means of representing the 2D rectangular geometry in 3D, setting
+            this to True may not look correct. (Default: False).
+        explicit_holes: Boolean to note whether holes in Surfaces should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+        total_ventilation: Boolean to note whether outdoor air ventilation values
+            in the gbXML are written as a single total OAFlowPerZone (True)
+            or ventilation criteria are written as separate criteria (False).
+            That is, separate specifications for OAFlowPerPerson, OAFlowPerArea,
+            etc. Note that the total ventilation accounts for the ventilation
+            effectiveness while the individual flows do not. (Default: True).
+        program_name: Optional text to set the name of the software that will
+            appear under the programId and ProductName tags of the DocumentHistory
+            section. This can be set things like "Ladybug Tools" or "Pollination"
+            or some other software in which this gbXML export capability is being
+            run. If None, the "OpenStudio" will be used. (Default: None).
+        program_version: Optional text to set the version of the software that
+            will appear under the DocumentHistory section. If None, and the
+            program_name is also unspecified, only the version of OpenStudio will
+            appear. Otherwise, this will default to "0.0.0" given that the version
+            field is required. (Default: None).
+        gbxml_schema_version: Optional text to set the version of the gbXML schema
+            that is specified in the XML header (eg. "5.00"). If None, this
+            will default to the latest version.
+    """
+    # create the XML string
+    xml_root = model_to_gbxml_element(
+        model, ip_units, include_shell_geometry, include_space_boundaries,
+        interior_face_type, ground_face_type, face_rename_format, subface_rename_format,
+        reset_geometry_ids, reset_resource_ids,
+        triangulate_subfaces, triangulate_non_planar, simple_rect_areas, explicit_holes,
+        total_ventilation, program_name, program_version, gbxml_schema_version
+    )
+    try:  # try to indent the XML to make it read-able
+        ET.indent(xml_root)
+        return ET.tostring(xml_root, encoding='unicode', xml_declaration=True)
+    except AttributeError:  # we are in Python 2 and no indent is available
+        return ET.tostring(xml_root, xml_declaration=True)
+
+
+def shade_to_gbxml(
+    shade, tolerance=0.001, simple_rect_areas=False, explicit_holes=False
+):
+    """Get a gbXML Surface string from a honeybee Shade.
+
+    Args:
+        shade: A honeybee Shade for which an gbXML Surface string will be returned.
+        tolerance: The minimum difference in coordinate values below which
+            vertices are considered to be identical. (Default: 0.001, suitable
+            for objects in Meters or Feet).
+        simple_rect_areas: Boolean to note whether the width and height of all
+            RectangularGeometry is set based on the bounding rectangle around
+            the geometry (False) or is set in a simplified manner with the
+            width always equal to geometry area and the height always equal
+            to one (True). Setting to True can ensure correct overall area of
+            the geometry in the destination software, particularly in cases where
+            the geometry is not rectangular. However, if the destination software
+            has a means of representing the 2D rectangular geometry in 3D, setting
+            this to True may not look correct. (Default: False).
+        explicit_holes: Boolean to note whether holes in the Face3D should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+    """
+    xml_root = shade_to_gbxml_element(
+        shade, tolerance, simple_rect_areas, explicit_holes
+    )
+    try:  # try to indent the XML to make it read-able
+        ET.indent(xml_root)
+        return ET.tostring(xml_root, encoding='unicode')
+    except AttributeError:  # we are in Python 2 and no indent is available
+        return ET.tostring(xml_root)
+
+
+def shade_mesh_to_gbxml(
+    shade_mesh, tolerance=0.001, simple_rect_areas=False, explicit_holes=False
+):
+    """Get a gbXML string from a honeybee ShadeMesh.
+
+    Args:
+        shade_mesh: A honeybee ShadeMesh for which a gbXML Surface string
+            will be returned.
+        tolerance: The minimum difference in coordinate values below which
+            vertices are considered to be identical. (Default: 0.001, suitable
+            for objects in Meters or Feet).
+        simple_rect_areas: Boolean to note whether the width and height of all
+            RectangularGeometry is set based on the bounding rectangle around
+            the geometry (False) or is set in a simplified manner with the
+            width always equal to geometry area and the height always equal
+            to one (True). Setting to True can ensure correct overall area of
+            the geometry in the destination software, particularly in cases where
+            the geometry is not rectangular. However, if the destination software
+            has a means of representing the 2D rectangular geometry in 3D, setting
+            this to True may not look correct. (Default: False).
+        explicit_holes: Boolean to note whether holes in the Face3D should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+    """
+    xml_roots = shade_mesh_to_gbxml_element(
+        shade_mesh, tolerance, simple_rect_areas, explicit_holes
+    )
+    xml_strs = []
+    for xml_root in xml_roots:
+        try:  # try to indent the XML to make it read-able
+            ET.indent(xml_root)
+            xml_strs.append(ET.tostring(xml_root, encoding='unicode'))
+        except AttributeError:  # we are in Python 2 and no indent is available
+            xml_strs.append(ET.tostring(xml_root))
+    return '\n'.join(xml_strs)
+
+
+def sub_face_to_gbxml(
+    sub_face, tolerance=0.001, simple_rect_areas=False, explicit_holes=False
+):
+    """Get a gbXML Opening string from a honeybee Aperture or Door.
+
+    Args:
+        sub_face: A honeybee Aperture or Door for which a gbXML Opening string
+            object will be returned.
+        tolerance: The minimum difference in coordinate values below which
+            vertices are considered to be identical. (Default: 0.001, suitable
+            for objects in Meters or Feet).
+        simple_rect_areas: Boolean to note whether the width and height of all
+            RectangularGeometry is set based on the bounding rectangle around
+            the geometry (False) or is set in a simplified manner with the
+            width always equal to geometry area and the height always equal
+            to one (True). Setting to True can ensure correct overall area of
+            the geometry in the destination software, particularly in cases where
+            the geometry is not rectangular. However, if the destination software
+            has a means of representing the 2D rectangular geometry in 3D, setting
+            this to True may not look correct. (Default: False).
+        explicit_holes: Boolean to note whether holes in the Face3D should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+    """
+    xml_root = sub_face_to_gbxml_element(
+        sub_face, tolerance, simple_rect_areas, explicit_holes
+    )
+    try:  # try to indent the XML to make it read-able
+        ET.indent(xml_root)
+        return ET.tostring(xml_root, encoding='unicode')
+    except AttributeError:  # we are in Python 2 and no indent is available
+        return ET.tostring(xml_root)
+
+
+def face_to_gbxml(face, tolerance=0.001, simple_rect_areas=False, explicit_holes=False):
+    """Get a gbXML Surface string from a honeybee Face.
+
+    Note that the resulting Surface element includes all Apertures and Doors
+    assigned to the Face as gbXML Openings.
+
+    Args:
+        face: A honeybee Face for which an gbXML Surface string will be returned.
+        tolerance: The minimum difference in coordinate values below which
+            vertices are considered to be identical. (Default: 0.001, suitable
+            for objects in Meters or Feet).
+        simple_rect_areas: Boolean to note whether the width and height of all
+            RectangularGeometry is set based on the bounding rectangle around
+            the geometry (False) or is set in a simplified manner with the
+            width always equal to geometry area and the height always equal
+            to one (True). Setting to True can ensure correct overall area of
+            the geometry in the destination software, particularly in cases where
+            the geometry is not rectangular. However, if the destination software
+            has a means of representing the 2D rectangular geometry in 3D, setting
+            this to True may not look correct. (Default: False).
+        explicit_holes: Boolean to note whether holes in the Face3D should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+    """
+    xml_root = face_to_gbxml_element(
+        face, tolerance, simple_rect_areas, explicit_holes
+    )
+    try:  # try to indent the XML to make it read-able
+        ET.indent(xml_root)
+        return ET.tostring(xml_root, encoding='unicode')
+    except AttributeError:  # we are in Python 2 and no indent is available
+        return ET.tostring(xml_root)
+
+
+def room_to_gbxml(
+    room, ip_units=False, include_shell_geometry=False, include_space_boundaries=False,
+    tolerance=0.001, explicit_holes=False
+):
+    """Get a gbXML Space string from a honeybee Room.
+
+    Note that the Space elements of gbXML do not contain any geometry given that
+    all geometry is specified with Surface elements.
+
+    Args:
+        room: A honeybee Room for which an gbXML Space string will be returned.
+        ip_units: A boolean to note whether the space loads should be reported
+            in IP units (True) or SI units (False). (Default: False).
+        include_shell_geometry: Boolean for whether shell geometry should be
+            included in the Space definition. (Default: False).
+        include_space_boundaries: Boolean for whether space boundaries should be
+            included in the Space definition. (Default: False).
+        tolerance: The minimum difference in coordinate values below which
+            vertices are considered to be identical. (Default: 0.001, suitable
+            for objects in Meters or Feet).
+        explicit_holes: Boolean to note whether holes in Face3Ds should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
+    """
+    xml_root = room_to_gbxml_element(
+        room, ip_units, include_shell_geometry, include_space_boundaries,
+        tolerance, explicit_holes
+    )
+    try:  # try to indent the XML to make it read-able
+        ET.indent(xml_root)
+        return ET.tostring(xml_root, encoding='unicode')
+    except AttributeError:  # we are in Python 2 and no indent is available
+        return ET.tostring(xml_root)
+
+
+def _preprocess_model_for_trace_3dplus(
         model, single_window=True, rect_sub_distance='0.15m',
         frame_merge_distance='0.2m'):
     """Pre-process a Honeybee Model to be written to TRANE TRACE as a gbXML.

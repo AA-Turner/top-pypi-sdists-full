@@ -262,8 +262,18 @@ def _resolve_first_run(cfg: dict, args, cfg_path, cfgmod, interactive: bool) -> 
         cfg["base_url"] = found[0]["base_url"]
         if found[0].get("models") and not getattr(args, "model", None):
             cfg["model"] = found[0]["models"][0]
+        # Ask the detected server its REAL context window and persist it, so the
+        # zero-prompt path still gets context_limit right (a blind 65536 default
+        # overflows a server running -c 32768 — the "stuck at 32k" class of bug).
+        # Best-effort: unknown -> keep the default.
+        from drydock.providers import probe_server_context
+        n_ctx = probe_server_context(cfg["base_url"])
+        onboard_ctx = ""
+        if n_ctx:
+            cfg["context_limit"] = n_ctx
+            onboard_ctx = f"  ·  ctx {n_ctx:,} (probed from the server)"
         cfgmod.save_file(cfg, cfg_path)
-        return cfg, detect.onboarding_message(found)
+        return cfg, detect.onboarding_message(found) + onboard_ctx
     if interactive:
         return _first_run_setup(cfg, cfg_path, cfgmod)
     return cfg, detect.onboarding_message(found)
@@ -282,20 +292,46 @@ def _first_run_setup(cfg: dict, cfg_path, cfgmod) -> tuple[dict, str]:
         if found and found[0].get("models")
         else (cfg.get("model") or "gemma4")
     )
+    default_ctx = int(cfg.get("context_limit") or 65536)
     print("\n  ⚓ Drydock — first-time setup")
     print("  Point Drydock at your local model server (any OpenAI-compatible URL).\n")
     try:
         url = input(f"  Model server URL [{default_url}]: ").strip() or default_url
         model = input(f"  Model name [{default_model}]: ").strip() or default_model
+        # Context size is the #1 footgun: it MUST match the server's -c /
+        # --max-model-len, or the ctx gauge lies and compaction fires at the wrong
+        # point (the "stuck at 32k" trap). Ask up front so it's right from the start.
+        print("\n  Context window size, in tokens. This MUST match your server's")
+        print("  -c / --max-model-len (llama.cpp / vLLM). Common: 32768, 65536, 131072.")
+        ctx = _prompt_context_size(default_ctx)
     except (EOFError, KeyboardInterrupt):
-        url, model = default_url, default_model
+        url, model, ctx = default_url, default_model, default_ctx
         print()
     cfg["base_url"] = url
     cfg["model"] = model
+    cfg["context_limit"] = ctx
     cfg.setdefault("provider", found[0]["provider"] if found else "vllm")
     cfgmod.save_file(cfg, cfg_path)
-    print(f"\n  Saved to {cfg_path} — change it anytime with /model or by editing that file.\n")
-    return cfg, f"⚓ Using {model} at {url}"
+    print(f"\n  Saved to {cfg_path} — change it anytime with /context, /model, or by "
+          "editing that file.\n")
+    return cfg, f"⚓ Using {model} at {url}  ·  ctx {ctx:,}"
+
+
+def _prompt_context_size(default_ctx: int) -> int:
+    """Prompt for the context window, re-asking on obviously bad input. Accepts a
+    bare number (65536) or a k-suffixed one (64k). Returns default on empty/invalid."""
+    raw = input(f"  Context size [{default_ctx}]: ").strip().lower()
+    if not raw:
+        return default_ctx
+    try:
+        val = int(raw[:-1]) * 1024 if raw.endswith("k") else int(raw)
+    except ValueError:
+        print(f"    (didn't understand '{raw}' — using {default_ctx:,})")
+        return default_ctx
+    if val < 2048:
+        print(f"    ({val} is very small for a context window — using {default_ctx:,})")
+        return default_ctx
+    return val
 
 
 def _connect_mcp(config: dict) -> None:
@@ -372,6 +408,11 @@ def main():
     if first_run and not args.provider and not args.base_url:
         interactive = sys.stdin.isatty() and not args.prompt
         cfg, onboarding = _resolve_first_run(cfg, args, cfg_path, cfgmod, interactive)
+
+    # If a registered model is the launch default (or was passed via --model),
+    # route to ITS endpoint — unless the user pinned --base-url explicitly.
+    if not args.base_url:
+        cfgmod.resolve_active_model(cfg)
 
     config = {
         # context_limit now comes from cfg (DEFAULTS < config.toml < --context-limit)

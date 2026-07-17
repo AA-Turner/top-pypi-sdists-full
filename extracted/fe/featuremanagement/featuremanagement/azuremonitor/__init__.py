@@ -3,8 +3,9 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # -------------------------------------------------------------------------
-from ._send_telemetry import publish_telemetry, track_event, TargetingSpanProcessor
+"""Azure Monitor telemetry integration for feature management."""
 
+from ._send_telemetry import publish_telemetry, track_event, TargetingSpanProcessor
 
 __all__ = [
     "publish_telemetry",

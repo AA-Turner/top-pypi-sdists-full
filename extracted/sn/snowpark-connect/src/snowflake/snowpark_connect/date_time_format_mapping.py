@@ -21,7 +21,13 @@
 # Note that especially these missing specifiers could be a good addition to the existing format because
 # they will not lead to conflict.
 
-from pyspark.errors.exceptions.base import DateTimeException
+from collections.abc import Iterator
+
+from pyspark.errors.exceptions.base import (
+    DateTimeException,
+    IllegalArgumentException,
+    SparkUpgradeException,
+)
 
 from snowflake.snowpark.types import DataType, StringType
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
@@ -225,6 +231,249 @@ snowflake_datetime_format_elements = {
     "TZM",
     "TZD",  # Snowflake-specific: hour/minute offset and name
 }
+
+
+# ---------------------------------------------------------------------------
+# Spark-faithful datetime-pattern analysis (SNOW-3585737)
+#
+# Spark validates every datetime pattern through
+# ``DateTimeFormatterHelper.convertIncompatiblePattern`` before handing it to
+# ``java.time.format.DateTimeFormatter`` (see
+# spark/sql/api/.../DateTimeFormatterHelper.scala). The rules below mirror that
+# logic so SCOS raises for the same patterns Spark rejects, regardless of the
+# input column type. Patterns that Spark *accepts* but that Snowflake's TO_CHAR
+# cannot reproduce are routed to a java.time UDF fallback by the caller.
+# ---------------------------------------------------------------------------
+
+# Week-based fields: Spark always rejects these (SPARK-31892 / SPARK-31879).
+_WEEK_BASED_LETTERS = set("YWwuec")
+# Always-illegal letters (SPARK-36970: 'B' disabled for Java 8 parity).
+_UNSUPPORTED_LETTERS = set("ABnNp")
+# Illegal only when parsing (the quarter / day-of-week fields parse strangely).
+_UNSUPPORTED_PARSING_LETTERS = set("EFqQ")
+# Pattern letters recognized by java.time's DateTimeFormatter. Anything outside
+# this set is an "Unknown pattern letter" (e.g. C, I).
+_KNOWN_PATTERN_LETTERS = set("GuyYDMLdQqwWEecFahKkHmsSABnNVzOXxZp")
+# Maximum repetition Spark/java.time accept for a given letter; exceeding it
+# raises "Too many pattern letters" / "Fail to recognize ...".
+_MAX_LETTER_COUNT = {
+    "G": 4,
+    "M": 4,
+    "L": 4,
+    "E": 4,
+    "Q": 4,
+    "q": 4,
+    "y": 6,
+    "a": 1,
+    "h": 2,
+    "H": 2,
+    "k": 2,
+    "K": 2,
+    "m": 2,
+    "s": 2,
+    "d": 2,
+    "D": 3,
+    "F": 1,
+    "x": 5,
+    "X": 5,
+    "Z": 5,
+    "z": 4,
+    "S": 9,
+}
+# Format-valid letters with no faithful Snowflake TO_CHAR representation; any of
+# these forces the whole pattern through the java.time UDF fallback.
+# 'k' is clock-hour-of-day (1-24): Snowflake's HH24/H24 is 0-23 and produces the
+# wrong value at midnight (0 instead of 24), so it must go through the UDF.
+_NEEDS_UDF_LETTERS = set("GqQDFKVzOk")
+_SIMPLE_DATE_FORMAT_LETTERS = set("GyYMLwWDdFEuaHkKhmsSzZX")
+
+
+def _iter_spark_pattern_fields(spark_format: str) -> Iterator[tuple[str, int, int]]:
+    """Yield ``(letter, count, start_index)`` for each pattern-letter run in a
+    Spark datetime format string, skipping single-quoted literals and optional
+    ``[...]`` section markers. Non-letter characters are ignored."""
+    i = 0
+    n = len(spark_format)
+    while i < n:
+        char = spark_format[i]
+        if char == "'":
+            # Skip a quoted literal block (or the '' escaped-quote sequence).
+            if spark_format[i : i + 2] == "''":
+                i += 2
+                continue
+            i += 1
+            while i < n:
+                if spark_format[i] == "'":
+                    if spark_format[i : i + 2] == "''":
+                        i += 2
+                    else:
+                        i += 1
+                        break
+                else:
+                    i += 1
+            continue
+        if "a" <= char <= "z" or "A" <= char <= "Z":
+            start = i
+            while i < n and spark_format[i] == char:
+                i += 1
+            yield char, i - start, start
+            continue
+        # Separators, digits, non-ASCII text and bracket markers carry no field
+        # semantics (only ASCII letters are Spark pattern letters).
+        i += 1
+
+
+def _rejected_pattern_exception(spark_format: str, message: str) -> Exception:
+    """Return the exception Spark raises for a datetime pattern the java.time
+    formatter rejects, replicating Spark's two-stage mechanism (see
+    :data:`_SIMPLE_DATE_FORMAT_LETTERS`): ``SparkUpgradeException`` when the
+    legacy ``java.text.SimpleDateFormat`` would still accept the pattern (every
+    pattern letter is a SimpleDateFormat letter), else ``IllegalArgumentException``.
+    """
+    legacy_accepts = all(
+        letter in _SIMPLE_DATE_FORMAT_LETTERS
+        for letter, _, _ in _iter_spark_pattern_fields(spark_format)
+    )
+    exception: Exception = (
+        SparkUpgradeException(message)
+        if legacy_accepts
+        else IllegalArgumentException(message)
+    )
+    attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+    return exception
+
+
+def validate_spark_datetime_format(spark_format: str, is_parsing: bool = False) -> None:
+    """Raise the same errors Spark raises for unsupported datetime patterns.
+
+    Mirrors ``DateTimeFormatterHelper.convertIncompatiblePattern``. Runs before
+    any conversion so SCOS rejects illegal patterns regardless of the input
+    column type (previously the "Illegal pattern character" check only fired for
+    StringType inputs, letting patterns like 'u' silently emit a literal).
+
+    The raised type (``SparkUpgradeException`` vs ``IllegalArgumentException``)
+    is chosen by :func:`_rejected_pattern_exception` to match Spark's
+    checkLegacyFormatter re-throw. Callers on the *parsing* path re-wrap either
+    type into a single ``DateTimeException`` ("Fail to recognize ... pattern"),
+    so this distinction is only observable on the ``date_format`` formatting path.
+    """
+    from snowflake.snowpark_connect.config import (
+        is_use_udf_for_unsupported_datetime_formats_enabled,
+    )
+
+    # Kill-switch (SNOW-3585737): revert to the pre-feature native path, which
+    # keeps its own inline validation in convert_spark_format_to_snowflake.
+    if not is_use_udf_for_unsupported_datetime_formats_enabled():
+        return
+
+    for letter, count, _ in _iter_spark_pattern_fields(spark_format):
+        if letter not in _KNOWN_PATTERN_LETTERS:
+            raise _rejected_pattern_exception(
+                spark_format, f"Unknown pattern letter: {letter}"
+            )
+        if letter in _WEEK_BASED_LETTERS:
+            raise _rejected_pattern_exception(
+                spark_format,
+                "All week-based patterns are unsupported since Spark 3.0, detected: "
+                f"{letter}, Please use the SQL function EXTRACT instead",
+            )
+        if letter in _UNSUPPORTED_LETTERS or (
+            is_parsing and letter in _UNSUPPORTED_PARSING_LETTERS
+        ):
+            raise _rejected_pattern_exception(
+                spark_format, f"Illegal pattern character: {letter}"
+            )
+        max_count = _MAX_LETTER_COUNT.get(letter)
+        if max_count is not None and count > max_count:
+            raise _rejected_pattern_exception(
+                spark_format, f"Too many pattern letters: {letter}"
+            )
+        # Zone-id 'V' is only valid as 'VV'; localized offset 'O' only as 'O'/'OOOO'.
+        if letter == "V" and count != 2:
+            raise _rejected_pattern_exception(
+                spark_format, "Pattern letter count must be 2: V"
+            )
+        if letter == "O" and count not in (1, 4):
+            raise _rejected_pattern_exception(
+                spark_format, "Pattern letter count must be 1 or 4: O"
+            )
+
+
+def _has_optional_section(spark_format: str) -> bool:
+    """Return True if ``spark_format`` contains an optional-section bracket
+    (``[`` or ``]``) outside of a single-quoted literal.
+
+    Snowflake's TO_CHAR has no equivalent of java.time's optional sections, so
+    any pattern using them must be routed to the java.time UDF fallback (which
+    handles optional output/parsing exactly like Spark). Brackets inside quoted
+    literals are ordinary characters and do not count.
+    """
+    i = 0
+    n = len(spark_format)
+    while i < n:
+        char = spark_format[i]
+        if char == "'":
+            # Skip a quoted literal block (or the '' escaped-quote sequence).
+            if spark_format[i : i + 2] == "''":
+                i += 2
+                continue
+            i += 1
+            while i < n:
+                if spark_format[i] == "'":
+                    if spark_format[i : i + 2] == "''":
+                        i += 2
+                    else:
+                        i += 1
+                        break
+                else:
+                    i += 1
+            continue
+        if char == "[" or char == "]":
+            return True
+        i += 1
+    return False
+
+
+def spark_format_needs_udf(spark_format: str) -> bool:
+    """Return True if any token in ``spark_format`` cannot be faithfully mapped
+    to a Snowflake TO_CHAR/TO_TIMESTAMP element, meaning the whole pattern must
+    be handled by the java.time UDF fallback.
+
+    Callers MUST run :func:`validate_spark_datetime_format` first; this function
+    assumes the pattern is otherwise valid for Spark.
+    """
+    from snowflake.snowpark_connect.config import (
+        is_use_udf_for_unsupported_datetime_formats_enabled,
+    )
+
+    # Kill-switch (SNOW-3585737): when disabled, never route to the java.time UDF
+    # so all patterns fall through to the native TO_CHAR/TO_TIMESTAMP mapping.
+    if not is_use_udf_for_unsupported_datetime_formats_enabled():
+        return False
+
+    # Optional sections ([...]) have no Snowflake TO_CHAR equivalent; the native
+    # converter would silently drop the bracketed content, so route them to the
+    # java.time UDF which mirrors Spark's optional output/parsing semantics.
+    if _has_optional_section(spark_format):
+        return True
+    for letter, count, _ in _iter_spark_pattern_fields(spark_format):
+        if letter in _NEEDS_UDF_LETTERS:
+            return True
+        # Single X/x is Spark's short offset form (-05); Snowflake's TZH:TZM
+        # always emits -05:00. ZZZZ is the localized "GMT-05:00" text form.
+        if letter in ("X", "x") and count == 1:
+            return True
+        if letter == "Z" and count == 4:
+            return True
+        # yyyyy / yyyyyy zero-pad the year to 5/6 digits; Snowflake's YYYY only
+        # produces a 4-digit year (and repeats for longer runs), so fall back.
+        if letter == "y" and count >= 5:
+            return True
+        # EEEE is the full day name (Monday); Snowflake's DY only yields the
+        # abbreviated form (Mon), so route to the UDF for an exact match.
+        if letter == "E" and count == 4:
+            return True
+    return False
 
 
 def convert_spark_format_to_snowflake(

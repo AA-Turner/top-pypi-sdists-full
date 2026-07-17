@@ -97,6 +97,12 @@ class PrivatePackage(Package):
     unrendered: Dict[str, Any] = field(default_factory=dict)
     name: Optional[str] = None
 
+    def get_revisions(self) -> List[str]:
+        if self.revision is None:
+            return []
+        else:
+            return [str(self.revision)]
+
 
 @dataclass
 class RegistryPackage(Package):
@@ -238,6 +244,7 @@ class Project(dbtClassMixin):
     docs_paths: Optional[List[str]] = None
     asset_paths: Optional[List[str]] = None
     function_paths: Optional[List[str]] = None
+    osi_paths: Optional[List[str]] = None
     target_path: Optional[str] = None
     snapshot_paths: Optional[List[str]] = None
     clean_targets: Optional[List[str]] = None
@@ -289,6 +296,7 @@ class Project(dbtClassMixin):
             "docs_paths": "docs-paths",
             "asset_paths": "asset-paths",
             "function_paths": "function-paths",
+            "osi_paths": "osi-paths",
             "target_path": "target-path",
             "snapshot_paths": "snapshot-paths",
             "clean_targets": "clean-targets",
@@ -334,11 +342,13 @@ class ProjectFlags(ExtensibleDbtClassMixin):
     cache_selected_only: Optional[bool] = None
     debug: Optional[bool] = None
     fail_fast: Optional[bool] = None
+    hints_enabled: Optional[bool] = None
     indirect_selection: Optional[str] = None
     log_format: Optional[str] = None
     log_format_file: Optional[str] = None
     log_level: Optional[str] = None
     log_level_file: Optional[str] = None
+    maximum_seed_size_mib: Optional[int] = None
     partial_parse: Optional[bool] = None
     populate_cache: Optional[bool] = None
     printer_width: Optional[int] = None
@@ -347,27 +357,38 @@ class ProjectFlags(ExtensibleDbtClassMixin):
     use_colors: Optional[bool] = None
     use_colors_file: Optional[bool] = None
     use_experimental_parser: Optional[bool] = None
+    use_v2_parser: Optional[bool] = None
+    v2_parser: Optional[str] = None
     version_check: Optional[bool] = None
     warn_error: Optional[bool] = None
     warn_error_options: Optional[Dict[str, Union[str, List[str]]]] = None
     write_json: Optional[bool] = None
 
     # legacy behaviors - https://github.com/dbt-labs/dbt-core/blob/main/docs/guides/behavior-change-flags.md
-    require_batched_execution_for_custom_microbatch_strategy: bool = False
+    require_batched_execution_for_custom_microbatch_strategy: bool = True
     require_event_names_in_deprecations: bool = False
     require_explicit_package_overrides_for_builtin_materializations: bool = True
     require_resource_names_without_spaces: bool = True
     source_freshness_run_project_hooks: bool = True
-    skip_nodes_if_on_run_start_fails: bool = False
-    state_modified_compare_more_unrendered_values: bool = False
+    skip_nodes_if_on_run_start_fails: bool = True
+    state_modified_compare_more_unrendered_values: bool = True
     state_modified_compare_vars: bool = False
-    require_yaml_configuration_for_mf_time_spines: bool = False
-    require_nested_cumulative_type_params: bool = False
-    validate_macro_args: bool = False
-    require_all_warnings_handled_by_warn_error: bool = False
+    require_yaml_configuration_for_mf_time_spines: bool = True
+    require_nested_cumulative_type_params: bool = True
+    validate_macro_args: bool = True
+    require_all_warnings_handled_by_warn_error: bool = True
     require_generic_test_arguments_property: bool = True
     require_unique_project_resource_names: bool = False
     require_ref_searches_node_package_before_root: bool = False
+    require_valid_schema_from_generate_schema_name: bool = False
+    allow_jinja_file_extensions: bool = False
+    require_sql_header_in_test_configs: bool = False
+    support_custom_ref_kwargs: bool = False
+    require_corrected_analysis_fqns: bool = False
+    require_source_and_semantic_model_names_without_spaces: bool = False
+    enable_grouped_warn_error_parser_logs: bool = False
+    use_catalogs_v2: bool = False
+    latest_version_pointer_enabled_by_default: bool = False
 
     @property
     def project_only_flags(self) -> Dict[str, Any]:
@@ -386,6 +407,15 @@ class ProjectFlags(ExtensibleDbtClassMixin):
             "require_generic_test_arguments_property": self.require_generic_test_arguments_property,
             "require_unique_project_resource_names": self.require_unique_project_resource_names,
             "require_ref_searches_node_package_before_root": self.require_ref_searches_node_package_before_root,
+            "require_valid_schema_from_generate_schema_name": self.require_valid_schema_from_generate_schema_name,
+            "allow_jinja_file_extensions": self.allow_jinja_file_extensions,
+            "require_sql_header_in_test_configs": self.require_sql_header_in_test_configs,
+            "support_custom_ref_kwargs": self.support_custom_ref_kwargs,
+            "require_corrected_analysis_fqns": self.require_corrected_analysis_fqns,
+            "require_source_and_semantic_model_names_without_spaces": self.require_source_and_semantic_model_names_without_spaces,
+            "enable_grouped_warn_error_parser_logs": self.enable_grouped_warn_error_parser_logs,
+            "use_catalogs_v2": self.use_catalogs_v2,
+            "latest_version_pointer_enabled_by_default": self.latest_version_pointer_enabled_by_default,
         }
 
 

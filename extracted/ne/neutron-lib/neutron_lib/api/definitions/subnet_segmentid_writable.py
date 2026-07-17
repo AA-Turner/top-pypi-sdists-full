@@ -16,6 +16,11 @@ import copy
 
 from neutron_lib.api.definitions import segment
 from neutron_lib.api.definitions import subnet
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 # The alias of the extension.
@@ -53,7 +58,7 @@ segment_id_attr_info = copy.deepcopy(
         subnet.COLLECTION_NAME][segment.SEGMENT_ID])
 segment_id_attr_info['allow_put'] = True
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     subnet.COLLECTION_NAME: {
         segment.SEGMENT_ID: segment_id_attr_info
     }
@@ -64,11 +69,11 @@ RESOURCE_ATTRIBUTE_MAP = {
 # to main extension's resource. The subresource map must have a parent and
 # a parameters entry. If an extension does not need such a map, None can
 # be specified (mandatory).
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map: it associates verbs with methods to be performed on
 # the API resource.
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 
 # The action status.
 ACTION_STATUS = {

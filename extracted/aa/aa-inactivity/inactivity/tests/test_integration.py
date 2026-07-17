@@ -1,6 +1,6 @@
 import datetime as dt
 from http import HTTPStatus
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from memberaudit.tests.testdata.factories_2 import (
     CharacterFactory,
@@ -122,7 +122,9 @@ class TestFrontend(NoSocketsTestCase):
 @patch(TASKS_PATH + ".discord.SyncWebhook.send", spec=True)
 @patch(TASKS_PATH + ".notify.danger", spec=True)
 class TestTasksEnd2End(NoSocketsTestCase):
-    def test_check_inactivity_e2e(self, mock_notify_user, mock_send):
+    def test_check_inactivity_e2e(
+        self, mock_notify_user: MagicMock, mock_send: MagicMock
+    ):
         # given
         user = UserMainRequestorFactory()
         character = CharacterFactory(user=user)
@@ -136,8 +138,34 @@ class TestTasksEnd2End(NoSocketsTestCase):
         WebhookFactory()
         mock_notify_user.reset_mock()
         mock_send.reset_mock()
+
         # when
         check_inactivity.delay()
+
+        # then
+        self.assertTrue(mock_notify_user.called)
+        self.assertTrue(mock_send.called)
+
+    def test_check_inactivity_e2e_when_no_login(
+        self, mock_notify_user: MagicMock, mock_send: MagicMock
+    ):
+        """Reproduces issue #7"""
+        # given
+        user = UserMainRequestorFactory()
+        character = CharacterFactory(user=user)
+        CharacterOnlineStatusFactory(
+            character=character,
+            last_login=None,
+            last_logout=now() - dt.timedelta(days=5),
+        )
+        InactivityPingConfigFactory(days=3)
+        WebhookFactory()
+        mock_notify_user.reset_mock()
+        mock_send.reset_mock()
+
+        # when
+        check_inactivity.delay()
+
         # then
         self.assertTrue(mock_notify_user.called)
         self.assertTrue(mock_send.called)

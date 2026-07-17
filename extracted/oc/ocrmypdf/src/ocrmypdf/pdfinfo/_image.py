@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator
 from decimal import Decimal
+from typing import cast
 
 from pikepdf import (
     Dictionary,
@@ -20,7 +21,7 @@ from pikepdf import (
     UnsupportedImageTypeError,
 )
 
-from ocrmypdf.helpers import Resolution
+from ocrmypdf.helpers import Resolution, pikepdf_get_int
 from ocrmypdf.pdfinfo._contentstream import (
     ContentsInfo,
     TextMarker,
@@ -54,6 +55,7 @@ class ImageInfo:
 
     _comp: int | None
     _name: str
+    _enc: Encoding | None
 
     def __init__(
         self,
@@ -90,8 +92,8 @@ class ImageInfo:
             # itself. Some PDF writers use this to create a grayscale stencil
             # mask. For our purposes, the effective size is the size of the
             # larger component (image or smask).
-            self._width = max(smask.get(Name.Width, 0), self._width)
-            self._height = max(smask.get(Name.Height, 0), self._height)
+            self._width = max(pikepdf_get_int(smask, Name.Width), self._width)
+            self._height = max(pikepdf_get_int(smask, Name.Height), self._height)
         if (mask := pim.obj.get(Name.Mask, None)) is not None and isinstance(
             mask, Stream | Dictionary
         ):
@@ -99,8 +101,8 @@ class ImageInfo:
             # /Mask can be a Stream or an Array. If it's a Stream,
             # use its /Width and /Height if they are larger than the main
             # image's.
-            self._width = max(mask.get(Name.Width, 0), self._width)
-            self._height = max(mask.get(Name.Height, 0), self._height)
+            self._width = max(pikepdf_get_int(mask, Name.Width), self._width)
+            self._height = max(pikepdf_get_int(mask, Name.Height), self._height)
 
         # If /ImageMask is true, then this image is a stencil mask
         # (Images that draw with this stencil mask will have a reference to
@@ -396,7 +398,9 @@ def _process_content_streams(
         # A Form XObject may provide its own matrix to map form space into
         # user space. Get this if one exists
         form_shorthand = container.get(Name.Matrix, Matrix())
-        form_matrix = Matrix(form_shorthand)
+        # pikepdf's Matrix() stub omits the Object/Array overload, but the
+        # underlying C++ implementation accepts any 6-element numeric array.
+        form_matrix = Matrix(cast(Matrix, form_shorthand))
 
         # Concatenate form matrix with CTM to ensure CTM is correct for
         # drawing this instance of the XObject

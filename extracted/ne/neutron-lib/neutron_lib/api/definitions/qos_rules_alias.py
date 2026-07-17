@@ -16,13 +16,19 @@ from neutron_lib.api.definitions import qos_bw_limit_direction
 from neutron_lib import constants
 from neutron_lib.db import constants as db_const
 from neutron_lib.services.qos import constants as q_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    ResourceAttributeMapItem,
+    SubResourceAttributeMap,
+)
 
 
 BANDWIDTH_LIMIT_RULES_ALIAS = "alias_bandwidth_limit_rules"
 DSCP_MARKING_RULES_ALIAS = 'alias_dscp_marking_rules'
 MIN_BANDWIDTH_RULES_ALIAS = 'alias_minimum_bandwidth_rules'
 
-_QOS_RULE_COMMON_FIELDS = {
+_QOS_RULE_COMMON_FIELDS: dict[str, ResourceAttributeMapItem] = {
     'id': {
         'allow_post': False, 'allow_put': False,
         'validate': {'type:uuid': None},
@@ -46,7 +52,7 @@ API_PREFIX = '/' + qos.ALIAS
 DESCRIPTION = ('API to enable GET, PUT and DELETE operations on QoS policy '
                'rules without specifying policy ID')
 UPDATED_TIMESTAMP = '2018-10-07T10:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     BANDWIDTH_LIMIT_RULES_ALIAS: dict(
         _QOS_RULE_COMMON_FIELDS,
         **{q_const.MAX_KBPS: {
@@ -56,7 +62,7 @@ RESOURCE_ATTRIBUTE_MAP = {
             'is_filter': True,
             'is_sort_key': True,
             'validate': {
-                'type:range': [0, db_const.DB_INTEGER_MAX_VALUE]
+                'type:range': (0, db_const.DB_INTEGER_MAX_VALUE),
             }
         },
             q_const.DIRECTION: {
@@ -77,7 +83,7 @@ RESOURCE_ATTRIBUTE_MAP = {
                 'is_sort_key': True,
                 'convert_to': converters.convert_to_int,
                 'validate': {
-                    'type:range': [0, db_const.DB_INTEGER_MAX_VALUE]
+                    'type:range': (0, db_const.DB_INTEGER_MAX_VALUE),
                 }
         }}),
     DSCP_MARKING_RULES_ALIAS: dict(
@@ -101,7 +107,7 @@ RESOURCE_ATTRIBUTE_MAP = {
             'is_sort_key': True,
             'convert_to': converters.convert_to_int,
             'validate': {
-                'type:range': [0, db_const.DB_INTEGER_MAX_VALUE]
+                'type:range': (0, db_const.DB_INTEGER_MAX_VALUE),
             }
         },
             q_const.DIRECTION: {
@@ -116,8 +122,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         }
     )
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [qos.ALIAS, qos_bw_limit_direction.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

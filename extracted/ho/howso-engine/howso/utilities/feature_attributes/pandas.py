@@ -452,13 +452,6 @@ class InferFeatureAttributesDataFrame(InferFeatureAttributesBase):
         decimal_places = feature_attributes[feature_name].get('decimal_places')
         # only integers by default do not allow nulls
 
-        # Non-nullable integer
-        if column.dtype == np.int64:
-            allow_null = False
-        # Nullable integer
-        elif is_integer_dtype(column.dtype):
-            allow_null = True
-
         def _as_float(value, dtype):
             # Convert datatype to float
             if is_timedelta64_dtype(dtype):
@@ -984,3 +977,7 @@ class InferFeatureAttributesDataFrame(InferFeatureAttributesBase):
         if value in counts.index:
             return int(counts.loc[value])
         return 0
+
+    def _contains_nulls(self, feature_name: str) -> bool:
+        """Get whether the provided feature contains any null values."""
+        return bool(self.data[feature_name].isna().any())

@@ -71,6 +71,7 @@ from jax._src.lib import pytree
 from jax._src.interpreters import partial_eval as pe
 from jax.tree_util import tree_flatten, tree_map, tree_unflatten
 from jax._src.util import safe_map, safe_zip, split_list
+from jax._src import flattree as ft
 from jax._src.lax.control_flow import _check_tree_and_avals
 from jax._src.numpy import indexing as jnp_indexing
 from jax.experimental import sparse
@@ -781,7 +782,7 @@ def _sparsify_jaxpr(spenv: SparsifyEnv,
     nonlocal out_tree
     args = tree_unflatten(in_tree, args_flat)
     spvalues = arrays_to_spvalues(spenv, args)
-    result = eval_sparse(jaxpr.jaxpr, jaxpr.consts, spvalues, spenv)
+    result = eval_sparse(jaxpr, jaxpr.consts, spvalues, spenv)
     out = spvalues_to_arrays(spenv, result)
     out_flat, out_tree = tree_flatten(out)
     return out_flat
@@ -790,8 +791,8 @@ def _sparsify_jaxpr(spenv: SparsifyEnv,
   args_flat, in_tree = tree_flatten(args)
   avals_flat = [core.typeof(arg) for arg in args_flat]
   sp_jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(
-      lu.wrap_init(wrapped, debug_info=jaxpr.jaxpr.debug_info.with_unknown_names()), avals_flat)
-  sp_jaxpr = pe.ClosedJaxpr(sp_jaxpr, consts)
+      lu.wrap_init(wrapped, debug_info=jaxpr.debug_info.with_unknown_names()), avals_flat)
+  sp_jaxpr = sp_jaxpr.with_consts(consts)
   assert out_tree is not None
   return sp_jaxpr, out_tree
 
@@ -859,9 +860,9 @@ def _pjit_sparse(spenv, *spvalues, jaxpr, in_shardings, out_shardings,
 sparse_rules_bcoo[pjit.jit_p] = _pjit_sparse
 
 
-def _scan_sparse(spenv, *spvalues, jaxpr, num_consts, num_carry, **params):
-  const_spvalues, carry_spvalues, xs_spvalues = split_list(
-    spvalues, [num_consts, num_carry])
+def _scan_sparse(spenv, *spvalues, jaxpr, ft_in, ft_out, **params):
+  const_spvalues, carry_spvalues, xs_spvalues = (
+      tuple(g) for g in ft_in.update(spvalues).unpack())
   if xs_spvalues:
     # TODO(jakevdp): we don't want to pass xs_spvalues, we want to pass one row
     # of xs spvalues. How to do this?
@@ -872,8 +873,12 @@ def _scan_sparse(spenv, *spvalues, jaxpr, num_consts, num_carry, **params):
   carry, carry_tree = tree_flatten(spvalues_to_arrays(spenv, carry_spvalues))
   xs, xs_tree = tree_flatten(spvalues_to_arrays(spenv, xs_spvalues))
 
-  out = lax.scan_p.bind(*consts, *carry, *xs, jaxpr=sp_jaxpr,
-                        num_consts=len(consts), num_carry=len(carry), **params)
+  out = lax.scan_p.bind(
+      *consts, *carry, *xs, jaxpr=sp_jaxpr,
+      ft_in=ft.flatten((consts, carry, xs)).void(),
+      ft_out=ft.pack((ft.nones(len(carry)),
+                      ft.nones(len(sp_jaxpr.out_avals) - len(carry)))),
+      **params)
   carry_out = tree_unflatten(carry_tree, out[:len(carry)])
   xs_out = tree_unflatten(xs_tree, out[len(carry):])
   return arrays_to_spvalues(spenv, carry_out + xs_out)
@@ -910,7 +915,7 @@ def _custom_jvp_sparse_rule(spenv, *spvalues, **params):
   def fun(*flat_arrs):
     arrs = tree_util.tree_unflatten(out_tree, flat_arrs)
     sparrs = arrays_to_spvalues(spenv, arrs)
-    out = eval_sparse(call_jaxpr.jaxpr, call_jaxpr.consts, sparrs, spenv)
+    out = eval_sparse(call_jaxpr, call_jaxpr.consts, sparrs, spenv)
     return tree_util.tree_flatten(spvalues_to_arrays(spenv, out))[0]
   jvp = lift_jvp(num_consts, jvp_jaxpr_fun)
   invals = spvalues_to_arrays(spenv, spvalues)
@@ -918,7 +923,7 @@ def _custom_jvp_sparse_rule(spenv, *spvalues, **params):
 
   flat_outvals = jax.custom_derivatives.custom_jvp_call_p.bind(
       *flat_invals,
-      subfuns=(lu.wrap_init(fun, debug_info=call_jaxpr.jaxpr.debug_info), jvp),
+      subfuns=(lu.wrap_init(fun, debug_info=call_jaxpr.debug_info), jvp),
       **params)
   outvals = tree_util.tree_unflatten(out_tree, flat_outvals)
   return arrays_to_spvalues(spenv, outvals)

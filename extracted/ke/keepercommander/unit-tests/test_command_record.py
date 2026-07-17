@@ -117,6 +117,51 @@ class TestRecord(TestCase):
         {"$ref": "script", "label": "rotationScripts"},     # real RT-definition label
     ]
 
+    def test_format_add_result(self):
+        record_uid = 'riK9X5/XcxGPWRYM2Be1Ow=='
+        share_url = 'https://keepersecurity.com/vault/share#abc123'
+
+        self.assertEqual(
+            record_edit.RecordAddCommand._format_add_result(record_uid),
+            record_uid,
+        )
+        self.assertEqual(
+            record_edit.RecordAddCommand._format_add_result(record_uid, share_url),
+            f'{record_uid}\n{share_url}',
+        )
+        parsed = json.loads(record_edit.RecordAddCommand._format_add_result(record_uid, share_url, 'json'))
+        self.assertEqual(parsed['record_uid'], record_uid)
+        self.assertEqual(parsed['share_url'], share_url)
+        parsed = json.loads(record_edit.RecordAddCommand._format_add_result(record_uid, None, 'json'))
+        self.assertEqual(parsed, {'record_uid': record_uid})
+
+    def test_add_command_self_destruct_output(self):
+        params = get_synced_params()
+        cmd = record_edit.RecordAddCommand()
+        record_uid = utils.generate_uid()
+        share_url = 'https://keepersecurity.com/vault/share#abc123'
+
+        with mock.patch('keepercommander.api.sync_down'), \
+                mock.patch('keepercommander.record_management.add_record_to_folder') as ar, \
+                mock.patch('keepercommander.api.communicate_rest'), \
+                mock.patch('keepercommander.commands.record_edit.urlunparse', return_value=share_url):
+            def artf(p, r, f):
+                r.record_uid = record_uid
+            ar.side_effect = artf
+
+            text_result = cmd.execute(
+                params, force=True, title='Test', record_type='login',
+                self_destruct='2mi', fields=['login=u', 'password=p'],
+            )
+            self.assertEqual(text_result, f'{record_uid}\n{share_url}')
+
+            json_result = json.loads(cmd.execute(
+                params, force=True, title='Test', record_type='login',
+                self_destruct='2mi', fields=['login=u', 'password=p'], format='json',
+            ))
+            self.assertEqual(json_result['record_uid'], record_uid)
+            self.assertEqual(json_result['share_url'], share_url)
+
     def test_add_command_labels_default_is_legacy(self):
         # No --labels (and explicit --labels=on): fields with no label in the RT definition fall
         # back to the field type as the label; real definition labels are kept.
@@ -304,7 +349,29 @@ class TestRecord(TestCase):
             cmd.execute(params, uid=shared_folder_uid)
             cmd.execute(params, format='json', uid=shared_folder_uid)
 
+    def test_get_shared_folder_json_includes_owner_flag(self):
+        params = get_synced_params()
+        cmd = record.RecordGetUidCommand()
+        shared_folder_uid = next(iter(params.shared_folder_cache))
+        cached_sf = params.shared_folder_cache[shared_folder_uid]
+        owner_account_uid = cached_sf['owner_account_uid']
+
+        captured = []
+        with mock.patch('builtins.print', side_effect=captured.append), \
+                mock.patch('keepercommander.api.get_share_admins_for_shared_folder', return_value=[]):
+            cmd.execute(params, format='json', uid=shared_folder_uid)
+
+        payload = json.loads(captured[-1])
+        self.assertEqual(payload['type'], 'classic_folder')
+        self.assertIn('users', payload)
+        self.assertTrue(payload['users'])
+        owners = [u for u in payload['users'] if u.get('owner')]
+        self.assertEqual(len(owners), 1)
+        self.assertEqual(owners[0]['user_id'], owner_account_uid)
+        self.assertTrue(all('owner' in u for u in payload['users']))
+
     def test_get_user_folder_json_consistent_by_name_and_uid(self):
+        """get --format json returns the same folder payload by name or UID."""
         params = get_synced_params()
         cmd = record.RecordGetUidCommand()
         user_folder = next(

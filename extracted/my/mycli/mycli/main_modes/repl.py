@@ -9,6 +9,7 @@ from importlib import resources
 import os
 import random
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -42,6 +43,7 @@ import mycli as mycli_package
 from mycli.clibuffer import cli_is_multiline
 from mycli.clistyle import style_factory_ptoolkit
 from mycli.clitoolbar import create_toolbar_tokens_func
+from mycli.compat import WIN
 from mycli.constants import (
     DEFAULT_HOST,
     DEFAULT_WIDTH,
@@ -613,6 +615,7 @@ def _one_iteration(
 
         special.set_expanded_output(False)
         special.set_forced_horizontal_output(False)
+        special.set_explorer_output(False)
 
         try:
             text = handle_editor_command(
@@ -716,6 +719,7 @@ def _one_iteration(
         results = sqlexecute.run(text)
         mycli.main_formatter.query = text
         mycli.redirect_formatter.query = text
+        mycli.explorer_formatter.query = text
         successful = True
         _output_results(mycli, state, results, start)
         special.unset_once_if_written(mycli.post_redirect_command)
@@ -854,12 +858,25 @@ def _tips_picker() -> str:
     return random.choice(tips) if tips else r'\? or "help" for help!'
 
 
+def _configure_editor(mycli: 'MyCli') -> None:
+    if configured_editor := mycli.config['editor'].get('editor_command'):
+        os.environ['VISUAL'] = configured_editor
+    elif not os.environ.get('VISUAL') and not os.environ.get('EDITOR'):
+        if shutil.which('code'):
+            os.environ['VISUAL'] = 'code --wait'
+        elif WIN:
+            os.environ['VISUAL'] = 'edit'
+        else:
+            os.environ['VISUAL'] = 'vi'
+
+
 def main_repl(mycli: 'MyCli') -> None:
     sqlexecute = mycli.sqlexecute
     assert sqlexecute is not None
     state = ReplState()
 
     mycli.configure_pager()
+    _configure_editor(mycli)
     if mycli.smart_completion and not mycli.sandbox_mode:
         mycli.refresh_completions()
 

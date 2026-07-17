@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-spark
-Version: 1.10.3
+Version: 1.11.0
 Summary: The Apache Spark adapter plugin for dbt
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-spark
 Project-URL: Documentation, https://docs.getdbt.com
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10.0
-Requires-Dist: dbt-adapters<2.0,>=1.7
+Requires-Dist: dbt-adapters<2.0,>=1.24.1
 Requires-Dist: dbt-common<2.0,>=1.10
 Requires-Dist: dbt-core<2.0,>=1.8.0rc1
 Requires-Dist: sqlparams>=3.0.0
@@ -29,12 +29,12 @@ Provides-Extra: all
 Requires-Dist: pyhive[hive-pure-sasl]~=0.7.0; extra == 'all'
 Requires-Dist: pyodbc<5.3,>=5.1; extra == 'all'
 Requires-Dist: pyspark<5.0.0,>=3.0.0; extra == 'all'
-Requires-Dist: thrift<0.17.0,>=0.11.0; extra == 'all'
+Requires-Dist: thrift<0.23.0,>=0.11.0; extra == 'all'
 Provides-Extra: odbc
 Requires-Dist: pyodbc<5.3,>=5.1; extra == 'odbc'
 Provides-Extra: pyhive
 Requires-Dist: pyhive[hive-pure-sasl]~=0.7.0; extra == 'pyhive'
-Requires-Dist: thrift<0.17.0,>=0.11.0; extra == 'pyhive'
+Requires-Dist: thrift<0.23.0,>=0.11.0; extra == 'pyhive'
 Provides-Extra: session
 Requires-Dist: pyspark<5.0.0,>=3.0.0; extra == 'session'
 Description-Content-Type: text/markdown

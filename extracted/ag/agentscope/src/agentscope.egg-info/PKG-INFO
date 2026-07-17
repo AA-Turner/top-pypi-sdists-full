@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agentscope
-Version: 2.0.4
+Version: 2.0.4.post1
 Summary: AgentScope: A Flexible yet Robust Multi-Agent Platform.
 Author-email: SysML team of Alibaba Tongyi Lab <gaodawei.gdw@alibaba-inc.com>
 License-Expression: Apache-2.0
@@ -25,7 +25,7 @@ Requires-Dist: docstring_parser
 Requires-Dist: filetype
 Requires-Dist: json5
 Requires-Dist: json_repair
-Requires-Dist: mcp
+Requires-Dist: mcp<2.0.0
 Requires-Dist: httpx
 Requires-Dist: numpy
 Requires-Dist: openai
@@ -59,18 +59,29 @@ Requires-Dist: apscheduler; extra == "service"
 Requires-Dist: ag-ui-protocol>=0.1.10; extra == "service"
 Provides-Extra: storage
 Requires-Dist: redis; extra == "storage"
+Provides-Extra: k8s
+Requires-Dist: kubernetes-asyncio; extra == "k8s"
 Provides-Extra: workspace
 Requires-Dist: aiodocker; extra == "workspace"
 Requires-Dist: e2b; extra == "workspace"
+Requires-Dist: agentscope[k8s]; extra == "workspace"
+Requires-Dist: daytona; extra == "workspace"
+Requires-Dist: opensandbox; extra == "workspace"
 Provides-Extra: tools
 Requires-Dist: ripgrep; extra == "tools"
 Provides-Extra: rag
 Requires-Dist: qdrant-client; extra == "rag"
 Requires-Dist: pypdf; extra == "rag"
 Requires-Dist: python-pptx; extra == "rag"
+Requires-Dist: python-docx; extra == "rag"
+Requires-Dist: openpyxl>=3.1.5; extra == "rag"
+Requires-Dist: xlrd>=2.0; extra == "rag"
+Requires-Dist: pandas; extra == "rag"
 Provides-Extra: milvuslite
-Requires-Dist: pymilvus[milvus-lite]>=2.4.0; extra == "milvuslite"
-Requires-Dist: milvus-lite>=3.0; sys_platform == "win32" and extra == "milvuslite"
+Requires-Dist: pymilvus>=2.4.0; extra == "milvuslite"
+Requires-Dist: milvus-lite>=3.1.0; extra == "milvuslite"
+Provides-Extra: mongodb
+Requires-Dist: pymongo>=4.7; extra == "mongodb"
 Provides-Extra: s3
 Requires-Dist: aioboto3; extra == "s3"
 Provides-Extra: mem0
@@ -85,6 +96,7 @@ Requires-Dist: agentscope[workspace]; extra == "full"
 Requires-Dist: agentscope[tools]; extra == "full"
 Requires-Dist: agentscope[rag]; extra == "full"
 Requires-Dist: agentscope[milvuslite]; extra == "full"
+Requires-Dist: agentscope[mongodb]; extra == "full"
 Requires-Dist: agentscope[s3]; extra == "full"
 Requires-Dist: agentscope[mem0]; extra == "full"
 Requires-Dist: agentscope[reme]; extra == "full"
@@ -166,7 +178,7 @@ AgentScope 2.0 is a production-ready, easy-to-use agent framework with essential
 - [**Event System** →](https://docs.agentscope.io/latest/en/building-blocks/message-and-event) A unified event bus to the frontend and human-in-the-loop support.
 - [**Permission System** →](https://docs.agentscope.io/latest/en/building-blocks/permission-system) Fine-grained, configurable control over tools and resources.
 - [**Multi-tenancy & Multi-session Service** →](https://docs.agentscope.io/latest/en/deploy/agent-service) Production-grade serving with isolation across tenants and sessions.
-- [**Workspace / Sandbox Support** →](https://docs.agentscope.io/latest/en/building-blocks/workspace) Run tools and code in isolated environments, with built-in backends for local, Docker, and E2B.
+- [**Workspace / Sandbox Support** →](https://docs.agentscope.io/latest/en/building-blocks/workspace) Run tools and code in isolated environments, with built-in backends for local, Docker, E2B, OpenSandbox, and Daytona.
 - [**Extensible Middleware System** →](https://docs.agentscope.io/latest/en/building-blocks/middleware) Composable hooks to customize and extend the agent's reasoning-acting loop.
 
 We design for increasingly agentic LLMs.
@@ -177,6 +189,8 @@ rather than constraining them with strict prompts and opinionated orchestrations
 
 ## News
 <!-- BEGIN NEWS -->
+- **[2026-07] `INTE`:** Daytona-based workspace/sandbox supported. [Docs](https://docs.agentscope.io/latest/en/building-blocks/workspace)
+- **[2026-07] `INTE`:** K8s, OpenSandbox-based workspace/sandbox supported. [Docs](https://docs.agentscope.io/latest/en/building-blocks/workspace)
 - **[2026-07] `INTE`:** ReMe long-term memory supported. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/long_term_memory/reme) | [Docs](https://docs.agentscope.io/latest/en/building-blocks/long-term-memory)
 - **[2026-06] `FEAT`:** Agentic Memory supported. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/long_term_memory/agentic_memory) | [Docs](https://docs.agentscope.io/latest/en/building-blocks/long-term-memory)
 - **[2026-06] `FEAT`:** Distributed & Multi-Tenancy & Multi-Session RAG service supported. [Docs](https://docs.agentscope.io/latest/en/deploy/agent-team)

@@ -3,12 +3,13 @@
 from typing import Any
 
 from pyrig.core.subprocesses import Args
-from pyrig.rig.tools.base.tool import Group, Tool
+from pyrig.rig.tools.base.hooks import CheckHookTool
+from pyrig.rig.tools.base.tool import Group
 from pyrig.rig.tools.typing.checker import TypeChecker
 from pyrig.rig.tools.version_control.hooks.manager import VersionControlHookManager
 
 
-class ShellLinter(Tool):
+class ShellLinter(CheckHookTool):
     """Type-safe wrapper for the ShellCheck shell script linter."""
 
     def group(self) -> str:
@@ -48,27 +49,19 @@ class ShellLinter(Tool):
         """
         return self.args(*args)
 
-    def version_control_hooks(self) -> tuple[dict[str, Any], ...]:
-        """Return the shell linting hook.
-
-        Returns:
-            `check_shell_hook`, wrapped in a single-element tuple.
-        """
-        return (self.check_shell_hook(),)
-
-    def check_shell_hook(self) -> dict[str, Any]:
+    def check_hook(self) -> dict[str, Any]:
         """Return the hook metadata for linting shell scripts.
 
-        Ties its priority to `TypeChecker.check_types_hook` so it runs
+        Ties its priority to `TypeChecker.check_hook` so it runs
         alongside the rest of the checks tier rather than after it.
 
         Returns:
             Hook metadata dict for `shellcheck`.
         """
         return VersionControlHookManager.I.hook(
-            self.check_shell,
+            self.lint_shell,
             priority=VersionControlHookManager.I.hook_priority(
-                TypeChecker.I.check_types_hook(),
+                TypeChecker.I.check_hook(),
             ),
             types=["shell"],
             args=[
@@ -78,7 +71,7 @@ class ShellLinter(Tool):
             ],
         )
 
-    def check_shell(self) -> Args:
+    def lint_shell(self) -> Args:
         """Return the `Args` this hook's entry runs.
 
         Returns:

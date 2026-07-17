@@ -26,7 +26,7 @@ from aigie.ingest._pb.kytte.ingest.v1 import ingest_pb2 as kytte_dot_ingest_dot_
 from aigie.decision._pb.kytte.remediation.v1 import step_pb2 as kytte_dot_remediation_dot_v1_dot_step__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n kytte/decision/v1/decision.proto\x12\x11kytte.decision.v1\x1a\x1ckytte/ingest/v1/ingest.proto\x1a\x1fkytte/remediation/v1/step.proto\"\xd5\x01\n\x13\x45valuateSpanRequest\x12#\n\x04span\x18\x01 \x01(\x0b\x32\x15.kytte.ingest.v1.Span\x12\x10\n\x08trace_id\x18\x02 \x01(\t\x12Q\n\x0e\x63ontext_hashes\x18\x03 \x03(\x0b\x32\x39.kytte.decision.v1.EvaluateSpanRequest.ContextHashesEntry\x1a\x34\n\x12\x43ontextHashesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xe8\x01\n\x14\x45valuateSpanResponse\x12+\n\x07verdict\x18\x01 \x01(\x0e\x32\x1a.kytte.decision.v1.Verdict\x12\x14\n\x0cproblem_type\x18\x02 \x01(\t\x12\x34\n\x05steps\x18\x03 \x03(\x0b\x32%.kytte.remediation.v1.RemediationStep\x12\r\n\x05\x61pply\x18\x04 \x01(\x08\x12\x19\n\x0c\x65xecution_id\x18\x05 \x01(\tH\x00\x88\x01\x01\x12\x1c\n\x14request_full_context\x18\x06 \x01(\x08\x42\x0f\n\r_execution_id\"T\n\x1cReportExecutionResultRequest\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\r\n\x05\x65rror\x18\x03 \x01(\t\"\x1f\n\x1dReportExecutionResultResponse*\\\n\x07Verdict\x12\x17\n\x13VERDICT_UNSPECIFIED\x10\x00\x12\x10\n\x0cVERDICT_SAFE\x10\x01\x12\x11\n\rVERDICT_ERROR\x10\x02\x12\x13\n\x0fVERDICT_ABSTAIN\x10\x03\x32\xf3\x01\n\x14\x44\x65\x63isionOrchestrator\x12_\n\x0c\x45valuateSpan\x12&.kytte.decision.v1.EvaluateSpanRequest\x1a\'.kytte.decision.v1.EvaluateSpanResponse\x12z\n\x15ReportExecutionResult\x12/.kytte.decision.v1.ReportExecutionResultRequest\x1a\x30.kytte.decision.v1.ReportExecutionResultResponseB_\n\x14\x61i.kytte.decision.v1P\x01ZEgithub.com/Kytte-AI/kytte-platfrom/proto/kytte/decision/v1;decisionv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n kytte/decision/v1/decision.proto\x12\x11kytte.decision.v1\x1a\x1ckytte/ingest/v1/ingest.proto\x1a\x1fkytte/remediation/v1/step.proto\"\xd5\x01\n\x13\x45valuateSpanRequest\x12#\n\x04span\x18\x01 \x01(\x0b\x32\x15.kytte.ingest.v1.Span\x12\x10\n\x08trace_id\x18\x02 \x01(\t\x12Q\n\x0e\x63ontext_hashes\x18\x03 \x03(\x0b\x32\x39.kytte.decision.v1.EvaluateSpanRequest.ContextHashesEntry\x1a\x34\n\x12\x43ontextHashesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xe8\x01\n\x14\x45valuateSpanResponse\x12+\n\x07verdict\x18\x01 \x01(\x0e\x32\x1a.kytte.decision.v1.Verdict\x12\x14\n\x0cproblem_type\x18\x02 \x01(\t\x12\x34\n\x05steps\x18\x03 \x03(\x0b\x32%.kytte.remediation.v1.RemediationStep\x12\r\n\x05\x61pply\x18\x04 \x01(\x08\x12\x19\n\x0c\x65xecution_id\x18\x05 \x01(\tH\x00\x88\x01\x01\x12\x1c\n\x14request_full_context\x18\x06 \x01(\x08\x42\x0f\n\r_execution_id\"\x86\x01\n\x1cReportExecutionResultRequest\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\r\n\x05\x65rror\x18\x03 \x01(\t\x12\x30\n\tstep_runs\x18\x04 \x03(\x0b\x32\x1d.kytte.remediation.v1.StepRun\"\x1f\n\x1dReportExecutionResultResponse\"d\n\x1bRegisterCapabilitiesRequest\x12-\n\x05verbs\x18\x01 \x03(\x0b\x32\x1e.kytte.remediation.v1.VerbSpec\x12\x16\n\x0eschema_version\x18\x02 \x01(\r\"0\n\x1cRegisterCapabilitiesResponse\x12\x10\n\x08\x61\x63\x63\x65pted\x18\x01 \x01(\r*\\\n\x07Verdict\x12\x17\n\x13VERDICT_UNSPECIFIED\x10\x00\x12\x10\n\x0cVERDICT_SAFE\x10\x01\x12\x11\n\rVERDICT_ERROR\x10\x02\x12\x13\n\x0fVERDICT_ABSTAIN\x10\x03\x32\xec\x02\n\x14\x44\x65\x63isionOrchestrator\x12_\n\x0c\x45valuateSpan\x12&.kytte.decision.v1.EvaluateSpanRequest\x1a\'.kytte.decision.v1.EvaluateSpanResponse\x12z\n\x15ReportExecutionResult\x12/.kytte.decision.v1.ReportExecutionResultRequest\x1a\x30.kytte.decision.v1.ReportExecutionResultResponse\x12w\n\x14RegisterCapabilities\x12..kytte.decision.v1.RegisterCapabilitiesRequest\x1a/.kytte.decision.v1.RegisterCapabilitiesResponseB_\n\x14\x61i.kytte.decision.v1P\x01ZEgithub.com/Kytte-AI/kytte-platfrom/proto/kytte/decision/v1;decisionv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,18 +36,22 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._serialized_options = b'\n\024ai.kytte.decision.v1P\001ZEgithub.com/Kytte-AI/kytte-platfrom/proto/kytte/decision/v1;decisionv1'
   _globals['_EVALUATESPANREQUEST_CONTEXTHASHESENTRY']._loaded_options = None
   _globals['_EVALUATESPANREQUEST_CONTEXTHASHESENTRY']._serialized_options = b'8\001'
-  _globals['_VERDICT']._serialized_start=688
-  _globals['_VERDICT']._serialized_end=780
+  _globals['_VERDICT']._serialized_start=891
+  _globals['_VERDICT']._serialized_end=983
   _globals['_EVALUATESPANREQUEST']._serialized_start=119
   _globals['_EVALUATESPANREQUEST']._serialized_end=332
   _globals['_EVALUATESPANREQUEST_CONTEXTHASHESENTRY']._serialized_start=280
   _globals['_EVALUATESPANREQUEST_CONTEXTHASHESENTRY']._serialized_end=332
   _globals['_EVALUATESPANRESPONSE']._serialized_start=335
   _globals['_EVALUATESPANRESPONSE']._serialized_end=567
-  _globals['_REPORTEXECUTIONRESULTREQUEST']._serialized_start=569
-  _globals['_REPORTEXECUTIONRESULTREQUEST']._serialized_end=653
-  _globals['_REPORTEXECUTIONRESULTRESPONSE']._serialized_start=655
-  _globals['_REPORTEXECUTIONRESULTRESPONSE']._serialized_end=686
-  _globals['_DECISIONORCHESTRATOR']._serialized_start=783
-  _globals['_DECISIONORCHESTRATOR']._serialized_end=1026
+  _globals['_REPORTEXECUTIONRESULTREQUEST']._serialized_start=570
+  _globals['_REPORTEXECUTIONRESULTREQUEST']._serialized_end=704
+  _globals['_REPORTEXECUTIONRESULTRESPONSE']._serialized_start=706
+  _globals['_REPORTEXECUTIONRESULTRESPONSE']._serialized_end=737
+  _globals['_REGISTERCAPABILITIESREQUEST']._serialized_start=739
+  _globals['_REGISTERCAPABILITIESREQUEST']._serialized_end=839
+  _globals['_REGISTERCAPABILITIESRESPONSE']._serialized_start=841
+  _globals['_REGISTERCAPABILITIESRESPONSE']._serialized_end=889
+  _globals['_DECISIONORCHESTRATOR']._serialized_start=986
+  _globals['_DECISIONORCHESTRATOR']._serialized_end=1350
 # @@protoc_insertion_point(module_scope)

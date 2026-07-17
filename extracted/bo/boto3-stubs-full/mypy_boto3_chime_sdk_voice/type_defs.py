@@ -23,6 +23,7 @@ from typing import Union
 
 from .literals import (
     AlexaSkillStatusType,
+    CallDistributionTypeType,
     CallingNameStatusType,
     CallLegTypeType,
     CapabilityType,
@@ -393,7 +394,7 @@ class SipRuleTargetApplicationTypeDef(TypedDict):
 
 class VoiceConnectorItemTypeDef(TypedDict):
     VoiceConnectorId: str
-    Priority: int
+    Priority: NotRequired[int]
 
 
 class VoiceConnectorTypeDef(TypedDict):
@@ -1053,8 +1054,8 @@ class CreateSipRuleRequestTypeDef(TypedDict):
     Name: str
     TriggerType: SipRuleTriggerTypeType
     TriggerValue: str
+    TargetApplications: Sequence[SipRuleTargetApplicationTypeDef]
     Disabled: NotRequired[bool]
-    TargetApplications: NotRequired[Sequence[SipRuleTargetApplicationTypeDef]]
 
 
 class SipRuleTypeDef(TypedDict):
@@ -1078,12 +1079,14 @@ class UpdateSipRuleRequestTypeDef(TypedDict):
 class CreateVoiceConnectorGroupRequestTypeDef(TypedDict):
     Name: str
     VoiceConnectorItems: NotRequired[Sequence[VoiceConnectorItemTypeDef]]
+    CallDistributionType: NotRequired[CallDistributionTypeType]
 
 
 class UpdateVoiceConnectorGroupRequestTypeDef(TypedDict):
     VoiceConnectorGroupId: str
     Name: str
     VoiceConnectorItems: Sequence[VoiceConnectorItemTypeDef]
+    CallDistributionType: NotRequired[CallDistributionTypeType]
 
 
 class VoiceConnectorGroupTypeDef(TypedDict):
@@ -1093,6 +1096,7 @@ class VoiceConnectorGroupTypeDef(TypedDict):
     CreatedTimestamp: NotRequired[datetime]
     UpdatedTimestamp: NotRequired[datetime]
     VoiceConnectorGroupArn: NotRequired[str]
+    CallDistributionType: NotRequired[CallDistributionTypeType]
 
 
 class CreateVoiceConnectorResponseTypeDef(TypedDict):
@@ -1178,7 +1182,7 @@ class GetGlobalSettingsResponseTypeDef(TypedDict):
 
 
 class UpdateGlobalSettingsRequestTypeDef(TypedDict):
-    VoiceConnector: NotRequired[VoiceConnectorSettingsTypeDef]
+    VoiceConnector: VoiceConnectorSettingsTypeDef
 
 
 class GetSipMediaApplicationAlexaSkillConfigurationResponseTypeDef(TypedDict):
@@ -1286,7 +1290,7 @@ class PhoneNumberOrderTypeDef(TypedDict):
     OrderedPhoneNumbers: NotRequired[list[OrderedPhoneNumberTypeDef]]
     CreatedTimestamp: NotRequired[datetime]
     UpdatedTimestamp: NotRequired[datetime]
-    FocDate: NotRequired[datetime]
+    FocDate: NotRequired[str]
 
 
 class OriginationOutputTypeDef(TypedDict):
@@ -1320,6 +1324,7 @@ PhoneNumberTypeDef = TypedDict(
     {
         "PhoneNumberId": NotRequired[str],
         "E164PhoneNumber": NotRequired[str],
+        "PhoneNumberArn": NotRequired[str],
         "Country": NotRequired[str],
         "Type": NotRequired[PhoneNumberTypeType],
         "ProductType": NotRequired[PhoneNumberProductTypeType],

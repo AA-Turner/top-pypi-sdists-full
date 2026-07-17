@@ -19,6 +19,11 @@ from neutron_lib.api.definitions import port
 from neutron_lib.api import validators
 from neutron_lib.api.validators import dns as dns_validator
 from neutron_lib.db import constants
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 # The alias of the extension.
 ALIAS = 'dns-integration'
@@ -60,7 +65,7 @@ validators.add_validator('dns_domain_name',
 
 # The resource attribute map for the extension. It is effectively the
 # bulk of the API contract alongside ACTION_MAP (mandatory).
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     port.COLLECTION_NAME: {
         DNSNAME: {'allow_post': True, 'allow_put': True,
                   'default': '',
@@ -99,11 +104,11 @@ RESOURCE_ATTRIBUTE_MAP = {
 # to main extension's resource. The subresource map must have a parent and
 # a parameters entry. If an extension does not need such a map, None can
 # be specified (mandatory). For example:
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map: it associates verbs with methods to be performed on
 # the API resource (mandatory).
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 
 # The action status: it associates response statuses with methods to be
 # performed on the API resource (mandatory).

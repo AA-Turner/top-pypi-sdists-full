@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: gdstk
-Version: 1.0.0
+Version: 1.0.1
 Summary: Python module for creation and manipulation of GDSII files.
 Keywords: GDSII,OASIS,CAD,layout
 Author-Email: "Lucas H. Gabrielli" <heitzmann@gmail.com>

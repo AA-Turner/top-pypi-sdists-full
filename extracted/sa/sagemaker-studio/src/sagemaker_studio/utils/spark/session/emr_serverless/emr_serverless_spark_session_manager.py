@@ -255,7 +255,16 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
             logger.info("FTA supported — applying compatibility mode configs")
             configs.update(self._get_compatibility_mode_configs())
         else:
-            logger.info("FTA not supported — compatibility mode configs not applied")
+            # Native Lake Formation FGAC path (FTA not applied). This requires an
+            # engine release of at least emr-7.14 / emr-spark-8.1; older releases
+            # cannot enforce FGAC, so raise instead of returning an unsafe config.
+            release_label = application.get("releaseLabel", "")
+            if not self._supports_native_fgac(release_label):
+                raise RuntimeError(
+                    "Lake Formation fine-grained access control requires EMR release "
+                    f">= emr-7.14 / emr-spark-8.1; release '{release_label}' is not supported."
+                )
+            logger.info("Native FGAC active — compatibility mode configs not applied")
         configs["spark.dynamicAllocation.executorIdleTimeout"] = "120s"
         configs.update(self._get_s3_access_grants_configs())
         return configs
@@ -395,6 +404,23 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
     def _is_emr_spark_release(release_label: str) -> bool:
         """Check if release label is an emr-spark release (e.g., emr-spark-7.8.0)."""
         return release_label.startswith("emr-spark-")
+
+    @staticmethod
+    def _supports_native_fgac(release_label: str) -> bool:
+        """Check if the release natively supports Lake Formation FGAC.
+
+        Native FGAC requires EMR >= 7.14 or emr-spark >= 8.1 (a higher threshold than the
+        FTA compatibility-mode support at emr-7.8.0). Unknown or older labels return False.
+        """
+        if not release_label:
+            return False
+        if EMRServerlessSparkSessionManager._is_emr_spark_release(release_label):
+            try:
+                version = [int(x) for x in release_label[len("emr-spark-") :].split(".")]
+                return version >= [8, 1]
+            except (ValueError, IndexError):
+                return False
+        return EMRServerlessSparkSessionManager._is_release_at_least(release_label, "emr-7.14")
 
     @staticmethod
     def _is_fta_supported(application) -> bool:

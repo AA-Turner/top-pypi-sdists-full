@@ -150,10 +150,8 @@ def raise_for_status_code(response: requests.Response):
         raise CometRestApiException(response.request.method, response=response)
 
 
-def get_clientlib_params(
-    experiment_id: str, project_id: str, api_key: str
-) -> Dict[str, str]:
-    return {"experimentId": experiment_id, "projectId": project_id, "apiKey": api_key}
+def get_clientlib_params(experiment_id: str, project_id: str) -> Dict[str, str]:
+    return {"experimentId": experiment_id, "projectId": project_id}
 
 
 def get_clientlib_headers(experiment_id: str) -> Dict[str, str]:

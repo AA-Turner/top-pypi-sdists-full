@@ -117,7 +117,7 @@ async def redact_text(
     """
     lang_param: str | list[str] = lang
     if "," in lang:
-        lang_param = [code.strip() for code in lang.split(",")]
+        lang_param = [code.strip() for code in lang.split(",") if code.strip()]
 
     # No explicit salt → strong per-call random salt (CSPRNG). Making the
     # CSPRNG explicit here keeps this tool's security boundary auditable:
@@ -228,7 +228,7 @@ async def assess_text(
     """
     lang_param: str | list[str] = lang
     if "," in lang:
-        lang_param = [code.strip() for code in lang.split(",")]
+        lang_param = [code.strip() for code in lang.split(",") if code.strip()]
 
     report: RedactReport = redact(
         text,
@@ -260,11 +260,14 @@ async def redact_info() -> str:
     import importlib
     import importlib.util
 
-    from argus_redact.glue.redact import _LANG_DISPLAY_NAMES, _LANG_PATTERNS
+    from argus_redact.glue.redact import (
+        _LANG_DISPLAY_NAMES,
+        _LANG_PATTERNS,
+        ner_engine_available,
+    )
     from argus_redact.lang.shared.patterns import PATTERNS as SHARED
 
     lang_info = {}
-
     for code in _LANG_PATTERNS:
         mod_code = "in_" if code == "in" else code
         try:
@@ -272,7 +275,7 @@ async def redact_info() -> str:
             count = len(mod.PATTERNS) + len(SHARED)
         except ModuleNotFoundError:
             count = 0
-        has_ner = importlib.util.find_spec(f"argus_redact.lang.{mod_code}.ner_adapter") is not None
+        has_ner = ner_engine_available(code)
         lang_info[code] = {
             "name": _LANG_DISPLAY_NAMES.get(code, code),
             "patterns": count,

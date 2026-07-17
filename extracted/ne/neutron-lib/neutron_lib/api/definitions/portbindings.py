@@ -15,6 +15,7 @@
 
 from neutron_lib.api.definitions import port
 from neutron_lib import constants
+from neutron_lib.types import ActionMap, ResourceAttributeMap
 
 
 # The type of vnic that this port should be attached to
@@ -174,7 +175,7 @@ RESOURCE_NAME = port.RESOURCE_NAME
 # The plural for the resource.
 COLLECTION_NAME = port.COLLECTION_NAME
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         VIF_TYPE: {'allow_post': False, 'allow_put': False,
                    'default': constants.ATTR_NOT_SPECIFIED,
@@ -218,8 +219,7 @@ SUB_RESOURCE_ATTRIBUTE_MAP = None
 #        'get_my_foo_bars': 'GET'
 #    }
 # }
-ACTION_MAP = {
-}
+ACTION_MAP: ActionMap = {}
 
 # The action status.
 ACTION_STATUS = {

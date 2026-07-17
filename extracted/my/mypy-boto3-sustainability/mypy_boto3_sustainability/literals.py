@@ -28,11 +28,15 @@ __all__ = (
     "EmissionsUnitType",
     "GetEstimatedCarbonEmissionsDimensionValuesPaginatorName",
     "GetEstimatedCarbonEmissionsPaginatorName",
+    "GetEstimatedWaterAllocationDimensionValuesPaginatorName",
+    "GetEstimatedWaterAllocationPaginatorName",
     "PaginatorName",
     "ResourceServiceName",
     "ServiceName",
     "SustainabilityServiceName",
     "TimeGranularityType",
+    "WaterAllocationTypeType",
+    "WaterAllocationUnitType",
 )
 
 
@@ -51,9 +55,15 @@ GetEstimatedCarbonEmissionsDimensionValuesPaginatorName = Literal[
     "get_estimated_carbon_emissions_dimension_values"
 ]
 GetEstimatedCarbonEmissionsPaginatorName = Literal["get_estimated_carbon_emissions"]
+GetEstimatedWaterAllocationDimensionValuesPaginatorName = Literal[
+    "get_estimated_water_allocation_dimension_values"
+]
+GetEstimatedWaterAllocationPaginatorName = Literal["get_estimated_water_allocation"]
 TimeGranularityType = Literal[
     "MONTHLY", "QUARTERLY_CALENDAR", "QUARTERLY_FISCAL", "YEARLY_CALENDAR", "YEARLY_FISCAL"
 ]
+WaterAllocationTypeType = Literal["TOTAL_WATER_WITHDRAWALS"]
+WaterAllocationUnitType = Literal["m3"]
 SustainabilityServiceName = Literal["sustainability"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -248,8 +258,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -276,6 +284,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -343,10 +353,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -379,6 +389,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -406,6 +417,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -427,7 +439,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -448,6 +459,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -484,5 +496,8 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
-    "get_estimated_carbon_emissions", "get_estimated_carbon_emissions_dimension_values"
+    "get_estimated_carbon_emissions",
+    "get_estimated_carbon_emissions_dimension_values",
+    "get_estimated_water_allocation",
+    "get_estimated_water_allocation_dimension_values",
 ]

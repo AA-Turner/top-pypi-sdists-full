@@ -10,14 +10,17 @@ import {
   DEFAULT_VIEWPORT,
   IGNORE_DEFAULT_ARGS,
   binarySupportsHeadlessNoViewport,
+  binarySupportsHttpProxyInlineAuth,
 } from "./config.js";
 import { buildArgs } from "./args.js";
 import { maybeWarnWindowsFonts } from "./fonts.js";
 import { ensureBinary } from "./download.js";
-import { isSocksProxy, normalizeHttpStringUrl, parseProxyUrl, reconstructHttpUrl, resolveProxyConfig, supportsHttpProxyInlineAuth } from "./proxy.js";
+import { isSocksProxy, normalizeHttpStringUrl, parseProxyUrl, reconstructHttpUrl, resolveProxyConfig } from "./proxy.js";
 import { maybeResolveGeoip, resolveWebrtcArgs, appendWebrtcExitIp } from "./geoip.js";
-import { buildLaunchEnv } from "./license.js";
+import { buildLaunchEnv, licenseErrorFrom } from "./license.js";
 import { seedWidevineHint } from "./widevine.js";
+
+export { CloakBrowserLicenseError } from "./license.js";
 
 /**
  * Resolve Puppeteer's defaultViewport. Headed -> null (track the real window so
@@ -60,8 +63,9 @@ async function resolveArgs(options: LaunchOptions): Promise<{ binaryPath: string
 /**
  * Resolve proxy into Chrome CLI args and optional HTTP auth credentials.
  * SOCKS5: Chrome handles inline credentials natively (RFC 1929 auth).
- * HTTP on supported platforms: inline credentials via --proxy-server.
- * HTTP on unsupported platforms: strip credentials, use page.authenticate() fallback.
+ * HTTP on binaries with inline proxy auth: inline credentials via --proxy-server.
+ * HTTP on older binaries (free macOS/linux-arm64): strip credentials, use
+ * page.authenticate() fallback.
  */
 function resolveProxy(options: LaunchOptions, args: string[]): { username: string; password: string } | undefined {
   if (!options.proxy) return undefined;
@@ -72,8 +76,8 @@ function resolveProxy(options: LaunchOptions, args: string[]): { username: strin
     return undefined;
   }
 
-  // On supported platforms: pass full URL with inline creds to --proxy-server
-  if (supportsHttpProxyInlineAuth()) {
+  // On binaries that ship inline proxy auth: pass full URL with inline creds.
+  if (binarySupportsHttpProxyInlineAuth(options.licenseKey, options.browserVersion)) {
     if (typeof options.proxy === "string") {
       args.push(`--proxy-server=${normalizeHttpStringUrl(options.proxy)}`);
       return undefined;
@@ -88,7 +92,7 @@ function resolveProxy(options: LaunchOptions, args: string[]): { username: strin
     return undefined;
   }
 
-  // Unsupported platform: strip credentials, fall back to page.authenticate()
+  // Older binary: strip credentials, fall back to page.authenticate()
   if (typeof options.proxy === "string") {
     const { server, username, password } = parseProxyUrl(options.proxy);
     args.push(`--proxy-server=${server}`);
@@ -105,7 +109,7 @@ function resolveProxy(options: LaunchOptions, args: string[]): { username: strin
   return username ? { username, password: password ?? "" } : undefined;
 }
 
-/** Apply proxy auth fallback (unsupported platforms) and humanize patching. */
+/** Apply proxy auth fallback (older binaries) and humanize patching. */
 async function applyPostLaunch(
   browser: Browser,
   options: LaunchOptions,
@@ -159,15 +163,22 @@ export async function launch(options: LaunchOptions = {}): Promise<Browser> {
   );
   const envResult = launchEnv !== undefined ? { env: launchEnv } : {};
 
-  const browser = await puppeteer.default.launch({
-    ...restLaunchOptions,
-    executablePath: binaryPath,
-    headless: options.headless ?? true,
-    args,
-    ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
-    defaultViewport: resolveDefaultViewport(options),
-    ...envResult,
-  });
+  let browser;
+  try {
+    browser = await puppeteer.default.launch({
+      ...restLaunchOptions,
+      executablePath: binaryPath,
+      headless: options.headless ?? true,
+      args,
+      ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
+      defaultViewport: resolveDefaultViewport(options),
+      ...envResult,
+    });
+  } catch (err) {
+    const lic = licenseErrorFrom(err);
+    if (lic) throw lic;
+    throw err;
+  }
 
   await applyPostLaunch(browser, options, proxyAuth);
   return browser;
@@ -208,16 +219,23 @@ export async function launchPersistentContext(
   );
   const envResult = launchEnv !== undefined ? { env: launchEnv } : {};
 
-  const browser = await puppeteer.default.launch({
-    ...restLaunchOptions,
-    executablePath: binaryPath,
-    headless: options.headless ?? true,
-    args,
-    ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
-    userDataDir: options.userDataDir,
-    defaultViewport: resolveDefaultViewport(options),
-    ...envResult,
-  });
+  let browser;
+  try {
+    browser = await puppeteer.default.launch({
+      ...restLaunchOptions,
+      executablePath: binaryPath,
+      headless: options.headless ?? true,
+      args,
+      ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
+      userDataDir: options.userDataDir,
+      defaultViewport: resolveDefaultViewport(options),
+      ...envResult,
+    });
+  } catch (err) {
+    const lic = licenseErrorFrom(err);
+    if (lic) throw lic;
+    throw err;
+  }
 
   await applyPostLaunch(browser, options, proxyAuth);
   return browser;

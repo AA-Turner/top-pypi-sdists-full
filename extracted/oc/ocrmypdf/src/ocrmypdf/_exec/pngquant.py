@@ -25,7 +25,7 @@ def quantize(input_file: Path, output_file: Path, quality_min: int, quality_max:
         quality_min: Minimum quality to use
         quality_max: Maximum quality to use
     """
-    with open(input_file, 'rb') as input_stream:
+    with input_file.open('rb') as input_stream:
         args = [
             'pngquant',
             '--force',

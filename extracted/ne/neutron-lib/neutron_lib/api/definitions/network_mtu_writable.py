@@ -15,6 +15,11 @@
 from neutron_lib.api import converters
 from neutron_lib.api.definitions import network
 from neutron_lib.api.definitions import network_mtu
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 MTU = 'mtu'
@@ -49,7 +54,7 @@ DESCRIPTION = (
 UPDATED_TIMESTAMP = "2017-07-12T00:00:00-00:00"
 
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     network.COLLECTION_NAME: {
         MTU: {'allow_post': True, 'allow_put': True, 'is_visible': True,
               'is_filter': True, 'is_sort_key': True,
@@ -63,11 +68,11 @@ RESOURCE_ATTRIBUTE_MAP = {
 # to main extension's resource. The subresource map must have a parent and
 # a parameters entry. If an extension does not need such a map, None can
 # be specified (mandatory).
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map: it associates verbs with methods to be performed on
 # the API resource.
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 
 # The action status.
 ACTION_STATUS = {

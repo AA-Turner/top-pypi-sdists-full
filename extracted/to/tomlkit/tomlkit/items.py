@@ -280,16 +280,16 @@ class StringType(Enum):
         return self.value[0]
 
     def is_basic(self) -> bool:
-        return self in {StringType.SLB, StringType.MLB}
+        return self is StringType.SLB or self is StringType.MLB
 
     def is_literal(self) -> bool:
-        return self in {StringType.SLL, StringType.MLL}
+        return self is StringType.SLL or self is StringType.MLL
 
     def is_singleline(self) -> bool:
-        return self in {StringType.SLB, StringType.SLL}
+        return self is StringType.SLB or self is StringType.SLL
 
     def is_multiline(self) -> bool:
-        return self in {StringType.MLB, StringType.MLL}
+        return self is StringType.MLB or self is StringType.MLL
 
     def toggle(self) -> StringType:
         return {
@@ -500,6 +500,8 @@ class Item:
 
     def comment(self, comment: str) -> Item:
         """Attach a comment to this item"""
+        if "\n" in comment or "\r" in comment:
+            raise ValueError("Comment cannot contain line breaks")
         if not comment.strip().startswith("#"):
             comment = "# " + comment
 
@@ -537,15 +539,6 @@ class Item:
 
     def __reduce_ex__(self, protocol: int) -> tuple[type, tuple[object, ...]]:  # type: ignore[override]
         return self.__class__, self._getstate(protocol)
-
-    def __getitem__(self, key: Key | str | int) -> Any:
-        raise TypeError(f"{type(self).__name__} does not support item access")
-
-    def __setitem__(self, key: Key | str | int, value: Any) -> None:
-        raise TypeError(f"{type(self).__name__} does not support item assignment")
-
-    def __delitem__(self, key: Key | str | int) -> None:
-        raise TypeError(f"{type(self).__name__} does not support item deletion")
 
 
 class Whitespace(Item):
@@ -1521,6 +1514,8 @@ class Array(Item, _CustomList):  # type: ignore[type-arg]
             4, 5, 6,
         ]
         """
+        if comment and ("\n" in comment or "\r" in comment):
+            raise ValueError("Comment cannot contain line breaks")
         new_values: list[Item] = []
         first_indent = f"\n{indent}" if newline else indent
         if first_indent:
@@ -1635,9 +1630,21 @@ class Array(Item, _CustomList):  # type: ignore[type-arg]
                 # Copy the comma from the last item if 1) it contains a value and
                 # 2) the array is multiline
                 comma = last_item.comma
-            if last_item.comma is None and not isinstance(last_item.value, Null):
-                # Add comma to the last item to separate it from the following items.
+            comma_in_indent = indent is not None and "," in indent.s
+            if (
+                last_item.comma is None
+                and not isinstance(last_item.value, Null)
+                and not comma_in_indent
+            ):
+                # Add comma to the last item to separate it from the following
+                # items, unless the new item's indent already starts with a
+                # comma (comma-first style).
                 last_item.comma = Whitespace(",")
+        if indent is not None and "," in indent.s:
+            # Comma-first style: the item that will follow the new one brings
+            # its own leading comma, so the new item must not add a trailing
+            # comma of its own.
+            comma = None
         if indent is None and (idx > 0 or "\n" in default_indent):
             # apply default indent if it isn't the first item or the array is multiline.
             indent = Whitespace(default_indent)
@@ -1735,15 +1742,11 @@ class AbstractTable(Item, _CustomDict):  # type: ignore[type-arg]
                 dict.__setitem__(self, k.key, v)
 
     def unwrap(self) -> dict[str, Any]:
-        unwrapped = {}
-        for k, v in self.items():
-            if isinstance(k, Key):
-                k = k.key
-            if hasattr(v, "unwrap"):
-                v = v.unwrap()
-            unwrapped[k] = v
-
-        return unwrapped
+        # Delegate to the inner container's unwrap, which walks its _body
+        # directly instead of re-resolving every key through items()/__getitem__
+        # (which rebuilds a SingleKey, and an OutOfOrderTableProxy for
+        # out-of-order keys, per key just to throw it away).
+        return self._value.unwrap()
 
     @property
     def value(self) -> container.Container:
@@ -1812,13 +1815,22 @@ class AbstractTable(Item, _CustomDict):  # type: ignore[type-arg]
     def __len__(self) -> int:
         return len(self._value)
 
-    def __delitem__(self, key: Key | str) -> None:  # type: ignore[override]
+    def __delitem__(self, key: Key | str) -> None:
         self.remove(key)
 
-    def __getitem__(self, key: Key | str) -> Any:  # type: ignore[override]
+    def __getitem__(self, key: Key | str) -> Any:
         return self._value[key]
 
-    def __setitem__(self, key: Key | str, value: Any) -> None:  # type: ignore[override]
+    def __contains__(self, key: object) -> bool:
+        # Native membership test. The inherited ``MutableMapping.__contains__``
+        # resolves the value via ``__getitem__`` (``self._value[key]``) -- and
+        # builds a ``NonExistentKey`` on every absent key -- only to discard it.
+        # Delegate straight to the inner container instead: its ``__contains__``
+        # answers from ``_map`` while still building the ``OutOfOrderTableProxy``
+        # for an out-of-order entry, so validation runs exactly as before.
+        return key in self._value
+
+    def __setitem__(self, key: Key | str, value: Any) -> None:
         if not isinstance(value, Item):
             value = item(value, _parent=self)
 
@@ -2018,6 +2030,8 @@ class InlineTable(AbstractTable):
         if not isinstance(_item, Item):
             _item = item(_item, _parent=self)
 
+        self._validate_child(_item)
+
         if not isinstance(_item, (Whitespace, Comment)):
             if not _item.trivia.indent and len(self._value) > 0 and not self._new:
                 _item.trivia.indent = " "
@@ -2034,21 +2048,34 @@ class InlineTable(AbstractTable):
 
         return self
 
+    def _validate_child(self, _item: Item) -> None:
+        if isinstance(_item, Table):
+            raise ValueError("Inline tables cannot contain a table")
+
     def as_string(self) -> str:
         buf = "{"
         emitted_key = False
-        has_explicit_commas = any(
-            k is None and isinstance(v, Whitespace) and "," in v.s
-            for k, v in self._value.body
-        )
-        last_item_idx = next(
-            (
-                i
-                for i in range(len(self._value.body) - 1, -1, -1)
-                if self._value.body[i][0] is not None
-            ),
-            None,
-        )
+        needs_separator = False
+        # Single pass over the body to precompute everything the render loop
+        # needs, instead of rescanning the tail on every separator comma (which
+        # was O(n^2) on large inline tables): whether any explicit-comma
+        # whitespace is present, the index of the last real key, and the index
+        # of the last Null (deleted) element.
+        has_explicit_commas = False
+        last_item_idx = None
+        last_null_idx = -1
+        for _i, (_k, _v) in enumerate(self._value.body):
+            if _k is not None:
+                last_item_idx = _i
+            elif isinstance(_v, Whitespace) and "," in _v.s:
+                has_explicit_commas = True
+            if isinstance(_v, Null):
+                last_null_idx = _i
+        pending_separator = False
+        # Buffer position right after the last rendered value, used to place a
+        # deferred separator comma after the value rather than after a trailing
+        # comment/whitespace.
+        last_value_end = len(buf)
         for i, (k, v) in enumerate(self._value.body):
             if k is None:
                 if isinstance(v, Whitespace) and "," in v.s:
@@ -2056,16 +2083,22 @@ class InlineTable(AbstractTable):
                         buf += v.as_string().replace(",", "", 1)
                         continue
 
-                    has_following_null = any(
-                        isinstance(next_v, Null)
-                        for _, next_v in self._value.body[i + 1 :]
-                    )
-                    has_following_key = any(
-                        next_k is not None for next_k, _ in self._value.body[i + 1 :]
-                    )
+                    # Equivalent to scanning body[i + 1 :] for a Null / a real
+                    # key, but O(1) using the indices precomputed above.
+                    has_following_null = last_null_idx > i
+                    has_following_key = last_item_idx is not None and last_item_idx > i
                     if has_following_null and not has_following_key:
                         buf += v.as_string().replace(",", "", 1)
                         continue
+
+                    if pending_separator:
+                        # A previous key was removed, leaving this comma as a
+                        # duplicate of an already emitted separator. Drop it to
+                        # avoid producing an invalid ``, ,`` sequence.
+                        buf += v.as_string().replace(",", "", 1)
+                        continue
+
+                    pending_separator = True
 
                 if i == len(self._value.body) - 1:
                     if self._new:
@@ -2073,20 +2106,39 @@ class InlineTable(AbstractTable):
                     elif not has_explicit_commas or "," in v.as_string():
                         buf = buf.rstrip(",")
 
-                buf += v.as_string()
+                v_string = v.as_string()
+                buf += v_string
+                if "," in v_string:
+                    needs_separator = False
 
                 continue
 
+            if has_explicit_commas and needs_separator:
+                # Insert the deferred separator right after the previous value,
+                # not after any trailing comment/whitespace -- otherwise the
+                # comma is swallowed by a trailing comment (see #512).
+                buf = f"{buf[:last_value_end]},{buf[last_value_end:]}"
+                needs_separator = False
+
             v_trivia_trail = v.trivia.trail.replace("\n", "")
-            buf += (
-                f"{v.trivia.indent}"
-                f"{k.as_string() + ('.' if k.is_dotted() else '')}"
-                f"{k.sep}"
-                f"{v.as_string()}"
-                f"{v.trivia.comment}"
-                f"{v_trivia_trail}"
-            )
+            if k.is_dotted() and isinstance(v, Table):
+                # A table materialized from a dotted key renders one
+                # `prefix.child = value` pair per child, so that keys added
+                # after parsing stay attached to the dotted prefix.
+                rendered = ", ".join(self._render_dotted(k, v))
+            else:
+                rendered = (
+                    f"{k.as_string() + ('.' if k.is_dotted() else '')}"
+                    f"{k.sep}"
+                    f"{v.as_string()}"
+                )
+            buf += f"{v.trivia.indent}{rendered}"
+            last_value_end = len(buf)
+            buf += f"{v.trivia.comment}{v_trivia_trail}"
             emitted_key = True
+            pending_separator = False
+            if has_explicit_commas:
+                needs_separator = True
 
             if (
                 not has_explicit_commas
@@ -2101,9 +2153,31 @@ class InlineTable(AbstractTable):
 
         return buf
 
-    def __setitem__(self, key: Key | str, value: Any) -> None:  # type: ignore[override]
+    def _render_dotted(self, key: Key, table: Table) -> list[str]:
+        """Render a table materialized from a dotted key as a list of
+        ``prefix.child = value`` strings, recursing into nested dotted
+        children."""
+        prefix = f"{key.as_string()}.{key.sep}"
+        parts = []
+        for k, v in table.value.body:
+            if k is None:
+                continue
+            if isinstance(v, Table):
+                parts.extend(f"{prefix}{sub}" for sub in self._render_dotted(k, v))
+            else:
+                trail = v.trivia.trail.replace("\n", "")
+                parts.append(
+                    f"{prefix}{v.trivia.indent}{k.as_string()}{k.sep}{v.as_string()}"
+                    f"{v.trivia.comment_ws}{v.trivia.comment}{trail}"
+                )
+        return parts
+
+    def __setitem__(self, key: Key | str, value: Any) -> None:
         if hasattr(value, "trivia") and value.trivia.comment:
             value.trivia.comment = ""
+        if not isinstance(value, Item):
+            value = item(value, _parent=self)
+        self._validate_child(value)
         super().__setitem__(key, value)
 
     def __copy__(self) -> InlineTable:
@@ -2113,7 +2187,7 @@ class InlineTable(AbstractTable):
         return (self._value, self._trivia)
 
 
-class String(str, Item):  # type: ignore[misc]
+class String(str, Item):
     """
     A string literal.
     """
@@ -2171,6 +2245,13 @@ class String(str, Item):  # type: ignore[misc]
 
         escaped = type_.escaped_sequences
         string_value = escape_string(value, escaped) if escape and escaped else value
+
+        if type_.is_multiline() and string_value[:1] in ("\n", "\r"):
+            # A newline immediately following the opening delimiter of a
+            # multiline string is trimmed by the parser, so a value that
+            # starts with a newline would otherwise lose it on round-trip.
+            # Emit an extra leading newline (the trimmed one) to preserve it.
+            string_value = "\n" + string_value
 
         return cls(type_, decode(value), string_value, Trivia())
 

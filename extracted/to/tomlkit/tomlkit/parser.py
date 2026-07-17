@@ -5,6 +5,7 @@ import re
 import string
 
 from typing import Any
+from typing import Callable
 
 from tomlkit._compat import decode
 from tomlkit._utils import RFC_3339_LOOSE
@@ -47,7 +48,6 @@ from tomlkit.items import Trivia
 from tomlkit.items import Whitespace
 from tomlkit.source import Source
 from tomlkit.source import _StateHandler
-from tomlkit.toml_char import TOMLChar
 from tomlkit.toml_document import TOMLDocument
 
 
@@ -57,17 +57,55 @@ CTRL_M = 0x0D  # Carriage return
 CTRL_CHAR_LIMIT = 0x1F
 CHR_DEL = 0x7F
 
+# TOML character classes (formerly the `TOMLChar` constants), as frozensets for
+# O(1) membership tests; also the stop-sets for the Source.advance_while /
+# advance_until bulk run scans that replace per-character
+# `while self._current in <set> and self.inc()` loops with a single scan.
+_SPACES = frozenset(" \t")
+_NL = frozenset("\n\r")
+_WS = _SPACES | _NL
+_KV = frozenset("= \t")
+_BARE_KEY_OR_SPACE = frozenset(string.ascii_letters + string.digits + "-_ \t")
+_NUM_STOP = frozenset(" \t\n\r#,]}")
+_DATE_TAIL_STOP = frozenset("\t\n\r#,]}")
+# Control chars invalid inside a single-line string (DEL + everything <= 0x1F
+# except tab) — exactly the set that raises InvalidControlChar in the per-char
+# string loop. The single-line string-body fast-path stops its bulk scan at the
+# first delimiter / backslash / control char, then the main loop handles that
+# char with its existing branch (raising InvalidControlChar where needed).
+_CTRL_SINGLE = frozenset(chr(c) for c in range(0x20) if c != CTRL_I) | {chr(CHR_DEL)}
+_SINGLE_LITERAL_STOP = _CTRL_SINGLE | {"'"}  # literal: only the closing quote
+_SINGLE_BASIC_STOP = _CTRL_SINGLE | {'"', "\\"}  # basic: quote or escape
+
+# Same idea for multiline string bodies. A multiline string may contain raw tab,
+# line feed and carriage return, so those are NOT in the control-reject set; but
+# the bulk scan must still stop at CR (the per-char loop validates the \r\n pair
+# and rejects a lone \r) and at the control chars that DO raise. LF and tab are
+# left out of the stop-set entirely, so a multiline body is scanned in one slice
+# across newlines up to the next delimiter / backslash / CR / invalid control.
+_CTRL_MULTI = frozenset(
+    chr(c) for c in range(0x20) if c not in (CTRL_I, CTRL_J, CTRL_M)
+) | {chr(CHR_DEL)}
+_MULTI_LITERAL_STOP = _CTRL_MULTI | {"'", "\r"}  # literal: closing quote or CR
+_MULTI_BASIC_STOP = _CTRL_MULTI | {'"', "\\", "\r"}  # basic: quote, escape or CR
+
 
 class Parser:
     """
     Parser for TOML documents.
     """
 
+    # Deeply nested documents would overflow the interpreter stack: arrays and
+    # inline tables are parsed recursively, and every fragment of a dotted key
+    # adds a level of nested containers. Refuse documents beyond this depth.
+    MAX_NESTING_DEPTH = 100
+
     def __init__(self, string: str | bytes) -> None:
         # Input to parse
         self._src = Source(decode(string))
 
         self._aot_stack: list[Key] = []
+        self._nesting_depth = 0
 
     @property
     def _state(self) -> _StateHandler:
@@ -78,7 +116,7 @@ class Parser:
         return self._src.idx
 
     @property
-    def _current(self) -> TOMLChar:
+    def _current(self) -> str:
         return self._src.current
 
     @property
@@ -276,7 +314,7 @@ class Parser:
                 self.inc()  # Skip #
 
                 # The comment itself
-                while not self.end() and not self._current.is_nl():
+                while not self.end() and self._current not in _NL:
                     code = ord(self._current)
                     if code == CHR_DEL or (code <= CTRL_CHAR_LIMIT and code != CTRL_I):
                         raise self.parse_error(InvalidControlChar, code, "comments")
@@ -304,8 +342,7 @@ class Parser:
 
         trail = ""
         if parse_trail:
-            while self._current.is_spaces() and self.inc():
-                pass
+            self._src.advance_while(_SPACES)
 
             if self._current == "\r":
                 with self._state(restore=True):
@@ -316,7 +353,7 @@ class Parser:
             if self._current == "\n":
                 self.inc()
 
-            if self._idx != self._marker or self._current.is_ws():
+            if self._idx != self._marker or self._current in _WS:
                 trail = self.extract()
 
         return comment_ws, comment, trail
@@ -325,8 +362,7 @@ class Parser:
         # Leading indent
         self.mark()
 
-        while self._current.is_spaces() and self.inc():
-            pass
+        self._src.advance_while(_SPACES)
 
         indent = self.extract()
 
@@ -336,7 +372,7 @@ class Parser:
         self.mark()
 
         found_equals = self._current == "="
-        while self._current.is_kv_sep() and self.inc():
+        while self._current in _KV and self.inc():
             if self._current == "=":
                 if found_equals:
                     raise self.parse_error(UnexpectedCharError, "=")
@@ -373,10 +409,27 @@ class Parser:
         Parses a Key at the current position;
         WS before the key must be exhausted first at the callsite.
         """
+        key = self._parse_simple_key()
+        fragments = 1
+        while self._current == ".":
+            fragments += 1
+            if fragments > self.MAX_NESTING_DEPTH:
+                raise self.parse_error(
+                    ParseError,
+                    f"TOML key nested more than {self.MAX_NESTING_DEPTH} levels deep",
+                )
+            self.inc()
+            key = key.concat(self._parse_simple_key())
+
+        return key
+
+    def _parse_simple_key(self) -> Key:
+        """
+        Parses a single (non-dotted) key fragment.
+        """
         self.mark()
-        while self._current.is_spaces() and self.inc():
-            # Skip any leading whitespace
-            pass
+        # Skip any leading whitespace (bulk scan)
+        self._src.advance_while(_SPACES)
         if self._current in "\"'":
             return self._parse_quoted_key()
         else:
@@ -401,24 +454,16 @@ class Parser:
             raise self.parse_error(UnexpectedCharError, key_str._t.value)
         original += key_str.as_string()
         self.mark()
-        while self._current.is_spaces() and self.inc():
-            pass
+        self._src.advance_while(_SPACES)
         original += self.extract()
-        result: Key = SingleKey(str(key_str), t=key_type, sep="", original=original)
-        if self._current == ".":
-            self.inc()
-            result = result.concat(self._parse_key())
 
-        return result
+        return SingleKey(str(key_str), t=key_type, sep="", original=original)
 
     def _parse_bare_key(self) -> Key:
         """
         Parses a bare key.
         """
-        while (
-            self._current.is_bare_key_char() or self._current.is_spaces()
-        ) and self.inc():
-            pass
+        self._src.advance_while(_BARE_KEY_OR_SPACE)
 
         original = self.extract()
         key_s = original.strip()
@@ -426,17 +471,11 @@ class Parser:
             # Empty key
             raise self.parse_error(EmptyKeyError)
 
-        if " " in key_s:
-            # Bare key with spaces in it
+        if " " in key_s or "\t" in key_s:
+            # Bare key with whitespace in it
             raise self.parse_error(ParseError, f'Invalid key "{key_s}"')
 
-        result: Key = SingleKey(key_s, KeyType.Bare, "", original)
-
-        if self._current == ".":
-            self.inc()
-            result = result.concat(self._parse_key())
-
-        return result
+        return SingleKey(key_s, KeyType.Bare, "", original)
 
     def _parse_value(self) -> Item:
         """
@@ -455,9 +494,9 @@ class Parser:
         elif c == BoolType.FALSE.value[0]:
             return self._parse_false()
         elif c == "[":
-            return self._parse_array()
+            return self._parse_nested(self._parse_array)
         elif c == "{":
-            return self._parse_inline_table()
+            return self._parse_nested(self._parse_inline_table)
         elif c in "+-" or self._peek(4) in {
             "+inf",
             "-inf",
@@ -467,8 +506,7 @@ class Parser:
             "nan",
         }:
             # Number
-            while self._current not in " \t\n\r#,]}" and self.inc():
-                pass
+            self._src.advance_until(_NUM_STOP)
 
             raw = self.extract()
 
@@ -479,8 +517,7 @@ class Parser:
             raise self.parse_error(InvalidNumberError)
         elif c in string.digits:
             # Integer, Float, Date, Time or DateTime
-            while self._current not in " \t\n\r#,]}" and self.inc():
-                pass
+            self._src.advance_until(_NUM_STOP)
 
             raw = self.extract()
 
@@ -512,8 +549,7 @@ class Parser:
                         assert isinstance(dt, datetime.date)
                         date = Date(dt.year, dt.month, dt.day, trivia, raw)
                         self.mark()
-                        while self._current not in "\t\n\r#,]}" and self.inc():
-                            pass
+                        self._src.advance_until(_DATE_TAIL_STOP)
 
                         time_raw = self.extract()
                         time_part = time_raw.rstrip()
@@ -579,6 +615,21 @@ class Parser:
 
             return Bool(style, Trivia())
 
+    def _parse_nested(self, parse: Callable[[], Item]) -> Item:
+        """
+        Parses an array or inline table, enforcing the nesting depth limit.
+        """
+        self._nesting_depth += 1
+        if self._nesting_depth > self.MAX_NESTING_DEPTH:
+            raise self.parse_error(
+                ParseError,
+                f"TOML value nested more than {self.MAX_NESTING_DEPTH} levels deep",
+            )
+        try:
+            return parse()
+        finally:
+            self._nesting_depth -= 1
+
     def _parse_array(self) -> Array:
         # Consume opening bracket, EOF here is an issue (middle of array)
         self.inc(exception=UnexpectedEofError)
@@ -588,9 +639,9 @@ class Parser:
         while True:
             # consume whitespace
             mark = self._idx
-            self.consume(TOMLChar.SPACES + TOMLChar.NL)
+            self.consume(" \t\n\r")
             indent = self._src[mark : self._idx]
-            newline = set(TOMLChar.NL) & set(indent)
+            newline = _NL & set(indent)
             if newline:
                 elems.append(Whitespace(indent))
                 continue
@@ -607,13 +658,16 @@ class Parser:
                 continue
 
             # consume value
-            if not prev_value:
-                try:
-                    elems.append(self._parse_value())
-                    prev_value = True
-                    continue
-                except UnexpectedCharError:
-                    pass
+            # Skip the value attempt when sitting on the closing bracket: a
+            # value-less position followed by "]" (an empty or trailing-comma
+            # array) would otherwise call _parse_value() only for it to raise
+            # UnexpectedCharError immediately -- and building that discarded
+            # exception eagerly computes a line/column, which scans the whole
+            # source. On a large file with many arrays this is a big, pure waste.
+            if not prev_value and self._current != "]":
+                elems.append(self._parse_value())
+                prev_value = True
+                continue
 
             # consume comma
             if prev_value and self._current == ",":
@@ -653,7 +707,7 @@ class Parser:
             while True:
                 # consume whitespace and newlines
                 mark = self._idx
-                self.consume(TOMLChar.SPACES + TOMLChar.NL)
+                self.consume(" \t\n\r")
                 raw = self._src[mark : self._idx]
                 if raw:
                     elems.add(Whitespace(raw))
@@ -729,10 +783,19 @@ class Parser:
         try:
             return Integer(int(sign + clean, base), trivia, sign + raw)
         except ValueError:
+            pass
+
+        # Only fall back to float for an actual float literal (a fractional
+        # dot, a base-10 exponent, or inf/nan). A decimal integer whose digit
+        # count exceeds Python's int-from-string conversion limit also raises
+        # ValueError above; it must be rejected, not silently coerced to inf.
+        if base == 10 and ("." in clean or "e" in clean or clean in ("inf", "nan")):
             try:
                 return Float(float(sign + clean), trivia, sign + raw)
             except ValueError:
                 return None
+
+        return None
 
     def _parse_literal_string(self) -> String:
         with self._state:
@@ -743,7 +806,7 @@ class Parser:
             return self._parse_string(StringType.SLB)
 
     def _parse_escaped_char(self, multiline: bool) -> str:
-        if multiline and self._current.is_ws():
+        if multiline and self._current in _WS:
             # When the last non-whitespace character on a line is
             # a \, it will be trimmed along with all whitespace
             # (including newlines) up to the next non-whitespace
@@ -752,7 +815,7 @@ class Parser:
             #     hello \
             #     world"""
             tmp = ""
-            while self._current.is_ws():
+            while self._current in _WS:
                 tmp += self._current
                 # consume the whitespace, EOF here is an issue
                 # (middle of string)
@@ -838,6 +901,16 @@ class Parser:
                 if cur == "\r\n":
                     self.inc_n(2, exception=UnexpectedEofError)
 
+        # PERF: stop-set for the string-body bulk fast-path. The body run is
+        # appended in a single slice up to the next delimiter / escape / control
+        # char (and, for multiline, CR); that stop char is then handled by the
+        # branches above on the next iteration.
+        src = self._src
+        if delim.is_singleline():
+            body_stop = _SINGLE_BASIC_STOP if delim.is_basic() else _SINGLE_LITERAL_STOP
+        else:
+            body_stop = _MULTI_BASIC_STOP if delim.is_basic() else _MULTI_LITERAL_STOP
+
         escaped = False  # whether the previous key was ESCAPE
         while True:
             code = ord(self._current)
@@ -912,11 +985,20 @@ class Parser:
                 self.inc(exception=UnexpectedEofError)
             else:
                 # this is either a literal string where we keep everything as is,
-                # or this is not a special escaped char in a basic string
-                value += self._current
-
-                # consume this char, EOF here is an issue (middle of string)
-                self.inc(exception=UnexpectedEofError)
+                # or this is not a special escaped char in a basic string.
+                # PERF fast-path: bulk-append the run of ordinary characters up to
+                # the next delimiter / backslash / control char (and CR for
+                # multiline) in one slice, instead of one `value += cur; inc()`
+                # iteration per character. The stop char is then handled by the
+                # branches above on the next iteration. For multiline, raw LF and
+                # tab are not stop chars, so a whole multi-line body is consumed
+                # in a single pass.
+                run_start = src._idx
+                src.advance_until(body_stop)
+                if src.end():
+                    # mid-string EOF — same error as the per-char inc()
+                    raise self.parse_error(UnexpectedEofError)
+                value += src[run_start : src._idx]
 
     def _parse_table(
         self, parent_name: Key | None = None, parent: Table | None = None
@@ -973,8 +1055,12 @@ class Parser:
 
         self.inc()  # Skip closing bracket
         if is_aot:
-            # TODO: Verify close bracket
-            self.inc()
+            if self.end():
+                raise self.parse_error(UnexpectedEofError)
+            elif self._current != "]":
+                raise self.parse_error(UnexpectedCharError, self._current)
+
+            self.inc()  # Skip second closing bracket
 
         cws, comment, trail = self._parse_comment_trail()
 
@@ -1165,11 +1251,19 @@ class Parser:
             else:
                 extracted = self.extract()
 
-                if extracted[0].lower() == "d" and extracted[1].strip("01234567"):
-                    return None, None
+                if extracted.strip("0123456789abcdefABCDEF"):
+                    return None, extracted
+
+                codepoint = int(extracted, 16)
+
+                # Unicode scalar values exclude the surrogate range
+                # (U+D800 to U+DFFF). The 8-digit \U form reaches this range
+                # with leading zeros, so it must be checked on the value itself.
+                if 0xD800 <= codepoint <= 0xDFFF:
+                    return None, extracted
 
                 try:
-                    value = chr(int(extracted, 16))
+                    value = chr(codepoint)
                 except (ValueError, OverflowError):
                     value = None
 

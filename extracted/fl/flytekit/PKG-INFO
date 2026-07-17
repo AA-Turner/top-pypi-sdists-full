@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flytekit
-Version: 1.16.25
+Version: 1.16.26
 Summary: Flyte SDK for Python
 Author-email: Flyte Contributors <admin@flyte.org>
 License: Apache-2.0

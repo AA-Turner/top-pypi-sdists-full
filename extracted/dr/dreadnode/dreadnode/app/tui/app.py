@@ -2706,7 +2706,7 @@ class DreadnodeTextualApp(App[None]):
         return self._build_monitoring_url(session_id)
 
     def _build_monitoring_url(self, session_id: str, *, view: str | None = None) -> str | None:
-        """Build a deep-link to the platform's ``/monitoring`` grid for a session.
+        """Build a deep-link to the platform's ``/agents/sessions`` grid for a session.
 
         Returns ``None`` when no platform context is available (no auth, no
         workspace) so callers can degrade to a notify toast. ``view`` toggles
@@ -2719,7 +2719,7 @@ class DreadnodeTextualApp(App[None]):
         workspace = cm._workspace
         if api is None or not org or not workspace or not session_id:
             return None
-        url = f"{api.server_root_url}/{org}/monitoring?workspace={workspace}&session={session_id}"
+        url = f"{api.server_root_url}/{org}/agents/sessions?workspace={workspace}&session={session_id}"
         if view:
             url += f"&view={view}"
         return url

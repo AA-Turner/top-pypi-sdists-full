@@ -142,15 +142,23 @@ def parse_json_param(
 def _loads_if_json_container_str(value: Any) -> Any:
     """Parse a JSON-encoded object/array string into its container value.
 
-    Anything that isn't a string encoding a JSON object or array passes
-    through unchanged, so Pydantic still raises dict_type/list_type for
-    genuinely-malformed input (which ValidationErrorMiddleware rewrites
-    into an actionable message).
+    A string that starts like an object or array but contains malformed JSON
+    raises with the decoder location so ValidationErrorMiddleware can return
+    an actionable error. Jinja templates and other strings pass through
+    unchanged, leaving Pydantic to select the expected parameter type.
     """
     if isinstance(value, str):
         try:
             parsed = json.loads(value)
-        except (ValueError, RecursionError):
+        except json.JSONDecodeError as exc:
+            is_container_like = re.match(r"\s*[\[{]", value) is not None
+            is_standalone_jinja = re.match(r"\s*{[{%#]", value) is not None
+            if is_container_like and not is_standalone_jinja:
+                raise ValueError(
+                    f"Invalid JSON at line {exc.lineno} column {exc.colno}: {exc.msg}"
+                ) from exc
+            return value
+        except RecursionError:
             # RecursionError (deeply-nested input) must not escape: Pydantic
             # only converts ValueError/AssertionError into ValidationError.
             return value
@@ -470,6 +478,46 @@ def unwrap_service_response(result: dict[str, Any]) -> dict[str, Any]:
     """
     sr = result.get("service_response")
     return sr if isinstance(sr, dict) else result
+
+
+# WebSocket commands that mutate persistent state in a way that bypasses a
+# wrapping MCP tool's validation (auto-backup, config-hash optimistic locking,
+# registry invariant checks), or that have no escape-hatch-appropriate use case
+# (`config/core/update` rewrites the installation's location/timezone/currency/
+# lat-long). Shared by the code sandbox's `ws_send` bridge (tools_code.py) and
+# ha_call_service's `ws_command` escape hatch (tools_service.py) so the two raw
+# WebSocket surfaces stay in lockstep. Registry deletion command names differ on
+# HA Core: device deletion is `remove_config_entry` and entity deletion is
+# `remove` (not `delete`) -- ha_remove_device / ha_remove_entity emit those.
+BLOCKED_WS_WRITE_COMMANDS: frozenset[str] = frozenset(
+    {
+        "config/core/update",
+        "lovelace/config/save",
+        "lovelace/dashboards/create",
+        "lovelace/dashboards/delete",
+        "lovelace/dashboards/update",
+        "config/area_registry/delete",
+        "config/area_registry/disable",
+        "config/area_registry/update",
+        "config/device_registry/delete",
+        "config/device_registry/disable",
+        "config/device_registry/update",
+        "config/device_registry/remove_config_entry",
+        "config/entity_registry/delete",
+        "config/entity_registry/disable",
+        "config/entity_registry/update",
+        "config/entity_registry/remove",
+        "config/floor_registry/create",
+        "config/floor_registry/delete",
+        "config/floor_registry/update",
+        "config/label_registry/create",
+        "config/label_registry/delete",
+        "config/label_registry/update",
+        "config/category_registry/create",
+        "config/category_registry/delete",
+        "config/category_registry/update",
+    }
+)
 
 
 # Fields surfaced from each repair issue. Includes `ignored` / `dismissed_version`
@@ -2228,3 +2276,35 @@ def merge_visibility_warnings(
     if warnings:
         response.setdefault("warnings", []).extend(warnings)
     return response
+
+
+# Error strings produced by the pooled WebSocket path when the transport (not
+# the command) fails: the manager's connect raise, send timeouts, and socket
+# drops. ``send_websocket_message`` collapses these into
+# ``{"success": False, "error": ...}``, so callers that attach domain-specific
+# suggestions must first check the shape or an HA restart gets presented as a
+# domain problem (issue #1832 review).
+WS_CONNECTION_SIGNATURES = (
+    "failed to connect",
+    "timed out",
+    "timeout",
+    "connection closed",
+    # reset_connection: "WebSocket connection to Home Assistant closed while
+    # waiting for a response" — "connection closed" is not adjacent there.
+    "closed while waiting",
+    # listener close reason: "connection dropped without a close frame".
+    "connection dropped",
+    "disconnected",
+    "not connected",
+    "not authenticated",
+)
+
+
+def is_connection_error_message(error_msg: Any) -> bool:
+    """True when a pooled-WS failure payload is connection/transport-shaped.
+
+    Accepts any payload shape: HA error frames can carry a dict (or None)
+    in the error slot, so the value is stringified before matching.
+    """
+    lowered = str(error_msg).lower()
+    return any(sig in lowered for sig in WS_CONNECTION_SIGNATURES)

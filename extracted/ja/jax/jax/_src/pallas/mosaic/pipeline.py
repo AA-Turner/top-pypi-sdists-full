@@ -31,10 +31,10 @@ from jax import lax
 from jax import tree_util
 from jax._src import core
 from jax._src import config
+from jax._src import flattree as ft
 from jax._src import state
 from jax._src import util as jax_util
 from jax._src.interpreters import partial_eval as pe
-from jax._src import linear_util as lu
 from jax._src import api_util
 from jax._src.tree_util import tracing_registry
 from jax._src.pallas import core as pallas_core
@@ -51,6 +51,8 @@ from jax._src.pallas.mosaic import tpu_info
 from jax._src import effects
 from jax._src.state import WriteEffect, ReadEffect
 from jax._src.state import indexing
+from jax._src.interpreters import batching
+from jax._src.pallas.pallas_call import _batch_block_mapping
 import jax.numpy as jnp
 
 cdiv = utils.cdiv
@@ -207,7 +209,7 @@ def _spec_has_trivial_windowing(spec, grid, full_shape):
   static_dummy_grid = tuple(d if isinstance(d, int) else 2 for d in grid)
   with pallas_core.tracing_grid_env(static_dummy_grid, mapped_dims=()):
     closed_jaxpr = jax.make_jaxpr(spec.index_map)(*[0] * len(grid))
-  jaxpr = closed_jaxpr.jaxpr
+  jaxpr = closed_jaxpr
   # Refs can be mutated while the pipeline is running so we should not assume
   # that they are constant.
   if any(isinstance(v.aval, state.AbstractRef) for v in jaxpr.constvars):
@@ -311,6 +313,10 @@ class BufferedRefBase:
       input/output reference.
     """
     return False
+
+  @property
+  def prefetched_count(self) -> int:
+    return 0
 
   def initialize_slots(self):
     """Initializes slots to 0."""
@@ -479,7 +485,7 @@ class BufferedRef(BufferedRefBase):
   wait_in_slot: int | jax.Array | None
   copy_out_slot: int | jax.Array | None
   wait_out_slot: int | jax.Array | None
-  next_fetch: Sequence[jax.Array] | None
+  next_fetch: Sequence[jax.Array | int] | None
   sem_recvs: SemaphoreTuple | None
   sem_sends: SemaphoreTuple | None
   tiling: Tiling | None = dataclasses.field(metadata=dict(static=True))
@@ -488,6 +494,9 @@ class BufferedRef(BufferedRefBase):
   )
   has_allocated_buffer: bool = dataclasses.field(
       default=False, metadata=dict(static=True)
+  )
+  prefetched_count: int = dataclasses.field(
+      default=0, metadata=dict(static=True)
   )
 
   def __post_init__(self):
@@ -538,6 +547,7 @@ class BufferedRef(BufferedRefBase):
       source_memory_space: tpu_core.MemorySpace | Literal[ANY] = ANY,  # pyrefly: ignore[not-a-type]
       tiling: Tiling | None = None,
       is_trivial_windowing: bool = False,
+      prefetched_count: int = 0,
   ) -> BufferedRef:
     """Create a BufferedRef.
 
@@ -551,6 +561,7 @@ class BufferedRef(BufferedRefBase):
       use_lookahead: whether to enable pipeline lookahead.
       source_memory_space: The memory space of the backing source Ref.
       tiling: The tiling to assume for the buffers.
+      prefetched_count: number of buffers that have been prefetched.
 
     Returns:
       Initialized BufferedRef
@@ -574,7 +585,12 @@ class BufferedRef(BufferedRefBase):
       raise ValueError(
           f"Unsupported buffer memory space: {buffer_memory_space}"
       )
-    if source_memory_space is buffer_memory_space:
+    if source_memory_space is buffer_memory_space or buffer_memory_space is HBM:
+      if buffer_memory_space is HBM:
+        if spec.memory_space not in (ANY, HBM):
+          raise ValueError(
+              "You cannot request HBM block spec for a non-HBM source for"
+              f"{spec=} and {source_memory_space=}")
       return cls(
           _spec=spec,
           _buffer_type=buffer_type,
@@ -606,12 +622,23 @@ class BufferedRef(BufferedRefBase):
           buffer_ty = ty.update(shape=(buffer_count * block_shape[0],))
         else:
           buffer_ty = ty.update(shape=(buffer_count, *block_shape))
+
+      window_ref = buffer_memory_space.from_type(buffer_ty)
+      if prefetched_count > 0:
+        window_ref = None
+        if not is_trivial_windowing and prefetched_count >= buffer_count:
+          raise ValueError(
+              "prefetched_count must be less than buffer_count for"
+              f" non-trivial windowing, got prefetched_count={prefetched_count}"
+              f" and buffer_count={buffer_count}"
+          )
+
       return cls(
           _spec=spec,
           _buffer_type=buffer_type,
           _buffer_count=buffer_count,
           _grid_rank=grid_rank if use_lookahead else None,
-          window_ref=buffer_memory_space.from_type(buffer_ty),
+          window_ref=window_ref,
           copy_in_slot=None,
           wait_in_slot=None,
           copy_out_slot=None,
@@ -630,6 +657,7 @@ class BufferedRef(BufferedRefBase):
           tiling=tiling,
           is_trivial_windowing=is_trivial_windowing,
           has_allocated_buffer=True,
+          prefetched_count=prefetched_count,
       )
 
   @classmethod
@@ -656,9 +684,12 @@ class BufferedRef(BufferedRefBase):
 
   def with_next_fetch(
       self,
-      next_fetch: Sequence[jax.Array] | None = None,
+      next_fetch: Sequence[jax.Array | int] | None = None,
   ):
     return dataclasses.replace(self, next_fetch=next_fetch)
+
+  def with_window_ref(self, window_ref: ArrayRef | None):
+    return dataclasses.replace(self, window_ref=window_ref)
 
   def with_slot_index(
       self,
@@ -682,6 +713,14 @@ class BufferedRef(BufferedRefBase):
   @property
   def current_ref(self):
     """Returns the current working slice of the double-buffer."""
+    if self.window_ref is None:
+      if self.prefetched_count > 0:
+        raise ValueError(
+            "Expected external window buffer to be bound for prefetched input "
+            f"(prefetched_count={self.prefetched_count}), but window_ref is None. "
+            "Ensure .with_window_ref(...) is called on the BufferedRef in allocations."
+        )
+      raise ValueError("window_ref is None")
     assert not (
         self.window_ref is None
         or isinstance(self.window_ref, state.AbstractRef)
@@ -790,6 +829,12 @@ class BufferedRef(BufferedRefBase):
     return tuple(indexer)
 
   def initialize_slots(self) -> BufferedRef:
+    if self.window_ref is None and self.prefetched_count > 0:
+      raise ValueError(
+          "Expected external window buffer to be bound for prefetched input "
+          f"(prefetched_count={self.prefetched_count}), but window_ref is None. "
+          "Ensure .with_window_ref(...) is called on the BufferedRef in allocations."
+      )
     return dataclasses.replace(
         self,
         copy_in_slot=jnp.uint32(0) if self.buffer_type.is_input else None,
@@ -841,7 +886,10 @@ class BufferedRef(BufferedRefBase):
     return self._advance_slot(self.wait_out_slot, "wait_out_slot", predicate)
 
   def _window_ref_at(self, slot, window_slice=None):
-    assert self.window_ref is not None
+    assert not (
+        self.window_ref is None
+        or isinstance(self.window_ref, state.AbstractRef)
+    )
     if self.window_ref.ndim > 1:
       return self.window_ref.at[(slot, *(window_slice or ()))]
 
@@ -858,7 +906,6 @@ class BufferedRef(BufferedRefBase):
     """Starts copy of HBM dma slice into the current slot."""
     assert self.is_input
     if not self.is_buffered: return
-    assert not (self.window_ref is None or isinstance(self.window_ref, state.AbstractRef))
     assert self.sem_recvs is not None
     slot = self.current_copy_in_slot
     src_slice = self.get_dma_slice(_ref_to_value_aval(src_ref), grid_indices)
@@ -873,7 +920,6 @@ class BufferedRef(BufferedRefBase):
     """Starts copy of HBM dma slice from the current slot."""
     assert self.is_output
     if not self.is_buffered: return
-    assert not (self.window_ref is None or isinstance(self.window_ref, state.AbstractRef))
     assert self.sem_sends is not None
     slot = self.current_copy_out_slot
     dst_slice = self.get_dma_slice(_ref_to_value_aval(dst_ref), grid_indices)
@@ -894,7 +940,6 @@ class BufferedRef(BufferedRefBase):
     """Waits for input copy to finish."""
     assert self.is_input
     if not self.is_buffered: return
-    assert not (self.window_ref is None or isinstance(self.window_ref, state.AbstractRef))
     assert self.sem_recvs is not None
     src_slice = self.get_dma_slice(_ref_to_value_aval(src_ref), grid_indices)
     dst_slice = self._to_window_slice(src_slice)
@@ -911,7 +956,6 @@ class BufferedRef(BufferedRefBase):
     """Waits for output copy to finish."""
     assert self.is_output
     if not self.is_buffered: return
-    assert not (self.window_ref is None or isinstance(self.window_ref, state.AbstractRef))
     assert self.sem_sends is not None
     wait_slot = self.current_wait_out_slot
     dst_slice = self.get_dma_slice(_ref_to_value_aval(dst_ref), grid_indices)
@@ -923,6 +967,11 @@ class BufferedRef(BufferedRefBase):
           dst_ref.at[dst_slice],  # only dst shape is important
           self.sem_sends.at[wait_slot],
       ).wait()
+
+  def advance_next_fetch(self, grid):
+    if self.next_fetch is None:
+      raise ValueError("next_fetch is None")
+    return self.with_next_fetch(_next_index(tuple(self.next_fetch), grid))
 
 
 def fetch_with_lookahead(buffered_ref, src_ref,
@@ -1220,6 +1269,11 @@ class Scheduler:
       if (step + 1) >= buffered_ref.buffer_count:
         return buffered_ref
 
+      if step < buffered_ref.prefetched_count:
+        if buffered_ref.use_lookahead and step > 0:
+          buffered_ref = buffered_ref.advance_next_fetch(self.grid)
+        return buffered_ref.advance_copy_in_slot()
+
       if buffered_ref.use_lookahead:
         if step == 0:
           # We always fetch the first block.
@@ -1258,6 +1312,7 @@ class Scheduler:
     if buffered_ref.is_trivial_windowing:
       return buffered_ref
     pred = self.has_changed(buffered_ref) | self.first_step
+    pred = pred & (~(self.step < buffered_ref.prefetched_count))
 
     @when(pred)
     @self._named_scope("ep_wait_in")
@@ -1389,9 +1444,11 @@ def _make_pipeline_allocations(
     in_aval = _ref_to_value_aval(in_ref)
     buffer_count = 2
     use_lookahead = False
+    prefetched_count = 0
     if has_buffering := in_spec.pipeline_mode is not None:
       buffer_count = in_spec.pipeline_mode.buffer_count
       use_lookahead = in_spec.pipeline_mode.use_lookahead
+      prefetched_count = in_spec.pipeline_mode.prefetched_count
     if use_lookahead and grid is None:
       raise ValueError("Grid must be specified when using lookahead.")
     is_trivial = _spec_has_trivial_windowing(in_spec, grid, in_aval.shape)
@@ -1407,6 +1464,7 @@ def _make_pipeline_allocations(
         source_memory_space=in_ref.memory_space,
         tiling=tiling,
         is_trivial_windowing=is_trivial,
+        prefetched_count=prefetched_count,
     )
   in_brefs = jax.tree.map(make_input_bref, in_specs, in_refs)
   def make_output_bref(out_spec, out_ref):
@@ -1431,25 +1489,29 @@ def _make_pipeline_allocations(
   out_brefs = jax.tree.map(make_output_bref, out_specs, out_refs)
   return (*in_brefs, *out_brefs)
 
+def _resolve_core_info(core_axis: tuple[int | str, ...] | int | str | None):
+  if core_axis is None:
+    return None, None
+  elif isinstance(core_axis, int):
+    return num_programs(core_axis), program_id(core_axis)
+  else:
+    return jax.lax.axis_size(core_axis), jax.lax.axis_index(core_axis)
 
 def _partition_grid(
     grid: tuple[int | jax.Array, ...],
-    core_axis: tuple[int | str, ...] | int | str | None,
     dimension_semantics: tuple[GridDimensionSemantics, ...] | None,
+    num_cores: int | None = None,
+    core_id: jax.Array | int | None = None,
 ) -> tuple[tuple[int | jax.Array, ...], tuple[int | jax.Array, ...]]:
-  if core_axis is None:
+  assert not ((num_cores is None) ^ (core_id is None)), (
+      "Either both num_cores and core_id should be provided, or neither.")
+  if num_cores is None or core_id is None:
     # We aren't partitioning the grid
     return grid, (0,) * len(grid)
-  if isinstance(core_axis, int):
-    num_cores = num_programs(core_axis)
-    core_id = program_id(core_axis)
-  else:
-    num_cores = jax.lax.axis_size(core_axis)
-    core_id = jax.lax.axis_index(core_axis)
   # Check that num_cores is statically known
   if not isinstance(num_cores, int):
     raise NotImplementedError(
-        f"Cannot partition grid over dynamic number of cores: {core_axis=}"
+        "Cannot partition grid over dynamic number of cores."
     )
   if num_cores == 1:
     # We aren't partitioning the grid
@@ -1576,6 +1638,40 @@ def sync_copy(src: REF | BufferedRef, dst: REF | BufferedRef, indices):
     tpu_helpers.sync_copy(window_ref, hbm_ref)
 
 
+@tree_util.register_pytree_node_class
+@dataclasses.dataclass(frozen=True, eq=False)
+class PipelineStep:
+  """Positional context for a single pipeline body invocation.
+
+  Attributes:
+    index: Multi-dimensional grid indices for the current step, one per
+      grid dimension.
+    local_index: The linear iteration counter of the pipeline loop. If the
+      grid is partitioned along some ``core_axis``, each core has its own
+      independent local index over its partition of the grid.
+  """
+  index: tuple[int | jax.Array, ...]
+  local_index: jax.Array
+
+  def tree_flatten(self):
+    children: list[jax.Array] = []
+    aux: list[int | None] = []
+    for v in (*self.index, self.local_index):
+      if isinstance(v, int):
+        aux.append(v)
+      else:
+        aux.append(None)
+        children.append(v)
+    return children, tuple(aux)
+
+  @classmethod
+  def tree_unflatten(cls, aux, children):
+    it = iter(children)
+    vals = [v if v is not None else next(it) for v in aux]
+    *index, local_index = vals
+    return cls(index=tuple(index), local_index=local_index)
+
+
 def _emit_pipeline(
     body,
     *,
@@ -1583,13 +1679,12 @@ def _emit_pipeline(
     in_specs=(),
     out_specs=(),
     tiling: Tiling | None = None,
-    core_axis: tuple[int, ...] | int | None = None,
-    core_axis_name: tuple[str, ...] | str | None = None,
     dimension_semantics: tuple[GridDimensionSemantics, ...] | None = None,
     trace_scopes: bool = True,
     no_pipelining: bool = False,
+    num_cores: int | None = None,
+    core_id: jax.Array | int | None = None,
     _explicit_indices: bool = False,
-    _grid_offsets: tuple[int | jax.Array, ...] | None = None,
 ):
   """Creates a function to emit a manual pallas pipeline.
 
@@ -1603,21 +1698,16 @@ def _emit_pipeline(
     in_specs: input pallas block specs
     out_specs: output pallas block specs
     tiling: optional tiling to assume for the refs.
-    core_axis: optional int or tuple of int, indicates whether or not to
-      partition the grid along the core axis.
-    core_axis_name: optional str or tuple of str, indicates whether or not to
-      partition the grid along the core axis.
     dimension_semantics: optional tuple of GridDimensionSemantics (e.g. PARALLEL
       or ARBITRARY).
     trace_scopes: optional bool, indicates whether to annotate each region in
       the pipeline using named_scope.
     no_pipelining: If True, turns off pipelining and all copies will be made
       synchronous. This is useful for debugging multiple-buffering related bugs.
+    num_cores: If set, the number of cores to partition the grid over.
+    core_id: If set, the core ID of the current core for partitioning the grid.
     _explicit_indices: If True, the body will receive the iteration indices as
       its first argument. This parameter is meant for internal use only.
-    _grid_offsets: If provided, the grid partitioning offset indices and sizes
-      are already precomputed and the scheduler will use these values directly.
-      Internal use only.
   """
 
   if any(not isinstance(d, (int, jax.Array)) for d in grid):
@@ -1625,13 +1715,8 @@ def _emit_pipeline(
     raise ValueError(
         f"Grid must consist of Python integers and JAX Arrays: {grid_types}"
     )
-  if not (core_axis is None or core_axis_name is None):
-    raise ValueError("core_axis and core_axis_name cannot both be provided.")
-  if _grid_offsets is None:
-    core_axis_ = core_axis_name if core_axis is None else core_axis
-    grid, grid_offsets = _partition_grid(grid, core_axis_, dimension_semantics)
-  else:
-    grid_offsets = _grid_offsets
+  grid, grid_offsets = _partition_grid(grid, dimension_semantics,
+                                       num_cores, core_id)
 
   num_steps = math.prod(grid)
   in_specs = _normalize_specs(in_specs)
@@ -1707,7 +1792,10 @@ def _emit_pipeline(
         current_refs = map_brefs(lambda x: x.current_ref, brefs)
         with scheduler._named_scope("ep_run_kernel"):
           if _explicit_indices:
-            body(scheduler.indices, *current_refs, *scratches)
+            pipeline_step = PipelineStep(
+                scheduler.indices, scheduler.step
+            )
+            body(pipeline_step, *current_refs, *scratches)
           else:
             body(*current_refs, *scratches)
 
@@ -1749,7 +1837,10 @@ def _emit_pipeline(
           current_refs = map_brefs(lambda x: x.current_ref, brefs)
           with scheduler._named_scope("ep_run_kernel"):
             if _explicit_indices:
-              body(scheduler.indices, *current_refs, *scratches)
+              pipeline_step = PipelineStep(
+                  scheduler.indices, scheduler.step
+              )
+              body(pipeline_step, *current_refs, *scratches)
             else:
               body(*current_refs, *scratches)
           # loop output handling phase
@@ -1765,7 +1856,11 @@ def _emit_pipeline(
         scheduler = make_scheduler(0, initial_indices)
         brefs = map_brefs(lambda bref: bref.initialize_slots(), allocations)
         def _sync_copy_in(bref, ref):
-          if bref.is_trivial_windowing and bref.window_ref is not None:
+          if (
+              bref.is_trivial_windowing
+              and bref.window_ref is not None
+              and bref.prefetched_count < 1
+          ):
             sync_copy(ref, bref, initial_indices)
 
         map_inputs(_sync_copy_in, brefs, refs)
@@ -1832,6 +1927,35 @@ def emit_pipeline_with_allocations(
   return pipeline, make_allocations
 
 
+@tree_util.register_dataclass
+@dataclasses.dataclass(frozen=True)
+class EmitPipelinePrimitiveArgs:
+  all_index_map_consts: tuple[jax.Array, ...]
+  dynamic_grid_spec: tuple[jax.Array, ...]
+  core_id: jax.Array | None
+  body_consts: tuple[jax.Array, ...]
+  refs_flat: tuple[jax.Array | state.TransformedRef | state.AbstractRef, ...]
+
+  @property
+  def body_offset(self) -> int:
+    """The offset to where the body args (consts and refs) start."""
+    return (len(self.all_index_map_consts) + len(self.dynamic_grid_spec)
+            + self.has_core_id)
+
+  @property
+  def refs_offset(self) -> int:
+    """The offset to where the body refs start (past the consts)."""
+    return self.body_offset + len(self.body_consts)
+
+  @property
+  def has_core_id(self) -> bool:
+    return self.core_id is not None
+
+def _zip_grid(dynamic_grid_spec, static_grid_spec):
+  dynamic_it = iter(dynamic_grid_spec)
+  return tuple(next(dynamic_it) if pallas_core.is_dynamic_dim(d) else d
+              for d in static_grid_spec)
+
 def emit_pipeline(
     body,
     *,
@@ -1851,19 +1975,26 @@ def emit_pipeline(
         f"All elements in the grid must be strictly positive, but got {grid=}"
     )
 
+  if core_axis is not None and core_axis_name is not None:
+    raise ValueError("Only one of `core_axis` or `core_axis_name` can be set.")
+  core_axis_ = core_axis_name if core_axis is None else core_axis
+  if dimension_semantics is None:
+    dimension_semantics = (ARBITRARY,) * len(grid)
+
   if not config.use_emit_pipeline_primitive.value:
+    num_cores, core_id = _resolve_core_info(core_axis_)
     return _emit_pipeline(
         body,
         grid=grid,
         in_specs=in_specs,
         out_specs=out_specs,
         tiling=tiling,
-        core_axis=core_axis,
-        core_axis_name=core_axis_name,
         dimension_semantics=dimension_semantics,
         trace_scopes=trace_scopes,
         no_pipelining=no_pipelining,
         _explicit_indices=_explicit_indices,
+        num_cores=num_cores,
+        core_id=core_id,
     )
 
   in_specs = _normalize_specs(in_specs)
@@ -1887,22 +2018,13 @@ def emit_pipeline(
     in_avals = [_ref_to_value_aval(r) for r in in_refs]
     out_avals = [_ref_to_value_aval(r) for r in out_refs]
 
-    core_axis_ = core_axis_name if core_axis is None else core_axis
-    grid_, grid_offsets = _partition_grid(grid, core_axis_, dimension_semantics)
-    dynamic_offset_tracers, static_grid_offsets = [], []
-    for d in grid_offsets:
-      if isinstance(d, (core.Tracer, jax.Array)):
-        dynamic_offset_tracers.append(d)
-        static_grid_offsets.append(pallas_core.DynamicGridDim())
-      else:
-        static_grid_offsets.append(d)
-
+    num_cores, core_id = _resolve_core_info(core_axis_)
     grid_spec = pallas_core.GridSpec(
-        grid=grid_, in_specs=local_in_specs, out_specs=local_out_specs)
-    static_grid_spec, dynamic_bounds = (
+        grid=grid, in_specs=local_in_specs, out_specs=local_out_specs)
+    static_grid_spec, dynamic_grid_specs = (
         pallas_core.unzip_dynamic_grid_bounds(grid_spec))
-    # TODO(rdyro): Move this primitive to pallas_core or vendor get_grid_mapping
-    # here.
+
+    # TODO(rdyro): Move this method to pallas_core or vendor it here.
     _, in_tree = tracing_registry.flatten(tuple(in_refs), is_transformed_ref)
     _, out_tree = tracing_registry.flatten(tuple(out_refs), is_transformed_ref)
     kernel_args, grid_mapping = pallas_core.get_grid_mapping(
@@ -1917,47 +2039,65 @@ def emit_pipeline(
     )
     # Trace the kernel body to a jaxpr.
     kernel_args = refs_tree.unflatten(kernel_args)
-    flat_kernel_args, kernel_in_tree = tracing_registry.flatten(
+    flat_kernel_args, _ = tracing_registry.flatten(
         kernel_args, is_transformed_ref)
     # Ensure the get_grid_mapping didn't produce TransformedRefs for tracing.
     assert all(
         not isinstance(x, state.TransformedRef) for x in flat_kernel_args)
 
+    if _explicit_indices:
+      scalar_aval: Any = core.ShapedArray((), jnp.int32)
+      ps_aval = PipelineStep(
+          index=tuple([scalar_aval] * len(grid)),
+          local_index=scalar_aval,
+      )
+      kernel_args = (ps_aval, *kernel_args)
+
+    # Trace with the global grid mapping to let the body resolve the mesh axes.
     with grid_mapping.trace_env():
       body_fun_dbg = api_util.debug_info(
-          "emit_pipeline body", body, kernel_args, {})
-      flat_body_fun, out_tree_thunk = api_util.flatten_fun_nokwargs(
-          lu.wrap_init(body, debug_info=body_fun_dbg),
-          kernel_in_tree
+          "emit_pipeline body", body, kernel_args, {}
       )
-      body_jaxpr, _, body_consts = pe.trace_to_jaxpr_dynamic(
-        flat_body_fun, tuple(flat_kernel_args)
+      in_avals_ft = ft.flatten(
+          (kernel_args, {}),
+          is_leaf=is_transformed_ref,
+          registry=tracing_registry,
       )
-      if out_tree_thunk().num_leaves != 0:
+      # Ensure the get_grid_mapping didn't produce TransformedRefs for tracing.
+      assert all(
+          not isinstance(x, state.TransformedRef) for x in in_avals_ft.vals)
+      body_jaxpr, out_avals_ft = pe.trace_to_jaxpr(
+          body, in_avals_ft, debug_info=body_fun_dbg
+      )
+      if out_avals_ft.tree.num_leaves != 0:
         raise ValueError("The emit_pipeline body function must return None.")
 
     all_index_map_consts = tuple(itertools.chain.from_iterable(
         bm.index_map_jaxpr.consts for bm in grid_mapping.block_mappings))
 
-    args_flat, args_tree = tracing_registry.flatten(args)
+    refs_flat, refs_tree = tracing_registry.flatten(args)
+    prim_args = EmitPipelinePrimitiveArgs(
+        all_index_map_consts=all_index_map_consts,
+        dynamic_grid_spec=dynamic_grid_specs,
+        core_id=core_id,
+        body_consts=tuple(body_jaxpr.consts),
+        refs_flat=tuple(refs_flat),
+    )
+    args_flat, args_tree = tracing_registry.flatten(prim_args)
     return emit_pipeline_p.bind(
-        *all_index_map_consts,
-        *dynamic_bounds,
-        *dynamic_offset_tracers,
-        *body_consts,
         *args_flat,
-        body_consts_len=len(body_consts),
-        body_jaxpr=body_jaxpr,
         grid_mapping=grid_mapping,
+        body_jaxpr=body_jaxpr,
         tiling=tiling,
         core_axis=core_axis,
         core_axis_name=core_axis_name,
         args_tree=args_tree,
+        refs_tree=refs_tree,
         dimension_semantics=dimension_semantics,
         trace_scopes=trace_scopes,
         no_pipelining=no_pipelining,
-        _static_grid_offsets=tuple(static_grid_offsets),
-        _num_extra_dynamic=len(dynamic_offset_tracers),
+        _explicit_indices=_explicit_indices,
+        num_cores=num_cores,
     )
   return wrapped
 
@@ -1970,22 +2110,18 @@ _uncacheable_primitives.add(emit_pipeline_p)
 
 @emit_pipeline_p.def_effectful_abstract_eval
 def _emit_pipeline_effectful_abstract_eval(
-    *avals, body_jaxpr: core.Jaxpr, body_consts_len,
-    grid_mapping, _num_extra_dynamic, args_tree, **params):
+    *avals, body_jaxpr: core.Jaxpr, args_tree, grid_mapping, refs_tree,
+    _explicit_indices, **params
+):
   del params
-  index_map_consts_counts = tuple(
-      len(bm.index_map_jaxpr.consts) for bm in grid_mapping.block_mappings)
-  num_index_map_consts = sum(index_map_consts_counts)
-  num_dynamic = grid_mapping.num_dynamic_grid_bounds + _num_extra_dynamic
-  offset = num_index_map_consts + num_dynamic + body_consts_len
-
+  all_args = args_tree.unflatten(avals)
   # Because we can have TransformedRefs as argumetns to the body, but the flat
   # arguments are flattened Refs and transforms, we unflatten the positional
   # indices to be able to identify the index of an n-th Ref from a positional
   # index.
-  indices_flat = list(range(offset, len(avals)))
+  indices_flat = list(range(all_args.refs_offset, len(avals)))
   flat_refs_idx, _ = tracing_registry.flatten(
-      args_tree.unflatten(indices_flat), is_transformed_ref)
+      refs_tree.unflatten(indices_flat), is_transformed_ref)
   # Helper to resolve the underlying AbstractRef index in `avals` for any leaf.
   get_ref_idx = lambda x: x.ref if isinstance(x, state.TransformedRef) else x
 
@@ -1998,6 +2134,11 @@ def _emit_pipeline_effectful_abstract_eval(
       out_effects.add(ReadEffect(ref_idx)
                       if i < num_inputs else WriteEffect(ref_idx))
 
+  num_ps_leaves = (
+      len(body_jaxpr.invars) - len(flat_refs_idx)
+      if _explicit_indices else 0
+  )
+
   # Propagate effects from `body_jaxpr`, mapping them to the correct indices in
   # `avals`.
   body_input_idx = {v: i for i, v in enumerate(
@@ -2008,15 +2149,18 @@ def _emit_pipeline_effectful_abstract_eval(
       continue
     input_idx = body_input_idx[e.input]
     if input_idx < len(body_jaxpr.constvars):
-      const_offset = num_index_map_consts + num_dynamic
+      const_offset = all_args.body_offset
       out_effects.add(e.replace(const_offset + input_idx))
     else:
       invar_idx = input_idx - len(body_jaxpr.constvars)
-      if invar_idx < num_inputs and isinstance(e, WriteEffect):
+      if invar_idx < num_ps_leaves:
+        continue
+      ref_invar_idx = invar_idx - num_ps_leaves
+      if ref_invar_idx < num_inputs and isinstance(e, WriteEffect):
         raise ValueError(
-            f"WriteEffect should not apply to an input buffer {invar_idx} in"
+            f"WriteEffect should not apply to an input buffer {ref_invar_idx} in"
             f" pipeline body jaxpr: {body_jaxpr}")
-      ref_idx = get_ref_idx(flat_refs_idx[invar_idx])
+      ref_idx = get_ref_idx(flat_refs_idx[ref_invar_idx])
       out_effects.add(e.replace(ref_idx))
   return (), frozenset(out_effects)
 
@@ -2031,21 +2175,20 @@ def _emit_pipeline_effectful_abstract_eval(
 pipeline_body_p = core.Primitive("pipeline_body")
 pipeline_body_p.multiple_results = True
 
-# TODO(rdyro): This primitive requires both memory pipeline and core grid
-# information which the caching doesn't support yet.
-_uncacheable_primitives.add(pipeline_body_p)
-
 @pipeline_body_p.def_effectful_abstract_eval
 def _pipeline_body_effectful_abstract_eval(
-    *avals, jaxpr, in_tree, num_inputs, **params
+    *avals, jaxpr, in_tree, num_inputs, _explicit_indices=False, **params
 ):
   del params
   # Because `avals` are grid indices, body constants, and flattened
   # TransformedRefs as arguments, we unflatten a flat index list to be able to
   # identify the index of an n-th Ref from a positional index.
   indices_flat = list(range(len(avals)))
-  (_, consts_idx, refs_idx) = in_tree.unflatten(indices_flat)
+  _, consts_idx, refs_idx = in_tree.unflatten(indices_flat)
   flat_refs_idx, _ = tracing_registry.flatten(refs_idx, is_transformed_ref)
+  num_ps_leaves = (
+      len(jaxpr.invars) - len(flat_refs_idx) if _explicit_indices else 0
+  )
   flat_consts_idx, _ = tracing_registry.flatten(consts_idx)
   # Helper to resolve the underlying AbstractRef index in `avals` for any leaf.
   get_ref_idx = lambda x: x.ref if isinstance(x, state.TransformedRef) else x
@@ -2068,21 +2211,36 @@ def _pipeline_body_effectful_abstract_eval(
       out_effects.add(e.replace(flat_consts_idx[input_idx]))
     else:
       invar_idx = input_idx - len(jaxpr.constvars)
-      if invar_idx < num_inputs and isinstance(e, WriteEffect):
-        raise ValueError(f"WriteEffect on input buffer {invar_idx}")
-      ref_idx = get_ref_idx(flat_refs_idx[invar_idx])
+      if invar_idx < num_ps_leaves:
+        continue
+      ref_invar_idx = invar_idx - num_ps_leaves
+      if ref_invar_idx < num_inputs and isinstance(e, WriteEffect):
+        raise ValueError(f"WriteEffect on input buffer {ref_invar_idx}")
+      ref_idx = get_ref_idx(flat_refs_idx[ref_invar_idx])
       out_effects.add(e.replace(ref_idx))
   return (), frozenset(out_effects)
 
 
+# TODO(rdyro): Both primtives require both memory pipeline and core grid
+# information which the caching doesn't support yet.
+_uncacheable_primitives.add(pipeline_body_p)
+_uncacheable_primitives.add(emit_pipeline_p)
+
 @register_lowering_rule(pipeline_body_p, kernel_types=[*tpu_core.CoreType])
-def _pipeline_body_lowering_rule(ctx, *args_flat, jaxpr, in_tree, **_):
+def _pipeline_body_lowering_rule(
+    ctx, *args_flat, jaxpr, in_tree, _explicit_indices=False, **_):
   # TODO(rdyro): This function is a near duplicate of _jaxpr_call_lowering_rule
   # from sc_lowering.py, we should factor out and unify the two.
-  (indices, body_consts, refs) = in_tree.unflatten(args_flat)
-  (_, body_const_shapes, refs_shapes) = in_tree.unflatten(ctx.block_shapes)
-
-  refs_avals = tuple(var.aval for var in jaxpr.invars)
+  (ps, body_consts, refs) = in_tree.unflatten(args_flat)
+  (_, body_const_shapes, refs_shapes) = in_tree.unflatten(
+      ctx.block_shapes)
+  ps_flat = tree_util.tree_leaves(ps)
+  if _explicit_indices:
+    ps_block_shapes = [()] * len(ps_flat)
+    refs_avals = tuple(var.aval for var in jaxpr.invars[len(ps_flat):])
+  else:
+    ps_block_shapes = []
+    refs_avals = tuple(var.aval for var in jaxpr.invars)
   # manually resolve the transformed refs
   if refs:
     resolved_refs, resolved_ref_shapes = zip(
@@ -2098,51 +2256,47 @@ def _pipeline_body_lowering_rule(ctx, *args_flat, jaxpr, in_tree, **_):
   # end of the user grid dimensions. This is error prone (the user could request
   # a core grid dimension with pl.program_id); we should fix this soon.
   lowering_context = ctx.lowering_context.replace(
-      user_grid_indices=(tuple(indices)
-                         + tuple(user_grid_indices[len(indices):])),
-      block_shapes=(list(body_const_shapes)
-                    + list(resolved_ref_shapes))
+      user_grid_indices=(*ps.index, *user_grid_indices[len(ps.index) :]),
+      block_shapes=(*ps_block_shapes, *body_const_shapes, *resolved_ref_shapes),
   )
   # Lift the constants out of the jaxpr, disabling checks to avoid a redundant
   # re-checking of jaxpr, like its grid and sharding information.
   with config.enable_checks(False):
     jaxpr = pe.convert_constvars_jaxpr(jaxpr)
   assert len(jaxpr.invars) == len(lowering_context.block_shapes)
-  return jaxpr_subcomp(lowering_context, jaxpr, *body_consts, *resolved_refs)
+  if _explicit_indices:
+    return jaxpr_subcomp(
+        lowering_context, jaxpr,
+        *body_consts, *ps_flat, *resolved_refs)
+  else:
+    return jaxpr_subcomp(
+        lowering_context, jaxpr, *body_consts, *resolved_refs)
 
 @register_lowering_rule(emit_pipeline_p, kernel_types=[*tpu_core.CoreType])
 def _emit_pipeline_lowering_rule(
-    ctx, *args, grid_mapping, _num_extra_dynamic, _static_grid_offsets,
-    args_tree, body_jaxpr, body_consts_len, **params
+    ctx, *args_flat, grid_mapping, body_jaxpr, args_tree, refs_tree, num_cores,
+    dimension_semantics, core_axis, core_axis_name, _explicit_indices, **params
 ):
+  del core_axis, core_axis_name
   index_map_consts_counts = tuple(
       len(bm.index_map_jaxpr.consts) for bm in grid_mapping.block_mappings)
 
   def wrapped_pipeline_fun(*all_args, grid_mapping=grid_mapping):
-    num_index_map_consts = sum(index_map_consts_counts)
-    num_dynamic = grid_mapping.num_dynamic_grid_bounds + _num_extra_dynamic
-    grid_mapping_consts, dynamic_vals, body_consts, flat_refs = (
-        jax_util.split_list(
-            all_args, [num_index_map_consts, num_dynamic, body_consts_len]))
+    all_args = args_tree.unflatten(all_args)
 
     index_map_consts = jax_util.split_list(
-        grid_mapping_consts, index_map_consts_counts)
+        all_args.all_index_map_consts, index_map_consts_counts)
     new_bms = []
     for i, bm in enumerate(grid_mapping.block_mappings):
-      bm = bm.replace(index_map_jaxpr=core.ClosedJaxpr(
-          bm.index_map_jaxpr.jaxpr, index_map_consts[i]))
+      bm = bm.replace(index_map_jaxpr=bm.index_map_jaxpr.with_consts(
+          index_map_consts[i]))
       new_bms.append(bm)
     grid_mapping = dataclasses.replace(grid_mapping, block_mappings=new_bms)
 
-    flat_refs, _ = tracing_registry.flatten(  # flatten to TransformedRefs
-        args_tree.unflatten(flat_refs), is_transformed_ref)
-    dynamic_vals_iter = iter(dynamic_vals)
-    grid = tuple(next(dynamic_vals_iter)
-                 if pallas_core.is_dynamic_dim(d) else d
-                 for d in grid_mapping.grid)
-    grid_offsets = tuple(next(dynamic_vals_iter)
-                         if pallas_core.is_dynamic_dim(d) else d
-                         for d in _static_grid_offsets)
+    refs_flat, _ = tracing_registry.flatten(  # flatten to TransformedRefs
+        refs_tree.unflatten(all_args.refs_flat), is_transformed_ref)
+    grid = _zip_grid(all_args.dynamic_grid_spec, grid_mapping.grid)
+
     in_specs = [
         bm.to_block_spec()
         for bm in grid_mapping.block_mappings[:grid_mapping.num_inputs]]
@@ -2150,23 +2304,21 @@ def _emit_pipeline_lowering_rule(
         bm.to_block_spec()
         for bm in grid_mapping.block_mappings[grid_mapping.num_inputs:]]
 
-    def new_body(indices, *args):
+    def new_body(ps: PipelineStep, *args):
       original_indices = tuple(
-          idx for i, idx in enumerate(indices)
-          if i not in grid_mapping.vmapped_dims
-      )
-      indices_consts_args = (original_indices, body_consts, args)
+          jnp.array(idx) if isinstance(idx, int) else idx
+          for i, idx in enumerate(ps.index)
+          if i not in grid_mapping.vmapped_dims)
+      ps = dataclasses.replace(ps, index=original_indices)
+      indices_consts_args = (ps, all_args.body_consts, args)
       args_flat, args_tree = tracing_registry.flatten(indices_consts_args)
       return pipeline_body_p.bind(
           *args_flat,
           jaxpr=body_jaxpr,
           in_tree=args_tree,
           num_inputs=grid_mapping.num_inputs,
+          _explicit_indices=_explicit_indices,
       )
-
-    pipeline_fun = _emit_pipeline(
-        new_body, grid=grid, in_specs=in_specs, out_specs=out_specs,
-        _grid_offsets=grid_offsets, _explicit_indices=True, **params)
 
     # Use a logical grid env (excluding vmapped dims) so that
     # num_programs(axis) resolves against the user's original grid axes.
@@ -2185,25 +2337,36 @@ def _emit_pipeline_lowering_rule(
 
     # run the actual pipeline function
     with (axis_env_ctx, pallas_core.tracing_grid_env(pipeline_grid, ())):
-      pipeline_fun(*flat_refs)
+      pipeline_fun = _emit_pipeline(
+          new_body, grid=grid, in_specs=in_specs, out_specs=out_specs,
+          num_cores=num_cores, core_id=all_args.core_id,
+          dimension_semantics=dimension_semantics, _explicit_indices=True,
+          **params)
+      pipeline_fun(*refs_flat)
     return ()
 
+  all_args = args_tree.unflatten(args_flat)
   dbg = api_util.debug_info(
-      "emit_pipeline_lowering", wrapped_pipeline_fun, ctx.avals_in, {})
-  wrapped_lu_fun = lu.wrap_init(wrapped_pipeline_fun, debug_info=dbg)
-  jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(wrapped_lu_fun, ctx.avals_in)
+      "emit_pipeline_lowering", wrapped_pipeline_fun, ctx.avals_in, {}
+  )
+  in_avals_ft = ft.flatten_args(*ctx.avals_in)
+  closed_jaxpr, _ = pe.trace_to_jaxpr_nocache(
+      wrapped_pipeline_fun, in_avals_ft, debug_info=dbg
+  )
+  jaxpr = closed_jaxpr
+  consts = closed_jaxpr.consts
   assert not consts and not jaxpr.constvars, (
       f"wrapped_pipeline_fun should not close over JAX constants, but found: "
-      f"{consts=} {jaxpr.constvars=}")
-  jaxpr = pe.convert_constvars_jaxpr(jaxpr)
-  num_index_map_consts = sum(index_map_consts_counts)
-  num_dynamic = grid_mapping.num_dynamic_grid_bounds + _num_extra_dynamic
-  _, dynamic_vals, _, _ = jax_util.split_list(
-      args, [num_index_map_consts, num_dynamic, body_consts_len]
+      f"{consts=} {jaxpr.constvars=}"
   )
-  grid_val_iter = iter(dynamic_vals)
-  grid = tuple(next(grid_val_iter) if pallas_core.is_dynamic_dim(d)
-               else ir_constant(d) for d in grid_mapping.grid)
+  jaxpr = pe.convert_constvars_jaxpr(jaxpr)
+
+  grid_val_iter = iter(all_args.dynamic_grid_spec)
+  grid_indices = tuple(next(grid_val_iter) if pallas_core.is_dynamic_dim(d)
+                       else ir_constant(d) for d in grid_mapping.grid)
+  global_grid = _zip_grid(all_args.dynamic_grid_spec, grid_mapping.grid)
+  grid_sizes = tuple(ir_constant(d) if isinstance(d, int) else d
+                     for d in global_grid)
 
   # TODO(rdyro): We append the core grid dimensions to the end of the memory
   # pipeline grid dimensions as a temporary workaround, but this conflates the
@@ -2211,24 +2374,134 @@ def _emit_pipeline_lowering_rule(
   grid_names = ctx.lowering_context.grid_names
   if grid_names is None:
     grid_names = (None,) * len(ctx.lowering_context.grid_sizes)
-  grid_names = (tuple(None for i, _ in enumerate(grid)
+  grid_names = (tuple(None for i, _ in enumerate(grid_sizes)
                       if i not in grid_mapping.vmapped_dims)
                 + (tuple(grid_names or ())))
-  user_grid_indices = (tuple(g for i, g in enumerate(grid)
+  user_grid_indices = (tuple(g for i, g in enumerate(grid_indices)
                              if i not in grid_mapping.vmapped_dims)
                        + tuple(ctx.lowering_context.user_grid_indices))
-  grid += tuple(ctx.lowering_context.grid_sizes)
+  grid_sizes += tuple(ctx.lowering_context.grid_sizes)
 
   lowering_context = ctx.lowering_context.replace(
       block_shapes=ctx.block_shapes,
-      grid_sizes=grid,
+      grid_sizes=grid_sizes,
       grid_names=grid_names,
       user_grid_indices=user_grid_indices,
       vmapped_dims=grid_mapping.vmapped_dims,
+      emit_pipeline_mode=True,
   )
 
   assert len(jaxpr.invars) == len(lowering_context.block_shapes)
   valid_grid_sizes = tuple(d for i, d in enumerate(lowering_context.grid_sizes)
-                         if i not in grid_mapping.vmapped_dims)
+                           if i not in grid_mapping.vmapped_dims)
   assert len(valid_grid_sizes) == len(lowering_context.grid_names)
-  return jaxpr_subcomp(lowering_context, jaxpr, *args)
+  return jaxpr_subcomp(lowering_context, jaxpr, *args_flat)
+
+def _emit_pipeline_is_high(*avals, body_jaxpr, grid_mapping, args_tree, **_):
+  all_args: EmitPipelinePrimitiveArgs = args_tree.unflatten(avals)
+  refs_avals = [jax.typeof(x) if not isinstance(x, core.AbstractValue) else x
+                for x in all_args.refs_flat]
+
+  # Check that the index_maps jaxpr or consts are not high.
+  if (any(bm.index_map_jaxpr.is_high for bm in grid_mapping.block_mappings)
+      or any(any(c.is_high for c in bm.index_map_jaxpr.consts)
+             for bm in grid_mapping.block_mappings)):
+    raise NotImplementedError("Grid mapping with hijax index maps are not"
+                              f" currently supported. Got {grid_mapping=}")
+
+  return (body_jaxpr.is_high
+          or any(aval.has_qdd for aval in refs_avals)
+          or any(bm.transformed_block_aval.inner_aval.is_high
+                 for bm in grid_mapping.block_mappings))
+
+emit_pipeline_p.is_high = _emit_pipeline_is_high
+
+
+def _emit_pipeline_to_lojax(
+    *args_flat, body_jaxpr, grid_mapping, args_tree, refs_tree, **params
+):
+  all_args: EmitPipelinePrimitiveArgs = args_tree.unflatten(args_flat)
+  closed_hi_jaxpr = core.ClosedJaxpr(body_jaxpr, all_args.body_consts)
+  with grid_mapping.trace_env():
+    closed_lo_jaxpr = pe.lower_jaxpr2(closed_hi_jaxpr)
+
+  refs_avals = [jax.typeof(x) for x in all_args.refs_flat]
+  lo_flat_refs, new_refs_tree = tracing_registry.flatten(
+      refs_tree.unflatten(
+          [aval.read_loval(x) if aval.has_qdd else aval.lower_val(x)
+           for aval, x in zip(refs_avals, all_args.refs_flat)]
+      ),
+      is_transformed_ref,
+  )
+
+  new_prim_args = EmitPipelinePrimitiveArgs(
+      all_index_map_consts=all_args.all_index_map_consts,
+      dynamic_grid_spec=all_args.dynamic_grid_spec,
+      core_id=all_args.core_id,
+      body_consts=tuple(closed_lo_jaxpr.consts),
+      refs_flat=tuple(lo_flat_refs),
+  )
+  new_args_flat, new_args_tree = tracing_registry.flatten(new_prim_args)
+  return emit_pipeline_p.bind(
+      *new_args_flat,
+      body_jaxpr=closed_lo_jaxpr.jaxpr,
+      grid_mapping=grid_mapping.to_lojax(),
+      args_tree=new_args_tree,
+      refs_tree=new_refs_tree,
+      **params,
+  )
+
+emit_pipeline_p.to_lojax = _emit_pipeline_to_lojax
+
+
+def _emit_pipeline_batching_rule(
+    axis_data, args_flat, dims, *, grid_mapping, dimension_semantics, args_tree,
+    **params
+):
+  dimension_semantics = (PARALLEL,) + dimension_semantics
+  all_args: EmitPipelinePrimitiveArgs = args_tree.unflatten(args_flat)
+
+  _, dynamic_dims, _, _, flat_ref_dims = jax_util.split_list(dims, [
+      len(all_args.all_index_map_consts),
+      len(all_args.dynamic_grid_spec),
+      int(all_args.has_core_id),
+      len(all_args.body_consts)])
+
+  batch_size = axis_data.size
+
+  if any(d is not None for d in dynamic_dims):
+    raise NotImplementedError(
+      "Batching over dynamic grid values is not supported yet.")
+
+  batched_block_mappings = map(
+      functools.partial(_batch_block_mapping, grid_mapping, batch_size),
+      map(_ref_to_value_aval, all_args.refs_flat),
+      flat_ref_dims, grid_mapping.block_mappings)
+
+  index_map_tree_args, index_map_tree_kwargs = (
+      grid_mapping.index_map_tree.unflatten(grid_mapping.index_map_avals))
+  assert not index_map_tree_kwargs
+  batched_index_map_args = (
+      pallas_core.index_map_grid_aval, *index_map_tree_args)
+  batched_index_map_avals, batched_index_map_tree = tree_util.tree_flatten(
+      (batched_index_map_args, {}))
+
+  axis_size_is_dynamic = not isinstance(batch_size, int)
+  new_grid_dim = (pallas_core.dynamic_grid_dim
+                  if axis_size_is_dynamic else batch_size)
+
+  batched_grid_mapping = grid_mapping.replace(
+      grid=(new_grid_dim, *grid_mapping.grid),
+      block_mappings=tuple(batched_block_mappings),
+      index_map_avals=tuple(batched_index_map_avals),
+      index_map_tree=batched_index_map_tree,
+      vmapped_dims=(0,) + tuple(a + 1 for a in grid_mapping.vmapped_dims),
+  )
+
+  emit_pipeline_p.bind(
+      *args_flat, grid_mapping=batched_grid_mapping, args_tree=args_tree,
+      dimension_semantics=dimension_semantics, **params)
+  return (), ()
+
+batching.fancy_primitive_batchers[emit_pipeline_p] = (
+    _emit_pipeline_batching_rule)

@@ -167,17 +167,16 @@ class StaticSqlFixture(SqlFixture):
         # it running throughout all tests.
         if cls._GLOBAL_RESOURCES:
             return
-        else:
-            cls._GLOBAL_RESOURCES = True
-            cls.schema_resource = provision.SchemaResource(
-                provision.DatabaseResource(
-                    "sqlite", db_api.get_context_manager()),
-                cls._generate_schema, teardown=False)
-            dependency_resources = {}
-            for name, resource in cls.schema_resource.resources:
-                dependency_resources[name] = resource.getResource()
-            cls.schema_resource.make(dependency_resources)
-            cls.engine = dependency_resources['database'].engine
+        cls._GLOBAL_RESOURCES = True
+        cls.schema_resource = provision.SchemaResource(
+            provision.DatabaseResource(
+                "sqlite", db_api.get_context_manager()),
+            cls._generate_schema, teardown=False)
+        dependency_resources = {}
+        for name, resource in cls.schema_resource.resources:
+            dependency_resources[name] = resource.getResource()
+        cls.schema_resource.make(dependency_resources)
+        cls.engine = dependency_resources['database'].engine
 
 
 class APIDefinitionFixture(fixtures.Fixture):
@@ -302,22 +301,6 @@ class DBRetryErrorsFixture(fixtures.Fixture):
     def _restore(self):
         for p in self._patchers:
             p.stop()
-
-
-class DBAPIContextManagerFixture(fixtures.Fixture):
-
-    def __init__(self, mock_context_manager=mock.ANY):
-        self.cxt_manager = (mock.Mock() if mock_context_manager == mock.ANY
-                            else mock_context_manager)
-        self._backup_mgr = None
-
-    def _setUp(self):
-        self._backup_mgr = db_api._CTX_MANAGER
-        db_api._CTX_MANAGER = self.cxt_manager
-        self.addCleanup(self._restore)
-
-    def _restore(self):
-        db_api._CTX_MANAGER = self._backup_mgr
 
 
 class DBQueryHooksFixture(fixtures.Fixture):

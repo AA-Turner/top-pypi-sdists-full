@@ -69,6 +69,7 @@ if TYPE_CHECKING:
     from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
     from schemathesis.engine.run.unit._pool import DefaultScheduler
     from schemathesis.generation.stateful.state_machine import APIStateMachine
+    from schemathesis.python._constants.pool import ConstantsPool
     from schemathesis.resources import ExtraDataSource
 
 
@@ -87,6 +88,10 @@ class BaseSchema(Mapping):
     hooks: HookDispatcher = field(default_factory=lambda: HookDispatcher(scope=HookScope.SCHEMA))
     auth: AuthStorage = field(default_factory=AuthStorage)
     test_function: Callable | None = None
+    # App identity + registry version the cached pool was built from.
+    _constants_pool_cache: tuple[object, int, ConstantsPool] | None = field(
+        init=False, default=None, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         self.hook = to_filterable_hook(self.hooks)  # type: ignore[method-assign]
@@ -372,7 +377,7 @@ class BaseSchema(Mapping):
         else:
             _filter_set = filter_set
 
-        return self.__class__(
+        cloned = self.__class__(
             self.raw_schema,
             config=self.config,
             location=self.location,
@@ -382,6 +387,9 @@ class BaseSchema(Mapping):
             test_function=_test_function,
             filter_set=_filter_set,
         )
+        # Extraction imports the app and walks its modules; a clone shares the app, so it shares the result.
+        cloned._constants_pool_cache = self._constants_pool_cache
+        return cloned
 
     def get_local_hook_dispatcher(self) -> HookDispatcher | None:
         # It might be not present when it is used without pytest via `APIOperation.as_strategy()`
@@ -440,6 +448,7 @@ class BaseSchema(Mapping):
         error_feedback: ErrorFeedbackStore | None,
         link_calibration: LinkCalibrationState | None,
         extra_data_source: ExtraDataSource | None,
+        constants_value_source: ConstantsPool | None = None,
     ) -> type[APIStateMachine]:
         """Engine-internal variant of `as_state_machine` that wires per-run state."""
         raise NotImplementedError
@@ -571,7 +580,7 @@ class BaseSchema(Mapping):
         self,
         generation_mode: GenerationMode = GenerationMode.POSITIVE,
         **kwargs: Any,
-    ) -> SearchStrategy:
+    ) -> SearchStrategy[Case]:
         """Create a Hypothesis strategy that generates test cases for all schema operations.
 
         Use with `@given` in non-Schemathesis tests.
@@ -617,7 +626,7 @@ class APIOperationMap(Mapping):
         self,
         generation_mode: GenerationMode = GenerationMode.POSITIVE,
         **kwargs: Any,
-    ) -> SearchStrategy:
+    ) -> SearchStrategy[Case]:
         """Create a Hypothesis strategy that generates test cases for all schema operations in this subset.
 
         Use with `@given` in non-Schemathesis tests.
@@ -791,7 +800,7 @@ class APIOperation(Generic[P, R, S, SchemaT]):
     def get_bodies_for_media_type(self, media_type: str) -> Iterator[P]:
         main_target, sub_target = media_types.parse(media_type)
         for body in self.body:
-            main, sub = media_types.parse(body.media_type)  # type:ignore[attr-defined]
+            main, sub = media_types.parse(body.media_type)
             if main in ("*", main_target) and sub in ("*", sub_target):
                 yield body
 
@@ -813,6 +822,10 @@ class APIOperation(Generic[P, R, S, SchemaT]):
         from schemathesis.generation.hypothesis import setup
 
         setup()
+        if "constants_value_source" not in kwargs:
+            from schemathesis.python._constants.orchestrator import make_constants_value_source
+
+            kwargs["constants_value_source"] = make_constants_value_source(self.schema)
         if self.schema.config.headers:
             headers = kwargs.setdefault("headers", {})
             headers.update(self.schema.config.headers)

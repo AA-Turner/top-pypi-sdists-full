@@ -82,7 +82,7 @@ inherits = "release"
 lto = "fat"
 
 [workspace.package]
-version = "0.0.97"
+version = "0.0.98"
 authors = [
   "jesse k. rubin <jessekrubin@gmail.com>",
   # hopefully you will contribute!
@@ -98,7 +98,7 @@ repository = "https://github.com/jessekrubin/ry"
 
 [workspace]
 resolver = "3"
-members = ["crates/_ryo3-dev", "crates/_ryo3-quick-maths", "crates/ryo3", "crates/ryo3-aws-lc", "crates/ryo3-brotli", "crates/ryo3-bytes", "crates/ryo3-bzip2", "crates/ryo3-cookie", "crates/ryo3-core", "crates/ryo3-dirs", "crates/ryo3-flate2", "crates/ryo3-fnv", "crates/ryo3-fspath", "crates/ryo3-glob", "crates/ryo3-globset", "crates/ryo3-heck", "crates/ryo3-http", "crates/ryo3-jiff", "crates/ryo3-jiter", "crates/ryo3-json", "crates/ryo3-macro-rules", "crates/ryo3-memchr", "crates/ryo3-pydantic", "crates/ryo3-regex", "crates/ryo3-reqwest", "crates/ryo3-same-file", "crates/ryo3-serde", "crates/ryo3-shlex", "crates/ryo3-size", "crates/ryo3-sqlformat", "crates/ryo3-std", "crates/ryo3-tokio", "crates/ryo3-tokio-rt", "crates/ryo3-tokio-websockets", "crates/ryo3-twox-hash", "crates/ryo3-ulid", "crates/ryo3-unindent", "crates/ryo3-url", "crates/ryo3-uuid", "crates/ryo3-walkdir", "crates/ryo3-which", "crates/ryo3-zstd"]
+members = ["crates/_ryo3-dev", "crates/_ryo3-quick-maths", "crates/ryo3", "crates/ryo3-aws-lc", "crates/ryo3-brotli", "crates/ryo3-bytes", "crates/ryo3-bzip2", "crates/ryo3-cookie", "crates/ryo3-core", "crates/ryo3-dirs", "crates/ryo3-flate2", "crates/ryo3-fnv", "crates/ryo3-fspath", "crates/ryo3-glob", "crates/ryo3-globset", "crates/ryo3-heck", "crates/ryo3-http", "crates/ryo3-jiff", "crates/ryo3-jiter", "crates/ryo3-json", "crates/ryo3-lz4rip", "crates/ryo3-macro-rules", "crates/ryo3-memchr", "crates/ryo3-pydantic", "crates/ryo3-regex", "crates/ryo3-reqwest", "crates/ryo3-same-file", "crates/ryo3-serde", "crates/ryo3-shlex", "crates/ryo3-size", "crates/ryo3-sqlformat", "crates/ryo3-std", "crates/ryo3-tokio", "crates/ryo3-tokio-rt", "crates/ryo3-tokio-websockets", "crates/ryo3-twox-hash", "crates/ryo3-ulid", "crates/ryo3-unindent", "crates/ryo3-url", "crates/ryo3-uuid", "crates/ryo3-walkdir", "crates/ryo3-which", "crates/ryo3-zstd"]
 
 [workspace.dependencies]
 # ======
@@ -122,11 +122,11 @@ ryo3-glob = { path = "./crates/ryo3-glob" }
 ryo3-globset = { path = "./crates/ryo3-globset" }
 ryo3-heck = { path = "./crates/ryo3-heck" }
 ryo3-http = { path = "./crates/ryo3-http" }
-# dev/future
 ryo3-ignore = { path = "./crates/_future/ryo3-ignore" }
 ryo3-jiff = { path = "./crates/ryo3-jiff" }
 ryo3-jiter = { path = "./crates/ryo3-jiter" }
 ryo3-json = { path = "./crates/ryo3-json" }
+ryo3-lz4rip = { path = "./crates/ryo3-lz4rip" }
 ryo3-macro-rules = { path = "crates/ryo3-macro-rules" }
 ryo3-memchr = { path = "crates/ryo3-memchr" }
 ryo3-pydantic = { path = "./crates/ryo3-pydantic" }
@@ -179,8 +179,9 @@ heck = { version = "0.5.0", default-features = false }
 http = { version = "1.4", default-features = false, features = ["std"] }
 http-body-util = { version = "0.1.3", default-features = false, features = [] }
 ignore = { version = "0.4.24", default-features = false, features = [] }
-jiff = { version = "0.2.27", default-features = false, features = ["default", "perf-inline"] }
-jiter = { version = "0.15", default-features = false, features = ["python"] }
+jiff = { version = "0.2.30", default-features = false, features = ["default", "perf-inline"] }
+jiter = { version = "0.16", default-features = false, features = ["python"] }
+lz4rip = { version = "0.11.1", default-features = false, features = ["std"] }
 memchr = { version = "2.7.5", default-features = false, features = [] }
 mime = { version = "0.3.17", default-features = false, features = [] }
 rand = { version = "0.10.1", default-features = false, features = [] }
@@ -205,7 +206,7 @@ tracing = { version = "0.1.44", default-features = false, features = ["std", "at
 tracing-log = { version = "0.2.0", default-features = false, features = [] }
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["default", "serde", "serde_json"] }
 twox-hash = { version = "2.1.2", default-features = false, features = [] }
-ulid = { version = "1.2.1", default-features = false, features = ["std"] }
+ulid = { version = "3.0.0", default-features = false, features = ["std"] }
 unindent = { version = "0.2.4", default-features = false, features = [] }
 url = { version = "2.5.4", default-features = false, features = ["std"] }
 uuid = { version = "1.23.1", default-features = false, features = [] }

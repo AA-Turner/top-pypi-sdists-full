@@ -3,12 +3,13 @@
 from typing import Any
 
 from pyrig.core.subprocesses import Args
-from pyrig.rig.tools.base.tool import Group, Tool
+from pyrig.rig.tools.base.hooks import CheckFormatHookTool
+from pyrig.rig.tools.base.tool import Group
 from pyrig.rig.tools.formatting.end_of_file import EndOfFileFormatter
 from pyrig.rig.tools.version_control.hooks.manager import VersionControlHookManager
 
 
-class PythonLinter(Tool):
+class PythonLinter(CheckFormatHookTool):
     """`ruff` command wrapper for linting, auto-fixing, and formatting."""
 
     def group(self) -> str:
@@ -57,15 +58,7 @@ class PythonLinter(Tool):
         """Return `google` as the docstring standard."""
         return "google"
 
-    def version_control_hooks(self) -> tuple[dict[str, Any], ...]:
-        """Return the Python linting and formatting hooks.
-
-        Returns:
-            `lint_python_hook` and `format_python_hook`, in that order.
-        """
-        return (self.lint_python_hook(), self.format_python_hook())
-
-    def lint_python_hook(self) -> dict[str, Any]:
+    def check_hook(self) -> dict[str, Any]:
         """Return the hook metadata for linting and auto-fixing Python source.
 
         Runs after the sequential text-fixing chain, alongside the other
@@ -77,7 +70,7 @@ class PythonLinter(Tool):
         return VersionControlHookManager.I.hook(
             self.lint_python,
             priority=VersionControlHookManager.I.increase_priority(
-                EndOfFileFormatter.I.format_end_of_file_hook(),
+                EndOfFileFormatter.I.format_hook(),
             ),
             types=["python"],
             args=["--fix"],
@@ -91,7 +84,7 @@ class PythonLinter(Tool):
         """
         return self.check_args()
 
-    def format_python_hook(self) -> dict[str, Any]:
+    def format_hook(self) -> dict[str, Any]:
         """Return the hook metadata for formatting Python source.
 
         Runs after linting, so formatting never fights the fixes ruff's
@@ -103,7 +96,7 @@ class PythonLinter(Tool):
         return VersionControlHookManager.I.hook(
             self.format_python,
             priority=VersionControlHookManager.I.increase_priority(
-                self.lint_python_hook(),
+                self.check_hook(),
             ),
             types=["python"],
         )

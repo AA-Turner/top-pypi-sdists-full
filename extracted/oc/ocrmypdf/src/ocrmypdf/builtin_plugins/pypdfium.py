@@ -198,6 +198,7 @@ def _process_image_for_output(
         'png16m',
         'pngalpha',
     )
+    format_name: Literal['PNG', 'TIFF', 'JPEG']
     if raster_device_lower in png_devices:
         format_name = 'PNG'
     elif raster_device_lower in ('jpeg', 'jpeggray', 'jpg'):

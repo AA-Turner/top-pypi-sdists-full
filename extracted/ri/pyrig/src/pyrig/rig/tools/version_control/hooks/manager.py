@@ -112,38 +112,9 @@ class VersionControlHookManager(Tool):
         """
         return self.args("run", *args)
 
-    def subclasses_hooks(self) -> list[dict[str, Any]]:
-        """Return every concrete tool's hooks, sorted for a deterministic pipeline.
-
-        Returns:
-            Every hook returned by `version_control_hooks()` across all
-            concrete `Tool` subclasses, sorted via `sort_hooks`.
-        """
-        return self.sort_hooks(
-            [
-                hook
-                for tool in Tool.concrete_subclasses()
-                for hook in tool().version_control_hooks()
-            ],
-        )
-
-    def sort_hooks(self, hooks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Sort hooks by stage, then priority, then id.
-
-        Stage groups hooks that never run in the same invocation apart first,
-        since only hooks sharing a stage compete for order at all. Within a
-        stage, priority orders the pipeline; id breaks ties deterministically.
-
-        Args:
-            hooks: Hook metadata dictionaries to sort.
-
-        Returns:
-            The hooks sorted by `(stages, priority, id)`.
-        """
-        return sorted(
-            hooks,
-            key=lambda hook: (hook["stages"], hook["priority"], hook["id"]),
-        )
+    def hook_sort_key(self, hook: dict[str, Any]) -> tuple[Any, ...]:
+        """Return a sort key for a hook, for deterministic ordering."""
+        return (hook["stages"], hook["priority"], hook["id"])
 
     def hook(  # noqa: PLR0913
         self,
@@ -156,6 +127,7 @@ class VersionControlHookManager(Tool):
         types: Iterable[str] | None = None,
         types_or: Iterable[str] | None = None,
         files: str | None = None,
+        exclude: str | None = None,
         args: Iterable[str] | None = None,
         always_run: bool | None = None,
         pass_filenames: bool | None = None,
@@ -182,6 +154,8 @@ class VersionControlHookManager(Tool):
                 For a tool with no path filter of its own, unlike `types`
                 and `types_or`, which filter by detected file type rather
                 than path.
+            exclude: Regex excluding matching file paths from this hook,
+                even when they match `types`, `types_or`, or `files`.
             args: Extra CLI arguments appended to the hook's entry command.
             always_run: Whether to run this hook even when no matching files
                 changed.
@@ -207,6 +181,8 @@ class VersionControlHookManager(Tool):
             hook["types_or"] = sorted(types_or)
         if files is not None:
             hook["files"] = files
+        if exclude is not None:
+            hook["exclude"] = exclude
         hook["stages"] = sorted(stages or ["pre-commit"])
         hook["groups"] = sorted([self.group_all(), *(groups or [])])
         hook["priority"] = priority

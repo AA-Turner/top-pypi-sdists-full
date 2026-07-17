@@ -14,6 +14,8 @@
 # under the License.
 
 
+from neutron_lib.types import ActionMap, ResourceAttributeMap
+
 DIRECTION_IN = 'IN'
 DIRECTION_OUT = 'OUT'
 DIRECTION_BOTH = 'BOTH'
@@ -41,7 +43,7 @@ COLLECTION_NAME = 'tap_services'
 TAP_FLOW = 'tap_flow'
 TAP_FLOWS = 'tap_flows'
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         'id': {'allow_post': False, 'allow_put': False,
                'validate': {'type:uuid': None}, 'is_visible': True,
@@ -88,7 +90,7 @@ RESOURCE_ATTRIBUTE_MAP = {
     }
 }
 SUB_RESOURCE_ATTRIBUTE_MAP = None
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 ACTION_STATUS = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []

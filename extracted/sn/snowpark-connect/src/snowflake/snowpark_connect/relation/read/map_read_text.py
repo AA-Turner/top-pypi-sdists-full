@@ -36,7 +36,10 @@ from snowflake.snowpark_connect.relation.read.utils import (
     rename_columns_as_snowflake_standard,
 )
 from snowflake.snowpark_connect.type_support import emulate_integral_types
-from snowflake.snowpark_connect.utils.io_utils import file_format
+from snowflake.snowpark_connect.utils.io_utils import (
+    db_schema_from_stage_path,
+    file_format,
+)
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
@@ -120,7 +123,10 @@ def read_text(
         None if options.get("wholetext", "False").lower() == "true" else line_sep
     )
     text_file_format = file_format(
-        session, options.get("compression", "auto"), separator
+        session,
+        options.get("compression", "auto"),
+        separator,
+        db_schema_fallback=db_schema_from_stage_path(path),
     )
     for fp in files_paths:
         content = session.sql(

@@ -382,13 +382,18 @@ def register_cached_java_udf(
 
     function_name = f"{_BUILTIN_UDF_PREFIX}{java_fun_name.upper()}{input_types_hash}"
 
+    # Lazy imports to avoid circular import: udf_cache → config → session → udf_cache.
+    from snowflake.snowpark_connect.config import is_native_app_mode
+    from snowflake.snowpark_connect.resources_initializer import RESOURCE_PATH
+
     with _lock:
         session = Session.get_active_session()
         cache = session._cached_java_udfs
         stage = session.get_session_stage()
 
-        if len(cache) == 0:
-            # This is the first Java UDF in the session, so upload the shared JAR.
+        if len(cache) == 0 and not is_native_app_mode():
+            # Upload the shared JAR on first use. Skipped in native app mode because
+            # java_udfs.jar is already bundled in the app's version stage.
             upload_java_udf_jar(session)
 
         _, cache_key = _build_cache_key(session, function_name)
@@ -396,12 +401,25 @@ def register_cached_java_udf(
         udf_is_cached = cache_key in cache
 
     if not udf_is_cached:
+        if is_native_app_mode():
+            # In native app (versioned schema) mode, absolute session-stage IMPORTS trigger
+            # error 093023. Use the relative version-stage path instead.
+            # TODO: built-in UDFs created here land in the *current session schema*, not
+            # in NATIVE_APP_VERSIONED_SCHEMA.  If the session schema is non-versioned,
+            # TEMPORARY FUNCTION with relative IMPORTS may also fail (093023 / 093043).
+            # Fix: qualify `function_name` with NATIVE_APP_VERSIONED_SCHEMA here, and
+            # ensure _create_temporary_java_udf uses a non-TEMPORARY CREATE for that path.
+            jar_imports = [f"{RESOURCE_PATH}/{JAVA_UDFS_JAR_NAME}"]
+        else:
+            jar_imports = [
+                f"{stage}/snowflake/snowpark_connect/resources/{JAVA_UDFS_JAR_NAME}"
+            ]
         _create_temporary_java_udf(
             session,
             function_name,
             input_types,
             return_type,
-            [f"{stage}/snowflake/snowpark_connect/resources/{JAVA_UDFS_JAR_NAME}"],
+            jar_imports,
             java_handler,
             packages,
         )

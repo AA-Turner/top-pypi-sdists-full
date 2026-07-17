@@ -57,6 +57,17 @@ def _require_trace_id() -> str:
     return trace_id
 
 
+def _merge_tags_into_extras(
+    extras: dict[str, Any] | None, tags: list[str]
+) -> dict[str, Any] | None:
+    out: dict[str, Any] = dict(extras) if extras else {}
+    if tags:
+        out["tags"] = tags
+    else:
+        out.pop("tags", None)
+    return out or None
+
+
 class SpanEventHandler:
     """In-flight span tracker and wire-shaper.
 
@@ -123,7 +134,10 @@ class SpanEventHandler:
             return span_id
         start_dt = _utcnow()
         start_time = start_dt.isoformat()
-        clean_metadata = self._sanitize_metadata(metadata or {})
+        from aigie.context_manager import enrich_span_fields
+
+        enriched_metadata, enriched_tags = enrich_span_fields(metadata, (extras or {}).get("tags"))
+        clean_metadata = self._sanitize_metadata(enriched_metadata)
 
         # Parent priority:
         # 1. explicit framework-native parent_run_id resolved through _open
@@ -147,7 +161,7 @@ class SpanEventHandler:
             "start_dt": start_dt,
             "start_time": start_time,
             "parent_id": parent_id,
-            "extras": dict(extras) if extras else None,
+            "extras": _merge_tags_into_extras(extras, enriched_tags),
         }
         self._open[run_id] = state
         push_span(span_id)
@@ -171,6 +185,7 @@ class SpanEventHandler:
         output: Any,
         extras: dict[str, Any] | None = None,
         metadata_updates: dict[str, Any] | None = None,
+        status: str = "success",
     ) -> None:
         state = self._open.pop(run_id, None)
         if state is None:
@@ -181,7 +196,7 @@ class SpanEventHandler:
         if is_retention_suppressed():
             pop_span()
             return
-        payload = self._finalize_payload(state, status="success")
+        payload = self._finalize_payload(state, status=status)
         payload["output"] = self._strip_error_envelope(output)
         if extras:
             payload.update(extras)
@@ -245,8 +260,9 @@ class SpanEventHandler:
         ``start_time`` so the backend can upsert the paused row.
         """
         state = self._open.get(run_id)
-        if state is None:
+        if state is None or state.get("paused_emitted"):
             return
+        state["paused_emitted"] = True
         if is_retention_suppressed():
             return
         payload = {
@@ -264,6 +280,15 @@ class SpanEventHandler:
         del status  # signature reserved; only paused is implemented
         for run_id in list(self._open):
             self.pause_span(run_id=run_id)
+
+    def clear_pending_spans(self) -> None:
+        """Drop paused in-memory spans after their interim event is emitted."""
+        for run_id in list(self._open):
+            state = self._open.pop(run_id, None)
+            if state is None:
+                continue
+            deregister_open_span(state["id"])
+            pop_span()
 
     def close_trace(self, *, status: str) -> None:
         """No-op: trace identity now rides the finalized root span

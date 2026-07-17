@@ -17,6 +17,8 @@ from tomlkit import ws
 from tomlkit._utils import _utc
 from tomlkit.api import document
 from tomlkit.exceptions import NonExistentKey
+from tomlkit.exceptions import ParseError
+from tomlkit.exceptions import TOMLKitError
 from tomlkit.toml_document import TOMLDocument
 
 
@@ -236,6 +238,25 @@ name = "Test 1"
 
     doc = parse(content)
     assert doc["foo"]["bar"]["tests"][0]["name"] == "Test 1"
+
+
+def test_subtable_of_aot_element_after_other_table() -> None:
+    # A sub-table header that extends the last element of an array of tables
+    # is valid even when an unrelated table appears in between (issue #261).
+    content = """[[fruit]]
+apple.color = "red"
+
+[potato]
+
+[fruit.apple.texture]
+smooth = true
+"""
+
+    doc = parse(content)
+
+    assert doc["fruit"][0]["apple"]["color"] == "red"
+    assert doc["fruit"][0]["apple"]["texture"]["smooth"] is True
+    assert doc["potato"] == {}
 
 
 def test_document_with_new_sub_table_after_other_table() -> None:
@@ -579,6 +600,128 @@ z = 1
     assert doc["a"]["a"] == {"b": {"x": 1}, "c": {"y": 1}, "d": {"z": 1}}
 
 
+def test_unwrap_out_of_order_tables() -> None:
+    # unwrap() resolves out-of-order tables through the same proxy as item
+    # access, so the fragments are merged into one dict.
+    doc = parse("[a.x]\np = 1\n[foo]\nbar = 2\n[a.y]\nq = 3\n")
+    assert doc.unwrap() == {"a": {"x": {"p": 1}, "y": {"q": 3}}, "foo": {"bar": 2}}
+
+
+def test_unwrap_preserves_raise_on_invalid_out_of_order_fragment() -> None:
+    # Regression guard: this document is actually *invalid* TOML -- `b` is a value
+    # under [a], then reopened as a table by the out-of-order [a.b].  The in-order
+    # form and stdlib tomllib both reject it.  Since the Container.append concrete-
+    # +super fix, tomlkit now rejects it at parse time as well.
+    with pytest.raises(ParseError):
+        parse("[a]\nb = true\n[zz]\nq = 9\n[a.b]\narr = [1, 2]\n")
+
+
+def test_reject_out_of_order_dotted_key_redefinition_at_parse() -> None:
+    # https://github.com/python-poetry/tomlkit/issues/523
+    # A dotted key (b.c) creates an implicit table definition that is later
+    # redefined by an explicit [a.b] table header after an unrelated table [zz].
+    # This is invalid TOML (defining a table multiple times) and must be rejected
+    # at parse, not silently accepted.
+    with pytest.raises(ParseError):
+        parse("[a]\nb.c = 1\n[zz]\nq = 9\n[a.b]\nd = 2\n")
+
+
+def test_reject_out_of_order_dotted_prefix_at_parse() -> None:
+    # https://github.com/python-poetry/tomlkit/issues/523
+    # A non-dotted candidate key (b) that is a prefix of an existing dotted key
+    # (b.c) means the table would be defined twice — once implicitly by the
+    # dotted key and once explicitly by the table header.  This must raise.
+    with pytest.raises((ParseError, TOMLKitError)):
+        parse("[a]\nb.c=1\n[a.b]\nd=2\n")
+
+
+def test_valid_out_of_order_independent_tables() -> None:
+    # [zz] splits unrelated tables; the concrete+super merge must not break
+    # valid out-of-order extensions.
+    doc = parse("[a]\nx=1\n[zz]\n[a.b]\nc=1\n")
+    assert doc.unwrap() == {"a": {"x": 1, "b": {"c": 1}}, "zz": {}}
+    assert doc.as_string() == "[a]\nx=1\n[zz]\n[a.b]\nc=1\n"
+
+
+def test_set_value_on_out_of_order_table_with_empty_concrete_part() -> None:
+    # A super table defined after its sub-table (the "defining a super-table
+    # afterward is ok" spec example) leaves an empty concrete `[x]` part.
+    # Adding a plain value must land in that concrete part, not turn the
+    # header-less super part into a second `[x]` header -- which produced
+    # output with a duplicate header that no longer parsed.
+    doc = parse("[x.y.z.w]\n\n[x]\n")
+    doc["x"]["c"] = 3
+
+    assert doc["x"]["c"] == 3
+    assert doc.as_string() == "[x.y.z.w]\n\n[x]\nc = 3\n"
+    assert parse(doc.as_string()).unwrap() == {"x": {"y": {"z": {"w": {}}}, "c": 3}}
+
+
+def test_out_of_order_table_merges_aot_fragments() -> None:
+    # https://github.com/python-poetry/tomlkit/issues/505
+    content = """\
+[hooks]
+
+[[hooks.Stop]]
+matcher = ".*"
+
+[unrelated]
+x = 1
+
+[[hooks.Stop]]
+matcher = "second"
+
+[hooks.state]
+y = 2
+"""
+    doc = parse(content)
+    assert doc.as_string() == content
+
+    hooks = doc["hooks"]
+    assert list(hooks.keys()) == ["Stop", "state"]
+    assert len(hooks["Stop"]) == 2
+    assert hooks["Stop"][1]["matcher"] == "second"
+    assert hooks["state"]["y"] == 2
+
+    # element-level mutation still writes through to the document
+    hooks["Stop"][1]["matcher"] = "patched"
+    assert 'matcher = "patched"' in doc.as_string()
+
+
+def test_out_of_order_table_merges_three_aot_fragments() -> None:
+    # An AoT split across more than two out-of-order parts merges into a single
+    # AoT: each later fragment is appended to the growing element list, so the
+    # parts keep their order and every element is reachable.
+    content = """\
+[hooks]
+
+[[hooks.Stop]]
+matcher = "a"
+
+[unrelated1]
+x = 1
+
+[[hooks.Stop]]
+matcher = "b"
+
+[unrelated2]
+y = 2
+
+[[hooks.Stop]]
+matcher = "c"
+
+[hooks.state]
+z = 3
+"""
+    doc = parse(content)
+    assert doc.as_string() == content
+
+    hooks = doc["hooks"]
+    assert list(hooks.keys()) == ["Stop", "state"]
+    assert [t["matcher"] for t in hooks["Stop"]] == ["a", "b", "c"]
+    assert hooks["state"]["z"] == 3
+
+
 def test_out_of_order_tables_are_still_dicts() -> None:
     content = """
 [a.a]
@@ -758,6 +901,17 @@ inline = {"foo" = "bar", "bar" = "baz"}
     assert repr(doc["namespace"]) == "{'key1': 'value1', 'key2': 'value2'}"
 
 
+def test_repr_out_of_order_table_proxy() -> None:
+    doc = parse("""\
+a.b.c = "d"
+a.b.e = "f"
+""")
+    expected = "{'b': {'c': 'd', 'e': 'f'}}"
+
+    assert repr(doc["a"]) == expected
+    assert str(doc["a"]) == expected
+
+
 def test_deepcopy() -> None:
     content = """
 [tool]
@@ -831,6 +985,33 @@ a = 1
     )
 
 
+def test_replace_middle_table_with_value() -> None:
+    # https://github.com/python-poetry/tomlkit/issues/504
+    content = """[a]
+aa = 1
+
+[b]
+bb = 2
+
+[c]
+cc = 3
+"""
+    doc = parse(content)
+    doc["b"] = 2
+    assert (
+        doc.as_string()
+        == """b = 2
+
+[a]
+aa = 1
+
+[c]
+cc = 3
+"""
+    )
+    assert parse(doc.as_string())["a"] == {"aa": 1}
+
+
 def test_replace_preserve_sep() -> None:
     content = """a   =   1
 
@@ -848,6 +1029,38 @@ b  =  "what"
 b  =  "how"
 """
     )
+
+
+def test_replace_super_table_preserves_whitespace() -> None:
+    content = """\
+[env.pro1.rst]
+name = "x7"
+
+[env2]
+name = 2
+
+[env3]
+name = 3
+"""
+    doc = parse(content)
+
+    doc["env"] = doc["env"]
+
+    assert doc.as_string() == content
+
+
+def test_replace_table_with_itself_preserves_display_name() -> None:
+    content = """\
+[keys.a]
+[keys .'a'.'c']
+  'd'	= 'e'
+"""
+    doc = parse(content)
+
+    for mode in doc["keys"]:
+        doc["keys"][mode] = doc["keys"][mode]
+
+    assert doc.as_string() == content
 
 
 def test_replace_with_table_of_nested() -> None:
@@ -904,6 +1117,97 @@ def test_replace_with_aot_of_nested() -> None:
     w = 2
     """
     assert doc.as_string().strip() == dedent(expected).strip()
+
+
+def test_replace_dotted_key_with_table() -> None:
+    # https://github.com/python-poetry/tomlkit/issues/524
+    content = "fruit.apple = true\n"
+    doc = parse(content)
+    doc["fruit"] = {"a": 1}
+    # The dotted prefix must be dropped instead of duplicated onto the header.
+    assert (
+        doc.as_string()
+        == """[fruit]
+a = 1
+"""
+    )
+    assert parse(doc.as_string())["fruit"] == {"a": 1}
+
+
+def test_replace_dotted_key_with_empty_table_keeps_following_sibling() -> None:
+    # https://github.com/python-poetry/tomlkit/issues/513
+    content = """a.b = 1
+c.d = 2
+"""
+    doc = parse(content)
+    doc["a"] = {}
+    # ``[a]`` must not swallow the following ``c.d`` dotted key.
+    assert (
+        doc.as_string()
+        == """c.d = 2
+
+[a]
+"""
+    )
+    assert parse(doc.as_string()) == {"c": {"d": 2}, "a": {}}
+
+
+def test_replace_dotted_key_with_table_keeps_following_sibling() -> None:
+    # https://github.com/python-poetry/tomlkit/issues/513
+    content = """a.b = 1
+c.d = 2
+"""
+    doc = parse(content)
+    doc["a"] = {"x": 9}
+    assert (
+        doc.as_string()
+        == """c.d = 2
+
+[a]
+x = 9
+"""
+    )
+    assert parse(doc.as_string()) == {"c": {"d": 2}, "a": {"x": 9}}
+
+
+def test_replace_dotted_key_with_aot_keeps_following_sibling() -> None:
+    # https://github.com/python-poetry/tomlkit/issues/542
+    content = """a.b = 1
+c.d = 2
+"""
+    doc = parse(content)
+    arr = tomlkit.aot()
+    tbl = tomlkit.table()
+    tbl["x"] = 9
+    arr.append(tbl)
+    doc["a"] = arr
+    assert (
+        doc.as_string()
+        == """c.d = 2
+
+[[a]]
+x = 9
+"""
+    )
+    assert parse(doc.as_string()) == {"c": {"d": 2}, "a": [{"x": 9}]}
+
+
+def test_replace_value_with_table_keeps_following_dotted_sibling() -> None:
+    # A plain value turning into a table must likewise clear the inline region
+    # (including dotted keys) before emitting its header.
+    content = """x = 1
+c.d = 2
+"""
+    doc = parse(content)
+    doc["x"] = {}
+    assert (
+        doc.as_string()
+        == """c.d = 2
+
+[x]
+"""
+    )
+    assert parse(doc.as_string()) == {"c": {"d": 2}, "x": {}}
 
 
 def test_replace_with_comment() -> None:
@@ -1303,6 +1607,19 @@ name = "Nail"
     }
 
 
+def test_add_key_after_dotted_inline_table_without_ending_newline() -> None:
+    content = "[x]\na.b = {}"
+    doc = parse(content)
+    doc["x"]["c"] = 3
+
+    assert doc.as_string() == "[x]\na.b = {}\nc = 3\n"
+
+    doc = parse(f"{content}\n")
+    doc["x"]["c"] = 3
+
+    assert doc.as_string() == "[x]\na.b = {}\nc = 3\n"
+
+
 def test_appending_to_super_table() -> None:
     content = """\
 [a.b]
@@ -1322,3 +1639,30 @@ value = 5
 """
 
     assert doc.as_string() == expected
+
+
+def test_scalar_is_not_captured_by_table_rendered_from_dotted_key() -> None:
+    # https://github.com/python-poetry/tomlkit/issues/543
+    # A dotted-key super table renders inline (`a.b = 1`) until a child that
+    # renders a `[table]` header is added; a scalar appended after that must
+    # not land inside the table's scope.
+    doc = parse("a.b = 1\n")
+    doc["a"]["c"] = {}
+    doc["z"] = 2
+
+    expected = """\
+z = 2
+
+a.b = 1
+
+[a.c]
+"""
+
+    assert doc.as_string() == expected
+    assert parse(doc.as_string()) == {"z": 2, "a": {"b": 1, "c": {}}}
+
+    # A purely inline dotted key still gets the scalar appended after it.
+    doc = parse("a.b = 1\n")
+    doc["z"] = 2
+
+    assert doc.as_string() == "a.b = 1\nz = 2\n"

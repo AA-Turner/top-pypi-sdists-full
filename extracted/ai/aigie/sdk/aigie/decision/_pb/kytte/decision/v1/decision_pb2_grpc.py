@@ -44,6 +44,11 @@ class DecisionOrchestratorStub(object):
                 request_serializer=kytte_dot_decision_dot_v1_dot_decision__pb2.ReportExecutionResultRequest.SerializeToString,
                 response_deserializer=kytte_dot_decision_dot_v1_dot_decision__pb2.ReportExecutionResultResponse.FromString,
                 _registered_method=True)
+        self.RegisterCapabilities = channel.unary_unary(
+                '/kytte.decision.v1.DecisionOrchestrator/RegisterCapabilities',
+                request_serializer=kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterCapabilitiesRequest.SerializeToString,
+                response_deserializer=kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterCapabilitiesResponse.FromString,
+                _registered_method=True)
 
 
 class DecisionOrchestratorServicer(object):
@@ -64,6 +69,13 @@ class DecisionOrchestratorServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RegisterCapabilities(self, request, context):
+        """Startup: advertise the remediation verbs this SDK can execute.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DecisionOrchestratorServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -76,6 +88,11 @@ def add_DecisionOrchestratorServicer_to_server(servicer, server):
                     servicer.ReportExecutionResult,
                     request_deserializer=kytte_dot_decision_dot_v1_dot_decision__pb2.ReportExecutionResultRequest.FromString,
                     response_serializer=kytte_dot_decision_dot_v1_dot_decision__pb2.ReportExecutionResultResponse.SerializeToString,
+            ),
+            'RegisterCapabilities': grpc.unary_unary_rpc_method_handler(
+                    servicer.RegisterCapabilities,
+                    request_deserializer=kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterCapabilitiesRequest.FromString,
+                    response_serializer=kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterCapabilitiesResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -132,6 +149,33 @@ class DecisionOrchestrator(object):
             '/kytte.decision.v1.DecisionOrchestrator/ReportExecutionResult',
             kytte_dot_decision_dot_v1_dot_decision__pb2.ReportExecutionResultRequest.SerializeToString,
             kytte_dot_decision_dot_v1_dot_decision__pb2.ReportExecutionResultResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RegisterCapabilities(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/kytte.decision.v1.DecisionOrchestrator/RegisterCapabilities',
+            kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterCapabilitiesRequest.SerializeToString,
+            kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterCapabilitiesResponse.FromString,
             options,
             channel_credentials,
             insecure,

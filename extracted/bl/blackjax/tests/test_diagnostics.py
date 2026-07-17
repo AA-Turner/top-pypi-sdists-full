@@ -4,7 +4,9 @@ import itertools
 
 import chex
 import jax
+import jax.numpy as jnp
 import numpy as np
+import pytest
 from absl.testing import absltest, parameterized
 
 import blackjax.diagnostics as diagnostics
@@ -83,6 +85,430 @@ class DiagnosticsTest(chex.TestCase):
         ess_val = effective_sample_size(mc_samples)
         np.testing.assert_array_equal(ess_val.shape, event_shape)
         np.testing.assert_allclose(ess_val, num_chains * self.num_samples, rtol=10)
+
+
+# ---------------------------------------------------------------------------
+# Tests for ess_bulk, ess_tail, and pareto_khat
+# ---------------------------------------------------------------------------
+
+# Number of chains and draws used across all modern-diagnostics tests.
+_NCHAINS = 4
+_NSAMPLES = 2000
+
+
+# ---------------------------------------------------------------------------
+# Tests for rhat (rank-normalized split-R̂, Vehtari et al. 2021)
+# ---------------------------------------------------------------------------
+
+
+class RhatTest(chex.TestCase):
+    """Tests for rank-normalized split-R̂."""
+
+    def setUp(self):
+        super().setUp()
+        self.rng = jax.random.key(13)
+
+    def _iid_normal(self, nchains=_NCHAINS, nsamples=_NSAMPLES):
+        return jax.random.normal(self.rng, shape=(nchains, nsamples))
+
+    def test_scalar_output_shape(self):
+        result = diagnostics.rhat(self._iid_normal())
+        assert result.shape == (), f"Expected scalar, got shape {result.shape}"
+
+    def test_vector_output_shape(self):
+        samples = jax.random.normal(self.rng, shape=(_NCHAINS, _NSAMPLES, 5))
+        result = diagnostics.rhat(samples)
+        assert result.shape == (5,), f"Expected (5,), got {result.shape}"
+
+    def test_converged_chains_near_one(self):
+        # IID samples → R̂ should be very close to 1.
+        result = float(diagnostics.rhat(self._iid_normal()))
+        assert (
+            abs(result - 1.0) < 0.05
+        ), f"rhat for iid samples should be ≈1, got {round(result, 4)}"
+
+    def test_non_converged_chains_above_one(self):
+        # Chains with distinct means → R̂ >> 1.
+        key1, key2, key3, key4 = jax.random.split(self.rng, 4)
+        means = jnp.array([0.0, 5.0, -5.0, 10.0])
+        chains = jnp.stack(
+            [
+                jax.random.normal(k, shape=(_NSAMPLES,)) + m
+                for k, m in zip([key1, key2, key3, key4], means)
+            ]
+        )
+        result = float(diagnostics.rhat(chains))
+        assert (
+            result > 1.1
+        ), f"rhat for non-converged chains should be > 1.1, got {round(result, 4)}"
+
+    def test_scale_nonconvergence_detected(self):
+        # Chains with same mean but very different variances (scale non-convergence).
+        # The folded component catches this; plain split-R̂ on the raw draws may miss it.
+        key1, key2 = jax.random.split(self.rng)
+        chain_narrow = jax.random.normal(key1, shape=(2, _NSAMPLES)) * 0.1
+        chain_wide = jax.random.normal(key2, shape=(2, _NSAMPLES)) * 10.0
+        chains = jnp.concatenate([chain_narrow, chain_wide], axis=0)
+        result = float(diagnostics.rhat(chains))
+        # Scale non-convergence → R̂ should be clearly above 1.
+        assert (
+            result > 1.05
+        ), f"rhat should detect scale non-convergence (> 1.05), got {round(result, 4)}"
+
+    def test_axis_invariance(self):
+        # Swapped chain/sample axes must give the same result.
+        samples = self._iid_normal()
+        samples_T = jnp.transpose(samples)  # (nsamples, nchains)
+        rh_std = diagnostics.rhat(samples)
+        rh_swp = diagnostics.rhat(samples_T, chain_axis=1, sample_axis=0)
+        np.testing.assert_allclose(float(rh_std), float(rh_swp), rtol=1e-5)
+
+    def test_negative_axes(self):
+        samples = self._iid_normal()
+        rh_pos = diagnostics.rhat(samples, chain_axis=0, sample_axis=1)
+        rh_neg = diagnostics.rhat(samples, chain_axis=-2, sample_axis=-1)
+        np.testing.assert_allclose(float(rh_pos), float(rh_neg), rtol=1e-5)
+
+    def test_top_level_api(self):
+        # blackjax.rhat must be the rank-normalized version, not the classic one.
+        import blackjax
+
+        samples = self._iid_normal()
+        bj = float(blackjax.rhat(samples))
+        direct = float(diagnostics.rhat(samples))
+        np.testing.assert_allclose(bj, direct, rtol=1e-6)
+
+    def test_arviz_calibration_converged(self):
+        # IID normal: both should be ≈1; agree within 1%.
+        az = pytest.importorskip("arviz")
+        samples = np.array(self._iid_normal())
+        bj = float(diagnostics.rhat(jnp.asarray(samples)))
+        idata = az.convert_to_dataset({"x": samples})
+        az_val = float(np.asarray(az.rhat(idata)["x"]).ravel()[0])
+        rel = abs(bj - az_val) / max(abs(az_val), 1e-6)
+        assert rel < 0.01, (
+            f"rhat converged: blackjax={round(bj, 6)}"
+            f" arviz={round(az_val, 6)} rel={round(rel, 6)}"
+        )
+
+    def test_arviz_calibration_nonconverged(self):
+        # Chains with distinct means: both should detect non-convergence; agree within 5%.
+        az = pytest.importorskip("arviz")
+        key1, key2, key3, key4 = jax.random.split(self.rng, 4)
+        means = jnp.array([0.0, 5.0, -5.0, 10.0])
+        chains = np.array(
+            jnp.stack(
+                [
+                    jax.random.normal(k, shape=(_NSAMPLES,)) + m
+                    for k, m in zip([key1, key2, key3, key4], means)
+                ]
+            )
+        )
+        bj = float(diagnostics.rhat(jnp.asarray(chains)))
+        idata = az.convert_to_dataset({"x": chains})
+        az_val = float(np.asarray(az.rhat(idata)["x"]).ravel()[0])
+        rel = abs(bj - az_val) / max(abs(az_val), 1e-6)
+        assert rel < 0.05, (
+            f"rhat non-converged: blackjax={round(bj, 4)}"
+            f" arviz={round(az_val, 4)} rel={round(rel, 4)}"
+        )
+
+    def test_arviz_calibration_heavy_tail(self):
+        # t(3) draws: heavier tails; agree within 1%.
+        az = pytest.importorskip("arviz")
+        samples = np.array(jax.random.t(self.rng, df=3.0, shape=(_NCHAINS, _NSAMPLES)))
+        bj = float(diagnostics.rhat(jnp.asarray(samples)))
+        idata = az.convert_to_dataset({"x": samples})
+        az_val = float(np.asarray(az.rhat(idata)["x"]).ravel()[0])
+        rel = abs(bj - az_val) / max(abs(az_val), 1e-6)
+        assert rel < 0.01, (
+            f"rhat t(3): blackjax={round(bj, 6)}"
+            f" arviz={round(az_val, 6)} rel={round(rel, 6)}"
+        )
+
+
+class EssBulkTest(chex.TestCase):
+    """Tests for rank-normalised split-chain bulk ESS."""
+
+    def setUp(self):
+        super().setUp()
+        self.rng = jax.random.key(7)
+
+    def _iid_normal(self, nchains=_NCHAINS, nsamples=_NSAMPLES):
+        return jax.random.normal(self.rng, shape=(nchains, nsamples))
+
+    def test_scalar_output_shape(self):
+        samples = self._iid_normal()
+        result = diagnostics.ess_bulk(samples)
+        assert result.shape == (), f"Expected scalar, got shape {result.shape}"
+
+    def test_vector_output_shape(self):
+        samples = jax.random.normal(self.rng, shape=(_NCHAINS, _NSAMPLES, 5))
+        result = diagnostics.ess_bulk(samples)
+        assert result.shape == (5,), f"Expected (5,), got {result.shape}"
+
+    def test_positive_for_iid(self):
+        result = diagnostics.ess_bulk(self._iid_normal())
+        assert float(result) > 0, "ess_bulk must be positive"
+
+    def test_iid_normal_close_to_total_samples(self):
+        # For iid draws, bulk ESS should be close to nchains * nsamples.
+        total = _NCHAINS * _NSAMPLES
+        result = float(diagnostics.ess_bulk(self._iid_normal()))
+        # Allow a wide window: between 50% and 200% of total.
+        r = round(result)
+        assert result > 0.5 * total, f"ess_bulk={r} < 0.5 * {total}"
+        assert result < 2.0 * total, f"ess_bulk={r} > 2.0 * {total}"
+
+    def test_axis_invariance(self):
+        # Swapped chain/sample axes must give the same result.
+        samples = self._iid_normal()
+        samples_T = jnp.transpose(samples)  # (nsamples, nchains)
+        eb_std = diagnostics.ess_bulk(samples)
+        eb_swp = diagnostics.ess_bulk(samples_T, chain_axis=1, sample_axis=0)
+        np.testing.assert_allclose(float(eb_std), float(eb_swp), rtol=1e-5)
+
+    def test_negative_axes(self):
+        samples = self._iid_normal()
+        eb_pos = diagnostics.ess_bulk(samples, chain_axis=0, sample_axis=1)
+        eb_neg = diagnostics.ess_bulk(samples, chain_axis=-2, sample_axis=-1)
+        np.testing.assert_allclose(float(eb_pos), float(eb_neg), rtol=1e-5)
+
+    def test_poorly_mixed_chain_gives_lower_ess(self):
+        # A slowly-drifting chain has very high autocorrelation; bulk ESS
+        # should be much lower than the iid baseline.
+        nchains, nsamples = _NCHAINS, _NSAMPLES
+        t = jnp.arange(nsamples, dtype=float)
+        slow_wave = jnp.sin(2 * jnp.pi * t / nsamples)
+        stuck_samples = jnp.broadcast_to(slow_wave[None, :], (nchains, nsamples))
+        eb_stuck = float(diagnostics.ess_bulk(stuck_samples))
+        eb_iid = float(diagnostics.ess_bulk(self._iid_normal()))
+        assert eb_stuck < eb_iid, (
+            f"Stuck chain ESS ({round(eb_stuck, 1)}) should be < iid ESS"
+            f" ({round(eb_iid, 1)})"
+        )
+
+    def test_arviz_calibration_normal(self):
+        # Compare against arviz within 10%.  Skipped when arviz is not installed.
+        # arviz.convert_to_dataset expects shape (chain, draw) — do NOT add
+        # a leading dimension; samples.shape is already (nchains, nsamples).
+        # In arviz 0.23.x, az.ess()[var] returns a 1-element xarray DataArray,
+        # so extract via np.asarray(...).ravel()[0] rather than float(.values).
+        az = pytest.importorskip("arviz")
+        samples = np.array(self._iid_normal())
+        bj = float(diagnostics.ess_bulk(jnp.asarray(samples)))
+        idata = az.convert_to_dataset({"x": samples})
+        az_val = float(np.asarray(az.ess(idata, method="bulk")["x"]).ravel()[0])
+        rel = abs(bj - az_val) / max(abs(az_val), 1.0)
+        assert rel < 0.10, (
+            f"ess_bulk normal: blackjax={round(bj, 2)}"
+            f" arviz={round(az_val, 2)} rel={round(rel, 3)}"
+        )
+
+    def test_arviz_calibration_heavy_tail(self):
+        # t(3) draws: heavier tails than normal.
+        az = pytest.importorskip("arviz")
+        samples = np.array(jax.random.t(self.rng, df=3.0, shape=(_NCHAINS, _NSAMPLES)))
+        bj = float(diagnostics.ess_bulk(jnp.asarray(samples)))
+        idata = az.convert_to_dataset({"x": samples})
+        az_val = float(np.asarray(az.ess(idata, method="bulk")["x"]).ravel()[0])
+        rel = abs(bj - az_val) / max(abs(az_val), 1.0)
+        assert rel < 0.10, (
+            f"ess_bulk t(3): blackjax={round(bj, 2)}"
+            f" arviz={round(az_val, 2)} rel={round(rel, 3)}"
+        )
+
+
+class EssTailTest(chex.TestCase):
+    """Tests for tail ESS."""
+
+    def setUp(self):
+        super().setUp()
+        self.rng = jax.random.key(99)
+
+    def _iid_normal(self, nchains=_NCHAINS, nsamples=_NSAMPLES):
+        return jax.random.normal(self.rng, shape=(nchains, nsamples))
+
+    def test_scalar_output_shape(self):
+        result = diagnostics.ess_tail(self._iid_normal())
+        assert result.shape == (), f"Expected scalar, got {result.shape}"
+
+    def test_vector_output_shape(self):
+        samples = jax.random.normal(self.rng, shape=(_NCHAINS, _NSAMPLES, 3))
+        result = diagnostics.ess_tail(samples)
+        assert result.shape == (3,), f"Expected (3,), got {result.shape}"
+
+    def test_positive_for_iid(self):
+        result = diagnostics.ess_tail(self._iid_normal())
+        assert float(result) > 0, "ess_tail must be positive"
+
+    def test_iid_normal_reasonable_magnitude(self):
+        # Tail ESS for iid data should be in a reasonable range.
+        total = _NCHAINS * _NSAMPLES
+        result = float(diagnostics.ess_tail(self._iid_normal()))
+        # Tail ESS is based on Bernoulli(0.05) indicators so can be somewhat
+        # lower; allow [20%, 200%] of total.
+        r = round(result)
+        assert result > 0.2 * total, f"ess_tail={r} < 0.2 * {total}"
+        assert result < 2.0 * total, f"ess_tail={r} > 2.0 * {total}"
+
+    def test_axis_invariance(self):
+        samples = self._iid_normal()
+        samples_T = jnp.transpose(samples)
+        et_std = diagnostics.ess_tail(samples)
+        et_swp = diagnostics.ess_tail(samples_T, chain_axis=1, sample_axis=0)
+        np.testing.assert_allclose(float(et_std), float(et_swp), rtol=1e-5)
+
+    def test_arviz_calibration_normal(self):
+        az = pytest.importorskip("arviz")
+        samples = np.array(self._iid_normal())
+        bj = float(diagnostics.ess_tail(jnp.asarray(samples)))
+        idata = az.convert_to_dataset({"x": samples})
+        az_val = float(np.asarray(az.ess(idata, method="tail")["x"]).ravel()[0])
+        rel = abs(bj - az_val) / max(abs(az_val), 1.0)
+        assert rel < 0.10, (
+            f"ess_tail normal: blackjax={round(bj, 2)}"
+            f" arviz={round(az_val, 2)} rel={round(rel, 3)}"
+        )
+
+    def test_arviz_calibration_heavy_tail(self):
+        az = pytest.importorskip("arviz")
+        samples = np.array(jax.random.t(self.rng, df=3.0, shape=(_NCHAINS, _NSAMPLES)))
+        bj = float(diagnostics.ess_tail(jnp.asarray(samples)))
+        idata = az.convert_to_dataset({"x": samples})
+        az_val = float(np.asarray(az.ess(idata, method="tail")["x"]).ravel()[0])
+        rel = abs(bj - az_val) / max(abs(az_val), 1.0)
+        assert rel < 0.10, (
+            f"ess_tail t(3): blackjax={round(bj, 2)}"
+            f" arviz={round(az_val, 2)} rel={round(rel, 3)}"
+        )
+
+    def test_prob_param_default_matches_arviz(self):
+        # Default prob=0.90 gives (0.05, 0.95) quantiles — same as az.ess(method="tail").
+        # Verify bit-match (within floating-point rounding) on normal and t(3) data.
+        az = pytest.importorskip("arviz")
+        for dist_name, samples in [
+            ("normal", np.array(self._iid_normal())),
+            (
+                "t3",
+                np.array(jax.random.t(self.rng, df=3.0, shape=(_NCHAINS, _NSAMPLES))),
+            ),
+        ]:
+            bj = float(diagnostics.ess_tail(jnp.asarray(samples)))
+            idata = az.convert_to_dataset({"x": samples})
+            az_val = float(np.asarray(az.ess(idata, method="tail")["x"]).ravel()[0])
+            rel = abs(bj - az_val) / max(abs(az_val), 1.0)
+            assert rel < 0.01, (
+                f"ess_tail default prob=0.90 ({dist_name}): "
+                f"blackjax={round(bj, 4)} arviz={round(az_val, 4)} rel={round(rel, 6)}"
+            )
+
+    def test_prob_param_0_90_matches_5_95(self):
+        # prob=0.90 → quantiles at (0.05, 0.95): explicit vs default must match.
+        samples = self._iid_normal()
+        bj_default = float(diagnostics.ess_tail(samples))
+        bj_explicit = float(diagnostics.ess_tail(samples, prob=0.90))
+        np.testing.assert_allclose(bj_default, bj_explicit, rtol=1e-6)
+
+    def test_prob_param_changes_result(self):
+        # Different prob values should produce different (but valid) ESS estimates.
+        samples = self._iid_normal()
+        bj_90 = float(diagnostics.ess_tail(samples, prob=0.90))
+        bj_80 = float(diagnostics.ess_tail(samples, prob=0.80))
+        # prob=0.80 → 10th/90th percentiles (less extreme tail); ESS can differ.
+        assert bj_80 > 0 and bj_90 > 0, "ess_tail must be positive for any prob"
+        assert (
+            bj_80 != bj_90
+        ), f"Different prob values must give different ESS, got same value {bj_90}"
+
+    def test_funnel_tail_ess(self):
+        # Neal's funnel: x[0] ~ N(0,9), x[1:] ~ N(0, exp(x[0]/2)).
+        # From iid funnel draws, ess_tail should be positive.
+        rng = self.rng
+        k1, k2 = jax.random.split(rng)
+        v = jax.random.normal(k1, shape=(_NCHAINS, _NSAMPLES)) * 3.0
+        x = jax.random.normal(k2, shape=(_NCHAINS, _NSAMPLES)) * jnp.exp(v / 2.0)
+        result = float(diagnostics.ess_tail(x))
+        assert result > 0, f"ess_tail for funnel draws must be positive, got {result}"
+
+
+class ParetoKhatTest(chex.TestCase):
+    """Tests for pareto_khat."""
+
+    def setUp(self):
+        super().setUp()
+        self.rng = jax.random.key(55)
+
+    def test_scalar_output(self):
+        x = jax.random.normal(self.rng, shape=(500,))
+        result = diagnostics.pareto_khat(x)
+        assert result.shape == (), f"Expected scalar, got {result.shape}"
+
+    def test_normal_tail_below_0_5(self):
+        # Normal distribution is light-tailed; k̂ should be well below 0.5.
+        x = jax.random.normal(self.rng, shape=(2000,))
+        k = float(diagnostics.pareto_khat(x))
+        assert k < 0.5, f"pareto_khat for normal should be < 0.5, got {round(k, 4)}"
+
+    def test_cauchy_heavier_than_normal(self):
+        # Cauchy is heavier-tailed (k≈1 theoretically).
+        x_norm = jax.random.normal(self.rng, shape=(2000,))
+        x_cauchy = jax.random.cauchy(self.rng, shape=(2000,))
+        k_norm = float(diagnostics.pareto_khat(x_norm))
+        k_cauchy = float(diagnostics.pareto_khat(x_cauchy))
+        assert (
+            k_cauchy > k_norm
+        ), f"Cauchy k={round(k_cauchy, 4)} should exceed normal k={round(k_norm, 4)}"
+
+    def test_both_is_max_of_upper_lower(self):
+        x = jax.random.normal(self.rng, shape=(1000,))
+        k_upper = float(diagnostics.pareto_khat(x, tail="upper"))
+        k_lower = float(diagnostics.pareto_khat(x, tail="lower"))
+        k_both = float(diagnostics.pareto_khat(x, tail="both"))
+        expected = max(k_upper, k_lower)
+        np.testing.assert_allclose(k_both, expected, rtol=1e-5)
+
+    def test_multidim_input_is_ravelled(self):
+        # 2-D input must produce the same result as the ravelled 1-D version.
+        x_2d = jax.random.normal(self.rng, shape=(20, 50))
+        x_1d = x_2d.ravel()
+        k_2d = diagnostics.pareto_khat(x_2d)
+        k_1d = diagnostics.pareto_khat(x_1d)
+        np.testing.assert_allclose(float(k_2d), float(k_1d), rtol=1e-5)
+
+    def test_tail_frac_parameter(self):
+        # Different tail fractions should give valid (finite) k̂ values.
+        x = jax.random.normal(self.rng, shape=(500,))
+        for frac in (0.05, 0.10, 0.20):
+            k = float(diagnostics.pareto_khat(x, tail_frac=frac))
+            assert np.isfinite(k), f"pareto_khat with tail_frac={frac} returned {k}"
+
+    def test_arviz_calibration_normal(self):
+        # arviz's PSIS k̂ (az.psislw / az.loo) operates on importance
+        # log-weights, not raw samples, so there is no direct arviz equivalent
+        # for pareto_khat(raw_samples).  This test gates on arviz being present
+        # (dev-time only) and verifies the BlackJAX result is sensible:
+        # Normal(0,1) is light-tailed so k̂ should be finite and well below 0.5.
+        pytest.importorskip("arviz")
+        x = np.array(jax.random.normal(self.rng, shape=(1000,)))
+        bj_k = float(diagnostics.pareto_khat(jnp.asarray(x)))
+        got_k = round(bj_k, 4)
+        assert np.isfinite(
+            bj_k
+        ), f"pareto_khat must be finite for normal samples, got {got_k}"
+        assert (
+            bj_k < 0.3
+        ), f"pareto_khat for normal should be <0.3 (light tail), got {got_k}"
+
+    def test_arviz_calibration_cauchy(self):
+        # For Cauchy samples (extreme tails), both should give k > 0.3.
+        pytest.importorskip("arviz")
+        x = np.array(jax.random.cauchy(self.rng, shape=(1000,)))
+        bj_k = float(diagnostics.pareto_khat(jnp.asarray(x)))
+        got_k = round(bj_k, 4)
+        assert (
+            bj_k > 0.3
+        ), f"pareto_khat for Cauchy heavy tail expected >0.3 got {got_k}"
 
 
 if __name__ == "__main__":

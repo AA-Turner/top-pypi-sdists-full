@@ -573,6 +573,8 @@ def proto_to_snowpark_type(
                 start_field=data_type.day_time_interval.start_field,
                 end_field=data_type.day_time_interval.end_field,
             )
+        case "unparsed":
+            return map_simple_types(data_type.unparsed.data_type_string)
         case _:
             return map_simple_types(data_type.WhichOneof("kind"))
 

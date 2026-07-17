@@ -29,7 +29,7 @@ from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     ReturnType,
     Signature,
     TypeDescriptor,
-    build_jvm_udxf_imports,
+    build_udxf_imports,
     gen_pre_narrow_expr,
     is_decomposable_struct,
     is_native_sql_type,
@@ -66,8 +66,9 @@ class LazyCreatedScalaUdf:
 
     The DDL is emitted on the first call-site execution once actual types are known,
     eliminating the all-VARIANT DDL that would otherwise be created at registration time.
-    ``stage_imports`` holds the Snowflake stage paths (JARs + closure binary) that
-    will go into the ``IMPORTS = (...)`` clause of the eventual CREATE FUNCTION.
+    ``stage_imports`` holds the Snowflake stage paths (JARs) for the IMPORTS clause.
+    In DCR inline-closure mode, ``inline_payload`` carries the raw closure bytes to be
+    embedded in the Java handler body instead of read from a stage file.
     """
 
     def __init__(
@@ -75,11 +76,13 @@ class LazyCreatedScalaUdf:
         name: str,
         return_type: snowpark_type.DataType,
         stage_imports: list[str],
+        inline_payload: bytes | None = None,
     ) -> None:
         self.name = name
         self._input_types: list[snowpark_type.DataType] = []
         self._return_type = return_type
         self.stage_imports = stage_imports
+        self.inline_payload = inline_payload
 
 
 @dataclass(frozen=True)
@@ -102,9 +105,34 @@ class JavaScalarUDFDef:
     # Return Snowpark type for code generation; None means unknown (use VARIANT).
     return_snowpark_type: snowpark_type.DataType | None
     null_handling: NullHandling = NullHandling.CALLED_ON_NULL_INPUT
+    # DCR inline-closure mode: embed the closure bytes directly in the Java body instead
+    # of reading from an IMPORTS-directory file. When set, ``imports`` contains only JAR
+    # paths (no closure binary); the binary is base64-decoded at runtime via
+    # ``Utils$.MODULE$.deserializeUdfPacketFromBytes``.
+    inline_payload: bytes | None = None
 
     def _gen_body_java(self) -> str:
-        operation_file = self.imports[0].split("/")[-1]
+        import base64
+
+        if self.inline_payload is not None:
+            b64 = base64.b64encode(self.inline_payload).decode("ascii")
+            closure_field = (
+                f"    private static final byte[] CLOSURE_BYTES = "
+                f'java.util.Base64.getDecoder().decode("{b64}");'
+            )
+            udf_packet_init = (
+                "        this.udfPacket = com.snowflake.sas.scala.Utils$.MODULE$"
+                ".deserializeUdfPacketFromBytes(CLOSURE_BYTES);"
+            )
+        else:
+            operation_file = self.imports[0].split("/")[-1]
+            closure_field = (
+                f'    private static final String OPERATION_FILE = "{operation_file}";'
+            )
+            udf_packet_init = (
+                "        this.udfPacket = com.snowflake.sas.scala.Utils$.MODULE$"
+                ".deserializeUdfPacket(OPERATION_FILE);"
+            )
 
         # Build per-arg TypeDescriptors and handler parameter declarations.
         arg_descs: list[TypeDescriptor] = []
@@ -216,13 +244,13 @@ import org.apache.spark.sql.connect.common.UdfPacket;
 import com.snowflake.snowpark_java.types.Variant;
 
 public class RecreatedSparkJavaUdf {{
-    private static final String OPERATION_FILE = "{operation_file}";
+{closure_field}
     private final UdfPacket udfPacket;
     private final Object func;
 
     public RecreatedSparkJavaUdf() {{
         java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"));
-        this.udfPacket = com.snowflake.sas.scala.Utils$.MODULE$.deserializeUdfPacket(OPERATION_FILE);
+{udf_packet_init}
         this.func = udfPacket.function();
     }}
 
@@ -324,6 +352,7 @@ def _emit_scala_udf_ddl(
     call_site_types: list[snowpark_type.DataType],
     return_type: snowpark_type.DataType,
     session: Session,
+    inline_payload: bytes | None = None,
 ) -> None:
     """Emit the CREATE FUNCTION SQL for a deferred Scala UDF.
 
@@ -371,6 +400,7 @@ def _emit_scala_udf_ddl(
         num_args=num_args,
         input_snowpark_types=input_snowpark_types,
         return_snowpark_type=effective_return_type,
+        inline_payload=inline_payload,
     )
     create_udf_sql = udf_def.to_create_function_sql()
     logger.info(
@@ -389,13 +419,16 @@ def create_scala_udf(
     Create a Java UDF in Snowflake that wraps a Scala function
     from a ProcessCommonInlineUserDefinedFunction object.
     """
+    from snowflake.snowpark_connect.config import is_native_app_mode
     from snowflake.snowpark_connect.resources_initializer import (
         ensure_scala_udf_jars_uploaded,
     )
 
-    # Lazily upload Scala UDF jars on-demand when a UDF is actually created.
-    # This is thread-safe and will only upload once even if multiple threads call it.
-    ensure_scala_udf_jars_uploaded()
+    # In Native App mode the JARs live in the version stage already; skip upload.
+    if not is_native_app_mode():
+        # Lazily upload Scala UDF jars on-demand when a UDF is actually created.
+        # This is thread-safe and will only upload once even if multiple threads call it.
+        ensure_scala_udf_jars_uploaded()
 
     function_name = pciudf._function_name
     if not function_name:
@@ -431,7 +464,7 @@ def create_scala_udf(
                     input_types.append(snowpark_type.VariantType())
 
     session = get_or_create_snowpark_session()
-    imports = build_jvm_udxf_imports(
+    imports, inline_payload = build_udxf_imports(
         session,
         pciudf._payload,
         udf_name,
@@ -452,7 +485,12 @@ def create_scala_udf(
         # Defer DDL creation to the first call-site execution so actual argument
         # types (e.g. DECIMAL(18,4)) are used for the Snowflake parameter types.
         logger.info(f"Deferring Scala UDF DDL creation until first call: {udf_name}")
-        return LazyCreatedScalaUdf(udf_name, pciudf._return_type, stage_imports=imports)
+        return LazyCreatedScalaUdf(
+            udf_name,
+            pciudf._return_type,
+            stage_imports=imports,
+            inline_payload=inline_payload,
+        )
 
     num_args = len(input_types)
     sql_input_params, input_snowpark_types = _build_scala_udf_sql_input_params(
@@ -476,6 +514,7 @@ def create_scala_udf(
         num_args=num_args,
         input_snowpark_types=input_snowpark_types,
         return_snowpark_type=ret_dt,
+        inline_payload=inline_payload,
     )
     create_udf_sql = udf_def.to_create_function_sql()
     logger.info(

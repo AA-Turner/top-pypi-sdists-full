@@ -291,18 +291,21 @@ def map_relation(
                         if rel.repartition.num_partitions > 0:
                             result.partition_hint = rel.repartition.num_partitions
                     case "repartition_by_expression":
-                        # This is a no-op operation in SAS as Snowpark doesn't have the concept of partitions.
-                        # All the data in the dataframe will be treated as a single partition, and this will not
-                        # have any side effects.
+                        # No-op in SAS: Snowpark has no partition concept, and
+                        # Spark's DataFrame.repartition(cols) is a physical shuffle
+                        # hint that does NOT establish logical partitioning for a
+                        # downstream Python UDTF (verified against OSS Spark: a UDTF
+                        # reading TABLE(view) with no explicit PARTITION BY sees a
+                        # single partition regardless of an upstream repartition).
+                        # All data is treated as a single partition with no side effects.
                         result = map_relation(rel.repartition_by_expression.input)
-                        # Only preserve partition hint if num_partitions is explicitly specified and > 0
-                        # Column-based repartitioning without count should clear any existing partition hints
+                        # Only preserve partition hint if num_partitions is explicitly specified and > 0.
+                        # Column-based repartitioning without a count clears any existing partition hint.
                         if rel.repartition_by_expression.num_partitions > 0:
                             result.partition_hint = (
                                 rel.repartition_by_expression.num_partitions
                             )
                         else:
-                            # Column-based repartitioning clears partition hint (resets to default behavior)
                             result.partition_hint = None
                     case "replace":
                         result = map_row_ops.map_replace(rel)

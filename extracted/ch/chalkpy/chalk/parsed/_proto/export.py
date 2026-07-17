@@ -365,6 +365,7 @@ def export_from_registries(
                 max_retries=cron.max_retries,
                 resources=resources_proto,
                 environment_override=cron.environment,
+                dataset_name=cron.dataset_name,
             )
         )
 
@@ -397,6 +398,7 @@ def export_from_registries(
         cron_aggregate_backfills.append(
             cron_aggregate_backfill_pb.CronAggregateBackfill(
                 name=backfill.name,
+                file_name=backfill.filename,
                 features=backfill.features,
                 schedule=(
                     timedelta_to_duration(backfill.schedule)

@@ -68,12 +68,12 @@ class TestBuildProxyKwargs:
         assert kwargs == {"proxy": proxy_dict}
         assert args == []
 
-    @patch("cloakbrowser.config.get_chromium_version", return_value="146.0.7680.177.5")
     @patch("cloakbrowser.config.get_platform_tag", return_value="linux-x64")
-    def test_pinned_old_version_disables_inline_auth(self, *_):
-        # Pin a binary BELOW the inline-auth floor while the platform default is
-        # at/above it. The gate must read the pin (older = no preemptive auth),
-        # not the default — otherwise rolled-back binaries break proxy auth (#182).
+    def test_pinned_old_version_disables_inline_auth(self, _mock):
+        # Pin a binary BELOW the inline-auth floor (146.0.7680.177.5) on a
+        # platform that otherwise supports it. The gate must read the pin — an
+        # older binary lacks inline proxy auth — and fall back to Playwright's
+        # dict, else rolled-back binaries break proxy auth (#182).
         kwargs, args = _resolve_proxy_config(
             "http://user:pass@proxy:8080", browser_version="146.0.7680.177.3"
         )
@@ -465,14 +465,10 @@ class TestResolveProxyConfig:
         assert kwargs == {}
         assert args == ["--proxy-server=http://user:pass@proxy:8080"]
 
-    @patch("cloakbrowser.config.get_chromium_version", return_value="146.0.7680.177.3")
-    @patch("cloakbrowser.config.get_platform_tag", return_value="linux-x64")
-    def test_http_with_creds_old_version_falls_back(self, *_):
-        kwargs, args = _resolve_proxy_config("http://user:pass@proxy:8080")
-        assert "proxy" in kwargs
-        assert args == []
-
-    # --- HTTP with credentials on unsupported platform → fallback to Playwright ---
+    # --- HTTP with credentials on binaries without inline proxy auth → fallback ---
+    # Free macOS (145.x) and linux-arm64 (146.0.7680.177.3) predate the inline
+    # proxy-auth patch, so their credentialed HTTP proxies route through
+    # Playwright's proxy dict instead of --proxy-server.
 
     @patch("cloakbrowser.config.get_platform_tag", return_value="darwin-arm64")
     def test_http_string_with_creds_on_macos_falls_back(self, _mock):
@@ -493,6 +489,16 @@ class TestResolveProxyConfig:
         kwargs, args = _resolve_proxy_config("http://user:pass@proxy:8080")
         assert "proxy" in kwargs
         assert args == []
+
+    @patch("cloakbrowser.config.get_platform_tag", return_value="darwin-arm64")
+    def test_http_with_creds_on_macos_inline_when_pinned_new(self, _mock):
+        # A macOS binary at/above the floor (e.g. a pinned 148 build with the
+        # inline proxy-auth patch) uses --proxy-server, not the fallback.
+        kwargs, args = _resolve_proxy_config(
+            "http://user:pass@proxy:8080", browser_version="148.0.7778.215.3"
+        )
+        assert kwargs == {}
+        assert args == ["--proxy-server=http://user:pass@proxy:8080"]
 
     # --- HTTP without credentials (all platforms) ---
 

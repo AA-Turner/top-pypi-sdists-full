@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: camoufox
-Version: 0.5.3
+Version: 0.5.4
 Summary: Wrapper around Playwright to help launch Camoufox
 License: MIT
 Keywords: client,fingerprint,browser,scraping,injector,firefox,playwright

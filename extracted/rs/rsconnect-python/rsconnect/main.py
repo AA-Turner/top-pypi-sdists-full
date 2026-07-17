@@ -1,0 +1,5889 @@
+from __future__ import annotations
+
+import functools
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import textwrap
+import traceback
+from functools import wraps
+from os.path import abspath, dirname, exists, isdir, join
+from pathlib import Path
+from typing import (
+    Any,
+    Callable,
+    ItemsView,
+    Literal,
+    Optional,
+    Sequence,
+    TypeVar,
+    cast,
+)
+
+import click
+
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
+
+if sys.version_info >= (3, 11):
+    from typing import Never
+else:
+    from typing_extensions import Never
+
+from rsconnect.certificates import read_certificate_file
+
+from . import VERSION, api, validation
+from .version_check import BackgroundVersionCheck
+from .actions import (
+    cli_feedback,
+    create_quarto_deployment_bundle,
+    describe_manifest,
+    quarto_inspect,
+    set_verbosity,
+    test_api_key,
+    test_rstudio_server,
+    test_server,
+    test_spcs_server,
+    validate_quarto_engines,
+    which_quarto,
+)
+from .actions_content import (
+    build_add_content,
+    build_history,
+    build_list_content,
+    build_remove_content,
+    build_start,
+    download_bundle,
+    download_lockfile,
+    emit_build_log,
+    get_content,
+    search_content,
+)
+from .actions_environment import (
+    create_environment,
+    delete_environment,
+    get_environment,
+    list_environments,
+    update_environment,
+)
+from .actions_integration import (
+    create_oauth_integration,
+    delete_oauth_integration,
+    get_oauth_integration,
+    get_oauth_template,
+    list_oauth_integrations,
+    list_oauth_templates,
+    update_oauth_integration,
+)
+from .models import EnvironmentInstallation, EnvironmentVolumeMount
+from .api import (
+    RSConnectClient,
+    RSConnectExecutor,
+    RSConnectServer,
+    SPCSConnectServer,
+    server_supports_git_metadata,
+)
+from .bundle import (
+    default_title_from_bundle,
+    default_title_from_manifest,
+    make_api_bundle,
+    make_html_bundle,
+    make_manifest_bundle,
+    make_nodejs_bundle,
+    make_notebook_html_bundle,
+    write_nodejs_manifest_json,
+    make_notebook_source_bundle,
+    make_tensorflow_bundle,
+    make_voila_bundle,
+    open_bundle,
+    read_bundle_app_mode,
+    read_manifest_app_mode,
+    resolve_shiny_express_entrypoint,
+    validate_entry_point,
+    validate_extra_files,
+    validate_file_is_notebook,
+    validate_manifest_file,
+    validate_node_entry_point,
+    write_api_manifest_json,
+    write_environment_file,
+    write_notebook_manifest_json,
+    write_quarto_manifest_json,
+    write_tensorflow_manifest_json,
+    write_voila_manifest_json,
+)
+from .environment_node import NodeEnvironment
+from .environment_r import REnvironment
+from .environment import Environment, PackageInstaller, fake_module_file_from_directory
+from .exception import RSConnectException
+from .git_metadata import detect_git_metadata
+from .json_web_token import (
+    TokenGenerator,
+    parse_client_response,
+    produce_bootstrap_output,
+    read_secret_key,
+    validate_hs256_secret_key,
+)
+from .log import VERBOSE, LogOutputFormat, logger
+from .metadata import AppStore, ServerStore
+from .models import (
+    AppMode,
+    AppModes,
+    BuildStatus,
+    ContentGuidWithBundle,
+    ContentGuidWithBundleParamType,
+    KeyValueParamType,
+    StrippedStringParamType,
+    VersionSearchFilter,
+    VersionSearchFilterParamType,
+)
+from .pyproject import (
+    InvalidPyprojectConfigError,
+    TOMLDecodeError,
+    UnsupportedAppModeError,
+    resolve_pyproject_deploy_target,
+)
+from .utils_package import fix_starlette_requirements
+
+T = TypeVar("T")
+P = ParamSpec("P")
+
+server_store = ServerStore()
+future_enabled = False
+
+
+def cli_exception_handler(func: Callable[P, T]) -> Callable[P, T]:
+    @wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        def failed(err: str) -> Never:
+            click.secho(str(err), fg="bright_red", err=False)
+            sys.exit(1)
+
+        try:
+            result = func(*args, **kwargs)
+        except RSConnectException as exc:
+            failed("Error: " + exc.message)
+        except Exception as exc:
+            traceback.print_exc()
+            failed("Internal error: " + str(exc))
+        finally:
+            logger.set_in_feedback(False)
+        return result
+
+    return wrapper
+
+
+def output_params(
+    ctx: click.Context,
+    vars: ItemsView[str, object],
+):
+    if click.__version__ >= "8.0.0" and sys.version_info >= (3, 7):
+        logger.log(VERBOSE, "Detected the following inputs:")
+        for k, v in vars:
+            if k in {"ctx", "verbose", "kwargs"}:
+                continue
+            if v is not None:
+                val = v
+                if k in {"api_key", "api-key"}:
+                    val = "**********"
+                sourceName = validation.get_parameter_source_name_from_ctx(k, ctx)
+                logger.log(VERBOSE, "    %-18s%s (from %s)", (k + ":"), val, sourceName)
+
+
+def server_args(func: Callable[P, T]) -> Callable[P, T]:
+    @click.option("--name", "-n", help="The nickname of the Posit Connect server to deploy to.")
+    @click.option(
+        "--server",
+        "-s",
+        envvar="CONNECT_SERVER",
+        help="The URL for the Posit Connect server to deploy to. \
+(Also settable via CONNECT_SERVER environment variable.)",
+    )
+    @click.option(
+        "--api-key",
+        "-k",
+        envvar="CONNECT_API_KEY",
+        help="The API key to use to authenticate with Posit Connect. \
+(Also settable via CONNECT_API_KEY environment variable.)",
+    )
+    @click.option(
+        "--insecure",
+        "-i",
+        envvar="CONNECT_INSECURE",
+        is_flag=True,
+        help="Disable TLS certification/host validation. (Also settable via CONNECT_INSECURE environment variable.)",
+    )
+    @click.option(
+        "--cacert",
+        "-c",
+        envvar="CONNECT_CA_CERTIFICATE",
+        type=click.Path(exists=True, file_okay=True, dir_okay=False),
+        help="The path to trusted TLS CA certificates. (Also settable via \
+CONNECT_CA_CERTIFICATE environment variable.)",
+    )
+    @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def spcs_args(func: Callable[P, T]) -> Callable[P, T]:
+    @click.option("--snowflake-connection-name", help="The name of the Snowflake connection in the configuration file")
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def cloud_shinyapps_args(func: Callable[P, T]) -> Callable[P, T]:
+    @click.option(
+        "--account",
+        "-A",
+        envvar=["SHINYAPPS_ACCOUNT"],
+        help="The shinyapps.io account name. (Also settable via \
+SHINYAPPS_ACCOUNT environment variable.)",
+    )
+    @click.option(
+        "--token",
+        "-T",
+        envvar=["SHINYAPPS_TOKEN", "RSCLOUD_TOKEN"],
+        help="The shinyapps.io token. (Also settable via \
+SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment variables.)",
+    )
+    @click.option(
+        "--secret",
+        "-S",
+        envvar=["SHINYAPPS_SECRET", "RSCLOUD_SECRET"],
+        help="The shinyapps.io token secret. \
+(Also settable via SHINYAPPS_SECRET or RSCLOUD_SECRET environment variables.)",
+    )
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def shinyapps_deploy_args(func: Callable[P, T]) -> Callable[P, T]:
+    @click.option(
+        "--visibility",
+        "-V",
+        type=click.Choice(["public", "private"]),
+        help="The visibility of the resource being deployed. (shinyapps.io only; must be public (default) or private)",
+    )
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def validate_env_vars(ctx: click.Context, param: click.Parameter, all_values: tuple[str, ...]) -> dict[str, str]:
+    vars: dict[str, str] = {}
+
+    for s in all_values:
+        if not isinstance(s, str):
+            raise click.BadParameter("environment variable must be a string: '{}'".format(s))
+
+        if "=" in s:
+            name, value = s.split("=", 1)
+            vars[name] = value
+        else:
+            # inherited value from the environment
+            value = os.environ.get(s)
+            if value is None:
+                raise click.BadParameter("'{}' not found in the environment".format(s))
+            vars[s] = value
+
+    return vars
+
+
+def prepare_deploy_metadata(
+    directory: Optional[str],
+    metadata_overrides: tuple[str, ...],
+    no_metadata: bool,
+    server_version: Optional[str] = None,
+) -> Optional[dict[str, str]]:
+    """
+    Prepare metadata for bundle upload.
+
+    :param directory: Directory to auto-detect git metadata from. Pass None to
+        skip auto-detection and send only the CLI overrides (e.g. for bundle
+        deployments, where the bundle's location on disk is unrelated to the
+        content's source).
+    :param metadata_overrides: CLI metadata overrides (key=value pairs)
+    :param no_metadata: Flag to disable all metadata
+    :param server_version: Optional server version to check support
+    :return: Metadata dict or None if metadata should not be sent
+    """
+    if no_metadata:
+        return None
+
+    # Parse CLI metadata overrides
+    cli_metadata: dict[str, str] = {}
+    force_metadata = False
+    if metadata_overrides:
+        force_metadata = True
+        for item in metadata_overrides:
+            if "=" in item:
+                key, value = item.split("=", 1)
+                if value:  # If value is not empty
+                    cli_metadata[key] = value
+                else:  # Empty value clears the key
+                    cli_metadata[key] = ""
+
+    # Auto-detect git metadata, unless the caller opted out by passing None.
+    detected_metadata = detect_git_metadata(directory) if directory is not None else {}
+
+    # Merge: CLI overrides take precedence, then remove empty values
+    final_metadata = {**detected_metadata, **cli_metadata}
+    final_metadata = {k: v for k, v in final_metadata.items() if v}
+
+    # If no metadata collected, return None
+    if not final_metadata:
+        return None
+
+    # Check if we should send metadata based on server version
+    if force_metadata:
+        # If CLI metadata was provided, always send it
+        return final_metadata
+
+    # Otherwise, only send if server supports it
+    if server_supports_git_metadata(server_version):
+        return final_metadata
+
+    return None
+
+
+def _generate_git_title(repository: str, subdirectory: str) -> str:
+    """Generate a title from repository URL and subdirectory.
+
+    :param repository: URL of the git repository
+    :param subdirectory: Subdirectory within the repository
+    :return: Generated title string
+    """
+    # Extract repo name from URL (e.g., "https://github.com/user/repo" -> "repo")
+    repo_name = repository.rstrip("/").split("/")[-1]
+    if repo_name.endswith(".git"):
+        repo_name = repo_name[:-4]
+
+    if subdirectory and subdirectory != "/" and subdirectory.strip("/"):
+        return f"{repo_name}/{subdirectory.strip('/')}"
+    return repo_name
+
+
+def metadata_args(func: Callable[P, T]) -> Callable[P, T]:
+    """Options controlling git metadata attached to a bundle upload.
+
+    Only meaningful for commands that upload a local bundle. Commands that hand
+    Connect a repository to clone (e.g. ``deploy git``) do not upload a bundle,
+    so they should not advertise these flags.
+    """
+
+    @click.option(
+        "--metadata",
+        multiple=True,
+        help=(
+            "Include metadata key-value pair with the bundle upload. "
+            "Use format: key=value. May be specified multiple times. "
+            "Use key= (empty value) to clear a detected value. "
+            "Forces metadata upload even on older servers that don't officially support it. [v2025.12.0+]"
+        ),
+    )
+    @click.option(
+        "--no-metadata",
+        is_flag=True,
+        help="Disable automatic git metadata detection and upload.",
+    )
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def publish_args(func: Callable[P, T]) -> Callable[P, T]:
+    @click.option(
+        "--new",
+        "-N",
+        is_flag=True,
+        help=(
+            "Force a new deployment, even if there is saved metadata from a "
+            "previous deployment. Cannot be used with --app-id."
+        ),
+    )
+    @click.option(
+        "--app-id",
+        "-a",
+        help="Existing app ID or GUID to replace. Cannot be used with --new.",
+    )
+    @click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
+    @click.option(
+        "--environment",
+        "-E",
+        "env_vars",
+        multiple=True,
+        callback=validate_env_vars,
+        help="Set an environment variable. Specify a value with NAME=VALUE, "
+        "or just NAME to use the value from the local environment. "
+        "May be specified multiple times. [v1.8.6+]",
+    )
+    @click.option(
+        "--no-verify",
+        is_flag=True,
+        help=(
+            "Don't access the deployed content to verify that it started correctly. "
+            "Implies activating the new bundle immediately rather than verifying it first."
+        ),
+    )
+    @click.option(
+        "--draft",
+        is_flag=True,
+        help=(
+            "Deploy the application as a draft and verify it, but do not activate it. "
+            "The previous bundle will continue to be served until the draft is published."
+        ),
+    )
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def content_args(func: Callable[P, T]) -> Callable[P, T]:
+    return publish_args(metadata_args(func))
+
+
+# This callback handles the "shorthand" --disable-env-management option.
+# If the shorthand flag is provided, then it takes precendence over the R and Python flags.
+# This callback also inverts the --disable-env-management-r and
+# --disable-env-management-py boolean flags if they are provided,
+# otherwise returns None. This is so that we can pass the
+# non-negative (env_management_r, env_management_py) args to our API functions,
+# which is more consistent when writing these values to the manifest.
+def env_management_callback(ctx: click.Context, param: click.Parameter, value: Optional[bool]) -> bool | None:
+    # eval the shorthand flag if it was provided
+    disable_env_management = ctx.params.get("disable_env_management")
+    if disable_env_management is not None:
+        value = disable_env_management
+
+    # invert value if it is defined.
+    if value is not None:
+        return not value
+    return value
+
+
+def runtime_environment_args(func: Callable[P, T]) -> Callable[P, T]:
+    @click.option(
+        "--image",
+        "-I",
+        help="Target image to be used during content build and execution. "
+        "This option is only applicable if the Connect server is configured to use off-host execution.",
+    )
+    @click.option(
+        "--disable-env-management",
+        is_flag=True,
+        is_eager=True,
+        default=None,
+        help="Shorthand to disable environment management for both Python and R.",
+    )
+    @click.option(
+        "--disable-env-management-py",
+        "env_management_py",
+        is_flag=True,
+        default=None,
+        help="Disable Python environment management for this bundle. "
+        "Connect will not create an environment or install packages. An administrator must install the "
+        "required packages in the correct Python environment on the Connect server.",
+        callback=env_management_callback,
+    )
+    @click.option(
+        "--disable-env-management-r",
+        "env_management_r",
+        is_flag=True,
+        default=None,
+        help="Disable R environment management for this bundle. "
+        "Connect will not create an environment or install packages. An administrator must install the "
+        "required packages in the correct R environment on the Connect server.",
+        callback=env_management_callback,
+    )
+    @click.option(
+        "--exclude-renv",
+        "exclude_renv",
+        is_flag=True,
+        default=False,
+        help="Skip renv.lock detection. R dependencies will not be added to the manifest, "
+        "even when an renv.lock file is present (in the content directory or at RENV_PATHS_LOCKFILE).",
+    )
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+@click.group(no_args_is_help=True)
+@click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
+def cli(future: bool):
+    """
+    This command line tool may be used to deploy various types of content to Posit
+    Connect and shinyapps.io.
+
+    The tool supports the notion of a simple nickname that represents the
+    information needed to interact with a deployment target.  Use the add, list and
+    remove commands to manage these nicknames.
+
+    The information about an instance of Posit Connect includes its URL, the
+    API key needed to authenticate against that instance, a flag that notes whether
+    TLS certificate/host verification should be disabled and a path to a trusted CA
+    certificate file to use for TLS.  The last two items are only relevant if the
+    URL specifies the "https" protocol.
+
+    For shinyapps.io, the auth token, auth secret, server ('shinyapps.io'), and account
+    are needed.
+    """
+    global future_enabled
+    future_enabled = future
+
+
+@cli.command(help="Show the version of the rsconnect-python package.")
+def version():
+    click.echo(VERSION)
+
+
+def _test_server_and_api(server: str, api_key: str, insecure: bool, ca_cert: str | None):
+    """
+    Test the specified server information to make sure it works.  If so, a
+    ConnectServer object is returned with the potentially expanded URL.
+
+    :param server: the server URL, which is allowed to be missing its scheme.
+    :param api_key: an optional API key to validate.
+    :param insecure: a flag noting whether TLS host/validation should be skipped.
+    :param ca_cert: the name of a CA certs file containing certificates to use.
+    :return: a tuple containing an appropriate ConnectServer object and the username
+    of the user the API key represents (or None, if no key was provided).
+    """
+    ca_data = None
+    if ca_cert:
+        ca_data = read_certificate_file(ca_cert)
+    me = None
+
+    with cli_feedback("Checking %s" % server):
+        real_server, _ = test_server(api.RSConnectServer(server, api_key, insecure, ca_data))
+
+    real_server.api_key = api_key
+
+    if api_key:
+        with cli_feedback("Checking API key"):
+            me = test_api_key(real_server)
+
+    return real_server, me
+
+
+def _test_rstudio_creds(server: api.PositServer):
+    with cli_feedback("Checking {} credential".format(server.remote_name)):
+        test_rstudio_server(server)
+
+
+def _test_spcs_creds(server: SPCSConnectServer):
+    with cli_feedback(f"Checking {server.remote_name} credential"):
+        test_spcs_server(server)
+
+
+@cli.command(
+    short_help="Create an initial admin user to bootstrap a Connect instance.",
+    help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisioned API key.",
+    no_args_is_help=True,
+)
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    required=True,
+    help="The URL for the RStudio Connect server. (Also settable via CONNECT_SERVER environment variable.)",
+)
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation. (Also settable via CONNECT_INSECURE environment variable.)",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    help="The path to trusted TLS CA certificates. (Also settable via CONNECT_CA_CERTIFICATE environment variable.)",
+)
+@click.option(
+    "--jwt-keypath",
+    "-j",
+    help="The path to the file containing the private key used to sign the JWT.",
+)
+@click.option("--raw", "-r", is_flag=True, help="Return the API key as raw output rather than a JSON object")
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@cli_exception_handler
+def bootstrap(
+    server: str,
+    insecure: bool,
+    cacert: Optional[str],
+    jwt_keypath: Optional[str],
+    raw: bool,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    if not server.startswith("http"):
+        raise RSConnectException("Server URL expected to begin with transfer protocol (ex. http/https).")
+
+    secret_key = read_secret_key(jwt_keypath)
+    validate_hs256_secret_key(secret_key)
+
+    token_generator = TokenGenerator(secret_key)
+
+    bootstrap_token = token_generator.bootstrap()
+    logger.debug("Generated JWT:\n" + bootstrap_token)
+
+    logger.debug("Insecure: " + str(insecure))
+
+    ca_data = None
+    if cacert:
+        ca_data = read_certificate_file(cacert)
+
+    with cli_feedback("", stderr=True):
+        connect_server = RSConnectServer(
+            server, None, insecure=insecure, ca_data=ca_data, bootstrap_jwt=bootstrap_token
+        )
+        connect_client = RSConnectClient(connect_server)
+
+        response = connect_client.bootstrap()
+
+        # post-processing on response data
+        status, json_data = parse_client_response(response)
+        output = produce_bootstrap_output(status, json_data)
+        if raw:
+            click.echo(output["api_key"])
+        else:
+            json.dump(output, sys.stdout, indent=2)
+            sys.stdout.write("\n")
+
+
+# noinspection SpellCheckingInspection
+@cli.command(
+    short_help="Define a nickname for a Posit Connect or shinyapps.io server and credential.",
+    help=(
+        "Associate a simple nickname with the information needed to interact with a deployment target. "
+        "Specifying an existing nickname will cause its stored information to be replaced by what is given "
+        "on the command line."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@cloud_shinyapps_args
+@click.option(
+    "--set-default",
+    is_flag=True,
+    default=False,
+    help="Mark this server as the default (used when -n/--name and -s/--server are not specified).",
+)
+@click.pass_context
+def add(
+    ctx: click.Context,
+    name: str,
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    set_default: bool,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    if not server and not any([token, secret, account]):
+        raise RSConnectException(
+            "`rsconnect add` requires -s/--server (for Posit Connect) or -A/--account, -T/--token, "
+            "and -S/--secret (for shinyapps.io)."
+        )
+
+    validation.validate_connection_options(
+        ctx=ctx,
+        url=server,
+        api_key=api_key,
+        insecure=insecure,
+        cacert=cacert,
+        account_name=account,
+        token=token,
+        secret=secret,
+        snowflake_connection_name=snowflake_connection_name,
+    )
+    # The validation.validate_connection_options() function ensures that certain
+    # combinations of arguments are present; the cast() calls inside of the
+    # if-statements below merely reflect these validations.
+
+    old_server = server_store.get_by_name(name)
+
+    if token:
+        server = cast(str, server)
+        account = cast(str, account)
+        secret = cast(str, secret)
+        real_server = api.ShinyappsServer(server, account, token, secret)
+
+        _test_rstudio_creds(real_server)
+
+        server_store.set(
+            name,
+            real_server.url,
+            account_name=real_server.account_name,
+            token=real_server.token,
+            secret=real_server.secret,
+            set_as_default=set_default,
+        )
+        if old_server:
+            click.echo('Updated {} credential "{}".'.format(real_server.remote_name, name))
+        else:
+            click.echo('Added {} credential "{}".'.format(real_server.remote_name, name))
+    else:
+        if server and ("snowflakecomputing.app" in server or snowflake_connection_name):
+            server = cast(str, server)
+            api_key = cast(str, api_key)
+
+            real_server_spcs = api.SPCSConnectServer(server, api_key, snowflake_connection_name)
+
+            _test_spcs_creds(real_server_spcs)
+
+            server_store.set(
+                name,
+                server,
+                api_key=api_key,
+                snowflake_connection_name=snowflake_connection_name,
+                set_as_default=set_default,
+            )
+            if old_server:
+                click.echo('Updated {} credential "{}".'.format(real_server_spcs.remote_name, name))
+            else:
+                click.echo('Added {} credential "{}".'.format(real_server_spcs.remote_name, name))
+
+        else:
+            server = cast(str, server)
+            api_key = cast(str, api_key)
+            # If we're in this code path
+            # Server must be pingable and the API key must work to be added.
+            real_server_rsc, _ = _test_server_and_api(server, api_key, insecure, cacert)
+
+            server_store.set(
+                name,
+                real_server_rsc.url,
+                api_key=real_server_rsc.api_key,
+                insecure=real_server_rsc.insecure,
+                ca_data=real_server_rsc.ca_data,
+                set_as_default=set_default,
+            )
+
+            if old_server:
+                click.echo('Updated Connect server "%s" with URL %s' % (name, real_server_rsc.url))
+            else:
+                click.echo('Added Connect server "%s" with URL %s' % (name, real_server_rsc.url))
+
+    if set_default:
+        click.echo('Server "%s" is now the default.' % name)
+
+
+@cli.command(
+    "list",
+    short_help="List the known Posit Connect servers.",
+    help="Show the stored information about each known server nickname.",
+)
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+def list_servers(verbose: int):
+    set_verbosity(verbose)
+    with cli_feedback(""):
+        servers = server_store.get_all_servers()
+
+        click.echo("Server information from %s" % server_store.get_path())
+
+        if not servers:
+            click.echo("No servers are saved. To add a server, see `rsconnect add --help`.")
+        else:
+            click.echo()
+            for server in servers:
+                default_marker = " [default]" if server.get("default") else ""
+                click.echo('Nickname: "%s"%s' % (server["name"], default_marker))
+                click.echo("    URL: %s" % server["url"])
+                if server.get("api_key"):
+                    click.echo("    API key is saved")
+                if server.get("oauth_client_id"):
+                    click.echo("    OAuth Client ID: %s" % server["oauth_client_id"])
+                    from .oauth import keyring_get_tokens
+
+                    access, _ = keyring_get_tokens(server["url"])
+                    if access:
+                        click.echo("    Credentials stored in system keyring")
+                if server.get("insecure"):
+                    click.echo("    Insecure mode (TLS host/certificate validation disabled)")
+                if server.get("ca_cert"):
+                    click.echo("    Client TLS certificate data provided")
+                if server.get("snowflake_connection_name"):
+                    snowflake_connection_name = server.get("snowflake_connection_name")
+                    if snowflake_connection_name:
+                        click.echo('    Snowflake Connection Name: "%s"' % snowflake_connection_name)
+                click.echo()
+
+
+# noinspection SpellCheckingInspection
+@cli.command(
+    short_help="Show details about a Posit Connect server.",
+    help=(
+        "Show details about a Posit Connect server and installed Python information. "
+        "Use this command to verify that a URL refers to a Posit Connect server, optionally, that an "
+        "API key is valid for authentication for that server.  It may also be used to verify that the "
+        "information stored as a nickname is still valid."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@cli_exception_handler
+@click.pass_context
+def details(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+
+    ce = RSConnectExecutor(ctx, name, server, api_key, snowflake_connection_name, insecure, cacert).validate_server()
+    if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+        raise RSConnectException("`rsconnect details` requires a Posit Connect server.")
+
+    click.echo("    Posit Connect URL: %s" % ce.remote_server.url)
+
+    if not (ce.remote_server.api_key or ce.remote_server.snowflake_connection_name):
+        return
+
+    with cli_feedback("Gathering details"):
+        server_details = ce.server_details()
+
+    connect_version = server_details["connect"]
+    apis_allowed = server_details["python"]["api_enabled"]
+    python_versions = server_details["python"]["versions"]
+
+    click.echo("    Posit Connect version: %s" % ("<redacted>" if len(connect_version) == 0 else connect_version))
+
+    if len(python_versions) == 0:
+        click.echo("    No versions of Python are installed.")
+    else:
+        click.echo("    Installed versions of Python:")
+        for python_version in python_versions:
+            click.echo("        %s" % python_version)
+
+    click.echo("    APIs: %sallowed" % ("" if apis_allowed else "not "))
+
+
+@cli.command(
+    short_help="Remove the information about a Posit Connect server.",
+    help=(
+        "Remove the information about a Posit Connect server by nickname or URL. One of --name or --server is required."
+    ),
+    no_args_is_help=True,
+)
+@click.option("--name", "-n", help="The nickname of the Posit Connect server to remove.")
+@click.option("--server", "-s", help="The URL of the Posit Connect server to remove.")
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@click.pass_context
+def remove(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    message = None
+
+    with cli_feedback("Checking arguments"):
+        if name and server:
+            raise RSConnectException("You must specify only one of -n/--name or -s/--server.")
+
+        removed_was_default = False
+        if name:
+            entry = server_store.get_by_name(name)
+            if entry:
+                removed_was_default = bool(entry.get("default"))
+            if server_store.remove_by_name(name):
+                message = 'Removed nickname "%s".' % name
+            else:
+                raise RSConnectException('Nickname "%s" was not found.' % name)
+        elif server:
+            entry = server_store.get_by_url(server)
+            if entry:
+                removed_was_default = bool(entry.get("default"))
+            if server_store.remove_by_url(server):
+                message = 'Removed URL "%s".' % server
+            else:
+                raise RSConnectException('URL "%s" was not found.' % server)
+        else:
+            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
+
+    if message:
+        click.echo(message)
+        if removed_was_default:
+            click.echo("Note: the removed server was the default. Use `rsconnect server set-default` to set a new one.")
+
+
+@click.command(
+    "set-default",
+    short_help="Set an already-saved server as the default.",
+    help=(
+        "Mark an already-saved server as the default. The default is used when "
+        "neither -n/--name nor -s/--server is given to other commands. This only "
+        "updates local metadata; the server is not contacted. Prefer -n/--name; "
+        "-s/--server must match the stored URL exactly."
+    ),
+    no_args_is_help=True,
+)
+@click.option("--name", "-n", help="The nickname of the server to set as the default.")
+@click.option("--server", "-s", help="The URL of the server to set as the default.")
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@click.pass_context
+def set_default(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    with cli_feedback("Checking arguments"):
+        if name and server:
+            raise RSConnectException("You must specify only one of -n/--name or -s/--server.")
+        if not name and not server:
+            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
+
+        if server:
+            entry = server_store.get_by_url(server)
+            if entry is None:
+                raise RSConnectException('URL "%s" was not found.' % server)
+            name = entry["name"]
+
+        server_store.set_default(name)
+
+    click.echo('Server "%s" is now the default.' % name)
+
+
+@cli.group("server", no_args_is_help=True)
+def server_group():
+    """
+    Manage connections with Posit Connect and shinyapps.io servers.
+    """
+
+
+server_group.add_command(add)
+server_group.add_command(list_servers)
+server_group.add_command(remove)
+server_group.add_command(details)
+server_group.add_command(set_default)
+server_group.add_command(bootstrap)
+
+
+def _resolve_identity_token(identity_token: Optional[str], identity_token_file: Optional[str]) -> Optional[str]:
+    """Resolve the identity token from the flag/env var or a file.
+
+    Returns the token string, or None if neither source was provided (in which
+    case the caller falls back to interactive OAuth login).
+    """
+    if identity_token is not None and identity_token_file is not None:
+        raise RSConnectException("You must specify only one of --identity-token or --identity-token-file.")
+
+    if identity_token_file is not None:
+        with open(identity_token_file, "r") as f:
+            token = f.read()
+    elif identity_token is not None:
+        token = sys.stdin.read() if identity_token == "-" else identity_token
+    else:
+        return None
+
+    token = token.strip()
+    if not token:
+        raise RSConnectException("The identity token is empty.")
+    return token
+
+
+def _login_with_token_exchange(
+    server: str,
+    name: str,
+    subject_token: str,
+    insecure: bool,
+    ca_data: Optional[str | bytes],
+    no_set_default: bool,
+) -> None:
+    """Exchange an identity token for a Connect API key and store it as the server credential."""
+    from .oauth import exchange_token_for_api_key
+
+    with cli_feedback("Exchanging identity token for an API key"):
+        api_key = exchange_token_for_api_key(server, subject_token, insecure, ca_data)
+
+    # Validate the minted key and normalize the server URL before saving.
+    with cli_feedback("Checking %s" % server):
+        real_server, _ = test_server(api.RSConnectServer(server, api_key, insecure, ca_data))
+    real_server.api_key = api_key
+    with cli_feedback("Checking API key"):
+        test_api_key(real_server)
+
+    ca_data_str = ca_data.decode("utf-8") if isinstance(ca_data, bytes) else ca_data
+    set_as_default = not no_set_default
+
+    server_store.set(
+        name,
+        real_server.url,
+        api_key=real_server.api_key,
+        insecure=insecure,
+        ca_data=ca_data_str,
+        set_as_default=set_as_default,
+    )
+
+    click.echo('Logged in to "%s" (%s) via identity token exchange.' % (name, real_server.url))
+    if set_as_default:
+        click.echo('Server "%s" is now the default.' % name)
+
+
+@cli.command(
+    short_help="Authenticate with a Posit Connect server using OAuth.",
+    help=(
+        "Authenticate with a Posit Connect server using OAuth 2.1. "
+        "This opens a browser for interactive login (or uses --use-device-code for headless environments). "
+        "Tokens are stored in the system keyring when available, with fallback to the local credential store.\n\n"
+        "Alternatively, pass --identity-token (or --identity-token-file) with an OIDC identity token, such as a "
+        "GitHub Actions OIDC token, to exchange it for a short-lived Connect API key without interactive login. "
+        "The resulting API key is saved as the server credential."
+    ),
+    no_args_is_help=True,
+)
+@click.argument("server_arg", metavar="SERVER", required=False)
+@click.option("--server", "-s", envvar="CONNECT_SERVER", help="The URL of the Posit Connect server.")
+@click.option("--name", "-n", help="Nickname for the server (defaults to server hostname).")
+@click.option("--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certificate verification.")
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    help="Path to a trusted CA certificate file for TLS.",
+)
+@click.option(
+    "--identity-token",
+    envvar="CONNECT_IDENTITY_TOKEN",
+    default=None,
+    help=(
+        "An OIDC identity token to exchange for a Connect API key (RFC 8693), instead of interactive "
+        "OAuth login. Use '-' to read the token from stdin. May also be set via the CONNECT_IDENTITY_TOKEN "
+        "environment variable."
+    ),
+)
+@click.option(
+    "--identity-token-file",
+    envvar="CONNECT_IDENTITY_TOKEN_FILE",
+    default=None,
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    help=(
+        "Path to a file containing an OIDC identity token to exchange for a Connect API key. "
+        "May also be set via the CONNECT_IDENTITY_TOKEN_FILE environment variable. Prefer this over "
+        "--identity-token to avoid exposing the token in process arguments or CI/CD logs."
+    ),
+)
+@click.option(
+    "--use-device-code",
+    is_flag=True,
+    default=False,
+    help="Use device code flow for headless/non-interactive environments.",
+)
+@click.option("--client-id", default=None, help="OAuth client ID (skips Dynamic Client Registration).")
+@click.option(
+    "--no-set-default",
+    is_flag=True,
+    default=False,
+    help="Do not mark this server as the default after login.",
+)
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@cli_exception_handler
+def login(
+    server_arg: Optional[str],
+    server: Optional[str],
+    name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    identity_token: Optional[str],
+    identity_token_file: Optional[str],
+    use_device_code: bool,
+    client_id: Optional[str],
+    no_set_default: bool,
+    verbose: int,
+):
+    set_verbosity(verbose)
+
+    # Only treat --server as conflicting with the positional argument when it
+    # was given explicitly on the command line. A value sourced from the
+    # CONNECT_SERVER environment variable should not block the positional form.
+    server_source = validation.get_parameter_source_name_from_ctx("server", click.get_current_context())
+    server_from_option = server_source == "COMMANDLINE"
+    if server_arg and server and server_from_option:
+        raise RSConnectException("You must specify only one of SERVER or -s/--server.")
+    server = server_arg or server
+    if not server:
+        raise RSConnectException("You must specify the server as a SERVER argument or with -s/--server.")
+
+    if not server.startswith("http"):
+        raise RSConnectException("Server URL must begin with http or https.")
+
+    ca_data = read_certificate_file(cacert) if cacert else None
+
+    if not name:
+        from urllib.parse import urlparse as _urlparse
+
+        name = _urlparse(server).hostname or server
+
+    subject_token = _resolve_identity_token(identity_token, identity_token_file)
+    if subject_token is not None:
+        _login_with_token_exchange(server, name, subject_token, insecure, ca_data, no_set_default)
+        return
+
+    from .oauth import (
+        InvalidClientError,
+        discover_oauth_metadata,
+        keyring_store_token,
+        login_with_browser,
+        login_with_device_code as _login_device,
+        register_client,
+    )
+
+    with cli_feedback("Discovering OAuth metadata"):
+        metadata = discover_oauth_metadata(server, insecure, ca_data)
+
+    # Resolve client_id: flag > stored > DCR
+    if not client_id:
+        existing = server_store.get_by_name(name) or server_store.get_by_url(server)
+        if existing:
+            stored_client_id = existing.get("oauth_client_id")
+            if stored_client_id:
+                client_id = str(stored_client_id)
+
+    if not client_id:
+        with cli_feedback("Registering OAuth client"):
+            client_id = register_client(metadata, server, insecure, ca_data)
+
+    def _do_login(cid: str) -> dict[str, Any]:
+        if use_device_code:
+            return _login_device(server, cid, metadata, insecure, ca_data)
+        else:
+            return login_with_browser(server, cid, metadata, insecure, ca_data)
+
+    try:
+        token_response = _do_login(client_id)
+    except InvalidClientError:
+        with cli_feedback("Re-registering OAuth client"):
+            client_id = register_client(metadata, server, insecure, ca_data)
+        token_response = _do_login(client_id)
+
+    access_token = str(token_response["access_token"])
+    refresh_token = str(token_response["refresh_token"]) if "refresh_token" in token_response else None
+    expires_in = token_response.get("expires_in")
+    import time
+
+    expiry = time.time() + int(expires_in) if expires_in else None
+
+    stored_in_keyring = keyring_store_token(server, access_token, refresh_token)
+
+    ca_data_str = ca_data.decode("utf-8") if isinstance(ca_data, bytes) else ca_data
+
+    set_as_default = not no_set_default
+
+    if stored_in_keyring:
+        server_store.set(
+            name,
+            server,
+            oauth_client_id=client_id,
+            insecure=insecure,
+            ca_data=ca_data_str,
+            set_as_default=set_as_default,
+        )
+    else:
+        server_store.set(
+            name,
+            server,
+            oauth_client_id=client_id,
+            insecure=insecure,
+            ca_data=ca_data_str,
+            oauth_access_token=access_token,
+            oauth_refresh_token=refresh_token,
+            oauth_token_expiry=expiry,
+            set_as_default=set_as_default,
+        )
+
+    click.echo('Logged in to "%s" (%s)' % (name, server))
+    if set_as_default:
+        click.echo('Server "%s" is now the default.' % name)
+    if not stored_in_keyring:
+        click.secho(
+            "Note: keyring not available; credentials stored in local file (chmod 600).",
+            fg="yellow",
+        )
+
+
+@cli.command(
+    short_help="Remove stored OAuth credentials for a Posit Connect server.",
+    help=(
+        "Remove locally-stored OAuth credentials for a Posit Connect server. "
+        "The server is identified by a positional SERVER argument, -s/--server, or -n/--name. "
+        "The server entry is preserved (for re-login without re-registration); "
+        "use 'rsconnect remove' to delete the entry entirely."
+    ),
+    no_args_is_help=True,
+)
+@click.argument("server_arg", metavar="SERVER", required=False)
+@click.option("--name", "-n", help="The nickname of the Posit Connect server to log out from.")
+@click.option("--server", "-s", help="The URL of the Posit Connect server to log out from.")
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@cli_exception_handler
+def logout(
+    server_arg: Optional[str],
+    name: Optional[str],
+    server: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+
+    if server_arg and server:
+        raise RSConnectException("Specify only one of SERVER or -s/--server.")
+    server = server_arg or server
+
+    if name and server:
+        raise RSConnectException("Specify only one of --name, --server, or SERVER.")
+    if not name and not server:
+        raise RSConnectException("Specify one of --name, --server, or SERVER.")
+
+    entry = None
+    if name:
+        entry = server_store.get_by_name(name)
+        if entry is None:
+            raise RSConnectException('Nickname "%s" was not found.' % name)
+    elif server:
+        entry = server_store.get_by_url(server)
+        if entry is None:
+            raise RSConnectException('Server URL "%s" was not found.' % server)
+
+    if not entry or not entry.get("oauth_client_id"):
+        raise RSConnectException(
+            "This server was not added with 'rsconnect login'. Use 'rsconnect remove' to delete it."
+        )
+
+    server_url = entry["url"]
+    entry_name = entry["name"]
+
+    from .oauth import keyring_delete_tokens
+
+    keyring_delete_tokens(server_url)
+    server_store.update_oauth_tokens(entry_name, None, None, None)
+
+    click.echo('Logged out from "%s".' % (name or server))
+
+
+def _get_names_to_check(file_or_directory: str) -> list[str]:
+    """
+    A function to determine a set files to look for in getting information about a
+    deployment.
+
+    :param file_or_directory: the file or directory to start with.
+    :return: a sequence of file names to try.
+    """
+    result = [file_or_directory]
+
+    if isdir(file_or_directory):
+        result.append(fake_module_file_from_directory(file_or_directory))
+        result.append(join(file_or_directory, "manifest.json"))
+
+    return result
+
+
+@cli.command(
+    short_help="Show saved information about the specified deployment.",
+    help=(
+        "Display information about a deployment. For any given file, "
+        "information about it"
+        "s deployments are saved on a per-server basis."
+    ),
+    no_args_is_help=True,
+)
+@click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+def info(file: str):
+    with cli_feedback(""):
+        deployments = []
+        app_store: AppStore | None = None
+        for file_name in _get_names_to_check(file):
+            app_store = AppStore(file_name)
+            deployments = app_store.get_all()
+
+            if len(deployments) > 0:
+                break
+
+        if len(deployments) > 0 and app_store is not None:
+            click.echo("Loaded deployment information from %s" % abspath(app_store.get_path()))
+
+            for deployment in deployments:
+                # If this deployment was via a manifest, this will get us extra stuff about that.
+                file_name = deployment.get("filename")
+                entry_point, primary_document = describe_manifest(file_name)
+                label = "Directory:" if isdir(file_name) else "Filename: "
+                click.echo()
+                click.echo("Server URL: %s" % click.style(deployment.get("server_url")))
+                click.echo("    App URL:     %s" % deployment.get("app_url"))
+                click.echo("    App ID:      %s" % deployment.get("app_id"))
+                click.echo("    App GUID:    %s" % deployment.get("app_guid"))
+                click.echo('    Title:       "%s"' % deployment.get("title"))
+                click.echo("    %s   %s" % (label, file_name))
+                if entry_point:
+                    click.echo("    Entry point: %s" % entry_point)
+                if primary_document:
+                    click.echo("    Primary doc: %s" % primary_document)
+                click.echo("    Type:        %s" % AppModes.get_by_name(deployment.get("app_mode"), True).desc())
+        else:
+            click.echo("No saved deployment information was found for %s." % file)
+
+
+@cli.command(
+    name="quickstart",
+    short_help="Scaffold a deployable Posit Connect project.",
+    help=(
+        "Create a new Posit Connect project of the given TYPE in ./<name>/. "
+        "Supported TYPE values: streamlit, shiny, fastapi, api, flask, "
+        "notebook, voila, quarto. Writes a pyproject.toml "
+        "with a [tool.rsconnect] section, creates a uv-managed virtualenv, "
+        "and prints the local-run and deploy commands."
+    ),
+    no_args_is_help=True,
+)
+@click.argument(
+    "app_type",
+    metavar="TYPE",
+    # Click accepts the full CLI alias vocabulary; ``run_quickstart``
+    # rejects aliases that map to a mode without a scaffold template with
+    # a distinct "not yet supported" error, matching the deploy CLI's
+    # vocabulary.
+    type=click.Choice(AppModes.cli_aliases()),
+)
+@click.argument("name", metavar="NAME")
+@click.option(
+    "--python",
+    "python_version",
+    default=None,
+    metavar="VERSION",
+    help=(
+        "Python version for 'requires-python' in the generated pyproject.toml. "
+        "A bare 'major.minor' like '3.10' means any 3.10.x; a full '3.11.14' is "
+        "exact; pass an operator for full control (e.g. '>=3.11' or "
+        "'>=3.11,<3.14'). Defaults to '>=<major.minor>' of the interpreter "
+        "running rsconnect."
+    ),
+)
+@cli_exception_handler
+def quickstart(app_type: str, name: str, python_version: Optional[str]):
+    # Resolve ``run_quickstart`` through the module at call time so tests can
+    # monkeypatch ``rsconnect.quickstart.quickstart.run_quickstart`` without
+    # binding a stale reference into ``main``'s namespace at import time.
+    from .quickstart.quickstart import run_quickstart
+
+    run_quickstart(app_type=app_type, name=name, python_version=python_version)
+
+
+@cli.group(no_args_is_help=True, help="Deploy content to Posit Connect or shinyapps.io.")
+@click.pass_context
+def deploy(ctx: click.Context):
+    checker = BackgroundVersionCheck()
+    checker.start()
+
+    def _print_version_warning() -> None:
+        message = checker.get_warning_message()
+        if message:
+            click.secho(message, fg="yellow", err=True)
+
+    # Registered on the context (not as a result callback) so the hint prints on
+    # every exit path, including failed deploys that raise or call sys.exit().
+    ctx.call_on_close(_print_version_warning)
+
+
+def _warn_on_ignored_manifest(directory: str):
+    """
+    Checks for the existence of a file called manifest.json in the given directory.
+    If it's there, a warning noting that it will be ignored will be printed.
+
+    :param directory: the directory to check in.
+    """
+    if exists(join(directory, "manifest.json")):
+        click.secho(
+            "    Warning: the existing manifest.json file will not be used or considered.",
+            fg="yellow",
+        )
+
+
+def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
+    """
+    Checks for the existence of a file called manifest.json in the given directory.
+    If it's there, a warning noting that it will be ignored will be printed.
+
+    :param directory: the directory to check in.
+    :param requirements_file_name: the name of the requirements file.
+    """
+    if exists(join(directory, requirements_file_name)):
+        click.secho(
+            "    Warning: the existing %s file will not be used or considered." % requirements_file_name,
+            fg="yellow",
+        )
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
+    name="notebook",
+    short_help="Deploy Jupyter notebook to Posit Connect [v1.7.0+].",
+    help=(
+        "Deploy a Jupyter notebook to Posit Connect. This may be done by source or as a static HTML "
+        "page. If the notebook is deployed as a static HTML page (--static), it cannot be scheduled or "
+        "rerun on the Connect server."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@runtime_environment_args
+@click.option(
+    "--static",
+    "-S",
+    is_flag=True,
+    help=(
+        "Render the notebook locally and deploy the result as a static "
+        "document. Will not include the notebook source. Static notebooks "
+        "cannot be re-run on the server."
+    ),
+)
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help=(
+        "Path to Python interpreter whose environment should be used. "
+        "The Python environment must have the rsconnect package installed."
+    ),
+)
+@click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=("An optional python version to use instead of the version from the detected environment."),
+)
+@click.option(
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(dir_okay=False),
+    default="requirements.txt",
+    help=(
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
+    ),
+)
+@click.option(
+    "--package-installer",
+    type=click.Choice(PackageInstaller),
+    help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
+)
+@click.option("--hide-all-input", is_flag=True, default=False, help="Hide all input cells when rendering output")
+@click.option(
+    "--hide-tagged-input", is_flag=True, default=False, help="Hide input code cells with the 'hide_input' tag"
+)
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@cli_exception_handler
+@click.pass_context
+def deploy_notebook(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    static: bool,
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    python: Optional[str],
+    override_python_version: Optional[str],
+    force_generate: bool,
+    requirements_file: Optional[str],
+    verbose: int,
+    file: str,
+    extra_files: tuple[str, ...],
+    hide_all_input: bool,
+    hide_tagged_input: bool,
+    env_vars: dict[str, str],
+    image: Optional[str],
+    disable_env_management: Optional[bool],
+    env_management_py: Optional[bool],
+    env_management_r: Optional[bool],
+    exclude_renv: bool,
+    draft: bool,
+    no_verify: bool = False,
+    package_installer: Optional[PackageInstaller] = None,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    # TODO: This used to save a value in kwargs["extra_files"] which would get passed to
+    # the executor and stored there, but it looks like that value was never read.
+    extra_files_list = validate_extra_files(dirname(file), extra_files)
+    app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
+
+    base_dir = dirname(file)
+    requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
+    environment = Environment.create_python_environment(
+        base_dir,
+        requirements_file=requirements_file,
+        app_file=file,
+        python=python,
+        override_python_version=override_python_version,
+        package_manager=package_installer,
+    )
+    r_environment = None if exclude_renv else REnvironment.create(base_dir)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        path=file,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        disable_env_management=disable_env_management,
+        env_vars=env_vars,
+    )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_version()
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
+
+    ce.validate_server().validate_app_mode(app_mode=app_mode)
+    if app_mode == AppModes.STATIC:
+        assert environment.python_interpreter is not None
+        ce.make_bundle(
+            make_notebook_html_bundle,
+            file,
+            environment.python_interpreter,
+            hide_all_input,
+            hide_tagged_input,
+        )
+    else:
+        ce.make_bundle(
+            make_notebook_source_bundle,
+            file,
+            environment,
+            extra_files_list,
+            hide_all_input,
+            hide_tagged_input,
+            image=image,
+            env_management_py=env_management_py,
+            env_management_r=env_management_r,
+            r_environment=r_environment,
+        )
+    ce.deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify)).save_deployed_info().emit_task_log()
+    if not no_verify:
+        ce.verify_deployment()
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
+            ce.activate_deployment().emit_task_log()
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
+    name="voila",
+    short_help="Deploy Jupyter notebook in Voila mode to Posit Connect.",
+    help=("Deploy a Jupyter notebook in Voila mode to Posit Connect."),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@runtime_environment_args
+@click.option(
+    "--entrypoint",
+    "-e",
+    help=("The module and executable object which serves as the entry point."),
+)
+@click.option(
+    "--multi-notebook",
+    "-m",
+    is_flag=True,
+    help=("Deploy in multi-notebook mode."),
+)
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help=(
+        "Path to Python interpreter whose environment should be used. "
+        "The Python environment must have the rsconnect package installed."
+    ),
+)
+@click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=("An optional python version to use instead of the version from the detected environment."),
+)
+@click.option(
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(dir_okay=False),
+    default="requirements.txt",
+    help=(
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
+    ),
+)
+@click.option(
+    "--package-installer",
+    type=click.Choice(PackageInstaller),
+    help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
+)
+@click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@cli_exception_handler
+@click.pass_context
+def deploy_voila(
+    ctx: click.Context,
+    path: str,
+    entrypoint: Optional[str],
+    python: Optional[str],
+    override_python_version: Optional[str],
+    force_generate: bool,
+    requirements_file: Optional[str],
+    extra_files: tuple[str, ...],
+    exclude: tuple[str, ...],
+    image: Optional[str],
+    disable_env_management: Optional[bool],
+    env_management_py: Optional[bool],
+    env_management_r: Optional[bool],
+    exclude_renv: bool,
+    title: Optional[str],
+    env_vars: dict[str, str],
+    verbose: int,
+    new: bool,
+    app_id: Optional[str],
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    multi_notebook: bool,
+    no_verify: bool,
+    draft: bool = False,
+    connect_server: Optional[api.RSConnectServer] = None,  # TODO: This appears to be unused
+    package_installer: Optional[PackageInstaller] = None,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    app_mode = AppModes.JUPYTER_VOILA
+    base_dir = path if isdir(path) else dirname(path)
+    requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
+    environment = Environment.create_python_environment(
+        base_dir,
+        requirements_file=requirements_file,
+        python=python,
+        override_python_version=override_python_version,
+        package_manager=package_installer,
+    )
+    r_environment = None if exclude_renv else REnvironment.create(base_dir)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        path=path,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        disable_env_management=disable_env_management,
+        env_vars=env_vars,
+    )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_version()
+    base_dir = path if isdir(path) else dirname(path)
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
+
+    ce.validate_server().validate_app_mode(app_mode=app_mode)
+    ce.make_bundle(
+        make_voila_bundle,
+        path,
+        entrypoint,
+        extra_files,
+        exclude,
+        requirements_file is None,
+        environment,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+        r_environment=r_environment,
+        multi_notebook=multi_notebook,
+    ).deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify)).save_deployed_info().emit_task_log()
+    if not no_verify:
+        ce.verify_deployment()
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
+            ce.activate_deployment().emit_task_log()
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
+    name="manifest",
+    short_help="Deploy content to Posit Connect or shinyapps.io by manifest.",
+    help=(
+        "Deploy content to Posit Connect or shinyapps.io using an existing manifest.json "
+        'file.  The specified file must either be named "manifest.json" or '
+        'refer to a directory that contains a file named "manifest.json".'
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@cloud_shinyapps_args
+@click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@shinyapps_deploy_args
+@cli_exception_handler
+@click.pass_context
+def deploy_manifest(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    verbose: int,
+    file: str,
+    env_vars: dict[str, str],
+    visibility: Optional[str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    file_name = validate_manifest_file(file)
+    app_mode = read_manifest_app_mode(file_name)
+    title = title or default_title_from_manifest(file)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+        path=file,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        visibility=visibility,
+        env_vars=env_vars,
+    )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_version()
+    base_dir = dirname(file_name)
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(
+            make_manifest_bundle,
+            file_name,
+        )
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
+            ce.activate_deployment().emit_task_log()
+
+
+@deploy.command(
+    name="bundle",
+    short_help="Deploy a previously downloaded bundle to Posit Connect or shinyapps.io.",
+    help=(
+        "Deploy a content bundle (a .tar.gz file, such as one downloaded from a Connect server) "
+        "directly to a server.  The bundle is uploaded as-is; its existing manifest.json determines "
+        "the content type and dependencies.  This is useful for copying content from one server to "
+        "another."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@cloud_shinyapps_args
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@shinyapps_deploy_args
+@cli_exception_handler
+@click.pass_context
+def deploy_bundle(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    verbose: int,
+    file: str,
+    env_vars: dict[str, str],
+    visibility: Optional[str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    app_mode = read_bundle_app_mode(file)
+    title = title or default_title_from_bundle(file)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+        path=file,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        visibility=visibility,
+        env_vars=env_vars,
+    )
+
+    # Prepare metadata for upload. Passing directory=None skips git auto-detection:
+    # the bundle's location on disk is unrelated to the content's source, so only
+    # explicit --metadata overrides are sent.
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_version()
+    ce.metadata = prepare_deploy_metadata(None, metadata, no_metadata, server_version)
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(
+            open_bundle,
+            file,
+        )
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
+            ce.activate_deployment().emit_task_log()
+
+
+@deploy.command(
+    name="pyproject",
+    short_help="Deploy content to Posit Connect or shinyapps.io by pyproject.",
+    help=(
+        "Deploy content described by a project's pyproject.toml. The given directory must contain "
+        "a pyproject.toml with a [tool.rsconnect] table specifying app_mode and entrypoint. "
+        "Designed as the deploy partner for projects scaffolded by 'rsconnect quickstart'."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@cloud_shinyapps_args
+@click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help=(
+        "Path to the requirements source, relative to the project directory. "
+        "Overrides ``[tool.rsconnect].requirements_file`` in pyproject.toml; "
+        "defaults to ``pyproject.toml`` (the project's declared dependencies). "
+        "Pass ``uv.lock`` for a fully resolved deploy, or any ``requirements.txt``-compatible file."
+    ),
+)
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@shinyapps_deploy_args
+@click.option(
+    "--exclude-renv",
+    "exclude_renv",
+    is_flag=True,
+    default=False,
+    help="Skip renv.lock detection. R dependencies will not be added to the manifest, "
+    "even when an renv.lock file is present (in the content directory or at RENV_PATHS_LOCKFILE).",
+)
+@cli_exception_handler
+@click.pass_context
+def deploy_pyproject(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    verbose: int,
+    directory: str,
+    requirements_file: Optional[str],
+    env_vars: dict[str, str],
+    visibility: Optional[str],
+    no_verify: bool,
+    draft: bool,
+    exclude_renv: bool,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    def quickstart_hint() -> str:
+        return "To create a new project with this section already populated, run: rsconnect quickstart --help"
+
+    pyproject_path = Path(directory) / "pyproject.toml"
+    try:
+        target = resolve_pyproject_deploy_target(
+            pyproject_path, requirements_file=requirements_file, title_override=title or name
+        )
+    except UnsupportedAppModeError as err:
+        raise RSConnectException(str(err)) from err
+    except InvalidPyprojectConfigError as err:
+        raise RSConnectException(f"{err}\n\n{quickstart_hint()}") from err
+    except FileNotFoundError as err:
+        raise RSConnectException(f"pyproject.toml not found at {pyproject_path}.\n\n{quickstart_hint()}") from err
+    except TOMLDecodeError as err:
+        raise RSConnectException(f"pyproject.toml could not be parsed: {err}\n\n{quickstart_hint()}") from err
+
+    app_mode = target.app_mode
+    entrypoint = target.entrypoint
+    effective_title = target.title
+    requirements_file = target.requirements_file
+    extra_files: tuple[str, ...] = tuple()
+    excludes: tuple[str, ...] = tuple()
+    bundle_builder: Callable[..., Any]
+    bundle_args: tuple[Any, ...]
+    bundle_kwargs: dict[str, Any] = {}
+    path = directory
+
+    # renv.lock detection mirrors the dedicated deploy commands; --exclude-renv
+    # opts out, otherwise detection is driven by the lockfile's presence.
+    r_environment = None if exclude_renv else REnvironment.create(directory)
+
+    if app_mode in (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API):
+        if app_mode == AppModes.PYTHON_SHINY:
+            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=requirements_file,
+            override_python_version=None,
+        )
+        bundle_builder = make_api_bundle
+        bundle_args = (directory, entrypoint, app_mode, environment, extra_files, excludes)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+            "r_environment": r_environment,
+        }
+    elif app_mode == AppModes.JUPYTER_NOTEBOOK:  # This is "jupyter-static"
+        path = str(Path(directory) / entrypoint)
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=requirements_file,
+            override_python_version=None,
+        )
+        bundle_builder = make_notebook_source_bundle
+        # Legacy app mode - no need to override the bundle builder default
+        bundle_args = (path, environment, extra_files, False, False)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+            "r_environment": r_environment,
+        }
+    elif app_mode == AppModes.JUPYTER_VOILA:
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=requirements_file,
+            override_python_version=None,
+        )
+        bundle_builder = make_voila_bundle
+        bundle_args = (directory, entrypoint, extra_files, excludes, True, environment)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+            "r_environment": r_environment,
+            "multi_notebook": False,
+        }
+    elif app_mode in (AppModes.STATIC_QUARTO, AppModes.SHINY_QUARTO):
+        path = str(Path(directory) / entrypoint)
+        with cli_feedback("Inspecting Quarto project"):
+            quarto = which_quarto(None)
+            logger.debug("Quarto: %s" % quarto)
+            inspect = quarto_inspect(quarto, path)
+            engines = validate_quarto_engines(inspect)
+
+        environment = None
+        if "jupyter" in engines:
+            with cli_feedback("Inspecting Python environment"):
+                environment = Environment.create_python_environment(
+                    directory,
+                    requirements_file=requirements_file,
+                    override_python_version=None,
+                )
+        bundle_builder = create_quarto_deployment_bundle
+        bundle_args = (path, extra_files, excludes, app_mode, inspect, environment)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+            "r_environment": r_environment,
+        }
+    else:
+        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+        path=path,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=effective_title,
+        visibility=visibility,
+        env_vars=env_vars,
+    )
+
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_version()
+    ce.metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(bundle_builder, *bundle_args, **bundle_kwargs)
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
+            ce.activate_deployment().emit_task_log()
+
+
+@deploy.command(
+    name="git",
+    short_help="Deploy content from a Git repository to Posit Connect.",
+    help=(
+        "Deploy content to Posit Connect directly from a remote Git repository. "
+        "The repository must contain a manifest.json file (in the root or specified subdirectory). "
+        "Connect will regularly poll the repository for updates."
+        "\n\n"
+        "This command creates a new git-backed content item. To update an existing git-backed "
+        "content item, use the --app-id option with the content's GUID."
+    ),
+)
+@server_args
+@spcs_args
+@publish_args
+@click.option(
+    "--repository",
+    "-r",
+    required=True,
+    help="URL of the Git repository (https:// URLs only).",
+)
+@click.option(
+    "--branch",
+    "-b",
+    default="main",
+    help="Branch to deploy from. [default: main]",
+)
+@click.option(
+    "--subdirectory",
+    "-d",
+    default="",
+    help="Subdirectory containing manifest.json. Use path syntax (e.g., 'path/to/content').",
+)
+@click.option(
+    "--polling/--no-polling",
+    default=True,
+    help="Enable/disable regular polling of the repository for updates. [default: enabled]",
+)
+@cli_exception_handler
+@click.pass_context
+def deploy_git(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    env_vars: dict[str, str],
+    no_verify: bool,
+    draft: bool,
+    repository: str,
+    branch: str,
+    subdirectory: str,
+    polling: bool,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    if new and app_id:
+        raise RSConnectException("The --new and --app-id options are mutually exclusive.")
+
+    # Generate title if not provided
+    if not title:
+        title = _generate_git_title(repository, subdirectory)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        env_vars=env_vars,
+        repository=repository,
+        branch=branch,
+        subdirectory=subdirectory.strip("/") if subdirectory else "",
+        polling=polling,
+    )
+
+    ce.validate_server().deploy_git(activate=not draft).emit_task_log()
+
+    if not no_verify:
+        ce.verify_deployment()
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
+    name="quarto",
+    short_help="Deploy Quarto content to Posit Connect.",
+    help=(
+        "Deploy a Quarto document or project to Posit Connect. Should the content use the Quarto "
+        'Jupyter engine, an environment file ("requirements.txt") is created and included in the deployment if one '
+        "does not already exist."
+        "\n\n"
+        "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@runtime_environment_args
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--quarto",
+    "-q",
+    type=click.Path(exists=True),
+    help="Path to Quarto installation.",
+)
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help=(
+        "Path to Python interpreter whose environment should be used. "
+        "The Python environment must have the rsconnect package installed."
+    ),
+)
+@click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=("An optional python version to use instead of the version from the detected environment."),
+)
+@click.option(
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(dir_okay=False),
+    default="requirements.txt",
+    help=(
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
+    ),
+)
+@click.option(
+    "--package-installer",
+    type=click.Choice(PackageInstaller),
+    help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
+)
+@click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@cli_exception_handler
+@click.pass_context
+def deploy_quarto(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    exclude: tuple[str, ...],
+    quarto: Optional[str],
+    python: Optional[str],
+    override_python_version: Optional[str],
+    force_generate: bool,
+    requirements_file: Optional[str],
+    verbose: int,
+    file_or_directory: str,
+    extra_files: Sequence[str],
+    env_vars: dict[str, str],
+    image: Optional[str],
+    disable_env_management: bool,
+    env_management_py: bool,
+    env_management_r: bool,
+    exclude_renv: bool,
+    no_verify: bool,
+    draft: bool,
+    package_installer: Optional[PackageInstaller],
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    base_dir = file_or_directory
+    if not isdir(file_or_directory):
+        base_dir = dirname(file_or_directory)
+    extra_files = validate_extra_files(base_dir, extra_files)
+
+    _warn_on_ignored_manifest(base_dir)
+
+    with cli_feedback("Inspecting Quarto project"):
+        quarto = which_quarto(quarto)
+        logger.debug("Quarto: %s" % quarto)
+        inspect = quarto_inspect(quarto, file_or_directory)
+        engines = validate_quarto_engines(inspect)
+
+    environment = None
+    if "jupyter" in engines:
+        requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
+        with cli_feedback("Inspecting Python environment"):
+            environment = Environment.create_python_environment(
+                base_dir,
+                requirements_file=requirements_file,
+                override_python_version=override_python_version,
+            )
+
+    # R/Quarto content can use renv regardless of the Quarto engine, so detect it
+    # whenever a lockfile is present unless the user opted out.
+    r_environment = None if exclude_renv else REnvironment.create(base_dir)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        path=file_or_directory,
+        server=server,
+        exclude=exclude,
+        new=new,
+        app_id=app_id,
+        title=title,
+        disable_env_management=disable_env_management,
+        env_vars=env_vars,
+    )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_version()
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=AppModes.STATIC_QUARTO)
+        .make_bundle(
+            create_quarto_deployment_bundle,
+            file_or_directory,
+            extra_files,
+            exclude,
+            AppModes.STATIC_QUARTO,
+            inspect,
+            environment,
+            image=image,
+            env_management_py=env_management_py,
+            env_management_r=env_management_r,
+            r_environment=r_environment,
+        )
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
+            ce.activate_deployment().emit_task_log()
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
+    name="tensorflow",
+    short_help="Deploy TensorFlow models to Posit Connect [v2024.05.0+].",
+    help=(
+        "Deploy a TensorFlow model to Posit Connect. Requires Posit Connect 2024.05.0 or later."
+        "\n\n"
+        "DIRECTORY is the path containing a TensorFlow model."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content build and execution. "
+    "This option is only applicable if the Connect server is configured to use off-host execution.",
+)
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@cli_exception_handler
+@click.pass_context
+def deploy_tensorflow(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    exclude: tuple[str, ...],
+    verbose: int,
+    directory: str,
+    extra_files: Sequence[str],
+    env_vars: dict[str, str],
+    image: Optional[str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    _warn_on_ignored_manifest(directory)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        path=directory,
+        server=server,
+        exclude=exclude,
+        new=new,
+        app_id=app_id,
+        title=title,
+        env_vars=env_vars,
+    )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_version()
+    deploy_metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=AppModes.TENSORFLOW)
+        .make_bundle(
+            make_tensorflow_bundle,
+            directory,
+            extra_files,
+            exclude,
+            image=image,
+        )
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
+            ce.activate_deployment().emit_task_log()
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
+    name="html",
+    short_help="Deploy html content to Posit Connect.",
+    help=("Deploy an html file, or directory of html files with entrypoint, to Posit Connect."),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@cloud_shinyapps_args
+@click.option(
+    "--entrypoint",
+    "-e",
+    help=("The name of the html file that is the landing page."),
+)
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@cli_exception_handler
+@click.pass_context
+def deploy_html(
+    ctx: click.Context,
+    path: str,
+    entrypoint: Optional[str],
+    extra_files: tuple[str, ...],
+    exclude: tuple[str, ...],
+    title: Optional[str],
+    env_vars: dict[str, str],
+    verbose: int,
+    new: bool,
+    app_id: Optional[str],
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    no_verify: bool,
+    draft: bool,
+    connect_server: Optional[api.RSConnectServer] = None,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    if connect_server:
+        ce = RSConnectExecutor.fromConnectServer(
+            connect_server,
+            ctx=ctx,
+            account=account,
+            token=token,
+            secret=secret,
+            path=path,
+            server=server,
+            exclude=exclude,
+            new=new,
+            app_id=app_id,
+            title=title,
+            env_vars=env_vars,
+        )
+    else:
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            account=account,
+            token=token,
+            secret=secret,
+            path=path,
+            server=server,
+            exclude=exclude,
+            new=new,
+            app_id=app_id,
+            title=title,
+            env_vars=env_vars,
+        )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_version()
+    base_dir = path if isdir(path) else dirname(path)
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=AppModes.STATIC)
+        .make_bundle(
+            make_html_bundle,
+            path,
+            entrypoint,
+            extra_files,
+            exclude,
+        )
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
+            ce.activate_deployment().emit_task_log()
+
+
+def resolve_requirements_file(directory: str, requirements_file: Optional[str], force_generate: bool) -> Optional[str]:
+    """
+    Determine which requirements file to use.
+
+    Returns None when pip freeze should be used (force_generate=True), otherwise returns
+    the provided path or the default "requirements.txt".
+    """
+    if force_generate:
+        _warn_on_ignored_requirements(directory, requirements_file or "requirements.txt")
+        return None
+    return requirements_file or "requirements.txt"
+
+
+def generate_deploy_python(
+    app_mode: AppMode,
+    min_version: Optional[str] = None,
+    alias: Optional[str] = None,
+    desc: Optional[str] = None,
+):
+    # ``alias`` defaults to the mode's primary CLI alias (declared in
+    # ``AppModes._cli_aliases``); callers pass it explicitly only for
+    # secondary aliases (e.g. ``flask`` -> ``PYTHON_API`` alongside ``api``).
+    # The bidirectional ``_cli_aliases`` invariant is tested in
+    # ``tests/test_models.py``; the factory trusts it.
+    alias = alias or app_mode.cli_alias()
+    if desc is None:
+        desc = app_mode.desc()
+
+    # Only surface a minimum Connect version indicator for recent (2024+) versions.
+    version_note = " [v{version}+]".format(version=min_version) if min_version else ""
+
+    # noinspection SpellCheckingInspection
+    @deploy.command(
+        name=alias,
+        short_help="Deploy a {desc} to Posit Connect{version_note} or shinyapps.io.".format(
+            desc=desc,
+            version_note=version_note,
+        ),
+        help=(
+            "Deploy a {desc} module to Posit Connect or shinyapps.io (if supported by the platform). "
+            'The "directory" argument must refer to an existing directory that contains the application code.'
+        ).format(desc=desc),
+        no_args_is_help=True,
+    )
+    @server_args
+    @spcs_args
+    @content_args
+    @cloud_shinyapps_args
+    @runtime_environment_args
+    @click.option(
+        "--entrypoint",
+        "-e",
+        help=(
+            "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
+        ).format(desc=desc),
+    )
+    @click.option(
+        "--exclude",
+        "-x",
+        multiple=True,
+        help=(
+            "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+            "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+            "This option may be repeated."
+        ),
+    )
+    @click.option(
+        "--python",
+        "-p",
+        type=click.Path(exists=True),
+        help=(
+            "Path to Python interpreter whose environment should be used. "
+            "The Python environment must have the rsconnect package installed."
+        ),
+    )
+    @click.option(
+        "--override-python-version",
+        type=validation.PYTHON_VERSION,
+        help=("An optional python version to use instead of the version from the detected environment."),
+    )
+    @click.option(
+        "--force-generate",
+        "-g",
+        is_flag=True,
+        help='Force generating "requirements.txt", even if it already exists.',
+    )
+    @click.option(
+        "--requirements-file",
+        "-r",
+        type=click.Path(dir_okay=False),
+        help=(
+            "Path to requirements file listing the project dependencies. "
+            "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
+            "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+            "Must be inside the project directory."
+        ),
+    )
+    @click.option(
+        "--package-installer",
+        type=click.Choice(PackageInstaller),
+        help=(
+            "Select the Python package installer for installs in the manifest. By default, behavior is server-driven."
+        ),
+    )
+    @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+    @click.argument(
+        "extra_files",
+        nargs=-1,
+        type=click.Path(exists=True, dir_okay=False, file_okay=True),
+    )
+    @shinyapps_deploy_args
+    @cli_exception_handler
+    @click.pass_context
+    def deploy_app(
+        ctx: click.Context,
+        name: Optional[str],
+        server: Optional[str],
+        api_key: Optional[str],
+        snowflake_connection_name: Optional[str],
+        insecure: bool,
+        cacert: Optional[str],
+        entrypoint: Optional[str],
+        exclude: tuple[str, ...],
+        new: bool,
+        app_id: Optional[str],
+        title: Optional[str],
+        python: Optional[str],
+        override_python_version: Optional[str],
+        force_generate: bool,
+        requirements_file: Optional[str],
+        verbose: int,
+        directory: str,
+        extra_files: tuple[str, ...],
+        visibility: Optional[str],
+        env_vars: dict[str, str],
+        image: Optional[str],
+        disable_env_management: Optional[bool],
+        env_management_py: Optional[bool],
+        env_management_r: Optional[bool],
+        exclude_renv: bool,
+        account: Optional[str],
+        token: Optional[str],
+        secret: Optional[str],
+        no_verify: bool,
+        draft: bool,
+        package_installer: Optional[PackageInstaller],
+        metadata: tuple[str, ...],
+        no_metadata: bool,
+    ):
+        set_verbosity(verbose)
+        entrypoint = validate_entry_point(entrypoint, directory)
+        extra_files_list = validate_extra_files(directory, extra_files)
+        requirements_file = resolve_requirements_file(directory, requirements_file, force_generate)
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=requirements_file,
+            python=python,
+            override_python_version=override_python_version,
+            package_manager=package_installer,
+        )
+        r_environment = None if exclude_renv else REnvironment.create(directory)
+
+        if app_mode == AppModes.PYTHON_SHINY:
+            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
+
+        # Get server version for metadata support check
+        server_version = None
+
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            account=account,
+            token=token,
+            secret=secret,
+            path=directory,
+            server=server,
+            exclude=exclude,
+            new=new,
+            app_id=app_id,
+            title=title,
+            visibility=visibility,
+            disable_env_management=disable_env_management,
+            env_vars=env_vars,
+        )
+
+        if isinstance(ce.client, RSConnectClient):
+            # Update the starlette version if needed. After all users are on Connect
+            # 2024.01.1 or later, this can be removed. Requires access to the
+            # Connect server version, which may be hidden.
+            connect_version_string = ce.client.server_version()
+            server_version = connect_version_string
+            if connect_version_string:
+                environment = fix_starlette_requirements(
+                    environment=environment,
+                    app_mode=app_mode,
+                    connect_version_string=connect_version_string,
+                )
+            else:
+                click.secho(
+                    "    Warning: Connect server version is hidden. Skipping starlette requirements check.",
+                    fg="yellow",
+                )
+
+        # Prepare metadata for upload
+        deploy_metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
+        ce.metadata = deploy_metadata
+
+        ce.validate_server()
+        ce.validate_app_mode(app_mode=app_mode)
+        ce.make_bundle(
+            make_api_bundle,
+            directory,
+            entrypoint,
+            app_mode,
+            environment,
+            extra_files_list,
+            exclude,
+            image=image,
+            env_management_py=env_management_py,
+            env_management_r=env_management_r,
+            r_environment=r_environment,
+        )
+        ce.deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
+        ce.save_deployed_info()
+        ce.emit_task_log()
+
+        if not no_verify:
+            ce.verify_deployment()
+            if not draft and ce.supports_verify_before_activate:
+                # The draft bundle verified successfully, so activate it.
+                ce.activate_deployment().emit_task_log()
+
+    return deploy_app
+
+
+generate_deploy_python(app_mode=AppModes.PYTHON_API)
+generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="flask", desc="Flask API")
+generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI)
+generate_deploy_python(app_mode=AppModes.DASH_APP)
+generate_deploy_python(app_mode=AppModes.STREAMLIT_APP)
+generate_deploy_python(app_mode=AppModes.BOKEH_APP)
+generate_deploy_python(app_mode=AppModes.PYTHON_SHINY)
+generate_deploy_python(app_mode=AppModes.PYTHON_GRADIO, min_version="2024.12.0")
+generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, min_version="2025.10.0")
+
+
+# noinspection SpellCheckingInspection
+@deploy.command(
+    name="nodejs",
+    short_help="Deploy a Node.js application to Posit Connect.",
+    help=(
+        "Deploy a Node.js application to Posit Connect. "
+        'The "directory" argument must refer to an existing directory that contains '
+        "a package.json file and a JavaScript or TypeScript entry point."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@cloud_shinyapps_args
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content build and execution. "
+    "This option is only applicable if the Connect server is configured to use off-host execution.",
+)
+@click.option(
+    "--disable-env-management-node",
+    "env_management_node",
+    is_flag=True,
+    default=None,
+    help="Disable Node.js environment management for this bundle. "
+    "Connect will not install npm packages. An administrator must install the "
+    "required packages on the Connect server.",
+    callback=env_management_callback,
+)
+@click.option(
+    "--entrypoint",
+    "-e",
+    help="The JavaScript or TypeScript file that serves as the entry point for the application "
+    "(e.g., app.js, server.ts). Auto-detected from package.json if not specified.",
+)
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--node",
+    type=click.Path(exists=True),
+    help="Path to the Node.js executable whose version should be used for deployment.",
+)
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@shinyapps_deploy_args
+@cli_exception_handler
+@click.pass_context
+def deploy_nodejs(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    entrypoint: Optional[str],
+    exclude: tuple[str, ...],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    node: Optional[str],
+    verbose: int,
+    directory: str,
+    extra_files: tuple[str, ...],
+    visibility: Optional[str],
+    env_vars: dict[str, str],
+    image: Optional[str],
+    env_management_node: Optional[bool],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...],
+    no_metadata: bool,
+):
+    set_verbosity(verbose)
+    entrypoint = validate_node_entry_point(entrypoint, directory)
+    extra_files_list = validate_extra_files(directory, extra_files)
+    node_environment = NodeEnvironment.create(directory, node_executable=node)
+
+    app_mode = AppModes.NODE_JS
+
+    server_version = None
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+        path=directory,
+        server=server,
+        exclude=exclude,
+        new=new,
+        app_id=app_id,
+        title=title,
+        visibility=visibility,
+        disable_env_management=None,
+        env_vars=env_vars,
+    )
+
+    if isinstance(ce.client, RSConnectClient):
+        connect_version_string = ce.client.server_version()
+        server_version = connect_version_string
+
+    deploy_metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
+
+    ce.validate_server()
+    ce.validate_app_mode(app_mode=app_mode)
+    ce.make_bundle(
+        make_nodejs_bundle,
+        directory,
+        entrypoint,
+        node_environment,
+        extra_files_list,
+        exclude,
+        image=image,
+        env_management_node=env_management_node,
+    )
+    ce.deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
+    ce.save_deployed_info()
+    ce.emit_task_log()
+
+    if not no_verify:
+        ce.verify_deployment()
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
+            ce.activate_deployment().emit_task_log()
+
+
+@deploy.command(
+    name="other-content",
+    short_help="Describe deploying other content to Posit Connect.",
+    help="Show help on how to deploy other content to Posit Connect.",
+    no_args_is_help=True,
+)
+def deploy_help():
+    text = (
+        "To deploy a Shiny application or R Markdown document, use the rsconnect "
+        "R package in the RStudio IDE.  Or, use rsconnect::writeManifest "
+        "(again in the IDE) to create a manifest.json file and deploy that using "
+        "this tool with the command, "
+    )
+    click.echo("\n".join(textwrap.wrap(text, 79)))
+    click.echo()
+    click.echo("    rsconnect deploy manifest [-n <name>|-s <url> -k <key>] <manifest-file>")
+    click.echo()
+
+
+@cli.group(
+    name="write-manifest",
+    no_args_is_help=True,
+    short_help="Create a manifest.json file for later deployment.",
+    help=(
+        "Create a manifest.json file for later deployment. This may be used "
+        "with the git support provided by Posit Connect or by using the "
+        '"deploy manifest" command in this tool.'
+    ),
+)
+def write_manifest():
+    pass
+
+
+@write_manifest.command(
+    name="notebook",
+    short_help="Create a manifest.json file for a Jupyter notebook.",
+    help=(
+        "Create a manifest.json file for a Jupyter notebook for later deployment. "
+        'This will create an environment file ("requirements.txt") if one does '
+        "not exist. All files are created in the same directory as the notebook file."
+    ),
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help="Path to Python interpreter whose environment should be used. "
+    + "The Python environment must have the rsconnect package installed.",
+)
+@click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=("An optional python version to use instead of the version from the detected environment."),
+)
+@click.option(
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(dir_okay=False),
+    help=(
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
+    ),
+)
+@click.option(
+    "--package-installer",
+    type=click.Choice(PackageInstaller),
+    help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
+)
+@click.option("--hide-all-input", is_flag=True, default=None, help="Hide all input cells when rendering output")
+@click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@runtime_environment_args
+@click.pass_context
+def write_manifest_notebook(
+    ctx: click.Context,
+    overwrite: bool,
+    python: Optional[str],
+    override_python_version: Optional[str],
+    force_generate: bool,
+    verbose: int,
+    file: str,
+    extra_files: tuple[str, ...],
+    image: Optional[str],
+    disable_env_management: Optional[bool],
+    env_management_py: Optional[bool],
+    env_management_r: Optional[bool],
+    exclude_renv: bool,
+    hide_all_input: Optional[bool] = None,
+    hide_tagged_input: Optional[bool] = None,
+    package_installer: Optional[PackageInstaller] = None,
+    requirements_file: Optional[str] = None,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("Checking arguments"):
+        validate_file_is_notebook(file)
+
+        base_dir = dirname(file)
+        manifest_path = join(base_dir, "manifest.json")
+
+        if exists(manifest_path) and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
+    with cli_feedback("Inspecting Python environment"):
+        environment = Environment.create_python_environment(
+            base_dir,
+            requirements_file=requirements_file,
+            python=python,
+            override_python_version=override_python_version,
+            app_file=file,
+            package_manager=package_installer,
+        )
+    r_environment = None if exclude_renv else REnvironment.create(base_dir)
+
+    generate_env = requirements_file is None
+    with cli_feedback("Creating manifest.json"):
+        environment_file_exists = write_notebook_manifest_json(
+            file,
+            environment,
+            AppModes.JUPYTER_NOTEBOOK,
+            extra_files,
+            hide_all_input,
+            hide_tagged_input,
+            image,
+            env_management_py,
+            env_management_r,
+            r_environment,
+        )
+
+    if environment_file_exists and not generate_env:
+        click.secho(
+            "    Warning: %s already exists and will not be overwritten." % environment.filename,
+            fg="yellow",
+        )
+    else:
+        with cli_feedback("Creating %s" % environment.filename):
+            write_environment_file(environment, base_dir)
+
+
+@write_manifest.command(
+    name="voila",
+    short_help="Create a manifest.json file for a Voila notebook.",
+    help=(
+        "Create a manifest.json file for a Voila notebook for later deployment. "
+        'This will create an environment file ("requirements.txt") if one does '
+        "not exist. All files are created in the same directory as the notebook file."
+    ),
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help="Path to Python interpreter whose environment should be used. "
+    + "The Python environment must have the rsconnect package installed.",
+)
+@click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=("An optional python version to use instead of the version from the detected environment."),
+)
+@click.option(
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(exists=True, dir_okay=False),
+    help=(
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
+    ),
+)
+@click.option(
+    "--package-installer",
+    type=click.Choice(PackageInstaller),
+    help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
+)
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@click.option("--entrypoint", "-e", help=("The module and executable object which serves as the entry point."))
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--multi-notebook",
+    "-m",
+    is_flag=True,
+    help=("Set the manifest for multi-notebook mode."),
+)
+@runtime_environment_args
+@click.pass_context
+def write_manifest_voila(
+    ctx: click.Context,
+    path: str,
+    entrypoint: Optional[str],
+    overwrite: bool,
+    python: Optional[str],
+    override_python_version: Optional[str],
+    force_generate: bool,
+    verbose: int,
+    extra_files: tuple[str, ...],
+    exclude: tuple[str, ...],
+    image: Optional[str],
+    disable_env_management: Optional[bool],
+    env_management_py: Optional[bool],
+    env_management_r: Optional[bool],
+    exclude_renv: bool,
+    multi_notebook: bool,
+    package_installer: Optional[PackageInstaller] = None,
+    requirements_file: Optional[str] = None,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("Checking arguments"):
+        base_dir = dirname(path)
+        manifest_path = join(base_dir, "manifest.json")
+
+        if exists(manifest_path) and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
+    with cli_feedback("Inspecting Python environment"):
+        environment = Environment.create_python_environment(
+            base_dir,
+            requirements_file=requirements_file,
+            override_python_version=override_python_version,
+            python=python,
+            app_file=path,
+            package_manager=package_installer,
+        )
+    r_environment = None if exclude_renv else REnvironment.create(base_dir)
+
+    environment_file_exists = exists(join(base_dir, environment.filename))
+    generate_env = requirements_file is None
+    if environment_file_exists and not generate_env:
+        click.secho(
+            "    Warning: %s already exists and will not be overwritten." % environment.filename,
+            fg="yellow",
+        )
+    else:
+        with cli_feedback("Creating %s" % environment.filename):
+            write_environment_file(environment, base_dir)
+
+    with cli_feedback("Creating manifest.json"):
+        write_voila_manifest_json(
+            path,
+            entrypoint,
+            environment,
+            extra_files,
+            exclude,
+            generate_env,
+            image,
+            env_management_py,
+            env_management_r,
+            r_environment,
+            multi_notebook,
+        )
+
+
+@write_manifest.command(
+    name="quarto",
+    short_help="Create a manifest.json file for Quarto content.",
+    help=(
+        "Create a manifest.json file for a Quarto document or project for later "
+        "deployment. Should the content use the Quarto Jupyter engine, "
+        'an environment file ("requirements.txt") is created if one does '
+        "not already exist. All files are created in the same directory "
+        "as the project."
+        "\n\n"
+        "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
+    ),
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--quarto",
+    "-q",
+    type=click.Path(exists=True),
+    help="Path to Quarto installation.",
+)
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help="Path to Python interpreter whose environment should be used. "
+    + "The Python environment must have the rsconnect package installed.",
+)
+@click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=("An optional python version to use instead of the version from the detected environment."),
+)
+@click.option(
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(dir_okay=False),
+    help=(
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
+    ),
+)
+@click.option(
+    "--package-installer",
+    type=click.Choice(PackageInstaller),
+    help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
+)
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@runtime_environment_args
+@click.pass_context
+def write_manifest_quarto(
+    ctx: click.Context,
+    overwrite: bool,
+    exclude: tuple[str, ...],
+    quarto: Optional[str],
+    python: Optional[str],
+    override_python_version: Optional[str],
+    force_generate: bool,
+    verbose: int,
+    file_or_directory: str,
+    extra_files: tuple[str, ...],
+    image: Optional[str],
+    disable_env_management: Optional[bool],
+    env_management_py: Optional[bool],
+    env_management_r: Optional[bool],
+    exclude_renv: bool,
+    package_installer: Optional[PackageInstaller],
+    requirements_file: Optional[str],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    base_dir = file_or_directory
+    if not isdir(file_or_directory):
+        base_dir = dirname(file_or_directory)
+
+    with cli_feedback("Checking arguments"):
+        manifest_path = join(base_dir, "manifest.json")
+
+        if exists(manifest_path) and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    with cli_feedback("Inspecting Quarto project"):
+        quarto = which_quarto(quarto)
+        logger.debug("Quarto: %s" % quarto)
+        inspect = quarto_inspect(quarto, file_or_directory)
+        engines = validate_quarto_engines(inspect)
+        if requirements_file and "jupyter" not in engines:
+            raise RSConnectException(
+                "--requirements-file is only supported for Quarto content using the Jupyter engine."
+            )
+
+    # R/Quarto content can use renv regardless of the Quarto engine, so detect it
+    # whenever a lockfile is present unless the user opted out.
+    r_environment = None if exclude_renv else REnvironment.create(base_dir)
+
+    environment = None
+    generate_env = False
+    if "jupyter" in engines:
+        requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
+        generate_env = requirements_file is None
+        with cli_feedback("Inspecting Python environment"):
+            environment = Environment.create_python_environment(
+                base_dir,
+                requirements_file=requirements_file,
+                override_python_version=override_python_version,
+                python=python,
+                package_manager=package_installer,
+            )
+
+        environment_file_exists = exists(join(base_dir, environment.filename))
+        if environment_file_exists and not generate_env:
+            click.secho(
+                "    Warning: %s already exists and will not be overwritten." % environment.filename,
+                fg="yellow",
+            )
+        else:
+            with cli_feedback("Creating %s" % environment.filename):
+                write_environment_file(environment, base_dir)
+
+    with cli_feedback("Creating manifest.json"):
+        write_quarto_manifest_json(
+            file_or_directory,
+            inspect,
+            AppModes.STATIC_QUARTO,
+            environment,
+            extra_files,
+            exclude,
+            image,
+            env_management_py,
+            env_management_r,
+            r_environment,
+        )
+
+
+@write_manifest.command(
+    name="pyproject",
+    short_help="Create a manifest.json file from a project's pyproject.toml.",
+    help=(
+        "Create a manifest.json file for later deployment, for content described by a project's "
+        "pyproject.toml. The given directory must contain a pyproject.toml with a [tool.rsconnect] "
+        "table specifying app_mode and entrypoint. This will also write the environment file the "
+        'manifest references (e.g. "requirements.txt"), regenerating it on each run unless it is '
+        "itself the requirements source. Designed as the write-manifest partner for projects "
+        "scaffolded by 'rsconnect quickstart'."
+    ),
+    no_args_is_help=True,
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help=(
+        "Path to the requirements source, relative to the project directory. "
+        "Overrides ``[tool.rsconnect].requirements_file`` in pyproject.toml; "
+        "defaults to ``pyproject.toml`` (the project's declared dependencies). "
+        "Pass ``uv.lock`` for a fully resolved manifest, or any ``requirements.txt``-compatible file."
+    ),
+)
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.option(
+    "--exclude-renv",
+    "exclude_renv",
+    is_flag=True,
+    default=False,
+    help="Skip renv.lock detection. R dependencies will not be added to the manifest, "
+    "even when an renv.lock file is present (in the content directory or at RENV_PATHS_LOCKFILE).",
+)
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@cli_exception_handler
+@click.pass_context
+def write_manifest_pyproject(
+    ctx: click.Context,
+    overwrite: bool,
+    requirements_file: Optional[str],
+    verbose: int,
+    exclude_renv: bool,
+    directory: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    def quickstart_hint() -> str:
+        return "To create a new project with this section already populated, run: rsconnect quickstart --help"
+
+    pyproject_path = Path(directory) / "pyproject.toml"
+    try:
+        target = resolve_pyproject_deploy_target(pyproject_path, requirements_file=requirements_file)
+    except UnsupportedAppModeError as err:
+        raise RSConnectException(str(err)) from err
+    except InvalidPyprojectConfigError as err:
+        raise RSConnectException(f"{err}\n\n{quickstart_hint()}") from err
+    except FileNotFoundError as err:
+        raise RSConnectException(f"pyproject.toml not found at {pyproject_path}.\n\n{quickstart_hint()}") from err
+    except TOMLDecodeError as err:
+        raise RSConnectException(f"pyproject.toml could not be parsed: {err}\n\n{quickstart_hint()}") from err
+
+    app_mode = target.app_mode
+    entrypoint = target.entrypoint
+    extra_files: tuple[str, ...] = tuple()
+    excludes: tuple[str, ...] = tuple()
+
+    # renv.lock detection mirrors the dedicated write-manifest commands;
+    # --exclude-renv opts out, otherwise detection is driven by the lockfile.
+    r_environment = None if exclude_renv else REnvironment.create(directory)
+
+    api_modes = (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API)
+    entrypoint_manifest_modes = (
+        AppModes.JUPYTER_NOTEBOOK,
+        AppModes.JUPYTER_VOILA,
+        AppModes.STATIC_QUARTO,
+        AppModes.SHINY_QUARTO,
+    )
+    if app_mode not in api_modes and app_mode not in entrypoint_manifest_modes:
+        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
+
+    with cli_feedback("Checking arguments"):
+        # The bundle.py writers put manifest.json in different places: API modes
+        # write to the project root, while notebook/voila/quarto write next to
+        # the entrypoint. Guard the writer's real destination.
+        if app_mode in entrypoint_manifest_modes:
+            entry_path = Path(directory) / entrypoint
+            manifest_dir = entry_path if entry_path.is_dir() else entry_path.parent
+        else:
+            manifest_dir = Path(directory)
+        if (manifest_dir / "manifest.json").exists() and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    def inspect_python_environment() -> Environment:
+        # Deliberately not resolve_requirements_file: its default is requirements.txt,
+        # while pyproject projects default to pyproject.toml (deploy parity).
+        with cli_feedback("Inspecting Python environment"):
+            return Environment.create_python_environment(
+                directory,
+                requirements_file=target.requirements_file,
+                override_python_version=None,
+            )
+
+    environment: Optional[Environment] = None
+    if app_mode in api_modes:
+        if app_mode == AppModes.PYTHON_SHINY:
+            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
+        environment = inspect_python_environment()
+        with cli_feedback("Creating manifest.json"):
+            write_api_manifest_json(
+                directory,
+                entrypoint,
+                environment,
+                app_mode,
+                extra_files,
+                excludes,
+                image=None,
+                env_management_py=None,
+                env_management_r=None,
+                r_environment=r_environment,
+            )
+    elif app_mode == AppModes.JUPYTER_NOTEBOOK:  # This is "jupyter-static"
+        environment = inspect_python_environment()
+        with cli_feedback("Creating manifest.json"):
+            write_notebook_manifest_json(
+                str(Path(directory) / entrypoint),
+                environment,
+                app_mode,
+                extra_files,
+                None,
+                None,
+                image=None,
+                env_management_py=None,
+                env_management_r=None,
+                r_environment=r_environment,
+            )
+    elif app_mode == AppModes.JUPYTER_VOILA:
+        environment = inspect_python_environment()
+        with cli_feedback("Creating manifest.json"):
+            write_voila_manifest_json(
+                directory,
+                entrypoint,
+                environment,
+                extra_files,
+                excludes,
+                True,
+                image=None,
+                env_management_py=None,
+                env_management_r=None,
+                r_environment=r_environment,
+                multi_notebook=False,
+            )
+    elif app_mode in (AppModes.STATIC_QUARTO, AppModes.SHINY_QUARTO):
+        path = str(Path(directory) / entrypoint)
+        with cli_feedback("Inspecting Quarto project"):
+            quarto = which_quarto(None)
+            logger.debug("Quarto: %s" % quarto)
+            inspect = quarto_inspect(quarto, path)
+            engines = validate_quarto_engines(inspect)
+
+        if "jupyter" in engines:
+            environment = inspect_python_environment()
+        with cli_feedback("Creating manifest.json"):
+            # Same target path as deploy (directory/entrypoint), so the manifest
+            # lands in the project directory next to pyproject.toml.
+            write_quarto_manifest_json(
+                path,
+                inspect,
+                app_mode,
+                environment,
+                extra_files,
+                excludes,
+                image=None,
+                env_management_py=None,
+                env_management_r=None,
+                r_environment=r_environment,
+            )
+
+    # The manifest references environment.filename (e.g. a requirements.txt
+    # generated from pyproject.toml's dependencies), so that file must exist
+    # next to manifest.json or deploying from the manifest fails. Regenerate it
+    # on every run so deployments pick up dependency changes, but never touch
+    # the requirements source itself: it is user-managed, and the inspector
+    # strips rsconnect lines from the contents it returns. Quarto with
+    # non-Jupyter engines has no environment.
+    if environment is not None:
+        requirements_source = (Path(directory) / target.requirements_file).resolve()
+        if requirements_source != (manifest_dir / environment.filename).resolve():
+            with cli_feedback("Creating %s" % environment.filename):
+                write_environment_file(environment, str(manifest_dir))
+
+
+@write_manifest.command(
+    name="tensorflow",
+    short_help="Create a manifest.json file for TensorFlow content.",
+    help=(
+        "Create a manifest.json file for a TensorFlow model for later "
+        "deployment. All files are created in the same directory "
+        "as the content. Requires Posit Connect 2024.05.0 or later."
+        "\n\n"
+        "DIRECTORY is the path to a directory containing a TensorFlow model."
+    ),
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content build and execution. "
+    "This option is only applicable if the Connect server is configured to use off-host execution.",
+)
+@click.pass_context
+def write_manifest_tensorflow(
+    ctx: click.Context,
+    overwrite: bool,
+    exclude: tuple[str, ...],
+    verbose: int,
+    directory: str,
+    extra_files: tuple[str, ...],
+    image: Optional[str],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    with cli_feedback("Checking arguments"):
+        manifest_path = join(directory, "manifest.json")
+
+        if exists(manifest_path) and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    with cli_feedback("Creating manifest.json"):
+        write_tensorflow_manifest_json(
+            directory,
+            extra_files,
+            exclude,
+            image,
+        )
+
+
+def generate_write_manifest_python(
+    app_mode: AppMode,
+    alias: Optional[str] = None,
+    desc: Optional[str] = None,
+):
+    # See :func:`generate_deploy_python` for the alias-resolution contract.
+    alias = alias or app_mode.cli_alias()
+    if desc is None:
+        desc = app_mode.desc()
+
+    # noinspection SpellCheckingInspection
+    @write_manifest.command(
+        name=alias,
+        short_help="Create a manifest.json file for a {desc}.".format(desc=desc),
+        help=(
+            "Create a manifest.json file for a {desc} for later deployment. This will create an "
+            'environment file ("requirements.txt") if one does not exist. All files '
+            "are created in the same directory as the API code."
+        ).format(desc=desc),
+    )
+    @click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+    @click.option(
+        "--entrypoint",
+        "-e",
+        help=(
+            "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
+        ).format(desc=desc),
+    )
+    @click.option(
+        "--exclude",
+        "-x",
+        multiple=True,
+        help=(
+            "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+            "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+            "This option may be repeated."
+        ),
+    )
+    @click.option(
+        "--python",
+        "-p",
+        type=click.Path(exists=True),
+        help="Path to Python interpreter whose environment should be used. "
+        + "The Python environment must have the rsconnect-python package installed.",
+    )
+    @click.option(
+        "--override-python-version",
+        type=validation.PYTHON_VERSION,
+        help=("An optional python version to use instead of the version from the detected environment."),
+    )
+    @click.option(
+        "--force-generate",
+        "-g",
+        is_flag=True,
+        help='Force generating "requirements.txt", even if it already exists.',
+    )
+    @click.option(
+        "--requirements-file",
+        "-r",
+        type=click.Path(dir_okay=False),
+        help=(
+            "Path to requirements file listing the project dependencies. "
+            "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
+            "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+            "Must be inside the project directory."
+        ),
+    )
+    @click.option(
+        "--package-installer",
+        type=click.Choice(PackageInstaller),
+        help=(
+            "Select the Python package installer for installs in the manifest. By default, behavior is server-driven."
+        ),
+    )
+    @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+    @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+    @click.argument(
+        "extra_files",
+        nargs=-1,
+        type=click.Path(exists=True, dir_okay=False, file_okay=True),
+    )
+    @runtime_environment_args
+    @click.pass_context
+    def manifest_writer(
+        ctx: click.Context,
+        overwrite: bool,
+        entrypoint: Optional[str],
+        exclude: tuple[str, ...],
+        python: Optional[str],
+        override_python_version: Optional[str],
+        force_generate: bool,
+        verbose: int,
+        directory: str,
+        extra_files: tuple[str, ...],
+        image: Optional[str],
+        disable_env_management: Optional[bool],
+        env_management_py: Optional[bool],
+        env_management_r: Optional[bool],
+        exclude_renv: bool,
+        package_installer: Optional[PackageInstaller],
+        requirements_file: Optional[str],
+    ):
+        resolved_requirements_file = resolve_requirements_file(directory, requirements_file, force_generate)
+        _write_framework_manifest(
+            ctx,
+            overwrite,
+            entrypoint,
+            exclude,
+            python,
+            override_python_version,
+            verbose,
+            directory,
+            extra_files,
+            app_mode,
+            image,
+            env_management_py,
+            env_management_r,
+            exclude_renv,
+            package_installer=package_installer,
+            requirements_file=resolved_requirements_file,
+        )
+
+    return manifest_writer
+
+
+generate_write_manifest_python(AppModes.BOKEH_APP)
+generate_write_manifest_python(AppModes.DASH_APP)
+generate_write_manifest_python(AppModes.PYTHON_API)
+generate_write_manifest_python(AppModes.PYTHON_API, alias="flask", desc="Flask API")
+generate_write_manifest_python(AppModes.PYTHON_FASTAPI)
+generate_write_manifest_python(AppModes.PYTHON_SHINY)
+generate_write_manifest_python(AppModes.STREAMLIT_APP)
+generate_write_manifest_python(AppModes.PYTHON_GRADIO)
+generate_write_manifest_python(AppModes.PYTHON_PANEL)
+
+
+# noinspection SpellCheckingInspection
+@write_manifest.command(
+    name="nodejs",
+    short_help="Create a manifest.json file for a Node.js application.",
+    help=(
+        "Create a manifest.json file for a Node.js application for later deployment. "
+        "All files are created in the same directory as the application code."
+    ),
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--entrypoint",
+    "-e",
+    help="The JavaScript or TypeScript file that serves as the entry point for the application "
+    "(e.g., app.js, server.ts). Auto-detected from package.json if not specified.",
+)
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--node",
+    type=click.Path(exists=True),
+    help="Path to the Node.js executable whose version should be used.",
+)
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content build and execution. "
+    "This option is only applicable if the Connect server is configured to use off-host execution.",
+)
+@click.option(
+    "--disable-env-management-node",
+    "env_management_node",
+    is_flag=True,
+    default=None,
+    help="Disable Node.js environment management for this bundle.",
+    callback=env_management_callback,
+)
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@click.pass_context
+def write_manifest_nodejs(
+    ctx: click.Context,
+    overwrite: bool,
+    entrypoint: Optional[str],
+    exclude: tuple[str, ...],
+    node: Optional[str],
+    verbose: int,
+    directory: str,
+    extra_files: tuple[str, ...],
+    image: Optional[str],
+    env_management_node: Optional[bool],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    with cli_feedback("Checking arguments"):
+        entrypoint = validate_node_entry_point(entrypoint, directory)
+        manifest_path = join(directory, "manifest.json")
+
+        if exists(manifest_path) and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    with cli_feedback("Inspecting Node.js environment"):
+        node_environment = NodeEnvironment.create(directory, node_executable=node)
+
+    with cli_feedback("Creating manifest.json"):
+        write_nodejs_manifest_json(
+            directory,
+            entrypoint,
+            node_environment,
+            extra_files,
+            exclude,
+            image,
+            env_management_node,
+        )
+
+
+# noinspection SpellCheckingInspection
+def _write_framework_manifest(
+    ctx: click.Context,
+    overwrite: bool,
+    entrypoint: Optional[str],
+    exclude: tuple[str, ...],
+    python: Optional[str],
+    override_python_version: Optional[str],
+    verbose: int,
+    directory: str,
+    extra_files: tuple[str, ...],
+    app_mode: AppMode,
+    image: Optional[str],
+    env_management_py: Optional[bool],
+    env_management_r: Optional[bool],
+    exclude_renv: bool = False,
+    package_installer: Optional[PackageInstaller] = None,
+    requirements_file: Optional[str] = None,
+):
+    """
+    A common function for writing manifests for APIs as well as Dash, Streamlit, Bokeh, and Panel apps.
+
+    :param overwrite: overwrite the manifest.json, if it exists.
+    :param entrypoint: the entry point for the thing being deployed.
+    :param exclude: a sequence of exclude glob patterns to exclude files from
+                    the deploy.
+    :param python: a path to the Python executable to use.
+    :param override_python_version: Python version number Connect should use instead of the locally-installed version
+    :param verbose: a flag to produce more (debugging) output.
+    :param directory: the directory of the thing to deploy.
+    :param extra_files: any extra files that should be included.
+    :param app_mode: the app mode to use.
+    :param image: an optional docker image for off-host execution.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    """
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    with cli_feedback("Checking arguments"):
+        entrypoint = validate_entry_point(entrypoint, directory)
+        manifest_path = join(directory, "manifest.json")
+
+        if exists(manifest_path) and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    resolved_requirements_file = resolve_requirements_file(directory, requirements_file, False)
+    with cli_feedback("Inspecting Python environment"):
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=resolved_requirements_file,
+            override_python_version=override_python_version,
+            python=python,
+        )
+    r_environment = None if exclude_renv else REnvironment.create(directory)
+
+    if app_mode == AppModes.PYTHON_SHINY:
+        with cli_feedback("Inspecting Shiny for Python app"):
+            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
+
+    with cli_feedback("Creating manifest.json"):
+        environment_file_exists = write_api_manifest_json(
+            directory,
+            entrypoint,
+            environment,
+            app_mode,
+            extra_files,
+            exclude,
+            image,
+            env_management_py,
+            env_management_r,
+            r_environment,
+        )
+
+    generate_env = resolved_requirements_file is None
+    if environment_file_exists and not generate_env:
+        click.secho(
+            "    Warning: %s already exists and will not be overwritten." % environment.filename,
+            fg="yellow",
+        )
+    else:
+        with cli_feedback("Creating %s" % environment.filename):
+            write_environment_file(environment, directory)
+
+
+@cli.group(no_args_is_help=True, help="Interact with Posit Connect's content API.")
+def content():
+    pass
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@content.command(
+    name="search",
+    short_help="Search for content on Posit Connect.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--published",
+    is_flag=True,
+    help="Search only published content.",
+)
+@click.option(
+    "--unpublished",
+    is_flag=True,
+    help="Search only unpublished content.",
+)
+@click.option(
+    "--content-type",
+    type=click.Choice(list(map(str, AppModes._modes))),
+    multiple=True,
+    help="Filter content results by content type.",
+)
+@click.option(
+    "--r-version",
+    type=VersionSearchFilterParamType("r_version"),
+    help="Filter content results by R version.",
+)
+@click.option(
+    "--py-version",
+    type=VersionSearchFilterParamType("py_version"),
+    help="Filter content results by Python version.",
+)
+@click.option(
+    "--title-contains",
+    help="Filter content results by title.",
+)
+@click.option(
+    "--order-by",
+    type=click.Choice(["created", "last_deployed"]),
+    help="Order content results.",
+)
+# todo: --format option (json, text)
+@cli_exception_handler
+@click.pass_context
+def content_search(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    published: bool,
+    unpublished: bool,
+    content_type: tuple[str, ...],
+    r_version: Optional[VersionSearchFilter],
+    py_version: Optional[VersionSearchFilter],
+    title_contains: Optional[str],
+    order_by: Optional[Literal["created", "last_deployed"]],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect content search` requires a Posit Connect server.")
+        result = search_content(
+            ce.remote_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
+        )
+        json.dump(result, sys.stdout, indent=2)
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@content.command(
+    name="describe",
+    short_help="Describe a content item on Posit Connect.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    multiple=True,
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="TEXT",
+    help="The GUID of a content item to describe. This flag can be passed multiple times.",
+)
+# todo: --format option (json, text)
+@click.pass_context
+def content_describe(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: str,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect content describe` requires a Posit Connect server.")
+        result = get_content(ce.remote_server, guid)
+        json.dump(result, sys.stdout, indent=2)
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@content.command(
+    name="download-bundle",
+    short_help="Download a content item's source bundle.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=ContentGuidWithBundleParamType(),
+    metavar="GUID[,BUNDLE_ID]",
+    help="The GUID of a content item to download.",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    required=True,
+    help="Defines the output location for the download.",
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    help="Overwrite the output file if it already exists.",
+)
+@click.pass_context
+def content_bundle_download(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: ContentGuidWithBundle,
+    output: str,
+    overwrite: bool,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect content download-bundle` requires a Posit Connect server.")
+        if exists(output) and not overwrite:
+            raise RSConnectException("The output file already exists: %s" % output)
+
+        result = download_bundle(ce.remote_server, guid)
+        if not isinstance(result.response_body, bytes):
+            raise RSConnectException("The response body must be bytes (not string or None).")
+        with open(output, "wb") as f:
+            f.write(result.response_body)
+
+
+@content.command(
+    name="get-lockfile",
+    short_help="Download a content item's lockfile.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="TEXT",
+    help="The GUID of a content item whose lockfile will be downloaded.",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default="requirements.txt.lock",
+    show_default=True,
+    help="Defines the output location for the lockfile download.",
+)
+@click.option(
+    "--overwrite",
+    "-w",
+    is_flag=True,
+    help="Overwrite the output file if it already exists.",
+)
+@click.pass_context
+def content_get_lockfile(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: str,
+    output: str,
+    overwrite: bool,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect content get-lockfile` requires a Posit Connect server.")
+        if exists(output) and not overwrite:
+            raise RSConnectException("The output file already exists: %s, maybe you want to --overwrite?" % output)
+
+        logger.info("Downloading %s for content %s" % (output, guid))
+        result = download_lockfile(ce.remote_server, guid)
+        if not isinstance(result.response_body, bytes):
+            raise RSConnectException("The response body must be bytes (not string or None).")
+        with open(output, "wb") as f:
+            f.write(result.response_body)
+
+
+@content.command(
+    name="venv",
+    short_help="Replicate a Python environment from Connect",
+    help="Create a ENV_PATH Python virtual environment that mimics "
+    "the environment of a deployed content item on Posit Connect. "
+    "This will use the 'uv' tool to locally create and manage the virtual environment. "
+    "If the required Python version isn't already installed, uv will download it automatically."
+    "\n\n"
+    "run it from the directory of a deployed content item to auto-detect the GUID, "
+    "or provide the --guid option to specify a content item explicitly.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    type=StrippedStringParamType(),
+    metavar="TEXT",
+    help=(
+        "The GUID of a content item whose lockfile will be used to build the environment. "
+        "If omitted, rsconnect will try to auto-detect the last deployed GUID for the current server "
+        "from local deployment metadata."
+    ),
+)
+@click.argument("env_path", metavar="ENV_PATH", type=click.Path())
+@click.pass_context
+def content_venv(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: Optional[str],
+    env_path: str,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    uv_path = shutil.which("uv")
+    if not uv_path:
+        raise RSConnectException(
+            "uv is required for `rsconnect content venv`. make sure it's available in your PATH and try again."
+        )
+
+    def _python_version_from_header(header: Optional[str]) -> str:
+        header = header or ""
+        *_, version = header.split("python=", 1)
+        version = version.split(".")[:2]  # major.minor
+        return ".".join(version)
+
+    def _guid_for_current_server(server_url: str) -> Optional[str]:
+        for candidate in _get_names_to_check(os.getcwd()):
+            deployment = AppStore(candidate).get(server_url)
+            if deployment:
+                return deployment.get("app_guid") or deployment.get("app_id")
+        return None
+
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect content venv` requires a Posit Connect server.")
+
+        guid = guid or _guid_for_current_server(ce.remote_server.url)
+        if not guid:
+            raise RSConnectException(
+                "No GUID provided and none found for this server in local deployment metadata. "
+                "Provide --guid or deploy from this directory first."
+            )
+
+        result = download_lockfile(ce.remote_server, guid)
+        if not isinstance(result.response_body, bytes):
+            raise RSConnectException("The response body must be bytes (not string or None).")
+
+        python_version = _python_version_from_header(result.getheader("Generated-By"))
+        with tempfile.NamedTemporaryFile("wb") as lockfile:
+            lockfile.write(result.response_body)
+            lockfile.flush()
+
+            if not exists(env_path):
+                uv_venv_cmd = [uv_path, "venv"]
+                if python_version:
+                    uv_venv_cmd.extend(["--python", python_version])
+                uv_venv_cmd.append(env_path)
+                venv_result = subprocess.run(uv_venv_cmd, env=dict(os.environ, UV_PYTHON_DOWNLOADS="auto"))
+                if venv_result.returncode != 0:
+                    raise RSConnectException("uv venv failed with exit code %d" % venv_result.returncode)
+
+            logger.info("Syncing environment %s" % env_path)
+            result = subprocess.run([uv_path, "pip", "install", "--python", env_path, "-r", lockfile.name])
+            if result.returncode != 0:
+                raise RSConnectException("uv pip install failed with exit code %d" % result.returncode)
+
+            logger.info("Environment ready. Activate with: source %s/bin/activate" % env_path)
+
+
+@content.group(no_args_is_help=True, help="Manage git repository configuration for content items.")
+def repository():
+    pass
+
+
+@repository.command(
+    name="show",
+    short_help="Show git repository configuration for a content item.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="GUID",
+    help="The GUID of the content item.",
+)
+@cli_exception_handler
+@click.pass_context
+def repository_show(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: str,
+    verbose: int,
+):
+    """Show the git repository configuration for a content item."""
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.client, RSConnectClient):
+            raise RSConnectException("`rsconnect content repository show` requires a Posit Connect server.")
+
+        repo_info = ce.client.get_repository(guid)
+        if repo_info is None:
+            click.echo("Content item is not git-managed.", err=True)
+            ctx.exit(1)
+        else:
+            json.dump(repo_info, sys.stdout, indent=2)
+            click.echo()  # newline after JSON
+
+
+@repository.command(
+    name="delete",
+    short_help="Remove git repository configuration from a content item.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="GUID",
+    help="The GUID of the content item.",
+)
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    help="Skip confirmation prompt.",
+)
+@cli_exception_handler
+@click.pass_context
+def repository_delete(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: str,
+    force: bool,
+    verbose: int,
+):
+    """Remove git repository configuration from a content item.
+
+    This will stop automatic redeployment on git commits. The content item
+    will remain deployed but will no longer be git-managed.
+    """
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    if not force:
+        click.confirm(
+            f"Are you sure you want to remove git configuration from content {guid}?",
+            abort=True,
+        )
+
+    with cli_feedback("Removing git repository configuration..."):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.client, RSConnectClient):
+            raise RSConnectException("`rsconnect content repository delete` requires a Posit Connect server.")
+
+        ce.client.delete_repository(guid)
+    click.echo("Git repository configuration removed successfully.")
+
+
+@repository.command(
+    name="redeploy",
+    short_help="Trigger a new deployment from the git repository.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="GUID",
+    help="The GUID of the content item.",
+)
+@click.option(
+    "--ref",
+    "-r",
+    default=None,
+    help="Git ref to deploy from (branch, tag, or commit SHA). Uses the configured branch if not specified.",
+)
+@cli_exception_handler
+@click.pass_context
+def repository_redeploy(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: str,
+    ref: Optional[str],
+    verbose: int,
+):
+    """Trigger a new deployment from the git repository.
+
+    This creates a new bundle from the git repository and deploys it.
+    Optionally specify a different ref (branch, tag, or commit) to deploy from.
+    """
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    with cli_feedback("Creating bundle from git repository..."):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.client, RSConnectClient):
+            raise RSConnectException("`rsconnect content repository redeploy` requires a Posit Connect server.")
+
+        result = ce.client.create_bundle_from_repository(guid, ref=ref)
+
+    click.echo(f"Bundle created: {result['bundle_id']}")
+    click.echo(f"Task ID: {result['task_id']}")
+
+    # Wait for the bundling task to complete, then deploy
+    click.echo("Waiting for bundle creation...")
+    _, task_status = ce.client.wait_for_task(result["task_id"], log_callback=lambda msg: logger.info(msg))
+
+    if task_status.get("error"):
+        raise RSConnectException(f"Bundle creation failed: {task_status.get('error')}")
+
+    click.echo("Deploying bundle...")
+    deploy_result = ce.client.content_deploy(guid, bundle_id=result["bundle_id"])
+
+    click.echo(f"Deployment task started: {deploy_result['task_id']}")
+
+
+@content.group(no_args_is_help=True, help="Build content on Posit Connect.")
+def build():
+    pass
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@build.command(
+    name="add", short_help="Mark a content item for build. Use `build run` to invoke the build on the Connect server."
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=ContentGuidWithBundleParamType(),
+    multiple=True,
+    metavar="GUID[,BUNDLE_ID]",
+    help="Add a content item by its guid. This flag can be passed multiple times.",
+)
+@click.pass_context
+def add_content_build(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: tuple[ContentGuidWithBundle, ...],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect content build add` requires a Posit Connect server.")
+        build_add_content(ce.remote_server, guid)
+        if len(guid) == 1:
+            logger.info('Added "%s".' % guid[0])
+        else:
+            logger.info("Bulk added %d content items." % len(guid))
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@build.command(
+    name="rm",
+    short_help="Remove a content item from the list of content that are tracked for build. "
+    + "Use `build ls` to view the tracked content.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    type=StrippedStringParamType(),
+    metavar="TEXT",
+    help="Remove a content item by guid.",
+)
+@click.option(
+    "--all",
+    is_flag=True,
+    # TODO: Ask for confirmation?
+    help="Remove all content items from the list of content tracked for build.",
+)
+@click.option(
+    "--purge",
+    "-p",
+    is_flag=True,
+    help="Remove build history and log files from the local filesystem.",
+)
+@click.pass_context
+def remove_content_build(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: Optional[str],
+    all: bool,
+    purge: bool,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, RSConnectServer):
+            raise RSConnectException("`rsconnect content build rm` requires a Posit Connect server.")
+        guids = build_remove_content(ce.remote_server, guid, all, purge)
+        if len(guids) == 1:
+            logger.info('Removed "%s".' % guids[0])
+        else:
+            logger.info("Removed %d content items." % len(guids))
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@build.command(
+    name="ls", short_help="List the content items that are being tracked for build on a given Connect server."
+)
+@server_args
+@spcs_args
+@click.option(
+    "--status",
+    type=click.Choice(BuildStatus._all),
+    help="Filter results by status of the build operation.",
+)
+@click.option(
+    "--guid",
+    "-g",
+    multiple=True,
+    type=StrippedStringParamType(),
+    metavar="TEXT",
+    help="Check the local build state of a specific content item. This flag can be passed multiple times.",
+)
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+# todo: --format option (json, text)
+@click.pass_context
+def list_content_build(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    status: Optional[str],
+    guid: str,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect content build ls` requires a Posit Connect server.")
+        result = build_list_content(ce.remote_server, guid, status)
+        json.dump(result, sys.stdout, indent=2)
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@build.command(name="history", short_help="Get the build history for a content item.")
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="TEXT",
+    help="The guid of the content item.",
+)
+# todo: --format option (json, text)
+@click.pass_context
+def get_build_history(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: str,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        )
+        ce.validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect content build history` requires a Posit Connect server.")
+        result = build_history(ce.remote_server, guid)
+        json.dump(result, sys.stdout, indent=2)
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@build.command(
+    name="logs",
+    short_help="Print the logs for a content build.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="TEXT",
+    help="The guid of the content item.",
+)
+@click.option(
+    "--task-id",
+    "-t",
+    type=StrippedStringParamType(),
+    metavar="TEXT",
+    help="The task ID of the build.",
+)
+@click.option(
+    "--format",
+    "-f",
+    type=click.Choice(LogOutputFormat._all),
+    default=LogOutputFormat.DEFAULT,
+    help="The output format of the logs. Defaults to text.",
+)
+@click.pass_context
+def get_build_logs(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: str,
+    task_id: Optional[str],
+    format: LogOutputFormat.All,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect content build logs` requires a Posit Connect server.")
+        for line in emit_build_log(ce.remote_server, guid, format, task_id):
+            sys.stdout.write(line)
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@build.command(
+    name="run",
+    short_help="Start building content on a given Connect server.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--parallelism",
+    type=click.IntRange(min=1, clamp=True),
+    default=1,
+    help="Defines the number of builds that can run concurrently. Defaults to 1.",
+)
+@click.option("--aborted", is_flag=True, hidden=True, help="Build content that is in the ABORTED state.")
+@click.option("--error", is_flag=True, hidden=True, help="Build content that is in the ERROR state.")
+@click.option("--running", is_flag=True, hidden=True, help="Build content that is in the RUNNING state.")
+@click.option(
+    "--retry",
+    is_flag=True,
+    help="Build all content that is in the NEEDS_BUILD, ABORTED, ERROR, or RUNNING state.",
+)
+@click.option("--all", is_flag=True, help="Build all content, even if it is already marked as COMPLETE.")
+@click.option(
+    "--poll-wait",
+    type=click.IntRange(min=1, clamp=True),
+    default=1,
+    help="Defines the number of seconds between polls when polling for build output. Defaults to 1.",
+)
+@click.option(
+    "--format",
+    "-f",
+    type=click.Choice(LogOutputFormat._all),
+    default=LogOutputFormat.DEFAULT,
+    help="The output format of the logs. Defaults to text.",
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Log stacktraces from exceptions during background operations.",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Always build content even if a build is already marked as running.",
+)
+@click.pass_context
+def start_content_build(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    parallelism: int,
+    aborted: bool,
+    error: bool,
+    running: bool,
+    retry: bool,
+    all: bool,
+    poll_wait: int,
+    format: LogOutputFormat.All,
+    debug: bool,
+    force: bool,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    logger.set_log_output_format(format)
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("rsconnect content build run` requires a Posit Connect server.")
+        build_start(ce.remote_server, parallelism, aborted, error, running, retry, all, poll_wait, debug, force)
+
+
+@cli.group(no_args_is_help=True, help="Interact with Posit Connect's system API.")
+def system():
+    pass
+
+
+@system.group(no_args_is_help=True, help="Interact with Posit Connect's system caches.")
+def caches():
+    pass
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@caches.command(
+    name="list",
+    short_help="List runtime caches present on a Posit Connect server.",
+)
+@server_args
+@spcs_args
+def system_caches_list(
+    name: str,
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            None,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        result = ce.runtime_caches
+        json.dump(result, sys.stdout, indent=2)
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@caches.command(
+    name="delete",
+    short_help="Delete a runtime cache on a Posit Connect server.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--language",
+    "-l",
+    help="The language of the target cache.",
+    required=True,
+)
+@click.option(
+    "--version",
+    "-V",
+    help="The version of the target cache.",
+    required=True,
+)
+@click.option(
+    "--image-name",
+    "-I",
+    default="Local",
+    help='The image name of the target cache\'s execution environment. Defaults to "Local".',
+)
+@click.option(
+    "--dry-run",
+    "-d",
+    is_flag=True,
+    help="If true, verify that deletion would occur, but do not delete.",
+)
+@click.pass_context
+def system_caches_delete(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    language: str,
+    version: str,
+    image_name: str,
+    dry_run: bool,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        ce.delete_runtime_cache(language, version, image_name, dry_run)
+
+
+def _parse_installations(values: tuple[str, ...]) -> list[EnvironmentInstallation] | None:
+    if not values:
+        return None
+    results: list[EnvironmentInstallation] = []
+    for v in values:
+        if "=" not in v:
+            raise click.BadParameter(f"Expected VERSION=PATH format, got '{v}'")
+        version, path = v.split("=", 1)
+        results.append(EnvironmentInstallation(version=version, path=path))
+    return results
+
+
+def _parse_mounts(values: tuple[str, ...]) -> list[EnvironmentVolumeMount] | None:
+    if not values:
+        return None
+    results: list[EnvironmentVolumeMount] = []
+    for v in values:
+        parts = dict(p.split("=", 1) if "=" in p else (p, "") for p in v.split(","))
+        volume_type = parts.get("type", "")
+        if not volume_type:
+            raise click.BadParameter(f"Mount must include 'type=nfs' or 'type=pvc': '{v}'")
+        target_path = parts.get("target", "")
+        if not target_path:
+            raise click.BadParameter(f"Mount must include 'target=/path': '{v}'")
+        if volume_type not in ("nfs", "pvc"):
+            raise click.BadParameter(f"Unsupported mount type '{volume_type}'. Must be 'nfs' or 'pvc'.")
+        source: dict[str, str | None] = {"volume_type": volume_type}
+        if volume_type == "nfs":
+            source["nfs_host"] = parts.get("nfs_host")
+            source["nfs_export_path"] = parts.get("nfs_export_path")
+        elif volume_type == "pvc":
+            source["pvc_name"] = parts.get("pvc_name")
+        target: dict[str, str | bool | None] = {"path": target_path}
+        read_only = "readonly" in parts or parts.get("read_only") == "true"
+        target["read_only"] = read_only if read_only else None
+        results.append({"source": source, "target": target})  # type: ignore[arg-type]
+    return results
+
+
+@cli.group(no_args_is_help=True, help="Manage execution environments on Posit Connect.")
+def environment():
+    pass
+
+
+@environment.command(name="list", short_help="List execution environments.")
+@server_args
+@spcs_args
+@cli_exception_handler
+@click.pass_context
+def environment_list(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment list` requires a Posit Connect server.")
+        result = list_environments(ce.remote_server)
+        if not result:
+            click.echo("No environments found.")
+        else:
+            for env in result:
+                title = env.get("title") or env.get("name") or "(untitled)"
+                click.echo("%s  %s" % (env["guid"], title))
+
+
+@environment.command(name="show", short_help="Show a single execution environment.")
+@server_args
+@spcs_args
+@click.argument("guid", type=StrippedStringParamType())
+@cli_exception_handler
+@click.pass_context
+def environment_show(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment show` requires a Posit Connect server.")
+        result = get_environment(ce.remote_server, guid)
+        json.dump(result, sys.stdout, indent=2)
+
+
+@environment.command(name="add", short_help="Create a new execution environment.")
+@server_args
+@spcs_args
+@click.argument("image")
+@click.option("--title", "-T", default=None, help="A human-readable title for the environment.")
+@click.option("--description", "-d", default=None, help="A description for the environment.")
+@click.option(
+    "--matching",
+    "-m",
+    default=None,
+    type=click.Choice(["any", "exact", "none"]),
+    help="The image selection strategy.",
+)
+@click.option("--supervisor", default=None, help="Path to the per-image supervisor script.")
+@click.option(
+    "--python",
+    "python_installations",
+    multiple=True,
+    help="A Python installation as VERSION=PATH. Example: 3.11.6=/opt/python/3.11.6/bin/python",
+)
+@click.option(
+    "--quarto",
+    "quarto_installations",
+    multiple=True,
+    help="A Quarto installation as VERSION=PATH. Example: 1.4.555=/opt/quarto/1.4.555/bin/quarto",
+)
+@click.option(
+    "--r",
+    "r_installations",
+    multiple=True,
+    help="An R installation as VERSION=PATH. Example: 4.3.2=/opt/R/4.3.2/bin/R",
+)
+@click.option(
+    "--tensorflow",
+    "tensorflow_installations",
+    multiple=True,
+    help="A TensorFlow installation as VERSION=PATH. Example: 2.14.0=/opt/tensorflow/2.14.0",
+)
+@click.option(
+    "--mount",
+    "mounts",
+    multiple=True,
+    help=(
+        "A volume mount as comma-separated key=value pairs. Required keys: type (nfs or pvc), target. "
+        "NFS example: type=nfs,nfs_host=nas.example.com,nfs_export_path=/shared/data,target=/mnt/data. "
+        "PVC example: type=pvc,pvc_name=my-claim,target=/mnt/storage,read_only=true"
+    ),
+)
+@click.option("--allow-user", multiple=True, type=StrippedStringParamType(), help="A user GUID to grant access.")
+@click.option("--allow-group", multiple=True, type=StrippedStringParamType(), help="A group GUID to grant access.")
+@click.option("--clear-permissions", is_flag=True, default=False, help="Remove all existing permissions.")
+@cli_exception_handler
+@click.pass_context
+def environment_add(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    image: str,
+    title: Optional[str],
+    description: Optional[str],
+    matching: Optional[str],
+    supervisor: Optional[str],
+    python_installations: tuple[str, ...],
+    quarto_installations: tuple[str, ...],
+    r_installations: tuple[str, ...],
+    tensorflow_installations: tuple[str, ...],
+    mounts: tuple[str, ...],
+    allow_user: tuple[str, ...],
+    allow_group: tuple[str, ...],
+    clear_permissions: bool,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment add` requires a Posit Connect server.")
+        result = create_environment(
+            ce.remote_server,
+            image=image,
+            title=title,
+            description=description,
+            matching=matching,
+            supervisor=supervisor,
+            python=_parse_installations(python_installations),
+            quarto=_parse_installations(quarto_installations),
+            r=_parse_installations(r_installations),
+            tensorflow=_parse_installations(tensorflow_installations),
+            volume_mounts=_parse_mounts(mounts),
+            user_guids=list(allow_user) if (allow_user or clear_permissions) else None,
+            group_guids=list(allow_group) if (allow_group or clear_permissions) else None,
+        )
+        json.dump(result, sys.stdout, indent=2)
+
+
+@environment.command(name="edit", short_help="Update an existing execution environment.")
+@server_args
+@spcs_args
+@click.argument("guid", type=StrippedStringParamType())
+@click.option("--title", "-T", default=None, help="A new title for the environment.")
+@click.option("--description", "-d", default=None, help="A new description for the environment.")
+@click.option(
+    "--matching",
+    "-m",
+    default=None,
+    type=click.Choice(["any", "exact", "none"]),
+    help="The image selection strategy.",
+)
+@click.option("--supervisor", default=None, help="Path to the per-image supervisor script.")
+@click.option(
+    "--python",
+    "python_installations",
+    multiple=True,
+    help="A Python installation as VERSION=PATH. Example: 3.11.6=/opt/python/3.11.6/bin/python",
+)
+@click.option(
+    "--quarto",
+    "quarto_installations",
+    multiple=True,
+    help="A Quarto installation as VERSION=PATH. Example: 1.4.555=/opt/quarto/1.4.555/bin/quarto",
+)
+@click.option(
+    "--r",
+    "r_installations",
+    multiple=True,
+    help="An R installation as VERSION=PATH. Example: 4.3.2=/opt/R/4.3.2/bin/R",
+)
+@click.option(
+    "--tensorflow",
+    "tensorflow_installations",
+    multiple=True,
+    help="A TensorFlow installation as VERSION=PATH. Example: 2.14.0=/opt/tensorflow/2.14.0",
+)
+@click.option(
+    "--mount",
+    "mounts",
+    multiple=True,
+    help=(
+        "A volume mount as comma-separated key=value pairs. Required keys: type (nfs or pvc), target. "
+        "NFS example: type=nfs,nfs_host=nas.example.com,nfs_export_path=/shared/data,target=/mnt/data. "
+        "PVC example: type=pvc,pvc_name=my-claim,target=/mnt/storage,read_only=true"
+    ),
+)
+@click.option("--allow-user", multiple=True, type=StrippedStringParamType(), help="A user GUID to grant access.")
+@click.option("--allow-group", multiple=True, type=StrippedStringParamType(), help="A group GUID to grant access.")
+@click.option("--clear-permissions", is_flag=True, default=False, help="Remove all existing permissions.")
+@cli_exception_handler
+@click.pass_context
+def environment_edit(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+    title: Optional[str],
+    description: Optional[str],
+    matching: Optional[str],
+    supervisor: Optional[str],
+    python_installations: tuple[str, ...],
+    quarto_installations: tuple[str, ...],
+    r_installations: tuple[str, ...],
+    tensorflow_installations: tuple[str, ...],
+    mounts: tuple[str, ...],
+    allow_user: tuple[str, ...],
+    allow_group: tuple[str, ...],
+    clear_permissions: bool,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment edit` requires a Posit Connect server.")
+        result = update_environment(
+            ce.remote_server,
+            guid=guid,
+            title=title,
+            description=description,
+            matching=matching,
+            supervisor=supervisor,
+            python=_parse_installations(python_installations),
+            quarto=_parse_installations(quarto_installations),
+            r=_parse_installations(r_installations),
+            tensorflow=_parse_installations(tensorflow_installations),
+            volume_mounts=_parse_mounts(mounts),
+            user_guids=list(allow_user) if (allow_user or clear_permissions) else None,
+            group_guids=list(allow_group) if (allow_group or clear_permissions) else None,
+        )
+        json.dump(result, sys.stdout, indent=2)
+
+
+@environment.command(name="remove", short_help="Delete an execution environment.")
+@server_args
+@spcs_args
+@click.argument("guid", type=StrippedStringParamType())
+@cli_exception_handler
+@click.pass_context
+def environment_remove(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment remove` requires a Posit Connect server.")
+        delete_environment(ce.remote_server, guid)
+        click.echo("Deleted environment %s." % guid)
+
+
+@cli.group(no_args_is_help=True, help="Manage OAuth integrations on Posit Connect.")
+def integration():
+    pass
+
+
+@integration.command(name="list", short_help="List OAuth integrations.")
+@server_args
+@spcs_args
+@cli_exception_handler
+@click.pass_context
+def integration_list(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration list` requires a Posit Connect server.")
+        result = list_oauth_integrations(ce.remote_server)
+        if not result:
+            click.echo("No integrations found.")
+        else:
+            for item in result:
+                label = item.get("name") or item.get("template") or "(unnamed)"
+                click.echo("%s  %s" % (item["guid"], label))
+
+
+@integration.command(name="show", short_help="Show a single OAuth integration.")
+@server_args
+@spcs_args
+@click.argument("guid", type=StrippedStringParamType())
+@cli_exception_handler
+@click.pass_context
+def integration_show(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration show` requires a Posit Connect server.")
+        result = get_oauth_integration(ce.remote_server, guid)
+        json.dump(result, sys.stdout, indent=2)
+
+
+@integration.command(name="add", short_help="Create a new OAuth integration.")
+@server_args
+@spcs_args
+@click.option("--template", "-t", required=True, help="The template key (e.g. 'custom').")
+@click.option("--integration-name", "-N", default=None, help="A display name for the integration.")
+@click.option("--description", "-d", default=None, help="A description for the integration.")
+@click.option(
+    "--config",
+    "-C",
+    multiple=True,
+    type=KeyValueParamType(),
+    metavar="KEY=VALUE",
+    help="A config field as key=value. Repeat for multiple fields.",
+)
+@click.option("--allow-user", multiple=True, type=StrippedStringParamType(), help="A user GUID to grant access.")
+@click.option("--allow-group", multiple=True, type=StrippedStringParamType(), help="A group GUID to grant access.")
+@cli_exception_handler
+@click.pass_context
+def integration_add(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    template: str,
+    integration_name: Optional[str],
+    description: Optional[str],
+    config: tuple[tuple[str, str], ...],
+    allow_user: tuple[str, ...],
+    allow_group: tuple[str, ...],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration add` requires a Posit Connect server.")
+        config_dict: dict[str, object] = dict(config)
+        result = create_oauth_integration(
+            ce.remote_server,
+            template=template,
+            config=config_dict,
+            name=integration_name,
+            description=description,
+            user_guids=list(allow_user) if allow_user else None,
+            group_guids=list(allow_group) if allow_group else None,
+        )
+        json.dump(result, sys.stdout, indent=2)
+
+
+@integration.command(name="edit", short_help="Update an existing OAuth integration.")
+@server_args
+@spcs_args
+@click.argument("guid", type=StrippedStringParamType())
+@click.option("--integration-name", "-N", default=None, help="A new display name for the integration.")
+@click.option("--description", "-d", default=None, help="A new description for the integration.")
+@click.option(
+    "--config",
+    "-C",
+    multiple=True,
+    type=KeyValueParamType(),
+    metavar="KEY=VALUE",
+    help="A config field as key=value. Merges with existing config. Repeat for multiple fields.",
+)
+@click.option("--allow-user", multiple=True, type=StrippedStringParamType(), help="A user GUID to grant access.")
+@click.option("--allow-group", multiple=True, type=StrippedStringParamType(), help="A group GUID to grant access.")
+@cli_exception_handler
+@click.pass_context
+def integration_edit(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+    integration_name: Optional[str],
+    description: Optional[str],
+    config: tuple[tuple[str, str], ...],
+    allow_user: tuple[str, ...],
+    allow_group: tuple[str, ...],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration edit` requires a Posit Connect server.")
+        config_dict: dict[str, object] | None = dict(config) if config else None
+        result = update_oauth_integration(
+            ce.remote_server,
+            guid=guid,
+            config=config_dict,
+            name=integration_name,
+            description=description,
+            user_guids=list(allow_user) if allow_user else None,
+            group_guids=list(allow_group) if allow_group else None,
+        )
+        json.dump(result, sys.stdout, indent=2)
+
+
+@integration.command(name="remove", short_help="Delete an OAuth integration.")
+@server_args
+@spcs_args
+@click.argument("guid", type=StrippedStringParamType())
+@cli_exception_handler
+@click.pass_context
+def integration_remove(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration remove` requires a Posit Connect server.")
+        delete_oauth_integration(ce.remote_server, guid)
+        click.echo("Deleted integration %s." % guid)
+
+
+@integration.group(name="templates", no_args_is_help=True, help="List and inspect OAuth integration templates.")
+def integration_templates():
+    pass
+
+
+@integration_templates.command(name="list", short_help="List available OAuth templates.")
+@server_args
+@spcs_args
+@cli_exception_handler
+@click.pass_context
+def integration_templates_list(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration templates list` requires a Posit Connect server.")
+        result = list_oauth_templates(ce.remote_server)
+        if not result:
+            click.echo("No templates found.")
+        else:
+            for t in result:
+                click.echo("%s  %s" % (t["id"], t.get("name") or ""))
+
+
+@integration_templates.command(name="show", short_help="Show details of an OAuth template.")
+@server_args
+@spcs_args
+@click.argument("template_id", type=StrippedStringParamType())
+@cli_exception_handler
+@click.pass_context
+def integration_templates_show(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    template_id: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration templates show` requires a Posit Connect server.")
+        result = get_oauth_template(ce.remote_server, template_id)
+        json.dump(result, sys.stdout, indent=2)
+
+
+if __name__ == "__main__":
+    cli()
+    click.echo()
+    click.echo()

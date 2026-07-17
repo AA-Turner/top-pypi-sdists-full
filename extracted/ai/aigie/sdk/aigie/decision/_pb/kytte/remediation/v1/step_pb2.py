@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1fkytte/remediation/v1/step.proto\x12\x14kytte.remediation.v1\x1a\x1cgoogle/protobuf/struct.proto\"/\n\x07\x42\x61\x63koff\x12\x10\n\x08strategy\x18\x01 \x01(\t\x12\x12\n\ninitial_ms\x18\x02 \x01(\r\"a\n\tRetryStep\x12\x0e\n\x06reason\x18\x01 \x01(\t\x12\x14\n\x0cmax_attempts\x18\x02 \x01(\r\x12.\n\x07\x62\x61\x63koff\x18\x03 \x01(\x0b\x32\x1d.kytte.remediation.v1.Backoff\"L\n\x11RepairRequestStep\x12\x0e\n\x06reason\x18\x01 \x01(\t\x12\'\n\x06params\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\"L\n\x11InjectContextStep\x12\x0e\n\x06reason\x18\x01 \x01(\t\x12\'\n\x06params\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\"L\n\x11ReduceContextStep\x12\x0e\n\x06reason\x18\x01 \x01(\t\x12\'\n\x06params\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\"D\n\tBlockStep\x12\x0e\n\x06reason\x18\x01 \x01(\t\x12\'\n\x06params\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\"G\n\x0c\x45scalateStep\x12\x0e\n\x06reason\x18\x01 \x01(\t\x12\'\n\x06params\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\"C\n\x08NoOpStep\x12\x0e\n\x06reason\x18\x01 \x01(\t\x12\'\n\x06params\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\"\xaf\x03\n\x0fRemediationStep\x12\x30\n\x05retry\x18\x01 \x01(\x0b\x32\x1f.kytte.remediation.v1.RetryStepH\x00\x12\x41\n\x0erepair_request\x18\x02 \x01(\x0b\x32\'.kytte.remediation.v1.RepairRequestStepH\x00\x12\x41\n\x0einject_context\x18\x03 \x01(\x0b\x32\'.kytte.remediation.v1.InjectContextStepH\x00\x12\x41\n\x0ereduce_context\x18\x04 \x01(\x0b\x32\'.kytte.remediation.v1.ReduceContextStepH\x00\x12\x30\n\x05\x62lock\x18\x05 \x01(\x0b\x32\x1f.kytte.remediation.v1.BlockStepH\x00\x12\x36\n\x08\x65scalate\x18\x06 \x01(\x0b\x32\".kytte.remediation.v1.EscalateStepH\x00\x12/\n\x05no_op\x18\x07 \x01(\x0b\x32\x1e.kytte.remediation.v1.NoOpStepH\x00\x42\x06\n\x04stepBh\n\x17\x61i.kytte.remediation.v1P\x01ZKgithub.com/Kytte-AI/kytte-platfrom/proto/kytte/remediation/v1;remediationv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1fkytte/remediation/v1/step.proto\x12\x14kytte.remediation.v1\x1a\x1cgoogle/protobuf/struct.proto\"\x87\x01\n\x0fRemediationStep\x12\x0f\n\x07step_id\x18\x08 \x01(\t\x12\x0c\n\x04verb\x18\t \x01(\t\x12\x16\n\x0eschema_version\x18\n \x01(\r\x12\x0e\n\x06reason\x18\x0b \x01(\t\x12\'\n\x06params\x18\x0c \x01(\x0b\x32\x17.google.protobuf.StructJ\x04\x08\x01\x10\x08\"\\\n\x08VerbSpec\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12-\n\x0cparam_schema\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\"\\\n\x07StepRun\x12\x0f\n\x07step_id\x18\x01 \x01(\t\x12\x0c\n\x04verb\x18\x02 \x01(\t\x12\x0e\n\x06status\x18\x03 \x01(\t\x12\x0e\n\x06reason\x18\x04 \x01(\t\x12\x12\n\nlatency_ms\x18\x05 \x01(\rBh\n\x17\x61i.kytte.remediation.v1P\x01ZKgithub.com/Kytte-AI/kytte-platfrom/proto/kytte/remediation/v1;remediationv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,22 +33,10 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'kytte.remediation.v1.step_p
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\027ai.kytte.remediation.v1P\001ZKgithub.com/Kytte-AI/kytte-platfrom/proto/kytte/remediation/v1;remediationv1'
-  _globals['_BACKOFF']._serialized_start=87
-  _globals['_BACKOFF']._serialized_end=134
-  _globals['_RETRYSTEP']._serialized_start=136
-  _globals['_RETRYSTEP']._serialized_end=233
-  _globals['_REPAIRREQUESTSTEP']._serialized_start=235
-  _globals['_REPAIRREQUESTSTEP']._serialized_end=311
-  _globals['_INJECTCONTEXTSTEP']._serialized_start=313
-  _globals['_INJECTCONTEXTSTEP']._serialized_end=389
-  _globals['_REDUCECONTEXTSTEP']._serialized_start=391
-  _globals['_REDUCECONTEXTSTEP']._serialized_end=467
-  _globals['_BLOCKSTEP']._serialized_start=469
-  _globals['_BLOCKSTEP']._serialized_end=537
-  _globals['_ESCALATESTEP']._serialized_start=539
-  _globals['_ESCALATESTEP']._serialized_end=610
-  _globals['_NOOPSTEP']._serialized_start=612
-  _globals['_NOOPSTEP']._serialized_end=679
-  _globals['_REMEDIATIONSTEP']._serialized_start=682
-  _globals['_REMEDIATIONSTEP']._serialized_end=1113
+  _globals['_REMEDIATIONSTEP']._serialized_start=88
+  _globals['_REMEDIATIONSTEP']._serialized_end=223
+  _globals['_VERBSPEC']._serialized_start=225
+  _globals['_VERBSPEC']._serialized_end=317
+  _globals['_STEPRUN']._serialized_start=319
+  _globals['_STEPRUN']._serialized_end=411
 # @@protoc_insertion_point(module_scope)

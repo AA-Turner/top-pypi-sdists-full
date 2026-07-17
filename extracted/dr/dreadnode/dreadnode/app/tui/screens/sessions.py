@@ -1,7 +1,7 @@
 """Full-screen session picker — DataTable with labeled status + lifecycle actions.
 
-Column analysis (vs. the web UI ``/monitoring`` grid in
-``frontend/src/routes/[org_key]/monitoring/columns.ts``):
+Column analysis (vs. the web UI ``/agents/sessions`` grid in
+``frontend/src/routes/[org_key]/agents/sessions/columns.ts``):
 
 | Web column   | Width   | TUI status | Reason                                        |
 |--------------|---------|-----------:|-----------------------------------------------|
@@ -703,7 +703,7 @@ class SessionPickerScreen(Screen[str | None]):
         )
 
     def action_open_in_browser(self) -> None:
-        """Open the focused row in the web UI ``/monitoring`` view.
+        """Open the focused row in the web UI ``/agents/sessions`` view.
 
         Reuses the same deep-link pattern the report tool uses (see
         ``DreadnodeTextualApp._build_app_url`` / ``report_url``). Falls
@@ -1099,7 +1099,7 @@ class SessionPickerScreen(Screen[str | None]):
                 self._search_query,
                 cursor=self._cursor,
                 visible_count=len(self._rows),
-                placeholder=("Search…  filters: status:archived  origin:user  project:<key>"),
+                placeholder=("Search…  filters: status:archived  origin:user  project:default"),
             )
         )
 

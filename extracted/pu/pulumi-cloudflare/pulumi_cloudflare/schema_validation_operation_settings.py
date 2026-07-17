@@ -21,7 +21,7 @@ class SchemaValidationOperationSettingsArgs:
     def __init__(__self__, *,
                  mitigation_action: pulumi.Input[_builtins.str],
                  operation_id: pulumi.Input[_builtins.str],
-                 zone_id: pulumi.Input[Optional[_builtins.str]] = None):
+                 zone_id: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a SchemaValidationOperationSettings resource.
 
@@ -31,14 +31,13 @@ class SchemaValidationOperationSettingsArgs:
                  - `"block"` - deny access to the site when request does not conform to schema for this operation
                  - `"none"` - will skip mitigation for this operation
                  - `null` - clears any mitigation action
-               Available values: "log", "block", "none".
+                   Available values: "log", "block", "none".
         :param pulumi.Input[_builtins.str] operation_id: UUID.
         :param pulumi.Input[_builtins.str] zone_id: Identifier.
         """
         pulumi.set(__self__, "mitigation_action", mitigation_action)
         pulumi.set(__self__, "operation_id", operation_id)
-        if zone_id is not None:
-            pulumi.set(__self__, "zone_id", zone_id)
+        pulumi.set(__self__, "zone_id", zone_id)
 
     @_builtins.property
     @pulumi.getter(name="mitigationAction")
@@ -50,7 +49,7 @@ class SchemaValidationOperationSettingsArgs:
           - `"block"` - deny access to the site when request does not conform to schema for this operation
           - `"none"` - will skip mitigation for this operation
           - `null` - clears any mitigation action
-        Available values: "log", "block", "none".
+            Available values: "log", "block", "none".
         """
         return pulumi.get(self, "mitigation_action")
 
@@ -72,14 +71,14 @@ class SchemaValidationOperationSettingsArgs:
 
     @_builtins.property
     @pulumi.getter(name="zoneId")
-    def zone_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def zone_id(self) -> pulumi.Input[_builtins.str]:
         """
         Identifier.
         """
         return pulumi.get(self, "zone_id")
 
     @zone_id.setter
-    def zone_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def zone_id(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "zone_id", value)
 
 
@@ -98,7 +97,7 @@ class _SchemaValidationOperationSettingsState:
                  - `"block"` - deny access to the site when request does not conform to schema for this operation
                  - `"none"` - will skip mitigation for this operation
                  - `null` - clears any mitigation action
-               Available values: "log", "block", "none".
+                   Available values: "log", "block", "none".
         :param pulumi.Input[_builtins.str] operation_id: UUID.
         :param pulumi.Input[_builtins.str] zone_id: Identifier.
         """
@@ -119,7 +118,7 @@ class _SchemaValidationOperationSettingsState:
           - `"block"` - deny access to the site when request does not conform to schema for this operation
           - `"none"` - will skip mitigation for this operation
           - `null` - clears any mitigation action
-        Available values: "log", "block", "none".
+            Available values: "log", "block", "none".
         """
         return pulumi.get(self, "mitigation_action")
 
@@ -195,7 +194,7 @@ class SchemaValidationOperationSettings(pulumi.CustomResource):
                  - `"block"` - deny access to the site when request does not conform to schema for this operation
                  - `"none"` - will skip mitigation for this operation
                  - `null` - clears any mitigation action
-               Available values: "log", "block", "none".
+                   Available values: "log", "block", "none".
         :param pulumi.Input[_builtins.str] operation_id: UUID.
         :param pulumi.Input[_builtins.str] zone_id: Identifier.
         """
@@ -263,6 +262,8 @@ class SchemaValidationOperationSettings(pulumi.CustomResource):
             if operation_id is None and not opts.urn:
                 raise TypeError("Missing required property 'operation_id'")
             __props__.__dict__["operation_id"] = operation_id
+            if zone_id is None and not opts.urn:
+                raise TypeError("Missing required property 'zone_id'")
             __props__.__dict__["zone_id"] = zone_id
         super(SchemaValidationOperationSettings, __self__).__init__(
             'cloudflare:index/schemaValidationOperationSettings:SchemaValidationOperationSettings',
@@ -290,7 +291,7 @@ class SchemaValidationOperationSettings(pulumi.CustomResource):
                  - `"block"` - deny access to the site when request does not conform to schema for this operation
                  - `"none"` - will skip mitigation for this operation
                  - `null` - clears any mitigation action
-               Available values: "log", "block", "none".
+                   Available values: "log", "block", "none".
         :param pulumi.Input[_builtins.str] operation_id: UUID.
         :param pulumi.Input[_builtins.str] zone_id: Identifier.
         """
@@ -313,7 +314,7 @@ class SchemaValidationOperationSettings(pulumi.CustomResource):
           - `"block"` - deny access to the site when request does not conform to schema for this operation
           - `"none"` - will skip mitigation for this operation
           - `null` - clears any mitigation action
-        Available values: "log", "block", "none".
+            Available values: "log", "block", "none".
         """
         return pulumi.get(self, "mitigation_action")
 
@@ -327,7 +328,7 @@ class SchemaValidationOperationSettings(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="zoneId")
-    def zone_id(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def zone_id(self) -> pulumi.Output[_builtins.str]:
         """
         Identifier.
         """

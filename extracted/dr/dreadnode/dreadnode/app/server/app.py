@@ -2766,7 +2766,7 @@ class SessionRuntime:
                 await request.stream.publish(event)  # noqa: B023
 
             try:
-                if request.model is not None and request.model != self.model:
+                if request.model and request.model != self.model:
                     self.model = request.model
 
                 # Fresh agent per turn — reads current params

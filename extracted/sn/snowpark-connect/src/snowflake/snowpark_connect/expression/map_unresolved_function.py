@@ -32,6 +32,7 @@ from pyspark.errors.exceptions.base import (
     NumberFormatException,
     ParseException,
     SparkRuntimeException,
+    SparkUpgradeException,
 )
 from pyspark.sql.types import _parse_datatype_json_string
 
@@ -84,6 +85,10 @@ from snowflake.snowpark_connect.config import (
 from snowflake.snowpark_connect.constants import (
     DUPLICATE_KEY_FOUND_ERROR_TEMPLATE,
     STRUCTURED_TYPES_ENABLED,
+)
+from snowflake.snowpark_connect.date_time_format_mapping import (
+    spark_format_needs_udf,
+    validate_spark_datetime_format,
 )
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
@@ -150,6 +155,13 @@ from snowflake.snowpark_connect.utils.context import (
     resolving_fun_args,
     resolving_lambda_function,
     set_is_aggregate_function,
+)
+from snowflake.snowpark_connect.utils.datetime_format_udf import (
+    get_java_format_date_udf,
+    get_java_format_timestamp_ltz_udf,
+    get_java_format_timestamp_ntz_udf,
+    get_java_parse_datetime_udf,
+    substitute_proleptic_year,
 )
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
@@ -1479,7 +1491,10 @@ def map_unresolved_function(
                     )
                     result_type = FieldType(sub_ts_dt, sub_bn)
                     result_exp = snowpark_fn.lit(None).cast(sub_ts_dt)
-                case (DateType(), NullType()) | (NullType(), DateType()):
+                case (NullType(), DateType()):
+                    result_type = FieldType(DayTimeIntervalType(0, 0), sub_bn)
+                    result_exp = snowpark_fn.lit(None).cast(DayTimeIntervalType(0, 0))
+                case (DateType(), NullType()):
                     result_type = FieldType(DateType(), sub_bn)
                     result_exp = snowpark_fn.lit(None).cast(DateType())
                 case (NullType(), _) | (_, NullType()):
@@ -2615,8 +2630,14 @@ def map_unresolved_function(
             # which has dataType = Integer
             # https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/collectionOperations.scala#L115
             result_type = IntegerType()
+            # size(null)/cardinality(null) returns -1 only when the effective
+            # legacy behavior is on: spark.sql.legacy.sizeOfNull is true AND
+            # spark.sql.ansi.enabled is false. Otherwise it returns null.
+            legacy_size_of_null = (
+                global_config.spark_sql_legacy_sizeOfNull and not spark_sql_ansi_enabled
+            )
             null_value = (
-                snowpark_fn.lit(None) if spark_sql_ansi_enabled else snowpark_fn.lit(-1)
+                snowpark_fn.lit(-1) if legacy_size_of_null else snowpark_fn.lit(None)
             )
 
             arg_type = snowpark_typed_args[0].typ
@@ -4065,30 +4086,39 @@ def map_unresolved_function(
                 # If format is NULL, return NULL for all rows
                 result_exp = snowpark_fn.lit(None)
             else:
-                format_lit = snowpark_fn.lit(
-                    map_spark_timestamp_format_expression(
-                        exp.unresolved_function.arguments[1],
-                        snowpark_typed_args[0].typ,
+                # Reject patterns Spark rejects (regardless of input type), then
+                # route patterns Snowflake's TO_CHAR cannot reproduce to the
+                # java.time UDF fallback (SNOW-3585737).
+                validate_spark_datetime_format(format_literal, is_parsing=False)
+                if spark_format_needs_udf(format_literal):
+                    result_exp = _date_format_via_java_udf(
+                        snowpark_args[0], snowpark_typed_args[0].typ, format_literal
                     )
-                )
-                result_exp = snowpark_fn.date_format(
-                    snowpark_args[0],
-                    format_lit,
-                )
+                else:
+                    format_lit = snowpark_fn.lit(
+                        map_spark_timestamp_format_expression(
+                            exp.unresolved_function.arguments[1],
+                            snowpark_typed_args[0].typ,
+                        )
+                    )
+                    result_exp = snowpark_fn.date_format(
+                        snowpark_args[0],
+                        format_lit,
+                    )
 
-                if format_literal == "EEEE":
-                    # TODO: SNOW-2356874, for weekday, Snowflake only supports abbreviated name, e.g. "Fri". Patch spark "EEEE" until
-                    #  snowflake supports full weekday name.
-                    result_exp = (
-                        snowpark_fn.when(result_exp == "Mon", "Monday")
-                        .when(result_exp == "Tue", "Tuesday")
-                        .when(result_exp == "Wed", "Wednesday")
-                        .when(result_exp == "Thu", "Thursday")
-                        .when(result_exp == "Fri", "Friday")
-                        .when(result_exp == "Sat", "Saturday")
-                        .when(result_exp == "Sun", "Sunday")
-                        .otherwise(result_exp)
-                    )
+                    if format_literal == "EEEE":
+                        # TODO: SNOW-2356874, for weekday, Snowflake only supports abbreviated name, e.g. "Fri". Patch spark "EEEE" until
+                        #  snowflake supports full weekday name.
+                        result_exp = (
+                            snowpark_fn.when(result_exp == "Mon", "Monday")
+                            .when(result_exp == "Tue", "Tuesday")
+                            .when(result_exp == "Wed", "Wednesday")
+                            .when(result_exp == "Thu", "Thursday")
+                            .when(result_exp == "Fri", "Friday")
+                            .when(result_exp == "Sat", "Saturday")
+                            .when(result_exp == "Sun", "Sunday")
+                            .otherwise(result_exp)
+                        )
             bn = _binary_nullable(snowpark_typed_args)
             result_exp = TypedColumn(
                 result_exp, lambda n=bn: [FieldType(StringType(), n)]
@@ -5028,6 +5058,31 @@ def map_unresolved_function(
                     raise exception
 
             spark_function_name = f"from_json({snowpark_arg_names[0]})"
+
+            # This check must stay AFTER the options validation above to match Spark's error
+            # precedence: Spark's JsonToStructs constructor eagerly validates the options map
+            # (ExprUtils.convertToMapData -> INVALID_OPTIONS) at function-resolution time, while
+            # the input-type check (UNEXPECTED_INPUT_TYPE) only fires later in checkInputDataTypes.
+            # So when both the input type and the options map are wrong, INVALID_OPTIONS wins.
+            #
+            # Gated by snowpark.connect.enableInputTypeCheckForFromJsonFunction (default
+            # true): when disabled, we skip the check and fall through to the legacy
+            # TRY_PARSE_JSON path, restoring the pre-SNOW-3585769 behavior for workloads
+            # that relied on it.
+            if (
+                global_config.snowpark_connect_enableInputTypeCheckForFromJsonFunction
+                and not isinstance(
+                    snowpark_typed_args[0].typ, (StringType, NullType, VariantType)
+                )
+            ):
+                exception = AnalysisException(
+                    f'[DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE] Cannot resolve "{spark_function_name}" due to data type mismatch: '
+                    f'Parameter 1 requires the "STRING" type, '
+                    f'however "{snowpark_arg_names[0]}" has the type "{snowpark_typed_args[0].typ.simpleString().upper()}".'
+                )
+                attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+                raise exception
+
             lit_schema = unwrap_literal(exp.unresolved_function.arguments[1])
 
             try:
@@ -5091,6 +5146,11 @@ def map_unresolved_function(
                         snowpark_fn.try_parse_json(snowpark_args[0])
                     ).try_cast(result_type, permissive=True),
                 )
+
+            if global_config.snowpark_connect_enableInputTypeCheckForFromJsonFunction:
+                result_exp = snowpark_fn.when(
+                    snowpark_args[0].is_null(), snowpark_fn.lit(None)
+                ).otherwise(result_exp)
 
             result_exp = TypedColumn(
                 result_exp, lambda: [FieldType(result_type, nullable=True)]
@@ -5171,29 +5231,57 @@ def map_unresolved_function(
                     )
                 case [_, _]:
                     try:
-                        timestamp_format = map_spark_timestamp_format_expression(
-                            exp.unresolved_function.arguments[1],
-                            time_format,
+                        from_unixtime_fmt = unwrap_literal(
+                            exp.unresolved_function.arguments[1]
                         )
+                        if from_unixtime_fmt is not None:
+                            validate_spark_datetime_format(
+                                from_unixtime_fmt, is_parsing=False
+                            )
                         if not isinstance(
                             snowpark_typed_args[0].typ, (_NumericType, StringType)
                         ):
                             raise_analysis_exception(
                                 snowpark_arg_names[0],
                                 snowpark_typed_args[0].typ,
-                                timestamp_format,
+                                from_unixtime_fmt,
                             )
 
-                        result_exp = snowpark_fn.to_char(
-                            _try_to_cast(
-                                "try_to_timestamp",
-                                snowpark_fn.to_timestamp(unix_time),
-                                unix_time,
-                            ),
-                            timestamp_format,
-                        )
+                        if from_unixtime_fmt is not None and spark_format_needs_udf(
+                            from_unixtime_fmt
+                        ):
+                            # epoch seconds -> instant; format in session tz to
+                            # match Spark for era/quarter/day-of-year/tz patterns.
+                            ts_ltz = snowpark_fn.builtin("to_timestamp_ltz")(unix_time)
+                            result_exp = _date_format_via_java_udf(
+                                ts_ltz,
+                                TimestampType(TimestampTimeZone.LTZ),
+                                from_unixtime_fmt,
+                            )
+                        else:
+                            timestamp_format = map_spark_timestamp_format_expression(
+                                exp.unresolved_function.arguments[1],
+                                time_format,
+                            )
+                            result_exp = snowpark_fn.to_char(
+                                _try_to_cast(
+                                    "try_to_timestamp",
+                                    snowpark_fn.to_timestamp(unix_time),
+                                    unix_time,
+                                ),
+                                timestamp_format,
+                            )
                     except AnalysisException as e:
                         attach_custom_error_code(e, ErrorCodes.INVALID_INPUT)
+                        raise e
+                    except (
+                        DateTimeException,
+                        IllegalArgumentException,
+                        SparkUpgradeException,
+                    ) as e:
+                        attach_custom_error_code(
+                            e, ErrorCodes.INVALID_FUNCTION_ARGUMENT
+                        )
                         raise e
                     except Exception:
                         # The second argument must either be a string or none. It can't be a column.
@@ -9462,12 +9550,18 @@ def map_unresolved_function(
             # generic is_array/is_object/is_null CASE/WHEN wrapper and VARIANT cast are
             # unnecessary.  Emit array_size() directly, which produces far shorter SQL.
             #
-            # Non-ANSI semantics: Spark's size(null) returns -1; Snowflake's array_size(null)
-            # returns NULL.  Preserve the -1 fallback with COALESCE when ansi is disabled.
+            # Legacy semantics: Spark's size(null) returns -1 when
+            # spark.sql.legacy.sizeOfNull is true AND spark.sql.ansi.enabled is
+            # false; otherwise it returns NULL. Snowflake's array_size(null)
+            # returns NULL, so preserve the -1 fallback with COALESCE only when
+            # the effective legacy behavior is on.
+            legacy_size_of_null = (
+                global_config.spark_sql_legacy_sizeOfNull and not spark_sql_ansi_enabled
+            )
             if isinstance(snowpark_typed_args[0].typ, ArrayType):
                 arr_size_expr = snowpark_fn.array_size(snowpark_args[0])
-                if not spark_sql_ansi_enabled:
-                    # Preserve size(null) == -1 for non-ANSI mode
+                if legacy_size_of_null:
+                    # Preserve size(null) == -1 for legacy mode
                     arr_size_expr = snowpark_fn.coalesce(
                         arr_size_expr, snowpark_fn.lit(-1)
                     )
@@ -9477,9 +9571,9 @@ def map_unresolved_function(
             else:
                 v = snowpark_fn.cast(snowpark_args[0], VariantType())
                 null_value = (
-                    snowpark_fn.lit(None)
-                    if spark_sql_ansi_enabled
-                    else snowpark_fn.lit(-1)
+                    snowpark_fn.lit(-1)
+                    if legacy_size_of_null
+                    else snowpark_fn.lit(None)
                 )
                 result_exp = (
                     (
@@ -10685,19 +10779,27 @@ def map_unresolved_function(
                 case TimestampType():
                     result_exp = snowpark_fn.to_date(snowpark_args[0])
                 case StringType():
-                    result_exp = (
-                        snowpark_fn.builtin(function_name)(
+                    if len(snowpark_args) > 1:
+                        _udf_res = _try_udf_parse_result(
                             snowpark_args[0],
-                            snowpark_fn.lit(
-                                map_spark_timestamp_format_expression(
-                                    exp.unresolved_function.arguments[1],
-                                    snowpark_typed_args[0].typ,
-                                )
-                            ),
+                            exp.unresolved_function.arguments[1],
+                            "date",
+                            spark_sql_ansi_enabled,
                         )
-                        if len(snowpark_args) > 1
-                        else snowpark_fn.builtin(function_name)(*snowpark_args)
-                    )
+                        if _udf_res is not None:
+                            result_exp = _udf_res
+                        else:
+                            result_exp = snowpark_fn.builtin(function_name)(
+                                snowpark_args[0],
+                                snowpark_fn.lit(
+                                    map_spark_timestamp_format_expression(
+                                        exp.unresolved_function.arguments[1],
+                                        snowpark_typed_args[0].typ,
+                                    )
+                                ),
+                            )
+                    else:
+                        result_exp = snowpark_fn.builtin(function_name)(*snowpark_args)
                 case NullType():
                     result_exp = snowpark_fn.lit(None)
                 case _:
@@ -10805,17 +10907,23 @@ def map_unresolved_function(
                         _timestamp_format_sanity_check(
                             snowpark_arg_names[0], snowpark_arg_names[1]
                         )
-                    fmt_lit = snowpark_fn.lit(
-                        map_spark_timestamp_format_expression(fmt, e.typ)
+                    _udf_res = _try_udf_parse_result(
+                        e.col, fmt, "timestamp", spark_sql_ansi_enabled
                     )
-                    # NULL input: plain to_timestamp accepts it; try_to_timestamp
-                    # would TRY_CAST-error on the NULL-typed column.
-                    ts_fn = (
-                        snowpark_fn.to_timestamp
-                        if type(e.typ) is NullType
-                        else snowpark_fn.function(function_name)
-                    )
-                    result_exp = ts_fn(e.col, fmt_lit)
+                    if _udf_res is not None:
+                        result_exp = _udf_res
+                    else:
+                        fmt_lit = snowpark_fn.lit(
+                            map_spark_timestamp_format_expression(fmt, e.typ)
+                        )
+                        # NULL input: plain to_timestamp accepts it; try_to_timestamp
+                        # would TRY_CAST-error on the NULL-typed column.
+                        ts_fn = (
+                            snowpark_fn.to_timestamp
+                            if type(e.typ) is NullType
+                            else snowpark_fn.function(function_name)
+                        )
+                        result_exp = ts_fn(e.col, fmt_lit)
                 case _:
                     exception = ValueError(
                         f"Invalid number of arguments to {function_name}"
@@ -10842,12 +10950,18 @@ def map_unresolved_function(
                 case ([e, _], _) if type(e.typ) in (DateType, TimestampType):
                     result_exp = snowpark_fn.builtin("to_timestamp_ltz")(e.col)
                 case ([e, _], [_, fmt]):
-                    result_exp = snowpark_fn.builtin("to_timestamp_ltz")(
-                        e.col,
-                        snowpark_fn.lit(
-                            map_spark_timestamp_format_expression(fmt, e.typ)
-                        ),
+                    _udf_res = _try_udf_parse_result(
+                        e.col, fmt, "timestamp_ltz", spark_sql_ansi_enabled
                     )
+                    if _udf_res is not None:
+                        result_exp = _udf_res
+                    else:
+                        result_exp = snowpark_fn.builtin("to_timestamp_ltz")(
+                            e.col,
+                            snowpark_fn.lit(
+                                map_spark_timestamp_format_expression(fmt, e.typ)
+                            ),
+                        )
                 case _:
                     exception = ValueError(
                         f"Invalid number of arguments to {function_name}"
@@ -10899,12 +11013,18 @@ def map_unresolved_function(
                 case ([e, _], _) if isinstance(e.typ, TimestampType):
                     result_exp = snowpark_fn.builtin("to_timestamp_ntz")(e.col)
                 case ([e, _], [_, fmt]):
-                    result_exp = snowpark_fn.builtin("to_timestamp_ntz")(
-                        e.col,
-                        snowpark_fn.lit(
-                            map_spark_timestamp_format_expression(fmt, e.typ)
-                        ),
+                    _udf_res = _try_udf_parse_result(
+                        e.col, fmt, "timestamp_ntz", spark_sql_ansi_enabled
                     )
+                    if _udf_res is not None:
+                        result_exp = _udf_res
+                    else:
+                        result_exp = snowpark_fn.builtin("to_timestamp_ntz")(
+                            e.col,
+                            snowpark_fn.lit(
+                                map_spark_timestamp_format_expression(fmt, e.typ)
+                            ),
+                        )
                 case _:
                     exception = ValueError(
                         f"Invalid number of arguments to {function_name}"
@@ -10940,14 +11060,23 @@ def map_unresolved_function(
                     ).otherwise(snowpark_fn.unix_timestamp(snowpark_args[0]))
                 case [_, unresolved_format]:
                     snowpark_timestamp = snowpark_args[0]
-                    result_exp = _to_unix_timestamp(
+                    _udf_res = _try_udf_parse_result(
                         snowpark_timestamp,
-                        snowpark_fn.lit(
-                            map_spark_timestamp_format_expression(
-                                unresolved_format, snowpark_typed_args[0].typ
-                            )
-                        ),
+                        unresolved_format,
+                        "unix",
+                        spark_sql_ansi_enabled,
                     )
+                    if _udf_res is not None:
+                        result_exp = _udf_res
+                    else:
+                        result_exp = _to_unix_timestamp(
+                            snowpark_timestamp,
+                            snowpark_fn.lit(
+                                map_spark_timestamp_format_expression(
+                                    unresolved_format, snowpark_typed_args[0].typ
+                                )
+                            ),
+                        )
                 case [_]:
                     result_exp = _to_unix_timestamp(
                         snowpark_args[0],
@@ -11877,12 +12006,16 @@ def map_unresolved_function(
                     case ([e], _):
                         result_exp = snowpark_fn.builtin("try_to_timestamp")(e.col)
                     case ([e, _], [_, fmt]):
-                        result_exp = snowpark_fn.builtin("try_to_timestamp")(
-                            e.col,
-                            snowpark_fn.lit(
-                                map_spark_timestamp_format_expression(fmt, e.typ)
-                            ),
-                        )
+                        _udf_res = _try_udf_parse_result(e.col, fmt, "timestamp")
+                        if _udf_res is not None:
+                            result_exp = _udf_res
+                        else:
+                            result_exp = snowpark_fn.builtin("try_to_timestamp")(
+                                e.col,
+                                snowpark_fn.lit(
+                                    map_spark_timestamp_format_expression(fmt, e.typ)
+                                ),
+                            )
                     case _:
                         exception = ValueError(
                             f"Invalid number of arguments to {function_name}"
@@ -11994,14 +12127,23 @@ def map_unresolved_function(
                     ).otherwise(snowpark_fn.unix_timestamp(snowpark_args[0]))
                 case [_, unresolved_format]:
                     snowpark_timestamp = snowpark_args[0]
-                    result_exp = _to_unix_timestamp(
+                    _udf_res = _try_udf_parse_result(
                         snowpark_timestamp,
-                        snowpark_fn.lit(
-                            map_spark_timestamp_format_expression(
-                                unresolved_format, snowpark_typed_args[0].typ
-                            )
-                        ),
+                        unresolved_format,
+                        "unix",
+                        spark_sql_ansi_enabled,
                     )
+                    if _udf_res is not None:
+                        result_exp = _udf_res
+                    else:
+                        result_exp = _to_unix_timestamp(
+                            snowpark_timestamp,
+                            snowpark_fn.lit(
+                                map_spark_timestamp_format_expression(
+                                    unresolved_format, snowpark_typed_args[0].typ
+                                )
+                            ),
+                        )
                 case [_]:
                     spark_function_name = f"unix_timestamp({snowpark_arg_names[0]}, {'yyyy-MM-dd HH:mm:ss'})"
                     if isinstance(snowpark_typed_args[0].typ, NullType):
@@ -14912,6 +15054,8 @@ def _get_spark_function_name(
                 return f"{date_param_name2} {operation_op} {snowpark_arg_names[0]}"
             else:
                 return default_spark_function_name
+        case (NullType(), DateType()) if function_name == "-":
+            return default_spark_function_name
         case (DateType() as dt, _) | (_, DateType() as dt):
             date_param_index = 0 if dt == col1.typ else 1
             date_param_name = _get_literal_param_name(
@@ -15726,6 +15870,154 @@ def _build_utc_timestamp_expr(
 
     # 4. Everything else is an IANA name — convert_timezone with tz as-is.
     return result.otherwise(_conv_dynamic())
+
+
+def _date_format_via_java_udf(
+    input_column: Column, input_type: DataType, spark_format: str
+) -> Column:
+    """Format a date/timestamp column to a string using the java.time UDF
+    fallback (Spark-faithful) for patterns Snowflake's TO_CHAR cannot reproduce.
+
+    DATE, TIMESTAMP_NTZ, and TIMESTAMP_LTZ are passed directly as their native
+    Java types (java.sql.Date / java.sql.Timestamp), avoiding the TO_CHAR
+    round-trip.  TIMESTAMP_TZ is cast to TIMESTAMP_LTZ first (the cast preserves
+    the exact instant and only drops the per-row display offset) and then reuses
+    the TIMESTAMP_LTZ path -- ``date_format`` always renders in the session zone
+    (Spark 3.5 semantics), so the offset is irrelevant to the output.
+    """
+    java_pattern: str = substitute_proleptic_year(spark_format)
+
+    if isinstance(input_type, DateType):
+        return get_java_format_date_udf()(
+            input_column,
+            snowpark_fn.lit(java_pattern),
+        )
+
+    if isinstance(input_type, TimestampType) and input_type.tz == TimestampTimeZone.NTZ:
+        return get_java_format_timestamp_ntz_udf()(
+            input_column,
+            snowpark_fn.lit(java_pattern),
+        )
+
+    if isinstance(input_type, TimestampType):
+        # LTZ and TZ are both instant-based.  LTZ crosses directly as
+        # java.sql.Timestamp; TZ is cast to LTZ first (instant preserved, offset
+        # dropped) so both share the one instant-rendering UDF.
+        ts_col: Column = input_column
+        if input_type.tz == TimestampTimeZone.TZ:
+            ts_col = snowpark_fn.cast(
+                input_column, TimestampType(TimestampTimeZone.LTZ)
+            )
+        return get_java_format_timestamp_ltz_udf()(
+            ts_col,
+            snowpark_fn.lit(java_pattern),
+        )
+
+    # String input: Spark casts it to TIMESTAMP_LTZ implicitly; use LTZ path after cast.
+    ts: Column = snowpark_fn.builtin("try_to_timestamp_ltz")(input_column)
+    if global_config.spark_sql_ansi_enabled:
+        ltz: TimestampType = TimestampType(TimestampTimeZone.LTZ)
+        raise_fn: Callable[..., Column] = _raise_error_helper(ltz, DateTimeException)
+        # ANSI cast semantics: try_to_timestamp_ltz(input_column) is NULL
+        # for BOTH a NULL input and a malformed string; input_column.is_null()
+        # separates them so a legit NULL passes through while a bad parse raises:
+        #
+        #   input        ts    isNull notNull OR  action
+        #   NULL         NULL  T      F       T   keep NULL (no error)
+        #   valid str    value F      T       T   keep value
+        #   invalid str  NULL  F      F       F   raise (ANSI)
+        ts = snowpark_fn.when(input_column.is_null() | ts.is_not_null(), ts).otherwise(
+            raise_fn(
+                snowpark_fn.lit("[CAST_INVALID_INPUT] The value '"),
+                snowpark_fn.cast(input_column, StringType()),
+                snowpark_fn.lit(
+                    '\' of the type "STRING" cannot be cast to "TIMESTAMP"'
+                    " because it is malformed. Correct the value as per the"
+                    " syntax, or change its target type. Use `try_cast` to"
+                    " tolerate malformed input and return NULL instead. If"
+                    ' necessary set "spark.sql.ansi.enabled" to "false" to'
+                    " bypass this error."
+                ),
+            )
+        )
+    return get_java_format_timestamp_ltz_udf()(ts, snowpark_fn.lit(java_pattern))
+
+
+def _parse_datetime_via_java_udf(
+    col: Column, spark_format: str, ansi_enabled: bool, target_kind: str
+) -> Column:
+    """Parse a string column into a canonical ``YYYY-MM-DD HH24:MI:SS.FF6``
+    wall-clock string using the java.time UDF fallback.
+
+    ``target_kind`` is forwarded to the Java UDF, which uses it to decide zone
+    handling: ``"timestamp_ntz"`` keeps the parsed wall-clock fields and discards
+    the zone; anything else normalizes to the session timezone.  The returned
+    column is a string; callers wrap it with the appropriate Snowflake cast.
+    When ``ansi_enabled`` is false the UDF returns NULL on an unparseable value;
+    when true it throws a marker-prefixed exception so the caller can re-raise
+    ``CANNOT_PARSE_TIMESTAMP``.
+    """
+    java_pattern = substitute_proleptic_year(spark_format)
+    parse_udf = get_java_parse_datetime_udf()
+    value_str = snowpark_fn.cast(col, StringType())
+    return parse_udf(
+        value_str,
+        snowpark_fn.lit(java_pattern),
+        snowpark_fn.lit(ansi_enabled),
+        snowpark_fn.lit(target_kind),
+    )
+
+
+def _try_udf_parse_result(
+    col: Column,
+    fmt_expr: expressions_proto.Expression,
+    target_kind: str,
+    raise_on_unparseable: bool = False,
+) -> Column | None:
+    """Validate a (literal) parse format against Spark's rules and, when it
+    contains tokens Snowflake cannot reproduce, return a typed result column
+    produced via the java.time UDF fallback. Returns ``None`` to signal that the
+    caller's native path should run (the format is still validated).
+
+    ``target_kind`` is one of ``date``, ``timestamp_ntz``, ``timestamp_ltz``,
+    ``unix`` or ``timestamp`` (default NTZ; trailing cast normalizes the type).
+
+    ``raise_on_unparseable`` (set from ``spark.sql.ansi.enabled`` at strict call
+    sites) makes the UDF throw on a parse failure so SCOS raises
+    ``CANNOT_PARSE_TIMESTAMP`` like Spark ANSI mode; ``try_*`` sites leave it
+    ``False`` so an unparseable value yields NULL.
+    """
+    fmt_str = unwrap_literal(fmt_expr)
+    if fmt_str is None:
+        return None
+    try:
+        validate_spark_datetime_format(fmt_str, is_parsing=True)
+    except (DateTimeException, IllegalArgumentException, SparkUpgradeException) as e:
+        # Spark's parsing path re-wraps an incompatible pattern via
+        # failToRecognizePatternError ("Fail to recognize '<pattern>' ...")
+        # regardless of whether the formatting path would have raised
+        # IllegalArgumentException or SparkUpgradeException; the raw
+        # convertIncompatiblePattern message (e.g. "Too many pattern
+        # letters: M") is only surfaced on the formatting path.
+        exception = DateTimeException(
+            f"Fail to recognize '{fmt_str}' pattern in the DateTimeFormatter."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+        raise exception from e
+    if not spark_format_needs_udf(fmt_str):
+        return None
+    canonical = _parse_datetime_via_java_udf(
+        col, fmt_str, raise_on_unparseable, target_kind
+    )
+    if target_kind == "date":
+        return snowpark_fn.to_date(canonical)
+    if target_kind == "timestamp_ltz":
+        return snowpark_fn.builtin("to_timestamp_ltz")(canonical)
+    if target_kind == "unix":
+        return snowpark_fn.date_part(
+            "epoch_second", snowpark_fn.builtin("to_timestamp_ltz")(canonical)
+        ).cast(LongType())
+    return snowpark_fn.builtin("to_timestamp_ntz")(canonical)
 
 
 def _calculate_total_months(interval_arg):

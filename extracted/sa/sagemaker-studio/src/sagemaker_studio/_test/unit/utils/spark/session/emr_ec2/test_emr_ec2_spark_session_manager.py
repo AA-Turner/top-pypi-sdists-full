@@ -435,6 +435,42 @@ class TestGetServiceSpecificConfigs:
         for key in expected_keys:
             assert key in configs
 
+    def test_includes_openlineage_configs(self, manager):
+        """OpenLineage configs should be present for data lineage tracking."""
+        manager.project = MagicMock()
+        manager.project.domain_id = "dzd-test-domain"
+        configs = manager._get_service_specific_configs()
+        assert (
+            configs["spark.extraListeners"] == "io.openlineage.spark.agent.OpenLineageSparkListener"
+        )
+        assert configs["spark.openlineage.transport.type"] == "amazon_datazone_api"
+        assert configs["spark.openlineage.transport.domainId"] == "dzd-test-domain"
+
+    def test_openlineage_domain_id_from_project(self, manager):
+        """domainId should come from self.project.domain_id."""
+        manager.project = MagicMock()
+        manager.project.domain_id = "dzd-test-domain-123"
+        configs = manager._get_service_specific_configs()
+        assert configs["spark.openlineage.transport.domainId"] == "dzd-test-domain-123"
+
+    def test_no_glue_specific_configs(self, manager):
+        """Should NOT include Glue-specific keys."""
+        manager.project = MagicMock()
+        manager.project.domain_id = "dzd-test"
+        configs = manager._get_service_specific_configs()
+        assert "spark.glue.accountId" not in configs
+        assert "spark.glue.JOB_NAME" not in configs
+        assert "spark.openlineage.facets.custom_environment_variables" not in configs
+
+    def test_openlineage_graceful_failure_without_project(self, manager):
+        """If project is not set, OpenLineage configs should be skipped gracefully."""
+        # project not set — accessing self.project.domain_id raises AttributeError
+        configs = manager._get_service_specific_configs()
+        # Compatibility mode configs should still be present
+        assert "spark.hadoop.fs.s3.credentialsResolverClass" in configs
+        # OpenLineage configs should be absent (caught by try/except)
+        assert "spark.extraListeners" not in configs
+
 
 class TestStartSession:
     @patch("boto3.client")

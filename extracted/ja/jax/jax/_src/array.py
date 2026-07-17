@@ -450,7 +450,12 @@ class ArrayImpl(basearray.Array):
         else:
           dl_device_type = DLDeviceType.kDLCUDA
       elif "rocm" in platform_version:
-        dl_device_type = DLDeviceType.kDLROCM
+        if self.sharding.memory_kind == "pinned_host":
+          dl_device_type = DLDeviceType.kDLROCMHost
+        else:
+          dl_device_type = DLDeviceType.kDLROCM
+      elif "oneapi" in platform_version:
+        dl_device_type = DLDeviceType.kDLOneAPI
       else:
         raise BufferError("Unknown GPU platform for __dlpack__: "
                          f"{platform_version}")
@@ -461,10 +466,24 @@ class ArrayImpl(basearray.Array):
 
       return dl_device_type, local_hardware_id
 
+    elif self.platform() == "tpu":
+      if self.sharding.memory_kind == "pinned_host":
+        dl_device_type = DLDeviceType.kDLTPUHost
+      else:
+        raise BufferError(
+            "__dlpack__ device only supported for TPU pinned host memory"
+        )
+
+      local_hardware_id = _get_device(self).local_hardware_id
+      if local_hardware_id is None:
+        raise BufferError("Couldn't get local_hardware_id for __dlpack__")
+
+      return dl_device_type, local_hardware_id
+
     else:
       raise BufferError(
-          "__dlpack__ device only supported for CPU and GPU, got platform: "
-          f"{self.platform()}"
+          "__dlpack__ device only supported for CPU, GPU and TPU pinned host,"
+          f" got platform: {self.platform()}"
       )
 
   def __reduce__(self):

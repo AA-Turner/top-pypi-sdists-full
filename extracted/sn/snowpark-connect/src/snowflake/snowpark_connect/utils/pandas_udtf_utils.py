@@ -15,8 +15,13 @@ from pyspark.sql.connect.proto.expressions_pb2 import CommonInlineUserDefinedFun
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark.types import (
+    ByteType,
+    DoubleType,
+    FloatType,
     IntegerType,
+    LongType,
     PandasDataFrameType,
+    ShortType,
     StructType,
     VariantType,
 )
@@ -156,6 +161,31 @@ def get_map_in_arrow_udtf(
     return MapInArrowUDTF
 
 
+def _spark_numeric_numpy_dtype(datatype) -> str | None:
+    """Numpy dtype OSS Spark's mapInPandas would hand a column of this type.
+
+    Snowflake's vectorized UDTF may materialize a small integer column as a
+    narrower numpy dtype (e.g. int16) than Spark's fixed widths, so arithmetic
+    inside the user function (e.g. value ** 2) can overflow where it would not
+    in Spark. Returning the Spark width lets end_partition widen the batch to
+    match Spark before calling the user function. Returns None for types we
+    leave untouched (strings, decimals, nested, etc.).
+    """
+    if isinstance(datatype, ByteType):
+        return "int8"
+    if isinstance(datatype, ShortType):
+        return "int16"
+    if isinstance(datatype, IntegerType):
+        return "int32"
+    if isinstance(datatype, LongType):
+        return "int64"
+    if isinstance(datatype, FloatType):
+        return "float32"
+    if isinstance(datatype, DoubleType):
+        return "float64"
+    return None
+
+
 def create_pandas_udtf(
     udtf_proto: CommonInlineUserDefinedFunction,
     spark_column_names: list[str],
@@ -171,6 +201,12 @@ def create_pandas_udtf(
     output_column_original_names = [
         field.original_column_identifier for field in return_schema.fields
     ]
+    # Numpy dtype each input column should carry to match OSS Spark's mapInPandas
+    # batch (computed here where the Snowpark types are available; the resulting
+    # plain-string list is captured into the serialized UDTF).
+    input_numpy_dtypes = [
+        _spark_numeric_numpy_dtype(field.datatype) for field in input_schema.fields
+    ]
 
     class MapPandasUDTF:
         def __init__(self) -> None:
@@ -178,6 +214,7 @@ def create_pandas_udtf(
             self.output_column_names = output_column_names
             self.spark_column_names = spark_column_names
             self.output_column_original_names = output_column_original_names
+            self.input_numpy_dtypes = input_numpy_dtypes
 
         def end_partition(self, df: pd.DataFrame):
             if df.empty:
@@ -189,9 +226,25 @@ def create_pandas_udtf(
                 columns=["_DUMMY_PARTITION_KEY"], errors="ignore"
             )
             df_without_dummy.columns = self.spark_column_names
-            result_iterator = self.user_function(
-                [pd.DataFrame([row]) for _, row in df_without_dummy.iterrows()]
-            )
+            # Widen numeric columns to the dtype Spark would use so user-function
+            # arithmetic (e.g. value ** 2) does not overflow a narrower Snowflake
+            # dtype. Integer casts are skipped when the column has nulls, since a
+            # NaN cannot be represented in a numpy integer column.
+            for col_name, np_dtype in zip(
+                self.spark_column_names, self.input_numpy_dtypes
+            ):
+                if np_dtype is None:
+                    continue
+                col = df_without_dummy[col_name]
+                if str(col.dtype) == np_dtype:
+                    continue
+                if np_dtype.startswith("int") and col.isnull().any():
+                    continue
+                df_without_dummy[col_name] = col.astype(np_dtype)
+            # Spark's mapInPandas contract: the user function receives an
+            # iterator of DataFrames (one per partition batch), not one
+            # single-row DataFrame per row.
+            result_iterator = self.user_function(iter([df_without_dummy]))
 
             if not isinstance(result_iterator, Iterator) and not hasattr(
                 result_iterator, "__iter__"

@@ -226,7 +226,7 @@ def show_help(*_args) -> list[SQLResult]:
     header = ["Command", "Shortcut", "Usage", "Description"]
     result = []
 
-    for _, value in sorted(COMMANDS.items(), key=lambda x: str.casefold(x[0])):
+    for _, value in sorted(COMMANDS.items(), key=lambda x: str.casefold(x[0].removeprefix('\\').removeprefix('/'))):
         if value.hidden:
             continue
         if value.aliases:
@@ -334,6 +334,14 @@ def quit_(*_args):
     "\\g",
     "<query>\\g",
     "Display query results (mnemonic: go).",
+    arg_type=ArgType.NO_QUERY,
+    case_sensitive=True,
+    backslash_only=True,
+)
+@special_command(
+    "\\x",
+    "<query>\\x",
+    "Display query results in an explorer rather than a pager.",
     arg_type=ArgType.NO_QUERY,
     case_sensitive=True,
     backslash_only=True,

@@ -10,6 +10,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
+
 # The alias of the extension.
 ALIAS = 'port-security-groups-filtering'
 
@@ -35,16 +41,14 @@ DESCRIPTION = "Provides security groups filtering when listing ports"
 UPDATED_TIMESTAMP = "2018-01-09T09:00:00-00:00"
 
 # The resource attribute map for the extension.
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
 }
 
 # The subresource attribute map for the extension.
-SUB_RESOURCE_ATTRIBUTE_MAP = {
-}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map.
-ACTION_MAP = {
-}
+ACTION_MAP: ActionMap = {}
 
 # The action status.
 ACTION_STATUS = {

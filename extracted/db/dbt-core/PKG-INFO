@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-core
-Version: 1.11.12
+Version: 1.12.0
 Summary: With dbt, data analysts and engineers can build analytics the way engineers build applications.
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-core
 Project-URL: Repository, https://github.com/dbt-labs/dbt-core.git
@@ -19,25 +19,28 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
-Requires-Dist: agate<1.10,>=1.7.0
+Requires-Dist: agate<1.15,>=1.7.0
 Requires-Dist: click<9.0,>=8.3.0
 Requires-Dist: daff>=1.3.46
-Requires-Dist: dbt-adapters<2.0,>=1.15.5
-Requires-Dist: dbt-common<2.0,>=1.37.3
+Requires-Dist: dbt-adapters<2.0,>=1.24.5
+Requires-Dist: dbt-common<2.0,>=1.37.5
+Requires-Dist: dbt-core-experimental-parser<3,>=2.0.0a4
 Requires-Dist: dbt-extractor<=0.6,>=0.5.0
-Requires-Dist: dbt-protos<2.0,>=1.0.405
-Requires-Dist: dbt-semantic-interfaces<0.10,>=0.9.0
+Requires-Dist: dbt-protos<2.0,>=1.0.514
 Requires-Dist: jinja2<4,>=3.1.3
 Requires-Dist: jsonschema<5.0,>=4.19.1
-Requires-Dist: mashumaro[msgpack]<3.15,>=3.9
+Requires-Dist: mashumaro[msgpack]<3.18,>=3.9
+Requires-Dist: metricflow<1.0,>=0.211.0
 Requires-Dist: networkx<4.0,>=2.3
 Requires-Dist: packaging>20.9
-Requires-Dist: pathspec<0.13,>=0.9
-Requires-Dist: protobuf<7.0,>=6.0
+Requires-Dist: pathspec<1.1,>=0.9
+Requires-Dist: protobuf<8.0,>=6.0
 Requires-Dist: pydantic<3
+Requires-Dist: python-dotenv>=1.2
 Requires-Dist: pytz>=2015.7
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: requests<3.0.0
@@ -47,7 +50,7 @@ Requires-Dist: typing-extensions>=4.4
 Description-Content-Type: text/markdown
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/dbt-labs/dbt-core/fa1ea14ddfb1d5ae319d5141844910dd53ab2834/etc/dbt-core.svg" alt="dbt logo" width="750"/>
+  <img src="https://raw.githubusercontent.com/dbt-labs/dbt-core/fa1ea14ddfb1d5ae319d5141844910dd53ab2834/docs/images/dbt-core.svg" alt="dbt logo" width="750"/>
 </p>
 <p align="center">
   <a href="https://github.com/dbt-labs/dbt-core/actions/workflows/main.yml">
@@ -57,7 +60,7 @@ Description-Content-Type: text/markdown
 
 **[dbt](https://www.getdbt.com/)** enables data analysts and engineers to transform their data using the same practices that software engineers use to build applications.
 
-![architecture](https://raw.githubusercontent.com/dbt-labs/dbt-core/6c6649f9129d5d108aa3b0526f634cd8f3a9d1ed/etc/dbt-arch.png)
+![architecture](https://raw.githubusercontent.com/dbt-labs/dbt-core/6c6649f9129d5d108aa3b0526f634cd8f3a9d1ed/docs/images/dbt-arch.png)
 
 ## Understanding dbt
 
@@ -65,7 +68,7 @@ Analysts using dbt can transform their data by simply writing select statements,
 
 These select statements, or "models", form a dbt project. Models frequently build on top of one another – dbt makes it easy to [manage relationships](https://docs.getdbt.com/docs/ref) between models, and [visualize these relationships](https://docs.getdbt.com/docs/documentation), as well as assure the quality of your transformations through [testing](https://docs.getdbt.com/docs/testing).
 
-![dbt dag](https://raw.githubusercontent.com/dbt-labs/dbt-core/6c6649f9129d5d108aa3b0526f634cd8f3a9d1ed/etc/dbt-dag.png)
+![dbt dag](https://raw.githubusercontent.com/dbt-labs/dbt-core/6c6649f9129d5d108aa3b0526f634cd8f3a9d1ed/docs/images/dbt-dag.png)
 
 ## Getting started
 

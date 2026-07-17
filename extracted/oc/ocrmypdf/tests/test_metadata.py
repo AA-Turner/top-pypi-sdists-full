@@ -137,7 +137,7 @@ def test_unset_metadata(output_type, field, resources, outpdf, caplog):
     # isn't contained anywhere in the output pdf. We'll also check to ensure
     # it's in the input pdf and that any values not unset are still in the
     # output pdf.
-    with open(input_file, 'rb') as before, open(outpdf, 'rb') as after:
+    with input_file.open('rb') as before, outpdf.open('rb') as after:
         before_data = before.read()
         after_data = after.read()
 

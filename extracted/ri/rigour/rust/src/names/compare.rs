@@ -63,9 +63,7 @@ const COST_DEFAULT: f64 = 1.0;
 // callers can pass alternatives without recompiling. The downstream
 // budget cap is per-side, so the *gap* between cheap (cost_sep_drop)
 // and expensive (cost_digit) edits is what determines whether a
-// cluster squeaks under the cap or fails it. See
-// `plans/weighted-distance.md` § Magic-number systematisation for the
-// tuning context.
+// cluster squeaks under the cap or fails it.
 
 /// Tunable cost / budget / clustering scalars for [`py_compare_parts`].
 ///
@@ -94,7 +92,8 @@ pub struct CompareConfig {
     #[pyo3(get)]
     pub cost_confusable: f64,
 
-    /// Edit involving a digit on either side. Digits identify
+    /// Edit involving a digit on either side — in any script
+    /// (ASCII, Arabic-Indic, Devanagari, …). Digits identify
     /// specific things — vintage years, vessel hull numbers, fund
     /// vintages — so a digit mismatch is evidence of a different
     /// entity, not a typo.
@@ -249,10 +248,15 @@ fn edit_cost(cfg: &CompareConfig, op: Op, qc: Option<char>, rc: Option<char>) ->
             return cfg.cost_confusable;
         }
     }
-    if matches!(qc, Some(c) if c.is_ascii_digit()) {
+    // `is_numeric` (not `is_ascii_digit`): Arabic-Indic, Devanagari,
+    // fullwidth and other Unicode numerals carry the same
+    // different-entity signal as 0-9, and NamePart.comparable
+    // preserves them inside alphanumeric tokens. Matches NamePart's
+    // own numeric classification.
+    if matches!(qc, Some(c) if c.is_numeric()) {
         return cfg.cost_digit;
     }
-    if matches!(rc, Some(c) if c.is_ascii_digit()) {
+    if matches!(rc, Some(c) if c.is_numeric()) {
         return cfg.cost_digit;
     }
     COST_DEFAULT
@@ -536,9 +540,8 @@ struct Cluster {
 /// monotone DP walk, so its keys form a non-decreasing path in
 /// `(qp, rp)`-space and can't contain the cross pattern an X-bridge
 /// requires. If the DP ever stops being monotone — or the threshold
-/// drops to admit many more edges per the connectivity-rule
-/// proposal in `plans/weighted-distance.md` — replace the loop with
-/// a part-id DSU.
+/// drops to admit many more edges — replace the loop with a part-id
+/// DSU.
 ///
 /// Parts that no overlap pair clears the threshold for surface as
 /// solo clusters at the end.
@@ -780,6 +783,11 @@ mod tests {
         assert_eq!(edit_cost(&cfg, Op::Replace, Some('0'), Some('o')), 0.7);
         // Digit
         assert_eq!(edit_cost(&cfg, Op::Replace, Some('5'), Some('8')), 1.5);
+        // Non-ASCII numerals get the digit tier too: Arabic-Indic,
+        // Devanagari, fullwidth (issue #233).
+        assert_eq!(edit_cost(&cfg, Op::Replace, Some('٣'), Some('٤')), 1.5);
+        assert_eq!(edit_cost(&cfg, Op::Replace, Some('३'), Some('a')), 1.5);
+        assert_eq!(edit_cost(&cfg, Op::Insert, None, Some('３')), 1.5);
         // Lone SEP
         assert_eq!(edit_cost(&cfg, Op::Insert, None, Some(SEP)), 0.2);
         assert_eq!(edit_cost(&cfg, Op::Delete, Some(SEP), None), 0.2);

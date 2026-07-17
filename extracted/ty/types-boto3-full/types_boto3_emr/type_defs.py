@@ -102,7 +102,6 @@ __all__ = (
     "CancelStepsInfoTypeDef",
     "CancelStepsInputTypeDef",
     "CancelStepsOutputTypeDef",
-    "CertificateAuthorityTypeDef",
     "CloudWatchAlarmDefinitionOutputTypeDef",
     "CloudWatchAlarmDefinitionTypeDef",
     "CloudWatchAlarmDefinitionUnionTypeDef",
@@ -429,11 +428,6 @@ class CancelStepsInputTypeDef(TypedDict):
     ClusterId: str
     StepIds: Sequence[str]
     StepCancellationOption: NotRequired[StepCancellationOptionType]
-
-
-class CertificateAuthorityTypeDef(TypedDict):
-    CertificateArn: NotRequired[str]
-    CertificateData: NotRequired[str]
 
 
 class MetricDimensionTypeDef(TypedDict):
@@ -1904,7 +1898,6 @@ class SessionPaginatorTypeDef(TypedDict):
     EngineConfigurations: NotRequired[list[ConfigurationPaginatorTypeDef]]
     MonitoringConfiguration: NotRequired[SessionMonitoringConfigurationOutputTypeDef]
     SessionIdleTimeoutInMinutes: NotRequired[int]
-    CertificateAuthority: NotRequired[CertificateAuthorityTypeDef]
     ServerUrl: NotRequired[str]
     Tags: NotRequired[list[TagTypeDef]]
 
@@ -1927,7 +1920,6 @@ class SessionTypeDef(TypedDict):
     EngineConfigurations: NotRequired[list[ConfigurationOutputTypeDef]]
     MonitoringConfiguration: NotRequired[SessionMonitoringConfigurationOutputTypeDef]
     SessionIdleTimeoutInMinutes: NotRequired[int]
-    CertificateAuthority: NotRequired[CertificateAuthorityTypeDef]
     ServerUrl: NotRequired[str]
     Tags: NotRequired[list[TagTypeDef]]
 

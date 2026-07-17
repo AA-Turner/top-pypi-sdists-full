@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "datacollective"
-version = "0.5.3"  # DO NOT EDIT THE VERSION MANUALLY, USE bump-my-version TO UPDATE. See release.md
+version = "0.5.4"  # DO NOT EDIT THE VERSION MANUALLY, USE bump-my-version TO UPDATE. See release.md
 dependencies = [
     "fox-progress-bar>=0.1.1",
     "pandas>=2.0.0",
@@ -26,12 +26,18 @@ classifiers = [
 license = "MPL-2.0"
 license-files = ["LICENSE*"]
 
+[project.optional-dependencies]
+hf = [
+    "datasets>=5.0.0",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "pre-commit>=3.0.0",
     "bump-my-version>=1.2.6",
+    "datasets>=5.0.0",
 ]
 
 docs = [
@@ -60,7 +66,7 @@ explicit = true
 
 # bump-my-version configuration
 [tool.bumpversion]
-current_version = "0.5.3"  # DO NOT EDIT THE VERSION MANUALLY, USE bump-my-version TO UPDATE. See release.md
+current_version = "0.5.4"  # DO NOT EDIT THE VERSION MANUALLY, USE bump-my-version TO UPDATE. See release.md
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"

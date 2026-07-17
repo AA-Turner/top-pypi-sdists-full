@@ -13,15 +13,19 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import typing
-
 from neutron_lib.api import converters
 from neutron_lib.api.definitions import network
 from neutron_lib.api.definitions import port
 from neutron_lib import constants
 from neutron_lib.db import constants as db_const
 from neutron_lib.services.qos import constants as qos_const
-
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    ResourceAttributeMapItem,
+    SubResourceAttributeMap,
+    SubResourceParent,
+)
 
 BANDWIDTH_LIMIT_RULES = "bandwidth_limit_rules"
 RULE_TYPES = "rule_types"
@@ -29,7 +33,7 @@ POLICIES = 'policies'
 POLICY = 'policy'
 DSCP_MARKING_RULES = 'dscp_marking_rules'
 MIN_BANDWIDTH_RULES = 'minimum_bandwidth_rules'
-_QOS_RULE_COMMON_FIELDS = {
+_QOS_RULE_COMMON_FIELDS: dict[str, ResourceAttributeMapItem] = {
     'id': {
         'allow_post': False, 'allow_put': False,
         'validate': {'type:uuid': None},
@@ -47,7 +51,7 @@ NAME = 'Quality of Service'
 API_PREFIX = '/' + ALIAS
 DESCRIPTION = 'The Quality of Service extension.'
 UPDATED_TIMESTAMP = '2015-06-08T10:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     POLICIES: {
         'id': {
             'allow_post': False, 'allow_put': False,
@@ -106,11 +110,11 @@ RESOURCE_ATTRIBUTE_MAP = {
         }
     }
 }
-_PARENT = {
+_PARENT: SubResourceParent = {
     'collection_name': POLICIES,
     'member_name': POLICY
 }
-SUB_RESOURCE_ATTRIBUTE_MAP: dict[str, typing.Any] = {
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {
     BANDWIDTH_LIMIT_RULES: {
         'parent': _PARENT,
         'parameters': dict(
@@ -122,7 +126,8 @@ SUB_RESOURCE_ATTRIBUTE_MAP: dict[str, typing.Any] = {
                 'is_filter': True,
                 'is_sort_key': True,
                 'validate': {
-                    'type:range': [0, db_const.DB_INTEGER_MAX_VALUE]}
+                    'type:range': (0, db_const.DB_INTEGER_MAX_VALUE),
+                }
             },
                 qos_const.MAX_BURST: {
                     'allow_post': True, 'allow_put': True,
@@ -131,7 +136,8 @@ SUB_RESOURCE_ATTRIBUTE_MAP: dict[str, typing.Any] = {
                     'is_sort_key': True,
                     'convert_to': converters.convert_to_int,
                     'validate': {
-                        'type:range': [0, db_const.DB_INTEGER_MAX_VALUE]}}}),
+                        'type:range': (0, db_const.DB_INTEGER_MAX_VALUE),
+                    }}}),
     },
     DSCP_MARKING_RULES: {
         'parent': _PARENT,
@@ -157,7 +163,8 @@ SUB_RESOURCE_ATTRIBUTE_MAP: dict[str, typing.Any] = {
                 'is_sort_key': True,
                 'convert_to': converters.convert_to_int,
                 'validate': {
-                    'type:range': [0, db_const.DB_INTEGER_MAX_VALUE]}},
+                    'type:range': (0, db_const.DB_INTEGER_MAX_VALUE),
+                }},
                 qos_const.DIRECTION: {
                     'allow_post': True, 'allow_put': True,
                     'is_visible': True, 'default': constants.EGRESS_DIRECTION,
@@ -167,7 +174,7 @@ SUB_RESOURCE_ATTRIBUTE_MAP: dict[str, typing.Any] = {
                         'type:values': [constants.EGRESS_DIRECTION]}}})
     }
 }
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

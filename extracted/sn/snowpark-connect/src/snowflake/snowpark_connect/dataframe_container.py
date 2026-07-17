@@ -87,6 +87,7 @@ class DataFrameContainer:
         can_be_materialized: bool = True,
         aggregate_metadata: AggregateMetadata | None = None,
         cached_local_relation_arrow_table: pa.Table | None = None,
+        sort_exprs: list[tuple[str, str, str]] | None = None,
     ) -> None:
         """
         Initialize a new DataFrameContainer.
@@ -122,6 +123,13 @@ class DataFrameContainer:
         self._aggregate_metadata = aggregate_metadata
         self._cached_local_relation_arrow_table = cached_local_relation_arrow_table
         self._known_row_count: int | None = None
+        # Spark sort keys carried from sortWithinPartitions (is_global=False).
+        # Consumed by handle_udtf_with_table_arguments to apply .over(order_by=...)
+        # so a stateful UDTF sees rows in the intended order. Stored as Spark names
+        # (not Snowpark Column objects) so they survive column renames across
+        # temp-view boundaries. Each tuple is (spark_name, direction, null_ordering)
+        # where direction is "asc"/"desc" and null_ordering is "first"/"last".
+        self.sort_exprs: list[tuple[str, str, str]] | None = sort_exprs
         self.cached_schema_getter: Callable[
             [], StructType
         ] | None = cached_schema_getter
@@ -148,6 +156,7 @@ class DataFrameContainer:
         column_is_qualified_access_only: list[bool] | None = None,
         can_be_cached: bool = True,
         aggregate_metadata: AggregateMetadata | None = None,
+        sort_exprs: list[tuple[str, str, str]] | None = None,
     ) -> DataFrameContainer:
         """
         Create a new container with complete column mapping configuration.
@@ -219,6 +228,7 @@ class DataFrameContainer:
             partition_hint=partition_hint,
             can_be_cached=can_be_cached,
             aggregate_metadata=aggregate_metadata,
+            sort_exprs=sort_exprs,
         )
 
     @property
@@ -480,6 +490,7 @@ class DataFrameContainer:
                 ]
             ),
             partition_hint=self._partition_hint,
+            sort_exprs=self.sort_exprs,
         )
 
     def without_internal_columns(self) -> DataFrameContainer:

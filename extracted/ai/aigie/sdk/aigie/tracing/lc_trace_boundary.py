@@ -11,6 +11,7 @@ and closes the workflow span and the ``_note_*`` hooks are no-ops.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import suppress
 from datetime import datetime, timezone
@@ -28,6 +29,10 @@ from aigie.tracing.workflow_root import WorkflowRoot
 if TYPE_CHECKING:
     from aigie.tracing.execution_state import ExecutionState
     from aigie.tracing.span_event_handler import SpanEventHandler
+
+# A stream abandoned before exhaustion (caller breaks early, or its task is
+# cancelled) raises these; finalize such a root as interrupted, not a real error.
+_ABANDONED_STREAM_EXC = (GeneratorExit, asyncio.CancelledError)
 
 _log = logging.getLogger(__name__)
 
@@ -153,18 +158,25 @@ class LangChainTraceBoundary:
         self, *, output: Any = None, error: BaseException | None = None
     ) -> None:
         now = datetime.now(timezone.utc)
-        status = "error" if error is not None else "success"
+        if error is None:
+            status = "success"
+        elif isinstance(error, _ABANDONED_STREAM_EXC):
+            # Caller broke out of / cancelled a stream before it finished — the
+            # run was abandoned, not a success and not a real error.
+            status = "interrupted"
+        else:
+            status = "error"
         # Run-level data the legacy trace_update carried is folded onto the root.
         metadata_updates = self._root_metadata_updates(status)
-        if error is not None:
-            self._execution.end_span(
-                name=self._workflow_name, status="error", at=now, error_message=str(error)
-            )
-        else:
-            self._execution.end_span(name=self._workflow_name, status="success", at=now)
+        self._execution.end_span(
+            name=self._workflow_name,
+            status=status,
+            at=now,
+            error_message=str(error) if status == "error" else None,
+        )
         root = getattr(self, "_workflow_root", None)
         if root is not None:
-            root.close(output=output, error=error, metadata_updates=metadata_updates)
+            root.close(output=output, error=error, status=status, metadata_updates=metadata_updates)
 
     def _root_metadata_updates(self, status: str) -> dict[str, Any]:
         metadata: dict[str, Any] = {

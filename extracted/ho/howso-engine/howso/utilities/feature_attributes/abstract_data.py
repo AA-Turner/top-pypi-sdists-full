@@ -401,13 +401,11 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
     ) -> dict | None:
         # prevent circular import
         output = dict()
-        allow_null = True
         original_type = feature_attributes[feature_name]['original_type']
         decimal_places = feature_attributes[feature_name].get('decimal_places')
 
-        # Only integers by default do not allow nulls.
-        if original_type.get('data_type') == FeatureType.INTEGER.value:
-            allow_null = False
+        # Rely on schema information about nullability
+        allow_null = self.data.is_nullable_column(feature_name)
 
         if feature_attributes[feature_name].get('type') == 'continuous':
             # Grab the natural feature_type and raw_feature_type
@@ -451,14 +449,14 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
                     return {
                         'min': 0, 'max': feature_attributes[feature_name]['cycle_length'],
                         'observed_min': time_to_seconds(min_time), 'observed_max': time_to_seconds(max_time),
-                        'allow_null': True
+                        'allow_null': allow_null
                     }
                 else:
                     # Tight bounds
                     return {
                         'min': time_to_seconds(min_time), 'max': time_to_seconds(max_time),
                         'observed_min': time_to_seconds(min_time), 'observed_max': time_to_seconds(max_time),
-                        'allow_null': True
+                        'allow_null': allow_null
                     }
 
             if 'date_time_format' in feature_attributes[feature_name]:
@@ -798,3 +796,7 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
     def _get_value_count(self, feature_name: str, value: t.Any) -> int:
         """Get the number of occurances of the provided value of the provided feature."""
         return self.data.get_value_count(feature_name, value, max_rows_to_eval=self.max_rows_to_eval)
+
+    def _contains_nulls(self, feature_name: str) -> bool:
+        """Get whether the provided feature contains any nulls."""
+        return self.data.contains_nulls(feature_name)

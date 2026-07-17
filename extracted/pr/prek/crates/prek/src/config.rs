@@ -5,7 +5,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use fancy_regex::Regex;
-use globset::{Glob, GlobSet, GlobSetBuilder};
+use globset::{Glob, GlobSet};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use prek_identify::TagSet;
@@ -47,15 +47,23 @@ where
 
 #[derive(Clone)]
 pub(crate) struct GlobPatterns {
-    patterns: Vec<String>,
+    patterns: Vec<Glob>,
     set: GlobSet,
 }
 
 impl GlobPatterns {
     pub(crate) fn new(patterns: Vec<String>) -> Result<Self, globset::Error> {
-        let mut builder = GlobSetBuilder::new();
+        let patterns = patterns
+            .into_iter()
+            .map(|pattern| pattern.parse())
+            .collect::<Result<Vec<_>, _>>()?;
+        Self::from_globs(patterns)
+    }
+
+    pub(crate) fn from_globs(patterns: Vec<Glob>) -> Result<Self, globset::Error> {
+        let mut builder = GlobSet::builder();
         for pattern in &patterns {
-            builder.add(Glob::new(pattern)?);
+            builder.add(pattern.clone());
         }
         let set = builder.build()?;
         Ok(Self { patterns, set })
@@ -70,10 +78,18 @@ impl GlobPatterns {
     }
 }
 
+fn debug_globs(globs: &[Glob]) -> impl std::fmt::Debug + '_ {
+    std::fmt::from_fn(|f| {
+        f.debug_list()
+            .entries(globs.iter().map(Glob::glob))
+            .finish()
+    })
+}
+
 impl std::fmt::Debug for GlobPatterns {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GlobPatterns")
-            .field("patterns", &self.patterns)
+            .field("patterns", &debug_globs(&self.patterns))
             .finish_non_exhaustive()
     }
 }
@@ -285,6 +301,7 @@ pub enum Language {
     Lua,
     Node,
     Perl,
+    Php,
     Pygrep,
     Python,
     R,
@@ -884,9 +901,11 @@ impl TryFrom<RemoteHook> for BuiltinHook {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct RemoteRepo {
-    pub repo: String,
+    repo: String,
+    #[serde(skip)]
+    resolved_source: Option<String>,
     pub rev: String,
     #[serde(skip_serializing)]
     pub hooks: Vec<RemoteHook>,
@@ -897,13 +916,13 @@ pub(crate) struct RemoteRepo {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct RemoteRepoKey<'a> {
-    repo: &'a str,
+    source: &'a str,
     rev: &'a str,
 }
 
 impl<'a> RemoteRepoKey<'a> {
-    pub(crate) fn repo(self) -> &'a str {
-        self.repo
+    pub(crate) fn source(self) -> &'a str {
+        self.source
     }
 
     pub(crate) fn rev(self) -> &'a str {
@@ -915,23 +934,53 @@ impl RemoteRepo {
     pub fn new(repo: String, rev: String, hooks: Vec<RemoteHook>) -> Self {
         Self {
             repo,
+            resolved_source: None,
             rev,
             hooks,
             _unused_keys: BTreeMap::new(),
         }
     }
 
+    /// The repository value exactly as written in the configuration.
+    pub(crate) fn repo(&self) -> &str {
+        &self.repo
+    }
+
+    /// The repository source used for fetch and cache identity.
+    pub(crate) fn source(&self) -> &str {
+        self.resolved_source.as_deref().unwrap_or(&self.repo)
+    }
+
+    pub(crate) fn set_resolved_source(&mut self, source: String) {
+        self.resolved_source = Some(source);
+    }
+
     pub fn key(&self) -> RemoteRepoKey<'_> {
         RemoteRepoKey {
-            repo: &self.repo,
+            source: self.source(),
             rev: &self.rev,
         }
     }
 }
 
+impl std::fmt::Debug for RemoteRepo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug = f.debug_struct("RemoteRepo");
+        debug.field("repo", &self.repo);
+        if let Some(source) = &self.resolved_source {
+            debug.field("source", source);
+        }
+        debug
+            .field("rev", &self.rev)
+            .field("hooks", &self.hooks)
+            .field("_unused_keys", &self._unused_keys)
+            .finish()
+    }
+}
+
 impl Display for RemoteRepo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}@{}", self.repo, self.rev)
+        write!(f, "{}@{}", self.repo(), self.rev)
     }
 }
 
@@ -1109,6 +1158,7 @@ impl<'de> Deserialize<'de> for Repo {
                         };
                         Ok(Repo::Remote(RemoteRepo {
                             repo: repo_value,
+                            resolved_source: None,
                             rev,
                             hooks,
                             _unused_keys: unused,
@@ -1137,12 +1187,75 @@ where
     })
 }
 
+/// A configuration value that accepts either one string or a list of strings.
+#[derive(Clone, Eq, PartialEq)]
+pub(crate) enum StringOrList {
+    One(Glob),
+    Many(Vec<Glob>),
+}
+
+impl std::fmt::Debug for StringOrList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::One(pattern) => f.debug_tuple("One").field(&pattern.glob()).finish(),
+            Self::Many(patterns) => f.debug_tuple("Many").field(&debug_globs(patterns)).finish(),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for StringOrList {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum RawStringOrList {
+            One(String),
+            Many(Vec<String>),
+        }
+
+        match RawStringOrList::deserialize(deserializer)? {
+            RawStringOrList::One(pattern) => {
+                pattern.parse().map(Self::One).map_err(D::Error::custom)
+            }
+            RawStringOrList::Many(patterns) => patterns
+                .into_iter()
+                .map(|pattern| pattern.parse().map_err(D::Error::custom))
+                .collect::<Result<_, _>>()
+                .map(Self::Many),
+        }
+    }
+}
+
+impl StringOrList {
+    pub(crate) fn as_slice(&self) -> &[Glob] {
+        match self {
+            Self::One(value) => std::slice::from_ref(value),
+            Self::Many(values) => values,
+        }
+    }
+}
+
+/// Overrides tag selection for one repository during `prek update`.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default, rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub(crate) struct RepoTagFilterOptions {
+    pub(crate) include_tags: Option<StringOrList>,
+    pub(crate) exclude_tags: Option<StringOrList>,
+}
+
 /// Controls how `prek update` selects eligible releases.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, rename_all = "snake_case")]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub(crate) struct UpdateOptions {
     pub(crate) cooldown_days: Option<u8>,
+    pub(crate) freeze: Option<bool>,
+    pub(crate) include_tags: Option<StringOrList>,
+    pub(crate) exclude_tags: Option<StringOrList>,
+    pub(crate) repos: BTreeMap<String, RepoTagFilterOptions>,
 }
 
 // TODO: warn sensible regex
@@ -1190,6 +1303,40 @@ pub(crate) struct Config {
 
     #[serde(skip_serializing, flatten)]
     _unused_keys: BTreeMap<String, serde_json::Value>,
+}
+
+impl Config {
+    /// Resolve local relative repository sources from the config file, not the process cwd.
+    fn resolve_relative_repo_sources(&mut self, config_path: &Path) -> Result<(), Error> {
+        let config_dir = config_path
+            .parent()
+            .expect("config file must have a parent");
+        for repo in &mut self.repos {
+            let Repo::Remote(remote) = repo else {
+                continue;
+            };
+
+            let configured_repo = remote.repo();
+            let repo_path = Path::new(configured_repo);
+            if configured_repo.starts_with("http://")
+                || configured_repo.starts_with("https://")
+                || !repo_path.is_relative()
+            {
+                continue;
+            }
+
+            let resolved = config_dir.join(repo_path);
+            if resolved.is_dir() {
+                remote.set_resolved_source(
+                    dunce::canonicalize(resolved)?
+                        .to_string_lossy()
+                        .into_owned(),
+                );
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -1318,12 +1465,13 @@ fn warn_unused_paths(path: &Path, entries: &[String]) {
 pub(crate) fn load_config(path: &Path) -> Result<Config, Error> {
     let content = fs_err::read_to_string(path)?;
 
-    let config = match path.extension() {
+    let mut config: Config = match path.extension() {
         Some(ext) if ext.eq_ignore_ascii_case("toml") => toml::from_str(&content)
             .map_err(|e| Error::Toml(path.user_display().to_string(), Box::new(e)))?,
         _ => serde_saphyr::from_str(&content)
             .map_err(|e| Error::Yaml(path.user_display().to_string(), Box::new(e)))?,
     };
+    config.resolve_relative_repo_sources(path)?;
 
     Ok(config)
 }
@@ -1354,7 +1502,7 @@ pub(crate) fn read_config(path: &Path) -> Result<Config, Error> {
     if !repos_has_mutable_rev.is_empty() {
         let msg = repos_has_mutable_rev
             .iter()
-            .map(|repo| format!("{}: {}", repo.repo.cyan(), repo.rev.yellow()))
+            .map(|repo| format!("{}: {}", repo.repo().cyan(), repo.rev.yellow()))
             .join("\n");
 
         warn_user!(
@@ -1943,17 +2091,81 @@ mod tests {
 
     #[test]
     fn parse_update_options() {
-        let yaml = indoc::indoc! {r"
+        let yaml = indoc::indoc! {r#"
             update:
               cooldown_days: 7
+              freeze: true
+              include_tags: "v*"
+              exclude_tags: ["*-rc*"]
+              repos:
+                "https://example.com/repo":
+                  include_tags: "v1.*"
+                  exclude_tags: [nightly, "*-dev*"]
             repos: []
-        "};
+        "#};
         let result = serde_saphyr::from_str::<Config>(yaml).unwrap();
+        let options = result.update.unwrap();
 
-        assert_eq!(
-            result.update.and_then(|options| options.cooldown_days),
-            Some(7)
-        );
+        insta::assert_debug_snapshot!(options, @r###"
+        UpdateOptions {
+            cooldown_days: Some(
+                7,
+            ),
+            freeze: Some(
+                true,
+            ),
+            include_tags: Some(
+                One(
+                    "v*",
+                ),
+            ),
+            exclude_tags: Some(
+                Many(
+                    [
+                        "*-rc*",
+                    ],
+                ),
+            ),
+            repos: {
+                "https://example.com/repo": RepoTagFilterOptions {
+                    include_tags: Some(
+                        One(
+                            "v1.*",
+                        ),
+                    ),
+                    exclude_tags: Some(
+                        Many(
+                            [
+                                "nightly",
+                                "*-dev*",
+                            ],
+                        ),
+                    ),
+                },
+            },
+        }
+        "###);
+    }
+
+    #[test]
+    fn parse_update_options_rejects_invalid_glob() {
+        let yaml = indoc::indoc! {r#"
+            update:
+              include_tags: "["
+            repos: []
+        "#};
+        let err = serde_saphyr::from_str::<Config>(yaml).unwrap_err();
+
+        insta::assert_snapshot!(err, @r#"
+        error: line 2 column 17: error parsing glob '[': unclosed character class; missing ']'
+         --> <input>:2:17
+          |
+        1 | update:
+        2 |   include_tags: "["
+          |                 ^ error parsing glob '[': unclosed character class; missing ']'
+        3 | repos: []
+          |
+        "#);
     }
 
     #[test]

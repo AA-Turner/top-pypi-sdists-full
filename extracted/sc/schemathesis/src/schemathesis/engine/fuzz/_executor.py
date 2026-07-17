@@ -17,15 +17,17 @@ from urllib3.exceptions import InsecureRequestWarning
 from schemathesis.checks import CheckContext
 from schemathesis.core.failures import FailureGroup
 from schemathesis.core.result import Ok
+from schemathesis.core.transport import Response
 from schemathesis.engine import Status, events
 from schemathesis.engine._check_context import CheckContextCache
+from schemathesis.engine._rate_limit_retry import call_with_retry
 from schemathesis.engine._validate import validate_response
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.generation import overrides
 from schemathesis.generation.hypothesis import examples
 
 if TYPE_CHECKING:
-    from schemathesis.config import FuzzConfig, ProjectConfig
+    from schemathesis.config import FuzzConfig
     from schemathesis.core.transport import Response
     from schemathesis.engine.context import EngineContext
     from schemathesis.engine.events import EventGenerator
@@ -50,14 +52,27 @@ MAX_SCENARIO_STEPS = 6
 _LINK_BIAS_CHOICES = [True] * 8 + [False] * 2
 
 
-def _build_strategy_kwargs(config: ProjectConfig, *, operation: APIOperation) -> dict[str, object]:
-    override = overrides.for_operation(config, operation=operation)
+def _build_strategy_kwargs(ctx: EngineContext, *, operation: APIOperation) -> dict[str, object]:
+    override = overrides.for_operation(ctx.config, operation=operation)
     # `body` is not part of the parameter override system and is never populated by `for_operation`.
-    return {
+    kwargs: dict[str, object] = {
         loc: getattr(override, loc)
         for loc in ("query", "headers", "cookies", "path_parameters")
         if getattr(override, loc)
     }
+    if ctx.error_feedback is not None:
+        kwargs["error_feedback"] = ctx.error_feedback
+    if (
+        ctx.config.phases_for(operation=operation).fuzzing.extra_data_sources.is_enabled
+        and ctx.extra_data_source is not None
+    ):
+        kwargs["extra_data_source"] = ctx.extra_data_source
+    # The pool is extracted once before this run and is read-only during draws, and value
+    # selection uses Hypothesis's own `st.randoms()` -- so the strategy is reproducible with
+    # no external randomness or mutable state for Hypothesis to flag as flaky.
+    if not ctx.constants_extraction.is_empty():
+        kwargs["constants_value_source"] = ctx.constants_extraction
+    return kwargs
 
 
 def _preflight_operations(
@@ -142,7 +157,7 @@ def _run_forever(
 ) -> EventGenerator:
     ctx.apply_stateful_inference()
     strategy_kwargs_by_label: dict[str, dict[str, object]] = {
-        op.label: _build_strategy_kwargs(ctx.config, operation=op) for op in operations
+        op.label: _build_strategy_kwargs(ctx, operation=op) for op in operations
     }
     generation_modes_by_label: dict[str, list] = {
         op.label: ctx.config.generation_for(operation=op).modes for op in operations
@@ -302,8 +317,28 @@ def _run_forever_thread(
                 transition=None,
                 is_transition_applied=False,
             )
+            auto_mode = ctx.config.rate_limit_for(operation=operation) == "auto"
+            transport_kwargs = ctx.get_transport_kwargs(operation=operation)
+            operation_label = operation.label
+
+            def _call(_case: Case = case, _kwargs: dict[str, Any] = transport_kwargs) -> Response:
+                return _case.call(**_kwargs)
+
+            def _on_delay(delay: float, retries_left: int, _label: str = operation_label) -> None:
+                event_queue.put(
+                    events.RateLimitRetry(
+                        operation=_label,
+                        delay=delay,
+                        retries_left=retries_left,
+                    )
+                )
+
             try:
-                response = case.call(**ctx.get_transport_kwargs(operation=operation))
+                _, response = call_with_retry(
+                    call_fn=_call,
+                    auto_mode=auto_mode,
+                    on_delay=_on_delay,
+                )
             except (requests.Timeout, requests.ConnectionError, ChunkedEncodingError) as exc:
                 if operation.label not in seen_error_labels:
                     seen_error_labels.add(operation.label)

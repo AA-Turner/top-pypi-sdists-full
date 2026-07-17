@@ -306,6 +306,13 @@ full_refresh = _create_option_and_track_env_var(
     is_flag=True,
 )
 
+hints_enabled = _create_option_and_track_env_var(
+    "--hints-enabled/--no-hints-enabled",
+    envvar="DBT_ENGINE_HINTS_ENABLED",
+    help="If set, dbt will surface occasional hints suggesting ways to speed up or improve your project.",
+    default=True,
+)
+
 host = _create_option_and_track_env_var(
     "--host",
     envvar="DBT_HOST",
@@ -322,10 +329,26 @@ indirect_selection = _create_option_and_track_env_var(
     default="eager",
 )
 
+maximum_seed_size_mib = click.option(
+    "--maximum-seed-size-mib",
+    envvar="DBT_ENGINE_MAXIMUM_SEED_SIZE_MIB",
+    help="Specify max size (MiB) for seed files that will be hashed for state comparison. Set to 0 for no limit.",
+    type=click.INT,
+    default=1,
+)
+
 inline = _create_option_and_track_env_var(
     "--inline",
     envvar=None,
     help="Pass SQL inline to dbt compile and show",
+)
+
+sql = _create_option_and_track_env_var(
+    "--sql",
+    envvar=None,
+    help="Execute ad-hoc SQL/Jinja directly via dbt run-operation, without requiring a macro definition.",
+    type=click.STRING,
+    default=None,
 )
 
 inline_direct = _create_option_and_track_env_var(
@@ -409,7 +432,6 @@ macro_debugging = _create_option_and_track_env_var(
     envvar="DBT_MACRO_DEBUGGING",
     hidden=True,
 )
-
 
 sqlparse_options = _create_option_and_track_env_var(
     "--sqlparse",
@@ -674,6 +696,14 @@ skip_profile_setup = _create_option_and_track_env_var(
     is_flag=True,
 )
 
+skip_debug = _create_option_and_track_env_var(
+    "--skip-debug",
+    envvar=None,
+    help="Skip running dbt debug after project initialization.",
+    is_flag=True,
+    default=False,
+)
+
 source = _create_option_and_track_env_var(
     "--source",
     envvar=None,
@@ -769,6 +799,22 @@ use_fast_test_edges = _create_option_and_track_env_var(
     "--use-fast-test-edges/--no-use-fast-test-edges",
     envvar="DBT_USE_FAST_TEST_EDGES",
     default=False,
+    hidden=True,
+)
+
+use_v2_parser = _create_option_and_track_env_var(
+    "--use-v2-parser/--no-use-v2-parser",
+    envvar="DBT_ENGINE_USE_V2_PARSER",
+    help="Delegate parsing to the fusion parser instead of running dbt-core's own parser.",
+    default=False,
+    hidden=False,
+)
+
+v2_parser = _create_option_and_track_env_var(
+    "--v2-parser",
+    envvar="DBT_ENGINE_V2_PARSER",
+    help="Command to invoke for the fusion parser when --use-v2-parser is set. Defaults to the bundled 'dbt-core-experimental-parser' binary.",
+    default="dbt-core-experimental-parser parse",
     hidden=True,
 )
 

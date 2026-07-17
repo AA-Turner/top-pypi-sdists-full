@@ -23,7 +23,6 @@ import os
 import pathlib
 import re
 from types import ModuleType
-from typing import TYPE_CHECKING
 
 
 try:
@@ -34,7 +33,7 @@ except ModuleNotFoundError as err:
     'https://github.com/jax-ml/jax#installation for installation instructions.'
     ) from err
 
-import jax.version
+import jax.version as jax_version
 from jax.version import _minimum_jaxlib_version as _minimum_jaxlib_version_str
 try:
   import jaxlib.version  # noqa: F401
@@ -77,9 +76,9 @@ def check_jaxlib_version(jax_version: str, jaxlib_version: str,
 
 version_str = jaxlib.version.__version__
 version = check_jaxlib_version(
-  jax_version=jax.version.__version__,
+  jax_version=jax_version.__version__,
   jaxlib_version=jaxlib.version.__version__,
-  minimum_jaxlib_version=jax.version._minimum_jaxlib_version)
+  minimum_jaxlib_version=jax_version._minimum_jaxlib_version)
 
 # Before importing any C compiled modules, first import the CPU
 # feature guard module to verify that jaxlib was compiled in a way that only
@@ -100,10 +99,7 @@ import jaxlib.lapack as lapack  # noqa: F401
 import jaxlib.utils as utils  # noqa: F401
 import jaxlib._jax as _jax  # noqa: F401
 
-try:
-  import jaxlib._xla as _xla  # noqa: F401
-except ImportError:
-  _xla = None
+import jaxlib._xla as _xla  # noqa: F401
 
 
 import jaxlib.mlir._mlir_libs._jax_mlir_ext as jax_mlir_ext  # noqa: F401
@@ -122,10 +118,7 @@ import jaxlib._pretty_printer as _pretty_printer  # noqa: F401
 
 import jaxlib._ifrt_proxy as ifrt_proxy  # noqa: F401
 
-if jaxlib_extension_version >= 457 or TYPE_CHECKING:
-  from jaxlib import _hlo as hlo  # noqa: F401
-else:
-  hlo = _jax
+from jaxlib import _hlo as hlo  # noqa: F401
 
 
 # XLA garbage collection: see https://github.com/jax-ml/jax/issues/14882

@@ -344,6 +344,70 @@ def binary_supports_headless_no_viewport(
         return False
 
 
+# ---------------------------------------------------------------------------
+# Inline HTTP proxy authentication by binary version
+# ---------------------------------------------------------------------------
+# First Chromium build, per platform, whose binary can take inline HTTP proxy
+# credentials (Chromium-native ``--proxy-server=http://user:pass@host``). Below
+# the floor the wrapper MUST route credentialed HTTP/HTTPS proxies through
+# Playwright's proxy dict instead — an older binary treats the ``user:pass@``
+# authority as an invalid proxy host and drops proxy auth (#182).
+#
+# A single global threshold (like HEADLESS_NO_VIEWPORT_MIN_VERSION) can't model
+# this: the capability landed in different build lineages at different points —
+# linux-x64/windows-x64 have it at 146.0.7680.177.5, but the free macOS (145.x)
+# and linux-arm64 (146.0.7680.177.3) floors predate it, so those only qualify
+# once they resolve to a Pro/newer build (148+). Platforms absent from this map
+# are treated as never-inline (unknown capability => safe fallback).
+HTTP_PROXY_INLINE_AUTH_MIN_VERSION: dict[str, str] = {
+    "linux-x64": "146.0.7680.177.5",
+    "windows-x64": "146.0.7680.177.5",
+    "linux-arm64": "148.0.7778.215.3",
+    "darwin-arm64": "148.0.7778.215.3",
+    "darwin-x64": "148.0.7778.215.3",
+}
+
+
+def binary_supports_http_proxy_inline_auth(
+    license_key: str | None = None, browser_version: str | None = None
+) -> bool:
+    """Whether the resolved binary accepts inline HTTP proxy credentials.
+
+    The capability is a function of the binary version; ``license_key`` only
+    resolves *which* version launches (Pro build vs free default), exactly like
+    ``binary_supports_headless_no_viewport``. A declared pin wins, else a valid
+    Pro license resolves to the Pro build (which ships the patch), else the free
+    per-platform default — then it compares to this platform's floor. Below the
+    floor, credentialed HTTP proxies fall back to Playwright's proxy dict. A
+    local override with no declared version is unknown-version, so stay on the
+    safe fallback. Python, JS and .NET mirror this gate.
+    """
+    floor = HTTP_PROXY_INLINE_AUTH_MIN_VERSION.get(get_platform_tag())
+    if floor is None:
+        return False
+    try:
+        declared = normalize_requested_version(browser_version)
+    except ValueError:
+        declared = None
+    if declared:
+        version = declared
+    elif get_local_binary_override():
+        return False
+    else:
+        from .license import resolve_license_key
+
+        pro = bool(resolve_license_key(license_key))
+        version = get_effective_version(pro=pro)
+    if version is None:
+        # Pro with no cached marker => resolve latest Pro from the server, which
+        # is >= the floor by construction and always ships the patch.
+        return True
+    try:
+        return not _version_newer(floor, version)
+    except (ValueError, AttributeError):
+        return False
+
+
 def binary_supports_maximized_window(
     license_key: str | None = None, browser_version: str | None = None
 ) -> bool:

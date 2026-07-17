@@ -17,6 +17,11 @@ from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import qos as qos_apidef
 from neutron_lib.api.definitions import qos_fip as qos_fip_apidef
 from neutron_lib.services.qos import constants as qos_consts
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 ALIAS = 'qos-fip-network-policy'
 IS_SHIM_EXTENSION = False
@@ -24,7 +29,7 @@ IS_STANDARD_ATTR_EXTENSION = False
 NAME = 'QoS floating IP network policy ID'
 DESCRIPTION = 'Adds a the QoS network ID to the floating IP definition'
 UPDATED_TIMESTAMP = '2021-11-15T10:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     l3_apidef.FLOATINGIPS: {
         qos_consts.QOS_NETWORK_POLICY_ID: {
             'allow_post': False,
@@ -34,8 +39,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         }
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [l3_apidef.ALIAS, qos_apidef.ALIAS, qos_fip_apidef.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

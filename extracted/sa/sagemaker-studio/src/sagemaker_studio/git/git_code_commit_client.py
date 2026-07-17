@@ -3,6 +3,7 @@ from typing import Any, Dict
 from boto3 import Session
 from botocore.client import BaseClient
 
+from sagemaker_studio.credentials import CredentialsVendingService
 from sagemaker_studio.projects import ProjectService
 
 
@@ -18,6 +19,7 @@ class GitCodeCommitClient:
         self.datazone_api = datazone_api
         self.domain_identifier = domain_identifier
         self.project_identifier = project_identifier
+        self.credentials_api = CredentialsVendingService(datazone_api, project_api)
 
     def get_clone_url(self, repository_id: str) -> Dict[str, Any]:
         code_commit_client = self._get_client()
@@ -30,21 +32,17 @@ class GitCodeCommitClient:
         project_default_env = self.project_api.get_project_default_environment(
             domain_identifier=self.domain_identifier, project_identifier=self.project_identifier
         )
-        environment_config = {
-            "environment": {
-                "domain_identifier": project_default_env.get("domainId"),
-                "environment_identifier": project_default_env.get("id", ""),
-                "aws_region": project_default_env.get("awsAccountRegion", ""),
-            }
-        }
-        region_name = environment_config["environment"]["aws_region"]
-        get_environment_credentials_response: dict = self.datazone_api.get_environment_credentials(  # type: ignore
-            domainIdentifier=environment_config["environment"]["domain_identifier"],
-            environmentIdentifier=environment_config["environment"]["environment_identifier"],
+        region_name = project_default_env.get("awsAccountRegion", "")
+
+        connection_credentials = (
+            self.credentials_api.get_project_default_iam_connection_credentials(
+                domain_identifier=self.domain_identifier,
+                project_identifier=self.project_identifier,
+            )
         )
-        access_key_id = get_environment_credentials_response["accessKeyId"]
-        secret_access_key = get_environment_credentials_response["secretAccessKey"]
-        session_token = get_environment_credentials_response["sessionToken"]
+        access_key_id = connection_credentials["accessKeyId"]
+        secret_access_key = connection_credentials["secretAccessKey"]
+        session_token = connection_credentials["sessionToken"]
         session: Session = Session(region_name)
         return session.client(
             service_name="codecommit",

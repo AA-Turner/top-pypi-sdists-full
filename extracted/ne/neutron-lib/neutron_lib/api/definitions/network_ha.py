@@ -13,6 +13,11 @@
 
 from neutron_lib.api import converters
 from neutron_lib.api.definitions import network
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 ALIAS = 'network_ha'
 IS_SHIM_EXTENSION = False
@@ -24,7 +29,7 @@ UPDATED_TIMESTAMP = '2023-04-27T10:00:00-00:00'
 RESOURCE_NAME = network.RESOURCE_NAME
 COLLECTION_NAME = network.COLLECTION_NAME
 HA = 'ha'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         HA: {
             'allow_post': True,
@@ -35,8 +40,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         },
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

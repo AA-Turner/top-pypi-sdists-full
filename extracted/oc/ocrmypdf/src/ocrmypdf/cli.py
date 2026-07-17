@@ -362,7 +362,7 @@ Online documentation is located at:
     )
     ocrsettings.add_argument(
         '--skip-big',
-        type=numeric(float, 0, 5000),
+        type=numeric(float, 0.0, 5000.0),
         metavar='MPixels',
         help="Skip OCR on pages larger than the specified amount of megapixels, "
         "but include skipped pages in final output",
@@ -398,7 +398,7 @@ Online documentation is located at:
     advanced.add_argument(
         '--max-image-mpixels',
         action='store',
-        type=numeric(float, 0),
+        type=numeric(float, 0.0),
         metavar='MPixels',
         help="Set maximum number of megapixels to unpack before treating an image as a "
         "decompression bomb",
@@ -438,14 +438,14 @@ Online documentation is located at:
     advanced.add_argument(
         '--rotate-pages-threshold',
         default=DEFAULT_ROTATE_PAGES_THRESHOLD,
-        type=numeric(float, 0, 1000),
+        type=numeric(float, 0.0, 1000.0),
         metavar='CONFIDENCE',
         help="Only rotate pages when confidence is above this value (arbitrary "
         "units reported by tesseract)",
     )
     advanced.add_argument(
         '--fast-web-view',
-        type=numeric(float, 0),
+        type=numeric(float, 0.0),
         default=1.0,
         metavar="MEGABYTES",
         help="If the size of file is more than this threshold (in MB), then "

@@ -3267,82 +3267,6 @@ class Sqrt(UnaryScalarOp):
 sqrt = Sqrt(upgrade_to_float, name="sqrt")
 
 
-class Deg2Rad(UnaryScalarOp):
-    preserves_zero = True
-    monotonic_increasing = True
-
-    nfunc_spec = ("deg2rad", 1, 1)
-
-    def impl(self, x):
-        # If x is an int8 or uint8, numpy.deg2rad will compute the result in
-        # half-precision (float16), where we want float32.
-        x_dtype = str(getattr(x, "dtype", ""))
-        if x_dtype in ("int8", "uint8"):
-            return np.deg2rad(x, dtype=np.float32)
-        return np.deg2rad(x)
-
-    def pullback(self, inputs, outputs, gout):
-        (x,) = inputs
-        (gz,) = gout
-        if gz.type in complex_types:
-            raise NotImplementedError()
-        if outputs[0].type in discrete_types:
-            if x.type in discrete_types:
-                return [x.zeros_like(dtype=config.floatX)]
-            else:
-                return [x.zeros_like()]
-
-        return (gz * np.array(np.pi / 180, dtype=gz.dtype),)
-
-    def c_code(self, node, name, inputs, outputs, sub):
-        (x,) = inputs
-        (z,) = outputs
-        if node.inputs[0].type in complex_types:
-            raise NotImplementedError("type not supported", type)
-        return f"{z} = {x} * (M_PI / 180.0);"
-
-
-deg2rad = Deg2Rad(upgrade_to_float, name="deg2rad")
-
-
-class Rad2Deg(UnaryScalarOp):
-    preserves_zero = True
-    monotonic_increasing = True
-
-    nfunc_spec = ("rad2deg", 1, 1)
-
-    def impl(self, x):
-        # If x is an int8 or uint8, numpy.rad2deg will compute the result in
-        # half-precision (float16), where we want float32.
-        x_dtype = str(getattr(x, "dtype", ""))
-        if x_dtype in ("int8", "uint8"):
-            return np.rad2deg(x, dtype=np.float32)
-        return np.rad2deg(x)
-
-    def pullback(self, inputs, outputs, gout):
-        (x,) = inputs
-        (gz,) = gout
-        if gz.type in complex_types:
-            raise NotImplementedError()
-        if outputs[0].type in discrete_types:
-            if x.type in discrete_types:
-                return [x.zeros_like(dtype=config.floatX)]
-            else:
-                return [x.zeros_like()]
-
-        return (gz * np.array(180.0 / np.pi, dtype=gz.dtype),)
-
-    def c_code(self, node, name, inputs, outputs, sub):
-        (x,) = inputs
-        (z,) = outputs
-        if node.inputs[0].type in complex_types:
-            raise NotImplementedError("type not supported", type)
-        return f"{z} = {x} * (180.0 / M_PI);"
-
-
-rad2deg = Rad2Deg(upgrade_to_float, name="rad2deg")
-
-
 class Cos(UnaryScalarOp):
     nfunc_spec = ("cos", 1, 1)
     amd_float32 = "amd_vrsa_cosf"
@@ -3905,46 +3829,6 @@ class Imag(UnaryScalarOp):
 imag = Imag(real_out, name="imag")
 
 
-class Angle(UnaryScalarOp):
-    nfunc_spec = ("angle", 1, 1)
-
-    def impl(self, x):
-        return np.angle(x)
-
-    def pullback(self, inputs, outputs, gout):
-        # y = x.imag
-        # r = sqrt(y**2 + x.real**2)
-        # g = y/r
-        # if x == 0 and y == 0:
-        #     theta = 0
-        # elif x >= 0:
-        #     theta = numpy.arcsin(g)
-        # else:
-        #     theta = -numpy.arcsin(g)+numpy.pi
-
-        (c,) = inputs
-        (gtheta,) = gout
-        x = real(c)
-        y = imag(c)
-        r = _abs(c)
-
-        gr = -gtheta * y / (r**2 * sqrt(1 - (y / r) ** 2))
-        gx = gr * x / r
-        gy = gr * y / r
-        if c in complex_types:
-            return [cast(complex(gx, gy), x.type.dtype)]
-        elif c in float_types:
-            return [cast(second(x, 0), x.type.dtype)]
-        else:
-            return [c.zeros_like(dtype=config.floatX)]
-
-    def c_code(self, *args, **kwargs):
-        raise NotImplementedError()
-
-
-angle = Angle(specific_out(float64), name="angle")
-
-
 class Complex(BinaryScalarOp):
     @staticmethod
     def output_types_preference(x, y):
@@ -3991,35 +3875,6 @@ class Conj(UnaryScalarOp):
 
 
 conj = Conj(same_out_min8, name="conj")
-
-
-class ComplexFromPolar(BinaryScalarOp):
-    @staticmethod
-    def output_types_preference(x, y):
-        return Complex.output_types_preference(x, y)
-
-    def impl(self, r, theta):
-        if r < 0:
-            raise ValueError("polar radius must be non-negative", r)
-        x = r * np.cos(theta)
-        y = r * np.sin(theta)
-        if x.dtype == "float32":
-            return np.complex64(builtins.complex(x, y))
-        else:
-            return np.complex128(builtins.complex(x, y))
-
-    def pullback(self, inputs, outputs, gout):
-        (r, theta) = inputs
-        (gz,) = gout
-        gr = gz * complex_from_polar(1, theta)
-        gtheta = gz * complex_from_polar(r, -theta)
-        return [gr, gtheta]
-
-    def c_code(self, *args, **kwargs):
-        raise NotImplementedError()
-
-
-complex_from_polar = ComplexFromPolar(name="complex_from_polar")
 
 
 class ScalarInnerGraphOp(ScalarOp, HasInnerGraph):

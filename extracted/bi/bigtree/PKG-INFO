@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigtree
-Version: 1.5.2
+Version: 1.5.3
 Summary: Tree Implementation and Methods for Python, integrated with list, dictionary, pandas and polars DataFrame.
 Project-URL: Documentation, https://bigtree.readthedocs.io
 Project-URL: Issues, https://github.com/kayjan/bigtree/issues

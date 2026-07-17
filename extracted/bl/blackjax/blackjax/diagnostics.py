@@ -22,6 +22,10 @@ from blackjax.types import Array, ArrayLike
 __all__ = [
     "potential_scale_reduction",
     "effective_sample_size",
+    "rhat",
+    "ess_bulk",
+    "ess_tail",
+    "pareto_khat",
     "psis_weights",
 ]
 
@@ -77,6 +81,71 @@ def potential_scale_reduction(
         / (num_samples)
     )
     return rhat_value.squeeze()
+
+
+def rhat(input_array: ArrayLike, chain_axis: int = 0, sample_axis: int = 1) -> Array:
+    """Rank-normalized split-R̂ (Vehtari et al. 2021).
+
+    The modern improved R̂ diagnostic.  Combines two split-chain R̂ values —
+    one on rank-normalized draws and one on rank-normalized *folded* draws —
+    and returns the maximum.  The folded component catches scale/variance
+    non-convergence that the bulk component can miss.
+
+    This matches the default ``az.rhat(method="rank")`` convention in ArviZ.
+
+    Parameters
+    ----------
+    input_array
+        An array representing multiple chains of MCMC samples. The array must
+        contain a chain dimension and a sample dimension.  At least 2 chains
+        and at least 4 draws per chain are required.
+    chain_axis
+        The axis indicating the multiple chains. Default 0.
+    sample_axis
+        The axis indicating a single chain of MCMC samples. Default 1.
+
+    Returns
+    -------
+    NDArray of the resulting R̂ values, with chain and sample dimensions
+    squeezed.  Values close to 1.0 indicate convergence; values above 1.01
+    suggest chains have not converged.
+
+    Notes
+    -----
+    Algorithm (Vehtari et al. 2021, § 4):
+
+    1. Split each chain in half → 2× chains.
+    2. Rank-normalize with the Blom plotting position
+       :math:`z_r = \\Phi^{-1}((r - 3/8) / (n + 1/4))` over the joint pool.
+    3. Compute the standard split-R̂ on the rank-normalized draws (**bulk**).
+    4. Compute the folded draws :math:`|x - \\mathrm{median}(x)|`, rank-normalize
+       them, and compute split-R̂ again (**tail**).
+    5. Return :math:`\\max(\\hat{R}_{\\text{bulk}}, \\hat{R}_{\\text{tail}})`.
+
+    References
+    ----------
+    .. cite:p:`vehtari2021rank`
+    """
+    x = _to_standard_axes(jnp.asarray(input_array), chain_axis, sample_axis)
+    # Split each chain in half → (2*nchains, nsamples//2, …).
+    x_split = _split_chains(x)
+
+    # Bulk: rank-normalize split draws, then compute split-R̂.
+    x_rn = _rank_normalize(x_split)
+    rhat_bulk = potential_scale_reduction(x_rn, chain_axis=0, sample_axis=1)
+
+    # Tail: fold the split draws about their joint median, rank-normalize,
+    # then compute split-R̂.  Catches variance non-convergence.
+    nchains_split = x_split.shape[0]
+    nsamples_split = x_split.shape[1]
+    extra_shape = x_split.shape[2:]
+    x_flat = x_split.reshape(nchains_split * nsamples_split, *extra_shape)
+    # Global median per trailing dimension (scalar when extra_shape is empty).
+    x_folded = jnp.abs(x_split - jnp.median(x_flat, axis=0))
+    x_folded_rn = _rank_normalize(x_folded)
+    rhat_tail = potential_scale_reduction(x_folded_rn, chain_axis=0, sample_axis=1)
+
+    return jnp.maximum(rhat_bulk, rhat_tail)
 
 
 def effective_sample_size(
@@ -232,6 +301,258 @@ def splitR(position, num_chains, superchain_size, func_for_splitR=jnp.square):
     R = jnp.sqrt(1.0 + (B / W))  # splitR, shape = (# func)
 
     return R
+
+
+def _to_standard_axes(x: Array, chain_axis: int, sample_axis: int) -> Array:
+    """Move chain and sample dimensions to positions 0 and 1 via ``jnp.transpose``.
+
+    All other dimensions are appended in their original relative order.  The
+    function handles negative axis indices correctly.
+    """
+    ndim = x.ndim
+    c = chain_axis % ndim
+    s = sample_axis % ndim
+    rest = [i for i in range(ndim) if i != c and i != s]
+    return jnp.transpose(x, [c, s] + rest)
+
+
+def _split_chains(x: Array) -> Array:
+    """Split each chain in half along the sample axis (axis 1).
+
+    Parameters
+    ----------
+    x
+        Array of shape ``(nchains, nsamples, …)``.  If ``nsamples`` is odd the
+        last sample is dropped so both halves are equal-length.
+
+    Returns
+    -------
+    Array of shape ``(2 * nchains, nsamples // 2, …)``.
+    """
+    nsamples = x.shape[1]
+    half = nsamples // 2
+    # Trim to even length so both halves are the same size.
+    x = x[:, : 2 * half]
+    first = x[:, :half]
+    second = x[:, half:]
+    return jnp.concatenate([first, second], axis=0)
+
+
+def _rank_normalize(x: Array) -> Array:
+    """Rank-normalize draws using the Blom plotting position.
+
+    Ranks are computed over the joint pool of all ``nchains * nsamples`` values
+    independently for each element of the trailing dimensions.
+
+    Parameters
+    ----------
+    x
+        Array of shape ``(nchains, nsamples, …)`` with chains on axis 0 and
+        draws on axis 1.
+
+    Returns
+    -------
+    Array of the same shape containing rank-normalized z-scores.
+
+    Notes
+    -----
+    The plotting position follows Vehtari et al. (2021), equation (12):
+
+    .. math:: z_r = \\Phi^{-1}\\!\\left(\\frac{r - 3/8}{n + 1/4}\\right)
+
+    where :math:`r` is the 1-indexed rank and :math:`n = \\text{nchains}
+    \\times \\text{nsamples}`.
+    """
+    nchains, nsamples = x.shape[0], x.shape[1]
+    extra_shape = x.shape[2:]
+    n = nchains * nsamples
+
+    # Pool chains and draws into the leading axis: (n, …extra).
+    x_flat = x.reshape(n, *extra_shape)
+
+    # Double argsort gives 0-indexed ranks; +1 for 1-indexed.
+    ranks = jnp.argsort(jnp.argsort(x_flat, axis=0), axis=0).astype(float) + 1
+
+    # Blom plotting position.
+    z = jax.scipy.special.ndtri((ranks - 3.0 / 8) / (n + 1.0 / 4))
+
+    return z.reshape(nchains, nsamples, *extra_shape)
+
+
+def ess_bulk(
+    input_array: ArrayLike, chain_axis: int = 0, sample_axis: int = 1
+) -> Array:
+    """Bulk effective sample size (rank-normalized split-chain ESS).
+
+    Computes the bulk ESS from Vehtari et al. (2021): rank-normalizes draws
+    after splitting each chain in half, then applies the standard
+    autocorrelation-based :func:`effective_sample_size` estimator.  This
+    diagnostic is robust to non-stationarity and multimodality.
+
+    Parameters
+    ----------
+    input_array
+        An array representing multiple chains of MCMC samples. The array must
+        contain a chain dimension and a sample dimension.
+    chain_axis
+        The axis indicating the multiple chains. Default 0.
+    sample_axis
+        The axis indicating a single chain of MCMC samples. Default 1.
+
+    Returns
+    -------
+    NDArray of the resulting bulk-ESS, with chain and sample dimensions squeezed.
+
+    Notes
+    -----
+    Algorithm:
+
+    1. Split each chain in half → 2× chains.
+    2. Pool all draws and rank-normalize with :math:`z_r = \\Phi^{-1}((r-3/8)/(n+1/4))`.
+    3. Apply :func:`effective_sample_size` to the rank-normalized draws.
+
+    References
+    ----------
+    .. cite:p:`vehtari2021rank`
+    """
+    x = _to_standard_axes(jnp.asarray(input_array), chain_axis, sample_axis)
+    x_split = _split_chains(x)
+    x_rn = _rank_normalize(x_split)
+    return effective_sample_size(x_rn)
+
+
+def ess_tail(
+    input_array: ArrayLike,
+    chain_axis: int = 0,
+    sample_axis: int = 1,
+    prob: float = 0.90,
+) -> Array:
+    """Tail effective sample size.
+
+    Computes the tail ESS from Vehtari et al. (2021) as the minimum of the
+    ESS of the lower- and upper-tail indicator functions applied to split-chain
+    draws.
+
+    The tail quantiles are determined by ``prob``: the lower tail uses the
+    ``(1 - prob) / 2`` quantile and the upper tail uses the
+    ``(1 + prob) / 2`` quantile.  The default ``prob=0.90`` corresponds to
+    the 5th/95th percentiles, which matches ``az.ess(method="tail")`` in
+    ArviZ (the ArviZ default is also ``prob=(0.05, 0.95)``).
+
+    Parameters
+    ----------
+    input_array
+        An array representing multiple chains of MCMC samples. The array must
+        contain a chain dimension and a sample dimension.
+    chain_axis
+        The axis indicating the multiple chains. Default 0.
+    sample_axis
+        The axis indicating a single chain of MCMC samples. Default 1.
+    prob
+        Central-interval probability that determines the tail quantiles.
+        Lower quantile: ``(1 - prob) / 2``; upper quantile:
+        ``(1 + prob) / 2``.  Default ``0.90`` gives the 5th/95th-percentile
+        tail, matching ``az.ess(method="tail")`` (ArviZ default).
+
+    Returns
+    -------
+    NDArray of the resulting tail-ESS, with chain and sample dimensions squeezed.
+
+    Notes
+    -----
+    Algorithm:
+
+    1. Split each chain in half → 2× chains.
+    2. Compute pooled lower/upper quantiles (at ``(1-prob)/2`` and
+       ``(1+prob)/2``) across all split chains and draws.
+    3. Form indicator series :math:`\\mathbf{1}(x \\le q_{\\text{low}})` and
+       :math:`\\mathbf{1}(x \\ge q_{\\text{high}})`.
+    4. Compute :func:`effective_sample_size` for each indicator.
+    5. Return :math:`\\min(\\text{ESS}_\\text{lower}, \\text{ESS}_\\text{upper})`.
+
+    References
+    ----------
+    .. cite:p:`vehtari2021rank`
+    """
+    x = _to_standard_axes(jnp.asarray(input_array), chain_axis, sample_axis)
+    x_split = _split_chains(x)
+
+    nchains, nsamples = x_split.shape[0], x_split.shape[1]
+    extra_shape = x_split.shape[2:]
+
+    # Tail quantiles derived from the central-interval probability.
+    q_low = (1.0 - prob) / 2.0
+    q_high = (1.0 + prob) / 2.0
+
+    # Pooled quantiles over all chains and draws, per trailing dimension.
+    x_flat = x_split.reshape(nchains * nsamples, *extra_shape)
+    q_lo = jnp.quantile(x_flat, q_low, axis=0)
+    q_hi = jnp.quantile(x_flat, q_high, axis=0)
+
+    # Indicator series (float for ESS computation).
+    # Broadcast q_lo/q_hi over the (nchains, nsamples) leading axes.
+    I_lower = (x_split <= q_lo[None, None]).astype(float)
+    I_upper = (x_split >= q_hi[None, None]).astype(float)
+
+    ess_lower = effective_sample_size(I_lower)
+    ess_upper = effective_sample_size(I_upper)
+
+    return jnp.minimum(ess_lower, ess_upper)
+
+
+def pareto_khat(x: ArrayLike, tail: str = "both", tail_frac: float = 0.10) -> Array:
+    """Pareto shape parameter k̂ for tail diagnosis.
+
+    Fits a Generalised Pareto Distribution (GPD) to the upper and/or lower
+    tail of a 1-D sample and returns the estimated shape parameter k̂.
+
+    Parameters
+    ----------
+    x
+        1-D array of draws (or any array; it is ravelled before use).
+    tail
+        Which tail to fit: ``"upper"``, ``"lower"``, or ``"both"`` (default).
+        When ``"both"``, returns the maximum of the two k̂ estimates.
+    tail_frac
+        Fraction of samples used as the tail. Default 0.10 (10 %).
+        A minimum of 5 tail samples is always enforced.
+
+    Returns
+    -------
+    Scalar Array: the Pareto shape estimate k̂.  Values below 0.5 indicate
+    reliable tail estimates; 0.5–0.7 are moderate; above 0.7 may be
+    unreliable.
+
+    Notes
+    -----
+    Uses the Zhang & Stephens (2009) empirical-Bayes estimator implemented
+    in the internal :func:`_gpdfit`.  The upper tail is modelled directly;
+    the lower tail is reflected and modelled as an upper tail.
+    """
+    x_flat = jnp.asarray(x).ravel()
+    n = x_flat.shape[0]
+    tail_size = max(int(tail_frac * n), 5)
+
+    x_sorted = jnp.sort(x_flat)  # ascending
+
+    if tail in ("upper", "both"):
+        upper_tail = x_sorted[n - tail_size :]
+        threshold_upper = x_sorted[n - tail_size - 1]
+        exc_upper = upper_tail - threshold_upper  # >= 0, ascending
+        k_upper, _ = _gpdfit(exc_upper)
+
+    if tail in ("lower", "both"):
+        # Reflect the lower tail so it becomes an upper-tail problem.
+        lower_tail_reflected = -x_sorted[:tail_size][::-1]  # ascending
+        threshold_lower = -x_sorted[tail_size]
+        exc_lower = lower_tail_reflected - threshold_lower  # >= 0, ascending
+        k_lower, _ = _gpdfit(exc_lower)
+
+    if tail == "upper":
+        return k_upper
+    if tail == "lower":
+        return k_lower
+    return jnp.maximum(k_upper, k_lower)
 
 
 def _gpdfit(exceedances: Array) -> tuple[Array, Array]:

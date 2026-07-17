@@ -40,6 +40,9 @@ class ServiceDomain(str, Enum):
     CRM = "crm"
     """Customer relationship management - contacts, deals, pipelines, sales activities."""
 
+    CONTACTS = "contacts"
+    """Address books and people directories — managing personal or organizational contact records."""
+
     EMAIL = "email"
     """Email services for sending, receiving, and managing messages."""
 
@@ -114,6 +117,12 @@ class ServiceDomain(str, Enum):
 
     SALES_INTELLIGENCE = "sales_intelligence"
     """Sales intelligence and prospecting platforms: B2B contact and company databases, lead enrichment, and buyer intent data."""
+
+    SURVEY = "survey"
+    """Survey, form, and questionnaire builders for collecting and analyzing responses."""
+
+    BUSINESS_INTELLIGENCE = "business_intelligence"
+    """Business-intelligence and data-visualization platforms: dashboards, reports, semantic models, and analytical queries over curated datasets."""
 
 
 class Operation(str, Enum):

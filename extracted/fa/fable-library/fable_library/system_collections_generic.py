@@ -17,7 +17,7 @@ from .util import UNIT, Disposable, Unit, compare, compare_primitives, get_enume
 from .util import equals as equals_1
 
 
-def _expr210() -> TypeInfo:
+def _expr206() -> TypeInfo:
     return class_type(
         "System.Collections.Generic.KeyNotFoundException", None, KeyNotFoundException, class_type("System.Exception")
     )
@@ -29,7 +29,7 @@ class KeyNotFoundException(ExceptionBase):
         pass
 
 
-KeyNotFoundException_reflection = _expr210
+KeyNotFoundException_reflection = _expr206
 
 
 def KeyNotFoundException__ctor_Z721C83C5(message: str) -> KeyNotFoundException:
@@ -40,7 +40,7 @@ def KeyNotFoundException__ctor(__unit: Unit = UNIT) -> KeyNotFoundException:
     return KeyNotFoundException__ctor_Z721C83C5(SR_Arg_KeyNotFound)
 
 
-def _expr211(gen0: TypeInfo) -> TypeInfo:
+def _expr208(gen0: TypeInfo) -> TypeInfo:
     return class_type("System.Collections.Generic.Comparer`1", Array([gen0]), Comparer_1)
 
 
@@ -57,7 +57,7 @@ class Comparer_1[T]:
         )
 
 
-Comparer_1_reflection = _expr211
+Comparer_1_reflection = _expr208
 
 
 def Comparer_1__ctor_47C913C[T](comparison: Callable[[T, T], int32]) -> Comparer_1[T]:
@@ -76,7 +76,7 @@ def Comparer_1__Compare_5BDDA0[T](_: Comparer_1[T], x: T, y: T) -> int32:
     return _.comparison(x, y)
 
 
-def _expr212(gen0: TypeInfo) -> TypeInfo:
+def _expr209(gen0: TypeInfo) -> TypeInfo:
     return class_type("System.Collections.Generic.EqualityComparer`1", Array([gen0]), EqualityComparer_1)
 
 
@@ -98,7 +98,7 @@ class EqualityComparer_1[T]:
         return _.get_hash_code(x)
 
 
-EqualityComparer_1_reflection = _expr212
+EqualityComparer_1_reflection = _expr209
 
 
 def EqualityComparer_1__ctor_Z6EE254AB[T](
@@ -108,10 +108,10 @@ def EqualityComparer_1__ctor_Z6EE254AB[T](
 
 
 def EqualityComparer_1_get_Default[T](__unit: Unit = UNIT) -> EqualityComparer_1[T]:
-    def _arrow213(obj: T = UNIT) -> int32:
+    def _arrow210(obj: T = UNIT) -> int32:
         return structural_hash(obj)
 
-    return EqualityComparer_1__ctor_Z6EE254AB(equals_1, _arrow213)
+    return EqualityComparer_1__ctor_Z6EE254AB(equals_1, _arrow210)
 
 
 def EqualityComparer_1_Create_Z6EE254AB[T](
@@ -128,7 +128,7 @@ def EqualityComparer_1__GetHashCode_2B595[T](_: EqualityComparer_1[T], x: T) -> 
     return _.get_hash_code(x)
 
 
-def _expr218(gen0: TypeInfo) -> TypeInfo:
+def _expr215(gen0: TypeInfo) -> TypeInfo:
     return class_type("System.Collections.Generic.Stack`1", Array([gen0]), Stack_1)
 
 
@@ -140,30 +140,30 @@ class Stack_1[T](EnumerableBase[Any]):
     def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[T]:
         _: Stack_1[Any] = self
 
-        def _arrow217(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+        def _arrow214(__unit: Unit = UNIT) -> IEnumerable_1[T]:
             index: int32 = _.count - int32.ONE
 
-            def _arrow214(__unit: Unit = UNIT) -> bool:
+            def _arrow211(__unit: Unit = UNIT) -> bool:
                 return index >= int32.ZERO
 
-            def _arrow216(__unit: Unit = UNIT) -> IEnumerable_1[T]:
-                def _arrow215(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+            def _arrow213(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+                def _arrow212(__unit: Unit = UNIT) -> IEnumerable_1[T]:
                     nonlocal index
                     index = index - int32.ONE
                     return empty()
 
-                return append(singleton(_.contents[index]), delay(_arrow215))
+                return append(singleton(_.contents[index]), delay(_arrow212))
 
-            return enumerate_while(_arrow214, delay(_arrow216))
+            return enumerate_while(_arrow211, delay(_arrow213))
 
-        return get_enumerator(delay(_arrow217))
+        return get_enumerator(delay(_arrow214))
 
     def System_Collections_IEnumerable_GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[Any]:
         this: Stack_1[Any] = self
         return get_enumerator(this)
 
 
-Stack_1_reflection = _expr218
+Stack_1_reflection = _expr215
 
 
 def Stack_1__ctor_Z3B4C077E[T](initial_contents: Array[T], initial_count: int32) -> Stack_1[T]:
@@ -252,13 +252,13 @@ def Stack_1__TrimExcess[T](this: Stack_1[T]) -> None:
 
 
 def Stack_1__ToArray[T](_: Stack_1[T]) -> Array[T]:
-    def _arrow219(i: int32, _: Any = _) -> T:
+    def _arrow217(i: int32, _: Any = _) -> T:
         return _.contents[(_.count - int32.ONE) - i]
 
-    return initialize(_.count, _arrow219, None)
+    return initialize(_.count, _arrow217, None)
 
 
-def _expr220(gen0: TypeInfo) -> TypeInfo:
+def _expr218(gen0: TypeInfo) -> TypeInfo:
     return class_type("System.Collections.Generic.Queue`1", Array([gen0]), Queue_1)
 
 
@@ -278,7 +278,7 @@ class Queue_1[T](EnumerableBase[Any]):
         return get_enumerator(this)
 
 
-Queue_1_reflection = _expr220
+Queue_1_reflection = _expr218
 
 
 def Queue_1__ctor_Z3B4C077E[T](initial_contents: Array[T], initial_count: int32) -> Queue_1[T]:
@@ -410,23 +410,23 @@ def Queue_1__ensure_Z524259A4[T](this: Queue_1[T], required_size: int32) -> None
 
 
 def Queue_1__toSeq[T](this: Queue_1[T]) -> IEnumerable_1[T]:
-    def _arrow224(this: Any = this) -> IEnumerable_1[T]:
+    def _arrow223(this: Any = this) -> IEnumerable_1[T]:
         i: int32 = int32.ZERO
 
-        def _arrow221(__unit: Unit = UNIT) -> bool:
+        def _arrow220(__unit: Unit = UNIT) -> bool:
             return i < this.count
 
-        def _arrow223(__unit: Unit = UNIT) -> IEnumerable_1[T]:
-            def _arrow222(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+        def _arrow222(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+            def _arrow221(__unit: Unit = UNIT) -> IEnumerable_1[T]:
                 nonlocal i
                 i = i + int32.ONE
                 return empty()
 
-            return append(singleton(this.contents[Queue_1__toIndex_Z524259A4(this, i)]), delay(_arrow222))
+            return append(singleton(this.contents[Queue_1__toIndex_Z524259A4(this, i)]), delay(_arrow221))
 
-        return enumerate_while(_arrow221, delay(_arrow223))
+        return enumerate_while(_arrow220, delay(_arrow222))
 
-    return delay(_arrow224)
+    return delay(_arrow223)
 
 
 __all__ = [

@@ -209,6 +209,7 @@ def register_udf(
                 original_return_type=original_return_type,
                 cast_to_original_return_type=cast_to_original,
                 stage_imports=udf.stage_imports,
+                inline_payload=udf.inline_payload,
             )
         else:
             snowpark_udf = SnowparkUDF(
@@ -289,6 +290,7 @@ def map_common_inline_user_defined_udf(
                     original_return_type=original_return_type,
                     cast_to_original_return_type=cast_to_original,
                     stage_imports=udf.stage_imports,
+                    inline_payload=udf.inline_payload,
                 )
             else:
                 snowpark_udf = SnowparkUDF(

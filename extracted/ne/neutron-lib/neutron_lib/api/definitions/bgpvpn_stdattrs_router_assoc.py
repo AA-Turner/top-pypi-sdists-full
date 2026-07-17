@@ -14,6 +14,11 @@
 #    under the License.
 
 from neutron_lib.api.definitions import bgpvpn
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 ALIAS = 'standard-attr-bgpvpn-router-association'
 IS_SHIM_EXTENSION = True
@@ -21,9 +26,9 @@ IS_STANDARD_ATTR_EXTENSION = True
 NAME = 'BGPVPN Router Association Standard Attributes'
 DESCRIPTION = 'Add standard attributes to BGPVPN Router Association resources'
 UPDATED_TIMESTAMP = '2018-04-19T10:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {}
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [bgpvpn.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

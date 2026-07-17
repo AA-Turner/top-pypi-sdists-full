@@ -1,11 +1,6 @@
-# This file is part of Dictdiffer.
-#
-# Copyright (C) 2015 CERN.
-# Copyright (C) 2017 ETH Zurich, Swiss Data Science Center, Jiri Kuncar.
-#
-# Dictdiffer is free software; you can redistribute it and/or modify
-# it under the terms of the MIT License; see LICENSE file for more
-# details.
+# SPDX-FileCopyrightText: 2015 CERN.
+# SPDX-FileCopyrightText: 2017 ETH Zurich, Swiss Data Science Center, Jiri Kuncar.
+# SPDX-License-Identifier: MIT
 
 """Sub module to handle the merging of dictdiffer patches."""
 
@@ -37,7 +32,7 @@ class Merger(object):
 
     def __init__(self,
                  lca, first, second, actions,
-                 path_limits=[], additional_info=None):
+                 path_limits=[], additional_info=None, ignore=None):
         """Initialize the Merger object.
 
         :param lca: latest common ancestor of the two diverging data structures
@@ -47,11 +42,13 @@ class Merger(object):
                             dictdiffer.utils.PathLimit object
         :param additional_info: Any object containing additional information
                                 used by the resolution functions
+        :param ignore: Set of keys that should not be merged
         """
         self.lca = lca
         self.first = first
         self.second = second
         self.path_limit = PathLimit(path_limits)
+        self.ignore = ignore
 
         self.actions = actions
         self.additional_info = additional_info
@@ -104,9 +101,11 @@ class Merger(object):
         """
         self.first_patches = list(diff(self.lca, self.first,
                                        path_limit=self.path_limit,
+                                       ignore=self.ignore,
                                        expand=True))
         self.second_patches = list(diff(self.lca, self.second,
                                         path_limit=self.path_limit,
+                                        ignore=self.ignore,
                                         expand=True))
 
     def find_conflicts(self):

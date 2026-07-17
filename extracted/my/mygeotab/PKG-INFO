@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mygeotab
-Version: 0.9.7
+Version: 0.9.8
 Summary: A Python client for the MyGeotab SDK
 Home-page: https://github.com/geotab/mygeotab-python
 Author: Geotab Inc.
@@ -10,13 +10,15 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: urllib3
@@ -30,11 +32,13 @@ Requires-Dist: pandas; extra == "notebook"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 MyGeotab
@@ -65,89 +69,124 @@ MyGeotab
     :alt: License
 
 
-A Python client for the `MyGeotab SDK <https://geotab.github.io/sdk/>`_.
+A Python client for the `MyGeotab SDK <https://developers.geotab.com/>`_.
 
 Features
 --------
 
-- Automatic serializing and deserializing of API call results
-- Clean, Pythonic API for querying data
-- Cross-platform and compatible with Python 3.9+
-- A `myg` command-line tool for interactively working with data in a terminal
+- Automatic serialization and deserialization of API call results
+- Clean, Pythonic API for querying, adding, updating, and removing entities
+- Both synchronous and ``async``/``await`` interfaces
+- Cross-platform and compatible with Python 3.10+
+- ``myg`` command-line tool for interactively exploring data in a terminal
+
+Installation
+------------
+
+.. code-block:: bash
+
+    $ pip install mygeotab
+
+For the latest development version:
+
+.. code-block:: bash
+
+    $ pip install git+https://github.com/geotab/mygeotab-python
 
 Usage
 -----
 
-It's very easy to get started once you've registered a `MyGeotab <https://www.geotab.com/fleet-management-software/>`__ database:
+Synchronous
+~~~~~~~~~~~
 
 .. code-block:: python
 
     import mygeotab
 
-    client = mygeotab.API(username='hello@example.com', password='mypass', database='MyDatabase')
+    client = mygeotab.API(
+        username='hello@example.com',
+        password='mypass',
+        database='MyDatabase',
+    )
     client.authenticate()
 
     devices = client.get('Device', name='%Test Dev%')
-
     print(devices)
 
-    # [{'maxSecondsBetweenLogs': 200.0,
+    # [{'name': 'Test Device',
+    #   'maxSecondsBetweenLogs': 200.0,
     #   'activeTo': '2050-01-01',
-    #   'minAccidentSpeed': 3.0,
-    #   'ignoreDownloadsUntil': '1986-01-01',
-    #   'name': 'Test Device',
-    #   'idleMinutes': 3.0,
-    #   ......
+    #   ...}]
 
-You can also make calls asynchronously via `asyncio <https://docs.python.org/3/library/asyncio.html>`__:
+Asynchronous
+~~~~~~~~~~~~
 
 .. code-block:: python
 
     import asyncio
     import mygeotab
 
-    client = mygeotab.API(username='hello@example.com', password='mypass', database='MyDatabase')
-    client.authenticate()
+    async def main():
+        client = mygeotab.API(
+            username='hello@example.com',
+            password='mypass',
+            database='MyDatabase',
+        )
+        client.authenticate()
 
-    async def get_device():
-      return await client.get_async('Device', name='%Test Dev%')
-    
-    devices = loop.run_until_complete(get_device())
-    print(devices)
+        devices = await client.get_async('Device', name='%Test Dev%')
+        print(devices)
 
-    # [{'maxSecondsBetweenLogs': 200.0,
-    #   'activeTo': '2050-01-01',
-    #   'minAccidentSpeed': 3.0,
-    #   'ignoreDownloadsUntil': '1986-01-01',
-    #   'name': 'Test Device',
-    #   'idleMinutes': 3.0,
-    #   ......
+    asyncio.run(main())
 
-Installation
-------------
+Command-line tool
+~~~~~~~~~~~~~~~~~
 
-To install the MyGeotab library and command line tool:
+The ``myg`` tool opens an interactive Python console pre-loaded with an
+authenticated API object:
 
 .. code-block:: bash
 
-    $ pip install mygeotab
+    $ myg console MyDatabase
 
-or for the bleeding-edge version:
+    # Inside the console, `myg` is the active API object:
+    >>> myg.get('Device', name='%Test%')
+
+Manage saved sessions:
 
 .. code-block:: bash
 
-    $ pip install git+https://github.com/geotab/mygeotab-python
+    $ myg sessions --list
+    $ myg sessions remove MyDatabase
 
 Documentation
 -------------
 
-Read the docs at `<http://mygeotab-python.readthedocs.org>`_
+Full API reference and guides are at `<https://mygeotab-python.readthedocs.io/en/latest/>`_.
+
+License
+-------
+
+Apache 2.0. See `LICENSE <LICENSE>`_ for details.
  
 
  .. :changelog:
 
 Changes
--------
+~~~~~~~
+
+0.9.8 (2026-07-16)
+++++++++++++++++++
+
+**Improvements**
+
+- Security: enforce ``0700`` permissions on the session config directory and ``0600`` on the config file on every write in ``cli.py`` `#240 <https://github.com/Geotab/mygeotab-python/pull/240>`__.
+- Python: drop EOL Python 3.9; add Python 3.14; update all version contracts (``setup.py``, ``mypy.ini``, ``pyproject.toml``, classifiers) `#240 <https://github.com/Geotab/mygeotab-python/pull/240>`__.
+- Packaging: add ``mygeotab.altitude`` to the ``packages`` list in ``setup.py`` (was silently absent from installed distributions) `#240 <https://github.com/Geotab/mygeotab-python/pull/240>`__.
+- CI: split single test job into three — ``test-offline`` (matrix 3.10–3.14), ``test-live`` (unauthenticated), and ``test-integration`` (credentialed) `#240 <https://github.com/Geotab/mygeotab-python/pull/240>`__.
+- Tests: raise offline coverage from 59 % to 81 % across ``altitude``, ``api``, ``exceptions``, ``parameters``, and ``ext.entitylist`` `#240 <https://github.com/Geotab/mygeotab-python/pull/240>`__.
+- Docs: extensive fixes to ``usage.rst``, ``commandline.rst``, ``altitude.rst``, ``api.rst``, ``ext.rst``, and ``conf.py`` — updated links, corrected examples, added async and batching sections `#240 <https://github.com/Geotab/mygeotab-python/pull/240>`__.
+
 
 0.9.7 (2026-07-07)
 ++++++++++++++++++

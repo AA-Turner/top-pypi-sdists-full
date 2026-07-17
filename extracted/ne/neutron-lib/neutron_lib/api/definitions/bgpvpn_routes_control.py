@@ -15,7 +15,11 @@
 from neutron_lib.api import converters
 from neutron_lib.api.definitions import bgpvpn
 from neutron_lib.db import constants as db_const
-
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 # The alias of the extension.
 ALIAS = 'bgpvpn-routes-control'
@@ -53,9 +57,9 @@ RESOURCE_NAME = bgpvpn.RESOURCE_NAME
 COLLECTION_NAME = bgpvpn.COLLECTION_NAME
 
 LOCAL_PREF_KEY = 'local_pref'
-LOCAL_PREF_RANGE = [0, 2**32 - 1]  # RFC 4271, section 4.3 (p.18)
+LOCAL_PREF_RANGE = (0, 2**32 - 1)  # RFC 4271, section 4.3 (p.18)
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         'ports': {'allow_post': False, 'allow_put': False,
                   'is_visible': True,
@@ -105,7 +109,7 @@ ROUTE_SPECS = [
      },
 ]
 
-SUB_RESOURCE_ATTRIBUTE_MAP = {
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {
     PORT_ASSOCIATIONS: {
         'parent': {
             'collection_name': COLLECTION_NAME,
@@ -152,8 +156,7 @@ SUB_RESOURCE_ATTRIBUTE_MAP = {
 }
 
 
-ACTION_MAP = {
-}
+ACTION_MAP: ActionMap = {}
 
 ACTION_STATUS = {}
 

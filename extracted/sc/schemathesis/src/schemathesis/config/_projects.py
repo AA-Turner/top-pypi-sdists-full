@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
+from schemathesis.config._analysis import AnalysisConfig
 from schemathesis.config._auth import AuthConfig
 from schemathesis.config._cache import CacheConfig
 from schemathesis.config._checks import ChecksConfig
@@ -71,6 +72,7 @@ class ProjectConfig(DiffBase):
     phases: PhasesConfig
     fuzz: FuzzConfig
     generation: GenerationConfig
+    analysis: AnalysisConfig
     operations: OperationsConfig
 
     __slots__ = (
@@ -97,6 +99,7 @@ class ProjectConfig(DiffBase):
         "phases",
         "fuzz",
         "generation",
+        "analysis",
         "operations",
     )
 
@@ -125,6 +128,7 @@ class ProjectConfig(DiffBase):
         phases: PhasesConfig | None = None,
         fuzz: FuzzConfig | None = None,
         generation: GenerationConfig | None = None,
+        analysis: AnalysisConfig | None = None,
         operations: OperationsConfig | None = None,
     ) -> None:
         self._parent = parent
@@ -144,7 +148,7 @@ class ProjectConfig(DiffBase):
         self.proxy = proxy
         self.continue_on_failure = continue_on_failure
         self.tls_verify = tls_verify
-        if rate_limit is not None:
+        if rate_limit is not None and rate_limit != "auto":
             self.rate_limit = build_limiter(rate_limit)
         else:
             self.rate_limit = rate_limit
@@ -162,6 +166,7 @@ class ProjectConfig(DiffBase):
         self.phases = phases or PhasesConfig()
         self.fuzz = fuzz or FuzzConfig()
         self.generation = generation or GenerationConfig()
+        self.analysis = analysis or AnalysisConfig()
         self.operations = operations or OperationsConfig()
 
     @classmethod
@@ -196,6 +201,7 @@ class ProjectConfig(DiffBase):
             phases=PhasesConfig.from_dict(data.get("phases", {}), dictionaries=dictionaries),
             fuzz=FuzzConfig.from_dict(data.get("fuzz", {})),
             generation=GenerationConfig.from_dict(data.get("generation", {}), dictionaries=dictionaries),
+            analysis=AnalysisConfig.from_dict(data.get("analysis", {})),
             operations=OperationsConfig(
                 operations=[
                     OperationConfig.from_dict(operation, dictionaries=dictionaries)
@@ -246,7 +252,10 @@ class ProjectConfig(DiffBase):
             self.continue_on_failure = continue_on_failure
 
         if rate_limit is not None:
-            self.rate_limit = build_limiter(rate_limit)
+            if rate_limit != "auto":
+                self.rate_limit = build_limiter(rate_limit)
+            else:
+                self.rate_limit = rate_limit
 
         if max_redirects is not None:
             self.max_redirects = max_redirects
@@ -365,7 +374,7 @@ class ProjectConfig(DiffBase):
             return self.proxy
         return None
 
-    def rate_limit_for(self, *, operation: APIOperation | None = None) -> Limiter | None:
+    def rate_limit_for(self, *, operation: APIOperation | None = None) -> Limiter | Literal["auto"] | None:
         if operation is not None:
             config = self.operations.get_for_operation(operation=operation)
             if config.rate_limit is not None:

@@ -49,7 +49,7 @@ def run(args=None):
     with suppress(AttributeError, PermissionError):
         os.nice(5)
 
-    verbosity = options.verbose
+    verbosity = Verbosity(options.verbose)
     if not os.isatty(sys.stderr.fileno()):
         options.progress_bar = False
     if options.quiet:

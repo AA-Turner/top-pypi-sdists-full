@@ -51,6 +51,8 @@ mod registry_actor_tests;
 #[cfg(test)]
 mod router_helpers_tests;
 #[cfg(test)]
+mod settings_redaction_tests;
+#[cfg(test)]
 mod size_instruction_integration_tests;
 #[cfg(test)]
 mod socks_tests;

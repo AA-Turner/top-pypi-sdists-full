@@ -28,7 +28,6 @@ def test_language_parameter_mapped_to_languages():
     Regression test for GitHub issue #1640: the Python API ignored the language
     parameter, always defaulting to 'eng'.
     """
-    from ocrmypdf._options import OcrOptions
     from ocrmypdf.api import create_options, setup_plugin_infrastructure
     from ocrmypdf.cli import get_parser
 

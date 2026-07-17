@@ -10,6 +10,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 ALIAS = 'aap-reject-multicast'
 IS_SHIM_EXTENSION = True
@@ -17,9 +22,9 @@ IS_STANDARD_ATTR_EXTENSION = False
 NAME = 'Allowed address pairs reject multicast extension'
 DESCRIPTION = 'Reject multicast addresses in Allowed Address Pairs'
 UPDATED_TIMESTAMP = '2026-04-01T00:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {}
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = ['allowed-address-pairs']
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

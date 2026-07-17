@@ -10,9 +10,8 @@ import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import pluggy
-
     from ocrmypdf._options import OcrOptions
+    from ocrmypdf._plugin_manager import OcrmypdfPluginManager
 
 log = logging.getLogger(__name__)
 
@@ -20,9 +19,8 @@ log = logging.getLogger(__name__)
 class ValidationCoordinator:
     """Coordinates validation across plugin models and core options."""
 
-    def __init__(self, plugin_manager: pluggy.PluginManager):
+    def __init__(self, plugin_manager: OcrmypdfPluginManager):
         self.plugin_manager = plugin_manager
-        self.registry = getattr(plugin_manager, '_option_registry', None)
 
     def validate_all_options(self, options: OcrOptions) -> None:
         """Run comprehensive validation on all options.
@@ -110,13 +108,18 @@ class ValidationCoordinator:
             )
 
         # Validate output type compatibility
-        if options.output_type == 'none' and str(options.output_file) not in (
+        output_file_display = (
+            os.fsdecode(options.output_file)
+            if isinstance(options.output_file, bytes)
+            else str(options.output_file)
+        )
+        if options.output_type == 'none' and output_file_display not in (
             os.devnull,
             '-',
         ):
             raise ValueError(
                 "Since you specified `--output-type none`, the output file "
-                f"{options.output_file} cannot be produced. Set the output file to "
+                f"{output_file_display} cannot be produced. Set the output file to "
                 "`-` to suppress this message."
             )
 

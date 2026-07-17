@@ -29,12 +29,18 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     GetEstimatedCarbonEmissionsDimensionValuesPaginator,
     GetEstimatedCarbonEmissionsPaginator,
+    GetEstimatedWaterAllocationDimensionValuesPaginator,
+    GetEstimatedWaterAllocationPaginator,
 )
 from .type_defs import (
     GetEstimatedCarbonEmissionsDimensionValuesRequestTypeDef,
     GetEstimatedCarbonEmissionsDimensionValuesResponseTypeDef,
     GetEstimatedCarbonEmissionsRequestTypeDef,
     GetEstimatedCarbonEmissionsResponseTypeDef,
+    GetEstimatedWaterAllocationDimensionValuesRequestTypeDef,
+    GetEstimatedWaterAllocationDimensionValuesResponseTypeDef,
+    GetEstimatedWaterAllocationRequestTypeDef,
+    GetEstimatedWaterAllocationResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -110,6 +116,27 @@ class SustainabilityClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sustainability/client/#get_estimated_carbon_emissions_dimension_values)
         """
 
+    def get_estimated_water_allocation(
+        self, **kwargs: Unpack[GetEstimatedWaterAllocationRequestTypeDef]
+    ) -> GetEstimatedWaterAllocationResponseTypeDef:
+        """
+        Returns estimated water allocation values based on customer grouping and
+        filtering parameters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sustainability/client/get_estimated_water_allocation.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sustainability/client/#get_estimated_water_allocation)
+        """
+
+    def get_estimated_water_allocation_dimension_values(
+        self, **kwargs: Unpack[GetEstimatedWaterAllocationDimensionValuesRequestTypeDef]
+    ) -> GetEstimatedWaterAllocationDimensionValuesResponseTypeDef:
+        """
+        Returns the possible dimension values available for a customer's account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sustainability/client/get_estimated_water_allocation_dimension_values.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sustainability/client/#get_estimated_water_allocation_dimension_values)
+        """
+
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_estimated_carbon_emissions_dimension_values"]
@@ -125,6 +152,28 @@ class SustainabilityClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_estimated_carbon_emissions"]
     ) -> GetEstimatedCarbonEmissionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sustainability/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sustainability/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_estimated_water_allocation_dimension_values"]
+    ) -> GetEstimatedWaterAllocationDimensionValuesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sustainability/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sustainability/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_estimated_water_allocation"]
+    ) -> GetEstimatedWaterAllocationPaginator:
         """
         Create a paginator for an operation.
 

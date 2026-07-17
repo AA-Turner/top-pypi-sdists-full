@@ -14,6 +14,11 @@
 
 
 from neutron_lib.api import converters
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 # The alias of the extension.
@@ -33,21 +38,23 @@ DESCRIPTION = "Indicates if the security group is stateful or not"
 UPDATED_TIMESTAMP = "2019-11-26T09:00:00-00:00"
 
 # The resource attribute map for the extension.
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     'security_groups': {
-        'stateful': {'allow_post': True, 'allow_put': True,
-                     'is_visible': True, 'default': True,
-                     'convert_to': converters.convert_to_boolean}
+        'stateful': {'allow_post': True,
+                     'allow_put': True,
+                     'is_visible': True,
+                     'is_filter': True,
+                     'default': True,
+                     'convert_to': converters.convert_to_boolean,
+                     }
     }
 }
 
 # The subresource attribute map for the extension.
-SUB_RESOURCE_ATTRIBUTE_MAP = {
-}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map.
-ACTION_MAP = {
-}
+ACTION_MAP: ActionMap = {}
 
 # The action status.
 ACTION_STATUS = {

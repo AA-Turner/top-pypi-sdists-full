@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.7.178
+Version: 2026.7.190
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -37,7 +37,7 @@ Requires-Dist: markdown-it-py>=4
 Requires-Dist: mcp[cli]>=1.12.4
 Requires-Dist: mdit-py-plugins>=0.5
 Requires-Dist: mem0ai>=0.1.115
-Requires-Dist: mindroom-nio[e2e]>=0.27.2
+Requires-Dist: mindroom-nio[e2e]==0.27.2
 Requires-Dist: openai
 Requires-Dist: packaging>=24
 Requires-Dist: pydantic-settings>=2.10.1
@@ -90,6 +90,7 @@ Provides-Extra: cal-com
 Requires-Dist: pytz; extra == 'cal-com'
 Requires-Dist: requests; extra == 'cal-com'
 Provides-Extra: calculator
+Provides-Extra: callback-manager
 Provides-Extra: cartesia
 Requires-Dist: cartesia; extra == 'cartesia'
 Provides-Extra: claude-agent
@@ -118,6 +119,10 @@ Requires-Dist: daytona; extra == 'daytona'
 Provides-Extra: delegate
 Provides-Extra: desi-vocal
 Requires-Dist: requests; extra == 'desi-vocal'
+Provides-Extra: desktop
+Requires-Dist: pyautogui>=0.9.54; extra == 'desktop'
+Requires-Dist: pyobjc-framework-applicationservices>=12.2.1; (sys_platform == 'darwin') and extra == 'desktop'
+Requires-Dist: pyobjc-framework-cocoa>=12.2.1; (sys_platform == 'darwin') and extra == 'desktop'
 Provides-Extra: discord
 Requires-Dist: requests; extra == 'discord'
 Provides-Extra: docker

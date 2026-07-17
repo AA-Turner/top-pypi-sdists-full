@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-redshift
-Version: 1.10.2
+Version: 1.11.0
 Summary: The Redshift adapter plugin for dbt
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-redshift
 Project-URL: Documentation, https://docs.getdbt.com
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10.0
 Requires-Dist: agate
-Requires-Dist: dbt-adapters<2.0,>=1.19.0
+Requires-Dist: dbt-adapters<2.0,>=1.24.1
 Requires-Dist: dbt-common<2.0,>=1.10
 Requires-Dist: dbt-core<2.0,>=1.8.0b3
 Requires-Dist: dbt-postgres<2.0,>=1.10.0rc1

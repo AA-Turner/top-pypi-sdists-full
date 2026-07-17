@@ -1,16 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: faust-cchardet
-Version: 2.1.19
+Version: 2.1.20
 Summary: cChardet is high speed universal character encoding detector.
 Home-page: https://github.com/faust-streaming/cChardet
 Author: PyYoshi
 Author-email: myoshi321go@gmail.com
-License: Mozilla Public License
+License: MPL-1.1 OR GPL-2.0-or-later or LGPL-2.1-or-later
 Keywords: cython,chardet,charsetdetect
 Classifier: Development Status :: 6 - Mature
-Classifier: License :: OSI Approved :: Mozilla Public License 1.1 (MPL 1.1)
-Classifier: License :: OSI Approved :: GNU General Public License (GPL)
-Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: Implementation :: CPython
@@ -25,6 +22,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 License-File: COPYING
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 cChardet
 ========

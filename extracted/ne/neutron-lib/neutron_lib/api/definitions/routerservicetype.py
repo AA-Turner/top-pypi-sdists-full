@@ -13,6 +13,11 @@
 #    under the License.
 
 from neutron_lib.api.definitions import l3
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 SERVICE_TYPE_ID = 'service_type_id'
@@ -24,7 +29,7 @@ NAME = 'Router Service Type'
 API_PREFIX = ''
 DESCRIPTION = 'Provides router service type'
 UPDATED_TIMESTAMP = '2013-01-29T00:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     l3.ROUTERS: {
         SERVICE_TYPE_ID: {
             'allow_post': True,
@@ -36,8 +41,8 @@ RESOURCE_ATTRIBUTE_MAP = {
             'is_visible': True},
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [l3.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

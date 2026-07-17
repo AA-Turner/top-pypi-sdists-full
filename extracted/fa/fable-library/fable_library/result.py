@@ -12,7 +12,7 @@ from .union import Union, narrow, tagged_union
 from .util import equals
 
 
-def _expr8(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
+def _expr20(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
     return union_type(
         "FSharp.Core.FSharpResult`2",
         Array([gen0, gen1]),
@@ -40,7 +40,7 @@ class Error[T, TERROR](_FSharpResult_2[T, TERROR]):
 
 type FSharpResult_2[T, TERROR] = Ok[T, TERROR] | Error[T, TERROR]
 
-FSharpResult_2_reflection = _expr8
+FSharpResult_2_reflection = _expr20
 
 
 def Result_Map[A, B, C](mapping: Callable[[A], B], result: FSharpResult_2[A, C]) -> FSharpResult_2[B, C]:

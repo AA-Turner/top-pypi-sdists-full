@@ -23,13 +23,14 @@
 
 
 import inspect
+import json
 import os
 import sys
 import tempfile
 import threading
 from concurrent import futures
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import grpc
 import jpype
@@ -1221,6 +1222,96 @@ def _serve(
         otel_end_root_span()
 
 
+# Maps the SNOWFLAKE_FILE_DOMAIN_TYPE env value (set by the notebook/PEP layer)
+# to the NpoStorageType enum id expected by the GS registration function.
+_NPO_STORAGE_TYPE_IDS = {
+    "workspace": "1",
+    "stage": "2",
+}
+
+
+def _sql_str_escape(text: str) -> str:
+    """Escape a Python string for embedding in a Snowflake single-quoted literal.
+
+    Snowflake's SQL lexer interprets backslash escape sequences inside
+    single-quoted string literals (e.g. ``\\"`` -> ``"``). Backslashes must
+    therefore be doubled *before* escaping single quotes, otherwise embedded
+    JSON (whose ``\\"`` escapes a double-quote) is corrupted by the SQL layer
+    before it reaches the server-side JSON parser.
+    """
+    return text.replace("\\", "\\\\").replace("'", "''")
+
+
+def _build_notebook_registration_config() -> dict[str, str] | None:
+    """Build the ``config_parameters`` payload for SCOS_NOTEBOOK registration.
+
+    A SCOS session is a notebook session iff the SPCS env var
+    ``SNOWFLAKE_NON_INTERACTIVE_JOB_UUID`` is set (this is also the required
+    ``executeQueryId`` used by the GS function to look up the running job).
+    When it is unset this returns ``None`` and the caller falls back to the
+    plain client / submit registration paths.
+
+    All fields are best-effort: any whose backing env var is absent (or cannot
+    be normalized to the format GS expects) is simply omitted. GS logs a warning
+    for missing optional fields but still persists the row.
+
+    Env var -> JSON field mapping:
+        SNOWFLAKE_NON_INTERACTIVE_JOB_UUID           -> executeQueryId (required gate)
+        SNOWFLAKE_SERVICE_NAME                       -> spcsServiceName
+        SNOWFLAKE_NON_INTERACTIVE_FILE_SYSTEM_NAME   -> notebookProjectObjectName
+        SNOWFLAKE_FILE_DOMAIN_TYPE                   -> npoStorageType ("workspace"/"stage" -> "1"/"2")
+        SNOWFLAKE_FILE_DOMAIN_NAME                   -> npoFileDomainName
+        SNOWFLAKE_MAIN_FILE_PATH                     -> npoFilePath
+        SNOWFLAKE_NON_INTERACTIVE_FILE_SYSTEM_VERSION -> npoVersion ("VERSION$3" -> "3")
+    """
+    execute_query_id = os.environ.get("SNOWFLAKE_NON_INTERACTIVE_JOB_UUID")
+    if not execute_query_id:
+        return None
+
+    config: dict[str, str] = {"executeQueryId": execute_query_id}
+
+    def _add(key: str, env_name: str) -> None:
+        value = os.environ.get(env_name)
+        if value:
+            config[key] = value
+
+    _add("spcsServiceName", "SNOWFLAKE_SERVICE_NAME")
+    _add("notebookProjectObjectName", "SNOWFLAKE_NON_INTERACTIVE_FILE_SYSTEM_NAME")
+    _add("npoFileDomainName", "SNOWFLAKE_FILE_DOMAIN_NAME")
+    _add("npoFilePath", "SNOWFLAKE_MAIN_FILE_PATH")
+
+    # GS expects the NpoStorageType enum id ("1"/"2"); the env var carries the
+    # string form ("workspace"/"stage"). Omit unknown values so we never send a
+    # payload GS would reject (Integer.parseInt on the whole JSON).
+    domain_type = os.environ.get("SNOWFLAKE_FILE_DOMAIN_TYPE")
+    if domain_type:
+        storage_type_id = _NPO_STORAGE_TYPE_IDS.get(domain_type.strip().lower())
+        if storage_type_id is not None:
+            config["npoStorageType"] = storage_type_id
+        else:
+            logger.warning(
+                "Unrecognized SNOWFLAKE_FILE_DOMAIN_TYPE=%r; omitting npoStorageType",
+                domain_type,
+            )
+
+    # GS parses npoVersion as a long; the env var looks like "VERSION$3".
+    # Send only the trailing integer so the payload is not rejected.
+    raw_version = os.environ.get("SNOWFLAKE_NON_INTERACTIVE_FILE_SYSTEM_VERSION")
+    if raw_version:
+        version_digits = raw_version.rsplit("$", 1)[-1].strip()
+        if version_digits.isdigit():
+            config["npoVersion"] = version_digits
+        else:
+            logger.warning(
+                "Could not parse npoVersion from "
+                "SNOWFLAKE_NON_INTERACTIVE_FILE_SYSTEM_VERSION=%r; omitting npoVersion",
+                raw_version,
+            )
+
+    logger.debug("Built notebook registration config_parameters: %s", config)
+    return config
+
+
 def _register_snowpark_connect_session(
     session: snowpark.Session,
     app_name: str | None = None,
@@ -1232,7 +1323,9 @@ def _register_snowpark_connect_session(
     registry. The function uses CURRENT_SESSION() internally to identify the
     Snowflake session.
 
-    Two-phase submit path:
+    Three mutually-exclusive registration paths:
+
+    Submit (two-phase):
         When running inside a snowpark-submit SPCS container, the env var
         SNOWPARK_SUBMIT_SPARK_APPLICATION_ID carries the UUID returned by the
         client-side REGISTER_PENDING_SNOWPARK_SUBMIT_JOB call (phase-1). Passing
@@ -1241,26 +1334,50 @@ def _register_snowpark_connect_session(
         In this case arg 0 (app_name) is ignored by the system function — the
         display name was already recorded during phase-1.
 
+    Notebook:
+        When running inside a Snowflake notebook SPCS container (detected via
+        SNOWFLAKE_NON_INTERACTIVE_JOB_UUID), a JSON config_parameters payload is
+        passed as the third argument. This registers the session in SCOS_NOTEBOOK
+        mode. The display name (arg 0) is the notebook project object name. A
+        notebook session never has a pending submit UUID.
+
+    Client:
+        Otherwise (local dev, notebooks-in-warehouse, etc.) a fresh row is
+        created with the derived app_name as the display name.
+
     Args:
         session: The Snowpark session to register.
-        app_name: Optional application name (used only when no pending UUID is
-            present, i.e. non-submit flows such as local dev or notebooks).
+        app_name: Optional application name (used for the client path, and as a
+            fallback display name).
 
     Silently logs a warning if the function is not available (e.g., older deployments).
     """
     logger.debug(
-        f"Registering Snowpark Connect session for session {session.session_id}"
+        "Registering Snowpark Connect session for session %s", session.session_id
     )
     spark_application_id = os.environ.get("SNOWPARK_SUBMIT_SPARK_APPLICATION_ID")
+    notebook_config = (
+        None if spark_application_id else _build_notebook_registration_config()
+    )
     try:
         if spark_application_id:
             # Phase-2 registration: update the pending DPO row created by the
             # submit CLI. arg 0 (app_name) is ignored by the system function when
             # a pending UUID is supplied — the display name was set during phase-1.
-            escaped_id = spark_application_id.replace("'", "''")
+            escaped_id = _sql_str_escape(spark_application_id)
             sql = f"SELECT SNOWFLAKE.SNOWPARK_CONNECT.REGISTER_SNOWPARK_CONNECT_SESSION(NULL, '{escaped_id}')"
+        elif notebook_config is not None:
+            # Notebook registration: the display name is the NPO name and the
+            # notebook-specific fields ride along in the config_parameters JSON.
+            npo_name = notebook_config.get("notebookProjectObjectName")
+            name_arg = "NULL" if npo_name is None else f"'{_sql_str_escape(npo_name)}'"
+            escaped_config = _sql_str_escape(json.dumps(notebook_config))
+            sql = (
+                "SELECT SNOWFLAKE.SNOWPARK_CONNECT.REGISTER_SNOWPARK_CONNECT_SESSION("
+                f"{name_arg}, NULL, '{escaped_config}')"
+            )
         elif app_name is not None:
-            escaped = app_name.replace("'", "''")
+            escaped = _sql_str_escape(app_name)
             sql = f"SELECT SNOWFLAKE.SNOWPARK_CONNECT.REGISTER_SNOWPARK_CONNECT_SESSION('{escaped}')"
         else:
             sql = (
@@ -1269,8 +1386,9 @@ def _register_snowpark_connect_session(
         collect_without_telemetry(session.sql(sql), block=False)
         logger.debug(
             "Fired async registration for Snowpark Connect session "
-            "(spark_application_id=%s)",
+            "(spark_application_id=%s, notebook=%s)",
             spark_application_id,
+            notebook_config is not None,
         )
     except Exception:
         logger.warning(
@@ -1438,6 +1556,7 @@ def start_jvm(scala_version: str | None = None):
     from snowflake.snowpark_connect.utils.jvm_classpath import (
         filter_classpath_jars,
         log_classpath_filter_summary,
+        order_connect_client_first,
     )
 
     # Load jar files from both packages, filtering out jars that are not
@@ -1483,6 +1602,12 @@ def start_jvm(scala_version: str | None = None):
                     logger.debug(f"Added Scala 2.13 JAR from includes/jars: {jar_name}")
                 else:
                     logger.warning(f"Expected Scala 2.13 JAR not found: {jar_path}")
+
+        # Make spark-connect-client-jvm win class resolution over the classic
+        # Spark jars for the org.apache.spark.sql.* classes they both ship.
+        # execute_jar path only (scala_version set); the default server JVM
+        # ordering is unchanged.
+        kept_jars = order_connect_client_first(kept_jars)
 
     for jar_path in kept_jars:
         jpype.addClassPath(jar_path)
@@ -1717,6 +1842,71 @@ def init_spark_session(
         return get_session(conf=conf)
 
 
+def _new_prime_session_builder(spark_remote_url: str) -> tuple[Any, str]:
+    """Return a session builder for :func:`_prime_default_spark_session_with_conf`.
+
+    Prefer the SCOS Java client builder
+    (``com.snowflake.snowpark_connect.client.SnowparkConnectSession``) when it is
+    reachable on the JVM classpath, because it also injects
+    ``snowpark.connect.scala.version`` and the client stack-trace interceptor, so
+    the pre-created session matches exactly what a workload using
+    ``SnowparkConnectSession.builder()`` would get. It resolves the server URL
+    from the ``SPARK_REMOTE`` env var (already set by ``execute_jar``), so no
+    ``remote()`` call is needed.
+
+    In the in-process ``execute_jar`` server, ``scos-java-client`` is usually not
+    on the classpath (it is shipped as a separate Maven artifact, not bundled
+    with the server deps). Fall back to the OSS
+    ``org.apache.spark.sql.SparkSession`` builder, which is always present via
+    ``spark-connect-client-jvm``. The two injected extras are non-essential here:
+    ``snowpark.connect.scala.version`` is already written to the server's
+    process-global ``global_config`` by ``execute_jar`` (step 0), and the
+    stack-trace interceptor is a best-effort diagnostics aid, not a correctness
+    requirement.
+    """
+    try:
+        scos_session_cls = jpype.JClass(
+            "com.snowflake.snowpark_connect.client.SnowparkConnectSession"
+        )
+        return scos_session_cls.builder(), "SnowparkConnectSession builder"
+    except Exception:
+        spark_session_cls = jpype.JClass("org.apache.spark.sql.SparkSession")
+        return (
+            spark_session_cls.builder().remote(spark_remote_url),
+            "OSS SparkSession builder (scos-java-client not on classpath)",
+        )
+
+
+def _prime_default_spark_session_with_conf(
+    spark_remote_url: str, spark_conf: dict[str, str]
+) -> None:
+    """Eagerly create the JVM default ``SparkSession`` with ``spark_conf`` applied.
+
+    ``execute_jar`` runs the customer's ``main`` in-process via JPype. When the
+    workload calls ``SparkSession.builder().getOrCreate()`` (or
+    ``SnowparkConnectSession.builder().getOrCreate()``) it reuses the JVM
+    default/active session rather than creating a new one. By creating that
+    default session here, every conf pair is applied via the standard Spark
+    Connect ``ConfigRequest`` gRPC path under the session's own id, so the
+    workload observes the values (including session-scoped AWS/Azure keys)
+    without any customer code change.
+
+    The created session is intentionally not closed or retained on the Python
+    side: the builder registers it as the JVM-global default session (an
+    ``AtomicReference`` held on the JVM), which keeps it alive until the
+    workload closes it.
+    """
+    builder, builder_kind = _new_prime_session_builder(spark_remote_url)
+    for key, value in spark_conf.items():
+        builder = builder.config(str(key), str(value))
+    builder.getOrCreate()
+    logger.info(
+        "Primed default SparkSession via %s with %d conf value(s) from execute_jar",
+        builder_kind,
+        len(spark_conf),
+    )
+
+
 def execute_jar(
     class_name: str,
     jars: list[str],
@@ -1725,6 +1915,7 @@ def execute_jar(
     tcp_port: int | None = None,
     jvm_options: list[str] | None = None,
     scala_version: str | None = None,
+    spark_conf: dict[str, str] | None = None,
 ) -> None:
     """
     Start the SCOS server, then call ``class_name.main(String[] args)`` via JPype.
@@ -1734,6 +1925,14 @@ def execute_jar(
     3. Start SCOS thick server (which starts JVM + gRPC server)
     4. Set ``SPARK_REMOTE`` so the customer's ``SparkSession.builder().getOrCreate()``
        connects automatically
+    4b. If ``spark_conf`` is provided, eagerly create the JVM default
+       ``SparkSession`` pre-populated with those configs (preferring the SCOS
+       ``SnowparkConnectSession`` builder when on the classpath, else the OSS
+       Spark Connect builder). Because the workload's own
+       ``SparkSession.builder().getOrCreate()`` reuses the JVM default/active
+       session, it transparently inherits the configs — applied through the
+       normal ``ConfigRequest`` gRPC path under the session's own id, so even
+       session-scoped keys (AWS/Azure) land where the workload reads them.
     5. Install the log4j2 -> Python logging bridge appender so JVM log
        records emitted by the customer JAR are re-exported through Python
        logging (and thus surface in the Snowflake event table when running
@@ -1781,16 +1980,25 @@ def execute_jar(
             opt-in (only enabled by an explicit ``"2.13"``). Validated
             to be ``"2.12"`` or ``"2.13"``; any other value raises
             ``ValueError`` with ``INVALID_CONFIG_VALUE``.
+        spark_conf: Optional Spark configuration properties to apply to the
+            session before the workload runs (the ``execute_jar`` analogue of
+            ``spark-submit --conf``). Each key/value is set on the eagerly
+            created JVM default ``SparkSession`` so the customer's
+            ``getOrCreate()`` observes them without any code change. ``None``
+            (the default) skips the eager session creation entirely, preserving
+            today's behavior.
     """
     import glob
     import time as _time
 
+    from snowflake.snowpark_connect.config import is_native_app_mode
     from snowflake.snowpark_connect.utils.log4j_bridge import (
         add_bridge_jar_to_classpath,
         install_python_bridge_appender,
     )
     from snowflake.snowpark_connect.utils.session import (
         _is_running_in_stored_procedure_or_notebook,
+        skip_session_configuration,
     )
 
     scala_version = _validate_scala_version(scala_version)
@@ -1872,6 +2080,12 @@ def execute_jar(
         os.environ["JAVA_OPTS"] = " ".join(dict.fromkeys(all_opts))
 
         # 4. Start SCOS thick server (which starts JVM + gRPC server).
+        # Native App procs running EXECUTE AS OWNER cannot run ALTER SESSION
+        # SET (SNOW-2245971). Only skip when native_app_mode is set — a
+        # CALLER-rights proc or notebook can still run ALTER SESSION normally.
+        if _is_running_in_stored_procedure_or_notebook() and is_native_app_mode():
+            skip_session_configuration(True)
+
         # Forward ``scala_version`` so ``start_jvm`` filters the deps
         # classpath to the requested binary version and (for 2.13) appends
         # the ``includes/jars/`` 2.13 replacements. When ``scala_version``
@@ -1896,6 +2110,12 @@ def execute_jar(
         # "appender not loadable" warning.
         if install_log_bridge:
             install_python_bridge_appender()
+
+        # 4b. Eagerly create the JVM default SparkSession pre-populated with the
+        # caller's spark_conf, so the workload's own getOrCreate() reuses it and
+        # inherits the configs. See the function docstring for the rationale.
+        if spark_conf:
+            _prime_default_spark_session_with_conf(spark_remote_url, spark_conf)
 
         # 5. Invoke public static void main(String[])
         java_args = job_args or []

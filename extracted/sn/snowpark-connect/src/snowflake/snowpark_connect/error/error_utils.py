@@ -31,6 +31,7 @@ from pyspark.errors.exceptions.base import (
     PySparkException,
     PythonException,
     SparkRuntimeException,
+    SparkUpgradeException,
     UnsupportedOperationException,
 )
 from pyspark.errors.exceptions.connect import SparkConnectGrpcException
@@ -89,6 +90,7 @@ SPARK_PYTHON_TO_JAVA_EXCEPTION = {
     DateTimeException: "java.time.DateTimeException",
     NumberFormatException: "java.lang.NumberFormatException",
     SparkRuntimeException: "org.apache.spark.SparkRuntimeException",
+    SparkUpgradeException: "org.apache.spark.SparkUpgradeException",
     SparkConnectGrpcException: "pyspark.errors.exceptions.connect.SparkConnectGrpcException",
     PythonException: "org.apache.spark.api.python.PythonException",
     UnsupportedOperationException: "java.lang.UnsupportedOperationException",
@@ -211,6 +213,24 @@ def _get_converted_known_sql_or_custom_exception(
             message="Unexpected value for start in function slice: SQL array indices start at 1."
         )
         attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        return exception
+    if "[snowpark_connect::cannot_parse_timestamp]" in msg:
+        # The java.time datetime-parse UDF throws this marker (in ANSI mode) with
+        # the verbatim java.time message appended. Snowflake surfaces it as a Java
+        # UDF stack trace ("java.lang.RuntimeException: <marker><message>\n\tat ...");
+        # the java.time message is a single line, so capture to end-of-line. Rebuild
+        # Spark's CANNOT_PARSE_TIMESTAMP with that exact message text.
+        raw_msg = ex.message if hasattr(ex, "message") else str(ex)
+        m = re.search(r"\[snowpark_connect::cannot_parse_timestamp\](.*)", raw_msg)
+        raw = m.group(1).strip() if m else raw_msg
+        exception = DateTimeException(
+            error_class="CANNOT_PARSE_TIMESTAMP",
+            message_parameters={
+                "message": raw,
+                "ansiConfig": '"spark.sql.ansi.enabled"',
+            },
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
         return exception
 
     invalid_bit = invalid_bit_pattern.search(msg)

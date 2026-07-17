@@ -835,8 +835,18 @@ class ObjDeleteReq(BaseModelStrict):
     )
 
 
+class DeletedObjVersion(BaseModel):
+    digest: str
+    base_object_class: str | None = None
+    leaf_object_class: str | None = None
+
+
 class ObjDeleteRes(BaseModel):
     num_deleted: int
+    deleted_versions: list[DeletedObjVersion] | None = Field(
+        default=None,
+        description="Metadata for each deleted object version, with digest aliases resolved to content digests. None when the backing server does not report it.",
+    )
 
 
 # --- Tag and Alias types ---
@@ -1262,7 +1272,24 @@ class FeedbackCreateReq(BaseModelStrict):
     span_status_code: str = Field(
         default="UNSET",
         description="Status of the scored turn (from spans.status_code)",
-        examples=["SUCCESS"],
+        examples=["OK"],
+    )
+    span_conversation_id: str = Field(
+        default="",
+        description="Conversation the feedback belongs to (from spans.conversation_id)",
+    )
+    span_trace_id: str = Field(
+        default="",
+        description="Turn the feedback belongs to (from spans.trace_id)",
+    )
+    scorer_trace_id: str = Field(
+        default="",
+        description=(
+            "Trace of the scorer (judge) invocation that produced this feedback "
+            "(spans.trace_id of the judge call). Distinct from span_trace_id, "
+            "which is the scored turn. Lets signals price the invocation off the "
+            "judge span without joining the calls model."
+        ),
     )
 
     # wb_user_id is automatically populated by the server
@@ -1699,6 +1726,53 @@ class FileContentReadRes(BaseModel):
 
 class FilesStatsRes(BaseModel):
     total_size_bytes: int
+
+
+# Export API
+ExportJobStatus = Literal["running", "done", "error"]
+
+
+class ExportStartReq(BaseModelStrict):
+    project_id: str = Field(examples=["entity/project"])
+    targets: list[str] = Field(
+        description="Export target names resolved against the server-side registry, e.g. ['calls', 'objects', 'feedback']."
+    )
+    wb_user_id: str | None = Field(None, description=WB_USER_ID_DESCRIPTION)
+
+
+class ExportStartRes(BaseModel):
+    job_id: str = Field(
+        description="Server-generated uuid4 identifying the export job."
+    )
+
+
+class ExportStatusReq(BaseModelStrict):
+    project_id: str = Field(examples=["entity/project"])
+    job_id: str = Field(description="Export job id returned by export_start.")
+    wb_user_id: str | None = Field(None, description=WB_USER_ID_DESCRIPTION)
+
+
+class ExportManifestEntry(BaseModel):
+    target: str
+    status: ExportJobStatus
+    rows: int = 0
+    objects: list[str] = Field(
+        default_factory=list,
+        description="Artifact object keys written for this target.",
+    )
+    urls: list[str] = Field(
+        default_factory=list,
+        description="Per-object short-lived presigned GET URLs (only when status is done).",
+    )
+    expires_at: str | None = Field(
+        None, description="ISO-8601 expiry of the presigned URLs."
+    )
+    error: str | None = None
+
+
+class ExportStatusRes(BaseModel):
+    status: ExportJobStatus
+    manifest: list[ExportManifestEntry] = Field(default_factory=list)
 
 
 class CostCreateInput(BaseModelStrict):
@@ -3295,9 +3369,10 @@ class EvalResultsQueryBody(BaseModelStrict):
     include_costs: bool = Field(
         default=False,
         description=(
-            "When true, enrich the predict-and-score child calls with cost so "
-            "the summary can report predict-only `predict_total_cost`. Opt-in: "
-            "other callers skip the cost computation."
+            "When true, price each trial's predict call so rows and summary "
+            "report predict-only cost (`total_cost` / `predict_total_cost`); "
+            "scorer costs are excluded. Opt-in: other callers skip the cost "
+            "computation."
         ),
     )
     sort_by: list[EvalResultsSortBy] | None = Field(
@@ -3524,6 +3599,10 @@ class TraceServerInterface(Protocol):
     def file_create(self, req: FileCreateReq) -> FileCreateRes: ...
     def file_content_read(self, req: FileContentReadReq) -> FileContentReadRes: ...
     def files_stats(self, req: FilesStatsReq) -> FilesStatsRes: ...
+
+    # Export API
+    def export_start(self, req: ExportStartReq) -> ExportStartRes: ...
+    def export_status(self, req: ExportStatusReq) -> ExportStatusRes: ...
 
     # Feedback API
     def feedback_create(self, req: FeedbackCreateReq) -> FeedbackCreateRes: ...

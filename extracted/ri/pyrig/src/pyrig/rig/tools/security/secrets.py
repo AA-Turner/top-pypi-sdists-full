@@ -3,12 +3,13 @@
 from typing import Any
 
 from pyrig.core.subprocesses import Args
-from pyrig.rig.tools.base.tool import Group, Tool
+from pyrig.rig.tools.base.hooks import CheckHookTool
+from pyrig.rig.tools.base.tool import Group
 from pyrig.rig.tools.typing.checker import TypeChecker
 from pyrig.rig.tools.version_control.hooks.manager import VersionControlHookManager
 
 
-class SecretsChecker(Tool):
+class SecretsChecker(CheckHookTool):
     """Wrapper for the `detect-secrets` secrets scanner.
 
     Constructs `detect-secrets-hook` command-line arguments for scanning the
@@ -43,18 +44,10 @@ class SecretsChecker(Tool):
         """
         return Args("detect-secrets-hook", *args)
 
-    def version_control_hooks(self) -> tuple[dict[str, Any], ...]:
-        """Return the secrets scanning hook.
-
-        Returns:
-            `check_secrets_hook`, wrapped in a single-element tuple.
-        """
-        return (self.check_secrets_hook(),)
-
-    def check_secrets_hook(self) -> dict[str, Any]:
+    def check_hook(self) -> dict[str, Any]:
         """Return the hook metadata for scanning for committed secrets.
 
-        Ties its priority to `TypeChecker.check_types_hook` so it runs
+        Ties its priority to `TypeChecker.check_hook` so it runs
         alongside the rest of the checks tier rather than after it.
 
         Returns:
@@ -63,7 +56,7 @@ class SecretsChecker(Tool):
         return VersionControlHookManager.I.hook(
             self.check_secrets,
             priority=VersionControlHookManager.I.hook_priority(
-                TypeChecker.I.check_types_hook(),
+                TypeChecker.I.check_hook(),
             ),
             types=["text"],
         )

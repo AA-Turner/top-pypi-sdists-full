@@ -8,7 +8,7 @@ use tracing::debug;
 use crate::cli::reporter::HookInstallReporter;
 use crate::cli::run::HookRunReporter;
 use crate::hook::{Hook, InstallInfo, InstalledHook};
-use crate::languages::LanguageImpl;
+use crate::languages::LanguageBackend;
 use crate::process::Cmd;
 use crate::run::run_by_batch;
 use crate::store::Store;
@@ -16,11 +16,12 @@ use crate::store::Store;
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct Julia;
 
-impl LanguageImpl for Julia {
+#[async_trait::async_trait(?Send)]
+impl LanguageBackend for Julia {
     async fn install(
         &self,
-        hook: Arc<Hook>,
         store: &Store,
+        hook: Arc<Hook>,
         reporter: &HookInstallReporter,
     ) -> Result<InstalledHook> {
         let progress = reporter.on_install_start(&hook);
@@ -96,9 +97,9 @@ impl LanguageImpl for Julia {
 
     async fn run(
         &self,
+        _store: &Store,
         hook: &InstalledHook,
         filenames: &[&Path],
-        _store: &Store,
         reporter: &HookRunReporter,
     ) -> Result<(i32, Vec<u8>)> {
         let progress = reporter.on_run_start(hook, filenames.len());
@@ -109,7 +110,7 @@ impl LanguageImpl for Julia {
         if let Some(repo_path) = hook.repo_path() {
             let jl_path = repo_path.join(&entry[0]);
             if jl_path.exists() {
-                entry[0] = jl_path.to_string_lossy().into_owned();
+                entry[0] = jl_path.into_os_string();
             }
         }
 

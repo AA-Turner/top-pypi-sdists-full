@@ -3,7 +3,7 @@ ulid tests (adapted from `python-ulid`)
 
 ADAPTED FROM `python-ulid`'s TESTS; REF https://github.com/mdomke/python-ulid/blob/main/tests/test_ulid.py
 
-removed freezegun as it is not really needed nor does pyo3 stuff respsect it
+removed freezegun as it is not really needed nor does pyo3 stuff respect it
 """
 
 from __future__ import annotations
@@ -30,6 +30,26 @@ def datetimes_almost_equal(a: pydt.datetime, b: pydt.datetime) -> None:
     assert dt < 0.05, (
         f"Expected {a} and {b} to be almost equal, but they differ by {dt} seconds"
     )
+
+
+class TestUlidConstants:
+    def test_bits_constants(self) -> None:
+        assert ULID.TIME_BITS == 48
+        assert ULID.RAND_BITS == 80
+
+    def test_max_ulid(self) -> None:
+        max_ulid = ULID.MAX
+        assert isinstance(max_ulid, ULID)
+        assert int(max_ulid) == 2**128 - 1
+        assert max_ulid.bytes == b"\xff" * 16
+        assert str(max_ulid) == "7ZZZZZZZZZZZZZZZZZZZZZZZZZ"
+
+    def test_nil_ulid(self) -> None:
+        nil_ulid = ULID.NIL
+        assert isinstance(nil_ulid, ULID)
+        assert int(nil_ulid) == 0
+        assert nil_ulid.bytes == b"\x00" * 16
+        assert str(nil_ulid) == "00000000000000000000000000"
 
 
 def test_ulid() -> None:
@@ -99,7 +119,7 @@ def test_comparison() -> None:
     assert ulid1 < ulid2.bytes
     assert ulid1 < str(ulid2)
     with pytest.raises(TypeError):
-        _ = ulid1 < object()  # type: ignore[operator, ty:unsupported-operator]
+        _ = ulid1 < object()  # type: ignore[operator]  # ty:ignore[unsupported-operator]
 
 
 def test_repr() -> None:

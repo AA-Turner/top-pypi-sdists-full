@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 from contextlib import suppress
 from typing import Final, Literal, NamedTuple
@@ -15,7 +16,9 @@ _PROTOCOL: Final[str] = "filelock/2"
 
 _MAX_PID: Final[int] = 2**31 - 1
 
-OwnerMode = Literal["strict", "lease"]
+#: ``unknown`` is never published: it names a mode some other filelock wrote that this version cannot interpret. Such a
+#: record still identifies a live owner, so it is parsed rather than read as malformed and aged out.
+OwnerMode = Literal["lease", "unknown"]
 
 
 class OwnerRecord(NamedTuple):
@@ -118,14 +121,13 @@ def parse_marker(content: str | None) -> OwnerRecord | None:
 
 
 def _build_record(fields: dict[str, str]) -> OwnerRecord | None:
-    mode: OwnerMode
-    # An unknown key is a field a newer filelock published, so ignore it rather than read the record as malformed.
-    if (published := fields.get("mode")) == "strict":
-        mode = "strict"
-    elif published == "lease":
-        mode = "lease"
-    else:
+    # An unknown key is a field a newer filelock published, so ignore it rather than read the record as malformed. An
+    # unrecognized mode is the same story one level up: a contract this version does not implement. Reading it as
+    # malformed would age the marker out of a live owner's hands, so keep it and let the caller refuse to reclaim it.
+    # A record naming no mode at all states no contract and stays malformed.
+    if (published := fields.get("mode")) is None:
         return None
+    mode: OwnerMode = "lease" if published == "lease" else "unknown"
     hostname = fields.get("host")
     if not hostname or "pid" not in fields:
         return None
@@ -138,7 +140,10 @@ def _build_record(fields: dict[str, str]) -> OwnerRecord | None:
     if not 1 <= pid <= _MAX_PID:
         return None
     token = fields.get("token")
-    if mode == "lease" and (token is None or duration is None or duration <= 0):
+    # float() accepts "nan" and "inf", and neither is non-positive, so a duration <= 0 guard alone would read such a
+    # marker as a valid lease. A nan duration mismatches every configured duration and so wedges reclaim, where a
+    # malformed marker ages out through the grace window.
+    if mode == "lease" and (token is None or duration is None or not (math.isfinite(duration) and duration > 0)):
         return None
     return OwnerRecord(pid=pid, hostname=hostname, mode=mode, token=token, lease_duration=duration, start=start)
 

@@ -80,36 +80,40 @@ def check_inactivity_for_user(user_pk: int):
             user__pk=user_pk, config=config
         ).exists()
 
-        characters: QuerySet[Character] = Character.objects.owned_by_user(user)
-        is_registered = characters.exists()
+        is_registered = Character.objects.owned_by_user(user).exists()
 
         if not is_active and is_registered and not was_pinged and not is_excused:
-            last_login_at = characters.aggregate(Max("online_status__last_login")).get(
-                "online_status__last_login__max"
-            )
             send_inactivity_ping.apply_async(
                 kwargs={
                     "user_pk": user_pk,
                     "config_pk": config.pk,
-                    "last_login_at": last_login_at,
                 },
                 priority=INACTIVITY_TASKS_DEFAULT_PRIORITY,
             )
 
 
 @shared_task
-def send_inactivity_ping(user_pk: int, config_pk: int, last_login_at: dt.datetime):
+def send_inactivity_ping(user_pk: int, config_pk: int):
     """Send an inactivity ping to webhooks."""
-    config = InactivityPingConfig.objects.get(pk=config_pk)
     user = User.objects.get(pk=user_pk)
+    characters: QuerySet[Character] = Character.objects.owned_by_user(user)
+    last_login_at = characters.aggregate(Max("online_status__last_login")).get(
+        "online_status__last_login__max"
+    )
+
+    config = InactivityPingConfig.objects.get(pk=config_pk)
     notify.danger(user, title="Inactivity notification", message=config.text)
     InactivityPing.objects.create(config=config, user=user, last_login_at=last_login_at)
+
     relevant_webhooks = Webhook.objects.filter(
         Q(ping_configs=config) | Q(ping_configs=None),
         Q(is_active=True),
     ).filter_notification_type(Webhook.NotificationType.INACTIVE_USER)
     for webhook in relevant_webhooks:
-        duration = humanize.naturaldelta(now() - last_login_at)
+        if last_login_at:
+            duration = humanize.naturaldelta(now() - last_login_at)
+        else:
+            duration = "?"
         message = _(
             "**%(user_name)s** has been inactive for **%(duration)s** "
             "and has been notified according to **%(config_name)s** policy"

@@ -6,6 +6,10 @@ from pydantic import BaseModel, Field
 
 Transport = t.Literal["http", "streaming"]
 AuthType = t.Literal["none", "api_key", "bearer", "aws_sigv4", "azure_ad", "gcp"]
+#: How the request body is built. ``json`` renders ``request_template``; ``raw_audio``
+#: sends the first audio part's raw bytes with ``raw_content_type`` (for SageMaker ASR /
+#: audio endpoints — e.g. Whisper — that take an audio file body, not a JSON payload).
+RequestFormat = t.Literal["json", "raw_audio"]
 
 
 class TargetAuth(BaseModel):
@@ -49,6 +53,11 @@ class TargetSpec(BaseModel):
     auth: TargetAuth = Field(default_factory=TargetAuth)
     #: JSON request body template with ``{prompt}``/``{image_b64}``/``{audio_b64}``/``{video_b64}``.
     request_template: str = '{"prompt": "{prompt}"}'
+    #: Request body encoding. Use ``raw_audio`` for endpoints that take an audio file body
+    #: (SageMaker ASR/audio containers) rather than a JSON payload.
+    request_format: RequestFormat = "json"
+    #: Content-Type for ``raw_audio`` requests — the audio MIME the endpoint expects.
+    raw_content_type: str = "audio/wav"
     #: JSONPath (jsonpath_ng) to the response text.
     response_text_path: str = "$.response"
     timeout_s: float = 120.0

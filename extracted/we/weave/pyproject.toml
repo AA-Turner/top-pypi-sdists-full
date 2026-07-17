@@ -365,7 +365,7 @@ disallow_untyped_defs = true
 disallow_untyped_calls = true
 
 [tool.bumpversion]
-current_version = "0.53.1"
+current_version = "0.53.2"
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
     (?P<minor>0|[1-9]\\d*)\\.
@@ -679,7 +679,6 @@ ignore_imports = [
   "weave.evaluation.eval -> weave.trace_server.constants",
   "weave.evaluation.eval -> weave.trace_server.trace_server_interface",
   "weave.evaluation.otel_eval_linker -> weave.trace_server.constants",
-  "weave.evaluation.otel_eval_linker -> weave.trace_server.trace_server_interface",
   "weave.flow.annotation_spec -> weave.trace_server.interface.builtin_object_classes.annotation_spec",
   "weave.flow.leaderboard -> weave.trace_server.interface.builtin_object_classes.leaderboard",
   "weave.flow.leaderboard -> weave.trace_server.trace_server_interface",

@@ -90,6 +90,7 @@ class ClusterArgs:
                  sub_category: pulumi.Input[Optional[_builtins.str]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  target_db_revision_version_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_minor_version: pulumi.Input[Optional[_builtins.str]] = None,
                  tde_status: pulumi.Input[Optional[_builtins.str]] = None,
                  upgrade_type: pulumi.Input[Optional[_builtins.str]] = None,
                  vpc_id: pulumi.Input[Optional[_builtins.str]] = None,
@@ -118,7 +119,7 @@ class ClusterArgs:
                * > **NOTE:** The default value is Normal. If DBType is set to MySQL and DBVersion is set to 5.6 or 5.7, this parameter can be set to CloneFromRDS or MigrationFromRDS. If DBType is set to MySQL and DBVersion is set to 8.0, this parameter can be set to CreateGdnStandby. If `creation_option` is RecoverFromRecyclebin, you need to pass in the released source PolarDB cluster ID for this parameter. The DBType of the cluster recovered from the recycle bin and the source cluster must be consistent. For example, if the source cluster is MySQL 8.0, the cluster recovered from the recycle bin also needs to have its DBType set to MySQL and DBVersion set to 8.0.
         :param pulumi.Input[Sequence[pulumi.Input['ClusterDbClusterIpArrayArgs']]] db_cluster_ip_arrays: db_cluster_ip_array defines how users can send requests to your API. See `db_cluster_ip_array` below.
         :param pulumi.Input[_builtins.str] db_minor_version: Database minor version. Value options can refer to the latest docs [CreateDBCluster](https://www.alibabacloud.com/help/en/polardb/latest/createdbcluster-1) `DBMinorVersion`. This parameter takes effect only when `db_type` is MySQL and `db_version` is 8.0.
-        :param pulumi.Input[_builtins.int] db_node_count: Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].  
+        :param pulumi.Input[_builtins.int] db_node_count: Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].
                > **NOTE:** To avoid adding or removing multiple read-only nodes by mistake, the system allows you to add or remove one read-only node at a time.
         :param pulumi.Input[_builtins.str] db_node_id: The ID of the node or node subscript. Node subscript values: 1 to 15.
         :param pulumi.Input[_builtins.int] db_node_num: The number of Standard and Enterprise Edition nodes. Default value: `1` for Standard Edition, `2` for Enterprise Edition. Valid values are `1`, `2`. From version 1.235.0, Valid values for PolarDB for MySQL Standard Edition: `1` to `8`. Valid values for PolarDB for MySQL Enterprise Edition: `1` to `16`.
@@ -130,7 +131,7 @@ class ClusterArgs:
         :param pulumi.Input[_builtins.str] description: The description of cluster.
         :param pulumi.Input[_builtins.bool] enable_dynamodb: Specifies whether to enable DynamoDB compatibility. Valid values: `true`, `false`.
                > **NOTE:** This parameter is valid only when the DBType parameter is set to PostgreSQL.
-        :param pulumi.Input[_builtins.str] encrypt_new_tables: turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports. 
+        :param pulumi.Input[_builtins.str] encrypt_new_tables: turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports.
                > **NOTE:** `encrypt_new_tables` Polardb MySQL 8.0 cluster, after TDE and Automatic Encryption are enabled, all newly created tables are automatically encrypted in the cluster.
         :param pulumi.Input[_builtins.str] encryption_key: The ID of the custom key. `encryption_key` cannot be modified after TDE is opened.
         :param pulumi.Input[_builtins.str] from_time_service: Immediate or scheduled kernel version upgrade. Valid values are `true`, `false`. True means immediate execution, False means scheduled execution.
@@ -142,7 +143,7 @@ class ClusterArgs:
                > **NOTE:** From version 1.249.0, `hot_standby_cluster` can be set to `EQUAL`, and this value is only valid for MySQL.
         :param pulumi.Input[_builtins.str] imci_switch: Specifies whether to enable the In-Memory Column Index (IMCI) feature. Valid values are `ON`, `OFF`.
                > **NOTE:**  Only polardb MySQL Cluster version is available. The cluster with minor version number of 8.0.1 supports the column index feature, and the specific kernel version must be 8.0.1.1.22 or above.
-               > **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
+               **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
         :param pulumi.Input[_builtins.str] loose_polar_log_bin: Enable the Binlog function. Default value: `OFF`. Valid values are `OFF`, `ON`.
                > **NOTE:** This parameter is valid only MySQL Engine supports.
         :param pulumi.Input[_builtins.str] loose_xengine: Specifies whether to enable X-Engine. Valid values are `ON`, `OFF`.
@@ -197,7 +198,7 @@ class ClusterArgs:
         :param pulumi.Input[_builtins.str] storage_pay_type: The billing method of the storage. Valid values `PostPaid`, `PrePaid`.
         :param pulumi.Input[_builtins.int] storage_space: Storage space charged by space (monthly package). Unit: GB.
                > **NOTE:**  Valid values for PolarDB for MySQL Standard Edition: 20 to 32000. It is valid when pay_type are `PrePaid` ,`PostPaid`.
-               > **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
+               **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
         :param pulumi.Input[_builtins.str] storage_type: The storage type of the cluster. Enterprise storage type values are `PSL5`, `PSL4`. The standard version storage type values are `ESSDPL1`, `ESSDPL2`, `ESSDPL3`, `ESSDPL0`, `ESSDAUTOPL`. The standard version only supports MySQL and PostgreSQL.
         :param pulumi.Input[_builtins.str] strict_consistency: Whether the cluster has enabled strong data consistency across multiple zones. Valid values are `ON`, `OFF`. Available parameters can refer to the latest docs [CreateDBCluster](https://www.alibabacloud.com/help/en/polardb/latest/createdbcluster-1)
         :param pulumi.Input[_builtins.str] sub_category: The category of the cluster. Valid values are `Exclusive`, `General`. Only MySQL supports.
@@ -205,7 +206,8 @@ class ClusterArgs:
                - Key: It can be up to 64 characters in length. It cannot begin with "aliyun", "acs:", "http://", or "https://". It cannot be a null string.
                - Value: It can be up to 128 characters in length. It cannot begin with "aliyun", "acs:", "http://", or "https://". It can be a null string.
         :param pulumi.Input[_builtins.str] target_db_revision_version_code: The Version Code of the target version, whose parameter values can be obtained from the [DescribeDBClusterVersion](https://www.alibabacloud.com/help/en/polardb/latest/describedbclusterversion) interface.
-        :param pulumi.Input[_builtins.str] tde_status: turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on. 
+        :param pulumi.Input[_builtins.str] target_minor_version: The target minor version of the cluster. Used during creation.
+        :param pulumi.Input[_builtins.str] tde_status: turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on.
                > **NOTE:** `tde_status` Cannot modify after created when `db_type` is `PostgreSQL` or `Oracle`.`tde_status` only support modification from `Disabled` to `Enabled` when `db_type` is `MySQL`.
         :param pulumi.Input[_builtins.str] upgrade_type: Version upgrade type. Valid values are PROXY, DB, ALL. PROXY means upgrading the proxy version, DB means upgrading the db version, ALL means upgrading both db and proxy versions simultaneously.
         :param pulumi.Input[_builtins.str] vpc_id: The id of the VPC.
@@ -348,6 +350,8 @@ class ClusterArgs:
             pulumi.set(__self__, "tags", tags)
         if target_db_revision_version_code is not None:
             pulumi.set(__self__, "target_db_revision_version_code", target_db_revision_version_code)
+        if target_minor_version is not None:
+            pulumi.set(__self__, "target_minor_version", target_minor_version)
         if tde_status is not None:
             pulumi.set(__self__, "tde_status", tde_status)
         if upgrade_type is not None:
@@ -526,7 +530,7 @@ class ClusterArgs:
     @pulumi.getter(name="dbNodeCount")
     def db_node_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
-        Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].  
+        Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].
         > **NOTE:** To avoid adding or removing multiple read-only nodes by mistake, the system allows you to add or remove one read-only node at a time.
         """
         return pulumi.get(self, "db_node_count")
@@ -615,7 +619,7 @@ class ClusterArgs:
     @pulumi.getter(name="encryptNewTables")
     def encrypt_new_tables(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports. 
+        turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports.
         > **NOTE:** `encrypt_new_tables` Polardb MySQL 8.0 cluster, after TDE and Automatic Encryption are enabled, all newly created tables are automatically encrypted in the cluster.
         """
         return pulumi.get(self, "encrypt_new_tables")
@@ -704,7 +708,7 @@ class ClusterArgs:
         """
         Specifies whether to enable the In-Memory Column Index (IMCI) feature. Valid values are `ON`, `OFF`.
         > **NOTE:**  Only polardb MySQL Cluster version is available. The cluster with minor version number of 8.0.1 supports the column index feature, and the specific kernel version must be 8.0.1.1.22 or above.
-        > **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
+        **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
         """
         return pulumi.get(self, "imci_switch")
 
@@ -1155,7 +1159,7 @@ class ClusterArgs:
         """
         Storage space charged by space (monthly package). Unit: GB.
         > **NOTE:**  Valid values for PolarDB for MySQL Standard Edition: 20 to 32000. It is valid when pay_type are `PrePaid` ,`PostPaid`.
-        > **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
+        **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
         """
         return pulumi.get(self, "storage_space")
 
@@ -1226,10 +1230,22 @@ class ClusterArgs:
         pulumi.set(self, "target_db_revision_version_code", value)
 
     @_builtins.property
+    @pulumi.getter(name="targetMinorVersion")
+    def target_minor_version(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The target minor version of the cluster. Used during creation.
+        """
+        return pulumi.get(self, "target_minor_version")
+
+    @target_minor_version.setter
+    def target_minor_version(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "target_minor_version", value)
+
+    @_builtins.property
     @pulumi.getter(name="tdeStatus")
     def tde_status(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on. 
+        turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on.
         > **NOTE:** `tde_status` Cannot modify after created when `db_type` is `PostgreSQL` or `Oracle`.`tde_status` only support modification from `Disabled` to `Enabled` when `db_type` is `MySQL`.
         """
         return pulumi.get(self, "tde_status")
@@ -1365,6 +1381,7 @@ class _ClusterState:
                  sub_category: pulumi.Input[Optional[_builtins.str]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  target_db_revision_version_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_minor_version: pulumi.Input[Optional[_builtins.str]] = None,
                  tde_region: pulumi.Input[Optional[_builtins.str]] = None,
                  tde_status: pulumi.Input[Optional[_builtins.str]] = None,
                  upgrade_type: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1394,7 +1411,7 @@ class _ClusterState:
                > **NOTE:** Node specifications are divided into cluster version, single node version and History Library version. They can't change each other, but the general specification and exclusive specification of cluster version can be changed.
                From version 1.204.0, If you need to create a Serverless cluster with MySQL , `db_node_class` can be set to `polar.mysql.sl.small` for enterprise edition, and `polar.mysql.sl.small.c` for standard edition.
                From version 1.229.1, If you need to create a Serverless cluster with PostgreSQL, `db_node_class` can be set to `polar.pg.sl.small` for enterprise edition, and `polar.pg.sl.small.c` for standard edition. Region can refer to the latest docs(https://help.aliyun.com/zh/polardb/polardb-for-postgresql/the-public-preview-of-polardb-for-postgresql-serverless-ends?spm=a2c4g.11186623.0.0.2e9f6cf0B4rIfC).
-        :param pulumi.Input[_builtins.int] db_node_count: Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].  
+        :param pulumi.Input[_builtins.int] db_node_count: Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].
                > **NOTE:** To avoid adding or removing multiple read-only nodes by mistake, the system allows you to add or remove one read-only node at a time.
         :param pulumi.Input[_builtins.str] db_node_id: The ID of the node or node subscript. Node subscript values: 1 to 15.
         :param pulumi.Input[_builtins.int] db_node_num: The number of Standard and Enterprise Edition nodes. Default value: `1` for Standard Edition, `2` for Enterprise Edition. Valid values are `1`, `2`. From version 1.235.0, Valid values for PolarDB for MySQL Standard Edition: `1` to `8`. Valid values for PolarDB for MySQL Enterprise Edition: `1` to `16`.
@@ -1409,7 +1426,7 @@ class _ClusterState:
         :param pulumi.Input[_builtins.str] description: The description of cluster.
         :param pulumi.Input[_builtins.bool] enable_dynamodb: Specifies whether to enable DynamoDB compatibility. Valid values: `true`, `false`.
                > **NOTE:** This parameter is valid only when the DBType parameter is set to PostgreSQL.
-        :param pulumi.Input[_builtins.str] encrypt_new_tables: turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports. 
+        :param pulumi.Input[_builtins.str] encrypt_new_tables: turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports.
                > **NOTE:** `encrypt_new_tables` Polardb MySQL 8.0 cluster, after TDE and Automatic Encryption are enabled, all newly created tables are automatically encrypted in the cluster.
         :param pulumi.Input[_builtins.str] encryption_key: The ID of the custom key. `encryption_key` cannot be modified after TDE is opened.
         :param pulumi.Input[_builtins.str] from_time_service: Immediate or scheduled kernel version upgrade. Valid values are `true`, `false`. True means immediate execution, False means scheduled execution.
@@ -1421,7 +1438,7 @@ class _ClusterState:
                > **NOTE:** From version 1.249.0, `hot_standby_cluster` can be set to `EQUAL`, and this value is only valid for MySQL.
         :param pulumi.Input[_builtins.str] imci_switch: Specifies whether to enable the In-Memory Column Index (IMCI) feature. Valid values are `ON`, `OFF`.
                > **NOTE:**  Only polardb MySQL Cluster version is available. The cluster with minor version number of 8.0.1 supports the column index feature, and the specific kernel version must be 8.0.1.1.22 or above.
-               > **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
+               **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
         :param pulumi.Input[_builtins.str] loose_polar_log_bin: Enable the Binlog function. Default value: `OFF`. Valid values are `OFF`, `ON`.
                > **NOTE:** This parameter is valid only MySQL Engine supports.
         :param pulumi.Input[_builtins.str] loose_xengine: Specifies whether to enable X-Engine. Valid values are `ON`, `OFF`.
@@ -1478,7 +1495,7 @@ class _ClusterState:
         :param pulumi.Input[_builtins.str] storage_pay_type: The billing method of the storage. Valid values `PostPaid`, `PrePaid`.
         :param pulumi.Input[_builtins.int] storage_space: Storage space charged by space (monthly package). Unit: GB.
                > **NOTE:**  Valid values for PolarDB for MySQL Standard Edition: 20 to 32000. It is valid when pay_type are `PrePaid` ,`PostPaid`.
-               > **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
+               **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
         :param pulumi.Input[_builtins.str] storage_type: The storage type of the cluster. Enterprise storage type values are `PSL5`, `PSL4`. The standard version storage type values are `ESSDPL1`, `ESSDPL2`, `ESSDPL3`, `ESSDPL0`, `ESSDAUTOPL`. The standard version only supports MySQL and PostgreSQL.
         :param pulumi.Input[_builtins.str] strict_consistency: Whether the cluster has enabled strong data consistency across multiple zones. Valid values are `ON`, `OFF`. Available parameters can refer to the latest docs [CreateDBCluster](https://www.alibabacloud.com/help/en/polardb/latest/createdbcluster-1)
         :param pulumi.Input[_builtins.str] sub_category: The category of the cluster. Valid values are `Exclusive`, `General`. Only MySQL supports.
@@ -1486,10 +1503,11 @@ class _ClusterState:
                - Key: It can be up to 64 characters in length. It cannot begin with "aliyun", "acs:", "http://", or "https://". It cannot be a null string.
                - Value: It can be up to 128 characters in length. It cannot begin with "aliyun", "acs:", "http://", or "https://". It can be a null string.
         :param pulumi.Input[_builtins.str] target_db_revision_version_code: The Version Code of the target version, whose parameter values can be obtained from the [DescribeDBClusterVersion](https://www.alibabacloud.com/help/en/polardb/latest/describedbclusterversion) interface.
+        :param pulumi.Input[_builtins.str] target_minor_version: The target minor version of the cluster. Used during creation.
         :param pulumi.Input[_builtins.str] tde_region: (Available since 1.200.0) The region where the TDE key resides.
                > **NOTE:** TDE can be enabled on clusters that have joined a global database network (GDN). After TDE is enabled on the primary cluster in a GDN, TDE is enabled on the secondary clusters in the GDN by default. The key used by the secondary clusters and the region for the key resides must be the same as the primary cluster. The region of the key cannot be modified.
-               > **NOTE:** You cannot enable TDE for the secondary clusters in a GDN. Used to view user KMS activation status.
-        :param pulumi.Input[_builtins.str] tde_status: turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on. 
+               **NOTE:** You cannot enable TDE for the secondary clusters in a GDN. Used to view user KMS activation status.
+        :param pulumi.Input[_builtins.str] tde_status: turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on.
                > **NOTE:** `tde_status` Cannot modify after created when `db_type` is `PostgreSQL` or `Oracle`.`tde_status` only support modification from `Disabled` to `Enabled` when `db_type` is `MySQL`.
         :param pulumi.Input[_builtins.str] upgrade_type: Version upgrade type. Valid values are PROXY, DB, ALL. PROXY means upgrading the proxy version, DB means upgrading the db version, ALL means upgrading both db and proxy versions simultaneously.
         :param pulumi.Input[_builtins.str] vpc_id: The id of the VPC.
@@ -1645,6 +1663,8 @@ class _ClusterState:
             pulumi.set(__self__, "tags", tags)
         if target_db_revision_version_code is not None:
             pulumi.set(__self__, "target_db_revision_version_code", target_db_revision_version_code)
+        if target_minor_version is not None:
+            pulumi.set(__self__, "target_minor_version", target_minor_version)
         if tde_region is not None:
             pulumi.set(__self__, "tde_region", tde_region)
         if tde_status is not None:
@@ -1825,7 +1845,7 @@ class _ClusterState:
     @pulumi.getter(name="dbNodeCount")
     def db_node_count(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
-        Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].  
+        Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].
         > **NOTE:** To avoid adding or removing multiple read-only nodes by mistake, the system allows you to add or remove one read-only node at a time.
         """
         return pulumi.get(self, "db_node_count")
@@ -1950,7 +1970,7 @@ class _ClusterState:
     @pulumi.getter(name="encryptNewTables")
     def encrypt_new_tables(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports. 
+        turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports.
         > **NOTE:** `encrypt_new_tables` Polardb MySQL 8.0 cluster, after TDE and Automatic Encryption are enabled, all newly created tables are automatically encrypted in the cluster.
         """
         return pulumi.get(self, "encrypt_new_tables")
@@ -2039,7 +2059,7 @@ class _ClusterState:
         """
         Specifies whether to enable the In-Memory Column Index (IMCI) feature. Valid values are `ON`, `OFF`.
         > **NOTE:**  Only polardb MySQL Cluster version is available. The cluster with minor version number of 8.0.1 supports the column index feature, and the specific kernel version must be 8.0.1.1.22 or above.
-        > **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
+        **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
         """
         return pulumi.get(self, "imci_switch")
 
@@ -2514,7 +2534,7 @@ class _ClusterState:
         """
         Storage space charged by space (monthly package). Unit: GB.
         > **NOTE:**  Valid values for PolarDB for MySQL Standard Edition: 20 to 32000. It is valid when pay_type are `PrePaid` ,`PostPaid`.
-        > **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
+        **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
         """
         return pulumi.get(self, "storage_space")
 
@@ -2585,12 +2605,24 @@ class _ClusterState:
         pulumi.set(self, "target_db_revision_version_code", value)
 
     @_builtins.property
+    @pulumi.getter(name="targetMinorVersion")
+    def target_minor_version(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The target minor version of the cluster. Used during creation.
+        """
+        return pulumi.get(self, "target_minor_version")
+
+    @target_minor_version.setter
+    def target_minor_version(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "target_minor_version", value)
+
+    @_builtins.property
     @pulumi.getter(name="tdeRegion")
     def tde_region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Available since 1.200.0) The region where the TDE key resides.
         > **NOTE:** TDE can be enabled on clusters that have joined a global database network (GDN). After TDE is enabled on the primary cluster in a GDN, TDE is enabled on the secondary clusters in the GDN by default. The key used by the secondary clusters and the region for the key resides must be the same as the primary cluster. The region of the key cannot be modified.
-        > **NOTE:** You cannot enable TDE for the secondary clusters in a GDN. Used to view user KMS activation status.
+        **NOTE:** You cannot enable TDE for the secondary clusters in a GDN. Used to view user KMS activation status.
         """
         return pulumi.get(self, "tde_region")
 
@@ -2602,7 +2634,7 @@ class _ClusterState:
     @pulumi.getter(name="tdeStatus")
     def tde_status(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on. 
+        turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on.
         > **NOTE:** `tde_status` Cannot modify after created when `db_type` is `PostgreSQL` or `Oracle`.`tde_status` only support modification from `Disabled` to `Enabled` when `db_type` is `MySQL`.
         """
         return pulumi.get(self, "tde_status")
@@ -2736,6 +2768,7 @@ class Cluster(pulumi.CustomResource):
                  sub_category: pulumi.Input[Optional[_builtins.str]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  target_db_revision_version_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_minor_version: pulumi.Input[Optional[_builtins.str]] = None,
                  tde_status: pulumi.Input[Optional[_builtins.str]] = None,
                  upgrade_type: pulumi.Input[Optional[_builtins.str]] = None,
                  vpc_id: pulumi.Input[Optional[_builtins.str]] = None,
@@ -2801,10 +2834,10 @@ class Cluster(pulumi.CustomResource):
 
         current = alicloud.get_account()
         roles = alicloud.ram.get_roles(name_regex="AliyunRDSInstanceEncryptionDefaultRole")
-        default: list[Any] = []
+        default: list[alicloud.ram.Role] = []
         def create_default(range_body):
-            for range in [{"value": i} for i in range(0, range_body)]:
-                default.append(alicloud.ram.Role(f"default-{range['value']}",
+            for default_range in [{"value": i} for i in range(0, range_body)]:
+                default.append(alicloud.ram.Role(f"default-{default_range['value']}",
                     name="AliyunRDSInstanceEncryptionDefaultRole",
                     document=\"\"\"    {
                 \\"Statement\\": [
@@ -2824,10 +2857,10 @@ class Cluster(pulumi.CustomResource):
                     description="RDS使用此角色来访问您在其他云产品中的资源"))
 
         len(roles.roles).apply(lambda resolved_outputs: create_default(0 if resolved_outputs['length'] > 0 else 1))
-        default_policy_attachment: list[Any] = []
+        default_policy_attachment: list[alicloud.resourcemanager.PolicyAttachment] = []
         def create_default(range_body):
-            for range in [{"value": i} for i in range(0, range_body)]:
-                default_policy_attachment.append(alicloud.resourcemanager.PolicyAttachment(f"default-{range['value']}",
+            for default_policy_attachment_range in [{"value": i} for i in range(0, range_body)]:
+                default_policy_attachment.append(alicloud.resourcemanager.PolicyAttachment(f"default-{default_policy_attachment_range['value']}",
                     policy_name="AliyunRDSInstanceEncryptionRolePolicy",
                     policy_type="System",
                     principal_name=pulumi.Output.all(
@@ -2876,7 +2909,7 @@ class Cluster(pulumi.CustomResource):
                > **NOTE:** Node specifications are divided into cluster version, single node version and History Library version. They can't change each other, but the general specification and exclusive specification of cluster version can be changed.
                From version 1.204.0, If you need to create a Serverless cluster with MySQL , `db_node_class` can be set to `polar.mysql.sl.small` for enterprise edition, and `polar.mysql.sl.small.c` for standard edition.
                From version 1.229.1, If you need to create a Serverless cluster with PostgreSQL, `db_node_class` can be set to `polar.pg.sl.small` for enterprise edition, and `polar.pg.sl.small.c` for standard edition. Region can refer to the latest docs(https://help.aliyun.com/zh/polardb/polardb-for-postgresql/the-public-preview-of-polardb-for-postgresql-serverless-ends?spm=a2c4g.11186623.0.0.2e9f6cf0B4rIfC).
-        :param pulumi.Input[_builtins.int] db_node_count: Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].  
+        :param pulumi.Input[_builtins.int] db_node_count: Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].
                > **NOTE:** To avoid adding or removing multiple read-only nodes by mistake, the system allows you to add or remove one read-only node at a time.
         :param pulumi.Input[_builtins.str] db_node_id: The ID of the node or node subscript. Node subscript values: 1 to 15.
         :param pulumi.Input[_builtins.int] db_node_num: The number of Standard and Enterprise Edition nodes. Default value: `1` for Standard Edition, `2` for Enterprise Edition. Valid values are `1`, `2`. From version 1.235.0, Valid values for PolarDB for MySQL Standard Edition: `1` to `8`. Valid values for PolarDB for MySQL Enterprise Edition: `1` to `16`.
@@ -2890,7 +2923,7 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] description: The description of cluster.
         :param pulumi.Input[_builtins.bool] enable_dynamodb: Specifies whether to enable DynamoDB compatibility. Valid values: `true`, `false`.
                > **NOTE:** This parameter is valid only when the DBType parameter is set to PostgreSQL.
-        :param pulumi.Input[_builtins.str] encrypt_new_tables: turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports. 
+        :param pulumi.Input[_builtins.str] encrypt_new_tables: turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports.
                > **NOTE:** `encrypt_new_tables` Polardb MySQL 8.0 cluster, after TDE and Automatic Encryption are enabled, all newly created tables are automatically encrypted in the cluster.
         :param pulumi.Input[_builtins.str] encryption_key: The ID of the custom key. `encryption_key` cannot be modified after TDE is opened.
         :param pulumi.Input[_builtins.str] from_time_service: Immediate or scheduled kernel version upgrade. Valid values are `true`, `false`. True means immediate execution, False means scheduled execution.
@@ -2902,7 +2935,7 @@ class Cluster(pulumi.CustomResource):
                > **NOTE:** From version 1.249.0, `hot_standby_cluster` can be set to `EQUAL`, and this value is only valid for MySQL.
         :param pulumi.Input[_builtins.str] imci_switch: Specifies whether to enable the In-Memory Column Index (IMCI) feature. Valid values are `ON`, `OFF`.
                > **NOTE:**  Only polardb MySQL Cluster version is available. The cluster with minor version number of 8.0.1 supports the column index feature, and the specific kernel version must be 8.0.1.1.22 or above.
-               > **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
+               **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
         :param pulumi.Input[_builtins.str] loose_polar_log_bin: Enable the Binlog function. Default value: `OFF`. Valid values are `OFF`, `ON`.
                > **NOTE:** This parameter is valid only MySQL Engine supports.
         :param pulumi.Input[_builtins.str] loose_xengine: Specifies whether to enable X-Engine. Valid values are `ON`, `OFF`.
@@ -2957,7 +2990,7 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] storage_pay_type: The billing method of the storage. Valid values `PostPaid`, `PrePaid`.
         :param pulumi.Input[_builtins.int] storage_space: Storage space charged by space (monthly package). Unit: GB.
                > **NOTE:**  Valid values for PolarDB for MySQL Standard Edition: 20 to 32000. It is valid when pay_type are `PrePaid` ,`PostPaid`.
-               > **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
+               **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
         :param pulumi.Input[_builtins.str] storage_type: The storage type of the cluster. Enterprise storage type values are `PSL5`, `PSL4`. The standard version storage type values are `ESSDPL1`, `ESSDPL2`, `ESSDPL3`, `ESSDPL0`, `ESSDAUTOPL`. The standard version only supports MySQL and PostgreSQL.
         :param pulumi.Input[_builtins.str] strict_consistency: Whether the cluster has enabled strong data consistency across multiple zones. Valid values are `ON`, `OFF`. Available parameters can refer to the latest docs [CreateDBCluster](https://www.alibabacloud.com/help/en/polardb/latest/createdbcluster-1)
         :param pulumi.Input[_builtins.str] sub_category: The category of the cluster. Valid values are `Exclusive`, `General`. Only MySQL supports.
@@ -2965,7 +2998,8 @@ class Cluster(pulumi.CustomResource):
                - Key: It can be up to 64 characters in length. It cannot begin with "aliyun", "acs:", "http://", or "https://". It cannot be a null string.
                - Value: It can be up to 128 characters in length. It cannot begin with "aliyun", "acs:", "http://", or "https://". It can be a null string.
         :param pulumi.Input[_builtins.str] target_db_revision_version_code: The Version Code of the target version, whose parameter values can be obtained from the [DescribeDBClusterVersion](https://www.alibabacloud.com/help/en/polardb/latest/describedbclusterversion) interface.
-        :param pulumi.Input[_builtins.str] tde_status: turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on. 
+        :param pulumi.Input[_builtins.str] target_minor_version: The target minor version of the cluster. Used during creation.
+        :param pulumi.Input[_builtins.str] tde_status: turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on.
                > **NOTE:** `tde_status` Cannot modify after created when `db_type` is `PostgreSQL` or `Oracle`.`tde_status` only support modification from `Disabled` to `Enabled` when `db_type` is `MySQL`.
         :param pulumi.Input[_builtins.str] upgrade_type: Version upgrade type. Valid values are PROXY, DB, ALL. PROXY means upgrading the proxy version, DB means upgrading the db version, ALL means upgrading both db and proxy versions simultaneously.
         :param pulumi.Input[_builtins.str] vpc_id: The id of the VPC.
@@ -3038,10 +3072,10 @@ class Cluster(pulumi.CustomResource):
 
         current = alicloud.get_account()
         roles = alicloud.ram.get_roles(name_regex="AliyunRDSInstanceEncryptionDefaultRole")
-        default: list[Any] = []
+        default: list[alicloud.ram.Role] = []
         def create_default(range_body):
-            for range in [{"value": i} for i in range(0, range_body)]:
-                default.append(alicloud.ram.Role(f"default-{range['value']}",
+            for default_range in [{"value": i} for i in range(0, range_body)]:
+                default.append(alicloud.ram.Role(f"default-{default_range['value']}",
                     name="AliyunRDSInstanceEncryptionDefaultRole",
                     document=\"\"\"    {
                 \\"Statement\\": [
@@ -3061,10 +3095,10 @@ class Cluster(pulumi.CustomResource):
                     description="RDS使用此角色来访问您在其他云产品中的资源"))
 
         len(roles.roles).apply(lambda resolved_outputs: create_default(0 if resolved_outputs['length'] > 0 else 1))
-        default_policy_attachment: list[Any] = []
+        default_policy_attachment: list[alicloud.resourcemanager.PolicyAttachment] = []
         def create_default(range_body):
-            for range in [{"value": i} for i in range(0, range_body)]:
-                default_policy_attachment.append(alicloud.resourcemanager.PolicyAttachment(f"default-{range['value']}",
+            for default_policy_attachment_range in [{"value": i} for i in range(0, range_body)]:
+                default_policy_attachment.append(alicloud.resourcemanager.PolicyAttachment(f"default-{default_policy_attachment_range['value']}",
                     policy_name="AliyunRDSInstanceEncryptionRolePolicy",
                     policy_type="System",
                     principal_name=pulumi.Output.all(
@@ -3177,6 +3211,7 @@ class Cluster(pulumi.CustomResource):
                  sub_category: pulumi.Input[Optional[_builtins.str]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  target_db_revision_version_code: pulumi.Input[Optional[_builtins.str]] = None,
+                 target_minor_version: pulumi.Input[Optional[_builtins.str]] = None,
                  tde_status: pulumi.Input[Optional[_builtins.str]] = None,
                  upgrade_type: pulumi.Input[Optional[_builtins.str]] = None,
                  vpc_id: pulumi.Input[Optional[_builtins.str]] = None,
@@ -3266,6 +3301,7 @@ class Cluster(pulumi.CustomResource):
             __props__.__dict__["sub_category"] = sub_category
             __props__.__dict__["tags"] = tags
             __props__.__dict__["target_db_revision_version_code"] = target_db_revision_version_code
+            __props__.__dict__["target_minor_version"] = target_minor_version
             __props__.__dict__["tde_status"] = tde_status
             __props__.__dict__["upgrade_type"] = upgrade_type
             __props__.__dict__["vpc_id"] = vpc_id
@@ -3361,6 +3397,7 @@ class Cluster(pulumi.CustomResource):
             sub_category: pulumi.Input[Optional[_builtins.str]] = None,
             tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             target_db_revision_version_code: pulumi.Input[Optional[_builtins.str]] = None,
+            target_minor_version: pulumi.Input[Optional[_builtins.str]] = None,
             tde_region: pulumi.Input[Optional[_builtins.str]] = None,
             tde_status: pulumi.Input[Optional[_builtins.str]] = None,
             upgrade_type: pulumi.Input[Optional[_builtins.str]] = None,
@@ -3394,7 +3431,7 @@ class Cluster(pulumi.CustomResource):
                > **NOTE:** Node specifications are divided into cluster version, single node version and History Library version. They can't change each other, but the general specification and exclusive specification of cluster version can be changed.
                From version 1.204.0, If you need to create a Serverless cluster with MySQL , `db_node_class` can be set to `polar.mysql.sl.small` for enterprise edition, and `polar.mysql.sl.small.c` for standard edition.
                From version 1.229.1, If you need to create a Serverless cluster with PostgreSQL, `db_node_class` can be set to `polar.pg.sl.small` for enterprise edition, and `polar.pg.sl.small.c` for standard edition. Region can refer to the latest docs(https://help.aliyun.com/zh/polardb/polardb-for-postgresql/the-public-preview-of-polardb-for-postgresql-serverless-ends?spm=a2c4g.11186623.0.0.2e9f6cf0B4rIfC).
-        :param pulumi.Input[_builtins.int] db_node_count: Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].  
+        :param pulumi.Input[_builtins.int] db_node_count: Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].
                > **NOTE:** To avoid adding or removing multiple read-only nodes by mistake, the system allows you to add or remove one read-only node at a time.
         :param pulumi.Input[_builtins.str] db_node_id: The ID of the node or node subscript. Node subscript values: 1 to 15.
         :param pulumi.Input[_builtins.int] db_node_num: The number of Standard and Enterprise Edition nodes. Default value: `1` for Standard Edition, `2` for Enterprise Edition. Valid values are `1`, `2`. From version 1.235.0, Valid values for PolarDB for MySQL Standard Edition: `1` to `8`. Valid values for PolarDB for MySQL Enterprise Edition: `1` to `16`.
@@ -3409,7 +3446,7 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] description: The description of cluster.
         :param pulumi.Input[_builtins.bool] enable_dynamodb: Specifies whether to enable DynamoDB compatibility. Valid values: `true`, `false`.
                > **NOTE:** This parameter is valid only when the DBType parameter is set to PostgreSQL.
-        :param pulumi.Input[_builtins.str] encrypt_new_tables: turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports. 
+        :param pulumi.Input[_builtins.str] encrypt_new_tables: turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports.
                > **NOTE:** `encrypt_new_tables` Polardb MySQL 8.0 cluster, after TDE and Automatic Encryption are enabled, all newly created tables are automatically encrypted in the cluster.
         :param pulumi.Input[_builtins.str] encryption_key: The ID of the custom key. `encryption_key` cannot be modified after TDE is opened.
         :param pulumi.Input[_builtins.str] from_time_service: Immediate or scheduled kernel version upgrade. Valid values are `true`, `false`. True means immediate execution, False means scheduled execution.
@@ -3421,7 +3458,7 @@ class Cluster(pulumi.CustomResource):
                > **NOTE:** From version 1.249.0, `hot_standby_cluster` can be set to `EQUAL`, and this value is only valid for MySQL.
         :param pulumi.Input[_builtins.str] imci_switch: Specifies whether to enable the In-Memory Column Index (IMCI) feature. Valid values are `ON`, `OFF`.
                > **NOTE:**  Only polardb MySQL Cluster version is available. The cluster with minor version number of 8.0.1 supports the column index feature, and the specific kernel version must be 8.0.1.1.22 or above.
-               > **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
+               **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
         :param pulumi.Input[_builtins.str] loose_polar_log_bin: Enable the Binlog function. Default value: `OFF`. Valid values are `OFF`, `ON`.
                > **NOTE:** This parameter is valid only MySQL Engine supports.
         :param pulumi.Input[_builtins.str] loose_xengine: Specifies whether to enable X-Engine. Valid values are `ON`, `OFF`.
@@ -3478,7 +3515,7 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] storage_pay_type: The billing method of the storage. Valid values `PostPaid`, `PrePaid`.
         :param pulumi.Input[_builtins.int] storage_space: Storage space charged by space (monthly package). Unit: GB.
                > **NOTE:**  Valid values for PolarDB for MySQL Standard Edition: 20 to 32000. It is valid when pay_type are `PrePaid` ,`PostPaid`.
-               > **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
+               **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
         :param pulumi.Input[_builtins.str] storage_type: The storage type of the cluster. Enterprise storage type values are `PSL5`, `PSL4`. The standard version storage type values are `ESSDPL1`, `ESSDPL2`, `ESSDPL3`, `ESSDPL0`, `ESSDAUTOPL`. The standard version only supports MySQL and PostgreSQL.
         :param pulumi.Input[_builtins.str] strict_consistency: Whether the cluster has enabled strong data consistency across multiple zones. Valid values are `ON`, `OFF`. Available parameters can refer to the latest docs [CreateDBCluster](https://www.alibabacloud.com/help/en/polardb/latest/createdbcluster-1)
         :param pulumi.Input[_builtins.str] sub_category: The category of the cluster. Valid values are `Exclusive`, `General`. Only MySQL supports.
@@ -3486,10 +3523,11 @@ class Cluster(pulumi.CustomResource):
                - Key: It can be up to 64 characters in length. It cannot begin with "aliyun", "acs:", "http://", or "https://". It cannot be a null string.
                - Value: It can be up to 128 characters in length. It cannot begin with "aliyun", "acs:", "http://", or "https://". It can be a null string.
         :param pulumi.Input[_builtins.str] target_db_revision_version_code: The Version Code of the target version, whose parameter values can be obtained from the [DescribeDBClusterVersion](https://www.alibabacloud.com/help/en/polardb/latest/describedbclusterversion) interface.
+        :param pulumi.Input[_builtins.str] target_minor_version: The target minor version of the cluster. Used during creation.
         :param pulumi.Input[_builtins.str] tde_region: (Available since 1.200.0) The region where the TDE key resides.
                > **NOTE:** TDE can be enabled on clusters that have joined a global database network (GDN). After TDE is enabled on the primary cluster in a GDN, TDE is enabled on the secondary clusters in the GDN by default. The key used by the secondary clusters and the region for the key resides must be the same as the primary cluster. The region of the key cannot be modified.
-               > **NOTE:** You cannot enable TDE for the secondary clusters in a GDN. Used to view user KMS activation status.
-        :param pulumi.Input[_builtins.str] tde_status: turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on. 
+               **NOTE:** You cannot enable TDE for the secondary clusters in a GDN. Used to view user KMS activation status.
+        :param pulumi.Input[_builtins.str] tde_status: turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on.
                > **NOTE:** `tde_status` Cannot modify after created when `db_type` is `PostgreSQL` or `Oracle`.`tde_status` only support modification from `Disabled` to `Enabled` when `db_type` is `MySQL`.
         :param pulumi.Input[_builtins.str] upgrade_type: Version upgrade type. Valid values are PROXY, DB, ALL. PROXY means upgrading the proxy version, DB means upgrading the db version, ALL means upgrading both db and proxy versions simultaneously.
         :param pulumi.Input[_builtins.str] vpc_id: The id of the VPC.
@@ -3575,6 +3613,7 @@ class Cluster(pulumi.CustomResource):
         __props__.__dict__["sub_category"] = sub_category
         __props__.__dict__["tags"] = tags
         __props__.__dict__["target_db_revision_version_code"] = target_db_revision_version_code
+        __props__.__dict__["target_minor_version"] = target_minor_version
         __props__.__dict__["tde_region"] = tde_region
         __props__.__dict__["tde_status"] = tde_status
         __props__.__dict__["upgrade_type"] = upgrade_type
@@ -3698,7 +3737,7 @@ class Cluster(pulumi.CustomResource):
     @pulumi.getter(name="dbNodeCount")
     def db_node_count(self) -> pulumi.Output[_builtins.int]:
         """
-        Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].  
+        Number of the PolarDB cluster nodes, default is 2(Each cluster must contain at least a primary node and a read-only node). Add/remove nodes by modifying this parameter, valid values: [2~16].
         > **NOTE:** To avoid adding or removing multiple read-only nodes by mistake, the system allows you to add or remove one read-only node at a time.
         """
         return pulumi.get(self, "db_node_count")
@@ -3783,7 +3822,7 @@ class Cluster(pulumi.CustomResource):
     @pulumi.getter(name="encryptNewTables")
     def encrypt_new_tables(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports. 
+        turn on table auto encryption. Valid values are `ON`, `OFF`. Only MySQL 8.0 supports.
         > **NOTE:** `encrypt_new_tables` Polardb MySQL 8.0 cluster, after TDE and Automatic Encryption are enabled, all newly created tables are automatically encrypted in the cluster.
         """
         return pulumi.get(self, "encrypt_new_tables")
@@ -3844,7 +3883,7 @@ class Cluster(pulumi.CustomResource):
         """
         Specifies whether to enable the In-Memory Column Index (IMCI) feature. Valid values are `ON`, `OFF`.
         > **NOTE:**  Only polardb MySQL Cluster version is available. The cluster with minor version number of 8.0.1 supports the column index feature, and the specific kernel version must be 8.0.1.1.22 or above.
-        > **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
+        **NOTE:**  The single node, the single node version of the history library, and the cluster version of the history library do not support column save indexes.
         """
         return pulumi.get(self, "imci_switch")
 
@@ -4167,7 +4206,7 @@ class Cluster(pulumi.CustomResource):
         """
         Storage space charged by space (monthly package). Unit: GB.
         > **NOTE:**  Valid values for PolarDB for MySQL Standard Edition: 20 to 32000. It is valid when pay_type are `PrePaid` ,`PostPaid`.
-        > **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
+        **NOTE:**  Valid values for PolarDB for MySQL Enterprise Edition: 50 to 100000.It is valid when pay_type is `PrePaid`.
         """
         return pulumi.get(self, "storage_space")
 
@@ -4214,12 +4253,20 @@ class Cluster(pulumi.CustomResource):
         return pulumi.get(self, "target_db_revision_version_code")
 
     @_builtins.property
+    @pulumi.getter(name="targetMinorVersion")
+    def target_minor_version(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        The target minor version of the cluster. Used during creation.
+        """
+        return pulumi.get(self, "target_minor_version")
+
+    @_builtins.property
     @pulumi.getter(name="tdeRegion")
     def tde_region(self) -> pulumi.Output[_builtins.str]:
         """
         (Available since 1.200.0) The region where the TDE key resides.
         > **NOTE:** TDE can be enabled on clusters that have joined a global database network (GDN). After TDE is enabled on the primary cluster in a GDN, TDE is enabled on the secondary clusters in the GDN by default. The key used by the secondary clusters and the region for the key resides must be the same as the primary cluster. The region of the key cannot be modified.
-        > **NOTE:** You cannot enable TDE for the secondary clusters in a GDN. Used to view user KMS activation status.
+        **NOTE:** You cannot enable TDE for the secondary clusters in a GDN. Used to view user KMS activation status.
         """
         return pulumi.get(self, "tde_region")
 
@@ -4227,7 +4274,7 @@ class Cluster(pulumi.CustomResource):
     @pulumi.getter(name="tdeStatus")
     def tde_status(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on. 
+        turn on TDE encryption. Valid values are `Enabled`, `Disabled`. Default to `Disabled`. TDE cannot be closed after it is turned on.
         > **NOTE:** `tde_status` Cannot modify after created when `db_type` is `PostgreSQL` or `Oracle`.`tde_status` only support modification from `Disabled` to `Enabled` when `db_type` is `MySQL`.
         """
         return pulumi.get(self, "tde_status")

@@ -29,7 +29,7 @@ option set already handled by ``map_read_table.get_table_from_name``:
 * ``tag`` (string) — translated to Snowflake
   ``AT(VERSION_TAG => '<name>')``. Spark Iceberg overloads
   ``VERSION AS OF`` to accept *either* a numeric snapshot id *or* a
-  string-quoted tag/branch name (see Iceberg's spark-queries docs
+  string-quoted tag name (see Iceberg's spark-queries docs
   "Time travel" section). The parser delivers both through the same
   ``Option[String]`` field on ``RelationTimeTravel``, so we distinguish
   them on the SCOS side via a simple lexical heuristic:
@@ -37,7 +37,7 @@ option set already handled by ``map_read_table.get_table_from_name``:
     * a value that parses as a signed 64-bit integer is treated as a
       snapshot id (mirrors ``VERSION AS OF 12345``);
     * anything else is treated as a tag name (mirrors
-      ``VERSION AS OF 'historical-snapshot'``).
+      ``VERSION AS OF 'release_v1'``).
 
   This heuristic is ambiguous for tag names that happen to be all
   digits (e.g. ``'12345'``). Iceberg has the same ambiguity in its own
@@ -46,10 +46,8 @@ option set already handled by ``map_read_table.get_table_from_name``:
   all-digit tag names should use the DataFrame option form,
   ``option("tag", "12345")``, where the intent is unambiguous.
 
-  Branches are not yet supported on SCOS (the Snowflake server-side
-  catalog surface for branches is in development); when it lands, the
-  same code path will be extended to emit ``ON(BRANCH => '<name>')``
-  and the SQL exit shape will just carry a fourth option key.
+  WAP branch reads use the explicit Spark ``branch`` reader option
+  (``option("branch", "<name>")``), not ``VERSION AS OF``.
 
 Keeping the SQL path's "exit shape" identical to the DataFrame option
 path means there is exactly **one** code path that talks to Snowpark for
@@ -58,12 +56,11 @@ the same translation.
 
 Scope
 -----
-This module only covers the SQL **read** time-travel surface introduced
-by the Iceberg Spark SQL Extensions. It is gated by the caller — when
-``spark.sql.extensions`` does not include the Iceberg extension class,
-the case in ``map_sql.py`` raises an UNSUPPORTED_OPERATION pointing to
-``pip install 'snowpark-connect[iceberg]'`` and the helpers here are
-never invoked.
+This module covers the SQL **read** time-travel surface for Iceberg
+tables. It requires ``spark.sql.extensions`` to include the Iceberg
+extension class so that the Iceberg SQL parser is active — the gate in
+``map_sql.py`` raises an UNSUPPORTED_OPERATION when the extension is not
+configured, and the helpers here are never invoked in that case.
 
 Expressions in ``TIMESTAMP AS OF`` must be foldable (Spark's own rule)
 **and** be reducible to a literal value at parse time without running
@@ -130,9 +127,9 @@ def resolve_relation_time_travel(
     option's canonical encoding (milliseconds since the Unix epoch);
     downstream ``_extract_iceberg_as_of_timestamp`` converts it back to
     a tz-aware UTC ``datetime`` before handing off to Snowpark. The
-    ``version_tag`` is the raw Iceberg tag name; downstream callers
-    feed it to Snowpark's ``read.option("version_tag", ...)`` which
-    emits the ``AT(VERSION_TAG => '<name>')`` SQL clause.
+    ``version_tag`` is the raw Iceberg tag name; downstream callers feed
+    it to Snowpark's ``read.option("version_tag", ...)`` which emits the
+    ``AT(VERSION_TAG => '<name>')`` SQL clause.
     """
     version_opt = rel.version()
     timestamp_opt = rel.timestamp()
@@ -156,7 +153,7 @@ def resolve_relation_time_travel(
 
 def _resolve_version(raw: str) -> tuple[int | None, str | None]:
     """Parse a ``VERSION AS OF`` value into either an int64 snapshot id
-    *or* a tag name.
+    *or* an Iceberg tag name.
 
     Spark's Iceberg SQL parser delivers both ``VERSION AS OF 12345`` and
     ``VERSION AS OF 'historical-snapshot'`` through the same
@@ -170,7 +167,7 @@ def _resolve_version(raw: str) -> tuple[int | None, str | None]:
     This has an irreducible ambiguity for all-digit tag names — see the
     module docstring. Customers who need an all-digit tag should use the
     DataFrame option form ``option("tag", "12345")``, which carries the
-    intent explicitly.
+    intent explicitly. WAP branch reads use ``option("branch", ...)``.
 
     Returns a 2-tuple ``(snapshot_id, version_tag)`` with exactly one
     side set. Raises ``AnalysisException`` (INVALID_INPUT) on the only

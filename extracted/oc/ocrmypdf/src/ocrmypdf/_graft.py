@@ -6,11 +6,12 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Collection
 from contextlib import suppress
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from ocrmypdf.hocrtransform import OcrElement
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
 from pikepdf import (
     Dictionary,
     Name,
+    Object,
     Operator,
     Page,
     Pdf,
@@ -181,9 +183,13 @@ def strip_invisible_text(pdf: Pdf, page: Page):
     render_mode_stack = []
     text_objects = []
 
-    for operands, operator in parse_content_stream(page, ''):
+    for instruction in parse_content_stream(page, ''):
+        operands, operator = instruction.operands, instruction.operator
         if operator == Operator('Tr'):
-            render_mode = operands[0]
+            # operands[0] is already a plain int under pikepdf's default
+            # (implicit) conversion mode, or a pikepdf.Object under explicit
+            # conversion mode; int() handles both.
+            render_mode = int(operands[0])
 
         if operator == Operator('q'):
             render_mode_stack.append(render_mode)
@@ -207,7 +213,11 @@ def strip_invisible_text(pdf: Pdf, page: Page):
                     stream.extend(text_objects)
                 text_objects.clear()
 
-    content_stream = unparse_content_stream(stream)
+    # pikepdf's Collection[...] parameter doesn't structurally match our
+    # _ObjectList-based tuples even though it works fine at runtime.
+    content_stream = unparse_content_stream(
+        cast('list[tuple[Collection[Object], Operator]]', stream)
+    )
     page.Contents = Stream(pdf, content_stream)
 
 
@@ -436,7 +446,7 @@ class OcrGrafter:
         self.pdf_base.close()
         return self.output_file
 
-    def _parse_hocr_pages(self):
+    def _parse_hocr_pages(self) -> list[Fpdf2ParsedPage]:
         """Render all pages to multi-page PDF with shared fonts, then graft."""
         from ocrmypdf.hocrtransform.hocr_parser import HocrParser
 

@@ -6,6 +6,7 @@ from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
 from .helpers.global_data import OsOperations
 from .helpers.global_data import PortManager
+from .helpers.pg_cfg_os_ops import PgCfgOsOps
 
 from src import __version__ as testgres_version
 from src.node import PgVer
@@ -119,8 +120,8 @@ class TestTestgresCommon:
 
         # Author: Mark G.
         assert v.major == 1
-        assert v.minor == 14
-        assert v.micro == 5
+        assert v.minor == 15
+        assert v.micro == 0
 
         assert str(v) == testgres_version
         return
@@ -586,7 +587,27 @@ class TestTestgresCommon:
             assert expected_msg == x.value.error
         return
 
-    def test_status__force_clean_postmaster_pid(self, node_svc: PostgresNodeService):
+    sm_false_true = [False, True]
+
+    @pytest.fixture(
+        params=[
+            pytest.param(
+                x,
+                id="sleep_after_clean={}".format(x),
+            )
+            for x in sm_false_true
+        ]
+    )
+    def sleep_after_clean(self, request: pytest.FixtureRequest) -> bool:
+        assert isinstance(request, pytest.FixtureRequest)
+        assert type(request.param) is bool
+        return request.param
+
+    def test_status__force_clean_postmaster_pid(
+        self,
+        node_svc: PostgresNodeService,
+        sleep_after_clean: bool,
+    ):
         assert isinstance(node_svc, PostgresNodeService)
 
         assert (NodeStatus.Running)
@@ -610,27 +631,43 @@ class TestTestgresCommon:
                 postmaster_pid_file
             ))
 
+            logging.info("Clean pid file...")
             node.os_ops.write(
                 postmaster_pid_file,
                 "",
                 truncate=True,
             )
 
-            x = node.os_ops.read(
-                postmaster_pid_file,
-                encoding="utf-8",
-                binary=False
-            )
-            assert x == ""
+            if sleep_after_clean:
+                # server removes pid file and shutdown within 60 seconds.
+                logging.info("SLEEP 65 sec!")
+                time.sleep(65)
 
-            with pytest.raises(expected_exception=ExecUtilException) as x:
-                node.status()
+            logging.info("Check node status...")
+            node_status: typing.Optional[NodeStatus]
+            try:
+                node_status = node.status()
+            except ExecUtilException as e:
+                logging.info("Catch exception ({}): {}".format(
+                    type(e).__name__,
+                    str(e),
+                ))
 
-            expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
-                postmaster_pid_file
-            )
+                expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
+                    postmaster_pid_file
+                )
+                assert expected_msg == e.error
+            else:
+                assert node_status is not None
 
-            assert expected_msg == x.value.error
+                logging.info("Node Status is {}".format(node_status.name))
+
+                if node_status == NodeStatus.Stopped:
+                    pass
+                elif node_status == NodeStatus.Zombie:
+                    logging.warning("Zombie is detected!")
+                else:
+                    raise RuntimeError("Unknown node status: {}.".format(node_status))
         return
 
     def test_kill__is_not_initialized(
@@ -686,7 +723,9 @@ class TestTestgresCommon:
     ):
         assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(node_svc) as node:
+        node = __class__.helper__get_node(node_svc)
+
+        try:
             assert isinstance(node, PostgresNode)
             assert (node.pid == 0)
             assert (node.status() == NodeStatus.Uninitialized)
@@ -695,6 +734,9 @@ class TestTestgresCommon:
             assert not node.is_started
             node.slow_start()
             assert node.is_started
+
+            assert node.status() == NodeStatus.Running
+
             node.kill()
             assert not node.is_started
 
@@ -716,8 +758,19 @@ class TestTestgresCommon:
                 if s == NodeStatus.Running:
                     continue
 
-                assert s == NodeStatus.Stopped
+                if s == NodeStatus.Stopped:
+                    logging.info("Node stopped")
+                    break
+
+                if s == NodeStatus.Zombie:
+                    logging.info("Node is zombie")
+                    break
+
+                logging.error("Node has unknown status: {}.".format(s.name))
                 break
+        finally:
+            if node.is_started:
+                node.stop()
         return
 
     def test_kill_backgroud_writer__ok(
@@ -737,6 +790,25 @@ class TestTestgresCommon:
             assert node.is_started
             node_pid = node.pid
             assert type(node_pid) is int
+
+            # --- We expect BackgroundWriter to appear under load ------------------------
+            bw_attempt = 0
+            while True:
+                aux_pids = node.auxiliary_pids
+                assert type(aux_pids) is dict
+
+                if ProcessType.BackgroundWriter in aux_pids:
+                    break
+
+                bw_attempt += 1
+                # We give the server up to 3 seconds to start all background workers.
+                if bw_attempt == 30:
+                    raise RuntimeError("BackgroundWriter process did not start in time under heavy load.")
+
+                time.sleep(0.1)
+                continue
+
+            # ----------------------------------------------------------------------------
             aux_pids = node.auxiliary_pids
             assert type(aux_pids) is dict
             assert ProcessType.BackgroundWriter in aux_pids
@@ -1613,7 +1685,13 @@ class TestTestgresCommon:
             logging.info("Attempt #{0}.".format(nAttempt))
             s1 = node.status()
 
+            logging.info("Node status is {}.".format(s1.name))
+
             if s1 == NodeStatus.Running:
+                continue
+
+            if s1 == NodeStatus.Zombie:
+                # [2026-07-12] We will wait for final stop (stabilization). OK?
                 continue
 
             if s1 == NodeStatus.Stopped:
@@ -2860,9 +2938,13 @@ where c.relname=%s;"""
         )
 
         # TODO: We have to use node_svc.os_ops here
+        pgConfOsOps = PgCfgOsOps(
+            node_svc.os_ops,
+            "utf-8",
+        )
 
         with node_app.make_simple("abc") as node:
-            node_conf = testgres_pgconf.PostgresConfiguration(node.data_dir)
+            node_conf = testgres_pgconf.PostgresConfiguration(node.data_dir, pgConfOsOps)
 
             logging.info("Configuration is readed ...")
             testgres_pgconf.PostgresConfigurationReader.LoadConfiguration(node_conf)

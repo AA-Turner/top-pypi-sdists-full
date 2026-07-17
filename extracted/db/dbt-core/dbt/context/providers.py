@@ -1,4 +1,5 @@
 import abc
+import csv
 import os
 from copy import deepcopy
 from typing import (
@@ -10,6 +11,7 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Set,
     Tuple,
     Type,
     TypeVar,
@@ -44,7 +46,13 @@ from dbt.clients.jinja import (
 from dbt.clients.jinja_static import statically_parse_unrendered_config
 from dbt.config import IsFQNResource, Project, RuntimeConfig
 from dbt.constants import DEFAULT_ENV_PLACEHOLDER
-from dbt.context.base import Var, contextmember, contextproperty
+from dbt.context.base import (
+    BaseContext,
+    Var,
+    _get_env_var,
+    contextmember,
+    contextproperty,
+)
 from dbt.context.configured import FQNLookup
 from dbt.context.context_config import ContextConfig
 from dbt.context.exceptions_jinja import wrapped_exports
@@ -67,6 +75,7 @@ from dbt.contracts.graph.nodes import (
     SourceDefinition,
     UnitTestNode,
 )
+from dbt.events.types import JinjaLogWarning
 from dbt.exceptions import (
     CompilationError,
     ConflictingConfigKeysError,
@@ -94,7 +103,7 @@ from dbt.utils import MultiDict, args_to_dict
 from dbt_common.clients.jinja import MacroProtocol
 from dbt_common.constants import SECRET_ENV_PREFIX
 from dbt_common.context import get_invocation_context
-from dbt_common.events.functions import get_metadata_vars
+from dbt_common.events.functions import fire_event, get_metadata_vars
 from dbt_common.exceptions import (
     DbtInternalError,
     DbtRuntimeError,
@@ -926,7 +935,7 @@ class RuntimeMetricResolver(BaseMetricResolver):
 class ModelConfiguredVar(Var):
     def __init__(
         self,
-        context: Dict[str, Any],
+        context: BaseContext,
         config: RuntimeConfig,
         node: Resource,
     ) -> None:
@@ -972,7 +981,7 @@ class RuntimeVar(ModelConfiguredVar):
 class UnitTestVar(RuntimeVar):
     def __init__(
         self,
-        context: Dict[str, Any],
+        context: BaseContext,
         config: RuntimeConfig,
         node: Resource,
     ) -> None:
@@ -1267,6 +1276,17 @@ class ProviderContext(ManifestContext):
         except Exception:
             raise CompilationError(message_if_exception, self.model)
 
+    @staticmethod
+    def _read_csv_header(path: str, delimiter: str) -> Optional[Set[str]]:
+        try:
+            # Use utf-8-sig to handle BOM if present
+            with open(path, "r", encoding="utf-8-sig", newline="") as f:
+                reader = csv.reader(f, delimiter=delimiter)
+                header = next(reader)
+                return set(header)
+        except (IOError, StopIteration, TypeError):
+            return None
+
     @contextmember()
     def load_agate_table(self) -> "agate.Table":
         from dbt_common.clients import agate_helper
@@ -1285,10 +1305,35 @@ class ProviderContext(ManifestContext):
             assert self.model.root_path
             path = os.path.join(self.model.root_path, self.model.original_file_path)
 
-        column_types = self.model.config.column_types
+        column_types = self.model.config.column_types or {}
         delimiter = self.model.config.delimiter
+
+        # Validate that column_types keys exist in the file header
+        filtered_column_types = column_types
+        if column_types:
+            header_set = self._read_csv_header(path, delimiter)
+            if header_set is not None:
+                valid_column_types = set(column_types) & header_set
+                invalid_column_names = set(column_types) - header_set
+
+                if invalid_column_names:
+                    invalid_column_names_str = ", ".join(sorted(invalid_column_names))
+                    msg = (
+                        f"Column types specified for non-existent columns in seed '{self.model.name}' (file: {path}): "
+                        f"{invalid_column_names_str}. These column type overrides will be ignored."
+                    )
+                    fire_event(JinjaLogWarning(msg=msg))
+
+                filtered_column_types = {
+                    k: v for k, v in column_types.items() if k in valid_column_types
+                }
+
         try:
-            table = agate_helper.from_csv(path, text_columns=column_types, delimiter=delimiter)
+            table = agate_helper.from_csv(
+                path, text_columns=filtered_column_types, delimiter=delimiter
+            )
+            if getattr(get_flags(), "EMPTY", False):
+                table = table.limit(0)
         except ValueError as e:
             raise LoadAgateTableValueError(e, node=self.model)
         # this is used by some adapters
@@ -1515,7 +1560,7 @@ class ProviderContext(ManifestContext):
     @contextproperty()
     def var(self) -> ModelConfiguredVar:
         return self.provider.Var(
-            context=self._ctx,
+            context=self,
             config=self.config,
             node=self.model,
         )
@@ -1712,10 +1757,8 @@ class ProviderContext(ManifestContext):
             raise SecretEnvVarLocationError(var)
 
         env = get_invocation_context().env
-
-        if var in env:
-            return_value = env[var]
-        elif default is not None:
+        return_value, found_in_env = _get_env_var(env, var)
+        if return_value is None and default is not None:
             return_value = default
 
         if return_value is not None:
@@ -1733,7 +1776,7 @@ class ProviderContext(ManifestContext):
                 # reparsing. If the default changes, the file will have been updated and therefore
                 # will be scheduled for reparsing anyways.
                 self.manifest.env_vars[var] = (
-                    return_value if var in env else DEFAULT_ENV_PLACEHOLDER
+                    return_value if found_in_env else DEFAULT_ENV_PLACEHOLDER
                 )
 
                 # hooks come from dbt_project.yml which doesn't have a real file_id
@@ -2209,6 +2252,18 @@ class TestContext(ProviderContext):
             depends_on_macros.append(get_where_subquery.unique_id)
         if self.model.depends_on and self.model.depends_on.macros:
             depends_on_macros.extend(self.model.depends_on.macros)
+
+        # When support_custom_ref_kwargs is enabled, include custom ref/source
+        # macro overrides in the test namespace so that test arguments like
+        # ref('model', custom_kwarg=value) are properly resolved.
+        if getattr(get_flags(), "SUPPORT_CUSTOM_REF_KWARGS", False):
+            for macro_name in ("ref", "source"):
+                macro = self.macro_resolver.macros_by_name.get(macro_name)
+                if macro and macro.unique_id not in depends_on_macros:
+                    # Only include user-defined overrides, not built-in macros
+                    if macro.package_name != "dbt":
+                        depends_on_macros.append(macro.unique_id)
+
         lookup_macros = depends_on_macros.copy()
         for macro_unique_id in lookup_macros:
             lookup_macro = self.macro_resolver.macros.get(macro_unique_id)
@@ -2227,9 +2282,8 @@ class TestContext(ProviderContext):
             raise SecretEnvVarLocationError(var)
 
         env = get_invocation_context().env
-        if var in env:
-            return_value = env[var]
-        elif default is not None:
+        return_value, found_in_env = _get_env_var(env, var)
+        if return_value is None and default is not None:
             return_value = default
 
         if return_value is not None:
@@ -2240,7 +2294,7 @@ class TestContext(ProviderContext):
                 # reparsing. If the default changes, the file will have been updated and therefore
                 # will be scheduled for reparsing anyways.
                 self.manifest.env_vars[var] = (
-                    return_value if var in env else DEFAULT_ENV_PLACEHOLDER
+                    return_value if found_in_env else DEFAULT_ENV_PLACEHOLDER
                 )
                 # the "model" should only be test nodes, but just in case, check
                 # TODO CT-211

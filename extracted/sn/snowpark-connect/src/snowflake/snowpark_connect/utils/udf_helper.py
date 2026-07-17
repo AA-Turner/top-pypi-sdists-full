@@ -213,6 +213,9 @@ class LazySnowparkUdf(SnowparkUdfBase):
     """
 
     stage_imports: list[str]
+    # DCR inline-closure mode: raw payload bytes to embed in the Java handler body.
+    # None in normal mode (closure binary is uploaded to session stage and listed in stage_imports).
+    inline_payload: bytes | None = None
     # Lazy UDFs are always Scala scalars — never UDAFs.
     kind: UdfKind = field(default=UdfKind.SCALA_UDF, init=False)
     input_types: list[DataType] = field(default_factory=list, init=False)
@@ -286,6 +289,7 @@ class LazySnowparkUdf(SnowparkUdfBase):
             call_site_types,
             self.original_return_type,
             session,
+            inline_payload=self.inline_payload,
         )
         # Store the inferred return type only when it differs from the declared one,
         # so post-processing casts use the actual DDL return type.

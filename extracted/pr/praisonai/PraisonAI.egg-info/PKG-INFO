@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.6.149
+Version: 4.6.151
 Summary: PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration.
 Author: Mervin Praison
 License: MIT
@@ -11,11 +11,12 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.6.152
-Requires-Dist: praisonai-code>=0.0.48
-Requires-Dist: praisonai-bot>=0.0.33
-Requires-Dist: praisonai-train>=0.0.4
-Requires-Dist: praisonai-browser>=0.0.1
+Requires-Dist: praisonaiagents>=1.6.154
+Requires-Dist: praisonai-code>=0.0.50
+Requires-Dist: praisonai-bot>=0.0.35
+Requires-Dist: praisonai-train>=0.0.6
+Requires-Dist: praisonai-browser>=0.0.3
+Requires-Dist: praisonai-mcp>=0.0.3
 Requires-Dist: python-dotenv>=0.19.0
 Requires-Dist: litellm<2,>=1.83.14
 Requires-Dist: PyYAML>=6.0
@@ -86,6 +87,8 @@ Provides-Extra: train
 Requires-Dist: praisonai-train[llm]; extra == "train"
 Provides-Extra: browser
 Requires-Dist: praisonai-browser[all]; extra == "browser"
+Provides-Extra: mcp
+Requires-Dist: praisonai-mcp[all]; extra == "mcp"
 Provides-Extra: crewai
 Requires-Dist: crewai>=0.157.0; extra == "crewai"
 Requires-Dist: praisonai-tools>=0.1.0; extra == "crewai"

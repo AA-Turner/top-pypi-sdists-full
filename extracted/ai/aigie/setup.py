@@ -50,7 +50,7 @@ else:
 
 setup(
     name="aigie",
-    version="0.3.4",
+    version="0.3.5",
     description="Enterprise-grade AI agent reliability monitoring and autonomous remediation",
     long_description=long_description,
     long_description_content_type="text/markdown",

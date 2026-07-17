@@ -9,6 +9,7 @@ import pytz
 from celery.beat import DEFAULT_MAX_INTERVAL
 from celery.schedules import schedstate, schedule
 from celery.utils.time import maybe_timedelta
+from redis import CredentialProvider
 from redis.exceptions import ConnectionError
 
 from redbeat import RedBeatScheduler
@@ -248,6 +249,30 @@ class ClusterRedBeatCase(AppCase):
             self.assertTrue(from_url.called)
 
 
+class ClusterUrlRedBeatCase(AppCase):
+    config_dict = {
+        'REDBEAT_REDIS_URL': 'redis-cluster://redis-cluster:30001/0',
+        'REDBEAT_REDIS_OPTIONS': {
+            'startup_nodes': [
+                {"host": "192.168.1.1", "port": "30001"},
+                {"host": "192.168.1.2", "port": 30002},
+            ]
+        },
+    }
+
+    def setup(self):
+        self.app.conf.add_defaults(deepcopy(self.config_dict))
+
+    def test_cluster_scheduler_from_url(self):
+        with mock.patch('redis.cluster.RedisCluster') as redis_cluster:
+            get_redis(app=self.app)
+            redis_cluster.assert_called_once()
+            kwargs = redis_cluster.call_args.kwargs
+            self.assertTrue(kwargs['decode_responses'])
+            for node in kwargs['startup_nodes']:
+                self.assertIsInstance(node['port'], int)
+
+
 class SentinelRedBeatCase(AppCase):
     config_dict = {
         'REDBEAT_KEY_PREFIX': 'rb-tests:',
@@ -281,6 +306,21 @@ class SentinelRedBeatCase(AppCase):
             self.app.conf.update(config)
             redis_client = get_redis(app=self.app)
             assert 'Sentinel' in str(redis_client.connection_pool)
+
+    def test_sentinel_scheduler_with_retry_period(self):
+        options = deepcopy(self.BROKER_TRANSPORT_OPTIONS)
+        options['retry_period'] = 60
+        self.app.conf.update({'BROKER_TRANSPORT_OPTIONS': options})
+        redis_client = get_redis(app=self.app)
+        assert 'Sentinel' in str(redis_client.connection_pool)
+
+    def test_sentinel_scheduler_with_username(self):
+        options = deepcopy(self.BROKER_TRANSPORT_OPTIONS)
+        options['username'] = 'acl-user'
+        self.app.conf.update({'BROKER_TRANSPORT_OPTIONS': options})
+        redis_client = get_redis(app=self.app)
+        client_connection_kwargs = redis_client.connection_pool.connection_kwargs
+        assert client_connection_kwargs.get('username') == 'acl-user'
 
 
 class SeparateOptionsForSchedulerCase(AppCase):
@@ -387,6 +427,73 @@ class SSLConnectionToRedisNoCerts(AppCase):
         assert 'ssl_keyfile' not in redis_client.connection_pool.connection_kwargs
         assert 'ssl_certfile' not in redis_client.connection_pool.connection_kwargs
         assert 'ssl_ca_certs' not in redis_client.connection_pool.connection_kwargs
+
+
+class RedisWithCredentialProvider(AppCase):
+    class UserCredProvider(CredentialProvider):
+        def __init__(self, username, password):
+            self.username = username
+            self.password = password
+
+        def get_credential(self):
+            return self.username, self.password
+
+    config_dict = {
+        'REDBEAT_KEY_PREFIX': 'rb-tests:',
+        'REDBEAT_REDIS_URL': 'rediss://redishost:26379/0',
+        'REDBEAT_REDIS_OPTIONS': {
+            'credential_provider': UserCredProvider("test_user", "test_pass")
+        },
+        'REDBEAT_REDIS_USE_SSL': True,
+    }
+
+    def setup(self):  # celery3
+        self.app.conf.add_defaults(deepcopy(self.config_dict))
+
+    def test_redis_with_credential_provider_scheduler(self):
+        redis_client = get_redis(app=self.app)
+
+        # existing ssl checks
+        assert 'SSLConnection' in str(redis_client.connection_pool)
+        assert redis_client.connection_pool.connection_kwargs['ssl_cert_reqs'] == ssl.CERT_REQUIRED
+
+        # check for credential provider
+        assert 'username' not in redis_client.connection_pool.connection_kwargs
+        assert 'password' not in redis_client.connection_pool.connection_kwargs
+        assert 'credential_provider' in redis_client.connection_pool.connection_kwargs
+        cred_provider = redis_client.connection_pool.connection_kwargs['credential_provider']
+        assert isinstance(cred_provider, CredentialProvider)
+
+
+class SentinelWithCredentialProvider(AppCase):
+    class UserCredProvider(CredentialProvider):
+        def __init__(self, username, password):
+            self.username = username
+            self.password = password
+
+        def get_credential(self):
+            return self.username, self.password
+
+    config_dict = {
+        'REDBEAT_KEY_PREFIX': 'rb-tests:',
+        'REDBEAT_REDIS_URL': 'redis-sentinel://redis-sentinel:26379/0',
+        'REDBEAT_REDIS_OPTIONS': {
+            'sentinels': [('192.168.1.1', 26379)],
+            'service_name': 'master',
+            'socket_timeout': 0.1,
+            'credential_provider': UserCredProvider("test_user", "test_pass"),
+        },
+    }
+
+    def setup(self):  # celery3
+        self.app.conf.add_defaults(deepcopy(self.config_dict))
+
+    def test_sentinel_with_credential_provider(self):
+        redis_client = get_redis(app=self.app)
+        assert 'Sentinel' in str(redis_client.connection_pool)
+        assert 'credential_provider' in redis_client.connection_pool.connection_kwargs
+        cred_provider = redis_client.connection_pool.connection_kwargs['credential_provider']
+        assert isinstance(cred_provider, CredentialProvider)
 
 
 class RedBeatLockTimeoutDefaultValues(RedBeatCase):

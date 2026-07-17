@@ -14,7 +14,6 @@
  */
 
 #include <errno.h>
-#include <sys/param.h>
 
 #include "api/s2n.h"
 #include "crypto/s2n_fips.h"
@@ -36,7 +35,9 @@
 #include "utils/s2n_events.h"
 #include "utils/s2n_random.h"
 #include "utils/s2n_safety.h"
-#include "utils/s2n_socket.h"
+#ifndef _WIN32
+    #include "utils/s2n_socket.h"
+#endif
 
 /* clang-format off */
 struct s2n_handshake_action {
@@ -854,7 +855,9 @@ message_type_t s2n_conn_get_current_message_type(const struct s2n_connection *co
 static int s2n_advance_message(struct s2n_connection *conn)
 {
     /* Get the mode: 'C'lient or 'S'erver */
+#ifndef _WIN32
     char previous_writer = ACTIVE_STATE(conn).writer;
+#endif
     char this_mode = CONNECTION_WRITER(conn);
 
     /* Actually advance the message number */
@@ -865,6 +868,7 @@ static int s2n_advance_message(struct s2n_connection *conn)
         conn->handshake.message_number++;
     }
 
+#ifndef _WIN32
     /* Set TCP_QUICKACK to avoid artificial delay during the handshake */
     POSIX_GUARD(s2n_socket_quickack(conn));
 
@@ -895,6 +899,7 @@ static int s2n_advance_message(struct s2n_connection *conn)
     if (s2n_connection_is_managed_corked(conn)) {
         POSIX_GUARD(s2n_socket_write_uncork(conn));
     }
+#endif
 
     return S2N_SUCCESS;
 }
@@ -1182,7 +1187,7 @@ const char *s2n_connection_get_handshake_type_name(struct s2n_connection *conn)
     for (size_t i = 0; i < handshake_labels_len; i++) {
         bool label_applies = handshake_type & (1 << i);
         if (label_applies) {
-            size_t bytes_to_copy = MIN(remaining, strlen(handshake_labels[i]));
+            size_t bytes_to_copy = S2N_MIN(remaining, strlen(handshake_labels[i]));
             PTR_CHECKED_MEMCPY(p, handshake_labels[i], bytes_to_copy);
             p[bytes_to_copy] = '\0';
             p += bytes_to_copy;
@@ -1302,7 +1307,7 @@ static int s2n_read_full_handshake_message(struct s2n_connection *conn, uint8_t 
     S2N_ERROR_IF(handshake_message_length > S2N_MAXIMUM_HANDSHAKE_MESSAGE_LENGTH, S2N_ERR_BAD_MESSAGE);
 
     uint32_t bytes_to_take = handshake_message_length - s2n_stuffer_data_available(&conn->handshake.io);
-    bytes_to_take = MIN(bytes_to_take, s2n_stuffer_data_available(&conn->in));
+    bytes_to_take = S2N_MIN(bytes_to_take, s2n_stuffer_data_available(&conn->in));
 
     /* If the record is handshake data, add it to the handshake buffer */
     POSIX_GUARD(s2n_stuffer_copy(&conn->in, &conn->handshake.io, bytes_to_take));
@@ -1745,6 +1750,20 @@ int s2n_negotiate(struct s2n_connection *conn, s2n_blocked_status *blocked)
         conn->handshake_event.handshake_end_ns = negotiate_end;
         POSIX_GUARD_RESULT(s2n_event_handshake_populate(conn, &conn->handshake_event));
         POSIX_GUARD_RESULT(s2n_event_handshake_send(conn, &conn->handshake_event));
+    } else if (s2n_error_get_type(s2n_errno) != S2N_ERR_T_BLOCKED && conn->config) {
+        /* S2N_ERR_T_BLOCKED is the only retryable error type -- it indicates
+         * the handshake is still in progress but IO would block. All other
+         * error types are terminal failures, so we emit the failure event. */
+        conn->handshake_event.handshake_end_ns = negotiate_end;
+        conn->handshake_event.error_code = s2n_errno;
+        /* Save and restore error state because populate calls functions
+         * that may overwrite them (e.g. s2n_connection_get_key_exchange_group). */
+        int saved_errno = s2n_errno;
+        struct s2n_debug_info saved_debug_info = _s2n_debug_info;
+        POSIX_GUARD_RESULT(s2n_event_handshake_populate(conn, &conn->handshake_event));
+        POSIX_GUARD_RESULT(s2n_event_handshake_send(conn, &conn->handshake_event));
+        s2n_errno = saved_errno;
+        _s2n_debug_info = saved_debug_info;
     }
 
     conn->negotiate_in_use = false;

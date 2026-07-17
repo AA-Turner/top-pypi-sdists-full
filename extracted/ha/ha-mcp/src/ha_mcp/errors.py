@@ -78,6 +78,10 @@ class ErrorCode(StrEnum):
     RESOURCE_ALREADY_EXISTS = "RESOURCE_ALREADY_EXISTS"
     RESOURCE_LOCKED = "RESOURCE_LOCKED"
 
+    # Image transport errors
+    IMAGE_PAYLOAD_TOO_LARGE = "IMAGE_PAYLOAD_TOO_LARGE"
+    IMAGE_SERIALIZATION_FAILED = "IMAGE_SERIALIZATION_FAILED"
+
     # Component errors
     COMPONENT_NOT_INSTALLED = "COMPONENT_NOT_INSTALLED"
 
@@ -99,6 +103,12 @@ class ErrorCode(StrEnum):
     # Read Only Mode (discussion #1569). A write operation was blocked
     # because the server-wide Read Only Mode toggle is on.
     READ_ONLY_MODE = "READ_ONLY_MODE"
+
+    # Strict mandatory best-practices gate (#1779). A gated write tool was
+    # blocked because strict mode is effective and the call did not carry
+    # the acknowledgment key published only in the best-practices skill
+    # content. Fail-closed: nothing was changed.
+    BPS_ACKNOWLEDGMENT_REQUIRED = "BPS_ACKNOWLEDGMENT_REQUIRED"
 
     # Mandatory auto-backup (#1579). A write that requires a pre-write
     # snapshot was blocked because the snapshot could not be captured

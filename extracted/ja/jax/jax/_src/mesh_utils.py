@@ -238,6 +238,7 @@ device_kind_handler_dict: dict[
     _TPU_V3: _tpu_v2_v3_create_device_mesh,
     _TPU_V4_LITE: _v4i_v8i_create_device_mesh,
     _TPU_V5_LITE: _v5e_create_device_mesh,
+    _TPU_V5E: _v5e_create_device_mesh,
     _TPU_V5P: _v5p_create_device_mesh,
     _TPU_V6_LITE: _v5e_create_device_mesh,
     _TPU_7X: _7x_create_device_mesh,
@@ -467,7 +468,7 @@ def _enumerate_feasible_logical_axis_assignments(
     physical_mesh_shape: Sequence[int],
     assignment: np.ndarray,
     logical_axis_size: int,
-) -> Generator[np.ndarray, None, None]:
+) -> Generator[np.ndarray]:
   """Yields feasible assignments for a single logical axis.
 
   For a physical mesh of shape [x_1, ..., x_n], and the product of all previous

@@ -112,7 +112,9 @@ impl Default for ProtocolLogicState {
 // --- End Protocol-specific state definitions ---
 
 // --- ConnectAs Settings Definition ---
-#[derive(Deserialize, Debug, Clone, Default)] // Added Deserialize
+// NOTE: `Debug` is hand-written (not derived) so that `gateway_private_key` is
+// never rendered into logs. See the `impl Debug` below.
+#[derive(Deserialize, Clone, Default)] // Added Deserialize
 pub struct ConnectAsSettings {
     #[serde(alias = "allow_supply_user", default)]
     pub allow_supply_user: bool,
@@ -121,7 +123,59 @@ pub struct ConnectAsSettings {
     #[serde(alias = "gateway_private_key")]
     pub gateway_private_key: Option<String>,
 }
+
+impl std::fmt::Debug for ConnectAsSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Render presence of the private key without exposing its contents.
+        let redacted_key = self.gateway_private_key.as_ref().map(|_| "[redacted]");
+        f.debug_struct("ConnectAsSettings")
+            .field("allow_supply_user", &self.allow_supply_user)
+            .field("allow_supply_host", &self.allow_supply_host)
+            .field("gateway_private_key", &redacted_key)
+            .finish()
+    }
+}
 // --- End ConnectAs Settings Definition ---
+
+/// JSON object keys whose values carry credentials and must never be logged.
+/// Matched case-insensitively.
+const SENSITIVE_SETTING_KEYS: &[&str] = &[
+    "gateway_private_key",
+    "private_key",
+    "privatekey",
+    "password",
+    "passphrase",
+];
+
+/// Return a clone of `value` with any sensitive fields replaced by a redaction
+/// marker, recursing into nested objects and arrays. Used to log raw
+/// `connect_as_settings` payloads (e.g. on deserialization failure) without
+/// leaking the gateway private key or other credentials.
+pub(crate) fn redact_settings_value(value: &serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(map) => serde_json::Value::Object(
+            map.iter()
+                .map(|(key, val)| {
+                    let is_sensitive = SENSITIVE_SETTING_KEYS
+                        .iter()
+                        .any(|s| key.eq_ignore_ascii_case(s));
+                    if is_sensitive {
+                        (
+                            key.clone(),
+                            serde_json::Value::String("[redacted]".to_string()),
+                        )
+                    } else {
+                        (key.clone(), redact_settings_value(val))
+                    }
+                })
+                .collect(),
+        ),
+        serde_json::Value::Array(items) => {
+            serde_json::Value::Array(items.iter().map(redact_settings_value).collect())
+        }
+        other => other.clone(),
+    }
+}
 
 /// Channel instance. Owns the data‑channel and a map of active back‑end TCP streams.
 pub struct Channel {
@@ -751,7 +805,7 @@ impl Channel {
             if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!(
                     "Raw connect_as_settings value. (channel_id: {}, conversation_id: {}, cas_value: {:?})",
-                    channel_id, conversation_id, connect_as_settings_val
+                    channel_id, conversation_id, redact_settings_value(connect_as_settings_val)
                 );
             }
             match serde_json::from_value::<ConnectAsSettings>(connect_as_settings_val.clone()) {
@@ -763,7 +817,7 @@ impl Channel {
                     }
                 }
                 Err(e) => {
-                    error!("CRITICAL: Failed to deserialize connect_as_settings: {}. Value was: {:?} (channel_id: {}, conversation_id: {})", e, connect_as_settings_val, channel_id, conversation_id);
+                    error!("CRITICAL: Failed to deserialize connect_as_settings: {}. Value was: {:?} (channel_id: {}, conversation_id: {})", e, redact_settings_value(connect_as_settings_val), channel_id, conversation_id);
                     // Returning an error here if connect_as_settings are vital
                     return Err(anyhow!("Failed to deserialize connect_as_settings: {}", e));
                 }

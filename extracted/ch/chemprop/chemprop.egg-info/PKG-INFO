@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chemprop
-Version: 2.2.4
+Version: 2.3.0
 Summary: Molecular Property Prediction with Message Passing Neural Networks
 Author-email: "The Chemprop Development Team (see LICENSE.txt)" <chemprop@mit.edu>
 License: MIT
@@ -28,6 +28,8 @@ Requires-Dist: astartes[molecules]
 Requires-Dist: ConfigArgParse
 Requires-Dist: rich
 Requires-Dist: descriptastorus
+Requires-Dist: cuik_molmaker_pin
+Requires-Dist: myerson>=1.0.1
 Provides-Extra: hpopt
 Requires-Dist: ray[tune]; extra == "hpopt"
 Requires-Dist: hyperopt; extra == "hpopt"
@@ -61,8 +63,6 @@ Requires-Dist: pytest-cov; extra == "test"
 Provides-Extra: notebooks
 Requires-Dist: ipykernel; extra == "notebooks"
 Requires-Dist: matplotlib; extra == "notebooks"
-Provides-Extra: cuik-molmaker
-Requires-Dist: cuik_molmaker>=0.2; extra == "cuik-molmaker"
 Dynamic: license-file
 
 <picture>

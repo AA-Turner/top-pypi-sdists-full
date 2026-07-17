@@ -28,6 +28,11 @@ if typing.TYPE_CHECKING:
     from .bad_request_error_body import BadRequestErrorBody
     from .basic_error import BasicError
     from .basic_error_error import BasicErrorError
+    from .built_in_tool_config import BuiltInToolConfig
+    from .built_in_tool_config_speech_before_tool_call import BuiltInToolConfigSpeechBeforeToolCall
+    from .built_in_tool_configs import BuiltInToolConfigs
+    from .built_in_tool_definition import BuiltInToolDefinition
+    from .built_in_tool_definition_name import BuiltInToolDefinitionName
     from .config_options import ConfigOptions
     from .config_options_background_noise import ConfigOptionsBackgroundNoise
     from .config_options_configuration_endpoint import ConfigOptionsConfigurationEndpoint
@@ -188,6 +193,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BadRequestErrorBody": ".bad_request_error_body",
     "BasicError": ".basic_error",
     "BasicErrorError": ".basic_error_error",
+    "BuiltInToolConfig": ".built_in_tool_config",
+    "BuiltInToolConfigSpeechBeforeToolCall": ".built_in_tool_config_speech_before_tool_call",
+    "BuiltInToolConfigs": ".built_in_tool_configs",
+    "BuiltInToolDefinition": ".built_in_tool_definition",
+    "BuiltInToolDefinitionName": ".built_in_tool_definition_name",
     "ConfigOptions": ".config_options",
     "ConfigOptionsBackgroundNoise": ".config_options_background_noise",
     "ConfigOptionsConfigurationEndpoint": ".config_options_configuration_endpoint",
@@ -366,6 +376,11 @@ __all__ = [
     "BadRequestErrorBody",
     "BasicError",
     "BasicErrorError",
+    "BuiltInToolConfig",
+    "BuiltInToolConfigSpeechBeforeToolCall",
+    "BuiltInToolConfigs",
+    "BuiltInToolDefinition",
+    "BuiltInToolDefinitionName",
     "ConfigOptions",
     "ConfigOptionsBackgroundNoise",
     "ConfigOptionsConfigurationEndpoint",

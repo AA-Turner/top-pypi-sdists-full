@@ -16,6 +16,12 @@
 # constants being defined, and their aim is to document as much about
 # the extension as possible.
 
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
+
 # The alias of the extension.
 ALIAS = 'dummy'
 
@@ -61,7 +67,7 @@ COLLECTION_NAME = 'fooes'
 
 # The resource attribute map for the extension. It is effectively the
 # bulk of the API contract alongside ACTION_MAP (mandatory).
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         'id': {'allow_post': False, 'allow_put': False,
                'validate': {'type:uuid': None},
@@ -76,7 +82,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 # Note that if an existing sub-resource is being extended, the
 # existing resources to extend the new extension attributes must be
 # defined under the 'parameters' key.
-SUB_RESOURCE_ATTRIBUTE_MAP = {
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {
     'subfoo': {
         'parent': {
             'collection_name': COLLECTION_NAME,
@@ -100,8 +106,7 @@ SUB_RESOURCE_ATTRIBUTE_MAP = {
 #        'get_my_foo_bars': 'GET'
 #    }
 # }
-ACTION_MAP = {
-}
+ACTION_MAP: ActionMap = {}
 
 # The action status: it associates response statuses with methods to be
 # performed on the API resource (mandatory). For example:

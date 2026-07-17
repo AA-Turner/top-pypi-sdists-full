@@ -62,6 +62,7 @@ from dreadnode.airt.alignment_faking import alignment_faking_attack
 from dreadnode.airt.analogy_escalation import analogy_escalation_attack
 from dreadnode.airt.aprt_progressive import aprt_progressive_attack
 from dreadnode.airt.assessment import Assessment
+from dreadnode.airt.atlas import atlas_attack
 from dreadnode.airt.attention_shifting import attention_shifting_attack
 from dreadnode.airt.autodan_turbo import autodan_turbo_attack
 from dreadnode.airt.autoredteamer import autoredteamer_attack
@@ -101,6 +102,7 @@ from dreadnode.airt.salami_slicing import salami_slicing_attack
 from dreadnode.airt.self_persuasion import self_persuasion_attack
 from dreadnode.airt.siren import siren_attack
 from dreadnode.airt.tap import tap_attack
+from dreadnode.airt.target import extract_response_text, extract_tool_calls
 from dreadnode.airt.targets import (
     TargetAuth,
     TargetSpec,
@@ -121,6 +123,7 @@ __all__ = [
     "alignment_faking_attack",
     "analogy_escalation_attack",
     "aprt_progressive_attack",
+    "atlas_attack",
     "attention_shifting_attack",
     "autodan_turbo_attack",
     "autoredteamer_attack",
@@ -131,6 +134,8 @@ __all__ = [
     "deep_inception_attack",
     "drattack",
     "echo_chamber_attack",
+    "extract_response_text",
+    "extract_tool_calls",
     "genetic_persona_attack",
     "goat_attack",
     "goat_v2_attack",

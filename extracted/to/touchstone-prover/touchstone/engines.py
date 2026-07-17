@@ -5370,7 +5370,15 @@ def verify_chc(prop, target, src, pre, post, repo=None) -> Verdict:
     if li.status == PROVED:                                                  # escalating the polynomial degree
         return li                                                            # (degree 3 sum-of-squares, 4 cubes)
     if args:                                                        # symbolic witness within k unrollings
-        bm = bmc_check(prop, target, src, pre, post, k=20, repo=repo)
+        # a refutation-only fallback: a genuine bounded counterexample is found cheaply (SAT comes fast),
+        # while a no-witness nonlinear query (twenty unrolled modulos, the Euclid loop) would grind the
+        # FULL proof budget for nothing -- so the BMC solve runs at an eighth of it, still deterministic,
+        # still ample for every witness, and proportional under budget escalation.
+        _prior = core.configure(solve_rlimit=max(1, core.SOLVE_RLIMIT // 8))
+        try:
+            bm = bmc_check(prop, target, src, pre, post, k=20, repo=repo)
+        finally:
+            core.configure(**_prior)
         if bm.status == REFUTED:
             return bm
     return v
@@ -6197,6 +6205,34 @@ def verify_no_raise(prop, target, src, pre, repo=None, timeout=4000) -> Verdict:
     if gated is not None:
         return gated
     fn = _fndef(src)
+    # an in-place augmented assignment on an aliased list (b = a; a += [x]) mutates the ONE object -- the
+    # alias's length grows too -- which a per-name integer length relation would read as stale (b[1] a
+    # false IndexError). Abstain so the alias-aware engines decide; a single-observer aug-assign (the
+    # accumulator out += [x]) has no second reader and stays in reach.
+    _aug_names, _listish, _linked = set(), set(), set()
+    for n in ast.walk(fn):
+        if isinstance(n, ast.AugAssign) and isinstance(n.target, ast.Name):
+            _aug_names.add(n.target.id)
+            if isinstance(n.value, (ast.List, ast.ListComp)):
+                _listish.add(n.target.id)
+        elif isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name):
+            nm, v = n.targets[0].id, n.value
+            if getattr(n, "_inplace_aug", False):
+                _aug_names.add(nm)
+                if isinstance(v, ast.BinOp) and isinstance(v.right, (ast.List, ast.ListComp)):
+                    _listish.add(nm)
+            if (isinstance(v, (ast.List, ast.ListComp))
+                    or (isinstance(v, ast.Call) and isinstance(v.func, ast.Name) and v.func.id in ("list", "sorted"))
+                    or (isinstance(v, ast.BinOp)                                # [x] * n / [x] + [y] seeds a list too
+                        and (isinstance(v.left, (ast.List, ast.ListComp))
+                             or isinstance(v.right, (ast.List, ast.ListComp))))):
+                _listish.add(nm)
+            if isinstance(v, ast.Name):
+                _linked.add(nm); _linked.add(v.id)
+    if any(x in _linked and x in _listish for x in _aug_names):
+        return Verdict(UNKNOWN, prop, target, "exception safety",
+                       reason="an in-place augmented assignment on an aliased list is outside the integer "
+                              "CHC model (the alias-aware engines decide)")
     params = [a.arg for a in fn.args.args]
     # a str/bytes parameter bound as an integer relation would read int(s) / s + 1 / floor division as total
     # integer ops, though they trap on the real value; abstain so the value engine (which models strings) decides.

@@ -24,16 +24,31 @@ from .config import (
     DEFAULT_VIEWPORT,
     IGNORE_DEFAULT_ARGS,
     binary_supports_headless_no_viewport,
+    binary_supports_http_proxy_inline_auth,
     binary_supports_maximized_window,
     get_default_stealth_args,
-    normalize_requested_version,
 )
 from .download import ensure_binary
-from .license import build_launch_env
+from .license import (
+    CloakBrowserLicenseError,
+    build_launch_env,
+    license_error_message,
+)
 from .human.config import HumanConfigOverrides, HumanPreset
 from .widevine import seed_widevine_hint
 
 logger = logging.getLogger("cloakbrowser")
+
+
+def _license_error(exc: BaseException) -> CloakBrowserLicenseError | None:
+    """Return a CloakBrowserLicenseError if a launch failure was a license deny.
+
+    The Pro binary exits with a distinct code (76-79) on a license problem;
+    Playwright embeds that code in the launch-failure text. Returns None for any
+    other failure so a genuine crash propagates unchanged.
+    """
+    msg = license_error_message(str(exc))
+    return CloakBrowserLicenseError(msg) if msg is not None else None
 
 
 # Sentinel to distinguish "viewport not provided" from "viewport=None" (disable emulation)
@@ -206,7 +221,7 @@ def launch(
 
     binary_path = ensure_binary(license_key=license_key, browser_version=browser_version)
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
-    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version)
+    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version, license_key)
     args = _resolve_webrtc_args(args, proxy)
     args = _append_webrtc_exit_ip(args, exit_ip)
 
@@ -219,15 +234,25 @@ def launch(
     env_kwargs = {} if launch_env is None else {"env": launch_env}
 
     pw = sync_playwright().start()
-    browser = pw.chromium.launch(
-        executable_path=binary_path,
-        headless=headless,
-        args=chrome_args,
-        ignore_default_args=IGNORE_DEFAULT_ARGS,
-        **env_kwargs,
-        **proxy_kwargs,
-        **kwargs,
-    )
+    try:
+        browser = pw.chromium.launch(
+            executable_path=binary_path,
+            headless=headless,
+            args=chrome_args,
+            ignore_default_args=IGNORE_DEFAULT_ARGS,
+            **env_kwargs,
+            **proxy_kwargs,
+            **kwargs,
+        )
+    except Exception as exc:
+        lic = _license_error(exc)
+        try:
+            pw.stop()
+        except Exception as stop_exc:
+            logger.warning("Playwright cleanup after launch failure failed: %s", stop_exc)
+        if lic is None:
+            raise
+        raise lic from exc
 
     # Patch close() to also stop the Playwright instance
     _original_close = browser.close
@@ -312,7 +337,7 @@ async def launch_async(  # noqa: C901
 
     binary_path = ensure_binary(license_key=license_key, browser_version=browser_version)
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
-    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version)
+    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version, license_key)
     args = _resolve_webrtc_args(args, proxy)
     args = _append_webrtc_exit_ip(args, exit_ip)
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths, start_maximized=binary_supports_maximized_window(license_key, browser_version) and not _suppress_maximize)
@@ -324,15 +349,25 @@ async def launch_async(  # noqa: C901
     env_kwargs = {} if launch_env is None else {"env": launch_env}
 
     pw = await async_playwright().start()
-    browser = await pw.chromium.launch(
-        executable_path=binary_path,
-        headless=headless,
-        args=chrome_args,
-        ignore_default_args=IGNORE_DEFAULT_ARGS,
-        **env_kwargs,
-        **proxy_kwargs,
-        **kwargs,
-    )
+    try:
+        browser = await pw.chromium.launch(
+            executable_path=binary_path,
+            headless=headless,
+            args=chrome_args,
+            ignore_default_args=IGNORE_DEFAULT_ARGS,
+            **env_kwargs,
+            **proxy_kwargs,
+            **kwargs,
+        )
+    except Exception as exc:
+        lic = _license_error(exc)
+        try:
+            await pw.stop()
+        except Exception as stop_exc:
+            logger.warning("Playwright cleanup after launch failure failed: %s", stop_exc)
+        if lic is None:
+            raise
+        raise lic from exc
 
     # Patch close() to also stop the Playwright instance
     _original_close = browser.close
@@ -428,7 +463,7 @@ def launch_persistent_context(
 
     binary_path = ensure_binary(license_key=license_key, browser_version=browser_version)
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
-    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version)
+    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version, license_key)
     args = _resolve_webrtc_args(args, proxy)
     args = _append_webrtc_exit_ip(args, exit_ip)
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths, start_maximized=binary_supports_maximized_window(license_key, browser_version) and viewport is _VIEWPORT_UNSET and "viewport" not in kwargs and "no_viewport" not in kwargs)
@@ -464,15 +499,25 @@ def launch_persistent_context(
     seed_widevine_hint(user_data_dir, binary_path)
 
     pw = sync_playwright().start()
-    context = pw.chromium.launch_persistent_context(
-        user_data_dir=os.fspath(user_data_dir),
-        executable_path=binary_path,
-        headless=headless,
-        args=chrome_args,
-        ignore_default_args=IGNORE_DEFAULT_ARGS,
-        **proxy_kwargs,
-        **context_kwargs,
-    )
+    try:
+        context = pw.chromium.launch_persistent_context(
+            user_data_dir=os.fspath(user_data_dir),
+            executable_path=binary_path,
+            headless=headless,
+            args=chrome_args,
+            ignore_default_args=IGNORE_DEFAULT_ARGS,
+            **proxy_kwargs,
+            **context_kwargs,
+        )
+    except Exception as exc:
+        lic = _license_error(exc)
+        try:
+            pw.stop()
+        except Exception as stop_exc:
+            logger.warning("Playwright cleanup after launch failure failed: %s", stop_exc)
+        if lic is None:
+            raise
+        raise lic from exc
 
     # Patch close() to also stop the Playwright instance
     _original_close = context.close
@@ -565,7 +610,7 @@ async def launch_persistent_context_async(
 
     binary_path = ensure_binary(license_key=license_key, browser_version=browser_version)
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
-    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version)
+    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version, license_key)
     args = _resolve_webrtc_args(args, proxy)
     args = _append_webrtc_exit_ip(args, exit_ip)
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths, start_maximized=binary_supports_maximized_window(license_key, browser_version) and viewport is _VIEWPORT_UNSET and "viewport" not in kwargs and "no_viewport" not in kwargs)
@@ -601,15 +646,25 @@ async def launch_persistent_context_async(
     seed_widevine_hint(user_data_dir, binary_path)
 
     pw = await async_playwright().start()
-    context = await pw.chromium.launch_persistent_context(
-        user_data_dir=os.fspath(user_data_dir),
-        executable_path=binary_path,
-        headless=headless,
-        args=chrome_args,
-        ignore_default_args=IGNORE_DEFAULT_ARGS,
-        **proxy_kwargs,
-        **context_kwargs,
-    )
+    try:
+        context = await pw.chromium.launch_persistent_context(
+            user_data_dir=os.fspath(user_data_dir),
+            executable_path=binary_path,
+            headless=headless,
+            args=chrome_args,
+            ignore_default_args=IGNORE_DEFAULT_ARGS,
+            **proxy_kwargs,
+            **context_kwargs,
+        )
+    except Exception as exc:
+        lic = _license_error(exc)
+        try:
+            await pw.stop()
+        except Exception as stop_exc:
+            logger.warning("Playwright cleanup after launch failure failed: %s", stop_exc)
+        if lic is None:
+            raise
+        raise lic from exc
 
     # Patch close() to also stop the Playwright instance
     _original_close = context.close
@@ -1379,26 +1434,6 @@ def _normalize_http_string_url(url: str) -> str:
     return result
 
 
-_HTTP_PROXY_INLINE_AUTH_MIN_VERSION = "146.0.7680.177.5"
-_HTTP_PROXY_INLINE_AUTH_PLATFORMS = {"linux-x64", "windows-x64"}
-
-
-def _supports_http_proxy_inline_auth(version: str | None = None) -> bool:
-    """Check if the running binary supports HTTP proxy inline credentials.
-
-    Requires both a supported platform AND a binary version with preemptive proxy
-    auth. ``version`` is the pinned/resolved Chromium version actually being
-    launched; when None it falls back to the platform default. Passing the pin
-    matters because a rollback can run a binary older than the default (#182).
-    """
-    from .config import get_platform_tag, get_chromium_version, _version_tuple
-    tag = get_platform_tag()
-    if tag not in _HTTP_PROXY_INLINE_AUTH_PLATFORMS:
-        return False
-    effective = version or get_chromium_version()
-    return _version_tuple(effective) >= _version_tuple(_HTTP_PROXY_INLINE_AUTH_MIN_VERSION)
-
-
 def _is_socks_proxy(proxy: str | ProxySettings | None) -> bool:
     """Check if the proxy uses SOCKS5 protocol."""
     if proxy is None:
@@ -1410,12 +1445,15 @@ def _is_socks_proxy(proxy: str | ProxySettings | None) -> bool:
 def _resolve_proxy_config(
     proxy: str | ProxySettings | None,
     browser_version: str | None = None,
+    license_key: str | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     """Resolve proxy into Playwright kwargs and Chrome args.
 
-    Proxies with credentials (SOCKS5 or HTTP/HTTPS) are passed via Chrome's
-    --proxy-server flag with inline credentials, bypassing Playwright's CDP
-    auth interceptor which breaks on some proxies and Google domains (#182).
+    Proxies with credentials (SOCKS5 always; HTTP/HTTPS only on binaries that
+    support inline proxy auth) are passed via Chrome's --proxy-server flag with
+    inline credentials, bypassing Playwright's CDP auth interceptor which breaks
+    on some proxies and Google domains (#182). HTTP/HTTPS creds on older binaries
+    fall back to Playwright's proxy dict.
 
     Returns:
         (proxy_kwargs, extra_chrome_args) — one or both will be empty.
@@ -1436,11 +1474,13 @@ def _resolve_proxy_config(
         # passwords at '=' and other special chars (#157).
         return {}, [f"--proxy-server={_normalize_socks_string_url(proxy)}"]
 
-    # HTTP/HTTPS with credentials on supported platforms: use Chrome's native
-    # proxy authentication path instead of Playwright's CDP auth interceptor
-    # (#182).
-    requested_version = normalize_requested_version(browser_version)
-    if _has_credentials(proxy) and _supports_http_proxy_inline_auth(requested_version):
+    # HTTP/HTTPS with credentials, only on binaries that ship inline proxy auth:
+    # use Chrome's native proxy authentication path instead of Playwright's CDP
+    # auth interceptor (#182). Older binaries (free macOS/linux-arm64) can't parse
+    # inline credentials, so they fall through to the Playwright proxy dict below.
+    if _has_credentials(proxy) and binary_supports_http_proxy_inline_auth(
+        license_key, browser_version
+    ):
         if isinstance(proxy, dict):
             url = _reconstruct_http_url(proxy)
             extra_args = [f"--proxy-server={url}"]

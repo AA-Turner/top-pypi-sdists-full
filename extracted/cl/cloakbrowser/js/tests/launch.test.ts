@@ -149,8 +149,14 @@ describe("composable Playwright launch helpers", () => {
   });
 
   it("buildLaunchOptions returns Playwright options without launching a browser", async () => {
-    const freshConfig = await import("../src/config.js");
-    vi.spyOn(freshConfig, "getPlatformTag").mockReturnValue("darwin-arm64");
+    // Free macOS lacks inline proxy auth → credentialed HTTP proxy goes through
+    // Playwright's proxy dict. Drive the platform via process.platform/arch since
+    // getPlatformTag reads them at call time (a config spy can't reach the
+    // intra-config gate call).
+    const origPlatform = Object.getOwnPropertyDescriptor(process, "platform")!;
+    const origArch = Object.getOwnPropertyDescriptor(process, "arch")!;
+    Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+    Object.defineProperty(process, "arch", { value: "arm64", configurable: true });
     try {
       const { buildLaunchOptions } = await import("../src/index.js");
 
@@ -170,10 +176,15 @@ describe("composable Playwright launch helpers", () => {
         username: "user",
         password: "pass",
       });
+      expect(options.args).not.toContain(
+        "--proxy-server=http://user:pass@proxy.example:8080",
+      );
       expect(options.timeout).toBe(1234);
       // No license key -> env is not injected
       expect(options.env).toBeUndefined();
     } finally {
+      Object.defineProperty(process, "platform", origPlatform);
+      Object.defineProperty(process, "arch", origArch);
       vi.restoreAllMocks();
     }
   });
@@ -449,8 +460,12 @@ describe("launchPersistentContext (unit)", () => {
   });
 
   it("forwards proxy string", async () => {
-    const freshConfig = await import("../src/config.js");
-    vi.spyOn(freshConfig, "getPlatformTag").mockReturnValue("darwin-arm64");
+    // Free macOS → credentialed HTTP proxy via Playwright's proxy dict, not
+    // inline --proxy-server. Drive platform via process.platform/arch.
+    const origPlatform = Object.getOwnPropertyDescriptor(process, "platform")!;
+    const origArch = Object.getOwnPropertyDescriptor(process, "arch")!;
+    Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+    Object.defineProperty(process, "arch", { value: "arm64", configurable: true });
     try {
       const { launchPersistentContext } = await import("../src/playwright.js");
       await launchPersistentContext({
@@ -459,10 +474,15 @@ describe("launchPersistentContext (unit)", () => {
       });
 
       const args = mockChromium.launchPersistentContext.mock.calls[0][1];
-      expect(args.proxy.server).toBe("http://proxy:8080");
-      expect(args.proxy.username).toBe("user");
-      expect(args.proxy.password).toBe("pass");
+      expect(args.proxy).toEqual({
+        server: "http://proxy:8080",
+        username: "user",
+        password: "pass",
+      });
+      expect(args.args).not.toContain("--proxy-server=http://user:pass@proxy:8080");
     } finally {
+      Object.defineProperty(process, "platform", origPlatform);
+      Object.defineProperty(process, "arch", origArch);
       vi.restoreAllMocks();
     }
   });
@@ -563,5 +583,48 @@ describe("launchPersistentContext (unit)", () => {
     expect(args.env).toBeDefined();
     expect(args.env!.CLOAKBROWSER_LICENSE_KEY).toBe("cb_merge");
     expect(args.env!.MY_VAR).toBe("keep");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// License exit-code surfacing at launch() (mock playwright-core to reject)
+// ---------------------------------------------------------------------------
+
+describe("launch license error surfacing (unit)", () => {
+  const origEnv = process.env.CLOAKBROWSER_BINARY_PATH;
+
+  beforeEach(() => {
+    process.env.CLOAKBROWSER_BINARY_PATH = "/fake/chrome";
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.resetModules();
+    if (origEnv) {
+      process.env.CLOAKBROWSER_BINARY_PATH = origEnv;
+    } else {
+      delete process.env.CLOAKBROWSER_BINARY_PATH;
+    }
+  });
+
+  it("maps a license exit code to CloakBrowserLicenseError", async () => {
+    const licenseErr = new Error(
+      "browserType.launch: Target closed\nBrowser logs:\n- [pid=1] <process did exit: exitCode=77, signal=null>"
+    );
+    vi.doMock("playwright-core", () => ({
+      chromium: { launch: vi.fn().mockRejectedValue(licenseErr) },
+    }));
+    const { launch } = await import("../src/playwright.js");
+    const { CloakBrowserLicenseError } = await import("../src/license.js");
+    await expect(launch()).rejects.toBeInstanceOf(CloakBrowserLicenseError);
+  });
+
+  it("re-throws a non-license launch error unchanged (exact object)", async () => {
+    const other = new Error("some unrelated launch failure");
+    vi.doMock("playwright-core", () => ({
+      chromium: { launch: vi.fn().mockRejectedValue(other) },
+    }));
+    const { launch } = await import("../src/playwright.js");
+    await expect(launch()).rejects.toBe(other);
   });
 });

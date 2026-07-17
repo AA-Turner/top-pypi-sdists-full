@@ -19,7 +19,7 @@ class Presets(BaseSDK):
         http_referer: Optional[str] = None,
         x_open_router_title: Optional[str] = None,
         x_open_router_categories: Optional[str] = None,
-        offset: Optional[int] = 0,
+        offset: OptionalNullable[int] = 0,
         limit: Optional[int] = 50,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
@@ -185,7 +185,7 @@ class Presets(BaseSDK):
         http_referer: Optional[str] = None,
         x_open_router_title: Optional[str] = None,
         x_open_router_categories: Optional[str] = None,
-        offset: Optional[int] = 0,
+        offset: OptionalNullable[int] = 0,
         limit: Optional[int] = 50,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
@@ -2017,7 +2017,7 @@ class Presets(BaseSDK):
             ]
         ] = None,
         presence_penalty: OptionalNullable[float] = UNSET,
-        previous_response_id: OptionalNullable[str] = UNSET,
+        previous_response_id: Optional[Any] = None,
         prompt: OptionalNullable[
             Union[
                 components.StoredPromptTemplate,
@@ -2106,7 +2106,7 @@ class Presets(BaseSDK):
         :param parallel_tool_calls:
         :param plugins: Plugins you want to enable for this request, including their settings.
         :param presence_penalty:
-        :param previous_response_id:
+        :param previous_response_id: Not supported. The Responses API is stateless: no responses are stored, so a previous response cannot be referenced. Requests with a non-null value are rejected with a 400 error. Send the full conversation history in `input` instead.
         :param prompt:
         :param prompt_cache_key:
         :param prompt_cache_options: Request-level prompt-cache controls. `mode: \"explicit\"` disables OpenAI-managed breakpoints so only blocks marked with `prompt_cache_breakpoint` are cached. Only supported by OpenAI GPT-5.6 and newer.
@@ -2369,7 +2369,7 @@ class Presets(BaseSDK):
             ]
         ] = None,
         presence_penalty: OptionalNullable[float] = UNSET,
-        previous_response_id: OptionalNullable[str] = UNSET,
+        previous_response_id: Optional[Any] = None,
         prompt: OptionalNullable[
             Union[
                 components.StoredPromptTemplate,
@@ -2458,7 +2458,7 @@ class Presets(BaseSDK):
         :param parallel_tool_calls:
         :param plugins: Plugins you want to enable for this request, including their settings.
         :param presence_penalty:
-        :param previous_response_id:
+        :param previous_response_id: Not supported. The Responses API is stateless: no responses are stored, so a previous response cannot be referenced. Requests with a non-null value are rejected with a 400 error. Send the full conversation history in `input` instead.
         :param prompt:
         :param prompt_cache_key:
         :param prompt_cache_options: Request-level prompt-cache controls. `mode: \"explicit\"` disables OpenAI-managed breakpoints so only blocks marked with `prompt_cache_breakpoint` are cached. Only supported by OpenAI GPT-5.6 and newer.
@@ -2685,7 +2685,7 @@ class Presets(BaseSDK):
         http_referer: Optional[str] = None,
         x_open_router_title: Optional[str] = None,
         x_open_router_categories: Optional[str] = None,
-        offset: Optional[int] = 0,
+        offset: OptionalNullable[int] = 0,
         limit: Optional[int] = 50,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
@@ -2860,7 +2860,7 @@ class Presets(BaseSDK):
         http_referer: Optional[str] = None,
         x_open_router_title: Optional[str] = None,
         x_open_router_categories: Optional[str] = None,
-        offset: Optional[int] = 0,
+        offset: OptionalNullable[int] = 0,
         limit: Optional[int] = 50,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,

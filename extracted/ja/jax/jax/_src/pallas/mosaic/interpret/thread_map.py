@@ -26,10 +26,12 @@ import numpy as np
 NESTED_TOKEN_VALUE = 1337
 
 
-def _run_jaxpr(jaxpr, consts, *args):
-  def _run(jaxpr, consts, *args):
-    jax_core.eval_jaxpr(jaxpr, consts, *args)
+# top-level function so that caching works properly
+def _run(jaxpr, consts, *args):
+  jax_core.eval_jaxpr(jaxpr, consts, *args)
 
+
+def _run_jaxpr(jaxpr, consts, *args):
   traced = jax.jit(_run, static_argnums=(0,)).trace(jaxpr, consts, *args)
   traced.lower().compile()(consts, *args)
   return
@@ -119,5 +121,5 @@ def thread_map(
   jaxpr = jax.make_jaxpr(_f)(jnp.int32(0), *args)
 
   return _call_threadmap_callback(
-      token, device_id, jaxpr.jaxpr, num_threads, jaxpr.consts, args,
+      token, device_id, jaxpr, num_threads, jaxpr.consts, args,
       use_ordered_callback, on_exception)

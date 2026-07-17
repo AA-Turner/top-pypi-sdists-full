@@ -10,15 +10,21 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
+
 ALIAS = 'rbac-security-groups'
 IS_SHIM_EXTENSION = True
 IS_STANDARD_ATTR_EXTENSION = False
 NAME = 'Add security_group type to network RBAC'
 DESCRIPTION = 'Add security_group type to network RBAC'
 UPDATED_TIMESTAMP = '2019-02-14T00:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {}
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = ['rbac-policies', 'security-group']
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

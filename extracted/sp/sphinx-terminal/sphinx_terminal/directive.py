@@ -31,6 +31,7 @@ class TerminalDirective(SphinxDirective):
     has_content = True
     option_spec = {
         "class": directives.class_option,
+        "prompt": directives.unchanged,
         "user": directives.unchanged,
         "host": directives.unchanged,
         "dir": directives.unchanged,
@@ -60,16 +61,14 @@ class TerminalDirective(SphinxDirective):
         prompt_container.append(prompt)
         input_line.append(prompt_container)
 
-        command = nodes.inline()
+        if commands:
+            command_node = nodes.inline()
+            command_node.append(nodes.literal(text="\n".join(commands)))
+            command_node["classes"].append("command")
+            if is_copyable:
+                command_node["classes"].append("copybutton")
+            input_line.append(command_node)
 
-        for line in commands:
-            command.append(nodes.literal(text=f"{line}\n"))
-
-        command["classes"].append("command")
-        if is_copyable:
-            command["classes"].append("copybutton")
-
-        input_line.append(command)
         return input_line
 
     def run(self) -> list[nodes.Node]:
@@ -80,23 +79,36 @@ class TerminalDirective(SphinxDirective):
         host = self.options.get("host", "host")
         prompt_dir = self.options.get("dir", "~")
         user_symbol = "#" if user == "root" else "$"
-        has_input = "output-only" not in self.options
 
         # Raise an error if :copy: and :output-only: are both declared
         if "output-only" in self.options and "copy" in self.options:
             raise SphinxError(
-                ":copy: and :output-only: are mutually incompatible. Only input can be copied."
+                "'copy' and 'output-only' are mutually incompatible. "
+                "Only input can be copied."
             )
 
-        if user and host:
-            prompt_text = f"{user}@{host}:{prompt_dir}{user_symbol} "
-        elif user and not host:
-            # Only the user is supplied
-            prompt_text = f"{user}:{prompt_dir}{user_symbol} "
-        else:
-            # Omit both user and host, just showing the host
-            # doesn't really make sense
-            prompt_text = f"{prompt_dir}{user_symbol} "
+        # Raise an error if :output-only" is declared without output.
+        if "output-only" in self.options and not self.content:
+            raise SphinxError(
+                "'output-only' was declared, but no output was provided. "
+                "Provide output or remove the 'output-only' option."
+            )
+
+        if "prompt" in self.options and self.options.keys() & {"user", "host", "dir"}:
+            raise SphinxError(
+                "The 'prompt' option is incompatible with the 'user', 'host', and 'dir' options. "
+                "Remove the 'prompt' option or the 'user', 'host', and 'dir' options."
+            )
+
+        prompt_text = (
+            f"{self.options.get('prompt', '')} "
+            if "prompt" in self.options
+            else f"{user}@{host}:{prompt_dir}{user_symbol} "
+            if user and host
+            else f"{user}:{prompt_dir}{user_symbol} "
+            if user
+            else f"{prompt_dir}{user_symbol} "
+        )
 
         out = nodes.container()
         out["classes"].append("terminal")
@@ -117,6 +129,7 @@ class TerminalDirective(SphinxDirective):
         output_lines: list[str] = []
 
         # Add the prompt and input
+        has_input = "output-only" not in self.options
         for line in self.content:
             if has_input:
                 if has_input := bool(line.strip()):
@@ -124,11 +137,17 @@ class TerminalDirective(SphinxDirective):
             else:
                 output_lines += [line]
 
-        if input_lines:
+        input_lines = (
+            [input_lines[0]] + ["> " + line for line in input_lines[1:]]
+            if input_lines
+            else []
+        )
+
+        if "output-only" not in self.options:
             out.append(
                 self.input_line(
                     prompt_text,
-                    [input_lines[0]] + ["> " + line for line in input_lines[1:]],
+                    input_lines,
                     is_copyable="copy" in self.options,
                 )
             )

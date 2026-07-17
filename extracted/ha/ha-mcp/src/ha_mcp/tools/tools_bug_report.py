@@ -32,6 +32,7 @@ from ..utils.usage_logger import (
     get_recent_logs,
     get_startup_logs,
 )
+from .component_api import get_component_caps
 from .helpers import log_tool_usage, register_tool_methods
 from .util_helpers import ANSI_ESCAPE_RE
 
@@ -43,6 +44,24 @@ RUNTIME_BUG_URL = (
 )
 AGENT_BEHAVIOR_URL = (
     "https://github.com/homeassistant-ai/ha-mcp/issues/new?template=agent_behavior.yml"
+)
+
+# Guidance surfaced when the reported problem is a tool that never shows up in
+# the client's tool list. In issue #1804 this produced a false bug report: the
+# tool was enabled and loaded server-side (startup logs even said so), but the
+# MCP client had never refreshed its cached tool list, so the agent concluded
+# it was a server bug. A stale client-side tool list is the single most likely
+# cause of a missing tool and must be ruled out before filing.
+MISSING_TOOL_HINT = (
+    "MISSING/UNAVAILABLE TOOL? If the problem is that a tool you expected is not "
+    "in your tool list (can't find it, can't call it), this is very likely NOT a "
+    "bug. MCP clients cache the tool list when they connect and do NOT pick up "
+    "newly enabled tools until the connection is refreshed. Server-side logs "
+    "saying a tool is 'enabled' do NOT mean the client has loaded it. Ask the "
+    "user to refresh their MCP connection first: in Claude Desktop / claude.ai "
+    "use the connector's refresh option, or simply disconnect and reconnect it; "
+    "in Claude Code run /mcp and reconnect the server. Only file a bug if the "
+    "tool is still missing after a refresh."
 )
 
 # Max characters to include from addon container logs.
@@ -188,12 +207,21 @@ def _detect_platform() -> dict[str, str]:
 # purpose: only flags that materially change which tools the agent sees, since
 # the same bug report behaves very differently depending on these. New
 # tool-shaping toggles should be added here so triage doesn't have to ask.
+#
+# ``enable_beta_features`` leads the list because it is the master gate: when
+# off it force-disables every beta sub-flag (filesystem tools, code mode, YAML
+# editing, ...) regardless of the sub-flag's own value, so a "missing tool"
+# report is meaningless without it. ``enable_filesystem_tools`` is a beta-gated
+# tool family from issue #1804 — surfacing it lets triage see at a glance whether
+# the tool the user couldn't find was even enabled server-side.
 _CONFIG_TOGGLE_FIELDS: tuple[str, ...] = (
+    "enable_beta_features",
     "enable_websocket",
     "enable_dashboard_partial_tools",
     "enable_tool_search",
     "tool_search_max_results",
     "enable_yaml_config_editing",
+    "enable_filesystem_tools",
     "enable_code_mode",
     "enabled_tool_modules",
 )
@@ -584,11 +612,21 @@ class BugReportTools:
     async def _detect_component_version(self) -> str | None:
         """Read the ha_mcp_tools custom component's version, best-effort.
 
-        Uses the component's ``get_caller_token`` bootstrap service, whose
-        response carries the manifest version (the same field the filesystem
-        tools' version gate reads). Returns None when the component is not
-        installed or the call fails — the report path must never break on it.
+        Prefers the shared cached capability probe (``get_component_caps`` — one
+        ``ha_mcp_tools/info`` round-trip per client): a component new enough to
+        answer it (1.1.0+) reports its version there, so the report reuses that
+        cached probe instead of a bespoke round-trip. A component in the
+        0.11.0-1.1.0 band has services but no ``info`` command (caps is None),
+        so it falls back to the ``get_caller_token`` bootstrap service, whose
+        response also carries the manifest version. Returns None when the
+        component is not installed or the call fails — the report path must
+        never break on it.
         """
+        # get_component_caps never raises (it caches/returns None on every
+        # failure mode), so no guard is needed around it.
+        caps = await get_component_caps(self._client)
+        if caps is not None:
+            return caps.component_version or None
         try:
             resp = await self._client.call_service(
                 "ha_mcp_tools", "get_caller_token", {}, return_response=True
@@ -606,6 +644,7 @@ class BugReportTools:
         name="ha_report_issue",
         tags={"Utilities"},
         annotations={
+            "openWorldHint": False,
             "idempotentHint": True,
             "readOnlyHint": True,
             "title": "Report Issue or Feedback",
@@ -668,6 +707,9 @@ class BugReportTools:
           empty string otherwise)
         - `core_error_log` — Home Assistant error log (home-assistant.log) over
           REST; carries auth / integration errors that don't show in addon_logs
+        - `missing_tool_hint` — check this FIRST when the report is about a
+          missing/unavailable tool; a stale client tool list (not a bug) is the
+          usual cause, and refreshing the MCP connection is the fix
         - `suggested_title`, `duplicate_check_urls`, `anonymization_guide`
         """
         # Detect installation method, platform, and runtime config.
@@ -821,8 +863,16 @@ class BugReportTools:
             "runtime_bug_submit_url": runtime_bug_submit_url,
             "agent_behavior_submit_url": agent_behavior_submit_url,
             "duplicate_check_urls": duplicate_check_urls,
+            "missing_tool_hint": MISSING_TOOL_HINT,
             "instructions": (
                 "WORKFLOW FOR PRESENTING BUG REPORTS:\n\n"
+                "0. **PRE-CHECK — is the problem a missing/unavailable tool?** If "
+                "the user's issue is that a tool they expected is missing or "
+                "cannot be called, DO NOT file a bug yet. See the "
+                "`missing_tool_hint` field: the likely cause is a stale MCP "
+                "client tool list (not a server bug), fixed by refreshing or "
+                "reconnecting the MCP connection. Only continue with this report "
+                "if the tool is still missing after the user refreshes.\n\n"
                 "1. **Check for duplicates FIRST** (before presenting the template):\n"
                 "   - Use the duplicate_check_urls to search for similar issues\n"
                 '   - If gh CLI is available: use `gh issue list --search "keyword"`\n'

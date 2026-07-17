@@ -87,6 +87,7 @@ impl<'db> BoundMethodType<'db> {
     pub(crate) fn bound_signatures(self, db: &'db dyn Db) -> CallableSignature<'db> {
         let function_signature = self.function(db).signature(db);
         let typing_self_type = self.typing_self_type(db);
+        let receiver_type = self.self_instance(db);
 
         let [signature] = function_signature.overloads.as_slice() else {
             if !function_signature
@@ -94,25 +95,37 @@ impl<'db> BoundMethodType<'db> {
                 .iter()
                 .any(Signature::has_explicit_positional_receiver_annotation)
             {
-                return CallableSignature::from_overloads(
-                    function_signature
-                        .overloads
-                        .iter()
-                        .map(|signature| signature.bind_self(db, Some(typing_self_type))),
-                );
+                return CallableSignature::from_overloads(function_signature.overloads.iter().map(
+                    |signature| {
+                        signature.bind_self_with_receiver(
+                            db,
+                            Some(receiver_type),
+                            Some(typing_self_type),
+                        )
+                    },
+                ));
             }
 
-            let self_instance = self.self_instance(db);
             return CallableSignature::from_overloads(
                 function_signature
                     .overloads
                     .iter()
-                    .filter(|signature| signature.can_bind_self_to(db, self_instance))
-                    .map(|signature| signature.bind_self(db, Some(typing_self_type))),
+                    .filter(|signature| signature.can_bind_self_to(db, receiver_type))
+                    .map(|signature| {
+                        signature.bind_self_with_receiver(
+                            db,
+                            Some(receiver_type),
+                            Some(typing_self_type),
+                        )
+                    }),
             );
         };
 
-        CallableSignature::single(signature.bind_self(db, Some(typing_self_type)))
+        CallableSignature::single(signature.bind_self_with_receiver(
+            db,
+            Some(receiver_type),
+            Some(typing_self_type),
+        ))
     }
 
     pub(super) fn recursive_type_normalized_impl(
@@ -178,6 +191,7 @@ pub enum KnownBoundMethodType<'db> {
     ConstraintSetNever,
     ConstraintSetImpliesSubtypeOf(InternedConstraintSet<'db>),
     ConstraintSetSatisfies(InternedConstraintSet<'db>),
+    ConstraintSetForAll(InternedConstraintSet<'db>),
     ConstraintSetSatisfiedByAllTypeVars(InternedConstraintSet<'db>),
     ConstraintSetWithDetailedDisplay(InternedConstraintSet<'db>),
 }
@@ -214,6 +228,7 @@ pub(super) fn walk_method_wrapper_type<'db, V: visitor::TypeVisitor<'db> + ?Size
         | KnownBoundMethodType::ConstraintSetNever
         | KnownBoundMethodType::ConstraintSetImpliesSubtypeOf(_)
         | KnownBoundMethodType::ConstraintSetSatisfies(_)
+        | KnownBoundMethodType::ConstraintSetForAll(_)
         | KnownBoundMethodType::ConstraintSetSatisfiedByAllTypeVars(_)
         | KnownBoundMethodType::ConstraintSetWithDetailedDisplay(_) => {}
     }
@@ -258,6 +273,7 @@ impl<'db> KnownBoundMethodType<'db> {
             | KnownBoundMethodType::ConstraintSetNever
             | KnownBoundMethodType::ConstraintSetImpliesSubtypeOf(_)
             | KnownBoundMethodType::ConstraintSetSatisfies(_)
+            | KnownBoundMethodType::ConstraintSetForAll(_)
             | KnownBoundMethodType::ConstraintSetSatisfiedByAllTypeVars(_)
             | KnownBoundMethodType::ConstraintSetWithDetailedDisplay(_) => Some(self),
         }
@@ -277,6 +293,7 @@ impl<'db> KnownBoundMethodType<'db> {
             | KnownBoundMethodType::ConstraintSetNever
             | KnownBoundMethodType::ConstraintSetImpliesSubtypeOf(_)
             | KnownBoundMethodType::ConstraintSetSatisfies(_)
+            | KnownBoundMethodType::ConstraintSetForAll(_)
             | KnownBoundMethodType::ConstraintSetSatisfiedByAllTypeVars(_)
             | KnownBoundMethodType::ConstraintSetWithDetailedDisplay(_) => {
                 KnownClass::ConstraintSet
@@ -434,6 +451,19 @@ impl<'db> KnownBoundMethodType<'db> {
                 )))
             }
 
+            KnownBoundMethodType::ConstraintSetForAll(_) => {
+                Either::Right(std::iter::once(Signature::new(
+                    Parameters::standard([Parameter::positional_only(Some(Name::new_static(
+                        "typevars",
+                    )))
+                    .with_annotated_type(TypeFormType::from_type_expression(
+                        db,
+                        Type::homogeneous_tuple(db, Type::object()),
+                    ))]),
+                    KnownClass::ConstraintSet.to_instance(db),
+                )))
+            }
+
             KnownBoundMethodType::ConstraintSetSatisfiedByAllTypeVars(_) => {
                 Either::Right(std::iter::once(Signature::new(
                     Parameters::standard([Parameter::keyword_only(Name::new_static("inferable"))
@@ -516,6 +546,10 @@ impl<'c, 'db> TypeRelationChecker<'_, 'c, 'db> {
                 KnownBoundMethodType::ConstraintSetSatisfies(_),
             )
             | (
+                KnownBoundMethodType::ConstraintSetForAll(_),
+                KnownBoundMethodType::ConstraintSetForAll(_),
+            )
+            | (
                 KnownBoundMethodType::ConstraintSetSatisfiedByAllTypeVars(_),
                 KnownBoundMethodType::ConstraintSetSatisfiedByAllTypeVars(_),
             )
@@ -536,6 +570,7 @@ impl<'c, 'db> TypeRelationChecker<'_, 'c, 'db> {
                 | KnownBoundMethodType::ConstraintSetNever
                 | KnownBoundMethodType::ConstraintSetImpliesSubtypeOf(_)
                 | KnownBoundMethodType::ConstraintSetSatisfies(_)
+                | KnownBoundMethodType::ConstraintSetForAll(_)
                 | KnownBoundMethodType::ConstraintSetSatisfiedByAllTypeVars(_)
                 | KnownBoundMethodType::ConstraintSetWithDetailedDisplay(_),
                 KnownBoundMethodType::FunctionTypeDunderGet(_)
@@ -549,6 +584,7 @@ impl<'c, 'db> TypeRelationChecker<'_, 'c, 'db> {
                 | KnownBoundMethodType::ConstraintSetNever
                 | KnownBoundMethodType::ConstraintSetImpliesSubtypeOf(_)
                 | KnownBoundMethodType::ConstraintSetSatisfies(_)
+                | KnownBoundMethodType::ConstraintSetForAll(_)
                 | KnownBoundMethodType::ConstraintSetSatisfiedByAllTypeVars(_)
                 | KnownBoundMethodType::ConstraintSetWithDetailedDisplay(_),
             ) => self.never(),

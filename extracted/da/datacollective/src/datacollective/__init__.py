@@ -7,6 +7,7 @@ from datacollective.datasets import (
     save_dataset_to_disk,
 )
 from datacollective.models import (
+    DatasetDetails,
     DatasetSubmission,
     License,
     Task,
@@ -30,6 +31,7 @@ __all__ = [
     "submit_submission",
     "create_submission_with_upload",
     "upload_dataset_file",
+    "DatasetDetails",
     "DatasetSubmission",
     "License",
     "Task",
@@ -38,4 +40,4 @@ __all__ = [
 ]
 
 # DO NOT EDIT THE VERSION MANUALLY, USE bump-my-version TO UPDATE. See release.md
-__version__ = "0.5.3"
+__version__ = "0.5.4"

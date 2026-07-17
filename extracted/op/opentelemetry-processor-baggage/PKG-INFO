@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-processor-baggage
-Version: 0.64b0
+Version: 0.65b0
 Summary: OpenTelemetry Baggage Span Processor
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/processor/opentelemetry-processor-baggage
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib

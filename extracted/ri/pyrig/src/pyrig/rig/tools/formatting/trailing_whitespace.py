@@ -3,12 +3,13 @@
 from typing import Any
 
 from pyrig.core.subprocesses import Args
-from pyrig.rig.tools.base.tool import Group, Tool
-from pyrig.rig.tools.formatting.mixed_line_ending import MixedLineEndingFormatter
+from pyrig.rig.tools.base.hooks import FormatHookTool
+from pyrig.rig.tools.base.tool import Group
+from pyrig.rig.tools.formatting.end_of_line import EndOfLineFormatter
 from pyrig.rig.tools.version_control.hooks.manager import VersionControlHookManager
 
 
-class TrailingWhitespaceFormatter(Tool):
+class TrailingWhitespaceFormatter(FormatHookTool):
     """Type-safe wrapper for the pre-commit-hooks trailing whitespace fixer."""
 
     def group(self) -> str:
@@ -47,16 +48,7 @@ class TrailingWhitespaceFormatter(Tool):
         """
         return self.args(*args)
 
-    def version_control_hooks(self) -> tuple[dict[str, Any], ...]:
-        """Return the trailing whitespace hook.
-
-        Returns:
-            `format_trailing_whitespace_hook`, wrapped in a single-element
-            tuple.
-        """
-        return (self.format_trailing_whitespace_hook(),)
-
-    def format_trailing_whitespace_hook(self) -> dict[str, Any]:
+    def format_hook(self) -> dict[str, Any]:
         """Return the hook metadata for fixing trailing whitespace.
 
         Runs after mixed line endings are normalized, so a stray CR left
@@ -69,7 +61,7 @@ class TrailingWhitespaceFormatter(Tool):
         return VersionControlHookManager.I.hook(
             self.fix_trailing_whitespace,
             priority=VersionControlHookManager.I.increase_priority(
-                MixedLineEndingFormatter.I.format_mixed_line_ending_hook(),
+                EndOfLineFormatter.I.format_hook(),
             ),
             types=["text"],
         )

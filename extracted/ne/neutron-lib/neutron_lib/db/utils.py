@@ -203,7 +203,7 @@ def model_query(context, model):
     # define basic filter condition for model query
     query_filter = None
     if model_query_scope_is_project(context, model):
-        query_filter = (model.project_id == context.project_id)
+        query_filter = model.project_id == context.project_id
 
     if query_filter is not None:
         query = query.filter(query_filter)
@@ -230,8 +230,7 @@ def context_if_transaction(context, transaction, writer=True):
     if transaction:
         return (db_api.CONTEXT_WRITER.using(context) if writer else
                 db_api.CONTEXT_READER.using(context))
-    else:
-        return _noop_context_manager()
+    return _noop_context_manager()
 
 
 def safe_creation(context, create_fn, delete_fn, create_bindings,

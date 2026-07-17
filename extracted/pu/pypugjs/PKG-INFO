@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pypugjs
-Version: 6.0.3
+Version: 7.0.0
 Summary: PugJS syntax template adapter for Django, Jinja2, Mako and Tornado templates
 Home-page: https://github.com/kakulukia/pypugjs
-Download-URL: https://github.com/kakulukia/pypugjs/tarball/6.0.3
+Download-URL: https://github.com/kakulukia/pypugjs/tarball/7.0.0
 Author: Andy Grabow
 Author-email: andy@freilandkiwis.de
 License: MIT
@@ -21,9 +21,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.0
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
 Requires-Dist: six

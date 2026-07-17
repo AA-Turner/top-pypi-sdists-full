@@ -107,7 +107,7 @@ def test_redo_ocr(resources, outpdf):
 
 def test_argsfile(resources, outdir):
     path_argsfile = outdir / 'test_argsfile.txt'
-    with open(str(path_argsfile), 'w') as argsfile:
+    with path_argsfile.open('w') as argsfile:
         print(
             '--title',
             'ArgsFile Test',
@@ -646,7 +646,7 @@ def test_compression_preserved(ocrmypdf_exec, resources, image, outpdf):
 
     im = Image.open(input_file)
     # Runs: ocrmypdf - output.pdf < testfile
-    with open(input_file, 'rb') as input_stream:
+    with Path(input_file).open('rb') as input_stream:
         p_args = ocrmypdf_exec + [
             '--optimize',
             '0',
@@ -704,7 +704,7 @@ def test_compression_changed(ocrmypdf_exec, resources, image, compression, outpd
     im = Image.open(input_file)
 
     # Runs: ocrmypdf - output.pdf < testfile
-    with open(input_file, 'rb') as input_stream:
+    with Path(input_file).open('rb') as input_stream:
         p_args = ocrmypdf_exec + [
             '--image-dpi',
             '150',
@@ -763,7 +763,7 @@ def test_sidecar_pagecount(resources, outpdf):
     pdfinfo = PdfInfo(resources / '3small.pdf')
     num_pages = len(pdfinfo)
 
-    with open(sidecar, encoding='utf-8') as f:
+    with sidecar.open(encoding='utf-8') as f:
         ocr_text = f.read()
 
     # There should a formfeed between each pair of pages, so the count of
@@ -784,7 +784,7 @@ def test_sidecar_nonempty(resources, outpdf):
         'tests/plugins/tesseract_cache.py',
     )
 
-    with open(sidecar, encoding='utf-8') as f:
+    with sidecar.open(encoding='utf-8') as f:
         ocr_text = f.read()
     assert 'the' in ocr_text
 

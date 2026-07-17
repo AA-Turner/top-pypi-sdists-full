@@ -17,6 +17,11 @@ from neutron_lib.api import converters
 from neutron_lib.api.definitions import l3
 from neutron_lib import constants
 from neutron_lib.db import constants as db_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 PROTOCOLS = constants.IPTABLES_PROTOCOL_MAP.keys()
 
@@ -63,13 +68,13 @@ PROJECT_ID = 'project_id'
 PROTOCOL = 'protocol'
 PORT = 'port'
 HELPER = 'helper'
-RESOURCE_ATTRIBUTE_MAP = {}
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {}
 
 # The subresource attribute map for the extension. It adds child resources
 # to main extension's resource. The subresource map must have a parent and
 # a parameters entry. If an extension does not need such a map, None can
 # be specified (mandatory).
-SUB_RESOURCE_ATTRIBUTE_MAP = {
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {
     COLLECTION_NAME: {
         'parent': {'collection_name': PARENT_COLLECTION_NAME,
                    'member_name': PARENT_RESOURCE_NAME},
@@ -95,7 +100,7 @@ SUB_RESOURCE_ATTRIBUTE_MAP = {
                        'is_filter': True},
             PORT: {'allow_post': True, 'allow_put': True,
                    'convert_to': converters.convert_to_int,
-                   'validate': {'type:range': [1, 65535]},
+                   'validate': {'type:range': (1, 65535)},
                    'is_visible': True,
                    'is_sort_key': True,
                    'is_filter': True},
@@ -111,8 +116,7 @@ SUB_RESOURCE_ATTRIBUTE_MAP = {
 
 # The action map: it associates verbs with methods to be performed on
 # the API resource.
-ACTION_MAP = {
-}
+ACTION_MAP: ActionMap = {}
 
 # The action status.
 ACTION_STATUS = {

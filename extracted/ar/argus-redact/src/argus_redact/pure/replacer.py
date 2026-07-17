@@ -16,7 +16,7 @@ from argus_redact.pure._strategy_kind import (
     is_strategy_reversible,
 )
 from argus_redact.pure.grammar import SELF_REF_PRONOUNS, normalize_grammar_en
-from argus_redact.pure.security_events import KEEP_DOWNGRADED, security_event
+from argus_redact.pure.security_events import KEEP_DOWNGRADED, MASK_COLLISION, security_event
 
 # Rust PatternMatch class, resolved once at import (same idiom as pure/merger.py).
 _RustPM = _core.PatternMatch
@@ -31,6 +31,7 @@ __all__ = [
     "is_strategy_reversible",
     "SecurityWarning",
     "replace",
+    "warn_mask_collisions",
 ]
 
 
@@ -118,6 +119,38 @@ def keep_downgraded_event(entities, config: dict | None) -> dict | None:
         return None
     types = sorted({e.type for e in ents})
     return security_event(KEEP_DOWNGRADED, count=len(ents), detail="types: " + ", ".join(types))
+
+
+def mask_collision_event(mask_collisions: list[str]) -> dict | None:
+    """A PII-free MASK_COLLISION security_event, or None if no mask-family
+    collision was disambiguated this call. ``mask_collisions`` is the Rust
+    core's authoritative list (one entry — the entity type — per collision
+    `resolve_collision` actually disambiguated; see ``ReplaceResult.
+    mask_collisions``). count = number of collided entries; detail names the
+    TYPES only (never the raw or masked value) — mirrors ``keep_downgraded_event``."""
+    if not mask_collisions:
+        return None
+    types = sorted(set(mask_collisions))
+    return security_event(
+        MASK_COLLISION, count=len(mask_collisions), detail="types: " + ", ".join(types)
+    )
+
+
+def warn_mask_collisions(mask_collisions: list[str]) -> None:
+    """Emit the ``mask_collision`` SecurityWarning — a no-op when the list is
+    empty. THE single source for that warning's text/category, shared by the
+    one-shot ``replace()`` path and the structured (``redact_json``/
+    ``redact_csv``) path, so the two can never drift apart. See
+    ``mask_collision_event`` for the sibling structured-channel event."""
+    if not mask_collisions:
+        return
+    warnings.warn(
+        f"{len(mask_collisions)} masked value(s) collided; their "
+        f"disambiguator (①) is not LLM-durable — restore of an LLM reply "
+        f"may misattribute them.",
+        SecurityWarning,
+        stacklevel=2,
+    )
 
 
 def residual_personal_data(entities) -> bool:
@@ -213,8 +246,18 @@ def _validate_config(config: dict | None) -> None:
             f"config must be a dict mapping entity type to settings, got {type(config).__name__}"
         )
     for entity_type, type_config in config.items():
-        if not isinstance(type_config, dict):
+        # `_unified_prefix` is the one reserved sentinel key (removed in
+        # v0.6.0); it carries a scalar value and is validated/rejected by its
+        # own dedicated check in replace(). Skip it here so this per-type dict
+        # check doesn't shadow that rejection. Other underscore-named keys are
+        # ordinary custom entity types (register_pii_type permits them) and
+        # must go through the same strategy validation as any other type.
+        if entity_type == "_unified_prefix":
             continue
+        if not isinstance(type_config, dict):
+            raise TypeError(
+                f"config[{entity_type!r}] must be a dict, got {type(type_config).__name__}"
+            )
         strategy = type_config.get("strategy")
         if strategy and strategy not in VALID_STRATEGIES:
             raise ValueError(
@@ -407,6 +450,7 @@ def replace(
     config: dict | None = None,
     langs: list[str] | None = None,
     unified_prefix: str | None = None,
+    _mask_collisions: list[str] | None = None,
 ) -> tuple[str, dict[str, str], dict[str, list[str]]]:
     """Replace detected entities in text, producing ``(redacted_text, key, aliases)``.
 
@@ -428,6 +472,13 @@ def replace(
     Returns ``(redacted_text, key, aliases)`` where ``aliases`` is
     ``{fake: list_of_aliases}`` for entries whose realistic-strategy fakers
     emitted aliases (empty dict when no realistic-strategy fakers ran).
+
+    ``_mask_collisions`` is internal: when given a list, it is MUTATED in
+    place (appended to, never replaced) with one entry per mask-family
+    collision this call disambiguated — mirroring the ``timing`` dict
+    out-param idiom in ``glue/redact.py``. ``glue._replace_and_emit`` uses it
+    to build the structured ``mask_collision`` security_event without
+    widening this function's public 3-tuple return.
     """
     # Validate + reject the removed _unified_prefix sentinel up front so both
     # paths raise identically (the Rust path would otherwise silently accept it).
@@ -455,7 +506,7 @@ def replace(
         _RustPM(e.text, e.type, e.start, e.end, e.confidence, e.layer) for e in entities
     ]
 
-    redacted, result_key, aliases, keep_downgraded = _core.replace(
+    redacted, result_key, aliases, keep_downgraded, mask_collisions = _core.replace(
         text,
         rust_entities,
         salt=salt,
@@ -489,6 +540,19 @@ def replace(
                 SecurityWarning,
                 stacklevel=2,
             )
+
+    # `mask_collisions`: the Rust core disambiguated a mask-family
+    # collision (two different originals wanting the same visible label) with a
+    # trailing circled-digit suffix. The collided entry STAYS in `result_key` (a
+    # direct in-process restore still works) — but that disambiguator is fragile
+    # against an LLM that normalizes it away, so warn that an LLM-round-trip
+    # restore of the collided entry may misattribute it. Mirrors the
+    # `keep_downgraded` plumbing above: Rust is the sole authority on whether a
+    # real collision happened (unlike keep_downgraded, this can't be re-derived
+    # from `entities`/`config` alone — it depends on collision-resolution order).
+    if _mask_collisions is not None:
+        _mask_collisions.extend(mask_collisions)
+    warn_mask_collisions(mask_collisions)
 
     return redacted, result_key, aliases
 

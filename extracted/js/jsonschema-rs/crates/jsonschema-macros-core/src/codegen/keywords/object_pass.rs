@@ -176,6 +176,146 @@ pub(crate) fn compile_validate(
     })
 }
 
+/// Single-pass `collect` for the object cluster: like [`compile_validate`] but pushing instead of
+/// returning, with `additionalProperties: false` aggregating unexpected keys into one trailing error.
+pub(crate) fn compile_collect(
+    ctx: &mut CompileContext<'_>,
+    cluster: &ClusterSubschemas<'_>,
+    additional_properties: Option<&Value>,
+) -> Option<TokenStream> {
+    if cluster.patterns.is_empty() {
+        return None;
+    }
+    let additional_properties_path = ctx.schema_path_for_keyword("additionalProperties");
+    let is_false = matches!(additional_properties, Some(Value::Bool(false)));
+
+    let (additional_properties_fallback, track_covered): (TokenStream, bool) =
+        match additional_properties {
+            Some(Value::Bool(false)) => (
+                quote! {
+                    if !covered {
+                        __unexpected.push(key.clone());
+                    }
+                },
+                true,
+            ),
+            Some(Value::Object(_)) => {
+                let check = cluster
+                    .additional
+                    .as_ref()
+                    .expect("additionalProperties schema precompiled");
+                match &check.validate {
+                    ValidateBlock::Expr(_) => {
+                        let child_collect = check.collect.as_token_stream();
+                        (
+                            quote! {
+                                if !covered {
+                                    let instance = value;
+                                    let __path = &__path.push(key_str);
+                                    #child_collect
+                                }
+                            },
+                            true,
+                        )
+                    }
+                    ValidateBlock::AlwaysValid => (quote! {}, false),
+                }
+            }
+            _ => return None,
+        };
+    let set_covered = if track_covered {
+        quote! { covered = true; }
+    } else {
+        quote! {}
+    };
+    let covered_decl = if track_covered {
+        quote! { let mut covered = false; }
+    } else {
+        quote! {}
+    };
+
+    let mut match_arms: Vec<TokenStream> = Vec::new();
+    for (name_str, check) in &cluster.properties {
+        match &check.validate {
+            ValidateBlock::Expr(_) => {
+                let child_collect = check.collect.as_token_stream();
+                match_arms.push(quote! {
+                    #name_str => {
+                        let instance = value;
+                        let __path = &__path.push(#name_str);
+                        #child_collect
+                        #set_covered
+                    }
+                });
+            }
+            ValidateBlock::AlwaysValid => match_arms.push(quote! {
+                #name_str => { #set_covered }
+            }),
+        }
+    }
+
+    let mut pattern_checks: Vec<TokenStream> = Vec::new();
+    for (_, key_match, check) in &cluster.patterns {
+        let Ok(key_match) = key_match else {
+            return None;
+        };
+        let check = check.as_ref().expect("pattern subschema precompiled");
+        match &check.validate {
+            ValidateBlock::Expr(_) => {
+                let child_collect = check.collect.as_token_stream();
+                pattern_checks.push(quote! {
+                    if #key_match {
+                        let instance = value;
+                        let __path = &__path.push(key_str);
+                        #child_collect
+                        #set_covered
+                    }
+                });
+            }
+            ValidateBlock::AlwaysValid => {
+                if track_covered {
+                    pattern_checks.push(quote! { if #key_match { #set_covered } });
+                }
+            }
+        }
+    }
+
+    let match_block = if match_arms.is_empty() {
+        quote! {}
+    } else {
+        quote! { match key_str { #(#match_arms)* _ => {} } }
+    };
+
+    let unexpected_decl = if is_false {
+        quote! { let mut __unexpected: Vec<String> = Vec::new(); }
+    } else {
+        quote! {}
+    };
+    let aggregate = if is_false {
+        quote! {
+            if !__unexpected.is_empty() {
+                __errors.push(jsonschema::__private::error::additional_properties(
+                    #additional_properties_path, __path.into(), instance, __unexpected,
+                ));
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    Some(quote! {
+        #unexpected_decl
+        for (key, value) in obj.iter() {
+            let key_str = key.as_str();
+            #covered_decl
+            #match_block
+            #(#pattern_checks)*
+            #additional_properties_fallback
+        }
+        #aggregate
+    })
+}
+
 /// Single-pass `is_valid` for the object cluster (`properties` + `patternProperties` +
 /// `additionalProperties` + `required`). Returns `None` when no merge is warranted or a pattern
 /// regex is invalid.
@@ -183,12 +323,13 @@ pub(crate) fn compile_is_valid(
     cluster: &ClusterSubschemas<'_>,
     additional_properties: Option<&Value>,
     required_names: &[&str],
+    reduced_discriminator_property: Option<(&str, &CompiledExpr)>,
 ) -> Option<TokenStream> {
     let has_properties = !cluster.properties.is_empty();
     let has_patterns = !cluster.patterns.is_empty();
     // Merging is worthwhile when patternProperties is present, or when `required`
     // can piggyback on a pass that already scans every key.
-    if !has_patterns && required_names.is_empty() {
+    if !has_patterns && required_names.is_empty() && reduced_discriminator_property.is_none() {
         return None;
     }
 
@@ -234,6 +375,9 @@ pub(crate) fn compile_is_valid(
 
     let mut match_arms: Vec<TokenStream> = Vec::new();
     for (name_str, check) in &cluster.properties {
+        let check = reduced_discriminator_property
+            .filter(|(property_name, _)| property_name == name_str)
+            .map_or(check, |(_, reduced)| reduced);
         let set_req = req_ident(name_str).map(|id| quote! { #id = true; });
         if check.is_trivially_true() {
             match_arms.push(quote! { #name_str => { #set_req #set_covered } });

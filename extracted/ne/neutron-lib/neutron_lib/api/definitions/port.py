@@ -13,6 +13,11 @@
 from neutron_lib.api import converters
 from neutron_lib import constants
 from neutron_lib.db import constants as db_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 NAME = 'Neutron Port'
@@ -27,7 +32,7 @@ COLLECTION_NAME_BULK = 'ports_bulk'
 
 PORT_MAC_ADDRESS = 'mac_address'
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         'id': {'allow_post': False, 'allow_put': False,
                'validate': {'type:uuid': None},
@@ -102,8 +107,8 @@ RESOURCE_ATTRIBUTE_MAP = {
 # This is a core resource so the following are not applicable.
 IS_SHIM_EXTENSION = False
 IS_STANDARD_ATTR_EXTENSION = False
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

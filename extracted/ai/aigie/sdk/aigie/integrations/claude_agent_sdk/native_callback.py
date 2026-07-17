@@ -323,11 +323,10 @@ class ClaudeAgentSDKEvents(
     ) -> None:
         """Trace-level identity fields. Honors ambient tracing_context() so
         harness-supplied metadata/tags propagate into TRACE_CREATE."""
-        from aigie.context_manager import merge_metadata, merge_tags
+        from aigie.context_manager import enrich_span_fields
 
         self.trace_name = trace_name
-        self.metadata = merge_metadata(metadata)
-        self.tags = merge_tags(tags)
+        self.metadata, self.tags = enrich_span_fields(metadata, tags)
         self.user_id = user_id
         self.session_id = session_id  # type: ignore[has-type]
 

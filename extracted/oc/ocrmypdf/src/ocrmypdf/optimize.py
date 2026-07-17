@@ -12,7 +12,7 @@ import threading
 from collections.abc import Callable, Iterator, MutableSet, Sequence
 from os import fspath
 from pathlib import Path
-from typing import Any, NamedTuple, NewType
+from typing import Any, NamedTuple, NewType, cast
 from zlib import compress
 
 import img2pdf
@@ -37,7 +37,7 @@ from ocrmypdf._exec import ghostscript, jbig2enc, pngquant
 from ocrmypdf._jobcontext import PdfContext
 from ocrmypdf._progressbar import ProgressBar
 from ocrmypdf.exceptions import OutputFileAccessError
-from ocrmypdf.helpers import IMG2PDF_KWARGS, safe_symlink
+from ocrmypdf.helpers import IMG2PDF_KWARGS, pikepdf_get_int, safe_symlink
 
 log = logging.getLogger(__name__)
 
@@ -527,8 +527,8 @@ def _find_deflatable_jpeg(
             (
                 # Don't flate very large images because it will slow down PDF viewers
                 1 <= options.optimize <= 2
-                and image.get(Name.Width, 0) < FLATE_JPEG_THRESHOLD
-                and image.get(Name.Height, 0) < FLATE_JPEG_THRESHOLD
+                and pikepdf_get_int(image, Name.Width) < FLATE_JPEG_THRESHOLD
+                and pikepdf_get_int(image, Name.Height) < FLATE_JPEG_THRESHOLD
             )
             or options.optimize == 3
         )
@@ -608,10 +608,13 @@ def _transcode_png(pdf: Pdf, filename: Path, xref: Xref) -> bool:
         local_image = pdf.copy_foreign(foreign_image)
 
         im_obj = pdf.get_object(xref, 0)
+        # pikepdf's Object attribute access can't statically know Filter/
+        # DecodeParms hold these specific subtypes, but a copied image's
+        # stream dictionary always does per the PDF spec.
         im_obj.write(
             local_image.read_raw_bytes(),
-            filter=local_image.Filter,
-            decode_parms=local_image.DecodeParms,
+            filter=cast('Name | Array | list[Name] | None', local_image.Filter),
+            decode_parms=cast('Dictionary | Array | None', local_image.DecodeParms),
         )
 
         # Don't copy keys from the new image...
@@ -771,7 +774,9 @@ def main(infile, outfile, level, jobs=1):
     )
 
     with TemporaryDirectory() as tmpdir:
-        context = PdfContext(options, Path(tmpdir), infile, None, None)
+        # optimize() only reads context.options on this standalone path, so
+        # pdfinfo and plugin_manager are not needed.
+        context = PdfContext(options, Path(tmpdir), infile, None, None)  # type: ignore[arg-type]
         tmpout = Path(tmpdir) / 'out.pdf'
         optimize(
             infile,

@@ -25,6 +25,7 @@ from typing import Any, TypeVar
 import jax
 from jax import lax
 from jax import tree_util
+from jax._src import flattree as ft
 from jax._src import ad_checkpoint
 from jax._src import ad_util
 from jax._src import api_util
@@ -32,7 +33,6 @@ from jax._src import config
 from jax._src import core as jax_core
 from jax._src import custom_derivatives
 from jax._src import debugging
-from jax._src import linear_util as lu
 from jax._src import literals
 from jax._src import pjit
 from jax._src import source_info_util
@@ -112,7 +112,7 @@ def _eval_index_map(
     ctx: ModuleContext, idx, block_mapping: BlockMapping
 ):
   block_indices = lower_jaxpr_to_triton_ir(
-      ctx, block_mapping.index_map_jaxpr.jaxpr, None, *idx
+      ctx, block_mapping.index_map_jaxpr, None, *idx
   )
   block_indices = tuple(
       _ensure_ir_value(i, jax_core.ShapedArray((), jnp.int32))
@@ -465,12 +465,16 @@ def lower_fun(
   fn = fun if multiple_results else lambda *args, **kw: (fun(*args, **kw),)
 
   def f_lowered(ctx: LoweringRuleContext, *args, **params):
-    wrapped_fun = lu.wrap_init(
-        fn, params,
-        debug_info=api_util.debug_info("pallas triton lower_fun", fun,
-                                       args, params))
-    jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(wrapped_fun, ctx.avals_in, lower=True)
-    jaxpr = jax_core.ClosedJaxpr(jaxpr, consts)
+    in_avals_ft = ft.flatten_static_argnums_argnames(
+        tuple(ctx.avals_in), params,
+        static_argnums=(), static_argnames=tuple(params.keys())
+    )
+    debug_info = api_util.debug_info("pallas triton lower_fun", fun,
+                                     args, params,
+                                     static_argnames=tuple(params.keys()))
+    jaxpr, _ = pe.trace_to_jaxpr(
+        fn, in_avals_ft, debug_info=debug_info, requires_low=True
+    )
     out = _closed_call_lowering_rule(ctx, *args, call_jaxpr=jaxpr)
     return out if multiple_results else out[0]
 
@@ -523,25 +527,21 @@ def _atomic_rmw(
 def _associative_scan_lowering(body, ctx: LoweringRuleContext, args, axes):
   flat_args = tree_util.tree_leaves(args)
   (axis,) = axes
-  dtype = ctx.avals_in[0].dtype
-  in_avals = [
-      jax_core.ShapedArray((), dtype=dtype),
-      jax_core.ShapedArray((), dtype=dtype),
-  ]
-  in_tree = tree_util.tree_structure((args, args))
-  flat_fun, out_tree_thunk = api_util.flatten_fun_nokwargs(
-      lu.wrap_init(
-          body,
-          debug_info=api_util.debug_info("pallas triton associative_scan",
-                                         body, (args, args), {})),
-      in_tree
+
+  args_structure = tree_util.tree_structure(args)
+  avals_tree = tree_util.tree_unflatten(args_structure, ctx.avals_in)
+  mapped_avals_tree = tree_util.tree_map(
+      lambda aval: jax_core.ShapedArray((), aval.dtype), avals_tree
   )
-  combine_jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(
-      flat_fun, in_avals
+  in_avals_ft = ft.flatten(((mapped_avals_tree, mapped_avals_tree), {}))
+
+  debug_info = api_util.debug_info("pallas triton associative_scan",
+                                 body, (args, args), {})
+  combine_jaxpr, _ = pe.trace_to_jaxpr(
+      body, in_avals_ft, debug_info=debug_info
   )
-  out_tree = out_tree_thunk()
-  del out_tree  # Not needed
-  if consts:
+
+  if combine_jaxpr.consts:
     raise NotImplementedError("Associative scan with constants not supported.")
   element_types = [_element_type(arg.type) for arg in flat_args]
   scan_op = tt_dialect.ScanOp(flat_args, axis)
@@ -2476,21 +2476,20 @@ def _dot_general_lowering(
 def _reduction_lowering(body, ctx: LoweringRuleContext, a, axes):
   flat_args = tree_util.tree_leaves(a)
   (axis,) = axes
-  mapped_avals = [jax_core.ShapedArray((), aval.dtype) for aval in ctx.avals_in]
-  in_tree = tree_util.tree_structure((a, a))
-  flat_fun, out_tree_thunk = api_util.flatten_fun_nokwargs(
-      lu.wrap_init(
-          body,
-          debug_info=api_util.debug_info("pallas triton reduction",
-                                         body, (a, a), {})),
-      in_tree
+
+  a_structure = tree_util.tree_structure(a)
+  avals_tree = tree_util.tree_unflatten(a_structure, ctx.avals_in)
+  mapped_avals_tree = tree_util.tree_map(
+      lambda aval: jax_core.ShapedArray((), aval.dtype), avals_tree
   )
-  combine_jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(
-      flat_fun, [*mapped_avals, *mapped_avals]
+  in_avals_ft = ft.flatten(((mapped_avals_tree, mapped_avals_tree), {}))
+
+  debug_info = api_util.debug_info("pallas triton reduction", body, (a, a), {})
+  combine_jaxpr, _ = pe.trace_to_jaxpr(
+      body, in_avals_ft, debug_info=debug_info
   )
-  out_tree = out_tree_thunk()
-  del out_tree  # Not needed
-  if consts:
+
+  if combine_jaxpr.consts:
     raise NotImplementedError("Reductions with constants not supported.")
   element_types = [_element_type(arg.type) for arg in flat_args]
   reduce_op = tt_dialect.ReduceOp(flat_args, axis)
@@ -2594,7 +2593,7 @@ def _pjit_lowering_rule(ctx: LoweringRuleContext, *args, jaxpr, **_):
   if jaxpr.consts:
     raise NotImplementedError
   return lower_jaxpr_to_triton_ir(
-      ctx.context, jaxpr.jaxpr, ctx.block_infos, *args
+      ctx.context, jaxpr, ctx.block_infos, *args
   )
 
 
@@ -2608,7 +2607,7 @@ def _reshard_lowering_rule(ctx, x, *, dst_sharding, concrete_mesh):
 def _closed_call_lowering_rule(
     ctx: LoweringRuleContext, *args, call_jaxpr, **_
 ):
-  jaxpr, consts = call_jaxpr.jaxpr, call_jaxpr.consts
+  jaxpr, consts = call_jaxpr, call_jaxpr.consts
   if consts:
     raise NotImplementedError
   return lower_jaxpr_to_triton_ir(ctx.context, jaxpr, ctx.block_infos, *args)
@@ -2673,15 +2672,16 @@ def _scan_lowering_rule(
     length,
     reverse,
     unroll,
-    num_consts,
-    num_carry,
+    ft_in,
+    ft_out,
 ):
+  num_consts, num_carry, _ = (len(g) for g in ft_in.unpack())
   # Only implements fori_loop-like scans
   if reverse: raise NotImplementedError
   if unroll != 1: raise NotImplementedError
   del unroll, reverse
 
-  jaxpr, jaxpr_consts = jaxpr.jaxpr, jaxpr.consts
+  jaxpr, jaxpr_consts = jaxpr, jaxpr.consts
   if jaxpr_consts: raise NotImplementedError
   del jaxpr_consts
 
@@ -2719,7 +2719,7 @@ def _maybe_pattern_match_fori_loop(
 ):
   if cond_nconsts:
     return None
-  _, cond_invars = split_list(cond_jaxpr.jaxpr.invars, [cond_nconsts])
+  _, cond_invars = split_list(cond_jaxpr.invars, [cond_nconsts])
   cond_in_avals = [v.aval for v in cond_invars]
   if len(cond_in_avals) < 2:
     return None
@@ -2731,11 +2731,11 @@ def _maybe_pattern_match_fori_loop(
     return None
   # Check that the only eqn in the cond checks the loop index condition
   v1, v2 = cond_invars[:2]
-  outvar = cond_jaxpr.jaxpr.outvars[0]
+  outvar = cond_jaxpr.outvars[0]
   assert outvar.aval.dtype == jnp.bool_
-  if len(cond_jaxpr.jaxpr.eqns) != 1:
+  if len(cond_jaxpr.eqns) != 1:
     return None
-  eqn = cond_jaxpr.jaxpr.eqns[0]
+  eqn = cond_jaxpr.eqns[0]
   if eqn.primitive != lax.lt_p:
     return None
   if eqn.outvars != [outvar]:
@@ -2743,14 +2743,14 @@ def _maybe_pattern_match_fori_loop(
   if eqn.invars != [v1, v2]:
     return None
   # Check that the carry is updated in the body appropriately
-  _, body_invars = split_list(body_jaxpr.jaxpr.invars, [body_nconsts])
+  _, body_invars = split_list(body_jaxpr.invars, [body_nconsts])
   v1, v2 = body_invars[:2]
-  vo1, vo2 = body_jaxpr.jaxpr.outvars[:2]
+  vo1, vo2 = body_jaxpr.outvars[:2]
   # Upper bound should be constant
   if v2 is not vo2:
     return None
   # Check that we increment the loop index in the body
-  for i, eqn in enumerate(body_jaxpr.jaxpr.eqns):
+  for i, eqn in enumerate(body_jaxpr.eqns):
     if eqn.primitive is lax.add_p:
       if eqn.invars[0] is v1:
         if isinstance(eqn.invars[1], jax_core.Literal):
@@ -2760,7 +2760,7 @@ def _maybe_pattern_match_fori_loop(
               break
   else:
     return None
-  jaxpr = body_jaxpr.jaxpr
+  jaxpr = body_jaxpr
   new_invars = (*jaxpr.invars[:body_nconsts],
                 jaxpr.invars[body_nconsts],
                 *jaxpr.invars[body_nconsts + 2:])
@@ -2830,7 +2830,7 @@ def _while_lowering_rule(
   with ir.InsertionPoint.at_block_begin(before_block):
     [cond] = lower_jaxpr_to_triton_ir(
         ctx.context,
-        cond_jaxpr.jaxpr,
+        cond_jaxpr,
         [*cond_const_block_infos, *carry_block_infos],
         *cond_args,
     )
@@ -2848,7 +2848,7 @@ def _while_lowering_rule(
   with ir.InsertionPoint.at_block_begin(after_block):
     loop_out = lower_jaxpr_to_triton_ir(
         ctx.context,
-        body_jaxpr.jaxpr,
+        body_jaxpr,
         [*body_const_block_infos, *carry_block_infos],
         *body_const_args,
         *carry_args
@@ -2884,7 +2884,7 @@ def _cond_lowering_rule(
   with ir.InsertionPoint.at_block_begin(if_op.then_block):
     outs0 = lower_jaxpr_to_triton_ir(
         ctx.context,
-        branches[0].jaxpr,
+        branches[0],
         block_infos[1:],
         *args)
     scf_dialect.yield_(outs0)
@@ -2901,7 +2901,7 @@ def _cond_lowering_rule(
     else:
       outs1 = lower_jaxpr_to_triton_ir(
           ctx.context,
-          branches[1].jaxpr,
+          branches[1],
           block_infos[1:],
           *args)
     scf_dialect.yield_(outs1)

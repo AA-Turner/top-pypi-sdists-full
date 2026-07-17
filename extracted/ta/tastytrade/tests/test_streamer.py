@@ -10,10 +10,10 @@ pytestmark = pytest.mark.anyio
 
 async def test_account_streamer(session: Session):
     async with AlertStreamer(session) as streamer:
-        await streamer.subscribe_public_watchlists()
-        await streamer.subscribe_quote_alerts()
         accounts = await Account.get(session)
         await streamer.subscribe_accounts(accounts)
+        await streamer.subscribe_public_watchlists()
+        await streamer.subscribe_quote_alerts()
 
 
 async def test_dxlink_streamer(session: Session):

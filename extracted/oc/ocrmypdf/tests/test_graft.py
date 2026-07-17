@@ -78,9 +78,9 @@ def test_redo_ocr_with_offset_mediabox(resources, outdir):
         mediabox = list(page.MediaBox)
 
         # MediaBox origin should be preserved
-        assert (
-            float(mediabox[1]) == y_offset
-        ), f"MediaBox Y origin should be preserved at {y_offset}, got {mediabox[1]}"
+        assert float(mediabox[1]) == y_offset, (
+            f"MediaBox Y origin should be preserved at {y_offset}, got {mediabox[1]}"
+        )
 
         # The content stream should include a CTM with the Y origin translation.
         # Without the fix, the CTM was omitted for rotation==0, causing a shift.
@@ -153,7 +153,7 @@ def test_strip_invisble_text():
     nr_visible_pre = count('visible', page)
     ocrmypdf._graft.strip_invisible_text(pdf, page)
     nr_visible_post = count('visible', page)
-    assert (
-        nr_visible_pre == nr_visible_post
-    ), 'Number of visible text elements did not change'
+    assert nr_visible_pre == nr_visible_post, (
+        'Number of visible text elements did not change'
+    )
     assert count('invisible', page) == 0, 'No invisible elems left'

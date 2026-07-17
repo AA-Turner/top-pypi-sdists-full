@@ -54,9 +54,7 @@ def project_schema() -> Dict[str, Any]:
     global _PROJECT_SCHEMA
 
     if _PROJECT_SCHEMA is None:
-        _PROJECT_SCHEMA = load_json_from_package(
-            jsonschema_type="project", filename="0.0.110.json"
-        )
+        _PROJECT_SCHEMA = load_json_from_package(jsonschema_type="project", filename="latest.json")
     return _PROJECT_SCHEMA
 
 
@@ -174,6 +172,9 @@ def _get_allowed_config_fields_from_error_path(
 
 def _can_run_validations() -> bool:
     invocation_context = get_invocation_context()
+    # for commands like dbt deps, we don't have adapter types set yet
+    if not invocation_context.adapter_types:
+        return False
     return invocation_context.adapter_types.issubset(_JSONSCHEMA_SUPPORTED_ADAPTERS)
 
 

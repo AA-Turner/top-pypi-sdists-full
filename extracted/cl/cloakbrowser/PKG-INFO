@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloakbrowser
-Version: 0.4.10
+Version: 0.4.11
 Summary: Stealth Chromium that passes every bot detection test. Drop-in Playwright replacement with source-level fingerprint patches.
 Project-URL: Homepage, https://github.com/CloakHQ/CloakBrowser
 Project-URL: Documentation, https://github.com/CloakHQ/CloakBrowser#readme
@@ -189,7 +189,7 @@ page.goto("https://example.com")
 
 ---
 
-## Latest: v0.4.10 — 66 source-level stealth patches (Chromium 148.0.7778.215.5 — Windows + Linux; macOS follows)
+## Latest: v0.4.11 — 66 source-level stealth patches (Chromium 148.0.7778.215.5 — Windows + Linux; macOS follows)
 
 - **CloakBrowser Pro** — the latest binary (Chromium 148.0.7778.215.5, 66 source-level patches) is available to Pro subscribers on **Windows and Linux** (macOS is on 148.0.7778.215.3, next build follows). Set a `license_key` (`licenseKey` in JS) or the `CLOAKBROWSER_LICENSE_KEY` env var and the wrapper fetches the latest build automatically. See [CloakBrowser Pro](#cloakbrowser-pro)
 - **.NET 8 / C# client** — CloakBrowser now ships as a NuGet package (`CloakBrowser`), mirroring the Python and JS wrappers.

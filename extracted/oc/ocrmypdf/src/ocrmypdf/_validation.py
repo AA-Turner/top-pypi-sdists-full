@@ -10,8 +10,10 @@ import logging
 import os
 import sys
 from collections.abc import Sequence
+from collections.abc import Set as AbstractSet
 from pathlib import Path
 from shutil import copyfileobj
+from typing import BinaryIO, cast
 
 import pikepdf
 
@@ -48,7 +50,7 @@ def check_platform() -> None:
 
 
 def check_options_languages(
-    options: OcrOptions, ocr_engine_languages: list[str]
+    options: OcrOptions, ocr_engine_languages: AbstractSet[str]
 ) -> None:
     # Check for blocked languages first, before checking if they're installed
     DENIED_LANGUAGES = {'equ', 'osd'}
@@ -92,7 +94,15 @@ def check_options_sidecar(options: OcrOptions) -> None:
             raise BadArgsError(
                 "--sidecar filename needed when output file is /dev/null or NUL."
             )
-        options.sidecar = options.output_file + '.txt'
+        elif not isinstance(options.output_file, str | Path):
+            # The '\0' sentinel is only ever set by the CLI, which always
+            # supplies output_file as a plain path - not a stream. If this
+            # somehow fires, the caller mixed a CLI-only sentinel with the
+            # stream-based API.
+            raise BadArgsError(
+                "--sidecar filename needed when output file is not a path."
+            )
+        options.sidecar = os.fspath(options.output_file) + '.txt'
     if options.sidecar == options.input_file or options.sidecar == options.output_file:
         raise BadArgsError(
             "--sidecar file must be different from the input and output files"
@@ -190,24 +200,28 @@ def create_input_file(options: OcrOptions, work_folder: Path) -> tuple[Path, str
         # stdin
         log.info('reading file from standard input')
         target = work_folder / 'stdin'
-        with open(target, 'wb') as stream_buffer:
+        with target.open('wb') as stream_buffer:
             copyfileobj(sys.stdin.buffer, stream_buffer)
         return target, "stdin"
     elif hasattr(options.input_file, 'readable'):
-        if not options.input_file.readable():
+        input_stream = cast(BinaryIO, options.input_file)
+        if not input_stream.readable():
             raise InputFileError("Input file stream is not readable")
         log.info('reading file from input stream')
         target = work_folder / 'stream'
-        with open(target, 'wb') as stream_buffer:
-            copyfileobj(options.input_file, stream_buffer)
+        with target.open('wb') as stream_buffer:
+            copyfileobj(input_stream, stream_buffer)
         return target, "stream"
     else:
+        # The branches above already ruled out the stdin sentinel and
+        # stream-like objects, so this must be a filesystem path.
+        assert isinstance(options.input_file, str | bytes | os.PathLike)
         try:
             target = work_folder / 'origin'
             safe_symlink(options.input_file, target)
-            return target, os.fspath(options.input_file)
+            return target, os.fsdecode(options.input_file)
         except FileNotFoundError as e:
-            msg = f"File not found - {options.input_file}"
+            msg = f"File not found - {os.fsdecode(options.input_file)}"
             if running_in_docker():  # pragma: no cover
                 msg += (
                     "\nDocker cannot access your working directory unless you "
@@ -249,7 +263,8 @@ def check_requested_output_file(options: OcrOptions) -> None:
             raise OutputFileAccessError("Output stream is not writable")
     elif not is_file_writable(options.output_file):
         raise OutputFileAccessError(
-            f"Output file location ({options.output_file}) is not a writable file."
+            f"Output file location ({os.fsdecode(options.output_file)}) is not a "
+            "writable file."
         )
 
     if (
@@ -259,7 +274,7 @@ def check_requested_output_file(options: OcrOptions) -> None:
         and Path(str(options.output_file)).exists()
     ):
         raise OutputFileAccessError(
-            f"Output file already exists: {options.output_file}\n"
+            f"Output file already exists: {os.fsdecode(options.output_file)}\n"
             "To overwrite it, omit the --no-overwrite / -n option."
         )
 

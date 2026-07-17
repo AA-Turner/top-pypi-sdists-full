@@ -29,6 +29,20 @@ def extract_parts(message: Message) -> dict[str, str]:
     return out
 
 
+def extract_media_bytes(message: Message, kind: str) -> bytes:
+    """Return the raw bytes of the first ``kind`` (``audio``/``image``/``video``) part.
+
+    For endpoints that take a media file body (e.g. a SageMaker ASR container) rather than
+    a JSON payload. Returns ``b""`` when the message has no part of that kind.
+    """
+    part_type = {"audio": "input_audio", "image": "image_url", "video": "video_url"}[kind]
+    for part in getattr(message, "content_parts", None) or []:
+        if getattr(part, "type", None) == part_type:
+            with contextlib.suppress(Exception):
+                return part.to_bytes()
+    return b""
+
+
 def extract_response_text(data: t.Any, path: str) -> str:
     """Resolve the response text from a JSON body via a JSONPath expression."""
     from jsonpath_ng.ext import parse as jp_parse

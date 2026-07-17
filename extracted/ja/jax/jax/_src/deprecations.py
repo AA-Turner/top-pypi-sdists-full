@@ -59,14 +59,16 @@ def deprecation_getattr(module, deprecations):
   return getattr
 
 
-def accelerate_getattr_deprecation(module: ModuleType, name: str) -> None:
+def accelerate_getattr_deprecation(module: ModuleType, *names: str) -> None:
   """Accelerate the deprecation of a module-level attribute.
 
   Raises an AttributeError instead of a DeprecationWarning upon attribute access.
   Used in Google-internal code to implement faster deprecation.
   """
-  message, _ = module._deprecations[name]
-  module._deprecations[name] = (message, None)
+  for name in names:
+    message, _ = module._deprecations[name]
+    module._deprecations[name] = (message, None)
+
 
 def is_accelerated_attribute(module: ModuleType, name: str) -> bool:
   """Returns true if given name is accelerated.
@@ -131,3 +133,6 @@ register('jax-numpy-astype-complex-to-real')
 register('jax-array-positional-args')
 register('jax-pallas-call-mgpu')
 register('jax-pallas-mgpu-shapes-types')
+register('jax-numpy-cross-2d-input')
+register('jax-pallas-mgpu-load-idx')
+register('jax-pallas-triton')

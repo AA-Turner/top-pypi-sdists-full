@@ -65,6 +65,10 @@ _SPINNER = "◜◠◝◞◡◟"
 # think before the first tool call) so normal slow turns don't nag; observed
 # stalls ran 3–5 min+, so 180s still flags them well before the 30-min timeout.
 _STALL_HINT_SECS = 180
+# Recovery-stage labels for the status line (PRD Epic K) — short enough to sit in
+# the footer, so the operator can watch the governor escalate.
+_STAGE_NAMES = {1: "advisory", 2: "reflection", 3: "suppressing",
+                4: "reset", 5: "stopping"}
 _WORKING_WORDS = [
     "Battening", "Splicing", "Hoisting", "Heaving", "Trimming", "Tacking",
     "Mooring", "Charting", "Navigating", "Sounding", "Caulking", "Rigging",
@@ -260,8 +264,24 @@ class DrydockApp(App):
         self.config = config
         self.state = AgentState()
         if config.get("event_log", True):
-            from drydock.events import EventLog, default_event_log_path
-            self.state.events = EventLog(config.get("event_log_path") or default_event_log_path())
+            from drydock.events import default_event_log_path, make_event_log
+            backend = config.get("event_store", "jsonl")
+            path = config.get("event_log_path") or default_event_log_path()
+            # a .db/.sqlite path (or event_store="sqlite") selects the SQLite backend
+            if backend == "sqlite" and str(path).endswith(".jsonl"):
+                path = str(path)[:-len(".jsonl")] + ".db"
+            self.state.events = make_event_log(path, backend)
+        # Resume: note any PRIOR interrupted session (captured BEFORE we claim our
+        # own snapshot path), then arm per-turn snapshots for THIS session.
+        if config.get("resume", True):
+            from drydock import resume as _resume
+            self._prior_snapshot = _resume.latest_snapshot()
+            import time as _t
+            sid = config.get("session_id") or f"session-{int(_t.time())}"
+            config["session_id"] = sid
+            config["resume_path"] = str(_resume.snapshot_path(sid))
+        else:
+            self._prior_snapshot = None
         self.system = self._build_system(config.get("model"))
         from drydock.skills import load_skills
         self._skills = load_skills(config.get("cwd") or ".")
@@ -342,6 +362,14 @@ class DrydockApp(App):
         onboarding = self.config.get("onboarding")
         if onboarding:
             self._info(onboarding)
+        # Offer to resume a previously interrupted session.
+        prior = getattr(self, "_prior_snapshot", None)
+        if prior:
+            from drydock import resume as _resume
+            snap = _resume.load_snapshot(prior) or {}
+            obj = (snap.get("task") or {}).get("objective", "") or "(unknown task)"
+            self._info(f"⚓ An interrupted session was found: \"{obj[:70]}\".  "
+                       f"Type /resume to continue it, or start a new task.")
         prompt.focus()
         # Drive the animated working line (only repaints while a turn is busy).
         self.set_interval(0.18, self._tick_work)
@@ -365,8 +393,12 @@ class DrydockApp(App):
         # Show the task phase once it's past the default (understand).
         ph = getattr(self.state, "task", None)
         phase = f"  ·  {ph.phase}" if (ph and ph.is_set() and ph.phase != "understand") else ""
+        # Show the recovery stage when the governor is intervening, so the operator
+        # can see it working (advisory → reflection → suppression → reset → stop).
+        stage = getattr(self.state, "recovery_stage", 0)
+        recov = f"  ·  ⚠ recovery: {_STAGE_NAMES.get(stage, stage)}" if stage else ""
         return (
-            f"{flag}  ·  {model}{phase}  ·  {keys} · PgUp/PgDn scroll · "
+            f"{flag}  ·  {model}{phase}{recov}  ·  {keys} · PgUp/PgDn scroll · "
             f"Ctrl+O details  ·  {ctx}"
         )
 
@@ -536,6 +568,10 @@ class DrydockApp(App):
             self._cmd_shell()
         elif cmd == "/events":
             self._cmd_events()
+        elif cmd == "/resume":
+            self._cmd_resume(arg)
+        elif cmd == "/trace":
+            self._cmd_trace(arg)
         elif cmd == "/advisor":
             self._cmd_advisor(arg)
         elif cmd == "/ask":
@@ -555,8 +591,9 @@ class DrydockApp(App):
             self._info(
                 "Commands:\n"
                 "  /help            this help\n"
-                "  /model           show/set model, provider, endpoint URL\n"
-                "                   /model <name> · /model url <url> · /model provider <p>\n"
+                "  /model           list/switch models; each routes to its endpoint\n"
+                "                   /model <name> · /model add <name> <url> [prov] ·\n"
+                "                   /model default <name> · /model url <url>\n"
                 "  /cwd [path]      show or change the working directory\n"
                 "  /undo            revert the last file write/edit\n"
                 "  /back            rewind the last turn from the model's context\n"
@@ -564,6 +601,9 @@ class DrydockApp(App):
                 "  /status          session model, cwd, turns, tokens\n"
                 "  /compact         shrink old context to free up the window\n"
                 "  /context         view/set the context-window budget (e.g. /context 65536)\n"
+                "  /events          digest of this session's execution trace + governor activity\n"
+                "  /trace           ordered event timeline (/trace [N] for the last N)\n"
+                "  /resume          continue an interrupted session (/resume [session_id])\n"
                 "  /advisor         set up a 2nd 'advisor' model (Gemini etc.); /ask <q> = you, /ask! = feed to agent\n"
                 "  /graphrag        ingest docs into a knowledge base the agent can use\n"
                 "                   build <path> · add <path> · query <q> · status · clear\n"
@@ -852,6 +892,7 @@ class DrydockApp(App):
         s = summarize(str(log.path))
         tools = ", ".join(f"{k}×{v}" for k, v in sorted(s["tools"].items())) or "none"
         v = s["verifications"]
+        rec = s.get("recovery", {})
         lines = [
             f"Task trace — {log.path}",
             f"  objective    : {(s['objective'] or '(none yet)')[:80]}",
@@ -859,9 +900,73 @@ class DrydockApp(App):
             f"  phase        : {s['final_phase']}",
             f"  turns        : {s['turns']}   tools: {tools}",
             f"  verifications: {v['pass']} passed, {v['fail']} failed",
-            f"  tokens       : {s['in_tok']:,} in / {s['out_tok']:,} out   ({s['event_count']} events)",
         ]
+        if rec.get("interventions"):
+            from drydock.recovery import STAGE_NAMES
+            stage = STAGE_NAMES.get(rec["max_stage"], rec["max_stage"])
+            lines.append(
+                f"  governor     : recovery reached '{stage}' "
+                f"({rec['interventions']} interventions, {rec['suppressions']} suppressions, "
+                f"worst no-progress streak {rec['max_no_progress_streak']})"
+            )
+        lines.append(
+            f"  tokens       : {s['in_tok']:,} in / {s['out_tok']:,} out   ({s['event_count']} events)")
         self._info("\n".join(lines))
+
+    def _cmd_resume(self, arg: str) -> None:
+        """Continue an interrupted session (PRD P2.1). /resume picks the most recent
+        interrupted session; /resume <session_id> picks a specific one. Restores the
+        transcript + task state and continues; an in-flight external mutation is
+        flagged (not auto-retried)."""
+        from pathlib import Path
+
+        from drydock import resume as _resume
+
+        arg = (arg or "").strip()
+        target = _resume.snapshot_path(arg) if arg else (
+            getattr(self, "_prior_snapshot", None) or _resume.latest_snapshot())
+        if not target or not Path(target).exists():
+            self._info(f"No snapshot for session {arg!r}." if arg
+                       else "No interrupted session to resume.")
+            return
+        info = _resume.restore(target)
+        if info is None:
+            self._info("Could not read that snapshot.")
+            return
+        _resume.apply_to_state(info, self.state)
+        # route to the resumed session's endpoint/model
+        for k in ("model", "provider", "base_url", "cwd"):
+            v = getattr(info, k, None)
+            if v:
+                self.config[k] = v
+        self.system = self._build_system(self.config.get("model"))
+        summary = [f"Resumed: {info.objective[:70] or '(task)'}  ·  "
+                   f"{len(info.messages)} messages restored"]
+        summary += [f"  ⚠ {w}" for w in info.warnings]
+        self._info("\n".join(summary))
+        # adopt the snapshot into THIS session; don't re-offer it
+        if str(target) != self.config.get("resume_path"):
+            _resume.clear_snapshot(target)
+        self._prior_snapshot = None
+        self._refresh_status()
+        # continue the task with a note so the model knows it's resuming
+        if not self._busy:
+            self._begin(_resume.resume_note(info))
+
+    def _cmd_trace(self, arg: str = "") -> None:
+        """An ordered timeline of this session's events (turns, tools, verifications,
+        and every governor intervention) — /trace [N] shows the last N (default 40)."""
+        log = self.state.events
+        if log is None:
+            self._info("Event log is off (config event_log = false).")
+            return
+        try:
+            limit = int(arg.strip()) if arg.strip() else 40
+        except ValueError:
+            limit = 40
+        from drydock.events import format_timeline
+        lines = format_timeline(str(log.path), limit=limit)
+        self._info("Task timeline:\n" + ("\n".join(lines) if lines else "  (no events yet)"))
 
     def _cmd_shell(self) -> None:
         """Show exactly which shell the Bash tool runs commands through, plus the
@@ -1205,26 +1310,51 @@ class DrydockApp(App):
 
     def _cmd_model(self, arg: str) -> None:
         """Model + endpoint setup. Subcommands persist so they survive restart:
-          /model                      show model, provider, endpoint
-          /model <name>               set the model name
-          /model url <base_url>       set the server URL (e.g. http://localhost:8000/v1)
-          /model provider <name>      vllm | ollama | lmstudio | openai
+          /model                          show current + registered models
+          /model <name>                   switch model (routes to its endpoint if
+                                          registered, else just sets the name)
+          /model add <name> <url> [prov]  register a model + its endpoint
+          /model default <name>           set the launch default
+          /model remove <name>            unregister a model
+          /model url <base_url>           set the CURRENT server URL
+          /model provider <name>          vllm | ollama | lmstudio | openai
         """
+        from drydock import config as cfgmod
+
         arg = (arg or "").strip()
         if not arg:
-            prov = self.config.get("provider") or "(default)"
-            url = self.config.get("base_url") or "(provider default)"
-            self._info(
-                f"model:    {self.config.get('model')}\n"
-                f"provider: {prov}\n"
-                f"endpoint: {url}\n"
-                "Set up:  /model <name>  ·  /model url <http://localhost:8000/v1>  ·  "
-                "/model provider <vllm|ollama|lmstudio|openai>"
-            )
+            self._show_models()
             return
         parts = arg.split(maxsplit=1)
         sub = parts[0].lower()
         val = parts[1].strip() if len(parts) > 1 else ""
+
+        if sub == "add":
+            bits = val.split()
+            if len(bits) < 2:
+                self._info("usage: /model add <name> <base_url> [provider]")
+                return
+            name, url = bits[0], bits[1]
+            provider = bits[2] if len(bits) > 2 else (self.config.get("provider") or "vllm")
+            cfgmod.upsert_model(self.config, name, url, provider)
+            self._persist_config()
+            self._info(f"registered {name} → {url} ({provider}). Switch with /model {name}.")
+            return
+        if sub == "default":
+            if not cfgmod.find_model(self.config, val):
+                self._info(f"{val!r} is not a registered model. Add it: /model add {val} <url>")
+                return
+            self.config["default_model"] = val
+            self._persist_config()
+            self._info(f"default model → {val}  (saved)")
+            return
+        if sub == "remove":
+            if cfgmod.remove_model(self.config, val):
+                self._persist_config()
+                self._info(f"removed {val} from the registry.")
+            else:
+                self._info(f"{val!r} is not a registered model.")
+            return
         if sub == "url":
             if not val:
                 self._info("usage: /model url <http://localhost:8000/v1>")
@@ -1243,12 +1373,43 @@ class DrydockApp(App):
             self._persist_config()
             self._info(f"provider → {val}  (saved)")
             return
-        # Otherwise: set the model name (the whole arg, so names with spaces work).
-        self.config["model"] = arg
+
+        # Otherwise: switch to `arg` as the model name. If it's a REGISTERED model,
+        # route to its endpoint + provider too (the fix for 'switched name but
+        # traffic still hit the first server').
+        routed = cfgmod.apply_model(self.config, arg)
         self.system = self._build_system(arg)  # prompt may be model-specific
         self._persist_config()
         self._refresh_status()
-        self._info(f"model → {arg}  (saved)")
+        if routed:
+            self._info(f"model → {arg}  ·  endpoint {self.config.get('base_url')}  "
+                       f"({self.config.get('provider')})  (saved)")
+        else:
+            self._info(f"model → {arg}  (saved). Not in the registry, so the endpoint "
+                       f"is unchanged ({self.config.get('base_url')}). Register it with "
+                       f"/model add {arg} <url>.")
+
+    def _show_models(self) -> None:
+        from drydock import config as cfgmod
+
+        cur = self.config.get("model")
+        default = self.config.get("default_model") or "(none)"
+        lines = [
+            f"model:    {cur}",
+            f"provider: {self.config.get('provider') or '(default)'}",
+            f"endpoint: {self.config.get('base_url') or '(provider default)'}",
+            f"default:  {default}",
+        ]
+        registered = cfgmod.list_models(self.config)
+        if registered:
+            lines.append("registered models:")
+            for m in registered:
+                mark = " ←" if m.get("name") == cur else ""
+                lines.append(f"  · {m['name']}  →  {m.get('base_url')} "
+                             f"({m.get('provider', 'vllm')}){mark}")
+        lines.append("Add:  /model add <name> <url> [provider]  ·  "
+                     "Switch:  /model <name>  ·  Default:  /model default <name>")
+        self._info("\n".join(lines))
 
     def _cmd_cwd(self, path: str) -> None:
         if not path:

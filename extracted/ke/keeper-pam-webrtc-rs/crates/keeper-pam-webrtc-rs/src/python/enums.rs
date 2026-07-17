@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 /// Example:
 ///     reason = PyCloseConnectionReason.Normal
 ///     registry.close_connection("connection_id", reason.value())
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone, Copy)]
 pub enum PyCloseConnectionReason {
     Normal = 0,

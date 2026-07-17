@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacollective
-Version: 0.5.3
+Version: 0.5.4
 Summary: A Python package for interfacing with the Mozilla Data Collective's API
 Author: Mozilla Data Collective
 Author-email: Mozilla Data Collective <support@mozilladatacollective.com>
@@ -14,10 +14,12 @@ Requires-Dist: pydantic>=2.7.0
 Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: requests>=2.32.5
+Requires-Dist: datasets>=5.0.0 ; extra == 'hf'
 Requires-Python: >=3.11
 Project-URL: Documentation, https://Mozilla-Data-Collective.github.io/datacollective-python/
 Project-URL: Homepage, https://github.com/Mozilla-Data-Collective/datacollective-python
 Project-URL: Issues, https://github.com/Mozilla-Data-Collective/datacollective-python/issues
+Provides-Extra: hf
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -111,6 +113,16 @@ from datacollective import load_dataset
 
 dataset = load_dataset("your-dataset-id")
 ```
+
+7. **Or load it as a HuggingFace `Dataset` object** (requires the optional `hf` extra: `pip install / uv add "datacollective[hf]"`):
+
+```
+from datacollective import load_dataset
+
+dataset = load_dataset("your-dataset-id", return_format="hf")
+```
+
+Returns a `Dataset`, or a `DatasetDict` keyed by split name for datasets with multiple splits. See [our docs](https://Mozilla-Data-Collective.github.io/datacollective-python/#return-as-huggingface-dataset-object) for more details, including how to lazily decode audio with the `Audio()` feature.
 
 ## Programmatic submissions and uploads
 

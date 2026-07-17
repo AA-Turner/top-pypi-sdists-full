@@ -379,6 +379,9 @@ def store_temporary_view_as_dataframe(
             column_metadata=input_container.column_map.column_metadata,
             parent_column_name_map=input_container.column_map,
             cached_schema_getter=lambda: schema,
+            # Carry sortWithinPartitions ordering into the temp view so a UDTF
+            # reading TABLE(view) still sees rows in the intended order.
+            sort_exprs=input_container.sort_exprs,
         )
     else:
         # just use the current container

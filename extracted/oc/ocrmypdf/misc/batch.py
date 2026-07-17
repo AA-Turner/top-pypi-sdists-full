@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import filecmp
 import logging
-import os
 import posixpath
 import shutil
 import sys
@@ -39,7 +38,7 @@ script_dir = Path(__file__).parent
 # set archive_dir to a path for backup original documents. Leave empty if not required.
 archive_dir = "/pdfbak"
 
-start_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
+start_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path()
 
 if len(sys.argv) > 2:
     log_file = Path(sys.argv[2])
@@ -68,7 +67,7 @@ for filename in start_dir.glob("**/*.pdf"):
             try:
                 shutil.copy2(filename, posixpath.dirname(archive_filename))
             except OSError:
-                os.makedirs(posixpath.dirname(archive_filename))
+                Path(posixpath.dirname(archive_filename)).mkdir(parents=True)
                 shutil.copy2(filename, posixpath.dirname(archive_filename))
         try:
             result = ocrmypdf.ocr(filename, filename, deskew=True)

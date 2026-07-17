@@ -92,6 +92,8 @@
 //! # Compile-Time Validator Macro
 //!
 //! The `validator` attribute macro (enabled by the `macros` feature) compiles schemas at build time:
+//! Generated validators are significantly faster than runtime validators, so prefer them when the schema is known at
+//! build time.
 //!
 //! ```ignore
 //! // Inline schema
@@ -124,10 +126,9 @@
 //!
 //! ## Limitations
 //!
-//! - Only `is_valid` and `validate` are generated; `iter_errors` and `evaluate` are not implemented yet.
+//! - `is_valid`, `validate`, and `iter_errors` are generated; `evaluate` is not implemented yet.
 //! - Custom keywords cannot override built-in ones: a `keywords` entry named like a built-in keyword runs in
 //!   addition to the built-in check, not instead of it.
-//! - `anyOf`/`oneOf` errors from `validate()` carry no per-branch sub-error context, unlike the runtime validator.
 //! - When an instance violates several keywords, the first error reported by `validate()` may differ from the runtime
 //!   validator's, since generated checks are not ordered by keyword priority; `is_valid` and validity are unaffected.
 //!
@@ -1531,6 +1532,7 @@ pub mod meta {
                 draft: crate::Draft,
                 is_valid: fn(&Value) -> bool,
                 validate: crate::meta_codegen::ValidateFn,
+                iter_errors: crate::meta_codegen::IterErrorsFn,
             },
         }
 
@@ -1555,6 +1557,7 @@ pub mod meta {
                     draft,
                     is_valid: crate::meta_codegen::is_valid_fn(draft),
                     validate: crate::meta_codegen::validate_fn(draft),
+                    iter_errors: crate::meta_codegen::iter_errors_fn(draft),
                 })
             }
 
@@ -1580,6 +1583,16 @@ pub mod meta {
                     _ => self.as_ref().validate(schema),
                 }
             }
+
+            /// Validate `schema` against the meta-schema, yielding every error.
+            #[must_use]
+            pub fn iter_errors<'i>(&'i self, schema: &'i Value) -> crate::ErrorIterator<'i> {
+                match &self.0 {
+                    #[cfg(all(feature = "macros", not(target_family = "wasm")))]
+                    MetaValidatorInner::Generated { iter_errors, .. } => iter_errors(schema),
+                    _ => self.as_ref().iter_errors(schema),
+                }
+            }
         }
 
         impl AsRef<Validator> for MetaValidator<'_> {
@@ -1588,8 +1601,7 @@ pub mod meta {
                     #[cfg(all(not(feature = "macros"), not(target_family = "wasm")))]
                     MetaValidatorInner::Borrowed(validator) => validator,
                     MetaValidatorInner::Owned(validator, _) => validator,
-                    // The `evaluate`/`iter_errors` output APIs have no generated counterpart, so
-                    // fall back to the lazily-built cached runtime validator for the draft.
+                    // `evaluate` has no generated counterpart; fall back to the runtime validator.
                     #[cfg(all(feature = "macros", not(target_family = "wasm")))]
                     MetaValidatorInner::Generated { draft, .. } => {
                         crate::meta::validators::runtime_validator_for_draft(*draft)
@@ -2868,6 +2880,25 @@ pub mod __private {
                 )),
             }
         }
+
+        /// Run a custom keyword's `iter_errors`, filling in context exactly like [`validate`] does.
+        pub fn collect_errors<'i>(
+            keyword: &dyn crate::Keyword,
+            instance: &'i serde_json::Value,
+            instance_path: &Location,
+            schema_path: &str,
+            keyword_name: &str,
+            errors: &mut Vec<crate::ValidationError<'i>>,
+        ) {
+            for error in keyword.iter_errors(instance) {
+                errors.push(error.with_generated_context(
+                    instance,
+                    instance_path.clone(),
+                    Location::from_escaped(schema_path),
+                    keyword_name,
+                ));
+            }
+        }
     }
     pub mod types {
         /// Integer check per drafts 6+: floats with zero fractional part count.
@@ -3067,8 +3098,15 @@ pub mod __private {
             paths::Location,
             types::{JsonType, JsonTypeSet},
             validator::LazyEvaluationPath,
-            ValidationError,
+            ErrorIterator, ValidationError,
         };
+
+        /// Wrap errors collected by generated `collect_errors` code into an [`ErrorIterator`].
+        #[inline]
+        #[must_use]
+        pub fn iterator_from(errors: Vec<ValidationError<'_>>) -> ErrorIterator<'_> {
+            ErrorIterator::from_iterator(errors.into_iter())
+        }
 
         /// `contentEncoding` keyword violation.
         #[inline]
@@ -3535,13 +3573,14 @@ pub mod __private {
             schema_path: &str,
             instance_path: Location,
             instance: &'i Value,
+            context: Vec<Vec<ValidationError<'i>>>,
         ) -> ValidationError<'i> {
             ValidationError::any_of(
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance,
-                vec![],
+                context,
             )
         }
 
@@ -3551,13 +3590,14 @@ pub mod __private {
             schema_path: &str,
             instance_path: Location,
             instance: &'i Value,
+            context: Vec<Vec<ValidationError<'i>>>,
         ) -> ValidationError<'i> {
             ValidationError::one_of_not_valid(
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance,
-                vec![],
+                context,
             )
         }
 
@@ -3567,13 +3607,14 @@ pub mod __private {
             schema_path: &str,
             instance_path: Location,
             instance: &'i Value,
+            context: Vec<Vec<ValidationError<'i>>>,
         ) -> ValidationError<'i> {
             ValidationError::one_of_multiple_valid(
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance,
-                vec![],
+                context,
             )
         }
 

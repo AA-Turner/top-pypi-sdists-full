@@ -26,6 +26,7 @@ from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocatio
 from schemathesis.core.result import Ok
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.drivers import CoverageGenerator
+from schemathesis.generation.feedback import FeedbackSources
 from schemathesis.generation.hypothesis.builder import (
     HypothesisTestConfig,
     HypothesisTestMode,
@@ -327,6 +328,7 @@ def _generate_cases(operation, generation_mode, *, project_config=None, generati
             generation_modes=[generation_mode],
             auth_storage=None,
             as_strategy_kwargs={},
+            feedback=FeedbackSources(),
             generation_config=generation_config,
         )
     )
@@ -844,6 +846,92 @@ def test_default_wrong_type_is_not_used(ctx):
         },
         positive=True,
     )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"type": "array", "contains": {"type": "integer"}, "minContains": 5},
+        {"type": "array", "minItems": 1, "contains": {"type": "integer"}, "minContains": 3},
+        {
+            "type": "array",
+            "items": {"type": ["integer", "string"]},
+            "minItems": 6,
+            "maxItems": 6,
+            "contains": {"type": "integer"},
+            "minContains": 4,
+        },
+        {
+            "type": "array",
+            "items": {"type": "integer"},
+            "minItems": 3,
+            "contains": {"type": "integer"},
+            "minContains": 2,
+        },
+        {"type": "array", "contains": {"type": "integer"}},
+        {
+            "type": "array",
+            "items": {"type": ["integer", "string"]},
+            "minItems": 6,
+            "maxItems": 6,
+            "contains": {"type": "integer"},
+            "maxContains": 2,
+        },
+        {"type": "array", "minItems": 5, "maxItems": 5, "contains": {"type": "integer"}, "maxContains": 2},
+        {
+            "type": "array",
+            "items": {"enum": [1, 2, "a", "b"]},
+            "minItems": 4,
+            "maxItems": 4,
+            "contains": {"type": "integer"},
+            "maxContains": 1,
+        },
+        {"type": "array", "items": {"type": "string"}, "contains": {"const": "contains-marker"}},
+    ],
+    ids=[
+        "no-min-items",
+        "min-items-below-min-contains",
+        "at-max-items",
+        "already-satisfied",
+        "no-min-contains",
+        "max-contains-mixed",
+        "max-contains-no-items",
+        "enum-items",
+        "single-item-branch",
+    ],
+)
+def test_positive_arrays_honor_contains(ctx, body):
+    # A positive array must keep its `contains` match count within `minContains`/`maxContains`.
+    collect_coverage_cases(ctx, body, positive=True, version="3.1.0")
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {
+            "type": "object",
+            "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+            "required": ["a"],
+            "dependentRequired": {"a": ["b"]},
+        },
+        {
+            "type": "object",
+            "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+            "required": ["a"],
+            "dependencies": {"a": ["b"]},
+        },
+        {
+            "type": "object",
+            "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+            "required": ["a"],
+            "dependentSchemas": {"a": {"required": ["b"]}},
+        },
+    ],
+    ids=["dependent-required", "dependencies", "dependent-schemas"],
+)
+def test_positive_objects_honor_dependencies(ctx, body):
+    # A present property that triggers a dependency must not be emitted without its dependents.
+    collect_coverage_cases(ctx, body, positive=True, version="3.1.0")
 
 
 def test_mixed_type_keyword(ctx):
@@ -3433,6 +3521,39 @@ def test_additional_properties_with_schema_negative(ctx):
     )
 
 
+def test_negative_unexpected_property_avoids_pattern_properties(ctx):
+    # The injected unexpected key must not match `patternProperties`, else the negative body stays valid.
+    collect_coverage_cases(
+        ctx,
+        {
+            "type": "object",
+            "patternProperties": {"^x-": {"type": "integer"}},
+            "additionalProperties": False,
+            "properties": {"x-a": {"type": "integer"}},
+            "required": ["x-a"],
+        },
+        positive=False,
+        version="3.1.0",
+    )
+
+
+def test_negative_additional_property_value_avoids_pattern_properties(ctx):
+    # A negative additionalProperties value must land on a key the patternProperties don't validate,
+    # else it is checked against the pattern schema and may stay valid.
+    collect_coverage_cases(
+        ctx,
+        {
+            "type": "object",
+            "additionalProperties": {"type": "string"},
+            "patternProperties": {"^x-": {"type": "integer"}},
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        },
+        positive=False,
+        version="3.1.0",
+    )
+
+
 def test_negative_type_drops_false_negatives_against_loose_ref_target(ctx):
     # Property's schema is `$ref` + sibling `type: object`. Draft 4 ignores siblings of `$ref`,
     # so the validator only enforces the bare ref target — which has no `type`. Type-mutations
@@ -6013,7 +6134,8 @@ def test_negative_enum_does_not_flag_integer_entries_matching_declared_type(ctx,
 def test_negative_const_emits_value_with_type_mismatch_for_keyword_coverage(ctx):
     # Positive path skips the const value as `type`-invalid, so only the negative can exercise `const` here.
     loaded = ctx.openapi.load_schema(
-        {
+        version="3.1.0",
+        paths={
             "/foo": {
                 "post": {
                     "requestBody": {
@@ -6032,7 +6154,7 @@ def test_negative_const_emits_value_with_type_mismatch_for_keyword_coverage(ctx)
                     "responses": {"200": {"description": "OK"}},
                 }
             }
-        }
+        },
     )
     operation = loaded["/foo"]["POST"]
     cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
@@ -6042,6 +6164,56 @@ def test_negative_const_emits_value_with_type_mismatch_for_keyword_coverage(ctx)
         if isinstance(c.body, dict) and "chunk_size" in c.body and isinstance(c.body["chunk_size"], int)
     }
     assert 42 in emitted, f"Expected const value as a negative; got: {emitted}"
+
+
+def test_negative_int64_boundary_below_minimum_is_invalid(ctx):
+    # Integers just below the implied int64 minimum must be judged invalid, not rounded onto the bound.
+    loaded = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {"schema": {"type": "integer", "format": "int64", "maximum": 100}}
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    operation = loaded["/foo"]["POST"]
+    validator = operation.schema.adapter.jsonschema_validator_cls(operation.body[0].optimized_schema)
+
+    cases = _generate_cases(operation, GenerationMode.NEGATIVE)
+
+    below_minimum = [case.body for case in cases if isinstance(case.body, int) and case.body < -(2**63)]
+    assert below_minimum, "expected a below-minimum negative case"
+    for body in below_minimum:
+        assert not validator.is_valid(body), f"below-int64 negative judged valid: {body}"
+
+
+DRAFT6_KEYWORD_SCHEMAS = [
+    ({"type": "string", "const": "fixed"}, CoverageScenario.INVALID_ENUM_VALUE),
+    (
+        {"type": "object", "propertyNames": {"pattern": "^[a-z]+$"}, "minProperties": 1},
+        CoverageScenario.OBJECT_INVALID_PROPERTY_NAME,
+    ),
+]
+
+
+@pytest.mark.parametrize(("body_schema", "scenario"), DRAFT6_KEYWORD_SCHEMAS, ids=["const", "propertyNames"])
+def test_negative_draft6_keywords_not_negated_under_draft4(ctx, body_schema, scenario):
+    # OAS 3.0 validates with Draft 4, which predates these keywords — their mutations are valid to the reference validator.
+    cases = collect_coverage_cases(ctx, body_schema)
+    assert scenario not in {c.meta.phase.data.scenario for c in cases}
+
+
+@pytest.mark.parametrize(("body_schema", "scenario"), DRAFT6_KEYWORD_SCHEMAS, ids=["const", "propertyNames"])
+def test_negative_draft6_keywords_negated_under_draft2020(ctx, body_schema, scenario):
+    cases = collect_coverage_cases(ctx, body_schema, version="3.1.0")
+    assert scenario in {c.meta.phase.data.scenario for c in cases}
 
 
 def test_coverage_positive_template_with_enum_and_type_mismatch(ctx):
@@ -9000,3 +9172,40 @@ def test_discriminator_explicit_mapping_overrides_branch_const(ctx):
     bodies = _discriminator_positive_bodies(ctx.openapi.from_full_schema(raw)["/r"]["POST"])
     tags = {body["tools"]["type"] for body in bodies if isinstance(body.get("tools"), dict) and "type" in body["tools"]}
     assert tags == {"web_search"}, f"mapping must override branch const; got tags={tags}, bodies={bodies}"
+
+
+def test_negative_coverage_violates_int64_format_bounds(ctx):
+    # The range implied by `format: int64` must reach negative generation as real bounds,
+    # so out-of-range integers stay covered as boundary violations instead of positive data.
+    schema = ctx.openapi.load_schema(
+        {
+            "/x": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"value": {"type": "integer", "format": "int64"}},
+                                    "required": ["value"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )
+    cases = _iter_cases(schema["/x"]["POST"], GenerationMode.NEGATIVE)
+
+    violations = {
+        case.meta.phase.data.scenario: case.body["value"]
+        for case in cases
+        if isinstance(case.body, dict) and isinstance(case.body.get("value"), int)
+    }
+    assert violations[CoverageScenario.VALUE_ABOVE_MAXIMUM] == 2**63
+    assert violations[CoverageScenario.VALUE_BELOW_MINIMUM] == -(2**63) - 1
+    assert all(case.meta.generation.mode == GenerationMode.NEGATIVE for case in cases)

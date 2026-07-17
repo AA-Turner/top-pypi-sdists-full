@@ -15,6 +15,11 @@
 
 from neutron_lib import constants
 from neutron_lib.db import constants as db_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 RESOURCE_NAME = 'local_ip'
 COLLECTION_NAME = RESOURCE_NAME + 's'
@@ -33,7 +38,7 @@ IP_MODE_TRANSLATE = 'translate'
 IP_MODE_PASSTHROUGH = 'passthrough'
 VALID_IP_MODES = [IP_MODE_TRANSLATE, IP_MODE_PASSTHROUGH]
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         'id': {
             'allow_post': False,
@@ -103,7 +108,7 @@ RESOURCE_ATTRIBUTE_MAP = {
     }
 }
 
-SUB_RESOURCE_ATTRIBUTE_MAP = {
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {
     LOCAL_IP_ASSOCIATIONS: {
         'parent': {'collection_name': COLLECTION_NAME,
                    'member_name': RESOURCE_NAME},
@@ -149,7 +154,7 @@ SUB_RESOURCE_ATTRIBUTE_MAP = {
     }
 }
 
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 
 ACTION_STATUS = {}
 

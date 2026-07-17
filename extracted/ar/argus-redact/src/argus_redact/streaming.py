@@ -19,6 +19,7 @@ import warnings
 
 from argus_redact._core_loader import _core
 from argus_redact._types import PatternMatch, PseudonymLLMResult
+from argus_redact.exceptions import SecurityWarning
 from argus_redact.glue._detect_partial import (
     _EVIDENCE_CONTEXT_WINDOW,
     DEFAULT_MAX_BUFFER,
@@ -77,6 +78,15 @@ class StreamingRestorer:
         "sentence" (default) — flush at sentence boundaries (。.！!？?；;\\n)
         "none" — restore every chunk immediately (no buffering)
 
+    ``max_buffer`` (default ``DEFAULT_MAX_BUFFER``, mirrors ``StreamingRedactor``)
+    bounds the "sentence" strategy's buffer: a reply that never emits a
+    terminator is force-flushed instead of accumulating without limit.
+
+    Every restore here runs unguarded (``guard=False`` — no per-call anchor is
+    possible mid-stream); the first time a ``feed()``/``flush()`` call actually
+    reinserts a pseudonym, the instance emits a one-time ``SecurityWarning``
+    naming that risk.
+
     Usage:
         restorer = StreamingRestorer(key)
         for chunk in llm_stream:
@@ -90,12 +100,79 @@ class StreamingRestorer:
 
     BOUNDARIES = ("\n", "。", ".", "！", "!", "？", "?", "；", ";")
 
-    def __init__(self, key: dict, strategy: str = "sentence"):
+    def __init__(self, key: dict, strategy: str = "sentence", max_buffer: int = DEFAULT_MAX_BUFFER):
         self._key = key
         self._buffer = ""
         if strategy not in ("sentence", "none"):
             raise ValueError(f"Unknown strategy '{strategy}'. Use 'sentence' or 'none'.")
         self._strategy = strategy
+        # H7: mirrors StreamingRedactor's max_buffer — an LLM reply that never
+        # emits a sentence terminator would otherwise buffer forever and get
+        # re-scanned (by ``_core.streaming_restorer_split``) in full on every
+        # ``feed()`` call, an O(N^2) CPU/memory pressure path on untrusted
+        # model output. See ``_force_flush_split`` for the bounded-drain path.
+        self._max_buffer = max_buffer
+        # H6: one-time signal that this instance actually reinserted a
+        # pseudonym via the unguarded restore path below (see the guard=False
+        # rationale in feed()/flush()) — fires at most once per instance, the
+        # first time a substitution really happens (not on every feed()).
+        self._warned = False
+
+    def _warn_if_substituted(self, before: str, after: str) -> None:
+        """Emit the one-time H6 SecurityWarning on the first real substitution.
+
+        ``after != before`` is the only reliable witness that ``restore``
+        actually replaced a pseudonym with its original — comparing the
+        emitted segment (not the whole buffer) so the warning fires exactly
+        when a real reinsertion happens, not on every feed()/flush() call.
+        """
+        if self._warned or after == before:
+            return
+        warnings.warn(
+            "streaming restore is unguarded — a pseudonym from untrusted "
+            "output was reinserted without provenance/scope checks",
+            SecurityWarning,
+            stacklevel=3,
+        )
+        self._warned = True
+
+    def _force_flush_split(self) -> tuple[str, str]:
+        """H7 bounded-drain: called when no sentence boundary exists AND the
+        buffer has grown past ``max_buffer``.
+
+        Flushes the whole buffer except a held-back tail that is a strict,
+        non-empty prefix of some key ``fake`` — a subsequent chunk could still
+        complete it into a real substitution target, and ``restore``'s
+        exact-substring match would otherwise fail on BOTH halves of a token
+        split mid-flush (silently corrupting the round-trip rather than
+        raising). Mirrors ``StreamingRedactor``'s straddle-snap safety (see
+        ``bounded_drain_cut`` in ``crates/argus-redact-core/src/streaming.rs``),
+        adapted to restore's exact-string keys instead of detected entity
+        spans. The held-back length is bounded by the longest fake in the key,
+        so buffer growth stays bounded to that fixed headroom instead of
+        growing without limit.
+        """
+        buffer = self._buffer
+        hold = 0
+        for fake in self._key:
+            if not fake:
+                continue
+            limit = min(len(fake) - 1, len(buffer))
+            for n in range(limit, hold, -1):
+                if buffer.endswith(fake[:n]):
+                    hold = n
+                    break
+        # Guarantee forward progress: never hold back more than max_buffer. A
+        # fake at least as long as max_buffer could otherwise make the whole
+        # buffer a held-back prefix (cut == 0) and the buffer would grow without
+        # bound — defeating H7. Since this runs only when len(buffer) > max_buffer,
+        # capping hold at max_buffer keeps cut >= 1 and bounds the buffer to
+        # max_buffer after the flush. This splits an over-long token (a fake
+        # longer than the entire buffer budget can't be preserved intact anyway),
+        # trading token integrity for the memory bound in that degenerate config.
+        hold = min(hold, self._max_buffer)
+        cut = len(buffer) - hold
+        return buffer[:cut], buffer[cut:]
 
     def feed(self, chunk: str) -> str:
         """Feed a chunk. Returns restored text based on strategy.
@@ -117,22 +194,35 @@ class StreamingRestorer:
         # stream, so per-chunk guarding is structurally impossible. This is the
         # explicit unguarded opt-out, not the fail-closed default.
         if self._strategy == "none":
-            return restore(chunk, self._key, guard=False)
+            result = restore(chunk, self._key, guard=False)
+            self._warn_if_substituted(chunk, result)
+            return result
 
         self._buffer += chunk
 
         complete, residual = _core.streaming_restorer_split(self._buffer)
         if not complete:
-            return ""
+            # H7: no sentence boundary anywhere in the buffer yet. Left
+            # unchecked this buffers the entire stream and re-scans it in
+            # full on every feed() — bound it via force-flush once it grows
+            # past max_buffer, instead of accumulating without limit.
+            if len(self._buffer) > self._max_buffer:
+                complete, residual = self._force_flush_split()
+            if not complete:
+                return ""
         self._buffer = residual
-        return restore(complete, self._key, guard=False)
+        result = restore(complete, self._key, guard=False)
+        self._warn_if_substituted(complete, result)
+        return result
 
     def flush(self) -> str:
         """Flush remaining buffer."""
         if not self._buffer:
             return ""
-        result = restore(self._buffer, self._key, guard=False)  # see feed(): no per-call anchor
+        buffer = self._buffer
+        result = restore(buffer, self._key, guard=False)  # see feed(): no per-call anchor
         self._buffer = ""
+        self._warn_if_substituted(buffer, result)
         return result
 
 
@@ -201,6 +291,11 @@ class StreamingRedactor:
         # 0 initially; ``min(prev_cut, _EVIDENCE_CONTEXT_WINDOW)`` after each emit.
         self._ctx_len: int = 0
         self._accumulated_key: dict[str, str] = {}
+        # Realistic-fake-only subset of `_accumulated_key` (excludes audit-space
+        # placeholders). Fed back as `existing_key=` to the realistic pass ONLY
+        # (see `_redact_and_merge`) so its reverse_index can never resolve a
+        # recurring original to an audit placeholder.
+        self._accumulated_realistic_key: dict[str, str] = {}
         self._accumulated_types: dict[str, str] = {}
 
     def feed(self, chunk: str) -> PseudonymLLMResult:
@@ -328,7 +423,15 @@ class StreamingRedactor:
             types_exclude=self._types_exclude,
             strict_input=self._strict_input,
             reserved_names=self._reserved_names,
-            existing_key=self._accumulated_key,
+            # Realistic-only (never the unified key): `redact_pseudonym_llm`
+            # threads `existing_key` into the REALISTIC pass alone (the audit
+            # pass always starts fresh). Feeding the unified key here would let
+            # the realistic pass's reverse_index — built by inverting
+            # existing_key, a Rust HashMap with randomized iteration order —
+            # resolve a recurring original to an audit placeholder (P-NNNNN /
+            # [TYPE-NNNNN]) instead of its realistic fake, nondeterministically
+            # leaking an audit-space token into downstream_text.
+            existing_key=self._accumulated_realistic_key,
             # ``None`` on the forced bounded-drain split → redact_pseudonym_llm
             # re-detects the bare emit slice internally (pre-rework drain safety);
             # otherwise the range-shifted full-buffer detection.
@@ -342,6 +445,15 @@ class StreamingRedactor:
         # are disjoint by construction, so collisions are impossible.
         for fake, original in result.key.items():
             self._accumulated_key.setdefault(fake, original)
+        # `result.downstream_key` (v0.8.2+) is the EXACT realistic-only key
+        # `redact_pseudonym_llm` computed internally, before it was unioned
+        # into `result.key` (the unified realistic+audit key). Using this
+        # exact source — rather than a `fake in result.downstream_text`
+        # substring heuristic — avoids both false positives (an audit
+        # placeholder that happens to be a substring of some unrelated
+        # downstream text) and false negatives.
+        for fake, original in result.downstream_key.items():
+            self._accumulated_realistic_key.setdefault(fake, original)
         for fake, t in result.types.items():
             self._accumulated_types.setdefault(fake, t)
         return result
@@ -368,6 +480,16 @@ class StreamingRedactor:
         state = {
             "version": _STATE_SCHEMA_VERSION,
             "accumulated_key": dict(self._accumulated_key),
+            # Realistic-fake-only subset of accumulated_key (see the
+            # existing_key derivation in _redact_and_merge). Additive field
+            # with a {} default in from_state
+            # — older (pre-fix) dumps load cleanly but resume with an empty
+            # realistic-only key, so an original already carried in
+            # accumulated_key from before the resume may mint a second,
+            # distinct realistic fake post-resume; no version bump needed
+            # since this only affects cross-version resume, not correctness
+            # within a single schema version.
+            "accumulated_realistic_key": dict(self._accumulated_realistic_key),
             # fake → SSOT PII type accumulated across chunks (backs aggregate_types).
             # Additive field with a {} default in from_state — older dumps load
             # cleanly, so no schema bump (same contract as inc_buffer/ctx_len).
@@ -440,6 +562,7 @@ class StreamingRedactor:
             ),
         )
         instance._accumulated_key = dict(state.get("accumulated_key", {}))
+        instance._accumulated_realistic_key = dict(state.get("accumulated_realistic_key", {}))
         instance._accumulated_types = dict(state.get("accumulated_types", {}))
         instance._inc_buffer = state.get("inc_buffer", "")
         instance._ctx_len = state.get("ctx_len", 0)

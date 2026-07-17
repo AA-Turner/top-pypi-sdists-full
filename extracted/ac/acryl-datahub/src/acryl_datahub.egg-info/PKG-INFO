@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub
-Version: 1.6.0.14
+Version: 1.6.0.15
 Summary: DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog
 Home-page: https://datahub.com/
 License-Expression: Apache-2.0

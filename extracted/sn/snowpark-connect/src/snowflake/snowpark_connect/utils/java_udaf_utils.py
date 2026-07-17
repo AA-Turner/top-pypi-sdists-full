@@ -13,7 +13,8 @@ from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     Param,
     ReturnType,
     Signature,
-    build_jvm_udxf_imports,
+    apply_inline_closure,
+    build_udxf_imports,
     gen_pre_narrow_expr,
     is_native_sql_type,
     map_type_to_java_type,
@@ -132,6 +133,10 @@ class JavaUDAFDef:
     # generated wrapper uses convertInput() instead of fromVariant() for the input.
     reduce_snowpark_type: snowpark_type.DataType | None = None
     null_handling: NullHandling = NullHandling.RETURNS_NULL_ON_NULL_INPUT
+    # Native App inline-closure mode: when set, the closure bytes are base64-embedded
+    # in the handler (via apply_inline_closure) instead of read from an IMPORTS file,
+    # and ``imports`` carries only relative version-stage JAR paths (no closure .bin).
+    inline_payload: bytes | None = None
 
     # -------------------- DDL Emitter --------------------
 
@@ -214,7 +219,7 @@ class JavaUDAFDef:
                 else "input"
             )
 
-        return (
+        body = (
             UDAF_TEMPLATE.replace("__operation_file__", self.imports[0].split("/")[-1])
             .replace("__accumulator_type__", self.java_signature.params[0].data_type)
             .replace("__value_type__", self.java_signature.params[1].data_type)
@@ -224,6 +229,7 @@ class JavaUDAFDef:
             .replace("__response_wrapper__", response_wrapper)
             .replace("__schema_json__", self.schema_json)
         )
+        return apply_inline_closure(body, self.imports, self.inline_payload)
 
     def to_create_function_sql(self) -> str:
         """
@@ -305,12 +311,15 @@ def create_java_udaf_for_reduce_scala_function(
     Returns:
         A JavaUdaf object representing the Java UDAF.
     """
+    from snowflake.snowpark_connect.config import is_native_app_mode
     from snowflake.snowpark_connect.resources_initializer import (
         ensure_scala_udf_jars_uploaded,
     )
 
-    # Make sure Scala UDF jars are uploaded before creating Java UDAFs since we depend on them.
-    ensure_scala_udf_jars_uploaded()
+    # In Native App mode the JARs live in the version stage already; skip upload.
+    if not is_native_app_mode():
+        # Make sure Scala UDF jars are uploaded before creating Java UDAFs since we depend on them.
+        ensure_scala_udf_jars_uploaded()
 
     from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 
@@ -367,7 +376,7 @@ def create_java_udaf_for_reduce_scala_function(
 
     session = get_or_create_snowpark_session()
 
-    imports = build_jvm_udxf_imports(
+    imports, inline_payload = build_udxf_imports(
         session,
         pciudf._payload,
         udf_name,
@@ -386,6 +395,7 @@ def create_java_udaf_for_reduce_scala_function(
         ),
         schema_json=schema_json,
         reduce_snowpark_type=reduce_type_dt,
+        inline_payload=inline_payload,
     )
     create_udf_sql = udf_def.to_create_function_sql()
     logger.info(

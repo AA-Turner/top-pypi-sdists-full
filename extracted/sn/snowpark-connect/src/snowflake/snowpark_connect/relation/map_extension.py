@@ -297,9 +297,13 @@ def handle_udtf_with_table_arguments(
     _udtf_obj, udtf_spark_output_names = cache.udtfs.get(udtf_name_lower)
 
     table_containers = []
+    table_sort_exprs_list = []
     for table_arg_info in udtf_info.table_arguments:
         result = map_relation(table_arg_info.table_argument)
         table_containers.append((result, table_arg_info.table_argument_idx))
+        # sortWithinPartitions ordering carried through the container, so the UDTF
+        # can see rows in the intended order via .over(order_by=...).
+        table_sort_exprs_list.append(result.sort_exprs)
 
     if len(table_containers) == 1:
         base_df = table_containers[0][0].dataframe
@@ -372,7 +376,62 @@ def handle_udtf_with_table_arguments(
         all_args.insert(table_arg_idx, table_arg_variant)
 
     udtf_func = snowpark_fn.table_function(_udtf_obj.name)
-    result_df = base_df.join_table_function(udtf_func(*all_args))
+
+    # Apply ORDER BY when the single table argument carried sort_exprs from
+    # sortWithinPartitions. This does NOT add a PARTITION BY: OSS Spark passes a
+    # UDTF's TABLE argument as a single partition unless the SQL explicitly says
+    # PARTITION BY, so ordering the single partition is what matches Spark.
+    # Multiple-table-arg UDTFs get a Cartesian product; .over() is not meaningful there.
+    # sort_exprs are stored as Spark column names + sort metadata; a projection
+    # that renames a sort key rewrites the stored name (see map_column_ops), so an
+    # aliased key still resolves here and matches Spark's preserved ordering.
+    over_kwargs: dict = {}
+    if len(table_sort_exprs_list) == 1 and table_sort_exprs_list[0]:
+        sort_info = table_sort_exprs_list[0]
+        col_map = table_containers[0][0].column_map
+        order_cols = []
+        for spark_name, direction, null_order in sort_info:
+            snp_name = col_map.get_snowpark_column_name_from_spark_column_name(
+                spark_name, allow_non_exists=True
+            )
+            if not snp_name:
+                # The sort key was physically dropped by an intervening projection
+                # before the UDTF call, so the column no longer exists on the table
+                # argument and there is nothing to ORDER BY. Unlike an alias (which
+                # we rewrite upstream), a dropped column cannot be recovered here.
+                # OSS Spark keeps the physical ordering because its Sort sits below
+                # the Project; SCOS re-applies the order at the call site, which is
+                # impossible once the column is gone. Fail loudly rather than hand a
+                # stateful UDTF rows in an arbitrary order.
+                exception = AnalysisException(
+                    f"sortWithinPartitions key {spark_name!r} was dropped by a "
+                    "projection before the UDTF table argument, so its ordering "
+                    "cannot be applied. Keep the sort column (or alias it) in the "
+                    "table argument to preserve ordering."
+                )
+                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+                raise exception
+            col = base_df.col(snp_name)
+            if direction == "asc":
+                col = (
+                    col.asc_nulls_first()
+                    if null_order == "first"
+                    else col.asc_nulls_last()
+                )
+            else:
+                col = (
+                    col.desc_nulls_first()
+                    if null_order == "first"
+                    else col.desc_nulls_last()
+                )
+            order_cols.append(col)
+        if order_cols:
+            over_kwargs["order_by"] = order_cols
+
+    udtf_call = udtf_func(*all_args)
+    if over_kwargs:
+        udtf_call = udtf_call.over(**over_kwargs)
+    result_df = base_df.join_table_function(udtf_call)
 
     # Return only the UDTF output columns
     original_column_count = len(base_df.columns)

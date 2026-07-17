@@ -4,15 +4,16 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "langchain-milvus"
-version = "0.3.3"
+version = "0.4.0"
 description = "An integration package connecting Milvus and LangChain"
 authors = []
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.10,<4.0"
 dependencies = [
-    "pymilvus>=2.6.0,<3.0",
-    "langchain-core>=1.0.0",
+    "pymilvus>=3.0.0,<4.0",
+    "milvus-lite>=3.1.0,<4.0; sys_platform != 'win32'",
+    "langchain-core>=1.4.9,<2.0.0",
 ]
 
 [project.urls]
@@ -65,9 +66,9 @@ syrupy = "^4.0.2"
 pytest-watcher = "^0.3.4"
 pytest-asyncio = "^0.21.1"
 "pymilvus.model" = "^0.3.1"
-milvus-lite = "^2.5.1"
+nltk = ">=3.9.1,<4.0"
 onnxruntime = "^1.19.2"
-langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
+langchain-core = ">=1.4.9,<2.0.0"
 
 [tool.poetry.group.codespell.dependencies]
 codespell = "^2.2.0"
@@ -83,7 +84,7 @@ ruff = "^0.1.5"
 mypy = "^1.11"
 types-requests = "^2"
 simsimd = "^5.0.0"
-langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
+langchain-core = ">=1.4.9,<2.0.0"
 
 [tool.poetry.group.dev.dependencies]
-langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
+langchain-core = ">=1.4.9,<2.0.0"

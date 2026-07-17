@@ -68,7 +68,7 @@ except ImportError:
         mysql = None
 
 
-__version__ = '4.2.3'
+__version__ = '4.2.4'
 __all__ = [
     'AnyField',
     'AsIs',
@@ -384,7 +384,7 @@ JOIN = attrdict(
     FULL_OUTER='FULL OUTER JOIN',
     CROSS='CROSS JOIN',
     NATURAL='NATURAL JOIN',
-    LATERAL='LATERAL',
+    LATERAL='JOIN LATERAL',
     LEFT_LATERAL='LEFT JOIN LATERAL')
 
 # Row representations.
@@ -1122,7 +1122,7 @@ class ValuesList(_HashableSource, BaseTable):
             ctx.alias_manager[self] = self._alias
 
         if ctx.scope == SCOPE_SOURCE or ctx.scope == SCOPE_NORMAL:
-            with ctx(parentheses=not ctx.parentheses):
+            with ctx(parentheses=(not ctx.parentheses) or ctx.state.in_expr):
                 ctx = (ctx
                        .literal('VALUES ')
                        .sql(CommaNodeList([
@@ -1463,7 +1463,7 @@ class BitwiseMixin(object):
         return self.bin_or(other)
 
     def __sub__(self, other):
-        return self.bin_and(other.bin_negated())
+        return self.bin_and(BitwiseNegated(other))
 
     def __invert__(self):
         return BitwiseNegated(self)
@@ -1554,9 +1554,10 @@ class Ordering(WrappedNode):
         if self.nulls and not ctx.state.nulls_ordering:
             ctx.sql(self._null_ordering_case(self.nulls)).literal(', ')
 
-        ctx.sql(self.node).literal(' %s' % self.direction)
+        ctx.sql(self.node)
         if self.collation:
             ctx.literal(' COLLATE %s' % self.collation)
+        ctx.literal(' %s' % self.direction)
         if self.nulls and ctx.state.nulls_ordering:
             ctx.literal(' NULLS %s' % self.nulls)
         return ctx
@@ -1574,6 +1575,8 @@ class Expression(ColumnBase):
     def __init__(self, lhs, op, rhs, flat=False):
         self.lhs = lhs
         self.op = op
+        if op in (OP.IN, OP.NOT_IN) and isinstance(rhs, types.GeneratorType):
+            rhs = tuple(rhs)
         self.rhs = rhs
         self.flat = flat
 
@@ -1603,10 +1606,8 @@ class Expression(ColumnBase):
             # the equivalent boolean expression.
             op_in = self.op == OP.IN or self.op == OP.NOT_IN
             rhs = self.rhs
-            if op_in:
-                #
-                if self._is_rhs_empty(rhs, ctx):
-                    return ctx.literal('0 = 1' if self.op == OP.IN else '1 = 1')
+            if op_in and self._is_rhs_empty(rhs, ctx):
+                return ctx.literal('0 = 1' if self.op == OP.IN else '1 = 1')
             if rhs is None and (self.op == OP.IS or self.op == OP.IS_NOT):
                 rhs = SQL('NULL')
 
@@ -1768,6 +1769,8 @@ class Window(Node):
             start = SQL(start)
         if end is not None and not isinstance(end, SQL):
             end = SQL(end)
+        if isinstance(exclude, str):
+            exclude = SQL(exclude)
 
         self.partition_by = ensure_tuple(partition_by)
         self.order_by = ensure_tuple(order_by)
@@ -2431,6 +2434,8 @@ class CompoundSelectQuery(SelectBase):
         super(CompoundSelectQuery, self).__sql__(ctx)
 
         outer_parens = ctx.subquery or (ctx.scope == SCOPE_SOURCE)
+        if ctx.state.in_function and ctx.state.function_arg_count == 1:
+            outer_parens = False
         with ctx(parentheses=outer_parens):
             # Snapshot the aliases assigned by the enclosing scope before
             # rendering either side. A correlated reference from the right-hand
@@ -2462,6 +2467,9 @@ class CompoundSelectQuery(SelectBase):
             with ctx.scope_values():
                 self._apply_ordering(ctx)
 
+        if ctx.state.in_function or (self._alias is None and (
+                ctx.state.in_expr or ctx.state.in_projection)):
+            return ctx
         return self.apply_alias(ctx)
 
 
@@ -2591,9 +2599,14 @@ class Select(SelectBase):
             ctx.literal('LATERAL ')
 
         is_subquery = ctx.subquery
+        # A real FROM/JOIN source. The SELECT-list is SCOPE_SOURCE too, but it
+        # is flagged in_projection. Value operands are SCOPE_NORMAL.
+        is_source = ctx.scope == SCOPE_SOURCE and not ctx.state.in_projection
         state = {
             'converter': None,
+            'in_expr': False,
             'in_function': False,
+            'in_projection': False,
             'parentheses': is_subquery or (ctx.scope == SCOPE_SOURCE),
             'subquery': True,
         }
@@ -2615,8 +2628,9 @@ class Select(SelectBase):
                      .sql(EnclosedNodeList(self._distinct))
                      .literal(' '))
 
-            with ctx.scope_source():
-                ctx = self.__sql_selection__(ctx, is_subquery)
+            with ctx.scope_source(in_projection=True):
+                ctx = self.__sql_selection__(ctx, is_subquery and
+                                             not is_source)
 
             if self._from_list:
                 with ctx.scope_source(parentheses=False):
@@ -2645,11 +2659,11 @@ class Select(SelectBase):
                 ctx.literal(' ')
                 ctx.sql(self._for_update)
 
-        # If the subquery is inside a function -or- we are evaluating a
-        # subquery on either side of an expression w/o an explicit alias, do
-        # not generate an alias + AS clause.
-        if ctx.state.in_function or (ctx.state.in_expr and
-                                     self._alias is None):
+        # If the subquery is inside a function, on either side of an
+        # expression, or is a SELECT-list column (not a FROM source), and has
+        # no explicit alias, do not add an alias + AS.
+        if ctx.state.in_function or (self._alias is None and (
+                ctx.state.in_expr or ctx.state.in_projection)):
             return ctx
 
         return self.apply_alias(ctx)
@@ -3840,21 +3854,23 @@ class Database(_callable_context_manager):
             items.append(NodeList((ensure_entity(k), SQL('='), v)))
         return items
 
-    def _build_on_conflict_update(self, on_conflict, query):
+    def _build_on_conflict_target(self, on_conflict):
         if on_conflict._conflict_target:
-            stmt = SQL('ON CONFLICT')
             target = EnclosedNodeList([
                 Entity(col) if isinstance(col, str) else col
                 for col in on_conflict._conflict_target])
             if on_conflict._conflict_where is not None:
                 target = NodeList([target, SQL('WHERE'),
                                    on_conflict._conflict_where])
-        else:
-            stmt = SQL('ON CONFLICT ON CONSTRAINT')
-            target = on_conflict._conflict_constraint
-            if isinstance(target, str):
-                target = Entity(target)
+            return NodeList([SQL('ON CONFLICT'), target])
+        elif on_conflict._conflict_constraint:
+            constraint = on_conflict._conflict_constraint
+            if isinstance(constraint, str):
+                constraint = Entity(constraint)
+            return NodeList([SQL('ON CONFLICT ON CONSTRAINT'), constraint])
+        return SQL('ON CONFLICT')
 
+    def _build_on_conflict_update(self, on_conflict, query):
         updates = []
         if on_conflict._preserve:
             for column in on_conflict._preserve:
@@ -3868,7 +3884,8 @@ class Database(_callable_context_manager):
             updates.extend(self._conflict_update_items(on_conflict, query,
                                                        qualify=True))
 
-        parts = [stmt, target, SQL('DO UPDATE SET'), CommaNodeList(updates)]
+        parts = [self._build_on_conflict_target(on_conflict),
+                 SQL('DO UPDATE SET'), CommaNodeList(updates)]
         if on_conflict._where:
             parts.extend((SQL('WHERE'), qualify_names(on_conflict._where)))
 
@@ -4392,7 +4409,11 @@ class SqliteDatabase(Database):
             return
 
         if action == 'nothing':
-            return SQL('ON CONFLICT DO NOTHING')
+            if oc._conflict_constraint:
+                raise ValueError('SQLite does not support specifying named '
+                                 'constraints for conflict resolution.')
+            return NodeList([self._build_on_conflict_target(oc),
+                             SQL('DO NOTHING')])
         elif not oc._update and not oc._preserve:
             raise ValueError('If you are not performing any updates (or '
                              'preserving any INSERTed values), then the '
@@ -4777,13 +4798,8 @@ class PostgresqlDatabase(Database):
     def conflict_update(self, oc, query):
         action = oc._action.lower() if oc._action else ''
         if action in ('ignore', 'nothing'):
-            parts = [SQL('ON CONFLICT')]
-            if oc._conflict_target:
-                parts.append(EnclosedNodeList([
-                    Entity(col) if isinstance(col, str) else col
-                    for col in oc._conflict_target]))
-            parts.append(SQL('DO NOTHING'))
-            return NodeList(parts)
+            return NodeList([self._build_on_conflict_target(oc),
+                             SQL('DO NOTHING')])
         elif action and action != 'update':
             raise ValueError('The only supported actions for conflict '
                              'resolution with Postgresql are "ignore" or '
@@ -6708,15 +6724,16 @@ class ManyToManyField(MetaField):
         super(ManyToManyField, self).bind(model, name, set_attribute)
 
         if not self._is_backref:
-            many_to_many_field = ManyToManyField(
-                self.model,
-                backref=name,
-                through_model=self.through_model,
-                on_delete=self._on_delete,
-                on_update=self._on_update,
-                _is_backref=True)
             self.backref = self.backref or model._meta.name + 's'
-            self.rel_model._meta.add_field(self.backref, many_to_many_field)
+            if self.backref not in '!+':
+                many_to_many_field = ManyToManyField(
+                    self.model,
+                    backref=name,
+                    through_model=self.through_model,
+                    on_delete=self._on_delete,
+                    on_update=self._on_update,
+                    _is_backref=True)
+                self.rel_model._meta.add_field(self.backref, many_to_many_field)
 
     def get_models(self):
         return [model for _, model in sorted((
@@ -8496,7 +8513,7 @@ class ModelSelect(BaseModelSelect, Select):
                 lhs_f = lhs.field if isinstance(lhs, FieldAlias) else lhs
                 if lhs_f in fk_set:
                     to_field = lhs_f
-            elif isinstance(rhs, Field):
+            if to_field is None and isinstance(rhs, Field):
                 rhs_f = rhs.field if isinstance(rhs, FieldAlias) else rhs
                 if rhs_f in fk_set:
                     to_field = rhs_f

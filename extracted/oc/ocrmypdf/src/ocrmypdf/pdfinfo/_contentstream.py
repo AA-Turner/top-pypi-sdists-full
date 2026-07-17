@@ -172,10 +172,10 @@ def _interpret_contents(
     name_index = defaultdict(lambda: [])
     found_vector = False
     found_text = False
-    vector_ops = set('S s f F f* B B* b b*'.split())
-    text_showing_ops = set("""TJ Tj " '""".split())
-    image_ops = set('BI ID EI q Q Do cm'.split())
-    color_ops = set('g rg k cs sc scn'.split())
+    vector_ops = set(['S', 's', 'f', 'F', 'f*', 'B', 'B*', 'b', 'b*'])
+    text_showing_ops = set(["TJ", "Tj", '"', "'"])
+    image_ops = set(['BI', 'ID', 'EI', 'q', 'Q', 'Do', 'cm'])
+    color_ops = set(['g', 'rg', 'k', 'cs', 'sc', 'scn'])
     operator_whitelist = ' '.join(vector_ops | text_showing_ops | image_ops | color_ops)
 
     for n, graphobj in enumerate(

@@ -232,6 +232,29 @@ def _generate_additional_property_key(existing_keys: set[str]) -> str:
     return key
 
 
+_UNEXPECTED_PROPERTY_KEYS = (UNKNOWN_PROPERTY_KEY, "schemathesis-unknown-property", "unknown-property-0")
+
+
+def _pattern_property_regexes(schema: dict) -> list[re.Pattern[str]]:
+    regexes: list[re.Pattern[str]] = []
+    for pattern in schema.get("patternProperties", {}):
+        try:
+            regexes.append(re.compile(pattern))
+        except re.error:
+            continue
+    return regexes
+
+
+def _unexpected_property_key(schema: dict, existing_keys: set[str]) -> str | None:
+    # An additional property must match neither a declared name nor any `patternProperties`
+    # pattern, otherwise it stays valid under `additionalProperties: false`.
+    patterns = _pattern_property_regexes(schema)
+    for candidate in _UNEXPECTED_PROPERTY_KEYS:
+        if candidate not in existing_keys and not any(pattern.search(candidate) for pattern in patterns):
+            return candidate
+    return None
+
+
 def _supports_format_generation(format: str, custom_formats: dict[str, st.SearchStrategy]) -> bool:
     return format in BUILT_IN_STRING_FORMATS or format in custom_formats
 
@@ -485,6 +508,8 @@ class CoverageContext:
             if cache_key is not None:
                 schema_generation_cache[cache_key] = UNSATISFIABLE_RESULT
             raise
+        if isinstance(value, list) and isinstance(schema, dict) and "contains" in schema:
+            value = _ensure_contains_bounds(self, value, schema)
         if cache_key is not None:
             schema_generation_cache[cache_key] = deepclone(value) if isinstance(value, (dict, list)) else value
         return value
@@ -890,6 +915,34 @@ def _generate_template_with_deflation_fallback(
         return ctx.generate_from_schema(deflated)
 
 
+def _ensure_contains_bounds(ctx: CoverageContext, value: list, schema: JsonSchemaObject) -> list:
+    # Generation honors `contains` (>= 1 match) but not `minContains`/`maxContains`; bring the
+    # match count within bounds by adding matches or replacing surplus ones with non-matching items.
+    contains = schema["contains"]
+    min_contains = schema.get("minContains", 1)
+    max_contains = schema.get("maxContains")
+    matching = [index for index, item in enumerate(value) if is_valid(item, contains)]
+    result = list(value)
+    if len(matching) < min_contains:
+        max_items = schema.get("maxItems")
+        non_matching = [index for index, item in enumerate(result) if not is_valid(item, contains)]
+        while len(matching) < min_contains and (non_matching or max_items is None or len(result) < max_items):
+            candidate = ctx.generate_from_schema(contains)
+            if non_matching:
+                index = non_matching.pop()
+                result[index] = candidate
+            else:
+                result.append(candidate)
+                index = len(result) - 1
+            matching.append(index)
+    elif max_contains is not None and len(matching) > max_contains:
+        items = schema.get("items")
+        filler = {"allOf": [items, {"not": contains}]} if isinstance(items, dict) else {"not": contains}
+        for index in matching[max_contains:]:
+            result[index] = ctx.generate_from_schema(filler)
+    return result
+
+
 def _cover_positive_for_type(
     ctx: CoverageContext, schema: JsonSchemaObject, ty: str | None, seen: HashSet | None = None
 ) -> Generator[GeneratedValue, None, None]:
@@ -1122,24 +1175,35 @@ def _ignore_unfixable(
 
 
 def _pick_property_name(schema: dict, existing_keys: set[str], ctx: CoverageContext) -> str | None:
-    """Return a key valid under propertyNames, or fall back to a synthetic key.
+    """Return an additional-property key: propertyNames-valid, matching no patternProperties, or None."""
+    patterns = _pattern_property_regexes(schema)
 
-    Returns None if a conforming key can't be found or propertyNames forbids all keys.
-    """
+    def is_additional(key: object) -> bool:
+        # A patternProperties match is validated against that pattern's schema, not
+        # `additionalProperties`, so such a key can't carry an additionalProperties violation.
+        return isinstance(key, str) and key not in existing_keys and not any(p.search(key) for p in patterns)
+
     property_names = schema.get("propertyNames")
     if property_names is False:
         # No property name can satisfy `false` — adding any key would be invalid.
         return None
     if isinstance(property_names, dict):
         try:
-            key = ctx.generate_from_schema(property_names)
             # Degenerate schemas (e.g. `{}`) may yield non-strings; skip rather than corrupt.
-            if isinstance(key, str) and key not in existing_keys:
-                return key
-            return None
+            key = ctx.generate_from_schema(property_names)
         except Exception:
             return None
-    return _generate_additional_property_key(existing_keys)
+        return key if is_additional(key) else None
+    fallback = _generate_additional_property_key(existing_keys)
+    if is_additional(fallback):
+        return fallback
+    return next((candidate for candidate in _UNEXPECTED_PROPERTY_KEYS[1:] if is_additional(candidate)), None)
+
+
+def _negation_ignored_by_dialect(ctx: CoverageContext, keyword: str) -> bool:
+    # Draft 4 (Swagger 2.0 / Open API 3.0) predates `const` and `propertyNames`; the dialect's
+    # validator ignores them, so mutating them cannot produce negative test cases.
+    return keyword in ("const", "propertyNames") and ctx.validator_cls is jsonschema_rs.Draft4Validator
 
 
 def cover_schema_iter(
@@ -1228,6 +1292,8 @@ def cover_schema_iter(
                 inferred_types = [to_json_type_name(schema["const"])]
         for key, value in schema.items():
             with _ignore_unfixable(), ctx.at(key):
+                if _negation_ignored_by_dialect(ctx, key):
+                    continue
                 if key == "enum":
                     yield from _negative_enum(ctx, value, seen, schema)
                     if inferred_types:
@@ -1486,8 +1552,13 @@ def cover_schema_iter(
                         template = template or _generate_template_with_deflation_fallback(
                             ctx, schema, _get_template_schema(schema, "object", ctx)
                         )
+                        unexpected_key = _unexpected_property_key(
+                            schema, set(template) | set(schema.get("properties", {}))
+                        )
+                        if unexpected_key is None:
+                            continue
                         yield NegativeValue(
-                            {**template, UNKNOWN_PROPERTY_KEY: UNKNOWN_PROPERTY_VALUE},
+                            {**template, unexpected_key: UNKNOWN_PROPERTY_VALUE},
                             scenario=CoverageScenario.OBJECT_UNEXPECTED_PROPERTIES,
                             description="Object with unexpected properties",
                             location=ctx.current_path,
@@ -2235,6 +2306,11 @@ def _positive_array(
     # Boundary and near-boundary sizes
     min_items = schema.get("minItems")
     max_items = schema.get("maxItems")
+    # `minContains` matching items must fit, so the array can never be shorter than it.
+    if "contains" in schema:
+        min_contains = schema.get("minContains", 1)
+        if min_contains > 1:
+            min_items = max(min_items or 0, min_contains)
     if min_items is not None:
         # Do not generate an array with `minItems` length, because it is already covered by `template`
         # One item more than minimum if possible
@@ -2275,6 +2351,8 @@ def _positive_array(
         and "enum" in schema["items"]
         and isinstance(schema["items"]["enum"], list)
         and max_items != 0
+        # These synthesized arrays ignore `contains`; the repaired template covers those schemas.
+        and "contains" not in schema
     ):
         # Ensure there is enough items to pass `minItems` if it is specified
         length = min_items or 1
@@ -2304,6 +2382,7 @@ def _positive_array(
         and isinstance(schema["items"], dict)
         and (min_items is None or min_items <= 1)
         and (max_items is None or max_items >= 1)
+        and "contains" not in schema
     ):
         # Single-item arrays exercise each items-schema branch individually.
         # `maxItems`-sized boundary arrays (above) repeat one shape and miss multi-branch coverage.
@@ -2319,6 +2398,17 @@ def _positive_array(
 
 
 def _positive_object(
+    ctx: CoverageContext, schema: JsonSchemaObject, template: dict
+) -> Generator[GeneratedValue, None, None]:
+    # Synthesized property combinations ignore `dependentRequired`/`dependencies`/`dependentSchemas`;
+    # drop any candidate the full schema rejects.
+    enforce_dependencies = any(key in schema for key in ("dependentRequired", "dependencies", "dependentSchemas"))
+    for generated in _iter_positive_object(ctx, schema, template):
+        if not enforce_dependencies or is_valid(generated.value, schema):
+            yield generated
+
+
+def _iter_positive_object(
     ctx: CoverageContext, schema: JsonSchemaObject, template: dict
 ) -> Generator[GeneratedValue, None, None]:
     example = schema.get("example", NOT_SET)

@@ -415,3 +415,27 @@ def merge_metadata(*metadata_dicts: dict[str, Any] | None) -> dict[str, Any]:
             result.update(metadata_dict)
 
     return result
+
+
+def enrich_span_fields(
+    metadata: dict[str, Any] | None = None,
+    tags: list[str] | None = None,
+) -> tuple[dict[str, Any], list[str]]:
+    """Fold ambient ``tracing_context()`` onto a span's own metadata/tags.
+
+    This is the single point where request-scoped enrichment is applied, so any
+    integration that opens spans through the shared substrate inherits all three
+    enrichments automatically — and a future framework cannot silently forget one.
+    Folds:
+      - global metadata (caller keys win)
+      - global tags (order-preserving, de-duplicated)
+      - ``project_name`` into ``metadata["project_name"]`` (there is no dedicated
+        wire field; a caller-supplied ``project_name`` in ``metadata`` wins)
+
+    Idempotent: safe to apply more than once across nested layers.
+    """
+    merged_metadata = merge_metadata(metadata)
+    project = get_project_name()
+    if project:
+        merged_metadata.setdefault("project_name", project)
+    return merged_metadata, merge_tags(tags)

@@ -257,6 +257,10 @@ class GlobalConfig:
         "spark.sql.caseSensitive": "false",
         "spark.sql.mapKeyDedupPolicy": "EXCEPTION",
         "spark.sql.ansi.enabled": "false",
+        # When true (and spark.sql.ansi.enabled is true), the SQL parser reads
+        # double-quoted literals ("foo") as identifiers instead of string
+        # literals. Forwarded to the JVM parser in sql_parser().
+        "spark.sql.ansi.doubleQuotedIdentifiers": "false",
         # SNOW-3317615: PySpark 3.5.6 config default is ANSI, but V1 Hive/Parquet
         # tables (used by EMR customers) bypass TableOutputResolver entirely,
         # making effective behavior LEGACY. Default to LEGACY to match actual
@@ -264,6 +268,10 @@ class GlobalConfig:
         "spark.sql.storeAssignmentPolicy": "LEGACY",
         "spark.sql.legacy.allowHashOnMapType": "false",
         "spark.sql.legacy.negativeIndexInArrayInsert": "false",
+        # When true (and spark.sql.ansi.enabled is false), size()/cardinality()
+        # return -1 for null input (Hive-compatible). Otherwise they return null.
+        # array_size() always returns null for null input regardless of this.
+        "spark.sql.legacy.sizeOfNull": "true",
         "spark.sql.sources.default": "parquet",
         "spark.Catalog.databaseFilterInformationSchema": "false",
         "spark.sql.parser.quotedRegexColumnNames": "false",
@@ -337,6 +345,14 @@ class GlobalConfig:
         # (default), unknown keys return None silently and a telemetry event is
         # emitted instead, allowing us to observe impact before enabling the BCR.
         "snowpark.connect.config.raiseForUnknownKeys": "false",
+        # Master switch for SNOW-3585737 (java.time-based datetime UDF fallback +
+        # Spark-faithful datetime format validation). When true, patterns that
+        # Snowflake's TO_CHAR/TO_TIMESTAMP cannot reproduce are routed through the
+        # DatetimeFormatUdfs Java UDF, and formats are validated as Spark would.
+        # When false (default), both behaviors revert to the native
+        # TO_CHAR/TO_TIMESTAMP mapping that predates the feature branch.
+        # Defaulted off as a BCR mode 3
+        "snowpark.connect.useUdfForUnsupportedDateTimeFormats": "false",
         # SNOW-3585745 BCR: when false (default), cast(string → LongType) uses
         # the DOUBLE intermediate (lossy near Long.MIN/MAX). When true,
         # uses a DecimalType(38,18) intermediate for full 19-digit precision.
@@ -357,6 +373,24 @@ class GlobalConfig:
         # 2000-2099 window. When false (default), TWO_DIGIT_CENTURY_START is
         # left untouched.
         "snowpark.connect.use2000AsTwoDigitCenturyStart": "false",
+        # SNOW-3585769: from_json requires a STRING (or untyped NULL) input. When
+        # true (default), a non-string input (ARRAY/STRUCT/MAP or scalar non-string)
+        # is rejected at analysis time with DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE,
+        # matching Spark. When false, that check is skipped and the input falls
+        # through to the legacy TRY_PARSE_JSON path (which returned NULL rather than
+        # erroring) -- an escape hatch for workloads that relied on the old behavior.
+        "snowpark.connect.enableInputTypeCheckForFromJsonFunction": "true",
+        # Native app: when set to "DB.SCHEMA" (or a bare "SCHEMA"), SCOS creates
+        # its temp objects (tables, stages, file formats, built-in UDFs) in that
+        # precreated schema instead of the session's current schema.  Needed when
+        # the current schema inside the app is not writable.
+        # None (default) => use the session's current database/schema.
+        "snowpark.connect.temp_object_schema": None,
+        # Native app mode: when "true", SCOS creates its Java UDF helper proc in a
+        # runtime-created versioned schema (__SCOS_JAVA_RUNTIME) using relative
+        # IMPORTS paths that resolve against the app's version stage root.
+        # The app provider must bundle the SCOS JARs there.
+        "snowpark.connect.native_app_mode": "false",
     }
 
     boolean_config_list = [
@@ -369,8 +403,10 @@ class GlobalConfig:
         "snowpark.connect.parquet.useLogicalType",
         "snowpark.connect.parquet.useServerInferredSchemaOnly",
         "spark.sql.ansi.enabled",
+        "spark.sql.ansi.doubleQuotedIdentifiers",
         "spark.sql.legacy.allowHashOnMapType",
         "spark.sql.legacy.negativeIndexInArrayInsert",
+        "spark.sql.legacy.sizeOfNull",
         "spark.Catalog.databaseFilterInformationSchema",
         "spark.sql.parser.quotedRegexColumnNames",
         "snowflake.repartition.for.writes",
@@ -390,6 +426,8 @@ class GlobalConfig:
         "snowpark.connect.cast.stringToIntegralHighPrecision",
         "snowpark.connect.aggregate.coerceStringToNumeric",
         "snowpark.connect.use2000AsTwoDigitCenturyStart",
+        "snowpark.connect.enableInputTypeCheckForFromJsonFunction",
+        "snowpark.connect.native_app_mode",
     ]
 
     int_config_list = [
@@ -549,11 +587,14 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "spark.sql.parquet.inferTimestampNTZ.enabled",
     "snowpark.connect.io.validations.mode",
     "spark.sql.iceberg.merge-schema",
+    "spark.wap.branch",
     "snowpark.connect.read.anchorStagePaths",
     "snowpark.connect.read.hivePartitionPruning",
     "snowpark.connect.large_query_breakdown.enabled",
     "snowpark.connect.large_query_breakdown.complexity_lower_bound",
     "snowpark.connect.large_query_breakdown.complexity_upper_bound",
+    "snowpark.connect.useUdfForUnsupportedDateTimeFormats",
+    "snowpark.connect.enableInputTypeCheckForFromJsonFunction",
     "spark.sql.columnNameOfCorruptRecord",
     # SNOW-3674169: Spark's read-side partition-bytes hint; SCOS uses it as a
     # session-scoped default for Iceberg ``TARGET_FILE_SIZE`` on subsequent
@@ -1333,6 +1374,12 @@ def is_add_debug_info_to_query_tag_enabled() -> bool:
     return global_config.snowpark_connect_addDebugInfoToQueryTag
 
 
+def is_use_udf_for_unsupported_datetime_formats_enabled() -> bool:
+    return str_to_bool(
+        global_config.snowpark_connect_useUdfForUnsupportedDateTimeFormats
+    )
+
+
 def is_cte_optimization_enabled_for_connect_version(
     snowpark_session: snowpark.Session,
 ) -> bool:
@@ -1437,6 +1484,71 @@ def external_table_location() -> Optional[str]:
     )
 
 
+def _split_qualified_identifier(value: str) -> list:
+    """Split ``DB.SCHEMA`` on unquoted dots, preserving quoted components."""
+    parts: list = []
+    cur = ""
+    in_quote = False
+    for ch in value.strip():
+        if ch == '"':
+            in_quote = not in_quote
+            cur += ch
+        elif ch == "." and not in_quote:
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    parts.append(cur)
+    return [p for p in parts if p != ""]
+
+
+def get_temp_object_location(session: snowpark.Session) -> Optional[list]:
+    """Return ``[db, schema]`` (or ``[catalog, db, schema]``) from
+    ``snowpark.connect.temp_object_schema``, or ``None`` if unset.
+
+    Callers must resolve once at object-creation time and carry the bound name
+    through all later operations — never re-resolve to reference an existing object.
+    """
+    raw = global_config.get("snowpark.connect.temp_object_schema", None)
+    if not raw:
+        return None
+    parts = _split_qualified_identifier(raw)
+    if len(parts) == 1:
+        # SCHEMA only — prepend current database
+        return [session.get_current_database(), parts[0]]
+    elif len(parts) == 2:
+        # DATABASE.SCHEMA
+        return [parts[0], parts[1]]
+    elif len(parts) == 3:
+        # CATALOG.DATABASE.SCHEMA (Iceberg / Unity Catalog)
+        return [parts[0], parts[1], parts[2]]
+    else:
+        exception = ValueError(
+            "snowpark.connect.temp_object_schema must be 'SCHEMA', "
+            f"'DATABASE.SCHEMA', or 'CATALOG.DATABASE.SCHEMA', got: {raw!r}"
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+
+def qualify_temp_object_name(session: snowpark.Session, bare_name: str) -> list:
+    """Name parts for a SCOS temp object.
+
+    ``[database, schema, bare_name]`` when ``temp_object_schema`` is set, else
+    ``[bare_name]`` (current-schema resolution). Pass to Snowpark APIs that
+    accept a name list, or join with '.' for raw SQL.
+    """
+    loc = get_temp_object_location(session)
+    if loc is None:
+        return [bare_name]
+    return [*loc, bare_name]
+
+
+def qualify_temp_object_name_str(session: snowpark.Session, bare_name: str) -> str:
+    """Dot-joined variant of :func:`qualify_temp_object_name` for raw SQL."""
+    return ".".join(qualify_temp_object_name(session, bare_name))
+
+
 def parse_imports(
     session: snowpark.Session, imports: str | None, language: str
 ) -> None:
@@ -1449,6 +1561,11 @@ def parse_imports(
 
         set_java_udf_creator_initialized_state(False)
 
+    if is_native_app_mode() and language == "java":
+        # Java imports are version-stage relative paths resolved inside the helper
+        # proc's IMPORTS clause; session.add_import() would treat them as local
+        # filesystem paths → FileNotFoundError.  Python imports are unaffected.
+        return
     for udf_import in imports.strip("[] ").split(","):
         udf_import = udf_import.strip()
         if udf_import:
@@ -1602,6 +1719,17 @@ def is_aggregate_string_coercion_enabled() -> bool:
     return str_to_bool(
         global_config.get("snowpark.connect.aggregate.coerceStringToNumeric", "true")
     )
+
+
+def is_native_app_mode() -> bool:
+    """True when SCOS is running inside a Snowflake Native App.
+
+    In native app mode ``create_java_udf`` auto-creates a runtime versioned schema
+    (``__SCOS_JAVA_RUNTIME``) and uses relative IMPORTS paths so the helper
+    proc is compatible with the versioned-schema IMPORTS restriction (093023).
+    The app provider must bundle the SCOS JARs in the app's version stage.
+    """
+    return str_to_bool(global_config.get("snowpark.connect.native_app_mode", "false"))
 
 
 def is_dynamic_partition_overwrite_enabled() -> bool:

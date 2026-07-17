@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bernstein"
-version = "3.4.4"
+version = "3.5.0"
 description = "Audit-grade multi-agent orchestration for CLI coding agents (Claude Code, Codex, Gemini CLI, and 40 more): HMAC-chained audit log, signed agent cards, per-artefact lineage, air-gap deploy. The orchestrator your compliance team will sign off on."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -65,7 +65,7 @@ dependencies = [
     "opentelemetry-api>=1.41.1",
     "opentelemetry-sdk>=1.41.1",
     "opentelemetry-exporter-otlp>=1.41.1",
-    "pillow>=12.1.1",
+    "pillow>=12.3.0",
     "pyfiglet>=1.0",
     "terminaltexteffects>=0.11",
     "websockets>=14.0",

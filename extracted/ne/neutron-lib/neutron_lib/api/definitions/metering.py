@@ -16,6 +16,11 @@ from neutron_lib.api import converters
 from neutron_lib import constants
 from neutron_lib.db import constants as db_const
 from neutron_lib.services.qos import constants as qos_consts
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 METERING_LABELS = 'metering_labels'
@@ -28,7 +33,7 @@ NAME = 'Neutron Metering'
 API_PREFIX = ''
 DESCRIPTION = 'Neutron Metering extension.'
 UPDATED_TIMESTAMP = '2013-06-12T10:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     METERING_LABELS: {
         'id': {
             'allow_post': False, 'allow_put': False,
@@ -103,8 +108,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         }
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

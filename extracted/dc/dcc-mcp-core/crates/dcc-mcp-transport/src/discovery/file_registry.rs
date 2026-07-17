@@ -16,7 +16,9 @@ use sysinfo::{Pid, ProcessesToUpdate, System};
 use tracing;
 use uuid::Uuid;
 
-use super::types::{GATEWAY_SENTINEL_DCC_TYPE, ServiceEntry, ServiceKey, ServiceStatus};
+use super::types::{
+    GATEWAY_SENTINEL_DCC_TYPE, ServiceEntry, ServiceKey, ServiceSnapshot, ServiceStatus,
+};
 use crate::error::{TransportError, TransportResult};
 
 /// Return `true` when `pid` refers to a currently running OS process.
@@ -232,6 +234,9 @@ pub struct FileRegistry {
     /// uniqueness in the temp path. Cross-process writers are serialized by
     /// `services.lock`.
     write_lock: Mutex<()>,
+    /// Number of durable write transactions committed by this handle.
+    #[cfg(test)]
+    committed_write_transactions: std::sync::atomic::AtomicUsize,
     /// Maximum time a write transaction may wait for the in-process mutex and
     /// cross-process `services.lock` before returning an observable error.
     write_lock_timeout: Duration,
@@ -263,6 +268,8 @@ impl FileRegistry {
             sentinel_handles: DashMap::new(),
             last_mtime: Mutex::new(None),
             write_lock: Mutex::new(()),
+            #[cfg(test)]
+            committed_write_transactions: std::sync::atomic::AtomicUsize::new(0),
             write_lock_timeout,
             write_lock_backoff: write_lock_backoff.max(Duration::from_millis(1)),
         };
@@ -415,6 +422,9 @@ impl FileRegistry {
                     self.rollback_failed_transaction(&baseline, &baseline_owned_sentinels);
                     return Err(err);
                 }
+                #[cfg(test)]
+                self.committed_write_transactions
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
             Ok(value)
         })();
@@ -619,25 +629,47 @@ impl FileRegistry {
     /// Deregister a service by key.
     pub fn deregister(&self, key: &ServiceKey) -> TransportResult<Option<ServiceEntry>> {
         self.with_write_transaction(|| {
-            let removed = self.services.remove(key).map(|(_, entry)| entry);
-            if let Some((_, file)) = self.sentinel_handles.remove(key) {
-                let _ = file.unlock();
-            }
-            if let Some(entry) = &removed
-                && let Some(path) = &entry.sentinel_path
-            {
-                let _ = fs::remove_file(path);
-            }
-            if removed.is_some() {
-                tracing::info!(
-                    dcc_type = %key.dcc_type,
-                    instance_id = %key.instance_id,
-                    "deregistered service"
-                );
-            }
+            let removed = self.remove_entry(key);
             let changed = removed.is_some();
             Ok((removed, changed))
         })
+    }
+
+    /// Deregister an asynchronously observed row only if its owner has not refreshed it.
+    pub fn deregister_if_unchanged(
+        &self,
+        observed: &ServiceEntry,
+    ) -> TransportResult<Option<ServiceEntry>> {
+        let key = observed.key();
+        self.with_write_transaction(|| {
+            let unchanged = self.services.get(&key).is_some_and(|current| {
+                current.registered_at == observed.registered_at
+                    && current.last_heartbeat == observed.last_heartbeat
+            });
+            let removed = unchanged.then(|| self.remove_entry(&key)).flatten();
+            let changed = removed.is_some();
+            Ok((removed, changed))
+        })
+    }
+
+    fn remove_entry(&self, key: &ServiceKey) -> Option<ServiceEntry> {
+        let removed = self.services.remove(key).map(|(_, entry)| entry);
+        if let Some((_, file)) = self.sentinel_handles.remove(key) {
+            let _ = file.unlock();
+        }
+        if let Some(entry) = &removed
+            && let Some(path) = &entry.sentinel_path
+        {
+            let _ = fs::remove_file(path);
+        }
+        if removed.is_some() {
+            tracing::info!(
+                dcc_type = %key.dcc_type,
+                instance_id = %key.instance_id,
+                "deregistered service"
+            );
+        }
+        removed
     }
 
     /// Get a service entry by key.
@@ -736,7 +768,8 @@ impl FileRegistry {
         })
     }
 
-    /// Release a pool lease. When `owner` is supplied it must match the holder.
+    /// Release a pool lease only when `owner` matches the current holder.
+    /// Missing owner metadata never clears an active lease.
     pub fn release_lease(
         &self,
         key: &ServiceKey,
@@ -745,7 +778,7 @@ impl FileRegistry {
         self.with_write_transaction(|| {
             let released = if let Some(mut entry) = self.services.get_mut(key) {
                 let owner_matches = owner
-                    .is_none_or(|expected| entry.value().lease_owner.as_deref() == Some(expected));
+                    .is_some_and(|expected| entry.value().lease_owner.as_deref() == Some(expected));
                 if owner_matches && entry.value().lease_owner.is_some() {
                     entry.value_mut().clear_lease();
                     Some(entry.value().clone())
@@ -771,29 +804,54 @@ impl FileRegistry {
         scene: Option<&str>,
         version: Option<&str>,
     ) -> TransportResult<bool> {
+        self.update_snapshot(
+            key,
+            ServiceSnapshot {
+                scene,
+                version,
+                ..ServiceSnapshot::default()
+            },
+        )
+    }
+
+    /// Apply live service metadata and refresh its heartbeat in one write transaction.
+    pub fn update_snapshot(
+        &self,
+        key: &ServiceKey,
+        snapshot: ServiceSnapshot<'_>,
+    ) -> TransportResult<bool> {
         self.with_write_transaction(|| {
-            let found = if let Some(mut entry) = self.services.get_mut(key) {
-                let e = entry.value_mut();
-                if let Some(s) = scene {
-                    e.scene = if s.is_empty() {
-                        None
-                    } else {
-                        Some(s.to_string())
-                    };
-                }
-                if let Some(v) = version {
-                    e.version = if v.is_empty() {
-                        None
-                    } else {
-                        Some(v.to_string())
-                    };
-                }
-                e.touch(); // also refresh heartbeat
-                true
-            } else {
-                false
+            let Some(mut entry) = self.services.get_mut(key) else {
+                return Ok((false, false));
             };
-            Ok((found, found))
+            let entry = entry.value_mut();
+            if let Some(scene) = snapshot.scene {
+                entry.scene = (!scene.is_empty()).then(|| scene.to_string());
+            }
+            if let Some(version) = snapshot.version {
+                entry.version = (!version.is_empty()).then(|| version.to_string());
+            }
+            if let Some(documents) = snapshot.documents {
+                entry.documents = documents
+                    .iter()
+                    .filter(|document| !document.is_empty())
+                    .cloned()
+                    .collect();
+            }
+            if let Some(display_name) = snapshot.display_name {
+                entry.display_name = (!display_name.is_empty()).then(|| display_name.to_string());
+            }
+            if let Some(metadata) = snapshot.metadata {
+                for (name, value) in metadata {
+                    if value.is_empty() {
+                        entry.metadata.remove(name);
+                    } else {
+                        entry.metadata.insert(name.clone(), value.clone());
+                    }
+                }
+            }
+            entry.touch();
+            Ok((true, true))
         })
     }
 
@@ -820,41 +878,15 @@ impl FileRegistry {
         documents: &[String],
         display_name: Option<&str>,
     ) -> TransportResult<bool> {
-        self.with_write_transaction(|| {
-            let found = if let Some(mut entry) = self.services.get_mut(key) {
-                let e = entry.value_mut();
-
-                if let Some(doc) = active_document {
-                    e.scene = if doc.is_empty() {
-                        None
-                    } else {
-                        Some(doc.to_string())
-                    };
-                }
-
-                // Always replace the documents list (caller owns the authoritative set).
-                e.documents = documents
-                    .iter()
-                    .filter(|d| !d.is_empty())
-                    .cloned()
-                    .collect();
-
-                if let Some(name) = display_name {
-                    e.display_name = if name.is_empty() {
-                        None
-                    } else {
-                        Some(name.to_string())
-                    };
-                }
-
-                e.touch();
-                true
-            } else {
-                false
-            };
-
-            Ok((found, found))
-        })
+        self.update_snapshot(
+            key,
+            ServiceSnapshot {
+                scene: active_document,
+                documents: Some(documents),
+                display_name,
+                ..ServiceSnapshot::default()
+            },
+        )
     }
 
     /// Merge arbitrary string metadata for a service and refresh heartbeat.
@@ -867,24 +899,13 @@ impl FileRegistry {
         key: &ServiceKey,
         metadata: &std::collections::HashMap<String, String>,
     ) -> TransportResult<bool> {
-        self.with_write_transaction(|| {
-            let found = if let Some(mut entry) = self.services.get_mut(key) {
-                let e = entry.value_mut();
-                for (name, value) in metadata {
-                    if value.is_empty() {
-                        e.metadata.remove(name);
-                    } else {
-                        e.metadata.insert(name.clone(), value.clone());
-                    }
-                }
-                e.touch();
-                true
-            } else {
-                false
-            };
-
-            Ok((found, found))
-        })
+        self.update_snapshot(
+            key,
+            ServiceSnapshot {
+                metadata: Some(metadata),
+                ..ServiceSnapshot::default()
+            },
+        )
     }
 
     /// Set the OS process ID for a registered service.

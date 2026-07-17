@@ -9064,6 +9064,9 @@ class Futures(System.Object):
         HANG_SENG: str = "HSI"
         """Hang Seng Index"""
 
+        KOSPI_200: str = "KM"
+        """KOSPI 200 Index Futures"""
+
         MICRO_SP_500_E_MINI: str = "MES"
         """Micro E-mini S&P 500 Index Futures"""
 

@@ -101,6 +101,22 @@ def sql_parser():
             "spark.sql.session.timeZone", str(session_tz)
         )
 
+    # Double-quoted-identifier parsing is a parser-level decision: the JVM
+    # parser computes ``doubleQuotedIdentifiers = ansiEnabled &&
+    # DOUBLE_QUOTED_IDENTIFIERS`` at parse time (SQLConf.scala), so both configs
+    # must be forwarded for ``spark.sql.ansi.doubleQuotedIdentifiers`` to take
+    # effect and parse ``"foo"`` as an identifier rather than a string literal.
+    # Always set (not conditionally) so a prior request on this thread can't
+    # leak stale state into the current parse.
+    _get_sql_conf().get().setConfString(
+        "spark.sql.ansi.enabled",
+        "true" if global_config.spark_sql_ansi_enabled else "false",
+    )
+    _get_sql_conf().get().setConfString(
+        "spark.sql.ansi.doubleQuotedIdentifiers",
+        "true" if global_config.spark_sql_ansi_doubleQuotedIdentifiers else "false",
+    )
+
     # Forward count-related legacy configs to JVM parser
     allow_parameterless_count = global_config.get(
         "spark.sql.legacy.allowParameterlessCount"

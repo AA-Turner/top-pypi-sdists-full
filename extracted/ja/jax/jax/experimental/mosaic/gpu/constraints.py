@@ -21,13 +21,12 @@ from collections.abc import Sequence
 import dataclasses
 import enum
 import math
-from typing import Any, TYPE_CHECKING, assert_never, cast, final
+from typing import Any, TYPE_CHECKING, Literal, assert_never, cast, final
 
 import numpy as np
 
 from . import dialect_lowering as lowering
 from . import fragmented_array as fa
-from . import inference_utils
 from . import launch_context as lc
 from . import layouts as layouts_lib
 from . import tcgen05
@@ -87,18 +86,37 @@ class TMEMLayout:
     return f"C({self.value})"
 
 
+Swizzle = Literal[32, 64, 128] | None
+
+
 @dataclasses.dataclass(frozen=True)
 class SMEMTransforms:
   """Wraps known SMEM transforms.
 
   If an SMEM reference may, in principle, have transforms but should not be
   tiled, then `tiling` is `None`.
+
+  Attributes:
+    tiling: The tiling transform.
+    swizzle: The swizzle pattern length in bytes. Note that it may not
+      correspond to the trailing dimension of the provided `tiling`, since these
+      expressions may be transposed (swizzle is not transposed along with
+      tiling). A `None` swizzle means no swizzling.
+
   """
 
   tiling: lc.TileTransform | None
+  swizzle: Swizzle
+
+  def __post_init__(self):
+    if self.swizzle and self.swizzle not in {32, 64, 128}:
+      raise ValueError(
+          f"Swizzle {self.swizzle} is not supported. Only 32, 64 and 128 are"
+          " accepted."
+      )
 
   def __str__(self):
-    return f"C({self.tiling})"
+    return f"C({self.tiling}, {self.swizzle})"
 
 
 Constant = RegisterLayout | TMEMLayout | SMEMTransforms
@@ -248,9 +266,9 @@ def reduce_transpose_expression(
   match reduced_expr:
     case Unsatisfiable():
       return Unsatisfiable()
-    case SMEMTransforms(tiling=tile_transform):
+    case SMEMTransforms(tiling=tile_transform, swizzle=swizzle):
       if tile_transform is None:
-        return SMEMTransforms(None)
+        return SMEMTransforms(None, swizzle)
       tiling = tile_transform.tiling
       permutation = transpose.permutation
       tiling_offset = len(permutation) - len(tiling)
@@ -262,7 +280,7 @@ def reduce_transpose_expression(
       if any(dim < tiling_offset for dim in permutation[-len(tiling) :]):
         return Unsatisfiable()
       new_tiling = tuple(tiling[dim - tiling_offset] for dim in permutation[-len(tiling):])
-      return SMEMTransforms(lc.TileTransform(new_tiling))
+      return SMEMTransforms(lc.TileTransform(new_tiling), swizzle)
     case _:
       return Transpose(expression=reduced_expr, permutation=transpose.permutation)
 
@@ -312,9 +330,9 @@ def reduce_collapse_shape_expression(
   match reduced_expr:
     case Unsatisfiable():
       return Unsatisfiable()
-    case SMEMTransforms(tiling=tile_transform):
+    case SMEMTransforms(tiling=tile_transform, swizzle=swizzle):
       if tile_transform is None:
-        return SMEMTransforms(None)
+        return reduced_expr
       tiling = tile_transform.tiling
       rev_tiling_to_process = list(tiling)[::-1]
       rev_shape_to_process = expr.source_shape[-len(tiling):][::-1]
@@ -363,7 +381,7 @@ def reduce_collapse_shape_expression(
       assert not rev_tiling_to_process
       assert not rev_shape_to_process
       new_tiling = tuple(rev_new_tiling[::-1])
-      return SMEMTransforms(lc.TileTransform(tuple(new_tiling)))
+      return SMEMTransforms(lc.TileTransform(tuple(new_tiling)), swizzle)
     case Constant():
       raise NotImplementedError(
           "CollapseShape is only implemented for variables in SMEM")
@@ -664,44 +682,45 @@ class IsTransferableSmemRegisters(IsTransferable):
 
   def _is_supported_smem_transfer(
       self,
-      smem_layout: lc.TileTransform | None,
+      smem_layout: SMEMTransforms,
       reg_layout: fa.FragmentedLayout,
   ) -> bool:
+    tiling_transform = smem_layout.tiling
+    swizzle = smem_layout.swizzle
+
     if not isinstance(reg_layout, fa.TiledLayout):
-      return smem_layout is None
+      return tiling_transform is None and swizzle is None
     if len(self.strides) < 2:
       smem_transposed = False
     else:
       smem_transposed = self.strides[-1] > self.strides[-2]
-    tiling = smem_layout.tiling if smem_layout is not None else ()
+    tiling = tiling_transform.tiling if tiling_transform is not None else ()
     tiling_rank = len(tiling)
+
+    is_untiled = tiling_rank == 0
+    # If `tiling_rank` is 0, then we tile by the shape. This is the logic that
+    # is implemented in `load_untiled` and `store_untiled`.
+    if is_untiled:
+      tiling = self.shape
+      tiling_rank = len(tiling)
+
     # TODO(bchetioui): move this below the UNOPTIMIZED check once it is
     # possible to do so.
     if smem_transposed:
       regs_transposed = reg_layout in {fa.TCGEN05_TRANSPOSED_LAYOUT, fa.WGMMA_TRANSPOSED_LAYOUT}
+      # TODO(olechwierowicz): Lift restriction on 2D tiling rank enforcement below.
       return tiling_rank == 2 and regs_transposed
     # For a given `TiledLayout`, all transfers are possible if optimization is
     # not required.
     if self.optimized == OptimizedTransferKind.UNOPTIMIZED:
       return True
 
-    if tiling_rank == 0 and self.optimized == OptimizedTransferKind.DOWNGRADABLE:
+    if is_untiled and self.optimized == OptimizedTransferKind.DOWNGRADABLE:
       # Model the Pallas behavior of downgrading to unoptimized transfers in
       # this case.
       return True
 
-    # If `tiling_rank` is 0, then we tile by the shape. This is the logic that
-    # is implemented in `load_untiled` and `store_untiled`.
-    if tiling_rank == 0:
-      tiling = self.shape
-      tiling_rank = len(tiling)
-      tiled_strides = lowering.tile_strides(self.strides, tiling)
-      # Mirrors the logic in `swap_p` and `get_p` lowering, in the untiled case.
-      swizzle = 16
-    else:
-      tiled_strides = lowering.tile_strides(self.strides, tiling)
-      minor_tiling = tiling[np.argmin(tiled_strides[-len(tiling):])]
-      swizzle = inference_utils.compute_swizzle(minor_tiling, self.bitwidth)
+    tiled_strides = lowering.tile_strides(self.strides, tiling)
 
     first_tiled_dim = len(self.shape) - tiling_rank
     nested_ref_shape = tuple(
@@ -719,16 +738,16 @@ class IsTransferableSmemRegisters(IsTransferable):
 
     try:
       fa.plan_tiled_transfer(nested_ref_shape, nested_ref_strides,
-                             reg_layout, self.bitwidth, swizzle)
+                             reg_layout, self.bitwidth, swizzle or 16)
       return True
     except fa.TransferPlanDerivationError:
       return False
 
   def _constant_holds(self) -> bool:
     match self.source, self.target:
-      case SMEMTransforms(tiling=src), RegisterLayout(value=dst):
+      case SMEMTransforms() as src, RegisterLayout(value=dst):
         return self._is_supported_smem_transfer(src, dst)
-      case RegisterLayout(value=src), SMEMTransforms(tiling=dst):
+      case RegisterLayout(value=src), SMEMTransforms() as dst:
         return self._is_supported_smem_transfer(dst, src)
       case _:
         raise ValueError(
@@ -886,10 +905,12 @@ class IsValidMmaTiling(_BaseConstraint):
     match self.expr:
       case SMEMTransforms(tiling=None):
         return False
-      case SMEMTransforms(tiling=lc.TileTransform(tiling=t)):
-        swizzles = [16, 32, 64, 128] if self.allow_unswizzled else [32, 64, 128]
-        valid_tilings = {(8, s * 8 // self.bitwidth) for s in swizzles}
-        return t in valid_tilings
+      case SMEMTransforms(tiling=lc.TileTransform(tiling=t), swizzle=None):
+        no_swizzle = 16
+        return self.allow_unswizzled and t == (8, no_swizzle * 8 // self.bitwidth)
+      case SMEMTransforms(tiling=lc.TileTransform(tiling=t), swizzle=swizzle):
+        assert swizzle is not None  # satisfy the type checker
+        return t == (8, swizzle * 8 // self.bitwidth)
       case RegisterLayout() | TMEMLayout() | SMEMTransforms():
         raise ValueError(f"Unexpected value {self.expr} in IsValidMmaTiling constraint")
       case _ as never:
@@ -1188,6 +1209,30 @@ def saturate_distinct_from_splat(
   return constraint_system & ConstraintSystem(constraints=new_constraints)
 
 
+def canonicalize_strict_non_splat_relayouts_to_equals(
+    constraint_system: ConstraintSystem,
+) -> ConstraintSystem:
+  """Replaces strict relayouts from non-splat sources with Equals constraints.
+
+  If we have `Relayout(source, target, strict=True)`, and `source` is known to
+  be non-splat, then the only valid strict relayout is the identity. Thus,
+  `source` must be equal to `target`.
+  """
+  non_splat = non_splat_variables(constraint_system.constraints)
+  new_constraints: list[Constraint] = []
+  for constraint in constraint_system.constraints:
+    match constraint:
+      case Relayout(
+          source=Variable() as source, target=target, strict=True
+      ) if source in non_splat:
+        new_constraints.append(Equals(source, target))
+      case _:
+        new_constraints.append(constraint)
+  return ConstraintSystem(
+      assignments=constraint_system.assignments, constraints=new_constraints
+  )
+
+
 def compute_transitively_equal_vars(
     system: ConstraintSystem,
 ) -> dict[Variable, list[Variable]]:
@@ -1309,11 +1354,46 @@ def _is_valid_register_layout_assignment(
 
 
 def _is_valid_smem_layout_assignment(
-    shape: tuple[int, ...], tiling: lc.TileTransform
+    var: Variable, swizzle: int | None, tiling: lc.TileTransform | None
 ) -> bool:
+  assert var.memory_space == MemorySpace.SMEM
+  if tiling and not tiling.tiling:
+    raise NotImplementedError("Empty tiling unsupported")
+  # Scalar in SMEM is only valid if it's unswizzled and untiled.
+  if not var.shape:
+    return tiling is None and swizzle is None
+
+  ref_ty = var.key.value.type
+  strides, _ = ref_ty.get_strides_and_offset()
+
+  min_stride = np.min(strides)
+  if min_stride != 1:
+    raise NotImplementedError("We cannot apply swizzle to non-contiguous refs")
+
+  bitwidth = utils.bitwidth(ref_ty.element_type)
+  swizzle_elems = 8 * swizzle // bitwidth if swizzle is not None else None
+  duplicated_strides = strides.count(min_stride) > 1
+  if tiling is None:
+    # No swizzle and no tiling means it's always a valid assignment.
+    if swizzle_elems is None:
+      return True
+    if duplicated_strides:
+      return swizzle_elems is None
+    # Otherwise, swizzle exist and we're dealing with non-scalar.
+    # We check the divisibility of the minor most dim.
+    minor_dim_index = np.argmin(strides)
+    assert var.shape
+    return var.shape[minor_dim_index] % swizzle_elems == 0
+  tiling_v = tiling.tiling
   try:
     # `tiling.transform_shape` will raise if the shape is not tileable.
-    _ = tiling.transform_shape(shape)
+    _ = tiling.transform_shape(var.shape)
+    if duplicated_strides:
+      return swizzle_elems is None
+    tiled_strides = lowering.tile_strides(strides, tiling_v)
+    minor_tiling_dim_index = np.argmin(tiled_strides[-len(tiling_v):])
+    if swizzle_elems:
+      return tiling.tiling[minor_tiling_dim_index] % swizzle_elems == 0
   except ValueError:
     return False
   return True
@@ -1338,11 +1418,9 @@ def is_valid_assignment(var: Variable, layout: Constant) -> bool:
     case TMEMLayout(value=tmem_layout):
       assert var.memory_space == MemorySpace.TMEM
       return _is_valid_tmem_layout_assignment(var.shape, tmem_layout)
-    case SMEMTransforms(tiling=tiling):
+    case SMEMTransforms(tiling=tiling, swizzle=swizzle):
       assert var.memory_space == MemorySpace.SMEM
-      if tiling is None:
-        return True
-      return _is_valid_smem_layout_assignment(var.shape, tiling)
+      return _is_valid_smem_layout_assignment(var, swizzle, tiling)
     case _:
       raise ValueError(f"Unsupported layout type: {type(layout)}")
 

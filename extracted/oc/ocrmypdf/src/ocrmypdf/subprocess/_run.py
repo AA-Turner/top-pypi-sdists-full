@@ -131,7 +131,7 @@ def _fix_process_args(
         args = fix_windows_args(program, args, env)
 
     log.debug("Running: %s", args)
-    process_log = log.getChild(os.path.basename(program))
+    process_log = log.getChild(Path(program).name)
     text = bool(kwargs.get('text', False))
 
     return args, env, process_log, text

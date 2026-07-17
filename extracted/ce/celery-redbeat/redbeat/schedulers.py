@@ -18,7 +18,7 @@ from celery.utils.log import get_logger
 from celery.utils.time import humanize_seconds
 from kombu.utils.objects import cached_property
 from kombu.utils.url import maybe_sanitize_url
-from redis.client import StrictRedis
+from redis import Redis
 from redis.sentinel import MasterNotFoundError, Sentinel
 from tenacity import retry, retry_if_exception_type, stop_after_delay, wait_exponential
 
@@ -132,6 +132,14 @@ def get_redis(app=None):
             if isinstance(conf.redis_use_ssl, dict):
                 connection_kwargs['ssl'] = True
                 connection_kwargs.update(conf.redis_use_ssl)
+
+            # Pass username via connection_kwargs rather than as a direct named argument
+            # because redis<3.4.0 does not support username in the Sentinel constructor,
+            # and redbeat supports redis>=3.2.
+            username = redis_options.get('username')
+            if username is not None:
+                connection_kwargs['username'] = username
+
             sentinel = Sentinel(
                 redis_options['sentinels'],
                 socket_timeout=redis_options.get('socket_timeout'),
@@ -139,23 +147,35 @@ def get_redis(app=None):
                 db=redis_options.get('db', 0),
                 decode_responses=True,
                 sentinel_kwargs=redis_options.get('sentinel_kwargs'),
+                credential_provider=redis_options.get('credential_provider'),
                 **connection_kwargs,
             )
-            _set_redbeat_connect(app, REDBEAT_SENTINEL_KEY, sentinel, retry_period)
+            setattr(app, REDBEAT_SENTINEL_KEY, sentinel)
             connection = None
         elif conf.redis_url.startswith('rediss'):
             ssl_options = {'ssl_cert_reqs': ssl.CERT_REQUIRED}
             if isinstance(conf.redis_use_ssl, dict):
                 ssl_options.update(conf.redis_use_ssl)
-            connection = StrictRedis.from_url(conf.redis_url, decode_responses=True, **ssl_options)
+            extras = {"decode_responses": True, **ssl_options, **redis_options}
+            connection = Redis.from_url(conf.redis_url, **extras)
         elif conf.redis_url.startswith('redis-cluster'):
-            from rediscluster import RedisCluster
+            from redis.cluster import RedisCluster
 
             if not redis_options.get('startup_nodes'):
-                redis_options = {'startup_nodes': [{"host": "localhost", "port": "30001"}]}
-            connection = RedisCluster(decode_responses=True, **redis_options)
+                startup_nodes_options = {'startup_nodes': [{"host": "localhost", "port": 30001}]}
+                redis_options.update(startup_nodes_options)
+
+            startup_nodes = redis_options.get('startup_nodes')
+            if startup_nodes:
+                redis_options['startup_nodes'] = [
+                    {**node, "port": int(node["port"])} for node in startup_nodes
+                ]
+
+            redis_options.update({"decode_responses": True})
+            connection = RedisCluster(**redis_options)
         else:
-            connection = StrictRedis.from_url(conf.redis_url, decode_responses=True)
+            redis_options.update({"decode_responses": True})
+            connection = Redis.from_url(conf.redis_url, **redis_options)
 
         if connection:
             _set_redbeat_connect(app, REDBEAT_REDIS_KEY, connection, retry_period)

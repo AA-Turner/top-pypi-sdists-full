@@ -170,7 +170,10 @@ def cmd_restore(args):
     # per-call anchor — the explicit unguarded opt-out, not the fail-closed default.
     restored = restore(text, key, guard=False)
 
-    _write_output(restored, args.output)
+    # Restored output is deanonymized PII — at least as sensitive as the key
+    # file, so it gets the same 0o600 mode rather than the world-readable
+    # 0o644 default.
+    _write_output(restored, args.output, mode=0o600)
 
 
 def cmd_info(args):
@@ -178,7 +181,11 @@ def cmd_info(args):
     import importlib.util
 
     from argus_redact import __version__
-    from argus_redact.glue.redact import _LANG_DISPLAY_NAMES, _LANG_PATTERNS
+    from argus_redact.glue.redact import (
+        _LANG_DISPLAY_NAMES,
+        _LANG_PATTERNS,
+        ner_engine_available,
+    )
     from argus_redact.lang.shared.patterns import PATTERNS as SHARED
 
     print(f"argus-redact v{__version__}")
@@ -191,20 +198,24 @@ def cmd_info(args):
             count = len(mod.PATTERNS) + len(SHARED)
         except ModuleNotFoundError:
             count = 0
-        has_ner = importlib.util.find_spec(f"argus_redact.lang.{mod_code}.ner_adapter") is not None
-        ner_label = " + NER" if has_ner else ""
+        ner_label = " + NER" if ner_engine_available(code) else ""
         name = _LANG_DISPLAY_NAMES.get(code, code)
         print(f"  {code}  {name:20s} regex ({count} patterns){ner_label}")
 
     print()
     print("Layers:")
     print("  1 Pattern (regex)       ✓")
-    has_hanlp = importlib.util.find_spec("hanlp") is not None
-    has_spacy = importlib.util.find_spec("spacy") is not None
-    ner_ok = has_hanlp or has_spacy
+    # Same signal as the per-language "+ NER" labels above, so the Layer-2
+    # line can never claim more than they do.
+    ner_ok = any(ner_engine_available(code) for code in _LANG_PATTERNS)
     print(f"  2 Entity (NER)          {'✓' if ner_ok else '✗'}")
     ollama_ok = importlib.util.find_spec("requests") is not None
-    print(f"  3 Semantic (Ollama)     {'✓' if ollama_ok else '✗'}")
+    if ollama_ok:
+        # `requests` importing does not mean Ollama is reachable — info never
+        # probes the network, so say exactly what was checked.
+        print("  3 Semantic (Ollama)     requests installed (endpoint not probed)")
+    else:
+        print("  3 Semantic (Ollama)     ✗ (requests not installed)")
 
 
 def cmd_assess(args):
@@ -234,7 +245,11 @@ def cmd_assess(args):
     }
     output = json.dumps(data, ensure_ascii=False, indent=2)
     if args.output:
-        _safe_write_text(args.output, output)
+        # The report's entities[].original field carries plaintext PII spans
+        # (see glue/redact.py entity_details) — at least as sensitive as the
+        # restore output, so it gets the same 0o600 mode rather than the
+        # world-readable 0o644 default.
+        _safe_write_text(args.output, output, mode=0o600)
         print(f"Report saved to {args.output}", file=sys.stderr)
     else:
         print(output)

@@ -466,6 +466,17 @@ impl ClassInfoConstraintFunction {
                     // e.g. `isinstance(x, list[int])` fails at runtime.
                     SubclassOfInner::Class(ClassType::Generic(_)) => None,
                     SubclassOfInner::Dynamic(dynamic) => Some(Type::Dynamic(dynamic)),
+                    // TODO: This narrowing is not fully sound:
+                    // - `type[protocol]` currently admits non-concrete classes, some of which are
+                    //   not valid runtime class-info arguments.
+                    // - A class can inhabit `type[protocol]` because its metaclass constructs
+                    //   protocol-conforming objects even if its nominal instances do not conform.
+                    SubclassOfInner::Protocol(protocol) => match self {
+                        ClassInfoConstraintFunction::IsInstance => {
+                            Some(Type::ProtocolInstance(protocol))
+                        }
+                        ClassInfoConstraintFunction::IsSubclass => Some(classinfo),
+                    },
                     SubclassOfInner::TypeVar(bound_typevar) => match self {
                         ClassInfoConstraintFunction::IsSubclass => Some(classinfo),
                         ClassInfoConstraintFunction::IsInstance => {
@@ -2332,8 +2343,8 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     /// Return the type established while a sequence pattern is being evaluated.
     ///
     /// Exact tuples can refine their tuple element types with the facts established by successful
-    /// child patterns. Other sequences retain the structural constraints already present in
-    /// `narrowed_subject_ty`.
+    /// child patterns. For other sequences, retain the observed length and indexed-element facts
+    /// while type-checking the successful case branch.
     fn successful_sequence_subject_type(
         &self,
         kind: &SequencePatternPredicateKind<'db>,
@@ -2348,14 +2359,10 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             return refined;
         }
 
-        if subject_ty.exact_tuple_instance_spec(self.db).is_some() {
-            self.intersect_types(
-                narrowed_subject_ty,
-                self.successful_sequence_pattern_type(kind, matched_element_types),
-            )
-        } else {
-            narrowed_subject_ty
-        }
+        self.intersect_types(
+            narrowed_subject_ty,
+            self.successful_sequence_pattern_type(kind, matched_element_types),
+        )
     }
 
     /// Return the sequence type safe to assign to a binding created by the pattern.
@@ -2774,6 +2781,33 @@ impl<'db> NarrowingConstraintsBuilder<'db, '_> {
             Type::Intersection(intersection) => intersection.map_positive(db, |element| {
                 Self::narrow_type_by_exact_len(db, *element, length, is_equality)
             }),
+            Type::TypeVar(typevar) => {
+                let Some(bound_or_constraints) = typevar.typevar(db).bound_or_constraints(db)
+                else {
+                    return ty;
+                };
+
+                let upper_bound = bound_or_constraints.as_type(db);
+                let narrowed_upper_bound = match bound_or_constraints {
+                    TypeVarBoundOrConstraints::UpperBound(bound) => {
+                        Self::narrow_type_by_exact_len(db, bound, length, is_equality)
+                    }
+                    TypeVarBoundOrConstraints::Constraints(constraints) => {
+                        UnionType::from_elements(
+                            db,
+                            constraints.elements(db).iter().map(|constraint| {
+                                Self::narrow_type_by_exact_len(db, *constraint, length, is_equality)
+                            }),
+                        )
+                    }
+                };
+
+                if narrowed_upper_bound == upper_bound {
+                    resolved
+                } else {
+                    IntersectionType::from_two_elements(db, resolved, narrowed_upper_bound)
+                }
+            }
             _ => {
                 if is_equality && let Some(tuple) = resolved.exact_tuple_instance_spec(db) {
                     match tuple.resize(db, TupleLength::Fixed(length)) {
@@ -3079,7 +3113,8 @@ impl<'db> NarrowingConstraintsBuilder<'db, '_> {
                     match subclass_of.subclass_of().with_transposed_type_var(db) {
                         SubclassOfInner::Class(ClassType::NonGeneric(class)) => Some(class),
                         SubclassOfInner::Class(ClassType::Generic(_))
-                        | SubclassOfInner::Dynamic(_) => None,
+                        | SubclassOfInner::Dynamic(_)
+                        | SubclassOfInner::Protocol(_) => None,
                         SubclassOfInner::TypeVar(tvar) => {
                             find_underlying_class(db, tvar.typevar(db).upper_bound(db)?)
                         }
@@ -3971,11 +4006,7 @@ impl<'db> NarrowingConstraintsBuilder<'db, '_> {
 
                 if let Some(ref mut first) = first {
                     for rest_constraint in rest {
-                        if let Some(rest_constraint) = rest_constraint {
-                            merge_constraints_or(first, rest_constraint);
-                        } else {
-                            return None;
-                        }
+                        merge_constraints_or(first, rest_constraint?);
                     }
                 }
                 first

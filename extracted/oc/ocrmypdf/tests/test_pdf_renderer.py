@@ -32,7 +32,7 @@ from ocrmypdf.hocrtransform import (
 def text_from_pdf(filename: Path) -> str:
     """Extract text from a PDF file using pdfminer."""
     output_string = StringIO()
-    with open(filename, 'rb') as in_file:
+    with filename.open('rb') as in_file:
         parser = PDFParser(in_file)
         doc = PDFDocument(parser)
         rsrcmgr = PDFResourceManager()
@@ -511,7 +511,8 @@ class TestFpdf2PdfRendererErrors:
     def test_invalid_ocr_class(self, multi_font_manager):
         """Test that non-page elements are rejected."""
         line = OcrElement(
-            ocr_class=OcrClass.LINE, bbox=BoundingBox(left=0, top=0, right=100, bottom=50)
+            ocr_class=OcrClass.LINE,
+            bbox=BoundingBox(left=0, top=0, right=100, bottom=50),
         )
 
         with pytest.raises(ValueError, match="ocr_page"):
@@ -622,9 +623,7 @@ def create_rtl_page(
         OcrElement(
             ocr_class=OcrClass.WORD,
             text=text,
-            bbox=BoundingBox(
-                left=bbox[0], top=bbox[1], right=bbox[2], bottom=bbox[3]
-            ),
+            bbox=BoundingBox(left=bbox[0], top=bbox[1], right=bbox[2], bottom=bbox[3]),
         )
         for text, bbox in words
     ]
@@ -656,16 +655,19 @@ def _tounicode_map(pdf_path: Path) -> dict[int, str]:
     """
     pdf = pikepdf.open(pdf_path)
     page = pdf.pages[0]
-    resources = page.get('/Resources', {})
+    resources = page.get('/Resources', pikepdf.Dictionary()).as_dict()
 
     # Collect fonts from the page and from any Form XObjects (OCR overlay)
     fonts: dict[str, pikepdf.Object] = {}
     if '/Font' in resources:
-        for name, obj in resources['/Font'].items():
+        for name, obj in resources['/Font'].as_dict().items():
             fonts[str(name)] = obj
-    for xobj in resources.get('/XObject', {}).values():
+    for xobj in resources.get('/XObject', pikepdf.Dictionary()).as_dict().values():
         if xobj.get('/Subtype') == '/Form':
-            for name, obj in xobj.get('/Resources', {}).get('/Font', {}).items():
+            xobj_resources = xobj.get('/Resources', pikepdf.Dictionary()).as_dict()
+            for name, obj in (
+                xobj_resources.get('/Font', pikepdf.Dictionary()).as_dict().items()
+            ):
                 fonts[str(name)] = obj
 
     result: dict[int, str] = {}
@@ -702,30 +704,33 @@ def _decode_tounicode_stream(
     """
     pdf = pikepdf.open(pdf_path)
     page = pdf.pages[0]
-    resources = page.get('/Resources', {})
+    resources = page.get('/Resources', pikepdf.Dictionary()).as_dict()
 
     # Collect fonts from page and from Form XObjects
     cmap: dict[int, str] = {}
-    for font_dict in [resources.get('/Font', {})]:
-        for fobj in font_dict.values():
-            tounicode = fobj.get('/ToUnicode')
-            if tounicode is None:
-                continue
-            raw = bytes(tounicode.read_bytes()).decode('latin-1', errors='replace')
-            for m in re.finditer(r'<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>', raw):
-                src = int(m.group(1), 16)
-                dst_hex = m.group(2)
-                chars = ''.join(
-                    chr(int(dst_hex[i : i + 4], 16))
-                    for i in range(0, len(dst_hex), 4)
-                    if int(dst_hex[i : i + 4], 16) > 0
-                )
-                if src > 0 and chars:
-                    cmap[src] = chars
-    for xobj in resources.get('/XObject', {}).values():
+    font_dict = resources.get('/Font', pikepdf.Dictionary()).as_dict()
+    for fobj in font_dict.values():
+        tounicode = fobj.get('/ToUnicode')
+        if tounicode is None:
+            continue
+        raw = bytes(tounicode.read_bytes()).decode('latin-1', errors='replace')
+        for m in re.finditer(r'<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>', raw):
+            src = int(m.group(1), 16)
+            dst_hex = m.group(2)
+            chars = ''.join(
+                chr(int(dst_hex[i : i + 4], 16))
+                for i in range(0, len(dst_hex), 4)
+                if int(dst_hex[i : i + 4], 16) > 0
+            )
+            if src > 0 and chars:
+                cmap[src] = chars
+    for xobj in resources.get('/XObject', pikepdf.Dictionary()).as_dict().values():
         if xobj.get('/Subtype') != '/Form':
             continue
-        for fobj in xobj.get('/Resources', {}).get('/Font', {}).values():
+        xobj_resources = xobj.get('/Resources', pikepdf.Dictionary()).as_dict()
+        for fobj in (
+            xobj_resources.get('/Font', pikepdf.Dictionary()).as_dict().values()
+        ):
             tounicode = fobj.get('/ToUnicode')
             if tounicode is None:
                 continue
@@ -747,7 +752,7 @@ def _decode_tounicode_stream(
     contents = page.get('/Contents')
     if contents:
         streams.append(bytes(contents.read_bytes()))
-    for xobj in resources.get('/XObject', {}).values():
+    for xobj in resources.get('/XObject', pikepdf.Dictionary()).as_dict().values():
         if xobj.get('/Subtype') == '/Form':
             streams.append(bytes(xobj.read_bytes()))
     for data in streams:
@@ -850,8 +855,7 @@ class TestRtlTextExtraction:
         decoded = ''.join(cmap.get(g, '') for g in glyph_ids)
         logical = decoded[::-1]
         assert logical == 'שלום', (
-            f"Expected logical text 'שלום', got {logical!r} "
-            f"(stream: {decoded!r})"
+            f"Expected logical text 'שלום', got {logical!r} (stream: {decoded!r})"
         )
 
     def test_rtl_tounicode_one_to_one(self, tmp_path, multi_font_manager):

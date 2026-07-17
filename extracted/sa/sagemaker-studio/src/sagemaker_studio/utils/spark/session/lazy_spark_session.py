@@ -207,7 +207,7 @@ class LazySparkSession:
 
     def stop(self):
         """Stop the SparkSession and clean up resources."""
-        logger.debug("Stopping lazy Spark session...")
+        logger.info("Stopping lazy Spark session...")
 
         # Log session duration metric
         if "_session_start_time" in self.__dict__:
@@ -244,7 +244,7 @@ class LazySparkSession:
         # Reset the Spark session reference
         self._spark = None
 
-        logger.debug("Stopped lazy Spark session")
+        logger.info("Stopped lazy Spark session")
 
     def get_athena_session_id(self):
         """Backward-compatible: returns session ID only for Athena sessions."""

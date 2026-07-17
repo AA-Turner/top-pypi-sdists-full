@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vercel
-Version: 0.7.0
+Version: 0.7.1
 Summary: Python SDK for Vercel
 License-Expression: MIT
 License-File: LICENSE
@@ -11,10 +11,10 @@ Requires-Dist: httpx<1,>=0.27.0
 Requires-Dist: pydantic<3,>=2.7.0
 Requires-Dist: python-dotenv<2,>=1.0.0
 Requires-Dist: typing-extensions<5,>=4.0.0; python_version < '3.11'
-Requires-Dist: vercel-cache>=0.7.0
-Requires-Dist: vercel-headers>=0.7.0
-Requires-Dist: vercel-internal-telemetry>=0.7.0
-Requires-Dist: vercel-oidc>=0.7.0
+Requires-Dist: vercel-cache>=0.7.1
+Requires-Dist: vercel-headers>=0.7.1
+Requires-Dist: vercel-internal-telemetry>=0.7.1
+Requires-Dist: vercel-oidc>=0.7.1
 Requires-Dist: vercel-workers<1,>=0.0.16; python_version >= '3.12'
 Requires-Dist: websockets<17,>=12.0
 Description-Content-Type: text/markdown

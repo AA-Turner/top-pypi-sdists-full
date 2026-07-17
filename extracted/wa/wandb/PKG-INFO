@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wandb
-Version: 0.28.0
+Version: 0.28.1
 Summary: A CLI and library for interacting with the Weights & Biases API.
 Project-URL: Source, https://github.com/wandb/wandb
 Project-URL: Bug Reports, https://github.com/wandb/wandb/issues
@@ -48,10 +48,9 @@ Classifier: Topic :: System :: Logging
 Classifier: Topic :: System :: Monitoring
 Requires-Python: >=3.10
 Requires-Dist: click>=8.2.0
-Requires-Dist: gitpython!=3.1.29,>=1.0.0
 Requires-Dist: packaging
 Requires-Dist: platformdirs
-Requires-Dist: protobuf!=5.28.0,!=5.29.0,<8,>4.21.0
+Requires-Dist: protobuf!=5.28.0,!=5.29.0,<8,>=5
 Requires-Dist: pydantic<3,>=2.6
 Requires-Dist: pyyaml
 Requires-Dist: requests<3,>=2.0.0
@@ -111,7 +110,7 @@ Requires-Dist: soundfile; extra == 'media'
 Provides-Extra: models
 Requires-Dist: cloudpickle; extra == 'models'
 Provides-Extra: sandbox
-Requires-Dist: cwsandbox[cli]>=0.20.0; extra == 'sandbox'
+Requires-Dist: cwsandbox[cli]>=0.20.0; (python_version >= '3.11') and extra == 'sandbox'
 Provides-Extra: sweeps
 Requires-Dist: sweeps>=0.2.0; extra == 'sweeps'
 Provides-Extra: workspaces

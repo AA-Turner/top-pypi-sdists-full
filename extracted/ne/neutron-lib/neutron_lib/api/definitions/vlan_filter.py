@@ -14,6 +14,7 @@
 #
 
 from neutron_lib.api.definitions import taas as taas_api_def
+from neutron_lib.types import ActionMap, ResourceAttributeMap
 
 ALIAS = 'taas-vlan-filter'
 IS_SHIM_EXTENSION = False
@@ -31,7 +32,7 @@ TAP_FLOWS = 'tap_flows'
 # For ex. "9,18,27-36,45-54" or "0-4095" or "9,18,27,36"
 RANGE_REGEX = r"^([0-9]+(-[0-9]+)?)(,([0-9]+(-[0-9]+)?))*$"
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     taas_api_def.TAP_FLOWS: {
         'vlan_filter': {'allow_post': True, 'allow_put': False,
                         'validate': {'type:regex_or_none': RANGE_REGEX},
@@ -39,7 +40,7 @@ RESOURCE_ATTRIBUTE_MAP = {
     }
 }
 SUB_RESOURCE_ATTRIBUTE_MAP = None
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 ACTION_STATUS = {}
 REQUIRED_EXTENSIONS = [taas_api_def.ALIAS]
 OPTIONAL_EXTENSIONS = []

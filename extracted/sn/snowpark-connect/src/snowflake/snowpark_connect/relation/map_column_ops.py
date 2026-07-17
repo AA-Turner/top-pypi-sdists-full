@@ -11,7 +11,6 @@ from typing import Callable
 
 import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
-import pyspark.sql.connect.proto.types_pb2 as types_proto
 from pyspark.errors.exceptions.base import AnalysisException
 from pyspark.serializers import CloudPickleSerializer
 
@@ -259,12 +258,9 @@ def map_project(
 
     Projections come in as expressions, which are mapped to `snowpark.Column` objects.
     """
-    if rel.project.HasField("input"):
-        input_container = map_relation(rel.project.input)
-    else:
-        # Create a dataframe to represent a OneRowRelation AST node.
-        # XXX: Snowflake does not support 0-column tables, so create a dummy column;
-        # its name does not seem to show up anywhere.
+    if not rel.project.HasField("input"):
+        # OneRowRelation: no input means a virtual single-row table (e.g. SELECT 1).
+        # Snowflake does not support 0-column tables, so use a dummy internal column.
         session = snowpark.Session.get_active_session()
         input_container = DataFrameContainer.create_with_column_mapping(
             dataframe=session.create_dataframe([None], ["__DUMMY"]),
@@ -272,25 +268,25 @@ def map_project(
             snowpark_column_names=["__DUMMY"],
             column_is_internal=[True],
         )
+        if not rel.project.expressions:
+            return input_container
+    elif not rel.project.expressions:
+        # Input exists but no projections (e.g. spark.range(1).select()).
+        # Preserve row count from input but hide all real columns behind a dummy.
+        input_container = map_relation(rel.project.input)
+        df = input_container.dataframe.select(snowpark_fn.lit(None).alias("__DUMMY"))
+        return DataFrameContainer.create_with_column_mapping(
+            dataframe=df,
+            spark_column_names=["__DUMMY"],
+            snowpark_column_names=["__DUMMY"],
+            column_is_internal=[True],
+        )
+    else:
+        input_container = map_relation(rel.project.input)
 
     input_df = input_container.dataframe
     context.set_df_before_projection(input_container)
     expressions: list[expressions_proto.Expression] = rel.project.expressions
-    if not expressions:
-        # XXX: Snowflake does not support 0-column tables, so create a dummy column;
-        # its name will unforunately be user-visible.
-        expressions = [
-            expressions_proto.Expression(
-                alias=expressions_proto.Expression.Alias(
-                    expr=expressions_proto.Expression(
-                        literal=expressions_proto.Expression.Literal(
-                            null=types_proto.DataType(null=types_proto.DataType.NULL())
-                        )
-                    ),
-                    name=[""],
-                ),
-            )
-        ]
 
     select_list = []
     new_spark_columns = []
@@ -339,6 +335,12 @@ def map_project(
     has_unresolved_star = any(
         exp.WhichOneof("expr_type") == "unresolved_star" for exp in expressions
     )
+
+    # Track simple column renames (col("x").alias("y")) so a carried
+    # sortWithinPartitions key — stored by Spark name — can follow the rename into
+    # a downstream UDTF table argument and still be resolved there, matching
+    # Spark's preserved ordering. Only populated when there is an ordering to carry.
+    sort_key_rewrite: dict[str, str] = {}
 
     for exp in expressions:
         new_spark_names, mapper = map_expression(exp, input_container.column_map, typer)
@@ -430,6 +432,22 @@ def map_project(
             projected_output_cast_types.append(None)
             projected_output_extract_fields.append(None)
             next_output_position += 1
+
+            # Record a rename of a bare column so a carried sort key follows it.
+            # A sortWithinPartitions key is always a plain column, so we only care
+            # about col("src").alias("spark_name") where the child is an attribute.
+            if input_container.sort_exprs and not is_qualified_reference:
+                source_attr = None
+                if (
+                    exp.WhichOneof("expr_type") == "alias"
+                    and exp.alias.HasField("expr")
+                    and exp.alias.expr.WhichOneof("expr_type") == "unresolved_attribute"
+                ):
+                    source_attr = (
+                        exp.alias.expr.unresolved_attribute.unparsed_identifier
+                    )
+                if source_attr is not None and source_attr != spark_name:
+                    sort_key_rewrite[source_attr] = spark_name
 
             # Only register LCA for explicit aliases
             if (
@@ -574,6 +592,16 @@ def map_project(
         expressions, input_container.column_map.column_metadata
     )
 
+    # Preserve sortWithinPartitions ordering across a projection (e.g. the
+    # SELECT * that a temp view expands to) so a downstream UDTF still sees it,
+    # rewriting any sort key that this projection renamed via an alias.
+    carried_sort_exprs = input_container.sort_exprs
+    if carried_sort_exprs and sort_key_rewrite:
+        carried_sort_exprs = [
+            (sort_key_rewrite.get(name, name), direction, null_order)
+            for name, direction, null_order in carried_sort_exprs
+        ]
+
     return DataFrameContainer.create_with_column_mapping(
         dataframe=result,
         spark_column_names=new_spark_columns,
@@ -585,6 +613,7 @@ def map_project(
         table_name=input_container.table_name,
         alias=input_container.alias,
         equivalent_snowpark_names=equivalent_snowpark_names,
+        sort_exprs=carried_sort_exprs,
     )
 
 
@@ -739,17 +768,47 @@ def build_sorted_container(
             ):
                 order_specified = True
 
-    # TODO: sort.isglobal.
     if not order_specified:
         ascending = None
 
     result = input_df.sort(cols, ascending=ascending)
+
+    # sortWithinPartitions (is_global=False) carries sort metadata so
+    # handle_udtf_with_table_arguments can apply .over(order_by=...) downstream.
+    # Stored as (spark_name, direction, null_ordering) tuples — not Column objects —
+    # so the references survive column renames across temp-view boundaries.
+    is_global = sort.is_global if sort.HasField("is_global") else True
+    sort_exprs_for_udtf: list[tuple[str, str, str]] | None = None
+    if not is_global:
+        typer_for_names = ExpressionTyper(input_df)
+        sort_tuples = []
+        for so in sort.order:
+            if not so.child.HasField("literal"):
+                spark_name, _ = map_single_column_expression(
+                    so.child, input_container.column_map, typer_for_names
+                )
+                if spark_name:
+                    direction = (
+                        "desc"
+                        if so.direction
+                        == expressions_proto.Expression.SortOrder.SORT_DIRECTION_DESCENDING
+                        else "asc"
+                    )
+                    null_ordering = (
+                        "first"
+                        if so.null_ordering
+                        == expressions_proto.Expression.SortOrder.SORT_NULLS_FIRST
+                        else "last"
+                    )
+                    sort_tuples.append((spark_name, direction, null_ordering))
+        sort_exprs_for_udtf = sort_tuples or None
 
     return DataFrameContainer(
         result,
         input_container.column_map,
         input_container.table_name,
         cached_schema_getter=lambda: input_df.schema,
+        sort_exprs=sort_exprs_for_udtf,
     )
 
 

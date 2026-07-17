@@ -49,6 +49,7 @@ from jax._src.state import types as state_types
 import jax.experimental.mosaic.gpu as mgpu
 from jax.experimental.mosaic.gpu import tcgen05
 from jax.experimental.mosaic.gpu import utils as mgpu_utils
+from jax.experimental.mosaic.gpu.launch_context import OOBFillMode
 import jax.numpy as jnp
 from jaxlib.mlir import ir
 
@@ -132,7 +133,7 @@ class CompilerParams:
   profile_space: int = 0
   profile_dir: str = ""
   profile_trace_scope: TraceScope = TraceScope.WARPGROUP
-  lowering_semantics: mgpu.core.LoweringSemantics = mgpu.core.LoweringSemantics.Lane
+  lowering_semantics: mgpu.core.LoweringSemantics = mgpu.core.LoweringSemantics.Warpgroup
 
   def __post_init__(self):
     if self.dimension_semantics is not None:
@@ -261,6 +262,7 @@ def kernel(
     num_threads: int | None = None,
     thread_name: str | None = None,
     interpret: Any = None,
+    debug: bool = False,
     **mesh_kwargs: Any,
 ) -> Any:
   r"""Entry point for defining a Mosaic GPU kernel.
@@ -288,6 +290,7 @@ def kernel(
       not correspond to CUDA threads, but rather to warpgroups on Hopper and
       Blackwell GPUs.
     thread_name: The axis name used to query the thread index.
+    debug: Whether or not to output helpful debugging information.
     **mesh_kwargs: Additional mesh kwargs. See `Mesh` for more details.
 
   Returns:
@@ -313,6 +316,7 @@ def kernel(
         num_threads=num_threads,
         thread_name=thread_name,
         interpret=interpret,
+        debug=debug,
         **mesh_kwargs,
     )
 
@@ -389,6 +393,7 @@ def kernel(
           compiler_params=compiler_params,
           interpret=interpret,
           name=name,
+          debug=debug,
       )(*operands)
     return outs[0] if unwrap_out else outs
 
@@ -420,6 +425,7 @@ def kernel(
         num_threads=num_threads,
         thread_name=thread_name,
         interpret=interpret,
+        debug=debug,
         **mesh_kwargs_,
     )(*args)
     out_batched = tree_util.tree_map(lambda _: True, out_type_)
@@ -623,6 +629,24 @@ class AbstractRefUnion(state.AbstractRef):
     first_ref = ref_leaves[0]
     assert all(ref.collective == first_ref.collective for ref in ref_leaves)
     return first_ref.collective
+
+  def __eq__(self, other):
+    return (
+        type(self) is type(other)
+        and self.inner_aval == other.inner_aval
+        and self.memory_space == other.memory_space
+        and self.refs == other.refs
+    )
+
+  def __hash__(self):
+    # `flatten_ref_union(self)` creates `TransformedRef`s that refer to `self`,
+    # so we extract the transforms from the `TransformedRef`s in order to avoid
+    # infinite recursion.
+    all_transforms = tuple(
+        ref.transforms if isinstance(ref, pallas_core.TransformedRef) else ()
+        for ref in flatten_ref_union(self)
+    )
+    return hash((self.inner_aval, self.memory_space, all_transforms))
 
 
 @dataclasses.dataclass(init=False, frozen=True)
@@ -1388,10 +1412,13 @@ class BlockSpec(pallas_core.BlockSpec):
       return the same block from the index_map for this operand. This enables
       the pipelining helpers to use collective async copies, which can improve
       performance.
+    oob_fill_mode: Determines the behavior for out-of-bounds accesses during
+      pipelined GMEM-to-SMEM copies. Defaults to ``OOBFillMode.ZEROS``.
   """
   transforms: Sequence[state_types.Transform] = ()
   delay_release: int = 0
   collective_axes: tuple[Hashable, ...] = ()
+  oob_fill_mode: OOBFillMode = OOBFillMode.ZEROS
 
   def to_block_mapping(
       self,
@@ -1796,6 +1823,22 @@ effects.control_flow_allowed_effects.add_type(_WGMMAPipelineEffect)
 _wgmma_pipeline_effect = _WGMMAPipelineEffect()
 
 
+class PdlEffect(jax_core.Effect):
+  """Indicates that a kernel uses Programmatic Dependency Launch (PDL).
+
+  This effect is associated with primitives that perform grid-level
+  synchronization (e.g. waiting for dependent grids). Its presence in a
+  JAXPR instructs the compiler/runtime to enable programmatic stream
+  serialization, allowing the CUDA driver to launch dependent kernels
+  concurrently in the same stream.
+  """
+
+
+pallas_core.kernel_local_effects.add_type(PdlEffect)
+effects.control_flow_allowed_effects.add_type(PdlEffect)
+_pdl_effect = PdlEffect()
+
+
 # We define the layout_cast primitive here, because it needs to be available in
 # the lowering code (to provide layout hints to the rules).
 layout_cast_p = jax_core.Primitive("layout_cast")
@@ -1879,6 +1922,10 @@ class Layout(SomeLayout, enum.Enum):
   # TODO(b/435159109): Remove this once LLVM regression is addressed.
   _WGMMA_ACC_32BIT = enum.auto()  # Temporarily exposed to work around LLVM bugs
 
+  MMA_LHS = enum.auto()
+  MMA_RHS = enum.auto()
+  MMA_ACC = enum.auto()
+
   def __call__(self, *args, **kwargs) -> ParameterizedLayout:
     return ParameterizedLayout(self, args, kwargs)
 
@@ -1937,6 +1984,18 @@ class Layout(SomeLayout, enum.Enum):
         )
       case Layout.TMA_INDICES:
         return mgpu.TMA_INDICES_LAYOUT
+      case Layout.MMA_LHS:
+        (dtype,) = args
+        element_type = mgpu_utils.dtype_to_ir_type(dtype)
+        return mgpu.MMALayouts(element_type).lhs
+      case Layout.MMA_RHS:
+        (dtype,) = args
+        element_type = mgpu_utils.dtype_to_ir_type(dtype)
+        return mgpu.MMALayouts(element_type).rhs
+      case Layout.MMA_ACC:
+        (dtype,) = args
+        element_type = mgpu_utils.dtype_to_ir_type(dtype)
+        return mgpu.MMALayouts(element_type).acc
       case Layout.TMA_INDICES_4:
         return mgpu.TMA_INDICES_4_LAYOUT
 

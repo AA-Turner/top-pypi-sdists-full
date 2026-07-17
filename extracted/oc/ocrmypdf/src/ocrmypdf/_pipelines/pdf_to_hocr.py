@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import logging.handlers
+import os
 import shutil
 from functools import partial
 
@@ -91,6 +92,9 @@ def run_hocr_pipeline(
     """Run pipeline to output hOCR."""
     if options.output_folder is None:
         raise ValueError("output_folder must be specified for hOCR pipeline")
+    # This pipeline is only reachable via the _pdf_to_hocr() API, which
+    # declares input_pdf: Path - streams and raw bytes paths are not supported.
+    assert isinstance(options.input_file, str | os.PathLike)
     with manage_work_folder(
         work_folder=options.output_folder, retain=True, print_location=False
     ) as work_folder:
@@ -100,9 +104,7 @@ def run_hocr_pipeline(
 
         # Gather pdfinfo and create context
         pdfinfo = do_get_pdfinfo(origin_pdf, executor, options)
-        context = PdfContext(
-            options, work_folder, options.input_file, pdfinfo, plugin_manager
-        )
+        context = PdfContext(options, work_folder, origin_pdf, pdfinfo, plugin_manager)
         # Validate options are okay for this pdf
         validate_pdfinfo_options(context)
         exec_pdf_to_hocr(context, executor)

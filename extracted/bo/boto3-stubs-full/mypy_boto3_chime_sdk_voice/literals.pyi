@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "AlexaSkillStatusType",
+    "CallDistributionTypeType",
     "CallLegTypeType",
     "CallingNameStatusType",
     "CapabilityType",
@@ -56,6 +57,7 @@ __all__ = (
 )
 
 AlexaSkillStatusType = Literal["ACTIVE", "INACTIVE"]
+CallDistributionTypeType = Literal["LoadBalancedDistribution", "PriorityWeightedDistribution"]
 CallLegTypeType = Literal["Callee", "Caller"]
 CallingNameStatusType = Literal["Unassigned", "UpdateFailed", "UpdateInProgress", "UpdateSucceeded"]
 CapabilityType = Literal["SMS", "Voice"]
@@ -81,6 +83,7 @@ ErrorCodeType = Literal[
     "Throttling",
     "Unauthorized",
     "Unprocessable",
+    "Validation",
     "VoiceConnectorGroupAssociationsExist",
 ]
 GeoMatchLevelType = Literal["AreaCode", "Country"]

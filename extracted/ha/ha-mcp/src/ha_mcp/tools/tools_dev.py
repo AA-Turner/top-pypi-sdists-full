@@ -44,18 +44,35 @@ COMPONENT_DOMAIN = "ha_mcp_tools"
 # (custom_components/ha_mcp_tools/const.py OPT_CHANNEL / OPT_PIP_SPEC).
 _OPT_CHANNEL = "channel"
 _OPT_PIP_SPEC = "pip_spec"
+_OPT_SERVER_URL = "server_url"
+_OPT_EXTERNAL_URL = "external_url"
+_OPT_WEBHOOK_ID_OVERRIDE = "webhook_id_override"
+_OPT_SECRET_PATH_OVERRIDE = "secret_path_override"
 _VALID_CHANNELS = ("stable", "dev")
+
+# Optional text fields the component's options flow pre-fills via
+# suggested_value (so the UI can clear them). Because an OMITTED optional field
+# reads as "cleared" rather than "unchanged", a partial update_source submit
+# must resend these at their current values or it would blank the user's
+# server-URL / connect-secret overrides.
+_PRESERVED_OPTION_KEYS = (
+    _OPT_PIP_SPEC,
+    _OPT_SERVER_URL,
+    _OPT_EXTERNAL_URL,
+    _OPT_WEBHOOK_ID_OVERRIDE,
+    _OPT_SECRET_PATH_OVERRIDE,
+)
 
 # Delay before a self-affecting action (embedded entry reload / options
 # submit) fires, so this tool's JSON response flushes to the MCP client
 # before the serving thread is torn down. Mirrors
-# settings_ui._SUPERVISOR_SELF_RESTART_FLUSH_DELAY_S, with more headroom
+# settings_ui._supervisor._SUPERVISOR_SELF_RESTART_FLUSH_DELAY_S, with more headroom
 # because the embedded response may traverse the HA ingress/webhook hop.
 _SELF_ACTION_FLUSH_DELAY_S = 1.0
 
 # Strong references to in-flight fire-and-forget tasks so the event
 # loop's weakref-only task table can't garbage-collect them mid-run.
-# Same pattern as settings_ui._BACKGROUND_RESTART_TASKS.
+# Same pattern as settings_ui._supervisor._BACKGROUND_RESTART_TASKS.
 _BACKGROUND_TASKS: set[asyncio.Task[None]] = set()
 
 # Sentinel marking a key for removal in _merge_file_override (reset action).
@@ -85,6 +102,23 @@ def _spawn_background(coro: Any) -> None:
     task.add_done_callback(_BACKGROUND_TASKS.discard)
 
 
+def _field_prefill(item: dict[str, Any]) -> Any:
+    """Return a serialized options-flow field's current value.
+
+    Reads ``description.suggested_value`` first: a persisted option is
+    serialized there (as ``add_suggested_values_to_schema`` does; this component
+    sets it directly on the ``vol.Optional`` marker), and the clearable text
+    fields carry their value there rather than as a schema ``default`` (a
+    ``default`` equal to the value would make the field impossible to clear).
+    Falls back to ``default`` then ``value`` for the dropdown/toggle fields.
+    Mirrors ``tools_integrations.options_from_form_flow``.
+    """
+    description = item.get("description")
+    if isinstance(description, dict) and description.get("suggested_value") is not None:
+        return description["suggested_value"]
+    return item.get("default", item.get("value"))
+
+
 async def find_server_config_entry(
     client: Any,
 ) -> tuple[str, dict[str, Any], dict[str, Any]] | None:
@@ -92,11 +126,13 @@ async def find_server_config_entry(
 
     Probes each ``ha_mcp_tools`` entry's options flow: the server entry's
     flow is a form whose schema carries the ``pip_spec`` field; the tools
-    (services) entry's flow aborts immediately. Returns
+    (services) entry's flow is an informational form with no ``pip_spec``
+    field, so it never matches. Returns
     ``(entry_id, open_flow, current_options)`` with the options flow left
     OPEN (callers must submit or abort it), or ``None`` when no server
-    entry exists. ``current_options`` maps schema field names to their
-    defaults — i.e. the entry's current option values.
+    entry exists. ``current_options`` maps schema field names to their current
+    values (persisted ``suggested_value`` first, else the schema ``default`` or
+    ``value``, via ``_field_prefill``).
 
     Module-level (not a DevTools method) so the settings UI's embedded
     restart handler can share it.
@@ -131,7 +167,7 @@ async def find_server_config_entry(
             continue
         schema = flow.get("data_schema") or []
         fields: dict[str, Any] = {
-            str(item["name"]): item.get("default")
+            str(item["name"]): _field_prefill(item)
             for item in schema
             if isinstance(item, dict) and item.get("name")
         }
@@ -339,7 +375,10 @@ class DevTools:
         import json
 
         from ..config import _FEATURE_FLAG_OVERRIDE_FILENAME
-        from ..settings_ui import _atomic_write_json, _get_override_file_lock
+        from ..settings_ui._persistence import (
+            _atomic_write_json,
+            _get_override_file_lock,
+        )
         from ..utils.data_paths import get_data_dir
 
         path = get_data_dir() / _FEATURE_FLAG_OVERRIDE_FILENAME
@@ -400,7 +439,16 @@ class DevTools:
         await asyncio.sleep(_SELF_ACTION_FLUSH_DELAY_S)
         try:
             result = await self._client.submit_options_flow_step(flow_id, user_input)
-            logger.info("Deferred options submit result: %s", result.get("type"))
+            if result.get("type") == "create_entry":
+                logger.info("Deferred options submit applied")
+            else:
+                # Fire-and-forget: no caller is left to raise to, so a rejected
+                # self-restart must at least be discoverable in the log.
+                logger.warning(
+                    "Deferred options submit was not applied (type=%s, errors=%s)",
+                    result.get("type"),
+                    result.get("errors") or result.get("reason"),
+                )
         except Exception:
             logger.exception("Deferred options-flow submit failed")
 
@@ -409,7 +457,11 @@ class DevTools:
     @tool(
         name="ha_dev_manage_settings",
         tags={"Developer"},
-        annotations={"title": "Manage Server Settings (dev)", "destructiveHint": True},
+        annotations={
+            "openWorldHint": False,
+            "title": "Manage Server Settings (dev)",
+            "destructiveHint": True,
+        },
     )
     @log_tool_usage
     async def ha_dev_manage_settings(
@@ -610,7 +662,7 @@ class DevTools:
                 )
 
             if origin == "addon":
-                from ..settings_ui import _supervisor_merge_and_post_options
+                from ..settings_ui._supervisor import _supervisor_merge_and_post_options
 
                 ok, err = await _supervisor_merge_and_post_options(
                     get_global_settings().verify_ssl, {setting: coerced}
@@ -651,7 +703,11 @@ class DevTools:
     @tool(
         name="ha_dev_manage_server",
         tags={"Developer"},
-        annotations={"title": "Manage MCP Server (dev)", "destructiveHint": True},
+        annotations={
+            "openWorldHint": True,
+            "title": "Manage MCP Server (dev)",
+            "destructiveHint": True,
+        },
     )
     @log_tool_usage
     async def ha_dev_manage_server(
@@ -819,7 +875,12 @@ class DevTools:
                 )
             )
         entry_id, flow, current = found
-        user_input: dict[str, Any] = {}
+        # Resend the user's current overrides (see _PRESERVED_OPTION_KEYS) so a
+        # channel/pip-spec change here does not blank them — an omitted optional
+        # field reads as "cleared", not "unchanged".
+        user_input: dict[str, Any] = {
+            key: current[key] for key in _PRESERVED_OPTION_KEYS if current.get(key)
+        }
         if channel is not None:
             user_input[_OPT_CHANNEL] = channel
         if pip_spec is not None:
@@ -909,7 +970,7 @@ class DevTools:
             }
         if is_running_in_addon():
             from ..config import get_global_settings
-            from ..settings_ui import _schedule_supervisor_self_restart
+            from ..settings_ui._supervisor import _schedule_supervisor_self_restart
 
             _schedule_supervisor_self_restart(get_global_settings().verify_ssl)
             return {

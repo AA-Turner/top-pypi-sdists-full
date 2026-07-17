@@ -13,7 +13,7 @@ import logging
 import shutil
 import sys
 import time
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -35,7 +35,7 @@ app = cyclopts.App(name="ocrmypdf-watcher")
 log = logging.getLogger('ocrmypdf-watcher')
 
 
-class LoggingLevelEnum(str, Enum):
+class LoggingLevelEnum(StrEnum):
     """Enum for logging levels."""
 
     DEBUG = "DEBUG"

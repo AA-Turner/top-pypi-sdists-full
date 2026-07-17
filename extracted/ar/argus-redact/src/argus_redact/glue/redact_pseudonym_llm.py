@@ -7,7 +7,9 @@ from __future__ import annotations
 
 from argus_redact._types import PatternMatch, PseudonymLLMResult
 from argus_redact.glue import redact as _redact_module
+from argus_redact.glue.redact import _apply_type_filter, _reject_unknown_type_names
 from argus_redact.pure.display_marker import mark_for_display, resolve_marker
+from argus_redact.pure.merger import merge_entities
 from argus_redact.pure.normalize import MAX_INPUT_SIZE
 from argus_redact.pure.replacer import VALID_STRATEGIES
 from argus_redact.pure.reserved_range_scanner import scan_for_pollution
@@ -112,6 +114,7 @@ def redact_pseudonym_llm(
         raise ValueError("types and types_exclude are mutually exclusive")
 
     if strategy_overrides:
+        _reject_unknown_type_names(set(strategy_overrides), "strategy_overrides")
         for ent_type, strategy in strategy_overrides.items():
             if strategy not in VALID_STRATEGIES:
                 raise ValueError(
@@ -147,7 +150,12 @@ def redact_pseudonym_llm(
         resolved_lang = detect_languages(text)
 
     if _pre_detected is not None:
-        entities = _pre_detected
+        # Merge (dedupe overlapping spans, same as the internal _detect path)
+        # then apply the same types/types_exclude filter — a pre-detected list
+        # is caller-supplied and must not skip either guard. Mirrors the
+        # _pre_detected branch of redact() in glue/redact.py.
+        entities = merge_entities(_pre_detected, text=text)
+        entities = _apply_type_filter(entities, types, types_exclude)
         langs = resolved_lang if isinstance(resolved_lang, list) else [resolved_lang]
         timing = {}
     else:
@@ -217,6 +225,10 @@ def redact_pseudonym_llm(
         key=unified_key,
         aliases=unified_aliases,
         types=unified_types,
+        # Realistic-only key (pre-union with audit_key, see `unified_key`
+        # above) — the exact source for a streaming/multi-call caller's
+        # existing_key= threading (see StreamingRedactor._redact_and_merge).
+        downstream_key=key,
     )
 
 

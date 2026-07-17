@@ -16,6 +16,11 @@ from neutron_lib.api.definitions import port
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants
 from neutron_lib.db import constants as db_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 # Plural of the resource
 COLLECTION_NAME = 'bindings'
@@ -64,10 +69,10 @@ STATUS = 'status'
 PROJECT_ID = 'project_id'
 
 # No attribute map, this extension defines only sub resource
-RESOURCE_ATTRIBUTE_MAP = {}
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {}
 
 # Attribute map of bindings
-SUB_RESOURCE_ATTRIBUTE_MAP = {
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {
     COLLECTION_NAME: {
         'parent': {
             'collection_name': PARENT_COLLECTION_NAME,
@@ -107,7 +112,7 @@ SUB_RESOURCE_ATTRIBUTE_MAP = {
 }
 
 # activate is an action
-ACTION_MAP = {
+ACTION_MAP: ActionMap = {
     RESOURCE_NAME: {
         ACTIVATE_BINDING: 'PUT',
     },

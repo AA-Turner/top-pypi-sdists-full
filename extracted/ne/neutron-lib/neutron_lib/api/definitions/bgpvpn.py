@@ -15,6 +15,11 @@
 from neutron_lib.api import converters
 from neutron_lib.api.definitions import l3
 from neutron_lib.db import constants as db_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 # Regular expression to validate 32 bits unsigned int
 UINT32_REGEX = (r'(0|[1-9]\d{0,8}|[1-3]\d{9}|4[01]\d{8}|42[0-8]\d{7}'
@@ -25,9 +30,9 @@ UINT32_REGEX = (r'(0|[1-9]\d{0,8}|[1-3]\d{9}|4[01]\d{8}|42[0-8]\d{7}'
 UINT16_REGEX = (r'(0|[1-9]\d{0,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}'
                 r'|655[0-2]\d|6553[0-5])')
 # Regular expression to validate 8 bits unsigned int
-UINT8_REGEX = (r'(0|[1-9]\d{0,1}|1\d{2}|2[0-4]\d|25[0-5])')
+UINT8_REGEX = r'(0|[1-9]\d{0,1}|1\d{2}|2[0-4]\d|25[0-5])'
 # Regular expression to validate IPv4 address
-IP4_REGEX = (rf'({UINT8_REGEX}\.{UINT8_REGEX}\.{UINT8_REGEX}\.{UINT8_REGEX})')
+IP4_REGEX = rf'({UINT8_REGEX}\.{UINT8_REGEX}\.{UINT8_REGEX}\.{UINT8_REGEX})'
 # Regular expression to validate Route Target list format
 # Support of the Type 0, Type 1 and Type 2, cf. chapter 4.2 in RFC 4364
 # Also validates Route Distinguisher list format
@@ -75,7 +80,7 @@ ROUTER_ASSOCIATION = 'router_association'
 ROUTER_ASSOCIATIONS = 'router_associations'
 
 # The resource attribute map for the extension.
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         'id': {'allow_post': False, 'allow_put': False,
                'validate': {'type:uuid': None},
@@ -135,7 +140,7 @@ RESOURCE_ATTRIBUTE_MAP = {
     },
 }
 
-SUB_RESOURCE_ATTRIBUTE_MAP = {
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {
     NETWORK_ASSOCIATIONS: {
         'parent': {'collection_name': COLLECTION_NAME,
                    'member_name': RESOURCE_NAME},
@@ -178,8 +183,7 @@ SUB_RESOURCE_ATTRIBUTE_MAP = {
     }
 }
 
-ACTION_MAP = {
-}
+ACTION_MAP: ActionMap = {}
 
 # The action status.
 ACTION_STATUS = {

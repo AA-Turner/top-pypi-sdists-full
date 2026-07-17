@@ -64,6 +64,7 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 from pathlib import Path
 
 import jpype
@@ -75,6 +76,42 @@ from snowflake.snowpark_connect.utils.snowpark_connect_logging import (
 
 _ENV_LEVEL = "SNOWPARK_CONNECT_LOG4J_BRIDGE_LEVEL"
 _ENV_DISABLE = "SNOWPARK_CONNECT_LOG4J_BRIDGE_DISABLE"
+
+# Persistent extraction dir for JARs loaded from a wheel ZIP.
+# jpype.addClassPath() records a path that the JVM reads at startup — the file
+# must still exist when start_jvm() is called (after add_bridge_jar_to_classpath
+# returns). A context-manager temp file is cleaned up too early, so we use a
+# plain mkdtemp() that lasts for the process lifetime.
+_jar_extract_dir: Path | None = None
+
+
+def _get_includes_jar_path(jar_name: str) -> Path | None:
+    """Return a real filesystem path to an includes/jars JAR.
+
+    Works whether SCOS is installed as a regular package or loaded from a wheel
+    ZIP: for ZIP-based installs, the JAR is extracted to a persistent temp dir.
+    """
+    global _jar_extract_dir
+    import importlib.resources
+
+    pkg_file = (
+        importlib.resources.files("snowflake.snowpark_connect.includes")
+        .joinpath("jars")
+        .joinpath(jar_name)
+    )
+    if not pkg_file.is_file():
+        return None
+    jar_path = Path(str(pkg_file))
+    if jar_path.exists():
+        return jar_path
+    # ZIP-based install: extract to a process-scoped temp dir.
+    if _jar_extract_dir is None:
+        _jar_extract_dir = Path(tempfile.mkdtemp(prefix="scos_bridge_jars_"))
+    dest = _jar_extract_dir / jar_name
+    if not dest.exists():
+        dest.write_bytes(pkg_file.read_bytes())
+    return dest
+
 
 _BRIDGE_APPENDER_CLASS = (
     "com.snowflake.sas.scala.log.SnowparkConnectPythonBridgeAppender"
@@ -242,13 +279,12 @@ def add_bridge_jar_to_classpath(scala_version: str | None = None) -> Path | None
             else SAS_SCALA_UDF_JAR_212
         )
 
-        includes_jars_dir = Path(__file__).resolve().parent.parent / "includes" / "jars"
-        jar_path = includes_jars_dir / jar_name
-        if not jar_path.is_file():
+        jar_path = _get_includes_jar_path(jar_name)
+        if jar_path is None:
             logger.warning(
-                "log4j bridge jar not found at %s; the bridge appender will "
-                "not be loadable",
-                jar_path,
+                "log4j bridge jar %s not found in includes/jars; the bridge "
+                "appender will not be loadable",
+                jar_name,
             )
             return None
         jpype.addClassPath(str(jar_path))
@@ -257,14 +293,13 @@ def add_bridge_jar_to_classpath(scala_version: str | None = None) -> Path | None
         # log4j2 bridge itself, so we log and continue. Without it, JUL
         # records simply stay invisible to the Python sink (the previous
         # behaviour); native log4j2 records still flow through.
-        jul_jar_path = includes_jars_dir / LOG4J_JUL_JAR
-        if jul_jar_path.is_file():
+        jul_jar_path = _get_includes_jar_path(LOG4J_JUL_JAR)
+        if jul_jar_path is not None:
             jpype.addClassPath(str(jul_jar_path))
         else:
             logger.warning(
-                "log4j-jul jar not found at %s; java.util.logging records "
-                "will not be forwarded to the Python bridge",
-                jul_jar_path,
+                "log4j-jul jar not found in includes/jars; java.util.logging "
+                "records will not be forwarded to the Python bridge",
             )
 
         return jar_path

@@ -14,6 +14,11 @@
 #    under the License.
 
 from neutron_lib.api.definitions import network
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 L2_ADJACENCY = 'l2_adjacency'
@@ -27,7 +32,7 @@ DESCRIPTION = 'Display L2 Adjacency for Neutron Networks.'
 UPDATED_TIMESTAMP = '2016-04-12T16:00:00-00:00'
 RESOURCE_NAME = network.RESOURCE_NAME
 COLLECTION_NAME = network.COLLECTION_NAME
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         L2_ADJACENCY: {
             'allow_post': False,
@@ -36,8 +41,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         }
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

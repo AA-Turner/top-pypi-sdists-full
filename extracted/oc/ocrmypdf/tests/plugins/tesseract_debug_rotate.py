@@ -74,11 +74,11 @@ class FixedRotateNoopOcrEngine(OcrEngine):
     def generate_hocr(input_file, output_hocr, output_text, options):
         with (
             Image.open(input_file) as im,
-            open(output_hocr, 'w', encoding='utf-8') as f,
+            output_hocr.open('w', encoding='utf-8') as f,
         ):
             w, h = im.size
             f.write(HOCR_TEMPLATE.format(str(w), str(h)))
-        with open(output_text, 'w') as f:
+        with output_text.open('w') as f:
             f.write('')
 
     @staticmethod

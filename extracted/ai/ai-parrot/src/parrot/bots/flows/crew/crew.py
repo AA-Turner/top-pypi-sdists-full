@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 from ....models.crew_definition import ExecutionMode
 import contextlib
 import asyncio
+import re
 import uuid
 from tqdm.asyncio import tqdm as async_tqdm
 from navconfig.logging import logging
@@ -40,7 +41,7 @@ from ....clients.factory import SUPPORTED_CLIENTS
 from ....clients.google import GoogleGenAIClient
 from ....tools.manager import ToolManager
 from ....tools.agent import AgentTool
-from ....tools.abstract import AbstractTool
+from ....tools.abstract import AbstractTool, ToolResult
 from ....models.responses import (
     AIMessage,
     AgentResponse
@@ -55,7 +56,12 @@ from ..core.result import (
     build_node_metadata,
     determine_run_status,
 )
-from ..core.storage import ExecutionMemory, PersistenceMixin, SynthesisMixin
+from ..core.storage import (
+    CrewExecutionDocument,
+    ExecutionMemory,
+    PersistenceMixin,
+    SynthesisMixin,
+)
 from ..core.storage.backends import ResultStorage
 from ..core.storage.synthesis import SYNTHESIS_PROMPT
 from ..core.context import FlowContext  # noqa: F401 — re-export for backward compat
@@ -68,6 +74,7 @@ from ..core.types import (
 from ..core.fsm import AgentTaskMachine
 from ..tools import ResultRetrievalTool
 from .nodes import CrewAgentNode
+from .tool_node import ToolNode, extract_tool_output
 
 __all__ = [
     "AgentCrew",
@@ -87,7 +94,9 @@ AgentNode = CrewAgentNode
 # Keys placed in FlowContext.shared_data for framework bookkeeping.
 # These must NOT be forwarded to agent calls (agent.ask / .conversation / .invoke)
 # because they contain non-serialisable internal objects (ExecutionMemory, dicts, …).
-_INTERNAL_SHARED_KEYS: frozenset = frozenset({'execution_memory', 'shared_state'})
+_INTERNAL_SHARED_KEYS: frozenset = frozenset(
+    {'execution_memory', 'shared_state', 'crew_execution_id'}
+)
 
 
 class AgentCrew(PersistenceMixin, SynthesisMixin):
@@ -146,6 +155,10 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
         agent_execution_timeout: float = 600.0, # Timeout in seconds per agent execution
         persist_results: bool = True,
         result_storage: Union[str, "ResultStorage", None] = None,
+        persist_agent_results: bool = True,
+        tenant: Optional[str] = None,
+        generate_infographic: bool = False,
+        result_agent_name: str = "result-agent",
         **kwargs
     ):
         """
@@ -156,6 +169,17 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
             agents: List of agents to add to the crew
             shared_tool_manager: Optional shared tool manager for all agents
             max_parallel_tasks: Maximum number of parallel tasks (for rate limiting)
+            persist_results: Opt-out for ALL result persistence (crew + per-agent).
+            result_storage: Backend name/instance for ``ResultStorage`` resolution.
+            persist_agent_results: Granular opt-out for per-agent incremental
+                persistence only (FEAT-306); has no effect when
+                ``persist_results`` is already ``False``.
+            tenant: Tenant identifier for multi-tenant isolation (FEAT-307).
+                Persisted on every saved execution (see ``_save_result()``
+                call sites in ``run_*``). Defaults to ``"global"`` when not
+                provided — matching ``CrewDefinition.tenant``'s own default.
+                ``from_definition()`` wires this automatically from the
+                definition's ``tenant`` field.
         """
         self.name = name or 'AgentCrew'
         self.agents: Dict[str, Union[BasicAgent, AbstractBot]] = {}
@@ -209,6 +233,9 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
                 )
         self._summary = None
         self.last_crew_result: Optional[FlowResult] = None
+        self._last_execution_id: Optional[str] = None
+        self._last_user_id: Optional[str] = None
+        self._last_session_id: Optional[str] = None
         self.agent_execution_timeout = agent_execution_timeout
         
         # Status Tracking
@@ -221,10 +248,19 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
             result_storage if isinstance(result_storage, ResultStorage) else None
         )
         self._persist_tasks: set[asyncio.Task] = set()
+        # Granular per-agent persistence opt-out (FEAT-306)
+        self._persist_agent_results: bool = persist_agent_results
+        # Tenant identifier for multi-tenant isolation (FEAT-307)
+        self._tenant: str = tenant or "global"
 
         # Lifecycle hooks (FEAT-157)
         self._on_complete_hooks: List[CrewHookCallback] = []
         self._on_error_hooks: List[CrewHookCallback] = []
+
+        # End-of-flow multi-tab infographic (FEAT-308) — opt-in, non-breaking
+        # when left at its default (False).
+        self.generate_infographic: bool = generate_infographic
+        self.result_agent_name: str = result_agent_name
 
         # Add agents if provided
         if agents:
@@ -246,6 +282,36 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
         Get the status of a specific agent.
         """
         return self._agent_statuses.get(agent_id)
+
+    def build_execution_document(self) -> Optional["CrewExecutionDocument"]:
+        """Assemble the document for the LAST run from in-process state (LLM-free).
+
+        Deterministic, LLM-free reconstruction (FEAT-306) built from
+        ``self.execution_memory`` + ``self.last_crew_result`` — no storage
+        round-trip required.
+
+        Returns:
+            The ``CrewExecutionDocument`` for the most recent run, or
+            ``None`` when no run has completed yet.
+        """
+        if self.last_crew_result is None:
+            return None
+        # metadata['mode'] holds the short form ('sequential', 'loop',
+        # 'parallel', 'flow'); the persisted document's `method` field uses
+        # the full run_* name (e.g. 'run_sequential') — normalise so
+        # build_execution_document() matches CrewExecutionDocument.from_storage()
+        # for the same run (TASK-1770 e2e equality requirement).
+        _mode = self.last_crew_result.metadata.get('mode', 'unknown')
+        _method = _mode if _mode.startswith('run_') else f'run_{_mode}'
+        return CrewExecutionDocument.from_memory(
+            execution_id=self._last_execution_id,
+            crew_name=self.name,
+            method=_method,
+            memory=self.execution_memory,
+            result=self.last_crew_result,
+            user_id=self._last_user_id,
+            session_id=self._last_session_id,
+        )
 
     # ── Lifecycle hooks (FEAT-157) ────────────────────────────────────────
 
@@ -311,6 +377,213 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
                     "Error in crew lifecycle hook %r: %s", hook, exc
                 )
 
+    def _schedule_agent_persist(
+        self,
+        agent_result: "NodeResult",
+        *,
+        execution_id: str,
+        method: str,
+        user_id: str,
+        session_id: str,
+    ) -> None:
+        """Schedule the incremental per-agent persist as a tracked task (FEAT-306).
+
+        Mirrors the fire-and-forget + ``_persist_tasks`` bookkeeping pattern
+        used for the final crew-level persist, so ``aclose()`` drains both
+        planes of writes.
+
+        Args:
+            agent_result: The ``NodeResult`` that was just added to
+                ``execution_memory``.
+            execution_id: Crew-level execution id for this run.
+            method: Execution method name (e.g. ``"run_sequential"``).
+            user_id: User identifier propagated to the stored document.
+            session_id: Session identifier propagated to the stored document.
+        """
+        _agent_task = asyncio.get_running_loop().create_task(
+            self._save_agent_result(
+                agent_result,
+                execution_id=execution_id,
+                method=method,
+                user_id=user_id,
+                session_id=session_id,
+            )
+        )
+        self._persist_tasks.add(_agent_task)
+        _agent_task.add_done_callback(self._persist_tasks.discard)
+
+    async def _finalize_infographic(self, result: FlowResult) -> None:
+        """Populate ``result.infographic``; swallow+log on failure (FEAT-308).
+
+        Called by all ``run_*()`` methods after synthesis, before
+        ``_fire_hooks()``. No-op when ``generate_infographic`` is ``False``
+        (the default) — existing crew behaviour is byte-for-byte unchanged.
+
+        Resolves the ``ResultAgent`` from ``AgentRegistry`` by
+        ``result_agent_name``, builds the deterministic tab blocks from
+        ``self.execution_memory`` (excluding the ResultAgent's own id), has
+        the ResultAgent LLM-author the Tab 1 (Executive Summary & Insights)
+        blocks from the crew's existing ``result.summary`` (no second
+        synthesis pass), and renders the merged block list through the
+        ``crew_report`` template.
+
+        Any exception anywhere in this pipeline (unknown agent name, LLM
+        failure, render failure) is logged and leaves
+        ``result.infographic`` at its default (``None``) — the crew's real
+        result and ``result.status`` are never affected.
+
+        Args:
+            result: The ``FlowResult`` produced by the current run.
+        """
+        if not self.generate_infographic:
+            return
+        try:
+            # Local imports:
+            #   1. Guarantees the built-in "result-agent" is registered
+            #      regardless of application load order, without adding a
+            #      crew.py -> result_agent.py module-level import (avoids
+            #      any risk of a circular import through
+            #      parrot.bots.flows.crew.result_infographic).
+            #   2. Keeps this opt-in feature's dependencies out of crew.py's
+            #      module-level import graph when generate_infographic is
+            #      never used.
+            from parrot.bots.flows import result_agent as _result_agent_module  # noqa: F401
+            from parrot.registry import agent_registry
+            from parrot.bots.flows.crew.result_infographic import build_deterministic_tabs
+
+            metadata = agent_registry.get_metadata(self.result_agent_name)
+            if metadata is None:
+                self.logger.warning(
+                    "ResultAgent '%s' not found in registry; skipping infographic.",
+                    self.result_agent_name,
+                )
+                return
+
+            agent_cls = metadata.factory
+            result_agent = agent_cls(name=self.result_agent_name, llm=self._llm)
+
+            det_blocks = build_deterministic_tabs(
+                self.execution_memory,
+                final_output=result.output,
+                exclude_node_id=self.result_agent_name,
+            )
+            render_result = await result_agent.generate_infographic(
+                summary=result.summary,
+                deterministic_blocks=det_blocks,
+                crew_name=self.name,
+            )
+            result.infographic = render_result
+        except Exception as exc:  # noqa: BLE001 — graceful degradation (spec G7)
+            self.logger.error(
+                "Infographic generation failed: %s", exc, exc_info=True
+            )
+            # result.infographic remains at its default (None) — crew result intact.
+
+    @staticmethod
+    def _temporal_grounding_text() -> str:
+        """Build a 'today's date' grounding block for agent system prompts.
+
+        The literal date is baked in at crew-build time (crews are constructed
+        fresh per execution), so it is always the real current date and does
+        not depend on ``$current_date`` dynamic-value resolution timing. It
+        also instructs the agent to fetch current information via tools rather
+        than answering from potentially stale training knowledge.
+        """
+        from datetime import date
+
+        today = date.today()
+        return (
+            "<temporal_context>\n"
+            f"Today's date is {today.isoformat()} — the current year is "
+            f"{today.year}. This is the real, present-day date.\n"
+            "When the request concerns recent, latest, current, upcoming or "
+            "otherwise time-sensitive information (prices, reviews, "
+            "competitors, product releases, news, availability), you MUST use "
+            "your web-search / tool capabilities to retrieve up-to-date data. "
+            "Do NOT answer from prior or training knowledge, which may be stale "
+            "or refer to earlier years.\n"
+            "</temporal_context>"
+        )
+
+    @classmethod
+    def _apply_definition_prompt(
+        cls, agent: Any, system_prompt: Optional[str]
+    ) -> None:
+        """Apply a definition's ``system_prompt`` plus temporal grounding.
+
+        Agents built by :meth:`from_definition` default to a composable
+        ``PromptBuilder`` (``_prompt_builder``). Assigning ``agent.system_prompt``
+        only sets the legacy ``_system_prompt_template``, which the builder path
+        ignores — so a definition's custom instructions were silently dropped.
+        This helper injects the custom prompt into the builder's identity slot
+        (mirroring ``PromptBuilder.from_system_prompt``) and always adds a
+        temporal-grounding layer so the agent knows the current date. Agents
+        without a builder fall back to the legacy template.
+
+        Args:
+            agent: The freshly constructed agent instance.
+            system_prompt: The definition's system prompt (may be ``None``).
+        """
+        temporal = cls._temporal_grounding_text()
+        builder = getattr(agent, "_prompt_builder", None)
+        if builder is not None:
+            from ...prompts.layers import (
+                PromptLayer,
+                LayerPriority,
+                RenderPhase,
+            )
+
+            if system_prompt:
+                # Custom instructions take over the identity slot, exactly as
+                # PromptBuilder.from_system_prompt() does — the rest of the
+                # default agent stack (security, tools, behavior, …) is kept.
+                builder.add(
+                    PromptLayer(
+                        name="identity",
+                        priority=LayerPriority.IDENTITY,
+                        phase=RenderPhase.CONFIGURE,
+                        template=system_prompt,
+                    )
+                )
+            builder.add(
+                PromptLayer(
+                    name="temporal_context",
+                    priority=LayerPriority.IDENTITY + 1,
+                    phase=RenderPhase.CONFIGURE,
+                    template=temporal,
+                )
+            )
+            return
+        # Legacy template path (agent has no composable builder).
+        if system_prompt:
+            agent.system_prompt = system_prompt
+        base = agent.system_prompt or ""
+        agent.system_prompt = f"{base}\n\n{temporal}" if base else temporal
+
+    @staticmethod
+    def _sanitize_tool_name(name: str) -> str:
+        """Coerce an arbitrary string into a provider-valid function name.
+
+        LLM providers (notably Google Gemini) reject function/tool names that
+        are not identifier-like. Gemini requires a name that starts with a
+        letter or underscore and contains only ``[a-zA-Z0-9_.:-]`` with a max
+        length of 128. Crew agent ids come from the UI/definition and may
+        contain spaces or other characters, so we normalise them here.
+
+        Args:
+            name: The raw candidate tool name.
+
+        Returns:
+            A sanitised name safe to send as a function declaration.
+        """
+        # Replace every disallowed character with an underscore.
+        sanitized = re.sub(r"[^a-zA-Z0-9_.:-]", "_", name)
+        # Must start with a letter or underscore.
+        if not sanitized or not re.match(r"[a-zA-Z_]", sanitized):
+            sanitized = f"_{sanitized}"
+        # Enforce the 128 character ceiling.
+        return sanitized[:128]
+
     def _register_agents_as_tools(self):
         """
         Register each agent as a tool in the LLM's tool manager.
@@ -319,9 +592,13 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
             return
 
         for agent_id, agent in self.agents.items():
+            if isinstance(agent, ToolNode):
+                # Deterministic tool nodes are not agents — nothing to wrap.
+                continue
             try:
+                tool_name = self._sanitize_tool_name(f"agent_{agent_id}")
                 agent_tool = agent.as_tool(
-                    tool_name=f"agent_{agent_id}",
+                    tool_name=tool_name,
                     tool_description=(
                         f"Agent {agent.name}: {agent.description} "
                         f"Re-execute to gather additional information. "
@@ -377,18 +654,32 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
                 tools=list(agent_def.tools),
                 **agent_def.config,
             )
-            if agent_def.system_prompt:
-                agent.system_prompt = agent_def.system_prompt
+            cls._apply_definition_prompt(agent, agent_def.system_prompt)
             agents.append(agent)
 
-        # Allow callers to override max_parallel_tasks via kwargs.
+        # Allow callers to override max_parallel_tasks/tenant via kwargs.
         max_parallel_tasks = kwargs.pop(
             "max_parallel_tasks", crew_def.max_parallel_tasks
+        )
+        tenant = kwargs.pop("tenant", crew_def.tenant)
+        # Infographic wiring (FEAT-308): read from the definition, allow a
+        # call-time override via kwargs. Without this, crews built from a
+        # definition (e.g. every API-executed crew) could never opt in.
+        generate_infographic = kwargs.pop(
+            "generate_infographic",
+            getattr(crew_def, "generate_infographic", False),
+        )
+        result_agent_name = kwargs.pop(
+            "result_agent_name",
+            getattr(crew_def, "result_agent_name", "result-agent"),
         )
         crew = cls(
             name=crew_def.name,
             agents=agents,
             max_parallel_tasks=max_parallel_tasks,
+            tenant=tenant,
+            generate_infographic=generate_infographic,
+            result_agent_name=result_agent_name,
             **kwargs,
         )
 
@@ -396,6 +687,27 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
             for tool_name in crew_def.shared_tools:
                 if tool := tool_resolver(tool_name):
                     crew.add_shared_tool(tool, tool_name)
+
+        # Deterministic tool nodes (ToolNodeDefinition) — added before
+        # flow_relations so relations can reference them by node_id.
+        # Unlike shared tools, an unresolvable tool node raises: it is a
+        # structural DAG member and skipping it silently would produce a
+        # broken/stuck workflow.
+        for tool_node_def in getattr(crew_def, "tool_nodes", None) or []:
+            tool = tool_resolver(tool_node_def.tool) if tool_resolver else None
+            if tool is None:
+                raise ValueError(
+                    f"Cannot resolve tool '{tool_node_def.tool}' for tool "
+                    f"node '{tool_node_def.node_id}'. A tool_resolver that "
+                    "knows this tool is required."
+                )
+            crew.add_tool_node(
+                tool,
+                tool_node_def.node_id,
+                args=tool_node_def.args,
+                kwargs=tool_node_def.kwargs,
+                description=tool_node_def.description,
+            )
 
         if crew_def.execution_mode == ExecutionMode.FLOW and crew_def.flow_relations:
             for relation in crew_def.flow_relations:
@@ -481,9 +793,16 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
             "error": None
         }
 
-        # Subscribe to agent events
+        # Subscribe to agent events.
+        #
+        # FEAT-176 routes EVENT_STATUS_CHANGED through the _LegacyEventBridge,
+        # which invokes listeners as ``cb(old=<name>, new=<name>)`` — without
+        # the positional ``event_name`` / ``agent_name`` kwargs the legacy
+        # ``_trigger_event`` path supplied. So status changes need a dedicated
+        # bridge-compatible handler, while the task events below still flow
+        # through ``_trigger_event`` and match ``_handle_agent_event``.
         agent.add_event_listener(
-            agent.EVENT_STATUS_CHANGED, self._handle_agent_event
+            agent.EVENT_STATUS_CHANGED, self._make_status_listener(agent_id)
         )
         agent.add_event_listener(
             agent.EVENT_TASK_STARTED, self._handle_agent_event
@@ -497,10 +816,73 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
 
         self.logger.info(f"Agents added and tracking initialized for '{agent_id}'")
 
+    def add_tool_node(
+        self,
+        tool: AbstractTool,
+        node_id: str,
+        *,
+        args: Optional[List[Any]] = None,
+        kwargs: Optional[Dict[str, Any]] = None,
+        description: Optional[str] = None,
+    ) -> ToolNode:
+        """Add a deterministic tool-execution node as a crew member.
+
+        The node calls ``tool`` directly with the declared ``args``/``kwargs``
+        (template placeholders ``{input}`` and ``{nodes.<name>.output}`` are
+        resolved from prior results at execution time) — no LLM tokens are
+        spent. The result is wrapped so it behaves like any agent execution
+        result throughout the crew flow.
+
+        Registered into BOTH ``self.agents`` (so sequential/parallel/loop
+        modes pick it up — ``_execute_agent`` dispatches on isinstance) and
+        ``self.workflow_graph`` (flow mode: the ToolNode is its own graph
+        node). Agent-only machinery is skipped: shared-tool distribution,
+        AgentTool wrapping, LLM tool registration and event listeners.
+
+        Args:
+            tool: The ``AbstractTool`` instance to execute.
+            node_id: Unique identifier for the node within the crew.
+            args: Positional arguments passed through to the tool.
+            kwargs: Keyword arguments passed through to the tool.
+            description: Optional human-readable description.
+
+        Returns:
+            The created ``ToolNode``.
+
+        Raises:
+            ValueError: If ``node_id`` already exists in the crew.
+        """
+        if node_id in self.agents or node_id in self.workflow_graph:
+            raise ValueError(
+                f"Crew member '{node_id}' already exists"
+            )
+        node = ToolNode(
+            tool=tool,
+            node_id=node_id,
+            args=list(args or []),
+            kwargs=dict(kwargs or {}),
+            description=description or f"Deterministic call of tool '{tool.name}'",
+        )
+        self.agents[node_id] = node
+        self.workflow_graph[node_id] = node
+        self._agent_statuses[node_id] = {
+            "status": AgentStatus.IDLE.value,
+            "last_active": datetime.now(),
+            "task": None,
+            "result": None,
+            "error": None
+        }
+        self.logger.info(
+            f"Added tool node '{node_id}' (tool '{tool.name}') to crew"
+        )
+        return node
+
     def remove_agent(self, agent_id: str) -> bool:
-        """Remove an agent from the crew."""
+        """Remove an agent (or tool node) from the crew."""
         if agent_id in self.agents:
             del self.agents[agent_id]
+            self.workflow_graph.pop(agent_id, None)
+            self._agent_statuses.pop(agent_id, None)
             self.logger.info(
                 f"Removed agent '{agent_id}' from crew"
             )
@@ -511,13 +893,55 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
         """Add a tool shared across all agents."""
         self.shared_tool_manager.add_tool(tool, tool_name)
 
-        # Add to all existing agents
+        # Add to all existing agents (tool nodes have no tool_manager)
         for agent in self.agents.values():
+            if not hasattr(agent, 'tool_manager'):
+                continue
             if not agent.tool_manager.get_tool(tool_name or tool.name):
                 agent.tool_manager.add_tool(tool, tool_name)
 
+    def _make_status_listener(self, agent_id: str) -> Callable:
+        """Build an EVENT_STATUS_CHANGED listener for a specific crew member.
+
+        FEAT-176's ``_LegacyEventBridge`` invokes status-change callbacks as
+        ``cb(old=<enum name>, new=<enum name>)`` — it does not forward the
+        ``event_name`` or ``agent_name`` that the legacy ``_trigger_event``
+        path used. The returned closure captures ``agent_id`` so the update
+        still maps to the right crew member, and accepts the bridge's
+        keyword-only signature (tolerating extra kwargs defensively).
+
+        Args:
+            agent_id: The crew member whose status this listener updates.
+
+        Returns:
+            An async callback compatible with ``_LegacyEventBridge._on_status``.
+        """
+
+        async def _on_status(
+            *, old: Any = None, new: Any = None, **_: Any
+        ) -> None:
+            info = self._agent_statuses.get(agent_id)
+            if info is None:
+                return
+            info["last_active"] = datetime.now()
+            if new:
+                # Bridge passes the enum *name* (e.g. "WORKING"); normalise to
+                # the stored enum *value* ("working") when possible.
+                try:
+                    info["status"] = AgentStatus[new].value
+                except (KeyError, TypeError):
+                    info["status"] = new
+
+        return _on_status
+
     async def _handle_agent_event(self, event_name: str, **kwargs) -> None:
-        """Handle events from agents to update internal status tracking."""
+        """Handle task events from agents to update internal status tracking.
+
+        Handles the ``EVENT_TASK_STARTED`` / ``EVENT_TASK_COMPLETED`` /
+        ``EVENT_TASK_FAILED`` events, which still flow through the legacy
+        ``_trigger_event(event_name, **kwargs)`` path. ``EVENT_STATUS_CHANGED``
+        is handled separately by ``_make_status_listener`` (see FEAT-176).
+        """
         agent_name = kwargs.get("agent_name")
         # Map agent name to ID if needed, but we used ID as key.
         # Assuming agent.name matches key, or we need to find key by agent name?
@@ -561,12 +985,6 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
             status_info["error"] = kwargs.get("error")
             status_info["completed_at"] = datetime.now()
             self.logger.error(f"Agent {target_id} failed: {kwargs.get('error')}")
-
-        elif event_name == "status_changed":
-            new_status = kwargs.get("status")
-            if new_status:
-                # Map string status to enum if needed, or just store
-                status_info["status"] = new_status
 
     def get_agent_statuses(self) -> List[dict]:
         """Get current status of all agents."""
@@ -807,6 +1225,16 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
                         execution_time=0.0
                     )
                     _exec_mem.add_result(agent_result, vectorize=False)
+
+                    # Persist per-agent result incrementally (FEAT-306) — skip
+                    # silently when the helper is used outside a run_flow()
+                    # invocation (no crew_execution_id threaded in shared_data).
+                    _crew_execution_id = context.shared_data.get('crew_execution_id')
+                    if _crew_execution_id:
+                        self._schedule_agent_persist(
+                            agent_result, execution_id=_crew_execution_id,
+                            method='run_flow', user_id=_uid, session_id=_sid,
+                        )
             else:
                 output = result.get('output') if isinstance(result, dict) else result
                 raw_response = result.get('response') if isinstance(result, dict) else result
@@ -871,6 +1299,16 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
                     # Update execution order
                     if agent_name not in _exec_mem.execution_order:
                         _exec_mem.execution_order.append(agent_name)
+
+                    # Persist per-agent result incrementally (FEAT-306) — skip
+                    # silently when the helper is used outside a run_flow()
+                    # invocation (no crew_execution_id threaded in shared_data).
+                    _crew_execution_id = context.shared_data.get('crew_execution_id')
+                    if _crew_execution_id:
+                        self._schedule_agent_persist(
+                            agent_result, execution_id=_crew_execution_id,
+                            method='run_flow', user_id=_uid, session_id=_sid,
+                        )
 
         return execution_results
 
@@ -960,6 +1398,7 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
         index: int,
         model: Optional[str] = None,
         max_tokens: Optional[int] = None,
+        flow_context: Optional[FlowContext] = None,
         **kwargs,
     ) -> Any:
         """Execute a single agent with proper rate limiting and error handling.
@@ -977,14 +1416,30 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
                 build a unique sub-session ID).
             model: Optional model override forwarded to the agent.
             max_tokens: Optional token limit forwarded to the agent.
+            flow_context: Optional ``FlowContext`` of the current run — used
+                by ``ToolNode`` members to resolve ``{nodes.<name>.output}``
+                template placeholders from prior results.
             **kwargs: Arbitrary additional keyword arguments forwarded to the
                 agent call (replaces the former ``AgentContext.shared_data``
                 spread).
 
         Returns:
             The raw response from the agent (``AIMessage``, ``AgentResponse``,
-            or other type depending on the agent implementation).
+            or other type depending on the agent implementation), or a
+            ``ToolResult`` for ``ToolNode`` members.
         """
+        # Deterministic tool node: no LLM, no configuration — resolve the
+        # declared args/kwargs (templates included) and call the tool
+        # directly. Session/model kwargs deliberately do NOT reach the tool.
+        if isinstance(agent, ToolNode):
+            async with self.semaphore:
+                return await agent.call_tool(
+                    input_text=query,
+                    results=(
+                        flow_context.results if flow_context is not None else {}
+                    ),
+                    timeout=self.agent_execution_timeout,
+                )
         await self._ensure_agent_ready(agent)
         async with self.semaphore:
             if hasattr(agent, 'ask'):
@@ -1022,6 +1477,8 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
 
     def _extract_result(self, response: Any) -> str:
         """Extract result string from response."""
+        if isinstance(response, ToolResult):
+            return extract_tool_output(response)
         if isinstance(response, (AIMessage, AgentResponse)) or hasattr(
             response, 'content'
         ):
@@ -1233,6 +1690,9 @@ class AgentCrew(PersistenceMixin, SynthesisMixin):
         # Setup session identifiers
         session_id = session_id or str(uuid.uuid4())
         user_id = user_id or 'crew_user'
+        # Crew-level execution id (FEAT-306) — links this run's per-agent
+        # writes to the consolidated CrewExecutionDocument.
+        execution_id = str(uuid.uuid4())
 
         # Initialize execution memory
         self.execution_memory = ExecutionMemory(
@@ -1315,6 +1775,7 @@ Current task: {current_input}"""
                 response: AIMessage = await self._execute_agent(
                     agent, agent_input, session_id, user_id, i,
                     model=model, max_tokens=max_tokens,
+                    flow_context=context,
                     **_agent_kwargs
                 )
 
@@ -1376,6 +1837,10 @@ Current task: {current_input}"""
                 self.execution_memory.add_result(
                     agent_result,
                     vectorize=True
+                )
+                self._schedule_agent_persist(
+                    agent_result, execution_id=execution_id, method='run_sequential',
+                    user_id=user_id, session_id=session_id,
                 )
 
                 # FSM: mark node as completed
@@ -1439,6 +1904,10 @@ Current task: {current_input}"""
                     agent_result,
                     vectorize=False
                 )
+                self._schedule_agent_persist(
+                    agent_result, execution_id=execution_id, method='run_sequential',
+                    user_id=user_id, session_id=session_id,
+                )
 
                 failure_count += 1
 
@@ -1456,6 +1925,7 @@ Current task: {current_input}"""
             status=status,
             metadata={'mode': 'sequential', 'agent_sequence': agent_sequence}
         )
+        result.metadata['execution_id'] = execution_id
 
         if generate_summary and not synthesis_prompt:
             synthesis_prompt = SYNTHESIS_PROMPT
@@ -1480,16 +1950,38 @@ Current task: {current_input}"""
                     }
                 )
 
+        # End-of-flow multi-tab infographic (FEAT-308) — opt-in, no-op unless
+        # generate_infographic=True.
+        await self._finalize_infographic(result)
+
         # Fire lifecycle hooks (FEAT-157)
         await self._fire_hooks(result)
 
-        # Save result (fire-and-forget, tracked for lifecycle cleanup)
+        # Track last run's result + execution id for build_execution_document() (FEAT-306)
+        self.last_crew_result = result
+        self._last_execution_id = execution_id
+        self._last_user_id = user_id
+        self._last_session_id = session_id
+
+        # Save consolidated execution document (fire-and-forget, tracked for lifecycle cleanup)
+        document = CrewExecutionDocument.from_memory(
+            execution_id=execution_id,
+            crew_name=self.name,
+            method='run_sequential',
+            memory=self.execution_memory,
+            result=result,
+            user_id=user_id,
+            session_id=session_id,
+        )
         _persist_task = asyncio.get_running_loop().create_task(
             self._save_result(
-                result,
+                document,
                 'run_sequential',
+                execution_id=execution_id,
                 user_id=user_id,
-                session_id=session_id
+                session_id=session_id,
+                prompt=query,
+                tenant=getattr(self, '_tenant', 'global'),
             )
         )
         self._persist_tasks.add(_persist_task)
@@ -1572,6 +2064,10 @@ Current task: {current_input}"""
 
         session_id = session_id or str(uuid.uuid4())
         user_id = user_id or 'crew_user'
+        # Crew-level execution id (FEAT-306) — named `crew_execution_id` here
+        # to avoid shadowing the per-iteration `execution_id` local variable
+        # used below (f"{agent_id}#iteration{n}", an ExecutionMemory node key).
+        crew_execution_id = str(uuid.uuid4())
 
         # Initialize execution memory
         self.execution_memory = ExecutionMemory(
@@ -1620,7 +2116,13 @@ Current task: {current_input}"""
             for agent_id in agent_sequence:
                 node = self.workflow_graph.get(agent_id)
                 if node:
-                    node.fsm = AgentTaskMachine(agent_name=node.agent.name)
+                    # object.__setattr__ is the frozen-Pydantic escape hatch
+                    # (CrewAgentNode/AgentNode are frozen BaseModel subclasses,
+                    # see core/node.py:222-227 for the established pattern);
+                    # direct `node.fsm = ...` raises ValidationError (FEAT-309).
+                    object.__setattr__(
+                        node, "fsm", AgentTaskMachine(agent_name=node.agent.name)
+                    )
 
             context = FlowContext(
                 initial_task=initial_task,
@@ -1688,6 +2190,10 @@ Current task: {current_input}"""
                         agent_result,
                         vectorize=False
                     )
+                    self._schedule_agent_persist(
+                        agent_result, execution_id=crew_execution_id, method='run_loop',
+                        user_id=user_id, session_id=session_id,
+                    )
 
                     failure_count += 1
                     continue
@@ -1740,6 +2246,7 @@ Current task: {current_input}"""
                         agent_position,
                         model=model,
                         max_tokens=max_tokens,
+                        flow_context=context,
                         **_agent_kwargs
                     )
 
@@ -1809,6 +2316,10 @@ Current task: {current_input}"""
                         agent_result,
                         vectorize=True
                     )
+                    self._schedule_agent_persist(
+                        agent_result, execution_id=crew_execution_id, method='run_loop',
+                        user_id=user_id, session_id=session_id,
+                    )
 
                     success_count += 1
                     # Transition FSM to completed
@@ -1869,6 +2380,10 @@ Current task: {current_input}"""
                         agent_result,
                         vectorize=False
                     )
+                    self._schedule_agent_persist(
+                        agent_result, execution_id=crew_execution_id, method='run_loop',
+                        user_id=user_id, session_id=session_id,
+                    )
 
                     failure_count += 1
                     iteration_success = False
@@ -1922,6 +2437,7 @@ Current task: {current_input}"""
                 'shared_state': shared_state,
             }
         )
+        result.metadata['execution_id'] = crew_execution_id
 
         if generate_summary and not synthesis_prompt:
             synthesis_prompt = SYNTHESIS_PROMPT
@@ -1946,16 +2462,38 @@ Current task: {current_input}"""
                     }
                 )
 
+        # End-of-flow multi-tab infographic (FEAT-308) — opt-in, no-op unless
+        # generate_infographic=True.
+        await self._finalize_infographic(result)
+
         # Fire lifecycle hooks (FEAT-157)
         await self._fire_hooks(result)
 
-        # Save result (fire-and-forget, tracked for lifecycle cleanup)
+        # Track last run's result + execution id for build_execution_document() (FEAT-306)
+        self.last_crew_result = result
+        self._last_execution_id = crew_execution_id
+        self._last_user_id = user_id
+        self._last_session_id = session_id
+
+        # Save consolidated execution document (fire-and-forget, tracked for lifecycle cleanup)
+        document = CrewExecutionDocument.from_memory(
+            execution_id=crew_execution_id,
+            crew_name=self.name,
+            method='run_loop',
+            memory=self.execution_memory,
+            result=result,
+            user_id=user_id,
+            session_id=session_id,
+        )
         _persist_task = asyncio.get_running_loop().create_task(
             self._save_result(
-                result,
+                document,
                 'run_loop',
+                execution_id=crew_execution_id,
                 user_id=user_id,
-                session_id=session_id
+                session_id=session_id,
+                prompt=initial_task,
+                tenant=getattr(self, '_tenant', 'global'),
             )
         )
         self._persist_tasks.add(_persist_task)
@@ -2007,6 +2545,8 @@ Current task: {current_input}"""
         """
         session_id = session_id or str(uuid.uuid4())
         user_id = user_id or 'crew_user'
+        # Crew-level execution id (FEAT-306).
+        execution_id = str(uuid.uuid4())
         original_query = tasks[0]['query'] if tasks else ""
 
         # initialize execution log
@@ -2070,7 +2610,7 @@ Current task: {current_input}"""
 
             async def _run_with_hooks(
                 _agent=agent, _query=query, _idx=i, _node=node,
-                _kwargs=_agent_kwargs,
+                _kwargs=_agent_kwargs, _ctx=context,
             ):
                 """Wrap _execute_agent with pre/post action hooks."""
                 if _node:
@@ -2078,6 +2618,7 @@ Current task: {current_input}"""
                 resp = await self._execute_agent(
                     _agent, _query, session_id, user_id, _idx,
                     max_tokens=max_tokens,
+                    flow_context=_ctx,
                     **_kwargs
                 )
                 if _node:
@@ -2145,6 +2686,10 @@ Current task: {current_input}"""
                     agent_result,
                     vectorize=False
                 )
+                self._schedule_agent_persist(
+                    agent_result, execution_id=execution_id, method='run_parallel',
+                    user_id=user_id, session_id=session_id,
+                )
                 log_entry = {
                     'agent_id': agent_id,
                     'agent_name': agent_name,
@@ -2198,6 +2743,10 @@ Current task: {current_input}"""
                     agent_result,
                     vectorize=True
                 )
+                self._schedule_agent_persist(
+                    agent_result, execution_id=execution_id, method='run_parallel',
+                    user_id=user_id, session_id=session_id,
+                )
 
                 log_entry = {
                     'agent_id': agent_id,
@@ -2247,6 +2796,7 @@ Current task: {current_input}"""
                 'requested_tasks': len(tasks),
             }
         )
+        result.metadata['execution_id'] = execution_id
         if generate_summary and not synthesis_prompt:
             synthesis_prompt = SYNTHESIS_PROMPT
         if generate_summary:
@@ -2269,16 +2819,38 @@ Current task: {current_input}"""
                     }
                 )
 
+        # End-of-flow multi-tab infographic (FEAT-308) — opt-in, no-op unless
+        # generate_infographic=True.
+        await self._finalize_infographic(result)
+
         # Fire lifecycle hooks (FEAT-157)
         await self._fire_hooks(result)
 
-        # Save result (fire-and-forget, tracked for lifecycle cleanup)
+        # Track last run's result + execution id for build_execution_document() (FEAT-306)
+        self.last_crew_result = result
+        self._last_execution_id = execution_id
+        self._last_user_id = user_id
+        self._last_session_id = session_id
+
+        # Save consolidated execution document (fire-and-forget, tracked for lifecycle cleanup)
+        document = CrewExecutionDocument.from_memory(
+            execution_id=execution_id,
+            crew_name=self.name,
+            method='run_parallel',
+            memory=self.execution_memory,
+            result=result,
+            user_id=user_id,
+            session_id=session_id,
+        )
         _persist_task = asyncio.get_running_loop().create_task(
             self._save_result(
-                result,
+                document,
                 'run_parallel',
+                execution_id=execution_id,
                 user_id=user_id,
-                session_id=session_id
+                session_id=session_id,
+                prompt=original_query,
+                tenant=getattr(self, '_tenant', 'global'),
             )
         )
         self._persist_tasks.add(_persist_task)
@@ -2353,6 +2925,8 @@ Current task: {current_input}"""
         # Setup session identifiers
         session_id = session_id or str(uuid.uuid4())
         user_id = user_id or 'crew_user'
+        # Crew-level execution id (FEAT-306).
+        execution_id = str(uuid.uuid4())
 
         # Initialize execution memory
         self.execution_memory = ExecutionMemory(
@@ -2367,12 +2941,15 @@ Current task: {current_input}"""
         # Initialize execution context to track the workflow state.
         # Framework metadata (execution_memory, user_id, session_id) lives in
         # shared_data — consistent with run_sequential / run_loop / run_parallel.
+        # 'crew_execution_id' (FEAT-306) threads the crew-level execution id
+        # into _execute_parallel_agents() for incremental per-agent persistence.
         context = FlowContext(
             initial_task=initial_task,
             shared_data={
                 'execution_memory': self.execution_memory,
                 'user_id': user_id,
                 'session_id': session_id,
+                'crew_execution_id': execution_id,
             },
         )
 
@@ -2484,6 +3061,7 @@ Current task: {current_input}"""
             status=status,
             metadata={'mode': 'flow', 'iterations': iteration}
         )
+        result.metadata['execution_id'] = execution_id
         if generate_summary and not synthesis_prompt:
             synthesis_prompt = SYNTHESIS_PROMPT
         if generate_summary:
@@ -2506,16 +3084,38 @@ Current task: {current_input}"""
                     }
                 )
 
+        # End-of-flow multi-tab infographic (FEAT-308) — opt-in, no-op unless
+        # generate_infographic=True.
+        await self._finalize_infographic(result)
+
         # Fire lifecycle hooks (FEAT-157)
         await self._fire_hooks(result)
 
-        # Save result (fire-and-forget, tracked for lifecycle cleanup)
+        # Track last run's result + execution id for build_execution_document() (FEAT-306)
+        self.last_crew_result = result
+        self._last_execution_id = execution_id
+        self._last_user_id = user_id
+        self._last_session_id = session_id
+
+        # Save consolidated execution document (fire-and-forget, tracked for lifecycle cleanup)
+        document = CrewExecutionDocument.from_memory(
+            execution_id=execution_id,
+            crew_name=self.name,
+            method='run_flow',
+            memory=self.execution_memory,
+            result=result,
+            user_id=user_id,
+            session_id=session_id,
+        )
         _persist_task = asyncio.get_running_loop().create_task(
             self._save_result(
-                result,
+                document,
                 'run_flow',
+                execution_id=execution_id,
                 user_id=user_id,
-                session_id=session_id
+                session_id=session_id,
+                prompt=initial_task,
+                tenant=getattr(self, '_tenant', 'global'),
             )
         )
         self._persist_tasks.add(_persist_task)
@@ -2773,7 +3373,9 @@ Create a clear, well-structured response."""
                 synthesis_response,
                 'run',
                 user_id=user_id,
-                session_id=session_id
+                session_id=session_id,
+                prompt=task if isinstance(task, str) else str(task),
+                tenant=getattr(self, '_tenant', 'global'),
             )
         )
         self._persist_tasks.add(_persist_task)
@@ -2938,6 +3540,29 @@ analyze, and present information in the most helpful way for the user.
 
         return base_prompt.strip()
 
+    @staticmethod
+    def _coerce_prompt_text(value: Any) -> str:
+        """Render an arbitrary prompt fragment as a single string.
+
+        ``crew_result.output`` (and other context fields) may be a list, dict,
+        or other non-string value depending on the crew's final node. The
+        prompt builder joins ``prompt_parts`` with ``"\\n".join`` and therefore
+        requires every element to be a ``str`` — a raw list would raise
+        ``TypeError: sequence item N: expected str instance, list found``.
+
+        Args:
+            value: The fragment to render (any type).
+
+        Returns:
+            ``value`` when it is already a string; a newline-joined rendering of
+            each item when it is a list/tuple; otherwise ``str(value)``.
+        """
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (list, tuple)):
+            return "\n".join(AgentCrew._coerce_prompt_text(v) for v in value)
+        return str(value)
+
     def _build_ask_user_prompt(self, question: str, context: Dict[str, Any]) -> str:
         """Construye el user prompt con la pregunta y contexto recuperado."""
         prompt_parts = [
@@ -2963,7 +3588,7 @@ analyze, and present information in the most helpful way for the user.
                     "",
                     "**Relevant Content**:",
                     "```",
-                    match['relevant_content'],
+                    self._coerce_prompt_text(match['relevant_content']),
                     "```",
                     ""
                 ])
@@ -2981,7 +3606,7 @@ analyze, and present information in the most helpful way for the user.
                 "---",
                 "",
                 "# Final Crew Output",
-                crew_summary['final_output'],
+                self._coerce_prompt_text(crew_summary['final_output']),
                 ""
             ])
 
@@ -3283,7 +3908,9 @@ analyze, and present information in the most helpful way for the user.
                 response,
                 'ask',
                 user_id=user_id,
-                session_id=session_id
+                session_id=session_id,
+                prompt=question,
+                tenant=getattr(self, '_tenant', 'global'),
             )
         )
         self._persist_tasks.add(_persist_task)

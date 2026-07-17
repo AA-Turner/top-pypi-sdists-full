@@ -12,6 +12,11 @@
 
 from neutron_lib.api.definitions import l3
 from neutron_lib import constants
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 PORT_DETAILS = 'port_details'
@@ -22,7 +27,7 @@ IS_STANDARD_ATTR_EXTENSION = False
 NAME = 'Floating IP Port Details Extension'
 DESCRIPTION = 'Add port_details attribute to Floating IP resource'
 UPDATED_TIMESTAMP = '2018-04-09T10:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     l3.FLOATINGIPS: {
         PORT_DETAILS: {
             'allow_post': False, 'allow_put': False,
@@ -31,8 +36,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         }
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [l3.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

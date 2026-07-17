@@ -134,6 +134,7 @@ class TaskEnvironment(Environment):
         project_id: str | None = None,
         inputs: dict[str, t.Any] | None = None,
         secret_ids: list[str] | None = None,
+        model_overrides: dict[str, str] | None = None,
         timeout_sec: int | None = None,
     ) -> None:
         self.api_client = api_client
@@ -143,6 +144,7 @@ class TaskEnvironment(Environment):
         self.project_id = project_id
         self._inputs = inputs
         self.secret_ids = secret_ids
+        self._model_overrides = model_overrides
         self._timeout_sec = timeout_sec
         self._context: EnvironmentContext | None = None
         self._execute_token: str | None = None
@@ -159,6 +161,8 @@ class TaskEnvironment(Environment):
             request["inputs"] = self._inputs
         if self.secret_ids is not None:
             request["secret_ids"] = self.secret_ids
+        if self._model_overrides is not None:
+            request["model_overrides"] = self._model_overrides
         if self._timeout_sec is not None:
             request["timeout_sec"] = self._timeout_sec
 

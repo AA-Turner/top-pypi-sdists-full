@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import copy
+import ctypes
 import math
 import pickle
+import sys
 
 from collections.abc import Callable
 from datetime import date
@@ -19,6 +21,7 @@ from tests.util import assert_is_ppo
 from tests.util import elementary_test
 from tomlkit import api
 from tomlkit import parse
+from tomlkit.container import OutOfOrderTableProxy
 from tomlkit.exceptions import NonExistentKey
 from tomlkit.items import Array
 from tomlkit.items import Bool
@@ -98,6 +101,18 @@ def test_integer_unwrap() -> None:
 
 def test_float_unwrap() -> None:
     elementary_test(item(2.78), float)
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython", reason="PySequence_Check is CPython-specific"
+)
+def test_float_is_not_a_sequence() -> None:
+    value = parse("a = [1.0, 2.0, 3.0]")["a"][0]
+    py_sequence_check = ctypes.pythonapi.PySequence_Check
+    py_sequence_check.argtypes = [ctypes.py_object]
+    py_sequence_check.restype = ctypes.c_int
+
+    assert not py_sequence_check(value)
 
 
 def test_false_unwrap() -> None:
@@ -514,6 +529,13 @@ def test_array_add_line() -> None:
     )
 
 
+def test_array_add_line_multiline_comment_is_rejected() -> None:
+    t = api.array()
+    with pytest.raises(ValueError, match="line breaks"):
+        t.add_line(1, 2, 3, comment="first line\nsecond line")
+    assert t.as_string() == "[]"
+
+
 def test_array_add_line_invalid_value() -> None:
     t = api.array()
     with pytest.raises(ValueError, match="is not allowed"):
@@ -886,6 +908,32 @@ def test_trim_comments_when_building_inline_table() -> None:
     assert table.as_string() == '{foo = "bar", baz = "foobaz"}'
 
 
+def test_comment_method_multiline_comment_is_rejected() -> None:
+    doc = api.document()
+    doc["x"] = 1
+    with pytest.raises(ValueError, match="line breaks"):
+        doc["x"].comment("first line\nsecond line")
+    assert doc.as_string() == "x = 1\n"
+
+
+def test_comment_method_keeps_existing_hash_prefix() -> None:
+    doc = api.document()
+    doc["x"] = 1
+    doc["x"].comment("# already a comment")
+    assert doc.as_string() == "x = 1 # already a comment\n"
+
+
+def test_append_table_to_inline_table_raises() -> None:
+    table = api.table()
+    table.append("a", 1)
+    inline_table = api.inline_table()
+
+    with pytest.raises(ValueError, match="cannot contain a table"):
+        inline_table.append("table", table)
+    with pytest.raises(ValueError, match="cannot contain a table"):
+        inline_table["table"] = table
+
+
 def test_deleting_inline_table_element_does_not_leave_trailing_separator() -> None:
     table = api.inline_table()
     table["foo"] = "bar"
@@ -921,6 +969,126 @@ def test_deleting_inline_table_element_does_not_leave_trailing_separator2() -> N
     table["baz"] = "boom"
 
     assert table.as_string() == '{ baz = "boom"}'
+
+
+def test_appending_to_parsed_inline_table_preserves_separator() -> None:
+    doc = parse("a = { foo = 1, bar = 2 }\n")
+    doc["a"]["baz"] = 3
+
+    assert doc.as_string() == "a = { foo = 1, bar = 2, baz = 3}\n"
+    parse(doc.as_string())
+
+
+def test_append_key_after_inline_table_trailing_comment() -> None:
+    doc = parse("tbl = {\n    p = { k = 1 },\n    q = { k = 2 }  # comment\n}\n")
+    doc["tbl"]["added"] = 3
+
+    # The separator for the new key must be placed after the previous value,
+    # not after the trailing comment -- otherwise the comma becomes part of the
+    # comment and the result no longer round-trips. See #512.
+    rendered = doc.as_string()
+    assert "# comment," not in rendered
+    assert parse(rendered) == {"tbl": {"p": {"k": 1}, "q": {"k": 2}, "added": 3}}
+    assert parse(rendered).as_string() == rendered
+
+
+def test_deleting_inline_table_middle_element_does_not_leave_double_separator() -> None:
+    doc = parse("a = {foo = 1, bar = 2, baz = 3}\n")
+    del doc["a"]["bar"]
+
+    # The dangling separator left by the removed key must not produce an
+    # invalid ``, ,`` sequence; the result must round-trip.
+    rendered = doc.as_string()
+    assert ", ," not in rendered
+    assert ",," not in rendered
+    assert parse(rendered) == {"a": {"foo": 1, "baz": 3}}
+    assert parse(rendered).as_string() == rendered
+
+
+def test_inline_table_render_after_edits() -> None:
+    # InlineTable.as_string() precomputes the last-key / last-Null indices in a
+    # single pass instead of rescanning the tail on every separator comma.
+    # Deleting keys (which leaves Null placeholders and dangling separators) is
+    # the path that exercises those lookups, so pin the exact rendered output.
+    def edited(src: str, *dels: str) -> str:
+        doc = parse(src)
+        for key in dels:
+            del doc["t"][key]
+        out = doc.as_string()
+        # whatever the spacing, the result must be valid and round-trip
+        assert ",," not in out and ", ," not in out
+        assert parse(out).as_string() == out
+        return out
+
+    assert edited("t = {a = 1, b = 2, c = 3}", "c") == "t = {a = 1, b = 2 }"
+    assert edited("t = {a = 1, b = 2, c = 3}", "b") == "t = {a = 1,  c = 3}"
+    assert edited("t = {a = 1, b = 2}", "b") == "t = {a = 1 }"
+    assert edited("t = {a = 1, b = 2}", "a") == "t = { b = 2}"
+    assert edited("t = {a = 1, b = 2, c = 3}", "b", "c") == "t = {a = 1  }"
+
+
+def test_adding_to_dotted_key_inside_inline_table() -> None:
+    doc = parse("a = {b.c = 1}\n")
+    doc["a"]["b"]["d"] = 2
+
+    # The added key must stay attached to the ``b.`` prefix and be separated
+    # from the existing pair; the result must round-trip.
+    rendered = doc.as_string()
+    assert rendered == "a = {b.c = 1, b.d = 2}\n"
+    assert parse(rendered) == {"a": {"b": {"c": 1, "d": 2}}}
+    assert parse(rendered).as_string() == rendered
+
+
+def test_adding_to_nested_dotted_key_inside_inline_table() -> None:
+    doc = parse("a = {b.c.e = 1}\n")
+    doc["a"]["b"]["c"]["g"] = 2
+
+    rendered = doc.as_string()
+    assert rendered == "a = {b.c.e = 1, b.c.g = 2}\n"
+    assert parse(rendered) == {"a": {"b": {"c": {"e": 1, "g": 2}}}}
+    assert parse(rendered).as_string() == rendered
+
+
+def test_appending_to_comma_first_array_does_not_double_separator() -> None:
+    doc = parse(
+        """\
+a = [
+      1 # one
+     ,2
+    ]
+"""
+    )
+    doc["a"].append(99)
+
+    # The comma separating ``2`` from ``99`` is carried by the new item's
+    # comma-first indent; adding a trailing comma to ``2`` as well would
+    # produce an invalid ``2,\\n,99`` sequence.
+    rendered = doc.as_string()
+    assert parse(rendered)["a"] == [1, 2, 99]
+    assert parse(rendered).as_string() == rendered
+
+
+def test_inserting_into_comma_first_array_does_not_double_separator() -> None:
+    doc = parse(
+        """\
+a = [
+      1 # one
+     ,2
+    ]
+"""
+    )
+    doc["a"].insert(1, 99)
+
+    rendered = doc.as_string()
+    assert parse(rendered)["a"] == [1, 99, 2]
+    assert parse(rendered).as_string() == rendered
+
+    # Inserting at the front copies the first item's comma-less indent and
+    # must keep its usual trailing comma.
+    doc["a"].insert(0, 0)
+    rendered = doc.as_string()
+    assert parse(rendered)["a"] == [0, 1, 99, 2]
+    assert parse(rendered).as_string() == rendered
 
 
 def test_booleans_comparison() -> None:
@@ -1212,3 +1380,72 @@ def test_array_item_removal_newline_restore_next() -> None:
     doc["x"].remove("1")
     assert doc.as_string() == expected
     parse(doc.as_string())
+
+
+def test_table_membership_matches_inner_container() -> None:
+    doc = parse('[server]\nhost = "localhost"\nport = 8080\nenabled = true\n')
+    table = doc["server"]
+    assert isinstance(table, Table)
+
+    assert "host" in table
+    assert "port" in table
+    assert "enabled" in table
+    assert "missing" not in table
+
+    # ``str`` and ``Key`` arguments behave identically.
+    assert Key("host") in table
+    assert Key("missing") not in table
+
+    # The native ``__contains__`` must agree with the inner container it delegates to.
+    for key in ("host", "port", "enabled", "missing", ""):
+        assert (key in table) == (key in table.value)
+
+    # A non-string / non-Key key still raises, as before.
+    with pytest.raises(TypeError):
+        table.__contains__(42)
+
+
+def test_inline_table_membership() -> None:
+    doc = parse("point = {x = 1, y = 2}")
+    inline = doc["point"]
+    assert isinstance(inline, InlineTable)
+
+    assert "x" in inline
+    assert "y" in inline
+    assert "z" not in inline
+    assert Key("y") in inline
+
+
+def test_out_of_order_table_membership() -> None:
+    content = '[a.a]\nkey = "value"\n\n[a.b]\n\n[a.a.c]\n'
+    doc = parse(content)
+    table = doc["a"]
+
+    # ``a`` is stored out of order (a tuple index in the inner container): the
+    # only non-trivial ``__contains__`` branch, where an ``OutOfOrderTableProxy``
+    # is built. Membership must be correct and must not mutate the document.
+    assert "a" in table
+    assert "b" in table
+    assert "missing" not in table
+    assert doc.as_string() == content
+
+
+def test_out_of_order_table_proxy_membership() -> None:
+    # A top-level table split by another table (``a`` interrupted by ``foo``)
+    # resolves to an ``OutOfOrderTableProxy``; exercise its native
+    # ``__contains__`` directly (the test above goes through ``Table``).
+    content = "[a.x]\np = 1\n[foo]\nbar = 2\n[a.y]\nq = 3\n"
+    doc = parse(content)
+    table = doc["a"]
+    assert isinstance(table, OutOfOrderTableProxy)
+
+    assert "x" in table
+    assert "y" in table
+    assert "missing" not in table
+    # a Key is accepted just like __getitem__ does
+    assert Key("x") in table
+    # a non-str/non-Key argument is rejected like the other mapping types
+    with pytest.raises(TypeError):
+        _ = 123 in table
+    # membership must not resolve values or mutate the document
+    assert doc.as_string() == content

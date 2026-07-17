@@ -22,6 +22,7 @@ class ExprPolicyKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     EXPR_POLICY_KIND_RETRY: _ClassVar[ExprPolicyKind]
     EXPR_POLICY_KIND_LOGGING: _ClassVar[ExprPolicyKind]
     EXPR_POLICY_KIND_CACHE: _ClassVar[ExprPolicyKind]
+    EXPR_POLICY_KIND_BATCHING: _ClassVar[ExprPolicyKind]
 
 class ScalarFunction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -232,6 +233,7 @@ EXPR_POLICY_KIND_RATE_LIMIT: ExprPolicyKind
 EXPR_POLICY_KIND_RETRY: ExprPolicyKind
 EXPR_POLICY_KIND_LOGGING: ExprPolicyKind
 EXPR_POLICY_KIND_CACHE: ExprPolicyKind
+EXPR_POLICY_KIND_BATCHING: ExprPolicyKind
 SCALAR_FUNCTION_UNSPECIFIED: ScalarFunction
 SCALAR_FUNCTION_ABS: ScalarFunction
 SCALAR_FUNCTION_ACOS: ScalarFunction
@@ -630,21 +632,27 @@ class BatchUDFUnorderedDict(_message.Message):
     def __init__(self, items: _Optional[_Mapping[str, BatchUDFArgument]] = ...) -> None: ...
 
 class PyObject(_message.Message):
-    __slots__ = ("py_callable", "py_call", "py_int", "py_string")
+    __slots__ = ("py_callable", "py_call", "py_int", "py_string", "py_bytes", "py_arrow_schema")
     PY_CALLABLE_FIELD_NUMBER: _ClassVar[int]
     PY_CALL_FIELD_NUMBER: _ClassVar[int]
     PY_INT_FIELD_NUMBER: _ClassVar[int]
     PY_STRING_FIELD_NUMBER: _ClassVar[int]
+    PY_BYTES_FIELD_NUMBER: _ClassVar[int]
+    PY_ARROW_SCHEMA_FIELD_NUMBER: _ClassVar[int]
     py_callable: PyCallable
     py_call: PyCall
     py_int: int
     py_string: str
+    py_bytes: bytes
+    py_arrow_schema: PyArrowSchema
     def __init__(
         self,
         py_callable: _Optional[_Union[PyCallable, _Mapping]] = ...,
         py_call: _Optional[_Union[PyCall, _Mapping]] = ...,
         py_int: _Optional[int] = ...,
         py_string: _Optional[str] = ...,
+        py_bytes: _Optional[bytes] = ...,
+        py_arrow_schema: _Optional[_Union[PyArrowSchema, _Mapping]] = ...,
     ) -> None: ...
 
 class PyCallable(_message.Message):
@@ -652,6 +660,12 @@ class PyCallable(_message.Message):
     CALLABLE_NAME_FIELD_NUMBER: _ClassVar[int]
     callable_name: str
     def __init__(self, callable_name: _Optional[str] = ...) -> None: ...
+
+class PyArrowSchema(_message.Message):
+    __slots__ = ("schema",)
+    SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    schema: _arrow_pb2.Schema
+    def __init__(self, schema: _Optional[_Union[_arrow_pb2.Schema, _Mapping]] = ...) -> None: ...
 
 class PyCall(_message.Message):
     __slots__ = ("callee", "args", "kwargs")

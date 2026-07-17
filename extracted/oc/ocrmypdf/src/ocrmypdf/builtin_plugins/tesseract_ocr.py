@@ -130,7 +130,7 @@ class TesseractOptions(BaseModel):
             metavar='PSM',
             choices=range(0, 14),
             dest=f'{namespace}_pagesegmode',
-            help="Set Tesseract page segmentation mode (see tesseract --help).",
+            help="Set Tesseract page segmentation mode (see tesseract --help-extra).",
         )
 
         tess.add_argument(
@@ -168,7 +168,7 @@ class TesseractOptions(BaseModel):
         tess.add_argument(
             f'--{namespace}-timeout',
             default=180.0,
-            type=numeric(float, 0),
+            type=numeric(float, 0.0),
             metavar='SECONDS',
             dest=f'{namespace}_timeout',
             help=(
@@ -183,7 +183,7 @@ class TesseractOptions(BaseModel):
         tess.add_argument(
             f'--{namespace}-non-ocr-timeout',
             default=180.0,
-            type=numeric(float, 0),
+            type=numeric(float, 0.0),
             metavar='SECONDS',
             dest=f'{namespace}_non_ocr_timeout',
             help=(

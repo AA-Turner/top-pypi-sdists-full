@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: snyk-agent-scan
-Version: 0.5.14
+Version: 0.5.15
 Summary: Agent supply chain security scanner.
 License: Apache-2.0
 License-File: LICENSE
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
-Requires-Dist: aiohttp>=3.14.0
+Requires-Dist: aiohttp>=3.14.1
 Requires-Dist: detect-secrets>=1.5.0
 Requires-Dist: lark>=1.1.9
 Requires-Dist: mcp[cli]==1.27.0

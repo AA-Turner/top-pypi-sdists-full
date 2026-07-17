@@ -23,7 +23,6 @@ from langchain_core.vectorstores import VectorStore
 from pymilvus import (
     AnnSearchRequest,
     AsyncMilvusClient,
-    Collection,
     CollectionSchema,
     DataType,
     Function,
@@ -65,6 +64,69 @@ DEFAULT_MILVUS_CONNECTION = {
 }
 
 Matrix = Union[List[List[float]], List[np.ndarray], np.ndarray]
+
+
+class _MilvusClientField:
+    """Minimal field view backed by MilvusClient metadata."""
+
+    def __init__(self, field_info: dict[str, Any]) -> None:
+        self.name = field_info["name"]
+
+
+class _MilvusClientSchema:
+    """Minimal schema view backed by MilvusClient metadata."""
+
+    def __init__(self, collection_info: dict[str, Any]) -> None:
+        self.fields = [
+            _MilvusClientField(field_info)
+            for field_info in collection_info.get("fields", [])
+        ]
+
+
+class _MilvusClientIndex:
+    """Minimal index view backed by MilvusClient metadata."""
+
+    def __init__(self, collection_name: str, index_info: dict[str, Any]) -> None:
+        self.collection_name = collection_name
+        self.field_name = index_info["field_name"]
+        self.index_name = index_info.get("index_name", self.field_name)
+        self.params = {
+            "metric_type": index_info.get("metric_type"),
+            "index_type": index_info.get("index_type"),
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "collection": self.collection_name,
+            "field": self.field_name,
+            "index_name": self.index_name,
+            "index_param": self.params,
+        }
+
+
+class _MilvusClientCollection:
+    """Collection-like view that avoids the PyMilvus ORM Collection API."""
+
+    def __init__(self, client: MilvusClient, collection_name: str) -> None:
+        self._client = client
+        self.name = collection_name
+
+    @property
+    def schema(self) -> _MilvusClientSchema:
+        return _MilvusClientSchema(self._client.describe_collection(self.name))
+
+    @property
+    def indexes(self) -> list[_MilvusClientIndex]:
+        return [
+            _MilvusClientIndex(self.name, self._client.describe_index(self.name, index))
+            for index in self._client.list_indexes(self.name)
+        ]
+
+    def set_properties(self, properties: dict[str, Any]) -> None:
+        self._client.alter_collection_properties(
+            collection_name=self.name,
+            properties=properties,
+        )
 
 
 def cosine_similarity(X: Matrix, Y: Matrix) -> np.ndarray:
@@ -364,6 +426,7 @@ class Milvus(VectorStore):
         self._metadata_field = metadata_field
         self._partition_key_field = partition_key_field
         self.fields: list[str] = []
+        self._dynamic_fields: set[str] = set()
         self.partition_names = partition_names
         self.replica_number = replica_number
         self.timeout = timeout
@@ -400,7 +463,7 @@ class Milvus(VectorStore):
 
         self.alias = self.client._using
 
-        self._col_cache: Optional[Collection] = None
+        self._col_cache: Optional[_MilvusClientCollection] = None
         self._cache_key: Optional[str] = None
 
         # If need to drop old, drop it
@@ -561,12 +624,13 @@ class Milvus(VectorStore):
             }
 
     @property
-    def col(self) -> Optional[Collection]:
+    def col(self) -> Optional[_MilvusClientCollection]:
         """
-        Lazy-loaded Collection object property with caching.
+        Lazy-loaded collection metadata view with caching.
 
-        Returns the ORM Collection object if the collection exists.
-        Uses cache to avoid repeated network calls and Collection() construction.
+        Returns a collection-like object if the collection exists. This avoids
+        constructing the deprecated ORM Collection API while preserving the
+        schema/index attributes used by this integration.
         """
         # Generate current cache key
         current_key = f"{self.collection_name}:{self.alias}"
@@ -575,9 +639,9 @@ class Milvus(VectorStore):
         if self._cache_key == current_key and self._col_cache is not None:
             return self._col_cache
 
-        # Cache miss - check and create Collection object
+        # Cache miss - check and create the client-backed collection view
         if self.client.has_collection(self.collection_name):
-            self._col_cache = Collection(self.collection_name, using=self.alias)
+            self._col_cache = _MilvusClientCollection(self.client, self.collection_name)
             if self.collection_properties is not None:
                 self._col_cache.set_properties(self.collection_properties)
             self._cache_key = current_key
@@ -589,7 +653,7 @@ class Milvus(VectorStore):
         return None
 
     @col.setter
-    def col(self, value: Optional[Collection]) -> None:
+    def col(self, value: Optional[_MilvusClientCollection]) -> None:
         """Collection setter for backward compatibility. Also updates cache."""
         self._col_cache = value
         if value is not None:
@@ -1015,8 +1079,10 @@ class Milvus(VectorStore):
         """
         Grab the existing fields from the Collection.
         """
-        if isinstance(self.col, Collection):
-            schema = self.col.schema
+        self.fields = []
+        col = self.col
+        if col is not None:
+            schema = col.schema
             for x in schema.fields:
                 self.fields.append(x.name)
 
@@ -1037,8 +1103,9 @@ class Milvus(VectorStore):
         if not self._is_multi_vector:
             field_name: str = field_name or self._vector_field  # type: ignore
 
-        if isinstance(self.col, Collection):
-            for x in self.col.indexes:
+        col = self.col
+        if col is not None:
+            for x in col.indexes:
                 if x.field_name == field_name:
                     return x.to_dict()
 
@@ -1289,6 +1356,8 @@ class Milvus(VectorStore):
                     if not self.enable_dynamic_field and key not in self.fields:
                         continue
                     # If enable_dynamic_field, all fields are allowed.
+                    if self.enable_dynamic_field:
+                        self._dynamic_fields.add(key)
                     entity_dict[key] = value
 
             insert_list.append(entity_dict)
@@ -1565,7 +1634,7 @@ class Milvus(VectorStore):
 
         For more information about the search parameters, take a look at the pymilvus
         documentation found here:
-        https://milvus.io/api-reference/pymilvus/v2.5.x/ORM/Collection/search.md
+        https://milvus.io/api-reference/pymilvus/v3.0.x/MilvusClient/Vector/search.md
 
         Args:
             embedding_or_text (List[float] | Dict[int, float] | str): The embedding
@@ -1576,7 +1645,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (float, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() keyword arguments.
+            kwargs: MilvusClient.search() keyword arguments.
 
         Returns:
             List[List[dict]]: Milvus search result.
@@ -1597,10 +1666,7 @@ class Milvus(VectorStore):
             )
             param = self._as_list(self.search_params)[0]
 
-        if self.enable_dynamic_field:
-            output_fields = ["*"]
-        else:
-            output_fields = self._remove_forbidden_fields(self.fields[:])
+        output_fields = self._get_output_fields()
         col_search_res = self.client.search(
             self.collection_name,
             data=[embedding_or_text],
@@ -1632,7 +1698,7 @@ class Milvus(VectorStore):
 
         For more information about the search parameters, take a look at the pymilvus
         documentation found here:
-        https://milvus.io/api-reference/pymilvus/v2.5.x/ORM/Collection/hybrid_search.md
+        https://milvus.io/api-reference/pymilvus/v3.0.x/MilvusClient/Vector/hybrid_search.md
 
         Args:
             query (str): The text being searched.
@@ -1651,7 +1717,7 @@ class Milvus(VectorStore):
                 The parameters for the ranker. Defaults to None.
             timeout (float, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.hybrid_search() keyword arguments.
+            kwargs: MilvusClient.hybrid_search() keyword arguments.
 
         Returns:
             List[List[dict]]: Milvus search result.
@@ -1669,6 +1735,7 @@ class Milvus(VectorStore):
             assert (
                 reranker.type == FunctionType.RERANK
             ), f"Expected FunctionType.RERANK, got {reranker.type}"
+            # Function rerankers require Milvus 2.6+ for consistent results.
             reranker_obj = reranker
             if ranker_type is not None or ranker_params is not None:
                 warnings.warn(
@@ -1722,10 +1789,7 @@ class Milvus(VectorStore):
                 expr=expr,
             )
             search_requests.append(request)
-        if self.enable_dynamic_field:
-            output_fields = ["*"]
-        else:
-            output_fields = self._remove_forbidden_fields(self.fields[:])
+        output_fields = self._get_output_fields()
         col_search_res = self.client.hybrid_search(
             self.collection_name,
             reqs=search_requests,
@@ -1756,7 +1820,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (int, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() keyword arguments.
+            kwargs: MilvusClient.search() keyword arguments.
 
         Returns:
             List[Document]: Document results for search.
@@ -1789,7 +1853,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (int, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() keyword arguments.
+            kwargs: MilvusClient.search() keyword arguments.
 
         Returns:
             List[Document]: Document results for search.
@@ -1816,7 +1880,7 @@ class Milvus(VectorStore):
 
         For more information about the search parameters, take a look at the pymilvus
         documentation found here:
-        https://milvus.io/api-reference/pymilvus/v2.5.x/ORM/Collection/search.md
+        https://milvus.io/api-reference/pymilvus/v3.0.x/MilvusClient/Vector/search.md
 
         Args:
             query (str): The text being searched.
@@ -1826,7 +1890,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (float, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() or hybrid_search() keyword arguments.
+            kwargs: MilvusClient.search() or hybrid_search() keyword arguments.
 
         Returns:
             List[Tuple[Document, float]]: List of result doc and score.
@@ -1892,7 +1956,7 @@ class Milvus(VectorStore):
 
         For more information about the search parameters, take a look at the pymilvus
         documentation found here:
-        https://milvus.io/api-reference/pymilvus/v2.5.x/ORM/Collection/search.md
+        https://milvus.io/api-reference/pymilvus/v3.0.x/MilvusClient/Vector/search.md
 
         Args:
             embedding (List[float] | Dict[int, float]): The embedding vector being
@@ -1903,7 +1967,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (float, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() keyword arguments.
+            kwargs: MilvusClient.search() keyword arguments.
 
         Returns:
             List[Tuple[Document, float]]: Result doc and score.
@@ -1945,7 +2009,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (float, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() keyword arguments.
+            kwargs: MilvusClient.search() keyword arguments.
 
 
         Returns:
@@ -2005,7 +2069,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (float, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() keyword arguments.
+            kwargs: MilvusClient.search() keyword arguments.
 
         Returns:
             List[Document]: Document results for search.
@@ -2181,21 +2245,6 @@ class Milvus(VectorStore):
                 logger.warning(
                     f"Failed to clear sync schema cache for {self.collection_name}: {e}"
                 )
-
-            # Clear schema cache from async client
-            if self._async_milvus_client is not None:
-                try:
-                    async_conn = self._async_milvus_client._get_connection()
-                    if (
-                        hasattr(async_conn, "schema_cache")
-                        and self.collection_name in async_conn.schema_cache
-                    ):
-                        async_conn.schema_cache.pop(self.collection_name, None)
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to clear async schema cache for "
-                        f"{self.collection_name}: {e}"
-                    )
 
     @classmethod
     def from_texts(
@@ -2455,14 +2504,21 @@ class Milvus(VectorStore):
             raise ValueError("Unrecognized ranker of type %s", ranker_type)
 
     def _remove_forbidden_fields(self, fields: List[str]) -> List[str]:
-        """Bm25 function fields are not allowed as output fields in Milvus."""
-        forbidden_fields = []
+        """Vector fields are not allowed as default output fields in Milvus."""
+        forbidden_fields = self._as_list(self._vector_field)
         for builtin_function in self._as_list(self.builtin_func):
             if builtin_function.type == FunctionType.BM25:
                 forbidden_fields.extend(
                     self._as_list(builtin_function.output_field_names)
                 )
         return [field for field in fields if field not in forbidden_fields]
+
+    def _get_output_fields(self) -> List[str]:
+        fields = self.fields[:]
+        if self.enable_dynamic_field:
+            fields.append("$meta")
+            fields.extend(sorted(self._dynamic_fields))
+        return self._remove_forbidden_fields(list(dict.fromkeys(fields)))
 
     def search_by_metadata(
         self, expr: str, fields: Optional[List[str]] = None, limit: int = 10
@@ -2709,7 +2765,7 @@ class Milvus(VectorStore):
 
         For more information about the search parameters, take a look at the pymilvus
         documentation found here:
-        https://milvus.io/api-reference/pymilvus/v2.5.x/ORM/Collection/search.md
+        https://milvus.io/api-reference/pymilvus/v3.0.x/MilvusClient/Vector/search.md
 
         Args:
             embedding_or_text (List[float] | Dict[int, float] | str): The embedding
@@ -2720,7 +2776,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (float, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() keyword arguments.
+            kwargs: MilvusClient.search() keyword arguments.
 
         Returns:
             List[List[dict]]: Milvus search result.
@@ -2741,10 +2797,7 @@ class Milvus(VectorStore):
             )
             param = self._as_list(self.search_params)[0]
 
-        if self.enable_dynamic_field:
-            output_fields = ["*"]
-        else:
-            output_fields = self._remove_forbidden_fields(self.fields[:])
+        output_fields = self._get_output_fields()
         col_search_res = await self.aclient.search(
             self.collection_name,
             data=[embedding_or_text],
@@ -2777,7 +2830,7 @@ class Milvus(VectorStore):
 
         For more information about the search parameters, take a look at the pymilvus
         documentation found here:
-        https://milvus.io/api-reference/pymilvus/v2.5.x/ORM/Collection/hybrid_search.md
+        https://milvus.io/api-reference/pymilvus/v3.0.x/MilvusClient/Vector/hybrid_search.md
 
         Args:
             query (str): The text being searched.
@@ -2796,7 +2849,7 @@ class Milvus(VectorStore):
                 The parameters for the ranker. Defaults to None.
             timeout (float, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.hybrid_search() keyword arguments.
+            kwargs: MilvusClient.hybrid_search() keyword arguments.
 
         Returns:
             List[List[dict]]: Milvus search result.
@@ -2814,6 +2867,7 @@ class Milvus(VectorStore):
             assert (
                 reranker.type == FunctionType.RERANK
             ), f"Expected FunctionType.RERANK, got {reranker.type}"
+            # Function rerankers require Milvus 2.6+ for consistent results.
             reranker_obj = reranker
         elif ranker_type is not None:
             # Old way: use ranker_type and ranker_params (deprecated)
@@ -2859,10 +2913,7 @@ class Milvus(VectorStore):
                 expr=expr,
             )
             search_requests.append(request)
-        if self.enable_dynamic_field:
-            output_fields = ["*"]
-        else:
-            output_fields = self._remove_forbidden_fields(self.fields[:])
+        output_fields = self._get_output_fields()
         col_search_res = await self.aclient.hybrid_search(
             self.collection_name,
             reqs=search_requests,
@@ -2893,7 +2944,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (int, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() keyword arguments.
+            kwargs: MilvusClient.search() keyword arguments.
 
         Returns:
             List[Document]: Document results for search.
@@ -2926,7 +2977,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (int, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() keyword arguments.
+            kwargs: MilvusClient.search() keyword arguments.
 
         Returns:
             List[Document]: Document results for search.
@@ -2953,7 +3004,7 @@ class Milvus(VectorStore):
 
         For more information about the search parameters, take a look at the pymilvus
         documentation found here:
-        https://milvus.io/api-reference/pymilvus/v2.5.x/ORM/Collection/search.md
+        https://milvus.io/api-reference/pymilvus/v3.0.x/MilvusClient/Vector/search.md
 
         Args:
             query (str): The text being searched.
@@ -2963,7 +3014,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (float, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() or hybrid_search() keyword arguments.
+            kwargs: MilvusClient.search() or hybrid_search() keyword arguments.
 
         Returns:
             List[Tuple[Document, float]]: List of result doc and score.
@@ -3031,7 +3082,7 @@ class Milvus(VectorStore):
 
         For more information about the search parameters, take a look at the pymilvus
         documentation found here:
-        https://milvus.io/api-reference/pymilvus/v2.5.x/ORM/Collection/search.md
+        https://milvus.io/api-reference/pymilvus/v3.0.x/MilvusClient/Vector/search.md
 
         Args:
             embedding (List[float] | Dict[int, float]): The embedding vector being
@@ -3042,7 +3093,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (float, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() keyword arguments.
+            kwargs: MilvusClient.search() keyword arguments.
 
         Returns:
             List[Tuple[Document, float]]: Result doc and score.
@@ -3084,7 +3135,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (float, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() keyword arguments.
+            kwargs: MilvusClient.search() keyword arguments.
 
 
         Returns:
@@ -3144,7 +3195,7 @@ class Milvus(VectorStore):
             expr (str, optional): Filtering expression. Defaults to None.
             timeout (float, optional): How long to wait before timeout error.
                 Defaults to None.
-            kwargs: Collection.search() keyword arguments.
+            kwargs: MilvusClient.search() keyword arguments.
 
         Returns:
             List[Document]: Document results for search.

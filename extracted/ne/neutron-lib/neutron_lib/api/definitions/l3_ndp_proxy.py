@@ -15,6 +15,11 @@
 
 from neutron_lib.api.definitions import l3
 from neutron_lib.db import constants as db_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 # The alias of the extension.
 ALIAS = 'l3-ndp-proxy'
@@ -59,7 +64,7 @@ IP_ADDRESS = 'ip_address'
 DESCRIPTION = 'description'
 
 # The resource attribute map for the extension.
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         ID: {'allow_post': False,
              'allow_put': False,
@@ -110,12 +115,11 @@ RESOURCE_ATTRIBUTE_MAP = {
 # to main extension's resource. The subresource map must have a parent and
 # a parameters entry. If an extension does not need such a map, None can
 # be specified (mandatory).
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map: it associates verbs with methods to be performed on
 # the API resource.
-ACTION_MAP = {
-}
+ACTION_MAP: ActionMap = {}
 
 # The action status.
 ACTION_STATUS = {

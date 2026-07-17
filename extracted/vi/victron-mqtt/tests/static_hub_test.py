@@ -5,6 +5,7 @@ import asyncio
 import datetime
 import json
 import logging
+import ssl
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -20,7 +21,15 @@ from victron_mqtt._victron_formulas import (
     schedule_charge_enabled_set,
 )
 from victron_mqtt._victron_topics import topics
-from victron_mqtt.constants import MetricKind, MetricNature, MetricType, OperationMode, ValueType
+from victron_mqtt.constants import (
+    AUTO_UPDATE_INTERVAL_DEFAULT,
+    AUTO_UPDATE_INTERVALS,
+    MetricKind,
+    MetricNature,
+    MetricType,
+    OperationMode,
+    ValueType,
+)
 from victron_mqtt.data_classes import ParsedTopic, TopicDescriptor
 from victron_mqtt.device import Device, FallbackPlaceholder
 from victron_mqtt.formula_common import LRSLastReading
@@ -243,16 +252,24 @@ async def test_number_message():
     hub._publish = mock__publish
 
     # Set the value, which should trigger a publish
-    writable_metric.value = 42
+    writable_metric.value = 16
 
     # Validate that publish was called with the correct topic and value
     assert published, "Expected publish to be called after setting value"
     assert published["topic"] == "W/123/evcharger/170/SetCurrent", (
         f"Expected topic 'W/123/evcharger/170/SetCurrent', got {published['topic']}"
     )
-    assert published["value"] == '{"value": 42}', (
-        f"Expected published value to be {'{value: 42}'}, got {published['value']}"
+    assert published["value"] == '{"value": 16}', (
+        f"Expected published value to be {'{value: 16}'}, got {published['value']}"
     )
+
+    # Values outside the metric's min/max range must be rejected without publishing
+    published.clear()
+    with pytest.raises(ValueError, match="above the maximum"):
+        writable_metric.set(42)  # default max for evcharger_set_current is 32
+    with pytest.raises(ValueError, match="below the minimum"):
+        writable_metric.set(-1)  # default min is 0
+    assert not published, "Expected no publish for out-of-range values"
 
     # Restore the original publish method
     hub._publish = orig__publish
@@ -556,6 +573,122 @@ async def test_same_message_events_five(mock_time: MagicMock) -> None:
     assert metric.on_update.call_count == 2, "on_update should not be called for the new value"
 
     await hub_disconnect(hub, mock_time)
+
+
+@pytest.mark.asyncio
+@patch("victron_mqtt.metric.time.monotonic")
+async def test_same_message_events_auto(mock_time: MagicMock) -> None:
+    """Test per-metric-type update intervals when update_frequency_seconds is "auto"."""
+
+    mock_time.return_value = 0.0
+    hub: Hub = await create_mocked_hub(update_frequency_seconds="auto")
+
+    mock_time.return_value = 10
+
+    # Inject messages after the event is set
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Power", '{"value": 100}', mock_time)
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Energy/Forward", '{"value": 42}', mock_time)
+    await finalize_injection(hub, False, mock_time)
+
+    # Validate that the device has the metrics we published
+    device = hub.devices["grid_30"]
+    power_metric = device.get_metric("grid_power_l1")
+    energy_metric = device.get_metric("grid_energy_forward_l1")
+    assert power_metric is not None, "Power metric should exist in the device"
+    assert energy_metric is not None, "Energy metric should exist in the device"
+    assert power_metric.update_interval_seconds == 5, "Power metrics should use the fast auto interval"
+    assert energy_metric.update_interval_seconds == 30, "Energy metrics should use the default auto interval"
+    power_metric.on_update = MagicMock()
+    energy_metric.on_update = MagicMock()
+
+    mock_time.return_value = 11
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Power", '{"value": 101}', mock_time)
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Energy/Forward", '{"value": 43}', mock_time)
+    assert power_metric.on_update.call_count == 1, "on_update should be called for the first notification"
+    assert energy_metric.on_update.call_count == 1, "on_update should be called for the first notification"
+
+    mock_time.return_value = 13
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Power", '{"value": 102}', mock_time)
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Energy/Forward", '{"value": 44}', mock_time)
+    assert power_metric.on_update.call_count == 1, "on_update should not be called before the power interval elapsed"
+    assert energy_metric.on_update.call_count == 1, "on_update should not be called before the energy interval elapsed"
+
+    mock_time.return_value = 17
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Power", '{"value": 103}', mock_time)
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Energy/Forward", '{"value": 45}', mock_time)
+    assert power_metric.on_update.call_count == 2, "on_update should be called after the power interval elapsed"
+    assert energy_metric.on_update.call_count == 1, "on_update should not be called before the energy interval elapsed"
+
+    mock_time.return_value = 45
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Power", '{"value": 104}', mock_time)
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Energy/Forward", '{"value": 46}', mock_time)
+    assert power_metric.on_update.call_count == 3, "on_update should be called after the power interval elapsed"
+    assert energy_metric.on_update.call_count == 2, "on_update should be called after the energy interval elapsed"
+
+    await hub_disconnect(hub, mock_time)
+
+
+@pytest.mark.asyncio
+@patch("victron_mqtt.metric.time.monotonic")
+async def test_same_message_events_auto_power_none(mock_time: MagicMock) -> None:
+    """Test that "auto_power_none" removes the time limit for fast-changing metrics."""
+
+    mock_time.return_value = 0.0
+    hub: Hub = await create_mocked_hub(update_frequency_seconds="auto_power_none")
+
+    mock_time.return_value = 10
+
+    # Inject messages after the event is set
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Power", '{"value": 100}', mock_time)
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Energy/Forward", '{"value": 42}', mock_time)
+    await finalize_injection(hub, False, mock_time)
+
+    # Validate that the device has the metrics we published
+    device = hub.devices["grid_30"]
+    power_metric = device.get_metric("grid_power_l1")
+    energy_metric = device.get_metric("grid_energy_forward_l1")
+    assert power_metric is not None, "Power metric should exist in the device"
+    assert energy_metric is not None, "Energy metric should exist in the device"
+    assert power_metric.update_interval_seconds is None, "Power metrics should have no time limit"
+    assert energy_metric.update_interval_seconds == 30, "Energy metrics should use the default auto interval"
+    power_metric.on_update = MagicMock()
+    energy_metric.on_update = MagicMock()
+
+    mock_time.return_value = 11
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Power", '{"value": 101}', mock_time)
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Energy/Forward", '{"value": 43}', mock_time)
+    assert power_metric.on_update.call_count == 1, "on_update should be called for the first notification"
+    assert energy_metric.on_update.call_count == 1, "on_update should be called for the first notification"
+
+    mock_time.return_value = 12
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Power", '{"value": 102}', mock_time)
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Energy/Forward", '{"value": 44}', mock_time)
+    assert power_metric.on_update.call_count == 2, "on_update should be called on every power value change"
+    assert energy_metric.on_update.call_count == 1, "on_update should not be called before the energy interval elapsed"
+
+    mock_time.return_value = 13
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Power", '{"value": 102}', mock_time)
+    assert power_metric.on_update.call_count == 2, "on_update should not be called when the power value is unchanged"
+
+    mock_time.return_value = 45
+    await inject_message(hub, "N/123/grid/30/Ac/L1/Energy/Forward", '{"value": 45}', mock_time)
+    assert energy_metric.on_update.call_count == 2, "on_update should be called after the energy interval elapsed"
+
+    await hub_disconnect(hub, mock_time)
+
+
+@pytest.mark.asyncio
+async def test_invalid_update_frequency():
+    """Test that the Hub rejects invalid update_frequency_seconds values."""
+    with pytest.raises(ValueError, match="update_frequency_seconds"):
+        Hub(
+            host="localhost",
+            port=1883,
+            username=None,
+            password=None,
+            use_ssl=False,
+            update_frequency_seconds="fast",  # type: ignore[arg-type]
+        )
 
 
 @pytest.mark.asyncio
@@ -1625,7 +1758,7 @@ async def test_on_connect_sets_up_subscriptions():
     # Set required properties
     hub._client = mocked_client
     hub._installation_id = "test123"  # Would have been set during first connect()
-    hub._subscription_list = [t.replace("{installation_id}", "test123") for t in hub._subscription_list]
+    hub._resolved_subscription_list = [t.replace("{installation_id}", "test123") for t in hub._subscription_list]
     hub._first_connect = False  # Mark as not first connect to allow subscriptions
     hub._loop = asyncio.get_running_loop()  # Set the event loop
 
@@ -1635,7 +1768,7 @@ async def test_on_connect_sets_up_subscriptions():
     )
 
     # Get expected number of subscriptions
-    expected_calls = len(hub._subscription_list) + 1  # +1 for full_publish_completed
+    expected_calls = len(hub._resolved_subscription_list) + 1  # +1 for full_publish_completed
 
     # Get the actual subscription calls
     actual_calls = mocked_client.subscribe.call_count
@@ -2044,6 +2177,70 @@ async def test_dynamic_min_max_resolved_metric():
 
 
 @pytest.mark.asyncio
+async def test_charge_current_limit_max_from_product_table():
+    """E2E: max charge current is resolved from the product table when the GX omits it."""
+    hub: Hub = await create_mocked_hub()
+
+    # SmartSolar MPPT 100/50 (0xA057) -> rated 50 A. Payload carries no max.
+    await inject_message(hub, "N/123/solarcharger/170/ProductId", f'{{"value": {0xA057}}}')
+    await inject_message(hub, "N/123/solarcharger/170/Settings/ChargeCurrentLimit", '{"value": 30}')
+    await finalize_injection(hub)
+
+    device = hub.devices["solarcharger_170"]
+    assert device.product_id == 0xA057
+    metric = device.get_metric("solarcharger_charge_current_limit")
+    assert isinstance(metric, WritableMetric), "Metric should exist in the device"
+    assert metric.value == 30, f"Expected value 30, got {metric.value}"
+    assert metric.max_value == 50, f"Expected max to resolve to 50 from product table, got {metric.max_value}"
+
+
+@pytest.mark.asyncio
+async def test_charge_current_limit_max_gx_reported_wins():
+    """E2E: a GX-reported max in the payload takes precedence over the product table."""
+    hub: Hub = await create_mocked_hub()
+
+    # Known product (table -> 50), but the payload also reports its own max of 40.
+    await inject_message(hub, "N/123/solarcharger/170/ProductId", f'{{"value": {0xA057}}}')
+    await inject_message(hub, "N/123/solarcharger/170/Settings/ChargeCurrentLimit", '{"value": 30, "max": 40}')
+    await finalize_injection(hub)
+
+    device = hub.devices["solarcharger_170"]
+    metric = device.get_metric("solarcharger_charge_current_limit")
+    assert isinstance(metric, WritableMetric), "Metric should exist in the device"
+    assert metric.max_value == 40, f"Expected GX-reported max 40 to win, got {metric.max_value}"
+
+
+@pytest.mark.asyncio
+async def test_charge_current_limit_max_unknown_product_falls_back():
+    """E2E: an unknown product ID falls back to the descriptor default (200)."""
+    hub: Hub = await create_mocked_hub()
+
+    await inject_message(hub, "N/123/solarcharger/170/ProductId", '{"value": 65535}')
+    await inject_message(hub, "N/123/solarcharger/170/Settings/ChargeCurrentLimit", '{"value": 30}')
+    await finalize_injection(hub)
+
+    device = hub.devices["solarcharger_170"]
+    metric = device.get_metric("solarcharger_charge_current_limit")
+    assert isinstance(metric, WritableMetric), "Metric should exist in the device"
+    assert metric.max_value == 200, f"Expected fallback max 200, got {metric.max_value}"
+
+
+@pytest.mark.asyncio
+async def test_charge_current_limit_max_no_product_id_falls_back():
+    """E2E: when no ProductId is published, the max falls back to the descriptor default (200)."""
+    hub: Hub = await create_mocked_hub()
+
+    await inject_message(hub, "N/123/solarcharger/170/Settings/ChargeCurrentLimit", '{"value": 30}')
+    await finalize_injection(hub)
+
+    device = hub.devices["solarcharger_170"]
+    assert device.product_id is None
+    metric = device.get_metric("solarcharger_charge_current_limit")
+    assert isinstance(metric, WritableMetric), "Metric should exist in the device"
+    assert metric.max_value == 200, f"Expected fallback max 200, got {metric.max_value}"
+
+
+@pytest.mark.asyncio
 async def test_on_connect_fail_before_first_connect():
     """Test that connection failures before first connect raise CannotConnectError."""
     hub = Hub(host="localhost", port=1883, username=None, password=None, use_ssl=False, installation_id="test123")
@@ -2245,6 +2442,13 @@ def _make_metric(
     m._last_seen = 0.0
     m._last_notified = 0.0
     m._depend_on_me = []
+    frequency = hub._update_frequency_seconds
+    if isinstance(frequency, str):
+        m._update_interval_seconds = AUTO_UPDATE_INTERVALS[frequency].get(
+            descriptor.metric_type, AUTO_UPDATE_INTERVAL_DEFAULT
+        )
+    else:
+        m._update_interval_seconds = frequency
     return m
 
 
@@ -2630,15 +2834,20 @@ class TestDeviceProperties:
         dev._set_device_property_from_topic(desc, '{"value": "MyBattery"}')
         assert dev.custom_name == "MyBattery"
 
-    def test_ignore_product_id(self):
+    def test_store_product_id(self):
         dev = _make_device()
         desc = _make_descriptor(
             short_id="victron_productid",
             message_type=MetricKind.ATTRIBUTE,
-            value_type=ValueType.STRING,
+            value_type=ValueType.INT,
             metric_type=MetricType.NONE,
         )
-        dev._set_device_property_from_topic(desc, '{"value": "0x1234"}')
+        dev._set_device_property_from_topic(desc, '{"value": 4660}')
+        assert dev.product_id == 0x1234
+
+    def test_product_id_unknown_when_absent(self):
+        dev = _make_device()
+        assert dev.product_id is None
 
     def test_none_payload_ignored(self):
         dev = _make_device()
@@ -2738,6 +2947,7 @@ class TestWritableFormulaMetricKeepalive:
         wfm._last_seen = 0.0
         wfm._last_notified = 0.0
         wfm._depend_on_me = []
+        wfm._update_interval_seconds = 0
 
         wfm._keepalive(force_invalidate=False, log_debug=log)
         log.assert_called()
@@ -2770,6 +2980,7 @@ class TestWritableFormulaMetricSet:
         wfm._last_seen = 0.0
         wfm._last_notified = 0.0
         wfm._depend_on_me = []
+        wfm._update_interval_seconds = 0
         wfm._func = MagicMock()
         wfm._write_func = write_func
         wfm._depends_on = {}
@@ -2813,6 +3024,7 @@ class TestFormulaMetricNoneReturn:
         fm._last_seen = 0.0
         fm._last_notified = 0.0
         fm._depend_on_me = []
+        fm._update_interval_seconds = 0
         fm._func = formula_none
         fm._depends_on = {}
         fm.transient_state = None
@@ -3159,3 +3371,55 @@ async def test_dvcc_bol_off():
     sensor_metric = device.get_metric("system_dvcc_state")
     assert sensor_metric is not None
     assert sensor_metric.value == DVCCMode.OFF
+
+
+@pytest.mark.asyncio
+async def test_setup_tls_disabled():
+    """No TLS setup when use_ssl is False and no ssl_context is given."""
+    hub = Hub("localhost", 1883, None, None, use_ssl=False)
+    hub._client = MagicMock()
+    await hub._setup_tls()
+    hub._client.tls_set_context.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_setup_tls_default_is_unverified():
+    """use_ssl without ssl_context keeps the legacy unverified context."""
+    hub = Hub("localhost", 1883, None, None, use_ssl=True)
+    hub._client = MagicMock()
+    await hub._setup_tls()
+    context = hub._client.tls_set_context.call_args[0][0]
+    assert context.verify_mode == ssl.CERT_NONE
+    assert context.check_hostname is False
+
+
+@pytest.mark.asyncio
+async def test_setup_tls_custom_context_used_verbatim():
+    """A caller-provided ssl_context is passed through untouched."""
+    custom = ssl.create_default_context()
+    hub = Hub("localhost", 1883, None, None, use_ssl=True, ssl_context=custom)
+    hub._client = MagicMock()
+    await hub._setup_tls()
+    hub._client.tls_set_context.assert_called_once_with(custom)
+    assert custom.verify_mode == ssl.CERT_REQUIRED
+
+
+def test_ssl_context_requires_use_ssl():
+    """Providing ssl_context with use_ssl=False is rejected."""
+    custom = ssl.create_default_context()
+    with pytest.raises(ValueError, match="ssl_context requires use_ssl=True"):
+        Hub("localhost", 1883, None, None, use_ssl=False, ssl_context=custom)
+
+
+@pytest.mark.asyncio
+async def test_connect_sets_up_tls():
+    """connect() with use_ssl=True routes through _setup_tls and configures the client."""
+    hub = Hub("localhost", 8883, None, None, use_ssl=True)
+    hub._client = MagicMock()
+    with (
+        pytest.raises(CannotConnectError, match="Timeout"),
+        patch.object(hub, "_wait_for_connect", side_effect=CannotConnectError("Timeout waiting for first connection")),
+    ):
+        await hub.connect()
+    context = hub._client.tls_set_context.call_args[0][0]
+    assert context.verify_mode == ssl.CERT_NONE

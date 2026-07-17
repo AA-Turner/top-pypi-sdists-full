@@ -80,6 +80,12 @@ System_Numerics_IMultiplyOperators_TOther = typing.TypeVar("System_Numerics_IMul
 System_Numerics_IMultiplyOperators_TResult = typing.TypeVar("System_Numerics_IMultiplyOperators_TResult")
 System_Numerics_IUnsignedNumber_TSelf = typing.TypeVar("System_Numerics_IUnsignedNumber_TSelf")
 System_Numerics_INumber_TSelf = typing.TypeVar("System_Numerics_INumber_TSelf")
+System_Numerics_Decimal64_CreateChecked_TOther = typing.TypeVar("System_Numerics_Decimal64_CreateChecked_TOther")
+System_Numerics_Decimal64_CreateSaturating_TOther = typing.TypeVar("System_Numerics_Decimal64_CreateSaturating_TOther")
+System_Numerics_Decimal64_CreateTruncating_TOther = typing.TypeVar("System_Numerics_Decimal64_CreateTruncating_TOther")
+System_Numerics_Decimal32_CreateChecked_TOther = typing.TypeVar("System_Numerics_Decimal32_CreateChecked_TOther")
+System_Numerics_Decimal32_CreateSaturating_TOther = typing.TypeVar("System_Numerics_Decimal32_CreateSaturating_TOther")
+System_Numerics_Decimal32_CreateTruncating_TOther = typing.TypeVar("System_Numerics_Decimal32_CreateTruncating_TOther")
 System_Numerics_BFloat16_CreateChecked_TOther = typing.TypeVar("System_Numerics_BFloat16_CreateChecked_TOther")
 System_Numerics_BFloat16_CreateSaturating_TOther = typing.TypeVar("System_Numerics_BFloat16_CreateSaturating_TOther")
 System_Numerics_BFloat16_CreateTruncating_TOther = typing.TypeVar("System_Numerics_BFloat16_CreateTruncating_TOther")
@@ -89,6 +95,9 @@ System_Numerics_INumberBase_TryConvertFromTruncating_TOther = typing.TypeVar("Sy
 System_Numerics_INumberBase_TryConvertToChecked_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertToChecked_TOther")
 System_Numerics_INumberBase_TryConvertToSaturating_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertToSaturating_TOther")
 System_Numerics_INumberBase_TryConvertToTruncating_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertToTruncating_TOther")
+System_Numerics_Decimal128_CreateChecked_TOther = typing.TypeVar("System_Numerics_Decimal128_CreateChecked_TOther")
+System_Numerics_Decimal128_CreateSaturating_TOther = typing.TypeVar("System_Numerics_Decimal128_CreateSaturating_TOther")
+System_Numerics_Decimal128_CreateTruncating_TOther = typing.TypeVar("System_Numerics_Decimal128_CreateTruncating_TOther")
 
 
 class Plane(System.IEquatable[System_Numerics_Plane]):
@@ -3343,7 +3352,52 @@ class TotalOrderIeee754Comparer(typing.Generic[System_Numerics_TotalOrderIeee754
         ...
 
 
-class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable[System_Numerics_Decimal64], System.ISpanParsable[System_Numerics_Decimal64], System.Numerics.IMinMaxValue[System_Numerics_Decimal64], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal64, int]):
+class _Typed_Decimal64_CreateChecked(typing.Generic[System_Numerics_Decimal64_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_Decimal64_CreateChecked_TOther) -> System.Numerics.Decimal64:
+        ...
+
+
+class _Decimal64_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal64_CreateChecked_TOther]) -> System.Numerics._Typed_Decimal64_CreateChecked[System_Numerics_Decimal64_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_Decimal64_CreateSaturating(typing.Generic[System_Numerics_Decimal64_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_Decimal64_CreateSaturating_TOther) -> System.Numerics.Decimal64:
+        ...
+
+
+class _Decimal64_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal64_CreateSaturating_TOther]) -> System.Numerics._Typed_Decimal64_CreateSaturating[System_Numerics_Decimal64_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_Decimal64_CreateTruncating(typing.Generic[System_Numerics_Decimal64_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_Decimal64_CreateTruncating_TOther) -> System.Numerics.Decimal64:
+        ...
+
+
+class _Decimal64_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal64_CreateTruncating_TOther]) -> System.Numerics._Typed_Decimal64_CreateTruncating[System_Numerics_Decimal64_CreateTruncating_TOther]:
+        ...
+
+
+class Decimal64(System.IComparable[System_Numerics_Decimal64], System.Numerics.INumberBase[System_Numerics_Decimal64], System.Numerics.IMinMaxValue[System_Numerics_Decimal64], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal64, int]):
     """This class has no documentation."""
 
     POSITIVE_INFINITY: System.Numerics.Decimal64
@@ -3371,6 +3425,12 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
     PI: System.Numerics.Decimal64
 
     TAU: System.Numerics.Decimal64
+
+    create_checked: System.Numerics._Decimal64_CreateChecked
+
+    create_saturating: System.Numerics._Decimal64_CreateSaturating
+
+    create_truncating: System.Numerics._Decimal64_CreateTruncating
 
     def __add__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
@@ -3618,6 +3678,16 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
         ...
 
     @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
     def sign(value: System.Numerics.Decimal64) -> int:
         ...
 
@@ -3635,6 +3705,14 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
 
     @overload
     def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
         ...
 
     @staticmethod
@@ -3669,17 +3747,27 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
 
     @staticmethod
     @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal64, int]:
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Numerics.Decimal64]) -> typing.Tuple[bool, System.Numerics.Decimal64]:
         ...
 
     @staticmethod
     @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal64, int]:
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64]) -> typing.Tuple[bool, System.Numerics.Decimal64]:
         ...
 
     @staticmethod
     @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal64, int]:
+    def try_parse_partial(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal64, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_partial(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal64, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_partial(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal64, int]:
         ...
 
 
@@ -4000,7 +4088,52 @@ class ISignedNumber(typing.Generic[System_Numerics_ISignedNumber_TSelf], System.
     """This class has no documentation."""
 
 
-class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable[System_Numerics_Decimal32], System.ISpanParsable[System_Numerics_Decimal32], System.Numerics.IMinMaxValue[System_Numerics_Decimal32], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal32, int]):
+class _Typed_Decimal32_CreateChecked(typing.Generic[System_Numerics_Decimal32_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_Decimal32_CreateChecked_TOther) -> System.Numerics.Decimal32:
+        ...
+
+
+class _Decimal32_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal32_CreateChecked_TOther]) -> System.Numerics._Typed_Decimal32_CreateChecked[System_Numerics_Decimal32_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_Decimal32_CreateSaturating(typing.Generic[System_Numerics_Decimal32_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_Decimal32_CreateSaturating_TOther) -> System.Numerics.Decimal32:
+        ...
+
+
+class _Decimal32_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal32_CreateSaturating_TOther]) -> System.Numerics._Typed_Decimal32_CreateSaturating[System_Numerics_Decimal32_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_Decimal32_CreateTruncating(typing.Generic[System_Numerics_Decimal32_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_Decimal32_CreateTruncating_TOther) -> System.Numerics.Decimal32:
+        ...
+
+
+class _Decimal32_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal32_CreateTruncating_TOther]) -> System.Numerics._Typed_Decimal32_CreateTruncating[System_Numerics_Decimal32_CreateTruncating_TOther]:
+        ...
+
+
+class Decimal32(System.IComparable[System_Numerics_Decimal32], System.Numerics.INumberBase[System_Numerics_Decimal32], System.Numerics.IMinMaxValue[System_Numerics_Decimal32], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal32, int]):
     """This class has no documentation."""
 
     POSITIVE_INFINITY: System.Numerics.Decimal32
@@ -4028,6 +4161,12 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
     PI: System.Numerics.Decimal32
 
     TAU: System.Numerics.Decimal32
+
+    create_checked: System.Numerics._Decimal32_CreateChecked
+
+    create_saturating: System.Numerics._Decimal32_CreateSaturating
+
+    create_truncating: System.Numerics._Decimal32_CreateTruncating
 
     def __add__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
@@ -4275,6 +4414,16 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
         ...
 
     @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
     def sign(value: System.Numerics.Decimal32) -> int:
         ...
 
@@ -4292,6 +4441,14 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
 
     @overload
     def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
         ...
 
     @staticmethod
@@ -4326,17 +4483,27 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
 
     @staticmethod
     @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal32, int]:
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Numerics.Decimal32]) -> typing.Tuple[bool, System.Numerics.Decimal32]:
         ...
 
     @staticmethod
     @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal32, int]:
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32]) -> typing.Tuple[bool, System.Numerics.Decimal32]:
         ...
 
     @staticmethod
     @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal32, int]:
+    def try_parse_partial(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal32, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_partial(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal32, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_partial(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal32, int]:
         ...
 
 
@@ -5122,21 +5289,6 @@ class BFloat16(System.IComparable[System_Numerics_BFloat16], System.ISpanFormatt
 
     @staticmethod
     @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.BFloat16], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.BFloat16, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.BFloat16], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.BFloat16, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.BFloat16], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.BFloat16, int]:
-        ...
-
-    @staticmethod
-    @overload
     def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.BFloat16]) -> typing.Tuple[bool, System.Numerics.BFloat16]:
         ...
 
@@ -5153,6 +5305,21 @@ class BFloat16(System.IComparable[System_Numerics_BFloat16], System.ISpanFormatt
     @staticmethod
     @overload
     def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[System.Numerics.BFloat16]) -> typing.Tuple[bool, System.Numerics.BFloat16]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_partial(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.BFloat16], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.BFloat16, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_partial(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.BFloat16], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.BFloat16, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_partial(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.BFloat16], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.BFloat16, int]:
         ...
 
 
@@ -5408,7 +5575,52 @@ class INumber(typing.Generic[System_Numerics_INumber_TSelf], System.IComparable[
     """This class has no documentation."""
 
 
-class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatable[System_Numerics_Decimal128], System.ISpanParsable[System_Numerics_Decimal128], System.Numerics.IMinMaxValue[System_Numerics_Decimal128], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal128, System.UInt128]):
+class _Typed_Decimal128_CreateChecked(typing.Generic[System_Numerics_Decimal128_CreateChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_Decimal128_CreateChecked_TOther) -> System.Numerics.Decimal128:
+        ...
+
+
+class _Decimal128_CreateChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal128_CreateChecked_TOther]) -> System.Numerics._Typed_Decimal128_CreateChecked[System_Numerics_Decimal128_CreateChecked_TOther]:
+        ...
+
+
+class _Typed_Decimal128_CreateSaturating(typing.Generic[System_Numerics_Decimal128_CreateSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_Decimal128_CreateSaturating_TOther) -> System.Numerics.Decimal128:
+        ...
+
+
+class _Decimal128_CreateSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal128_CreateSaturating_TOther]) -> System.Numerics._Typed_Decimal128_CreateSaturating[System_Numerics_Decimal128_CreateSaturating_TOther]:
+        ...
+
+
+class _Typed_Decimal128_CreateTruncating(typing.Generic[System_Numerics_Decimal128_CreateTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_Decimal128_CreateTruncating_TOther) -> System.Numerics.Decimal128:
+        ...
+
+
+class _Decimal128_CreateTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal128_CreateTruncating_TOther]) -> System.Numerics._Typed_Decimal128_CreateTruncating[System_Numerics_Decimal128_CreateTruncating_TOther]:
+        ...
+
+
+class Decimal128(System.IComparable[System_Numerics_Decimal128], System.Numerics.INumberBase[System_Numerics_Decimal128], System.Numerics.IMinMaxValue[System_Numerics_Decimal128], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal128, System.UInt128]):
     """This class has no documentation."""
 
     POSITIVE_INFINITY: System.Numerics.Decimal128
@@ -5436,6 +5648,12 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
     PI: System.Numerics.Decimal128
 
     TAU: System.Numerics.Decimal128
+
+    create_checked: System.Numerics._Decimal128_CreateChecked
+
+    create_saturating: System.Numerics._Decimal128_CreateSaturating
+
+    create_truncating: System.Numerics._Decimal128_CreateTruncating
 
     def __add__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
@@ -5683,6 +5901,16 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
         ...
 
     @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
     def sign(value: System.Numerics.Decimal128) -> int:
         ...
 
@@ -5700,6 +5928,14 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
 
     @overload
     def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
         ...
 
     @staticmethod
@@ -5734,17 +5970,27 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
 
     @staticmethod
     @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal128, int]:
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Numerics.Decimal128]) -> typing.Tuple[bool, System.Numerics.Decimal128]:
         ...
 
     @staticmethod
     @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal128, int]:
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128]) -> typing.Tuple[bool, System.Numerics.Decimal128]:
         ...
 
     @staticmethod
     @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal128, int]:
+    def try_parse_partial(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal128, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_partial(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal128, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_partial(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal128, int]:
         ...
 
 

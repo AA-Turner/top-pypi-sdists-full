@@ -4,6 +4,7 @@ use super::*;
 
 use std::sync::Arc;
 
+use dcc_mcp_actions::EventBus;
 use dcc_mcp_host::DccDispatcher;
 
 /// MCP Streamable HTTP server for embedding in DCC software.
@@ -67,7 +68,7 @@ impl PyMcpHttpServer {
     ///
     /// Args:
     ///     registry: An ``ToolRegistry`` with registered DCC actions.
-    ///     config: A ``McpHttpConfig``. If omitted, defaults to port 8765.
+    ///     config: A ``McpHttpConfig``. If omitted, defaults to port 0 (OS-assigned).
     #[new]
     #[pyo3(signature = (registry, config=None))]
     fn new(registry: &ToolRegistry, config: Option<&PyMcpHttpConfig>) -> PyResult<Self> {
@@ -109,6 +110,11 @@ impl PyMcpHttpServer {
             attached_dispatcher: parking_lot::Mutex::new(None),
             readiness_probe: parking_lot::Mutex::new(None),
         })
+    }
+
+    /// Return the catalog lifecycle event bus.
+    fn event_bus(&self) -> EventBus {
+        self.catalog.event_bus()
     }
 
     /// Route every ``tools/call`` through the given dispatcher's main-thread queue.

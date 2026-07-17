@@ -16,6 +16,11 @@
 
 from neutron_lib.api.definitions import subnetpool as subnetpool_def
 from neutron_lib import constants
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 ALIAS = "subnetpool-prefix-ops"
 IS_SHIM_EXTENSION = False
@@ -25,16 +30,15 @@ DESCRIPTION = "Provides support for adjusting the prefix list of subnet pools"
 UPDATED_TIMESTAMP = "2019-02-08T10:00:00-00:00"
 
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
 }
 
 # The subresource attribute map for the extension.  This extension has only
 # top level resources, not child resources, so this is set to an empty dict.
-SUB_RESOURCE_ATTRIBUTE_MAP = {
-}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map.
-ACTION_MAP = {
+ACTION_MAP: ActionMap = {
     subnetpool_def.RESOURCE_NAME: {
         'add_prefixes': 'PUT',
         'remove_prefixes': 'PUT'

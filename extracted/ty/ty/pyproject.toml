@@ -1,6 +1,6 @@
 [project]
 name = "ty"
-version = "0.0.59"
+version = "0.0.60"
 requires-python = ">=3.8"
 dependencies = []
 description = "An extremely fast Python type checker, written in Rust."
@@ -40,7 +40,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [dependency-groups]
-dev = ["prek==0.4.5"]
+dev = ["prek==0.4.8"]
 release = ["rooster"]
 
 [tool.uv]

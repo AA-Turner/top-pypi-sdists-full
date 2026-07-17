@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyzxing
-Version: 1.1.1
+Version: 1.2.1
 Summary: Python wrapper for ZXing Java library.
 Author-email: Chenjie Xu <cxuscience@gmail.com>
 License: MIT
@@ -14,114 +14,167 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8.0
 Description-Content-Type: text/markdown
-Requires-Dist: setuptools
+License-File: LICENSE
 Requires-Dist: joblib
 Requires-Dist: numpy
 Provides-Extra: dev
+Requires-Dist: build>=1.2.0; extra == "dev"
 Requires-Dist: pytest>=6.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=2.0.0; extra == "dev"
 Requires-Dist: psutil>=5.0.0; extra == "dev"
+Requires-Dist: ruff>=0.5.0; extra == "dev"
+Requires-Dist: twine>=5.0.0; extra == "dev"
+Dynamic: license-file
 
 # pyzxing
 
 English | [简体中文](README_CN.md)
 
-[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/chenjiexu/pyzxing?include_prereleases)](https://github.com/ChenjieXu/pyzxing/releases/latest)
 [![PyPI](https://img.shields.io/pypi/v/pyzxing)](https://pypi.org/project/pyzxing/)
 [![Conda-forge](https://img.shields.io/conda/v/conda-forge/pyzxing)](https://anaconda.org/conda-forge/pyzxing)
-[![Conda](https://img.shields.io/conda/v/chenjiexu/pyzxing)](https://anaconda.org/ChenjieXu/pyzxing)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/pyzxing)
+![GitHub Repo stars](https://img.shields.io/github/stars/chenjiexu/pyzxing)
 
-[![Travis (.org)](https://img.shields.io/travis/ChenjieXu/pyzxing)](https://travis-ci.org/github/ChenjieXu/pyzxing)
-[![Codacy grade](https://img.shields.io/codacy/grade/353f276d2073445aab7af3e32b0d503a)](https://www.codacy.com/manual/ChenjieXu/pyzxing)
+Python bindings for the [ZXing](https://github.com/zxing/zxing) barcode decoder.
+PyZXing supports single and multiple barcodes, file globs, NumPy arrays, decode
+hints, binary payloads, result points, and orientation metadata.
 
-## First GA
+## Requirements
 
-After a year of development, the first General Availability of pyzxing is finally released. I would like to express my
-gratitude to all the developers for their suggestions and issue, which helped the development of this project to a great
-extent. This project will continue to be open source and updated regularly.
+- Python 3.8 or newer
+- Java 17 or newer on `PATH`
 
-## Introduction
-
-A Python wrapper of [ZXing library](https://github.com/zxing/zxing). python-zxing does not work properly and is out of
-maintenance. So I decide to create this repository so that Pythoneers can take advantage of ZXing library with minimum
-effort.
-
-## Features
-
-- Super easy to get hands on decoding qrcode with Python
-- Structured outputs
-- Scan multiple barcodes in one picture
-- Scan multiple pictures in parallel, which speeds up 77%
+PyZXing downloads and verifies its matching Java Runner automatically. The
+conda-forge package includes the Runner in the environment.
 
 ## Installation
-
-Installing from [Github source](https://github.com/ChenjieXu/pyzxing.git) is recommended :
-
-```bash
-git clone https://github.com/ChenjieXu/pyzxing.git
-cd pyzxing
-python setup.py install
-```
-
-It is also possible to install from [PyPI](https://pypi.org/project/pyzxing/):
 
 ```bash
 pip install pyzxing
 ```
 
-Install from [Anaconda](https://anaconda.org/ChenjieXu/pyzxing). Now available on the public channel, conda-forge:
+or:
 
 ```bash
-conda install pyzxing # conda-forge channel
-conda install -c chenjiexu pyzxing # private channel
+conda install -c conda-forge pyzxing
 ```
 
-## Build ZXing Library
-
-A ready-to-go jar file is available with release, but I can not guarantee that this file will work properly on your PC.
-You may run test script before building ZXing. Pyzxing will download compiled Jar file automatically and call unit test.
-For those who haven't installed Java, I strongly recommend you to install openjdk8.
+To install the current source tree:
 
 ```bash
-python -m unittest tests.test_decode
+git clone https://github.com/ChenjieXu/pyzxing.git
+cd pyzxing
+python -m pip install .
 ```
 
-If failed, build ZXing using following commands.
-
-```bash
-git submodule init
-git submodule update
-cd zxing
-mvn install -DskipTests
-cd javase
-mvn -DskipTests package assembly:single
-```
-
-## Quick Start
+## Quick start
 
 ```python
 from pyzxing import BarCodeReader
 
 reader = BarCodeReader()
-results = reader.decode('/PATH/TO/FILE')
-# Or file pattern for multiple files
-results = reader.decode('/PATH/TO/FILES/*.png')
+
+results = reader.decode("/path/to/barcode.png")
 print(results)
-# Or a numpy array
-# Requires additional installation of opencv
-# pip install opencv-python
-results = reader.decode_array(img)
+
+# Decode all matching images and return one flat result list.
+results = reader.decode("/path/to/images/*.png")
 ```
 
-Or you may simply call it from command line
+Restrict formats or tune decoding with keyword arguments:
+
+```python
+results = reader.decode(
+    "/path/to/barcode.png",
+    multi=True,
+    try_harder=True,
+    pure_barcode=False,
+    character_set=None,
+    possible_formats=["QR_CODE", "DATA_MATRIX"],
+)
+```
+
+- `multi`: scan for multiple barcodes in one image.
+- `try_harder`: use ZXing's more exhaustive decode path.
+- `pure_barcode`: decode a clean, unrotated monochrome symbol.
+- `character_set`: provide a charset hint when the symbol does not carry one.
+- `possible_formats`: limit decoding to ZXing `BarcodeFormat` names.
+
+## Results
+
+Each result is a dictionary. Common fields are:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `filename` | `bytes` | Input file URI. |
+| `format`, `type` | `bytes` | Barcode format and parsed-result type. |
+| `raw`, `parsed` | `bytes` | Backward-compatible text fields. |
+| `text`, `parsed_text` | `str` | Decoded and parsed display text. |
+| `raw_bytes` | `bytes \| None` | ZXing raw result bytes. |
+| `byte_segments` | `list[bytes]` | Lossless byte-mode payload segments. |
+| `points` | `list[tuple[float, float]]` | Result points as `(x, y)` pairs. |
+| `orientation` | `0 \| 90 \| 180 \| 270 \| None` | Clockwise image rotation. |
+| `orientation_source` | `str` | `metadata`, `derived`, or `unavailable`. |
+| `metadata` | `dict` | Stable ZXing metadata when available. |
+
+For binary QR data, use `byte_segments` instead of re-encoding `text`.
+Decode and runtime failures raise `DecodeError` subclasses.
+
+## NumPy arrays
+
+Install OpenCV and pass an RGB or grayscale array:
 
 ```bash
-python scripts/scanner.py -f /PATH/TO/FILE
+pip install opencv-python
 ```
-# TODO
 
-- [ ] Fix setup.py
+```python
+results = reader.decode_array(image)
+```
 
-- [ ] Add multi and pure_barcode into parameters to resolve #25
+## Webcam demo
 
-- [ ] Change Travis CI to GitHub Action
+The example periodically samples frames from an OpenCV camera:
+
+```bash
+pip install pyzxing opencv-python
+python scripts/webcam_demo.py --camera 0 --interval 0.5
+```
+
+Press `q` or Esc to quit. Run `python scripts/webcam_demo.py --help` for all
+options.
+
+## Command line
+
+```bash
+python scripts/scanner.py -f /path/to/barcode.png
+```
+
+## PyInstaller
+
+Bundle a Runner JAR and pass its extracted path to `BarCodeReader`:
+
+```bash
+# Use `;runner` instead of `:runner` on Windows.
+pyinstaller --add-data "/path/to/pyzxing-runner.jar:runner" app.py
+```
+
+```python
+import sys
+from pathlib import Path
+
+from pyzxing import BarCodeReader
+
+bundle_dir = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+runner_jar = next((bundle_dir / "runner").glob("*.jar"))
+reader = BarCodeReader(jar_path=runner_jar)
+```
+
+## Development
+
+```bash
+./mvnw -f java-runner/pom.xml clean verify
+python -m pytest tests/
+```
+
+Windows users can run `mvnw.cmd` instead of `./mvnw`.

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
@@ -103,7 +102,7 @@ def should_linearize(working_file: Path, context: PdfContext) -> bool:
 
     For smaller files, linearization is not worth the effort.
     """
-    filesize = os.stat(working_file).st_size
+    filesize = working_file.stat().st_size
     return filesize > (context.options.fast_web_view * 1_000_000)
 
 

@@ -144,6 +144,13 @@ _N009 = DiagnosticMessage(
     fix="/v1/sdk/config requires Kytte platform v0.1.45 or newer — upgrade the platform",
 )
 
+_N010 = DiagnosticMessage(
+    code="AIGIE-N010",
+    message="Decision Orchestrator unreachable",
+    consequence="Error evaluation and autonomous remediation are paused; tracing is unaffected",
+    fix="Check that the Decision Orchestrator endpoint is reachable and the port is open",
+)
+
 # ── Auth / License Codes ─────────────────────────────────────────────
 
 _A001 = DiagnosticMessage(
@@ -262,6 +269,13 @@ _R006 = DiagnosticMessage(
     fix="Platform backend may be experiencing issues. Check https://status.aigie.io",
 )
 
+_R007 = DiagnosticMessage(
+    code="AIGIE-R007",
+    message="Decision Orchestrator RPC dropped",
+    consequence="This call was fail-open dropped; tracing and the agent are unaffected",
+    fix="Enable AIGIE_LOG_LEVEL=DEBUG for details; check Decision Orchestrator health",
+)
+
 # ── Code Registry ────────────────────────────────────────────────────
 
 CODES: dict[str, DiagnosticMessage] = {
@@ -280,6 +294,7 @@ CODES: dict[str, DiagnosticMessage] = {
         _N007,
         _N008,
         _N009,
+        _N010,
         _A001,
         _A002,
         _A003,
@@ -296,16 +311,17 @@ CODES: dict[str, DiagnosticMessage] = {
         _R004,
         _R005,
         _R006,
+        _R007,
     ]
 }
 
 # Convenience aliases for import
 C001, C002, C003, C004 = _C001, _C002, _C003, _C004
 N001, N002, N003, N004, N005, N006, N007 = _N001, _N002, _N003, _N004, _N005, _N006, _N007
-N008, N009 = _N008, _N009
+N008, N009, N010 = _N008, _N009, _N010
 A001, A002, A003, A004 = _A001, _A002, _A003, _A004
 I001, I002, I003, I004, I005, I006 = _I001, _I002, _I003, _I004, _I005, _I006
-R001, R002, R003, R004, R005, R006 = _R001, _R002, _R003, _R004, _R005, _R006
+R001, R002, R003, R004, R005, R006, R007 = _R001, _R002, _R003, _R004, _R005, _R006, _R007
 
 
 # ── Startup Banner ───────────────────────────────────────────────────

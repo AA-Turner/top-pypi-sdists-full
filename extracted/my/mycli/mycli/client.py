@@ -114,10 +114,15 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
         self.dsn_alias: str | None = None
         self.main_formatter = TabularOutputFormatter(format_name=c["main"]["table_format"])
         self.redirect_formatter = TabularOutputFormatter(format_name=c["main"].get("redirect_format", "csv"))
+        self.explorer_formatter = TabularOutputFormatter(format_name=c['explorer'].get('format', self.main_formatter))
         sql_format.register_new_formatter(self.main_formatter)
         sql_format.register_new_formatter(self.redirect_formatter)
+        sql_format.register_new_formatter(self.explorer_formatter)
         self.main_formatter.mycli = self
         self.redirect_formatter.mycli = self
+        self.explorer_formatter.mycli = self
+        self.explorer_command = c['explorer'].get('explorer_command')
+        self.explorer_trim_footer = c['explorer'].as_bool('trim_footer')
         self.syntax_style = c["main"]["syntax_style"]
         self.verbosity = -1 if c["main"].as_bool("less_chatty") else 0
         if cli_verbosity:
@@ -155,7 +160,7 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
                 self.echo("Error: Unable to open the audit log file. Your queries will not be logged.", err=True, fg="red")
                 self.logfile = False
 
-        self.completion_refresher = CompletionRefresher()
+        self.completion_refresher = CompletionRefresher(self._invalidate_prompt_session)
         self.prefetch_schemas_mode = c["main"].get("prefetch_schemas_mode", "always") or "always"
         raw_prefetch_list = c["main"].as_list("prefetch_schemas_list") if "prefetch_schemas_list" in c["main"] else []
         self.prefetch_schemas_list = [s.strip() for s in raw_prefetch_list if s and s.strip()]
@@ -200,6 +205,10 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
         self.prompt_session = None
         self.destructive_keywords = destructive_keywords_from_config(c)
         special.set_destructive_keywords(self.destructive_keywords)
+
+    def _invalidate_prompt_session(self) -> None:
+        if self.prompt_session:
+            self.prompt_session.app.invalidate()
 
     def close(self) -> None:
         try:

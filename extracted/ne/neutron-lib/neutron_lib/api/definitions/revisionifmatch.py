@@ -11,6 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
+
 ALIAS = 'revision-if-match'
 IS_SHIM_EXTENSION = True
 IS_STANDARD_ATTR_EXTENSION = False
@@ -19,9 +25,9 @@ API_PREFIX = ''
 DESCRIPTION = ("Extension indicating that If-Match based on revision_number "
                "is supported.")
 UPDATED_TIMESTAMP = '2016-12-11T00:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {}
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = ['standard-attr-revisions']
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

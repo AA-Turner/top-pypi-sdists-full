@@ -589,6 +589,30 @@ class RunCache:
 
         self._publish_write_only_execution(bypass_response=bypass_response, outcome=outcome)
 
+    def _on_state_request_failed(self, node: ModelOrSnapshotOrTestOrSeedNode) -> None:
+        """Invalidates cached metadata for a node's target table after an execution whose
+        state request failed or was never made.
+
+        Invoked when a node executed normally but its completion will not be confirmed
+        back to the query cache. The execution
+        rebuilt the target table, so any locally cached metadata for it is stale. Without
+        this, downstream nodes in the same invocation would report the table's pre-build
+        `last_modified` timestamp to the server and could incorrectly be skipped.
+
+        Args:
+            node: The node that was executed.
+        """
+        if node.unique_id in self._cache_bypass_responses:
+            # write-only executions refresh the cache in on_run_result() instead
+            return
+
+        try:
+            self._adapter_ext.clear_cache([self._node_to_table(node)])
+        except Exception as e:
+            events.fire_debug_event(
+                "Failed to clear cached metadata for node {}: {}", node.unique_id, str(e)
+            )
+
     def _get_target_table_type_and_last_modified_epoch(
         self, node: ModelOrSnapshotOrTestOrSeedNode
     ) -> t.Tuple[t.Optional[str], t.Optional[int]]:
@@ -1799,6 +1823,11 @@ class _DataTestAdapterProxy:
                             self._node.unique_id,
                             str(e),
                         )
+                elif cached_run_result is None:
+                    # The CTAS executed without state tracking; invalidate the failures
+                    # table's cached metadata so the follow-up count query reports its
+                    # actual freshness instead of the pre-CTAS timestamp
+                    self._run_cache._on_state_request_failed(self._node)
                 return result
 
         except SqlglotError as e:

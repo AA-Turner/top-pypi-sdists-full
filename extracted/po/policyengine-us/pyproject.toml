@@ -1,6 +1,6 @@
 [project]
 name = "policyengine-us"
-version = "1.772.0"
+version = "1.775.0"
 description = "US federal and state tax-benefit microsimulation model."
 readme = "README.md"
 authors = [
@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
     "microdf-python>=1.0.0",
     "pandas>=2.0",
-    "policyengine-core>=3.26.0",
+    "policyengine-core>=3.26.5",
     "spm-calculator>=0.2.0",
     "tables>=3.9",
     "tqdm>=4.67.1",

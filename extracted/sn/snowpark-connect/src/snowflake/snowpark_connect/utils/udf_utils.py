@@ -29,6 +29,14 @@ from snowflake.snowpark.types import (
     VariantType,
 )
 
+# UDF evaluation types (mirrors pyspark.rdd.PythonEvalType). These are kept as
+# module-level literals here (not imported from snowflake.snowpark_connect.constants)
+# because this module's source is embedded verbatim into the __SC_BUILD_IN_CREATE_UDF
+# stored procedure, whose Python environment does not have snowflake.snowpark_connect.
+SQL_SCALAR_PANDAS_UDF_EVAL_TYPE = 200  # @pandas_udf Series→Series (vectorized)
+SQL_SCALAR_PANDAS_ITER_UDF_EVAL_TYPE = (
+    204  # @pandas_udf Iterator[Series]→Iterator[Series]
+)
 MAP_IN_ARROW_EVAL_TYPE = 207
 
 # Package names for UDFs
@@ -39,6 +47,49 @@ TELEMETRY_PACKAGE = "snowflake-telemetry-python"
 ENABLE_UDF_TELEMETRY = True
 
 logger = logging.getLogger(__name__)
+
+
+def _force_inline_python_udf_in_native_app() -> None:
+    """Force Snowpark to inline the Python UDF closure in Native App mode.
+
+    In a Native App the UDF runs in a versioned schema, where Snowpark's
+    stage-upload path for large closures is rejected (093023: a LANGUAGE PYTHON
+    function may not IMPORT via a direct stage reference). Snowpark inlines the
+    closure into the handler body when the generated code is within its
+    inline threshold (default 8 KB) and uploads it otherwise; SCOS's Python wrapper
+    closure exceeds 8 KB, so it takes the (now-failing) upload path.
+
+    Since the upload path can never succeed in a versioned schema, we always inline
+    by raising Snowpark's threshold above any value len(code) can take. The real
+    upper bound then becomes Snowflake's max SQL statement size (the inline handler
+    is part of the CREATE FUNCTION text): a closure too large to inline fails with a
+    clear "statement too large" error instead of a confusing 093023. In practice UDF
+    closures are KB-scale, and an inline handler was measured to create and execute at
+    up to 10 MB of body on Snowflake, so this bound is not a concern. This is the
+    Python analog of the Scala/Java inline-closure fix (#4747 / Gap B).
+
+    No-op outside Native App mode; idempotent.
+    """
+    # This module's source is inlined verbatim into the UDF-creation stored
+    # procedure (udf_helper._get_or_create_udf_sproc_helper), whose Python
+    # environment does NOT have snowflake.snowpark_connect (see the note at the
+    # top of this file). When running there the import fails — which is exactly
+    # the signal to no-op: native-app inlining is a server-side concern and the
+    # sproc is itself the creation path.
+    try:
+        from snowflake.snowpark_connect.config import is_native_app_mode
+    except ImportError:
+        return
+
+    if not is_native_app_mode():
+        return
+
+    import sys
+
+    import snowflake.snowpark._internal.udf_utils as _sp_udf_utils
+
+    # Raising the threshold above any possible len(code) makes Snowpark inline.
+    _sp_udf_utils._MAX_INLINE_CLOSURE_SIZE_BYTES = sys.maxsize
 
 
 def create_telemetry_wrapper(func, udf_name):
@@ -470,6 +521,9 @@ class ProcessCommonInlineUserDefinedFunction:
             )
 
     def _create_python_udf(self):
+        # Native App: force Snowpark to inline the closure instead of uploading it
+        # to a stage (versioned schemas reject stage-reference IMPORTS — 093023).
+        _force_inline_python_udf_in_native_app()
         defaulted_input_types_to_variant = False
 
         def update_none_input_types():
@@ -580,10 +634,9 @@ class ProcessCommonInlineUserDefinedFunction:
         if hasattr(original_callable, "__annotations__"):
             callable_func.__annotations__ = original_callable.__annotations__
 
-        # eval_type 200 = SQL_SCALAR_PANDAS_UDF: the function should receive
-        # and return pd.Series (vectorized). Force annotations when the user
-        # omitted type hints so Snowpark creates a vectorized UDF.
-        if self._eval_type == 200:
+        if self._eval_type == SQL_SCALAR_PANDAS_UDF_EVAL_TYPE:
+            # Force pandas.Series annotations when the user omitted type hints so
+            # Snowpark registers a vectorized (batch-aware) UDF.
             existing = getattr(original_callable, "__annotations__", {})
             has_pandas_hints = any(
                 v in (pandas.Series, pandas.DataFrame) for v in existing.values()
@@ -594,6 +647,24 @@ class ProcessCommonInlineUserDefinedFunction:
                     p: pandas.Series for p in sig.parameters
                 }
                 callable_func.__annotations__["return"] = pandas.Series
+
+        elif self._eval_type == SQL_SCALAR_PANDAS_ITER_UDF_EVAL_TYPE:
+            # Iterator[Series]→Iterator[Series] from Spark. Snowflake's vectorized
+            # UDF contract is Series→Series (one call per batch), so wrap the user
+            # function: present it with iter([batch]) and collect the output.
+            user_iter_func = original_callable
+
+            def _scalar_iter_bridge(batch: pandas.Series) -> pandas.Series:
+                parts = list(user_iter_func(iter([batch])))
+                if not parts:
+                    return pandas.Series(dtype=batch.dtype)
+                return pandas.concat(parts, ignore_index=True)
+
+            _scalar_iter_bridge.__annotations__ = {
+                "batch": pandas.Series,
+                "return": pandas.Series,
+            }
+            callable_func = _scalar_iter_bridge
 
         update_none_input_types()
 

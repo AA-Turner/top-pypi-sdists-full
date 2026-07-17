@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhlmi
-Version: 1.0.1
+Version: 1.0.2
 Summary: A client to provide LLM responses for FutureHouse applications.
 Author-email: FutureHouse technical staff <hello@futurehouse.org>
 License:                                  Apache License

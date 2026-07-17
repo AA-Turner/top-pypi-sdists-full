@@ -210,7 +210,7 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
 
     def stop(self):
         """Stop the SparkSession and terminate the EMR on EC2 session."""
-        logger.debug(f"Stopping EMR on EC2 spark session {self.emr_session_id}...")
+        logger.info(f"Stopping EMR on EC2 spark session {self.emr_session_id}...")
 
         if self._spark_session:
             try:
@@ -225,20 +225,39 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
                 self._emr_client.terminate_session(
                     ClusterId=self.cluster_id, SessionId=self.emr_session_id
                 )
-                logger.debug(f"Terminated EMR on EC2 session {self.emr_session_id}")
+                logger.info(f"Terminated EMR on EC2 session {self.emr_session_id}")
             except Exception as e:
                 logger.error(f"Error terminating EMR on EC2 session {self.emr_session_id}: {e}")
             finally:
                 self.emr_session_id = None
 
-        logger.debug("Stopped EMR EC2 spark session")
+        logger.info("Stopped EMR EC2 spark session")
 
     def get_session_id(self):
         return self.emr_session_id
 
     def _get_service_specific_configs(self) -> dict:
-        """Build EMR on EC2-specific spark configs (Layer 2)."""
-        return apply_compatibility_mode_configs({})
+        """Build EMR on EC2-specific spark configs (Layer 2).
+
+        Includes OpenLineage configs for data lineage tracking (same as Glue,
+        minus Glue-specific spark.glue.* keys).
+        """
+        configs = apply_compatibility_mode_configs({})
+
+        # OpenLineage configs for data lineage (mirrors Glue session manager)
+        try:
+            configs.update(
+                {
+                    "spark.extraListeners": "io.openlineage.spark.agent.OpenLineageSparkListener",
+                    "spark.openlineage.transport.type": "amazon_datazone_api",
+                    "spark.openlineage.transport.domainId": self.project.domain_id,
+                }
+            )
+            logger.info("OpenLineage configs added for EMR on EC2")
+        except Exception as e:
+            logger.warning(f"Failed to add OpenLineage configs: {e}")
+
+        return configs
 
     def _build_session_params(self):
         """Build the parameters needed for start_session API call.

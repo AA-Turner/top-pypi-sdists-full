@@ -40,6 +40,13 @@ class TestIssuesApi(unittest.TestCase):
         """
         pass
 
+    def test_attach_jira_ticket_to_issue(self) -> None:
+        """Test case for attach_jira_ticket_to_issue
+
+        Attach an existing Jira ticket to an issue
+        """
+        pass
+
     def test_create_issues_tag(self) -> None:
         """Test case for create_issues_tag
 

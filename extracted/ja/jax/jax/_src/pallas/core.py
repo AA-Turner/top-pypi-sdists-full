@@ -35,9 +35,9 @@ from jax._src import dtypes
 from jax._src import effects
 from jax._src import frozen_dict
 from jax._src import hijax
-from jax._src import linear_util as lu
 from jax._src import numpy as jnp
 from jax._src import state
+from jax._src import flattree as ft
 from jax._src import tree_util
 from jax._src import typing as jax_typing
 from jax._src import util
@@ -226,10 +226,15 @@ class Buffered:
       should not be visited again. RevisitMode.ANY relaxes this restriction, at
       a cost of addition DMAs. Input blocks ignore this field and can be visited
       at any iteration, as they read the state from memory in any case.
+    prefetched_count: optional int, the number of slots in the window buffer
+      that have been pre-populated before entering the pipeline. If > 0, the
+      pipeline expects the pre-populated buffer to be passed in via allocations
+      and will skip internal allocation.
   """
   buffer_count: int
   use_lookahead: bool = False
   revisit: RevisitMode | None = None
+  prefetched_count: int = 0
 
 
 @runtime_checkable
@@ -285,7 +290,10 @@ class MemorySpace(enum.Enum):
   ERROR = "error"  # Memory space for checkify errors.
   INDEX = "index"  # Memory space for scalar prefetch arguments.
   KEY = "key"  # Memory space for PRNG keys.
-  HOST = "host"  # Host memory space.
+
+  @property
+  def memory_kind(self) -> str:
+    return "device"
 
   def from_type(self, type: jax_core.AbstractValue) -> MemoryRef:
     return MemoryRef(type, memory_space=self)
@@ -324,6 +332,10 @@ class CoreMemorySpace:
   @property
   def name(self) -> Any:
     return f"{self.memory_space}@{self.mesh.core_type.name}"
+
+  @property
+  def memory_kind(self) -> str:
+    return jax_core.mem_space_to_kind(self.memory_space)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -371,7 +383,7 @@ class GridAxis:
 GridEnv = Sequence[GridAxis]
 
 @contextlib.contextmanager
-def grid_env(env: GridEnv) -> Generator[None, None, None]:
+def grid_env(env: GridEnv) -> Generator[None]:
   _pallas_tracing_env.grid_env_stack.append(env)
   try:
     yield
@@ -525,6 +537,9 @@ class _IndexMapFunc:
       return NotImplemented
     return self.index_map == other.index_map
 
+  def __hash__(self):
+    return hash(self.index_map)
+
   def __call__(self, *args, **kwargs):
     out_indices = self.index_map(*args, **kwargs)
     if isinstance(out_indices, list):
@@ -643,15 +658,12 @@ class BlockSpec:
         fake_index_map_args,
         fake_index_map_kwargs,
     )
-    flat_index_map_fun, index_map_out_tree_thunk = api_util.flatten_fun(
-        lu.wrap_init(index_map_func, debug_info=debug_info), index_map_tree
-    )
     with tracing_grid_env(grid, vmapped_dims):
-      jaxpr, out_avals, consts = pe.trace_to_jaxpr_dynamic(
-          flat_index_map_fun, index_map_avals
-      )
-    index_map_out_tree = index_map_out_tree_thunk()
-    unflat_avals = tree_util.tree_unflatten(index_map_out_tree, out_avals)
+      closed_jaxpr, out_avals = pe.trace_to_jaxpr(
+          index_map_func,
+          ft.FTPyTree(index_map_avals, index_map_tree),
+          debug_info)
+    unflat_avals = out_avals.unflatten()
 
     if len(unflat_avals) != len(block_shape):
       raise ValueError(
@@ -688,17 +700,17 @@ class BlockSpec:
             f"{ov}."
         )
 
-    if consts and not allow_captured_consts:
+    if closed_jaxpr.consts and not allow_captured_consts:
       raise ValueError(
           f"Index map function {debug_info.func_src_info} for "
-          f"{origin} must not capture constants: {consts}"
+          f"{origin} must not capture constants: {closed_jaxpr.consts}"
       )
 
     mapping = BlockMapping(
         block_shape=block_shape,
         transformed_block_aval=block_aval,  # There are no transforms by default
-        index_map_jaxpr=jax_core.ClosedJaxpr(jaxpr, consts),
-        index_map_out_tree=index_map_out_tree,
+        index_map_jaxpr=closed_jaxpr,
+        index_map_out_tree=out_avals.tree,
         array_aval=array_aval,
         origin=origin,
         pipeline_mode=self.pipeline_mode,
@@ -749,7 +761,7 @@ class BlockMapping:
   # After all, it's just indexing out singleton dimensions.
   block_shape: tuple[BlockDim, ...]
   transformed_block_aval: state.AbstractRef
-  index_map_jaxpr: jax_core.ClosedJaxpr
+  index_map_jaxpr: jax_core.Jaxpr
   index_map_out_tree: tree_util.PyTreeDef
   array_aval: jax_core.ShapedArray  # The whole array
   origin: OriginStr
@@ -829,7 +841,7 @@ class BlockMapping:
     for b, s in zip(self.block_shape, self.array_aval.shape):
       if _get_block_dim_size(b) != s:
         return False
-    for atom in self.index_map_jaxpr.jaxpr.outvars:
+    for atom in self.index_map_jaxpr.outvars:
       if not (isinstance(atom, jax_core.Literal) and atom.val == 0):
         return False
     return True
@@ -1267,7 +1279,7 @@ def get_grid_mapping(
     dim_check: Any = jax_core.is_constant_dim
   assert all(i is None or dim_check(i) for i in grid_spec.grid)
   grid_mapping_grid: GridMappingGrid = tuple(  # pyrefly: ignore[bad-assignment]
-      dynamic_grid_dim if (  # pyrefly: ignore[bad-argument-type]
+      dynamic_grid_dim if (
           d is None or (not jax_core.is_constant_dim(d) and not dynamic_shapes_export_enabled())
       ) else d
       for d in grid_spec.grid
@@ -1452,18 +1464,26 @@ class CostEstimate:
 
 def get_memory_space_aval(aval: jax_core.AbstractValue) -> Any:
   """Queries the memory space of an array."""
-  if (isinstance(aval, jax_core.ShapedArray) and
-      not isinstance(aval.memory_space, jax_core.MemorySpace)):
-    return aval.memory_space
+  if isinstance(aval, jax_core.ShapedArray):
+    if aval.memory_space is jax_core.MemorySpace.Host:
+      return jax_core.MemorySpace.Host
+    if not isinstance(aval.memory_space, jax_core.MemorySpace):
+      return aval.memory_space
   if isinstance(aval, state.AbstractRef):
     if aval.memory_space is not None:
       return aval.memory_space
     return get_memory_space_aval(aval.inner_aval)
   return None
 
+
 def _get_sds(aval: jax_core.AbstractValue):
   if isinstance(aval, state.AbstractRef):
     if aval.memory_space is not None:
+      if isinstance(aval.memory_space, jax_core.MemorySpace):
+        return MemoryRef(
+            jax_core.ShapedArray(aval.shape, aval.dtype),
+            memory_space=aval.memory_space,
+        )
       return aval.memory_space(aval.shape, aval.dtype)
     return _get_sds(aval.inner_aval)
   elif isinstance(aval, jax_core.ShapedArray):
@@ -1486,7 +1506,7 @@ def _core_map_is_high(*avals, jaxpr, **params):
 core_map_p.is_high = _core_map_is_high
 
 def _core_map_to_lojax(*consts, jaxpr, mesh, **params):
-  closed_hi_jaxpr = jax_core.ClosedJaxpr(jaxpr, consts)
+  closed_hi_jaxpr = jaxpr.with_consts(consts)
   with (
       tracing_grid_env(tuple(mesh.shape.values()), mapped_dims=()),
       jax_core.extend_axis_env_nd(mesh.shape.items()),
@@ -1495,7 +1515,7 @@ def _core_map_to_lojax(*consts, jaxpr, mesh, **params):
   assert not closed_lo_jaxpr.is_high
   return core_map_p.bind(
       *closed_lo_jaxpr.consts,
-      jaxpr=closed_lo_jaxpr.jaxpr,
+      jaxpr=closed_lo_jaxpr,
       mesh=mesh,
       **params,
   )
@@ -1534,36 +1554,34 @@ def core_map(
   interpret = (
       config.pallas_tpu_interpret_mode_context_manager.value or interpret)
 
-  def wrapped(f):
+  def wrapped(f: Callable):
     if isinstance(scratch_shapes, dict):
       fun_args = ((), scratch_shapes)
     else:
       fun_args = (scratch_shapes, {})
 
-    flat_args, in_tree = tree_util.tree_flatten(fun_args)
     debug_info = api_util.debug_info("pallas_core_map", f, *fun_args)  # pyrefly: ignore[bad-argument-type]
-    flat_fun, out_tree_thunk = api_util.flatten_fun(
-        lu.wrap_init(f, debug_info=debug_info), in_tree
-    )
-    ref_avals = tuple(t.get_ref_aval() for t in flat_args)
+    fun_args_refs = ft.flatten(fun_args).map(
+        lambda x: x.get_ref_aval())
+
     with (
         tracing_grid_env(tuple(mesh.shape.values()), mapped_dims=()),
         jax_core.extend_axis_env_nd(mesh.shape.items()),
         config._check_vma(False),
     ):
-      jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(flat_fun, ref_avals)
+      jaxpr, out_avals = pe.trace_to_jaxpr(
+          f, fun_args_refs, debug_info)
 
-    out_tree = out_tree_thunk()
-    if out_tree != tree_util.tree_structure(None):
+    if out_avals.tree != tree_util.tree_structure(None):
       raise ValueError(
           f"The kernel function in core_map {debug_info.func_src_info} should"
-          f" return None. It returns a PyTree: {out_tree}."
+          f" return None. It returns a PyTree: {out_avals.tree}."
       )
     if debug:
       print(f"core_map jaxpr: {jaxpr}")
 
     out = core_map_p.bind(
-        *consts,
+        *jaxpr.consts,
         jaxpr=jaxpr,
         debug_info=debug_info,
         mesh=mesh,
@@ -1578,7 +1596,7 @@ def core_map(
         if metadata is not None
         else None,
     )
-    return tree_util.tree_unflatten(out_tree, out)
+    return tree_util.tree_unflatten(out_avals.tree, out)
 
   return wrapped
 
@@ -1682,7 +1700,7 @@ class Mesh(Protocol):
     """Return the memory spaces supported by the mesh."""
 
   @contextlib.contextmanager
-  def tracing_context(self) -> Generator[None, None, None]:
+  def tracing_context(self) -> Generator[None]:
     raise NotImplementedError()
     yield
 
@@ -1784,7 +1802,7 @@ def default_mesh_discharge_rule(
   )(*args)
 
   # ``outs`` lacks the unmodified inputs. Add them back in.
-  all_outs = [None] * len(args)  # pyrefly: ignore[unsupported-assignment]
+  all_outs = [None] * len(args)
   for out_idx, in_idx in enumerate(modified_idxs):
     all_outs[in_idx] = outs[out_idx]
   return all_outs, ()
@@ -1880,6 +1898,8 @@ def _convert_out_shape_to_aval(out_shape: Any) -> jax_core.AbstractValue:
       return jax_core.ShapedArray(
           shape=out_shape.shape, dtype=out_shape.dtype,
           sharding=jax_core.get_cur_mesh_sharding())
+    case jax_core.ShapedArray():
+      return out_shape
     case MemoryRef():
       return out_shape.get_array_aval()
     case hijax.HiType():

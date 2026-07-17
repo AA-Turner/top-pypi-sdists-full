@@ -103,6 +103,15 @@ def command_error_handler(cmd_name):
         raise CommandError(cmd_name, str(exc))
 
 
+def normalize_nsf_user_message(message):
+    """Replace legacy server terminology in user-facing error text."""
+    if not message:
+        return message
+    return (message
+            .replace('Keeper Drive', 'Nested Share Folder')
+            .replace('keeper drive', 'nested share folder'))
+
+
 def check_result(result, cmd_name):
     """Raise ``CommandError`` when *result['success']* is falsy.
 
@@ -110,7 +119,8 @@ def check_result(result, cmd_name):
     appears in almost every command.
     """
     if not result.get('success'):
-        raise CommandError(cmd_name, result.get('message', 'Unknown error'))
+        raise CommandError(cmd_name, normalize_nsf_user_message(
+            result.get('message', 'Unknown error')))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -201,14 +211,16 @@ def classify_share_recipient(params, recipient):
     Mirrors the legacy ``share-folder`` resolution exactly:
       1. If *recipient* matches ``EMAIL_PATTERN`` → ``('user', email_lower)``.
       2. Otherwise look it up in ``api.get_share_objects(params)['teams']``
-         (cap of 500 entries) and, if needed, ``params.available_team_cache``.
-         A match by team name *or* team UID returns ``('team', team_uid_b64)``.
+         (cap of 500 entries), ``params.available_team_cache``, and
+         ``resolve_team_identifier`` (``team_cache``). A match by team name
+         *or* team UID returns ``('team', team_uid_b64)``.
       3. No match → logs the same warning as legacy and returns ``None``.
       4. Multiple matches → logs the same warning and returns ``None``.
 
     Returns ``(kind, identifier)`` or ``None``.
     """
     from ... import constants, api
+    from ...nested_share_folder.common import resolve_team_identifier
 
     if re.match(constants.EMAIL_PATTERN, recipient):
         return 'user', recipient.lower()
@@ -228,12 +240,15 @@ def classify_share_recipient(params, recipient):
             pass
 
     matches = [uid for uid, name in teams_map.items()
-               if recipient in (name, uid)]
+               if recipient == uid or (name and name.lower() == recipient.lower())]
 
     if len(matches) == 1:
         return 'team', matches[0]
 
     if not matches:
+        resolved_team = resolve_team_identifier(params, recipient)
+        if resolved_team:
+            return 'team', resolved_team[0]
         logger.warning('User "%s" could not be resolved as email or team',
                        recipient)
     else:
@@ -309,16 +324,30 @@ def collect_records_in_folder(params, folder_uid, recursive=False):
 # Expiration parsing
 # ═══════════════════════════════════════════════════════════════════════════
 
-def validate_share_expiration_timestamp(expiration_ms, cmd_name):
+def validate_share_expiration_timestamp(expiration_ms, cmd_name, *, now_ms=None):
     """Reject finite expirations that are less than one minute."""
     if expiration_ms is None or expiration_ms == -1:
         return
-    min_allowed = int(datetime.datetime.now(timezone.utc).timestamp() * 1000) + MIN_SHARE_EXPIRATION_MS
-    if expiration_ms < min_allowed:
+    if now_ms is None:
+        now_ms = int(datetime.datetime.now(timezone.utc).timestamp() * 1000)
+    if expiration_ms < now_ms + MIN_SHARE_EXPIRATION_MS:
         raise CommandError(
             cmd_name,
             'Share expiration must be at least 1 minute.',
         )
+
+
+def validate_rotate_on_expiration(cmd_name, action, expiration):
+    """Reject ``--rotate-on-expiration`` unless granting with a positive expiry."""
+    if action != 'grant':
+        raise CommandError(
+            cmd_name,
+            '--rotate-on-expiration is only valid when granting access')
+    if not isinstance(expiration, int) or expiration <= 0:
+        raise CommandError(
+            cmd_name,
+            '--rotate-on-expiration requires a positive --expire-at / --expire-in '
+            '(cannot be "never").')
 
 
 def parse_expiration(expire_at, expire_in, cmd_name):
@@ -358,7 +387,9 @@ def parse_expiration(expire_at, expire_in, cmd_name):
             cmd_name,
             'Share expiration must be at least 1 minute.',
         )
+    # Freeze now for compute + validate (classic share-record / share-folder pattern).
     now = datetime.datetime.now(timezone.utc)
+    now_ms = int(now.timestamp() * 1000)
     delta_map = {
         'mi': timedelta(minutes=amount),
         'h':  timedelta(hours=amount),
@@ -368,7 +399,7 @@ def parse_expiration(expire_at, expire_in, cmd_name):
     }
     delta = next(v for k, v in delta_map.items() if unit.startswith(k))
     expiration_ms = int((now + delta).timestamp() * 1000)
-    validate_share_expiration_timestamp(expiration_ms, cmd_name)
+    validate_share_expiration_timestamp(expiration_ms, cmd_name, now_ms=now_ms)
     return expiration_ms
 
 

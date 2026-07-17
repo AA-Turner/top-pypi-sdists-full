@@ -5937,6 +5937,25 @@ class Dp(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
 
+class Sm4(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def encode(value: System.Runtime.Intrinsics.Vector128[int], round_keys: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def key_update(value: System.Runtime.Intrinsics.Vector128[int], constant: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+
 class SveSha3(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -7063,6 +7082,25 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
 
     @staticmethod
     def xor_rotate_right(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        ...
+
+
+class SveSm4(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def encode(value: System.Numerics.Vector[int], round_keys: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def key_update(value: System.Numerics.Vector[int], constant: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
 

@@ -32,6 +32,7 @@ from .images_bulk import (
     package_build_context,
     push_bulk,
 )
+from .images_transfer_bulk import transfer_bulk
 
 app = PlainTyper(help="Manage Docker images in Prime Intellect registry", no_args_is_help=True)
 console = get_console()
@@ -429,9 +430,6 @@ def push_image(
         if platform_image and private:
             console.print("[red]Error: Platform images must be public[/red]")
             raise typer.Exit(1)
-        if platform_image and config.team_id:
-            console.print("[red]Error: Platform images cannot be pushed in a team context[/red]")
-            raise typer.Exit(1)
         if not is_transfer and image_reference is None:
             console.print(
                 "[red]Error: Image reference is required unless --source-image is used[/red]"
@@ -484,7 +482,9 @@ def push_image(
             console.print(f"[bold]Destination:[/bold] {destination_display}")
             if platform_image:
                 console.print("[bold]Owner:[/bold] Platform")
-            if config.team_id:
+                if config.team_id:
+                    console.print("[dim]Team context ignored: platform images are org-less[/dim]")
+            elif config.team_id:
                 console.print(f"[dim]Team: {config.team_id}[/dim]")
             console.print()
 
@@ -503,7 +503,7 @@ def push_image(
                     image_name=image_name,
                     image_tag=image_tag,
                     platform=platform,
-                    team_id=config.team_id or None,
+                    team_id=None if platform_image else (config.team_id or None),
                     visibility=visibility,
                     owner_scope="platform" if platform_image else None,
                 )
@@ -582,7 +582,10 @@ def push_image(
             console.print(
                 f"[bold blue]Building and pushing image:[/bold blue] {image_name}:{image_tag}"
             )
-        if config.team_id:
+        if platform_image:
+            if config.team_id:
+                console.print("[dim]Team context ignored: platform images are org-less[/dim]")
+        elif config.team_id:
             console.print(f"[dim]Team: {config.team_id}[/dim]")
         console.print()
 
@@ -626,7 +629,7 @@ def push_image(
                     "dockerfile_path": PACKAGED_DOCKERFILE_PATH,
                     "platform": platform,
                 }
-                if config.team_id:
+                if config.team_id and not platform_image:
                     build_payload["team_id"] = config.team_id
                 if platform_image:
                     build_payload["owner_scope"] = "platform"
@@ -740,6 +743,61 @@ def push_image(
 
 # Bulk push (JSONL manifest / Harbor task dirs) lives in images_bulk.py.
 app.command("push-bulk")(push_bulk)
+
+# Bulk transfer (JSONL manifest / Harbor task dirs / Hugging Face datasets)
+# lives in images_transfer_bulk.py.
+app.command("transfer-bulk")(transfer_bulk)
+
+
+@app.command("build-vm")
+def build_vm_image(
+    image_reference: str = typer.Argument(
+        ...,
+        help=(
+            "Existing image to build a VM image for "
+            "(e.g., 'myapp:v1.0.0', 'prime/<ownerSlug>/myapp:v1.0.0', or "
+            "'prime/team-{teamId}/myapp:v1.0.0')"
+        ),
+    ),
+):
+    """
+    Build a VM image from an existing container image.
+
+    Requires VM sandboxes to be enabled for your account and a linux/amd64
+    image. For team images, only the image creator or team admins can
+    trigger this. Track progress with 'prime images list'.
+
+    \b
+    Examples:
+        prime images build-vm myapp:v1.0.0
+        prime images build-vm prime/alice/myapp:v1.0.0
+        prime images build-vm prime/team-abc123/myapp:v1.0.0
+    """
+    try:
+        image_name, image_tag, team_id = _parse_mutable_image_reference(image_reference)
+        payload: dict[str, str] = {"teamId": team_id} if team_id else {}
+
+        client = APIClient()
+        response = client.request(
+            "POST",
+            f"/images/{image_name}/{image_tag}/vm-build",
+            json=payload,
+        )
+
+        context = f" (team: {team_id})" if team_id else ""
+        console.print(
+            f"[green]✓[/green] VM image build queued for {image_name}:{image_tag}{context}"
+        )
+        build_id = response.get("buildId") if isinstance(response, dict) else None
+        if build_id:
+            console.print(f"[bold]Build ID:[/bold] {build_id}")
+        console.print("Track progress with: prime images list")
+    except UnauthorizedError:
+        console.print("[red]Error: Not authenticated. Please run 'prime login' first.[/red]")
+        raise typer.Exit(1)
+    except APIError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
 
 
 @app.command("list", epilog=LIST_IMAGES_JSON_HELP)

@@ -11,6 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
+
 ALIAS = 'project-id'
 IS_SHIM_EXTENSION = True
 IS_STANDARD_ATTR_EXTENSION = False
@@ -18,9 +24,9 @@ NAME = 'project_id field enabled'
 API_PREFIX = ''
 DESCRIPTION = 'Extension that indicates that project_id field is enabled.'
 UPDATED_TIMESTAMP = '2016-09-09T09:09:09-09:09'
-RESOURCE_ATTRIBUTE_MAP = {}
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

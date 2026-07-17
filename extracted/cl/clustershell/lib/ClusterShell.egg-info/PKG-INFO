@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: ClusterShell
-Version: 1.10
+Version: 1.10.1
 Summary: ClusterShell library and tools
 Home-page: https://clustershell.readthedocs.io/
-Download-URL: https://github.com/clustershell/clustershell/archive/refs/tags/v1.10.tar.gz
+Download-URL: https://github.com/clustershell/clustershell/archive/refs/tags/v1.10.1.tar.gz
 Author: Stephane Thiell
-Author-email: sthiell@stanford.edu
 License: LGPLv2+
 Keywords: clustershell,clush,clubak,nodeset
 Platform: GNU/Linux
@@ -28,7 +27,6 @@ Description-Content-Type: text/x-rst
 License-File: COPYING.LGPLv2.1
 Requires-Dist: PyYAML
 Dynamic: author
-Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type

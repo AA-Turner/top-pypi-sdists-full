@@ -713,6 +713,9 @@ class Market(System.Object):
     DYDX: str = "dydx"
     """dYdX market"""
 
+    KRX: str = "krx"
+    """Korea Exchange"""
+
     @staticmethod
     def add(market: str, identifier: int) -> None:
         """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fitsio
-Version: 1.4.1
+Version: 1.4.2
 Summary: A full featured python library to read from and write to FITS files.
 Author-email: Erin Scott Sheldon <erin.sheldon@gmail.com>
 License-Expression: GPL-2.0-or-later

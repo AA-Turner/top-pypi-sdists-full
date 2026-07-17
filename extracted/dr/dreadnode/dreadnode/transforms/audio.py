@@ -426,7 +426,7 @@ def pitch_shift(
     with catch_import_error("dreadnode"):
         from scipy import signal
 
-    def transform(audio: Audio, *, semitones: float = semitones) -> Audio:
+    async def transform(audio: Audio, *, semitones: float = semitones) -> Audio:
         if semitones == 0:
             return audio
 
@@ -439,9 +439,9 @@ def pitch_shift(
         # 2. Resample to original length (speeds up, raising pitch)
         rate = 2 ** (semitones / 12)
 
-        # Time stretch (make longer for pitch up, shorter for pitch down)
-        time_stretch_transform = time_stretch(rate=1 / rate)
-        stretched_audio = time_stretch_transform(audio)
+        # Time stretch (make longer for pitch up, shorter for pitch down).
+        # time_stretch() is an async Transform — must be awaited.
+        stretched_audio = await time_stretch(rate=1 / rate)(audio)
 
         # Get stretched data
         stretched_data, _ = _audio_to_numpy(stretched_audio)

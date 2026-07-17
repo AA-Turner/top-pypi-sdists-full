@@ -679,6 +679,9 @@ class UnderscoreFunction(Underscore):
             policy_params["path"] = path
         return self._with_policy("cache", **policy_params)
 
+    def with_batch_size(self, *, max_size: int) -> UnderscoreFunction:
+        return self._with_policy("batching", rows_per_call=max_size)
+
     @classmethod
     def with_f_dot_repr(
         cls,
@@ -721,6 +724,7 @@ class UnderscoreFunction(Underscore):
         "retry": expr_pb2.EXPR_POLICY_KIND_RETRY,
         "logging": expr_pb2.EXPR_POLICY_KIND_LOGGING,
         "cache": expr_pb2.EXPR_POLICY_KIND_CACHE,
+        "batching": expr_pb2.EXPR_POLICY_KIND_BATCHING,
     }
 
     POLICY_PROTO_TO_KIND = {v: k for k, v in POLICY_KIND_TO_PROTO.items()}
@@ -741,6 +745,9 @@ class UnderscoreFunction(Underscore):
         },
         "logging": {
             "log_args": lambda value: value.strip().lower() in {"1", "true", "yes"},
+        },
+        "batching": {
+            "rows_per_call": int,
         },
     }
 

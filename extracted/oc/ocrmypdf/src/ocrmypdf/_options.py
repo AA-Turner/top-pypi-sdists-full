@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 # Module-level registry for plugin option models
 # This is populated by setup_plugin_infrastructure() after plugins are loaded
-_plugin_option_models: dict[str, type] = {}
+_plugin_option_models: dict[str, type[BaseModel]] = {}
 
 PathOrIO = BinaryIO | IOBase | Path | str | bytes
 
@@ -209,7 +209,6 @@ class OcrOptions(BaseModel):
     optimize: int = 1
     jpg_quality: int | None = None
     png_quality: int | None = None
-    jbig2_threshold: float = 0.85
 
     # Compatibility alias for plugins that expect jpeg_quality
     @property
@@ -465,7 +464,7 @@ class OcrOptions(BaseModel):
         ):
             raise ValueError(
                 "Since you specified `--output-type none`, the output file "
-                f"{self.output_file} cannot be produced. Set the output file to "
+                f"{str(self.output_file)} cannot be produced. Set the output file to "
                 f"`-` to suppress this message."
             )
         return self
@@ -576,7 +575,7 @@ class OcrOptions(BaseModel):
     )
 
     @classmethod
-    def register_plugin_models(cls, models: dict[str, type]) -> None:
+    def register_plugin_models(cls, models: dict[str, type[BaseModel]]) -> None:
         """Register plugin option model classes for nested access.
 
         Args:

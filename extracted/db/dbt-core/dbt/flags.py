@@ -69,6 +69,8 @@ def get_flag_dict():
         "log_path",
         "invocation_command",
         "empty",
+        "maximum_seed_size_mib",
+        "hints_enabled",
     }
     return {key: getattr(GLOBAL_FLAGS, key.upper(), None) for key in flag_attr}
 
@@ -86,4 +88,10 @@ def get_flag_obj():
     setattr(new_flags, "FULL_REFRESH", getattr(GLOBAL_FLAGS, "FULL_REFRESH", None))
     setattr(new_flags, "STORE_FAILURES", getattr(GLOBAL_FLAGS, "STORE_FAILURES", None))
     setattr(new_flags, "WHICH", getattr(GLOBAL_FLAGS, "WHICH", None))
+    # Project-level behavior change flag, exposed to Jinja for gating in adapter macros.
+    setattr(
+        new_flags,
+        "REQUIRE_SQL_HEADER_IN_TEST_CONFIGS",
+        getattr(GLOBAL_FLAGS, "REQUIRE_SQL_HEADER_IN_TEST_CONFIGS", False),
+    )
     return new_flags

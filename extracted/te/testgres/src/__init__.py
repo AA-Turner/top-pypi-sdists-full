@@ -41,7 +41,6 @@ from .node_app import NodeApp
 from .utils import \
     reserve_port, \
     release_port, \
-    bound_ports, \
     get_bin_path, \
     get_bin_dir, \
     get_pg_config, \
@@ -58,7 +57,7 @@ from testgres.operations.os_ops import OsOperations, ConnectionParams
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.remote_ops import RemoteOperations
 
-__version__ = "1.14.5"
+__version__ = "1.15.0"
 
 __all__ = [
     "get_new_node",
@@ -73,7 +72,7 @@ __all__ = [
     "NodeApp",
     "PostgresNode",
     "PortManager",
-    "reserve_port", "release_port", "bound_ports", "get_bin_path", "get_bin_dir", "get_pg_config", "get_pg_version", "parse_pg_version",
+    "reserve_port", "release_port", "get_bin_path", "get_bin_dir", "get_pg_config", "get_pg_version", "parse_pg_version",
     "First", "Any",
     "OsOperations", "LocalOperations", "RemoteOperations", "ConnectionParams"
 ]

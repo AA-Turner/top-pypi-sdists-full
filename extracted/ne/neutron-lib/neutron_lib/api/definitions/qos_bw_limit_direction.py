@@ -16,7 +16,11 @@
 from neutron_lib.api.definitions import qos as qos_apidef
 from neutron_lib import constants
 from neutron_lib.services.qos import constants as qos_const
-
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 ALIAS = 'qos-bw-limit-direction'
 LABEL = ''
@@ -27,8 +31,8 @@ API_PREFIX = ''
 DESCRIPTION = ("Allow to configure QoS bandwidth limit rule with specific "
                "direction: ingress or egress")
 UPDATED_TIMESTAMP = '2017-04-10T10:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {}
-SUB_RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {
     # NOTE(boden): parameters is required here as BANDWIDTH_LIMIT_RULES is a
     # sub-resource extension itself
     qos_apidef.BANDWIDTH_LIMIT_RULES: {
@@ -47,7 +51,7 @@ SUB_RESOURCE_ATTRIBUTE_MAP = {
         }
     }
 }
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [qos_apidef.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

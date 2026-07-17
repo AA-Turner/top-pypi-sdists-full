@@ -685,6 +685,32 @@ def map_fillna(
     )
 
 
+def _check_set_op_column_name_duplication(column_map) -> None:
+    """Replicate Spark's ``ResolveUnion.checkColumnNames``: a by-name set
+    operation rejects an input that carries duplicate column names, during
+    analysis and before any column matching (so it fires regardless of
+    ``allowMissingColumns``). Mirrors ``SchemaUtils.checkColumnNameDuplication``,
+    which reports the duplicate that sorts alphabetically first. SNOW-3585780.
+    """
+    spark_names = column_map.get_spark_columns()
+    normalized = [column_map._normalized_spark_name(name) for name in spark_names]
+    counts: dict[str, int] = {}
+    for name in normalized:
+        counts[name] = counts.get(name, 0) + 1
+    duplicates = sorted(name for name, count in counts.items() if count > 1)
+    if duplicates:
+        first_normalized = duplicates[0]
+        offending = next(
+            original
+            for original, norm in zip(spark_names, normalized)
+            if norm == first_normalized
+        )
+        raise AnalysisException(
+            f"[COLUMN_ALREADY_EXISTS] The column `{offending}` already exists. "
+            "Consider to choose another name or rename the existing column."
+        )
+
+
 def map_union(
     rel: relation_proto.Relation,
 ) -> DataFrameContainer:
@@ -715,6 +741,14 @@ def map_union(
         left_column_map = left_result.column_map
         left_table_name = left_result.table_name
         right_column_map = right_result.column_map
+
+        # Match Spark: reject inputs that carry duplicate column names before any
+        # by-name matching (left first, then right). Otherwise the shared columns
+        # get concatenated and a later resolve fails with a misleading
+        # "column not found". SNOW-3585780.
+        _check_set_op_column_name_duplication(left_column_map)
+        _check_set_op_column_name_duplication(right_column_map)
+
         columns_to_restore: dict[str, tuple[str, str]] = {}
 
         original_right_schema = right_df.schema

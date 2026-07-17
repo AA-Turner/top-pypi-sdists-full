@@ -1450,15 +1450,19 @@ def register_generated_tools(mcp, _get_client):
         budget: dict[str, Any] | None = None,
         bid_strategy: str | None = None,
         name: str | None = None,
+        platform_specific_data: dict[str, Any] | None = None,
     ) -> str:
         """Update a campaign
 
-        Args:
-            campaign_id: Platform campaign ID (required)
-            platform: (required)
-            budget
-            bid_strategy: Campaign-level default. Ad sets inherit this unless they override.
-            name: Rename the campaign (Meta only; other platforms return 501). At least one of budget/bidStrategy/name is required."""
+            Args:
+                campaign_id: Platform campaign ID (required)
+                platform: (required)
+                budget
+                bid_strategy: Campaign-level default. Ad sets inherit this unless they override.
+                name: Rename the campaign (Meta only; other platforms return 501). At least one of budget/bidStrategy/name/platformSpecificData is required.
+                platform_specific_data: Platform-specific campaign settings. The platform is implied by the `platform`
+        body param (same convention as platformSpecificData on POST /v1/ads/create).
+        Meta (facebook/instagram) only; other platforms return 400."""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_ad_campaign(
@@ -1467,6 +1471,7 @@ def register_generated_tools(mcp, _get_client):
                 budget=budget,
                 bid_strategy=bid_strategy,
                 name=name,
+                platform_specific_data=platform_specific_data,
             )
             return _format_response(response)
         except Exception as e:
@@ -1546,7 +1551,7 @@ def register_generated_tools(mcp, _get_client):
             campaign_id: Source platform campaign ID (required)
             platform: (required)
             deep_copy: Copy child ad sets + ads + creatives + targeting
-            status_option
+            status_option: ACTIVE = launch the clone immediately (spends the moment LinkedIn approves it). PAUSED = clone stays DRAFT, safe default. INHERITED_FROM_SOURCE = mirror each entity's source status per-entity. Duplicating an ACTIVE campaign this way starts a second front of spend.
             start_time: Reschedule the copied hierarchy's start time
             end_time
             rename_strategy
@@ -1588,6 +1593,7 @@ def register_generated_tools(mcp, _get_client):
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        platform_specific_data: dict[str, Any] | None = None,
     ) -> str:
         """Update an ad set
 
@@ -1606,7 +1612,9 @@ def register_generated_tools(mcp, _get_client):
         bidStrategy is LOWEST_COST_WITH_BID_CAP or COST_CAP. Internally converted to Meta's
         smallest-denomination integer.
                 roas_average_floor: Minimum ROAS as a decimal multiplier (2.0 = 2.0x). Required when bidStrategy is
-        LOWEST_COST_WITH_MIN_ROAS. Sent to Meta as `bid_constraints.roas_average_floor` × 10000."""
+        LOWEST_COST_WITH_MIN_ROAS. Sent to Meta as `bid_constraints.roas_average_floor` × 10000.
+                platform_specific_data: Platform-specific post-launch delivery settings. The platform is implied by the
+        `platform` body param. Meta only; other platforms return 400. Unknown keys are rejected."""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_ad_set(
@@ -1618,6 +1626,7 @@ def register_generated_tools(mcp, _get_client):
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
+                platform_specific_data=platform_specific_data,
             )
             return _format_response(response)
         except Exception as e:
@@ -2240,6 +2249,7 @@ def register_generated_tools(mcp, _get_client):
         currency: str | None = None,
         schedule: dict[str, Any] | None = None,
         targeting: dict[str, Any] | None = None,
+        raw_targeting: dict[str, Any] | None = None,
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
@@ -2264,7 +2274,16 @@ def register_generated_tools(mcp, _get_client):
                 budget: (required)
                 currency
                 schedule
-                targeting
+                targeting: Same geo/demographic fields as the `TargetingSpec` used by /v1/ads/create.
+        Geo keys (`regions`/`cities`/`zips`/`metros`) resolve via
+        GET /v1/ads/targeting/search?dimension=geo. City radius and lat/lng
+        `customLocations` are Meta-only and preserve the boosted post's
+        social proof (the ad references the existing post).
+                raw_targeting: Meta only. A verbatim Meta-native targeting spec (e.g.
+        `{ "geo_locations": { "cities": [{ "key": "...", "radius": 15, "distance_unit": "kilometer" }] } }`),
+        forwarded unchanged. Mutually exclusive with `targeting` (sending both is a 400).
+        Use for advanced fields the structured object does not expose (flexible_spec,
+        excluded audiences, business places).
                 bid_strategy: Meta bid strategy applied to the ad set. On TikTok, mapped to
         `bid_type` / `bid_price` / `deep_bid_type` automatically.
                 bid_amount: Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
@@ -2316,6 +2335,7 @@ def register_generated_tools(mcp, _get_client):
                 currency=currency,
                 schedule=schedule,
                 targeting=targeting,
+                raw_targeting=raw_targeting,
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
@@ -2350,6 +2370,7 @@ def register_generated_tools(mcp, _get_client):
         tracking: dict[str, Any] | None = None,
         goal: str | None = None,
         optimization_goal: str | None = None,
+        billing_event: str | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
         status: str | None = None,
@@ -2372,6 +2393,7 @@ def register_generated_tools(mcp, _get_client):
         business_name: str | None = None,
         board_id: str | None = None,
         organization_id: str | None = None,
+        targeting: dict[str, Any] | None = None,
         countries: list[str] | None = None,
         cities: list[dict[str, Any]] | None = None,
         regions: list[dict[str, Any]] | None = None,
@@ -2438,6 +2460,7 @@ def register_generated_tools(mcp, _get_client):
         - `job_applicants` requires a `platformSpecificData.jobs` creative.
         - For `lead_generation` or `conversions` on LinkedIn, or to promote an existing post, use POST /v1/ads/boost.
                 optimization_goal: Meta only. Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations.
+                billing_event: Meta only. Explicit ad-set `billing_event`. Defaults to `IMPRESSIONS`. Forwarded verbatim to Meta, which validates compatibility with the optimization goal.
                 budget_amount: Required on legacy + multi-creative shapes. Inherited on attach.
                 budget_type: Required on legacy + multi-creative shapes. Inherited on attach.
                 status: Meta only. Publish state of the created ad set + ad. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused and skips activation, so you can review before they spend.
@@ -2482,18 +2505,27 @@ def register_generated_tools(mcp, _get_client):
         to build N full ads sharing one ad set: create the first ad
         via the normal shape, then attach the rest one call each.
 
-        Supported on Meta (facebook, instagram) and TikTok. On TikTok
-        the `adSetId` is the ad group ID; the new ad inherits the
-        ad group's bid + budget + targeting.
-                existing_campaign_id: Meta only. Add the new ad set under this EXISTING campaign
-        instead of creating a new one (multi-ad-set audience testing).
-        The new ad set's budget is matched to the campaign's mode
-        automatically: for a CBO campaign (campaign-level budget) omit
-        `budgetAmount`/`budgetType` — the campaign owns the budget; for
-        an ABO campaign pass them (they go on the new ad set). On
-        failure only the new ad set is cleaned up; the existing campaign
-        is left untouched and is never (re)activated. Mutually exclusive
-        with `adSetId` and `creatives[]`.
+        Supported on Meta (facebook, instagram), TikTok, and
+        LinkedIn. On TikTok the `adSetId` is the ad group ID; the
+        new ad inherits the ad group's bid + budget + targeting.
+        On LinkedIn the `adSetId` is the LinkedIn Campaign ID
+        (numeric); we attach a new Creative to that Campaign, so
+        the Campaign's `platformSpecificData` bidding, targeting,
+        budget and schedule are inherited (passing those fields
+        returns 400).
+                existing_campaign_id: Meta + LinkedIn. On Meta: add the new ad set under this
+        EXISTING campaign instead of creating a new one
+        (multi-ad-set audience testing). The new ad set's budget
+        is matched to the campaign's mode automatically: for a
+        CBO campaign (campaign-level budget) omit
+        `budgetAmount`/`budgetType` — the campaign owns the
+        budget; for an ABO campaign pass them (they go on the new
+        ad set). On LinkedIn: create a new Campaign (and its
+        Creative) under this EXISTING CampaignGroup. On failure
+        only the entities we authored are cleaned up; the
+        pre-existing parent is left untouched and is never
+        (re)activated. Mutually exclusive with `adSetId` and
+        `creatives[]`.
                 existing_creative_id: Meta only. Reuse an EXISTING ad creative by id instead of
         building a new one from the copy/media fields (which are then
         ignored). Combine with `existingCampaignId` to build a
@@ -2504,7 +2536,12 @@ def register_generated_tools(mcp, _get_client):
                 business_name: Google Display only
                 board_id: Pinterest only. Board ID (auto-creates if not provided).
                 organization_id: LinkedIn only. The Company Page that authors the Direct Sponsored Content ("dark") post backing the ad — accepts a numeric organization ID or a full `urn:li:organization:N` URN. Required unless the resolved `accountId` is a connected LinkedIn Company-Page account (defaults to that page) or the LinkedIn ad account is org-owned (defaults to the account's owning organization). The authenticated member must be an ADMINISTRATOR or DIRECT_SPONSORED_CONTENT_POSTER of this page (and the page must be associated with the ad account), or LinkedIn returns 403. Ignored by every other platform.
-                countries: ISO 3166-1 alpha-2 country codes (e.g. ['NL']). Defaults to ['US'] when no `cities` or `regions` are provided. (LinkedIn currently honours country-level targeting only.)
+                targeting: Nested targeting object — the same TargetingSpec shape as `POST /v1/ads/boost`,
+        `POST /v1/ads/targeting/reach-estimate`, and `saved_targeting` audiences. Merged
+        UNDER the flat inline targeting fields below: `savedTargetingId` < `targeting` <
+        flat fields (a flat field present on the body replaces the nested value entirely).
+        Both forms are equivalent; use whichever your integration already builds.
+                countries: ISO 3166-1 alpha-2 country codes (e.g. ['NL']). Defaults to ['US'] when no other geo targeting (flat or nested `targeting`) is provided. (LinkedIn currently honours country-level targeting only.)
                 cities: Meta-only. City-level geo targeting. Each city is targeted by Meta's opaque `key` (the city ID) which can be looked up via `GET /v1/ads/targeting/search?type=city&q=<name>&country_code=<ISO>`. Optional `radius` + `distance_unit` extend the targeting beyond the city limits (e.g. radius 25 km around the city center). Both must be set together, or both omitted (Meta defaults to ~16 km when omitted).
 
         Cannot overlap with the same country in `countries` (Meta returns a "locations overlap" error). Either drop the country or scope it to a different country.
@@ -2519,7 +2556,7 @@ def register_generated_tools(mcp, _get_client):
                 income_tier: Normalized household-income tier. Meta and TikTok express all four; Google maps only
         `top_10`; rejected on LinkedIn, X, and Pinterest. On Meta, income targeting is incompatible
         with housing/employment/credit `specialAdCategories`.
-                languages: Language codes (e.g. ['en']). Restricts the audience by language.
+                languages: Language codes restricting the audience by language. On Meta, ISO 639-1 codes (e.g. ['en'], ['de']); a bare code targets all regional variants ("en" = all English), or use a region-qualified code for a specific one ("en_GB", "pt_BR", "zh_TW"). Unknown codes are rejected. Other ad platforms use their own language-code systems.
                 placements: Meta only. Manual ad placements. Omit for automatic placements (Meta's default,
         recommended for most cases — Meta optimises delivery across all eligible surfaces).
         When set, restricts delivery to the chosen surfaces, mapped onto the ad set's
@@ -2672,6 +2709,7 @@ def register_generated_tools(mcp, _get_client):
                 tracking=tracking,
                 goal=goal,
                 optimization_goal=optimization_goal,
+                billing_event=billing_event,
                 budget_amount=budget_amount,
                 budget_type=budget_type,
                 status=status,
@@ -2694,6 +2732,7 @@ def register_generated_tools(mcp, _get_client):
                 business_name=business_name,
                 board_id=board_id,
                 organization_id=organization_id,
+                targeting=targeting,
                 countries=countries,
                 cities=cities,
                 regions=regions,
@@ -3749,6 +3788,10 @@ def register_generated_tools(mcp, _get_client):
         TargetingGeoLocationCity. `key` is Meta's city ID
         (lookupable via GET /v1/ads/targeting/search). `radius`
         and `distance_unit` are coupled: set both or neither.
+        Meta enforces a minimum city radius (~17 km / 10 mi);
+        smaller values resolve to a 0-size audience and the ad
+        fails at launch. For a tighter catchment use customLocations
+        (lat/lng).
                 regions: Region / state-level geo targeting. `key` is Meta's region
         ID (lookupable via GET /v1/ads/targeting/search?type=region).
                 zips: ZIP / postal-code geo targeting. `key` is the platform's
@@ -4301,6 +4344,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def analytics_get_you_tube_demographics(
         account_id: str,
+        video_id: str | None = None,
         breakdown: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
@@ -4309,14 +4353,18 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 account_id: The Zernio SocialAccount ID for the YouTube account (required)
+                video_id: YouTube video ID. When provided, demographics are scoped to this single video
+        (must belong to the connected channel; otherwise 404 video_not_found).
                 breakdown: Comma-separated list of demographic dimensions: age, gender, country.
         Defaults to all three if omitted.
-                start_date: Start date in YYYY-MM-DD format. Defaults to 90 days ago.
+                start_date: Start date in YYYY-MM-DD format. Defaults to 90 days ago, or to the video's
+        publish date (lifetime) when videoId is provided.
                 end_date: End date in YYYY-MM-DD format. Defaults to 3 days ago (YouTube data latency)."""
         client = _get_client()
         try:
             response = client.analytics.get_you_tube_demographics(
                 account_id=account_id,
+                video_id=video_id,
                 breakdown=breakdown,
                 start_date=start_date,
                 end_date=end_date,
@@ -5819,6 +5867,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str | None = None,
         redirect_url: str | None = None,
         headless: bool = False,
+        force: bool = False,
         ad_account_id: str | None = None,
         ad_account_ids: list[str] | None = None,
     ) -> str:
@@ -5833,6 +5882,12 @@ def register_generated_tools(mcp, _get_client):
         `instagram`, `linkedin`, `pinterest`) and standalone (`googleads`) platforms.
                 redirect_url: Custom redirect URL after OAuth completes (same-token platforms only). Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path.
                 headless: Enable headless mode (same-token platforms only)
+                force: Force a fresh OAuth even when an account already exists. Normally the
+        endpoint returns `alreadyConnected: true` whenever a connected account
+        is found, keying off its active state rather than token liveness.
+        Set `force=true` to bypass that and always receivean `authUrl`.
+        Completing the returned OAuth refreshes the stored token
+        on the existing posting and ads accounts in place.
                 ad_account_id: Scope ad sync to a single platform ad account. Without this param,
         sync covers every ad account the connected token can see. Supported
         on `facebook`/`instagram` (Meta, `act_<digits>`), `linkedin` (bare
@@ -5858,6 +5913,7 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 redirect_url=redirect_url,
                 headless=headless,
+                force=force,
                 ad_account_id=ad_account_id,
                 ad_account_ids=ad_account_ids,
             )
@@ -6660,18 +6716,22 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_get_gmb_locations(
-        account_id: str, search: str | None = None, filter: str | None = None
+        account_id: str,
+        search: str | None = None,
+        filter: str | None = None,
+        limit: int = 100,
     ) -> str:
         """List GBP locations
 
         Args:
             account_id: (required)
             search: Free-text search on the business name, applied server-side by Google. Use for accounts with many locations.
-            filter: Raw Google Business Information API filter expression (advanced; takes precedence over search), e.g. storeCode="LH279411"."""
+            filter: Raw Google Business Information API filter expression (advanced; takes precedence over search), e.g. storeCode="LH279411".
+            limit: Max locations to return (default 100, max 500). Raise it to enumerate an account with more than 100 locations; for accounts with thousands, use search/filter instead."""
         client = _get_client()
         try:
             response = client.connect.get_gmb_locations(
-                account_id=account_id, search=search, filter=filter
+                account_id=account_id, search=search, filter=filter, limit=limit
             )
             return _format_response(response)
         except Exception as e:
@@ -8918,6 +8978,16 @@ def register_generated_tools(mcp, _get_client):
         other formats are rejected by WhatsApp. Ignored for non-audio attachments.
                 quick_replies: Quick reply buttons. Mutually exclusive with buttons. Max 13 items.
                 buttons: Action buttons. Mutually exclusive with quickReplies. Max 3 items.
+
+        WhatsApp: buttons always render as interactive reply buttons.
+        Only `title` and `payload` are used — `type`, `url`, and `phone`
+        are ignored (WhatsApp has no URL/phone button in this field; use
+        the `interactive` field with `type: cta_url` for a link button).
+        `payload` becomes the button reply ID delivered on the
+        `message.received` webhook when the user taps. To send a simple
+        reply-button message, provide `title` + `payload` and set
+        `type: postback`, e.g.
+        `{ "type": "postback", "title": "Yes", "payload": "yes" }`.
                 template: Platform-dependent template payload. Ignored on Telegram.
 
         Instagram / Facebook: a generic template (carousel). Set `type: generic`
@@ -10395,12 +10465,12 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def queue_delete_queue_slot(profile_id: str, queue_id: str) -> str:
+    def queue_delete_queue_slot(profile_id: str, queue_id: str | None = None) -> str:
         """Delete schedule
 
         Args:
             profile_id: (required)
-            queue_id: Queue ID to delete (required)"""
+            queue_id: Queue ID to delete. Omit to delete all queues for the profile"""
         client = _get_client()
         try:
             response = client.queue.delete_queue_slot(

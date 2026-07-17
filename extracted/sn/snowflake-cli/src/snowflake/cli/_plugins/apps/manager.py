@@ -566,6 +566,11 @@ def _resolve_deploy_defaults(
     from ``snowflake.yml`` (tier 1): app services otherwise run on
     server-managed compute pools, so the account parameters and built-in
     defaults never supply them.
+
+    The caller is expected to wrap this in a ``*.resolve_defaults`` telemetry
+    span; :meth:`SnowflakeAppManager.fetch_app_service_defaults` reads that
+    enclosing span so its own span nests under the right command hierarchy
+    (e.g. ``snowflake_app.deploy.resolve_defaults``).
     """
 
     # ── 1. snowflake.yml values ───────────────────────────────────────
@@ -922,6 +927,31 @@ class SnowflakeAppManager(SqlExecutionMixin):
             return []
         return _flatten_missing_privileges(payload)
 
+    def stage_exists(self, stage_fqn: FQN) -> bool:
+        """Return True if the stage already exists and is visible to the role.
+
+        Used to gate the pre-upload drop: a first deploy has no stage to
+        clear, and issuing ``DROP STAGE`` there would demand OWNERSHIP the
+        deploying role need not hold. The existence check only needs USAGE on
+        the schema, so a role with just CREATE STAGE can still deploy.
+        """
+        from snowflake.cli.api.project.util import (
+            identifier_to_show_like_pattern,
+            to_identifier,
+            unquote_identifier,
+        )
+
+        schema_identifier = (
+            f"{to_identifier(stage_fqn.database)}.{to_identifier(stage_fqn.schema)}"
+        )
+        cursor = self.execute_query(
+            f"SHOW STAGES LIKE {identifier_to_show_like_pattern(stage_fqn.name)}"
+            f" IN SCHEMA {schema_identifier}",
+            cursor_class=DictCursor,
+        )
+        unqualified = unquote_identifier(stage_fqn.name).upper()
+        return any(row["name"].upper() == unqualified for row in cursor)
+
     def create_stage(
         self, stage_fqn: FQN, encryption_type: str = "SNOWFLAKE_SSE"
     ) -> None:
@@ -1277,14 +1307,20 @@ class SnowflakeAppManager(SqlExecutionMixin):
         Returns an empty dict on any other error, so resolution falls back to
         the CLI's built-in defaults.
 
-        The call is wrapped in a ``snowflake_app.fetch_app_service_defaults``
-        telemetry span. Unexpected outcomes — a non-"unknown function" error, an
-        empty result, or an unparsable payload — are recorded on the span (and
-        logged) so the rate of these otherwise-silent fallbacks is observable.
+        The call is wrapped in a ``<caller>.fetch_app_service_defaults`` telemetry
+        span so it reports under the caller's span (e.g.
+        ``snowflake_app.setup.resolve_defaults.fetch_app_service_defaults``). The
+        prefix is read from the enclosing span so it can never drift out of sync
+        with the caller; it falls back to ``snowflake_app`` when there is no
+        enclosing span (e.g. a direct call). Unexpected outcomes — a
+        non-"unknown function" error, an empty result, or an unparsable payload —
+        are recorded on the span (and logged) so the rate of these
+        otherwise-silent fallbacks is observable.
         """
-        with get_cli_context().metrics.span(
-            "snowflake_app.fetch_app_service_defaults"
-        ) as span:
+        metrics = get_cli_context().metrics
+        parent = metrics.current_span
+        prefix = parent.name if parent else "snowflake_app"
+        with metrics.span(f"{prefix}.fetch_app_service_defaults") as span:
             try:
                 cursor = self.execute_query(f"SELECT {APP_SERVICE_DEFAULTS_FUNCTION}()")
                 row = cursor.fetchone()

@@ -13,10 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import typing
-
 from neutron_lib.api import converters
 from neutron_lib.db import constants
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 ALIAS = 'agent'
 IS_SHIM_EXTENSION = False
@@ -27,7 +30,7 @@ DESCRIPTION = 'The agent management extension.'
 UPDATED_TIMESTAMP = '2013-02-03T10:00:00-00:00'
 RESOURCE_NAME = ALIAS
 COLLECTION_NAME = ALIAS + 's'
-RESOURCE_ATTRIBUTE_MAP: dict[str, typing.Any] = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         'id': {'allow_post': False, 'allow_put': False,
                'validate': {'type:uuid': None},
@@ -62,8 +65,8 @@ RESOURCE_ATTRIBUTE_MAP: dict[str, typing.Any] = {
                 'type:string_or_none': constants.DESCRIPTION_FIELD_SIZE}},
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

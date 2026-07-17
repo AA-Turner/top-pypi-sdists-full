@@ -3,12 +3,13 @@
 from typing import Any
 
 from pyrig.core.subprocesses import Args
-from pyrig.rig.tools.base.tool import Group, Tool
+from pyrig.rig.tools.base.hooks import CheckHookTool
+from pyrig.rig.tools.base.tool import Group
 from pyrig.rig.tools.typing.checker import TypeChecker
 from pyrig.rig.tools.version_control.hooks.manager import VersionControlHookManager
 
 
-class LargeFileChecker(Tool):
+class LargeFileChecker(CheckHookTool):
     """Type-safe wrapper for the pre-commit-hooks large file checker."""
 
     def group(self) -> str:
@@ -46,20 +47,12 @@ class LargeFileChecker(Tool):
         """
         return self.args(*args)
 
-    def version_control_hooks(self) -> tuple[dict[str, Any], ...]:
-        """Return the large file check hook.
-
-        Returns:
-            `check_large_files_hook`, wrapped in a single-element tuple.
-        """
-        return (self.check_large_files_hook(),)
-
-    def check_large_files_hook(self) -> dict[str, Any]:
+    def check_hook(self) -> dict[str, Any]:
         """Return the hook metadata for checking for accidentally added large files.
 
         Left without a `types` restriction so it matches every file,
         binary included, since a large binary is exactly what this check
-        exists to catch. Ties its priority to `TypeChecker.check_types_hook`
+        exists to catch. Ties its priority to `TypeChecker.check_hook`
         so it runs alongside the rest of the checks tier rather than after
         it.
 
@@ -69,7 +62,7 @@ class LargeFileChecker(Tool):
         return VersionControlHookManager.I.hook(
             self.check_large_files,
             priority=VersionControlHookManager.I.hook_priority(
-                TypeChecker.I.check_types_hook(),
+                TypeChecker.I.check_hook(),
             ),
         )
 

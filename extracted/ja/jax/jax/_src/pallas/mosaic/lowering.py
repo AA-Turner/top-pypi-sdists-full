@@ -34,6 +34,7 @@ from jax._src import core as jax_core
 from jax._src import custom_derivatives
 from jax._src import debugging
 from jax._src import dtypes
+from jax._src import flattree as ft
 from jax._src import linear_util as lu
 from jax._src import mesh as mesh_lib
 from jax._src import pjit
@@ -52,7 +53,6 @@ from jax._src.lax import control_flow
 from jax._src.lax import lax as lax_internal
 from jax._src.lax.control_flow import BranchesPlatforms
 from jax._src.lib import jax_mlir_ext
-from jax._src.lib import jaxlib_extension_version
 from jax._src.lib import xla_client
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import arith
@@ -85,16 +85,20 @@ import numpy as np
 
 NDIndexer = indexing.NDIndexer
 AnyMemorySpace = (
-    pallas_core.MemorySpace | tpu_core.MemorySpace | pallas_core.CoreMemorySpace
+    pallas_core.MemorySpace
+    | tpu_core.MemorySpace
+    | pallas_core.CoreMemorySpace
+    | jax_core.MemorySpace
 )
 TPUMemorySpace = (
     tpu_core.MemorySpace
     | pallas_core.CoreMemorySpace
     | Literal[pallas_core.MemorySpace.ANY]
+    | Literal[jax_core.MemorySpace.Host]
 )
 VMEM = tpu_core.MemorySpace.VMEM
 SMEM = tpu_core.MemorySpace.SMEM
-HOST = pallas_core.MemorySpace.HOST
+HOST = jax_core.MemorySpace.Host
 SEMAPHORE = tpu_core.MemorySpace.SEMAPHORE
 ANY = pallas_core.MemorySpace.ANY
 # Booleans are stored as the following type in memrefs.
@@ -214,6 +218,7 @@ class LoweringContext:
   dynamic_shape_env: LoweringDynamicShapeEnv | None = None
   needs_layout_passes: bool = False
   fuse_transposed_lhs_in_matmul: bool = False
+  emit_pipeline_mode: bool = False
 
   replace = dataclasses.replace
 
@@ -508,14 +513,14 @@ def _memory_space_to_mosaic_attribute(
   match tpu_memory_space:
     case pallas_core.MemorySpace.ANY:
       return ir.Attribute.parse("#tpu.memory_space<any>")
-    case pallas_core.MemorySpace.HOST:
-      return ir.Attribute.parse("#tpu.memory_space<host>")
     case tpu_core.MemorySpace() as ms:
       return ir.Attribute.parse(f"#tpu.memory_space<{ms}>")
     case pallas_core.CoreMemorySpace() as cms:
       return ir.Attribute.parse(
           f"#tpu.memory_space<{cms.memory_space}, {cms.mesh.core_type}>"
       )
+    case jax_core.MemorySpace.Host:
+      return ir.Attribute.parse("#tpu.memory_space<host>")
     case _:
       raise NotImplementedError(f"Invalid memory space: {tpu_memory_space!r}")
 
@@ -644,6 +649,7 @@ _uncacheable_primitives: set[jax_core.Primitive] = {
     pjit.jit_p,
     custom_derivatives.custom_jvp_call_p,
     custom_derivatives.custom_vjp_call_p,
+    primitives.num_programs_p,
 }
 
 # Primitives that need access to the user grid during their lowering.
@@ -859,7 +865,7 @@ class MosaicGridMapping:
     nonlocal_axis_names.update(_get_nonlocal_axis_names(self.jaxpr))
     for bm in self.block_mappings:
       nonlocal_axis_names.update(
-          _get_nonlocal_axis_names(bm.index_map_jaxpr.jaxpr)
+          _get_nonlocal_axis_names(bm.index_map_jaxpr)
       )
     return bool(nonlocal_axis_names)
 
@@ -924,7 +930,7 @@ def _check_block_mappings(
               "has block shape "
               f"{physical_block_shape}, array shape {physical_array_shape}, "
               # TODO(necula): add index_map source location info
-              f"and index_map {bm.index_map_jaxpr.jaxpr}, in "
+              f"and index_map {bm.index_map_jaxpr}, in "
               f"memory space {bm.block_aval.memory_space!r}."
               "\nSee details at https://docs.jax.dev/en/latest/pallas/grid_blockspec.html#pallas-blockspec")
     if rank < 1:
@@ -1155,7 +1161,7 @@ def lower_jaxpr_into_pipelined_module(
 
       with ir.InsertionPoint(module.body):
         mlir_func = lower_jaxpr_to_transform_func(
-            bm.index_map_jaxpr.jaxpr,
+            bm.index_map_jaxpr,
             bm.block_aval,
             name=func_name,
             mosaic_grid_mapping=mosaic_grid_mapping,
@@ -1595,6 +1601,10 @@ def _lower_jaxpr_to_func_common(
   body: Any = func.FuncOp.from_py_func(*arg_types, name=name)(body_func)
   func_op = cast(func.FuncOp, body.func_op)
 
+  if arg_names := jaxpr.debug_info.arg_names:
+    for arg, name in zip(func_op.arguments[num_grid:], arg_names):
+      arg.set_location(ir.Location.name(name, arg.location))
+
   if core_type is not None:
     func_op.attributes["tpu.core_type"] = ir.Attribute.parse(
         f"#tpu.core_type<{core_type}>"
@@ -1625,36 +1635,40 @@ def lower_fun(
   """
 
   def f_lowered(ctx: LoweringRuleContext, *args, **params):
-    flat_args, in_tree = tree_util.tree_flatten(args)
+    args_ft = ft.flatten(args)
     if in_avals is None:
-      flat_avals = ctx.avals_in
+      args_avals = args_ft.update(ctx.avals_in).unflatten()
       sub_block_shapes = ctx.block_shapes
     else:
-      flat_avals, aval_tree = tree_util.tree_flatten(in_avals)
-      if in_tree != aval_tree:
+      in_avals_ft = ft.flatten(in_avals)
+      if args_ft.tree != in_avals_ft.tree:
         raise ValueError(
             "args and in_avals pytrees mismatch:\\nargs tree:"
-            f" {in_tree}\\navals tree: {aval_tree}\\nargs: {args}\\navals:"
+            f" {args_ft.tree}\\navals tree: {in_avals_ft.tree}\\nargs: {args}\\navals:"
             f" {in_avals}"
         )
-      sub_block_shapes = [None] * len(flat_args)
-    wrapped_lu_fun, out_tree_thunk = api_util.flatten_fun_nokwargs(
-        lu.wrap_init(
-            fun,
-            params,
-            debug_info=api_util.debug_info("mosaic lower_fun", fun, args, {}),
-        ),
-        in_tree,
+      args_avals = in_avals
+      sub_block_shapes = [None] * len(args_ft.vals)
+
+    in_avals_ft = ft.flatten_static_argnums_argnames(
+        args_avals, params, (), params.keys())
+    debug_info = api_util.debug_info(
+        "mosaic lower_fun", fun, args, params,
+        static_argnames=tuple(params.keys())
     )
-    jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(wrapped_lu_fun, flat_avals, lower=True)
-    if consts:
+
+    closed_jaxpr, out_avals_ft = pe.trace_to_jaxpr(
+        fun, in_avals_ft, debug_info, requires_low=True
+    )
+
+    if closed_jaxpr.consts:
       raise NotImplementedError("lower_fun should not capture constvars")
-    jaxpr = pe.convert_constvars_jaxpr(jaxpr)
+    jaxpr = pe.convert_constvars_jaxpr(closed_jaxpr)
     sub_lowering_ctx = ctx.lowering_context.replace(
         block_shapes=sub_block_shapes
     )
-    out = jaxpr_subcomp(sub_lowering_ctx, jaxpr, *consts, *flat_args)
-    return tree_util.tree_unflatten(out_tree_thunk(), out)
+    out = jaxpr_subcomp(sub_lowering_ctx, jaxpr, *args_ft.vals)
+    return out_avals_ft.update(out).unflatten()
 
   return f_lowered
 
@@ -3521,14 +3535,20 @@ def _nextafter_lowering_rule(ctx: LoweringRuleContext, x, y):
   )(ctx, x, y)
 
 
-@register_lowering_rule(lax.rsqrt_p)
+@register_lowering_rule(
+    lax.rsqrt_p,
+    kernel_types=(tpu_core.CoreType.TC, tpu_core.CoreType.SC_VECTOR_SUBCORE),
+)
 def _rsqrt_lowering_rule(ctx: LoweringRuleContext, x, accuracy=None):
   if accuracy is not None:
     raise NotImplementedError("Not implemented: accuracy")
   return mlir_math.rsqrt(x)
 
 
-@register_lowering_rule(lax.sqrt_p)
+@register_lowering_rule(
+    lax.sqrt_p,
+    kernel_types=(tpu_core.CoreType.TC, tpu_core.CoreType.SC_VECTOR_SUBCORE),
+)
 def _sqrt_lowering_rule(ctx: LoweringRuleContext, x, accuracy=None):
   if accuracy is not None:
     raise NotImplementedError("Not implemented: accuracy")
@@ -4069,18 +4089,19 @@ def _lower_jaxpr_to_for_loop(ctx: LoweringRuleContext,
 def _scan_lowering_rule(
     ctx: LoweringRuleContext,
     *args,
-    jaxpr: jax_core.ClosedJaxpr,
+    jaxpr: jax_core.Jaxpr,
     length: int,
     reverse: bool,
     unroll: int,
-    num_consts: int,
-    num_carry: int,
+    ft_in,
+    ft_out,
 ):
+  num_consts, num_carry, _ = (len(g) for g in ft_in.unpack())
   # Can only handle fori_loop-like scans
   if reverse: raise NotImplementedError
   del reverse
 
-  jaxpr_body, jaxpr_consts = jaxpr.jaxpr, jaxpr.consts
+  jaxpr_body, jaxpr_consts = jaxpr, jaxpr.consts
   if jaxpr_consts: raise NotImplementedError
   del jaxpr_consts
 
@@ -4176,7 +4197,7 @@ def _while_lowering_rule(
         ctx.lowering_context.replace(
             block_shapes=[*cond_const_block_shapes, *carry_block_shapes]
         ),
-        cond_jaxpr.jaxpr,
+        cond_jaxpr,
         *cond_args,
     )
     scf.condition(cond, before_block.arguments)
@@ -4188,7 +4209,7 @@ def _while_lowering_rule(
         ctx.lowering_context.replace(
             block_shapes=[*body_const_block_shapes, *carry_block_shapes],
         ),
-        body_jaxpr.jaxpr,
+        body_jaxpr,
         *body_args,
     )
     if loop_out:
@@ -4203,7 +4224,7 @@ def _cond_lowering_rule(ctx: LoweringRuleContext, *args, branches, **params):
 
   if constant_index is not None:
     return jaxpr_subcomp(
-        ctx.lowering_context.replace(block_shapes=ctx.block_shapes[1:]), branches[constant_index].jaxpr, *args
+        ctx.lowering_context.replace(block_shapes=ctx.block_shapes[1:]), branches[constant_index], *args
     )
   out_types = map(ctx.aval_to_ir_type, ctx.avals_out)
   pred = arith.cmpi(
@@ -4224,11 +4245,11 @@ def _cond_lowering_rule(ctx: LoweringRuleContext, *args, branches, **params):
           branches=branches[1:],
       )
     else:
-      out = jaxpr_subcomp(lowering_context, branches[1].jaxpr, *args)
+      out = jaxpr_subcomp(lowering_context, branches[1], *args)
     scf.yield_(out)
   assert if_op.else_block is not None
   with ir.InsertionPoint(if_op.else_block):
-    out = jaxpr_subcomp(lowering_context, branches[0].jaxpr, *args)
+    out = jaxpr_subcomp(lowering_context, branches[0], *args)
     scf.yield_(out)
   return if_op.results
 
@@ -4236,7 +4257,7 @@ def _cond_lowering_rule(ctx: LoweringRuleContext, *args, branches, **params):
 @register_lowering_rule(pjit.jit_p, kernel_types=[*tpu_core.CoreType])
 def _pjit_lowering_rule(ctx: LoweringRuleContext, *args, jaxpr, **_):
   lowering_context = ctx.lowering_context.replace(block_shapes=ctx.block_shapes)
-  return jaxpr_subcomp(lowering_context, jaxpr.jaxpr, *args)
+  return jaxpr_subcomp(lowering_context, jaxpr, *args)
 
 
 @register_lowering_rule(pjit.reshard_p, kernel_types=[*tpu_core.CoreType])
@@ -4249,7 +4270,7 @@ def _reshard_lowering_rule(ctx: LoweringRuleContext, x, *, dst_sharding,
 def _custom_jvp_call_lowering_rule(
     ctx: LoweringRuleContext,
     *args,
-    call_jaxpr: jax_core.ClosedJaxpr,
+    call_jaxpr: jax_core.Jaxpr,
     jvp_jaxpr_fun: lu.WrappedFun,
     num_consts: int,
     symbolic_zeros: bool,
@@ -4259,7 +4280,7 @@ def _custom_jvp_call_lowering_rule(
   if num_consts: raise NotImplementedError
   if call_jaxpr.consts: raise NotImplementedError
   lowering_context = ctx.lowering_context.replace(block_shapes=ctx.block_shapes)
-  return jaxpr_subcomp(lowering_context, call_jaxpr.jaxpr, *args)
+  return jaxpr_subcomp(lowering_context, call_jaxpr, *args)
 
 
 @register_lowering_rule(custom_derivatives.custom_vjp_call_p)
@@ -4275,7 +4296,7 @@ def _custom_vjp_call_lowering_rule(
 ):
   if num_consts: raise NotImplementedError
   lowering_context = ctx.lowering_context.replace(block_shapes=ctx.block_shapes)
-  return jaxpr_subcomp(lowering_context, call_jaxpr.jaxpr, *args)
+  return jaxpr_subcomp(lowering_context, call_jaxpr, *args)
 
 
 @register_lowering_rule(debugging.debug_callback_p)
@@ -4317,7 +4338,14 @@ def _num_programs_lowering_rule(ctx: LoweringRuleContext, *, axis: int):
         f"user passed in program id with axis: {axis}, but grid only has"
         f" length: {ctx.lowering_context.grid_rank}"
     )
-  return tpu.iteration_bound(i)
+  # TODO(rdyro): Unify the grid size in pipelined/unpipelined cases to always
+  # rely on grid_sizes.
+  if ctx.lowering_context.emit_pipeline_mode:
+    # We are under emit_pipeline, so the grid size comes from the enclosing
+    # context.
+    return ctx.lowering_context.grid_sizes[i]
+  else:
+    return tpu.iteration_bound(i)
 
 
 @register_lowering_rule(lax.tile_p)
@@ -4676,11 +4704,8 @@ def _device_id_to_logical(
         core_id = lax.axis_index(dest_mesh.core_axis_name)
       if (subcore_id := core_index_map[dest_mesh.subcore_axis_name]) is None:
         subcore_id = lax.axis_index(dest_mesh.subcore_axis_name)
-      if jaxlib_extension_version < 462:
-        core_index = sc_info.num_subcores * core_id + subcore_id
-      else:
-        core_index = core_id
-        subcore_index = subcore_id
+      core_index = core_id
+      subcore_index = subcore_id
     elif dest_kernel_type == tpu_core.CoreType.SC_SCALAR_SUBCORE:
       if not mpmd_core_axis_names and dest_kernel_type == kernel_type:
         # short circuit for same core semaphores without a core type annotation
@@ -4772,14 +4797,8 @@ def _semaphore_signal_lowering_rule(
             "Cannot specify both `core_index` and the core axis in `device_id`."
         )
       core_index = core_id
-  if jaxlib_extension_version < 462:
-    assert subcore_index is None, (
-        "`subcore_index` is not supported in this version of jaxlib."
-    )
-    tpu.sem_signal(sem, value, device_id=device_id, core_id=core_index)
-  else:
-    tpu.sem_signal(sem, value, device_id=device_id, core_id=core_index,
-                   subcore_id=subcore_index)  # pyrefly: ignore[unexpected-keyword]
+  tpu.sem_signal(sem, value, device_id=device_id, core_id=core_index,
+                 subcore_id=subcore_index)
   return []
 
 
@@ -4830,30 +4849,16 @@ def _dma_start_lowering_rule(
       )
 
   def _dma_start(src_ref, dst_ref, sem, src_sem) -> list[ir.Value]:
-    if jaxlib_extension_version < 462:
-      assert subcore_id is None, (
-          "`subcore_id` is not supported in this version of jaxlib."
-      )
-      tpu.enqueue_dma(
-          source=src_ref,
-          target=dst_ref,
-          target_semaphore=sem,
-          source_semaphore=src_sem,
-          device_id=device_id,
-          core_id=core_id,
-          priority=priority,
-      )
-    else:
-      tpu.enqueue_dma(
-          source=src_ref,
-          target=dst_ref,
-          target_semaphore=sem,
-          source_semaphore=src_sem,
-          device_id=device_id,
-          core_id=core_id,
-          subcore_id=subcore_id,  # pyrefly: ignore[unexpected-keyword]
-          priority=priority,
-      )
+    tpu.enqueue_dma(
+        source=src_ref,
+        target=dst_ref,
+        target_semaphore=sem,
+        source_semaphore=src_sem,
+        device_id=device_id,
+        core_id=core_id,
+        subcore_id=subcore_id,
+        priority=priority,
+    )
     return []
 
   return lower_with_transformed_refs(
@@ -5003,6 +5008,15 @@ def _delay_rule(ctx: LoweringRuleContext, nanos: ir.Value):
   return []
 
 
+def _aval_to_log_format_spec(aval):
+  if jnp.issubdtype(aval.dtype, jnp.floating):
+    return "f"
+  if jnp.issubdtype(aval.dtype, jnp.unsignedinteger):
+    return "u"
+  assert jnp.issubdtype(aval.dtype, jnp.signedinteger)
+  return "s"
+
+
 @register_lowering_rule(debugging.debug_print_p)
 def _debug_print_rule(
     ctx: LoweringRuleContext,
@@ -5039,19 +5053,22 @@ def _debug_print_rule(
     if has_placeholders:
       primitives.check_debug_print_format(fmt, *args)
       if not all(
-          isinstance(arg.type, ir.IntegerType) and arg.type.width == 32
+          (isinstance(arg.type, ir.IntegerType) and arg.type.width == 32)
+          or isinstance(arg.type, ir.F32Type)
           for arg in args
       ):
         raise TypeError(
-            "All arguments must be 32-bit integers when using"
-            " placeholders (`{...}`). If you need to print values of other types,"
-            " remove placeholders from the format string."
+            "All arguments must be 32-bit integers or floats when using"
+            " placeholders (`{...}`). If you need to print values of"
+            " other types, remove placeholders from the format string."
         )
 
-      # TPU expects $0, $1 etc as placeholders.
+      # TPU expects $0, $1 etc as placeholders. Infer the format spec
+      # from the aval dtype.
       fmt = "".join(
-          f"{text}${spec}{idx}" if field is not None else text
-          for idx, (text, field, spec, _) in enumerate(
+          f"{text}${_aval_to_log_format_spec(ctx.avals_in[idx])}{idx}"
+          if field is not None else text
+          for idx, (text, field, _, _) in enumerate(
               string.Formatter().parse(fmt)
           )
       )

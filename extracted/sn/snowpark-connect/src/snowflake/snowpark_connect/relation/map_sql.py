@@ -93,6 +93,9 @@ from snowflake.snowpark_connect.relation.catalogs.utils import (
     CURRENT_CATALOG_NAME,
     _get_current_temp_objects,
 )
+from snowflake.snowpark_connect.relation.iceberg_sql_branch_tag_suffix import (
+    try_parse_iceberg_branch_tag_suffix,
+)
 from snowflake.snowpark_connect.relation.iceberg_sql_time_travel import (
     resolve_relation_time_travel,
 )
@@ -151,6 +154,7 @@ from snowflake.snowpark_connect.utils.schema_utils import force_nullable_schema
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
+from snowflake.snowpark_connect.utils.sql_quoting import escape_sql_comment
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
     telemetry,
@@ -250,7 +254,7 @@ def _execute_alter(session: Session, sql: str, table_name: str) -> None:
       of masking it. SNOW-2118744.
     """
     needs_iceberg_keyword = is_in_cld_context() or (
-        bool(table_name) and get_table_type(table_name, session) == "ICEBERG"
+        bool(table_name) and get_table_type(table_name, session).upper() == "ICEBERG"
     )
     if needs_iceberg_keyword:
         sql = sql.replace("ALTER TABLE ", "ALTER ICEBERG TABLE ", 1)
@@ -622,12 +626,8 @@ def _create_table_as_select(logical_plan, mode: str) -> None:
     # all columns nullable.
     force_nullable_schema(df)
 
-    # TODO escaping should be handled by snowpark. remove when SNOW-2210271 is done
-    def _escape(comment: str) -> str:
-        return comment.replace("\\", "\\\\")
-
     write_kwargs = {
-        "comment": None if comment.isEmpty() else _escape(comment.get()),
+        "comment": None if comment.isEmpty() else comment.get(),
         "mode": mode,
     }
     if data_source == "iceberg":
@@ -1958,7 +1958,8 @@ def map_sql_to_pandas_df(
                             raise _nested_struct_add_unsupported_on_cld(
                                 table_name, col_name_parts
                             )
-                        if get_table_type(table_name, session) == "ICEBERG":
+                        # SNOW-3471774: catalog API may return mixed-case; normalize.
+                        if get_table_type(table_name, session).upper() == "ICEBERG":
                             try:
                                 _execute_managed_iceberg_nested_add_column(
                                     session,
@@ -2026,7 +2027,7 @@ def map_sql_to_pandas_df(
                     comment_obj is not None
                     and str(comment_obj.getClass().getSimpleName()) == "Some"
                 ):
-                    comment = _escape_sql_comment(str(comment_obj.get()))
+                    comment = escape_sql_comment(str(comment_obj.get()))
                     alter_parts.append(f"COMMENT '{comment}'")
 
                 # Check for dataType change - handle Scala Some/None
@@ -2091,7 +2092,7 @@ def map_sql_to_pandas_df(
                 )
                 comment_opt = logical_plan.tableSpec().comment()
                 comment = (
-                    f"COMMENT = '{_escape_sql_comment(str(comment_opt.get()))}'"
+                    f"COMMENT = '{escape_sql_comment(str(comment_opt.get()))}'"
                     if comment_opt.isDefined()
                     else ""
                 )
@@ -2230,7 +2231,7 @@ def map_sql_to_pandas_df(
                 try:
                     df.create_or_replace_view(
                         name,
-                        comment=_escape_sql_comment(str(comment.get()))
+                        comment=escape_sql_comment(str(comment.get()))
                         if comment.isDefined()
                         else None,
                     )
@@ -2310,7 +2311,7 @@ def map_sql_to_pandas_df(
 
                         comment = logical_plan.comment()
                         maybe_comment = (
-                            _escape_sql_comment(str(comment.get()))
+                            escape_sql_comment(str(comment.get()))
                             if comment.isDefined()
                             else None
                         )
@@ -3873,10 +3874,6 @@ def map_logical_plan_relation(
             if as_of_timestamp_millis is not None:
                 iceberg_options["as-of-timestamp"] = str(as_of_timestamp_millis)
             if version_tag is not None:
-                # Iceberg's DataFrame reader uses the bare ``tag``
-                # option key; the SCOS extractor matches it
-                # case-insensitively (see
-                # ``_extract_iceberg_version_tag``).
                 iceberg_options["tag"] = version_tag
 
             proto = relation_proto.Relation(
@@ -4257,22 +4254,42 @@ def map_logical_plan_relation(
                         # Fallback to stored CTE if definition not found
                         proto = cte_proto
             else:
-                tmp_views = _get_current_temp_objects()
-                current_schema = session.connection.schema
-                from_table = (
-                    CURRENT_CATALOG_NAME,
-                    current_schema,
-                    name,
+                # Iceberg branch/tag suffix: when extensions are on, a trailing
+                # branch_<name> or tag_<name> segment takes precedence over a
+                # literal table with that name (no catalog lookup yet).
+                branch_tag_suffix = (
+                    try_parse_iceberg_branch_tag_suffix(name)
+                    if is_iceberg_sql_extensions_enabled()
+                    else None
                 )
-                if from_table in tmp_views:
-                    _accessing_temp_object.set(True)
-                proto = relation_proto.Relation(
-                    read=relation_proto.Read(
-                        named_table=relation_proto.Read.NamedTable(
-                            unparsed_identifier=name,
+                if branch_tag_suffix is not None:
+                    base_name, iceberg_options = branch_tag_suffix
+                    proto = relation_proto.Relation(
+                        read=relation_proto.Read(
+                            data_source=relation_proto.Read.DataSource(
+                                format="iceberg",
+                                paths=[base_name],
+                                options=iceberg_options,
+                            )
                         )
                     )
-                )
+                else:
+                    tmp_views = _get_current_temp_objects()
+                    current_schema = session.connection.schema
+                    from_table = (
+                        CURRENT_CATALOG_NAME,
+                        current_schema,
+                        name,
+                    )
+                    if from_table in tmp_views:
+                        _accessing_temp_object.set(True)
+                    proto = relation_proto.Relation(
+                        read=relation_proto.Read(
+                            named_table=relation_proto.Read.NamedTable(
+                                unparsed_identifier=name,
+                            )
+                        )
+                    )
         case "UnresolvedSubqueryColumnAliases":
             child = map_logical_plan_relation(rel.child())
             aliases = [str(a) for a in as_java_list(rel.outputColumnNames())]
@@ -4687,10 +4704,6 @@ def _enrich_show_tables_with_partition_spec(
 
     df["partition_specs"] = df["name"].map(lambda n: spec_lookup.get(n))
     return df
-
-
-def _escape_sql_comment(comment: str) -> str:
-    return str(comment).replace("'", "''").replace("\\", "\\\\")
 
 
 def _extract_table_location(logical_plan) -> str | None:

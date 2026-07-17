@@ -1447,7 +1447,7 @@ class InstanceDataDisk(dict):
                - `PL1`: A single ESSD can deliver up to 50,000 random read/write IOPS.
                - `PL2`: A single ESSD can deliver up to 100,000 random read/write IOPS.
                - `PL3`: A single ESSD can deliver up to 1,000,000 random read/write IOPS.
-               Default to `PL1`.
+                 Default to `PL1`.
         :param _builtins.int provisioned_iops: The provisioned read/write IOPS of the ESSD AutoPL disk to use as the data disk.
         :param _builtins.str snapshot_id: The snapshot ID used to initialize the data disk. If the size specified by snapshot is greater that the size of the disk, use the size specified by snapshot as the size of the data disk.
         """
@@ -1571,7 +1571,7 @@ class InstanceDataDisk(dict):
         - `PL1`: A single ESSD can deliver up to 50,000 random read/write IOPS.
         - `PL2`: A single ESSD can deliver up to 100,000 random read/write IOPS.
         - `PL3`: A single ESSD can deliver up to 1,000,000 random read/write IOPS.
-        Default to `PL1`.
+          Default to `PL1`.
         """
         return pulumi.get(self, "performance_level")
 
@@ -1693,6 +1693,8 @@ class InstanceNetworkInterfaces(dict):
             suggest = "queue_pair_number"
         elif key == "securityGroupIds":
             suggest = "security_group_ids"
+        elif key == "sourceDestCheck":
+            suggest = "source_dest_check"
         elif key == "vswitchId":
             suggest = "vswitch_id"
 
@@ -1713,6 +1715,7 @@ class InstanceNetworkInterfaces(dict):
                  network_interface_traffic_mode: Optional[_builtins.str] = None,
                  queue_pair_number: Optional[_builtins.int] = None,
                  security_group_ids: Optional[Sequence[_builtins.str]] = None,
+                 source_dest_check: Optional[_builtins.bool] = None,
                  vswitch_id: Optional[_builtins.str] = None):
         """
         :param _builtins.int network_card_index: The index of the network card for Secondary ENI.
@@ -1722,6 +1725,7 @@ class InstanceNetworkInterfaces(dict):
                - `HighPerformance`: Uses the remote direct memory access (RDMA) communication mode with Elastic RDMA Interface (ERI) enabled.
         :param _builtins.int queue_pair_number: The number of queues supported by the ERI.
         :param Sequence[_builtins.str] security_group_ids: The ID of security group N to which to assign Secondary ENI N.
+        :param _builtins.bool source_dest_check: Specifies whether to enable the source and destination IP address check feature. We recommend that you enable the feature to improve network security. Valid values: `true`, `false`.
         :param _builtins.str vswitch_id: The ID of the vSwitch to which to connect Secondary ENI N.
         """
         if network_card_index is not None:
@@ -1734,6 +1738,8 @@ class InstanceNetworkInterfaces(dict):
             pulumi.set(__self__, "queue_pair_number", queue_pair_number)
         if security_group_ids is not None:
             pulumi.set(__self__, "security_group_ids", security_group_ids)
+        if source_dest_check is not None:
+            pulumi.set(__self__, "source_dest_check", source_dest_check)
         if vswitch_id is not None:
             pulumi.set(__self__, "vswitch_id", vswitch_id)
 
@@ -1778,6 +1784,14 @@ class InstanceNetworkInterfaces(dict):
         The ID of security group N to which to assign Secondary ENI N.
         """
         return pulumi.get(self, "security_group_ids")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceDestCheck")
+    def source_dest_check(self) -> Optional[_builtins.bool]:
+        """
+        Specifies whether to enable the source and destination IP address check feature. We recommend that you enable the feature to improve network security. Valid values: `true`, `false`.
+        """
+        return pulumi.get(self, "source_dest_check")
 
     @_builtins.property
     @pulumi.getter(name="vswitchId")
@@ -8838,7 +8852,7 @@ class GetImagesImageResult(dict):
         :param _builtins.str product_code: The product code of the image on the image market.
         :param _builtins.str progress: Progress of image creation, presented in percentages.
         :param _builtins.int size: The size of the created disk.
-        :param _builtins.str status: The status of the image. The following values are available, Separate multiple parameter values by using commas (,). Default value: `Available`. Valid values: 
+        :param _builtins.str status: The status of the image. The following values are available, Separate multiple parameter values by using commas (,). Default value: `Available`. Valid values:
                - `Creating`: The image is being created.
                - `Waiting`: The image is waiting to be processed.
                - `Available`: The image is available.
@@ -9031,7 +9045,7 @@ class GetImagesImageResult(dict):
     @pulumi.getter
     def status(self) -> _builtins.str:
         """
-        The status of the image. The following values are available, Separate multiple parameter values by using commas (,). Default value: `Available`. Valid values: 
+        The status of the image. The following values are available, Separate multiple parameter values by using commas (,). Default value: `Available`. Valid values:
         - `Creating`: The image is being created.
         - `Waiting`: The image is waiting to be processed.
         - `Available`: The image is available.

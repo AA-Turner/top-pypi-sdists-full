@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pillow-jxl-plugin
-Version: 1.3.7
+Version: 1.3.8
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -20,8 +20,8 @@ Author: Isotr0py
 License-Expression: GPL-3.0-or-later
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Homepage, https://github.com/Isotr0py/pillow-jpegxl-plugin
 Project-URL: Bug Tracker, https://github.com/Isotr0py/pillow-jpegxl-plugin/issues
+Project-URL: Homepage, https://github.com/Isotr0py/pillow-jpegxl-plugin
 Project-URL: Releases, https://github.com/Isotr0py/pillow-jpegxl-plugin/releases
 
 # pillow-jpegxl-plugin
@@ -63,6 +63,8 @@ Use `import pillow_jxl` to register the plugin in your code.
 
 ### Example:
 ```python
+from io import BytesIO
+
 import pillow_jxl
 from PIL import Image
 
@@ -70,7 +72,7 @@ from PIL import Image
 with Image.open("example.png") as img:
     img.save("example.jxl",lossless=True)
 
-# encode image with JPEG-Style quality
+# Encode image with JPEG-Style quality
 with Image.open("example.png") as img:
     img.save("example.jxl", quality=98)
 
@@ -81,6 +83,15 @@ with Image.open("example.jpg") as img:
 # Decode jxl image
 with Image.open("example.jxl") as img:
     display(img)
+
+# Encode/decode jxl image to buffer
+buffer = BytesIO()
+with Image.open("example.png") as img:
+    img.save(buffer, format="JXL")
+
+jxl_bytes = buffer.getvalue()
+img = Image.open(BytesIO(jxl_bytes))
+display(img)
 ```
 
 ## Wheels status

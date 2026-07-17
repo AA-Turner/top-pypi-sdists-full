@@ -42,6 +42,11 @@ impl DccCapture for HwndBackend {
     }
 
     fn capture(&self, config: &CaptureConfig) -> CaptureResult<CaptureFrame> {
+        if config.crop.is_some() {
+            return Err(CaptureError::InvalidConfig(
+                "crop is not supported by Windows window capture".to_string(),
+            ));
+        }
         imp::capture_hwnd(config)
     }
 }
@@ -87,7 +92,7 @@ mod tests {
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn test_hwnd_capture_returns_not_supported_on_non_windows() {
-        let b = HwndBackend::default();
+        let b = HwndBackend::new();
         let result = b.capture(&CaptureConfig::default());
         assert!(matches!(
             result.unwrap_err(),
@@ -107,6 +112,13 @@ mod tests {
         let result = b.capture(&cfg);
         assert!(matches!(result, Err(CaptureError::TargetNotFound(_))));
     }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_hwnd_rejects_unsupported_crop() {
+        let result = HwndBackend::new().capture(&CaptureConfig::builder().crop(0, 0, 1, 1).build());
+        assert!(matches!(result, Err(CaptureError::InvalidConfig(_))));
+    }
 }
 
 // ── Windows implementation ─────────────────────────────────────────────────
@@ -116,23 +128,28 @@ mod imp {
     use std::io::Cursor;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use image::codecs::jpeg::JpegEncoder;
     use image::{ImageBuffer, ImageFormat, Rgba};
     use windows::Win32::Foundation::{HWND, RECT};
-    use windows::Win32::Graphics::Gdi::{
-        BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BitBlt, CreateCompatibleBitmap, CreateCompatibleDC,
-        DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDC, GetDIBits, ReleaseDC, SRCCOPY, SelectObject,
-    };
-    use windows::Win32::Storage::Xps::{PRINT_WINDOW_FLAGS, PrintWindow};
+    use windows::Win32::UI::HiDpi::GetDpiForWindow;
     use windows::Win32::UI::WindowsAndMessaging::GetWindowRect;
 
+    use crate::backend::win_dpi::ThreadDpiAwareness;
     use crate::error::{CaptureError, CaptureResult};
+    use crate::helper::{capture_same_thread_bgra, capture_via_helper, window_is_same_thread};
     use crate::types::{CaptureConfig, CaptureFormat, CaptureFrame, CaptureTarget};
     use crate::window::WindowFinder;
 
-    // PW_RENDERFULLCONTENT — ensures DWM-composed content (UWP, DX surfaces) is captured.
-    const PW_RENDERFULLCONTENT: PRINT_WINDOW_FLAGS = PRINT_WINDOW_FLAGS(0x00000002);
+    const MAX_SOURCE_PIXELS: usize = 16_777_216;
 
     pub(super) fn capture_hwnd(config: &CaptureConfig) -> CaptureResult<CaptureFrame> {
+        capture_hwnd_inner(config)
+    }
+
+    fn capture_hwnd_inner(config: &CaptureConfig) -> CaptureResult<CaptureFrame> {
+        // Keep GetWindowRect and the physical SendInput coordinate space
+        // consistent on mixed-DPI desktops.
+        let _dpi_awareness = ThreadDpiAwareness::enter("HWND capture")?;
         let finder = WindowFinder::new();
         let info = match &config.target {
             CaptureTarget::WindowHandle(_)
@@ -152,8 +169,16 @@ mod imp {
             .map_err(|e| CaptureError::Platform(format!("GetWindowRect: {e}")))?;
         let w = (rect.right - rect.left).max(1);
         let h = (rect.bottom - rect.top).max(1);
+        source_buffer_len(w, h)?;
 
-        let raw_bgra = unsafe { grab_bgra(hwnd, w, h)? };
+        // PrintWindow is synchronous and unbounded. Keep same-thread windows
+        // on a local, non-message BitBlt path; every other target is captured
+        // by the killable helper process so timeout_ms is enforceable.
+        let raw_bgra = if window_is_same_thread(info.handle) {
+            capture_same_thread_bgra(info.handle, w, h)?
+        } else {
+            capture_via_helper(info.handle, w, h, config.timeout_ms)?
+        };
 
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -161,9 +186,12 @@ mod imp {
             .unwrap_or(0);
 
         // BGRA → RGBA, then build ImageBuffer, apply scale, encode.
-        let mut rgba = raw_bgra.clone();
+        let mut rgba = raw_bgra;
         for chunk in rgba.chunks_exact_mut(4) {
             chunk.swap(0, 2);
+            // GDI DIB sections expose BGRX for many windows. Treat the unused
+            // byte as opaque so encoded screenshots cannot become transparent.
+            chunk[3] = u8::MAX;
         }
         let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
             ImageBuffer::from_raw(w as u32, h as u32, rgba)
@@ -195,7 +223,8 @@ mod imp {
             CaptureFormat::Jpeg => {
                 let rgb = image::DynamicImage::ImageRgba8(img).into_rgb8();
                 let mut buf = Cursor::new(Vec::new());
-                rgb.write_to(&mut buf, ImageFormat::Jpeg)
+                JpegEncoder::new_with_quality(&mut buf, config.jpeg_quality)
+                    .encode_image(&rgb)
                     .map_err(|e| CaptureError::Image(e.to_string()))?;
                 (buf.into_inner(), CaptureFormat::Jpeg)
             }
@@ -215,64 +244,45 @@ mod imp {
             height: final_h,
             format,
             timestamp_ms,
-            dpi_scale: 1.0,
+            dpi_scale: unsafe { GetDpiForWindow(hwnd) }.max(96) as f32 / 96.0,
             window_rect: Some([rect.left, rect.top, w, h]),
             window_title: Some(info.title),
         })
     }
+    fn source_buffer_len(w: i32, h: i32) -> CaptureResult<usize> {
+        let width = usize::try_from(w)
+            .map_err(|_| CaptureError::InvalidConfig(format!("invalid source window width {w}")))?;
+        let height = usize::try_from(h).map_err(|_| {
+            CaptureError::InvalidConfig(format!("invalid source window height {h}"))
+        })?;
+        let pixels = width.checked_mul(height).ok_or_else(|| {
+            CaptureError::InvalidConfig("source window dimensions overflow usize".to_string())
+        })?;
+        if pixels > MAX_SOURCE_PIXELS {
+            return Err(CaptureError::InvalidConfig(format!(
+                "source window has {pixels} pixels, exceeding the {MAX_SOURCE_PIXELS}-pixel safety limit"
+            )));
+        }
+        pixels.checked_mul(4).ok_or_else(|| {
+            CaptureError::InvalidConfig("source BGRA buffer size overflowed usize".to_string())
+        })
+    }
 
-    /// Pull the window's pixels as a top-down BGRA buffer.
-    ///
-    /// Prefers `PrintWindow(PW_RENDERFULLCONTENT)` which works for DWM-composed
-    /// surfaces; falls back to `BitBlt(SRCCOPY)` if `PrintWindow` refuses.
-    unsafe fn grab_bgra(hwnd: HWND, w: i32, h: i32) -> CaptureResult<Vec<u8>> {
-        unsafe {
-            let src_dc = GetDC(Some(hwnd));
-            if src_dc.is_invalid() {
-                return Err(CaptureError::Platform("GetDC returned null".to_string()));
-            }
-            let mem_dc = CreateCompatibleDC(Some(src_dc));
-            let bmp = CreateCompatibleBitmap(src_dc, w, h);
-            let old = SelectObject(mem_dc, bmp.into());
+    #[cfg(test)]
+    mod tests {
+        use super::*;
 
-            let printed = PrintWindow(hwnd, mem_dc, PW_RENDERFULLCONTENT).as_bool();
-            if !printed {
-                let _ = BitBlt(mem_dc, 0, 0, w, h, Some(src_dc), 0, 0, SRCCOPY);
-            }
-
-            // Negative biHeight → top-down DIB, matching most image crates.
-            let mut buf = vec![0u8; (w as usize) * (h as usize) * 4];
-            let mut bi = BITMAPINFO {
-                bmiHeader: BITMAPINFOHEADER {
-                    biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
-                    biWidth: w,
-                    biHeight: -h,
-                    biPlanes: 1,
-                    biBitCount: 32,
-                    biCompression: BI_RGB.0,
-                    ..Default::default()
-                },
-                ..Default::default()
-            };
-            let rows = GetDIBits(
-                mem_dc,
-                bmp,
-                0,
-                h as u32,
-                Some(buf.as_mut_ptr() as *mut _),
-                &mut bi,
-                DIB_RGB_COLORS,
-            );
-            SelectObject(mem_dc, old);
-            let _ = DeleteObject(bmp.into());
-            let _ = DeleteDC(mem_dc);
-            ReleaseDC(Some(hwnd), src_dc);
-            if rows == 0 {
-                return Err(CaptureError::Platform(
-                    "GetDIBits returned 0 scanlines".to_string(),
-                ));
-            }
-            Ok(buf)
+        #[test]
+        fn source_buffer_length_is_checked_and_bounded() {
+            assert_eq!(source_buffer_len(1920, 1080).unwrap(), 1920 * 1080 * 4);
+            assert!(matches!(
+                source_buffer_len(100_000, 100_000),
+                Err(CaptureError::InvalidConfig(_))
+            ));
+            assert!(matches!(
+                source_buffer_len(-1, 100),
+                Err(CaptureError::InvalidConfig(_))
+            ));
         }
     }
 }

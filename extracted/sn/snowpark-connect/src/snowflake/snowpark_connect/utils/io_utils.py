@@ -6,8 +6,9 @@ import dataclasses
 import functools
 import json
 import re
+from collections.abc import Iterable
 
-from pyspark.errors.exceptions.connect import AnalysisException
+from pyspark.errors.exceptions.base import AnalysisException
 
 from snowflake import snowpark
 from snowflake.snowpark import Column, Session
@@ -29,17 +30,60 @@ _MINUS_AT_THE_BEGINNING_REGEX = re.compile(r"^-")
 _TTL_CACHE_EXIPRATION_TIME_SECONDS = 15
 
 
-def cached_file_format(
-    session: Session, file_format: str, format_type_options: dict[str, str]
-) -> str:
-    """
-    Cache and return a file format name based on the given options.
-    """
+def db_schema_from_stage_path(path: str) -> str | None:
+    """Return 'DB.SCHEMA' extracted from '@DB.SCHEMA.STAGE/...' or None.
 
+    Used to qualify temporary file format names when the session has no current
+    database (SNOW-3729121).  Only 3-part stage paths contain enough information
+    to derive a database+schema; unqualified paths return None.
+    Strips leading/trailing single quotes before parsing so quoted paths
+    (e.g. ``'@DB.SCHEMA.STAGE/file'``) are handled correctly.
+    """
+    stripped_path = path.strip("'")
+    if not stripped_path.startswith("@"):
+        return None
+    stage_part = (
+        stripped_path[1:].split("/")[0].split("?")[0]
+    )  # strip file path and query
+    try:
+        fqn = FQN.from_string(stage_part)
+    except AnalysisException:
+        return None
+    if fqn.database and fqn.schema:
+        return f"{fqn.database}.{fqn.schema}"
+    return None
+
+
+def first_db_schema_from_paths(paths: Iterable[str]) -> str | None:
+    """Return the first non-None DB.SCHEMA found in *paths*, or None."""
+    return next(filter(None, (db_schema_from_stage_path(p) for p in paths)), None)
+
+
+def cached_file_format(
+    session: Session,
+    file_format: str,
+    format_type_options: dict[str, str],
+    *,
+    db_schema_fallback: str | None = None,
+) -> str:
+    """Cache and return a file format name based on the given options.
+
+    When the session has no current database (error 090105 without this fix),
+    ``db_schema_fallback`` must be provided as ``'DB.SCHEMA'`` extracted from
+    the stage path being read.  The format name is then fully qualified so
+    Snowflake knows where to create the temporary object.
+    """
     function_name = _MINUS_AT_THE_BEGINNING_REGEX.sub(
         "1", str(hash(frozenset(format_type_options.items())))
     )
-    file_format_name = f"__SNOWPARK_CONNECT_FILE_FORMAT__{file_format}_{function_name}"
+    bare_name = f"__SNOWPARK_CONNECT_FILE_FORMAT__{file_format}_{function_name}"
+
+    # Qualify the name when the session has no current database.
+    if session.get_current_database() is None and db_schema_fallback:
+        file_format_name = f"{db_schema_fallback}.{bare_name}"
+    else:
+        file_format_name = bare_name
+
     if file_format_name in session._file_formats:
         return file_format_name
 
@@ -61,33 +105,51 @@ def cached_file_format(
 
 @functools.cache
 def file_format(
-    session: Session, compression: str, record_delimiter: str = None
+    session: Session,
+    compression: str,
+    record_delimiter: str = None,
+    db_schema_fallback: str | None = None,
 ) -> str:
-    """
-    Create a temporary file format for reading text files in Snowpark Connect.
-    """
+    """Create a temporary file format for reading text files in Snowpark Connect."""
     if record_delimiter is None:
         record_delimiter_sql = "NONE"
         identifier_delimiter = "NONE"
     else:
         # Convert delimiter to hex format (\xHH for each byte) for robustness
-        # This handles special characters, multibyte chars, and control characters safely
         identifier_delimiter = record_delimiter.encode("utf-8").hex()
         record_delimiter_sql = "".join(
             f"\\x{b:02x}" for b in record_delimiter.encode("utf-8")
         )
 
-    file_format_name = f"IDENTIFIER('__SNOWPARK_CONNECT_TEXT_FILE_FORMAT__{compression}_{identifier_delimiter}')"
+    bare_name = (
+        f"__SNOWPARK_CONNECT_TEXT_FILE_FORMAT__{compression}_{identifier_delimiter}"
+    )
+    # Qualify whenever db_schema_fallback is provided, regardless of whether
+    # the session has a current database.  This intentionally diverges from
+    # cached_file_format (which guards on session.get_current_database() is None)
+    # because this function is wrapped with @functools.cache: the qualification
+    # decision must be deterministic from the cache-key parameters alone.  When a
+    # fallback is passed for a session that already has a database, the format is
+    # simply created in the specified DB.SCHEMA instead of the session default —
+    # still valid and idempotent.  Note that db_schema_fallback is part of the
+    # cache key, so different fallback values produce different cache entries
+    # (slightly wasteful for the normal-session case but harmless and simpler
+    # than normalising the key on every call).
+    if db_schema_fallback:
+        format_name_sql = f"IDENTIFIER('{db_schema_fallback}.{bare_name}')"
+    else:
+        format_name_sql = f"IDENTIFIER('{bare_name}')"
+
     session.sql(
         f"""
-    CREATE TEMPORARY FILE FORMAT IF NOT EXISTS  {file_format_name}
+    CREATE TEMPORARY FILE FORMAT IF NOT EXISTS  {format_name_sql}
     RECORD_DELIMITER = '{record_delimiter_sql}'
     FIELD_DELIMITER = 'NONE'
     EMPTY_FIELD_AS_NULL = FALSE
     COMPRESSION = '{compression}'"""
     ).collect()
 
-    return file_format_name
+    return format_name_sql
 
 
 # caches table type with a time-to-live (TTL) expiration

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 TransportKind = Literal["git", "nfs", "sshfs", "rsync"]
-GitSyncMode = Literal["merge_to_main", "push_branch", "publish_ref"]
+GitSyncMode = Literal["merge_to_main", "push_branch", "publish_ref", "none"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +55,19 @@ class GitSyncPolicy:
     @classmethod
     def publish_ref(cls, ref: str, *, exact: bool = False, integrate_to_main: bool = True) -> GitSyncPolicy:
         return cls(mode="publish_ref", target=ref, exact=exact, integrate_to_main=integrate_to_main)
+
+    @classmethod
+    def none(cls) -> GitSyncPolicy:
+        """Read-only mount: the clone exists for INSPECTION only.
+
+        Nothing syncs back — and to keep that loud rather than silent, setup
+        installs a pre-commit hook in the clone that rejects commits with a
+        message pointing at the delegation path (writes go through agents
+        whose sync modes carry the review gates). Use for long-lived readers
+        like a serve-mode orchestrator, where end-of-run sync-back semantics
+        would be meaningless anyway.
+        """
+        return cls(mode="none")
 
 
 class AgentWorkspaceMountGitPayload(BaseModel):

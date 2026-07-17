@@ -3,7 +3,7 @@ members = ["crates/keeper-pam-webrtc-rs", "crates/webrtc-bindings", "crates/guac
 resolver = "2"
 
 [workspace.package]
-version = "2.1.19"
+version = "2.1.20"
 edition = "2021"
 license = "MIT"
 authors = ["Keeper Security Engineering <pam@keepersecurity.com>"]
@@ -48,7 +48,7 @@ arc-swap = "1.8.0"
 bitflags = "2.9"
 
 # Python bindings
-pyo3 = { version = "0.27.2", features = ["extension-module", "abi3-py37"] }
+pyo3 = { version = "0.29.0", features = ["extension-module", "abi3-py38"] }
 
 # Crate-specific dependencies
 aes-gcm = "0.10.3"
@@ -84,7 +84,7 @@ tracing-log = "0.2"
 tokio-rustls = "0.26"
 rustls-pemfile = "2"
 webpki-roots = "1.0"
-pyo3-log = "0.13.3"
+pyo3-log = "0.13.4"
 
 [patch.crates-io]
 ironrdp = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }

@@ -98,8 +98,8 @@ def exec_hocr_to_ocr_pdf(context: PdfContext, executor: Executor) -> Sequence[st
         log.info("Postprocessing...")
         pdf, messages = postprocess(pdf, context, executor)
 
-        # Copy PDF file to destination (we don't know the input PDF file name)
-        copy_final(pdf, options.output_file, None)
+        # Copy PDF file to destination
+        copy_final(pdf, options.output_file)
     return messages
 
 
@@ -109,6 +109,9 @@ def run_hocr_to_ocr_pdf_pipeline(
     plugin_manager: OcrmypdfPluginManager,
 ) -> ExitCode:
     """Run pipeline to convert hOCR to final output PDF."""
+    # The _hocr_to_ocr_pdf() API requires work_folder: Path and stores it on
+    # options before this pipeline runs, so it is always set at this point.
+    assert options.work_folder is not None
     with manage_work_folder(
         work_folder=options.work_folder, retain=True, print_location=False
     ) as work_folder:

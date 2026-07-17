@@ -12,14 +12,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import typing
-
 from neutron_lib.api import converters
 from neutron_lib.api.definitions import provider_net
 from neutron_lib.api.definitions import subnet
 from neutron_lib import constants
 from neutron_lib.db import constants as db_constants
-
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 SEGMENT_ID = 'segment_id'
 NETWORK_TYPE = 'network_type'
@@ -37,7 +39,7 @@ DESCRIPTION = 'Segments extension.'
 UPDATED_TIMESTAMP = '2016-02-24T17:00:00-00:00'
 RESOURCE_NAME = 'segment'
 COLLECTION_NAME = RESOURCE_NAME + 's'
-RESOURCE_ATTRIBUTE_MAP: dict[str, typing.Any] = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         'id': {
             'allow_post': False,
@@ -122,8 +124,8 @@ RESOURCE_ATTRIBUTE_MAP: dict[str, typing.Any] = {
         }
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [
     'standard-attr-description'
 ]

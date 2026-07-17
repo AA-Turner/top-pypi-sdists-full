@@ -153,8 +153,7 @@ class BatchTracer(Tracer['BatchTrace']):
     elif type(batch_dim) is int:
       aval = core.mapped_aval(aval.shape[batch_dim], batch_dim, aval)
     elif isinstance(aval, hijax.HiType):
-      # pyrefly: ignore[bad-argument-type]  # pyrefly#2499
-      aval = aval.dec_rank(trace.axis_data.size, batch_dim)
+      aval = aval.dec_rank(trace.axis_data.size, batch_dim)  # pyrefly: ignore[bad-argument-type]
     else:
       raise Exception("batch dim should be int or `None`")
 
@@ -220,9 +219,13 @@ class AxisData:
 
 
 def get_sharding_for_vmap(axis_data, orig_sharding, axis):
+  assert axis >= 0
   val = axis_data.explicit_mesh_axis
+  partitions = orig_sharding.spec.partitions
+  if len(partitions) < axis:
+    partitions = partitions + (None,) * (axis - len(partitions))
   new_spec = orig_sharding.spec.update(
-      partitions=tuple_insert(orig_sharding.spec.partitions, axis, val))
+      partitions=tuple_insert(partitions, axis, val))
   return orig_sharding.update(spec=new_spec)
 
 
@@ -394,20 +397,20 @@ def batch_subtrace(f, store, tag, axis_data, in_dims, *in_vals):
 ### API for batching jaxprs
 
 def batch_jaxpr2(
-    closed_jaxpr: core.ClosedJaxpr,
+    closed_jaxpr: core.Jaxpr,
     axis_data,
     in_axes: tuple[int | NotMapped, ...],
-  ) -> tuple[core.ClosedJaxpr, tuple[int | NotMapped, ...]]:
+  ) -> tuple[core.Jaxpr, tuple[int | NotMapped, ...]]:
   return _batch_jaxpr2(closed_jaxpr, axis_data, tuple(in_axes))
 
 @weakref_lru_cache
 def _batch_jaxpr2(
-    closed_jaxpr: core.ClosedJaxpr,
+    closed_jaxpr: core.Jaxpr,
     axis_data,
     in_axes: tuple[int | NotMapped, ...],
-  ) -> tuple[core.ClosedJaxpr, tuple[int | NotMapped, ...]]:
+  ) -> tuple[core.Jaxpr, tuple[int | NotMapped, ...]]:
   f = lu.wrap_init(core.jaxpr_as_fun(closed_jaxpr),
-                   debug_info=closed_jaxpr.jaxpr.debug_info)
+                   debug_info=closed_jaxpr.debug_info)
   f, out_axes = _batch_jaxpr_inner(f, axis_data)
   f = _batch_jaxpr_outer(f, axis_data, in_axes)
   avals_in2 = []
@@ -424,7 +427,7 @@ def _batch_jaxpr2(
           aval = aval.update(manual_axis_type=mat)
       avals_in2.append(aval)
   jaxpr_out, _, consts = pe.trace_to_jaxpr_dynamic(f, avals_in2)
-  return core.ClosedJaxpr(jaxpr_out, consts), out_axes()
+  return jaxpr_out.with_consts(consts), out_axes()
 
 def batch_jaxpr(closed_jaxpr, axis_data, in_batched, instantiate):
   inst = tuple(instantiate) if isinstance(instantiate, list) else instantiate
@@ -444,11 +447,11 @@ def batch_jaxpr_axes(closed_jaxpr, axis_data, in_axes, out_axes_dest):
   return _batch_jaxpr_axes(closed_jaxpr, axis_data, tuple(in_axes), tuple(out_axes_dest))
 
 @weakref_lru_cache
-def _batch_jaxpr_axes(closed_jaxpr: core.ClosedJaxpr,
+def _batch_jaxpr_axes(closed_jaxpr: core.Jaxpr,
                       axis_data: AxisData,
                       in_axes: Sequence[int], out_axes_dest: Sequence[int]):
   f = lu.wrap_init(core.jaxpr_as_fun(closed_jaxpr),
-                   debug_info=closed_jaxpr.jaxpr.debug_info)
+                   debug_info=closed_jaxpr.debug_info)
   f, out_axes = _batch_jaxpr_inner(f, axis_data)
   f, out_batched = _match_axes_jaxpr(f, axis_data, out_axes_dest, out_axes)
   f = _batch_jaxpr_outer(f, axis_data, in_axes)
@@ -457,7 +460,7 @@ def _batch_jaxpr_axes(closed_jaxpr: core.ClosedJaxpr,
               if b is not None
               else aval for aval, b in unsafe_zip(closed_jaxpr.in_avals, in_axes)]
   jaxpr_out, _, consts = pe.trace_to_jaxpr_dynamic(f, avals_in)
-  return core.ClosedJaxpr(jaxpr_out, consts), out_batched()
+  return jaxpr_out.with_consts(consts), out_batched()
 
 @lu.transformation_with_aux2
 def _batch_jaxpr_inner(f, store, axis_data, tag, in_axes, *in_vals):

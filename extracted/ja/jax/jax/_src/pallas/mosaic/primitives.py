@@ -27,6 +27,7 @@ from jax._src import pretty_printer as pp
 from jax._src.random import prng as jax_prng
 from jax._src import random as jax_random
 from jax._src import state
+from jax._src import flattree as ft
 from jax._src import tree_util
 from jax._src import util
 from jax._src.interpreters import batching
@@ -249,7 +250,7 @@ class AsyncCopyDescriptor:
 
 
 def _dma_flatten(*args):
-  flat_tree = tree_util.FlatTree.flatten(args)
+  flat_tree = ft.flatten(args)
   return flat_tree.vals, flat_tree.tree
 
 
@@ -258,7 +259,7 @@ def _dma_unflatten(tree, flat_args):
 
 
 def _dma_tree_leaves(tree):
-  return tree_util.FlatTree.flatten(tree).vals
+  return ft.flatten(tree).vals
 
 
 def _get_dma_effects(
@@ -1056,9 +1057,10 @@ def with_memory_space_constraint(
       tpu_core.MemorySpace.HBM,
       tpu_core.MemorySpace.VMEM,
       tpu_core.MemorySpace.SMEM,
+      jax_core.MemorySpace.Host,
   }:
     raise NotImplementedError(
-        "with_memory_space_constraint only supports HBM, VMEM and SMEM."
+        "with_memory_space_constraint only supports HBM, VMEM, SMEM, and HOST."
     )
   return pl_core.with_memory_space_constraint_p.bind(
       x, memory_space=memory_space)

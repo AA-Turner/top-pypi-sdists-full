@@ -841,6 +841,8 @@ class DefenseRuleConfigConditionArgsDict(TypedDict):
     - mpty: Indicates that the content is empty.
     - exists: Indicates that the field exists.
     - inl: indicates in the list.
+    - in-list: Indicates that the value is in the list.
+    - not-in-list: Indicates that the value is not in the list.
 
     > **NOTE:**  Not all logical characters (opvalues) can be configured for the match field (key) of each custom rule. For the logical characters supported by different matching fields, please refer to the association relationship between the matching fields and the logical characters in the custom rules of the WAF console.
     """
@@ -891,6 +893,8 @@ class DefenseRuleConfigConditionArgs:
                - mpty: Indicates that the content is empty.
                - exists: Indicates that the field exists.
                - inl: indicates in the list.
+               - in-list: Indicates that the value is in the list.
+               - not-in-list: Indicates that the value is not in the list.
                
                > **NOTE:**  Not all logical characters (opvalues) can be configured for the match field (key) of each custom rule. For the logical characters supported by different matching fields, please refer to the association relationship between the matching fields and the logical characters in the custom rules of the WAF console.
         :param pulumi.Input[_builtins.str] sub_key: The characteristics of the statistical object. When the Target parameter is set to cookie, header, or queryarg, you must specify the corresponding information in the Subkey parameter.
@@ -950,6 +954,8 @@ class DefenseRuleConfigConditionArgs:
         - mpty: Indicates that the content is empty.
         - exists: Indicates that the field exists.
         - inl: indicates in the list.
+        - in-list: Indicates that the value is in the list.
+        - not-in-list: Indicates that the value is not in the list.
 
         > **NOTE:**  Not all logical characters (opvalues) can be configured for the match field (key) of each custom rule. For the logical characters supported by different matching fields, please refer to the association relationship between the matching fields and the logical characters in the custom rules of the WAF console.
         """
@@ -2053,7 +2059,6 @@ class DomainRedirectArgsDict(TypedDict):
     """
     The number of reused persistent connections. Valid values: 60 to 1000. Default value: 1000
 
-
     > **NOTE:**   This parameter specifies the number of persistent connections that can be reused after you enable the persistent connection feature.
     """
     keepalive_timeout: NotRequired[pulumi.Input[Optional[_builtins.int]]]
@@ -2134,7 +2139,6 @@ class DomainRedirectArgs:
         :param pulumi.Input[_builtins.int] http2_origin_max_concurrency: The maximum number of concurrent HTTP/2 back-to-origin requests. Valid values: `1` to `512`. Default value: `128`.
         :param pulumi.Input[_builtins.bool] keepalive: Specifies whether to enable the persistent connection feature. Valid values:
         :param pulumi.Input[_builtins.int] keepalive_requests: The number of reused persistent connections. Valid values: 60 to 1000. Default value: 1000
-               
                
                > **NOTE:**   This parameter specifies the number of persistent connections that can be reused after you enable the persistent connection feature.
         :param pulumi.Input[_builtins.int] keepalive_timeout: Idle long connection timeout, value range: 1~60, default 15, unit: seconds.
@@ -2294,7 +2298,6 @@ class DomainRedirectArgs:
     def keepalive_requests(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The number of reused persistent connections. Valid values: 60 to 1000. Default value: 1000
-
 
         > **NOTE:**   This parameter specifies the number of persistent connections that can be reused after you enable the persistent connection feature.
         """

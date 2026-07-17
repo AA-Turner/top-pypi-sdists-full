@@ -8,8 +8,12 @@ DEFAULT_SNOWPARK_SUBMIT_CONNECTION_NAME = "snowpark-submit"
 
 STRUCTURED_TYPES_ENABLED = True
 
-# UDF evaluation types
-MAP_IN_ARROW_EVAL_TYPE = 207  # eval_type for mapInArrow operations
+# UDF evaluation types (mirrors pyspark.rdd.PythonEvalType)
+SQL_SCALAR_PANDAS_UDF_EVAL_TYPE = 200  # @pandas_udf Series→Series (vectorized)
+SQL_SCALAR_PANDAS_ITER_UDF_EVAL_TYPE = (
+    204  # @pandas_udf Iterator[Series]→Iterator[Series]
+)
+MAP_IN_ARROW_EVAL_TYPE = 207  # mapInArrow Iterator[RecordBatch]→Iterator[RecordBatch]
 
 COLUMN_METADATA_COLLISION_KEY = "{expr_id}_{key}"
 

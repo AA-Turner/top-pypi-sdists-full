@@ -936,7 +936,6 @@ class RestServerConnection(object):
         endpoint_url = pending_rpcs_url(self.server_address)
 
         payload = {
-            "apiKey": self.api_key,
             PAYLOAD_EXPERIMENT_KEY: self.experiment_id,
         }
 
@@ -1006,7 +1005,6 @@ class RestServerConnection(object):
         endpoint_url = new_symlink_url(self.server_address)
 
         payload = {
-            "apiKey": self.api_key,
             PAYLOAD_EXPERIMENT_KEY: self.experiment_id,
             "projectName": project_name,
         }

@@ -14,6 +14,7 @@
 
 from neutron_lib.api.definitions import port
 from neutron_lib import constants
+from neutron_lib.types import ActionMap, ResourceAttributeMap
 
 
 ALIAS = 'port-numa-affinity-policy'
@@ -26,7 +27,7 @@ RESOURCE_NAME = port.RESOURCE_NAME
 COLLECTION_NAME = port.COLLECTION_NAME
 NUMA_AFFINITY_POLICY = 'numa_affinity_policy'
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         NUMA_AFFINITY_POLICY: {
             'allow_post': True,
@@ -42,7 +43,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 SUB_RESOURCE_ATTRIBUTE_MAP = None
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 ACTION_STATUS = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []

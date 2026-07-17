@@ -17,8 +17,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
+TYPE_CHECKING = False
 # Mypy override: the ``from click import *`` / ``from cloup import *`` star imports
 # below make mypy resolve these re-implemented names to the click or cloup base class,
 # which hides click-extra's own attributes. Declaring the correct types here first,
@@ -55,20 +54,6 @@ except ImportError:  # Click < 8.4.0.
 
 # Overrides click helpers with cloup's.
 from cloup import *  # type: ignore[no-redef, assignment]
-
-# XXX Import types first to avoid circular imports. The True condition is a hack to
-# prevent ruff from re-ordering imports.
-if True:
-    from .types import ChoiceSource, EnumChoice, MultiChoice
-
-# Override cloup.Style with our own version. The override must happen after
-# ``from cloup import *`` (which would otherwise re-shadow our subclass) and
-# before any module that does ``from . import Style`` is loaded (parameters,
-# version, testing all do).
-from . import styling as _styling_module
-
-Style = _styling_module.Style  # type: ignore[misc]
-del _styling_module
 
 # Imported for its registration side effect: defining the module registers the
 # ``carapace`` shell completion class (see click_extra.carapace.CarapaceComplete),
@@ -141,6 +126,7 @@ from .decorators import (  # type: ignore[no-redef]
     telemetry_option,
     theme_option,
     timer_option,
+    tree_option,
     validate_config_option,
     verbose_option,
     verbosity_option,
@@ -153,9 +139,15 @@ from .execution import (
     JobsOption,
     TimerOption,
     ZeroExitOption,
+    args_cleanup,
+    format_cli_prompt,
+    highlight_bin_name,
+    install_interrupt_handler,
     resolve_jobs,
+    run_cli,
     run_jobs,
     run_lanes,
+    terminate_live_processes,
 )
 from .highlight import (
     HelpFormatter,
@@ -197,12 +189,26 @@ from .spinner import (  # type: ignore[no-redef]
     SpinnerPreset,
     progressbar,
 )
+
+# ``Style`` shadows the ``cloup.Style`` bound by the star import above with
+# click-extra's enhanced subclass; relative imports always follow the cloup
+# star import, so the override needs no special placement.
+from .styling import (
+    Style,
+    ansi_to_html,
+    ansi_to_jira,
+    ansi_to_latex,
+    ansi_to_textile,
+    render_ansi,
+    split_ansi,
+)
 from .table import (
     ColumnsOption,
     ColumnSpec,
     SortByOption,
     TableFormat,
     TableFormatOption,
+    column_sort_key,
     print_data,
     print_table,
     render_columns_markdown_table,
@@ -222,7 +228,7 @@ from .test_suite import (
     parse_test_suite,
     run_test_suite,
 )
-from .testing import CliRunner, Result, format_cli_prompt
+from .testing import CliRunner, Result
 from .theme import (
     BUILTIN_THEMES,
     HelpTheme,
@@ -233,6 +239,8 @@ from .theme import (
     set_default_theme,
     theme_registry,
 )
+from .tree import TreeOption, render_command_tree
+from .types import ChoiceSource, Duration, EnumChoice, MultiChoice
 from .version import VersionOption
 
 __all__ = [
@@ -279,6 +287,7 @@ __all__ = [
     "ConstraintMixin",
     "Context",
     "DateTime",
+    "Duration",
     "EnumChoice",
     "ExportConfigOption",
     "ExtraOption",
@@ -330,6 +339,7 @@ __all__ = [
     "TelemetryOption",
     "ThemeOption",
     "TimerOption",
+    "TreeOption",
     "Tuple",
     "UsageError",
     "ValidateConfigOption",
@@ -340,12 +350,17 @@ __all__ = [
     "VersionOption",
     "ZeroExitOption",
     "accessible_option",
-    "annotations",
+    "ansi_to_html",
+    "ansi_to_jira",
+    "ansi_to_latex",
+    "ansi_to_textile",
+    "args_cleanup",
     "argument",
     "basicConfig",
     "cases_from_data",
     "clear",
     "color_option",
+    "column_sort_key",
     "columns_option",
     "command",
     "config_option",
@@ -378,6 +393,8 @@ __all__ = [
     "getchar",
     "group",
     "help_option",
+    "highlight_bin_name",
+    "install_interrupt_handler",
     "jobs_option",
     "last_param",
     "launch",
@@ -407,12 +424,15 @@ __all__ = [
     "quiet_option",
     "read_file",
     "register_theme",
+    "render_ansi",
     "render_columns_markdown_table",
+    "render_command_tree",
     "render_manpage",
     "render_manpages",
     "render_table",
     "require_sibling_param",
     "resolve_jobs",
+    "run_cli",
     "run_config_validation",
     "run_jobs",
     "run_lanes",
@@ -427,18 +447,20 @@ __all__ = [
     "set_default_theme",
     "show_params_option",
     "sort_by_option",
+    "split_ansi",
     "style",
     "table_format_option",
     "telemetry_option",
+    "terminate_live_processes",
     "theme_option",
     "theme_registry",
     "timer_option",
+    "tree_option",
     "unstyle",
     "validate_config_option",
     "verbose_option",
     "verbosity_option",
     "version_option",
-    "warnings",
     "wrap_text",
     "write_manpages",
     "zero_exit_option",
@@ -458,11 +480,19 @@ if not _HAS_CLICK_8_4_EXPORTS:
     __all__.remove("get_pager_file")
 del _HAS_CLICK_8_4_EXPORTS
 
+# Scrub namespace artifacts that are not part of the public API: ``annotations``
+# is this module's own ``from __future__ import annotations`` binding (deleting
+# it does not affect postponed evaluation, which is settled at compile time),
+# and ``warnings`` is the stdlib module leaked through ``from cloup import *``
+# (cloup lists it in its ``__all__``).
+del annotations
+del warnings  # noqa: F821
 
-__version__ = "8.3.0"
+
+__version__ = "8.4.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "efec075ec6bcd1f7747a135936f4a48a5d34eede"
+__git_tag_sha__ = "1fd2aac1d8eed71ae5550c058a059680c0eb7026"

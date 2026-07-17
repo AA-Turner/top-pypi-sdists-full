@@ -39,7 +39,7 @@ def map_alias(
     column_is_qualified_access_only = [c.is_qualified_access_only for c in columns]
     equivalent_snowpark_names = [c.equivalent_snowpark_names for c in columns]
 
-    return DataFrameContainer.create_with_column_mapping(
+    result = DataFrameContainer.create_with_column_mapping(
         dataframe=input_container.dataframe,
         spark_column_names=spark_column_names,
         snowpark_column_names=snowpark_column_names,
@@ -50,4 +50,8 @@ def map_alias(
         column_is_qualified_access_only=column_is_qualified_access_only,
         alias=alias,
         equivalent_snowpark_names=equivalent_snowpark_names,
+        # Preserve sortWithinPartitions ordering across an alias (e.g. a temp
+        # view's SubqueryAlias) so a downstream UDTF table argument still sees it.
+        sort_exprs=input_container.sort_exprs,
     )
+    return result

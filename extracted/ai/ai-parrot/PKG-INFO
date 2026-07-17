@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.25.18
+Version: 0.25.19
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -255,10 +255,13 @@ Requires-Dist: zai-sdk>=0.2.3; extra == "llms"
 Provides-Extra: integrations
 Requires-Dist: querysource>=4.1.11; extra == "integrations"
 Requires-Dist: async-notify[all]>=1.5.2; extra == "integrations"
+Provides-Extra: grpc
+Requires-Dist: grpcio>=1.74.0; extra == "grpc"
+Requires-Dist: grpcio-tools>=1.74.0; extra == "grpc"
 Provides-Extra: eda
 Requires-Dist: sweetviz==2.1.4; extra == "eda"
 Provides-Extra: security
-Requires-Dist: pytector[gguf]==0.2.0; extra == "security"
+Requires-Dist: pytector==0.2.0; extra == "security"
 Provides-Extra: xai
 Requires-Dist: xai-sdk>=1.12.0; extra == "xai"
 Provides-Extra: gemma4

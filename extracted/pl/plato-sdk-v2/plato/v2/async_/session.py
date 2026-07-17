@@ -84,6 +84,7 @@ from plato._generated.models import (
     SetDateResponse,
     WaitForReadyResponse,
 )
+from plato.v2._network import is_production_base_url
 from plato.v2._wait_for_ready import (
     JobTerminalStatusError,
     is_terminal_status,
@@ -996,6 +997,13 @@ class Session:
             RuntimeError: If session is closed or network connection fails.
         """
         self._check_closed()
+        if not is_production_base_url(str(self._http.base_url)):
+            logger.debug(
+                "Skipping network connection for non-production API base URL %s",
+                self._http.base_url,
+            )
+            return self._skipped_network_result()
+
         self._network_requested = True
         if self._network_connected:
             return self._network_result or self._deferred_network_result()
@@ -1933,6 +1941,15 @@ class Session:
             "subnet": None,
             "results": {},
             "deferred": True,
+        }
+
+    def _skipped_network_result(self) -> dict[str, Any]:
+        return {
+            "success": True,
+            "session_id": self.session_id,
+            "subnet": None,
+            "results": {},
+            "skipped": True,
         }
 
     async def _connect_network_if_requested(self) -> None:

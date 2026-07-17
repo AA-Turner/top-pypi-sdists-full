@@ -187,6 +187,252 @@ class TestGetResources(unittest.TestCase):
         self.assertIn("SQL execution failed: Table 't' does not exist", str(cm.exception))
 
 
+class TestGetResourcesSqlExecutionBranch(unittest.TestCase):
+    """Tests specifically targeting the SQL_EXECUTION branch in get_resources."""
+
+    def setUp(self):
+        self.svc = SqlExecutor()
+        if not hasattr(self.svc, "_transformer_classes"):
+            self.svc._transformer_classes = {}
+        self.engine = Mock(name="Engine")
+
+    def _register_transformer(self, connection_type, transformer_obj):
+        self.svc._transformer_classes[connection_type] = transformer_obj
+
+    def test_sql_execution_stop_iteration_raises_value_error(self):
+        """When execute returns an empty iterator, StopIteration should be caught
+        and re-raised as ValueError."""
+
+        class Tx(DatabaseTransformer):
+            @staticmethod
+            def get_resources_action(resource_type, parents):
+                return ResourceFetchingDefinition.from_sql_execution(
+                    "SELECT name FROM empty_table",
+                    default_type="TABLE",
+                    children=("COLUMN",),
+                )
+
+        self._register_transformer("pg", Tx)
+        # Return an empty iterator so next() raises StopIteration
+        with unittest.mock.patch.object(self.svc, "execute", return_value=iter([])):
+            with self.assertRaises(ValueError) as cm:
+                self.svc.get_resources(
+                    engine=self.engine,
+                    connection_type="pg",
+                    resource_type="TABLE",
+                    parents={},
+                )
+            self.assertIn("SQL execution returned no results", str(cm.exception))
+
+    def test_sql_execution_failed_status_raises_value_error(self):
+        """When the execution result has a non-success status, ValueError should
+        be raised."""
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        class Tx(DatabaseTransformer):
+            @staticmethod
+            def get_resources_action(resource_type, parents):
+                return ResourceFetchingDefinition.from_sql_execution(
+                    "SELECT name FROM t",
+                    default_type="TABLE",
+                    children=("COLUMN",),
+                )
+
+        self._register_transformer("pg", Tx)
+        error_result = ExecutionResult(
+            statement_index=0,
+            statement="SELECT name FROM t",
+            statement_type="SELECT",
+            result=None,
+            error="relation 't' does not exist",
+            status="error",
+        )
+        with unittest.mock.patch.object(self.svc, "execute", return_value=iter([error_result])):
+            with self.assertRaises(ValueError) as cm:
+                self.svc.get_resources(
+                    engine=self.engine,
+                    connection_type="pg",
+                    resource_type="TABLE",
+                    parents={},
+                )
+            self.assertIn("SQL execution failed", str(cm.exception))
+            self.assertIn("relation 't' does not exist", str(cm.exception))
+
+    def test_unsupported_fetch_mode_raises_value_error(self):
+        """When the definition has an unrecognized mode, ValueError should be raised."""
+
+        class Tx(DatabaseTransformer):
+            @staticmethod
+            def get_resources_action(resource_type, parents):
+                return SimpleNamespace(
+                    mode="UNSUPPORTED_MODE",
+                    default_type="SCHEMA",
+                    children=("TABLE",),
+                    sqlalchemy_action=None,
+                    sql=None,
+                    sql_parameters=None,
+                )
+
+        self._register_transformer("pg", Tx)
+        with unittest.mock.patch.object(self.svc, "execute"):
+            with self.assertRaises(ValueError) as cm:
+                self.svc.get_resources(
+                    engine=self.engine,
+                    connection_type="pg",
+                    resource_type=None,
+                    parents={},
+                )
+            self.assertIn("Unsupported resource fetching mode", str(cm.exception))
+
+    def test_sql_execution_success_returns_resources(self):
+        """Happy path for SQL_EXECUTION branch."""
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        class Tx(DatabaseTransformer):
+            @staticmethod
+            def get_resources_action(resource_type, parents):
+                return ResourceFetchingDefinition.from_sql_execution(
+                    "SELECT schema_name FROM information_schema.schemata",
+                    default_type="SCHEMA",
+                    children=("TABLE",),
+                )
+
+        self._register_transformer("pg", Tx)
+        df = pd.DataFrame({"schema_name": ["public", "analytics", "staging"]})
+        success_result = ExecutionResult(
+            statement_index=0,
+            statement="SELECT schema_name FROM information_schema.schemata",
+            statement_type="SELECT",
+            result=df,
+            error=None,
+            status="success",
+        )
+        with unittest.mock.patch.object(self.svc, "execute", return_value=iter([success_result])):
+            out = self.svc.get_resources(
+                engine=self.engine,
+                connection_type="pg",
+                resource_type=None,
+                parents={},
+            )
+        self.assertEqual([r.name for r in out], ["public", "analytics", "staging"])
+        self.assertEqual([r.type for r in out], ["SCHEMA", "SCHEMA", "SCHEMA"])
+
+
+class TestGetResourcesMetadataBranch(unittest.TestCase):
+    """Tests for the SQLALCHEMY_METADATA branch of get_resources covering
+    GET_SCHEMA_NAMES, GET_TABLE_NAMES, and GET_COLUMN_NAMES actions.
+    """
+
+    def setUp(self):
+        self.svc = SqlExecutor()
+        if not hasattr(self.svc, "_transformer_classes"):
+            self.svc._transformer_classes = {}
+        self.engine = Mock(name="Engine")
+
+    def _register_transformer(self, connection_type, transformer_obj):
+        self.svc._transformer_classes[connection_type] = transformer_obj
+
+    @unittest.mock.patch("sagemaker_studio.sql_engine.sql_executor.inspect")
+    def test_get_schema_names_returns_resources(self, mock_inspect):
+        """Test GET_SCHEMA_NAMES action returns schema resources."""
+        from sagemaker_studio.sql_engine.resource_fetching_definition import (
+            SQLAlchemyMetadataAction,
+        )
+
+        mock_inspector = Mock()
+        mock_inspector.get_schema_names.return_value = ["public", "analytics"]
+        mock_inspect.return_value = mock_inspector
+
+        class Tx(DatabaseTransformer):
+            @staticmethod
+            def get_resources_action(resource_type, parents):
+                return ResourceFetchingDefinition.from_sqlalchemy_metadata(
+                    SQLAlchemyMetadataAction.GET_SCHEMA_NAMES,
+                    default_type="SCHEMA",
+                    children=("TABLE",),
+                )
+
+        self._register_transformer("pg", Tx)
+
+        out = self.svc.get_resources(
+            engine=self.engine,
+            connection_type="pg",
+            resource_type="SCHEMA",
+            parents={},
+        )
+        self.assertEqual([r.name for r in out], ["public", "analytics"])
+        self.assertEqual([r.type for r in out], ["SCHEMA", "SCHEMA"])
+        mock_inspector.get_schema_names.assert_called_once()
+
+    @unittest.mock.patch("sagemaker_studio.sql_engine.sql_executor.inspect")
+    def test_get_table_names_returns_resources(self, mock_inspect):
+        """Test GET_TABLE_NAMES action returns table resources."""
+        from sagemaker_studio.sql_engine.resource_fetching_definition import (
+            SQLAlchemyMetadataAction,
+        )
+
+        mock_inspector = Mock()
+        mock_inspector.get_table_names.return_value = ["users", "orders", "products"]
+        mock_inspect.return_value = mock_inspector
+
+        class Tx(DatabaseTransformer):
+            @staticmethod
+            def get_resources_action(resource_type, parents):
+                return ResourceFetchingDefinition.from_sqlalchemy_metadata(
+                    SQLAlchemyMetadataAction.GET_TABLE_NAMES,
+                    default_type="TABLE",
+                    children=("COLUMN",),
+                )
+
+        self._register_transformer("pg", Tx)
+
+        out = self.svc.get_resources(
+            engine=self.engine,
+            connection_type="pg",
+            resource_type="TABLE",
+            parents={"DATABASE": "mydb"},
+        )
+        self.assertEqual([r.name for r in out], ["users", "orders", "products"])
+        self.assertEqual([r.type for r in out], ["TABLE", "TABLE", "TABLE"])
+        mock_inspector.get_table_names.assert_called_once_with(schema="mydb")
+
+    @unittest.mock.patch("sagemaker_studio.sql_engine.sql_executor.inspect")
+    def test_get_column_names_returns_resources(self, mock_inspect):
+        """Test GET_COLUMN_NAMES action returns column resources."""
+        from sagemaker_studio.sql_engine.resource_fetching_definition import (
+            SQLAlchemyMetadataAction,
+        )
+
+        mock_inspector = Mock()
+        mock_inspector.get_columns.return_value = [
+            {"name": "id", "type": "INTEGER"},
+            {"name": "email", "type": "VARCHAR"},
+            {"name": "created_at", "type": "TIMESTAMP"},
+        ]
+        mock_inspect.return_value = mock_inspector
+
+        class Tx(DatabaseTransformer):
+            @staticmethod
+            def get_resources_action(resource_type, parents):
+                return ResourceFetchingDefinition.from_sqlalchemy_metadata(
+                    SQLAlchemyMetadataAction.GET_COLUMN_NAMES,
+                    default_type="COLUMN",
+                    children=(),
+                )
+
+        self._register_transformer("pg", Tx)
+
+        out = self.svc.get_resources(
+            engine=self.engine,
+            connection_type="pg",
+            resource_type="COLUMN",
+            parents={"DATABASE": "mydb", "TABLE": "users"},
+        )
+        self.assertEqual([r.name for r in out], ["id", "email", "created_at"])
+        self.assertEqual([r.type for r in out], ["COLUMN", "COLUMN", "COLUMN"])
+        mock_inspector.get_columns.assert_called_once_with(table_name="users", schema="mydb")
+
+
 class TestMultiStatementExecution(unittest.TestCase):
     def setUp(self):
         self.executor = SqlExecutor()
@@ -799,6 +1045,44 @@ class TestCreateEngine(unittest.TestCase):
 
         self.assertIn("must return 'connection_string'", str(cm.exception))
 
+    @unittest.mock.patch(
+        "sagemaker_studio.sql_engine.teradata_transformer._TERADATA_DEPS_AVAILABLE", True
+    )
+    @unittest.mock.patch("sagemaker_studio.sql_engine.sql_executor._TERADATA_AVAILABLE", True)
+    @unittest.mock.patch("sagemaker_studio.sql_engine.sql_executor.create_engine")
+    def test_create_engine_for_teradata_uses_connect_args(self, mock_create_engine):
+        """Test that TERADATA create_engine passes connect_args with dbs_port and sslmode."""
+        mock_engine = Mock()
+        mock_engine.execution_options.return_value = mock_engine
+        mock_create_engine.return_value = mock_engine
+
+        connection_data = {
+            "host": "teradata.example.com",
+            "port": 1025,
+            "database": "analytics",
+            "user": "dbadmin",
+            "password": "secret123",
+        }
+
+        # Re-create executor so it picks up the patched _TERADATA_AVAILABLE
+        executor = SqlExecutor()
+        result = executor.create_engine("TERADATA", connection_data)
+
+        # Verify URL.create() was used (connection_string is a URL object)
+        call_args = mock_create_engine.call_args
+        url_arg = call_args[0][0]
+        from sqlalchemy.engine import URL
+
+        assert isinstance(url_arg, URL)
+        assert url_arg.drivername == "teradatasql"
+        assert url_arg.username == "dbadmin"
+        assert url_arg.password == "secret123"
+        assert url_arg.host == "teradata.example.com"
+        assert url_arg.query == {"database": "analytics"}
+        # Verify connect_args includes dbs_port and TLS enforcement
+        assert call_args[1]["connect_args"] == {"dbs_port": 1025, "sslmode": "REQUIRE"}
+        assert result is mock_engine
+
     def test_create_engine_unsupported_type_raises(self):
         """Test that unsupported connection type raises ValueError."""
         with self.assertRaises(ValueError) as cm:
@@ -904,3 +1188,69 @@ class TestExecuteStatementsMetadata(unittest.TestCase):
         self.assertEqual(results[0].status, "error")
         self.assertEqual(results[0].error, "syntax error")
         self.assertIsNone(results[0].execution_metadata)
+
+
+class TestTeradataAvailability(unittest.TestCase):
+    """Tests for SqlExecutor behavior when Teradata packages are not available."""
+
+    @unittest.mock.patch("sagemaker_studio.sql_engine.sql_executor._TERADATA_AVAILABLE", False)
+    def test_teradata_not_in_supported_types_when_unavailable(self):
+        """Test that TERADATA is not listed in supported types when packages are missing."""
+        executor = SqlExecutor()
+        supported = executor.get_supported_connection_types()
+        self.assertNotIn("TERADATA", supported)
+
+    @unittest.mock.patch("sagemaker_studio.sql_engine.sql_executor._TERADATA_AVAILABLE", False)
+    def test_get_transformer_raises_import_error_for_teradata_when_unavailable(self):
+        """Test that _get_transformer raises ImportError for TERADATA when packages are missing."""
+        executor = SqlExecutor()
+        with self.assertRaises(ImportError) as cm:
+            executor._get_transformer("TERADATA")
+        self.assertIn("teradatasql", str(cm.exception))
+
+
+class TestSqlExecutorTeradataModuleImport(unittest.TestCase):
+    """Tests that cover module-level import behavior of sql_executor.py."""
+
+    def test_module_sets_teradata_unavailable_when_import_fails(self):
+        """Test that _TERADATA_AVAILABLE is False when teradata_transformer import fails.
+
+        This covers the except ImportError branch in sql_executor.py.
+        """
+        import importlib
+        import sys
+
+        import sagemaker_studio.sql_engine.sql_executor as se_module
+
+        transformer_module_name = "sagemaker_studio.sql_engine.teradata_transformer"
+        original_transformer = sys.modules.get(transformer_module_name)
+        original_teradatasql = sys.modules.get("teradatasql")
+        original_teradatasqlalchemy = sys.modules.get("teradatasqlalchemy")
+
+        try:
+            # Remove the teradata_transformer module from cache AND make it
+            # fail on reimport by poisoning the teradatasql dependency.
+            # Setting a module to None in sys.modules causes ImportError on import.
+            sys.modules[transformer_module_name] = None
+            sys.modules["teradatasql"] = None
+
+            # Reload sql_executor so module-level try/except re-executes
+            importlib.reload(se_module)
+
+            self.assertFalse(se_module._TERADATA_AVAILABLE)
+        finally:
+            # Restore original state
+            if original_teradatasql is not None:
+                sys.modules["teradatasql"] = original_teradatasql
+            else:
+                sys.modules.pop("teradatasql", None)
+            if original_teradatasqlalchemy is not None:
+                sys.modules["teradatasqlalchemy"] = original_teradatasqlalchemy
+            else:
+                sys.modules.pop("teradatasqlalchemy", None)
+            if original_transformer is not None:
+                sys.modules[transformer_module_name] = original_transformer
+            else:
+                sys.modules.pop(transformer_module_name, None)
+            # Reload to restore normal state
+            importlib.reload(se_module)

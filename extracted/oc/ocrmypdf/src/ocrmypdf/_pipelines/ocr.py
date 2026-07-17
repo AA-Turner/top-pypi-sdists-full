@@ -145,7 +145,7 @@ def exec_concurrent(context: PdfContext, executor: Executor) -> Sequence[str]:
     if options.sidecar:
         text = merge_sidecars(sidecars, context)
         # Copy text file to destination
-        copy_final(text, options.sidecar, options.input_file)
+        copy_final(text, options.sidecar)
 
     # Merge layers to one single pdf
     pdf = ocrgraft.finalize()
@@ -157,7 +157,7 @@ def exec_concurrent(context: PdfContext, executor: Executor) -> Sequence[str]:
         pdf, messages = postprocess(pdf, context, executor)
 
         # Copy PDF file to destination
-        copy_final(pdf, options.output_file, options.input_file)
+        copy_final(pdf, options.output_file)
     return messages
 
 

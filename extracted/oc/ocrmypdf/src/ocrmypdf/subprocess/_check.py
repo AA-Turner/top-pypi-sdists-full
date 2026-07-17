@@ -94,7 +94,10 @@ def _error_trailer(program: str, package: str | Mapping[str, str], **kwargs) -> 
 
 
 def _error_missing_program(
-    program: str, package: str, required_for: str | None, recommended: bool
+    program: str,
+    package: str | Mapping[str, str],
+    required_for: str | None,
+    recommended: bool,
 ) -> None:
     # pylint: disable=unused-argument
     if recommended:
@@ -108,7 +111,7 @@ def _error_missing_program(
 
 def _error_old_version(
     program: str,
-    package: str,
+    package: str | Mapping[str, str],
     need_version: str,
     found_version: str,
     required_for: str | None,
@@ -124,7 +127,7 @@ def _error_old_version(
 def check_external_program(
     *,
     program: str,
-    package: str,
+    package: str | Mapping[str, str],
     version_checker: Callable[[], Version],
     need_version: str | Version,
     required_for: str | None = None,

@@ -12,6 +12,7 @@ import blackjax.mcmc.dynamic_hmc as dynamic_hmc
 import blackjax.optimizers.dual_averaging as dual_averaging
 from blackjax.adaptation.base import AdaptationResults, return_all_adapt_info
 from blackjax.adaptation.mass_matrix import welford_algorithm
+from blackjax.adaptation.metric_buffers import MomentBlock, cgl_update_batch
 from blackjax.base import AdaptationAlgorithm
 from blackjax.types import Array, ArrayLikeTree, PRNGKey
 from blackjax.util import pytree_size
@@ -126,55 +127,6 @@ _LENGTH_FLOOR_FINAL_POWER_ITERATIONS = 20
 _LENGTH_FLOOR_LAMBDA_EPS = 1e-6
 
 
-class _ChEESCovAccumulatorState(NamedTuple):
-    """Running Chan/Welford full covariance accumulator for the slow-
-    direction trajectory-length floor's ``lambda_max`` estimate.
-
-    Mirrors ``meads_adaptation``'s ``_LowRankAccumulatorState`` (identical
-    mean/M2/count recurrence) -- mirrored here rather than imported, to keep
-    this feature's diff self-contained to ``chees_adaptation.py``
-    (``meads_adaptation.py`` is out of scope for this change). Accumulated
-    over the SAME late-warmup window, from the SAME per-step ensemble batch,
-    as the diagonal mass-matrix Welford accumulator (``mm_accum``) -- but
-    tracks the full ``num_dim x num_dim`` second moment (not just the
-    diagonal), since the floor needs the ensemble's cross-dimension
-    structure, not just its per-dimension scale.
-    """
-
-    mean: Array
-    m2: Array
-    count: Array
-
-
-def _cov_accumulator_init(num_dim: int) -> _ChEESCovAccumulatorState:
-    return _ChEESCovAccumulatorState(
-        mean=jnp.zeros((num_dim,)),
-        m2=jnp.zeros((num_dim, num_dim)),
-        count=jnp.zeros(()),
-    )
-
-
-def _cov_accumulator_update(
-    acc: _ChEESCovAccumulatorState, batch: Array
-) -> _ChEESCovAccumulatorState:
-    """Merge a batch of samples, shape ``(n_b, num_dim)`` (one step's
-    ensemble of ``num_chains`` positions), into the running accumulator via
-    Chan et al.'s parallel/batch generalization of Welford's algorithm --
-    the same recurrence ``meads_adaptation._lrd_accumulator_update`` uses.
-    """
-    mean_a, m2_a, n_a = acc
-    n_b = batch.shape[0]
-    mean_b = jnp.mean(batch, axis=0)
-    centered_b = batch - mean_b[None, :]
-    m2_b = centered_b.T @ centered_b
-
-    delta = mean_b - mean_a
-    n_ab = n_a + n_b
-    mean_ab = mean_a + delta * (n_b / n_ab)
-    m2_ab = m2_a + m2_b + jnp.outer(delta, delta) * (n_a * n_b / n_ab)
-    return _ChEESCovAccumulatorState(mean=mean_ab, m2=m2_ab, count=n_ab)
-
-
 class _ChEESEigState(NamedTuple):
     """Warm-startable top-eigenvector/eigenvalue estimate of the WHITENED
     ensemble covariance (``D^{-1/2} C_hat D^{-1/2}``, ``D`` = the currently
@@ -215,7 +167,7 @@ def _power_iteration_lambda_max(
 
 
 def _recompute_eig_state(
-    cov_accum: _ChEESCovAccumulatorState,
+    cov_accum: MomentBlock,
     inverse_mass_matrix: Array,
     eig_state: _ChEESEigState,
     num_iterations: int = _LENGTH_FLOOR_POWER_ITERATIONS,
@@ -725,6 +677,18 @@ def chees_adaptation(
         of it. Cold or dispersed initialization on hard geometry is a separate
         warmup-robustness limitation, out of scope for this feature.
 
+        GPU-scale validation (2× independent runs, ensembles up to 5000 chains): the
+        ``"diagonal"`` metric with the trajectory-length floor additionally makes the
+        adaptation robust to *dispersed* initializations — e.g. per-chain uniform box
+        inits on the unconstrained space, which catastrophically break identity-metric
+        ChEES on scale-separated targets (dispersion inflates the cross-chain jump-distance
+        criterion, driving the adapted trajectory length down; the floor's √λ_max term
+        grows with ensemble dispersion and self-corrects). A dispersed initialization is
+        also what gives R̂ its diagnostic power: initializing all chains at a single point
+        (e.g. the origin) can produce clean R̂ that is structurally blind to same-basin
+        non-equilibrium — prefer dispersed inits and treat single-point-init R̂ with
+        caution.
+
         Engagement gate: before the pooled accumulator (effective sample
         size ``num_chains * window_steps``) exceeds ``max(64, 2*sqrt(num_dim))``
         -- a modest floor chosen because a per-dimension variance estimate,
@@ -927,7 +891,7 @@ def chees_adaptation(
                 # implies estimate_mass_matrix (see its derivation above).
                 new_cov_accum = jax.lax.cond(
                     in_window,
-                    lambda acc: _cov_accumulator_update(acc, flat_positions),
+                    lambda acc: cgl_update_batch(acc, flat_positions),
                     lambda acc: acc,
                     cov_accum,
                 )
@@ -955,7 +919,21 @@ def chees_adaptation(
         init_states = batch_init(positions)
         init_adaptation_state = init(init_random_arg, step_size)
         init_mm_accum = wc_init(num_dim) if estimate_mass_matrix else None
-        init_cov_accum = _cov_accumulator_init(num_dim) if enable_length_floor else None
+        # Full-covariance moment block for the trajectory-length floor's
+        # lambda_max estimate: accumulated over the SAME late-warmup window,
+        # from the SAME per-step ensemble batch, as the diagonal mass-matrix
+        # Welford accumulator (mm_accum) -- but tracking the full
+        # num_dim x num_dim second moment, since the floor needs the
+        # ensemble's cross-dimension structure, not just per-dimension scale.
+        init_cov_accum = (
+            MomentBlock(
+                count=jnp.zeros(()),
+                mean=jnp.zeros((num_dim,)),
+                m2=jnp.zeros((num_dim, num_dim)),
+            )
+            if enable_length_floor
+            else None
+        )
         init_eig_state = _eig_state_init(num_dim) if enable_length_floor else None
 
         keys_step = jax.random.split(rng_key, num_steps)

@@ -161,6 +161,14 @@ class TestResolvedServerConfig:
         assert binding.standalone_main_thread is True
         assert binding.register_inprocess_executor is True
 
+    def test_execution_binding_keeps_inline_subprocess_isolation_by_default(self):
+        binding = resolve_execution_binding(InlineExecution)
+
+        assert binding.bridge is None
+        assert binding.dispatcher is None
+        assert binding.standalone_main_thread is False
+        assert binding.register_inprocess_executor is False
+
     def test_context_metadata_from_env_includes_dcc_specific_paths(self, monkeypatch):
         monkeypatch.setenv("DCC_MCP_PROJECT", "show-a")
         monkeypatch.setenv("DCC_MCP_HOUDINI_SKILL_PATHS", "C:/show/skills")
@@ -266,7 +274,7 @@ class TestDccServerOptions:
     def test_minimal_construction(self, tmp_path):
         opts = DccServerOptions(dcc_name="test", builtin_skills_dir=tmp_path)
         assert opts.dcc_name == "test"
-        assert opts.port == 8765
+        assert opts.port == 0
         assert opts.gateway.enable_failover is True
 
     def test_frozen(self, tmp_path):
@@ -277,7 +285,29 @@ class TestDccServerOptions:
     def test_from_env_minimal(self, tmp_path):
         opts = DccServerOptions.from_env("blender", tmp_path)
         assert opts.dcc_name == "blender"
+        assert opts.port == 0
         assert opts.execution.mode is InlineExecution
+
+    def test_from_env_reads_dcc_port(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DCC_MCP_SUBSTANCE3D_PAINTER_PORT", "18812")
+
+        opts = DccServerOptions.from_env("substance3d-painter", tmp_path)
+
+        assert opts.port == 18812
+
+    def test_from_env_explicit_zero_wins_over_dcc_port(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DCC_MCP_NUKE_PORT", "8765")
+
+        opts = DccServerOptions.from_env("nuke", tmp_path, port=0)
+
+        assert opts.port == 0
+
+    @pytest.mark.parametrize("value", ["invalid", "65536", "-1"])
+    def test_from_env_rejects_invalid_dcc_port(self, tmp_path, monkeypatch, value):
+        monkeypatch.setenv("DCC_MCP_MAYA_PORT", value)
+
+        with pytest.raises(ValueError, match="DCC_MCP_MAYA_PORT"):
+            DccServerOptions.from_env("maya", tmp_path)
 
     def test_from_env_dispatcher(self, tmp_path):
         dispatcher = MagicMock()

@@ -3048,7 +3048,6 @@ class EvaluationErrorKind(pycarlo.lib.types.Enum):
     * `CATALOG_INCONSISTENT`None
     * `INVOCATION_FAILED`None
     * `MALFORMED_RESPONSE`None
-    * `MODEL_NOT_FOUND`None
     * `SPAN_REJECTED`None
     * `SQL_TEMPLATE_UNSUPPORTED`None
     * `TEMPLATE_NOT_FOUND`None
@@ -3060,7 +3059,6 @@ class EvaluationErrorKind(pycarlo.lib.types.Enum):
         "CATALOG_INCONSISTENT",
         "INVOCATION_FAILED",
         "MALFORMED_RESPONSE",
-        "MODEL_NOT_FOUND",
         "SPAN_REJECTED",
         "SQL_TEMPLATE_UNSUPPORTED",
         "TEMPLATE_NOT_FOUND",
@@ -5744,6 +5742,25 @@ class PerformanceDashboardAccessValidationCode(pycarlo.lib.types.Enum):
     __choices__ = ("Admin_Disabled", "Ok", "Unauthorized", "Unsupported_Warehouse")
 
 
+class PerformanceInsightCategory(pycarlo.lib.types.Enum):
+    """Finding type of a cost/performance insight.      Mirrors the ai-
+    agent ``CostInsight.category`` contract; the GraphQL enum is
+    derived from this via ``graphene.Enum.from_enum``. Unknown values
+    emitted by     a newer agent are coerced to ``None`` rather than
+    surfaced.
+
+    Enumeration Choices:
+
+    * `READ`None
+    * `RUNTIME`None
+    * `STORAGE`None
+    * `WRITE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("READ", "RUNTIME", "STORAGE", "WRITE")
+
+
 class PeriodGrouping(pycarlo.lib.types.Enum):
     """Time size of the periods.
 
@@ -6081,6 +6098,17 @@ class PiiMonitorMode(pycarlo.lib.types.Enum):
     __choices__ = ("ALERT", "SCAN")
 
 
+class PiiScanReviewState(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `ACTIVE`None
+    * `FALSE_POSITIVE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ACTIVE", "FALSE_POSITIVE")
+
+
 class PiiType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -6302,11 +6330,12 @@ class Provider(pycarlo.lib.types.Enum):
 
     * `AZURE_DEVOPS`None
     * `GITHUB`None
+    * `GITHUB_ACTION_TRIGGER`None
     * `GITLAB`None
     """
 
     __schema__ = schema
-    __choices__ = ("AZURE_DEVOPS", "GITHUB", "GITLAB")
+    __choices__ = ("AZURE_DEVOPS", "GITHUB", "GITHUB_ACTION_TRIGGER", "GITLAB")
 
 
 class ProvisioningSchema(pycarlo.lib.types.Enum):
@@ -11428,7 +11457,7 @@ class EvalSchemaFieldInput(sgqlc.types.Input):
 
 class EvaluationTemplateRef(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("template_name", "alias", "prompt_override", "model_name")
+    __field_names__ = ("template_name", "alias", "prompt_override")
     template_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="templateName")
     """Template name; must exist in the transformations catalog."""
 
@@ -11441,11 +11470,6 @@ class EvaluationTemplateRef(sgqlc.types.Input):
     """Replacement prompt body that overrides the template's catalog
     prompt. May reference Jinja-style placeholders that the engine
     substitutes with the span's prompts and completions.
-    """
-
-    model_name = sgqlc.types.Field(String, graphql_name="modelName")
-    """Override the Bedrock model used for this evaluation. Defaults to
-    the LLMModelCatalog's default Bedrock model.
     """
 
 
@@ -12104,7 +12128,6 @@ class GetConversationEvalInput(sgqlc.types.Input):
         "start_time",
         "end_time",
         "eval_dimensions",
-        "model_name",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
     """Agent name"""
@@ -12131,11 +12154,6 @@ class GetConversationEvalInput(sgqlc.types.Input):
     )
     """One to 7 eval dimensions to apply. Results are returned in the
     same order as the requested dimensions.
-    """
-
-    model_name = sgqlc.types.Field(String, graphql_name="modelName")
-    """Override the Bedrock model used. Defaults to the catalog's default
-    Bedrock model.
     """
 
 
@@ -14500,7 +14518,11 @@ class ScheduleConfigInput(sgqlc.types.Input):
     """Type of schedule"""
 
     interval_minutes = sgqlc.types.Field(Int, graphql_name="intervalMinutes")
-    """Time interval between job executions, in minutes"""
+    """Time interval between job executions, in minutes. For
+    schedule_type=dynamic: omit (or null) to use the default interval;
+    set to 0 so the monitor only runs when triggered, not on a
+    schedule; positive values set a custom interval.
+    """
 
     dynamic_schedule_mcons = sgqlc.types.Field(
         sgqlc.types.list_of(String), graphql_name="dynamicScheduleMcons"
@@ -19577,6 +19599,55 @@ class AgentCapabilityCreditConsumption(sgqlc.types.Type):
 
     as_of = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="asOf")
     """The moment the snapshot was computed."""
+
+
+class AgentClassificationOutput(sgqlc.types.Type):
+    """Classification of an AI-observability agent: its origin (user
+    trace table vs platform agent), platform integration, and which
+    span store serves its traces.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "source_type",
+        "trace_backend",
+        "platform_agent_type",
+        "name",
+        "display_name",
+        "trace_table_mcon",
+    )
+    source_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sourceType")
+    """'trace_table' for user-managed trace tables, 'platform_agent' for
+    platform agents (lowercase raw values).
+    """
+
+    trace_backend = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceBackend")
+    """Which span store serves the agent's traces: 'clickhouse' for the
+    AO-managed otel store, 'timescale' for everything else (lowercase
+    raw values).
+    """
+
+    platform_agent_type = sgqlc.types.Field(String, graphql_name="platformAgentType")
+    """Platform integration: 'snowflake' | 'databricks_mlflow_sdk' |
+    'databricks_mlflow_ka' | 'databricks_genie'. Null for user-managed
+    trace-table agents.
+    """
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Registered agent name (the space_id for Genie agents). For trace-
+    table agents this echoes the caller-supplied agentName; null when
+    unknown.
+    """
+
+    display_name = sgqlc.types.Field(String, graphql_name="displayName")
+    """Friendly display name with agent-name fallback; null when neither
+    is known.
+    """
+
+    trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")
+    """The agent's span-storage mcon — the real trace-table mcon, or the
+    synthetic aiagent mcon for Snowflake platform agents.
+    """
 
 
 class AgentCustomConnectors(sgqlc.types.Type):
@@ -25865,7 +25936,7 @@ class ConversationEvalDimensionError(sgqlc.types.Type):
     __field_names__ = ("kind", "message")
     kind = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="kind")
     """Failure category. One of SPAN_REJECTED, TEMPLATE_NOT_FOUND,
-    SQL_TEMPLATE_UNSUPPORTED, CATALOG_INCONSISTENT, MODEL_NOT_FOUND,
+    SQL_TEMPLATE_UNSUPPORTED, CATALOG_INCONSISTENT,
     MALFORMED_RESPONSE, INVOCATION_FAILED, TIMEOUT.
     """
 
@@ -30987,6 +31058,18 @@ class DeleteFinding(sgqlc.types.Type):
     """
 
 
+class DeleteGithubActionTriggerAppInstallation(sgqlc.types.Type):
+    """Disconnect a Monte Carlo Action Trigger App installation.  Best-
+    effort uninstalls the app on the GitHub side, then removes the
+    local record and cached credentials.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deleted")
+    """True if deleting the installation was successful"""
+
+
 class DeleteGithubInstallation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("deleted",)
@@ -35603,6 +35686,103 @@ class GetTableauAssetWarningByIdResponse(sgqlc.types.Type):
     """The message body of the warning."""
 
 
+class GithubActionTriggerAppInfo(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("install_link", "installations")
+    install_link = sgqlc.types.Field(String, graphql_name="installLink")
+    """Link to click in order to install the Monte Carlo Action Trigger
+    GitHub App. Null when draft-PR workflow dispatch is not enabled
+    for your account.
+    """
+
+    installations = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("GithubActionTriggerAppInstallation")),
+        graphql_name="installations",
+    )
+    """Linked Monte Carlo Action Trigger App installations. Null when the
+    caller lacks permission to view alerts.
+    """
+
+
+class GithubActionTriggerAppInstallation(sgqlc.types.Type):
+    """An installation of the Monte Carlo Action Trigger GitHub App.  The
+    app can only dispatch GitHub Actions workflows (and read
+    repository metadata) — it has no access to code, and draft PRs are
+    opened by the customer's own workflow with its own credentials.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "gh_org",
+        "display_name",
+        "settings_link",
+        "dispatch_config",
+        "permissions",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Internal UUID of the installation"""
+
+    gh_org = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ghOrg")
+    """GitHub organization the app is installed in"""
+
+    display_name = sgqlc.types.Field(String, graphql_name="displayName")
+    """Custom display name; null when unset — display the organization
+    name (ghOrg) instead
+    """
+
+    settings_link = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="settingsLink")
+    """GitHub settings page where the customer manages this installation"""
+
+    dispatch_config = sgqlc.types.Field(
+        "GithubActionTriggerDispatchConfig", graphql_name="dispatchConfig"
+    )
+    """Draft-PR dispatch target; null until configured"""
+
+    permissions = sgqlc.types.Field(
+        "GithubActionTriggerInstallationPermissions", graphql_name="permissions"
+    )
+    """Live permission and repository-scope info from GitHub; null when
+    GitHub cannot be reached
+    """
+
+
+class GithubActionTriggerDispatchConfig(sgqlc.types.Type):
+    """Target workflow for draft-PR dispatches from health-agent
+    findings.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("repo", "workflow_file", "ref")
+    repo = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="repo")
+    """Repository name inside the installation's GitHub organization"""
+
+    workflow_file = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="workflowFile")
+    """Workflow file name in the repository, e.g. mc-draft-pr.yml"""
+
+    ref = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ref")
+    """Git ref whose copy of the workflow is run, e.g. main"""
+
+
+class GithubActionTriggerInstallationPermissions(sgqlc.types.Type):
+    """Live permission info for an action-trigger app installation,
+    fetched from GitHub.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("actions", "metadata", "repository_selection")
+    actions = sgqlc.types.Field(String, graphql_name="actions")
+    """Granted Actions permission level, e.g. "write". Workflow dispatch
+    requires write.
+    """
+
+    metadata = sgqlc.types.Field(String, graphql_name="metadata")
+    '''Granted Metadata permission level, e.g. "read"'''
+
+    repository_selection = sgqlc.types.Field(String, graphql_name="repositorySelection")
+    '''Which repositories the installation covers: "all" or "selected"'''
+
+
 class GithubAppInfo(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("install_link", "installations")
@@ -38360,6 +38540,20 @@ class LinkDatadogIncidentForAlert(sgqlc.types.Type):
     """The linked Datadog incident"""
 
 
+class LinkGithubActionTriggerAppInstallation(sgqlc.types.Type):
+    """Called from the FE post-install callback (Setup URL redirect) for
+    the Monte Carlo Action Trigger GitHub App.  GitHub appends
+    ``installation_id`` and an OAuth ``code`` to the Setup URL; the
+    backend exchanges the code and verifies the user controls the
+    installation before linking it to the account.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """True if linking the installation was successful"""
+
+
 class LinkGithubAppInstallation(sgqlc.types.Type):
     """Called from the FE as part of the post-installation callback. The
     "code" parameter is used to validate that the request is an
@@ -38654,6 +38848,15 @@ class ManyToManyChange(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(String)), graphql_name="objectNames"
     )
     """Related objects"""
+
+
+class MarkPiiScanFindingFalsePositive(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("ok", "review")
+    ok = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="ok")
+
+    review = sgqlc.types.Field(sgqlc.types.non_null("PiiScanFindingReview"), graphql_name="review")
+    """Review state created or reactivated by this mutation."""
 
 
 class MatchAndCreateBiWarehouseSources(sgqlc.types.Type):
@@ -40532,6 +40735,10 @@ class Mutation(sgqlc.types.Type):
         "update_ci_gate_config",
         "delete_ci_gate_repo_override",
         "delete_github_installation",
+        "link_github_action_trigger_app_installation",
+        "delete_github_action_trigger_app_installation",
+        "update_github_action_trigger_dispatch_config",
+        "trigger_github_action_draft_pr_workflow",
         "register_github_app_on_ghes",
         "register_gitlab_app",
         "link_gitlab_app",
@@ -40877,6 +41084,7 @@ class Mutation(sgqlc.types.Type):
         "toggle_mute_tables",
         "toggle_mute_with_regex",
         "toggle_slack_reply_warning",
+        "toggle_slack_agent_dispatch",
         "toggle_slack_broadcast_updates",
         "toggle_connection_enable",
         "add_connection",
@@ -40939,6 +41147,8 @@ class Mutation(sgqlc.types.Type):
         "test_glue_credentials_v2",
         "test_dbt_cloud_credentials_v2",
         "create_pii_monitor",
+        "mark_pii_scan_finding_false_positive",
+        "restore_pii_scan_finding_false_positive",
         "create_or_update_bulk_monitor",
         "delete_bulk_monitor",
         "pause_bulk_monitor",
@@ -46526,6 +46736,131 @@ class Mutation(sgqlc.types.Type):
 
     * `installation_uuid` (`UUID!`): Internal UUID of the installation
       to delete
+    """
+
+    link_github_action_trigger_app_installation = sgqlc.types.Field(
+        LinkGithubActionTriggerAppInstallation,
+        graphql_name="linkGithubActionTriggerAppInstallation",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "code",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="code", default=None
+                    ),
+                ),
+                (
+                    "installation_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="installationId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Links a Monte Carlo Action Trigger GitHub App
+    installation
+
+    Arguments:
+
+    * `code` (`String!`): OAuth authorization code passed from GitHub
+    * `installation_id` (`String!`): GitHub App installation id from
+      the Setup URL callback
+    """
+
+    delete_github_action_trigger_app_installation = sgqlc.types.Field(
+        DeleteGithubActionTriggerAppInstallation,
+        graphql_name="deleteGithubActionTriggerAppInstallation",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Deletes a Monte Carlo Action Trigger GitHub App
+    installation
+
+    Arguments:
+
+    * `installation_uuid` (`UUID!`): Internal UUID of the installation
+      to delete
+    """
+
+    update_github_action_trigger_dispatch_config = sgqlc.types.Field(
+        "UpdateGithubActionTriggerDispatchConfig",
+        graphql_name="updateGithubActionTriggerDispatchConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+                ("ref", sgqlc.types.Arg(String, graphql_name="ref", default="main")),
+                (
+                    "repo",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="repo", default=None
+                    ),
+                ),
+                (
+                    "workflow_file",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="workflowFile", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Sets the draft-PR dispatch target for an action-
+    trigger app installation
+
+    Arguments:
+
+    * `installation_uuid` (`UUID!`): UUID of the installation to
+      configure
+    * `ref` (`String`): Git ref whose copy of the workflow is run
+      (default: main) (default: `"main"`)
+    * `repo` (`String!`): Repository name without owner — the owner is
+      the installation's organization
+    * `workflow_file` (`String!`): Workflow file name in the
+      repository, e.g. mc-draft-pr.yml
+    """
+
+    trigger_github_action_draft_pr_workflow = sgqlc.types.Field(
+        "TriggerGithubActionDraftPrWorkflow",
+        graphql_name="triggerGithubActionDraftPrWorkflow",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "finding_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="findingUuid", default=None
+                    ),
+                ),
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="installationUuid", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Dispatches the customer's draft-PR workflow with a
+    finding's context
+
+    Arguments:
+
+    * `finding_uuid` (`UUID!`): UUID of the finding whose context is
+      dispatched
+    * `installation_uuid` (`UUID`): Installation to dispatch through.
+      Optional when the account has exactly one configured
+      installation.
     """
 
     register_github_app_on_ghes = sgqlc.types.Field(
@@ -60233,6 +60568,31 @@ class Mutation(sgqlc.types.Type):
     * `team_id` (`String`): Slack Team ID
     """
 
+    toggle_slack_agent_dispatch = sgqlc.types.Field(
+        "ToggleSlackAgentDispatch",
+        graphql_name="toggleSlackAgentDispatch",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "enable",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean), graphql_name="enable", default=None
+                    ),
+                ),
+                ("team_id", sgqlc.types.Arg(String, graphql_name="teamId", default=None)),
+            )
+        ),
+    )
+    """(experimental) Enable/disable dispatching this workspace's
+    notifications via the Monte Carlo AI (agent) Slack app instead of
+    the Monte Carlo app.
+
+    Arguments:
+
+    * `enable` (`Boolean!`): If true, enable the feature
+    * `team_id` (`String`): Slack Team ID
+    """
+
     toggle_slack_broadcast_updates = sgqlc.types.Field(
         "ToggleSlackBroadcastUpdates",
         graphql_name="toggleSlackBroadcastUpdates",
@@ -62553,6 +62913,100 @@ class Mutation(sgqlc.types.Type):
       with Snowflake user-defined warehouse tags. Defaults to false.
       (default: `false`)
     * `warehouse_uuid` (`UUID!`): Warehouse UUID
+    """
+
+    mark_pii_scan_finding_false_positive = sgqlc.types.Field(
+        MarkPiiScanFindingFalsePositive,
+        graphql_name="markPiiScanFindingFalsePositive",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "field_key",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="fieldKey", default=None
+                    ),
+                ),
+                (
+                    "full_table_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="fullTableId", default=None
+                    ),
+                ),
+                (
+                    "pii_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(PiiType), graphql_name="piiType", default=None
+                    ),
+                ),
+                ("reason", sgqlc.types.Arg(String, graphql_name="reason", default=None)),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Mark a PII scan finding as not PII.
+
+    Arguments:
+
+    * `field_key` (`String!`): Column key to mark as not PII. Matching
+      is case-insensitive.
+    * `full_table_id` (`String!`): Fully qualified table identifier
+      for the finding to mark as not PII.
+    * `pii_type` (`PiiType!`): PII type to mark as not PII.
+    * `reason` (`String`): Optional free-text reason for marking the
+      finding as not PII.
+    * `warehouse_uuid` (`UUID!`): Warehouse UUID for the finding to
+      mark as not PII.
+    """
+
+    restore_pii_scan_finding_false_positive = sgqlc.types.Field(
+        "RestorePiiScanFindingFalsePositive",
+        graphql_name="restorePiiScanFindingFalsePositive",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "field_key",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="fieldKey", default=None
+                    ),
+                ),
+                (
+                    "full_table_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="fullTableId", default=None
+                    ),
+                ),
+                (
+                    "pii_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(PiiType), graphql_name="piiType", default=None
+                    ),
+                ),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Restore a PII scan finding previously marked as not
+    PII.
+
+    Arguments:
+
+    * `field_key` (`String!`): Column key to restore. Matching is
+      case-insensitive.
+    * `full_table_id` (`String!`): Fully qualified table identifier
+      for the finding to restore.
+    * `pii_type` (`PiiType!`): PII type to restore.
+    * `warehouse_uuid` (`UUID!`): Warehouse UUID for the finding to
+      restore.
     """
 
     create_or_update_bulk_monitor = sgqlc.types.Field(
@@ -65397,9 +65851,26 @@ class PerformancePageInsightOutput(sgqlc.types.Type):
     """A single insight surfaced on the Performance Page."""
 
     __schema__ = schema
-    __field_names__ = ("title", "content", "related_mcons", "related_warehouses")
+    __field_names__ = (
+        "title",
+        "headline",
+        "category",
+        "content",
+        "related_mcons",
+        "related_warehouses",
+    )
     title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
-    """Short insight headline."""
+    """Full insight title, as a sentence."""
+
+    headline = sgqlc.types.Field(String, graphql_name="headline")
+    """Short, scannable version of the title for card display. Null when
+    the run did not produce one.
+    """
+
+    category = sgqlc.types.Field(PerformanceInsightCategory, graphql_name="category")
+    """Finding type of the insight. Null when the insight has no single
+    applicable category.
+    """
 
     content = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="content")
     """Insight body."""
@@ -65565,6 +66036,7 @@ class PiiScanColumnSummary(sgqlc.types.Type):
     __field_names__ = (
         "table_mcon",
         "full_table_id",
+        "warehouse_uuid",
         "project_name",
         "dataset",
         "table_name",
@@ -65587,10 +66059,18 @@ class PiiScanColumnSummary(sgqlc.types.Type):
         "status",
         "action_type",
         "asset_mcon",
+        "review_state",
+        "review_reason",
+        "reviewed_at",
     )
     table_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tableMcon")
 
     full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
+
+    warehouse_uuid = sgqlc.types.Field(UUID, graphql_name="warehouseUuid")
+    """Warehouse UUID for this grouped row. Null when a warehouse-tag
+    source cannot be mapped to a warehouse.
+    """
 
     project_name = sgqlc.types.Field(String, graphql_name="projectName")
 
@@ -65671,6 +66151,17 @@ class PiiScanColumnSummary(sgqlc.types.Type):
     asset_mcon = sgqlc.types.Field(String, graphql_name="assetMcon")
     """Field asset MCON for asset-page navigation."""
 
+    review_state = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="reviewState")
+    """Review state for this grouped row. ACTIVE means it is not
+    currently marked as a false positive.
+    """
+
+    review_reason = sgqlc.types.Field(String, graphql_name="reviewReason")
+    """Optional free-text reason for the review state."""
+
+    reviewed_at = sgqlc.types.Field(DateTime, graphql_name="reviewedAt")
+    """When this grouped row was marked as not PII."""
+
 
 class PiiScanFinding(sgqlc.types.Type):
     """A latest nonzero finding from a PII scan monitor"""
@@ -65679,7 +66170,9 @@ class PiiScanFinding(sgqlc.types.Type):
     __field_names__ = (
         "table_mcon",
         "full_table_id",
+        "warehouse_uuid",
         "field",
+        "field_key",
         "pii_type",
         "metric",
         "match_rate",
@@ -65690,12 +66183,23 @@ class PiiScanFinding(sgqlc.types.Type):
         "bulk_monitor_uuid",
         "bulk_monitor_name",
         "alert_uuid",
+        "review_state",
+        "review_reason",
+        "reviewed_at",
     )
     table_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tableMcon")
 
     full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
 
+    warehouse_uuid = sgqlc.types.Field(UUID, graphql_name="warehouseUuid")
+    """Warehouse UUID for this finding, when the source can be mapped to
+    a warehouse.
+    """
+
     field = sgqlc.types.Field(String, graphql_name="field")
+
+    field_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fieldKey")
+    """Normalized lowercase column key used to group findings."""
 
     pii_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="piiType")
 
@@ -65718,6 +66222,60 @@ class PiiScanFinding(sgqlc.types.Type):
     bulk_monitor_name = sgqlc.types.Field(String, graphql_name="bulkMonitorName")
 
     alert_uuid = sgqlc.types.Field(UUID, graphql_name="alertUuid")
+
+    review_state = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="reviewState")
+    """Review state for this finding. ACTIVE means it is not currently
+    marked as a false positive.
+    """
+
+    review_reason = sgqlc.types.Field(String, graphql_name="reviewReason")
+    """Optional free-text reason for the review state."""
+
+    reviewed_at = sgqlc.types.Field(DateTime, graphql_name="reviewedAt")
+    """When this finding was marked as not PII."""
+
+
+class PiiScanFindingReview(sgqlc.types.Type):
+    """User review state for one PII scan finding identity."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "warehouse_uuid",
+        "full_table_id",
+        "field_key",
+        "pii_type",
+        "state",
+        "reason",
+        "is_active",
+        "reviewed_at",
+        "restored_at",
+    )
+    warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
+    """Warehouse UUID for the reviewed finding."""
+
+    full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
+    """Fully qualified table identifier for the reviewed finding."""
+
+    field_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fieldKey")
+    """Normalized lowercase column key for the reviewed finding."""
+
+    pii_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="piiType")
+    """PII type for the reviewed finding."""
+
+    state = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="state")
+    """Current review state."""
+
+    reason = sgqlc.types.Field(String, graphql_name="reason")
+    """Optional free-text reason supplied by the reviewer."""
+
+    is_active = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isActive")
+    """Whether this review state is currently applied."""
+
+    reviewed_at = sgqlc.types.Field(DateTime, graphql_name="reviewedAt")
+    """When the finding was marked as not PII."""
+
+    restored_at = sgqlc.types.Field(DateTime, graphql_name="restoredAt")
+    """When the finding was restored, if applicable."""
 
 
 class PiiScanFindingsSummary(sgqlc.types.Type):
@@ -66967,6 +67525,7 @@ class Query(sgqlc.types.Type):
         "get_conversation_message_content_v2",
         "get_tool_detail",
         "get_agent_details",
+        "get_agent_classification",
         "get_node_detail",
         "get_trace_explanation",
         "get_conversation_explanation",
@@ -67089,6 +67648,7 @@ class Query(sgqlc.types.Type):
         "get_ms_teams_integrations",
         "get_ms_teams_channels",
         "get_github_integrations",
+        "get_github_action_trigger_integrations",
         "get_gitlab_integrations",
         "get_gitlab_integration",
         "get_github_pull_requests",
@@ -68858,6 +69418,46 @@ class Query(sgqlc.types.Type):
       trailing 7-day window and are not configurable.
     """
 
+    get_agent_classification = sgqlc.types.Field(
+        AgentClassificationOutput,
+        graphql_name="getAgentClassification",
+        args=sgqlc.types.ArgDict(
+            (
+                ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
+                ("object_id", sgqlc.types.Arg(String, graphql_name="objectId", default=None)),
+                ("resource_uuid", sgqlc.types.Arg(UUID, graphql_name="resourceUuid", default=None)),
+                ("agent_name", sgqlc.types.Arg(String, graphql_name="agentName", default=None)),
+            )
+        ),
+    )
+    """(experimental) Classify the agent-observability agent behind an
+    anchor — sourceType, platformAgentType, traceBackend, plus
+    identity (name/displayName/traceTableMcon). Anchor is a full mcon,
+    or an (objectId, resourceUuid) pair resolved server-side. Returns
+    null when the anchor resolves to no known asset. The same
+    classification reported per-row on an incident's agent breakdown,
+    without needing an incident.
+
+    Arguments:
+
+    * `mcon` (`String`): Full span-storage MCON that anchors the agent
+      — a trace-table (``table``-kind) mcon or a platform-agent
+      (``aiagent``-kind) mcon. Takes precedence over
+      objectId/resourceUuid when both are supplied.
+    * `object_id` (`String`): objectId as produced by MCON-parsing
+      utilities — the portion after the kind segment: a table's
+      ``db:schema.table`` id or a Snowflake platform agent's
+      ``db:schema.name`` reference — the two are shape-ambiguous,
+      which is why resolution happens server-side. Requires
+      ``resourceUuid``.
+    * `resource_uuid` (`UUID`): Warehouse (resource) UUID that owns
+      the objectId.
+    * `agent_name` (`String`): Optional agent name. Disambiguates
+      multiplexed Genie spaces sharing one collector trace table, and
+      doubles as a trace-table agent's span-derived name (which the
+      mcon alone cannot supply).
+    """
+
     get_node_detail = sgqlc.types.Field(
         NodeDetail,
         graphql_name="getNodeDetail",
@@ -70300,6 +70900,12 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "review_state",
+                    sgqlc.types.Arg(
+                        PiiScanReviewState, graphql_name="reviewState", default="ACTIVE"
+                    ),
+                ),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=500)),
                 ("columns_limit", sgqlc.types.Arg(Int, graphql_name="columnsLimit", default=500)),
                 ("columns_offset", sgqlc.types.Arg(Int, graphql_name="columnsOffset", default=0)),
@@ -70320,6 +70926,9 @@ class Query(sgqlc.types.Type):
       database/project filter.
     * `datasets` (`[String!]`): Limit inventory to schema/dataset
       names. Null or an empty list means no schema/dataset filter.
+    * `review_state` (`PiiScanReviewState`): ACTIVE returns current
+      inventory and excludes false positives. FALSE_POSITIVE returns
+      the suppressed audit view. (default: `"ACTIVE"`)
     * `limit` (`Int`)None (default: `500`)
     * `columns_limit` (`Int`): Maximum grouped inventory rows to
       return. (default: `500`)
@@ -72504,6 +73113,13 @@ class Query(sgqlc.types.Type):
 
     get_github_integrations = sgqlc.types.Field(GithubAppInfo, graphql_name="getGithubIntegrations")
     """Github integration info"""
+
+    get_github_action_trigger_integrations = sgqlc.types.Field(
+        GithubActionTriggerAppInfo, graphql_name="getGithubActionTriggerIntegrations"
+    )
+    """(experimental) Monte Carlo Action Trigger GitHub App integration
+    info
+    """
 
     get_gitlab_integrations = sgqlc.types.Field(GitlabAppInfo, graphql_name="getGitlabIntegrations")
     """(experimental) Gitlab integration info"""
@@ -91482,6 +92098,15 @@ class RestoreMonitors(sgqlc.types.Type):
     )
 
 
+class RestorePiiScanFindingFalsePositive(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("ok", "review")
+    ok = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="ok")
+
+    review = sgqlc.types.Field(sgqlc.types.non_null(PiiScanFindingReview), graphql_name="review")
+    """Review state deactivated by this mutation."""
+
+
 class ResumeMonitorBootstrap(sgqlc.types.Type):
     """Resume the monitor bootstrapping process (for example, to continue
     loading historical data after an error occurs)
@@ -91974,7 +92599,11 @@ class ScheduleConfigOutput(sgqlc.types.Type):
     """Type of schedule"""
 
     interval_minutes = sgqlc.types.Field(Int, graphql_name="intervalMinutes")
-    """Time interval between job executions, in minutes"""
+    """Time interval between job executions, in minutes. For
+    schedule_type=dynamic: null/omitted uses the default interval; 0
+    means the monitor only runs when triggered, not on a schedule;
+    positive values set a custom interval.
+    """
 
     interval_crontab = sgqlc.types.Field(
         sgqlc.types.list_of(String), graphql_name="intervalCrontab"
@@ -93547,6 +94176,8 @@ class SlackCredentialsV2(sgqlc.types.Type):
         "config",
         "team_id",
         "team_name",
+        "agent_dispatch_enabled",
+        "is_notification_dispatcher",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -93566,6 +94197,17 @@ class SlackCredentialsV2(sgqlc.types.Type):
     team_id = sgqlc.types.Field(String, graphql_name="teamId")
 
     team_name = sgqlc.types.Field(String, graphql_name="teamName")
+
+    agent_dispatch_enabled = sgqlc.types.Field(Boolean, graphql_name="agentDispatchEnabled")
+    """Whether the customer opted this AGENT binding into dispatching
+    notifications (AGENT bindings only; false for OBSERVE).
+    """
+
+    is_notification_dispatcher = sgqlc.types.Field(Boolean, graphql_name="isNotificationDispatcher")
+    """Whether this binding's app currently dispatches new notifications
+    for its workspace (feature flag + toggle + binding health +
+    scopes).
+    """
 
 
 class SlackEngagementConnection(sgqlc.types.relay.Connection):
@@ -96940,6 +97582,17 @@ class ToggleSizeCollection(sgqlc.types.Type):
     enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
 
 
+class ToggleSlackAgentDispatch(sgqlc.types.Type):
+    """Enable/disable dispatching this workspace's notifications via the
+    Monte Carlo AI (agent) Slack app instead of the Monte Carlo app.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("enabled",)
+    enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
+    """The resulting enabled/disabled state for the feature"""
+
+
 class ToggleSlackBroadcastUpdates(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("enabled",)
@@ -98105,6 +98758,24 @@ class TriggerCustomRule(sgqlc.types.Type):
     custom_rule = sgqlc.types.Field("CustomRule", graphql_name="customRule")
 
 
+class TriggerGithubActionDraftPrWorkflow(sgqlc.types.Type):
+    """Dispatch the customer's draft-PR workflow with a finding's
+    context.  Sends compact finding context (finding UUID, title,
+    summary, recommendation) as workflow_dispatch inputs to the
+    workflow configured on the installation. The customer's workflow
+    performs the code change and opens the draft PR with its own
+    credentials. Requires draft-PR workflow dispatch to be enabled for
+    your account.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """True when GitHub accepted the dispatch (the run itself is
+    asynchronous)
+    """
+
+
 class TriggerMigrationTest(sgqlc.types.Type):
     """Triggers the DC migration test operation that checks if all
     connections in DC can be migrated to target_dc. Validations are
@@ -98836,6 +99507,19 @@ class UpdateGcpDataformCredentialsV2Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("result",)
     result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
+
+
+class UpdateGithubActionTriggerDispatchConfig(sgqlc.types.Type):
+    """Set which customer workflow draft-PR dispatches target for an
+    installation.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("dispatch_config",)
+    dispatch_config = sgqlc.types.Field(
+        sgqlc.types.non_null(GithubActionTriggerDispatchConfig), graphql_name="dispatchConfig"
+    )
+    """The stored dispatch target"""
 
 
 class UpdateGithubAppInstallation(sgqlc.types.Type):
@@ -107080,6 +107764,7 @@ class Event(sgqlc.types.Type, Node):
         "has_sampling",
         "has_alert_sample",
         "has_alert_sample_explanation",
+        "is_agent_conversation_aggregation",
         "alert",
         "table_stats",
         "mc_sql",
@@ -107232,6 +107917,15 @@ class Event(sgqlc.types.Type, Node):
     read. False for span-grain alerts (the stored batch holds the
     score only, so an explanation requires a fresh re-evaluation) and
     for every other monitor or connection. Implies hasAlertSample.
+    """
+
+    is_agent_conversation_aggregation = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isAgentConversationAggregation"
+    )
+    """True when this event was generated by an agent monitor evaluating
+    at conversation grain — the monitor scores whole conversations
+    (all turns) rather than individual spans. False for span-grain
+    agent monitors and all non-agent monitors.
     """
 
     alert = sgqlc.types.Field(Alert, graphql_name="alert")
@@ -109539,6 +110233,7 @@ class SlackMessageDetails(sgqlc.types.Type, Node):
         "account",
         "permalink",
         "msg_ts",
+        "slack_app_type",
         "engagements",
     )
     incident = sgqlc.types.Field(sgqlc.types.non_null(Incident), graphql_name="incident")
@@ -109559,6 +110254,9 @@ class SlackMessageDetails(sgqlc.types.Type, Node):
     permalink = sgqlc.types.Field(String, graphql_name="permalink")
 
     msg_ts = sgqlc.types.Field(String, graphql_name="msgTs")
+
+    slack_app_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="slackAppType")
+    """SlackAppType of the app that posted this message"""
 
     engagements = sgqlc.types.Field(
         sgqlc.types.non_null(SlackEngagementConnection),

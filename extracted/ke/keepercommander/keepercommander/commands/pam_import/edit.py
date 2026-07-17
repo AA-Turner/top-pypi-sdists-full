@@ -19,6 +19,7 @@ from itertools import chain
 from typing import Any, Dict, Optional, List, Union
 
 from .keeper_ai_settings import set_resource_jit_settings, set_resource_keeper_ai_settings, refresh_meta_to_latest, refresh_link_to_config_to_latest
+from .playground import compute_network_id as _pg_compute_network_id
 from .workflow_apply import apply_workflow, validate_workflow_principals
 from .base import (
     PAM_RESOURCES_RECORD_TYPES,
@@ -50,7 +51,13 @@ from ..base import Command
 from ..ksm import KSMCommand
 from ..pam import gateway_helper
 from ..pam.config_helper import pam_configurations_get_all
-from ..recordv3 import RecordAddCommand
+from ..pam.vault_target import (
+    execute_record_v3_add_in_folder,
+    grant_pam_folder_permissions,
+    is_nested_share_folder,
+    is_pam_nsf_record,
+    update_pam_record,
+)
 from ..record_edit import RecordUploadAttachmentCommand
 from ..tunnel.port_forward.TunnelGraph import TunnelDAG
 from ..tunnel.port_forward.tunnel_helpers import get_keeper_tokens
@@ -66,7 +73,7 @@ from ...keeper_dag.types import RefType
 from ...params import LAST_FOLDER_UID, LAST_SHARED_FOLDER_UID
 from ...proto import record_pb2, APIRequest_pb2, enterprise_pb2
 from ...recordv3 import RecordV3
-from ...subfolder import BaseFolderNode
+from ...subfolder import BaseFolderNode, NestedShareFolderNode
 
 
 class PAMProjectImportCommand(Command):
@@ -76,6 +83,7 @@ class PAMProjectImportCommand(Command):
     parser.add_argument("--dry-run", "-d", required=False, dest="dry_run", action="store_true", default=False, help="Test import without modifying vault.")
     parser.add_argument("--sample-data", "-s", required=False, dest="sample_data", action="store_true", default=False, help="Generate sample data.")
     parser.add_argument("--show-template", "-t", required=False, dest="show_template", action="store_true", default=False, help="Print JSON template required for manual import.")
+    parser.add_argument("--nsf", required=False, dest="use_nsf", action="store_true", default=False, help="Create project folders and records in Nested Share Folders.")
     # parser.add_argument("--force", "-e", required=False, dest="force", action="store_true", default=False, help="Force data import (re/configure later)")
     parser.add_argument("--output", "-o", required=False, dest="output", action="store", choices=["token", "base64", "json", "k8s"], default="base64", help="Output format (token: one-time token, config: base64/json/k8s)")
 
@@ -112,6 +120,7 @@ class PAMProjectImportCommand(Command):
         project["options"]["dry_run"] = kwargs.get("dry_run", False)
         project["options"]["sample_data"] = kwargs.get("sample_data", False)
         project["options"]["show_template"] = kwargs.get("show_template", False)
+        project["options"]["use_nsf"] = kwargs.get("use_nsf", False)
         project["options"]["force"] = kwargs.get("force", False)
         project["options"]["output"] = kwargs.get("output", "") or ""
 
@@ -130,8 +139,9 @@ class PAMProjectImportCommand(Command):
                 project["options"]["project_name"] = "Discovery Playground"
             project["options"]["file_name"] = ""
             # project["options"]["dry_run"] = False  # dry-run is allowed
-            extra = self.get_extra_args(["sample_data", "dry_run"], **kwargs)
-            if extra: 
+            # --name and --dry-run are honored with -s; NSF flag is orthogonal.
+            extra = self.get_extra_args(["sample_data", "dry_run", "project_name", "use_nsf"], **kwargs)
+            if extra:
                 logging.warning(f"{bcolors.WARNING}Warning: --sample-data|-s overrides other options {extra}{bcolors.ENDC}")
 
         if project["options"]["sample_data"] is False:
@@ -201,6 +211,10 @@ class PAMProjectImportCommand(Command):
         project["options"]["sample_data"] = project["options"]["sample_data"] or project["data"].get("options", {}).get("generate_sample_data", False) or False
         if project["options"]["sample_data"] == True:
             self.generate_sample_data(params, project)
+            # --sample-data output is limited to the two file lines (compose path
+            # + seccomp URL), already printed above - or the dry-run preview.
+            # Skip the usual JSON result / docs note.
+            return
         else:
             self.process_data(params, project)
 
@@ -221,6 +235,13 @@ class PAMProjectImportCommand(Command):
               "https://docs.keeper.io/en/keeperpam/privileged-access-manager/getting-started/gateways")
 
     PAM_ROOT_FOLDER_NAME = "PAM Environments"
+
+    @staticmethod
+    def _pam_folder_types(use_nsf=False):
+        types = {BaseFolderNode.UserFolderType}
+        if use_nsf:
+            types.add(BaseFolderNode.NestedShareFolderType)
+        return types
 
     def process_folders(self, params, project: dict) -> dict:
         res = {
@@ -243,10 +264,16 @@ class PAMProjectImportCommand(Command):
         # if project["data"].get("tool_version", "") != "": # CLI generated export else: # Manually generated import file
 
         # FolderListCommand().execute(params, folders_only=True, pattern="/")
+        use_nsf = project["options"].get("use_nsf", False) is True
+        allowed_types = self._pam_folder_types(use_nsf)
         folders = self.find_folders(params, "", res["root_folder_target"], False)
         if folders:
             # select first non-root non-shared sub/folder
-            folders = [x for x in folders if x.type == x.UserFolderType]
+            folders = [x for x in folders if x.type in allowed_types]
+            if use_nsf:
+                folders = [x for x in folders if is_nested_share_folder(params, x.uid)]
+            else:
+                folders = [x for x in folders if not is_nested_share_folder(params, x.uid)]
             if len(folders) > 1:
                 logging.warning(f"""Multiple user folders ({len(folders)}) match folder name "{res["root_folder_target"]}" """
                                 f" using first match with UID: {bcolors.OKGREEN}{folders[0].uid}{bcolors.ENDC}")
@@ -256,7 +283,7 @@ class PAMProjectImportCommand(Command):
             res["root_folder_uid"] = str(folders[0].uid)
         elif project["options"].get("dry_run", False) is not True:
             # FolderMakeCommand().execute(params, user_folder=True, folder=f"""/{res["root_folder_target"]}""")
-            fuid = self.create_subfolder(params, res["root_folder_target"])
+            fuid = self.create_subfolder(params, res["root_folder_target"], use_nsf=use_nsf)
             res["root_folder_uid"] = fuid
 
         # find available project folder - incr. numeric suffix until distinct name found
@@ -267,14 +294,14 @@ class PAMProjectImportCommand(Command):
             while True:
                 folder_name = res["project_folder_target"] if n <= START_INDEX else f"""{res["project_folder_target"]} #{n}"""
                 folders = self.find_folders(params, res["root_folder_uid"], folder_name, False)
-                folders = [x for x in folders if x.type == x.UserFolderType]
+                folders = [x for x in folders if x.type in allowed_types]
                 n += 1
                 if len(folders) > 0:
                     continue
                 res["project_folder"] = folder_name
                 if project["options"].get("dry_run", False) is not True:
                     # FolderMakeCommand().execute(params, shared_folder=True, folder=f"""/{res["root_folder"]}/{res["project_folder"]}""")
-                    fuid = self.create_subfolder(params, folder_name=res["project_folder"], parent_uid=res["root_folder_uid"])
+                    fuid = self.create_subfolder(params, folder_name=res["project_folder"], parent_uid=res["root_folder_uid"], use_nsf=use_nsf)
                     res["project_folder_uid"] = fuid
 
                     puid = res["project_folder_uid"]
@@ -282,14 +309,14 @@ class PAMProjectImportCommand(Command):
                     fname = sfn["folder_name"] if isinstance(sfn, dict) and isinstance(sfn.get("folder_name", None), str) else ""
                     fname = fname.strip() or f"""{res["project_folder"]} - Resources"""
                     fperm, rperm = self.get_folder_permissions(users_folder=False, data=project["data"])
-                    fuid = self.create_subfolder(params, folder_name=fname, parent_uid=puid, permissions=fperm)
+                    fuid = self.create_subfolder(params, folder_name=fname, parent_uid=puid, permissions=fperm, use_nsf=use_nsf)
                     res["resources_folder_uid"] = fuid
 
                     sfn = project["data"].get("shared_folder_users", None)
                     fname = sfn["folder_name"] if isinstance(sfn, dict) and isinstance(sfn.get("folder_name", None), str) else ""
                     fname = fname.strip() or f"""{res["project_folder"]} - Users"""
                     fperm, uperm = self.get_folder_permissions(users_folder=True, data=project["data"])
-                    fuid = self.create_subfolder(params, folder_name=fname, parent_uid=puid, permissions=fperm)
+                    fuid = self.create_subfolder(params, folder_name=fname, parent_uid=puid, permissions=fperm, use_nsf=use_nsf)
                     res["users_folder_uid"] = fuid
 
                     # add users and teams
@@ -302,10 +329,14 @@ class PAMProjectImportCommand(Command):
             if res["root_folder_uid"]:
                 print(f"""Will use existing PAM root folder: {res["root_folder_uid"]} {res["root_folder"]}""")
             else:
-                print(f"""Will create new PAM root folder: {res["root_folder_target"]}""")
-            print(f"""Will create new Project folder: {res["project_folder"]}""")
+                print(f"""Will create new {"NSF " if use_nsf else ""}PAM root folder: {res["root_folder_target"]}""")
+            print(f"""Will create new {"NSF " if use_nsf else ""}Project folder: {res["project_folder"]}""")
         else:
-            api.sync_down(params)
+            if use_nsf:
+                from .nsf_helpers import sync_down_preserving_nsf_keys
+                sync_down_preserving_nsf_keys(params)
+            else:
+                api.sync_down(params)
 
         return res
 
@@ -342,8 +373,15 @@ class PAMProjectImportCommand(Command):
             print(f"""Will create new KSM application: {res["app_name"]}""")
             return res
 
-        # Create KSM App
+        # Create KSM App and share Resources/Users folders (classic SF or NSF).
+        # KSMCommand routes NSF folder UIDs through grant_folder_access_to_application_v3.
+        use_nsf = project["options"].get("use_nsf", False) is True
+        from .nsf_helpers import restore_nsf_folder_keys, snapshot_nsf_folder_keys, sync_down_preserving_nsf_keys
+        preserved = snapshot_nsf_folder_keys(params) if use_nsf else None
         res["app_uid"] = self.create_ksm_app(params, res["app_name"])
+        if preserved is not None:
+            # create_ksm_app sync_down clears NSF caches; restore before NSF secret share.
+            restore_nsf_folder_keys(params, preserved)
         for sf_uid in [project["folders"].get("resources_folder_uid", ""),
                        project["folders"].get("users_folder_uid", "")]:
             if sf_uid.strip():
@@ -352,7 +390,13 @@ class PAMProjectImportCommand(Command):
                                      app=res["app_uid"],
                                      secret=[sf_uid], editable=True)
 
-        api.sync_down(params)
+        if use_nsf or any(is_nested_share_folder(params, uid)
+                          for uid in (project["folders"].get("resources_folder_uid", ""),
+                                      project["folders"].get("users_folder_uid", ""))
+                          if uid):
+            sync_down_preserving_nsf_keys(params)
+        else:
+            api.sync_down(params)
         return res
 
     def process_gateway(self, params, project: dict) -> dict:
@@ -383,22 +427,39 @@ class PAMProjectImportCommand(Command):
             return res
 
         # Create new Gateway - PAMCreateGatewayCommand()
+        use_nsf = project["options"].get("use_nsf", False) is True
+        from .nsf_helpers import restore_nsf_folder_keys, snapshot_nsf_folder_keys, sync_down_preserving_nsf_keys
+        preserved = snapshot_nsf_folder_keys(params) if use_nsf else None
         output_fmt = project["options"]["output"]
-        token_format = None if output_fmt == "token" else ("k8s" if output_fmt == "k8s" else "b64")
+        # --sample-data ignores --output: the deliverable is always the generated
+        # docker-compose.yaml, which embeds the base64 gateway config (GATEWAY_CONFIG),
+        # so force config_init="b64".
+        is_sample = project["options"].get("sample_data", False)
+        if is_sample:
+            token_format = "b64"
+        else:
+            token_format = None if output_fmt == "token" else ("k8s" if output_fmt == "k8s" else "b64")
         ksm_app_uid = project["ksm_app"]["app_uid"]
         gw = self.create_gateway(
             params,
             gateway_name=res["gateway_name"],
             ksm_app=ksm_app_uid,
             config_init=token_format)
+        if preserved is not None:
+            restore_nsf_folder_keys(params, preserved)
 
-        if token_format is None:
+        config_raw = gw[0].get("config", "") if gw else ""  # base64 config (if config_init set)
+        if is_sample:
+            res["gateway_token"] = config_raw  # --output ignored; config lives in docker-compose.yaml
+        elif token_format is None:
             res["gateway_token"] = gw[0].get("oneTimeToken", "") if gw else ""  # OTT
         else:
-            res["gateway_token"] = gw[0].get("config", "") if gw else ""  # Config
+            res["gateway_token"] = config_raw  # Config
             if output_fmt == "json":
-                res["gateway_token"] = json.loads(utils.base64_url_decode(res["gateway_token"]))
+                res["gateway_token"] = json.loads(utils.base64_url_decode(config_raw))
             # k8s: config is already Kubernetes Secret YAML string; base64: keep as-is
+        # base64 config for the sample-data docker-compose GATEWAY_CONFIG
+        res["gateway_config_b64"] = config_raw
         res["gateway_device_token"] = gw[0].get("deviceToken", "") if gw else ""
 
         # controller_uid is not returned by vault/app_client_add
@@ -409,7 +470,10 @@ class PAMProjectImportCommand(Command):
         res["gateway_uid"] = utils.base64_url_encode(gw_names[0]) if gw_names else ""
         # gateway_helper.remove_gateway(params, utils.base64_url_decode(res["gateway_uid"]))
 
-        api.sync_down(params)
+        if use_nsf:
+            sync_down_preserving_nsf_keys(params)
+        else:
+            api.sync_down(params)
         return res
 
     def process_pam_config(self, params, project: dict) -> dict:
@@ -425,10 +489,18 @@ class PAMProjectImportCommand(Command):
         if not res["pam_config_name_target"]:
             res["pam_config_name_target"] = project["options"]["project_name"] + " Configuration"
 
-        # Find unique PAM Configuration name
+        # Find unique PAM Configuration name (classic record_cache + NSF caches)
         n = 1
         pams = pam_configurations_get_all(params)
-        pam_names = [json.loads(x.get("data_unencrypted", "{}")).get("title", "") for x in pams]
+        pam_names = {json.loads(x.get("data_unencrypted", "{}")).get("title", "") for x in pams}
+        for uid, nsf_rec in (getattr(params, 'nested_share_records', None) or {}).items():
+            if nsf_rec.get('version') != 6:
+                continue
+            dj = ((getattr(params, 'nested_share_record_data', None) or {})
+                  .get(uid, {}).get('data_json') or {})
+            title = dj.get('title') or ''
+            if title:
+                pam_names.add(title)
         pam_name = res["pam_config_name_target"]
         while pam_name in pam_names:
             n += 1
@@ -458,7 +530,8 @@ class PAMProjectImportCommand(Command):
                 "title": res["pam_config_name"],
                 "port_mapping": ["2222=ssh"],
                 # "network_cidr": "192.168.1.0/24",
-                "network_id": "discovery-net",
+                # network_id must match the docker-compose network name (playground.py)
+                "network_id": _pg_compute_network_id(project["options"]["project_name"]),
                 "connections": "on",
                 "tunneling": "on",
                 "rotation": "on",
@@ -530,7 +603,12 @@ class PAMProjectImportCommand(Command):
             if pce.default_rotation_schedule: args["default_schedule"] = pce.default_rotation_schedule
 
         res["pam_config_uid"] = PAMConfigurationNewCommand().execute(params, **args)
-        api.sync_down(params)
+        users_folder_uid = project["folders"].get("users_folder_uid", "")
+        if project["options"].get("use_nsf", False) is True or is_nested_share_folder(params, users_folder_uid):
+            from .nsf_helpers import sync_down_preserving_nsf_keys
+            sync_down_preserving_nsf_keys(params)
+        else:
+            api.sync_down(params)
 
         # add scripts and attachments after record create
         if pce.attachments:
@@ -550,540 +628,24 @@ class PAMProjectImportCommand(Command):
         return res
 
     def generate_sample_data(self, params, project: dict):
+        # All sample-data logic (records + credentials + docker-compose) lives
+        # in playground.py; this method just orchestrates it.
+        from .playground import PlaygroundSession, COMPOSE_FILENAME, SECCOMP_URL
         if project["options"].get("dry_run", False) is True:
-            print("Will generate sample data here...")
+            # Dry-run: no vault writes, no files - just report intent + target paths.
+            intended = os.path.abspath(os.path.join(os.getcwd(), COMPOSE_FILENAME))
+            print("[DRY RUN] Would generate discovery-playground sample records "
+                  "(MySQL, SSH, VNC, RDP, RBI, PostgreSQL, MariaDB, MSSQL, MongoDB, "
+                  "Telnet, OpenLDAP) with freshly generated credentials.")
+            print(f"[DRY RUN] Would write docker-compose to: {intended}")
+            print(f"[DRY RUN] Seccomp profile: {SECCOMP_URL}")
             return
 
-        # self.generate_simple_content_data(params, project)
-        self.generate_discovery_playground_data(params, project)
-
-    def generate_discovery_playground_data(self, params, project: dict):
-        """ Generate data that works with discovery-playground docker setup """
-        # Local import to avoid circular import with discoveryrotation
-        from ..discoveryrotation import PAMCreateRecordRotationCommand
-        # PUBLIC_KEY = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0bH13XfBiKcej3/W"\
-        # "mnc7GYbx+B+hmfYTaDFqfJ/vEGy3HTSz2t5nDb3+S1clBcCmse5FzEA7aXC3cZXurGBH"\
-        # "irz2Ud8wCL2t95cJnrkzfft7lsILnchm0J0Y0TyDW42gLj1JWh/E5qQyUxF0F6xEBKcy"\
-        # "5cYwlgtkBcrkF1xdpuTKTMBg+xjB9XSlvLv+4rwZ448tvyILuw4DcIZDWjNxn1v+a/43"\
-        # "ybhUNjGdd6zeR1ZdfB6O209VU1V0zTNS/jGsKPDK03vmJ1j42S/ZyNZ16CKDmsixhSVI"\
-        # "aZ+qNOQx4eF6l/cavX+LAm94jPFZSsjr3BdE6jOZhJN+XWBmIpYd9 linuxuser@local"
-
-        PRIVATE_KEY = "-----BEGIN OPENSSH PRIVATE KEY-----\\n"\
-        "b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABFwAAAAdzc2gtcn\\n"\
-        "NhAAAAAwEAAQAAAQEAtGx9d13wYinHo9/1pp3OxmG8fgfoZn2E2gxanyf7xBstx00s9reZ\\n"\
-        "w29/ktXJQXAprHuRcxAO2lwt3GV7qxgR4q89lHfMAi9rfeXCZ65M337e5bCC53IZtCdGNE\\n"\
-        "8g1uNoC49SVofxOakMlMRdBesRASnMuXGMJYLZAXK5BdcXabkykzAYPsYwfV0pby7/uK8G\\n"\
-        "eOPLb8iC7sOA3CGQ1ozcZ9b/mv+N8m4VDYxnXes3kdWXXwejttPVVNVdM0zUv4xrCjwytN\\n"\
-        "75idY+Nkv2cjWdegig5rIsYUlSGmfqjTkMeHhepf3Gr1/iwJveIzxWUrI69wXROozmYSTf\\n"\
-        "l1gZiKWHfQAAA8j5NtJt+TbSbQAAAAdzc2gtcnNhAAABAQC0bH13XfBiKcej3/Wmnc7GYb\\n"\
-        "x+B+hmfYTaDFqfJ/vEGy3HTSz2t5nDb3+S1clBcCmse5FzEA7aXC3cZXurGBHirz2Ud8wC\\n"\
-        "L2t95cJnrkzfft7lsILnchm0J0Y0TyDW42gLj1JWh/E5qQyUxF0F6xEBKcy5cYwlgtkBcr\\n"\
-        "kF1xdpuTKTMBg+xjB9XSlvLv+4rwZ448tvyILuw4DcIZDWjNxn1v+a/43ybhUNjGdd6zeR\\n"\
-        "1ZdfB6O209VU1V0zTNS/jGsKPDK03vmJ1j42S/ZyNZ16CKDmsixhSVIaZ+qNOQx4eF6l/c\\n"\
-        "avX+LAm94jPFZSsjr3BdE6jOZhJN+XWBmIpYd9AAAAAwEAAQAAAQAEs0DV5iOxgviGKEfC\\n"\
-        "syC9+7GiSa8M7UWTop4nwEearvSTcrGME3HIU035AGQrHFkEx8rpuvTc5mlBcRlc9mMQGA\\n"\
-        "c1wdf8N8nU/UvO6w3Qn4IyBjx0YbB4VRkxZ3a2pZtbyO+MFopUhlCWfY98BhXEa7DY8ebR\\n"\
-        "p798fkWCRYpNtDyja2m0zrFo6Kp0PusmAXWnu5z4SLgpdNKIaz+6AX+vQpv2QTTpunzGUr\\n"\
-        "XvhlLpLhK5sOPhR88VuddNKJFZi7SzNUC3DW66NdtU8jVeTKOgOB8fdvzwkX5AgAFpj/cr\\n"\
-        "MmbS5GpkrKpVjkWXfTxAit+S1Ykg/ay6po4y8s9RHjsxAAAAgQCPof49LmwUJuBiheAklQ\\n"\
-        "fcxCv4CnGvT926FueqADuN2g85R8EjOQ7qB0xtZckIflyqMnCVEiA9D6m8LUtEAmB9nC2x\\n"\
-        "5Iz+uNByfadxthAgQXBc1qCm8Q0CCwKGE4LzshugdJap5d4i5sOM8pvNb9lo81LjXjzBw9\\n"\
-        "3aNR5cPxH1uwAAAIEA8An6rWHpq494jjWdbyKI65qgBAIuIHTGxhonze5q0mYQSkor9R3k\\n"\
-        "0w1ZPzOI8U78qpzGmL7hKa5QT5SOYsTffb8ofYTky0Agbqo1Ax8JK4+JytC8u6Pjc4G1U/\\n"\
-        "3Njxu2aPT0xEsIxdVdDqT0sbrY3Cmn2PPr1MWM2xYb/PS2l2UAAACBAMBruM9OswMXmJ6/\\n"\
-        "MClr0X9JfqWSNMKvOEYnoCmroGnjNBbf+66U9a6ecDSXNF8EMCG1pDSVHwtTIb2vUUEnwW\\n"\
-        "MxQ33Xl8pUHmP94FqD8wrhZta/YRWzPeQs6LOBGoAFoSJBhALIhjlj48HW1TqtAJ+TuiGU\\n"\
-        "4nTd/dKHHH5aNmo5AAAAD2xpbnV4dXNlckBsb2NhbAECAw==\\n"\
-        "-----END OPENSSH PRIVATE KEY-----"
-
-        project_name = project["options"]["project_name"]
-        users_folder_uid = project["folders"]["users_folder_uid"]
-        resources_folder_uid = project["folders"]["resources_folder_uid"]
-        pam_config_uid = project["pam_config"]["pam_config_uid"]
-
-        encrypted_session_token, encrypted_transmission_key, transmission_key = get_keeper_tokens(params)
-        tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, pam_config_uid, True,
-                         transmission_key=transmission_key)
-        # if not tdag.check_tunneling_enabled_config(enable_connections=True):
-        #     logging.warning(f"{bcolors.WARNING}Warning: {bcolors.ENDC} Connections are disabled by PAM Configuration!")
-        # Fix: Rotation is disabled by the PAM configuration.
-        tdag.set_resource_allowed(pam_config_uid, is_config=True, rotation=True, connections=True, tunneling=True, session_recording=True, typescript_recording=True, remote_browser_isolation=True)
-
-        command = RecordAddCommand()
-        pte = PAMTunnelEditCommand()
-
-        # when NOOP rotation is added to PAMCreateRecordRotationCommand...
-        # # create_noop_rotation_records
-        # json_data = """{
-        #     "type": "pamUser",
-        #     "title": "#project_name# - NOOP Rotation User",
-        #     "fields": [
-        #         {"type": "login", "required": true, "value": ["noop"]},
-        #         {"type": "password", "value": ["noop"]}
-        #     ],
-        #     "custom": [
-        #         {"type": "text", "label": "NOOP", "value": [ "True" ] }
-        #     ]}""".replace("#project_name#", project_name)
-        # #       {"type": "script", "label": "rotationScripts", "value": [
-        # #           {
-        # #               "command": "pwsh.exe",
-        # #               "fileRef": "D:/Download/00params.ps1",
-        # #               "recordRef": []
-        # #           },
-        # #           {
-        # #               "command": "cmd.exe",
-        # #               "fileRef": "D:/Download/00params.bat",
-        # #               "recordRef": []
-        # #           }
-        # #       ]}
-        # rotation_user_uid = command.execute(params, folder = users_folder_uid, data = json_data)
-        # # TO: Extract scripts from JSON: remove from record data and add after record creation
-        # # NB! add_credential must be empty - NOOP records do not need additional resources
-        # # RRC_BAD_REQUEST - Noop and resource cannot be both assigned
-        # PAMScriptAddCommand().execute(params, record=rotation_user_uid, script="D:/Download/00params.ps1", script_command="pwsh.exe", add_credential="")
-        # PAMScriptAddCommand().execute(params, record=rotation_user_uid, script="D:/Download/00params.bat", script_command="cmd.exe", add_credential="")
-        # tdag.set_resource_allowed(pam_config_uid, is_config=True, rotation=True, connections=True, tunneling=True, session_recording=True, typescript_recording=True, remote_browser_isolation=True)
-        # tdag.link_resource_to_config(rotation_user_uid)
-        # api.sync_down(params)
-        # PAMCreateRecordRotationCommand().execute(params, record_name=rotation_user_uid,
-        #                                          config=pam_config_uid, noop=True,
-        #                                          on_demand=True, pwd_complexity="20,4,4,4,4", enable=True, force=True)
-
-        # create_mysql_records
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - MySQL Admin User",
-            "fields": [
-                {"type": "login", "required": true, "value": ["root"]},
-                {"type": "password", "value": ["z@ggz?y|w#I_NFCW!41"]}
-            ]}""".replace("#project_name#", project_name)
-        admin_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - MySQL Rotation User",
-            "fields": [
-                {"type": "login", "required": true, "value": ["sqluser"]},
-                {"type": "password", "value": ["alpine"]}
-            ]}""".replace("#project_name#", project_name)
-        # ,"custom": [{"type": "text", "label": "NOOP", "value": [ "True" ] }]
-        rotation_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamDatabase",
-            "title": "#project_name# - MySQL Database",
-            "fields": [
-                {"type": "pamHostname", "required": true, "value": [{"hostName": "db-mysql-1","port": "3306"}]},
-                {"type": "trafficEncryptionSeed", "value": []},
-                {"type": "pamSettings", "value": [{
-                    "connection": {
-                        "protocol": "mysql",
-                        "database": "salesdb",
-                        "userRecords": ["#admin_user_uid#"]
-                    },
-                    "portForward": { "reusePort": true }
-                }]}
-            ]}""".replace("#project_name#", project_name).replace("#admin_user_uid#", admin_user_uid)
-        database_machine_uid = command.execute(params, folder=resources_folder_uid, data=json_data)
-
-        # Database Machine -> Config -> Enable connections/portForwards/set trafficEncryptionSeed
-        tdag.link_resource_to_config(database_machine_uid)
-        pte.execute(params, record=database_machine_uid, config=pam_config_uid, admin=admin_user_uid, enable_connections=True, enable_tunneling=True, silent=True)
-        tdag.set_resource_allowed(resource_uid=database_machine_uid, rotation=True, connections=True, tunneling=True, session_recording=True, typescript_recording=True, remote_browser_isolation=True)
-
-        # bugfix: Apparently PAMCreateRecordRotationCommand do not create the links
-        # Links: User -> Database Machine
-        tdag.link_user_to_resource(admin_user_uid, database_machine_uid, True, True)
-        tdag.link_user_to_resource(rotation_user_uid, database_machine_uid, False, True)
-        # PAMCreateRecordRotationCommand().execute(params, record_name=admin_user_uid,admin=admin_user_uid,config=pam_config_uid, resource=database_machine_uid,on_demand=True, pwd_complexity="20,4,4,4,4", enable=True, force=True)
-        PAMCreateRecordRotationCommand().execute(params, record_name=rotation_user_uid,
-                                                 admin=admin_user_uid,
-                                                 config=pam_config_uid, resource=database_machine_uid,
-                                                 on_demand=True, pwd_complexity="20,4,4,4,4", enable=True, force=True, silent=True)
-
-        # create_ssh_with_password_records
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - SSH Admin with Password",
-            "fields": [
-                {"type": "login", "required": true, "value": ["linuxuser"]},
-                {"type": "password", "value": ["alpine"]}
-            ]}""".replace("#project_name#", project_name)
-        admin_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamMachine",
-            "title": "#project_name# - SSH Machine with Password Access",
-            "fields": [
-                {"type": "pamHostname", "required": true, "value": [{"hostName": "server-ssh-with-pwd-1","port": "2222"}]},
-                {"type": "trafficEncryptionSeed", "value": []},
-                {"type": "pamSettings", "value": [{
-                    "connection": {
-                        "protocol": "ssh",
-                        "userRecords": ["#admin_user_uid#"]
-                    },
-                    "portForward": { "reusePort": true }
-                }]}
-            ]}""".replace("#project_name#", project_name).replace("#admin_user_uid#", admin_user_uid)
-        ssh_machine_uid = command.execute(params, folder=resources_folder_uid, data=json_data)
-
-        # Machine -> Config -> Enable connections/portForwards/set trafficEncryptionSeed
-        tdag.link_resource_to_config(ssh_machine_uid)
-        pte.execute(params, record=ssh_machine_uid, config=pam_config_uid, admin=admin_user_uid, enable_connections=True, enable_tunneling=True, silent=True)
-        # if tdag.check_if_resource_allowed(ssh_machine_uid, "connections") != True:
-        tdag.set_resource_allowed(resource_uid=ssh_machine_uid, rotation=True, connections=True, tunneling=True, session_recording=True, typescript_recording=True, remote_browser_isolation=True)
-
-        # Admin User -> Machine; Admin User -> Rotation
-        tdag.link_user_to_resource(admin_user_uid, ssh_machine_uid, True, True)
-        PAMCreateRecordRotationCommand().execute(params, record_name=admin_user_uid,
-                                                 admin=admin_user_uid,
-                                                 config=pam_config_uid, resource=ssh_machine_uid,
-                                                 on_demand=True, pwd_complexity="20,4,4,4,4", enable=True, force=True, silent=True)
-
-        # create_ssh_with_private_key_records
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - SSH Admin with Private Key",
-            "fields": [
-                {"type": "login", "required": true, "value": ["linuxuser"]},
-                {"type": "password", "value": []},
-                {"type": "secret", "label": "privatePEMKey", "value": ["#private_key#"]}
-            ]}""".replace("#project_name#", project_name).replace("#private_key#", PRIVATE_KEY)
-        admin_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamMachine",
-            "title": "#project_name# - SSH Machine with Private Key Access",
-            "fields": [
-                {"type": "pamHostname", "required": true, "value": [{"hostName": "server-ssh-with-key-1","port": "2222"}]},
-                {"type": "trafficEncryptionSeed", "value": []},
-                {"type": "pamSettings", "value": [{
-                    "connection": {
-                        "protocol": "ssh",
-                        "userRecords": ["#admin_user_uid#"]
-                    },
-                    "portForward": { "reusePort": true }
-                }]}
-            ]}""".replace("#project_name#", project_name).replace("#admin_user_uid#", admin_user_uid)
-        ssh_machine_uid = command.execute(params, folder=resources_folder_uid, data=json_data)
-
-        # Machine -> Config -> Enable connections/portForwards/set trafficEncryptionSeed
-        tdag.link_resource_to_config(ssh_machine_uid)
-        pte.execute(params, record=ssh_machine_uid, config=pam_config_uid, admin=admin_user_uid, enable_connections=True, enable_tunneling=True, silent=True)
-        tdag.set_resource_allowed(resource_uid=ssh_machine_uid, rotation=True, connections=True, tunneling=True, session_recording=True, typescript_recording=True, remote_browser_isolation=True)
-
-        # Admin User -> Machine; Admin User -> Rotation
-        tdag.link_user_to_resource(admin_user_uid, ssh_machine_uid, True, True)
-        PAMCreateRecordRotationCommand().execute(params, record_name=admin_user_uid,
-                                                 admin=admin_user_uid,
-                                                 config=pam_config_uid, resource=ssh_machine_uid,
-                                                 on_demand=True, pwd_complexity="20,4,4,4,4", enable=True, force=True, silent=True)
-
-        # create_vnc_records
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - VNC Admin",
-            "fields": [
-                {"type": "login", "required": true, "value": ["vncuser"]},
-                {"type": "password", "value": ["alpine"]}
-            ]}""".replace("#project_name#", project_name)
-        admin_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamMachine",
-            "title": "#project_name# - VNC Machine",
-            "fields": [
-                {"type": "pamHostname", "required": true, "value": [{"hostName": "server-vnc","port": "5901"}]},
-                {"type": "trafficEncryptionSeed", "value": []},
-                {"type": "pamSettings", "value": [{
-                    "connection": {
-                        "protocol": "vnc",
-                        "userRecords": ["#admin_user_uid#"]
-                    },
-                    "portForward": { "reusePort": true }
-                }]}
-            ]}""".replace("#project_name#", project_name).replace("#admin_user_uid#", admin_user_uid)
-        machine_uid = command.execute(params, folder=resources_folder_uid, data=json_data)
-
-        # Machine -> Config -> Enable connections/portForwards/set trafficEncryptionSeed
-        tdag.link_resource_to_config(machine_uid)
-        pte.execute(params, record=machine_uid, config=pam_config_uid, admin=admin_user_uid, enable_connections=True, enable_tunneling=True, silent=True)
-        tdag.set_resource_allowed(resource_uid=machine_uid, rotation=True, connections=True, tunneling=True, session_recording=True, typescript_recording=True, remote_browser_isolation=True)
-
-        # Admin User -> Machine; Admin User
-        tdag.link_user_to_resource(admin_user_uid, machine_uid, True, True)
-
-        # create_rdp_records
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - RDP User",
-            "fields": [
-                {"type": "login", "required": true, "value": ["linuxuser"]},
-                {"type": "password", "value": ["alpine"]}
-            ]}""".replace("#project_name#", project_name)
-        user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - RDP Admin",
-            "fields": [
-                {"type": "login", "required": true, "value": ["root"]},
-                {"type": "password", "value": ["rootpassword"]}
-            ]}""".replace("#project_name#", project_name)
-        admin_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamMachine",
-            "title": "#project_name# - RDP Machine",
-            "fields": [
-                {"type": "pamHostname", "required": true, "value": [{"hostName": "server-rdp","port": "3389"}]},
-                {"type": "trafficEncryptionSeed", "value": []},
-                {"type": "pamSettings", "value": [{
-                    "connection": {
-                        "protocol": "rdp",
-                        "security": "any",
-                        "ignoreCert": true,
-                        "resizeMethod": "display-update",
-                        "userRecords": ["#admin_user_uid#"]
-                    },
-                    "portForward": { "reusePort": true }
-                }]}
-            ]}""".replace("#project_name#", project_name).replace("#admin_user_uid#", admin_user_uid)
-        machine_uid = command.execute(params, folder=resources_folder_uid, data=json_data)
-
-        # Machine -> Config -> Enable connections/portForwards/set trafficEncryptionSeed
-        tdag.link_resource_to_config(machine_uid)
-        pte.execute(params, record=machine_uid, config=pam_config_uid, admin=admin_user_uid, enable_connections=True, enable_tunneling=True, silent=True)
-        tdag.set_resource_allowed(resource_uid=machine_uid, rotation=True, connections=True, tunneling=True, session_recording=True, typescript_recording=True, remote_browser_isolation=True)
-
-        # Admin User -> Machine; User -> Machine
-        tdag.link_user_to_resource(admin_user_uid, machine_uid, True, True)
-        tdag.link_user_to_resource(user_uid, machine_uid, False, True)
-
-        # create_rbi_record
-        json_data = """{
-            "type": "pamRemoteBrowser",
-            "title": "#project_name# - Bing Remote Browser",
-            "fields": [
-                {"type": "rbiUrl", "required": true, "value": ["https://bing.com"]},
-                {"type": "trafficEncryptionSeed", "value": []},
-                {"type": "pamRemoteBrowserSettings", "value": [{
-                    "connection": {
-                        "protocol": "http",
-                        "allowUrlManipulation": true,
-                        "userRecords": []
-                    }
-                }]}
-            ]}""".replace("#project_name#", project_name)
-        rbi_uid = command.execute(params, folder=resources_folder_uid, data=json_data)
-        tdag.link_resource_to_config(rbi_uid)
-        pte.execute(params, record=rbi_uid, config=pam_config_uid,
-                    enable_rotation=False, enable_connections=True, enable_tunneling=False,
-                    enable_typescripts_recording=False, enable_connections_recording=True, silent=True)
-        # bugfix: Edit command not always populates correctly everything
-        tdag.set_resource_allowed(resource_uid=rbi_uid, rotation=False, connections=True, tunneling=False, session_recording=True, typescript_recording=False, remote_browser_isolation=True)
-
-        # Additional discovery-playground resources: postgres, mariadb, mssql, mongodb, telnet
-        # create_postgresql_records
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - PostgreSQL Admin User",
-            "fields": [
-                {"type": "login", "required": true, "value": ["postgres"]},
-                {"type": "password", "value": ["postgres"]}
-            ]}""".replace("#project_name#", project_name)
-        admin_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamDatabase",
-            "title": "#project_name# - PostgreSQL Database",
-            "fields": [
-                {"type": "pamHostname", "required": true, "value": [{"hostName": "db-postgres-1","port": "5432"}]},
-                {"type": "trafficEncryptionSeed", "value": []},
-                {"type": "databaseType", "value": ["postgresql"]},
-                {"type": "pamSettings", "value": [{
-                    "connection": {
-                        "protocol": "postgresql",
-                        "database": "postgresql",
-                        "userRecords": ["#admin_user_uid#"]
-                    },
-                    "portForward": { "reusePort": true }
-                }]}
-            ]}""".replace("#project_name#", project_name).replace("#admin_user_uid#", admin_user_uid)
-        database_machine_uid = command.execute(params, folder=resources_folder_uid, data=json_data)
-        tdag.link_resource_to_config(database_machine_uid)
-        pte.execute(params, record=database_machine_uid, config=pam_config_uid, admin=admin_user_uid, enable_connections=True, enable_tunneling=True, silent=True)
-        tdag.set_resource_allowed(resource_uid=database_machine_uid, rotation=True, connections=True, tunneling=True, session_recording=True, typescript_recording=True, remote_browser_isolation=True)
-        tdag.link_user_to_resource(admin_user_uid, database_machine_uid, True, True)
-        PAMCreateRecordRotationCommand().execute(params, record_name=admin_user_uid,
-                                                 admin=admin_user_uid,
-                                                 config=pam_config_uid, resource=database_machine_uid,
-                                                 on_demand=True, pwd_complexity="20,4,4,4,4", enable=True, force=True, silent=True)
-
-        # create_mariadb_records
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - MariaDB Admin User",
-            "fields": [
-                {"type": "login", "required": true, "value": ["root"]},
-                {"type": "password", "value": ["z@ggz?y|w#I_NFCW!41"]}
-            ]}""".replace("#project_name#", project_name)
-        admin_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - MariaDB Rotation User",
-            "fields": [
-                {"type": "login", "required": true, "value": ["max"]},
-                {"type": "password", "value": ["maxpass"]}
-            ]}""".replace("#project_name#", project_name)
-        rotation_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamDatabase",
-            "title": "#project_name# - MariaDB Database",
-            "fields": [
-                {"type": "pamHostname", "required": true, "value": [{"hostName": "db-mariadb-1","port": "3306"}]},
-                {"type": "trafficEncryptionSeed", "value": []},
-                {"type": "databaseType", "value": ["mariadb"]},
-                {"type": "pamSettings", "value": [{
-                    "connection": {
-                        "protocol": "mysql",
-                        "database": "mydb",
-                        "userRecords": ["#admin_user_uid#"]
-                    },
-                    "portForward": { "reusePort": true }
-                }]}
-            ]}""".replace("#project_name#", project_name).replace("#admin_user_uid#", admin_user_uid)
-        database_machine_uid = command.execute(params, folder=resources_folder_uid, data=json_data)
-        tdag.link_resource_to_config(database_machine_uid)
-        pte.execute(params, record=database_machine_uid, config=pam_config_uid, admin=admin_user_uid, enable_connections=True, enable_tunneling=True, silent=True)
-        tdag.set_resource_allowed(resource_uid=database_machine_uid, rotation=True, connections=True, tunneling=True, session_recording=True, typescript_recording=True, remote_browser_isolation=True)
-        tdag.link_user_to_resource(admin_user_uid, database_machine_uid, True, True)
-        tdag.link_user_to_resource(rotation_user_uid, database_machine_uid, False, True)
-        PAMCreateRecordRotationCommand().execute(params, record_name=rotation_user_uid,
-                                                 admin=admin_user_uid,
-                                                 config=pam_config_uid, resource=database_machine_uid,
-                                                 on_demand=True, pwd_complexity="20,4,4,4,4", enable=True, force=True, silent=True)
-
-        # create_mssql_records
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - Microsoft SQL Server Admin User",
-            "fields": [
-                {"type": "login", "required": true, "value": ["sa"]},
-                {"type": "password", "value": ["password"]}
-            ]}""".replace("#project_name#", project_name)
-        admin_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamDatabase",
-            "title": "#project_name# - Microsoft SQL Server Database",
-            "fields": [
-                {"type": "pamHostname", "required": true, "value": [{"hostName": "db-mssql","port": "1433"}]},
-                {"type": "trafficEncryptionSeed", "value": []},
-                {"type": "databaseType", "value": ["mssql"]},
-                {"type": "pamSettings", "value": [{
-                    "connection": {
-                        "protocol": "sql-server",
-                        "database": "master",
-                        "userRecords": ["#admin_user_uid#"]
-                    },
-                    "portForward": { "reusePort": true }
-                }]}
-            ]}""".replace("#project_name#", project_name).replace("#admin_user_uid#", admin_user_uid)
-        database_machine_uid = command.execute(params, folder=resources_folder_uid, data=json_data)
-        tdag.link_resource_to_config(database_machine_uid)
-        pte.execute(params, record=database_machine_uid, config=pam_config_uid, admin=admin_user_uid, enable_connections=True, enable_tunneling=True, silent=True)
-        tdag.set_resource_allowed(resource_uid=database_machine_uid, rotation=True, connections=True, tunneling=True, session_recording=True, typescript_recording=True, remote_browser_isolation=True)
-        tdag.link_user_to_resource(admin_user_uid, database_machine_uid, True, True)
-        PAMCreateRecordRotationCommand().execute(params, record_name=admin_user_uid,
-                                                 admin=admin_user_uid,
-                                                 config=pam_config_uid, resource=database_machine_uid,
-                                                 on_demand=True, pwd_complexity="20,4,4,4,4", enable=True, force=True, silent=True)
-
-        # create_mongodb_records - protocol not supported yet, so only RBI currently available
-        # MongoDB Wire Protocol is a simple socket-based, request-response style protocol over TCP/IP socket
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - MongoDB Admin User",
-            "fields": [
-                {"type": "login", "required": true, "value": ["root"]},
-                {"type": "password", "value": ["root_password"]}
-            ]}""".replace("#project_name#", project_name)
-        admin_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - MongoDB Rotation User",
-            "fields": [
-                {"type": "login", "required": true, "value": ["user1"]},
-                {"type": "password", "value": ["user1pwd"]}
-            ]}""".replace("#project_name#", project_name)
-        rotation_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamDatabase",
-            "title": "#project_name# - MongoDB Database",
-            "fields": [
-                {"type": "pamHostname", "required": true, "value": [{"hostName": "db-mongo","port": "27017"}]},
-                {"type": "trafficEncryptionSeed", "value": []},
-                {"type": "databaseType", "value": ["mongodb"]},
-                {"type": "pamSettings", "value": [{
-                    "connection": {
-                        "protocol": "http",
-                        "database": "mydatabase",
-                        "userRecords": ["#admin_user_uid#"]
-                    },
-                    "portForward": { "reusePort": true }
-                }]}
-            ]}""".replace("#project_name#", project_name).replace("#admin_user_uid#", admin_user_uid)
-        database_machine_uid = command.execute(params, folder=resources_folder_uid, data=json_data)
-        tdag.link_resource_to_config(database_machine_uid)
-        pte.execute(params, record=database_machine_uid, config=pam_config_uid, admin=admin_user_uid, enable_connections=True, enable_tunneling=True, silent=True)
-        tdag.set_resource_allowed(resource_uid=database_machine_uid, rotation=True, connections=True, tunneling=True, session_recording=True, typescript_recording=True, remote_browser_isolation=True)
-        tdag.link_user_to_resource(admin_user_uid, database_machine_uid, True, True)
-        tdag.link_user_to_resource(rotation_user_uid, database_machine_uid, False, True)
-        PAMCreateRecordRotationCommand().execute(params, record_name=rotation_user_uid,
-                                                 admin=admin_user_uid,
-                                                 config=pam_config_uid, resource=database_machine_uid,
-                                                 on_demand=True, pwd_complexity="20,4,4,4,4", enable=True, force=True, silent=True)
-
-        # create_telnet_records
-        json_data = """{
-            "type": "pamUser",
-            "title": "#project_name# - Telnet Admin",
-            "fields": [
-                {"type": "login", "required": true, "value": ["user"]},
-                {"type": "password", "value": ["user1pwd"]}
-            ]}""".replace("#project_name#", project_name)
-        admin_user_uid = command.execute(params, folder=users_folder_uid, data=json_data)
-
-        json_data = """{
-            "type": "pamMachine",
-            "title": "#project_name# - Telnet Machine",
-            "fields": [
-                {"type": "pamHostname", "required": true, "value": [{"hostName": "server-telnet","port": "23"}]},
-                {"type": "trafficEncryptionSeed", "value": []},
-                {"type": "pamSettings", "value": [{
-                    "connection": {
-                        "protocol": "telnet",
-                        "userRecords": ["#admin_user_uid#"]
-                    },
-                    "portForward": { "reusePort": true }
-                }]}
-            ]}""".replace("#project_name#", project_name).replace("#admin_user_uid#", admin_user_uid)
-        ssh_machine_uid = command.execute(params, folder=resources_folder_uid, data=json_data)
-        tdag.link_resource_to_config(ssh_machine_uid)
-        pte.execute(params, record=ssh_machine_uid, config=pam_config_uid, admin=admin_user_uid, enable_connections=True, enable_tunneling=True, silent=True)
-        tdag.set_resource_allowed(resource_uid=ssh_machine_uid, rotation=True, connections=True, tunneling=True, session_recording=True, typescript_recording=True, remote_browser_isolation=True)
-        tdag.link_user_to_resource(admin_user_uid, ssh_machine_uid, True, True)
-        PAMCreateRecordRotationCommand().execute(params, record_name=admin_user_uid,
-                                                 admin=admin_user_uid,
-                                                 config=pam_config_uid, resource=ssh_machine_uid,
-                                                 on_demand=True, pwd_complexity="20,4,4,4,4", enable=True, force=True, silent=True)
-
-        api.sync_down(params)
+        session = PlaygroundSession(params, project)
+        session.create_all_records()
+        gateway_config_b64 = project["gateway"].get("gateway_config_b64", "")
+        compose_yaml = session.build_compose(gateway_config_b64)
+        session.save_compose_and_seccomp(compose_yaml)
 
     # def generate_simple_content_data(self, params, project: dict):
     #     """ Generate one Connection and one Tunnel """
@@ -1197,6 +759,11 @@ class PAMProjectImportCommand(Command):
 
     def add_folder_permissions(self, params, folder_uid: str, permissions: list):
         if permissions:
+            if is_nested_share_folder(params, folder_uid):
+                grant_pam_folder_permissions(params, folder_uid, permissions, command='pam-project-import')
+                api.sync_down(params)
+                return
+
             shf = SharedFolder()
             shf.uid = folder_uid # type: ignore
             shf.path = imp_exp.get_folder_path(params, folder_uid) # type: ignore
@@ -1232,7 +799,8 @@ class PAMProjectImportCommand(Command):
             # args["manage_users"] = True if manage_users == False else False
             # ShareFolderCommand().execute(params, **args)
 
-    def create_subfolder(self, params, folder_name:str, parent_uid:str="", permissions:Optional[Dict]=None):
+    def create_subfolder(self, params, folder_name:str, parent_uid:str="", permissions:Optional[Dict]=None,
+                         use_nsf: bool=False):
         """ Creates subfolder inside parent folder:
         either `user folder`, `shared folder` or `shared folder folder`.
         If `parent_uid == ""` then creates subfolder in root folder.
@@ -1243,6 +811,21 @@ class PAMProjectImportCommand(Command):
         """
 
         name = str(folder_name or "").strip()
+        if use_nsf or is_nested_share_folder(params, parent_uid):
+            from .nsf_helpers import seed_nsf_folder_cache, sync_down_preserving_nsf_keys
+            from ...nested_share_folder.folder_api import create_folder_v3
+            result = create_folder_v3(params, name, parent_uid=parent_uid or None)
+            if isinstance(result, dict) and result.get('success') is False:
+                raise CommandError("pam", result.get('message') or 'Failed to create Nested Share Folder')
+            folder_uid = result.get('folder_uid') if isinstance(result, dict) else None
+            if not folder_uid:
+                raise CommandError("pam", f'Nested Share Folder creation did not return UID: {name}')
+            folder_key = result.get('folder_key_unencrypted') if isinstance(result, dict) else None
+            seed_nsf_folder_cache(params, folder_uid, name, parent_uid or None, folder_key)
+            sync_down_preserving_nsf_keys(params)
+            params.environment_variables[LAST_FOLDER_UID] = folder_uid
+            return folder_uid
+
         base_folder = params.folder_cache.get(parent_uid, None) or params.root_folder
 
         shared_folder = True if permissions else False
@@ -1314,6 +897,15 @@ class PAMProjectImportCommand(Command):
         result = [v for k, v in matches.items() if
                   (is_shared_folder and v.type == BaseFolderNode.SharedFolderType) or
                   (not is_shared_folder and v.type == BaseFolderNode.UserFolderType)]
+        if not is_shared_folder:
+            for uid, nsf in getattr(params, 'nested_share_folders', {}).items():
+                nsf_parent = nsf.get('parent_uid') or None
+                if nsf_parent == puid and nsf.get('name') == folder:
+                    nsf_folder = NestedShareFolderNode()
+                    nsf_folder.uid = uid
+                    nsf_folder.name = nsf.get('name')
+                    nsf_folder.parent_uid = nsf_parent
+                    result.append(nsf_folder)
         return result
 
     def create_ksm_app(self, params, app_name) -> str:
@@ -1814,8 +1406,9 @@ class PAMProjectImportCommand(Command):
         # PAM Domain Config - update domain admin creds
         if pce and pce.environment == "domain":
             if pce.admin_credential_ref:
+                from .record_loader import load_pam_record
                 pcuid = project["pam_config"].get("pam_config_uid")
-                pcrec = vault.KeeperRecord.load(params, pcuid) if pcuid else None
+                pcrec = load_pam_record(params, pcuid) if pcuid else None
                 if pcrec and isinstance(pcrec, vault.TypedRecord) and pcrec.version == 6:
                     if pcrec.record_type == "pamDomainConfiguration":
                         prf = pcrec.get_typed_field('pamResources')
@@ -1825,7 +1418,17 @@ class PAMProjectImportCommand(Command):
                         prf.value = prf.value or [{}]
                         if isinstance(prf.value[0], dict):
                             prf.value[0]["adminCredentialRef"] = pce.admin_credential_ref
-                            record_management.update_record(params, pcrec)
+                            users_folder_uid = (project.get("folders") or {}).get("users_folder_uid", "")
+                            force_nsf = (
+                                project["options"].get("use_nsf", False) is True
+                                or is_nested_share_folder(params, users_folder_uid)
+                                or is_pam_nsf_record(params, pcuid)
+                            )
+                            if force_nsf:
+                                update_pam_record(
+                                    params, pcrec, command='pam-project-import', force_nsf=True)
+                            else:
+                                record_management.update_record(params, pcrec)
                             tdag.link_user_to_config_with_options(pce.admin_credential_ref, is_admin='on')
                         else:
                             logging.error(f"Unable to add adminCredentialRef - bad pamResources field in PAM Config {pcuid}")

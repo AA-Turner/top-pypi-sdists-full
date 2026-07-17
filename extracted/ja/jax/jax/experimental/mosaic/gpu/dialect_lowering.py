@@ -142,12 +142,10 @@ def _undo_conversion_cast(
 ) -> tuple[builtin.UnrealizedConversionCastOp, Sequence[ir.Value]]:
   """Undoes the provided unrealized conversion cast.
 
-  The `ir_value` must be an unrealized conversion cast. This function will
-  create a new conversion cast that undoes the original one. The returned tuple
+  The `ir_value` must be an unrealized conversion cast. The returned tuple
   contains:
-  - The original unrealzied conversion cast (useful for extract attributes).
-  - The list of operands of the original conversion cast (which are the result
-    values of the undone conversion cast).
+  - The original unrealized conversion cast (useful for extract attributes).
+  - The list of operands of the original conversion cast.
 
   The function will verify that the returned values have types that match
   `expected_types`.
@@ -157,17 +155,13 @@ def _undo_conversion_cast(
   if not isinstance(conversion_cast, builtin.UnrealizedConversionCastOp):
     raise ValueError(f"{conversion_cast} is not a conversion_cast")
 
-  cast_op = builtin.UnrealizedConversionCastOp(
-      [operand.type for operand in conversion_cast.operands],
-      conversion_cast.results,
-  )
-  converted_outputs: Sequence[ir.Value] = cast_op.results
+  original_inputs: Sequence[ir.Value] = conversion_cast.operands
 
-  for v, t in zip(converted_outputs, expected_types, strict=True):
+  for v, t in zip(original_inputs, expected_types, strict=True):
     if v.type != t:
       raise ValueError(f"Expected type {t} for value {v}")
 
-  return conversion_cast, converted_outputs
+  return conversion_cast, original_inputs
 
 
 def fragmented_array_to_ir(
@@ -180,11 +174,6 @@ def fragmented_array_to_ir(
   conversion_cast = builtin.UnrealizedConversionCastOp(
       [ty], fragmented_array.registers.flatten().tolist()
   )
-
-  conversion_cast.attributes["registers_shape"] = ir.ArrayAttr.get([
-      ir.IntegerAttr.get(ir.IntegerType.get_signless(64), s)
-      for s in fragmented_array.registers.shape
-  ])
 
   conversion_cast.attributes["layout"] = layouts_lib.to_layout_attr(
       fragmented_array.layout
@@ -211,24 +200,15 @@ def _fragmented_array_from_ir(
   producer_layout = layouts_lib.from_layout_attr(producer_layout_attr)
   vector_ty = ir.VectorType(fragmented_array_as_ir.type)
   reg_shape = producer_layout.registers_shape(tuple(vector_ty.shape))
-  reg_ty: ir.Type = producer_layout.registers_element_type(vector_ty.element_type)
+  reg_ty = producer_layout.registers_element_type(vector_ty.element_type)
 
-  conversion_cast, converted_outputs = _undo_conversion_cast(
+  _, original_inputs = _undo_conversion_cast(
       fragmented_array_as_ir, [reg_ty] * math.prod(reg_shape)
   )
 
-  reverse_conversion_cast = converted_outputs[0].owner.opview  # pyrefly: ignore[missing-attribute]
-  for attribute in conversion_cast.attributes:
-    reverse_conversion_cast.attributes[attribute] = conversion_cast.attributes[attribute]
+  registers = np.array(list(original_inputs)).reshape(reg_shape)
 
-  registers = np.array(list(converted_outputs)).reshape(
-    [
-        attr.value  # pyrefly: ignore[missing-attribute]
-        for attr in ir.ArrayAttr(conversion_cast.attributes["registers_shape"])
-    ]
-  )
-
-  if isinstance(conversion_cast.outputs[0].type.element_type, ir.IntegerType):
+  if isinstance(vector_ty.element_type, ir.IntegerType):
     is_signed = False if is_signed is None else is_signed
 
   return fa.FragmentedArray(
@@ -309,15 +289,12 @@ def _initialize_barrier_op_lowering_rule(
   return []
 
 
-# TODO(bchetioui): Remove once minimum supported jaxlib is 0.10.2
-if hasattr(mgpu, "AssumeMultipleOp"):
-
-  @_register_lowering(mgpu.AssumeMultipleOp)  # pyrefly: ignore[missing-attribute]
-  def _assume_multiple_op_lowering_rule(
-      _: LoweringContext,
-      op: mgpu.AssumeMultipleOp,  # pyrefly: ignore[missing-attribute]
-  ) -> Sequence[ir.Value]:
-    return [op.value]
+@_register_lowering(mgpu.AssumeMultipleOp)
+def _assume_multiple_op_lowering_rule(
+    _: LoweringContext,
+    op: mgpu.AssumeMultipleOp,
+) -> Sequence[ir.Value]:
+  return [op.value]
 
 
 @_register_lowering(mgpu.OptimizationBarrierOp)
@@ -325,25 +302,41 @@ def _optimization_barrier_op_lowering_rule(
     _: LoweringContext,
     op: mgpu.OptimizationBarrierOp,
 ) -> Sequence[ir.Value]:
-  if not all(
-      isinstance(operand.type, ir.VectorType) for operand in op.operands
-  ):
-    raise NotImplementedError(
-        f"Optimization barrier op {op} has non-vector operands."
-    )
+  if inference_utils.has_in_layouts_set(op):
+    in_layouts = inference_utils.in_layouts(op)
+  else:
+    in_layouts = []
 
   fragmented_arrays = []
-  for operand, layout in zip(op.operands, inference_utils.in_layouts(op), strict=True):
-    fragmented_arrays.append(_fragmented_array_from_ir(operand, layout))
+  layout_idx = 0
+  is_scalar = lambda dtype: isinstance(dtype, (ir.IntegerType, ir.IndexType, ir.FloatType))
+  for operand in op.operands:
+    if isinstance(operand.type, ir.VectorType):
+      layout = in_layouts[layout_idx]
+      layout_idx += 1
+      fragmented_arrays.append(_fragmented_array_from_ir(operand, layout))
+    else:
+      if not is_scalar(operand.type):
+        raise NotImplementedError(
+            f"Unsupported optimization barrier for operand {operand.type}"
+        )
+      is_signed = _default_is_signed(operand.type)
+      fragmented_arrays.append(
+          fa.FragmentedArray.splat(operand, shape=(), is_signed=is_signed)
+      )
 
+  assert layout_idx == len(in_layouts)
   lowered_fragmented_arrays = fa.optimization_barrier(*fragmented_arrays)
   if isinstance(lowered_fragmented_arrays, fa.FragmentedArray):
     lowered_fragmented_arrays = [lowered_fragmented_arrays]
 
-  return [
-      fragmented_array_to_ir(arr, result.type)
-      for arr, result in zip(lowered_fragmented_arrays, op.results, strict=True)
-  ]
+  result = []
+  for arr, res in zip(lowered_fragmented_arrays, op.results, strict=True):
+    if is_scalar(res.type):
+      result.append(arr.registers.item())
+    else:
+      result.append(fragmented_array_to_ir(arr, res.type))
+  return result
 
 
 @_register_lowering(mgpu.GetClusterRefOp)
@@ -476,8 +469,7 @@ def _vector_load_op_lowering_rule(
 
   swizzle = swizzle_from_transforms_attr(transforms_attr)
   transforms = memref_transforms_from_transforms_attr(transforms_attr)
-  has_transforms = swizzle != mgpu.SwizzlingMode.kNoSwizzle or transforms
-  if has_transforms:
+  if transforms:
     [tiling_transform] = transforms
     assert isinstance(tiling_transform, lc.TileTransform)
 
@@ -498,6 +490,7 @@ def _vector_load_op_lowering_rule(
       return fa.FragmentedArray.load_untiled(
           transformed_ref,
           layout=out_layout,
+          swizzle=swizzle,
           is_signed=is_signed,
           optimized=optimized,
       )
@@ -566,8 +559,7 @@ def _vector_store_op_lowering_rule(
     transforms_attr = inference_utils.in_transforms(op)[0]
     swizzle = swizzle_from_transforms_attr(transforms_attr)
     transforms = memref_transforms_from_transforms_attr(transforms_attr)
-    has_transforms = swizzle != mgpu.SwizzlingMode.kNoSwizzle or transforms
-    if has_transforms:
+    if transforms:
       unwrapped_ref = unwrap_transformed_memref(ref, transforms_attr)
       [tiling_transform] = transforms
       assert isinstance(tiling_transform, lc.TileTransform)
@@ -583,7 +575,9 @@ def _vector_store_op_lowering_rule(
     else:
 
       def store_untiled(optimized: bool):
-        fragmented_array.store_untiled(ref, optimized=optimized, atomic=atomic)
+        fragmented_array.store_untiled(
+            ref, optimized=optimized, swizzle=swizzle, atomic=atomic
+        )
       _retry_on_failure(store_untiled, optimized)
   else:
     raise ValueError(f"Unsupported memory space: {ref_type.memory_space}")
@@ -789,9 +783,7 @@ def _vector_extract_op_lowering_rule(
   assert in_layout == out_layout
   a = _fragmented_array_from_ir(op.source, in_layout)
   result_type = ir.VectorType(op.result.type)
-  slices = tuple(slice(i, i + 1) for i in op.static_position)
-  # TODO(allanrenucci): Add direct support for indexing to FragmentedArray.
-  result = a[slices].reshape(tuple(result_type.shape))
+  result = a[tuple(op.static_position)]
   assert result.layout == layouts_lib.from_layout_attr(out_layout)
   return [fragmented_array_to_ir(result, result_type)]
 
@@ -934,6 +926,22 @@ def _mgpu_broadcast_in_dim_op_lowering_rule(
       tuple(out_ty.shape), broadcast_dims, out_layout
   )
   return [fragmented_array_to_ir(out, out_ty)]
+
+# TODO(allanrenucci): Remove guard after jaxlib v0.11.0 release.
+if hasattr(mgpu, "VectorConcatOp"):
+  @_register_lowering(mgpu.VectorConcatOp)
+  def _mgpu_vector_concat_op_lowering_rule(
+      _: LoweringContext, op: mgpu.VectorConcatOp
+  ) -> Sequence[ir.Value]:
+    in_layouts = inference_utils.in_layouts(op)
+    out_layout, = inference_utils.out_layouts(op)
+    operands_fa = [
+        _fragmented_array_from_ir(opr, l)
+        for opr, l in zip(op.operands, in_layouts, strict=True)
+    ]
+    out = fa.concatenate(operands_fa, axis=op.dimension.value)
+    assert out.layout == layouts_lib.from_layout_attr(out_layout)
+    return [fragmented_array_to_ir(out, op.result.type)]
 
 
 def swizzle_from_transforms_attr(attr: ir.ArrayAttr) -> mgpu.SwizzlingMode:
@@ -1107,7 +1115,10 @@ def _gmem_slice_and_predicate(
   """Returns the GMEM slice and predicate for the given async op."""
   gmem_slice: list[ir.Value | fa.FragmentedArray | utils.DynamicSlice]
   gmem_slice = []
-  predicate = dict(predicate=ctx.single_lane_predicate)
+  predicate = ctx.single_lane_predicate
+  if op.predicate is not None:
+    predicate = arith.andi(predicate, op.predicate)
+  predicate = dict(predicate=predicate)
   for idx, size in zip(op.indices, op.slice_lengths, strict=True):
     if isinstance(idx.type, ir.IntegerType):
       idx_int = arith.index_cast(ir.IndexType.get(), idx)
@@ -1274,7 +1285,9 @@ def _mgpu_async_store_op_lowering_rule(
   return []
 
 
-@_register_lowering(mgpu.AsyncStoreScalesSmemToTmemOp)
+@_register_lowering(
+    mgpu.AsyncStoreScalesSmemToTmemOp, support_warp_semantics=True
+)
 def _async_copy_scales_smem_to_tmem_lowering_rule(
     ctx: LoweringContext, op: mgpu.AsyncStoreScalesSmemToTmemOp
 ) -> Sequence[ir.Value]:
@@ -1326,7 +1339,7 @@ def _async_store_smem_to_tmem_lowering_rule(
   return []
 
 
-@_register_lowering(mgpu.TmemLayoutCastOp)
+@_register_lowering(mgpu.TmemLayoutCastOp, support_warp_semantics=True)
 def _tmem_layout_cast_lowering_rule(
     ctx: LoweringContext,
     op: mgpu.TmemLayoutCastOp,
@@ -1656,31 +1669,29 @@ def _mgpu_wgmma_op_lowering_rule(
   ]
 
 
-# TODO(slebedev): Remove once minimum supported jaxlib is 0.10.2
-if hasattr(mgpu, "MMAOp"):
-  @_register_lowering(mgpu.MMAOp)
-  def _mgpu_mma_op_lowering_rule(
-      ctx: LoweringContext, mma_op: mgpu.MMAOp
-  ) -> Sequence[ir.Value]:
-    del ctx
-    acc_layout, a_layout, b_layout = inference_utils.in_layouts(mma_op)
-    [out_layout] = inference_utils.out_layouts(mma_op)
+@_register_lowering(mgpu.MMAOp)
+def _mgpu_mma_op_lowering_rule(
+    ctx: LoweringContext, mma_op: mgpu.MMAOp
+) -> Sequence[ir.Value]:
+  del ctx
+  acc_layout, a_layout, b_layout = inference_utils.in_layouts(mma_op)
+  [out_layout] = inference_utils.out_layouts(mma_op)
 
-    a_element_type = mma_op.a.type.element_type
-    mma_layouts = MMALayouts(a_element_type)
-    expected_acc_layout = layouts_lib.to_layout_attr(mma_layouts.acc)
-    assert acc_layout == expected_acc_layout
-    assert out_layout == expected_acc_layout
-    is_signed = True if isinstance(a_element_type, ir.IntegerType) else None
+  a_element_type = mma_op.a.type.element_type
+  mma_layouts = MMALayouts(a_element_type)
+  expected_acc_layout = layouts_lib.to_layout_attr(mma_layouts.acc)
+  assert acc_layout == expected_acc_layout
+  assert out_layout == expected_acc_layout
+  is_signed = True if isinstance(a_element_type, ir.IntegerType) else None
 
-    acc = _fragmented_array_from_ir(
-        mma_op.accumulator, acc_layout, is_signed=is_signed
-    )
-    a = _fragmented_array_from_ir(mma_op.a, a_layout, is_signed=is_signed)
-    b = _fragmented_array_from_ir(mma_op.b, b_layout, is_signed=is_signed)
+  acc = _fragmented_array_from_ir(
+      mma_op.accumulator, acc_layout, is_signed=is_signed
+  )
+  a = _fragmented_array_from_ir(mma_op.a, a_layout, is_signed=is_signed)
+  b = _fragmented_array_from_ir(mma_op.b, b_layout, is_signed=is_signed)
 
-    new_acc = do_mma(acc, a, b)
-    return [fragmented_array_to_ir(new_acc, mma_op.result.type)]
+  new_acc = do_mma(acc, a, b)
+  return [fragmented_array_to_ir(new_acc, mma_op.result.type)]
 
 
 @_register_lowering(mgpu.ArriveOp, support_warp_semantics=True)
@@ -1874,8 +1885,6 @@ def _memref_subview_op_lowering_rule(
     raise NotImplementedError("SubViewOp only supports static sizes.")
   src_ty = ir.MemRefType(op.source.type)
 
-  if utils.is_memref_transposed(src_ty):
-    raise NotImplementedError("SubViewOp does not support transposed memrefs.")
 
   if utils.is_tmem_ref(src_ty):
     [in_tmem_layout] = inference_utils.in_tmem_layouts(op)
@@ -2213,7 +2222,7 @@ def _check_collapse_shape(
   reassociation = tuple(len(ir.ArrayAttr(idx)) for idx in op.reassociation)
 
   collapsed_tiling = cs.reduce_expression(
-      cs.CollapseShape(cs.SMEMTransforms(t_in), tuple(src_ty.shape),
+      cs.CollapseShape(cs.SMEMTransforms(t_in, None), tuple(src_ty.shape),
                        reassociation),
       {},
   )

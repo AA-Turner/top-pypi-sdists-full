@@ -89,6 +89,7 @@ class ConnectResource:
         account_id: str | None = None,
         redirect_url: str | None = None,
         headless: bool | None = False,
+        force: bool | None = False,
         ad_account_id: str | None = None,
         ad_account_ids: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -98,6 +99,7 @@ class ConnectResource:
             account_id=account_id,
             redirect_url=redirect_url,
             headless=headless,
+            force=force,
             ad_account_id=ad_account_id,
             ad_account_ids=ad_account_ids,
         )
@@ -480,12 +482,18 @@ class ConnectResource:
         )
 
     def get_gmb_locations(
-        self, account_id: str, *, search: str | None = None, filter: str | None = None
+        self,
+        account_id: str,
+        *,
+        search: str | None = None,
+        filter: str | None = None,
+        limit: int | None = 100,
     ) -> dict[str, Any]:
         """List GBP locations"""
         params = self._build_params(
             search=search,
             filter=filter,
+            limit=limit,
         )
         return self._client._get(
             f"/v1/accounts/{account_id}/gmb-locations", params=params
@@ -604,6 +612,7 @@ class ConnectResource:
         account_id: str | None = None,
         redirect_url: str | None = None,
         headless: bool | None = False,
+        force: bool | None = False,
         ad_account_id: str | None = None,
         ad_account_ids: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -613,6 +622,7 @@ class ConnectResource:
             account_id=account_id,
             redirect_url=redirect_url,
             headless=headless,
+            force=force,
             ad_account_id=ad_account_id,
             ad_account_ids=ad_account_ids,
         )
@@ -1019,12 +1029,18 @@ class ConnectResource:
         )
 
     async def aget_gmb_locations(
-        self, account_id: str, *, search: str | None = None, filter: str | None = None
+        self,
+        account_id: str,
+        *,
+        search: str | None = None,
+        filter: str | None = None,
+        limit: int | None = 100,
     ) -> dict[str, Any]:
         """List GBP locations (async)"""
         params = self._build_params(
             search=search,
             filter=filter,
+            limit=limit,
         )
         return await self._client._aget(
             f"/v1/accounts/{account_id}/gmb-locations", params=params

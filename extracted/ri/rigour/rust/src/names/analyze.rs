@@ -29,11 +29,11 @@
 // pass `rewrite=False`. The tagger still fires on the raw tokens
 // (its alias set covers both the original and canonical forms).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::LazyLock;
 
 use pyo3::prelude::*;
-use pyo3::types::PySet;
+use pyo3::types::{PyDict, PySet};
 
 use crate::names::name::Name;
 use crate::names::org_types;
@@ -102,12 +102,18 @@ fn is_stopword(form: &str) -> bool {
 /// Public entry point — called from PyO3 `py_analyze_names`. See the
 /// Python-side docstring at `rigour/names/analyze.py::analyze_names`
 /// for the semantic spec.
+///
+/// `part_tags` is an ordered sequence, not a map: tag application
+/// is first-writer-wins (a later compatible tag no-ops, an
+/// incompatible one flips the part to AMBIGUOUS), so the caller's
+/// dict insertion order is semantic and must survive the FFI
+/// crossing.
 #[allow(clippy::too_many_arguments)]
 pub fn analyze_names(
     py: Python<'_>,
     type_tag: NameTypeTag,
     names: Vec<String>,
-    part_tags: HashMap<NamePartTag, Vec<String>>,
+    part_tags: Vec<(NamePartTag, Vec<String>)>,
     infer_initials: bool,
     symbols: bool,
     phonetics: bool,
@@ -122,7 +128,7 @@ pub fn analyze_names(
         let working = if rewrite && matches!(type_tag, NameTypeTag::PER) {
             remove_person_prefixes(&raw)
         } else {
-            raw.clone()
+            raw
         };
         let mut form = casefold(&working);
         if rewrite && matches!(type_tag, NameTypeTag::ORG | NameTypeTag::ENT) {
@@ -351,7 +357,7 @@ fn infer_part_tags(py: Python<'_>, name: &Py<Name>, symbols: bool, numerics: boo
             part_b.borrow_mut().tag = NamePartTag::NUM;
             if symbols && numerics && !numeric_part_hashes.contains(&part_hash) {
                 if let Some(v) = integer_val {
-                    let sym = Symbol::from_u32(SymbolCategory::NUMERIC, v as u32);
+                    let sym = Symbol::from_i64(SymbolCategory::NUMERIC, v);
                     let sym_py = Py::new(py, sym)?;
                     let part_py = part_b.clone().unbind();
                     name.bind(py).borrow().apply_part(py, part_py, sym_py)?;
@@ -402,7 +408,7 @@ pub fn py_analyze_names(
     py: Python<'_>,
     type_tag: NameTypeTag,
     names: Vec<String>,
-    part_tags: Option<HashMap<NamePartTag, Vec<String>>>,
+    part_tags: Option<Bound<'_, PyDict>>,
     infer_initials: bool,
     symbols: bool,
     phonetics: bool,
@@ -410,11 +416,21 @@ pub fn py_analyze_names(
     consolidate: bool,
     rewrite: bool,
 ) -> PyResult<Py<PySet>> {
+    // Convert by iterating the dict, not by extracting a HashMap:
+    // PyDict iteration follows Python's insertion order, which is
+    // load-bearing for first-writer-wins tag application.
+    let mut tags: Vec<(NamePartTag, Vec<String>)> = Vec::new();
+    if let Some(dict) = &part_tags {
+        tags.reserve(dict.len());
+        for (key, value) in dict.iter() {
+            tags.push((key.extract()?, value.extract()?));
+        }
+    }
     analyze_names(
         py,
         type_tag,
         names,
-        part_tags.unwrap_or_default(),
+        tags,
         infer_initials,
         symbols,
         phonetics,

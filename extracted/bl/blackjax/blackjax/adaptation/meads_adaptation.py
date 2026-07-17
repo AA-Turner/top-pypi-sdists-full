@@ -19,6 +19,8 @@ from jax.flatten_util import ravel_pytree
 
 import blackjax.mcmc as mcmc
 from blackjax.adaptation.base import AdaptationResults, return_all_adapt_info
+from blackjax.adaptation.metric_buffers import MomentBlock, cgl_update_batch
+from blackjax.adaptation.metric_estimators import sample_covariance_eigh_low_rank
 from blackjax.base import AdaptationAlgorithm
 from blackjax.mcmc.metrics import LowRankInverseMassMatrix
 from blackjax.types import Array, ArrayLikeTree, ArrayTree, PRNGKey
@@ -237,52 +239,8 @@ def _low_rank_precondition_pos(pos: Array, sigma: Array, U: Array, lam: Array) -
     return _low_rank_apply(pos, U, 1.0 / jnp.sqrt(lam)) / sigma
 
 
-class _LowRankAccumulatorState(NamedTuple):
-    """Running Chan/Welford covariance accumulator for MEADS-LRD's window
-    accumulation (high-d fix: see ``low_rank_rank``'s docstring).
-
-    Carries the mean, the Chan "M2" sum-of-outer-products, and the effective
-    sample count pooled across *all* ``num_chains`` chains and every
-    accumulated window step, so the low-rank metric can eventually be
-    estimated from effective ``n = num_chains * window_steps`` rather than a
-    single ``num_chains``-sized ensemble snapshot.
-    """
-
-    mean: Array
-    m2: Array
-    count: Array
-
-
-def _lrd_accumulator_init(d: int) -> _LowRankAccumulatorState:
-    return _LowRankAccumulatorState(
-        mean=jnp.zeros((d,)), m2=jnp.zeros((d, d)), count=jnp.zeros(())
-    )
-
-
-def _lrd_accumulator_update(
-    acc: _LowRankAccumulatorState, batch: Array
-) -> _LowRankAccumulatorState:
-    """Merge a batch of ``n_b`` samples, shape ``(n_b, d)``, into the running
-    accumulator via Chan et al.'s parallel/batch generalization of Welford's
-    algorithm -- the same recurrence
-    :func:`~blackjax.adaptation.mass_matrix.welford_algorithm` applies one
-    sample at a time, applied here to a whole ensemble at once.
-    """
-    mean_a, m2_a, n_a = acc
-    n_b = batch.shape[0]
-    mean_b = jnp.mean(batch, axis=0)
-    centered_b = batch - mean_b[None, :]
-    m2_b = centered_b.T @ centered_b
-
-    delta = mean_b - mean_a
-    n_ab = n_a + n_b
-    mean_ab = mean_a + delta * (n_b / n_ab)
-    m2_ab = m2_a + m2_b + jnp.outer(delta, delta) * (n_a * n_b / n_ab)
-    return _LowRankAccumulatorState(mean=mean_ab, m2=m2_ab, count=n_ab)
-
-
 def _lrd_from_accumulated_covariance(
-    acc: _LowRankAccumulatorState, k: int
+    acc: MomentBlock, k: int
 ) -> tuple[Array, Array, Array]:
     """Extract ``(sigma, U, lam)`` from a window-accumulated covariance
     (effective ``n = num_chains * window_steps``) via ``eigh`` of the
@@ -293,24 +251,13 @@ def _lrd_from_accumulated_covariance(
     ``p >> n`` noise-dominated once ``d`` exceeds ``num_chains``, but the
     window-accumulated covariance's effective ``n`` can comfortably exceed
     ``d`` given enough window steps.
+
+    Delegates to
+    :func:`~blackjax.adaptation.metric_estimators.sample_covariance_eigh_low_rank`
+    (behavior-identical).
     """
-    mean, m2, count = acc
-    del mean  # only the second moment is needed below
-    covariance = m2 / jnp.maximum(count - 1.0, 1.0)
-    variance = jnp.diag(covariance)
-    sigma = jnp.sqrt(jnp.maximum(variance, 0.0))
-    sigma = jnp.where(sigma <= 0.0, 1.0, sigma)  # avoid div-by-zero
-
-    inv_sigma = 1.0 / sigma
-    correlation = covariance * inv_sigma[:, None] * inv_sigma[None, :]
-
-    # eigh gives ascending eigenvalues of the (symmetric) correlation matrix.
-    lam_all, V = jnp.linalg.eigh(correlation)
-    sort_idx = jnp.argsort(jnp.abs(lam_all - 1.0))[::-1]
-    top_idx = sort_idx[:k]
-    lam = lam_all[top_idx]
-    U = V[:, top_idx]
-    return sigma, U, lam
+    lrd = sample_covariance_eigh_low_rank(acc.m2, acc.count, k)
+    return lrd.sigma, lrd.U, lrd.lam
 
 
 def _lrd_diagonal_fallback(flat_positions: Array, k: int) -> tuple[Array, Array, Array]:
@@ -359,6 +306,9 @@ def _floor_lrd_eigenvalues(lam: Array) -> Array:
     ``sqrt(lam)`` out of the step-size heuristic entirely): the degenerate
     collapse (``rhat = inf``, NaN step size) only occurs if *both* guards
     are defeated.
+
+    ``jnp.maximum(lam, floor)`` guards against small/negative-but-finite
+    eigenvalues only — NaN passes through (``maximum(NaN, floor) = NaN``).
     """
     return jnp.maximum(lam, _LRD_EIGENVALUE_FLOOR)
 
@@ -490,6 +440,15 @@ def meads_adaptation(
         disables accumulation entirely (falls back to the purely diagonal
         momentum metric throughout the run).
 
+        At GPU scale (independent re-validation, num_chains up to 1024 on a
+        d≈390 hierarchical target): the low-rank metric's de-biasing reproduces
+        (num_chains ≥ 256 with adequate warmup — cutting warmup at high
+        num_chains under-accumulates the metric and re-introduces bias via
+        step-size collapse) and holds as num_chains grows, but residual mean-error
+        stabilizes slightly above strict certification thresholds; treat the
+        low-rank metric as a robust improvement over the diagonal rather than a
+        guarantee of unbiased means on such targets.
+
     Returns
     -------
     A function that returns the last cross-chain state, a sampling kernel with the
@@ -594,7 +553,7 @@ def meads_adaptation(
 
             updated_lrd_accum = jax.lax.cond(
                 in_window,
-                lambda a: _lrd_accumulator_update(a, flat_all_pos),
+                lambda a: cgl_update_batch(a, flat_all_pos),
                 lambda a: a,
                 lrd_accum,
             )
@@ -769,7 +728,9 @@ def meads_adaptation(
             # equals the full dense metric, so this clamp is lossless.
             nonlocal low_rank_k
             low_rank_k = min(low_rank_k, d)
-            init_lrd_accum = _lrd_accumulator_init(d)
+            init_lrd_accum = MomentBlock(
+                count=jnp.zeros(()), mean=jnp.zeros((d,)), m2=jnp.zeros((d, d))
+            )
         else:
             window_start = num_steps
             init_lrd_accum = None

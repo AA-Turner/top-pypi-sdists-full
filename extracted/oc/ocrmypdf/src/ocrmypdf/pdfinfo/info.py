@@ -16,12 +16,12 @@ from pathlib import Path
 from typing import NamedTuple
 
 from pdfminer.layout import LTPage, LTTextBox
-from pikepdf import Name, Page, Pdf
+from pikepdf import Name, Object, Page, Pdf
 
 from ocrmypdf._concurrent import Executor, SerialExecutor
 from ocrmypdf._pageboxes import coerce_box
 from ocrmypdf.exceptions import EncryptedPdfError
-from ocrmypdf.helpers import Resolution
+from ocrmypdf.helpers import Resolution, pikepdf_get_bool, pikepdf_get_int
 from ocrmypdf.pdfinfo._contentstream import TextboxInfo, TextMarker, VectorMarker
 from ocrmypdf.pdfinfo._image import ImageInfo, _process_content_streams
 from ocrmypdf.pdfinfo._types import FloatRect
@@ -160,6 +160,10 @@ class PageInfo:
         check_this_page = pageno in check_pages
 
         if check_this_page and detailed_analysis:
+            # miner_state is only None when detailed_analysis is False (see
+            # PdfInfo.__init__, which ties the two together), so it must be
+            # set here.
+            assert miner_state is not None
             page_analysis = miner_state.get_page_analysis(pageno)
             if page_analysis is not None:
                 self._textboxes = list(
@@ -175,7 +179,11 @@ class PageInfo:
             self._has_text = None  # i.e. "no information"
 
         userunit = page.get(Name.UserUnit, Decimal(1.0))
-        if not isinstance(userunit, Decimal):
+        if isinstance(userunit, Object):
+            # Only reachable under pikepdf's explicit conversion mode; the
+            # default (implicit) mode already unboxes to int/float/Decimal.
+            userunit = Decimal(userunit.as_float())
+        elif not isinstance(userunit, Decimal):
             userunit = Decimal(userunit)
         self._userunit = userunit
         self._width_inches = width_pt * userunit / Decimal(72.0)
@@ -189,7 +197,7 @@ class PageInfo:
             self._has_text = False
             self._images = []
             for info in _process_content_streams(
-                pdf=pdf, container=page, shorthand=userunit_shorthand
+                pdf=pdf, container=page.obj, shorthand=userunit_shorthand
             ):
                 if isinstance(info, VectorMarker):
                     self._has_vector = True
@@ -446,16 +454,21 @@ class PdfInfo:
                     detailed_analysis=detailed_analysis,
                     miner_state=miner_state,
                 )
-            self._needs_rendering = pdf.Root.get(Name.NeedsRendering, False)
+            self._needs_rendering = pikepdf_get_bool(pdf.Root, Name.NeedsRendering)
             if Name.AcroForm in pdf.Root:
                 if (
                     len(pdf.Root.AcroForm.get(Name.Fields, [])) > 0
                     or Name.XFA in pdf.Root.AcroForm
                 ):
                     self._has_acroform = True
-                self._has_signature = bool(pdf.Root.AcroForm.get(Name.SigFlags, 0) & 1)
-            self._is_tagged = bool(
-                pdf.Root.get(Name.MarkInfo, {}).get(Name.Marked, False)
+                self._has_signature = bool(
+                    pikepdf_get_int(pdf.Root.AcroForm, Name.SigFlags) & 1
+                )
+            mark_info = pdf.Root.get(Name.MarkInfo)
+            self._is_tagged = (
+                pikepdf_get_bool(mark_info, Name.Marked)
+                if mark_info is not None
+                else False
             )
             self._has_structure_tree = Name.StructTreeRoot in pdf.Root
 
@@ -537,6 +550,8 @@ def main():  # pragma: no cover
     pprint(pdfinfo)
     for page in pdfinfo.pages:
         pprint(page)
+        if page is None:
+            continue
         for im in page.images:
             pprint(im)
 

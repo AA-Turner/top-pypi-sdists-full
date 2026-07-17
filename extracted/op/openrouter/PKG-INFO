@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openrouter
-Version: 0.11.37
+Version: 0.11.39
 Summary: Official Python Client SDK for OpenRouter.
 Author: OpenRouter
 License: Apache-2.0

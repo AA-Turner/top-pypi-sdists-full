@@ -15,6 +15,7 @@ from dreadnode.generators.message import (
 from dreadnode.generators.models import XMLModel as Model
 from dreadnode.generators.models import element
 from dreadnode.generators.parsing import parse
+from dreadnode.generators.proxy import resolve_dn_model_to_generator
 
 
 class JudgeInput(Model):
@@ -345,14 +346,24 @@ def llm_judge(
     ) -> list[Metric]:
         generator: Generator
         if isinstance(model, str):
-            generator = get_generator(
-                model,
-                params=model_params
+            _params = (
+                model_params
                 if isinstance(model_params, GenerateParams)
                 else GenerateParams.model_validate(model_params)
                 if model_params
-                else None,
+                else None
             )
+            resolved = resolve_dn_model_to_generator(model)
+            if isinstance(resolved, Generator):
+                # `dn/*` ids route through the platform LLM gateway; get_generator()
+                # can't resolve them (LiteLLM sees no provider), so a `dn/*` judge would
+                # otherwise error every trial to 0.0. Use the proxy generator, keeping
+                # its routing while applying any judge params.
+                generator = resolved
+                if _params is not None:
+                    generator.params = generator.params.merge_with(_params)
+            else:
+                generator = get_generator(resolved, params=_params)
         elif isinstance(model, Generator):
             generator = model
         else:

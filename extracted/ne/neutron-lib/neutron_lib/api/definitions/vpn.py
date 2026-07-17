@@ -17,6 +17,11 @@ from neutron_lib.api import converters
 from neutron_lib.api.definitions import l3
 from neutron_lib.api import validators
 from neutron_lib.db import constants as db_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 # Resource constants
 VPNSERVICE = 'vpnservice'
@@ -222,7 +227,7 @@ API_PREFIX = '/vpn'
 
 _vpn_lifetime_limits = (60, validators.UNLIMITED)
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
 
     VPNSERVICES: {
         'id': {'allow_post': False, 'allow_put': False,
@@ -464,12 +469,10 @@ RESOURCE_ATTRIBUTE_MAP = {
 
 # The subresource attribute map for the extension.  This extension has only
 # top level resources, not child resources, so this is set to an empty dict.
-SUB_RESOURCE_ATTRIBUTE_MAP = {
-}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map.
-ACTION_MAP = {
-}
+ACTION_MAP: ActionMap = {}
 
 # The action status.
 ACTION_STATUS = {

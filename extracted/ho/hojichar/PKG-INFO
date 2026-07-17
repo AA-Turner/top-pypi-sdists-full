@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hojichar
-Version: 0.16.0
+Version: 0.16.1
 Summary: Text preprocessing management system.
 Project-URL: Homepage, https://github.com/HojiChar/HojiChar
 Project-URL: Repository, https://github.com/HojiChar/HojiChar
@@ -15,8 +15,10 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <3.14,>=3.9
-Requires-Dist: numpy<2.0,>=1.26; python_version >= '3.9'
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <3.15,>=3.9
+Requires-Dist: numpy<3,>=1.26; python_version < '3.14'
+Requires-Dist: numpy<3,>=2.4; python_version >= '3.14'
 Requires-Dist: tqdm<5,>=4.65.0
 Provides-Extra: all
 Requires-Dist: emoji<3,>=2.13.2; extra == 'all'
@@ -42,6 +44,7 @@ Description-Content-Type: text/markdown
 [![CI wowkflow](https://github.com/HojiChar/HojiChar/actions/workflows/ci.yaml/badge.svg)](https://github.com/HojiChar/HojiChar/actions/workflows/ci.yaml)
 [![codecov](https://codecov.io/gh/HojiChar/HojiChar/branch/main/graph/badge.svg?token=16928I9U9Y)](https://codecov.io/gh/HojiChar/HojiChar)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/hojichar)
+
 
 Official docs: <https://hojichar.github.io/HojiChar/hojichar.html>
 
@@ -411,6 +414,8 @@ with hojichar.Parallel(cleaner, num_jobs=10) as pfilter:
 
 - Always use the `Parallel` class within a `with` statement.
 - `Parallel.imap_apply(doc_iter)` processes an iterator of `Document` and returns an iterator of the processed documents.
+- By default, processed documents are yielded as soon as they complete. Pass `ordered=True`
+  to `Parallel` to yield them in the same order as the input documents.
 - For additional options and details about the `Parallel` class, please refer to the official documentation.
 
 ## CLI tool and preprocessing profile

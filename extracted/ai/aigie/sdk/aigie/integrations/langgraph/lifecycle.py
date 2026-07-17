@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 from aigie.auto_instrument._callback_utils import normalize_callbacks
 from aigie.auto_instrument.trace import get_or_create_trace, get_or_create_trace_sync
 from aigie.context_manager import merge_metadata
+from aigie.integrations.langgraph.control_flow import is_control_flow_signal
 from aigie.integrations.langgraph.native_callback import LangGraphNativeCallback
 from aigie.integrations.langgraph.rewind import LangGraphRewindCapability
 from aigie.integrations.langgraph.utils import extract_reasoning_plan
@@ -94,15 +95,8 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
 
     # ---- Framework hooks --------------------------------------------------
 
-    def _is_controlled_pause(self, error: Exception | None) -> bool:
-        if error is None:
-            return False
-        try:
-            from langgraph.errors import GraphInterrupt
-
-            return isinstance(error, GraphInterrupt)
-        except ImportError:
-            return False
+    def _is_controlled_pause(self, error: BaseException | None) -> bool:
+        return is_control_flow_signal(error)
 
     def _extract_thread_id(self, config: dict | None) -> str | None:
         if not config or not isinstance(config, dict):
@@ -262,10 +256,11 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
         )
 
     def _after_run(
-        self, handler: Any, input: Any, config: dict | None, error: Exception | None
+        self, handler: Any, input: Any, config: dict | None, error: BaseException | None
     ) -> None:
         try:
-            handler.close_workflow_span(error=error)
+            if not self._is_controlled_pause(error):
+                handler.close_workflow_span(error=error)
         finally:
             _dec_thread_counter()
 
@@ -274,7 +269,7 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
         framework_handle: Any,
         config: dict | None,
         handler: Any,
-        error: Exception | None,
+        error: BaseException | None,
     ) -> None:
         """Pause cases still need the substrate's paused-status emit; final
         cases (success/error) are handled by _after_run via close_workflow_span
@@ -285,12 +280,16 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
         so long-running services don't accumulate Trace objects indefinitely.
         """
         if self._is_controlled_pause(error):
-            handler.spans.close_pending_spans(status="paused")
+            self._pause_and_clear(handler)
             return
         if not self._graph_is_done(framework_handle, config) and error is None:
-            handler.spans.close_pending_spans(status="paused")
+            self._pause_and_clear(handler)
             return
         pop_resumable_trace(self._extract_thread_id(config))
+
+    def _pause_and_clear(self, handler: Any) -> None:
+        handler.spans.close_pending_spans(status="paused")
+        handler.spans.clear_pending_spans()
 
     def _auto_checkpointer_for_rewind(self) -> bool:
         cfg = self._config
@@ -340,11 +339,49 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
         StateGraph.compile = traced_compile  # type: ignore[assignment]
 
         _install_prebuilt_prompt_capture()
+        self._patch_compiled_class()
         return True
+
+    # batch/abatch are excluded: Runnable.batch fans out to invoke on a
+    # threadpool the ambient trace doesn't reach, so wrapping the outer batch
+    # opens duplicate roots on the pool threads (per-input invoke is traced).
+    _CLS_SYNC = ("invoke",)
+    _CLS_ASYNC = ("ainvoke",)
+    _CLS_STREAM_SYNC = ("stream",)
+    _CLS_STREAM_ASYNC = ("astream", "astream_events", "astream_log")
+
+    def _patch_compiled_class(self) -> None:
+        """Wrap the run entrypoints on ``CompiledStateGraph`` itself so a graph
+        compiled before ``aigie.init()`` is still traced as langgraph rather
+        than mislabeled by the LangChain callback. Nested calls stand down via
+        ``_already_tracing()``; per-instance wraps shadow these (no double-wrap).
+        """
+        try:
+            from langgraph.graph.state import CompiledStateGraph
+        except ImportError:
+            return
+        for name in self._CLS_SYNC:
+            self._patch_class_method(CompiledStateGraph, name, self.wrap_cls_sync)
+        for name in self._CLS_ASYNC:
+            self._patch_class_method(CompiledStateGraph, name, self.wrap_cls_async)
+        for name in self._CLS_STREAM_SYNC:
+            self._patch_class_method(CompiledStateGraph, name, self.wrap_cls_stream_sync)
+        for name in self._CLS_STREAM_ASYNC:
+            self._patch_class_method(CompiledStateGraph, name, self.wrap_cls_stream_async)
+
+    @staticmethod
+    def _patch_class_method(cls: type, name: str, wrap_factory: Any) -> None:
+        original = getattr(cls, name, None)
+        if original is None or getattr(original, "_aigie_patched", False):
+            return
+        wrapped = wrap_factory(original=original)
+        wrapped._aigie_patched = True  # type: ignore[attr-defined]
+        wrapped._aigie_was_own = name in cls.__dict__  # type: ignore[attr-defined]
+        setattr(cls, name, wrapped)
 
     def _uninstall_native_hook(self) -> None:
         """Best-effort: StateGraph.compile patches are not reversed in
-        production. Tests rely on idempotency rather than reversal."""
+        production. Tests reverse both patches via ``unpatch_langgraph_compile``."""
 
     def _capture_schema(self, graph: Any) -> None:
         for attr in ("schema", "_schema"):

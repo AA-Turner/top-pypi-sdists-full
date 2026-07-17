@@ -40,6 +40,8 @@ from ..utils import (
     device_support_pdl,
     get_compute_capability,
     get_device_sm_count,
+    _get_trtllm_gen_multi_ctas_kv_counter_buffer,
+    get_trtllm_gen_multi_ctas_kv_counter_bytes,
     is_sm12x_supported,
     log2e,
 )
@@ -1189,7 +1191,8 @@ def trtllm_batch_decode_sparse_mla_dsv4(
         SWA KV cache. TRTLLM-GEN uses head dim 512; SM120 sparse uses packed
         uint8 head dim 584. Layout follows ``kv_layout``.
     workspace_buffer : torch.Tensor
-        Backend workspace buffer. Must be zero-initialized for first use.
+        TRTLLM-GEN workspace buffer. The multi-CTA KV counters are managed in a
+        separate internal buffer.
     sparse_indices : torch.Tensor
         TRTLLM-GEN combined sparse table, or the SM120 sparse SWA segment.
     compressed_kv_cache : Optional[torch.Tensor]
@@ -1334,12 +1337,18 @@ def trtllm_batch_decode_sparse_mla_dsv4(
         )
 
     sm_count = get_device_sm_count(query.device)
+    # Fresh zero-initialized buffer; the kernel self-resets the counters at the
+    # end of the launch, so no explicit re-zeroing is required.
+    multi_ctas_kv_counter_buffer = _get_trtllm_gen_multi_ctas_kv_counter_buffer(
+        batch_size, query_flat.size(1), sm_count, query.device
+    )
     run_func(
         out,
         query_flat,
         primary_kv_cache,
         swa_kv_cache,
         workspace_buffer,
+        multi_ctas_kv_counter_buffer,
         sparse_indices,
         seq_lens.contiguous(),
         sparse_topk_lens,
@@ -1950,32 +1959,9 @@ class BatchMLAPagedAttentionWrapper:
 # Autotuning support for trtllm_batch_decode_with_kv_cache_mla
 # ---------------------------------------------------------------------------
 
-# Trtllm-gen kernel has a hardcoded max_batch_size = 8192 cap in
-# csrc/trtllm_fmha_kernel_launcher.cu:200 (the counter-region semaphore array
-# is sized for this max). Profiling beyond this would alias semaphores and
-# produce non-representative measurements.
+# Keep the trtllm-gen autotune sweep bounded; actual counter storage is sized
+# dynamically per profiled batch.
 _TRTLLM_GEN_MLA_MAX_BATCH = 8192
-
-# Size of the trtllm-gen workspace counter region (multi-block semaphores)
-# per csrc/trtllm_fmha_kernel_launcher.cu:200: max_batch_size * max_num_qo_heads
-# * sizeof(uint32_t) = 8192 * 256 * 4 = 8 MB. trtllm-gen places this counter
-# slab at the head of the workspace_buffer and self-resets it at the end of
-# every launch, so back-to-back trtllm-gen launches keep it valid without any
-# host-side zeroing.
-_TRTLLM_GEN_MLA_COUNTER_REGION_BYTES = 8192 * 256 * 4
-
-
-def _cute_dsl_workspace_view(workspace_buffer: torch.Tensor) -> torch.Tensor:
-    """Sub-view of the shared workspace that skips trtllm-gen's counter region.
-
-    cute-dsl carves its scratch from offset 0 of whatever buffer it is given;
-    offsetting past the 8 MB counter region keeps it from writing into the
-    bytes trtllm-gen needs zero on entry. Costs 8 MB of usable workspace
-    (callers should size the buffer accordingly; the recommended 128 MB has
-    ample headroom).
-    """
-    workspace_i8 = workspace_buffer.reshape(-1).view(torch.int8)
-    return workspace_i8[_TRTLLM_GEN_MLA_COUNTER_REGION_BYTES:]
 
 
 def _round_to_seq_len_bucket(x: int) -> int:
@@ -2048,14 +2034,8 @@ def _compute_mla_decode_buckets(
     if "cute-dsl" in runner_names:
         from ..cute_dsl.utils import get_num_sm
 
-        # cute-dsl gives up the counter region only when trtllm-gen shares the
-        # buffer, so its usable size excludes that reservation only then.
-        reserved = (
-            _TRTLLM_GEN_MLA_COUNTER_REGION_BYTES if "trtllm-gen" in runner_names else 0
-        )
         cute_dsl_cap = _cute_dsl_max_supported_batch(
-            workspace_bytes=workspace_buffer.numel() * workspace_buffer.element_size()
-            - reserved,
+            workspace_bytes=workspace_buffer.numel() * workspace_buffer.element_size(),
             q_len=q_len,
             num_heads=num_heads,
             kv_lora_rank=kv_lora_rank,
@@ -2082,6 +2062,7 @@ def _cute_dsl_incompatibility_reason(
     is_var_seq: bool,
     return_lse: bool,
     lse: Optional[torch.Tensor],
+    cute_dsl_impl: str = "auto",
 ) -> Optional[str]:
     """Return None if cute-dsl can handle this call, else a human-readable reason.
 
@@ -2132,7 +2113,17 @@ def _cute_dsl_incompatibility_reason(
 
     _, q_len, num_heads, _ = query.shape
     try:
-        from ..cute_dsl.attention.wrappers.batch_mla import _check_can_implement
+        from ..cute_dsl.attention.mla_dispatch import _resolve_impl
+
+        resolved_impl = _resolve_impl(requested=cute_dsl_impl, kwargs={"sinks": sinks})
+    except (ValueError, ImportError) as e:
+        return f"cute-dsl backend (MLA decode kernel): {e}"
+
+    try:
+        if resolved_impl == "monolithic":
+            from ..cute_dsl.attention.monolithic.mla_decode import _check_can_implement
+        else:
+            from ..cute_dsl.attention.wrappers.batch_mla import _check_can_implement
 
         _check_can_implement(
             torch_dtype=query.dtype,
@@ -2171,8 +2162,7 @@ def _build_mla_decode_tuning_config(
     page reads give correct timing measurements. ``seq_lens`` is filled
     homogeneously with ``min(max_seq_len, provisioned_max_seq_len)``.
     """
-    from ..autotuner import DynamicTensorSpec, TuningConfig
-    from ..fused_moe.utils import make_bucket_mapper
+    from ..autotuner import DynamicTensorSpec, TuningConfig, make_bucket_mapper
 
     # kv_cache may be 3D [num_pages, page_size, D] or 4D
     # [num_pages, 1, page_size, D] after `_check_trtllm_gen_mla_shape` —
@@ -2211,7 +2201,38 @@ def _build_mla_decode_tuning_config(
                 tensor_initializers=[None, init_block_tables, init_seq_lens, None],
             ),
         ),
+        use_cuda_graph=True,
+        use_cold_l2_cache=True,
     )
+
+
+def _resolve_trtllm_gen_multi_ctas_kv_counter_buffer(
+    counter_buffer: Optional[torch.Tensor],
+    batch_size: int,
+    num_qo_heads: int,
+    sm_count: int,
+    device: torch.device,
+) -> torch.Tensor:
+    required_counter_bytes = get_trtllm_gen_multi_ctas_kv_counter_bytes(
+        batch_size, num_qo_heads, sm_count
+    )
+    if counter_buffer is None:
+        return _get_trtllm_gen_multi_ctas_kv_counter_buffer(
+            batch_size, num_qo_heads, sm_count, device
+        )
+    if counter_buffer.device != device:
+        raise ValueError(
+            "multi_ctas_kv_counter_buffer must be on the same device as query"
+        )
+    if not counter_buffer.is_contiguous():
+        raise ValueError("multi_ctas_kv_counter_buffer must be contiguous")
+    counter_buffer_bytes = counter_buffer.numel() * counter_buffer.element_size()
+    if counter_buffer_bytes < required_counter_bytes:
+        raise ValueError(
+            "multi_ctas_kv_counter_buffer is too small: got "
+            f"{counter_buffer_bytes} bytes, need {required_counter_bytes} bytes"
+        )
+    return counter_buffer
 
 
 class TrtllmGenMlaDecodeRunner(TunableRunner):
@@ -2253,6 +2274,7 @@ class TrtllmGenMlaDecodeRunner(TunableRunner):
         self.kv_cache = kv_cache
         self.workspace_buffer = workspace_buffer
         self.sm_count = sm_count
+        self._multi_ctas_kv_counter_buffer: Optional[torch.Tensor] = None
         self.qk_nope_head_dim = qk_nope_head_dim
         self.kv_lora_rank = kv_lora_rank
         self.qk_rope_head_dim = qk_rope_head_dim
@@ -2270,6 +2292,10 @@ class TrtllmGenMlaDecodeRunner(TunableRunner):
         self.uses_shared_paged_kv_idx = uses_shared_paged_kv_idx
         self.return_lse = return_lse
         self.lse = lse
+        # Allocated lazily for autotune profiling and reused (grown if a later
+        # profile needs more). The final request may instead pass a caller-owned
+        # buffer directly to forward(). The kernel self-resets the counters after
+        # each ordered launch, so neither path re-zeros between launches.
 
     def __hash__(self):
         # The default `TunableRunner.__hash__` walks `self.__dict__` and falls
@@ -2319,6 +2345,7 @@ class TrtllmGenMlaDecodeRunner(TunableRunner):
         inputs,
         tactic: int = -1,
         do_preparation: bool = False,
+        multi_ctas_kv_counter_buffer: Optional[torch.Tensor] = None,
         **kwargs,
     ):
         query, block_tables, seq_lens, out = inputs
@@ -2343,6 +2370,27 @@ class TrtllmGenMlaDecodeRunner(TunableRunner):
             lse_stride_tokens = 0
             lse_stride_heads = 0
 
+        counter_buffer = multi_ctas_kv_counter_buffer
+        if counter_buffer is None:
+            counter_buffer = self._multi_ctas_kv_counter_buffer
+            required_counter_bytes = get_trtllm_gen_multi_ctas_kv_counter_bytes(
+                batch_size, num_qo_heads, self.sm_count
+            )
+            counter_buffer_bytes = (
+                0
+                if counter_buffer is None
+                else counter_buffer.numel() * counter_buffer.element_size()
+            )
+            if counter_buffer is None or counter_buffer_bytes < required_counter_bytes:
+                counter_buffer = _resolve_trtllm_gen_multi_ctas_kv_counter_buffer(
+                    None,
+                    batch_size,
+                    num_qo_heads,
+                    self.sm_count,
+                    query.device,
+                )
+                self._multi_ctas_kv_counter_buffer = counter_buffer
+        multi_ctas_kv_counter_buffer = counter_buffer
         self._run(
             out,
             None,  # fp4 output (unsupported by wrapper)
@@ -2350,6 +2398,7 @@ class TrtllmGenMlaDecodeRunner(TunableRunner):
             self.kv_cache,
             self.kv_cache,  # kv passed twice (K/V views over the same buffer)
             self.workspace_buffer,
+            multi_ctas_kv_counter_buffer,
             block_tables,
             seq_lens,
             max_q_len,
@@ -2409,20 +2458,12 @@ class CuteDslMlaDecodeRunner(TunableRunner):
         return_lse: bool,
         sinks: Optional[torch.Tensor],
         cute_dsl_impl: str,
-        reserve_counter_region: bool = False,
     ):
         from ..cute_dsl.attention import cute_dsl_mla_decode
 
         self._run = cute_dsl_mla_decode
         self.kv_cache = kv_cache
-        # Only skip trtllm-gen's counter region when trtllm-gen shares this
-        # buffer (the "auto" path); a standalone cute-dsl runner owns the whole
-        # buffer and can use it from offset 0.
-        self.workspace_buffer = (
-            _cute_dsl_workspace_view(workspace_buffer)
-            if reserve_counter_region
-            else workspace_buffer
-        )
+        self.workspace_buffer = workspace_buffer
         self.kv_lora_rank = kv_lora_rank
         self.qk_nope_head_dim = qk_nope_head_dim
         self.qk_rope_head_dim = qk_rope_head_dim
@@ -2553,6 +2594,7 @@ def trtllm_batch_decode_with_kv_cache_mla(
     kv_scale_format: str = "auto",
     cum_seq_lens_q: Optional[torch.Tensor] = None,
     max_q_len: Optional[int] = None,
+    multi_ctas_kv_counter_buffer: Optional[torch.Tensor] = None,
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
     r"""Decode MLA with TRTLLM-GEN, CuteDSL, XQA, or SM120/SM121 sparse kernels.
 
@@ -2668,8 +2710,9 @@ def trtllm_batch_decode_with_kv_cache_mla(
         ``cute-dsl``, and ``sparse`` backends. When True, the function
         returns ``(out, lse)``.
     cute_dsl_impl : str = "auto"
-        Which cute-dsl implementation to use.  Honored only when
-        ``backend="cute-dsl"``; ignored for other backends.
+        Which cute-dsl implementation to use. Honored when
+        ``backend="cute-dsl"`` and when ``backend="auto"`` considers the
+        cute-dsl candidate; ignored for non-cute-dsl backends.
 
         * ``"auto"`` (default) — picks monolithic by default, automatically
           promoted to modular when the call uses a feature monolithic
@@ -2700,6 +2743,17 @@ def trtllm_batch_decode_with_kv_cache_mla(
         maximum segment length represented by ``cum_seq_lens_q``. Over-estimation
         is safe but may waste work; under-estimation is invalid and may produce
         incorrect output.
+    multi_ctas_kv_counter_buffer : Optional[torch.Tensor] = None
+        Optional caller-owned counter buffer for the ``trtllm-gen`` backend.
+        It must be contiguous, remain alive for every launch or CUDA graph replay
+        that uses it, and be zero-initialized once. Allocate at least the number
+        of bytes returned by ``get_trtllm_gen_multi_ctas_kv_counter_bytes`` for
+        the current batch size, query-head count, and device SM count; a contiguous
+        ``torch.uint8`` tensor created with ``torch.zeros`` is recommended. Reuse
+        is safe only for ordered, non-overlapping launches; use a distinct buffer
+        for each concurrently executing CUDA stream or graph. Autotune profiling
+        uses runner-owned internal storage; the caller buffer is used only for the
+        final request.
 
     Note
     ----
@@ -2757,6 +2811,10 @@ def trtllm_batch_decode_with_kv_cache_mla(
             backend = "xqa"
 
     if backend == "xqa":
+        if multi_ctas_kv_counter_buffer is not None:
+            raise ValueError(
+                "multi_ctas_kv_counter_buffer is only supported by the trtllm-gen backend"
+            )
         if seq_lens is None:
             raise ValueError("seq_lens is required for XQA MLA")
         if sparse_mla_top_k > 0:
@@ -2811,6 +2869,10 @@ def trtllm_batch_decode_with_kv_cache_mla(
         raise ValueError(f"Backend {backend} not supported")
 
     if backend == "sparse":
+        if multi_ctas_kv_counter_buffer is not None:
+            raise ValueError(
+                "multi_ctas_kv_counter_buffer is only supported by the trtllm-gen backend"
+            )
         return _trtllm_batch_decode_sparse_mla_v32_sm120(
             query=query,
             kv_cache=kv_cache,
@@ -2938,6 +3000,13 @@ def trtllm_batch_decode_with_kv_cache_mla(
                 "out",
             )
 
+        multi_ctas_kv_counter_buffer = _resolve_trtllm_gen_multi_ctas_kv_counter_buffer(
+            multi_ctas_kv_counter_buffer,
+            batch_size,
+            query.size(1),
+            sm_count,
+            query.device,
+        )
         get_trtllm_gen_fmha_module().trtllm_paged_attention_decode(
             out,
             None,  # fp4 output (unsupported by wrapper)
@@ -2945,6 +3014,7 @@ def trtllm_batch_decode_with_kv_cache_mla(
             kv_cache,
             kv_cache,
             workspace_buffer,
+            multi_ctas_kv_counter_buffer,
             block_tables,
             seq_lens,
             max_q_len,
@@ -3043,6 +3113,7 @@ def trtllm_batch_decode_with_kv_cache_mla(
         is_var_seq,
         return_lse,
         lse,
+        cute_dsl_impl,
     )
     if backend == "cute-dsl":
         if cute_dsl_reason is not None:
@@ -3064,6 +3135,19 @@ def trtllm_batch_decode_with_kv_cache_mla(
                 f"(trtllm-gen: {trtllm_gen_not_supported_reason}; "
                 f"cute-dsl: {cute_dsl_reason})"
             )
+
+    if multi_ctas_kv_counter_buffer is not None and "trtllm-gen" not in runner_names:
+        raise ValueError(
+            "multi_ctas_kv_counter_buffer is only supported when a trtllm-gen runner is selected"
+        )
+    if multi_ctas_kv_counter_buffer is not None:
+        multi_ctas_kv_counter_buffer = _resolve_trtllm_gen_multi_ctas_kv_counter_buffer(
+            multi_ctas_kv_counter_buffer,
+            query.size(0),
+            query.size(2),
+            sm_count,
+            query.device,
+        )
 
     runners: List[TunableRunner] = []
     if "trtllm-gen" in runner_names:
@@ -3114,9 +3198,6 @@ def trtllm_batch_decode_with_kv_cache_mla(
                 return_lse=return_lse,
                 sinks=cute_dsl_sinks,
                 cute_dsl_impl=cute_dsl_impl,
-                # Reserve trtllm-gen's counter region only when it co-runs on
-                # the shared workspace (the "auto" path).
-                reserve_counter_region="trtllm-gen" in runner_names,
             )
         )
 
@@ -3139,7 +3220,14 @@ def trtllm_batch_decode_with_kv_cache_mla(
         tuning_config,
         inputs,
     )
-    runner(inputs=inputs, tactic=tactic)
+    if isinstance(runner, TrtllmGenMlaDecodeRunner):
+        runner(
+            inputs=inputs,
+            tactic=tactic,
+            multi_ctas_kv_counter_buffer=multi_ctas_kv_counter_buffer,
+        )
+    else:
+        runner(inputs=inputs, tactic=tactic)
     if return_lse:
         # Return the lse in the same shape the caller supplied (2D or 3D),
         # or 2D ``(B*q_len, H)`` when we allocated the default.
@@ -3185,7 +3273,7 @@ def xqa_batch_decode_with_kv_cache_mla(
         dimension is the concatenation ``[ckv_cache, kpe_cache]``.  Both shapes are
         accepted for backward compatibility.
     workspace_buffer : torch.Tensor
-        Pre-allocated workspace buffer.  Must be zero-initialized on first use.
+        Pre-allocated backend scratch workspace buffer.
     qk_nope_head_dim : int
         Non-RoPE head dimension.  Must be ``128``.  Will be removed in 1.0; pass
         ``kv_lora_rank`` instead going forward.

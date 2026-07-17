@@ -113,7 +113,14 @@ def has_span_streaming_enabled(options: "Optional[dict[str, Any]]") -> bool:
     if options is None:
         return False
 
-    return (options.get("_experiments") or {}).get("trace_lifecycle") == "stream"
+    is_enabled_in_experiment_config = (options.get("_experiments") or {}).get(
+        "trace_lifecycle"
+    ) == "stream"
+
+    if options.get("trace_lifecycle") is not None:
+        return options.get("trace_lifecycle") == "stream"
+
+    return is_enabled_in_experiment_config
 
 
 def should_truncate_gen_ai_input(options: "Optional[dict[str, Any]]") -> bool:
@@ -966,6 +973,37 @@ def should_propagate_trace(client: "sentry_sdk.client.BaseClient", url: str) -> 
     return match_regex_list(url, trace_propagation_targets, substring_matching=True)
 
 
+def propagate_trace_headers(
+    client: "sentry_sdk.client.BaseClient", request: "Any"
+) -> None:
+    """
+    Attach Sentry trace propagation headers (``sentry-trace``/``baggage``) from the
+    current scope's propagation context to an outgoing request, if the request's
+    URL matches the configured ``trace_propagation_targets``.
+
+    ``request`` is expected to expose ``url`` and a mutable ``headers`` mapping
+    (e.g. an ``httpx``/``httpx2`` ``Request``).
+    """
+    if not hasattr(request, "url") or not hasattr(request, "headers"):
+        logger.warning(
+            "Unable to propagate trace headers in request - missing url or headers attributes"
+        )
+        return
+
+    if not should_propagate_trace(client, str(request.url)):
+        return
+
+    for key, value in sentry_sdk.get_current_scope().iter_trace_propagation_headers():
+        logger.debug(
+            f"[Tracing] Adding `{key}` header {value} to outgoing request to {request.url}."
+        )
+
+        if key == BAGGAGE_HEADER_NAME:
+            add_sentry_baggage_to_headers(request.headers, value)
+        else:
+            request.headers[key] = value
+
+
 def normalize_incoming_data(incoming_data: "Dict[str, Any]") -> "Dict[str, Any]":
     """
     Normalizes incoming data so the keys are all lowercase with dashes instead of underscores and stripped from known prefixes.
@@ -1647,7 +1685,16 @@ def _make_sampling_decision(
 def is_ignored_span(name: str, attributes: "Optional[Attributes]") -> bool:
     """Determine if a span fits one of the rules in ignore_spans."""
     client = sentry_sdk.get_client()
-    ignore_spans = (client.options.get("_experiments") or {}).get("ignore_spans")
+    is_ignored_at_top_level = client.options.get("ignore_spans", None)
+    is_ignored_in_experiment_config = (client.options.get("_experiments") or {}).get(
+        "ignore_spans"
+    )
+
+    ignore_spans = (
+        is_ignored_at_top_level
+        if is_ignored_at_top_level is not None
+        else is_ignored_in_experiment_config
+    )
 
     if not ignore_spans:
         return False

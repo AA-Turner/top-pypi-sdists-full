@@ -145,7 +145,9 @@ class RunnerOverride:
                     node.unique_id,
                     str(e),
                 )
-                return self._original_execute(runner, node, manifest)
+                result = self._original_execute(runner, node, manifest)
+                run_cache._on_state_request_failed(node)
+                return result
 
             if isinstance(on_execute_result, RunResult):
                 return on_execute_result
@@ -170,6 +172,8 @@ class RunnerOverride:
                         node.unique_id,
                         str(e),
                     )
+            else:
+                run_cache._on_state_request_failed(node)
             return result
         finally:
             self.flush_logger(node.name)

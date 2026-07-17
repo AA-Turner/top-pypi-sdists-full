@@ -17,6 +17,11 @@ from neutron_lib.api import converters
 from neutron_lib.api.definitions import l3
 from neutron_lib.api.definitions import l3_ext_gw_mode
 from neutron_lib import constants
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 ALIAS = 'l3-ext-ndp-proxy'
@@ -29,7 +34,7 @@ UPDATED_TIMESTAMP = '2020-08-25T00:00:00-00:00'
 RESOURCE_NAME = l3.ROUTER
 COLLECTION_NAME = l3.ROUTERS
 ENABLE_NDP_PROXY = 'enable_ndp_proxy'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         ENABLE_NDP_PROXY: {
             'allow_post': True,
@@ -41,8 +46,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         }
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [l3.ALIAS, l3_ext_gw_mode.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

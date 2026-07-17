@@ -13,3 +13,8 @@ def quote_single(s: str) -> str:
     otherwise produce malformed SQL or allow SQL injection).
     """
     return "'" + s.replace("'", "''") + "'"
+
+
+def escape_sql_comment(comment: str) -> str:
+    """Escape ``'`` → ``''`` and ``\\`` → ``\\\\`` for a hand-built SQL COMMENT clause."""
+    return str(comment).replace("'", "''").replace("\\", "\\\\")

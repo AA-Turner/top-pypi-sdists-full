@@ -14,6 +14,7 @@ from dbt.exceptions import (
     TagsNotListOfStringsError,
     TestArgIncludesModelError,
     TestArgsNotDictError,
+    TestConfigNotDictError,
     TestDefinitionDictLengthError,
     TestNameNotStringError,
     TestTypeError,
@@ -94,6 +95,7 @@ class TestBuilder(Generic[Testable]):
         "fail_calc",
         "store_failures",
         "store_failures_as",
+        "sql_header",
         "meta",
         "database",
         "schema",
@@ -137,6 +139,18 @@ class TestBuilder(Generic[Testable]):
         if "config" in self.args:
             self.config.update(self._render_values(self.args.pop("config", {})))
 
+        # Gate sql_header behind behavior change flag
+        if (
+            self.config.get("sql_header") is not None
+            and not get_flags().require_sql_header_in_test_configs
+        ):
+            deprecations.warn(
+                "custom-key-in-config-deprecation",
+                key="sql_header",
+                file=target.original_file_path,
+                key_path="models.config",
+            )
+
         if self.namespace is not None:
             self.package_name = self.namespace
 
@@ -173,6 +187,8 @@ class TestBuilder(Generic[Testable]):
 
     def _process_legacy_args(self):
         config = {}
+        if "config" in self.args and not isinstance(self.args["config"], dict):
+            raise TestConfigNotDictError(self.args["config"])
         for key in self.CONFIG_ARGS:
             value = self.args.pop(key, None)
             if value and "config" in self.args and key in self.args["config"]:

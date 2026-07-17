@@ -18,6 +18,11 @@ from neutron_lib.api.definitions import qos_pps_minimum_rule
 from neutron_lib import constants
 from neutron_lib.db import constants as db_const
 from neutron_lib.services.qos import constants as qos_constants
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 MIN_PACKET_RATE_RULES_ALIAS = 'alias_minimum_packet_rate_rules'
@@ -30,7 +35,7 @@ API_PREFIX = '/' + qos.ALIAS
 DESCRIPTION = ('API to enable GET, PUT and DELETE operations on QoS minimum '
                'packet rate rule without specifying policy ID')
 UPDATED_TIMESTAMP = '2021-10-22T10:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     MIN_PACKET_RATE_RULES_ALIAS: {
         **qos._QOS_RULE_COMMON_FIELDS,
         qos_constants.MIN_KPPS: {
@@ -41,7 +46,7 @@ RESOURCE_ATTRIBUTE_MAP = {
             'is_filter': True,
             'is_sort_key': True,
             'validate': {
-                'type:range': [0, db_const.DB_INTEGER_MAX_VALUE]}
+                'type:range': (0, db_const.DB_INTEGER_MAX_VALUE)}
         },
         qos_constants.DIRECTION: {
             'allow_post': False,
@@ -56,8 +61,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         }
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [qos.ALIAS, qos_pps_minimum_rule.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

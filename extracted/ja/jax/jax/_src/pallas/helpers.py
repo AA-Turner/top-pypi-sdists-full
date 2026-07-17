@@ -198,19 +198,6 @@ def kernel(
         out_type=...
     )
 
-  JAX ``Ref`` objects can be closed over by the kernel body or passed in as
-  arguments. Any such ``Ref`` will be treated as if it is read-from and
-  written-to and will be aliased in and out of the kernel.
-
-  .. code-block:: python
-
-    @pl.kernel(mesh=...)
-    def kernel(in_ref, out_ref):
-      ...
-    x_ref = jax.new_ref(...)
-    y_ref = jax.new_ref(...)
-    kernel(x_ref, y_ref)  # Can now mutate x_ref and y_ref
-
   Args:
     body: The body of the kernel. If provided, this function behaves as a
       decorator, and if omitted, this function behaves as a decorator factory.
@@ -224,7 +211,7 @@ def kernel(
       PyTree of ``jax.ShapeDtypeStruct`` or JAX types.
     compiler_params: The compiler parameters to pass to the backend.
     interpret: Whether to run the function in interpret mode.
-    debug: Whether or not to out helpful debugging information.
+    debug: Whether or not to output helpful debugging information.
     cost_estimate: The cost estimate of the function.
     name: The (optional) name of the kernel.
     metadata: Optional dictionary of information about the kernel that will be

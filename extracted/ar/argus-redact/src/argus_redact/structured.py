@@ -11,7 +11,11 @@ from argus_redact import redact, restore
 from argus_redact.exceptions import SecurityWarning
 from argus_redact.glue.redact import _build_type_map, _detect
 from argus_redact.pure.lang_detect import detect_languages
-from argus_redact.pure.replacer import make_structured_session, replace_into_session
+from argus_redact.pure.replacer import (
+    make_structured_session,
+    replace_into_session,
+    warn_mask_collisions,
+)
 
 
 def _warn_low_entropy_salt(salt: int | bytes | None) -> None:
@@ -114,6 +118,8 @@ def redact_json(
     Returns:
         (redacted_data, key) or (redacted_data, key, type_map) if with_types=True.
     """
+    if isinstance(paths, str):
+        raise TypeError("paths must be a list of path strings, not a str")
     _warn_low_entropy_salt(salt)
     session = make_structured_session(salt=salt, key=key, config=config)
     parsed_paths = _parse_paths(paths) if paths else None
@@ -141,6 +147,11 @@ def redact_json(
         return obj
 
     result = _walk(data)
+    # Mirrors the one-shot `replace()` path: warn once, over the
+    # WHOLE document's cumulative collisions, before the key is read out — a
+    # column of similarly-masked values (e.g. phone numbers) is exactly the
+    # highest collision-risk shape this path exists to redact.
+    warn_mask_collisions(list(session.mask_collisions))
     combined_key = session.into_key()
     if with_types:
         # Same fake → type map as redact(with_types=True), built once over all
@@ -183,6 +194,22 @@ def _row_has_pii(
     return False
 
 
+def _parse_csv_rows(csv_text: str) -> list[list[str]]:
+    """Parse CSV text into rows. Shared by redact_csv/restore_csv so the two
+    stay symmetric (same dialect) and a comma inside a restored value can't
+    reshape the columns."""
+    return list(csv.reader(io.StringIO(csv_text)))
+
+
+def _serialize_csv_rows(rows: list[list[str]]) -> str:
+    """Serialize rows back to CSV text. rstrip only the writer's trailing line
+    terminator — .strip() would also delete non-PII leading whitespace from the
+    first cell (silent corruption)."""
+    out = io.StringIO()
+    csv.writer(out).writerows(rows)
+    return out.getvalue().rstrip("\r\n")
+
+
 def redact_csv(
     csv_text: str,
     *,
@@ -204,8 +231,7 @@ def redact_csv(
     Returns:
         (redacted_csv, key).
     """
-    reader = csv.reader(io.StringIO(csv_text))
-    rows = list(reader)
+    rows = _parse_csv_rows(csv_text)
 
     if not rows:
         return csv_text, {}
@@ -236,14 +262,28 @@ def redact_csv(
             redacted_row.append(redacted_cell)
         output_rows.append(redacted_row)
 
-    out = io.StringIO()
-    writer = csv.writer(out)
-    writer.writerows(output_rows)
-    # rstrip only the writer's trailing line terminator — .strip() would also
-    # delete non-PII leading whitespace from the first cell (silent corruption).
-    return out.getvalue().rstrip("\r\n"), session.into_key()
+    # Mirrors the one-shot `replace()` path: warn once, over the
+    # WHOLE document's cumulative collisions, before the key is read out — a
+    # column of similarly-masked values (e.g. phone numbers) is exactly the
+    # highest collision-risk shape this path exists to redact.
+    warn_mask_collisions(list(session.mask_collisions))
+    return _serialize_csv_rows(output_rows), session.into_key()
 
 
 def restore_csv(csv_text: str, key: dict) -> str:
-    """Restore PII in a CSV string."""
-    return restore(csv_text, key, guard=False)  # anchor-less key-file restore
+    """Restore PII in a CSV string.
+
+    Mirrors ``redact_csv``'s parse/reserialize shape instead of doing a blind
+    whole-string substring restore: a restored original value that itself
+    contains a comma (e.g. ``"Smith, John"``) would otherwise splice an
+    unescaped comma into the flat CSV text, splitting one cell into two
+    columns and corrupting the row structure on re-parse.
+    """
+    output_rows: list[list[str]] = []
+    for row in _parse_csv_rows(csv_text):
+        # guard=False: structured restore reverses a stored key file, with no
+        # per-call anchor to verify — the explicit unguarded opt-out (same as
+        # restore_json / redact_csv's forward path).
+        output_rows.append([restore(cell, key, guard=False) for cell in row])
+
+    return _serialize_csv_rows(output_rows)

@@ -119,6 +119,11 @@ _LANG_PATTERNS = {
 # as _LANG_PATTERNS. Single source for the `info` surfaces (CLI `cmd_info` and
 # HTTP `/info`) so the two can't drift. A code present in _LANG_PATTERNS but
 # absent here falls back to the code itself at the display site.
+#
+# Note: `uk` and `in` are argus locale-pack codes, not ISO-639-1 language
+# codes — in ISO-639-1, `uk` is Ukrainian and `in` is Indonesian (legacy for
+# `id`). Here `uk` = British English and `in` = Indian (English). The values
+# are unchanged for backward compatibility; see docs/language-packs.md.
 _LANG_DISPLAY_NAMES = {
     "zh": "Chinese",
     "en": "English",
@@ -131,6 +136,35 @@ _LANG_DISPLAY_NAMES = {
 }
 
 
+def ner_engine_available(code: str) -> bool:
+    """True if Layer-2 NER can actually run for ``code`` — i.e. BOTH the adapter
+    module AND the engine it wraps (hanlp for zh, spaCy for the rest) are
+    installed. The adapter module alone can't run without its engine, so
+    reporting it as available (the `info`/`redact_info` bug) contradicted the
+    Layer-2 status. Single source shared by the CLI `info` command and the MCP
+    `redact_info` tool so the two can't drift."""
+    import importlib.util
+
+    engine = "hanlp" if code == "zh" else "spacy"
+    if importlib.util.find_spec(engine) is None:
+        return False
+    mod_code = "in_" if code == "in" else code
+    return importlib.util.find_spec(f"argus_redact.lang.{mod_code}.ner_adapter") is not None
+
+
+# Plausible ISO-639-1 codes a caller might reach for instead of an argus
+# locale-pack code that collides with a *different* ISO-639-1 language:
+# `uk` is Ukrainian in ISO-639-1 (argus uses it for British English), and
+# `in` is Indonesian in ISO-639-1 (legacy for `id`; argus uses it for
+# Indian English). Mapping each plausible guess to the argus code it was
+# probably reaching for, so the error can name the collision instead of
+# leaving the caller to guess why the "correct" ISO code doesn't work.
+_LANG_COLLISION_HINTS = {
+    "ua": "uk",
+    "id": "in",
+}
+
+
 def _validate_langs(langs: tuple[str, ...] | list[str]) -> None:
     """Raise ValueError for any requested language code not in the known set.
 
@@ -138,7 +172,20 @@ def _validate_langs(langs: tuple[str, ...] | list[str]) -> None:
     """
     for code in langs:
         if code not in _LANG_PATTERNS:
-            raise ValueError(f"Unknown language '{code}'. Available: {list(_LANG_PATTERNS.keys())}")
+            available = list(_LANG_PATTERNS.keys())
+            hint_code = _LANG_COLLISION_HINTS.get(code)
+            if hint_code is not None:
+                display = _LANG_DISPLAY_NAMES.get(hint_code, hint_code)
+                not_this = "not Ukrainian" if hint_code == "uk" else "not Indonesian"
+                raise ValueError(
+                    f"Unknown language '{code}'. Available: {available}. "
+                    f"Did you mean '{hint_code}' ({display} locale pack, {not_this})? "
+                    "argus language codes are locale packs, not ISO-639-1 codes."
+                )
+            raise ValueError(
+                f"Unknown language '{code}'. Available: {available} "
+                "(argus language codes are locale packs, not ISO-639-1 codes)."
+            )
 
 
 def _reject_unknown_type_names(names: set[str], param: str) -> None:
@@ -159,6 +206,44 @@ def _reject_unknown_type_names(names: set[str], param: str) -> None:
             f"Unknown PII type name(s) in {param}: {', '.join(unknown)}. "
             f"Pass names from the registry (e.g. phone, email, person, bank_card)."
         )
+
+
+def _apply_type_filter(
+    entities: list[PatternMatch],
+    types: list[str] | None,
+    types_exclude: list[str] | None,
+) -> list[PatternMatch]:
+    """Apply the types/types_exclude allow/deny filter, shared by every entry path.
+
+    A bare str is a plausible caller mistake (they meant a one-element list):
+    set("phone") silently becomes {'p','h','o','n','e'}, which filters out every
+    real entity type and returns success with zero redaction — a silent leak.
+    An empty list is the same fail-open family: set([]) also filters out every
+    entity. Both fail closed instead of fail-open. Shared by ``_detect`` and the
+    ``_pre_detected`` branch of ``redact()`` so both inherit the guard identically.
+    """
+    if types is not None:
+        if isinstance(types, str):
+            raise TypeError("types must be a list of type names, not a str")
+        type_set = set(types)
+        if not type_set:
+            raise ValueError(
+                "types is empty; pass at least one type name, or types=None to detect all"
+            )
+        _reject_unknown_type_names(type_set, "types")
+        return [e for e in entities if e.type in type_set]
+    elif types_exclude is not None:
+        if isinstance(types_exclude, str):
+            raise TypeError("types_exclude must be a list of type names, not a str")
+        exclude_set = set(types_exclude)
+        if not exclude_set:
+            raise ValueError(
+                "types_exclude is empty; pass at least one type name, or "
+                "types_exclude=None to exclude none"
+            )
+        _reject_unknown_type_names(exclude_set, "types_exclude")
+        return [e for e in entities if e.type not in exclude_set]
+    return entities
 
 
 _LANG_NER_ADAPTERS = {
@@ -439,22 +524,8 @@ def _detect(
     entities = filter_self_reference(entities, hints)
     timing["merge_ms"] = (time.perf_counter() - t0) * 1000
 
-    # Apply type filtering. A bare str is a plausible caller mistake (they meant
-    # a one-element list): set("phone") silently becomes {'p','h','o','n','e'},
-    # which filters out every real entity type and returns success with zero
-    # redaction — a silent leak. Fail closed instead of fail-open.
-    if types is not None:
-        if isinstance(types, str):
-            raise TypeError("types must be a list of type names, not a str")
-        type_set = set(types)
-        _reject_unknown_type_names(type_set, "types")
-        entities = [e for e in entities if e.type in type_set]
-    elif types_exclude is not None:
-        if isinstance(types_exclude, str):
-            raise TypeError("types_exclude must be a list of type names, not a str")
-        exclude_set = set(types_exclude)
-        _reject_unknown_type_names(exclude_set, "types_exclude")
-        entities = [e for e in entities if e.type not in exclude_set]
+    # Apply type filtering (shared with the _pre_detected branch of redact()).
+    entities = _apply_type_filter(entities, types, types_exclude)
 
     layer_stats = {
         "layer1_count": layer1_count,
@@ -479,16 +550,23 @@ def _replace_and_emit(
     timing: dict,
     mode: str,
     unified_prefix: str | None = None,
+    security_events: list[dict] | None = None,
 ) -> tuple[str, dict, dict[str, list[str]]]:
     """Apply replacement, run grammar normalization, emit telemetry, persist key file.
 
     Mutates `timing` in place by adding `replace_ms`. The caller is responsible
     for any further use of `timing` (e.g., detailed-output stats).
 
+    ``security_events``, if given, is MUTATED in place: a ``mask_collision``
+    event is appended when this call's masked-strategy entities
+    collided. Same out-param idiom as `timing` — kept separate from the public
+    3-tuple return so this internal signature stays additive.
+
     Returns ``(redacted_text, key, aliases)``. ``aliases`` carries the cross-language
     transliterations emitted by realistic-strategy fakers (empty dict when none ran).
     """
     t0 = time.perf_counter()
+    mask_collisions: list[str] = []
     redacted, result_key, aliases = replace(
         text,
         entities,
@@ -497,11 +575,19 @@ def _replace_and_emit(
         config=config,
         langs=langs,
         unified_prefix=unified_prefix,
+        _mask_collisions=mask_collisions,
     )
     effective_lang = lang if isinstance(lang, str) else (lang[0] if lang else "zh")
     if effective_lang == "en":
         redacted = normalize_grammar_en(redacted, list(result_key.values()))
     timing["replace_ms"] = (time.perf_counter() - t0) * 1000
+
+    if security_events is not None and mask_collisions:
+        from argus_redact.pure.replacer import mask_collision_event
+
+        _mc_event = mask_collision_event(mask_collisions)
+        if _mc_event:
+            security_events.append(_mc_event)
 
     # Emit telemetry — zero overhead when no hook set
     if _telemetry_hook_active():
@@ -628,10 +714,33 @@ def redact(
         if types is None and "types" in prof:
             types = prof["types"]
         if "config" in prof:
-            # Profile config is base; user config overrides
+            # Profile config is base; user config overrides, per-type. A
+            # shallow `profile_config.update(config)` would REPLACE a
+            # per-type dict wholesale, dropping any profile field (e.g.
+            # "strategy") the user's override didn't mention — silently
+            # downgrading e.g. gdpr's phone "remove" to the default "mask"
+            # when the caller only meant to tweak "visible_suffix". Merge
+            # one level deep instead: for a type present in both, user
+            # fields override profile fields but profile fields the user
+            # omitted survive. `profile_config` is a fresh top-level dict
+            # (from `dict(...)`), but its per-type VALUES are the same
+            # objects as the shared profile source (profiles may reuse one
+            # config dict across profiles) — build a NEW dict per merged
+            # type rather than mutating in place, so the cached profile
+            # is never poisoned for later calls.
             profile_config = dict(prof["config"])
             if config:
-                profile_config.update(config)
+                for type_key, user_type_config in config.items():
+                    base_type_config = profile_config.get(type_key)
+                    if isinstance(base_type_config, dict) and isinstance(
+                        user_type_config, dict
+                    ):
+                        profile_config[type_key] = {
+                            **base_type_config,
+                            **user_type_config,
+                        }
+                    else:
+                        profile_config[type_key] = user_type_config
             config = profile_config
 
     # Resolve key
@@ -659,7 +768,11 @@ def redact(
     # single bundled call) is built, bound, and tested, but is NOT used by this
     # shim — it is the entry point reserved for the upcoming iOS C ABI.
     if _pre_detected is not None:
-        entities = _pre_detected
+        # Merge (dedupe overlapping spans, same as the internal _detect path)
+        # then apply the same types/types_exclude filter — a pre-detected list
+        # is caller-supplied and must not skip either guard.
+        entities = merge_entities(_pre_detected, text=text)
+        entities = _apply_type_filter(entities, types, types_exclude)
         langs = [lang] if isinstance(lang, str) else list(lang)
         timing: dict[str, float] = {}
         layer_stats = {
@@ -680,6 +793,7 @@ def redact(
             strict=strict,
         )
 
+    _security_events: list[dict] = []
     redacted, result_key, _aliases = _replace_and_emit(
         text,
         entities,
@@ -692,6 +806,7 @@ def redact(
         timing=timing,
         mode=mode,
         unified_prefix=unified_prefix,
+        security_events=_security_events,
     )
 
     # Return-shape dispatch — precedence (locked by tests/core/test_redact_return_shapes.py):
@@ -728,12 +843,17 @@ def redact(
             **{k: round(v, 2) for k, v in timing.items()},
         }
 
-        # Theme B: PII-free security events (currently keep-downgrade) shared by
-        # both the report and detailed return shapes; residual flag is report-only.
+        # PII-free security events (keep-downgrade + mask-collision) shared by
+        # both the report and detailed return shapes; residual
+        # flag is report-only. `_security_events` (mask_collision) was collected
+        # by `_replace_and_emit` above — Rust is the sole authority on whether a
+        # real mask-family collision happened, unlike keep_downgraded (which is
+        # re-derived here from `entities`/`config`, see `keep_downgraded_event`).
         from argus_redact.pure.replacer import keep_downgraded_event, residual_personal_data
 
         _kd_event = keep_downgraded_event(entities, config)
         security_events = [_kd_event] if _kd_event else []
+        security_events.extend(_security_events)
 
         if report:
             # Precedence 1: report wins over everything

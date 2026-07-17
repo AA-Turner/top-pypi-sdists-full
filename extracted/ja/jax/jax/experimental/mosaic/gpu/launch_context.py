@@ -21,7 +21,7 @@ import dataclasses
 import enum
 import functools
 import math
-from typing import cast, Any, ClassVar, Literal, TypeVar
+from typing import cast, Any, ClassVar, Literal
 
 from jax._src.lib import mosaic_gpu_dialect as mgpu_dialect
 from jaxlib.mlir import ir
@@ -38,9 +38,6 @@ import numpy as np
 from . import fragmented_array as fa
 from . import profiler
 from . import utils
-
-_OpT = TypeVar("_OpT", bound=ir.OpView)
-
 TMA_DESCRIPTOR_BYTES = 128
 TMA_DESCRIPTOR_ALIGNMENT = 64
 TMAReductionOp = Literal[
@@ -253,7 +250,7 @@ class TileTransform(MemRefTransform):
     # size would be 1 if so.
     tiling_rank = len(self.tiling)
     if self.rounding is None:
-      for size, tile_size in zip(shape[-tiling_rank:], self.tiling):
+      for size, tile_size in zip(shape[-tiling_rank:], self.tiling, strict=True):
         if size % tile_size:
           raise ValueError(
               f"Expected GMEM slice shape {shape} suffix to be a multiple of"
@@ -485,15 +482,15 @@ class Scratch:
     assert op is not None
     self._module_op = cast(builtin.ModuleOp, op)
 
-  def _find_first_op(
-      self, op_type: type[_OpT], block: ir.Block, tag_attribute_name: str | None = None
-  ) -> _OpT | None:
+  def _find_first_op[T: ir.OpView](
+      self, op_type: type[T], block: ir.Block, tag_attribute_name: str | None = None
+  ) -> T | None:
     op_name = getattr(op_type, "OPERATION_NAME", None)
     for op in block:
       if op.name == op_name and (
           tag_attribute_name is None or tag_attribute_name in op.attributes
       ):
-        return cast(_OpT, op)
+        return cast(T, op)
       for region in op.regions:
         for block in region:
           child_op = self._find_first_op(op_type, block, tag_attribute_name)
@@ -697,7 +694,6 @@ class LaunchContext:
   cluster_size: tuple[int, int, int]
   buffers: ir.Value
   profiler: OnDeviceProfiler | None = None
-  device_collective_metadata: ir.Value | None = None
   num_peers: int = 0
   num_params: int = 0
   num_processes: int = 1
@@ -714,6 +710,23 @@ class LaunchContext:
         yield
     else:
       yield
+
+  @functools.cached_property
+  def device_collective_metadata(self) -> ir.Value | None:
+    if self.num_peers <= 1:
+      return None
+    host_block = self.buffers.owner
+    assert isinstance(host_block, ir.Block)
+    with ir.InsertionPoint.at_block_begin(host_block):
+      ptr_ty = llvm.PointerType.get()
+      metadata_ptr = llvm.load(
+          ptr_ty, utils.getelementptr(self.buffers, [self.num_params], ptr_ty)
+      )
+      metadata_ty = ir.MemRefType.get(
+          (get_collective_metadata_size(self.num_params, self.num_peers),),
+          ir.IntegerType.get_signless(64),
+      )
+      return utils.ptr_as_memref(metadata_ptr, metadata_ty)
 
   @property
   def host_collective_metadata(self) -> ir.Value | None:
@@ -1274,15 +1287,8 @@ class LaunchContext:
 
     if src_ref_ty.memory_space is None and utils.is_smem_ref(dst_ref_ty):
       gmem_ref, smem_ref = src_ref, dst_ref
-      if implementation == AsyncCopyImplementation.TMA:
-        if barrier is None:
-          raise ValueError("Barriers are required for TMA GMEM -> SMEM copies")
-      else:
-        assert implementation == AsyncCopyImplementation.CP_ASYNC
-        if barrier is not None:
-          raise NotImplementedError(
-              "Barriers are unsupported for CP_ASYNC GMEM -> SMEM copies"
-          )
+      if barrier is None:
+        raise ValueError("Barriers are required for GMEM -> SMEM copies")
       if arrive is None:
         arrive = True  # Arrive by default
     elif utils.is_smem_ref(src_ref_ty) and dst_ref_ty.memory_space is None:
@@ -1426,10 +1432,18 @@ class LaunchContext:
           constant_offset = sum(i * s for i, s in zip(get_base_idx(), gmem_strides, strict=True))
           gmem_ptr = utils.getelementptr(gmem_base_ptr, [constant_offset // offset_scale], gep_type)
           nvvm.cp_async_shared_global(smem_ptr, gmem_ptr, bytes_per_transfer, cache_modifier)
-      if barrier is None:
-        nvvm.cp_async_commit_group()
-      else:
-        raise NotImplementedError
+      assert barrier is not None
+      # NOTE: Despite its name cp.async.mbarrier.arrive is not an arrival. It
+      # temporarily bumps the pending count (+1 sync, -1 async on completion)
+      # and is overall net-zero. The sole arrival is the ``barrier.arrive``
+      # called by the leader. The warpgroup barrier ensures that all lanes have
+      # committed their copies before that.
+      nvvm.cp_async_mbarrier_arrive(barrier.get_ptr())
+      if arrive:
+        utils.warpgroup_barrier()
+        barrier.arrive(
+            predicate=utils.single_thread_predicate(utils.ThreadSubset.WARPGROUP)
+        )
       return
 
     assert implementation == AsyncCopyImplementation.TMA
@@ -1940,9 +1954,6 @@ class LaunchContext:
     else:
       raise ValueError(f"Unsupported scope: {scope}")
 
-  def await_cp_async_copy(self, allow_groups: int):
-    nvvm.cp_async_wait_group(allow_groups)
-    utils.warpgroup_barrier()
 
   def _ensure_nvshmem_decls(self):
     if self.is_device_collective or self.device_collective_metadata is not None:

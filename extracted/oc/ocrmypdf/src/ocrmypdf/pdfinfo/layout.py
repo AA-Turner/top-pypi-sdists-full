@@ -5,19 +5,19 @@
 from __future__ import annotations
 
 import re
+import sys
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from math import copysign
 from os import PathLike
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 from unittest.mock import patch
 
 import pdfminer
 import pdfminer.encodingdb
 import pdfminer.pdfdevice
 import pdfminer.pdfinterp
-from deprecation import deprecated
 from pdfminer.converter import PDFLayoutAnalyzer
 from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox
 from pdfminer.pdfcolor import PDFColorSpace
@@ -29,6 +29,11 @@ from pdfminer.pdfpage import PDFPage
 from pdfminer.utils import Matrix, bbox2str, matrix2str
 
 from ocrmypdf.exceptions import EncryptedPdfError, InputFileError
+
+if sys.version_info >= (3, 13):
+    from warnings import deprecated
+else:
+    from typing_extensions import deprecated
 
 STRIP_NAME = re.compile(r'[0-9]+')
 
@@ -57,7 +62,8 @@ def pdfsimplefont__init__(
     return
 
 
-PDFSimpleFont.__init__ = pdfsimplefont__init__
+PDFSimpleFont.__init__ = pdfsimplefont__init__  # type: ignore[method-assign]
+
 
 def pdftype3font__pscript5_get_height(self):
     """Monkeypatch for PScript5.dll PDFs.
@@ -283,7 +289,7 @@ def patch_pdfminer(pscript5_mode: bool):
         yield
 
 
-@deprecated(deprecated_in='16.6.0', details='Use PdfMinerState instead.')
+@deprecated('Deprecated since 16.6.0; use PdfMinerState instead.')
 def get_page_analysis(
     infile: PathLike, pageno: int, pscript5_mode: bool
 ) -> LTPage | None:
@@ -331,10 +337,10 @@ class PdfMinerState:
         self.infile = infile
         self.rman = pdfminer.pdfinterp.PDFResourceManager(caching=True)
         self.disable_boxes_flow = None
-        self.page_iter = None
+        self.page_iter: Iterator[PDFPage] | None = None
         self.page_cache: list[PDFPage] = []
         self.pscript5_mode = pscript5_mode
-        self.file = None
+        self.file: BinaryIO | None = None
 
     def __enter__(self):
         """Enter the context manager."""
@@ -350,6 +356,7 @@ class PdfMinerState:
 
     def get_page_analysis(self, pageno: int):
         """Get the page analysis for a given page."""
+        assert self.page_iter is not None, "must be used as a context manager"
         while len(self.page_cache) <= pageno:
             try:
                 self.page_cache.append(next(self.page_iter))

@@ -12,6 +12,11 @@
 
 from neutron_lib.api.definitions import floating_ip_port_forwarding
 from neutron_lib.api.definitions import l3
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 ALIAS = "expose-port-forwarding-in-fip"
@@ -23,7 +28,7 @@ DESCRIPTION = 'Expose port forwarding fields in floating IP response'
 UPDATED_TIMESTAMP = '2018-06-28T16:00:00-00:00'
 RESOURCE_NAME = l3.FLOATINGIP
 COLLECTION_NAME = l3.FLOATINGIPS
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         floating_ip_port_forwarding.COLLECTION_NAME: {
             'allow_post': False,
@@ -33,8 +38,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         }
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [l3.ALIAS, floating_ip_port_forwarding.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

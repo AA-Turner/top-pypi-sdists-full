@@ -8,7 +8,7 @@ from __future__ import annotations
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from ocrmypdf._progressbar import NullProgressBar, ProgressBar
 
@@ -72,7 +72,10 @@ class Executor(ABC):
         if not task_finished:
             task_finished = _task_finished_noop
         if not task:
-            task = _task_noop
+            # _task_noop always returns None, but T is unbound here (it's
+            # only meaningful when a real task is supplied); task_finished's
+            # own no-op default accepts Any, so this is safe.
+            task = cast('Callable[..., T]', _task_noop)
 
         with self.pool_lock:
             self._execute(

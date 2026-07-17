@@ -30,8 +30,9 @@ from jax._src import dispatch
 from jax._src import dtypes
 from jax._src import effects as effects_lib
 from jax._src import tree_util
+from jax._src.partition_spec import PartitionSpec as P, UnreducedKind
 from jax._src.sharding_impls import (SPMDAxisContext, ShardingContext,
-                                     NamedSharding, PartitionSpec as P)
+                                     NamedSharding)
 from jax._src.core import AxisName, ShapedArray
 from jax._src.interpreters import ad
 from jax._src.interpreters import batching
@@ -569,6 +570,8 @@ def _all_to_all_is_async(x, axis_name, split_axis, concat_axis, *,
                          axis_index_groups=None, tiled=False, is_async=False):
   axis_index_groups = _canonicalize_axis_index_groups(axis_index_groups)
   def bind(x, split_axis=split_axis, concat_axis=concat_axis):
+    split_axis = canonicalize_axis(split_axis, np.ndim(x))
+    concat_axis = canonicalize_axis(concat_axis, np.ndim(x))
     group_size = _axis_size(axis_name, axis_index_groups)
     if tiled:
       if x.shape[split_axis] % group_size != 0:
@@ -928,12 +931,44 @@ def _replica_groups(axis_ctx, axis_name, axis_index_groups):
                       for axis_index_group in axis_index_groups]
   return replica_groups
 
-def _replica_groups_hlo(replica_groups: Sequence[Sequence[int]]
-                        ) -> ir.DenseElementsAttr:
+
+def _device_list_replica_groups_hlo(
+    replica_groups: Sequence[Sequence[int]],
+) -> ir.DenseElementsAttr:
   # Uneven replica groups are padded with -1.
   groups = np.array(list(itertools.zip_longest(*replica_groups, fillvalue=-1)),
                     dtype=np.int64).T
   return ir.DenseIntElementsAttr.get(np.ascontiguousarray(groups))
+
+
+def _try_mesh_axes_replica_group(ctx, axis_names, axis_index_groups):
+  axis_ctx = ctx.module_context.axis_context
+  if (config.use_rgv3.value
+      and config.use_shardy_partitioner.value
+      and axis_index_groups is None
+      and isinstance(axis_ctx, SPMDAxisContext)
+      and axis_ctx.mesh.size > 1):
+    # Emit #stablehlo.replica_group_mesh_axes with inlined mesh if possible.
+    mesh_axis_attrs = [
+      hlo.MeshAxisAttr.get(str(name), size)
+      for name, size in axis_ctx.mesh.shape.items()
+    ]
+    mesh_attr = hlo.MeshAttr.get(ir.ArrayAttr.get(mesh_axis_attrs))
+    flat_axes = (
+      axis_names if isinstance(axis_names, (tuple, list)) else (axis_names,)
+    )
+    axes = ir.ArrayAttr.get(
+        [hlo.AxisRefAttr.get(str(name)) for name in flat_axes]
+    )
+    return hlo.ReplicaGroupMeshAxesAttr.get(mesh_attr, axes)
+
+  # Fallback to the dense repr if mesh-axes based is not applicable.
+  return _device_list_replica_groups_hlo(
+      _replica_groups(
+          ctx.module_context.axis_context, axis_names, axis_index_groups
+      )
+  )
+
 
 def _allreduce_impl(prim, pos_reducer, arg, *, axes, axis_index_groups):
   assert axis_index_groups is None
@@ -997,9 +1032,9 @@ def _allreduce_lowering(prim, pos_fn, ctx, arg, *, axes, axis_index_groups):
   if not named_axes:
     return [arg]
 
-  replica_groups = _replica_groups_hlo(
-      _replica_groups(ctx.module_context.axis_context, named_axes,
-                      axis_index_groups))
+  replica_groups = _try_mesh_axes_replica_group(
+      ctx, named_axes, axis_index_groups
+  )
   axis_context = ctx.module_context.axis_context
   is_spmd = isinstance(axis_context, (SPMDAxisContext, ShardingContext))
 
@@ -1291,7 +1326,9 @@ def _pbroadcast_lowering(ctx, x, *, axis_name, source):
   else:
     other_args = {}
   return hlo.CollectiveBroadcastOp(
-      x, replica_groups=_replica_groups_hlo(replica_groups), **other_args
+      x,
+      replica_groups=_device_list_replica_groups_hlo(replica_groups),
+      **other_args,
   ).results
 
 pbroadcast_p = core.Primitive('pbroadcast')
@@ -1346,13 +1383,17 @@ def _all_to_all_lowering(
   else:
     other_args = {}
 
+  replica_groups_attr = _try_mesh_axes_replica_group(
+      ctx, axis_name, axis_index_groups
+  )
+
   if not is_async:
     return hlo.AllToAllOp(
         [x],
         split_dimension=mlir.i64_attr(split_axis),
         concat_dimension=mlir.i64_attr(concat_axis),
         split_count=mlir.i64_attr(split_count),
-        replica_groups=_replica_groups_hlo(replica_groups),
+        replica_groups=replica_groups_attr,
         **other_args,
     ).results
 
@@ -1368,7 +1409,7 @@ def _all_to_all_lowering(
         split_dimension=mlir.i64_attr(split_axis),
         concat_dimension=mlir.i64_attr(concat_axis),
         split_count=mlir.i64_attr(split_count),
-        replica_groups=_replica_groups_hlo(replica_groups),
+        replica_groups=replica_groups_attr,
         **other_args,
     ).results
     hlo.return_(results)
@@ -1523,7 +1564,7 @@ def _ragged_all_to_all_lowering(
     raise ValueError('Replica groups must be equally sized')
 
   ragged_all_to_all_attrs: dict[str, ir.Attribute] = {
-      "replica_groups": _replica_groups_hlo(replica_groups)
+      "replica_groups": _device_list_replica_groups_hlo(replica_groups)
   }
   is_spmd = isinstance(
       ctx.module_context.axis_context, (SPMDAxisContext, ShardingContext))
@@ -1796,8 +1837,9 @@ def _all_gather_lowering(ctx, x, *, all_gather_dimension, axis_name,
     x = hlo.broadcast_in_dim(
         mlir.aval_to_ir_type(ctx.module_context, x_aval.update(shape=new_shape)), x,
         mlir.dense_int_array(broadcast_dimensions))
-  replica_groups = _replica_groups(ctx.module_context.axis_context, axis_name,
-                                    axis_index_groups)
+  replica_groups_attr = _try_mesh_axes_replica_group(
+      ctx, axis_name, axis_index_groups
+  )
   if is_spmd:
     # We want to emit the all-gather with global device IDs and a
     # channel ID, as otherwise it interprets the devices as replicas instead
@@ -1813,9 +1855,11 @@ def _all_gather_lowering(ctx, x, *, all_gather_dimension, axis_name,
   if not is_async:
     return hlo.AllGatherOp(
         [out_type],
-        [x], all_gather_dim=mlir.i64_attr(all_gather_dimension),
-        replica_groups=_replica_groups_hlo(replica_groups),
-        **other_args).results
+        [x],
+        all_gather_dim=mlir.i64_attr(all_gather_dimension),
+        replica_groups=replica_groups_attr,
+        **other_args,
+    ).results
 
   future_type = hlo.FutureType.get([out_type])
   async_start = hlo.AsyncStartOp(future_type, [x])
@@ -1825,7 +1869,7 @@ def _all_gather_lowering(ctx, x, *, all_gather_dimension, axis_name,
         [out_type],
         [block.arguments[0]],
         all_gather_dim=mlir.i64_attr(all_gather_dimension),
-        replica_groups=_replica_groups_hlo(replica_groups),
+        replica_groups=replica_groups_attr,
         **other_args,
     ).results
     hlo.return_(results)
@@ -2037,8 +2081,9 @@ def _reduce_scatter_lowering(
   x_aval, = ctx.avals_in
   aval_out, = ctx.avals_out
   scalar_aval = x_aval.update(shape=())
-  replica_groups = _replica_groups(ctx.module_context.axis_context, axis_name,
-                                   axis_index_groups)
+  replica_groups = _try_mesh_axes_replica_group(
+      ctx, axis_name, axis_index_groups
+  )
   scatter_out_shape = list(x_aval.shape)
   scatter_out_shape[scatter_dimension] //= axis_size
   axis_context = ctx.module_context.axis_context
@@ -2057,11 +2102,14 @@ def _reduce_scatter_lowering(
   else:
     other_args = {}
   op = hlo.ReduceScatterOp(
-      mlir.aval_to_ir_type(ctx.module_context, x_aval.update(shape=scatter_out_shape)),
+      mlir.aval_to_ir_type(
+          ctx.module_context, x_aval.update(shape=scatter_out_shape)
+      ),
       x,
       scatter_dimension=mlir.i64_attr(scatter_dimension),
-      replica_groups=_replica_groups_hlo(replica_groups),
-      **other_args)
+      replica_groups=replica_groups,
+      **other_args,
+  )
   scalar_type = mlir.aval_to_ir_type(ctx.module_context, scalar_aval)
   reducer_block = op.regions[0].blocks.append(scalar_type, scalar_type)
   with ir.InsertionPoint(reducer_block):
@@ -2289,7 +2337,8 @@ def _psum_scatter(x, axis_name, *, scatter_dimension, axis_index_groups, tiled,
     leaf = insert_collective_pvary(axis_name, leaf)
     prim = reduce_scatter_start_p if is_async else reduce_scatter_p
     return prim.bind(
-        leaf, axis_name=axis_name, scatter_dimension=scatter_dimension,
+        leaf, axis_name=axis_name,
+        scatter_dimension=canonicalize_axis(scatter_dimension, np.ndim(leaf)),
         axis_index_groups=axis_index_groups, axis_size=axis_size, tiled=tiled)
   return tree_util.tree_map(bind, x)
 
@@ -2466,7 +2515,8 @@ batching.primitive_batchers[core.pvary_p] = _pvary_batcher
 ####################### all_gather_reduced ###########################
 
 # Varying -> Reduced collective
-def all_gather_reduced(x, axis_name, *, axis: int = 0, tiled: bool = False, is_async: bool = False):
+def all_gather_reduced(x, axis_name, *, axis: int = 0, tiled: bool = False,
+                       is_async: bool = False):
   if not isinstance(axis_name, tuple):
     axis_name = (axis_name,)
   if not axis_name:
@@ -2507,6 +2557,8 @@ def _all_gather_reduced_effectful_abstract_eval(
   else:
     new_shape.insert(all_gather_dimension, axis_size)
 
+  if x_aval.mat.unreduced:
+    assert x_aval.mat.unreduced_kind is UnreducedKind.sum
   new_reduced = x_aval.mat.reduced | frozenset(axis_name)
   out_vma = frozenset(v for v in x_aval.mat.varying if v not in axis_name)
   out_mat = x_aval.mat.update(varying=out_vma, reduced=new_reduced)
@@ -2561,11 +2613,8 @@ def unreduced_psum_scatter(x, axis_name, *, scatter_dimension=0, tiled=False,
     return x
   axis_size = _axis_size(axis_name, None)
   def bind(leaf):
-    prim = (
-        unreduced_reduce_scatter_start_p
-        if is_async
-        else unreduced_reduce_scatter_p
-    )
+    prim = (unreduced_reduce_scatter_start_p if is_async else
+            unreduced_reduce_scatter_p)
     return prim.bind(
         leaf, axis_name=axis_name, scatter_dimension=scatter_dimension,
         axis_size=axis_size, tiled=tiled)
@@ -2608,10 +2657,13 @@ def _unreduced_reduce_scatter_effectful_abstract_eval(
                        f"{axis_size}")
     del new_shape[scatter_dimension]
 
+  assert x_aval.mat.unreduced_kind is UnreducedKind.sum
   out_unreduced = frozenset(i for i in x_aval.mat.unreduced
                             if i not in axis_name)
   out_vma = x_aval.mat.varying | set(axis_name)
-  out_mat = x_aval.mat.update(varying=out_vma, unreduced=out_unreduced)
+  kind = UnreducedKind.sum if out_unreduced else None
+  out_mat = x_aval.mat.update(varying=out_vma, unreduced=out_unreduced,
+                              unreduced_kind=kind)
   return (x_aval.update(shape=new_shape, manual_axis_type=out_mat),
           {*map(core.NamedAxisEffect, axis_name)})
 unreduced_reduce_scatter_p.def_effectful_abstract_eval(
@@ -2680,8 +2732,10 @@ def _unreduced_psum_abstract_eval(aval, *, axes):
                      f' Got axis_name={axes}')
 
   core.check_avals_context_mesh([aval], 'unreduced_psum')
-  out_mat = aval.mat.update(unreduced=frozenset(u for u in aval.mat.unreduced
-                                                if u not in axes))
+  assert aval.mat.unreduced_kind is UnreducedKind.sum
+  out_u = frozenset(u for u in aval.mat.unreduced if u not in axes)
+  kind = UnreducedKind.sum if out_u else None
+  out_mat = aval.mat.update(unreduced=out_u, unreduced_kind=kind)
   out_aval = aval.update(manual_axis_type=out_mat)
   return out_aval, {core.NamedAxisEffect(axis) for axis in axes}
 unreduced_psum_p.def_effectful_abstract_eval(_unreduced_psum_abstract_eval)
@@ -2732,6 +2786,8 @@ def _preduced_abstract_eval(aval, *, axes):
     raise ValueError(
         "preduced input cannot be reduced across the axis_name"
         f" provided. Got x={aval.str_short(True)} and axis_name={axes}")
+  if aval.mat.unreduced:
+    assert aval.mat.unreduced_kind is UnreducedKind.sum
   return aval.update(manual_axis_type=aval.mat.update(
       reduced=aval.mat.reduced | frozenset(axes)))
 preduced_p.def_abstract_eval(_preduced_abstract_eval)
@@ -2826,6 +2882,8 @@ def _reduced_vary_cast_abstract_eval(aval, *, axes):
     raise ValueError(
         "reduced_vary_cast input cannot be varying across the axis_name"
         f" provided. Got x={aval.str_short(True)} and axis_name={axes}")
+  if aval.mat.unreduced:
+    assert aval.mat.unreduced_kind is UnreducedKind.sum
 
   new_reduced = frozenset(i for i in aval.mat.reduced if i not in axes)
   out_vma = aval.mat.varying | frozenset(axes)
@@ -2908,60 +2966,66 @@ all_to_all_start_p = core.Primitive("all_to_all_start")
 pbroadcast_start_p = core.Primitive("pbroadcast_start")
 ppermute_start_p = core.Primitive("ppermute_start")
 
+# Asynchronous done primitives.
+all_gather_done_p = core.Primitive("all_gather_done")
+psum_done_p = core.Primitive("psum_done")
+reduce_scatter_done_p = core.Primitive("reduce_scatter_done")
+all_to_all_done_p = core.Primitive("all_to_all_done")
+pbroadcast_done_p = core.Primitive("pbroadcast_done")
+ppermute_done_p = core.Primitive("ppermute_done")
+
+
 # Asynchronous start functions.
 def all_gather_start(*args, **kwargs):
-  x = _all_gather_is_async(*args, **kwargs, is_async=True)
-  return core.Future(x, all_gather_done_p.bind)
-
+  return _all_gather_is_async(*args, **kwargs, is_async=True)
 
 def psum_start(*args, **kwargs):
-  x = _psum_is_async(*args, **kwargs, is_async=True)
-  return core.Future(x, psum_done_p.bind)
-
+  return _psum_is_async(*args, **kwargs, is_async=True)
 
 def psum_scatter_start(*args, **kwargs):
-  x = _psum_scatter_is_async(*args, **kwargs, is_async=True)
-  return core.Future(x, reduce_scatter_done_p.bind)
-
+  return _psum_scatter_is_async(*args, **kwargs, is_async=True)
 
 def all_to_all_start(*args, **kwargs):
-  x = _all_to_all_is_async(*args, **kwargs, is_async=True)
-  return core.Future(x, all_to_all_done_p.bind)
-
+  return _all_to_all_is_async(*args, **kwargs, is_async=True)
 
 def pbroadcast_start(*args, **kwargs):
-  x = _pbroadcast_is_async(*args, **kwargs, is_async=True)
-  return core.Future(x, pbroadcast_done_p.bind)
-
+  return _pbroadcast_is_async(*args, **kwargs, is_async=True)
 
 def ppermute_start(*args, **kwargs):
-  x = _ppermute_is_async(*args, **kwargs, is_async=True)
-  return core.Future(x, ppermute_done_p.bind)
-
+  return _ppermute_is_async(*args, **kwargs, is_async=True)
 
 # Asynchronous start abstract eval.
-def _start_abstract_eval(q):
-  def f(*args, **kwargs):
-    aval, effs = q.abstract_eval(*args, **kwargs)
-    return core.AbstractFuture(aval), effs
-  return f
+def _async_start_abstract_eval(sync_prim, done_fun, *args, **kwargs):
+  aval, effs = sync_prim.abstract_eval(*args, **kwargs)
+  return core.AbstractFuture(aval, done_fun), effs
 
-for p, q in [
-    (all_gather_start_p, all_gather_p),
-    (all_gather_reduced_start_p, all_gather_reduced_p),
-    (psum_start_p, psum_p),
-    (psum_invariant_start_p, psum_invariant_p),
-    (unreduced_psum_start_p, unreduced_psum_p),
-    (reduce_scatter_start_p, reduce_scatter_p),
-    (unreduced_reduce_scatter_start_p, unreduced_reduce_scatter_p),
-    (all_to_all_start_p, all_to_all_p),
-    (pbroadcast_start_p, pbroadcast_p),
-    (ppermute_start_p, ppermute_p),
+for async_prim, sync_prim, done_p in [
+    (all_gather_start_p, all_gather_p, all_gather_done_p),
+    (all_gather_reduced_start_p, all_gather_reduced_p, all_gather_done_p),
+    (psum_start_p, psum_p, psum_done_p),
+    (psum_invariant_start_p, psum_invariant_p, psum_done_p),
+    (unreduced_psum_start_p, unreduced_psum_p, psum_done_p),
+    (reduce_scatter_start_p, reduce_scatter_p, reduce_scatter_done_p),
+    (unreduced_reduce_scatter_start_p, unreduced_reduce_scatter_p, reduce_scatter_done_p),
+    (all_to_all_start_p, all_to_all_p, all_to_all_done_p),
+    (pbroadcast_start_p, pbroadcast_p, pbroadcast_done_p),
+    (ppermute_start_p, ppermute_p, ppermute_done_p),
 ]:
-  p.def_effectful_abstract_eval(_start_abstract_eval(q))
+  async_prim.def_effectful_abstract_eval(
+      partial(_async_start_abstract_eval, sync_prim, done_p.bind))
 
-# Asynchronous start lowering.
-def _start_lowering(sync_lower):
+def _async_done_abstract_eval(aval):
+  if not isinstance(aval, core.AbstractFuture):
+    raise TypeError(f"async done op got {aval}, want core.AbstractFuture")
+  return aval.inner_aval
+
+for p in [all_gather_done_p, psum_done_p, reduce_scatter_done_p,
+          all_to_all_done_p, pbroadcast_done_p, ppermute_done_p]:
+  p.def_abstract_eval(_async_done_abstract_eval)
+  mlir.register_lowering(p, lambda ctx, x: [hlo.async_done(x)])
+
+
+def _async_start_lowering(sync_lower, ctx, x, **kwargs):
   """Returns an async start lowering function given a synchronous lowering.
 
   An async StableHLO collective looks like this:
@@ -2980,25 +3044,21 @@ def _start_lowering(sync_lower):
   synchronous collective and transforms it into a lowering function for the
   async collective by wrapping everything in an async_start.
   """
-
-  def f(ctx, x, **kwargs):
-    (x_aval,) = ctx.avals_in  # e.g., f32[2, 2]
-    (out_aval,) = ctx.avals_out  # e.g., # AbstractFuture[f32[4, 2]]
-    inner_aval = out_aval.inner_aval  # e.g., f32[4, 2]
-    inner_type = mlir.aval_to_ir_type(ctx.module_context, inner_aval)  # e.g., <tensor<4x2xf32>
-    # e.g., !stablehlo.future<tensor<4x2xf32>>
-    future_type = hlo.FutureType.get([inner_type])
-    async_start = hlo.AsyncStartOp(future_type, [x])
-    block = async_start.regions[0].blocks.append(x.type)
-    with ir.InsertionPoint(block):
-      inner_ctx = ctx.replace(
-          primitive=None, avals_in=[x_aval], avals_out=[inner_aval]
-      )
-      results = sync_lower(inner_ctx, block.arguments[0], **kwargs)
-      hlo.return_(results)
-    return async_start.results
-
-  return f
+  (x_aval,) = ctx.avals_in  # e.g., f32[2, 2]
+  (out_aval,) = ctx.avals_out  # e.g., # AbstractFuture[f32[4, 2]]
+  inner_aval = out_aval.inner_aval  # e.g., f32[4, 2]
+  inner_type = mlir.aval_to_ir_type(ctx.module_context, inner_aval)  # e.g., <tensor<4x2xf32>
+  # e.g., !stablehlo.future<tensor<4x2xf32>>
+  future_type = hlo.FutureType.get([inner_type])
+  async_start = hlo.AsyncStartOp(future_type, [x])
+  block = async_start.regions[0].blocks.append(x.type)
+  with ir.InsertionPoint(block):
+    inner_ctx = ctx.replace(
+        primitive=None, avals_in=[x_aval], avals_out=[inner_aval]
+    )
+    results = sync_lower(inner_ctx, block.arguments[0], **kwargs)
+    hlo.return_(results)
+  return async_start.results
 
 
 def _reduce_scatter_start_lowering(ctx, x, *, tiled, **kwargs):
@@ -3007,19 +3067,17 @@ def _reduce_scatter_start_lowering(ctx, x, *, tiled, **kwargs):
     # lowered to two operations: a reduce_scatter and a reshape. Lowering the
     # async version of this is tricky because we need to reshape after the
     # future is resolved.
-    raise NotImplementedError("lowering reduce_scatter_start with tiled=False unimplemented")
+    raise NotImplementedError
   lower = partial(_reduce_scatter_lowering, lax.add_p)
-  return _start_lowering(lower)(ctx, x, tiled=tiled, **kwargs)
+  return _async_start_lowering(lower, ctx, x, tiled=tiled, **kwargs)
 
 
 def _unreduced_reduce_scatter_start_lowering(ctx, x, *, tiled, **kwargs):
   if not tiled:
-    msg = (
-        "lowering unreduced_reduce_scatter_start with tiled=False unimplemented"
-    )
-    raise NotImplementedError(msg)
+    # Same reason as _reduce_scatter_start_lowering
+    raise NotImplementedError
   lower = partial(_unreduced_reduce_scatter_lowering, lax.add_p)
-  return _start_lowering(lower)(ctx, x, tiled=tiled, **kwargs)
+  return _async_start_lowering(lower, ctx, x, tiled=tiled, **kwargs)
 
 
 mlir.register_lowering(
@@ -3043,13 +3101,13 @@ for p in ("cuda", "rocm", "tpu"):
   )
 mlir.register_lowering(
     psum_start_p,
-    _start_lowering(partial(_allreduce_lowering, lax.add_p, lax.reduce_sum)),
+    partial(_async_start_lowering, partial(_allreduce_lowering, lax.add_p, lax.reduce_sum)),
 )
 mlir.register_lowering(
-    psum_invariant_start_p, _start_lowering(_psum_invariant_lowering_rule)
+    psum_invariant_start_p, partial(_async_start_lowering, _psum_invariant_lowering_rule)
 )
 mlir.register_lowering(
-    unreduced_psum_start_p, _start_lowering(_unreduced_psum_lowering)
+    unreduced_psum_start_p, partial(_async_start_lowering, _unreduced_psum_lowering)
 )
 mlir.register_lowering(reduce_scatter_start_p, _reduce_scatter_start_lowering)
 mlir.register_lowering(
@@ -3059,33 +3117,6 @@ mlir.register_lowering(
     all_to_all_start_p, partial(_all_to_all_lowering, is_async=True)
 )
 mlir.register_lowering(
-    pbroadcast_start_p, _start_lowering(_pbroadcast_lowering), platform="gpu"
-)
-mlir.register_lowering(ppermute_start_p, _start_lowering(_ppermute_lowering))
-
-# Asynchronous done primitives.
-all_gather_done_p = core.Primitive("all_gather_done")
-psum_done_p = core.Primitive("psum_done")
-reduce_scatter_done_p = core.Primitive("reduce_scatter_done")
-all_to_all_done_p = core.Primitive("all_to_all_done")
-pbroadcast_done_p = core.Primitive("pbroadcast_done")
-ppermute_done_p = core.Primitive("ppermute_done")
-
-_dones_p = [
-    all_gather_done_p,
-    psum_done_p,
-    reduce_scatter_done_p,
-    all_to_all_done_p,
-    pbroadcast_done_p,
-    ppermute_done_p,
-]
-
-# Asynchronous done abstract eval and lowering.
-def _done_abstract_eval(aval):
-  if not isinstance(aval, core.AbstractFuture):
-    raise TypeError(f"async done op got {aval}, want core.AbstractFuture")
-  return aval.inner_aval
-
-for p in _dones_p:
-  p.def_abstract_eval(_done_abstract_eval)
-  mlir.register_lowering(p, lambda ctx, x: [hlo.async_done(x)])
+    pbroadcast_start_p, partial(_async_start_lowering, _pbroadcast_lowering),
+    platform="gpu")
+mlir.register_lowering(ppermute_start_p, partial(_async_start_lowering, _ppermute_lowering))

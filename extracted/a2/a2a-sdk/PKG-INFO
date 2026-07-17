@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a2a-sdk
-Version: 1.1.0
+Version: 1.1.1
 Summary: A2A Python SDK
 Project-URL: homepage, https://a2a-protocol.org/
 Project-URL: repository, https://github.com/a2aproject/a2a-python
@@ -25,7 +25,6 @@ Requires-Python: >=3.10
 Requires-Dist: culsans>=0.11.0; python_full_version < '3.13'
 Requires-Dist: google-api-core>=1.26.0
 Requires-Dist: googleapis-common-protos>=1.70.0
-Requires-Dist: httpx-sse>=0.4.0
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: json-rpc>=1.15.0
 Requires-Dist: packaging>=24.0
@@ -36,7 +35,6 @@ Requires-Dist: alembic>=1.14.0; extra == 'all'
 Requires-Dist: cryptography>=43.0.0; extra == 'all'
 Requires-Dist: fastapi>=0.115.2; extra == 'all'
 Requires-Dist: grpcio-reflection>=1.7.0; extra == 'all'
-Requires-Dist: grpcio-status>=1.60; extra == 'all'
 Requires-Dist: grpcio-tools>=1.60; extra == 'all'
 Requires-Dist: grpcio>=1.60; extra == 'all'
 Requires-Dist: opentelemetry-api>=1.33.0; extra == 'all'
@@ -57,7 +55,6 @@ Requires-Dist: sse-starlette; extra == 'fastapi'
 Requires-Dist: starlette; extra == 'fastapi'
 Provides-Extra: grpc
 Requires-Dist: grpcio-reflection>=1.7.0; extra == 'grpc'
-Requires-Dist: grpcio-status>=1.60; extra == 'grpc'
 Requires-Dist: grpcio-tools>=1.60; extra == 'grpc'
 Requires-Dist: grpcio>=1.60; extra == 'grpc'
 Provides-Extra: http-server

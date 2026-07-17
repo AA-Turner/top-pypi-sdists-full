@@ -5,7 +5,7 @@ import json
 import httpx
 
 from dreadnode.airt.targets.auth import apply_auth
-from dreadnode.airt.targets.message import extract_parts, extract_response_text
+from dreadnode.airt.targets.message import extract_media_bytes, extract_parts, extract_response_text
 from dreadnode.airt.targets.spec import TargetSpec
 from dreadnode.core.task import Task, task
 from dreadnode.generators.message import Message
@@ -27,9 +27,14 @@ async def http_call(message: Message, spec: TargetSpec) -> str:
     Kept free of the ``@task`` wrapper so the request/response logic is unit testable
     without the tracing/storage a Task invocation requires.
     """
-    body = _render_body(spec.request_template, extract_parts(message))
-    content = json.dumps(body).encode("utf-8")
-    headers = apply_auth(spec, {"Content-Type": "application/json"}, spec.endpoint, content)
+    if spec.request_format == "raw_audio":
+        content = extract_media_bytes(message, "audio")
+        content_type = spec.raw_content_type
+    else:
+        body = _render_body(spec.request_template, extract_parts(message))
+        content = json.dumps(body).encode("utf-8")
+        content_type = "application/json"
+    headers = apply_auth(spec, {"Content-Type": content_type}, spec.endpoint, content)
 
     async with httpx.AsyncClient(timeout=spec.timeout_s) as client:
         resp = await client.post(spec.endpoint, content=content, headers=headers)

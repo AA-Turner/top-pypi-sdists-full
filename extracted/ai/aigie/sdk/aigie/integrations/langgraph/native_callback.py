@@ -13,9 +13,12 @@ Wire shape is constrained by the committed baselines under
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 
 from aigie.integrations.langgraph._metadata import extract_langgraph_metadata, passthrough_metadata
+from aigie.integrations.langgraph.control_flow import is_control_flow_signal
 from aigie.integrations.langgraph.event_classifier import LangGraphEventClassifier
 from aigie.tracing.event_classifier import FrameworkEventClassifier
 from aigie.tracing.lc_callback_base import LangChainCallbackBase
@@ -52,6 +55,38 @@ class LangGraphNativeCallback(LangChainCallbackBase):
         for k in _LG_INPUT_KEYS:
             if k in fw_meta:
                 llm_input[k] = fw_meta[k]
+
+    def on_chain_error(
+        self,
+        error: BaseException,
+        *,
+        run_id: UUID,
+        parent_run_id: UUID | None = None,
+        **kwargs: Any,
+    ) -> None:
+        if not is_control_flow_signal(error):
+            super().on_chain_error(error, run_id=run_id, parent_run_id=parent_run_id, **kwargs)
+            return
+        self._pause_control_flow_span(run_id)
+
+    def on_llm_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
+        if not is_control_flow_signal(error):
+            super().on_llm_error(error, run_id=run_id, **kwargs)
+            return
+        self._pause_control_flow_span(run_id)
+
+    def on_tool_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
+        if not is_control_flow_signal(error):
+            super().on_tool_error(error, run_id=run_id, **kwargs)
+            return
+        self._pause_control_flow_span(run_id)
+
+    def _pause_control_flow_span(self, run_id: UUID) -> None:
+        state = self.spans.get_state(str(run_id))
+        name = state["name"] if state else "chain"
+        self._execution.end_span(name=name, status="paused", at=datetime.now(timezone.utc))
+        self.spans.pause_span(run_id=str(run_id))
+        self._note_end(run_id, error=None)
 
     def _on_node_span_opened(self, run_id: str, fw_meta: dict[str, Any]) -> None:
         hook = getattr(self, "_aigie_rewind", None)

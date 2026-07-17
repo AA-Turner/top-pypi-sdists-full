@@ -17,6 +17,11 @@ from neutron_lib.api import converters as convert
 from neutron_lib.api.definitions import dns
 from neutron_lib.api.definitions import port
 from neutron_lib.db import constants
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 # The alias of the extension.
@@ -60,7 +65,7 @@ COLLECTION_NAME = port.COLLECTION_NAME
 
 # The resource attribute map for the extension. It is effectively the
 # bulk of the API contract alongside ACTION_MAP (mandatory).
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         dns.DNSDOMAIN: {'allow_post': True, 'allow_put': True,
                         'default': '',
@@ -73,12 +78,10 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 # The subresource attribute map for the extension.
-SUB_RESOURCE_ATTRIBUTE_MAP = {
-}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map
-ACTION_MAP = {
-}
+ACTION_MAP: ActionMap = {}
 
 # The action status
 ACTION_STATUS = {

@@ -15,6 +15,11 @@
 from neutron_lib.api import converters
 from neutron_lib.api.definitions import vpn
 from neutron_lib.db import constants as db_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 # VPN Endpoint type constants
 VPN_ENDPOINT_TYPE_CIDR = 'cidr'
@@ -35,7 +40,7 @@ NAME = 'VPN Endpoint Groups'
 DESCRIPTION = 'VPN endpoint groups support'
 UPDATED_TIMESTAMP = '2015-08-04T10:00:00-00:00'
 API_PREFIX = '/vpn'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     'endpoint_groups': {
         'id': {'allow_post': False, 'allow_put': False,
                'validate': {'type:uuid': None},
@@ -62,8 +67,8 @@ RESOURCE_ATTRIBUTE_MAP = {
                       'default': []},
     },
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [vpn.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

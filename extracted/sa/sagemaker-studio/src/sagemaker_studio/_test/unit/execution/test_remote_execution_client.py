@@ -37,7 +37,6 @@ class TestRemoteExecutionClient(unittest.TestCase):
     ):
         # setup datazone api mock
         self.datazone_api = Mock()
-        self.datazone_api.get_environment_credentials.return_value = self._default_env_creds()
         # setup project api mock
         self.project_api = Mock()
         project_api_instance = self.project_api.return_value
@@ -54,14 +53,6 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.remote_client = RemoteExecutionClient(
             self.datazone_api, self.project_api, self.execution_config
         )
-
-    def _default_env_creds(self):
-        return {
-            "accessKeyId": "123",
-            "expiration": "1970",
-            "secretAccessKey": "456",
-            "sessionToken": "789",
-        }
 
     def _default_sage_maker_environment_summary(self):
         return {

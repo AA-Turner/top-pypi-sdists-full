@@ -86,7 +86,11 @@ from snowflake.snowpark_connect.type_support import (
     emulate_integral_types,
 )
 from snowflake.snowpark_connect.utils.context import _normalize as _norm_case
-from snowflake.snowpark_connect.utils.io_utils import cached_file_format
+from snowflake.snowpark_connect.utils.io_utils import (
+    cached_file_format,
+    db_schema_from_stage_path,
+    first_db_schema_from_paths,
+)
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
@@ -239,7 +243,12 @@ def map_read_csv(
 
         merge_schema = str_to_bool(str(options.config.get("mergeschema", "false")))
 
-        file_format = cached_file_format(session, "csv", csv_file_format_options)
+        file_format = cached_file_format(
+            session,
+            "csv",
+            csv_file_format_options,
+            db_schema_fallback=first_db_schema_from_paths(paths),
+        )
 
         snowpark_reader_options = dict()
         snowpark_reader_options["FORMAT_NAME"] = file_format
@@ -477,7 +486,10 @@ def map_read_csv(
         copy_reader_opts["INFER_SCHEMA"] = False
         copy_reader_opts.pop("TRY_CAST", None)
         copy_reader_opts["FORMAT_NAME"] = cached_file_format(
-            session, "csv", csv_copy_file_format_options
+            session,
+            "csv",
+            csv_copy_file_format_options,
+            db_schema_fallback=first_db_schema_from_paths(paths),
         )
 
         reader = add_filename_metadata_to_reader(
@@ -649,9 +661,11 @@ def map_read_csv(
             spark_column_names=spark_column_names,
             snowpark_column_names=snowpark_column_names,
             snowpark_column_types=[
-                relax_csv_types(f.datatype)
-                if relax_types_to_infer_schema
-                else f.datatype
+                (
+                    relax_csv_types(f.datatype)
+                    if relax_types_to_infer_schema
+                    else f.datatype
+                )
                 for f in df.schema.fields
             ],
         ).without_materialization()
@@ -1109,7 +1123,10 @@ def _read_csv_header_names_from_stage(
 
     try:
         text_fmt = _ff(
-            session, str(user_compression).lower(), str(user_record_delimiter)
+            session,
+            str(user_compression).lower(),
+            str(user_record_delimiter),
+            db_schema_fallback=db_schema_from_stage_path(stage_path),
         )
         select_clauses = [f"FILE_FORMAT => {text_fmt}"]
         if user_pattern:

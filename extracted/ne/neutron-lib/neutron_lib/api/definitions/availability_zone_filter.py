@@ -11,7 +11,11 @@
 #    under the License.
 
 from neutron_lib.api.definitions import availability_zone as az
-
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 ALIAS = 'availability_zone_filter'
 IS_SHIM_EXTENSION = True
@@ -19,9 +23,9 @@ IS_STANDARD_ATTR_EXTENSION = False
 NAME = 'Availability Zone Filter Extension'
 DESCRIPTION = 'Add filter parameters to AvailabilityZone resource'
 UPDATED_TIMESTAMP = '2018-06-22T10:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {}
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [
     az.ALIAS
 ]

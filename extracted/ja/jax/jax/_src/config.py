@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from collections.abc import Generator
 import contextlib
 import enum
 import functools
@@ -23,14 +24,13 @@ import logging
 import os
 import sys
 from typing import Any, Generic, NoReturn, Optional, Protocol, TypeVar, cast
-from collections.abc import Generator
+from typing import TYPE_CHECKING
 
 from jax._src import logging_config
 from jax._src.lib import _jax
 from jax._src.lib import guard_lib
 from jax._src.lib import jax_jit
 from jax._src.lib import xla_client
-from jax._src.lib import jaxlib_extension_version
 
 config_ext = _jax.config
 
@@ -103,6 +103,13 @@ class ValueHolder(Protocol[_T]):
 
 class Config:
   _HAS_DYNAMIC_ATTRIBUTES = True
+  if TYPE_CHECKING:
+
+    def __getattr__(self, name: str) -> Any:
+      ...
+
+    def __setattr__(self, name: str, value: Any) -> None:
+      ...
 
   def __init__(self):
     self._value_holders: dict[str, ValueHolder] = {}
@@ -224,13 +231,7 @@ class Config:
 register_trace_context_callback = []
 
 trace_context = config_ext.trace_context
-if jaxlib_extension_version >= 455:
-  trace_context_names = config_ext.trace_context_names
-else:
-  def trace_context_names():
-    raise NotImplementedError(
-        'trace_context_names is not supported in this JAX version.'
-    )
+trace_context_names = config_ext.trace_context_names
 
 config = Config()
 
@@ -1235,18 +1236,27 @@ debug_infs = bool_state(
 log_compiles = bool_state(
     name='jax_log_compiles',
     default=False,
-    help=('Log a message each time `jit` or `pmap` compiles an XLA '
-          'computation. Logging is performed with `logging`. When this '
-          'option is set, the log level is WARNING; otherwise the level is '
-          'DEBUG.'))
+    help=(
+        'Log a message each time `jit` or `pmap` compiles an XLA computation.'
+        ' Logging is performed with `logging`. When this option is set, the log'
+        ' level is WARNING; otherwise the level is DEBUG.\n\nSee'
+        ' https://docs.jax.dev/en/latest/debugging/slow_tracing_compilation.html'
+        ' for more details.'
+    ),
+)
 
 explain_cache_misses = bool_state(
     name='jax_explain_cache_misses',
     default=False,
-    help=('Each time there is a miss on one of the main caches (e.g. the '
-          'tracing cache), log an explanation. Logging is performed with '
-          '`logging`. When this option is set, the log level is WARNING; '
-          'otherwise the level is DEBUG.'))
+    help=(
+        'Each time there is a miss on one of the main caches (e.g. the tracing'
+        ' cache), log an explanation. Logging is performed with `logging`. When'
+        ' this option is set, the log level is WARNING; otherwise the level is'
+        ' DEBUG.\n\nSee'
+        ' https://docs.jax.dev/en/latest/debugging/slow_tracing_compilation.html'
+        ' for more details.'
+    ),
+)
 
 log_checkpoint_residuals = bool_state(
     name='jax_log_checkpoint_residuals',
@@ -1886,6 +1896,15 @@ disable_bwd_checks = bool_state(
     upgrade=True,
     help='Disables all bwd pass checks')
 
+use_rgv3 = bool_state(
+    name='jax_use_rgv3',
+    default=True,
+    help=(
+        'Whether to use StableHLO RGV3 (mesh-axes based replica groups) during'
+        ' shard_map lowering.'
+    ),
+)
+
 xla_runtime_errors = bool_state(
     name='jax_experimental_unsafe_xla_runtime_errors',
     default=False,
@@ -1908,7 +1927,7 @@ jax_xla_profile_version = int_state(
 )
 
 @contextlib.contextmanager
-def explicit_device_put_scope() -> Generator[None, None, None]:
+def explicit_device_put_scope() -> Generator[None]:
   """Indicates that the current context is an explicit device_put*() call."""
   state = guard_lib.thread_local_state()
   prev = state.explicit_device_put
@@ -1919,7 +1938,7 @@ def explicit_device_put_scope() -> Generator[None, None, None]:
     state.explicit_device_put = prev
 
 @contextlib.contextmanager
-def explicit_device_get_scope() -> Generator[None, None, None]:
+def explicit_device_get_scope() -> Generator[None]:
   """Indicates that the current context is an explicit device_get() call."""
   state = guard_lib.thread_local_state()
   prev = state.explicit_device_get
@@ -2013,7 +2032,7 @@ _transfer_guard = optional_enum_state(
     update_global_hook=_update_all_transfer_guard_global)
 
 @contextlib.contextmanager
-def transfer_guard(new_val: str) -> Generator[None, None, None]:
+def transfer_guard(new_val: str) -> Generator[None]:
   """A contextmanager to control the transfer guard level for all transfers.
 
   For more information, see
@@ -2145,7 +2164,6 @@ optional_enum_state(
 )
 
 
-
 use_shardy_partitioner = bool_state(
     name='jax_use_shardy_partitioner',
     default=True,
@@ -2156,6 +2174,12 @@ use_shardy_partitioner = bool_state(
     ),
     include_in_jit_key=True,
     include_in_trace_context=True,
+)
+
+use_cpp_shard_args = bool_state(
+    name='jax_use_cpp_shard_args',
+    default=False,
+    help='Whether to use C++ implementation for sharding arguments.',
 )
 
 gpu_use_magma = enum_state(
@@ -2226,7 +2250,7 @@ cpu_collectives_implementation = optional_enum_state(
 use_high_dynamic_range_gumbel = bool_state(
     name='jax_high_dynamic_range_gumbel',
     default=False,
-    help='If True, gumble noise draws two samples to cover low probability '
+    help='If True, gumbel noise draws two samples to cover low probability '
          'events with more precision.',
     include_in_trace_context=True,
 )
@@ -2319,4 +2343,15 @@ jax_pallas_poison_buffers = bool_state(
         "If set, scratch buffers allocated by Pallas (e.g., in run_scoped)"
         " are initialized with poison values (NaN for floats) at allocation time."
     ),
+)
+
+jax_pallas_auto_assign_collective_ids = enum_state(
+    name='jax_pallas_auto_assign_collective_ids',
+    enum_values=['no', 'yes', 'override'],
+    default='no',
+    help=(
+        'Auto-assign or override the collective ids in pallas_call with'
+        ' auto-assigned ones, based on the serialized kernel (module) hash.'
+    ),
+    include_in_jit_key=True,
 )

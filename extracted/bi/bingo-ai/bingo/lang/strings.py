@@ -8911,6 +8911,359 @@ _STRINGS.update({
         "zh": "💡 用法: 只需在聊天框输入'URL + 任务描述'即可自动执行完整攻击链。\n   例: https://target.com/ 绕过waf，sql渗透，管理员账号密码，webshell权限",
         "en": "💡 Usage: Just type 'URL + mission description' in chat to auto-run the full attack chain.\n   e.g: https://target.com/ bypass waf, sql injection, admin credentials, webshell",
     },
+    # ── v6.2.151 autoDream / Doom Loop / 2-pass Compaction ────────────────
+    "doom_loop_escape": {
+        "ko": (
+            "⚠️ [DOOM_LOOP] 반복 패턴 감지 — 전략을 즉시 변경하세요.\n"
+            "1) 다른 파라미터/엔드포인트로 전환\n"
+            "2) WAF 우회 인코딩 방식 교체\n"
+            "3) 다른 취약점 유형으로 전환\n"
+            "4) 프록시 교체 후 재시도"
+        ),
+        "zh": (
+            "⚠️ [DOOM_LOOP] 检测到重复模式 — 请立即换策略。\n"
+            "1) 切换到其他参数/端点\n"
+            "2) 更换WAF绕过编码方式\n"
+            "3) 切换到其他漏洞类型\n"
+            "4) 更换代理后重试"
+        ),
+        "en": (
+            "⚠️ [DOOM_LOOP] Repetitive pattern detected — change strategy now.\n"
+            "1) Switch to a different parameter/endpoint\n"
+            "2) Use different WAF bypass encoding\n"
+            "3) Switch to a different vuln type\n"
+            "4) Rotate proxy and retry"
+        ),
+    },
+    "autodream_saved": {
+        "ko": "🧠 [autoDream] 세션 기억 저장 완료: {path}",
+        "zh": "🧠 [autoDream] 会话记忆已保存: {path}",
+        "en": "🧠 [autoDream] Session memory saved: {path}",
+    },
+    "autodream_loaded": {
+        "ko": "🧠 [autoDream] 이전 기억 로드 완료 ({count}개 청크)",
+        "zh": "🧠 [autoDream] 已加载历史记忆 ({count}个块)",
+        "en": "🧠 [autoDream] Previous memory loaded ({count} chunks)",
+    },
+    "autodream_dream_done": {
+        "ko": "🧠 [autoDream] {count}개 세션 통합 요약 완료",
+        "zh": "🧠 [autoDream] {count}个会话整合摘要完成",
+        "en": "🧠 [autoDream] {count} sessions consolidated",
+    },
+    "compaction_started": {
+        "ko": "📦 [Compaction] 히스토리 압축 중 (배경 처리)...",
+        "zh": "📦 [Compaction] 正在后台压缩历史记录...",
+        "en": "📦 [Compaction] Compacting history in background...",
+    },
+    "compaction_done": {
+        "ko": "📦 [Compaction] 히스토리 압축 완료 — 컨텍스트 최적화됨",
+        "zh": "📦 [Compaction] 历史压缩完成 — 上下文已优化",
+        "en": "📦 [Compaction] History compacted — context optimized",
+    },
+    # ── scanner banner keys (advanced_scanners.py / vuln_scanner_plus.py) ──
+    "tech_stack_start": {
+        "ko": "🔬 기술 스택 탐지 — {url}",
+        "zh": "🔬 技术栈检测 — {url}",
+        "en": "🔬 Technology Stack Detection — {url}",
+    },
+    "cve_auto_start": {
+        "ko": "🔎 CVE 자동 스캔 — {url}",
+        "zh": "🔎 CVE自动扫描 — {url}",
+        "en": "🔎 CVE Auto Scan — {url}",
+    },
+    "dom_xss_scan_start": {
+        "ko": "🎭 DOM XSS 스캔 — {url} [{param}]",
+        "zh": "🎭 DOM XSS扫描 — {url} [{param}]",
+        "en": "🎭 DOM XSS Scan — {url} [{param}]",
+    },
+    "param_fuzz_banner": {
+        "ko": "🔍 파라미터 퍼징 — {url}",
+        "zh": "🔍 参数模糊测试 — {url}",
+        "en": "🔍 Parameter Fuzzing — {url}",
+    },
+    "sqli_plus_banner": {
+        "ko": "💉 SQLi 강화 스캔 (600+ payloads) — {url} [{param}]",
+        "zh": "💉 SQLi增强扫描 (600+ payloads) — {url} [{param}]",
+        "en": "💉 SQLi Enhanced Scan (600+ payloads) — {url} [{param}]",
+    },
+    "wp_scan_banner": {
+        "ko": "🔌 WordPress 특화 스캔 — {url}",
+        "zh": "🔌 WordPress专项扫描 — {url}",
+        "en": "🔌 WordPress Specialized Scan — {url}",
+    },
+    "http_method_banner": {
+        "ko": "📡 HTTP 메서드 스캔 — {url}",
+        "zh": "📡 HTTP方法扫描 — {url}",
+        "en": "📡 HTTP Method Scan — {url}",
+    },
+    "api_sec_banner": {
+        "ko": "🔑 API 보안 스캔 — {url}",
+        "zh": "🔑 API安全扫描 — {url}",
+        "en": "🔑 API Security Scan — {url}",
+    },
+    "full_deep_scan_banner": {
+        "ko": "🚀 FULL DEEP SCAN (95% Acunetix Level) — {url}",
+        "zh": "🚀 全面深度扫描 (95% Acunetix级别) — {url}",
+        "en": "🚀 FULL DEEP SCAN (95% Acunetix Level) — {url}",
+    },
+    "cms_scan_skip": {
+        "ko": "[6/10] CMS 스캔 스킵 (cms={cms})",
+        "zh": "[6/10] 跳过CMS扫描 (cms={cms})",
+        "en": "[6/10] CMS scan skipped (cms={cms})",
+    },
+    "xss_plus_banner": {
+        "ko": "💉 XSS 강화 스캔 (220+ payloads) — {url} [{param}]",
+        "zh": "💉 XSS增强扫描 (220+ payloads) — {url} [{param}]",
+        "en": "💉 XSS Enhanced Scan (220+ payloads) — {url} [{param}]",
+    },
+    "lfi_plus_banner": {
+        "ko": "🗂  LFI 강화 스캔 (180+ payloads) — {url} [{param}]",
+        "zh": "🗂  LFI增强扫描 (180+ payloads) — {url} [{param}]",
+        "en": "🗂  LFI Enhanced Scan (180+ payloads) — {url} [{param}]",
+    },
+    "ssrf_plus_banner": {
+        "ko": "🌐 SSRF 강화 스캔 (140+ payloads) — {url} [{param}]",
+        "zh": "🌐 SSRF增强扫描 (140+ payloads) — {url} [{param}]",
+        "en": "🌐 SSRF Enhanced Scan (140+ payloads) — {url} [{param}]",
+    },
+    "ssti_plus_banner": {
+        "ko": "🧩 SSTI 강화 스캔 (120+ payloads) — {url} [{param}]",
+        "zh": "🧩 SSTI增强扫描 (120+ payloads) — {url} [{param}]",
+        "en": "🧩 SSTI Enhanced Scan (120+ payloads) — {url} [{param}]",
+    },
+    "cmdi_plus_banner": {
+        "ko": "💣 CMDi 강화 스캔 (130+ payloads) — {url} [{param}]",
+        "zh": "💣 命令注入增强扫描 (130+ payloads) — {url} [{param}]",
+        "en": "💣 CMDi Enhanced Scan (130+ payloads) — {url} [{param}]",
+    },
+    "xxe_plus_banner": {
+        "ko": "📝 XXE 강화 스캔 (80+ payloads) — {url}",
+        "zh": "📝 XXE增强扫描 (80+ payloads) — {url}",
+        "en": "📝 XXE Enhanced Scan (80+ payloads) — {url}",
+    },
+    "nosql_plus_banner": {
+        "ko": "🗄  NoSQL 강화 스캔 (90+ payloads) — {url} [{param}]",
+        "zh": "🗄  NoSQL注入增强扫描 (90+ payloads) — {url} [{param}]",
+        "en": "🗄  NoSQL Enhanced Scan (90+ payloads) — {url} [{param}]",
+    },
+    "header_inject_banner": {
+        "ko": "📨 헤더 주입 스캔 ({count} 헤더 유형) — {url}",
+        "zh": "📨 Header注入扫描 ({count}种请求头) — {url}",
+        "en": "📨 Header Injection Scan ({count} header types) — {url}",
+    },
+    "crlf_plus_banner": {
+        "ko": "🔀 CRLF 강화 스캔 (80+ payloads) — {url}",
+        "zh": "🔀 CRLF增强扫描 (80+ payloads) — {url}",
+        "en": "🔀 CRLF Enhanced Scan (80+ payloads) — {url}",
+    },
+    "open_redirect_plus_banner": {
+        "ko": "↗️  Open Redirect 강화 스캔 (100+ payloads) — {url} [{param}]",
+        "zh": "↗️  开放重定向增强扫描 (100+ payloads) — {url} [{param}]",
+        "en": "↗️  Open Redirect Enhanced Scan (100+ payloads) — {url} [{param}]",
+    },
+    "full_site_scan_banner": {
+        "ko": "🔍 FULL SITE SCAN — {url}",
+        "zh": "🔍 全站扫描 — {url}",
+        "en": "🔍 FULL SITE SCAN — {url}",
+    },
+    "vuln_types_label": {
+        "ko": "  취약점 유형: {types}",
+        "zh": "  漏洞类型: {types}",
+        "en": "  Vuln types: {types}",
+    },
+    "parallel_scan_label": {
+        "ko": "  병렬 스캔: {flag}",
+        "zh": "  并行扫描: {flag}",
+        "en": "  Parallel scan: {flag}",
+    },
+    "params_found_label": {
+        "ko": "  📋 총 {count}개 파라미터 발견 (최대 {max}개 테스트)",
+        "zh": "  📋 共发现 {count} 个参数 (最多测试 {max} 个)",
+        "en": "  📋 {count} parameters found (testing up to {max})",
+    },
+    "scan_tasks_start_label": {
+        "ko": "  🚀 총 {count}개 스캔 작업 시작...",
+        "zh": "  🚀 开始 {count} 个扫描任务...",
+        "en": "  🚀 Starting {count} scan tasks...",
+    },
+    "parallel_multi_scan_banner": {
+        "ko": "⚡ 병렬 멀티 스캔 [{types}] — {url} [{param}]",
+        "zh": "⚡ 并行多类型扫描 [{types}] — {url} [{param}]",
+        "en": "⚡ Parallel Multi Scan [{types}] — {url} [{param}]",
+    },
+    "js_render_banner": {
+        "ko": "🎭 JS 렌더링 크롤 — {url}",
+        "zh": "🎭 JS渲染爬取 — {url}",
+        "en": "🎭 JS Rendering Crawl — {url}",
+    },
+    "fp_verify_banner": {
+        "ko": "🔬 FP 재검증 [{vuln_type}] — {url} [{param}]",
+        "zh": "🔬 误报重验证 [{vuln_type}] — {url} [{param}]",
+        "en": "🔬 FP Re-verification [{vuln_type}] — {url} [{param}]",
+    },
+    "batch_fp_verify_banner": {
+        "ko": "🔬 배치 FP 재검증 — {count}개 결과",
+        "zh": "🔬 批量误报重验证 — {count} 个结果",
+        "en": "🔬 Batch FP Re-verification — {count} results",
+    },
+    "raw_findings_count": {
+        "ko": "  🔍 원본 발견: {count}개",
+        "zh": "  🔍 原始发现: {count} 个",
+        "en": "  🔍 Raw findings: {count}",
+    },
+    "crawl_targets_found": {
+        "ko": "발견된 타겟: {count}개",
+        "zh": "发现目标: {count} 个",
+        "en": "{count} targets found",
+    },
+    "crawl_params_label": {
+        "ko": "파라미터: {params}",
+        "zh": "参数: {params}",
+        "en": "params: {params}",
+    },
+    # ── v6.2.159 Intelligence Engine (SubAgent / TaskGraph / Self-Reflection) ─
+    "task_graph_label": {
+        "ko": "📋 미션 Task Graph",
+        "zh": "📋 任务图谱",
+        "en": "📋 Mission Task Graph",
+    },
+    "task_graph_next": {
+        "ko": "▶ 다음 단계: {steps}",
+        "zh": "▶ 下一步: {steps}",
+        "en": "▶ Next steps: {steps}",
+    },
+    "subagent_spawned": {
+        "ko": "🔀 서브에이전트 [{id}] 생성: {desc}",
+        "zh": "🔀 子代理 [{id}] 已创建: {desc}",
+        "en": "🔀 SubAgent [{id}] spawned: {desc}",
+    },
+    "subagent_done": {
+        "ko": "✅ [서브에이전트 완료] {id}: {desc}",
+        "zh": "✅ [子代理完成] {id}: {desc}",
+        "en": "✅ [SubAgent done] {id}: {desc}",
+    },
+    "subagent_running": {
+        "ko": "🔀 서브에이전트 실행중 ({count})",
+        "zh": "🔀 子代理运行中 ({count})",
+        "en": "🔀 SubAgents running ({count})",
+    },
+    "self_reflect_header": {
+        "ko": "🧠 [SELF_REFLECTION #{n}] Loop {loop} 도달 — 전략 재평가",
+        "zh": "🧠 [SELF_REFLECTION #{n}] 第{loop}循环 — 战略重评估",
+        "en": "🧠 [SELF_REFLECTION #{n}] Loop {loop} reached — strategy re-evaluation",
+    },
+    "self_reflect_found": {
+        "ko": "발견된 취약점: {vulns}",
+        "zh": "已发现漏洞: {vulns}",
+        "en": "Vulns found: {vulns}",
+    },
+    "self_reflect_failed": {
+        "ko": "실패한 도구: {tools}",
+        "zh": "失败工具: {tools}",
+        "en": "Failed tools: {tools}",
+    },
+    "self_reflect_q1": {
+        "ko": "1) 현재까지 목표 달성도는?",
+        "zh": "1) 目标完成度如何？",
+        "en": "1) How much of the objective has been achieved?",
+    },
+    "self_reflect_q2": {
+        "ko": "2) 낭비 중인 시도가 있는가?",
+        "zh": "2) 是否有浪费的尝试？",
+        "en": "2) Are there wasted attempts?",
+    },
+    "self_reflect_q3": {
+        "ko": "3) 놓친 공격 벡터는?",
+        "zh": "3) 是否遗漏了攻击向量？",
+        "en": "3) Any missed attack vectors?",
+    },
+    "self_reflect_q4": {
+        "ko": "4) 지금 당장 바꿔야 할 전략은?",
+        "zh": "4) 现在需要立即改变的策略？",
+        "en": "4) What strategy must change right now?",
+    },
+    # ── full_deep_scan 단계 레이블 ─────────────────────────────────────────────
+    "fds_step1": {
+        "ko": "[1/10] 기술 스택 탐지...",
+        "zh": "[1/10] 技术栈检测...",
+        "en": "[1/10] Tech Stack Detection...",
+    },
+    "fds_step2": {
+        "ko": "[2/10] CVE 자동 스캔...",
+        "zh": "[2/10] CVE 自动扫描...",
+        "en": "[2/10] CVE Auto Scan...",
+    },
+    "fds_step3": {
+        "ko": "[3/10] HTTP 메서드 스캔...",
+        "zh": "[3/10] HTTP 方法扫描...",
+        "en": "[3/10] HTTP Method Scan...",
+    },
+    "fds_step4": {
+        "ko": "[4/10] 파라미터 퍼징 (200개)...",
+        "zh": "[4/10] 参数爆破 (200个)...",
+        "en": "[4/10] Parameter Fuzzing (200)...",
+    },
+    "fds_step5": {
+        "ko": "[5/10] API 보안 스캔...",
+        "zh": "[5/10] API 安全扫描...",
+        "en": "[5/10] API Security Scan...",
+    },
+    "fds_step6_wp": {
+        "ko": "[6/10] WordPress 특화 스캔...",
+        "zh": "[6/10] WordPress 专项扫描...",
+        "en": "[6/10] WordPress Specialized Scan...",
+    },
+    "fds_step7": {
+        "ko": "[7/10] 파라미터 취약점 스캔...",
+        "zh": "[7/10] 参数漏洞扫描...",
+        "en": "[7/10] Parameter Vulnerability Scan...",
+    },
+    # ── tech_fingerprint 출력 레이블 ──────────────────────────────────────────
+    "tech_fp_server": {
+        "ko": "서버: {v}",
+        "zh": "服务器: {v}",
+        "en": "Server: {v}",
+    },
+    "tech_fp_backend": {
+        "ko": "백엔드: {v}",
+        "zh": "后端: {v}",
+        "en": "Backend: {v}",
+    },
+    "tech_fp_cms": {
+        "ko": "CMS: {v}",
+        "zh": "CMS: {v}",
+        "en": "CMS: {v}",
+    },
+    "tech_fp_db": {
+        "ko": "DB: {v}",
+        "zh": "数据库: {v}",
+        "en": "DB: {v}",
+    },
+    "tech_fp_detected": {
+        "ko": "감지된 기술: {v}",
+        "zh": "检测到的技术: {v}",
+        "en": "Detected: {v}",
+    },
+    "sqli_all_same_char": {
+        "ko": "  {tag}⚠ 모든 문자가 '{c}' — oracle 완전 실패 (WAF 전체 TRUE 반환); 추출 중단",
+        "zh": "  {tag}⚠ 所有字符均为 '{c}' — oracle完全失败（WAF全部返回True）; 中止提取",
+        "en": "  {tag}⚠ all chars same ('{c}') — oracle unreliable (WAF returns all-true); aborting extraction",
+    },
+    "sqli_oracle_allsame_disable": {
+        "ko": "  ⚠ Oracle all-same 확인 — 이후 추출에서 boolean oracle 비활성화",
+        "zh": "  ⚠ Oracle全同字符已确认 — 后续提取禁用boolean oracle",
+        "en": "  ⚠ Oracle all-same confirmed — disabling boolean oracle for subsequent extractions",
+    },
+    "sqli_oracle_precheck_fail": {
+        "ko": "  {tag}⚠ Oracle 사전 검증 실패: TRUE/FALSE 구분 불가 (WAF 전체 차단) — 추출 건너뜀",
+        "zh": "  {tag}⚠ Oracle预检失败: TRUE/FALSE无法区分（WAF全部拦截）— 跳过提取",
+        "en": "  {tag}⚠ Oracle pre-check FAILED: TRUE/FALSE indistinguishable (WAF blocking all) — skipping",
+    },
+    "sqli_early_abort_allsame": {
+        "ko": "  {tag}⚠ 조기 중단: 처음 {n}자 모두 '{c}' — oracle 신뢰 불가, 즉시 중단",
+        "zh": "  {tag}⚠ 提前终止: 前{n}个字符均为 '{c}' — oracle不可信, 立即停止",
+        "en": "  {tag}⚠ Early abort: first {n} chars all '{c}' — oracle unreliable, stopping now",
+    },
 })
 
 

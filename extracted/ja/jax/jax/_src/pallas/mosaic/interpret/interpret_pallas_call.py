@@ -141,7 +141,7 @@ def set_tpu_interpret_mode(params: InterpretParams = InterpretParams()):
 # Maybe for running multiple distinct interpreted computations in parallel?
 _shared_memory: memory.SharedMemory | None = None
 _shared_memory_init_lock = threading.Lock()
-races: RaceDetectionState | None = None
+races: RaceDetectionState[memory.SharedMemory.ThreadKey] | None = None
 dma_id_counter: interpret_utils.Counter | None = None
 
 
@@ -203,9 +203,6 @@ def _initialize_shared_memory(
           uninitialized_memory=interpret_params.uninitialized_memory,
           detect_races=interpret_params.detect_races,
           vector_clock_size=vector_clock_size,
-          clocks=[
-              vc.make_vector_clock(vector_clock_size) for _ in range(num_cores)
-          ],
           barrier=threading.Barrier(
               num_devices, action=_update_clocks_for_global_barrier
           ),
@@ -222,14 +219,19 @@ def _initialize_shared_memory(
 def _update_clocks_for_device_barrier(token, device_id):
   """Synchronizes the vector clocks for the cores on the given device."""
   shared_memory = _get_shared_memory()
-  shared_memory.update_clocks_for_device_barrier(device_id)
+  shared_memory.update_clocks_for_device_barrier(int(device_id))
   return token
 
 
 def _update_clocks_for_global_barrier():
   """Synchronizes all vector clocks."""
   shared_memory = _get_shared_memory()
-  shared_memory.update_clocks(0, shared_memory.num_cores)
+  cores = [
+    (device_id, core_id)
+    for device_id in range(shared_memory.num_devices)
+    for core_id in range(shared_memory.num_cores_per_device)
+  ]
+  shared_memory.update_clocks(cores)
 
 
 @fail_on_exception
@@ -402,7 +404,7 @@ def _allocate_buffer(
 
   local_core_id_to_buffer_id: dict[int, int] = {}
   for lci in local_core_ids:
-    buffer_id = shared_memory.get_next_buffer_id(device_id, lci)
+    buffer_id = shared_memory.get_next_buffer_id((device_id, lci))
     if memory_space_str in ['any', 'hbm']:
       # If allocating in HBM, only actually allocate a buffer once. The first
       # local core (i.e. thread) that gets here allocates the buffer, but the
@@ -541,17 +543,25 @@ def _allocate_semaphores(
 
 
 TPU_MEMORY_SPACE_IDXS: dict[
-    mosaic_core.MemorySpace | pallas_core.MemorySpace | None, int
+    mosaic_core.MemorySpace
+    | pallas_core.MemorySpace
+    | jax_core.MemorySpace
+    | None,
+    int,
 ] = {v: i for i, v in enumerate(mosaic_core.MemorySpace)}
 TPU_MEMORY_SPACE_NAMES = {
     i: v.value for i, v in enumerate(mosaic_core.MemorySpace)
 }
 
 # Inject ANY as the last memory space.
-TPU_MEMORY_SPACE_NAMES[len(TPU_MEMORY_SPACE_IDXS)] = (
-    pallas_core.MemorySpace.ANY.value
-)
-TPU_MEMORY_SPACE_IDXS[pallas_core.MemorySpace.ANY] = len(TPU_MEMORY_SPACE_IDXS)
+any_idx = len(TPU_MEMORY_SPACE_NAMES)
+TPU_MEMORY_SPACE_NAMES[any_idx] = pallas_core.MemorySpace.ANY.value
+TPU_MEMORY_SPACE_IDXS[pallas_core.MemorySpace.ANY] = any_idx
+
+# Inject HOST as a memory space.
+host_idx = len(TPU_MEMORY_SPACE_NAMES)
+TPU_MEMORY_SPACE_NAMES[host_idx] = 'host'
+TPU_MEMORY_SPACE_IDXS[jax_core.MemorySpace.Host] = host_idx
 
 # Default to VMEM when no memory space is specified.
 TPU_MEMORY_SPACE_IDXS[pallas_core.MemorySpace.DEFAULT] = TPU_MEMORY_SPACE_IDXS[
@@ -615,14 +625,13 @@ def get(
   local_core_id_for_buffer = _local_core_id_or_zero_if_hbm(
       local_core_id, memory_space
   )
-  global_core_id = shared_memory.get_global_core_id(device_id, local_core_id)
 
   key = (memory_space, buffer_id, device_id, local_core_id_for_buffer)
   read_range = interpret_utils.to_range(transforms)
   ret, (shape, dtype), clock_ = shared_memory.get_buffer_content(
       key,
       read_range,
-      global_core_id,
+      (device_id, local_core_id),
       logging_info=interpret_utils.TPULoggingInfo(
           device_id=device_id,
           local_core_id=local_core_id,
@@ -695,8 +704,7 @@ def get(
       src_local_core_id = local_core_id
     assert races is not None
     races.check_read(
-        src_device_id,
-        src_local_core_id,
+        (src_device_id, src_local_core_id),
         clock,
         (memory_space, buffer_id, device_id, local_core_id_for_buffer),
         read_range,
@@ -749,7 +757,6 @@ def store(
   local_core_id_for_buffer = _local_core_id_or_zero_if_hbm(
       local_core_id, memory_space
   )
-  global_core_id = shared_memory.get_global_core_id(device_id, local_core_id)
 
   key = (memory_space, buffer_id, device_id, local_core_id_for_buffer)
   write_range = interpret_utils.to_range(transforms)
@@ -757,7 +764,7 @@ def store(
       key,
       write_range,
       val,
-      global_core_id,
+      (device_id, local_core_id),
       logging_info=interpret_utils.TPULoggingInfo(
           device_id=device_id,
           local_core_id=local_core_id,
@@ -790,8 +797,7 @@ def store(
       src_local_core_id = local_core_id
     assert races is not None
     races.check_write(
-        src_device_id,
-        src_local_core_id,
+        (src_device_id, src_local_core_id),
         clock,
         (memory_space, buffer_id, device_id, local_core_id_for_buffer),
         write_range,
@@ -831,7 +837,6 @@ def swap(
   local_core_id_for_buffer = _local_core_id_or_zero_if_hbm(
       local_core_id, memory_space
   )
-  global_core_id = shared_memory.get_global_core_id(device_id, local_core_id)
 
   key = (memory_space, buffer_id, device_id, local_core_id_for_buffer)
   read_write_range = interpret_utils.to_range(transforms)
@@ -840,7 +845,7 @@ def swap(
       read_write_range,
       val,
       mask,
-      global_core_id,
+      (device_id, local_core_id),
       logging_info=interpret_utils.TPULoggingInfo(
           device_id=device_id,
           local_core_id=local_core_id,
@@ -868,8 +873,7 @@ def swap(
   if shared_memory.detect_races:
     assert races is not None
     races.check_write(
-        device_id,
-        local_core_id,
+        (device_id, local_core_id),
         clock,
         (memory_space, buffer_id, device_id, local_core_id_for_buffer),
         read_write_range,
@@ -1177,6 +1181,8 @@ def semaphore_signal(
     target_device_id = int(target_device_id)
   if target_local_core_id is None:
     target_local_core_id = 0
+  else:
+    target_local_core_id = int(target_local_core_id)
 
   (sem,), clock = shared_memory.get_semaphores_and_increment_clock(
       [sem_id], src_global_core_id
@@ -1322,7 +1328,7 @@ def _interpret_jaxpr(
         impl_jaxpr = jax.make_jaxpr(functools.partial(impl, **eqn.params))(
             *invals)
         token, out = _interpret_jaxpr(
-            impl_jaxpr.jaxpr, *impl_jaxpr.consts, *invals, ctx=ctx, token=token
+            impl_jaxpr, *impl_jaxpr.consts, *invals, ctx=ctx, token=token
         )
         if not prim.multiple_results:
           out = out[0]
@@ -1403,20 +1409,19 @@ def _interpret_jaxpr(
         invals = deferred_invals()
         token, out = lax.switch(
             invals[0],
-            [_make_branch(branch_jaxpr.jaxpr)
+            [_make_branch(branch_jaxpr)
              for branch_jaxpr in eqn.params['branches']],
             token, *invals[1:])
 
       elif prim is lax.scan_p:
-        consts, init_carry, xs = split_list(
-            deferred_invals(),
-            [eqn.params['num_consts'], eqn.params['num_carry']],
-        )
+        consts, init_carry, xs = (
+            list(g) for g in
+            eqn.params['ft_in'].update(deferred_invals()).unpack())
         def _scan_body(c, a):
           token, c = c
           token, ret = _interpret(
-              eqn.params['jaxpr'].jaxpr, *consts, *c, *a, token=token)
-          c, b = split_list(ret, [eqn.params['num_carry']])
+              eqn.params['jaxpr'], *consts, *c, *a, token=token)
+          c, b = (list(g) for g in eqn.params['ft_out'].update(ret).unpack())
           return (token, c), b
         (token, carry), out = lax.scan(
             _scan_body, (token, init_carry), xs=xs,
@@ -1428,21 +1433,21 @@ def _interpret_jaxpr(
             deferred_invals(),
             [eqn.params['cond_nconsts'], eqn.params['body_nconsts']],
         )
-        token, first_cond = _interpret(eqn.params['cond_jaxpr'].jaxpr,
+        token, first_cond = _interpret(eqn.params['cond_jaxpr'],
                                        *cond_consts, *init_val, token=token)
         def _body(val):
           token, val, _ = val
           token, val = _interpret(
-              eqn.params['body_jaxpr'].jaxpr, *body_consts, *val, token=token)
+              eqn.params['body_jaxpr'], *body_consts, *val, token=token)
           token, cond = _interpret(
-              eqn.params['cond_jaxpr'].jaxpr, *cond_consts, *val, token=token)
+              eqn.params['cond_jaxpr'], *cond_consts, *val, token=token)
           return token, val, cond[0]
         token, out, _ = lax.while_loop(
             lambda args: args[2], _body, (token, init_val, first_cond[0]))
 
       elif prim is pjit.jit_p:
         invals = deferred_invals()
-        token, out = _interpret(eqn.params['jaxpr'].jaxpr,
+        token, out = _interpret(eqn.params['jaxpr'],
                                 *eqn.params['jaxpr'].consts,
                                 *invals, token=token)
 
@@ -1709,7 +1714,7 @@ def _interpret_jaxpr(
 def _compute_start_indices(block_mapping, loop_idx, *args, ctx, token):
   jaxpr = block_mapping.index_map_jaxpr
   token, block_indices = _interpret_jaxpr(
-      jaxpr.jaxpr,
+      jaxpr,
       *jaxpr.consts,
       *loop_idx,
       *args,
@@ -1906,10 +1911,10 @@ def interpret_pallas_call(
     # that users don't have to specify it in the InterpretParams.
     assert len(mesh.shape) == 1
     interpret_params = dataclasses.replace(
-        interpret_params, num_cores_or_threads=mesh.devices.shape[0]
+        interpret_params, num_cores_or_threads=mesh.num_cores
     )
     # When we're called from mpmp_map, dimension_semantics may not be set.
-    if mesh.devices.shape[0] > 1:
+    if mesh.num_cores > 1:
       mosaic_params = mosaic_params.replace(dimension_semantics=('parallel',))
 
   args = [remove_memory_space_p.bind(a) for a in args]
@@ -2378,8 +2383,8 @@ def interpret_pallas_call(
           assert len(cur_start_indices[num_inputs + j].shape) == 1
           assert len(next_start_indices[num_inputs + j].shape) == 1
           transform = indexing.NDIndexer(
-              indices=tuple(  # pyrefly: ignore[bad-argument-type]
-                  indexing.ds(st, sz) if not iid else st  # pyrefly: ignore[bad-argument-type]
+              indices=tuple(
+                  indexing.ds(st, sz) if not iid else st
                   for st, sz, iid in zip(
                       cur_start_indices[num_inputs + j],
                       block_shapes[num_inputs + j],

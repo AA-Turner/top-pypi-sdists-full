@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blackjax
-Version: 1.6
+Version: 1.6.2
 Summary: Flexible and fast sampling in Python
 Author-email: The Blackjax team <remi@thetypicalset.com>
 License: Apache License 2.0

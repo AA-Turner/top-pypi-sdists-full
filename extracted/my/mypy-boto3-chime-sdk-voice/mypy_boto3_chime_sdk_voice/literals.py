@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "AlexaSkillStatusType",
+    "CallDistributionTypeType",
     "CallLegTypeType",
     "CallingNameStatusType",
     "CapabilityType",
@@ -58,6 +59,7 @@ __all__ = (
 
 
 AlexaSkillStatusType = Literal["ACTIVE", "INACTIVE"]
+CallDistributionTypeType = Literal["LoadBalancedDistribution", "PriorityWeightedDistribution"]
 CallLegTypeType = Literal["Callee", "Caller"]
 CallingNameStatusType = Literal["Unassigned", "UpdateFailed", "UpdateInProgress", "UpdateSucceeded"]
 CapabilityType = Literal["SMS", "Voice"]
@@ -83,6 +85,7 @@ ErrorCodeType = Literal[
     "Throttling",
     "Unauthorized",
     "Unprocessable",
+    "Validation",
     "VoiceConnectorGroupAssociationsExist",
 ]
 GeoMatchLevelType = Literal["AreaCode", "Country"]
@@ -342,8 +345,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -370,6 +371,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -437,10 +440,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -523,7 +526,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -544,6 +546,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

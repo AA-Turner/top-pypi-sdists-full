@@ -1,8 +1,8 @@
 Metadata-Version: 2.1
 Name: stcrestclient
-Version: 1.9.6
+Version: 1.9.7
 Summary: stcrestclient: Client modules for STC ReST API
-Home-page: https://github.com/Spirent-STC/py-stcrestclient
+Home-page: https://github.com/Viavi-TestCenter/py-stcrestclient
 Author: VIAVI Solutions
 Author-email: hse.support@viavisolutions.com
 License: http://www.opensource.org/licenses/mit-license.php
@@ -21,4 +21,4 @@ Classifier: Programming Language :: Python :: 3
 License-File: LICENSE
 Requires-Dist: requests>=2.7
 
-See https://github.com/Spirent-STC/py-stcrestclient#python-stc-rest-api-client-stcrestclient
+See https://github.com/Viavi-TestCenter/py-stcrestclient#python-stc-rest-api-client-stcrestclient

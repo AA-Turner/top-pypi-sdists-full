@@ -44,7 +44,7 @@ class Compiler(_Compiler):
         self.buffer('{% endblock %}')
 
     def visitAssignment(self, assignment):
-        self.buffer('{%% __pypugjs_set %s = %s %%}' % (assignment.name, assignment.val))
+        self.buffer('{%% __pypugjs_set %s = %s %%}' % (assignment.name, assignment.val.replace('\n', ' ')))
 
     def visitMixin(self, mixin):
         self.mixing += 1
@@ -80,7 +80,7 @@ class Compiler(_Compiler):
 
 def decorate_templatize(func):
     def templatize(src, origin=None, charset=None):
-        src = to_text(src, charset or settings.FILE_CHARSET)
+        src = to_text(src, charset or 'utf-8')
         if origin.endswith(".pug"):
             html = process(src, compiler=Compiler)
         else:

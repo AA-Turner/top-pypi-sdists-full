@@ -81,7 +81,7 @@ class SharpeningTransform(ImageOnlyTransform):
                 continue
 
             if clamp:
-                mn, mx = torch.min(img[c]), torch.max(img[c])
+                mn, mx = torch.aminmax(img[c])  # single reduction pass instead of separate min()/max()
 
             x = img[c].unsqueeze(0).unsqueeze(0)  # (1, 1, H, W) or (1, 1, D, H, W)
             padded = F.pad(x, pad, mode='replicate')
@@ -91,8 +91,9 @@ class SharpeningTransform(ImageOnlyTransform):
             else:
                 laplace = F.conv3d(padded, kernel)
 
-            sharpened = x + strength * laplace
-            out[c] = sharpened.squeeze()
+            # laplace is a fresh conv output (owned, not reused). Combine in place: strength*laplace + x == x +
+            # strength*laplace (IEEE add commutes). x is read here before out[c] (== img[c]) is written -> no hazard.
+            out[c] = laplace.mul_(strength).add_(x).squeeze()
 
             if clamp:
                 out[c].clamp_(mn, mx)

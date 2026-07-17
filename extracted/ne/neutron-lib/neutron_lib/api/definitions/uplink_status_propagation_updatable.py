@@ -14,6 +14,11 @@ import copy
 
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import uplink_status_propagation as usp
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 ALIAS = 'uplink-status-propagation-updatable'
@@ -32,12 +37,12 @@ propagate_uplink_status = copy.deepcopy(
     usp.RESOURCE_ATTRIBUTE_MAP[COLLECTION_NAME][PROPAGATE_UPLINK_STATUS])
 propagate_uplink_status['allow_put'] = True
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {PROPAGATE_UPLINK_STATUS: propagate_uplink_status},
 }
 
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [usp.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

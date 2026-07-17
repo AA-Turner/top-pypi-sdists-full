@@ -25,15 +25,19 @@ _NOVA_DEPS = ("aws_sdk_bedrock_runtime", "awscrt", "smithy_aws_core")
 def _require_nova_deps() -> None:
     """Fail fast if the Nova Sonic streaming deps are missing.
 
-    Called at target-construction time so a missing ``dreadnode[nova-sonic]``
-    stops the run up front instead of surfacing as a mid-stream error finding.
+    The streaming deps ship with the **core** install, but only build on Python
+    >=3.12 (they carry a version marker), so on 3.11 they are absent. Checked at
+    target-construction time so an unsupported Python version stops the run up
+    front instead of surfacing as a mid-stream error finding.
     """
+    import sys
+
     for mod in _NOVA_DEPS:
         if importlib.util.find_spec(mod) is None:
             raise RuntimeError(
-                "Nova Sonic speech-to-speech needs the optional streaming "
-                'dependencies. Install them with:  pip install "dreadnode[nova-sonic]"'
-                f"  (requires Python >=3.12). Missing module: {mod}."
+                "Nova Sonic speech-to-speech requires Python >=3.12 (the AWS Bedrock "
+                f"bidirectional-streaming dependencies are not available on Python "
+                f"{sys.version_info.major}.{sys.version_info.minor}). Missing module: {mod}."
             )
 
 

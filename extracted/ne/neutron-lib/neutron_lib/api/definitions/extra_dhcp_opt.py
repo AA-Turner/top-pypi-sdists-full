@@ -14,6 +14,11 @@
 
 from neutron_lib.api import converters
 from neutron_lib.api.definitions import port
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 # Common definitions for maximum string field length
@@ -97,7 +102,7 @@ COLLECTION_NAME = port.COLLECTION_NAME
 
 # The resource attribute map for the extension. It is effectively the
 # bulk of the API contract alongside ACTION_MAP (mandatory).
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         EXTRADHCPOPTS: {
             'allow_post': True,
@@ -115,11 +120,11 @@ RESOURCE_ATTRIBUTE_MAP = {
 # to main extension's resource. The subresource map must have a parent and
 # a parameters entry. If an extension does not need such a map, None can
 # be specified (mandatory).
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map: it associates verbs with methods to be performed on
 # the API resource (mandatory).
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 
 # The list of required extensions (mandatory).
 REQUIRED_EXTENSIONS = []

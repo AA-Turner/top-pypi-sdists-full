@@ -16,7 +16,7 @@ from snowflake.snowpark.types import (
     StructType,
     VariantType,
 )
-from snowflake.snowpark_connect.config import get_scala_version
+from snowflake.snowpark_connect.config import get_scala_version, is_native_app_mode
 from snowflake.snowpark_connect.resources_initializer import (
     ensure_scala_udf_jars_uploaded,
 )
@@ -30,7 +30,8 @@ from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     ReturnType,
     Signature,
     TypeDescriptor,
-    build_jvm_udxf_imports,
+    apply_inline_closure,
+    build_udxf_imports,
     is_decomposable_struct,
     map_type_to_java_type,
     needs_epoch_lowering,
@@ -52,6 +53,16 @@ def _output_java_type(dt: Optional[snowpark_type.DataType]) -> str:
 def _output_sql_type(dt: Optional[snowpark_type.DataType]) -> str:
     """Snowflake SQL type for a UDTF output column; falls back to VARIANT."""
     return TypeDescriptor.from_snowpark(dt).sql_type
+
+
+def _temp_kw() -> str:
+    """``"temporary "`` in Native App mode, else ``""``.
+
+    Inside a versioned schema (Native App) a UDxF can only be created at runtime
+    as TEMPORARY; this matches the scalar-UDF and UDAF paths, which are already
+    TEMPORARY. Non-Native-App generation is unchanged.
+    """
+    return "temporary " if is_native_app_mode() else ""
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +272,8 @@ class JavaUDTFDef:
     null_handling: NullHandling = NullHandling.RETURNS_NULL_ON_NULL_INPUT
     input_snowpark_type: Optional[snowpark_type.DataType] = None
     return_snowpark_type: Optional[snowpark_type.DataType] = None
+    # Native App inline-closure mode (see jvm_udf_utils.apply_inline_closure).
+    inline_payload: Optional[bytes] = None
 
     def _in_desc(self) -> TypeDescriptor:
         dt = self.input_snowpark_type
@@ -391,7 +404,7 @@ public class JavaUdtfHandler {{
   }}
 }}
 """
-        return body
+        return apply_inline_closure(body, self.imports, self.inline_payload)
 
     def to_create_function_sql(self) -> str:
         args = ", ".join(
@@ -411,7 +424,7 @@ public class JavaUdtfHandler {{
             returns_clause = f"returns table ({JAVA_UDTF_PREFIX}C1 {out_sql})"
 
         return f"""
-create or replace function {self.name}({args})
+create or replace {_temp_kw()}function {self.name}({args})
 {returns_clause}
 language java
 runtime_version = 17
@@ -429,7 +442,8 @@ def create_java_udtf(
     arg_types: list[DataType] | None,
     batch_mode: bool,
 ) -> str:
-    ensure_scala_udf_jars_uploaded()
+    if not is_native_app_mode():
+        ensure_scala_udf_jars_uploaded()
 
     session = get_or_create_snowpark_session()
 
@@ -466,7 +480,7 @@ def create_java_udtf(
         + hashlib.md5(udf_proto.scalar_scala_udf.payload).hexdigest()
     )
 
-    imports = build_jvm_udxf_imports(
+    imports, inline_payload = build_udxf_imports(
         session,
         udf_proto.scalar_scala_udf.payload,
         udtf_name,
@@ -480,6 +494,7 @@ def create_java_udtf(
             params=sql_input_params, returns=ReturnType(sql_return_type)
         ),
         imports=imports,
+        inline_payload=inline_payload,
         schema_json=schema_json,
         batch_mode=batch_mode,
         input_snowpark_type=input_snowpark_dt,
@@ -515,6 +530,8 @@ class JavaGroupMapUDTFDef:
     schema_json: str = "[]"
     has_initial_state: bool = False
     return_snowpark_type: Optional[snowpark_type.DataType] = None
+    # Native App inline-closure mode (see jvm_udf_utils.apply_inline_closure).
+    inline_payload: Optional[bytes] = None
 
     def _gen_body_java(self) -> str:
         operation_file = self.imports[0].split("/")[-1]
@@ -585,7 +602,7 @@ class JavaGroupMapUDTFDef:
             "operation = udfPacket.function();\n        hasGroupState = operation instanceof scala.Function3;",
         )
 
-        return f"""\
+        body = f"""\
 {_JAVA_IMPORTS}
 {out_row_class}
 
@@ -642,6 +659,7 @@ public class JavaUdtfHandler {{
   }}
 }}
 """
+        return apply_inline_closure(body, self.imports, self.inline_payload)
 
     def to_create_function_sql(self) -> str:
         imports_sql = f"IMPORTS = ({', '.join(quote_single(x) for x in self.imports)})"
@@ -661,7 +679,7 @@ public class JavaUdtfHandler {{
             returns_clause = f"returns table ({JAVA_UDTF_PREFIX}C1 {_output_sql_type(self.return_snowpark_type)})"
 
         return f"""
-create or replace function {self.name}({params})
+create or replace {_temp_kw()}function {self.name}({params})
 {returns_clause}
 language java
 runtime_version = 17
@@ -678,7 +696,8 @@ def create_java_udtf_for_scala_group_map_handling(
     udf_proto: CommonInlineUserDefinedFunction,
     has_initial_state: bool = False,
 ) -> str:
-    ensure_scala_udf_jars_uploaded()
+    if not is_native_app_mode():
+        ensure_scala_udf_jars_uploaded()
 
     session = get_or_create_snowpark_session()
 
@@ -714,7 +733,7 @@ def create_java_udtf_for_scala_group_map_handling(
         + initial_state_suffix
     )
 
-    imports = build_jvm_udxf_imports(
+    imports, inline_payload = build_udxf_imports(
         session,
         udf_proto.scalar_scala_udf.payload,
         udtf_name,
@@ -729,6 +748,7 @@ def create_java_udtf_for_scala_group_map_handling(
         value_type_java=value_type_java,
         value_type_sql=value_type_sql,
         imports=imports,
+        inline_payload=inline_payload,
         is_variant_key=is_variant_key,
         is_variant_value=is_variant_value,
         schema_json=schema_json,
@@ -763,6 +783,8 @@ class JavaCoGroupMapUDTFDef:
     is_variant_value: bool
     schema_json: str = "[]"
     return_snowpark_type: Optional[snowpark_type.DataType] = None
+    # Native App inline-closure mode (see jvm_udf_utils.apply_inline_closure).
+    inline_payload: Optional[bytes] = None
 
     def _gen_body_java(self) -> str:
         operation_file = self.imports[0].split("/")[-1]
@@ -801,7 +823,7 @@ class JavaCoGroupMapUDTFDef:
         val_iter1 = _make_val_iter("1", 1)
         val_iter2 = _make_val_iter("2", 2)
 
-        return f"""\
+        body = f"""\
 {_JAVA_IMPORTS}
 {out_row_class}
 
@@ -863,6 +885,7 @@ public class JavaUdtfHandler {{
   }}
 }}
 """
+        return apply_inline_closure(body, self.imports, self.inline_payload)
 
     def to_create_function_sql(self) -> str:
         imports_sql = f"IMPORTS = ({', '.join(quote_single(x) for x in self.imports)})"
@@ -878,7 +901,7 @@ public class JavaUdtfHandler {{
             returns_clause = f"returns table ({JAVA_UDTF_PREFIX}C1 {_output_sql_type(self.return_snowpark_type)})"
 
         return f"""
-create or replace function {self.name}({params})
+create or replace {_temp_kw()}function {self.name}({params})
 {returns_clause}
 language java
 runtime_version = 17
@@ -894,7 +917,8 @@ $$;"""
 def create_java_udtf_for_scala_co_group_map_handling(
     udf_proto: CommonInlineUserDefinedFunction,
 ) -> str:
-    ensure_scala_udf_jars_uploaded()
+    if not is_native_app_mode():
+        ensure_scala_udf_jars_uploaded()
 
     session = get_or_create_snowpark_session()
 
@@ -933,7 +957,7 @@ def create_java_udtf_for_scala_co_group_map_handling(
         + hashlib.md5(udf_proto.scalar_scala_udf.payload).hexdigest()
     )
 
-    imports = build_jvm_udxf_imports(
+    imports, inline_payload = build_udxf_imports(
         session,
         udf_proto.scalar_scala_udf.payload,
         udtf_name,
@@ -948,6 +972,7 @@ def create_java_udtf_for_scala_co_group_map_handling(
         value_type_java=value_type_java,
         value_type_sql=value_type_sql,
         imports=imports,
+        inline_payload=inline_payload,
         is_variant_key=is_variant_key,
         is_variant_value=is_variant_value,
         schema_json=schema_json,

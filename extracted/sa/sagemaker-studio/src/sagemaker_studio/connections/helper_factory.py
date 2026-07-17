@@ -11,6 +11,7 @@ from sagemaker_studio.connections.sql_helper.postgresql_helper import PostgreSQL
 from sagemaker_studio.connections.sql_helper.redshift_sql_helper import RedshiftSqlHelper
 from sagemaker_studio.connections.sql_helper.snowflake_sql_helper import SnowflakeSqlHelper
 from sagemaker_studio.connections.sql_helper.sql_helper import SqlHelper
+from sagemaker_studio.connections.sql_helper.teradata_sql_helper import TeraDataSQLHelper
 from sagemaker_studio.connections.sql_helper.vertica_sql_helper import VerticaSQLHelper
 from sagemaker_studio.connections.sql_helper.workday_data_connect_sql_helper import (
     WorkdayDataConnectSqlHelper,
@@ -64,6 +65,8 @@ class HelperFactory:
             return OpenSearchSQLHelper
         if type == "ORACLE":
             return OracleSQLHelper
+        if type == "TERADATA":
+            return TeraDataSQLHelper
         if type == "VERTICA":
             return VerticaSQLHelper
         if type == "WORKDAYLDQ":

@@ -452,4 +452,81 @@ public static class Config
     /// </summary>
     public static bool BinarySupportsMaximizedWindow(string? licenseKey = null, string? browserVersion = null)
         => BinarySupportsHeadlessNoViewport(licenseKey, browserVersion);
+
+    // First Chromium build, per platform, whose binary can take inline HTTP proxy
+    // credentials (Chromium-native --proxy-server=http://user:pass@host). Below the
+    // floor the wrapper MUST route credentialed HTTP/HTTPS proxies through
+    // Playwright's proxy object — an older binary treats the user:pass@ authority as
+    // an invalid proxy host and drops proxy auth (#182). A single global threshold
+    // can't model this: the capability landed in different build lineages at different
+    // points (linux-x64/windows-x64 at 146.0.7680.177.5, but the free macOS 145.x and
+    // linux-arm64 146.0.7680.177.3 floors predate it, qualifying only once they resolve
+    // to a Pro/newer 148+ build). Platforms absent from this map are never-inline.
+    public static readonly IReadOnlyDictionary<string, string> HttpProxyInlineAuthMinVersion =
+        new Dictionary<string, string>
+        {
+            ["linux-x64"] = "146.0.7680.177.5",
+            ["windows-x64"] = "146.0.7680.177.5",
+            ["linux-arm64"] = "148.0.7778.215.3",
+            ["darwin-arm64"] = "148.0.7778.215.3",
+            ["darwin-x64"] = "148.0.7778.215.3",
+        };
+
+    /// <summary>
+    /// Whether the resolved binary accepts inline HTTP proxy credentials. The
+    /// capability is a function of the binary version; <paramref name="licenseKey"/>
+    /// only resolves which version launches (Pro build vs free default), exactly like
+    /// <see cref="BinarySupportsHeadlessNoViewport"/>. A declared pin wins, else a valid
+    /// Pro license resolves to the Pro build (which ships the patch), else the free
+    /// per-platform default — then it compares to this platform's floor. Below the
+    /// floor, credentialed HTTP proxies fall back to Playwright's proxy object. A local
+    /// override with no declared version is unknown-version, so stay on the safe
+    /// fallback. Python, JS and .NET mirror this gate.
+    /// </summary>
+    public static bool BinarySupportsHttpProxyInlineAuth(string? licenseKey = null, string? browserVersion = null)
+    {
+        string tag;
+        try
+        {
+            tag = GetPlatformTag();
+        }
+        catch
+        {
+            return false;
+        }
+        if (!HttpProxyInlineAuthMinVersion.TryGetValue(tag, out var floor))
+            return false;
+        string? declared;
+        try
+        {
+            declared = NormalizeRequestedVersion(browserVersion);
+        }
+        catch
+        {
+            declared = null;
+        }
+        string? version;
+        if (!string.IsNullOrEmpty(declared))
+        {
+            version = declared!;
+        }
+        else if (GetLocalBinaryOverride() != null)
+        {
+            return false;
+        }
+        else
+        {
+            bool pro = !string.IsNullOrEmpty(License.ResolveLicenseKey(licenseKey));
+            version = GetEffectiveVersion(pro);
+        }
+        if (version == null) return false;
+        try
+        {
+            return !VersionNewer(floor, version);
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

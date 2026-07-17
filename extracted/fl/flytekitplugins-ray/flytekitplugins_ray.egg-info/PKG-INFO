@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flytekitplugins-ray
-Version: 1.16.25
+Version: 1.16.26
 Summary: This package holds the Ray plugins for flytekit
 Author: flyteorg
 Author-email: admin@flyte.org

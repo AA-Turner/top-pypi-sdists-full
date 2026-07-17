@@ -718,7 +718,58 @@ def auto_train(
             # without auto=False doesn't raise mid-run.
             if cub.get("neighbors") is not None and cub.get("auto", True):
                 cub["auto"] = False
-            model = Cubist(random_state=seed, **cub)
+
+            class _CubistUnseenSafe:
+                """Cubist's C engine aborts the whole predict batch if a
+                *string* categorical column holds a level unseen at fit —
+                e.g. predict-only regions with zero training rows (Malawi's
+                no-yield city districts: `bad value of 'Blantyre City' for
+                attribute 'Region' -> Error limit exceeded`). catboost/tabpfn
+                tolerate this; cubist does not. Record the training levels of
+                each non-numeric categorical column; at predict, any row with
+                an unseen level in such a column gets NaN (region ignored for
+                prediction) instead of crashing the batch. Numeric columns
+                (Harvest Year, numeric Region_ID) are left alone — cubist
+                treats them as continuous, so the LOOCV held-out year never
+                trips this."""
+
+                def __init__(self, **kw):
+                    self._m = Cubist(**kw)
+                    self._levels = {}
+
+                @staticmethod
+                def _is_numeric(s):
+                    return pd.to_numeric(s, errors="coerce").notna().all()
+
+                def fit(self, X, y):
+                    self._m.fit(X, y)
+                    self._levels = {}
+                    if hasattr(X, "columns"):
+                        for c in X.columns:
+                            col = X[c]
+                            if hasattr(col, "cat") or col.dtype == object:
+                                s = col.astype(str)
+                                if not self._is_numeric(s):
+                                    self._levels[c] = set(s.unique())
+                    return self
+
+                def predict(self, X):
+                    if not hasattr(X, "columns") or not self._levels:
+                        return self._m.predict(X)
+                    keep = pd.Series(True, index=X.index)
+                    for c, lv in self._levels.items():
+                        if c in X.columns:
+                            keep &= X[c].astype(str).isin(lv)
+                    out = np.full(len(X), np.nan, dtype=float)
+                    if keep.any():
+                        out[keep.to_numpy()] = self._m.predict(X.loc[keep])
+                    return out
+
+                def __getattr__(self, name):
+                    # delegate anything else (e.g. feature_importances_) to Cubist
+                    return getattr(self._m, name)
+
+            model = _CubistUnseenSafe(random_state=seed, **cub)
         elif model_name == "bass":
             # BASS = Bayesian MARS (pyBASS). Tuned poppy defaults (maxInt=1
             # additive, npart=15) beat cubist on MIN_ESI4WK; interactions

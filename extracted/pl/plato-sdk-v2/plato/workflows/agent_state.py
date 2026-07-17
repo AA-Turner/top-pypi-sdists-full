@@ -74,7 +74,11 @@ CLAUDE_HOME_DEFAULT = "/root"
 
 #: Scratch-dir pull excludes: the mounted results data, dependency/VCS trees,
 #: and log spew have their own durability (or none worth paying for).
-_CWD_PULL_EXCLUDES: tuple[str, ...] = ("data/", "node_modules", ".git", "*.log")
+# "data/" and "code/" are workspace mounts that nest under the orchestrator cwd —
+# they are reconstructed from their own workspaces on resume, and capturing them
+# both bloats agent_state and overlays stale files onto the fresh mounts at
+# restore time (exact_restore=False push has overlay semantics).
+_CWD_PULL_EXCLUDES: tuple[str, ...] = ("data/", "code/", "node_modules", ".git", "*.log")
 
 _PULL_TIMEOUT_S = 120.0
 _PUSH_TIMEOUT_S = 300.0
@@ -263,15 +267,36 @@ class AgentStateSync:
             if not local_path.is_dir():
                 logger.debug("agent-state push: no local %s captured, skipping", local_path)
                 continue
-            await self._push_one(hostname, local_path, remote_path, delete=spec_path.exact_restore)
+            await self._push_one(
+                hostname,
+                local_path,
+                remote_path,
+                delete=spec_path.exact_restore,
+                excludes=spec_path.excludes,
+            )
 
-    async def _push_one(self, hostname: str, local_path: Path, remote_path: str, *, delete: bool) -> None:
+    async def _push_one(
+        self,
+        hostname: str,
+        local_path: Path,
+        remote_path: str,
+        *,
+        delete: bool,
+        excludes: tuple[str, ...] = (),
+    ) -> None:
         cmd = ["rsync", "-az"]
         if delete:
             # Exact restore: the VM dir must equal the checkpoint — resume
             # picks "the newest session in the dir", so a stale file left on
             # the VM could win over the restored conversation.
             cmd.append("--delete")
+        # Excludes apply on push too, not just capture: checkpoints taken
+        # BEFORE an exclude was introduced (or by other tooling, e.g. manual
+        # ec2 migrations) may still contain excluded trees like code/ — pushing
+        # them would overlay stale files onto the freshly mounted workspaces
+        # that setup_workspaces just built.
+        for pattern in excludes:
+            cmd.append(f"--exclude={pattern}")
         cmd += [
             "--rsync-path",
             f"mkdir -p {remote_path} && rsync",

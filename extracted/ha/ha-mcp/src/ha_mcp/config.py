@@ -83,6 +83,22 @@ class Settings(BaseSettings):
         20.0, alias="HAMCP_SCENE_CONFIG_TIME_BUDGET"
     )
 
+    # Per-request timeout and concurrency of the smart-search per-id
+    # config-fetch fallback (Attempt C). On HA servers that serve
+    # /config/<domain>/config/<id> serially, a full batch of concurrent
+    # requests queues behind one another and the tail of each batch can
+    # exceed the per-request timeout even though every request would
+    # succeed — lowering the batch size (toward 1) and/or raising the
+    # timeout lets such instances scan exhaustively (issue #1784). Same
+    # consumption model as the budgets above: import-time constants in
+    # tools/smart_search/_config.py, restart required.
+    individual_config_timeout: float = Field(
+        5.0, alias="HAMCP_INDIVIDUAL_CONFIG_TIMEOUT"
+    )
+    individual_fetch_batch_size: int = Field(
+        10, alias="HAMCP_INDIVIDUAL_FETCH_BATCH_SIZE"
+    )
+
     # Backup tool configuration
     backup_hint: str = Field("normal", alias="BACKUP_HINT")
 
@@ -221,6 +237,18 @@ class Settings(BaseSettings):
     # regardless of the per-call param or BP warnings. Default on.
     enable_mandatory_bps: bool = Field(True, alias="ENABLE_MANDATORY_BPS")
 
+    # Strict best-practices gate (issue #1779) — child flag of
+    # ``enable_mandatory_bps``. When effective, the six write tools are
+    # HARD-BLOCKED unless the call carries the acknowledgment key that is
+    # published only inside the best-practices skill content served by
+    # ``ha_get_skill_guide`` (modeled on the Hubitat MCP acknowledgment
+    # gate). Default ON so strict mode is active whenever the parent is on;
+    # inert when the parent is off — that cascade is enforced at the
+    # consumption site (``strict_bps.strict_bps_effective``), not here,
+    # because this flag is deliberately NOT a beta sub-flag and there is no
+    # config-level parent gate for non-beta flags.
+    enable_strict_mandatory_bps: bool = Field(True, alias="ENABLE_STRICT_MANDATORY_BPS")
+
     # Filesystem tools — read/write/delete/list under the HA config dir.
     # Previously gated by a direct ``os.getenv`` call in
     # ``tools/tools_filesystem.py`` so callers (and the settings UI)
@@ -229,17 +257,9 @@ class Settings(BaseSettings):
     # other gated capability.
     enable_filesystem_tools: bool = Field(False, alias="HAMCP_ENABLE_FILESYSTEM_TOOLS")
 
-    # Custom-component installer (``ha_install_mcp_tools``) — pulls the
-    # ``ha_mcp_tools`` integration into HACS. Same env-var-direct
-    # background as ``enable_filesystem_tools``; promoted for the same
-    # reason.
-    enable_custom_component_integration: bool = Field(
-        False, alias="HAMCP_ENABLE_CUSTOM_COMPONENT_INTEGRATION"
-    )
-
     # Dashboard screenshot mode — the ``ha_get_dashboard_screenshot`` tool
     # plus the ``include_screenshot`` / ``return_screenshot`` params on the
-    # dashboard get/set tools. Renders a Lovelace view to a PNG via a
+    # dashboard get/set tools. Renders responsive Lovelace images via a
     # separate, opt-in headless-Chromium screenshot add-on (balloob's Puppet
     # add-on, or a docker-compose sidecar). Off by default; nothing heavy is
     # pulled unless the user enables it AND installs the engine.
@@ -327,16 +347,36 @@ class Settings(BaseSettings):
         7, ge=1, le=365, alias="HAMCP_AUTO_BACKUP_CALENDAR_LOOKAHEAD_DAYS"
     )
 
+    # Snapshot-tarball deletion gate (#1861). Off by default: an agent
+    # deleting a full HA snapshot is categorically riskier than the
+    # lightweight `edits`-scope auto-backups (which already delete freely),
+    # since a snapshot may be the last recovery point after the agent
+    # itself broke something. A human must opt in via env var, the web
+    # settings UI override file, or (in the add-on) the Supervisor options
+    # — never something the agent can flip on itself.
+    enable_snapshot_delete: bool = Field(False, alias="ENABLE_SNAPSHOT_DELETE")
+
+    # Minimum age (days) a snapshot must have before it's deletable. This is
+    # the load-bearing guard, not `enable_snapshot_delete`: a count-based
+    # "keep the last N" rule is defeatable by an agent flooding new
+    # snapshots before deleting old ones, but it cannot forge a backup's
+    # HA-stamped creation date. 0 disables the age floor (still gated by
+    # enable_snapshot_delete + the newest-snapshot / automatic-backup
+    # guards enforced in tools/backup.py).
+    snapshot_delete_min_age_days: int = Field(
+        7, ge=0, le=365, alias="SNAPSHOT_DELETE_MIN_AGE_DAYS"
+    )
+
     # Mirror the legacy ``os.getenv("FLAG", "").lower() in ("true", ...)``
-    # semantics for the two ex-direct-getenv flags: an empty env var
-    # value MUST be treated as False rather than raising
+    # semantics for the ex-direct-getenv ``enable_filesystem_tools`` flag (and
+    # its sibling toggles listed above): an empty env var value MUST be treated
+    # as False rather than raising
     # ``ValidationError``. Pydantic v2's bool parser raises on ``""``
     # which broke ``test_tools_filesystem.py::TestFeatureFlag::
     # test_disabled_with_empty_string`` after the migration; this
     # validator restores the contract callers rely on.
     @field_validator(
         "enable_filesystem_tools",
-        "enable_custom_component_integration",
         "enable_dashboard_screenshot",
         mode="before",
     )
@@ -350,21 +390,26 @@ class Settings(BaseSettings):
         "automation_config_time_budget",
         "script_config_time_budget",
         "scene_config_time_budget",
+        "individual_config_timeout",
+        "individual_fetch_batch_size",
         mode="before",
     )
     @classmethod
     def _lenient_time_budget(cls, v: object, info: ValidationInfo) -> object:
-        """Coerce the three smart-search time budgets, falling back to the
-        field default (with a warning) instead of crashing startup.
+        """Coerce the smart-search Attempt-C knobs (the three time budgets,
+        the per-request timeout, and the fetch batch size), falling back to
+        the field default (with a warning) instead of crashing startup.
 
         Preserves the parse-tolerance of the removed ``_env_float`` helper
         (empty / unparseable -> default) and additionally enforces the same
         ``_ADVANCED_SETTINGS_BOUNDS`` range as the override-file / UI-POST
         path, so the env-var path can't smuggle in an out-of-range or
-        non-finite budget. A ``<= 0`` budget would silently disable the
-        per-id config-fetch scan, and ``inf`` / ``nan`` would uncap it; the
-        ``lo <= val <= hi`` test rejects all three (NaN comparisons are
-        False), keeping the env and override-file paths consistent."""
+        non-finite value. A ``<= 0`` budget or timeout would silently
+        disable the per-id config-fetch scan, and ``inf`` / ``nan`` would
+        uncap it; the ``lo <= val <= hi`` test rejects all three (NaN
+        comparisons are False), keeping the env and override-file paths
+        consistent. Int fields (batch size) additionally reject fractional
+        values rather than truncating them."""
         field_name = info.field_name
         if field_name is None:  # always set for field_validator; defensive
             return v
@@ -389,6 +434,17 @@ class Settings(BaseSettings):
                 default,
             )
             return default
+        if isinstance(default, int) and not isinstance(default, bool):
+            if val != int(val):
+                logger.warning(
+                    "Invalid value for %s=%r (must be a whole number); "
+                    "using default %s",
+                    field_name,
+                    v,
+                    default,
+                )
+                return default
+            return int(val)
         return val
 
     @property
@@ -624,6 +680,12 @@ FEATURE_FLAG_FIELDS: tuple[FeatureFlagField, ...] = (
     # gated by the beta master) nor in ADVANCED_SETTINGS_FIELDS (registries
     # are name-disjoint per _validate_registries()).
     FeatureFlagField("enable_mandatory_bps", "ENABLE_MANDATORY_BPS", bool),
+    # Child flag of enable_mandatory_bps (#1779). Non-beta like its
+    # parent, so it belongs here and NOT in BETA_FEATURE_FIELDS; kept out
+    # of ADVANCED_SETTINGS_FIELDS too (registries are name-disjoint).
+    FeatureFlagField(
+        "enable_strict_mandatory_bps", "ENABLE_STRICT_MANDATORY_BPS", bool
+    ),
     FeatureFlagField("enable_yaml_config_editing", "ENABLE_YAML_CONFIG_EDITING", bool),
     FeatureFlagField("enable_yaml_edit_confirm", "ENABLE_YAML_EDIT_CONFIRM", bool),
     # Per-key sub-gates beneath enable_yaml_config_editing. Nested in
@@ -643,11 +705,6 @@ FEATURE_FLAG_FIELDS: tuple[FeatureFlagField, ...] = (
     FeatureFlagField("enable_yaml_packages_scene", "ENABLE_YAML_PACKAGES_SCENE", bool),
     FeatureFlagField("enable_lite_docstrings", "ENABLE_LITE_DOCSTRINGS", bool),
     FeatureFlagField("enable_filesystem_tools", "HAMCP_ENABLE_FILESYSTEM_TOOLS", bool),
-    FeatureFlagField(
-        "enable_custom_component_integration",
-        "HAMCP_ENABLE_CUSTOM_COMPONENT_INTEGRATION",
-        bool,
-    ),
     # ``enable_code_mode`` lives in this tuple so the override file (and
     # the web UI Server Settings tab) can write the flag. Without this
     # entry, the UI save logic would have nowhere to land the value.
@@ -694,7 +751,6 @@ BETA_FEATURE_FIELDS: tuple[str, ...] = (
     "enable_yaml_packages_script",
     "enable_yaml_packages_scene",
     "enable_filesystem_tools",
-    "enable_custom_component_integration",
     "enable_code_mode",
     "enable_lite_docstrings",
     "enable_dashboard_screenshot",
@@ -756,6 +812,22 @@ ADVANCED_SETTINGS_FIELDS: tuple[AdvancedField, ...] = (
         "scene_config_time_budget",
         "HAMCP_SCENE_CONFIG_TIME_BUDGET",
         float,
+        "search",
+        True,
+    ),
+    # Attempt-C per-request timeout + batch size (#1784). Restart-required
+    # (same import-time consumption as the budgets above).
+    AdvancedField(
+        "individual_config_timeout",
+        "HAMCP_INDIVIDUAL_CONFIG_TIMEOUT",
+        float,
+        "search",
+        True,
+    ),
+    AdvancedField(
+        "individual_fetch_batch_size",
+        "HAMCP_INDIVIDUAL_FETCH_BATCH_SIZE",
+        int,
         "search",
         True,
     ),
@@ -846,6 +918,8 @@ _ADVANCED_SETTINGS_BOUNDS: dict[str, tuple[float, float]] = {
     "automation_config_time_budget": (1.0, 600.0),
     "script_config_time_budget": (1.0, 600.0),
     "scene_config_time_budget": (1.0, 600.0),
+    "individual_config_timeout": (1.0, 600.0),
+    "individual_fetch_batch_size": (1, 100),
     "code_mode_max_duration": (1.0, 300.0),
     "code_mode_max_memory": (1_048_576, 268_435_456),
     "code_mode_max_recursion": (1, 10_000),
@@ -1028,6 +1102,133 @@ def _read_feature_flag_override_file() -> dict[str, object]:
     return data
 
 
+def _coerce_feature_flag_value(
+    field_name: str, ftype: RegistryFieldType, raw: object
+) -> tuple[bool, Any]:
+    """Coerce + bounds-check one override-file value for FEATURE_FLAG_FIELDS.
+
+    Returns ``(ok, coerced)``. ``ok=False`` means the value was rejected
+    (a warning has already been logged) and the caller should skip
+    applying it. Mirrors the original inline ``continue`` behavior.
+    """
+    if ftype is bool:
+        if not isinstance(raw, bool | int):
+            logger.warning(
+                "Override for %r is %s; expected bool — ignoring.",
+                field_name,
+                type(raw).__name__,
+            )
+            return False, None
+        return True, bool(raw)
+    elif ftype is int:
+        if isinstance(raw, bool) or not isinstance(raw, int):
+            logger.warning(
+                "Override for %r is %s; expected int — ignoring.",
+                field_name,
+                type(raw).__name__,
+            )
+            return False, None
+        coerced = int(raw)
+        bounds = _FEATURE_FLAG_INT_BOUNDS.get(field_name)
+        if bounds is not None and not (bounds[0] <= coerced <= bounds[1]):
+            logger.warning(
+                "Override for %r is %d, outside %d-%d — ignoring.",
+                field_name,
+                coerced,
+                bounds[0],
+                bounds[1],
+            )
+            return False, None
+        return True, coerced
+    return False, None
+
+
+def _apply_one_feature_flag_override(
+    settings: "Settings",
+    field_name: str,
+    env_name: str,
+    ftype: RegistryFieldType,
+    overrides: dict[str, object],
+    in_addon: bool,
+    beta_fields: set[str],
+) -> None:
+    """Apply a single FEATURE_FLAG_FIELDS override-file entry, if eligible."""
+    is_beta = field_name in beta_fields
+    if in_addon and not is_beta:
+        # Non-beta addon mode: start.py owns it. Skip.
+        return
+    if os.environ.get(env_name) is not None:
+        # Explicit env var wins over file for that field.
+        return
+    if field_name not in overrides:
+        return
+    ok, coerced = _coerce_feature_flag_value(field_name, ftype, overrides[field_name])
+    if not ok:
+        return
+    if not hasattr(settings, field_name):
+        logger.warning(
+            "Override for %r (value=%r) targets a field that does "
+            "not exist on Settings; ignoring. Likely a stale entry "
+            "after a field was renamed/removed.",
+            field_name,
+            coerced,
+        )
+        return
+    try:
+        setattr(settings, field_name, coerced)
+    except (ValueError, TypeError) as err:
+        logger.warning(
+            "Override for %r (value=%r) rejected by Settings (%s); ignoring.",
+            field_name,
+            coerced,
+            err,
+        )
+
+
+def _apply_beta_master_gate(settings: "Settings") -> None:
+    """Force BETA_FEATURE_FIELDS to False when ``enable_beta_features`` is off.
+
+    This is the "master toggle" semantics: even a power user who sets
+    ENABLE_YAML_CONFIG_EDITING=true via env var still needs to flip the
+    master before the flag takes effect.
+    """
+    if not getattr(settings, "enable_beta_features", False):
+        for sub in BETA_FEATURE_FIELDS:
+            if not hasattr(settings, sub):
+                logger.warning(
+                    "Beta gate: %s is not a Settings attribute; "
+                    "BETA_FEATURE_FIELDS may have drifted from the "
+                    "model. Skipping.",
+                    sub,
+                )
+                continue
+            current = getattr(settings, sub, False)
+            if current and sub not in _BETA_GATE_LOGGED:
+                # Dedup per-process: cascade-clear (an earlier behavior
+                # that wrote False to the override file for every truthy
+                # sub-flag whenever the master was saved off) was
+                # removed, so the file now holds truthy sub-flag values
+                # long-term and this gate runs on every Settings
+                # rebuild. Logging the force-False line every time would
+                # spam addon logs. First-time-per-process is enough to
+                # leave an audit trail for operators debugging "why is
+                # my beta tool off?".
+                logger.info(
+                    "Beta master toggle is off; forcing %s=False "
+                    "(was True via env/file).",
+                    sub,
+                )
+                _BETA_GATE_LOGGED.add(sub)
+            try:
+                setattr(settings, sub, False)
+            except (ValueError, TypeError) as err:
+                logger.warning(
+                    "Could not force %s=False via master gate (%s); ignoring.",
+                    sub,
+                    err,
+                )
+
+
 def _apply_feature_flag_overrides(settings: "Settings") -> None:
     """Patch ``settings`` with override-file values + apply the master beta gate.
 
@@ -1066,102 +1267,140 @@ def _apply_feature_flag_overrides(settings: "Settings") -> None:
     beta_fields = {"enable_beta_features", *BETA_FEATURE_FIELDS}
 
     for field_name, (env_name, ftype) in known.items():
-        is_beta = field_name in beta_fields
-        if in_addon and not is_beta:
-            # Non-beta addon mode: start.py owns it. Skip.
-            continue
-        if os.environ.get(env_name) is not None:
-            # Explicit env var wins over file for that field.
-            continue
-        if field_name not in overrides:
-            continue
-        raw = overrides[field_name]
-        coerced: bool | int
-        if ftype is bool:
-            if not isinstance(raw, bool | int):
-                logger.warning(
-                    "Override for %r is %s; expected bool — ignoring.",
-                    field_name,
-                    type(raw).__name__,
-                )
-                continue
-            coerced = bool(raw)
-        elif ftype is int:
-            if isinstance(raw, bool) or not isinstance(raw, int):
-                logger.warning(
-                    "Override for %r is %s; expected int — ignoring.",
-                    field_name,
-                    type(raw).__name__,
-                )
-                continue
-            coerced = int(raw)
-            bounds = _FEATURE_FLAG_INT_BOUNDS.get(field_name)
-            if bounds is not None and not (bounds[0] <= coerced <= bounds[1]):
-                logger.warning(
-                    "Override for %r is %d, outside %d-%d — ignoring.",
-                    field_name,
-                    coerced,
-                    bounds[0],
-                    bounds[1],
-                )
-                continue
-        else:
-            continue
-        if not hasattr(settings, field_name):
-            logger.warning(
-                "Override for %r (value=%r) targets a field that does "
-                "not exist on Settings; ignoring. Likely a stale entry "
-                "after a field was renamed/removed.",
-                field_name,
-                coerced,
-            )
-            continue
-        try:
-            setattr(settings, field_name, coerced)
-        except (ValueError, TypeError) as err:
-            logger.warning(
-                "Override for %r (value=%r) rejected by Settings (%s); ignoring.",
-                field_name,
-                coerced,
-                err,
-            )
+        _apply_one_feature_flag_override(
+            settings, field_name, env_name, ftype, overrides, in_addon, beta_fields
+        )
 
-    # === Master beta gate ===
-    if not getattr(settings, "enable_beta_features", False):
-        for sub in BETA_FEATURE_FIELDS:
-            if not hasattr(settings, sub):
-                logger.warning(
-                    "Beta gate: %s is not a Settings attribute; "
-                    "BETA_FEATURE_FIELDS may have drifted from the "
-                    "model. Skipping.",
-                    sub,
-                )
-                continue
-            current = getattr(settings, sub, False)
-            if current and sub not in _BETA_GATE_LOGGED:
-                # Dedup per-process: cascade-clear (an earlier behavior
-                # that wrote False to the override file for every truthy
-                # sub-flag whenever the master was saved off) was
-                # removed, so the file now holds truthy sub-flag values
-                # long-term and this gate runs on every Settings
-                # rebuild. Logging the force-False line every time would
-                # spam addon logs. First-time-per-process is enough to
-                # leave an audit trail for operators debugging "why is
-                # my beta tool off?".
-                logger.info(
-                    "Beta master toggle is off; forcing %s=False "
-                    "(was True via env/file).",
-                    sub,
-                )
-                _BETA_GATE_LOGGED.add(sub)
-            try:
-                setattr(settings, sub, False)
-            except (ValueError, TypeError) as err:
-                logger.warning(
-                    "Could not force %s=False via master gate (%s); ignoring.",
-                    sub,
-                    err,
-                )
+    _apply_beta_master_gate(settings)
+
+
+def _coerce_advanced_override_value(
+    fname: str, ftype: RegistryFieldType, raw: object
+) -> tuple[bool, Any]:
+    """Coerce one override-file value to its ADVANCED_SETTINGS_FIELDS type.
+
+    Returns ``(ok, coerced)``. ``ok=False`` means the value was rejected
+    (a warning has already been logged) and the caller should skip
+    applying it.
+    """
+    if ftype is bool:
+        if not isinstance(raw, bool | int):
+            logger.warning(
+                "Advanced override for %r is %s; expected bool — ignoring.",
+                fname,
+                type(raw).__name__,
+            )
+            return False, None
+        return True, bool(raw)
+    elif ftype is int:
+        if isinstance(raw, bool) or not isinstance(raw, int):
+            logger.warning(
+                "Advanced override for %r is %s; expected int — ignoring.",
+                fname,
+                type(raw).__name__,
+            )
+            return False, None
+        return True, int(raw)
+    elif ftype is float:
+        if isinstance(raw, bool) or not isinstance(raw, int | float):
+            logger.warning(
+                "Advanced override for %r is %s; expected float — ignoring.",
+                fname,
+                type(raw).__name__,
+            )
+            return False, None
+        return True, float(raw)
+    elif ftype is str:
+        if not isinstance(raw, str):
+            logger.warning(
+                "Advanced override for %r is %s; expected str — ignoring.",
+                fname,
+                type(raw).__name__,
+            )
+            return False, None
+        if "\x00" in raw:
+            logger.warning(
+                "Advanced override for %r contains null byte; ignoring.",
+                fname,
+            )
+            return False, None
+        return True, raw
+    return False, None
+
+
+def _advanced_override_passes_constraints(fname: str, coerced: Any) -> bool:
+    """Bounds/sentinel/choices gate for a coerced ADVANCED_SETTINGS_FIELDS value."""
+    bounds = _ADVANCED_SETTINGS_BOUNDS.get(fname)
+    sentinel = _ADVANCED_SETTINGS_SENTINELS.get(fname)
+    if (
+        bounds is not None
+        and coerced != sentinel
+        and not (bounds[0] <= coerced <= bounds[1])
+    ):
+        logger.warning(
+            "Advanced override for %r is %s, outside %s-%s — ignoring.",
+            fname,
+            coerced,
+            bounds[0],
+            bounds[1],
+        )
+        return False
+    choices = _ADVANCED_SETTINGS_CHOICES.get(fname)
+    if choices is not None and coerced not in choices:
+        logger.warning(
+            "Advanced override for %r is %r, not in %s — ignoring.",
+            fname,
+            coerced,
+            choices,
+        )
+        return False
+    return True
+
+
+def _apply_one_advanced_override(
+    settings: "Settings",
+    fname: str,
+    env_name: str,
+    ftype: RegistryFieldType,
+    editable: bool,
+    overrides: dict[str, object],
+) -> None:
+    """Apply a single ADVANCED_SETTINGS_FIELDS override-file entry, if eligible."""
+    if not editable:
+        # Display-only field somehow landed in the override file (UI
+        # POST guard at /api/settings/advanced blocks this, so the
+        # only way in is direct hand-edit or upgrade-time drift).
+        # Log so the operator can see why the value is being ignored.
+        if fname in overrides:
+            logger.warning(
+                "Override for %r is ignored: field is marked "
+                "display-only in ADVANCED_SETTINGS_FIELDS (set via "
+                "env var or addon configuration instead).",
+                fname,
+            )
+        return
+    if os.environ.get(env_name) is not None:
+        return
+    if fname not in overrides:
+        return
+    ok, coerced = _coerce_advanced_override_value(fname, ftype, overrides[fname])
+    if not ok:
+        return
+    if not _advanced_override_passes_constraints(fname, coerced):
+        return
+    try:
+        setattr(settings, fname, coerced)
+    except (ValueError, TypeError):
+        # Narrowed from bare ``Exception`` to match the parallel
+        # _apply_feature_flag_overrides handler. Pydantic validation
+        # surfaces failures as ValueError; an
+        # attribute that doesn't exist on the model would be a
+        # programming bug we want to crash, not silently swallow.
+        logger.warning(
+            "Advanced override for %r could not be applied; ignoring.",
+            fname,
+            exc_info=True,
+        )
 
 
 def _apply_advanced_overrides(settings: "Settings") -> None:
@@ -1187,107 +1426,9 @@ def _apply_advanced_overrides(settings: "Settings") -> None:
     if not overrides:
         return
     for fname, env_name, ftype, _section, editable in ADVANCED_SETTINGS_FIELDS:
-        if not editable:
-            # Display-only field somehow landed in the override file (UI
-            # POST guard at /api/settings/advanced blocks this, so the
-            # only way in is direct hand-edit or upgrade-time drift).
-            # Log so the operator can see why the value is being ignored.
-            if fname in overrides:
-                logger.warning(
-                    "Override for %r is ignored: field is marked "
-                    "display-only in ADVANCED_SETTINGS_FIELDS (set via "
-                    "env var or addon configuration instead).",
-                    fname,
-                )
-            continue
-        if os.environ.get(env_name) is not None:
-            continue
-        if fname not in overrides:
-            continue
-        raw = overrides[fname]
-        coerced: Any
-        if ftype is bool:
-            if not isinstance(raw, bool | int):
-                logger.warning(
-                    "Advanced override for %r is %s; expected bool — ignoring.",
-                    fname,
-                    type(raw).__name__,
-                )
-                continue
-            coerced = bool(raw)
-        elif ftype is int:
-            if isinstance(raw, bool) or not isinstance(raw, int):
-                logger.warning(
-                    "Advanced override for %r is %s; expected int — ignoring.",
-                    fname,
-                    type(raw).__name__,
-                )
-                continue
-            coerced = int(raw)
-        elif ftype is float:
-            if isinstance(raw, bool) or not isinstance(raw, int | float):
-                logger.warning(
-                    "Advanced override for %r is %s; expected float — ignoring.",
-                    fname,
-                    type(raw).__name__,
-                )
-                continue
-            coerced = float(raw)
-        elif ftype is str:
-            if not isinstance(raw, str):
-                logger.warning(
-                    "Advanced override for %r is %s; expected str — ignoring.",
-                    fname,
-                    type(raw).__name__,
-                )
-                continue
-            if "\x00" in raw:
-                logger.warning(
-                    "Advanced override for %r contains null byte; ignoring.",
-                    fname,
-                )
-                continue
-            coerced = raw
-        else:
-            continue
-
-        bounds = _ADVANCED_SETTINGS_BOUNDS.get(fname)
-        sentinel = _ADVANCED_SETTINGS_SENTINELS.get(fname)
-        if (
-            bounds is not None
-            and coerced != sentinel
-            and not (bounds[0] <= coerced <= bounds[1])
-        ):
-            logger.warning(
-                "Advanced override for %r is %s, outside %s-%s — ignoring.",
-                fname,
-                coerced,
-                bounds[0],
-                bounds[1],
-            )
-            continue
-        choices = _ADVANCED_SETTINGS_CHOICES.get(fname)
-        if choices is not None and coerced not in choices:
-            logger.warning(
-                "Advanced override for %r is %r, not in %s — ignoring.",
-                fname,
-                coerced,
-                choices,
-            )
-            continue
-        try:
-            setattr(settings, fname, coerced)
-        except (ValueError, TypeError):
-            # Narrowed from bare ``Exception`` to match the parallel
-            # _apply_feature_flag_overrides handler. Pydantic validation
-            # surfaces failures as ValueError; an
-            # attribute that doesn't exist on the model would be a
-            # programming bug we want to crash, not silently swallow.
-            logger.warning(
-                "Advanced override for %r could not be applied; ignoring.",
-                fname,
-                exc_info=True,
-            )
+        _apply_one_advanced_override(
+            settings, fname, env_name, ftype, editable, overrides
+        )
 
 
 # Global settings instance
@@ -1364,6 +1505,10 @@ BACKUP_OVERRIDE_FIELDS: tuple[BackupOverrideField, ...] = (
         "auto_backup_calendar_lookahead_days",
         "HAMCP_AUTO_BACKUP_CALENDAR_LOOKAHEAD_DAYS",
         int,
+    ),
+    BackupOverrideField("enable_snapshot_delete", "ENABLE_SNAPSHOT_DELETE", bool),
+    BackupOverrideField(
+        "snapshot_delete_min_age_days", "SNAPSHOT_DELETE_MIN_AGE_DAYS", int
     ),
 )
 
@@ -1484,6 +1629,117 @@ def _read_backup_override_file() -> dict[str, object]:
     return data
 
 
+def _coerce_backup_int_value(field_name: str, raw: object) -> tuple[bool, Any]:
+    """Coerce + per-field range-check one int-typed BACKUP_OVERRIDE_FIELDS value.
+
+    Split out of ``_coerce_backup_override_value`` (mccabe complexity):
+    handles the int-parse plus the three field-specific range checks.
+    """
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        logger.warning(
+            "backup_settings.json: %s expects int, got %s; ignoring",
+            field_name,
+            type(raw).__name__,
+        )
+        return False, None
+    coerced = int(raw)
+    if field_name == "auto_backup_throttle_minutes" and not 0 <= coerced <= 1440:
+        logger.warning(
+            "backup_settings.json: auto_backup_throttle_minutes=%d out of "
+            "range 0..1440; ignoring",
+            coerced,
+        )
+        return False, None
+    if field_name == "auto_backup_retain_per_entity" and not 1 <= coerced <= 10_000:
+        logger.warning(
+            "backup_settings.json: auto_backup_retain_per_entity=%d out of "
+            "range 1..10000; ignoring",
+            coerced,
+        )
+        return False, None
+    if field_name == "auto_backup_calendar_lookahead_days" and not 1 <= coerced <= 365:
+        logger.warning(
+            "backup_settings.json: auto_backup_calendar_lookahead_days=%d out of "
+            "range 1..365; ignoring",
+            coerced,
+        )
+        return False, None
+    if field_name == "snapshot_delete_min_age_days" and not 0 <= coerced <= 365:
+        logger.warning(
+            "backup_settings.json: snapshot_delete_min_age_days=%d out of "
+            "range 0..365; ignoring",
+            coerced,
+        )
+        return False, None
+    return True, coerced
+
+
+def _coerce_backup_override_value(
+    field_name: str, ftype: RegistryFieldType, raw: object
+) -> tuple[bool, Any]:
+    """Coerce + range-check one override-file value for BACKUP_OVERRIDE_FIELDS.
+
+    Returns ``(ok, coerced)``. ``ok=False`` means the value was rejected
+    (a warning has already been logged) and the caller should skip
+    applying it.
+    """
+    if ftype is bool:
+        if not isinstance(raw, bool | int):
+            logger.warning(
+                "backup_settings.json: %s expects bool, got %s; ignoring",
+                field_name,
+                type(raw).__name__,
+            )
+            return False, None
+        return True, bool(raw)
+    elif ftype is int:
+        return _coerce_backup_int_value(field_name, raw)
+    elif ftype is str:
+        if not isinstance(raw, str):
+            logger.warning(
+                "backup_settings.json: %s expects str, got %s; ignoring",
+                field_name,
+                type(raw).__name__,
+            )
+            return False, None
+        if "\x00" in raw:
+            logger.warning(
+                "backup_settings.json: %s contains null byte; ignoring",
+                field_name,
+            )
+            return False, None
+        return True, raw
+    return False, None
+
+
+def _apply_one_backup_override(
+    settings: "Settings",
+    field_name: str,
+    env_name: str,
+    ftype: RegistryFieldType,
+    overrides: dict[str, object],
+) -> None:
+    """Apply a single BACKUP_OVERRIDE_FIELDS override-file entry, if eligible."""
+    if os.environ.get(env_name) is not None:
+        return
+    if field_name not in overrides:
+        return
+    ok, coerced = _coerce_backup_override_value(
+        field_name, ftype, overrides[field_name]
+    )
+    if not ok:
+        return
+    try:
+        setattr(settings, field_name, coerced)
+    except (ValueError, TypeError) as err:
+        logger.warning(
+            "backup_settings.json: setattr(%s, %r) rejected by Settings (%s); ignoring",
+            field_name,
+            coerced,
+            err,
+        )
+
+
 def _apply_backup_overrides(settings: "Settings") -> None:
     """Patch ``settings`` with values from the override file, in place.
 
@@ -1504,96 +1760,7 @@ def _apply_backup_overrides(settings: "Settings") -> None:
     if not overrides:
         return
     for field_name, env_name, ftype in BACKUP_OVERRIDE_FIELDS:
-        if os.environ.get(env_name) is not None:
-            continue
-        if field_name not in overrides:
-            continue
-        raw = overrides[field_name]
-        coerced: bool | int | str
-        if ftype is bool:
-            if not isinstance(raw, bool | int):
-                logger.warning(
-                    "backup_settings.json: %s expects bool, got %s; ignoring",
-                    field_name,
-                    type(raw).__name__,
-                )
-                continue
-            coerced = bool(raw)
-        elif ftype is int:
-            if isinstance(raw, bool) or not isinstance(raw, int):
-                logger.warning(
-                    "backup_settings.json: %s expects int, got %s; ignoring",
-                    field_name,
-                    type(raw).__name__,
-                )
-                continue
-            try:
-                coerced = int(raw)
-            except (ValueError, TypeError):
-                logger.warning(
-                    "backup_settings.json: %s value %r is not coercible to int; ignoring",
-                    field_name,
-                    raw,
-                )
-                continue
-            if (
-                field_name == "auto_backup_throttle_minutes"
-                and not 0 <= coerced <= 1440
-            ):
-                logger.warning(
-                    "backup_settings.json: auto_backup_throttle_minutes=%d out of "
-                    "range 0..1440; ignoring",
-                    coerced,
-                )
-                continue
-            if (
-                field_name == "auto_backup_retain_per_entity"
-                and not 1 <= coerced <= 10_000
-            ):
-                logger.warning(
-                    "backup_settings.json: auto_backup_retain_per_entity=%d out of "
-                    "range 1..10000; ignoring",
-                    coerced,
-                )
-                continue
-            if (
-                field_name == "auto_backup_calendar_lookahead_days"
-                and not 1 <= coerced <= 365
-            ):
-                logger.warning(
-                    "backup_settings.json: auto_backup_calendar_lookahead_days=%d out of "
-                    "range 1..365; ignoring",
-                    coerced,
-                )
-                continue
-        elif ftype is str:
-            if not isinstance(raw, str):
-                logger.warning(
-                    "backup_settings.json: %s expects str, got %s; ignoring",
-                    field_name,
-                    type(raw).__name__,
-                )
-                continue
-            if "\x00" in raw:
-                logger.warning(
-                    "backup_settings.json: %s contains null byte; ignoring",
-                    field_name,
-                )
-                continue
-            coerced = raw
-        else:
-            continue
-        try:
-            setattr(settings, field_name, coerced)
-        except (ValueError, TypeError) as err:
-            logger.warning(
-                "backup_settings.json: setattr(%s, %r) rejected by Settings (%s); "
-                "ignoring",
-                field_name,
-                coerced,
-                err,
-            )
-            continue
+        _apply_one_backup_override(settings, field_name, env_name, ftype, overrides)
 
 
 def _apply_embedded_connection(settings: "Settings") -> None:
@@ -1681,14 +1848,13 @@ def _reset_global_settings() -> None:
 #  - ``BETA_FEATURE_FIELDS`` referencing names not in
 #    ``FEATURE_FLAG_FIELDS`` (master gate would write to phantom
 #    Settings attributes)
-def _validate_registries() -> None:
-    settings_fields = set(Settings.model_fields.keys())
-
-    advanced_names = {f.field for f in ADVANCED_SETTINGS_FIELDS}
-    flag_names = {f.field for f in FEATURE_FLAG_FIELDS}
-    backup_names = {f.field for f in BACKUP_OVERRIDE_FIELDS}
-
-    # Every row must reference a real Settings field.
+def _validate_registry_fields_exist(
+    settings_fields: set[str],
+    advanced_names: set[str],
+    flag_names: set[str],
+    backup_names: set[str],
+) -> None:
+    """Every registry row must reference a real Settings field."""
     for registry_name, names in (
         ("ADVANCED_SETTINGS_FIELDS", advanced_names),
         ("FEATURE_FLAG_FIELDS", flag_names),
@@ -1700,8 +1866,11 @@ def _validate_registries() -> None:
                 f"{registry_name} references fields not on Settings: {sorted(missing)}"
             )
 
-    # Registries must be name-disjoint to avoid double-apply with
-    # divergent policies.
+
+def _validate_registries_disjoint(
+    advanced_names: set[str], flag_names: set[str], backup_names: set[str]
+) -> None:
+    """Registries must be name-disjoint to avoid double-apply with divergent policies."""
     overlaps = {
         ("advanced", "flags"): advanced_names & flag_names,
         ("advanced", "backup"): advanced_names & backup_names,
@@ -1716,8 +1885,9 @@ def _validate_registries() -> None:
                 "/ _apply_backup_overrides."
             )
 
-    # _ADVANCED_SETTINGS_BOUNDS keys must be advanced fields AND numeric.
-    advanced_by_name = {f.field: f for f in ADVANCED_SETTINGS_FIELDS}
+
+def _validate_advanced_bounds(advanced_by_name: dict[str, AdvancedField]) -> None:
+    """_ADVANCED_SETTINGS_BOUNDS keys must be advanced fields AND numeric."""
     for name in _ADVANCED_SETTINGS_BOUNDS:
         if name not in advanced_by_name:
             raise RuntimeError(
@@ -1730,7 +1900,9 @@ def _validate_registries() -> None:
                 f"field (type={advanced_by_name[name].ftype.__name__})"
             )
 
-    # _ADVANCED_SETTINGS_CHOICES keys must be advanced fields AND str.
+
+def _validate_advanced_choices(advanced_by_name: dict[str, AdvancedField]) -> None:
+    """_ADVANCED_SETTINGS_CHOICES keys must be advanced fields AND str."""
     for name in _ADVANCED_SETTINGS_CHOICES:
         if name not in advanced_by_name:
             raise RuntimeError(
@@ -1743,9 +1915,13 @@ def _validate_registries() -> None:
                 f"field (type={advanced_by_name[name].ftype.__name__})"
             )
 
-    # BETA_FEATURE_FIELDS must be a subset of FEATURE_FLAG_FIELDS
-    # (the master gate writes to them via setattr; phantom names would
-    # silently land on extras with no effect on the runtime gate).
+
+def _validate_beta_subset(flag_names: set[str]) -> None:
+    """BETA_FEATURE_FIELDS must be a subset of FEATURE_FLAG_FIELDS.
+
+    The master gate writes to them via setattr; phantom names would
+    silently land on extras with no effect on the runtime gate.
+    """
     beta_set = set(BETA_FEATURE_FIELDS)
     not_in_flags = beta_set - flag_names
     if not_in_flags:
@@ -1753,6 +1929,25 @@ def _validate_registries() -> None:
             f"BETA_FEATURE_FIELDS contains names not in FEATURE_FLAG_FIELDS: "
             f"{sorted(not_in_flags)}"
         )
+
+
+def _validate_registries() -> None:
+    settings_fields = set(Settings.model_fields.keys())
+
+    advanced_names = {f.field for f in ADVANCED_SETTINGS_FIELDS}
+    flag_names = {f.field for f in FEATURE_FLAG_FIELDS}
+    backup_names = {f.field for f in BACKUP_OVERRIDE_FIELDS}
+
+    _validate_registry_fields_exist(
+        settings_fields, advanced_names, flag_names, backup_names
+    )
+    _validate_registries_disjoint(advanced_names, flag_names, backup_names)
+
+    advanced_by_name = {f.field: f for f in ADVANCED_SETTINGS_FIELDS}
+    _validate_advanced_bounds(advanced_by_name)
+    _validate_advanced_choices(advanced_by_name)
+
+    _validate_beta_subset(flag_names)
 
 
 _validate_registries()

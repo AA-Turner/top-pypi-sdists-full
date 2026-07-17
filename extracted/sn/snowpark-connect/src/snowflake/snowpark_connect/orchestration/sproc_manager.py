@@ -115,6 +115,7 @@ def _generate_jvm_sproc_sql(
     replace: bool,
     snowpark_connect_version: str | None = None,
     scala_version: str | None = None,
+    native_app: bool = False,
 ) -> str:
     """Generate the CREATE PROCEDURE DDL for a JVM main() wrapper.
 
@@ -123,6 +124,15 @@ def _generate_jvm_sproc_sql(
     wire-compatible with older ``snowpark-connect`` packages whose
     ``execute_jar()`` predates that parameter. When set, the handler
     statically passes ``scala_version="2.12"`` / ``scala_version="2.13"``.
+
+    When *native_app* is True the proc is generated for use inside a Snowflake
+    Native App: it uses ``EXECUTE AS OWNER`` (apps disallow ``EXECUTE AS
+    CALLER``), references its JARs via **version-stage-relative** ``/``-paths
+    (a versioned-schema proc cannot import via a direct stage reference —
+    error 093023), and enables ``native_app_mode`` so any Scala UDF closures
+    the JAR registers use relative imports too. The app provider is expected to
+    bundle the JARs at the version-stage root (e.g. via ``snowflake.yml``
+    artifacts); there is no ``CREATE STAGE``/``PUT`` in this mode.
     """
     create_keyword = (
         "CREATE OR REPLACE PROCEDURE" if replace else "CREATE PROCEDURE IF NOT EXISTS"
@@ -135,13 +145,38 @@ def _generate_jvm_sproc_sql(
     )
 
     jar_basenames = [os.path.basename(j) for j in jar_files]
-    imports_list = ", ".join(f"'@{stage_name}/{bn}'" for bn in jar_basenames)
+    if native_app:
+        # Version-stage-relative imports (bundled as app artifacts at the
+        # version-stage root). Direct '@stage/...' refs are rejected in a
+        # versioned schema (093023).
+        imports_list = ", ".join(f"'/{bn}'" for bn in jar_basenames)
+    else:
+        imports_list = ", ".join(f"'@{stage_name}/{bn}'" for bn in jar_basenames)
 
     jar_paths_py = "\n".join(
         f'        os.path.join(import_dir, "{bn}"),' for bn in jar_basenames
     )
 
     scala_kw = f', scala_version="{scala_version}"' if scala_version else ""
+
+    execute_as = "OWNER" if native_app else "CALLER"
+    # Native App setup, emitted into the handler before execute_jar():
+    #   * skip_session_configuration(True): owner's-rights procs can't run
+    #     ALTER SESSION, which SCOS otherwise issues at startup. This is a
+    #     released API, so we call it explicitly rather than rely on
+    #     execute_jar's in-proc auto-skip (which may not be in the deployed
+    #     package yet).
+    #   * native_app_mode=true: so any Scala UDF the JAR registers uses relative
+    #     version-stage imports. Not a callback config key, so setting it off the
+    #     proc thread is safe.
+    native_app_setup = (
+        "    from snowflake.snowpark_connect import skip_session_configuration\n"
+        "    skip_session_configuration(True)\n"
+        "    from snowflake.snowpark_connect.config import global_config\n"
+        '    global_config.set("snowpark.connect.native_app_mode", "true")\n'
+        if native_app
+        else ""
+    )
 
     return f"""\
 {create_keyword} {procedure_name}(job_args ARRAY, log_level STRING DEFAULT 'INFO')
@@ -151,7 +186,7 @@ def _generate_jvm_sproc_sql(
     PACKAGES = ('{spc_pkg}', 'openjdk==17.0.14')
     IMPORTS = ({imports_list})
     HANDLER = 'run'
-    EXECUTE AS CALLER
+    EXECUTE AS {execute_as}
 AS $$
 from snowflake.snowpark import Session
 import os, threading, time as _time
@@ -169,7 +204,7 @@ def run(session: Session, job_args: list, log_level: str = "INFO") -> str:
     os.environ["SNOWPARK_CONNECT_LOG4J_BRIDGE_LEVEL"] = level
     logging.basicConfig(level=level)
     logger = logging.getLogger(__name__)
-    try:
+{native_app_setup}    try:
         execute_jar(
             class_name="{class_name}",
             jars=jars,
@@ -315,6 +350,7 @@ def create_jvm_sproc(
     dry_run: bool = False,
     snowpark_connect_version: str | None = None,
     scala_version: str | None = None,
+    native_app: bool = False,
 ) -> str:
     """Create a Snowflake stored procedure that wraps a Java/Scala class.
 
@@ -329,7 +365,9 @@ def create_jvm_sproc(
         procedure_name: Snowflake procedure name.  Defaults to
             ``<SimpleClassName>_main``.
         replace: Use ``CREATE OR REPLACE PROCEDURE``.
-        dry_run: Generate SQL but skip upload and execution.
+        dry_run: Generate SQL but skip upload and execution. Ignored when
+            *native_app* is True (that mode never deploys, so it always
+            behaves as a dry run -- see *native_app* and Returns).
         snowpark_connect_version: Pin ``snowpark-connect`` to a version.
         scala_version: Optional Scala binary version (``"2.12"`` or
             ``"2.13"``) baked into the generated handler. ``None`` (the
@@ -337,12 +375,20 @@ def create_jvm_sproc(
             call entirely, keeping the sproc body wire-compatible with
             older ``snowpark-connect`` releases whose ``execute_jar()``
             does not accept ``scala_version``.
+        native_app: Generate a proc for use inside a Snowflake Native App:
+            ``EXECUTE AS OWNER``, version-stage-relative ``IMPORTS``, and
+            ``native_app_mode`` enabled. In this mode no stage is created and
+            nothing is deployed -- only the ``CREATE PROCEDURE`` DDL is
+            returned (to paste into the app's ``setup_script.sql``), so
+            *dry_run* has no effect.
 
     Returns:
-        The full SQL script: ``CREATE [OR REPLACE] STAGE`` + one ``PUT``
-        statement per JAR + the ``CREATE PROCEDURE`` DDL, joined with blank
-        lines.  This is what ``--dry-run`` prints; in non-dry-run mode the
-        equivalent steps are executed via the Snowpark API.
+        In native-app mode: just the ``CREATE PROCEDURE`` DDL (no stage/PUT,
+        nothing deployed). Otherwise: the full SQL script -- ``CREATE [OR
+        REPLACE] STAGE`` + one ``PUT`` statement per JAR + the ``CREATE
+        PROCEDURE`` DDL, joined with blank lines. That full script is what
+        ``--dry-run`` prints; in non-dry-run mode the equivalent steps are
+        executed via the Snowpark API.
 
     Raises:
         FileNotFoundError: No JAR files provided.
@@ -393,9 +439,17 @@ def create_jvm_sproc(
             replace=replace,
             snowpark_connect_version=snowpark_connect_version,
             scala_version=scala_version,
+            native_app=native_app,
         )
     finally:
         jpype.shutdownJVM()
+
+    if native_app:
+        # Native App: no CREATE STAGE / PUT and no imperative deploy. The app
+        # bundles the JARs as version-stage artifacts and installs the proc via
+        # its setup script, so we only return the CREATE PROCEDURE DDL (to paste
+        # into setup_script.sql). dry_run is implied.
+        return create_sql
 
     stage_setup_sql = _generate_stage_setup_sql(jar_files, stage_name, replace)
     full_sql = f"{stage_setup_sql}\n\n{create_sql}"

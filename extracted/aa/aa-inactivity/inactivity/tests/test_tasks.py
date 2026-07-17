@@ -42,9 +42,7 @@ class TestSendInactivityPing(NoSocketsTestCase):
         )
 
         # when
-        tasks.send_inactivity_ping(
-            user_pk=user.pk, config_pk=config.pk, last_login_at=now()
-        )
+        tasks.send_inactivity_ping(user_pk=user.pk, config_pk=config.pk)
 
         # then
         args, _ = mock_notify_user.call_args
@@ -94,9 +92,7 @@ class TestSendInactivityPing(NoSocketsTestCase):
         )
 
         # when
-        tasks.send_inactivity_ping(
-            user_pk=user.pk, config_pk=config.pk, last_login_at=now()
-        )
+        tasks.send_inactivity_ping(user_pk=user.pk, config_pk=config.pk)
 
         # then
         called_webhook_pks = {
@@ -113,9 +109,7 @@ class TestSendInactivityPing(NoSocketsTestCase):
         user = UserMainRequestorFactory()
 
         # when
-        tasks.send_inactivity_ping(
-            user_pk=user.pk, config_pk=config.pk, last_login_at=now()
-        )
+        tasks.send_inactivity_ping(user_pk=user.pk, config_pk=config.pk)
 
         # then
         args, _ = mock_notify_user.call_args

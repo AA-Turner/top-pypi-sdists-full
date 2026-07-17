@@ -12,6 +12,12 @@
 # limitations under the License.
 
 
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
+
 ALIAS = 'pagination'
 IS_SHIM_EXTENSION = True
 IS_STANDARD_ATTR_EXTENSION = False
@@ -19,9 +25,9 @@ NAME = 'Pagination support'
 API_PREFIX = ''
 DESCRIPTION = 'Extension that indicates that pagination is enabled.'
 UPDATED_TIMESTAMP = '2016-06-12T00:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {}
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

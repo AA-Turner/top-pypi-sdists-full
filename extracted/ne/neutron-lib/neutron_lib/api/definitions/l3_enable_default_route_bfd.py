@@ -16,6 +16,11 @@ from neutron_lib.api import converters
 from neutron_lib.api.definitions import l3
 from neutron_lib.api.definitions import l3_ext_gw_multihoming
 from neutron_lib import constants
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 ENABLE_DEFAULT_ROUTE_BFD = 'enable_default_route_bfd'
@@ -29,7 +34,7 @@ DESCRIPTION = 'Enables configurable BFD behavior for default routes'
 UPDATED_TIMESTAMP = '2023-02-27T00:00:00-00:00'
 RESOURCE_NAME = l3.ROUTER
 COLLECTION_NAME = l3.ROUTERS
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         ENABLE_DEFAULT_ROUTE_BFD: {
             'allow_post': True,
@@ -41,8 +46,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         }
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [l3.ALIAS, l3_ext_gw_multihoming.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

@@ -1489,7 +1489,7 @@ class bingx(Exchange, ImplicitAPI):
             volume = self.safe_string(trade, 'volume')
             amount = Precise.string_mul(volume, contractSize)
         return self.safe_trade({
-            'id': self.safe_string_n(trade, ['id', 't']),
+            'id': self.safe_string_2(trade, 'id', 't'),
             'info': trade,
             'timestamp': time,
             'datetime': self.iso8601(time),
@@ -5854,6 +5854,7 @@ class bingx(Exchange, ImplicitAPI):
 
     def parse_params(self, params):
         # sortedParams = self.keysort(params)
+        copied = self.clone(params)
         rawKeys = list(params.keys())
         keys = self.sort(rawKeys)
         for i in range(0, len(keys)):
@@ -5867,8 +5868,8 @@ class bingx(Exchange, ImplicitAPI):
                         arrStr += ','
                     arrStr += str(arrayElement)
                 arrStr += ']'
-                params[key] = arrStr
-        return params
+                copied[key] = arrStr
+        return copied
 
     def fetch_my_liquidations(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}):
         """
@@ -6236,7 +6237,7 @@ class bingx(Exchange, ImplicitAPI):
         request['cancelReplaceMode'] = 'STOP_ON_FAILURE'
         response: dict
         if market['swap']:
-            response = self.swapV1PrivatePostTradeCancelReplace(self.extend(request, params))
+            response = self.swapV1PrivatePostTradeCancelReplace(request)
             #
             #    {
             #        code: '0',
@@ -6292,7 +6293,7 @@ class bingx(Exchange, ImplicitAPI):
             #    }
             #
         else:
-            response = self.spotV1PrivatePostTradeOrderCancelReplace(self.extend(request, params))
+            response = self.spotV1PrivatePostTradeOrderCancelReplace(request)
             #
             #    {
             #        code: '0',

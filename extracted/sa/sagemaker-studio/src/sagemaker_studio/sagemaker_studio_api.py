@@ -152,17 +152,19 @@ class SageMakerStudioAPI:
 
         if "environment" in service_override_config:
             region_name = service_override_config["environment"]["aws_region"]
-            get_environment_credentials_response: dict = (
-                self.datazone_api.get_environment_credentials(
-                    domainIdentifier=service_override_config["environment"]["domain_identifier"],
-                    environmentIdentifier=service_override_config["environment"][
-                        "environment_identifier"
-                    ],
+            domain_identifier = service_override_config["environment"]["domain_identifier"]
+            project_identifier = service_override_config["environment"].get(
+                "project_identifier", ""
+            )
+            connection_credentials: dict = (
+                self.credentials_api.get_project_default_iam_connection_credentials(
+                    domain_identifier=domain_identifier,
+                    project_identifier=project_identifier,
                 )
             )
-            access_key_id = get_environment_credentials_response["aws_access_key_id"]
-            secret_access_key = get_environment_credentials_response["aws_secret_access_key"]
-            session_token = get_environment_credentials_response["aws_session_token"]
+            access_key_id = connection_credentials["accessKeyId"]
+            secret_access_key = connection_credentials["secretAccessKey"]
+            session_token = connection_credentials["sessionToken"]
 
             return session.client(  # type: ignore
                 service_name=service_name,

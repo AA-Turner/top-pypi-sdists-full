@@ -532,7 +532,7 @@ class custom_partitioning:
     with core.extend_axis_env_nd(mesh.shape.items()):
       jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(flat_fun, in_avals)
     assert not len(consts)
-    closed_call = core.ClosedJaxpr(pe.convert_constvars_jaxpr(jaxpr), ())
+    closed_call = pe.convert_constvars_jaxpr(jaxpr)
 
     propagate_user_sharding = None
     infer_sharding_from_operands = None
@@ -597,6 +597,16 @@ def _custom_partitioning_lowering_rule(ctx: mlir.LoweringRuleContext, *values,
   if not devices or len(devices) == 1:
     return mlir.lower_fun(
         core.jaxpr_as_fun(call), multiple_results=True)(ctx, *values)
+
+  if (not config.use_shardy_partitioner.value and
+      infer_sharding_from_operands is None):
+    function = call.jaxpr.debug_info.func_src_info
+    raise NotImplementedError(
+        f"Custom-partitioned function {function!r} does not support GSPMD "
+        "sharding propagation rules. GSPMD is deprecated; please upgrade "
+        "to and enable the Shardy partitioner "
+        "(jax_use_shardy_partitioner=True, which is the default)."
+    )
 
   def to_mesh_pspec_sharding(hlo_sharding: xc.HloSharding | None, ndim):
     if hlo_sharding is None:

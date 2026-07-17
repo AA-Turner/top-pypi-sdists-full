@@ -27,7 +27,7 @@ from .conftest import check_ocrmypdf
 
 def text_from_pdf(filename):
     output_string = StringIO()
-    with open(filename, 'rb') as in_file:
+    with filename.open('rb') as in_file:
         parser = PDFParser(in_file)
         doc = PDFDocument(parser)
         rsrcmgr = PDFResourceManager()

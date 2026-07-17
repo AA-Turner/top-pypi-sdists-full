@@ -18,6 +18,11 @@ import typing
 
 from neutron_lib.api import converters
 from neutron_lib.api.definitions import l3
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 ALIAS = 'ext-gw-mode'
@@ -40,12 +45,12 @@ routers[l3.EXTERNAL_GW_INFO]['validate']['type:dict_or_nodata'][
     'required': False,
     'convert_to': converters.convert_to_boolean
 }
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: routers
 }
 
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [l3.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

@@ -99,7 +99,10 @@ from snowflake.snowpark_connect.utils.bz2_file_loader import (
     VALUE_COLUMN,
     load_bz2_file,
 )
-from snowflake.snowpark_connect.utils.io_utils import cached_file_format
+from snowflake.snowpark_connect.utils.io_utils import (
+    cached_file_format,
+    first_db_schema_from_paths,
+)
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -205,7 +208,7 @@ def _try_convert_java_datetime_format(
 
 
 def _parse_json_snowpark_options(
-    snowpark_options: dict[str, typing.Any]
+    snowpark_options: dict[str, typing.Any],
 ) -> dict[str, typing.Any]:
     """
     Extract JSON file format options from Snowpark options.
@@ -1153,7 +1156,10 @@ def read_normal_json_files(
     }
     if "FORMAT_NAME" not in reader_options:
         reader_options["FORMAT_NAME"] = cached_file_format(
-            session, "json", file_format_options
+            session,
+            "json",
+            file_format_options,
+            db_schema_fallback=first_db_schema_from_paths(paths),
         )
     reader_options["ENFORCE_EXISTING_FILE_FORMAT"] = True
     apply_metadata_exclusion_pattern(reader_options)
@@ -1190,9 +1196,11 @@ def read_normal_json_files(
                 relax_types_to_infer_schema=relax_types_to_infer_schema,
                 infer_schema_all_files=infer_schema_all_files,
                 mode=mode_options.mode,
-                corrupt_record_column_name=corrupt_record_column_name
-                if mode_options.mode == "PERMISSIVE" and schema is None
-                else None,
+                corrupt_record_column_name=(
+                    corrupt_record_column_name
+                    if mode_options.mode == "PERMISSIVE" and schema is None
+                    else None
+                ),
                 strict_invalid_characters=strict_invalid_characters,
             )
         if len(stage_files) == 1:
@@ -1585,9 +1593,11 @@ def merge_row_schema(
                 elif isinstance(next_level_content, dict):
                     sf.datatype = merge_json_schema(
                         next_level_content,
-                        None
-                        if not isinstance(sf.datatype, StructType)
-                        else sf.datatype,
+                        (
+                            None
+                            if not isinstance(sf.datatype, StructType)
+                            else sf.datatype
+                        ),
                         next_level_trace_stack,
                         string_nodes_finalized,
                         drop_field_if_all_null,

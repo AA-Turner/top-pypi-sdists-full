@@ -59,7 +59,7 @@ setup(
         "protobuf>=4.25.3,<6.34",
         "s3fs>=2025.3.0",  # prod-297255-inc0132291
         "snowflake.core>=1.0.5,<2",
-        "snowflake-snowpark-python[pandas]>=1.52.0,<1.53.0",
+        "snowflake-snowpark-python[pandas]>=1.53.0,<1.54.0",
         "snowflake-connector-python>=3.18.0",
         "sqlglot>=26.3.8",
         # aiobotocore is a transitive dep of s3fs (not imported directly).

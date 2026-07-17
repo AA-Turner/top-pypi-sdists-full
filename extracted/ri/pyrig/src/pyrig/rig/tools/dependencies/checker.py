@@ -3,12 +3,13 @@
 from typing import Any
 
 from pyrig.core.subprocesses import Args
-from pyrig.rig.tools.base.tool import Group, Tool
+from pyrig.rig.tools.base.hooks import CheckHookTool
+from pyrig.rig.tools.base.tool import Group
 from pyrig.rig.tools.typing.checker import TypeChecker
 from pyrig.rig.tools.version_control.hooks.manager import VersionControlHookManager
 
 
-class DependencyChecker(Tool):
+class DependencyChecker(CheckHookTool):
     """`deptry` command wrapper."""
 
     def group(self) -> str:
@@ -38,18 +39,10 @@ class DependencyChecker(Tool):
         """
         return self.args(*args)
 
-    def version_control_hooks(self) -> tuple[dict[str, Any], ...]:
-        """Return the dependency usage check hook.
-
-        Returns:
-            `check_dependencies_hook`, wrapped in a single-element tuple.
-        """
-        return (self.check_dependencies_hook(),)
-
-    def check_dependencies_hook(self) -> dict[str, Any]:
+    def check_hook(self) -> dict[str, Any]:
         """Return the hook metadata for detecting unused or missing dependencies.
 
-        Ties its priority to `TypeChecker.check_types_hook` so it runs
+        Ties its priority to `TypeChecker.check_hook` so it runs
         alongside the rest of the checks tier rather than after it.
 
         Returns:
@@ -58,7 +51,7 @@ class DependencyChecker(Tool):
         return VersionControlHookManager.I.hook(
             self.check_dependencies,
             priority=VersionControlHookManager.I.hook_priority(
-                TypeChecker.I.check_types_hook(),
+                TypeChecker.I.check_hook(),
             ),
             types_or=["python", "pyproject"],
             pass_filenames=False,

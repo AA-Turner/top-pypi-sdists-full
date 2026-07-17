@@ -299,6 +299,24 @@ class BingoTerminal:
         # Stuck 감지 — 마지막 N개 결과의 해시값 (반복 시 자동 전략 전환)
         self._recent_results: list[str] = []
         self._stuck_count: int = 0
+        # ── v6.2.151 Doom Loop 감지기 (bingo 자체 설계) ──────────────────
+        # 최근 도구 호출 시그니처 목록 (이름+인자 해시) — 반복 패턴 감지용
+        self._dl_tool_sigs: list[str] = []
+        self._dl_no_progress: int = 0       # 연속 "진전 없음" 루프 수
+        # ── v6.2.151 2-pass Compaction 상태 ──────────────────────────────
+        self._compaction_summary: str = ""  # 배경 LLM 생성 요약
+        self._compaction_lock = __import__("threading").Lock()
+        self._compaction_running: bool = False
+        self._compaction_threshold: int = 40  # 히스토리 메시지 수 임계값
+        # ── v6.2.159 Intelligence Engine (SubAgent/TaskGraph/Self-Reflection) ─
+        try:
+            from ..core.intelligence import SubAgentPool, TaskGraph, SelfReflector
+            self._subagent_pool = SubAgentPool()
+            self._task_graph = TaskGraph()
+            self._self_reflector = SelfReflector()
+            self._intel_ready = True
+        except Exception:
+            self._intel_ready = False
         # 네트워크 환경 (VPN 감지 결과 캐싱)
         self._net_env: dict = {}
         self._detect_network_env()
@@ -566,6 +584,41 @@ class BingoTerminal:
             self._warn(self.s["no_model_configured"])
             self._cmd_model()
 
+        # ── v6.2.151 autoDream: 조건 충족 시 배경 세션 통합 ──────────────────
+        try:
+            from ..core.memory import auto_dream as _auto_dream
+            import threading as _ad_th
+            _ad_th.Thread(
+                target=_auto_dream,
+                kwargs={"lang": getattr(self.config, "lang", "en")},
+                daemon=True,
+                name="bingo-autodream",
+            ).start()
+        except Exception:
+            pass
+        # ─────────────────────────────────────────────────────────────────────
+
+        # ── v6.2.151 autoDream: 타겟 관련 이전 기억 주입 ─────────────────────
+        try:
+            from ..core.memory import inject_context as _mem_inject
+            _mem_target = self._agent_state.get("target", "")
+            if _mem_target:
+                _mem_ctx = _mem_inject(_mem_target, lang=getattr(self.config, "lang", "en"))
+                if _mem_ctx:
+                    # 시스템 메시지 뒤에 메모리 컨텍스트 주입
+                    self.history.insert(0, Message(role="user", content=_mem_ctx))
+                    self.history.insert(1, Message(
+                        role="assistant",
+                        content={
+                            "ko": "이전 세션 기억을 불러왔습니다. 계속 진행하겠습니다.",
+                            "zh": "已加载历史会话记忆，继续执行。",
+                            "en": "Previous session memory loaded. Continuing.",
+                        }.get(getattr(self.config, "lang", "en"), "Memory loaded."),
+                    ))
+        except Exception:
+            pass
+        # ─────────────────────────────────────────────────────────────────────
+
         # 이전 세션 이어하기 제안
         _resumed = self._offer_resume()
 
@@ -718,6 +771,24 @@ class BingoTerminal:
                 )
         except Exception:
             pass
+
+        # ── v6.2.151 autoDream: 세션 종료 시 발견사항 메모리 저장 ────────────
+        try:
+            from ..core.memory import save_session as _mem_save
+            import threading as _ads_th
+            _ads_target = self._agent_state.get("target", "")
+            _ads_log = self._session_log_path
+            _ads_state = dict(self._agent_state)
+            _ads_snippets = list(getattr(self, "_recent_results", []))
+            _ads_th.Thread(
+                target=_mem_save,
+                args=(_ads_log, _ads_target, _ads_state, _ads_snippets),
+                daemon=True,
+                name="bingo-dream-save",
+            ).start()
+        except Exception:
+            pass
+        # ─────────────────────────────────────────────────────────────────────
 
     # ── 채팅 루프 ─────────────────────────────────────────────────
     def _chat_loop(self) -> None:
@@ -993,6 +1064,19 @@ class BingoTerminal:
 
         if skill_context:
             system_text += "\n\n---\n## RELEVANT SKILL REFERENCES\n" + skill_context
+
+        # ── v6.2.159 SubAgent 사용법 힌트 ────────────────────────────────
+        system_text += (
+            "\n\n---\n## INTELLIGENCE ENGINE — SubAgent Delegation\n"
+            "You can spawn background subtasks in parallel using:\n"
+            "  SPAWN_SUBAGENT:<task_id>:<description>:<bash_command>\n"
+            "Example:\n"
+            "  SPAWN_SUBAGENT:port_scan:Port scanning:nmap -sV -p 80,443,8080 target.com\n"
+            "Results are automatically collected and injected back into context.\n"
+            "Use this for independent parallel tasks (port scan, DNS recon, hash crack, etc.)\n"
+            "while you continue with the main attack flow.\n"
+        )
+        # ─────────────────────────────────────────────────────────────────
 
         # ── 인증 세션 자동 주입 ─────────────────────────────────────
         if getattr(self, "_auth_session", {}).get("active"):
@@ -1771,6 +1855,10 @@ class BingoTerminal:
     def _build_messages(self, skill_context: str = "") -> list[Message]:
         """시스템 프롬프트 + 스킬 컨텍스트 + 대화 히스토리 합치기.
         history 안에 dict가 섞여 있어도 자동으로 Message 로 변환한다.
+
+        v6.2.151: 2-pass Compaction — 히스토리가 임계값을 초과하면
+        오래된 메시지를 배경 LLM 요약으로 압축하여 컨텍스트 창 효율을 높임.
+        (bingo 자체 설계: Pass1 배경 요약 + Pass2 히스토리 교체)
         """
         safe_history: list[Message] = []
         for m in self.history:
@@ -1782,7 +1870,99 @@ class BingoTerminal:
                 if role in ("user", "assistant", "system") and content:
                     safe_history.append(Message(role=role, content=content))
         self.history = safe_history          # 정규화 반영
+
+        # ── v6.2.151 2-pass Compaction (Type A) ──────────────────────────
+        # Pass 1: 비-시스템 메시지가 임계값 초과 시 배경 LLM 요약 스케줄링
+        # Pass 2: 요약 완성 후 오래된 히스토리를 요약문으로 대체
+        non_system = [m for m in safe_history if m.role != "system"]
+        _compaction_thr = getattr(self, "_compaction_threshold", 40)
+        if (
+            len(non_system) > _compaction_thr
+            and not getattr(self, "_compaction_running", False)
+        ):
+            self._trigger_background_compaction(non_system)
+
+        if getattr(self, "_compaction_summary", ""):
+            # Pass 2: 요약 완성 → 앞부분 히스토리를 요약 메시지로 교체
+            _keep_recent = 10
+            system_msgs = [m for m in safe_history if m.role == "system"]
+            non_sys = [m for m in safe_history if m.role != "system"]
+            if len(non_sys) > _keep_recent:
+                _lang = getattr(self.config, "lang", "en")
+                _compaction_prefix = {
+                    "ko": "[압축된 이전 대화 요약]\n",
+                    "zh": "[已压缩的历史对话摘要]\n",
+                    "en": "[Compacted history summary]\n",
+                }.get(_lang, "[Compacted history]\n")
+                compact_msg = Message(
+                    role="assistant",
+                    content=_compaction_prefix + self._compaction_summary,
+                )
+                safe_history = system_msgs + [compact_msg] + non_sys[-_keep_recent:]
+                self.history = safe_history
+                with self._compaction_lock:
+                    self._compaction_summary = ""  # 소비 완료
+
         return [self._get_system_message(skill_context)] + safe_history
+
+    def _trigger_background_compaction(self, non_system_msgs: list) -> None:
+        """오래된 히스토리를 백그라운드 스레드에서 LLM으로 요약 (2-pass Compaction Pass 1)."""
+        import threading as _ct
+        if getattr(self, "_compaction_running", False):
+            return
+        _msgs_to_compact = non_system_msgs[:-8]  # 최근 8개는 보존
+        if len(_msgs_to_compact) < 6:
+            return
+
+        def _compact_worker():
+            try:
+                with self._compaction_lock:
+                    self._compaction_running = True
+
+                _lang = getattr(self.config, "lang", "en")
+                _compact_text = "\n".join(
+                    f"[{m.role}]: {m.content[:300]}" for m in _msgs_to_compact[-20:]
+                )
+                _prompt_map = {
+                    "ko": (
+                        f"다음 침투테스트 대화를 중요 발견사항 중심으로 간결하게 요약하세요 "
+                        f"(취약점, 계정, SQLi 포인트, WAF 정보, 다음 단계 포함):\n\n{_compact_text}"
+                    ),
+                    "zh": (
+                        f"请简洁总结以下渗透测试对话，重点包括发现的漏洞、凭据、SQLi点、"
+                        f"WAF信息和下一步操作：\n\n{_compact_text}"
+                    ),
+                    "en": (
+                        f"Summarize this pentest conversation concisely, focusing on key findings "
+                        f"(vulns, creds, SQLi points, WAF info, next steps):\n\n{_compact_text}"
+                    ),
+                }
+                _compact_prompt = _prompt_map.get(_lang, _prompt_map["en"])
+
+                from ..models.registry import ModelRegistry as _MR
+                _mc = self.config.get_active_model_config()
+                if not _mc:
+                    return
+                _m = _MR.build(_mc)
+                _summ_parts = []
+                for _chunk in _m.chat_stream(
+                    [Message(role="user", content=_compact_prompt)]
+                ):
+                    if _chunk.text:
+                        _summ_parts.append(_chunk.text)
+                    if _chunk.done:
+                        break
+                _summary = "".join(_summ_parts).strip()
+                if _summary:
+                    with self._compaction_lock:
+                        self._compaction_summary = _summary
+            except Exception:
+                pass
+            finally:
+                with self._compaction_lock:
+                    self._compaction_running = False
+
+        _ct.Thread(target=_compact_worker, daemon=True, name="bingo-compaction").start()
 
     # ────────────────────────────────────────────────────────────────
     # 일반 대화 감지 — 침투테스트와 무관한 질문인지 판별
@@ -2103,6 +2283,18 @@ class BingoTerminal:
                 self._exec_loop_count = 0
                 self._stuck_count = 0
                 self._recent_results = []
+                # ── v6.2.159 Task Graph 초기화 (새 타겟 설정 시) ────────────
+                if getattr(self, "_intel_ready", False):
+                    try:
+                        self._task_graph.load_template(user_input)
+                        self._self_reflector._last_reflect_loop = 0
+                        self._self_reflector._reflect_count = 0
+                        _tg_render = self._task_graph.render()
+                        if _tg_render:
+                            self.console.print(f"\n[bold cyan]{_tg_render}[/bold cyan]")
+                    except Exception:
+                        pass
+                # ─────────────────────────────────────────────────────────────
                 # v6.2.102: 타겟 이탈 자동 차단기에 현재 타겟 동기화
                 try:
                     from ..tools_ext.pentest_tools import set_target_domain
@@ -5015,36 +5207,89 @@ class BingoTerminal:
             if tool_results:
                 return tool_results
         # ══════════════════════════════════════════════════════════════════════
-        # v6.2.39 Bug 1 FIX: AI가 잘못된 dict 형식으로 tool call 시도 감지 + 경고
-        # 패턴: {"tool": "http_get", ...} 또는 {"tool": "waf_detect", ...}
-        # 이 형식은 실행되지 않으므로 TOOL_CALL 형식으로 변환하여 경고 출력
+        # v6.2.152 Type A 자동교정기: AI가 잘못된 dict 형식으로 tool call 시도 시
+        # 자동으로 TOOL_CALL 형식으로 변환하여 즉시 실행 (경고만 출력 → 실행까지)
+        # 패턴 1: {"tool": "waf_detect", "args": {...}}
+        # 패턴 2: {"tool": "waf_detect", "url": "...", ...}  (args 래퍼 없는 flat dict)
         # ══════════════════════════════════════════════════════════════════════
-        _wrong_tc_pattern = re.compile(
-            r'[\{,\s]\s*["\']tool["\']\s*:\s*["\']([^"\']+)["\']',
-            re.DOTALL
-        )
-        _wrong_tc_matches = _wrong_tc_pattern.findall(response)
-        if _wrong_tc_matches:
-            try:
-                from ..tools_ext.pentest_tools import TOOL_REGISTRY as _TR
-                _known_tools = set(_TR.keys()) if _TR else set()
-            except Exception:
-                _known_tools = set()
-            _known_tools |= {
-                "http_get","run_python","run_bash","waf_detect","web_tech_detect",
-                "dir_fuzz","sqli_autoexploit","bool_oracle_extract","detect_waf",
-                "waf_sqli_db","sqli_timebased","analyze_response_lang",
-            }
-            _bad_tool_names = [t for t in _wrong_tc_matches if t in _known_tools]
-            if _bad_tool_names:
-                self.console.print(
-                    f"[{THEME['error']}]⚠ [WRONG_TOOL_FORMAT] AI used Python dict format "
-                    f"for tool call: {_bad_tool_names}\n"
-                    f"  Correct format: TOOL_CALL:{{\"name\":\"{_bad_tool_names[0]}\","
-                    f"\"args\":{{...}}}}\n"
-                    f"  Dict format {{'tool': '...'}} is NOT executed![/]"
-                )
+        import re as _wtf_re, json as _wtf_json
+        # 전체 dict 블록 추출 (중첩 고려 위해 brace-counting)
+        def _extract_dict_tool_calls(text: str) -> list[str]:
+            """응답 텍스트에서 {"tool": "..."} 패턴의 dict 블록 전체를 추출."""
+            _blocks = []
+            _i = 0
+            while _i < len(text):
+                if text[_i] == '{':
+                    _depth = 0
+                    _start = _i
+                    while _i < len(text):
+                        if text[_i] == '{':
+                            _depth += 1
+                        elif text[_i] == '}':
+                            _depth -= 1
+                            if _depth == 0:
+                                _blocks.append(text[_start:_i+1])
+                                break
+                        _i += 1
+                _i += 1
+            return _blocks
 
+        _wtf_known_tools: set[str] = set()
+        try:
+            from ..tools_ext.pentest_tools import TOOL_REGISTRY as _TR
+            _wtf_known_tools = set(_TR.keys()) if _TR else set()
+        except Exception:
+            pass
+        _wtf_known_tools |= {
+            "http_get","run_python","run_bash","waf_detect","web_tech_detect",
+            "dir_fuzz","sqli_autoexploit","bool_oracle_extract","detect_waf",
+            "waf_sqli_db","sqli_timebased","analyze_response_lang","http_post",
+            "crack_hash","check_login","find_admin","port_scan","subdomain_scan",
+            "js_secret_scan","api_fuzz","ssrf_check","lfi_check","rce_check",
+        }
+
+        _wtf_converted: list[str] = []  # 변환된 TOOL_CALL 문자열 목록
+
+        for _blk in _extract_dict_tool_calls(response):
+            try:
+                # 작은따옴표 → 큰따옴표 변환 후 파싱 시도
+                _blk_norm = _blk.replace("'", '"')
+                _parsed = _wtf_json.loads(_blk_norm)
+            except Exception:
+                try:
+                    import ast as _wtf_ast
+                    _parsed = _wtf_ast.literal_eval(_blk)
+                except Exception:
+                    continue
+
+            if not isinstance(_parsed, dict):
+                continue
+            _tool_name = _parsed.get("tool") or _parsed.get("name") or _parsed.get("tool_name")
+            if not _tool_name or _tool_name not in _wtf_known_tools:
+                continue
+
+            # args 추출: "args" 키가 있으면 그대로, 없으면 tool/name 제외 나머지 키
+            _args = _parsed.get("args") or _parsed.get("arguments") or {}
+            if not _args:
+                _args = {k: v for k, v in _parsed.items()
+                         if k not in ("tool", "name", "tool_name", "args", "arguments")}
+
+            _tc_str = _wtf_json.dumps({"name": _tool_name, "args": _args}, ensure_ascii=False)
+            _wtf_converted.append(f"TOOL_CALL:{_tc_str}")
+
+        if _wtf_converted:
+            self.console.print(
+                f"[{THEME['warn']}]⚠ [WRONG_TOOL_FORMAT→AUTO_FIX] "
+                f"dict 형식 tool call {len(_wtf_converted)}개 자동 변환 후 실행[/]"
+            )
+            # 변환된 TOOL_CALL 문자열을 response에 추가하여 아래 TOOL_CALL 처리 블록에서 실행
+            response = response + "\n" + "\n".join(_wtf_converted)
+        elif _wtf_re.search(r'["\']tool["\']\s*:\s*["\']', response):
+            # 알 수 없는 도구명 — 경고만 출력
+            self.console.print(
+                f"[{THEME['error']}]⚠ [WRONG_TOOL_FORMAT] dict 형식 tool call 감지 "
+                f"(알 수 없는 도구명 — 무시됨)[/]"
+            )
         # ══════════════════════════════════════════════════════════════════════
         # TOOL_CALL 없음 → 기존 bash 블록 처리로 진행 (하위 호환)
         # ══════════════════════════════════════════════════════════════════════
@@ -7088,6 +7333,43 @@ class BingoTerminal:
                         self._execute_ai_commands(new_response, _depth=_depth + 1, _loaded_skills=_loaded_skills)
                     return
 
+        # ── v6.2.159 SPAWN_SUBAGENT 처리 (Type A auto-corrector) ────────────
+        # AI가 "SPAWN_SUBAGENT:<id>:<desc>:<bash_cmd>" 형식으로 서브에이전트 지시 가능
+        if getattr(self, "_intel_ready", False) and "SPAWN_SUBAGENT:" in response:
+            import re as _sa_re
+            for _sa_m in _sa_re.finditer(
+                r"SPAWN_SUBAGENT:([^:\n]+):([^:\n]+):(.+?)(?=\nSPAWN_SUBAGENT:|$)",
+                response,
+                _sa_re.DOTALL,
+            ):
+                _sa_id = _sa_m.group(1).strip()[:32]
+                _sa_desc = _sa_m.group(2).strip()[:128]
+                _sa_cmd = _sa_m.group(3).strip()[:1024]
+                if _sa_id and _sa_cmd:
+                    def _make_sa_fn(_cmd=_sa_cmd):
+                        def _fn():
+                            import subprocess, os
+                            r = subprocess.run(
+                                _cmd, shell=True,
+                                capture_output=True, text=True, timeout=60,
+                                env={**os.environ, "PYTHONUNBUFFERED": "1"},
+                            )
+                            return (r.stdout + r.stderr)[:4096]
+                        return _fn
+                    spawned = self._subagent_pool.spawn(_sa_id, _sa_desc, _make_sa_fn())
+                    _spawn_label = {
+                        "ko": f"🔀 서브에이전트 [{_sa_id}] 생성: {_sa_desc}",
+                        "zh": f"🔀 子代理 [{_sa_id}] 已创建: {_sa_desc}",
+                        "en": f"🔀 SubAgent [{_sa_id}] spawned: {_sa_desc}",
+                    }
+                    try:
+                        from ..i18n import get_lang as _sa_gl
+                        _spawn_msg = _spawn_label.get(_sa_gl(), _spawn_label["en"])
+                    except Exception:
+                        _spawn_msg = _spawn_label["en"]
+                    self.console.print(f"[bold cyan]{_spawn_msg}[/bold cyan]")
+        # ─────────────────────────────────────────────────────────────────────
+
         # ── 메인 에이전트 루프 (while — 재귀 없음) ────────────────────
         current_response = response
         _no_code_retry = 0  # AI가 코드 없이 텍스트만 보낸 횟수
@@ -7844,8 +8126,131 @@ class BingoTerminal:
                         f"sess = __import__('requests').Session(); sess.trust_env = False\n"
                         f"r = sess.get(url, proxies=PROXIES, verify=False, timeout=15)\n"
                     )
+            # ── v6.2.159 Task Graph + SubAgent 상태를 state_summary에 포함 ──
+            if getattr(self, "_intel_ready", False):
+                try:
+                    _tg_next = self._task_graph.next_hint()
+                    if _tg_next:
+                        state_summary += f"\n{_tg_next}"
+                    _sa_status = self._subagent_pool.build_status_msg()
+                    if _sa_status:
+                        state_summary += f"\n{_sa_status}"
+                except Exception:
+                    pass
+            # ─────────────────────────────────────────────────────────────────
             self._show_token_usage()
             self._exec_loop_count += 1
+
+            # ── v6.2.151 Doom Loop 감지기 (Type A) ───────────────────────────
+            # 연속 동일 응답 패턴 감지 → 전략 전환 힌트 자동 주입
+            # 조건: 최근 6개 시그니처 중 4개 이상 동일 → doom loop 탈출 힌트 주입
+            import hashlib as _dl_md5
+            _dl_sig = _dl_md5.md5(
+                (current_response or "")[:200].encode()
+            ).hexdigest()[:12]
+            self._dl_tool_sigs.append(_dl_sig)
+            if len(self._dl_tool_sigs) > 12:
+                self._dl_tool_sigs = self._dl_tool_sigs[-12:]
+            _dl_window = self._dl_tool_sigs[-6:] if len(self._dl_tool_sigs) >= 6 else []
+            _dl_doom_detected = len(_dl_window) >= 6 and (
+                max(_dl_window.count(s) for s in set(_dl_window)) >= 4
+            )
+            # 진전 없음 판단: 실행 결과에 새 발견사항 키워드가 없음
+            import re as _dl_re
+            _dl_progress_keywords = _dl_re.compile(
+                r"(?:found|detected|confirmed|success|추출|발견|확인|성공|"
+                r"Found|Detected|OK|200|201|credential|hash|admin|upload)",
+                _dl_re.IGNORECASE,
+            )
+            _dl_has_progress = bool(_dl_progress_keywords.search(raw_results or ""))
+            if not _dl_has_progress:
+                self._dl_no_progress += 1
+            else:
+                self._dl_no_progress = 0
+            if _dl_doom_detected or self._dl_no_progress >= 8:
+                from ..i18n import t as _t_dl, get_lang as _gl_dl
+                _dl_escape_map = {
+                    "ko": (
+                        "⚠️ [DOOM_LOOP] 반복 패턴 감지됨 — 전략을 바꿔야 합니다.\n"
+                        "다음 중 하나를 시도하세요:\n"
+                        "1) 다른 파라미터/엔드포인트로 전환\n"
+                        "2) WAF 우회 페이로드 교체 (인코딩 변경)\n"
+                        "3) 다른 취약점 유형으로 전환 (XSS→LFI 등)\n"
+                        "4) 프록시 교체 후 재시도\n"
+                        "즉시 전략을 바꿔서 계속하세요."
+                    ),
+                    "zh": (
+                        "⚠️ [DOOM_LOOP] 检测到重复模式 — 需要换策略。\n"
+                        "请尝试以下之一：\n"
+                        "1) 切换到其他参数/端点\n"
+                        "2) 更换WAF绕过载荷（改变编码）\n"
+                        "3) 切换到其他漏洞类型（XSS→LFI等）\n"
+                        "4) 更换代理后重试\n"
+                        "立即改变策略并继续。"
+                    ),
+                    "en": (
+                        "⚠️ [DOOM_LOOP] Repetitive pattern detected — change strategy now.\n"
+                        "Try one of:\n"
+                        "1) Switch to a different parameter/endpoint\n"
+                        "2) Use different WAF bypass payload (change encoding)\n"
+                        "3) Switch to a different vuln type (XSS→LFI etc.)\n"
+                        "4) Rotate proxy and retry\n"
+                        "Change strategy immediately and continue."
+                    ),
+                }
+                _dl_lang = getattr(self.config, "lang", "en")
+                _dl_msg = _dl_escape_map.get(_dl_lang, _dl_escape_map["en"])
+                self.history.append(Message(role="user", content=_dl_msg))
+                self._dl_tool_sigs.clear()
+                self._dl_no_progress = 0
+            # ─────────────────────────────────────────────────────────────────
+
+            # ── v6.2.159 Self-Reflection 주기적 자기평가 (Type A) ─────────────
+            if getattr(self, "_intel_ready", False):
+                try:
+                    if self._self_reflector.should_reflect(self._exec_loop_count):
+                        _hist_texts = [
+                            m.content for m in self.history[-40:]
+                            if hasattr(m, "content") and isinstance(m.content, str)
+                        ]
+                        _tgt = self._agent_state.get("target", "?")
+                        _found_v = self._self_reflector.extract_found_vulns(_hist_texts)
+                        _failed_t = self._self_reflector.extract_failed_tools(_hist_texts)
+                        _reflect_msg = self._self_reflector.build_reflection_prompt(
+                            self._exec_loop_count,
+                            _found_v,
+                            _failed_t,
+                            _tgt,
+                            self._task_graph if self._task_graph._nodes else None,
+                        )
+                        self.history.append(Message(role="user", content=_reflect_msg))
+                        self.console.print(
+                            f"\n[bold magenta]{_reflect_msg.splitlines()[0]}[/bold magenta]"
+                        )
+                except Exception:
+                    pass
+
+            # ── v6.2.159 SubAgent 완료 결과 수집 → 히스토리 주입 ─────────────
+            if getattr(self, "_intel_ready", False):
+                try:
+                    _done_agents = self._subagent_pool.collect_done()
+                    if _done_agents:
+                        from ..core.intelligence import _nl as _intel_nl
+                        for _sa in _done_agents:
+                            _sa_label = _intel_nl(
+                                f"✅ [서브에이전트 완료] {_sa.task_id}: {_sa.task_desc}",
+                                f"✅ [子代理完成] {_sa.task_id}: {_sa.task_desc}",
+                                f"✅ [SubAgent done] {_sa.task_id}: {_sa.task_desc}",
+                            )
+                            _sa_content = (
+                                f"{_sa_label}\n"
+                                + (_sa.output if _sa.status == "done" else f"ERROR: {_sa.error}")
+                            )
+                            self.history.append(Message(role="user", content=_sa_content))
+                            self.console.print(f"\n[bold green]{_sa_label}[/bold green]")
+                except Exception:
+                    pass
+            # ─────────────────────────────────────────────────────────────────
 
             # ── v6.2.125: 루프 과다 자동 차단 (Type A) ───────────────────────
             # 동일 세션에서 60루프 이상 돌면 AI가 루프에 갇힌 것으로 판단 → 강제 중단

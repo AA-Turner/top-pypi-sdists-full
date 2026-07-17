@@ -321,6 +321,74 @@ export function binarySupportsMaximizedWindow(
 }
 
 // ---------------------------------------------------------------------------
+// Inline HTTP proxy authentication by binary version
+// ---------------------------------------------------------------------------
+// First Chromium build, per platform, whose binary can take inline HTTP proxy
+// credentials (Chromium-native `--proxy-server=http://user:pass@host`). Below
+// the floor the wrapper MUST route credentialed HTTP/HTTPS proxies through
+// Playwright's proxy dict / page.authenticate — an older binary treats the
+// `user:pass@` authority as an invalid proxy host and drops proxy auth (#182).
+// A single global threshold can't model this: the capability landed in
+// different build lineages at different points (linux-x64/windows-x64 at
+// 146.0.7680.177.5, but the free macOS 145.x and linux-arm64 146.0.7680.177.3
+// floors predate it, qualifying only once they resolve to a Pro/newer 148+
+// build). Platforms absent from this map are treated as never-inline.
+export const HTTP_PROXY_INLINE_AUTH_MIN_VERSION: Record<string, string> = {
+  "linux-x64": "146.0.7680.177.5",
+  "windows-x64": "146.0.7680.177.5",
+  "linux-arm64": "148.0.7778.215.3",
+  "darwin-arm64": "148.0.7778.215.3",
+  "darwin-x64": "148.0.7778.215.3",
+};
+
+/**
+ * Whether the resolved binary accepts inline HTTP proxy credentials. The
+ * capability is a function of the binary version; `licenseKey` only resolves
+ * which version launches (Pro build vs free default), exactly like
+ * binarySupportsHeadlessNoViewport. A declared pin wins, else a valid Pro
+ * license resolves to the Pro build (which ships the patch), else the free
+ * per-platform default — then it compares to this platform's floor. Below the
+ * floor, credentialed HTTP proxies fall back to Playwright's proxy dict. A
+ * local override with no declared version is unknown-version, so fail safe.
+ * Python, JS and .NET mirror this gate.
+ */
+export function binarySupportsHttpProxyInlineAuth(
+  licenseKey?: string,
+  browserVersion?: string,
+): boolean {
+  let tag: string;
+  try {
+    tag = getPlatformTag();
+  } catch {
+    return false;
+  }
+  const floor = HTTP_PROXY_INLINE_AUTH_MIN_VERSION[tag];
+  if (!floor) return false;
+  let declared: string | undefined;
+  try {
+    declared = normalizeRequestedVersion(browserVersion);
+  } catch {
+    declared = undefined;
+  }
+  let version: string | null;
+  if (declared) {
+    version = declared;
+  } else if (getLocalBinaryOverride()) {
+    return false;
+  } else {
+    const pro = Boolean(resolveLicenseKey(licenseKey));
+    version = getEffectiveVersion(pro);
+  }
+  if (version === null) return false;
+  try {
+    if (parseVersion(version).some(Number.isNaN)) return false;
+    return !versionNewer(floor, version);
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Playwright default args to suppress — these leak automation signals.
 // --enable-automation: exposes navigator.webdriver = true
 // --enable-unsafe-swiftshader: forces software WebGL rendering via SwiftShader,

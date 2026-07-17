@@ -41,7 +41,10 @@ from snowflake.snowpark_connect.utils.context import (
     get_spark_session_id,
     register_request_external_table,
 )
-from snowflake.snowpark_connect.utils.io_utils import cached_file_format
+from snowflake.snowpark_connect.utils.io_utils import (
+    cached_file_format,
+    db_schema_from_stage_path,
+)
 
 FileFormat = Literal["parquet", "csv", "json", "text"]
 
@@ -337,7 +340,12 @@ def read_partitioned_file_from_external_table(
     snowpark_options_copy.pop("PATTERN", None)
     snowpark_options_copy.pop("FORMAT_NAME", None)
     snowpark_options_copy.pop("ENFORCE_EXISTING_FILE_FORMAT", None)
-    file_format_name = cached_file_format(session, file_format, snowpark_options_copy)
+    file_format_name = cached_file_format(
+        session,
+        file_format,
+        snowpark_options_copy,
+        db_schema_fallback=db_schema_from_stage_path(path),
+    )
     session.sql(
         f"""
         CREATE OR REPLACE EXTERNAL TABLE {table_name} (
@@ -353,9 +361,11 @@ def read_partitioned_file_from_external_table(
     ).collect()
     register_request_external_table(table_name)
     map_fields_list = [
-        f"{field.name}::{_map_snowpark_type_to_snowflake(field.datatype)} as {field.name}"
-        if isinstance(field.datatype, (StructType, MapType, ArrayType))
-        else field.name
+        (
+            f"{field.name}::{_map_snowpark_type_to_snowflake(field.datatype)} as {field.name}"
+            if isinstance(field.datatype, (StructType, MapType, ArrayType))
+            else field.name
+        )
         for field in schema.fields
     ]
     # Ensure partition columns appear in the SELECT even when the user schema

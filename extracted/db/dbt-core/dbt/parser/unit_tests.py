@@ -23,6 +23,7 @@ from dbt.contracts.graph.nodes import (
 )
 from dbt.contracts.graph.unparsed import UnparsedUnitTest
 from dbt.exceptions import InvalidUnitTestGivenInput, ParsingError
+from dbt.flags import get_flags
 from dbt.graph import UniqueId
 from dbt.node_types import NodeType
 from dbt.parser.schemas import (
@@ -123,7 +124,7 @@ class UnitTestManifestLoader:
         for given in test_case.given:
             # extract the original_input_node from the ref in the "input" key of the given list
             original_input_node = self._get_original_input_node(
-                given.input, tested_node, test_case.name
+                given.input, tested_node, test_case.name, ctx, unit_test_node
             )
             input_name = original_input_node.name
             common_fields = {
@@ -201,7 +202,14 @@ class UnitTestManifestLoader:
                 rows=rows, column_name_to_data_types=column_name_to_data_types
             )
 
-    def _get_original_input_node(self, input: str, tested_node: ModelNode, test_case_name: str):
+    def _get_original_input_node(
+        self,
+        input: str,
+        tested_node: ModelNode,
+        test_case_name: str,
+        ctx: Optional[Dict[str, Any]] = None,
+        unit_test_node: Optional[UnitTestNode] = None,
+    ):
         """
         Returns the original input node as defined in the project given an input reference
         and the node being tested.
@@ -219,7 +227,16 @@ class UnitTestManifestLoader:
             try:
                 statically_parsed = py_extract_from_source(f"{{{{ {input} }}}}")
             except ExtractionError:
-                raise InvalidUnitTestGivenInput(input=input)
+                if (
+                    getattr(get_flags(), "SUPPORT_CUSTOM_REF_KWARGS", False)
+                    and ctx is not None
+                    and unit_test_node is not None
+                ):
+                    statically_parsed = self._extract_ref_or_source_via_jinja(
+                        input, ctx, unit_test_node
+                    )
+                else:
+                    raise InvalidUnitTestGivenInput(input=input)
 
             if statically_parsed["refs"]:
                 ref = list(statically_parsed["refs"])[0]
@@ -227,13 +244,13 @@ class UnitTestManifestLoader:
                 package = ref.get("package")
                 version = ref.get("version")
                 # TODO: disabled lookup, versioned lookup, public models
-                original_input_node = self.manifest.ref_lookup.find(
+                original_input_node = self.manifest.ref_lookup.find(  # type: ignore[assignment]
                     name, package, version, self.manifest
                 )
             elif statically_parsed["sources"]:
                 source = list(statically_parsed["sources"])[0]
                 input_source_name, input_name = source
-                original_input_node = self.manifest.source_lookup.find(
+                original_input_node = self.manifest.source_lookup.find(  # type: ignore[assignment]
                     f"{input_source_name}.{input_name}",
                     None,
                     self.manifest,
@@ -246,6 +263,49 @@ class UnitTestManifestLoader:
             raise ParsingError(msg)
 
         return original_input_node
+
+    def _extract_ref_or_source_via_jinja(
+        self,
+        input_str: str,
+        ctx: Dict[str, Any],
+        unit_test_node: UnitTestNode,
+    ) -> Dict[str, Any]:
+        """Fall back to Jinja rendering to resolve ref() calls with custom kwargs.
+
+        When py_extract_from_source cannot handle custom keyword arguments
+        (e.g., ref('model', revision=2) via a custom ref macro), this method
+        renders the input through Jinja so the custom macro can map custom
+        kwargs to standard ones (like version).
+        """
+        # Save current refs/sources to restore after rendering
+        original_refs = list(unit_test_node.refs)
+        original_sources = list(unit_test_node.sources)
+
+        try:
+            get_rendered(f"{{{{ {input_str} }}}}", ctx, unit_test_node, capture_macros=True)
+        except Exception:
+            raise InvalidUnitTestGivenInput(input=input_str)
+
+        # Extract newly captured refs/sources
+        new_refs = unit_test_node.refs[len(original_refs) :]
+        new_sources = unit_test_node.sources[len(original_sources) :]
+
+        # Restore original refs/sources
+        unit_test_node.refs = original_refs
+        unit_test_node.sources = original_sources
+
+        result: Dict[str, Any] = {"refs": [], "sources": []}
+        for ref_arg in new_refs:
+            result["refs"].append(
+                {"name": ref_arg.name, "package": ref_arg.package, "version": ref_arg.version}
+            )
+        for source in new_sources:
+            result["sources"].append(source)
+
+        if not result["refs"] and not result["sources"]:
+            raise InvalidUnitTestGivenInput(input=input_str)
+
+        return result
 
 
 class UnitTestParser(YamlReader):
@@ -494,7 +554,7 @@ def find_tested_model_node(
     model_name = model_name_split[0]
     model_version = model_name_split[1] if len(model_name_split) == 2 else None
 
-    tested_node = manifest.ref_lookup.find(model_name, current_project, model_version, manifest)
+    tested_node = manifest.ref_lookup.find(model_name, current_project, model_version, manifest)  # type: ignore[assignment]
     if not tested_node:
         disabled_node = manifest.disabled_lookup.find(
             model_name, current_project, model_version, [NodeType.Model]
@@ -502,7 +562,7 @@ def find_tested_model_node(
         if disabled_node:
             tested_node = disabled_node[0]
 
-    return tested_node
+    return tested_node  # type: ignore[return-value]
 
 
 # This is called by the ManifestLoader after other processing has been done,
@@ -510,34 +570,29 @@ def find_tested_model_node(
 def process_models_for_unit_test(
     manifest: Manifest, current_project: str, unit_test_def: UnitTestDefinition, models_to_versions
 ):
-    # If the unit tests doesn't have a depends_on.nodes[0] then we weren't able to resolve
-    # the model, either because versions hadn't been processed yet, or it's not a valid model name
-    if not unit_test_def.depends_on.nodes:
+    # Resolve (or re-resolve) the tested model. depends_on may be empty (the
+    # tested-model YAML hadn't been parsed when this unit test was parsed) or
+    # hold a stale id -- e.g. a pre-versioning unversioned id that model
+    # versioning has since replaced with versioned ids, which happens when the
+    # unit-test YAML is parsed before the versioned-model YAML (non-deterministic
+    # filesystem order). Now that model versions are available, resolve for real
+    # (dbt-core #11139).
+    if (
+        not unit_test_def.depends_on.nodes
+        or unit_test_def.depends_on.nodes[0] not in manifest.nodes
+    ):
         tested_node = find_tested_model_node(manifest, current_project, unit_test_def.model)
-        if not tested_node:
+        if tested_node is None:
             raise ParsingError(
                 f"Unable to find model '{current_project}.{unit_test_def.model}' for "
                 f"unit test '{unit_test_def.name}' in {unit_test_def.original_file_path}"
             )
         if tested_node.config.enabled:
-            unit_test_def.depends_on.nodes.append(tested_node.unique_id)
+            unit_test_def.depends_on.nodes = [tested_node.unique_id]
             unit_test_def.schema = tested_node.schema
         else:
             # If the model is disabled, the unit test should be disabled
             unit_test_def.config.enabled = False
-
-    # The UnitTestDefinition should only have one "depends_on" at this point,
-    # the one that's found by the "model" field.
-    target_model_id = unit_test_def.depends_on.nodes[0]
-    if target_model_id not in manifest.nodes:
-        if target_model_id in manifest.disabled:
-            # If the model is disabled, the unit test should be disabled
-            unit_test_def.config.enabled = False
-        else:
-            # If we've reached here and the model is not disabled, throw an error
-            raise ParsingError(
-                f"Unit test '{unit_test_def.name}' references a model that does not exist: {target_model_id}"
-            )
 
     if not unit_test_def.config.enabled:
         # Ensure the unit test is disabled in the manifest
@@ -549,6 +604,9 @@ def process_models_for_unit_test(
         # The unit test is disabled, so we don't need to do any further processing (#10540)
         return
 
+    # The UnitTestDefinition should only have one "depends_on" at this point,
+    # the one that's found by the "model" field.
+    target_model_id = unit_test_def.depends_on.nodes[0]
     target_model = manifest.nodes[target_model_id]
     assert isinstance(target_model, ModelNode)
 

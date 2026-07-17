@@ -23,7 +23,7 @@ def main(
     engine: Annotated[str, cyclopts.Parameter()] = 'pdftotext',
 ):
     """Compare text in PDFs."""
-    with open(pdf1, 'rb') as f1, open(pdf2, 'rb') as f2:
+    with pdf1.open('rb') as f1, pdf2.open('rb') as f2:
         text1 = run(
             ['pdftotext', '-layout', '-', '-'],
             stdin=f1,

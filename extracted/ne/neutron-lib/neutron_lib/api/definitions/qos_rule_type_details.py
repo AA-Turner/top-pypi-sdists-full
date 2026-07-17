@@ -14,6 +14,11 @@
 #    under the License.
 
 from neutron_lib.api.definitions import qos as qos_apidef
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 DRIVERS = 'drivers'
@@ -26,7 +31,7 @@ API_PREFIX = ''
 DESCRIPTION = ("Expose details about QoS rule types supported by loaded "
                "backend drivers")
 UPDATED_TIMESTAMP = '2017-06-22T10:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     qos_apidef.RULE_TYPES: {
         DRIVERS: {
             'allow_post': False,
@@ -35,8 +40,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         }
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [qos_apidef.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

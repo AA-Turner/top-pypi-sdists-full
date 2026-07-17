@@ -15,6 +15,8 @@ lines of pure-shape glue.
 from __future__ import annotations
 
 import abc
+import asyncio
+import functools
 import logging
 from collections.abc import Callable
 from contextvars import Token
@@ -25,6 +27,12 @@ from aigie.tracing.retention import is_retention_suppressed
 from aigie.tracing.trace_state import close_ambient, open_ambient
 
 _log = logging.getLogger(__name__)
+
+# A stream abandoned before exhaustion (caller breaks early, or its task is
+# cancelled) raises these into the generator. They are BaseException, not
+# Exception, so ``except Exception`` misses them — catch them so the run is
+# finalized as interrupted rather than a false success.
+_ABANDONED_STREAM_EXC = (GeneratorExit, asyncio.CancelledError)
 
 
 class FrameworkLifecycleBridge(abc.ABC):
@@ -39,7 +47,7 @@ class FrameworkLifecycleBridge(abc.ABC):
         """True when the run has no more pending work (no resume expected)."""
 
     @abc.abstractmethod
-    def _is_controlled_pause(self, error: Exception | None) -> bool:
+    def _is_controlled_pause(self, error: BaseException | None) -> bool:
         """True for framework-native pause/interrupt signals (e.g. GraphInterrupt)."""
 
     @abc.abstractmethod
@@ -98,7 +106,7 @@ class FrameworkLifecycleBridge(abc.ABC):
         return
 
     def _after_run(
-        self, handler: Any, input: Any, config: dict | None, error: Exception | None
+        self, handler: Any, input: Any, config: dict | None, error: BaseException | None
     ) -> None:
         """Hook called in the finally block, after _finalize."""
         return
@@ -168,7 +176,7 @@ class FrameworkLifecycleBridge(abc.ABC):
         config: dict | None,
         handler: Any | None,
         token: Token | None,
-        error: Exception | None,
+        error: BaseException | None,
     ) -> None:
         if handler is None:
             return
@@ -233,12 +241,12 @@ class FrameworkLifecycleBridge(abc.ABC):
             if handler is None:
                 yield from original(input, config=config, **kwargs)
                 return
-            err: Exception | None = None
+            err: BaseException | None = None
             try:
                 # Explicit for/yield (not `yield from`) so exceptions land in this frame.
                 for chunk in original(input, config=config, **kwargs):  # noqa: UP028
                     yield chunk
-            except Exception as e:
+            except (Exception, *_ABANDONED_STREAM_EXC) as e:
                 err = e
                 raise
             finally:
@@ -259,15 +267,68 @@ class FrameworkLifecycleBridge(abc.ABC):
                 async for chunk in original(input, config=config, **kwargs):
                     yield chunk
                 return
-            err: Exception | None = None
+            err: BaseException | None = None
             try:
                 async for chunk in original(input, config=config, **kwargs):
                     yield chunk
-            except Exception as e:
+            except (Exception, *_ABANDONED_STREAM_EXC) as e:
                 err = e
                 raise
             finally:
                 bridge._teardown(framework_handle, config, handler, token, err)
+
+        return wrapped
+
+    # ─── Class-method wrappers ──────────────────────────────────────────
+    #
+    # The ``wrap_*`` methods bind a fixed ``framework_handle`` at wrap time. To
+    # patch the compiled-graph *class* (so apps built before ``install()`` are
+    # covered) the handle is the instance passed at call time, so these bind
+    # the unbound method to ``app_self`` and delegate to the same ``wrap_*``.
+
+    def wrap_cls_sync(self, *, original: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(original)
+        def wrapped(app_self: Any, input: Any, config: dict | None = None, **kwargs: Any) -> Any:
+            fn = self.wrap_sync(framework_handle=app_self, original=original.__get__(app_self))
+            return fn(input, config, **kwargs)
+
+        return wrapped
+
+    def wrap_cls_async(self, *, original: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(original)
+        async def wrapped(
+            app_self: Any, input: Any, config: dict | None = None, **kwargs: Any
+        ) -> Any:
+            fn = self.wrap_async(framework_handle=app_self, original=original.__get__(app_self))
+            return await fn(input, config, **kwargs)
+
+        return wrapped
+
+    def wrap_cls_stream_sync(self, *, original: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(original)
+        def wrapped(app_self: Any, input: Any, config: dict | None = None, **kwargs: Any):
+            fn = self.wrap_stream_sync(
+                framework_handle=app_self, original=original.__get__(app_self)
+            )
+            yield from fn(input, config, **kwargs)
+
+        return wrapped
+
+    def wrap_cls_stream_async(self, *, original: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(original)
+        async def wrapped(app_self: Any, input: Any, config: dict | None = None, **kwargs: Any):
+            fn = self.wrap_stream_async(
+                framework_handle=app_self, original=original.__get__(app_self)
+            )
+            # Close the inner generator on early exit/cancel so its teardown
+            # (trace finalize + ambient reset) runs — an async `async for`
+            # doesn't propagate close() to the iterator the way `yield from` does.
+            agen = fn(input, config, **kwargs)
+            try:
+                async for chunk in agen:
+                    yield chunk
+            finally:
+                await agen.aclose()
 
         return wrapped
 
@@ -286,7 +347,7 @@ class FrameworkLifecycleBridge(abc.ABC):
         framework_handle: Any,
         config: dict | None,
         handler: Any,
-        error: Exception | None,
+        error: BaseException | None,
     ) -> None:
         if self._is_controlled_pause(error):
             handler.spans.close_pending_spans(status="paused")

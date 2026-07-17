@@ -14,6 +14,11 @@
 
 from neutron_lib.api import converters
 from neutron_lib.db import constants as db_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 # The alias of the extension.
 ALIAS = 'logging'
@@ -53,7 +58,7 @@ ALL_EVENT = 'ALL'
 LOG_EVENTS = [ACCEPT_EVENT, DROP_EVENT, ALL_EVENT]
 
 # Attribute Map
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     LOGS: {
         'id': {'allow_post': False, 'allow_put': False,
                'validate': {'type:uuid': None},
@@ -102,10 +107,10 @@ RESOURCE_ATTRIBUTE_MAP = {
 
 # The subresource attribute map for the extension.  This extension has only
 # top level resources, not child resources, so this is set to an empty dict.
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map.
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 
 # The list of required extensions.
 REQUIRED_EXTENSIONS = []

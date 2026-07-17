@@ -22,6 +22,11 @@ from snowflake.snowpark_connect.column_name_handler import (
     make_column_names_snowpark_compatible,
 )
 from snowflake.snowpark_connect.column_qualifier import ColumnQualifier
+from snowflake.snowpark_connect.config import (
+    global_config,
+    is_iceberg_sql_extensions_enabled,
+    sessions_config,
+)
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
@@ -30,7 +35,10 @@ from snowflake.snowpark_connect.relation.read.utils import (
 )
 from snowflake.snowpark_connect.type_support import emulate_integral_types
 from snowflake.snowpark_connect.typed_column import FieldType
-from snowflake.snowpark_connect.utils.context import get_processed_views
+from snowflake.snowpark_connect.utils.context import (
+    get_processed_views,
+    get_spark_session_id,
+)
 from snowflake.snowpark_connect.utils.identifiers import (
     is_backtick_quoted,
     split_fully_qualified_spark_name,
@@ -58,6 +66,8 @@ ICEBERG_METADATA_TABLE_QUERIES = {
              LATERAL FLATTEN(INPUT => metadata.METADATA:snapshots) snapshot
     """,
 }
+
+WAP_BRANCH_SPARK_CONFIG = "spark.wap.branch"
 
 UNSUPPORTED_ICEBERG_METADATA_TABLES = {
     "all_data_files",
@@ -368,225 +378,12 @@ def _get_temporary_view(
         alias=temp_view.alias,
         partition_hint=temp_view.partition_hint,
         cached_schema_getter=lambda: schema,
+        sort_exprs=temp_view.sort_exprs,
     )
-
-
-def _snowpark_supports_iceberg_snapshot_id() -> bool:
-    """Return ``True`` iff the installed snowpark-python knows how to emit
-    ``AT(VERSION => N)`` for the ``snapshot-id`` reader option.
-
-    The snowpark-python PR that adds this capability introduces a
-    ``version`` field on ``TimeTravelConfig``. Older versions silently
-    ignore ``option("snapshot-id", N)`` and return the *current* snapshot
-    — worse than a clear error — so we explicit-check the capability and
-    fail fast.
-
-    Import is lazy so that any future move/rename of the private
-    ``TimeTravelConfig`` symbol cannot break module import for callers
-    that never set ``snapshot-id`` — they take the legacy
-    ``session.read.table(...)`` path and never reach this probe.
-    """
-    try:
-        from snowflake.snowpark._internal.utils import TimeTravelConfig
-    except ImportError:
-        return False
-    return "version" in getattr(TimeTravelConfig, "_fields", ())
-
-
-def _require_snowpark_iceberg_snapshot_id_support() -> None:
-    if _snowpark_supports_iceberg_snapshot_id():
-        return
-    exception = AnalysisException(
-        "The installed snowflake-snowpark-python does not support Iceberg "
-        "'snapshot-id' time travel. Upgrade snowflake-snowpark-python to a "
-        "version that exposes TimeTravelConfig.version (the AT(VERSION => N) "
-        "client surface)."
-    )
-    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-    raise exception
-
-
-def _snowpark_supports_iceberg_incremental_read() -> bool:
-    """Return ``True`` iff installed snowpark-python emits ``CHANGES ... AT
-    (VERSION => ...) [END (VERSION => ...)]`` for incremental reads."""
-    try:
-        from snowflake.snowpark._internal.utils import IcebergChangesConfig
-    except ImportError:
-        return False
-    return "start_version" in getattr(IcebergChangesConfig, "_fields", ())
-
-
-def _require_snowpark_iceberg_incremental_read_support() -> None:
-    if _snowpark_supports_iceberg_incremental_read():
-        return
-    exception = AnalysisException(
-        "The installed snowflake-snowpark-python does not support Iceberg "
-        "incremental read ('start-snapshot-id' / 'end-snapshot-id'). Upgrade "
-        "snowflake-snowpark-python to a version that exposes "
-        "IcebergChangesConfig (the CHANGES ... AT(VERSION => ...) SQL "
-        "surface)."
-    )
-    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-    raise exception
-
-
-def _snowpark_supports_iceberg_version_tag() -> bool:
-    """Return ``True`` iff the installed snowpark-python knows how to emit
-    ``AT(VERSION_TAG => '<name>')`` for the Spark Iceberg ``tag`` reader
-    option.
-
-    Mirrors the pattern used for ``snapshot-id`` and ``as-of-timestamp``:
-    the snowpark-python PR that adds this capability introduces a
-    ``version_tag`` field on ``TimeTravelConfig`` *and* wires the
-    PySpark-compatibility ``VERSION_TAG`` option alias through
-    ``_extract_time_travel_from_options``. Older snowpark releases either
-    don't expose the field at all, or expose the field but never
-    translate the alias — both gaps fail silently (the option falls on
-    the floor and SCOS would return the *current* snapshot), so we
-    explicit-check both surfaces before handing off.
-
-    Import is lazy so any future move/rename of the private
-    ``TimeTravelConfig`` or ``_extract_time_travel_from_options``
-    symbols cannot break module import for callers that never set
-    ``tag`` — they take the legacy ``session.read.table(...)`` path and
-    never reach this probe.
-    """
-    try:
-        from snowflake.snowpark._internal.utils import TimeTravelConfig
-    except ImportError:
-        return False
-    if "version_tag" not in getattr(TimeTravelConfig, "_fields", ()):
-        return False
-
-    try:
-        from snowflake.snowpark.dataframe_reader import (
-            _extract_time_travel_from_options,
-        )
-    except ImportError:
-        return False
-    # ``DataFrameReader.option`` uppercases the alias keys before storing
-    # them; the extractor matches the uppercased form. Probe with the
-    # exact production-path key + value type, so a snowpark release that
-    # wires the alias but rejects the value type (or vice versa) cannot
-    # be treated as "supported".
-    #
-    # Known coverage gap (intentional, tracked here so it surfaces in
-    # any future audit rather than getting forgotten): this probe
-    # exercises ``_extract_time_travel_from_options`` directly, but
-    # production hands off via ``session.read.option("version_tag", ...)``
-    # in ``get_table_from_name``. If a future snowpark-python release
-    # ships an internal divergence between the option-dict extractor
-    # and the ``DataFrameReader.option`` path (e.g. the option API
-    # picks up an additional normalization step that the dict
-    # extractor doesn't), this probe would pass while the production
-    # call silently drops the option.  We accept this gap today
-    # because the snowpark-python PR (#4211) wires both surfaces from
-    # the same alias map, so a divergence would require an explicit
-    # snowpark-python change.  Once #4211 ships and SCOS bumps its
-    # ``snowflake-snowpark-python`` pin, a real
-    # ``session.read.option("version_tag", ...).table(...)`` round-trip
-    # test should be added against the pinned snowpark to close this
-    # gap end-to-end.
-    try:
-        probe = _extract_time_travel_from_options({"VERSION_TAG": "probe"})
-    except (TypeError, AttributeError, KeyError, ValueError):
-        # Same failure shapes as the as-of-timestamp probe — a snowpark
-        # release missing the alias / field surfaces as one of these.
-        # Anything else (genuine bug in the probe itself or an internal
-        # snowpark assertion) must NOT be silently treated as "old
-        # snowpark"; that would mask the very class of issue this probe
-        # exists to catch.
-        return False
-    return probe.get("time_travel_mode") == "at" and probe.get("version_tag") == "probe"
-
-
-def _require_snowpark_iceberg_version_tag_support() -> None:
-    if _snowpark_supports_iceberg_version_tag():
-        return
-    exception = AnalysisException(
-        "The installed snowflake-snowpark-python does not support Iceberg "
-        "tag time travel. Upgrade snowflake-snowpark-python to a version "
-        "whose DataFrameReader translates the PySpark 'tag' option into "
-        "TimeTravelConfig.version_tag (the AT(VERSION_TAG => '<name>') "
-        "client surface)."
-    )
-    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-    raise exception
 
 
 _INT64_MIN = -(2**63)
 _INT64_MAX = 2**63 - 1
-
-
-def _snowpark_supports_iceberg_as_of_timestamp() -> bool:
-    """Return ``True`` iff the installed snowpark-python knows how to emit
-    ``AT(TIMESTAMP => ...)`` for the Spark Iceberg ``as-of-timestamp``
-    reader option.
-
-    Older snowpark versions either didn't expose the ``timestamp`` time-
-    travel field on ``TimeTravelConfig`` at all, or didn't translate the
-    PySpark-compatible ``as-of-timestamp`` reader option in
-    ``_extract_time_travel_from_options``. Both gaps fail silently —
-    SCOS would silently drop the option and return rows from the
-    *current* snapshot — so we explicit-check both surfaces.
-
-    Import is lazy so any future move/rename of the private
-    ``TimeTravelConfig`` or ``_extract_time_travel_from_options`` symbols
-    cannot break module import for callers that never set
-    ``as-of-timestamp`` — they take the legacy ``session.read.table(...)``
-    path and never reach this probe.
-    """
-    try:
-        from snowflake.snowpark._internal.utils import TimeTravelConfig
-    except ImportError:
-        return False
-    if "timestamp" not in getattr(TimeTravelConfig, "_fields", ()):
-        return False
-
-    try:
-        from snowflake.snowpark.dataframe_reader import (
-            _extract_time_travel_from_options,
-        )
-    except ImportError:
-        return False
-    # The PySpark-compatibility key is uppercased into the cur_options dict
-    # by ``DataFrameReader.option`` (see ``get_aliased_option_name``); the
-    # extractor matches on the uppercase variant. We probe with the *same
-    # value type* the production path uses — a tz-aware UTC ``datetime``
-    # built via ``_extract_iceberg_as_of_timestamp`` — so a snowpark
-    # release that wires the alias but rejects the datetime value type
-    # (or vice versa) cannot be silently treated as "supported": the
-    # probe and production paths share a value-shape contract.
-    probe_value = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
-    try:
-        probe = _extract_time_travel_from_options({"AS-OF-TIMESTAMP": probe_value})
-    except (TypeError, AttributeError, KeyError, ValueError):
-        # These are the failure shapes an older snowpark version
-        # surfaces when the ``as-of-timestamp`` alias / TimeTravelConfig
-        # ``timestamp`` field isn't wired up: missing alias in the
-        # option-name table (KeyError), attribute access on the result
-        # dataclass (AttributeError), value-vs-type rejection
-        # (TypeError / ValueError). Anything else (e.g. an internal
-        # snowpark assertion, an OS-level error from probe construction,
-        # a regression in our own probe) is a real bug and must surface
-        # — silently treating it as "old snowpark" would mask the
-        # very class of issue this probe exists to catch.
-        return False
-    return probe.get("time_travel_mode") == "at" and "timestamp" in probe
-
-
-def _require_snowpark_iceberg_as_of_timestamp_support() -> None:
-    if _snowpark_supports_iceberg_as_of_timestamp():
-        return
-    exception = AnalysisException(
-        "The installed snowflake-snowpark-python does not support Iceberg "
-        "'as-of-timestamp' time travel. Upgrade snowflake-snowpark-python "
-        "to a version whose DataFrameReader translates the PySpark "
-        "'as-of-timestamp' option into TimeTravelConfig.timestamp (the "
-        "AT(TIMESTAMP => ...) client surface)."
-    )
-    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-    raise exception
 
 
 # Python's ``datetime`` only spans year 1..9999, so the safe range for
@@ -1059,6 +856,95 @@ def _extract_iceberg_version_tag(options: dict[str, str]) -> str | None:
     return stripped
 
 
+def _extract_iceberg_branch(options: dict[str, str]) -> str | None:
+    """Pull the Spark Iceberg ``branch`` option out of a read options dict.
+
+      Spark Iceberg WAP branch reads use::
+
+          spark.read.format("iceberg")
+              .option("branch", "audit-branch")
+              .load("path/to/table")
+
+    SCOS translates the option to Snowflake ``AT(BRANCH => '<name>')``
+    via Snowpark's ``read.option("branch", "<name>").table(...)``.
+    """
+    raw: str | None = None
+    for k, v in options.items():
+        if k.lower() == "branch":
+            raw = v
+            break
+    if raw is None:
+        return None
+    branch = str(raw).strip()
+    if not branch:
+        exception = AnalysisException(
+            "Iceberg 'branch' option must be a non-empty branch name; got an "
+            "empty or whitespace-only string."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+    return branch
+
+
+def _iceberg_branch_read_extensions_disabled_exception() -> AnalysisException:
+    """Build the error when branch reads are requested without Iceberg extensions."""
+    exception = AnalysisException(
+        "Iceberg branch reads (via option('branch', ...) or the session config "
+        "'spark.wap.branch') are gated on the 'spark.sql.extensions' config "
+        "naming the Iceberg Spark SQL extensions class. SCOS implements branch "
+        "time travel natively (no extra JAR install is required), but the "
+        "customer-visible support contract still requires the flag so "
+        "Snowpark Connect can distinguish Iceberg WAP branch reads from "
+        "ordinary table reads. Set 'spark.sql.extensions' to "
+        "'org.apache.iceberg.spark.extensions."
+        "IcebergSparkSessionExtensions' (session override via spark.conf.set "
+        "is supported for this key)."
+    )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+    return exception
+
+
+def _require_iceberg_sql_extensions_for_branch_read() -> None:
+    if not is_iceberg_sql_extensions_enabled():
+        raise _iceberg_branch_read_extensions_disabled_exception()
+
+
+def _get_spark_wap_branch() -> str | None:
+    """Return the session ``spark.wap.branch`` value when set."""
+    session_config = sessions_config[get_spark_session_id()]
+    raw = session_config.get(WAP_BRANCH_SPARK_CONFIG) or global_config.get(
+        WAP_BRANCH_SPARK_CONFIG
+    )
+    if raw is None:
+        return None
+    branch = str(raw).strip()
+    return branch or None
+
+
+def _resolve_iceberg_branch(
+    options: dict[str, str],
+    *,
+    skip_session_wap_fallback: bool = False,
+) -> str | None:
+    """Resolve the Iceberg branch for a read.
+
+    Per-option ``branch`` wins; otherwise fall back to the Spark session config
+    ``spark.wap.branch`` (Iceberg WAP audit-branch pattern) unless the read
+    already carries another explicit time-travel option (snapshot / timestamp /
+    tag / incremental).
+    """
+    explicit_branch = _extract_iceberg_branch(options)
+    if explicit_branch is not None:
+        _require_iceberg_sql_extensions_for_branch_read()
+        return explicit_branch
+    if skip_session_wap_fallback:
+        return None
+    branch = _get_spark_wap_branch()
+    if branch is not None:
+        _require_iceberg_sql_extensions_for_branch_read()
+    return branch
+
+
 def get_table_from_name(
     table_name: str,
     session: snowpark.Session,
@@ -1068,6 +954,7 @@ def get_table_from_name(
     iceberg_version_tag: str | None = None,
     iceberg_start_snapshot_id: int | None = None,
     iceberg_end_snapshot_id: int | None = None,
+    iceberg_branch: str | None = None,
 ) -> DataFrameContainer:
     """Resolve a Spark table identifier to a Snowpark DataFrame container.
 
@@ -1093,14 +980,13 @@ def get_table_from_name(
     Without that, Snowflake falls back to its query-history-based time
     travel and the timestamp won't track Iceberg snapshot commit times.
 
-    When ``iceberg_version_tag`` is set, the table is read at the
-    snapshot referenced by an Iceberg tag via Snowpark's
-    ``read.option("version_tag", "<name>").table(...)`` surface, which
-    emits ``AT(VERSION_TAG => '<name>')``. Same server-side gating
-    story as the other two: if the relevant Snowflake feature flag
-    isn't enabled on the account, the compile fails naturally.
+    When ``iceberg_version_tag`` or ``iceberg_branch`` is set, the table is
+    read at the snapshot referenced by an Iceberg tag or WAP branch via
+    Snowpark's ``read.option("version_tag" | "branch", ...).table(...)``
+    surface, which emits ``AT(VERSION_TAG => '<name>')`` or
+    ``AT(BRANCH => '<name>')``.
 
-    The three time-travel inputs are mutually exclusive — Spark Iceberg
+    The time-travel inputs are mutually exclusive — Spark Iceberg
     rejects any combination at plan time, and so do we, with a clear
     pointer to the single supported shape per read.
 
@@ -1127,6 +1013,7 @@ def get_table_from_name(
         "snapshot-id": iceberg_snapshot_id,
         "as-of-timestamp": iceberg_as_of_timestamp,
         "tag": iceberg_version_tag,
+        "branch": iceberg_branch,
     }
     incremental_inputs = {
         "start-snapshot-id": iceberg_start_snapshot_id,
@@ -1139,8 +1026,8 @@ def get_table_from_name(
             "Cannot specify multiple Iceberg time-travel options on the "
             f"same read; got {set_time_travel!r}. Choose one: 'snapshot-id' "
             "for a specific snapshot id, 'as-of-timestamp' for the "
-            "snapshot current at a given wall-clock time, or 'tag' for "
-            "a named Iceberg snapshot reference."
+            "snapshot current at a given wall-clock time, 'tag' for a "
+            "named Iceberg tag, or 'branch' for a WAP branch read."
         )
         attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
         raise exception
@@ -1203,6 +1090,15 @@ def get_table_from_name(
             )
             attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
             raise exception
+        if iceberg_branch is not None:
+            exception = AnalysisException(
+                "Iceberg branch time travel is not supported on Iceberg "
+                f"metadata tables (got '{table_name}'). Read the base "
+                'table at the branch via \'spark.read.format("iceberg")'
+                '.option("branch", "<name>").load("<base_table>")\' instead.'
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
         if iceberg_start_snapshot_id is not None or iceberg_end_snapshot_id is not None:
             exception = AnalysisException(
                 "Iceberg incremental read is not supported on Iceberg "
@@ -1248,6 +1144,12 @@ def get_table_from_name(
             )
             attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
             raise exception
+        if iceberg_branch is not None:
+            exception = AnalysisException(
+                "Iceberg branch time travel is not supported on temporary views."
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
         if iceberg_start_snapshot_id is not None or iceberg_end_snapshot_id is not None:
             exception = AnalysisException(
                 "Iceberg incremental read is not supported on temporary views."
@@ -1269,57 +1171,24 @@ def get_table_from_name(
     snowpark_name = ".".join(transformed_parts)
 
     if iceberg_snapshot_id is not None:
-        # Pre-flight the installed snowpark-python version: older versions
-        # silently ignore the ``snapshot-id`` option and would return the
-        # current snapshot instead of failing with a clear error. We surface
-        # this as ``UNSUPPORTED_OPERATION`` rather than letting customers
-        # get wrong row counts (see PR #4143 discussion).
-        _require_snowpark_iceberg_snapshot_id_support()
         df = session.read.option("snapshot-id", iceberg_snapshot_id).table(
             snowpark_name
         )
     elif iceberg_as_of_timestamp is not None:
-        # Same fail-fast story as the snapshot-id branch: older
-        # snowpark-python versions silently drop the option and return
-        # the current snapshot. Probe both the field shape and the
-        # extractor behavior before we hand off.
-        _require_snowpark_iceberg_as_of_timestamp_support()
         df = session.read.option("as-of-timestamp", iceberg_as_of_timestamp).table(
             snowpark_name
         )
-    elif iceberg_version_tag is not None:
-        # Same fail-fast probe as the other two branches — older
-        # snowpark-python versions silently drop the tag option and
-        # return the current snapshot.
-        #
-        # Two-layer key contract (the two key spellings here are NOT a
-        # typo, they reflect a deliberate bridge between two
-        # naming conventions):
-        #   * Spark customer surface — Spark Iceberg's
-        #     ``SparkReadOptions.TAG`` is the literal string ``"tag"``,
-        #     which SCOS accepts at the DataFrame boundary via
-        #     ``_extract_iceberg_version_tag``.
-        #   * snowpark-python handoff surface — snowpark's
-        #     ``DataFrameReader`` accepts the alias ``"version_tag"``
-        #     (and ``"version-tag"``), but **not** the bare ``"tag"``
-        #     key — that was intentionally avoided in snowpark-python
-        #     PR #4211 to disambiguate from Snowflake's own object-tag
-        #     concept on ``DataFrameReader``. So SCOS does the key
-        #     rewrite at this bridge point.
-        # The sibling ``snapshot-id`` / ``as-of-timestamp`` branches
-        # don't need a rewrite because those keys are spelled
-        # identically across Spark Iceberg and snowpark-python's
-        # extractor.
-        _require_snowpark_iceberg_version_tag_support()
-        df = session.read.option("version_tag", iceberg_version_tag).table(
-            snowpark_name
-        )
+    elif iceberg_branch is not None:
+        df = session.read.option("branch", iceberg_branch).table(snowpark_name)
     elif iceberg_start_snapshot_id is not None:
-        _require_snowpark_iceberg_incremental_read_support()
         reader = session.read.option("start-snapshot-id", iceberg_start_snapshot_id)
         if iceberg_end_snapshot_id is not None:
             reader = reader.option("end-snapshot-id", iceberg_end_snapshot_id)
         df = reader.table(snowpark_name)
+    elif iceberg_version_tag is not None:
+        df = session.read.option("version_tag", iceberg_version_tag).table(
+            snowpark_name
+        )
     else:
         df = session.read.table(snowpark_name)
     return post_process_df(df, plan_id, table_name)
@@ -1351,11 +1220,11 @@ def map_read_table(
     iceberg_version_tag: str | None = None
     iceberg_start_snapshot_id: int | None = None
     iceberg_end_snapshot_id: int | None = None
+    iceberg_branch: str | None = None
     if rel.read.HasField("named_table"):
-        # ``spark.read.table("t")``: Spark Connect doesn't carry per-read
-        # ``option()`` values on the named-table path, so there's nothing
-        # to extract here. The DataFrame option pipeline only applies to
-        # ``read.format("iceberg").load(...)`` (below).
+        # ``spark.read.table("t")`` can carry per-read ``option()`` values on
+        # the named-table Connect path (see PySpark ``Read`` plan). Iceberg
+        # WAP branch reads still use ``read.format("iceberg").load(...)``.
         table_identifier = rel.read.named_table.unparsed_identifier
         # No need to track backtick state in any side channel: the per-part
         # backtick flags are intrinsic to `table_identifier` itself and get
@@ -1393,6 +1262,20 @@ def map_read_table(
             iceberg_start_snapshot_id,
             iceberg_end_snapshot_id,
         ) = _extract_iceberg_incremental_snapshot_ids(options)
+        has_explicit_time_travel = any(
+            value is not None
+            for value in (
+                iceberg_snapshot_id,
+                iceberg_as_of_timestamp,
+                iceberg_version_tag,
+                iceberg_start_snapshot_id,
+                iceberg_end_snapshot_id,
+            )
+        )
+        iceberg_branch = _resolve_iceberg_branch(
+            options,
+            skip_session_wap_fallback=has_explicit_time_travel,
+        )
     else:
         exception = ValueError("The relation must have a table identifier.")
         attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
@@ -1406,4 +1289,5 @@ def map_read_table(
         iceberg_version_tag=iceberg_version_tag,
         iceberg_start_snapshot_id=iceberg_start_snapshot_id,
         iceberg_end_snapshot_id=iceberg_end_snapshot_id,
+        iceberg_branch=iceberg_branch,
     )

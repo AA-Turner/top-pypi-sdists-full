@@ -11,6 +11,11 @@
 #    under the License.
 
 from neutron_lib.api.definitions import vpn
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 ALIAS = 'vpn-no-sha1-3des'
@@ -19,8 +24,8 @@ IS_STANDARD_ATTR_EXTENSION = False
 NAME = 'VPN remove deprecated sha1 and 3des'
 DESCRIPTION = 'Remove sha1 auth and 3des encryption from VPN policies'
 UPDATED_TIMESTAMP = '2025-03-30T09:00:00-00:00'
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [vpn.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}
@@ -36,7 +41,7 @@ VPN_SUPPORTED_ENCRYPTION_ALGORITHMS_V2 = [
 ]
 
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     vpn.IKE_POLICIES: {
         'auth_algorithm': {
             'allow_post': True,

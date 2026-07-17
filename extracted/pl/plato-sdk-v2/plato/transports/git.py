@@ -599,6 +599,9 @@ class GitTransport(Transport):
             error_context="Failed to clone git repo on agent VM",
         )
 
+        if mount.git_sync is not None and mount.git_sync.mode == "none":
+            await self._install_readonly_hook(hostname, remote)
+
         audit_key = mount.audit_key
         tracked = mount.tracked
         if tracked and audit_key:
@@ -619,6 +622,33 @@ class GitTransport(Transport):
             remote,
         )
 
+    async def _install_readonly_hook(self, hostname: str, remote: str) -> None:
+        """Install a pre-commit hook rejecting commits on a read-only clone.
+
+        A commit on a ``GitSyncPolicy.none`` mount would silently vanish (no
+        sync-back), so it must fail loudly AT COMMIT TIME — and so must a
+        failure to install this hook, since that would silently disable the
+        enforcement. Quoted-heredoc write (same pattern as the ssh_config
+        block in setup_agent): the hook text lands verbatim regardless of the
+        quoting inside it.
+        """
+        hook_path = f"{remote}/.git/hooks/pre-commit"
+        hook_script = (
+            "#!/bin/sh\n"
+            "echo 'ERROR: this workspace mount is READ-ONLY - commits here never sync back.' >&2\n"
+            "echo 'Delegate writes to a build/fix agent (their sync modes carry the review gates).' >&2\n"
+            "exit 1\n"
+        )
+        exit_code, _, stderr = await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"cat > {hook_path} << 'ROHOOK'\n{hook_script}ROHOOK\nchmod +x {hook_path}",
+            timeout=15,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to install read-only pre-commit hook at {hook_path}: {stderr}")
+        logger.info("GitTransport.setup_agent: read-only pre-commit hook installed at %s", hook_path)
+
     async def sync_back(
         self,
         agent_env: Environment | None,
@@ -628,6 +658,11 @@ class GitTransport(Transport):
         sync_mode, sync_target, sync_exact = self._sync_policy(mount)
         remote = mount.agent_path
         raise_on_conflict = mount.git_raise_on_conflict
+
+        if sync_mode == "none":
+            # Read-only mount (GitSyncPolicy.none): nothing to propagate.
+            logger.debug("GitTransport.sync_back: skipping read-only mount %s", remote)
+            return
 
         if sync_mode != "merge_to_main":
             compare_ref = mount.git_checkout.ref if mount.git_checkout and mount.git_checkout.ref else "origin/main"

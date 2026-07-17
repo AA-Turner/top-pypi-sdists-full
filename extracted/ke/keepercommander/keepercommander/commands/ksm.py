@@ -11,11 +11,13 @@
 
 import argparse
 import base64
+import calendar
 import datetime
 import hmac
 import json
 import logging
 import os
+import shlex
 import time
 import urllib.parse
 from itertools import product, groupby
@@ -24,8 +26,15 @@ from keeper_secrets_manager_core.utils import bytes_to_base64, url_safe_str_to_b
 
 from typing import Sequence, List, Optional
 
-from .base import Command, dump_report_data, user_choice, as_boolean
+from .base import (
+    Command, dump_report_data, user_choice, as_boolean, report_output_parser,
+    suppress_exit, raise_parse_exception, expand_cmd_args, normalize_output_param, ParseError)
 from . import record
+from ..nested_share_folder.common import get_folder_key, get_record_key
+from .nested_share_folder.helpers import (
+    is_nested_share_folder, is_nested_share_record, load_record_metadata, resolve_folder_uid)
+from ..nested_share_folder.removal_api import (
+    resolve_nested_share_folder_uid, resolve_nested_share_record_uid)
 from .. import api, utils, crypto, vault
 from ..params import KeeperParams
 from ..display import bcolors
@@ -90,16 +99,16 @@ Commands to configure and manage the Keeper Secrets Manager platform.
       --force : Do not prompt for confirmation
 
   {bcolors.BOLD}Add Secret to Application:{bcolors.ENDC}
-  {bcolors.OKGREEN}secrets-manager share add --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--secret {bcolors.OKBLUE}[RECORD OR SHARED FOLDER UID]{bcolors.ENDC}
+  {bcolors.OKGREEN}secrets-manager share add --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--secret {bcolors.OKBLUE}[RECORD, SHARED FOLDER, OR NSF UID/PATH] {bcolors.ENDC}
     Options: 
       --editable : Allow secrets to be editable by the client
 
   {bcolors.BOLD}Update Secret Permissions:{bcolors.ENDC}
-  {bcolors.OKGREEN}secrets-manager share update --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--secret {bcolors.OKBLUE}[RECORD OR SHARED FOLDER UID] {bcolors.OKGREEN}--editable{bcolors.ENDC}
-  {bcolors.OKGREEN}secrets-manager share update --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--secret {bcolors.OKBLUE}[RECORD OR SHARED FOLDER UID] {bcolors.OKGREEN}--readonly{bcolors.ENDC}
+  {bcolors.OKGREEN}secrets-manager share update --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--secret {bcolors.OKBLUE}[RECORD, SHARED FOLDER, OR NSF UID/PATH] {bcolors.OKGREEN}--editable{bcolors.ENDC}
+  {bcolors.OKGREEN}secrets-manager share update --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--secret {bcolors.OKBLUE}[RECORD, SHARED FOLDER, OR NSF UID/PATH] {bcolors.OKGREEN}--readonly{bcolors.ENDC}
 
   {bcolors.BOLD}Remove Secret from Application:{bcolors.ENDC}
-  {bcolors.OKGREEN}secrets-manager share remove --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--secret {bcolors.OKBLUE}[RECORD OR SHARED FOLDER UID]{bcolors.ENDC}
+  {bcolors.OKGREEN}secrets-manager share remove --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--secret {bcolors.OKBLUE}[RECORD, SHARED FOLDER, OR NSF UID/PATH] {bcolors.ENDC}
 
   {bcolors.BOLD}Add Token to Application:{bcolors.ENDC}
   {bcolors.OKGREEN}secrets-manager token add {bcolors.OKBLUE}[APP NAME OR UID]{bcolors.ENDC}
@@ -113,6 +122,31 @@ Commands to configure and manage the Keeper Secrets Manager platform.
       --return-tokens : Return generated tokens as a comma-separated string
     Adds one or more one-time access tokens to an existing KSM application.
     Equivalent to: secrets-manager client add --app [APP NAME OR UID]
+
+  {bcolors.BOLD}Usage Report:{bcolors.ENDC}
+  {bcolors.OKGREEN}secrets-manager usage{bcolors.ENDC}
+    Modes:
+      (default)            : Top Application Usage - owner (email), count
+      --detail             : Full User Usage - owner (name+email), device, API usage
+      --by-device          : Top Usage by Device - device, count (+ Exist with --exists)
+      --detail --by-device : Full Device Usage - device, app UID, owner, API usage
+      --summary            : Total API usage, applications, devices, avg calls/user
+      --timeline           : Event timeline over all KSM event types
+        --range [24h|7d|30d] : Timeline window (default 30d)
+        --all                : Export All rows (Date / Event / Number of Events)
+    Options:
+      --created [RANGE]    : Override usage/summary date window (default: KSM billing cycle)
+      --limit [N]          : Max rows to fetch (paginated; -1 for all)
+      --sort [count|name]  : Sort by usage count (default) or name/title (groups related rows)
+      --exists             : Add an Exist column to --by-device (Y=live, T=in Trash, N=purged,
+                             ?=unknown) resolved from enterprise compliance data.
+                             {bcolors.WARNING}*** VERY SLOW: runs a FULL enterprise compliance sync (can take
+                             minutes on large tenants). ***{bcolors.ENDC} Only applies to --by-device; it is the
+                             only way to detect deleted KSM apps, since the local Trash API cannot
+                             list v5 records.
+      --format [table|csv|json] --output [FILE] : Output format / file
+    Note: usage covers only applications with recorded activity and may include ones since deleted.
+    To list all live applications you have access to, run: {bcolors.OKGREEN}secrets-manager app list{bcolors.ENDC}
 
   -----
   Note: If the UID you are using contains a dash (-) in the beginning, the value should be wrapped 
@@ -130,7 +164,7 @@ ksm_parser.add_argument('command', type=str, action='store', nargs="*",
                     help='One of: "app list", "app get", "app create", "app update", "app remove", "app share", ' +
                              '"app unshare", "client add", "client remove", "share add", "share update", "share remove" or "token add"')
 ksm_parser.add_argument('--secret', '-s', type=str, action='append', required=False,
-                        help='Record UID')
+                        help='Record, shared folder, or Nested Share Folder (NSF) UID or path')
 ksm_parser.add_argument('--app', '-a', type=str, action='store', required=False,
                         help='Application Name or UID')
 ksm_parser.add_argument('--client', '-i', type=str, dest='client_names_or_ids', action='append', required=False,
@@ -167,6 +201,69 @@ ksm_parser.add_argument('--format', dest='format', action='store', choices=['tab
                         help='Output format (table, json)')
 
 
+# KSM audit event types, mirrors Admin Console `ksmEventTypes` (const.ts). Only `app_client_access`
+# drives the usage-metrics report; the full list is used for the event timeline / Export All.
+KSM_EVENT_TYPES = [
+    'app_record_shared', 'app_folder_shared', 'app_record_removed', 'app_folder_removed',
+    'app_record_share_changed', 'app_folder_share_changed', 'app_client_added', 'app_client_removed',
+    'app_client_connected', 'app_client_access', 'app_client_record_update', 'app_client_access_denied',
+    'record_rotation_on_demand_fail', 'record_rotation_on_demand_ok',
+    'record_rotation_scheduled_fail', 'record_rotation_scheduled_ok',
+]
+KSM_USAGE_EVENT_TYPE = 'app_client_access'
+# Shown after every usage table.
+USAGE_APPS_TAIL = ('Usage covers only applications with recorded activity and may include ones since '
+                   'deleted. Run "secrets-manager app list" to see all live applications you can access.')
+# Legend for the Exist column, shown only with --exists (on --by-device). Existence is resolved from
+# enterprise compliance data - deleted KSM apps (v5) cannot be listed via the local Trash API (the
+# backend excludes version >= 4), so this tenant-wide check is the only way to detect them. N (purged)
+# and T (in trash) are best-effort: only as complete/current as the compliance dataset.
+USAGE_EXIST_LEGEND = (
+    'Exist: Y=live, T=in Trash (restorable), N=purged, ?=unknown (compliance data unavailable). '
+    'Resolved from enterprise compliance data (best-effort).')
+# Composite-key separator, mirrors Admin Console (`getSecretsManagerMetrics`).
+_USAGE_KEY_SEP = '~|~'
+# Timeline presets -> (audit report_type, console preset). Mirrors reportsDatePresets + auditTimeline.js.
+KSM_TIMELINE_RANGES = {
+    '24h': ('hour', 'last_24_hours', 1),
+    '7d': ('day', 'last_7_days', 7),
+    '30d': ('day', 'last_30_days', 30),
+}
+
+ksm_usage_parser = argparse.ArgumentParser(
+    prog='secrets-manager usage', parents=[report_output_parser], add_help=False,
+    description='Keeper Secrets Manager usage report')
+ksm_usage_parser.add_argument('--detail', dest='detail', action='store_true',
+                              help='Full detail table (per owner+device, or per device with --by-device)')
+ksm_usage_parser.add_argument('--by-device', dest='by_device', action='store_true',
+                              help='Aggregate by device instead of by application owner')
+ksm_usage_parser.add_argument('--summary', dest='summary', action='store_true',
+                              help='Usage metrics summary (total API usage, apps, devices, avg calls/user)')
+ksm_usage_parser.add_argument('--timeline', dest='timeline', action='store_true',
+                              help='Secrets Manager event timeline (all KSM event types)')
+ksm_usage_parser.add_argument('--range', dest='range', action='store', choices=list(KSM_TIMELINE_RANGES.keys()),
+                              help='Timeline window: 24h, 7d or 30d (default 30d). Timeline only')
+ksm_usage_parser.add_argument('--all', dest='export_all', action='store_true',
+                              help='Timeline only: Export All rows (Date / Event / Number of Events)')
+ksm_usage_parser.add_argument('--created', dest='created', action='store',
+                              help='Override usage/summary date window (same syntax as audit-report --created). '
+                                   'Default: current KSM billing cycle')
+ksm_usage_parser.add_argument('--limit', dest='limit', type=int, action='store',
+                              help='Max rows to fetch (paginated). Default: all. Use -1 for all')
+ksm_usage_parser.add_argument('--exists', dest='exists', action='store_true',
+                              help='Add an Exist column to --by-device showing whether each app is '
+                                   'live / in Trash / purged, resolved from enterprise compliance data. '
+                                   '*** VERY SLOW *** - runs a FULL enterprise compliance sync (can take '
+                                   'minutes on large tenants). Only applies to --by-device; ignored on '
+                                   'other views (deleted KSM apps cannot be detected any other way)')
+ksm_usage_parser.add_argument('--sort', dest='sort', action='store', choices=['count', 'name'],
+                              default='count',
+                              help='Sort rows by usage count (default, descending) or by name/title '
+                                   '(ascending) - use "name" to group related rows, e.g. all "Playground" devices')
+ksm_usage_parser.add_argument('--help', '-h', dest='helpflag', action='store_true', help='Display help')
+ksm_usage_parser.error = raise_parse_exception
+ksm_usage_parser.exit = suppress_exit
+
 
 def ms_to_str(ms, frmt='%Y-%m-%d %H:%M:%S'):
     dt = datetime.datetime.fromtimestamp(ms // 1000)
@@ -181,6 +278,25 @@ class KSMCommand(Command):
 
     def get_parser(self):
         return ksm_parser
+
+    def execute_args(self, params, args, **kwargs):
+        # Route the `usage` verb to its own parser so its many flags stay out of the shared ksm_parser.
+        try:
+            tokens = shlex.split(args) if args else []
+        except ValueError:
+            tokens = []
+        if tokens and tokens[0].lower() == 'usage':
+            raw = normalize_output_param(expand_cmd_args(args, params.environment_variables))
+            try:
+                opts = ksm_usage_parser.parse_args(shlex.split(raw)[1:])
+            except ParseError as e:
+                logging.error(e)
+                return
+            d = {}
+            d.update(kwargs)
+            d.update(opts.__dict__)
+            return KSMCommand.execute_usage(params, **d)
+        return super(KSMCommand, self).execute_args(params, args, **kwargs)
 
     def execute(self, params, **kwargs):
 
@@ -470,6 +586,378 @@ class KSMCommand(Command):
         print(f"{bcolors.WARNING}Unknown combination of KSM commands. " +
               f"Type 'secrets-manager' for more details'{bcolors.ENDC}")
 
+    # ------------------------------------------------------------------ #
+    # secrets-manager usage                                              #
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _ts_to_ms(value):
+        """Normalize an epoch timestamp to milliseconds (Console stores add-on/billing dates in ms,
+        but Commander protos may deliver seconds). Values below 1e11 are treated as seconds."""
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            return 0
+        if value <= 0:
+            return 0
+        return value if value >= 100_000_000_000 else value * 1000
+
+    @staticmethod
+    def _ksm_pick_license(params):
+        licenses = params.enterprise.get('licenses', []) if params.enterprise else []
+        if not licenses:
+            return None
+        # Prefer a license carrying the secrets_manager add-on, else the first (Console uses licenses[0]).
+        for lic in licenses:
+            if any(a.get('name') == 'secrets_manager' for a in lic.get('add_ons', [])):
+                return lic
+        return licenses[0]
+
+    @staticmethod
+    def _set_month(dt, month0, year):
+        """Mirror Console checkDateChangeRisk: set month (0-based) + year, clamping day to month length."""
+        month = month0 + 1
+        last_day = calendar.monthrange(year, month)[1]
+        return dt.replace(year=year, month=month, day=min(dt.day, last_day))
+
+    @staticmethod
+    def _ksm_billing_cycle(params, run_on_ms=None):
+        """Port of Admin Console getKSMBillingCycle (yearly/enterprise path).
+        Returns (min_epoch_sec, max_epoch_sec) for the current billing cycle, or None if unavailable."""
+        lic = KSMCommand._ksm_pick_license(params)
+        if not lic:
+            return None
+        nb_ms = KSMCommand._ts_to_ms(lic.get('next_billing_date'))
+        if not nb_ms:
+            return None
+
+        nb = datetime.datetime.fromtimestamp(nb_ms / 1000)
+        nb_day = nb.day
+        run = datetime.datetime.fromtimestamp(run_on_ms / 1000) if run_on_ms else datetime.datetime.now()
+        run_month0 = run.month - 1
+        run_year = run.year
+
+        def case_current_to_next():
+            start = KSMCommand._set_month(nb, run_month0, run_year)
+            end_month0 = 0 if run_month0 + 1 > 11 else run_month0 + 1
+            end_year = run_year + 1 if run_month0 + 1 > 11 else run_year
+            end = KSMCommand._set_month(nb, end_month0, end_year)
+            return start, end
+
+        def case_prev_to_current():
+            start_month0 = run_month0 - 1 if run_month0 else 11
+            start_year = run_year if run_month0 else run_year - 1
+            start = KSMCommand._set_month(nb, start_month0, start_year)
+            end = KSMCommand._set_month(nb, run_month0, run_year)
+            return start, end
+
+        if run.day > nb_day:
+            start, end = case_current_to_next()
+        elif run.day < nb_day:
+            start, end = case_prev_to_current()
+        else:
+            run_tod = (run.hour * 3600 + run.minute * 60 + run.second) * 1000 + run.microsecond // 1000
+            nb_tod = (nb.hour * 3600 + nb.minute * 60 + nb.second) * 1000 + nb.microsecond // 1000
+            start, end = case_prev_to_current() if run_tod < nb_tod else case_current_to_next()
+
+        # Never report before KSM was actually created (Console clamps to max(created, activationTime);
+        # Commander add-ons expose only `created`).
+        ksm_created_ms = 0
+        for a in lic.get('add_ons', []):
+            if a.get('name') == 'secrets_manager':
+                ksm_created_ms = KSMCommand._ts_to_ms(a.get('created'))
+                break
+        if ksm_created_ms and ksm_created_ms > int(start.timestamp() * 1000):
+            start = datetime.datetime.fromtimestamp(ksm_created_ms / 1000)
+
+        return int(start.timestamp()), int(end.timestamp())
+
+    @staticmethod
+    def _user_fullname_map(params):
+        result = {}
+        for u in (params.enterprise.get('users', []) if params.enterprise else []):
+            data = u.get('data') or {}
+            name = data.get('displayname')
+            if u.get('username'):
+                result[u['username']] = name or ''
+        return result
+
+    @staticmethod
+    def _compliance_app_status(params):
+        """Tenant-wide record existence via compliance/SOX data. Returns (live_uids, trash_uids) or
+        None if compliance reporting is unavailable. VERY SLOW: performs a FULL enterprise compliance
+        sync (can take minutes on large tenants) - callers must gate this behind the opt-in --exists
+        flag. This is the ONLY way to detect deleted KSM apps - the local Trash API (get_deleted_records)
+        excludes version >= 4 in the backend, so deleted v5 app records are never returned to the client.
+        `in_trash` is point-in-time (last sync); a record restored after the sync may read stale, and
+        absence from the dataset is treated as 'purged' only as best effort."""
+        try:
+            from .. import sox
+            if not sox.is_compliance_reporting_enabled(params):
+                logging.warning('secrets-manager usage --exists: compliance reporting is not enabled for '
+                                'this account; the Exist column will be reported as unknown (?)')
+                return None
+            nodes = params.enterprise.get('nodes') or []
+            enterprise_id = next(((n['node_id'] >> 32) for n in nodes), 0)
+            root_node_id = nodes[0]['node_id'] if nodes else 0
+            sd = sox.get_compliance_data(params, root_node_id, enterprise_id, rebuild=False, min_updated=0)
+            live, trash = set(), set()
+            for rec in sd.get_records().values():
+                (trash if rec.in_trash else live).add(rec.record_uid)
+            return live, trash
+        except Exception as e:
+            logging.warning('secrets-manager usage --exists: could not load compliance data (%s); '
+                            'the Exist column will be reported as unknown (?)', e)
+            return None
+
+    @staticmethod
+    def _resolve_usage_window(params, kwargs):
+        """Return (min_sec, max_sec) for the usage/summary path. --created overrides billing cycle."""
+        from .aram import AuditReportCommand
+        created = kwargs.get('created')
+        if created:
+            if created in ('today', 'yesterday', 'last_7_days', 'last_30_days', 'month_to_date',
+                           'last_month', 'year_to_date', 'last_year'):
+                # Named ranges are resolved server-side; return the token for the filter.
+                return created
+            flt = AuditReportCommand.get_filter(created, AuditReportCommand.convert_date)
+            return flt
+        cycle = KSMCommand._ksm_billing_cycle(params)
+        if cycle:
+            return {'min': cycle[0], 'max': cycle[1], 'exclude_max': True}
+        # No billing-cycle anchor available (license has no next_billing_date); fall back to a 30-day window.
+        logging.warning('KSM billing cycle unavailable; defaulting to the last 30 days')
+        return 'last_30_days'
+
+    @staticmethod
+    def execute_usage(params, **kwargs):
+        if kwargs.get('helpflag'):
+            ksm_usage_parser.print_help()
+            return
+        if not params.enterprise:
+            print(f'{bcolors.WARNING}secrets-manager usage requires an enterprise account.{bcolors.ENDC}')
+            return
+
+        detail = kwargs.get('detail', False)
+        by_device = kwargs.get('by_device', False)
+        summary = kwargs.get('summary', False)
+        timeline = kwargs.get('timeline', False)
+        export_all = kwargs.get('export_all', False)
+        time_range = kwargs.get('range')
+
+        # Validate mutually-exclusive families.
+        if timeline and (detail or by_device or summary):
+            print(f'{bcolors.WARNING}--timeline cannot be combined with --detail/--by-device/--summary.{bcolors.ENDC}')
+            return
+        if summary and (detail or by_device):
+            print(f'{bcolors.WARNING}--summary is its own report; do not combine with --detail/--by-device.{bcolors.ENDC}')
+            return
+        if not timeline and (export_all or time_range):
+            print(f'{bcolors.WARNING}--all and --range apply only to --timeline.{bcolors.ENDC}')
+            return
+
+        if timeline:
+            return KSMCommand._usage_timeline(params, **kwargs)
+        return KSMCommand._usage_metrics(params, **kwargs)
+
+    @staticmethod
+    def _usage_metrics(params, **kwargs):
+        from .aram import fetch_audit_events
+        detail = kwargs.get('detail', False)
+        by_device = kwargs.get('by_device', False)
+        summary = kwargs.get('summary', False)
+        fmt = kwargs.get('format') or 'table'
+        output = kwargs.get('output')
+        limit = kwargs.get('limit')
+
+        created_filter = KSMCommand._resolve_usage_window(params, kwargs)
+        audit_filter = {'audit_event_type': [KSM_USAGE_EVENT_TYPE], 'created': created_filter}
+        rows = fetch_audit_events(
+            params, audit_filter, columns=['app_uid', 'device_name', 'username'],
+            aggregate=['occurrences'], report_type='span', limit=limit)
+
+        # Aggregation maps mirror Console getSecretsManagerMetrics. The *_apps maps track which
+        # application UID(s) contributed to each row so we can flag rows whose app has been deleted
+        # (audit events outlive the app, so usage can reference apps no longer in the vault inventory).
+        users = {}            # username -> occurrences
+        devices = {}          # device_name -> occurrences
+        applications = set()  # distinct app_uid
+        by_owner = {}         # username~|~device_name -> occurrences
+        by_dev = {}           # device_name~|~app_uid~|~username -> occurrences
+        users_apps = {}       # username -> {app_uid}  (for the aggregate Exist column)
+        devices_apps = {}     # device_name -> {app_uid}
+        # (device_name, app_uid) -> occurrences. Device names are NOT unique - the same name can
+        # belong to different apps (e.g. several "Playground Gateway" from repeated sample-data
+        # imports). Aggregating by name alone would merge distinct apps into one row with a blurred
+        # Exist; keying by (name, app_uid) keeps them separate so each row maps to exactly one app.
+        dev_app = {}
+        # username~|~device_name -> {app_uid}. Not consumed today (detail views omit the Exist column),
+        # but kept so a per-owner+device existence flag can be re-added without touching aggregation.
+        by_owner_apps = {}
+        for r in rows:
+            username = r.get('username') or ''
+            device_name = r.get('device_name') or ''
+            app_uid = r.get('app_uid') or ''
+            occ = int(r.get('occurrences') or 0)
+            users[username] = users.get(username, 0) + occ
+            devices[device_name] = devices.get(device_name, 0) + occ
+            dev_app[(device_name, app_uid)] = dev_app.get((device_name, app_uid), 0) + occ
+            if app_uid:
+                applications.add(app_uid)
+                users_apps.setdefault(username, set()).add(app_uid)
+                devices_apps.setdefault(device_name, set()).add(app_uid)
+                by_owner_apps.setdefault(_USAGE_KEY_SEP.join((username, device_name)), set()).add(app_uid)
+            by_owner[_USAGE_KEY_SEP.join((username, device_name))] = \
+                by_owner.get(_USAGE_KEY_SEP.join((username, device_name)), 0) + occ
+            by_dev[_USAGE_KEY_SEP.join((device_name, app_uid, username))] = \
+                by_dev.get(_USAGE_KEY_SEP.join((device_name, app_uid, username)), 0) + occ
+
+        name_map = KSMCommand._user_fullname_map(params)
+
+        # Exist column: shown only with --exists, and only on --by-device (each row is a single app).
+        # Existence comes solely from enterprise compliance data - deleted KSM apps (v5) cannot be
+        # listed via any local API (get_deleted_records excludes version >= 4 in the backend), so the
+        # compliance sync is the only source. That sync is VERY SLOW (full tenant scan) - hence opt-in
+        # behind --exists. Unknown ('?') when compliance data is unavailable.
+        show_exist = by_device and not detail and bool(kwargs.get('exists'))
+        sox_live, sox_trash, sox_loaded = set(), set(), False
+        if show_exist:
+            logging.warning(f'{bcolors.WARNING}secrets-manager usage --exists is VERY SLOW: it runs a '
+                            f'FULL enterprise compliance sync (can take minutes on large tenants). '
+                            f'Resolving app existence...{bcolors.ENDC}')
+            status = KSMCommand._compliance_app_status(params)
+            if status is not None:
+                sox_live, sox_trash = status
+                sox_loaded = True
+
+        def app_status(a):  # -> 'Y' (live) | 'T' (in trash) | 'N' (purged) | '?' (unknown)
+            if not a or not sox_loaded:
+                return '?'
+            if a in sox_live:
+                return 'Y'
+            if a in sox_trash:
+                return 'T'
+            return 'N'  # absent from compliance data -> purged (best effort)
+
+        if summary:
+            total = sum(users.values())
+            users_count = len(users)
+            avg = (total / users_count) if users_count else 0
+            table = [
+                ['Total API Usage This Cycle', total],
+                ['Applications', len(applications)],
+                ['Devices', len(devices)],
+                ['Average API Calls Per User', round(avg, 2)],
+            ]
+            headers = ['Metric', 'Value']
+        elif detail and by_device:
+            # Full Device Usage: device, app_uid, owner (name+email), usage
+            table = []
+            for key, occ in sorted(by_dev.items(), key=lambda kv: kv[1], reverse=True):
+                device_name, app_uid, username = key.split(_USAGE_KEY_SEP)
+                full = name_map.get(username, '')
+                table.append([device_name, app_uid, full, username, occ])
+            headers = ['Device', 'Application UID', 'Owner', 'Email', 'API Usage per Month']
+        elif detail:
+            # Full User Usage: owner (name+email), device, usage
+            table = []
+            for key, occ in sorted(by_owner.items(), key=lambda kv: kv[1], reverse=True):
+                username, device_name = key.split(_USAGE_KEY_SEP)
+                full = name_map.get(username, '')
+                table.append([full, username, device_name, occ])
+            headers = ['Owner', 'Email', 'Device', 'API Usage per Month']
+        elif by_device:
+            # Top Usage by Device: one row per (device, app). Suffix the name with the app UID only
+            # when that device name is shared by more than one app, so each row is unambiguous. The
+            # Exist column is appended only with --exists (compliance-based; see above).
+            name_counts = {}
+            for (dev, _app) in dev_app:
+                name_counts[dev] = name_counts.get(dev, 0) + 1
+            table = []
+            for (dev, app), occ in sorted(dev_app.items(), key=lambda kv: kv[1], reverse=True):
+                label = dev if name_counts.get(dev, 0) <= 1 else f'{dev} ({app or "no-app-uid"})'
+                row = [label, occ]
+                if show_exist:
+                    row.append(app_status(app))
+                table.append(row)
+            headers = ['Device', 'Count', 'Exist'] if show_exist else ['Device', 'Count']
+        else:
+            # Default: Top Application Usage (by owner/user): email, count. No Exist column - a single
+            # owner aggregates many apps, so a combined existence verdict would be misleading.
+            table = [[user, occ]
+                     for user, occ in sorted(users.items(), key=lambda kv: kv[1], reverse=True)]
+            headers = ['Application Owner', 'Count']
+
+        # --sort name: re-sort by the first (name/title) column so related rows group together
+        # (e.g. all "Playground*" devices). Default 'count' keeps the per-view descending-count order.
+        # Skipped for --summary, whose rows are fixed metric labels.
+        if kwargs.get('sort') == 'name' and not summary:
+            table.sort(key=lambda r: str(r[0]).casefold())
+
+        result = dump_report_data(table, headers=headers, fmt=fmt, filename=output)
+        # Table mode: always print the app-list pointer; add the Exist legend only when the Exist
+        # column is shown (--by-device --exists).
+        if fmt == 'table':
+            if show_exist:
+                print(f'\n{bcolors.OKBLUE}{USAGE_EXIST_LEGEND} {USAGE_APPS_TAIL}{bcolors.ENDC}')
+            else:
+                print(f'\n{bcolors.OKBLUE}{USAGE_APPS_TAIL}{bcolors.ENDC}')
+        return result
+
+    @staticmethod
+    def _usage_timeline(params, **kwargs):
+        from .aram import fetch_audit_events
+        from ..constants import AUDIT_EVENT_STATE_MAPPING
+        fmt = kwargs.get('format') or 'table'
+        output = kwargs.get('output')
+        limit = kwargs.get('limit')
+        export_all = kwargs.get('export_all', False)
+        time_range = kwargs.get('range') or '30d'
+        report_type, _preset, _days = KSM_TIMELINE_RANGES[time_range]
+
+        # Window: mirror Console reportsDatePresets / auditTimeline.js.
+        now = datetime.datetime.now()
+        if time_range == '24h':
+            to_dt = now.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
+            from_dt = to_dt - datetime.timedelta(hours=24)
+        else:
+            to_dt = now.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
+            from_dt = to_dt - datetime.timedelta(days=_days + 1)
+        created_filter = {'min': int(from_dt.timestamp()), 'max': int(to_dt.timestamp())}
+
+        audit_filter = {'audit_event_type': KSM_EVENT_TYPES, 'created': created_filter}
+        rows = fetch_audit_events(
+            params, audit_filter, columns=['audit_event_type'], aggregate=['occurrences'],
+            report_type=report_type, limit=limit, order='descending')
+
+        def label(evt):
+            return AUDIT_EVENT_STATE_MAPPING.get(evt, evt)
+
+        def fmt_time(created):
+            dt = datetime.datetime.fromtimestamp(int(created))
+            return dt.strftime('%Y-%m-%d %H:%M') if report_type == 'hour' else dt.strftime('%Y-%m-%d')
+
+        if export_all:
+            # Export All: one row per (time bucket x event), columns Date / Event / Number of Events.
+            table = []
+            for r in sorted(rows, key=lambda x: int(x.get('created') or 0)):
+                evt = r.get('audit_event_type') or ''
+                table.append([fmt_time(r.get('created')), label(evt), int(r.get('occurrences') or 0)])
+            headers = ['Date', 'Event', 'Number of Events']
+            return dump_report_data(table, headers=headers, fmt=fmt, filename=output)
+
+        # Default timeline: event totals over the range, with % of total.
+        totals = {}
+        for r in rows:
+            evt = r.get('audit_event_type') or ''
+            totals[evt] = totals.get(evt, 0) + int(r.get('occurrences') or 0)
+        grand = sum(totals.values())
+        table = []
+        for evt, cnt in sorted(totals.items(), key=lambda kv: kv[1], reverse=True):
+            pct = round(cnt * 100.0 / grand, 1) if grand else 0
+            table.append([label(evt), cnt, f'{pct}%'])
+        return dump_report_data(table, headers=['Event', 'Count', '% of Total'], fmt=fmt, filename=output)
+
     @staticmethod
     def share_app(params, app_name_or_uid, email, is_admin=False, unshare=False):
         # type: (KeeperParams, str, List[str], Optional[bool], Optional[bool]) -> None
@@ -593,11 +1081,15 @@ class KSMCommand(Command):
         app_record_uid = rec_cache_val.get('record_uid')
         master_key = rec_cache_val.get('record_key_unencrypted')
 
+        resolved_uids = KSMCommand.resolve_secret_uids(params, secret_uids)
+        if not resolved_uids:
+            return
+
         KSMCommand.share_secret(
             params=params,
             app_uid=app_record_uid,
             master_key=master_key,
-            secret_uids=secret_uids,
+            secret_uids=resolved_uids,
             is_editable=is_editable
         )
 
@@ -838,8 +1330,6 @@ class KSMCommand(Command):
                     print(bcolors.BOLD + "\nApplication Access\n" + bcolors.ENDC)
 
                 if ai.shares:
-                    recs = params.record_cache
-
                     for s in ai.shares:
                         uid_str = utils.base64_url_encode(s.secretUid)
                         sht = APIRequest_pb2.ApplicationShareType.Name(s.shareType)
@@ -851,18 +1341,17 @@ class KSMCommand(Command):
                         }
 
                         if sht == 'SHARE_TYPE_RECORD':
-                            rec = recs.get(uid_str)
-                            if rec:
-                                record_data_dict = KSMCommand.record_data_as_dict(rec)
-                                share_data["title"] = record_data_dict.get('title')
-                                share_data["type"] = "RECORD"
+                            share_data["title"] = KSMCommand.get_secret_title(params, uid_str, sht)
+                            share_data["type"] = "RECORD"
+                            #ToDo: check if type nsf record is valid here
+                            if is_nested_share_record(params, uid_str):
+                                share_data["type"] = "NSF RECORD"
                         elif sht == 'SHARE_TYPE_FOLDER':
-                            if uid_str in params.shared_folder_cache:
-                                cached_sf = params.shared_folder_cache[uid_str]
-                                share_data["title"] = cached_sf.get('name_unencrypted')
-                                share_data["type"] = "FOLDER"
-                            else:
-                                continue
+                            share_data["title"] = KSMCommand.get_secret_title(params, uid_str, sht)
+                            share_data["type"] = "FOLDER"
+                            #ToDo: check if type nsf folder is valid here
+                            if is_nested_share_folder(params, uid_str):
+                                share_data["type"] = "NSF FOLDER"
                         else:
                             logging.warning("Unknown Share Type %s" % sht)
                             continue
@@ -901,32 +1390,159 @@ class KSMCommand(Command):
                 return json.dumps({"applications": result_data}, indent=2)
 
     @staticmethod
+    def _secret_in_cache(params, uid):
+        if uid in getattr(params, 'record_cache', {}):
+            return True
+        if uid in getattr(params, 'nested_share_records', {}):
+            return True
+        if api.is_shared_folder(params, uid):
+            return True
+        if is_nested_share_folder(params, uid):
+            return True
+        return False
+
+    @staticmethod
+    def resolve_secret_uid(params, identifier):
+        if not identifier:
+            return None
+        identifier = str(identifier).strip()
+        if identifier.startswith('[') and identifier.endswith(']') and len(identifier) > 2:
+            identifier = identifier[1:-1].strip()
+        if KSMCommand._secret_in_cache(params, identifier):
+            return identifier
+        record_uid = resolve_nested_share_record_uid(params, identifier)
+        if record_uid:
+            return record_uid
+        folder_uid = resolve_folder_uid(params, identifier)
+        if folder_uid and (api.is_shared_folder(params, folder_uid)
+                           or is_nested_share_folder(params, folder_uid)):
+            return folder_uid
+        folder_uid = resolve_nested_share_folder_uid(params, identifier)
+        if folder_uid and is_nested_share_folder(params, folder_uid):
+            return folder_uid
+        return None
+
+    @staticmethod
+    def resolve_secret_uids(params, identifiers):
+        if not identifiers:
+            return []
+        if isinstance(identifiers, str):
+            identifiers = [identifiers]
+        resolved = []
+        for ident in identifiers:
+            uid = KSMCommand.resolve_secret_uid(params, ident)
+            if uid:
+                resolved.append(uid)
+            else:
+                logging.warning('Could not resolve secret "%s". Run sync-down and try again.', ident)
+        return resolved
+
+    @staticmethod
+    def classify_secret(params, uid):
+        share_key = None
+        share_type = None
+
+        if uid in getattr(params, 'record_cache', {}) or is_nested_share_record(params, uid):
+            share_type = 'SHARE_TYPE_RECORD'
+            if uid in params.record_cache:
+                share_key = params.record_cache[uid].get('record_key_unencrypted')
+            if not share_key:
+                share_key = get_record_key(params, uid, raise_on_missing=False)
+        elif api.is_shared_folder(params, uid) or is_nested_share_folder(params, uid):
+            share_type = 'SHARE_TYPE_FOLDER'
+            cached_sf = getattr(params, 'shared_folder_cache', {}).get(uid, {})
+            share_key = cached_sf.get('shared_folder_key_unencrypted')
+            if not share_key:
+                share_key = get_folder_key(params, uid, raise_on_missing=False)
+
+        if share_type and share_key:
+            return {'uid': uid, 'share_type': share_type, 'share_key': share_key}
+        return None
+
+    @staticmethod
+    def get_secret_title(params, uid, share_type):
+        if share_type == 'SHARE_TYPE_RECORD':
+            rec = getattr(params, 'record_cache', {}).get(uid)
+            if rec and rec.get('data_unencrypted'):
+                try:
+                    return KSMCommand.record_data_as_dict(rec).get('title', uid)
+                except Exception:
+                    pass
+            if is_nested_share_record(params, uid):
+                return load_record_metadata(params, uid).get('title', uid)
+        elif share_type == 'SHARE_TYPE_FOLDER':
+            cached_sf = getattr(params, 'shared_folder_cache', {}).get(uid, {})
+            if cached_sf.get('name_unencrypted'):
+                return cached_sf.get('name_unencrypted')
+            nsf = getattr(params, 'nested_share_folders', {}).get(uid, {})
+            if nsf.get('name'):
+                return nsf.get('name')
+            folder = getattr(params, 'folder_cache', {}).get(uid)
+            if folder and getattr(folder, 'name', None):
+                return folder.name
+        return uid
+
+    @staticmethod
+    def _share_nsf_secret(params, app_uid, master_key, secret, is_editable=False):
+        """Share an NSF folder/record with an application using v3 access APIs."""
+        from ..nested_share_folder.folder_api import grant_folder_access_to_application_v3
+        from ..nested_share_folder.record_api import share_record_to_application_v3
+
+        uid = secret['uid']
+        if secret['share_type'] == 'SHARE_TYPE_FOLDER' and is_nested_share_folder(params, uid):
+            result = grant_folder_access_to_application_v3(
+                params, uid, app_uid, master_key, is_editable=is_editable)
+            if not result.get('success'):
+                raise KeeperApiError(
+                    result.get('status') or 'access_denied',
+                    result.get('message') or 'Failed to share Nested Share Folder with application')
+            return True
+
+        if secret['share_type'] == 'SHARE_TYPE_RECORD' and is_nested_share_record(params, uid):
+            result = share_record_to_application_v3(
+                params, uid, app_uid, master_key, is_editable=is_editable)
+            if not result.get('success'):
+                message = '; '.join(
+                    r.get('message') or r.get('status') or 'share failed'
+                    for r in result.get('results', [])) or 'Failed to share Nested Share Record with application'
+                raise KeeperApiError('share_failed', message)
+            return True
+
+        return False
+
+    @staticmethod
     def share_secret(params, app_uid, master_key, secret_uids, is_editable=False):
 
         app_shares = []
-
         added_secret_uids_type_pairs = []
 
         for uid in secret_uids:
-            is_record = uid in params.record_cache
-            is_shared_folder = api.is_shared_folder(params, uid)
-
-            if is_record:
-                rec = params.record_cache[uid]
-                share_key_decrypted = rec['record_key_unencrypted']
-                share_type = 'SHARE_TYPE_RECORD'
-            elif is_shared_folder:
-                cached_sf = params.shared_folder_cache[uid]
-                shared_folder_key_unencrypted = cached_sf.get('shared_folder_key_unencrypted')
-                share_key_decrypted = shared_folder_key_unencrypted
-                share_type = 'SHARE_TYPE_FOLDER'
-            else:
-                print(f"""{bcolors.WARNING}\tUID="{uid}" is not a Record nor Shared Folder. Only individual records or 
-                Shared Folders can be added to the application.{bcolors.ENDC} Make sure your local cache is up to date by
+            secret = KSMCommand.classify_secret(params, uid)
+            if not secret:
+                print(f"""{bcolors.WARNING}\tUID="{uid}" is not a Record, Shared Folder, or Nested Share Folder record.
+                Only individual records or folders can be added to the application.{bcolors.ENDC} Make sure your local cache is up to date by
                 running 'sync-down' command and trying again.""")
-
                 continue
 
+            share_type = secret['share_type']
+            uid = secret['uid']
+
+            # NSF folders/records must use v3 access_update / records share APIs.
+            if ((share_type == 'SHARE_TYPE_FOLDER' and is_nested_share_folder(params, uid))
+                    or (share_type == 'SHARE_TYPE_RECORD' and is_nested_share_record(params, uid))):
+                try:
+                    KSMCommand._share_nsf_secret(
+                        params, app_uid, master_key, secret, is_editable=is_editable)
+                    added_secret_uids_type_pairs.append((uid, share_type))
+                except KeeperApiError as kae:
+                    if 'already' in (kae.message or '').lower():
+                        logging.error("One of the secret UIDs is already shared to this application. "
+                                      "Please remove already shared UIDs from your command and try again.")
+                    else:
+                        raise kae
+                continue
+
+            share_key_decrypted = secret['share_key']
             added_secret_uids_type_pairs.append((uid, share_type))
 
             encrypted_secret_key = crypto.encrypt_aes_v2(share_key_decrypted, master_key)
@@ -942,15 +1558,20 @@ class KSMCommand(Command):
         if len(added_secret_uids_type_pairs) == 0:
             return
 
-        app_share_add_rq = APIRequest_pb2.AddAppSharesRequest()
-        app_share_add_rq.appRecordUid = utils.base64_url_decode(app_uid)
-        app_share_add_rq.shares.extend(app_shares)
-
         try:
-            api.communicate_rest(params, app_share_add_rq, 'vault/app_share_add')
+            if app_shares:
+                app_share_add_rq = APIRequest_pb2.AddAppSharesRequest()
+                app_share_add_rq.appRecordUid = utils.base64_url_decode(app_uid)
+                app_share_add_rq.shares.extend(app_shares)
+                api.communicate_rest(params, app_share_add_rq, 'vault/app_share_add')
+
             print(bcolors.OKGREEN + f'\nSuccessfully added secrets to app uid={app_uid}, '
                                     f'editable=' + bcolors.BOLD + f'{is_editable}:' + bcolors.ENDC)
-            print('\n'.join(map(lambda x: ('\t' + str(x[0])) + ' ' + ('Record' if ('RECORD' in str(x[1])) else 'Shared Folder'), added_secret_uids_type_pairs)))
+            print('\n'.join(map(lambda x: ('\t' + str(x[0])) + ' ' + (
+                'Nested Share Folder' if is_nested_share_folder(params, x[0]) else
+                'Nested Share Record' if is_nested_share_record(params, x[0]) else
+                'Record' if 'RECORD' in str(x[1]) else 'Shared Folder'),
+                added_secret_uids_type_pairs)))
             print('\n')
             return True
         except KeeperApiError as kae:
@@ -962,19 +1583,123 @@ class KSMCommand(Command):
         return False
 
     @staticmethod
+    def _is_ksm_app_data(data_dict):
+        return isinstance(data_dict, dict) and data_dict.get('type') == 'app'
+
+    @staticmethod
+    def _app_record_from_cache_entry(rec_cache_val):
+        if not rec_cache_val or rec_cache_val.get('version') != 5:
+            return None
+        data_unencrypted = rec_cache_val.get('data_unencrypted')
+        if not data_unencrypted:
+            return None
+        try:
+            data_dict = json.loads(data_unencrypted.decode('utf-8'))
+        except Exception:
+            return None
+        if KSMCommand._is_ksm_app_data(data_dict):
+            return rec_cache_val
+        return None
+
+    @staticmethod
+    def _normalize_nsf_app_record(params, record_uid):
+        nsf_rec = getattr(params, 'nested_share_records', {}).get(record_uid)
+        if not nsf_rec:
+            return None
+
+        nsf_data = getattr(params, 'nested_share_record_data', {}).get(record_uid, {})
+        data_json = nsf_data.get('data_json', {})
+        if not KSMCommand._is_ksm_app_data(data_json):
+            return None
+
+        record_key = nsf_rec.get('record_key_unencrypted')
+        if not record_key:
+            record_key = get_record_key(params, record_uid, raise_on_missing=False)
+        if not record_key:
+            return None
+
+        return {
+            'record_uid': record_uid,
+            'version': nsf_rec.get('version', 5),
+            'revision': nsf_rec.get('revision', 0),
+            'record_key_unencrypted': record_key,
+            'data_unencrypted': json.dumps(data_json).encode('utf-8'),
+            'source': 'nested_share_folder',
+        }
+
+    @staticmethod
     def get_app_record(params, app_name_or_uid):
+        if not app_name_or_uid:
+            return None
+
+        if app_name_or_uid in getattr(params, 'record_cache', {}):
+            rec = KSMCommand._app_record_from_cache_entry(params.record_cache[app_name_or_uid])
+            if rec:
+                return rec
+
+        nsf_rec = KSMCommand._normalize_nsf_app_record(params, app_name_or_uid)
+        if nsf_rec:
+            return nsf_rec
 
         for rec_cache_val in params.record_cache.values():
+            rec = KSMCommand._app_record_from_cache_entry(rec_cache_val)
+            if not rec:
+                continue
+            r_uid = rec.get('record_uid')
+            try:
+                r_unencr_dict = json.loads(rec.get('data_unencrypted').decode('utf-8'))
+            except Exception:
+                continue
+            if r_unencr_dict.get('title') == app_name_or_uid or r_uid == app_name_or_uid:
+                return rec
 
-            if rec_cache_val.get('version') == 5:
-                r_uid = rec_cache_val.get('record_uid')
-                r_unencr_json_data = rec_cache_val.get('data_unencrypted').decode('utf-8')
-                r_unencr_dict = json.loads(r_unencr_json_data)
-
-                if r_unencr_dict.get('title') == app_name_or_uid or r_uid == app_name_or_uid:
-                    return rec_cache_val
+        resolved_uid = resolve_nested_share_record_uid(params, app_name_or_uid)
+        if resolved_uid:
+            if resolved_uid in getattr(params, 'record_cache', {}):
+                rec = KSMCommand._app_record_from_cache_entry(params.record_cache[resolved_uid])
+                if rec:
+                    return rec
+            nsf_rec = KSMCommand._normalize_nsf_app_record(params, resolved_uid)
+            if nsf_rec:
+                return nsf_rec
 
         return None
+
+    @staticmethod
+    def get_app_title(params, app_uid):
+        rec = KSMCommand.get_app_record(params, app_uid)
+        if rec and rec.get('data_unencrypted'):
+            try:
+                return json.loads(rec.get('data_unencrypted').decode('utf-8')).get('title', app_uid)
+            except Exception:
+                pass
+
+        if is_nested_share_record(params, app_uid):
+            meta = load_record_metadata(params, app_uid)
+            if meta.get('type') == 'app':
+                return meta.get('title', app_uid)
+
+        nsf_data = getattr(params, 'nested_share_record_data', {}).get(app_uid, {})
+        data_json = nsf_data.get('data_json', {})
+        if isinstance(data_json, dict) and data_json.get('type') == 'app':
+            return data_json.get('title', app_uid)
+        return None
+
+    @staticmethod
+    def get_ksm_app_display_info(params, app_uid_str):
+        ksm_app = KSMCommand.get_app_record(params, app_uid_str)
+        if ksm_app:
+            try:
+                title = json.loads(ksm_app.get('data_unencrypted').decode('utf-8')).get('title', app_uid_str)
+            except Exception:
+                title = app_uid_str
+            return title, True, f'{title} ({app_uid_str})'
+
+        title = KSMCommand.get_app_title(params, app_uid_str)
+        if title:
+            return title, False, f'{title} ({app_uid_str})'
+
+        return None, False, f'[APP NOT ACCESSIBLE OR DELETED] ({app_uid_str})'
 
     @staticmethod
     def search_app_records(params, search_str):
@@ -1163,6 +1888,10 @@ class KSMCommand(Command):
         app_record_uid = rec_cache_val.get('record_uid')
         master_key = rec_cache_val.get('record_key_unencrypted')
 
+        resolved_secret_uids = KSMCommand.resolve_secret_uids(params, secret_uids)
+        if not resolved_secret_uids:
+            return
+
         app_info = KSMCommand.get_app_info(params, app_record_uid)
         existing_shares = {
             utils.base64_url_encode(s.secretUid): s
@@ -1170,7 +1899,18 @@ class KSMCommand(Command):
         }
 
         uids_to_update = []
-        for uid in secret_uids:
+        nsf_uids_to_update = []
+        for uid in resolved_secret_uids:
+            secret = KSMCommand.classify_secret(params, uid)
+            is_nsf = bool(
+                secret and (
+                    (secret['share_type'] == 'SHARE_TYPE_FOLDER'
+                     and is_nested_share_folder(params, secret['uid']))
+                    or (secret['share_type'] == 'SHARE_TYPE_RECORD'
+                        and is_nested_share_record(params, secret['uid']))))
+            if is_nsf:
+                nsf_uids_to_update.append(secret['uid'])
+                continue
             if uid not in existing_shares:
                 logging.warning('Secret "%s" is not currently shared with this application. '
                                 'Use "share add" to add it first.' % uid)
@@ -1182,63 +1922,86 @@ class KSMCommand(Command):
                 continue
             uids_to_update.append(uid)
 
-        if not uids_to_update:
+        if not uids_to_update and not nsf_uids_to_update:
             print(bcolors.WARNING + "No share permissions to update." + bcolors.ENDC)
             return
 
-        rq_remove = APIRequest_pb2.RemoveAppSharesRequest()
-        rq_remove.appRecordUid = utils.base64_url_decode(app_record_uid)
-        rq_remove.shares.extend(utils.base64_url_decode(uid) for uid in uids_to_update)
+        from ..nested_share_folder.folder_api import update_folder_access_to_application_v3
+        from ..nested_share_folder.record_api import update_record_share_to_application_v3
 
-        try:
-            api.communicate_rest(params, rq_remove, 'vault/app_share_remove')
-        except KeeperApiError as kae:
-            logging.error('Failed to remove shares for update: %s' % kae.message)
-            return
-
-        app_shares = []
-        for uid in uids_to_update:
-            is_record = uid in params.record_cache
-            is_shared_folder = api.is_shared_folder(params, uid)
-
-            if is_record:
-                share_key = params.record_cache[uid]['record_key_unencrypted']
-                share_type = 'SHARE_TYPE_RECORD'
-            elif is_shared_folder:
-                share_key = params.shared_folder_cache[uid].get('shared_folder_key_unencrypted')
-                share_type = 'SHARE_TYPE_FOLDER'
-            else:
+        updated = []
+        for uid in nsf_uids_to_update:
+            secret = KSMCommand.classify_secret(params, uid)
+            if not secret:
                 logging.warning('UID "%s" not found in local cache. Run sync-down and try again.' % uid)
                 continue
+            if secret['share_type'] == 'SHARE_TYPE_FOLDER':
+                result = update_folder_access_to_application_v3(
+                    params, uid, app_record_uid, is_editable=is_editable)
+            else:
+                result = update_record_share_to_application_v3(
+                    params, uid, app_record_uid, master_key, is_editable=is_editable)
+            if not result.get('success'):
+                logging.error('Failed to update NSF share "%s": %s',
+                              uid, result.get('message') or result)
+                continue
+            updated.append(uid)
 
-            encrypted_secret_key = crypto.encrypt_aes_v2(share_key, master_key)
+        if uids_to_update:
+            rq_remove = APIRequest_pb2.RemoveAppSharesRequest()
+            rq_remove.appRecordUid = utils.base64_url_decode(app_record_uid)
+            rq_remove.shares.extend(utils.base64_url_decode(uid) for uid in uids_to_update)
 
-            app_share = APIRequest_pb2.AppShareAdd()
-            app_share.secretUid = utils.base64_url_decode(uid)
-            app_share.shareType = APIRequest_pb2.ApplicationShareType.Value(share_type)
-            app_share.encryptedSecretKey = encrypted_secret_key
-            app_share.editable = is_editable
+            try:
+                api.communicate_rest(params, rq_remove, 'vault/app_share_remove')
+            except KeeperApiError as kae:
+                logging.error('Failed to remove shares for update: %s' % kae.message)
+                return
 
-            app_shares.append(app_share)
+            app_shares = []
+            for uid in uids_to_update:
+                secret = KSMCommand.classify_secret(params, uid)
+                if not secret:
+                    logging.warning('UID "%s" not found in local cache. Run sync-down and try again.' % uid)
+                    continue
 
-        if not app_shares:
-            return
+                share_key = secret['share_key']
+                share_type = secret['share_type']
+                uid = secret['uid']
 
-        rq_add = APIRequest_pb2.AddAppSharesRequest()
-        rq_add.appRecordUid = utils.base64_url_decode(app_record_uid)
-        rq_add.shares.extend(app_shares)
+                encrypted_secret_key = crypto.encrypt_aes_v2(share_key, master_key)
 
-        try:
-            api.communicate_rest(params, rq_add, 'vault/app_share_add')
+                app_share = APIRequest_pb2.AppShareAdd()
+                app_share.secretUid = utils.base64_url_decode(uid)
+                app_share.shareType = APIRequest_pb2.ApplicationShareType.Value(share_type)
+                app_share.encryptedSecretKey = encrypted_secret_key
+                app_share.editable = is_editable
+
+                app_shares.append(app_share)
+
+            if not app_shares and not updated:
+                return
+
+            if app_shares:
+                rq_add = APIRequest_pb2.AddAppSharesRequest()
+                rq_add.appRecordUid = utils.base64_url_decode(app_record_uid)
+                rq_add.shares.extend(app_shares)
+
+                try:
+                    api.communicate_rest(params, rq_add, 'vault/app_share_add')
+                    updated.extend(uids_to_update)
+                except KeeperApiError as kae:
+                    logging.error('Failed to re-add shares with updated permissions: %s' % kae.message)
+                    return
+
+        if updated:
             perm = "editable" if is_editable else "read-only"
             print(bcolors.OKGREEN +
                   f'\nSuccessfully updated share permissions to {perm} for app uid={app_record_uid}:' +
                   bcolors.ENDC)
-            for uid in uids_to_update:
+            for uid in updated:
                 print(f'\t{uid}')
             print()
-        except KeeperApiError as kae:
-            logging.error('Failed to re-add shares with updated permissions: %s' % kae.message)
 
     @staticmethod
     def remove_share(params, app_name_or_uid, secret_uids):
@@ -1248,11 +2011,38 @@ class KSMCommand(Command):
 
         app_uid = app.get('record_uid')
 
-        rq = APIRequest_pb2.RemoveAppSharesRequest()
+        resolved_uids = KSMCommand.resolve_secret_uids(params, secret_uids)
+        if not resolved_uids:
+            raise Exception("No valid record or folder secrets were found for removal")
 
-        rq.appRecordUid = utils.base64_url_decode(app_uid)
-        rq.shares.extend((utils.base64_url_decode(x) for x in secret_uids))
-        api.communicate_rest(params, rq, 'vault/app_share_remove')
+        from ..nested_share_folder.folder_api import revoke_folder_access_from_application_v3
+        from ..nested_share_folder.record_api import unshare_record_from_application_v3
+
+        classic_uids = []
+        for uid in resolved_uids:
+            secret = KSMCommand.classify_secret(params, uid)
+            if secret and secret['share_type'] == 'SHARE_TYPE_FOLDER' and is_nested_share_folder(params, uid):
+                result = revoke_folder_access_from_application_v3(params, uid, app_uid)
+                if not result.get('success'):
+                    raise KeeperApiError(
+                        result.get('status') or 'access_denied',
+                        result.get('message') or f'Failed to remove NSF folder share {uid}')
+                continue
+            if secret and secret['share_type'] == 'SHARE_TYPE_RECORD' and is_nested_share_record(params, uid):
+                result = unshare_record_from_application_v3(params, uid, app_uid)
+                if not result.get('success'):
+                    message = '; '.join(
+                        r.get('message') or r.get('status') or 'revoke failed'
+                        for r in result.get('results', [])) or f'Failed to remove NSF record share {uid}'
+                    raise KeeperApiError('share_failed', message)
+                continue
+            classic_uids.append(uid)
+
+        if classic_uids:
+            rq = APIRequest_pb2.RemoveAppSharesRequest()
+            rq.appRecordUid = utils.base64_url_decode(app_uid)
+            rq.shares.extend((utils.base64_url_decode(x) for x in classic_uids))
+            api.communicate_rest(params, rq, 'vault/app_share_remove')
         print(bcolors.OKGREEN + "Secret share was successfully removed from the application\n" + bcolors.ENDC)
 
     @staticmethod

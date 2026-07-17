@@ -25,10 +25,10 @@ import jax
 from jax._src import core as jax_core
 from jax._src import dtypes
 from jax._src import frozen_dict
-from jax._src import linear_util as lu
 from jax._src import sharding_impls
 from jax._src import state
 from jax._src import tpu_custom_call
+from jax._src import flattree as ft
 from jax._src.interpreters import mlir
 from jax._src.interpreters import partial_eval as pe
 from jax._src.lib.mlir import ir
@@ -57,6 +57,7 @@ def _get_memory_space_from_aval(
           tpu_core.MemorySpace,
           pallas_core.MemorySpace,
           pallas_core.CoreMemorySpace,
+          jax_core.MemorySpace,
       ),
   ):
     return None  # If we are passed a non-TPU memory space, ignore it.
@@ -77,7 +78,7 @@ def _get_memory_space_from_aval(
           return tpu_custom_call.MemorySpace.SEMAPHORE_MEM
         case _:
           raise ValueError(f"Invalid kernel type for semaphore: {kernel_type}")
-    case pallas_core.MemorySpace.HOST:
+    case jax_core.MemorySpace.Host:
       return tpu_custom_call.MemorySpace.HOST
     case pallas_core.CoreMemorySpace(tpu_core.MemorySpace.VMEM, mesh):
       match mesh.core_type:
@@ -89,6 +90,8 @@ def _get_memory_space_from_aval(
       match mesh.core_type:
         case tpu_core.CoreType.SC_SCALAR_SUBCORE:
           return tpu_custom_call.MemorySpace.SC_SCALAR_SEMAPHORE_MEM
+        case tpu_core.CoreType.SC_VECTOR_SUBCORE:
+          return tpu_custom_call.MemorySpace.SC_VECTOR_SEMAPHORE_MEM
         case tpu_core.CoreType.TC:
           return tpu_custom_call.MemorySpace.SEMAPHORE_MEM
         case _:
@@ -106,7 +109,10 @@ def _get_memory_spaces_from_avals(
 ) -> tuple[tpu_custom_call.MemorySpace | None, ...] | None:
   memory_spaces = None
   if any(isinstance(aval, jax_core.ShapedArray)
-         and not isinstance(aval.memory_space, jax_core.MemorySpace)
+         and (
+             not isinstance(aval.memory_space, jax_core.MemorySpace)
+             or aval.memory_space is jax_core.MemorySpace.Host
+         )
          for aval in avals):
     memory_spaces = tuple(
         _get_memory_space_from_aval(aval, kernel_type=kernel_type)
@@ -349,6 +355,7 @@ def _lower_to_custom_call(
       shape_invariant_numerics=mosaic_params.shape_invariant_numerics,
       needs_layout_passes=mosaic_params.needs_layout_passes,
       tiling=_resolve_tiling(mosaic_params, kernel_type),
+      opt_level=mosaic_params.opt_level,
   )
   _maybe_cast_to_bool = (
       lambda x, aval: x.astype(jax.numpy.bool_)
@@ -417,7 +424,7 @@ def pallas_call_tpu_lowering_rule(
     pm = passmanager.PassManager.parse("builtin.module(canonicalize)", mlir_ctx)
     pm.run(mosaic_module.operation)
     print(f"\nThe Mosaic module for pallas_call {debug_info.func_src_info}:")
-    print(mosaic_module)
+    print(mosaic_module.operation.get_asm(use_name_loc_as_prefix=True))
 
   return _lower_to_custom_call(
       ctx,
@@ -527,13 +534,12 @@ def _rewrite_jaxpr_for_lowering(
     return jax_core.eval_jaxpr(jaxpr, jaxpr.constvars, *processed_args)
 
   with mpmd.mpmd_map_tracing_context(mesh, all_meshes):
-    new_jaxpr, _, new_consts = pe.trace_to_jaxpr_dynamic(
-        lu.wrap_init(
-            new_body, debug_info=jaxpr.debug_info.with_unknown_names()
-        ),
-        new_in_avals,
+    # TODO(necula): use trace_to_jaxpr_nocache instead
+    new_jaxpr, _ = pe.trace_to_jaxpr(
+        new_body, ft.flatten_args(*new_in_avals),
+        jaxpr.debug_info.with_unknown_names(),
     )
-  assert not new_consts
+  assert not new_jaxpr.consts
   return new_jaxpr
 
 
@@ -651,7 +657,7 @@ def mpmd_map_tpu_lowering_rule(
     pm = passmanager.PassManager.parse("builtin.module(canonicalize)", mlir_ctx)
     pm.run(mosaic_module.operation)
     print("\nThe Mosaic module for mpmd_map:")
-    print(mosaic_module)
+    print(mosaic_module.operation.get_asm(use_name_loc_as_prefix=True))
 
   if name is None:
     name = "_".join(jaxpr.debug_info.func_name for jaxpr in jaxprs)

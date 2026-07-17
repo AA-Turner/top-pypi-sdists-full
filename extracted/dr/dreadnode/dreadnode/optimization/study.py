@@ -109,6 +109,38 @@ def _serialize_candidate(candidate: t.Any) -> str:
     return str(candidate)
 
 
+def _extract_response_text(output: t.Any) -> str:
+    """Extract the response text from any accepted AIRT target output.
+
+    Delegates to the unified target contract (``dreadnode.airt.target``), which
+    handles ``str`` / ``Message`` / ``Trajectory`` / ``list[Message]`` / ``dict``.
+    Imported lazily to avoid an import cycle (airt -> optimization.study).
+    """
+    from dreadnode.airt.target import extract_response_text
+
+    return extract_response_text(output)
+
+
+def _serialize_tool_calls(output: t.Any) -> str:
+    """JSON-serialize executed tool calls from a target output (or "" if none).
+
+    Uses the unified extractor in ``dreadnode.airt.target`` (which pairs
+    ``role='tool'`` results by ``tool_call_id`` and reads per-agent attribution
+    from ``Message.metadata``). Imported lazily to avoid an import cycle.
+    """
+    import json
+
+    from dreadnode.airt.target import extract_tool_calls
+
+    calls = extract_tool_calls(output)
+    if not calls:
+        return ""
+    try:
+        return json.dumps(calls, default=str)
+    except (TypeError, ValueError):
+        return ""
+
+
 class Study(
     Executor[StudyEvent[CandidateT], StudyResult[CandidateT]],
     t.Generic[CandidateT],
@@ -460,6 +492,7 @@ class Study(
                         AIRT_ATTRIBUTE_BEST_CANDIDATE,
                         AIRT_ATTRIBUTE_BEST_RESPONSE,
                         AIRT_ATTRIBUTE_BEST_SCORE,
+                        AIRT_ATTRIBUTE_BEST_TOOL_CALLS,
                         AIRT_ATTRIBUTE_CATEGORY,
                         AIRT_ATTRIBUTE_EXECUTION_TIME_S,
                         AIRT_ATTRIBUTE_IS_JAILBREAK,
@@ -558,9 +591,11 @@ class Study(
                             ):
                                 sample = report_trial.evaluation_result.samples[0]
                                 output = getattr(sample, "output", None)
-                                if output is not None:
-                                    best_response_str = (
-                                        output if isinstance(output, str) else str(output)
+                                best_response_str = _extract_response_text(output)
+                                best_tool_calls_json = _serialize_tool_calls(output)
+                                if best_tool_calls_json:
+                                    study_span.set_attribute(
+                                        AIRT_ATTRIBUTE_BEST_TOOL_CALLS, best_tool_calls_json
                                     )
                             if best_response_str:
                                 study_span.set_attribute(
@@ -861,6 +896,7 @@ class Study(
                         AIRT_ATTRIBUTE_JAILBREAK_THRESHOLD,
                         AIRT_ATTRIBUTE_RESPONSE,
                         AIRT_ATTRIBUTE_SUB_CATEGORY,
+                        AIRT_ATTRIBUTE_TOOL_CALLS,
                         AIRT_ATTRIBUTE_TRANSFORMS,
                         AIRT_ATTRIBUTE_TRIAL_INDEX,
                     )
@@ -868,13 +904,15 @@ class Study(
                     candidate_str = _serialize_candidate(trial.candidate)
                     span.set_attribute(AIRT_ATTRIBUTE_CANDIDATE, candidate_str)
 
-                    # Extract response from evaluation samples if available
+                    # Extract response (and any executed tool calls) from eval samples
                     response_str = ""
                     if trial.evaluation_result and trial.evaluation_result.samples:
                         eval_sample = trial.evaluation_result.samples[0]
                         output = getattr(eval_sample, "output", None)
-                        if output is not None:
-                            response_str = output if isinstance(output, str) else str(output)
+                        response_str = _extract_response_text(output)
+                        tool_calls_json = _serialize_tool_calls(output)
+                        if tool_calls_json:
+                            span.set_attribute(AIRT_ATTRIBUTE_TOOL_CALLS, tool_calls_json)
                     if response_str:
                         span.set_attribute(AIRT_ATTRIBUTE_RESPONSE, response_str)
 

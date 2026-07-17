@@ -18,6 +18,7 @@ from math import isclose, isfinite
 from pathlib import Path
 from statistics import harmonic_mean
 from typing import (
+    TYPE_CHECKING,
     Any,
     Generic,
     TypeVar,
@@ -25,6 +26,9 @@ from typing import (
 
 import img2pdf
 import pikepdf
+
+if TYPE_CHECKING:
+    from _typeshed import StrOrBytesPath
 
 log = logging.getLogger(__name__)
 
@@ -135,7 +139,7 @@ class Resolution(Generic[T]):
         return self._isclose(self.x, other.x) and self._isclose(self.y, other.y)
 
 
-def safe_symlink(input_file: os.PathLike, soft_link_name: os.PathLike) -> None:
+def safe_symlink(input_file: StrOrBytesPath, soft_link_name: StrOrBytesPath) -> None:
     """Create a symbolic link at ``soft_link_name``, which references ``input_file``.
 
     Think of this as copying ``input_file`` to ``soft_link_name`` with less overhead.
@@ -144,11 +148,11 @@ def safe_symlink(input_file: os.PathLike, soft_link_name: os.PathLike) -> None:
     used since symlinks may require administrator privileges. An existing link at the
     destination is removed.
     """
-    input_file = os.fspath(input_file)
-    soft_link_name = os.fspath(soft_link_name)
+    input_path = Path(os.fsdecode(input_file))
+    soft_link_path = Path(os.fsdecode(soft_link_name))
 
     # Guard against soft linking to oneself
-    if input_file == soft_link_name:
+    if input_path == soft_link_path:
         log.warning(
             "No symbolic link created. You are using the original data directory "
             "as the working directory."
@@ -156,24 +160,24 @@ def safe_symlink(input_file: os.PathLike, soft_link_name: os.PathLike) -> None:
         return
 
     # Soft link already exists: delete for relink?
-    if os.path.lexists(soft_link_name):
+    if os.path.lexists(soft_link_path):
         # do not delete or overwrite real (non-soft link) file
-        if not os.path.islink(soft_link_name):
-            raise FileExistsError(f"{soft_link_name} exists and is not a link")
-        os.unlink(soft_link_name)
+        if not soft_link_path.is_symlink():
+            raise FileExistsError(f"{soft_link_path} exists and is not a link")
+        soft_link_path.unlink()
 
-    if not os.path.exists(input_file):
-        raise FileNotFoundError(f"trying to create a broken symlink to {input_file}")
+    if not input_path.exists():
+        raise FileNotFoundError(f"trying to create a broken symlink to {input_path}")
 
     if os.name == 'nt':
         # Don't actually use symlinks on Windows due to permission issues
-        shutil.copyfile(input_file, soft_link_name)
+        shutil.copyfile(input_path, soft_link_path)
         return
 
-    log.debug("os.symlink(%s, %s)", input_file, soft_link_name)
+    log.debug("os.symlink(%s, %s)", input_path, soft_link_path)
 
     # Create symbolic link using absolute path
-    os.symlink(os.path.abspath(input_file), soft_link_name)
+    soft_link_path.symlink_to(input_path.resolve())
 
 
 def samefile(file1: os.PathLike, file2: os.PathLike) -> bool:
@@ -184,7 +188,7 @@ def samefile(file1: os.PathLike, file2: os.PathLike) -> bool:
     if os.name == 'nt':
         return file1 == file2
     else:
-        return os.path.samefile(file1, file2)
+        return Path(file1).samefile(file2)
 
 
 def is_iterable_notstr(thing: Any) -> bool:
@@ -199,7 +203,7 @@ def monotonic(seq: Sequence) -> bool:
 
 def page_number(input_file: os.PathLike) -> int:
     """Get one-based page number implied by filename (000002.pdf -> 2)."""
-    return int(os.path.basename(os.fspath(input_file))[0:6])
+    return int(Path(input_file).name[0:6])
 
 
 def available_cpu_count() -> int:
@@ -214,7 +218,7 @@ def available_cpu_count() -> int:
     return 1
 
 
-def is_file_writable(test_file: os.PathLike) -> bool:
+def is_file_writable(test_file: StrOrBytesPath) -> bool:
     """Intentionally racy test if target is writable.
 
     We intend to write to the output file if and only if we succeed and
@@ -222,7 +226,7 @@ def is_file_writable(test_file: os.PathLike) -> bool:
     the location is writable.
     """
     try:
-        p = Path(test_file)
+        p = Path(os.fsdecode(test_file))
         if p.is_symlink():
             p = p.resolve(strict=False)
 
@@ -327,6 +331,37 @@ def pikepdf_enable_mmap() -> None:
         )
     except AttributeError:
         log.debug("pikepdf mmap not available")
+
+
+def pikepdf_get_int(obj: pikepdf.Object, key: pikepdf.Name, default: int = 0) -> int:
+    """Look up a key on a pikepdf dictionary/stream, returning a plain int.
+
+    ``.get(key, default)``'s return type is the ambiguous ``Object | int``,
+    which does not support arithmetic or comparison against a plain int. In
+    pikepdf's default (implicit) conversion mode, a PDF Integer is already
+    unboxed to a native ``int`` by the time we see it here; under explicit
+    conversion mode it would instead be a ``pikepdf.Object``. ``int()``
+    handles both, since ``Object`` implements ``__int__``.
+    """
+    value = obj.get(key)
+    return int(value) if value is not None else default
+
+
+def pikepdf_get_bool(
+    obj: pikepdf.Object, key: pikepdf.Name, default: bool = False
+) -> bool:
+    """Look up a key on a pikepdf dictionary/stream, returning a plain bool.
+
+    Unlike ``int()``/``float()``, ``bool()`` is not supported on
+    ``pikepdf.Object`` (it raises), so both conversion modes must be
+    handled explicitly. See :func:`pikepdf_get_int` for background.
+    """
+    value = obj.get(key)
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return value.as_bool(default)
 
 
 def running_in_docker() -> bool:

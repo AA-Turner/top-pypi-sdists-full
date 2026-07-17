@@ -3,7 +3,10 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useLogDir } from "../../app_config";
 import { selectSample } from "../../state/actions";
-import { useFilteredSamples } from "../../state/hooks";
+import {
+  useFilteredSamples,
+  useSelectedSampleSummaries,
+} from "../../state/hooks";
 import { useStore } from "../../state/store";
 import { directoryRelativeUrl } from "../../utils/uri";
 import { openInNewTab } from "../shared/openInNewTab";
@@ -15,7 +18,29 @@ import {
   samplesSampleUrl,
   useLogRouteParams,
   useRoutePrefix,
+  type RoutePrefix,
 } from "./url";
+
+/**
+ * Resolves a `sampleUuid` route to its canonical id/epoch sample URL once the
+ * selected log's summaries have loaded. Returns undefined while unresolvable
+ * (no uuid in play, summaries still loading, or no matching sample) so
+ * callers render normally until a declarative `<Navigate replace>` applies.
+ */
+export const useSampleUuidRedirectUrl = (opts: {
+  logPath: string | undefined;
+  sampleUuid: string | undefined;
+  sampleTabId: string | undefined;
+  prefix: RoutePrefix;
+}): string | undefined => {
+  const { logPath, sampleUuid, sampleTabId, prefix } = opts;
+  const sampleSummaries = useSelectedSampleSummaries();
+  if (!logPath || !sampleUuid) return undefined;
+  const sample = sampleSummaries.data?.find((s) => s.uuid === sampleUuid);
+  return sample
+    ? logSamplesUrl(logPath, sample.id, sample.epoch, sampleTabId, prefix)
+    : undefined;
+};
 
 export const useSampleUrl = () => {
   const { logPath, sampleTabId } = useLogRouteParams();
@@ -137,7 +162,8 @@ export const useSampleNavigationActions = () => {
         );
 
         // Navigate to the sample URL (now goes to LogSampleDetailView)
-        void navigate(url);
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        navigate(url);
       }
     },
     [resolveLogPath, navigate, sampleTabId, prefix]
@@ -208,7 +234,8 @@ export const useSampleNavigationActions = () => {
     const resolvedPath = resolveLogPath();
     if (resolvedPath) {
       const url = logsUrlRaw(resolvedPath, tabId, prefix);
-      void navigate(url);
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      navigate(url);
     }
   }, [resolveLogPath, navigate, tabId, prefix]);
 
@@ -260,7 +287,8 @@ export const useSamplesGridNavigationAction = () => {
         // Open in new window/tab
         openInNewTab(url);
       } else {
-        void navigate(url);
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        navigate(url);
       }
     },
     [navigate, logDirectory]
@@ -327,7 +355,8 @@ export const useLogSampleNavigationActions = () => {
         sampleTabId,
         prefix
       );
-      void navigate(url);
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      navigate(url);
     }
   }, [
     hasPrevious,
@@ -353,7 +382,8 @@ export const useLogSampleNavigationActions = () => {
         sampleTabId,
         prefix
       );
-      void navigate(url);
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      navigate(url);
     }
   }, [
     hasNext,

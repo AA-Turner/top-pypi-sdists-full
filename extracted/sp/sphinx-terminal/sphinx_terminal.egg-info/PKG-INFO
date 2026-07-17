@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-terminal
-Version: 1.0.3
+Version: 1.1.0
 Summary: A Sphinx extension for rendering terminal input and output.
 License-Expression: GPL-3.0
 Requires-Python: >=3.10
@@ -42,6 +42,18 @@ and `:dir:` options.
     :dir: ~/path
 
     echo 'hello'
+
+    hello
+```
+
+Or, declare the entire prompt with the `prompt` option. This is useful if you're
+documenting shells other than Bash, such as PowerShell:
+
+```
+.. terminal::
+    :prompt: PS C:\Users\Author>
+
+    Write-Output 'hello'
 
     hello
 ```
@@ -108,8 +120,8 @@ copybutton_prompt_text = "> |"
 copybutton_prompt_is_regexp = True
 ```
 
-Customizing these configurations in your conf.py file overrides the defaults assigned by
-sphinx-terminal.
+Customizing these values in your conf.py file overrides the defaults assigned by
+sphinx-terminal and may compromise the copy button.
 
 ## Community and support
 

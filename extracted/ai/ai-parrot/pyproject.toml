@@ -104,6 +104,10 @@ dependencies = [
 
 [project.scripts]
 parrot = "parrot.cli:cli"
+# GraphIndex CLI — build an interactive knowledge graph from a code repo.
+parrot-graphindex = "parrot.knowledge.graphindex.cli:main"
+# LLM Wiki CLI — machine-first codebase KB for coding assistants (FEAT-260).
+wikitoolkit = "parrot.knowledge.wiki.cli:main"
 # parrot-fs moved to ai-parrot-server in FEAT-203
 
 [project.optional-dependencies]
@@ -405,6 +409,15 @@ integrations = [
     # azure-teambots moved to ai-parrot-integrations[msteams]
 ]
 
+# FEAT-310: gRPC ingress adapter (parrot.events.v1 — GrpcIngress).
+# grpcio-tools included for regenerating the committed pb2 modules
+# (see parrot/core/events/bus/ingress/proto/README.md). Keep versions
+# compatible with the protobuf 6.x runtime used by the committed gencode.
+grpc = [
+    "grpcio>=1.74.0",
+    "grpcio-tools>=1.74.0",
+]
+
 # milvus extra MOVED to ai-parrot-embeddings[milvus] in FEAT-201.
 # chroma extra MOVED to ai-parrot-embeddings[chroma] in FEAT-201.
 
@@ -416,7 +429,10 @@ eda = [
 ]
 
 security = [
-    "pytector[gguf]==0.2.0",
+    # `gguf` extra dropped: it pulls llama-cpp-python (native compile) only to
+    # load GGUF models via llama.cpp, but we only use the deBERTa detector
+    # (torch/transformers). See abstract.py PromptInjectionDetector("deberta").
+    "pytector==0.2.0",
 ]
 
 xai = [

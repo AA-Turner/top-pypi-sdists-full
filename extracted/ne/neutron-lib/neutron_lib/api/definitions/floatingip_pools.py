@@ -12,6 +12,11 @@
 
 from neutron_lib.api.definitions import l3
 from neutron_lib.db import constants as db_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 FLOATINGIP_POOLS = 'floatingip_pools'
@@ -24,7 +29,7 @@ API_PREFIX = '/floatingip_pools'
 DESCRIPTION = 'Provides a floating IP pools API.'
 UPDATED_TIMESTAMP = '2018-03-21T10:00:00-00:00'
 COLLECTION_NAME = FLOATINGIP_POOLS
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         'subnet_id': {'allow_post': False, 'allow_put': False,
                       'validate': {'type:uuid': None},
@@ -44,8 +49,8 @@ RESOURCE_ATTRIBUTE_MAP = {
                        'is_visible': True},
     },
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [l3.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

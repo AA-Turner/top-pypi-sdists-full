@@ -23,14 +23,12 @@ from jax._src.api import device_put
 from jax._src.lax.lax import _array_copy
 from jax._src.lib import _jax
 from jax._src.lib import xla_client
-from jax._src.lib import jaxlib_extension_version
 from jax._src.numpy import lax_numpy as jnp
 from jax._src.numpy import scalar_types as jnp_types
 from jax._src.sharding import Sharding
 from jax._src.typing import Array, DLDeviceType, DTypeLike
 
 import numpy as np
-
 
 DLPACK_VERSION = (0, 8)
 MIN_DLPACK_VERSION = (0, 5)
@@ -88,6 +86,9 @@ _DL_DEVICE_TO_PLATFORM = {
     DLDeviceType.kDLCUDA: "cuda",
     DLDeviceType.kDLCUDAHost: "cuda",
     DLDeviceType.kDLROCM: "rocm",
+    DLDeviceType.kDLROCMHost: "rocm",
+    DLDeviceType.kDLTPUHost: "tpu",
+    DLDeviceType.kDLOneAPI: "oneapi",
 }
 
 
@@ -257,7 +258,11 @@ def from_dlpack(external_array,
   if _is_tensorflow_tensor(external_array):
     # TensorFlow does not support stream=.
     stream = None
-  elif dl_device_type == DLDeviceType.kDLCUDAHost:
+  elif dl_device_type in (
+      DLDeviceType.kDLCUDAHost,
+      DLDeviceType.kDLROCMHost,
+      DLDeviceType.kDLTPUHost,
+  ):
     # Some producers (e.g. torch.Tensor with is_pinned()) route pinned tensors
     # through their CPU __dlpack__, which rejects a non-None stream argument.
     stream = None
@@ -272,12 +277,8 @@ def from_dlpack(external_array,
   dlpack = external_array.__dlpack__(stream=stream)
 
   try:
-    if jaxlib_extension_version >= 467:
-      arr = _jax.dlpack_managed_tensor_to_buffer(
-        dlpack, dlpack_device, stream, copy, int(dl_device_type))
-    else:
-      arr = _jax.dlpack_managed_tensor_to_buffer(
-        dlpack, dlpack_device, stream, copy)
+    arr = _jax.dlpack_managed_tensor_to_buffer(
+      dlpack, dlpack_device, stream, copy, int(dl_device_type))
   except xla_client.XlaRuntimeError as e:
     se = str(e)
     if "is not aligned to" in se:

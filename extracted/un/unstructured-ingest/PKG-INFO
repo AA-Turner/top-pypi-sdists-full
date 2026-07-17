@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured_ingest
-Version: 1.7.0
+Version: 1.7.4
 Summary: Local ETL data pipeline to get data RAG ready
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
 License-Expression: Apache-2.0
@@ -88,6 +88,7 @@ Requires-Dist: gcsfs; extra == 'gcs'
 Provides-Extra: github
 Requires-Dist: pygithub>1.58.0; extra == 'github'
 Requires-Dist: requests; extra == 'github'
+Requires-Dist: tenacity; extra == 'github'
 Provides-Extra: gitlab
 Requires-Dist: python-gitlab; extra == 'gitlab'
 Provides-Extra: google-drive

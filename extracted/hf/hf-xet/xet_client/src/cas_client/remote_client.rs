@@ -14,7 +14,9 @@ use xet_core_structures::metadata_shard::file_structs::{FileDataSequenceEntry, F
 use xet_core_structures::xorb_object::SerializedXorbObject;
 use xet_runtime::core::XetContext;
 
-use super::adaptive_concurrency::{AdaptiveConcurrencyController, ConnectionPermit};
+use super::adaptive_concurrency::{
+    AdaptiveConcurrencyController, ConnectionPermit, download_controller, upload_controller,
+};
 use super::auth::AuthConfig;
 use super::interface::URLProvider;
 use super::progress_tracked_streams::{
@@ -96,8 +98,8 @@ impl RemoteClient {
                 )
                 .unwrap(),
             ),
-            upload_concurrency_controller: AdaptiveConcurrencyController::new_upload(ctx.clone(), "upload"),
-            download_concurrency_controller: AdaptiveConcurrencyController::new_download(ctx.clone(), "download"),
+            upload_concurrency_controller: upload_controller(&ctx, endpoint),
+            download_concurrency_controller: download_controller(&ctx, endpoint),
             detected_reconstruction_api_version: AtomicU32::new(0),
         })
     }
@@ -579,7 +581,7 @@ impl Client for RemoteClient {
         event!(INFORMATION_LOG_LEVEL, call_id, size = n_upload_bytes, "Starting upload_shard API call",);
 
         let api_tag = "cas::upload_shard";
-        let url = Url::parse(&format!("{}/shards", self.endpoint))?;
+        let url = Url::parse(&format!("{}/v1/shards", self.endpoint))?;
 
         // Use the no-read-timeout client for shard uploads. reqwest's per-request timeout()
         // does NOT override the client-level read_timeout(), so we use a separate client
@@ -626,7 +628,6 @@ impl Client for RemoteClient {
         }
     }
 
-    #[cfg(not(target_family = "wasm"))]
     #[instrument(skip_all, name = "RemoteClient::upload_xorb", fields(key = Key{prefix : prefix.to_string(), hash : serialized_xorb_object.hash}.to_string(),
                  xorb.len = serialized_xorb_object.serialized_data.len(), xorb.num_chunks = serialized_xorb_object.num_chunks
     ))]
@@ -659,6 +660,8 @@ impl Client for RemoteClient {
         let n_transfer_bytes = serialized_xorb_object.serialized_data.len() as u64;
 
         let serialized_data = serialized_xorb_object.serialized_data.clone();
+
+        #[cfg(not(target_family = "wasm"))]
         let block_size = self.ctx.config.client.upload_reporting_block_size;
 
         let mut upload_reporter = StreamProgressReporter::new(n_transfer_bytes)
@@ -676,21 +679,41 @@ impl Client for RemoteClient {
                 let response: UploadXorbResponse = RetryWrapper::new(self.ctx.clone(), api_tag)
                     .with_connection_permit(upload_permit, Some(n_transfer_bytes))
                     .run_and_extract_json(move || {
-                        let upload_stream = UploadProgressStream::wrap_bytes_as_stream(
-                            serialized_data.clone(),
-                            block_size,
-                            upload_reporter.clone(),
-                        );
                         let url = url.clone();
+                        let serialized_data = serialized_data.clone();
 
-                        client
-                            .post(url)
-                            .with_extension(Api(api_tag))
-                            .header(CONTENT_LENGTH, HeaderValue::from(n_upload_bytes)) // must be set because of streaming
-                            .body(Body::wrap_stream(upload_stream))
-                            .send()
+                        let request = {
+                            #[cfg(not(target_family = "wasm"))]
+                            {
+                                let upload_stream = UploadProgressStream::wrap_bytes_as_stream(
+                                    serialized_data,
+                                    block_size,
+                                    upload_reporter.clone(),
+                                );
+                                client
+                                    .post(url)
+                                    .with_extension(Api(api_tag))
+                                    .header(CONTENT_LENGTH, HeaderValue::from(n_upload_bytes)) // must be set because of streaming
+                                    .body(Body::wrap_stream(upload_stream))
+                            }
+
+                            // reqwest's wasm backend does not support streaming request bodies;
+                            // pass the raw Bytes directly (CONTENT_LENGTH is set by reqwest from the body length).
+                            #[cfg(target_family = "wasm")]
+                            {
+                                client.post(url).with_extension(Api(api_tag)).body(serialized_data)
+                            }
+                        };
+
+                        request.send()
                     })
                     .await?;
+
+                // Wasm has no per-chunk progress hook (no streaming body); emit one bulk
+                // event after success so the user callback and adaptive-concurrency
+                // reporter both observe the full byte count.
+                #[cfg(target_family = "wasm")]
+                upload_reporter.report_progress(n_transfer_bytes as usize);
 
                 response.was_inserted
             } else {
@@ -718,34 +741,6 @@ impl Client for RemoteClient {
                 "Completed upload_xorb API call",
             );
         }
-
-        Ok(n_upload_bytes)
-    }
-
-    #[cfg(target_family = "wasm")]
-    async fn upload_xorb(
-        &self,
-        prefix: &str,
-        serialized_xorb_object: SerializedXorbObject,
-        _progress_callback: Option<ProgressCallback>,
-        _upload_permit: ConnectionPermit,
-    ) -> Result<u64> {
-        let key = Key {
-            prefix: prefix.to_string(),
-            hash: serialized_xorb_object.hash,
-        };
-
-        let url = Url::parse(&format!("{}/v1/xorbs/{key}", self.endpoint))?;
-
-        let n_upload_bytes = serialized_xorb_object.serialized_data.len() as u64;
-
-        let xorb_uploaded = self
-            .authenticated_http_client
-            .post(url)
-            .with_extension(Api("cas::upload_xorb"))
-            .body(serialized_xorb_object.serialized_data)
-            .send()
-            .await?;
 
         Ok(n_upload_bytes)
     }
@@ -803,6 +798,30 @@ mod tests {
     };
 
     use super::*;
+
+    #[test]
+    fn test_clients_share_controllers_per_ctx_and_endpoint() {
+        let ctx = XetContext::default().unwrap();
+        let c1 = RemoteClient::new(ctx.clone(), "https://cas-a.example.com", &None, "", false, None);
+        let c2 = RemoteClient::new(ctx.clone(), "https://cas-a.example.com", &None, "", false, None);
+
+        // Same ctx + same endpoint: shared upload and download controllers.
+        assert!(Arc::ptr_eq(&c1.upload_concurrency_controller, &c2.upload_concurrency_controller));
+        assert!(Arc::ptr_eq(&c1.download_concurrency_controller, &c2.download_concurrency_controller));
+
+        // Same ctx, different endpoint: independent controllers.
+        let c3 = RemoteClient::new(ctx.clone(), "https://cas-b.example.com", &None, "", false, None);
+        assert!(!Arc::ptr_eq(&c1.upload_concurrency_controller, &c3.upload_concurrency_controller));
+
+        // Creating a second endpoint must not evict the first: re-fetching cas-a still shares with c1.
+        let c5 = RemoteClient::new(ctx.clone(), "https://cas-a.example.com", &None, "", false, None);
+        assert!(Arc::ptr_eq(&c1.upload_concurrency_controller, &c5.upload_concurrency_controller));
+
+        // Different ctx (different session), same endpoint: independent controllers.
+        let ctx2 = XetContext::default().unwrap();
+        let c4 = RemoteClient::new(ctx2, "https://cas-a.example.com", &None, "", false, None);
+        assert!(!Arc::ptr_eq(&c1.upload_concurrency_controller, &c4.upload_concurrency_controller));
+    }
 
     #[ignore = "requires a running CAS server"]
     #[traced_test]

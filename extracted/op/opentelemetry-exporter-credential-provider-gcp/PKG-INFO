@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-exporter-credential-provider-gcp
-Version: 0.64b0
+Version: 0.65b0
 Summary: GCP OTLP Exporter Credential Provider for OpenTelemetry
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/exporter/opentelemetry-exporter-credential-provider-gcp
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib

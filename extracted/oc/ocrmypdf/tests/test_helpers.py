@@ -121,8 +121,8 @@ def test_shim_paths(tmp_path):
     results = result_str.split(os.pathsep)
     assert results[0] == str(syspath), results
     assert results[-3].endswith('tesseract-ocr'), results
-    assert results[-2].endswith(os.path.join('gs9.52.3', 'bin')), results
-    assert results[-1].endswith(os.path.join('gs', '9.51', 'bin')), results
+    assert results[-2].endswith(str(Path('gs9.52.3', 'bin'))), results
+    assert results[-1].endswith(str(Path('gs', '9.51', 'bin'))), results
 
 
 def test_resolution():

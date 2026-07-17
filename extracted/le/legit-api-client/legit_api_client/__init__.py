@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.5060"
+__version__ = "1.1.5063"
 
 # Define package exports
 __all__ = [
@@ -59,6 +59,8 @@ __all__ = [
     "ApplyBulkWorkspaceOperationDto",
     "ApplyBulkWorkspaceRolesOperationDto",
     "AssetConnectionDto",
+    "AttachJiraTicketRequestDto",
+    "AttachJiraTicketResponseDto",
     "AutomaticCheckDto",
     "AwsRegion",
     "AzureContainerRegistryIntegrationCreateDto",
@@ -295,6 +297,8 @@ from legit_api_client.models.amazon_ecr_role_integration_edit_dto import AmazonE
 from legit_api_client.models.apply_bulk_workspace_operation_dto import ApplyBulkWorkspaceOperationDto as ApplyBulkWorkspaceOperationDto
 from legit_api_client.models.apply_bulk_workspace_roles_operation_dto import ApplyBulkWorkspaceRolesOperationDto as ApplyBulkWorkspaceRolesOperationDto
 from legit_api_client.models.asset_connection_dto import AssetConnectionDto as AssetConnectionDto
+from legit_api_client.models.attach_jira_ticket_request_dto import AttachJiraTicketRequestDto as AttachJiraTicketRequestDto
+from legit_api_client.models.attach_jira_ticket_response_dto import AttachJiraTicketResponseDto as AttachJiraTicketResponseDto
 from legit_api_client.models.automatic_check_dto import AutomaticCheckDto as AutomaticCheckDto
 from legit_api_client.models.aws_region import AwsRegion as AwsRegion
 from legit_api_client.models.azure_container_registry_integration_create_dto import AzureContainerRegistryIntegrationCreateDto as AzureContainerRegistryIntegrationCreateDto

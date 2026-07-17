@@ -28,6 +28,7 @@ from jax._src.pallas.mosaic.interpret import utils as interpret_utils
 from jax._src.pallas.mosaic_gpu import core as mosaic_gpu_core
 from jax._src.pallas.mosaic_gpu import primitives as gpu_primitives
 from jax._src.pallas.mosaic_gpu.interpret import gpu_callbacks
+from jax._src.pallas.mosaic_gpu.interpret import shared_memory as memory
 from jax._src.pallas.mosaic_gpu.interpret.params import InterpretGPUParams
 from jax._src.state import indexing
 from jax._src.state import primitives as state_primitives
@@ -76,6 +77,7 @@ def _raise_if_unsupported_memory_space(
   if space is not None and space not in [
       mosaic_gpu_core.MemorySpace.GMEM,
       mosaic_gpu_core.MemorySpace.SMEM,
+      mosaic_gpu_core.MemorySpace.TMEM,
       mosaic_gpu_core.MemorySpace.REGS,
   ]:
     raise NotImplementedError(f"Unsupported memory space: {space}")
@@ -128,11 +130,9 @@ def _get_index_for_barrier_allocation_key(
     )
   if not isinstance(transforms[0], indexing.NDIndexer):
     raise ValueError(f"Expected an `NDIndexer`, but got {transforms[0]}")
-  if len(transforms[0].indices) != 1:
-    raise ValueError(
-        f"Expected a singleton index, but got {transforms[0].indices}"
-    )
-  return transforms[0].indices[0]
+  if len(transforms[0].indices) == 1:
+    return transforms[0].indices[0]
+  return tuple(transforms[0].indices)
 
 
 def _get_barrier_allocation_key_from_inval(
@@ -144,10 +144,14 @@ def _get_barrier_allocation_key_from_inval(
   allocation_key_as_array = inval
 
   # Assert to check internal consistency: `allocation_key_as_array` should be
-  # a 2-dim array (and the size of the first dimension equals the
-  # `num_barriers` parameter from when the barrier was allocated).
-  assert len(allocation_key_as_array.shape) == 2
-  num_barriers = allocation_key_as_array.shape[0]
+  # at least a 2D array, and the size of the last dimension is 5 (which matches the
+  # fields count of HostAllocationKey).
+  assert len(allocation_key_as_array.shape) >= 2
+  assert (
+      allocation_key_as_array.shape[-1:]
+      == gpu_callbacks.HostAllocationKey.shape_and_dtype().shape
+  )
+  num_barriers = math.prod(allocation_key_as_array.shape[:-1])
 
   index = _get_index_for_barrier_allocation_key(
       transforms_treedef, transforms_leaves
@@ -159,7 +163,8 @@ def _get_barrier_allocation_key_from_inval(
           "Attempting to operate on barrier without indexing, but"
           f" `num_barriers = {num_barriers}`"
       )
-    return allocation_key_as_array[0]
+    idx = (0,) * (len(allocation_key_as_array.shape) - 1)
+    return allocation_key_as_array[idx]
   else:
     return allocation_key_as_array[index]
 
@@ -205,26 +210,15 @@ def get_uninitialized_array(
 class JaxprInterpreter:
   """Interprets a jaxpr by replacing memory operations with (GPU) callbacks."""
 
-  grid_point_coords: jax.Array
-  cluster_dims: tuple[int, ...]
+  # The coordinates of this intepreter within the mesh the user defined, for
+  # better error reporting.
+  mesh_location: memory.MeshLocation
+  # The (flattened) thread within the mesh that this interpreter instance is
+  # executing. We only execute one cluster in parallel across all devices, so
+  # the cluster ID is always 0.
+  thread: memory.Warpgroup
 
-  # The (flat) thread ID for the thread that this interpreter instance is
-  # executing. On each simulated GPU, and for each grid point, we execute the
-  # following number of threads concurrently (with concurrent instances of
-  # `JaxprInterpreter`):
-  #
-  #   num_threads = math.prod(self.cluster_dims) * self.num_threads_per_block
-  #
-  # Hence, `thread_id` must be a number in [0, num_threads - 1].
-  #
-  # The `thread_id` maps to a thread's coordinates along the cluster and thread
-  # axes as follows:
-  #
-  #   all_thread_coords = (*self.cluster_coords, self.thread_id_in_block),
-  #
-  # where the `self.thread_id_in_block` is the minor-most coordinate, and
-  # `self.cluster_coords` are in major-to-minor order.
-  thread_id: jax.Array
+  cluster_dims: tuple[int, ...]
 
   mesh: plgpu.Mesh | None
   device_info: DeviceInfo
@@ -239,26 +233,14 @@ class JaxprInterpreter:
       return self.mesh.num_threads
 
   @functools.cached_property
-  def thread_id_in_block(self) -> jax.Array:
-    return lax.rem(self.thread_id, jnp.int32(self.num_threads_per_block))
-
-  @functools.cached_property
-  def cluster_coords(self) -> tuple[int, ...]:
-    thread_id = self.thread_id // self.num_threads_per_block
-    return interpret_utils.get_indices(self.cluster_dims, thread_id)
+  def num_concurrent_threads(self) -> int:
+    num_blocks = math.prod(self.mesh.cluster) if self.mesh else 1
+    return num_blocks * self.num_threads_per_block
 
   @functools.cached_property
   def thread_cluster_shape(self) -> tuple[int, ...]:
     """Returns the number of threads along the cluster axes *and* within a block."""
     return self.cluster_dims + (self.num_threads_per_block,)
-
-  @functools.cached_property
-  def thread_cluster_coords(self) -> jax.Array:
-    """Returns the coordinates of the thread along the cluster axes *and* within the block."""
-    return jnp.array(
-        list(self.cluster_coords) + [jnp.int32(self.thread_id_in_block)],
-        dtype=jnp.int32,
-    )
 
   def are_thread_cluster_axes_collective(
       self, collective_axes: tuple[jax_core.AxisName, ...]
@@ -310,14 +292,14 @@ class JaxprInterpreter:
     axis_name = eqn.params["axis_name"]
     if self.mesh is not None:
       if axis_name == self.mesh.thread_name:
-        return jnp.int32(self.thread_id_in_block)
+        return jnp.int32(self.mesh_location.thread_id)
       elif axis_name in self.mesh.cluster_names:
         return jnp.int32(
-            self.cluster_coords[self.mesh.cluster_names.index(axis_name)]
+            self.mesh_location.block_coords[self.mesh.cluster_names.index(axis_name)]
         )
       elif axis_name in self.mesh.grid_names:
         return jnp.int32(
-            self.grid_point_coords[self.mesh.grid_names.index(axis_name)]
+            self.mesh_location.cluster_coords[self.mesh.grid_names.index(axis_name)]
         )
 
     if axis_name in self.device_info.axis_indices:
@@ -336,9 +318,8 @@ class JaxprInterpreter:
     return gpu_callbacks.call_get(
         token=token,
         result_shape_and_dtype=eqn.outvars[0].aval,
-        device_id=jnp.int32(self.device_info.device_id),
-        grid_point_coords=self.grid_point_coords,
-        thread_id=self.thread_id,
+        mesh_location=self.mesh_location,
+        thread=self.thread,
         allocation_key_as_array=invals[0],
         transforms=jax.tree.unflatten(eqn.params["tree"], invals[1:]),
         source_info=eqn.source_info,
@@ -353,9 +334,8 @@ class JaxprInterpreter:
     return gpu_callbacks.call_swap(
         token=token,
         result_shape_and_dtype=eqn.outvars[0].aval,
-        device_id=jnp.int32(self.device_info.device_id),
-        grid_point_coords=self.grid_point_coords,
-        thread_id=self.thread_id,
+        mesh_location=self.mesh_location,
+        thread=self.thread,
         allocation_key_as_array=invals[0],
         transforms=jax.tree.unflatten(eqn.params["tree"], invals[2:]),
         val=invals[1],
@@ -394,7 +374,6 @@ class JaxprInterpreter:
           match inner:
             case jax_core.ShapedArray(shape=shape, dtype=dtype):
               if isinstance(dtype, mosaic_gpu_core.BarrierType):
-                assert len(shape) == 1
                 # A barrier is shared between the threads in a block. Hence its
                 # ref count, when computed based on the collective axes, should
                 # equal the number of threads in a block.
@@ -402,46 +381,78 @@ class JaxprInterpreter:
                 # TODO(nrink): Simplify the interface to
                 # `call_allocate_barriers`. Consider making it similar to
                 # `call_allocate_buffer`, see below.
-                return gpu_callbacks.call_allocate_barriers(
+                token, keys = gpu_callbacks.call_allocate_barriers(
                     token=token,
-                    device_id=jnp.int32(self.device_info.device_id),
-                    grid_point_coords=self.grid_point_coords,
-                    thread_id=self.thread_id,
-                    axes_dims=self.thread_cluster_shape,
+                    mesh_location=self.mesh_location,
+                    thread=self.thread,
                     num_arrivals=jnp.int32(dtype.num_arrivals),
-                    num_barriers=shape[0],
+                    flat_num_barriers=math.prod(shape),
                     ref_count=jnp.int32(ref_count),
                     source_info=eqn.source_info,
                 )
+                keys = keys.reshape((*shape, -1))
+                assert (
+                    keys.shape[-1:]
+                    == gpu_callbacks.HostAllocationKey.shape_and_dtype().shape
+                )
+                return token, keys
+              elif isinstance(dtype, mosaic_gpu_core.ClusterBarrierType):
+                if dtype.orders_tensor_core:
+                  raise NotImplementedError(
+                      "Cluster barriers with `orders_tensor_cores` are not yet"
+                      " supported in GPU kernel interpret mode."
+                  )
+                if dtype.leader_tracked:
+                  raise NotImplementedError(
+                      "Cluster barriers with `leader_tracked` are not yet"
+                      " supported in GPU kernel interpret mode."
+                  )
+                token, keys = gpu_callbacks.call_allocate_cluster_barriers(
+                    token=token,
+                    thread=self.thread,
+                    mesh_location=self.mesh_location,
+                    axes_dims=self.thread_cluster_shape,
+                    is_axis_collective=self.are_thread_cluster_axes_collective(
+                        dtype.collective_axes
+                    ),
+                    num_arrivals=jnp.int32(dtype.num_arrivals),
+                    flat_num_barriers=math.prod(shape),
+                    ref_count=jnp.int32(self.num_concurrent_threads),
+                    source_info=eqn.source_info,
+                )
+                keys = keys.reshape((*shape, -1))
+                assert (
+                    keys.shape[-1:]
+                    == gpu_callbacks.HostAllocationKey.shape_and_dtype().shape
+                )
+                return token, keys
               else:
                 memory_space_idx = gpu_callbacks.get_memory_space_idx(
                     memory_space
                 )
-                thread_id_for_allocation_key = gpu_callbacks.get_thread_id_for_collective_allocation_key(
-                    thread_id=jnp.int32(self.thread_id),
-                    axes_dims=self.thread_cluster_shape,
-                    is_last_thread_axis_collective=is_thread_block_axis_collective,
-                )
+                compute_unit = self.thread
+                if is_thread_block_axis_collective:
+                  compute_unit = dataclasses.replace(
+                      self.thread, warpgroup_id=0
+                  )
                 token, allocation_request = (
                     gpu_callbacks.call_make_allocation_request_array(
                         token=token,
-                        device_id=jnp.int32(self.device_info.device_id),
+                        compute_unit=compute_unit,
                         memory_space_id=memory_space_idx,
-                        thread_id=jnp.int32(thread_id_for_allocation_key),
                         initial_ref_count=ref_count,
                     )
                 )
                 return gpu_callbacks.call_allocate_buffer(
                     token=token,
-                    device_id=jnp.int32(self.device_info.device_id),
-                    grid_point_coords=self.grid_point_coords,
-                    thread_id=self.thread_id,
+                    mesh_location=self.mesh_location,
+                    thread=self.thread,
                     allocation_request_as_array=allocation_request,
                     value=get_uninitialized_array(
                         shape,
                         dtype,
                         memory_space,
-                        self.interpret_params.uninitialized_memory
+                        self.interpret_params.uninitialized_memory,
                     ),
                     source_info=eqn.source_info,
                 )
@@ -453,22 +464,25 @@ class JaxprInterpreter:
         case state_types.AbstractRef(inner_aval=inner, memory_space=_, kind=_):
           match inner:
             case jax_core.ShapedArray(shape=_, dtype=dtype):
-              if isinstance(dtype, mosaic_gpu_core.BarrierType):
+              is_barrier = isinstance(dtype, mosaic_gpu_core.BarrierType)
+              is_cluster_barrier = isinstance(
+                  dtype, mosaic_gpu_core.ClusterBarrierType
+              )
+              if is_barrier or is_cluster_barrier:
                 return gpu_callbacks.call_deallocate_barrier(
                     token=token,
-                    device_id=jnp.int32(self.device_info.device_id),
-                    grid_point_coords=self.grid_point_coords,
-                    thread_id=self.thread_id,
+                    mesh_location=self.mesh_location,
+                    thread=self.thread,
                     allocation_key_as_array=allocation,
                     source_info=eqn.source_info,
+                    cluster_barrier=is_cluster_barrier,
                 )
               else:
                 _raise_if_unsupported_memory_space(aval.memory_space)
                 return gpu_callbacks.call_deallocate_buffer(
                     token=token,
-                    device_id=jnp.int32(self.device_info.device_id),
-                    grid_point_coords=self.grid_point_coords,
-                    thread_id=self.thread_id,
+                    mesh_location=self.mesh_location,
+                    thread=self.thread,
                     allocation_key_as_array=allocation,
                     source_info=eqn.source_info,
                 )
@@ -534,7 +548,7 @@ class JaxprInterpreter:
     return lax.switch(
         invals[0],
         [
-            functools.partial(self.interpret, branch_jaxpr.jaxpr)
+            functools.partial(self.interpret, branch_jaxpr)
             for branch_jaxpr in eqn.params["branches"]
         ],
         token,
@@ -545,17 +559,15 @@ class JaxprInterpreter:
       self, eqn, token, get_invals: Callable[[], Sequence[Any]]
   ):
     assert eqn.primitive is lax.scan_p
-    consts, init_carry, xs = split_list(
-        get_invals(),
-        [eqn.params["num_consts"], eqn.params["num_carry"]],
-    )
+    consts, init_carry, xs = (
+        list(g) for g in eqn.params["ft_in"].update(get_invals()).unpack())
 
     def _scan_body(carry, a):
       token, c = carry
       token, ret = self.interpret(
-          eqn.params["jaxpr"].jaxpr, token, *consts, *c, *a
+          eqn.params["jaxpr"], token, *consts, *c, *a
       )
-      new_c, b = split_list(ret, [eqn.params["num_carry"]])
+      new_c, b = (list(g) for g in eqn.params["ft_out"].update(ret).unpack())
       return (token, new_c), b
 
     (token, carry), out = lax.scan(
@@ -571,15 +583,15 @@ class JaxprInterpreter:
         [eqn.params["cond_nconsts"], eqn.params["body_nconsts"]],
     )
     token, first_cond = self.interpret(
-        eqn.params["cond_jaxpr"].jaxpr, token, *cond_consts, *init_val
+        eqn.params["cond_jaxpr"], token, *cond_consts, *init_val
     )
     def _body(val):
       token, val, _ = val
       token, val = self.interpret(
-          eqn.params["body_jaxpr"].jaxpr, token, *body_consts, *val
+          eqn.params["body_jaxpr"], token, *body_consts, *val
       )
       token, cond = self.interpret(
-          eqn.params["cond_jaxpr"].jaxpr, token, *cond_consts, *val
+          eqn.params["cond_jaxpr"], token, *cond_consts, *val
       )
       return token, val, cond[0]
 
@@ -588,55 +600,41 @@ class JaxprInterpreter:
     )
     return token, out
 
-  def _interpret_barrier_primitive(
-      self,
-      eqn,
-      token,
-      get_invals: Callable[[], Sequence[Any]],
-      barrier_callback: Callable[
-          [
-              jax.Array,
-              jax.Array,
-              jax.Array,
-              jax.Array,
-              jax.Array,
-              source_info_util.SourceInfo | None,
-          ],
-          jax.Array,
-      ],
-  ):
-    invals = get_invals()
-    # `invals[0]` corresponds to the barrier this primitive operates on.
-    allocation_key_as_array = _get_barrier_allocation_key_from_inval(
-        invals[0], eqn.params["transforms_treedef"], invals[1:]
-    )
-    token = barrier_callback(
-        token,
-        jnp.int32(self.device_info.device_id),
-        self.grid_point_coords,
-        self.thread_id,
-        allocation_key_as_array,
-        eqn.source_info,
-    )
-
-    assert eqn.primitive.multiple_results
-    return token, []
-
   def _interpret_barrier_arrive_p(
       self, eqn, token, get_invals: Callable[[], Sequence[Any]]
   ):
     assert eqn.primitive is gpu_primitives.barrier_arrive_p
-    return self._interpret_barrier_primitive(
-        eqn, token, get_invals, gpu_callbacks.call_barrier_arrive
+    invals = get_invals()
+    allocation_key_as_array = _get_barrier_allocation_key_from_inval(
+        invals[0], eqn.params["transforms_treedef"], invals[1:]
     )
+    token = gpu_callbacks.call_barrier_arrive(
+        token,
+        self.mesh_location,
+        self.thread,
+        allocation_key_as_array,
+        eqn.source_info,
+    )
+    assert eqn.primitive.multiple_results
+    return token, []
 
   def _interpret_barrier_wait_p(
       self, eqn, token, get_invals: Callable[[], Sequence[Any]]
   ):
     assert eqn.primitive is gpu_primitives.barrier_wait_p
-    return self._interpret_barrier_primitive(
-        eqn, token, get_invals, gpu_callbacks.call_barrier_wait
+    invals = get_invals()
+    allocation_key_as_array = _get_barrier_allocation_key_from_inval(
+        invals[0], eqn.params["transforms_treedef"], invals[1:]
     )
+    token = gpu_callbacks.call_barrier_wait(
+        token,
+        self.mesh_location,
+        self.thread,
+        allocation_key_as_array,
+        eqn.source_info,
+    )
+    assert eqn.primitive.multiple_results
+    return token, []
 
   def _interpret_arithmetic_primitive(
       self, eqn, get_invals: Callable[[], Sequence[Any]]
@@ -655,7 +653,7 @@ class JaxprInterpreter:
     else:
       bind_params = eqn.primitive.get_bind_params(eqn.params)
       for v in bind_params.values():
-        if isinstance(v, jax_core.Jaxpr):
+        if isinstance(v, jax_core.Jaxpr) and not v.is_closed:
           raise NotImplementedError(f"Higher-order primitive {eqn.primitive}")
       return eqn.primitive.bind(*get_invals(), **bind_params)
 
@@ -680,11 +678,13 @@ class JaxprInterpreter:
         barrier, eqn.params["barrier_transforms_treedef"],
         barrier_transforms_flat)
 
-    token = gpu_callbacks.call_execute_device_local_memory_transfer(
+    return callback.io_callback(
+        functools.partial(gpu_callbacks.copy_gmem_to_smem,
+                          source_info=eqn.source_info),
+        gpu_callbacks.TOKEN_SHAPE_DTYPE,
         token=token,
-        device_id=jnp.int32(self.device_info.device_id),
-        grid_point_coords=self.grid_point_coords,
-        thread_id=self.thread_id,
+        mesh_location=self.mesh_location,
+        thread=self.thread,
         src_allocation_key_as_array=src,
         src_transforms=jax.tree.unflatten(
             eqn.params["src_transforms_treedef"], src_transforms_flat),
@@ -692,9 +692,7 @@ class JaxprInterpreter:
         dst_transforms=jax.tree.unflatten(
             eqn.params["dst_transforms_treedef"], dst_transforms_flat),
         barrier_allocation_key_as_array=barrier_allocation_key_as_array,
-        source_info=eqn.source_info,
-    )
-    return token, []
+    ), []
 
   def _interpret_copy_smem_to_gmem_p(
       self,
@@ -726,15 +724,13 @@ class JaxprInterpreter:
                           source_info=eqn.source_info, **params),
         gpu_callbacks.TOKEN_SHAPE_DTYPE,
         token=token,
-        device_id=self.device_info.device_id,
-        grid_point_coords=self.grid_point_coords,
-        thread_id=self.thread_id,
+        mesh_location=self.mesh_location,
+        thread=self.thread,
         src_allocation_key_as_array=src,
         src_transforms=src_transforms,
         dst_allocation_key_as_array=dst,
         dst_transforms=dst_transforms,
         predicate=predicate,
-        ordered=True,
     ), []
 
   def _interpret_wgmma_ref_p(
@@ -757,16 +753,14 @@ class JaxprInterpreter:
                           source_info=eqn.source_info),
         gpu_callbacks.TOKEN_SHAPE_DTYPE,
         token=token,
-        device_id=self.device_info.device_id,
-        grid_point_coords=self.grid_point_coords,
-        thread_id=self.thread_id,
+        mesh_location=self.mesh_location,
+        thread=self.thread,
         acc_allocation_key_as_array=acc,
         acc_transforms=acc_transforms,
         a_allocation_key_as_array=a,
         a_transforms=a_transforms,
         b_allocation_key_as_array=b,
         b_transforms=b_transforms,
-        ordered=True,
     ), []
 
   def _interpret_wgmma_accumulator_deref_p(
@@ -779,13 +773,118 @@ class JaxprInterpreter:
         ),
         (gpu_callbacks.TOKEN_SHAPE_DTYPE, eqn.outvars[0].aval),
         token=token,
-        device_id=self.device_info.device_id,
-        grid_point_coords=self.grid_point_coords,
-        thread_id=self.thread_id,
+        mesh_location=self.mesh_location,
+        thread=self.thread,
         acc_allocation_key_as_array=acc,
         wait_n=eqn.params["wait_n"],
-        ordered=True,
     )
+
+  def _interpret_tcgen05_mma_p(self, eqn, token: jax.Array, invals):
+    assert eqn.primitive is gpu_primitives.tcgen05_mma_p
+    acc, a, b, accumulate, *invals = invals
+    barrier, a_scale, b_scale, a_sparse_metadata = None, None, None, None
+    if eqn.params["arrive"]:
+      barrier, *invals = invals
+    if eqn.params["scaled"]:
+      a_scale, b_scale, *invals = invals
+    if eqn.params["sparse"]:
+      a_sparse_metadata, *invals = invals
+
+    empty_treedef = jax.tree.structure([])
+    (acc_transforms, a_transforms, b_transforms, barrier_transforms,
+     a_scale_transforms, b_scale_transforms, a_sparse_metadata_transforms
+     ) = jax.tree.unflatten(
+        jax.tree_util.treedef_tuple(
+            (eqn.params[name] or empty_treedef for name in (
+                "acc_transforms_tree",
+                "a_transforms_tree",
+                "b_transforms_tree",
+                "barrier_transforms_tree",
+                "a_scale_transforms_tree",
+                "b_scale_transforms_tree",
+                "a_sparse_metadata_transforms_tree",
+            ))),
+        invals
+    )
+
+    if eqn.params["arrive"]:
+      leaves, treedef = jax.tree.flatten(barrier_transforms)
+      barrier_allocation_key_as_array = _get_barrier_allocation_key_from_inval(
+          barrier, treedef, leaves)
+    else:
+      barrier_allocation_key_as_array = None
+
+    return callback.io_callback(
+        functools.partial(
+            gpu_callbacks.tcgen05_mma,
+            acc_dtype=eqn.invars[0].aval.dtype,
+            source_info=eqn.source_info,
+        ),
+        gpu_callbacks.TOKEN_SHAPE_DTYPE,
+        token=token,
+        mesh_location=self.mesh_location,
+        thread=self.thread,
+        acc_allocation_key_as_array=acc,
+        acc_transforms=acc_transforms,
+        a_allocation_key_as_array=a,
+        a_transforms=a_transforms,
+        b_allocation_key_as_array=b,
+        b_transforms=b_transforms,
+        accumulate=accumulate,
+        barrier_allocation_key_as_array=barrier_allocation_key_as_array,
+        a_scale_allocation_key_as_array=a_scale,
+        a_scale_transforms=a_scale_transforms,
+        b_scale_allocation_key_as_array=b_scale,
+        b_scale_transforms=b_scale_transforms,
+        a_sparse_metadata_allocation_key_as_array=a_sparse_metadata,
+        a_sparse_metadata_transforms=a_sparse_metadata_transforms,
+    ), []
+
+  def _interpret_async_load_tmem_p(self, eqn, token: jax.Array, invals):
+    assert eqn.primitive is gpu_primitives.async_load_tmem_p
+
+    return callback.io_callback(
+        functools.partial(
+            gpu_callbacks.async_load_tmem, source_info=eqn.source_info),
+        (gpu_callbacks.TOKEN_SHAPE_DTYPE, eqn.outvars[0].aval),
+        token=token,
+        mesh_location=self.mesh_location,
+        thread=self.thread,
+        src_allocation_key_as_array=invals[0],
+        src_transforms=jax.tree.unflatten(eqn.params["tree"], invals[1:]),
+    )
+
+  def _interpret_wait_smem_to_gmem_p(
+      self, eqn, token: jax.Array, get_invals: Callable[[], Sequence[Any]]
+  ):
+    assert eqn.primitive is gpu_primitives.wait_smem_to_gmem_p
+    n, = get_invals()
+    wait_read_only = eqn.params["wait_read_only"]
+    return callback.io_callback(
+        functools.partial(
+            gpu_callbacks.wait_smem_to_gmem, source_info=eqn.source_info
+        ),
+        gpu_callbacks.TOKEN_SHAPE_DTYPE,
+        token=token,
+        mesh_location=self.mesh_location,
+        thread=self.thread,
+        n=n,
+        wait_read_only=wait_read_only,
+    ), []
+
+  def _interpret_commit_smem_p(
+      self, eqn, token: jax.Array, _get_invals: Callable[[], Sequence[Any]]
+  ):
+    assert eqn.primitive is gpu_primitives.commit_smem_p
+    return callback.io_callback(
+        functools.partial(
+            gpu_callbacks.commit_smem, source_info=eqn.source_info
+        ),
+        gpu_callbacks.TOKEN_SHAPE_DTYPE,
+        token=token,
+        mesh_location=self.mesh_location,
+        thread=self.thread,
+    ), []
 
   def interpret(self, jaxpr, token, *args):
     sentinel_for_floating_point_values = (
@@ -851,17 +950,24 @@ class JaxprInterpreter:
           case gpu_primitives.wgmma_accumulator_deref_p:
             token, out = self._interpret_wgmma_accumulator_deref_p(
                 eqn, token, deferred_invals)
+          case gpu_primitives.tcgen05_mma_p:
+            token, out = self._interpret_tcgen05_mma_p(
+                eqn, token, deferred_invals())
+          case gpu_primitives.async_load_tmem_p:
+            token, out = self._interpret_async_load_tmem_p(
+                eqn, token, deferred_invals())
           case gpu_primitives.commit_group_p:
             out = []  # TODO(jburnim): commit_group_p
           case gpu_primitives.wgmma_wait_p:
             out = []  # TODO(jburnim): wgmma_wait_p
           case gpu_primitives.wait_smem_to_gmem_p:
-            out = []  # TODO(jburnim): wait_smem_to_gmem_p
+            token, out = self._interpret_wait_smem_to_gmem_p(
+                eqn, token, deferred_invals)
           case gpu_primitives.set_max_registers_p:
             # This primitive is a no-op in GPU Interpret Mode.
             out = []
           case gpu_primitives.commit_smem_p:
-            out = []  # TODO(jburnim): commit_smem_p
+            token, out = self._interpret_commit_smem_p(eqn, token, deferred_invals)
           case _:
             out = self._interpret_arithmetic_primitive(eqn, deferred_invals)
 

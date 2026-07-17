@@ -1,17 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: pymongoarrow
-Version: 1.14.0
+Version: 1.15.0
 Summary: Tools for using NumPy, Pandas, Polars, and PyArrow with MongoDB
+Keywords: mongo,mongodb,pymongo,arrow,bson,numpy,pandas,polars
 Author: Prashant Mital
 Maintainer: MongoDB, Inc.
 License: Apache License, Version 2.0
-Project-URL: Homepage, https://www.mongodb.org
-Project-URL: Documentation, https://mongo-arrow.readthedocs.io
-Project-URL: Source, https://github.com/mongodb-labs/mongo-arrow/tree/main/bindings/python
-Project-URL: Tracker, https://jira.mongodb.org/projects/INTPYTHON/issues
-Keywords: mongo,mongodb,pymongo,arrow,bson,numpy,pandas,polars
-Platform: Linux
-Platform: Mac OS X
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -27,10 +21,12 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Database
+Project-URL: Homepage, https://www.mongodb.org
+Project-URL: Documentation, https://mongo-arrow.readthedocs.io
+Project-URL: Source, https://github.com/mongodb-labs/mongo-arrow/tree/main/bindings/python
+Project-URL: Tracker, https://jira.mongodb.org/projects/INTPYTHON/issues
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: pyarrow<24.1,>=24.0
+Requires-Dist: pyarrow<25.1,>=25.0
 Requires-Dist: pymongo<5,>=4.4
 Requires-Dist: numpy>=1.26; python_version < "3.11"
 Requires-Dist: numpy>=2.1.0; python_version >= "3.11"
@@ -44,6 +40,7 @@ Provides-Extra: test-pandas
 Requires-Dist: pandas>=2.0.3; python_version < "3.11" and extra == "test-pandas"
 Requires-Dist: numpy<2; python_version < "3.11" and extra == "test-pandas"
 Requires-Dist: pandas>=3.0; python_version >= "3.11" and extra == "test-pandas"
+Description-Content-Type: text/markdown
 
 # PyMongoArrow
 

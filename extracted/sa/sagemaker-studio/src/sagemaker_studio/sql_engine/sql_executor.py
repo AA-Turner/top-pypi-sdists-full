@@ -24,6 +24,14 @@ from .snowflake_transformer import SnowflakeTransformer
 from .vertica_transformer import VerticaTransformer
 from .workday_transformer import WorkdayTransformer
 
+try:
+    from .teradata_transformer import _TERADATA_DEPS_AVAILABLE as _TERADATA_AVAILABLE
+    from .teradata_transformer import (
+        TeraDataTransformer,
+    )
+except ImportError:  # pragma: no cover
+    _TERADATA_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -105,6 +113,8 @@ class SqlExecutor:
             "VERTICA": VerticaTransformer,
             "WORKDAYLDQ": WorkdayTransformer,
         }
+        if _TERADATA_AVAILABLE:
+            self._transformer_classes["TERADATA"] = TeraDataTransformer
 
     @staticmethod
     def execute_statements(
@@ -163,6 +173,11 @@ class SqlExecutor:
     def _get_transformer(self, connection_type: str) -> Type[DatabaseTransformer]:
         """Get transformer class for the given connection type and configure loggers."""
         if connection_type not in self._transformer_classes:
+            if connection_type == "TERADATA" and not _TERADATA_AVAILABLE:
+                raise ImportError(
+                    "Teradata support requires the 'teradatasql' and 'teradatasqlalchemy' packages. "
+                    "Install them with: pip install sagemaker-studio[teradata]"
+                )
             raise ValueError(f"Unsupported connection type: {connection_type}")
 
         transformer = self._transformer_classes[connection_type]

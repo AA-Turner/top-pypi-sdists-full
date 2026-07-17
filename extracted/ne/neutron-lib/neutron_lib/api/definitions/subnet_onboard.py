@@ -16,6 +16,11 @@
 
 from neutron_lib.api.definitions import subnetpool as subnetpool_def
 import neutron_lib.constants
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 ALIAS = "subnet_onboard"
 IS_SHIM_EXTENSION = False
@@ -28,18 +33,17 @@ UPDATED_TIMESTAMP = "2018-12-18T09:00:00-00:00"
 ONBOARD_SUBNETS = 'onboard_network_subnets'
 
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     subnetpool_def.COLLECTION_NAME: {
     }
 }
 
 # The subresource attribute map for the extension.  This extension has only
 # top level resources, not child resources, so this is set to an empty dict.
-SUB_RESOURCE_ATTRIBUTE_MAP = {
-}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map.
-ACTION_MAP = {
+ACTION_MAP: ActionMap = {
     subnetpool_def.RESOURCE_NAME: {
         ONBOARD_SUBNETS: 'PUT'
     }

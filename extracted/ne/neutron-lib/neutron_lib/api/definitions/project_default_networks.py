@@ -12,7 +12,11 @@
 
 from neutron_lib.api import converters
 from neutron_lib.api.definitions import network
-
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 PROJECT_DEFAULT = 'project_default'
 
@@ -47,7 +51,7 @@ RESOURCE_NAME = network.RESOURCE_NAME
 COLLECTION_NAME = network.COLLECTION_NAME
 
 # The resource attribute map for the extension.
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         PROJECT_DEFAULT: {
             'allow_post': True, 'allow_put': True,
@@ -59,12 +63,10 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 # The subresource attribute map for the extension.
-SUB_RESOURCE_ATTRIBUTE_MAP = {
-}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
 # The action map.
-ACTION_MAP = {
-}
+ACTION_MAP: ActionMap = {}
 
 # The action status.
 ACTION_STATUS = {

@@ -16,6 +16,11 @@
 from neutron_lib.api.definitions import port as port_apidef
 from neutron_lib.api.definitions import qos as qos_apidef
 from neutron_lib.services.qos import constants as qos_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 ALIAS = 'qos-port-network-policy'
 IS_SHIM_EXTENSION = False
@@ -23,7 +28,7 @@ IS_STANDARD_ATTR_EXTENSION = False
 NAME = 'QoS port network policy ID'
 DESCRIPTION = 'Adds a the QoS network ID to the port definition'
 UPDATED_TIMESTAMP = '2019-11-01T10:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     port_apidef.COLLECTION_NAME: {
         qos_const.QOS_NETWORK_POLICY_ID: {
             'allow_post': False,
@@ -34,8 +39,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         }
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = [qos_apidef.ALIAS]
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

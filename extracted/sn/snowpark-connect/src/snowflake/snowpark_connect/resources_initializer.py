@@ -4,7 +4,6 @@
 import threading
 import time
 from collections.abc import Callable
-from pathlib import Path
 
 from snowflake.snowpark_connect.client.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.config import get_scala_version
@@ -49,6 +48,8 @@ LOG4J_JUL_JAR = "log4j-jul-2.25.4.jar"
 def _upload_scala_udf_jars(jar_files: list[str]) -> None:
     """Upload Spark jar files required for creating Scala UDFs.
     This is the internal implementation - use ensure_scala_udf_jars_uploaded() for thread-safe lazy loading."""
+    import contextlib
+    import importlib.resources
 
     session = get_or_create_snowpark_session()
     stage = session.get_session_stage()
@@ -56,19 +57,20 @@ def _upload_scala_udf_jars(jar_files: list[str]) -> None:
     import snowpark_connect_deps_1
     import snowpark_connect_deps_2
 
-    # Path to includes/jars directory
-    includes_jars_dir = Path(__file__).parent / "includes" / "jars"
+    # Use importlib.resources so the lookup works whether SCOS is installed as
+    # a regular package or loaded from a wheel ZIP (Path.exists() returns False
+    # for paths inside a ZIP archive).
+    includes_jars = importlib.resources.files(
+        "snowflake.snowpark_connect.includes"
+    ).joinpath("jars")
 
     for jar_name in jar_files:
-        jar_path = None
-
-        # First check includes/jars directory
-        includes_jar_path = includes_jars_dir / jar_name
-        if includes_jar_path.exists():
-            jar_path = includes_jar_path
+        pkg_file = includes_jars.joinpath(jar_name)
+        if pkg_file.is_file():
             logger.debug(f"Found {jar_name} in includes/jars")
+            ctx = importlib.resources.as_file(pkg_file)
         else:
-            # Try to find the JAR in package 1 first, then package 2
+            # Fall back to snowpark_connect_deps_1 then deps_2.
             try:
                 jar_path = snowpark_connect_deps_1.get_jar_path(jar_name)
             except FileNotFoundError:
@@ -78,17 +80,19 @@ def _upload_scala_udf_jars(jar_files: list[str]) -> None:
                     raise FileNotFoundError(
                         f"JAR {jar_name} not found in includes/jars or either package"
                     )
+            ctx = contextlib.nullcontext(jar_path)
 
-        try:
-            session.file.put(
-                str(jar_path),
-                resource_path,
-                auto_compress=False,
-                overwrite=False,
-                source_compression="NONE",
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to upload JAR {jar_name}: {e}")
+        with ctx as local_path:
+            try:
+                session.file.put(
+                    str(local_path),
+                    resource_path,
+                    auto_compress=False,
+                    overwrite=False,
+                    source_compression="NONE",
+                )
+            except Exception as e:
+                raise RuntimeError(f"Failed to upload JAR {jar_name}: {e}")
 
 
 def _upload_scala_2_12_jars() -> None:

@@ -10,6 +10,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 REMOTE_ADDRESS_GROUP_ID = 'remote_address_group_id'
 
@@ -20,7 +25,7 @@ NAME = 'Remote address group id field for security group rules'
 DESCRIPTION = 'Add new field of remote address group id in SG rules'
 UPDATED_TIMESTAMP = '2020-08-25T10:00:00-00:00'
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     'security_group_rules': {
         REMOTE_ADDRESS_GROUP_ID: {
             'allow_post': True, 'allow_put': False,
@@ -29,11 +34,9 @@ RESOURCE_ATTRIBUTE_MAP = {
     }
 }
 
-SUB_RESOURCE_ATTRIBUTE_MAP = {
-}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
 
-ACTION_MAP = {
-}
+ACTION_MAP: ActionMap = {}
 
 ACTION_STATUS = {
 }

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     BinaryNodeT = TypeVar("BinaryNodeT", bound=binarynode.BinaryNode)
     DAGNodeT = TypeVar("DAGNodeT", bound=dagnode.DAGNode)
     NodeT = TypeVar("NodeT", bound=_node.Node)
+    Tr = TypeVar("Tr", bound=Tree)
 
 try:
     import pandas as pd
@@ -89,6 +90,13 @@ class Tree:
         mapping: dict[str, Callable[..., Any]],
         method: Literal["default", "class", "helper", "diff"] = "default",
     ) -> None: ...
+    @property
+    def diameter(self) -> int: ...
+    @property
+    def depth(self) -> int: ...
+    def plot(self, *args: Any, **kwargs: Any) -> plt.Figure: ...
+    def copy(self: Tr) -> Tr: ...
+    # Plugins
     @classmethod
     def from_dataframe(
         cls,
@@ -98,7 +106,7 @@ class Tree:
         sep: str = "/",
         duplicate_name_allowed: bool = True,
         node_type: type[NodeT] = _node.Node,  # type: ignore[assignment]
-    ) -> NodeT: ...
+    ) -> Tree: ...
     @classmethod
     def from_dataframe_relation(
         cls,
@@ -108,7 +116,7 @@ class Tree:
         attribute_cols: list[str] | None = None,
         allow_duplicates: bool = False,
         node_type: type[NodeT] = _node.Node,  # type: ignore[assignment]
-    ) -> NodeT: ...
+    ) -> Tree: ...
     @classmethod
     def from_polars(
         cls,
@@ -118,7 +126,7 @@ class Tree:
         sep: str = "/",
         duplicate_name_allowed: bool = True,
         node_type: type[NodeT] = _node.Node,  # type: ignore[assignment]
-    ) -> NodeT: ...
+    ) -> Tree: ...
     @classmethod
     def from_polars_relation(
         cls,
@@ -128,7 +136,7 @@ class Tree:
         sep: str = "/",
         duplicate_name_allowed: bool = True,
         node_type: type[NodeT] = _node.Node,  # type: ignore[assignment]
-    ) -> NodeT: ...
+    ) -> Tree: ...
     @classmethod
     def from_dict(
         cls,
@@ -136,7 +144,7 @@ class Tree:
         sep: str = "/",
         duplicate_name_allowed: bool = True,
         node_type: type[NodeT] = _node.Node,  # type: ignore[assignment]
-    ) -> NodeT: ...
+    ) -> Tree: ...
     @classmethod
     def from_nested_dict(
         cls,
@@ -144,14 +152,14 @@ class Tree:
         name_key: str = "name",
         child_key: str = "children",
         node_type: type[NodeT] = _node.Node,  # type: ignore[assignment]
-    ) -> NodeT: ...
+    ) -> Tree: ...
     @classmethod
     def from_nested_dict_key(
         cls,
         node_attrs: Mapping[str, Mapping[str, Any]],
         child_key: str | None = "children",
         node_type: type[NodeT] = _node.Node,  # type: ignore[assignment]
-    ) -> NodeT: ...
+    ) -> Tree: ...
     @classmethod
     def from_list(
         cls,
@@ -159,21 +167,21 @@ class Tree:
         sep: str = "/",
         duplicate_name_allowed: bool = True,
         node_type: type[NodeT] = _node.Node,  # type: ignore[assignment]
-    ) -> NodeT: ...
+    ) -> Tree: ...
     @classmethod
     def from_list_relation(
         cls,
         relations: list[tuple[str, str]],
         allow_duplicates: bool = False,
         node_type: type[NodeT] = _node.Node,  # type: ignore[assignment]
-    ) -> NodeT: ...
+    ) -> Tree: ...
     @classmethod
     def from_str(
         cls,
         tree_string: str,
         tree_prefix_list: Iterable[str] = (),
         node_type: type[NodeT] = _node.Node,  # type: ignore[assignment]
-    ) -> NodeT: ...
+    ) -> Tree: ...
     @classmethod
     def from_newick(
         cls,
@@ -181,11 +189,11 @@ class Tree:
         length_attr: str = "length",
         attr_prefix: str = "&&NHX:",
         node_type: type[NodeT] = _node.Node,  # type: ignore[assignment]
-    ) -> NodeT: ...
+    ) -> Tree: ...
     @classmethod
     def from_rich(
         cls, rich_tree: rich.tree.Tree, node_format_attr: str = "style"
-    ) -> _node.Node: ...
+    ) -> Tree: ...
     def add_dataframe_by_path(
         self,
         data: pd.DataFrame,
@@ -556,19 +564,19 @@ class Tree:
         condition: Callable[[BaseNodeT | DAGNodeT], bool],
     ) -> BaseNodeT | DAGNodeT | None: ...
     def find_child_by_name(self, name: str) -> NodeT | DAGNodeT | None: ...
-    def clone(self, node_type: type[BaseNodeT]) -> BaseNodeT: ...
+    def clone(self, node_type: type[BaseNodeT]) -> Tree: ...
     def subtree(
         self,
         node_name_or_path: str | None = None,
         max_depth: int = 0,
-    ) -> type[_node.Node]: ...
+    ) -> Tree: ...
     def prune(
         self,
         prune_path: Iterable[str] | str | None = None,
         exact: bool = False,
         sep: str = "/",
         max_depth: int = 0,
-    ) -> BinaryNodeT | NodeT: ...
+    ) -> Tree: ...
     def diff_dataframe(
         self,
         other_tree: _node.Node,
@@ -587,10 +595,10 @@ class Tree:
     ) -> pd.DataFrame: ...
     def diff(
         self,
-        other_tree: _node.Node,
+        other_tree: Tr,
         only_diff: bool = True,
         detail: bool = False,
         aggregate: bool = False,
         attr_list: Iterable[str] | None = None,
         fallback_sep: str = "/",
-    ) -> _node.Node | None: ...
+    ) -> Tr | None: ...

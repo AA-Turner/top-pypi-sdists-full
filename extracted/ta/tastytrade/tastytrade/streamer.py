@@ -215,6 +215,7 @@ class AlertStreamer(AsyncContextManagerMixin):
                 *create_memory_object_stream[AlertType](math.inf)
             )
         )
+        self._subscription_state: dict[int, AnyioEvent] = {}
 
     @asynccontextmanager
     async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
@@ -233,6 +234,13 @@ class AlertStreamer(AsyncContextManagerMixin):
             type_str = data.get("type")
             if type_str is not None:
                 await self._map_message(type_str, data["data"])
+            elif request_id := data.get("request-id"):
+                if data.get("status") == "error" and (msg := data.get("message")):
+                    if msg == "connect-not-completed":
+                        msg = "Call `subscribe_accounts()` before other subscriptions!"
+                    raise TastytradeError(f"Alert streamer error: {msg}")
+                if event := self._subscription_state.pop(int(request_id), None):
+                    event.set()
 
     async def listen(self, alert_class: type[T]) -> AsyncIterator[T]:
         """
@@ -292,7 +300,10 @@ class AlertStreamer(AsyncContextManagerMixin):
         if value:
             message["value"] = value
         logger.debug("sending alert subscription: %s", message)
+        event = self._subscription_state[self.request_id] = AnyioEvent()
         await self._websocket.send_json(message)
+        with fail_after(10):
+            await event.wait()
 
     async def _map_message(self, type_str: str, data: dict[str, Any]) -> None:
         # I'm not sure what the user status messages look like, so they're absent.

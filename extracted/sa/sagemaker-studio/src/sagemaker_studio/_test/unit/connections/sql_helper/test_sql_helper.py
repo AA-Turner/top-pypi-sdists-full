@@ -9,6 +9,7 @@ from sagemaker_studio.connections.sql_helper.mysql_sql_helper import MySQLHelper
 from sagemaker_studio.connections.sql_helper.postgresql_helper import PostgreSQLHelper
 from sagemaker_studio.connections.sql_helper.redshift_sql_helper import RedshiftSqlHelper
 from sagemaker_studio.connections.sql_helper.snowflake_sql_helper import SnowflakeSqlHelper
+from sagemaker_studio.connections.sql_helper.teradata_sql_helper import TeraDataSQLHelper
 from sagemaker_studio.sql_engine.snowflake_transformer import SnowflakeAuthType
 
 connection = make_dataclass("Connection", ["secret", "connection_creds", "data"])(
@@ -162,6 +163,17 @@ def test_to_mysql_helper_sql_config_returns_secret_identity():
 
 def test_to_postgres_helper_sql_config_returns_secret_identity():
     result = PostgreSQLHelper.to_sql_config(connection)
+    assert result == {
+        "host": "db.example.com",
+        "port": 1433,
+        "user": "admin",
+        "database": "sales",
+        "password": "secret",
+    }
+
+
+def test_to_teradata_helper_sql_config_returns_secret_identity():
+    result = TeraDataSQLHelper.to_sql_config(connection)
     assert result == {
         "host": "db.example.com",
         "port": 1433,

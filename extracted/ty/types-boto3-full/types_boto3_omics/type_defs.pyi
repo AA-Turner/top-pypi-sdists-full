@@ -1186,6 +1186,7 @@ class TaskListItemTypeDef(TypedDict):
     stopTime: NotRequired[datetime]
     gpus: NotRequired[int]
     instanceType: NotRequired[str]
+    uuid: NotRequired[str]
 
 class ListRunsInBatchRequestTypeDef(TypedDict):
     batchId: str
@@ -2330,6 +2331,7 @@ class GetRunTaskResponseTypeDef(TypedDict):
     instanceType: str
     failureReason: str
     imageDetails: ImageDetailsTypeDef
+    uuid: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetShareResponseTypeDef(TypedDict):

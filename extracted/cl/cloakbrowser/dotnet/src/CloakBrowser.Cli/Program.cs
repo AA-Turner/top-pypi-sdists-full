@@ -184,6 +184,14 @@ static void PrintDiagnostics(Dictionary<string, object?> diag)
         Console.WriteLine($"License:   {tier}");
     }
 
+    if (lic.TryGetValue("sessions", out var sessionsObj) && sessionsObj is Dictionary<string, object?> sessions)
+    {
+        var active = sessions["active"] as int?;
+        Console.WriteLine(active is null
+            ? "Sessions:  unavailable"
+            : $"Sessions:  {active} seat{(active == 1 ? "" : "s")} in use");
+    }
+
     var geoip = (Dictionary<string, object?>)diag["geoip"]!;
     Console.WriteLine($"GeoIP DB:  {(geoip["db_present"] is true ? "present" : "not downloaded (optional)")}");
 

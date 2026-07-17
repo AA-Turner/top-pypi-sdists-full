@@ -31,11 +31,11 @@ from jax._src import core as jax_core
 from jax._src import debugging
 from jax._src import dtypes
 from jax._src import effects
-from jax._src import linear_util as lu
 from jax._src import numpy as jnp
 from jax._src import pretty_printer as pp
 from jax._src import source_info_util
 from jax._src import state
+from jax._src import flattree as ft
 from jax._src import tree_util
 from jax._src import typing as jax_typing
 from jax._src import util
@@ -606,8 +606,8 @@ def debug_print(fmt: str, *args: jax_typing.ArrayLike):
         conversions are not supported. If a single value is provided, the value
         may be an array. Otherwise, all values must be scalars.
       * On TPU, if all inputs are scalars: If ``fmt`` contains placeholders,
-        all values must be 32-bit integers. If there are no placeholders, the
-        values are printed after the format string.
+        all values must be 32-bit integers or floats. If there are no
+        placeholders, the values are printed after the format string.
       * On TPU, if the input is a single vector, the vector is printed after
         the format string. The format string must end with a single placeholder
         ``{}``.
@@ -643,13 +643,23 @@ def check_debug_print_format(
 # because they should appear as atomic JAX values to the users.
 # TODO(apaszke): This can be deleted once we make transforms in Mosaic GPU
 # inferred by the compiler.
-@lu.transformation2
-def wrap_with_transforms(f, transforms, *args):
-  new_args = tuple(
-      state_types.TransformedRef(a, t) if t else a
-      for a, t in zip(args, transforms)
-  )
-  return f(*new_args)
+def wrap_with_transforms(
+    fun: Callable,
+    ref_transforms: tuple[tuple[state_types.Transform, ...], ...],
+) -> Callable:
+  if all(not t for t in ref_transforms):
+    return fun
+  def wrapped(*args, **kwargs):
+    args_ft = ft.flatten(
+        (args, kwargs), registry=tree_util.default_registry
+    )
+    transformed_ft = args_ft.map2(
+        ref_transforms,
+        lambda a, t: state_types.TransformedRef(a, t) if t else a
+    )
+    t_args, t_kwargs = transformed_ft.unflatten()
+    return fun(*t_args, **t_kwargs)
+  return wrapped
 
 
 run_scoped_p = jax_core.Primitive("run_scoped")
@@ -661,10 +671,10 @@ def _run_scoped_is_high(*avals, jaxpr, **params):
 run_scoped_p.is_high = _run_scoped_is_high
 
 def _run_scoped_to_lojax(*args, jaxpr, **params):
-  closed_hi_jaxpr = jax_core.ClosedJaxpr(jaxpr, args)
+  closed_hi_jaxpr = jaxpr.with_consts(args)
   closed_lo_jaxpr = pe.lower_jaxpr2(closed_hi_jaxpr)
   consts = closed_lo_jaxpr.consts
-  return run_scoped_p.bind(*consts, jaxpr=closed_lo_jaxpr.jaxpr, **params)
+  return run_scoped_p.bind(*consts, jaxpr=closed_lo_jaxpr, **params)
 run_scoped_p.to_lojax = _run_scoped_to_lojax
 
 def run_scoped(
@@ -686,37 +696,35 @@ def run_scoped(
   """
   if not isinstance(collective_axes, tuple):
     collective_axes = (collective_axes,)
-  flat_types, in_tree = tree_util.tree_flatten((types, kw_types))
-  flat_fun, out_tree_thunk = api_util.flatten_fun(
-      lu.wrap_init(f,
-                   debug_info=api_util.debug_info("pallas run_scoped",
-                                                  f, types, kw_types)),
-      in_tree)
+  flat_types = ft.flatten((types, kw_types),
+                          registry=tree_util.default_registry)
   # We allow ref avals to be transformed references.
-  ref_avals = [t.get_ref_aval() for t in flat_types]
-  avals = [
-      t.ref if isinstance(t, state_types.TransformedRef) else t
-      for t in ref_avals
-  ]
+  ref_avals = flat_types.map(lambda t: t.get_ref_aval())
+  avals = ref_avals.map(
+      lambda t: t.ref if isinstance(t, state_types.TransformedRef) else t
+  )
   # Note that only a subset of all transforms can be found here, and they are
   # never expected to contain any arrays.
   ref_transforms = tuple(
       t.transforms if isinstance(t, state_types.TransformedRef) else ()
-      for t in ref_avals
+      for t in ref_avals.vals
   )
-  flat_fun = wrap_with_transforms(flat_fun, ref_transforms)
+  f_with_transforms = wrap_with_transforms(f, ref_transforms)
   # Turn the function into a jaxpr. The body of run_scoped may have
   # effects (IO) on constvars (i.e. variables inherited from the
   # parent scope). Jax can't reason about effects to references that
   # are not in the invars of an operation so we just put them all
   # there.
   with config.mutable_array_checks(False):
-    jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(flat_fun, avals)
-  out = run_scoped_p.bind(*consts,
+    jaxpr, out_avals = pe.trace_to_jaxpr_nocache(
+        f_with_transforms,
+        avals,
+        api_util.debug_info("pallas run_scoped", f, types, kw_types))
+  out = run_scoped_p.bind(*jaxpr.consts,
                           jaxpr=jaxpr,
                           collective_axes=collective_axes,
                           ref_transforms=ref_transforms)
-  return tree_util.tree_unflatten(out_tree_thunk(), out)
+  return tree_util.tree_unflatten(out_avals.tree, out)
 
 
 @run_scoped_p.def_effectful_abstract_eval
@@ -757,10 +765,10 @@ def _run_scoped_discharge_rule(
   jaxpr_noconst = pe.convert_constvars_jaxpr(jaxpr)
   num_return_values = len(jaxpr_noconst.outvars)
   discharged_closed_body = state_discharge.discharge_state(
-      jax_core.ClosedJaxpr(jaxpr_noconst, ()),
+      jaxpr_noconst,
       should_discharge=should_discharge + [False] * len(jaxpr.invars),
   )
-  discharged_body, new_consts = discharged_closed_body.jaxpr, discharged_closed_body.consts
+  discharged_body, new_consts = discharged_closed_body, discharged_closed_body.consts
   if new_consts:
     raise NotImplementedError(
         "Cannot handle new consts created by state discharge.")
@@ -801,8 +809,8 @@ def _run_scoped_lowering_rule(ctx, *args, jaxpr, collective_axes, **_):
   jaxpr_noconst = pe.convert_constvars_jaxpr(jaxpr)
   num_return_values = len(jaxpr_noconst.outvars)
   discharged_closed_body = state_discharge.discharge_state(
-      jax_core.ClosedJaxpr(jaxpr_noconst, ()), should_discharge=True)
-  discharged_body, new_consts = discharged_closed_body.jaxpr, discharged_closed_body.consts
+      jaxpr_noconst, should_discharge=True)
+  discharged_body, new_consts = discharged_closed_body, discharged_closed_body.consts
   if new_consts:
     raise NotImplementedError(
         "Cannot handle new consts created by state discharge.")
@@ -812,8 +820,7 @@ def _run_scoped_lowering_rule(ctx, *args, jaxpr, collective_axes, **_):
     num_consts = len(lower_fun_args)
     body_avals = [v.aval for v in discharged_body.invars[num_consts:]]
     init_vals = [
-        # pyrefly: ignore[missing-attribute]
-        uninitialized_value(aval.shape, aval.dtype) for aval in body_avals
+        uninitialized_value(aval.shape, aval.dtype) for aval in body_avals  # type: ignore
     ]
     out = jax_core.eval_jaxpr(discharged_body, [], *lower_fun_args, *init_vals)
     return out[:num_return_values]
@@ -1384,9 +1391,9 @@ def _jaxpr_call_discharge(
   )
   should_discharge = [*map(any, flat_should_discharge)]
   discharged_closed_jaxpr = state_discharge.discharge_state(
-      jax_core.ClosedJaxpr(jaxpr, ()), should_discharge=should_discharge
+      jaxpr, should_discharge=should_discharge
   )
-  discharged_jaxpr, discharged_consts = discharged_closed_jaxpr.jaxpr, discharged_closed_jaxpr.consts
+  discharged_jaxpr, discharged_consts = discharged_closed_jaxpr, discharged_closed_jaxpr.consts
   assert not discharged_consts
   outs = jaxpr_call_p.bind(
       *flat_args,

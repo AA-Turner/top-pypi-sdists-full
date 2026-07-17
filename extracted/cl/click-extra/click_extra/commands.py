@@ -54,6 +54,7 @@ from .parameters import ExtraOption, ShowParamsOption
 from .spinner import ProgressOption
 from .table import TableFormatOption
 from .theme import ThemeOption, get_current_theme
+from .tree import TreeOption
 from .version import VersionOption
 
 TYPE_CHECKING = False
@@ -62,6 +63,11 @@ if TYPE_CHECKING:
     from typing import Any, NoReturn
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_HELP_NAMES: tuple[str, ...] = ("--help", "-h")
+
+EXTRA_OPTION_SETTINGS: tuple[str, ...] = ("show_choices", "show_envvar")
+"""Click Extra context settings forced onto every option when set to non-``None``."""
 
 
 def default_params() -> list[click.Option]:
@@ -99,6 +105,7 @@ def default_params() -> list[click.Option]:
     #. ``--verbosity LEVEL``
     #. ``-v``, ``--verbose``
     #. ``-q``, ``--quiet``
+    #. ``--tree``
     #. ``--man``
     #. ``--version``
     #. ``-h``, ``--help``
@@ -140,15 +147,10 @@ def default_params() -> list[click.Option]:
         VerbosityOption(),
         VerboseOption(),
         QuietOption(),
+        TreeOption(),
         ManOption(),
         VersionOption(),
     ]
-
-
-DEFAULT_HELP_NAMES: tuple[str, ...] = ("--help", "-h")
-
-EXTRA_OPTION_SETTINGS: tuple[str, ...] = ("show_choices", "show_envvar")
-"""Click Extra context settings forced onto every option when set to non-``None``."""
 
 
 class Command(_HelpColorsMixin, cloup.Command):  # type: ignore[misc]

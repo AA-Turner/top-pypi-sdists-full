@@ -25,7 +25,15 @@ pub async fn tool_acquire_instance(gs: &GatewayState, args: &Value) -> Result<St
     let owner = args
         .get("lease_owner")
         .and_then(|v| v.as_str())
-        .unwrap_or("anonymous");
+        .filter(|value| !value.is_empty() && *value == value.trim())
+        .ok_or_else(|| {
+            serde_json::to_string_pretty(&json!({
+                "success": false,
+                "reason": "lease_owner_required",
+                "message": "Acquiring a lease requires a non-empty lease_owner coordination label without surrounding whitespace.",
+            }))
+            .unwrap_or_else(|_| "lease_owner_required".to_string())
+        })?;
     let instance_id = args.get("instance_id").and_then(|v| v.as_str());
     let current_job_id = args
         .get("current_job_id")
@@ -78,8 +86,6 @@ pub async fn tool_release_instance(gs: &GatewayState, args: &Value) -> Result<St
         .get("instance_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "Provide instance_id".to_string())?;
-    let owner = args.get("lease_owner").and_then(|v| v.as_str());
-
     let reg = gs.registry.read().await;
 
     let entry = gs
@@ -99,38 +105,44 @@ pub async fn tool_release_instance(gs: &GatewayState, args: &Value) -> Result<St
         .unwrap_or_else(|_| "unknown_instance".to_string()));
     };
 
-    match row.lease_owner.as_deref() {
-        None => {
-            return Err(serde_json::to_string_pretty(&json!({
+    let Some(current) = row.active_lease_owner(std::time::SystemTime::now()) else {
+        return Err(serde_json::to_string_pretty(&json!({
+            "success": false,
+            "reason": "no_active_lease",
+            "message": "This instance has no active pool lease in the shared registry.",
+            "hint": "Call acquire_dcc_instance first (same lease_owner string you plan to pass to release). release_dcc_instance only clears pool metadata in services.json — it does not close Maya or drop MCP connections.",
+            "instance_id": entry.instance_id.to_string(),
+            "instance": gs.instance_json(&entry),
+        }))
+        .unwrap_or_else(|_| "no_active_lease".to_string()));
+    };
+    let owner = args
+        .get("lease_owner")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            serde_json::to_string_pretty(&json!({
                 "success": false,
-                "reason": "no_active_lease",
-                "message": "This instance has no active pool lease in the shared registry.",
-                "hint": "Call acquire_dcc_instance first (same lease_owner string you plan to pass to release). release_dcc_instance only clears pool metadata in services.json — it does not close Maya or drop MCP connections.",
-                "instance_id": entry.instance_id.to_string(),
-                "instance": gs.instance_json(&entry),
+                "reason": "lease_owner_required",
+                "message": "Releasing an active lease requires the same lease_owner used to acquire it.",
+                "instance_id": instance_id,
             }))
-            .unwrap_or_else(|_| "no_active_lease".to_string()));
-        }
-        Some(current) => {
-            if let Some(expected) = owner
-                && expected != current
-            {
-                return Err(serde_json::to_string_pretty(&json!({
-                    "success": false,
-                    "reason": "lease_owner_mismatch",
-                    "message": format!(
-                        "lease_owner {expected:?} does not match the active lease holder {current:?}"
-                    ),
-                    "hint": "Omit lease_owner on release to clear any lease, or pass the exact string used in acquire_dcc_instance.",
-                    "instance_id": entry.instance_id.to_string(),
-                    "active_lease_owner": current,
-                }))
-                .unwrap_or_else(|_| "lease_owner_mismatch".to_string()));
-            }
-        }
+            .unwrap_or_else(|_| "lease_owner_required".to_string())
+        })?;
+    if owner != current {
+        return Err(serde_json::to_string_pretty(&json!({
+            "success": false,
+            "reason": "lease_owner_mismatch",
+            "message": "lease_owner does not match the active lease holder.",
+            "hint": "Pass the exact lease_owner used in acquire_dcc_instance.",
+            "instance_id": entry.instance_id.to_string(),
+        }))
+        .unwrap_or_else(|_| "lease_owner_mismatch".to_string()));
     }
 
-    let Some(released) = reg.release_lease(&key, owner).map_err(|e| e.to_string())? else {
+    let Some(released) = reg
+        .release_lease(&key, Some(owner))
+        .map_err(|e| e.to_string())?
+    else {
         return Err(serde_json::to_string_pretty(&json!({
             "success": false,
             "reason": "release_rejected",
@@ -624,18 +636,19 @@ pub async fn tool_call_tool(
     .await
     {
         Ok(result) => {
+            let is_error = crate::gateway::capability_service::tool_result_reports_failure(&result);
             record_search_followup(
                 gs,
                 search_id.as_deref(),
                 "call",
                 Some(slug),
                 None,
-                true,
+                !is_error,
                 trace_context,
             );
             (
                 serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
-                false,
+                is_error,
             )
         }
         Err(err) if err.kind == "unknown-slug" => {
@@ -658,19 +671,21 @@ pub async fn tool_call_tool(
             .await
             {
                 Ok(result) => {
+                    let is_error =
+                        crate::gateway::capability_service::tool_result_reports_failure(&result);
                     record_search_followup(
                         gs,
                         search_id.as_deref(),
                         "call",
                         Some(slug),
                         None,
-                        true,
+                        !is_error,
                         trace_context,
                     );
                     (
                         serde_json::to_string_pretty(&result)
                             .unwrap_or_else(|_| result.to_string()),
-                        false,
+                        is_error,
                     )
                 }
                 Err(err2) => {
@@ -823,25 +838,37 @@ pub async fn gateway_call_batch_inner(
 
         match single_outcome {
             Ok(result) => {
+                let tool_failed =
+                    crate::gateway::capability_service::tool_result_reports_failure(&result);
                 record_search_followup(
                     gs,
                     search_id.as_deref(),
                     "call",
                     Some(slug),
                     None,
-                    true,
+                    !tool_failed,
                     trace_context,
                 );
                 let mut item = json!({
                     "index": idx,
                     "tool_slug": slug,
-                    "ok": true,
+                    "ok": !tool_failed,
                     "result": result,
                 });
+                if tool_failed {
+                    all_ok = false;
+                    item["error"] = json!({
+                        "kind": "tool-error",
+                        "message": "backend transport succeeded but the tool reported failure",
+                    });
+                }
                 if let Some(id) = item_id {
                     item["id"] = id;
                 }
                 results.push(item);
+                if tool_failed && stop_on_error {
+                    break;
+                }
             }
             Err(err) => {
                 record_search_followup(
@@ -1295,13 +1322,14 @@ pub fn gateway_tool_defs() -> serde_json::Value {
             "description": "Invoke one backend capability by `tool_slug`, or run an ordered batch with \
                 `calls` (maximum 25). Copy parameter names from `describe` or `load_skill.compact_schema` \
                 into `arguments`; `has_schema=false` tools can use empty `{}` arguments. \
-                backend-specific fields never belong at this wrapper's top level.",
+                backend-specific fields never belong at this wrapper's top level. For leased targets, \
+                include the exact `meta.lease_owner` on each call.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "tool_slug": {"type": "string"},
                     "arguments": {"type": "object", "additionalProperties": true, "default": {}},
-                    "meta": {"type": "object", "additionalProperties": true},
+                    "meta": {"type": "object", "additionalProperties": true, "description": "Request metadata; include lease_owner when the target instance is leased."},
                     "calls": {
                         "type": "array",
                         "maxItems": 25,
@@ -1310,7 +1338,7 @@ pub fn gateway_tool_defs() -> serde_json::Value {
                             "properties": {
                                 "tool_slug": {"type": "string"},
                                 "arguments": {"type": "object", "additionalProperties": true, "default": {}},
-                                "meta": {"type": "object", "additionalProperties": true}
+                                "meta": {"type": "object", "additionalProperties": true, "description": "Request metadata; include lease_owner when the target instance is leased."}
                             },
                             "required": ["tool_slug"]
                         }

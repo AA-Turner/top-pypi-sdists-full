@@ -2853,8 +2853,7 @@ class ChalkClient:
         >>> from chalk.client import ChalkClient
         >>> client = ChalkClient()
         >>> model = client.get_model(name="RiskScoreModel")
-        >>> print(f"Latest version: {model.latest_version}")
-        >>> print(f"Available versions: {model.versions}")
+        >>> print(f"Latest version: {model.latest_model_version}")
 
         Get specific model version:
 

@@ -132,30 +132,39 @@ describe("puppeteer launch", () => {
     expect(callArgs.args).toContain("--proxy-bypass-list=.google.com,localhost");
   });
 
-  it("uses page.authenticate fallback for http proxy on unsupported platform", async () => {
-    const config = await import("../src/config.js");
-    vi.spyOn(config, "getPlatformTag").mockReturnValue("darwin-arm64");
+  it("uses page.authenticate fallback for http proxy on free macOS", async () => {
+    // Free macOS lacks inline proxy auth → strip creds, use page.authenticate.
+    // getPlatformTag reads process.platform/arch at call time.
+    const origPlatform = Object.getOwnPropertyDescriptor(process, "platform")!;
+    const origArch = Object.getOwnPropertyDescriptor(process, "arch")!;
+    Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+    Object.defineProperty(process, "arch", { value: "arm64", configurable: true });
     try {
       const { launch } = await import("../src/puppeteer.js");
       const browser = await launch({ proxy: "http://user:pass@proxy:8080" });
 
+      const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+      expect(callArgs.args).toContain("--proxy-server=http://proxy:8080");
       const page = await browser.newPage();
-      expect(page.authenticate).toHaveBeenCalledWith({
-        username: "user",
-        password: "pass",
-      });
+      expect(page.authenticate).toHaveBeenCalledWith({ username: "user", password: "pass" });
     } finally {
+      Object.defineProperty(process, "platform", origPlatform);
+      Object.defineProperty(process, "arch", origArch);
       vi.restoreAllMocks();
     }
   });
 
   it("passes inline creds via --proxy-server on supported platform (no page.authenticate)", async () => {
-    const config = await import("../src/config.js");
-    vi.spyOn(config, "getPlatformTag").mockReturnValue("linux-x64");
-    vi.spyOn(config, "getChromiumVersion").mockReturnValue("146.0.7680.177.5");
+    const origPlatform = Object.getOwnPropertyDescriptor(process, "platform")!;
+    const origArch = Object.getOwnPropertyDescriptor(process, "arch")!;
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+    Object.defineProperty(process, "arch", { value: "x64", configurable: true });
     try {
       const { launch } = await import("../src/puppeteer.js");
-      const browser = await launch({ proxy: "http://user:pass@proxy:8080" });
+      const browser = await launch({
+        proxy: "http://user:pass@proxy:8080",
+        browserVersion: "146.0.7680.177.5",
+      });
 
       const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
       expect(callArgs.args).toContain("--proxy-server=http://user:pass@proxy:8080");
@@ -163,6 +172,8 @@ describe("puppeteer launch", () => {
       const page = await browser.newPage();
       expect(page.authenticate).not.toHaveBeenCalled();
     } finally {
+      Object.defineProperty(process, "platform", origPlatform);
+      Object.defineProperty(process, "arch", origArch);
       vi.restoreAllMocks();
     }
   });
@@ -302,9 +313,11 @@ describe("puppeteer launchPersistentContext", () => {
     ).toEqual(DEFAULT_VIEWPORT);
   });
 
-  it("uses page.authenticate fallback for http proxy in persistent context on unsupported platform", async () => {
-    const config = await import("../src/config.js");
-    vi.spyOn(config, "getPlatformTag").mockReturnValue("darwin-arm64");
+  it("uses page.authenticate fallback in persistent context on free macOS", async () => {
+    const origPlatform = Object.getOwnPropertyDescriptor(process, "platform")!;
+    const origArch = Object.getOwnPropertyDescriptor(process, "arch")!;
+    Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+    Object.defineProperty(process, "arch", { value: "arm64", configurable: true });
     try {
       const { launchPersistentContext } = await import("../src/puppeteer.js");
       const browser = await launchPersistentContext({
@@ -312,12 +325,13 @@ describe("puppeteer launchPersistentContext", () => {
         proxy: "http://user:pass@proxy:8080",
       });
 
+      const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+      expect(callArgs.args).toContain("--proxy-server=http://proxy:8080");
       const page = await browser.newPage();
-      expect(page.authenticate).toHaveBeenCalledWith({
-        username: "user",
-        password: "pass",
-      });
+      expect(page.authenticate).toHaveBeenCalledWith({ username: "user", password: "pass" });
     } finally {
+      Object.defineProperty(process, "platform", origPlatform);
+      Object.defineProperty(process, "arch", origArch);
       vi.restoreAllMocks();
     }
   });

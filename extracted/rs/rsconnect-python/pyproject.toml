@@ -1,0 +1,63 @@
+[project]
+name = "rsconnect_python"
+description = "The Posit Connect command-line interface."
+requires-python = ">=3.8"
+version = "1.30.0"
+dependencies = [ "typing-extensions>=4.8.0", "pip>=10.0.0", "uv>=0.9.0", "semver>=2.0.0,<4.0.0", "pyjwt>=2.4.0", "click>=8.0.0", "packaging>=20.0", "toml>=0.10; python_version < '3.11'",]
+[[project.authors]]
+name = "Posit, PBC"
+email = "rsconnect@posit.co"
+
+[dependency-groups]
+test = [ "coverage", "httpretty", "ipykernel", "nbconvert", "pytest", "pytest-cov", "twine", "types-Flask", "ruff", "pyright",]
+docs = [ "mkdocs-material", "mkdocs-click", "pymdown-extensions", "mkdocs-macros-plugin",]
+
+[build-system]
+requires = [ "uv_build>=0.9.0,<0.13.0",]
+build-backend = "uv_build"
+
+[project.license]
+file = "LICENSE.md"
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.scripts]
+rsconnect = "rsconnect.main:cli"
+
+[project.optional-dependencies]
+keyring = [ "keyring>=23.0.0",]
+snowflake = [ "snowflake-cli",]
+
+[project.urls]
+Repository = "http://github.com/posit-dev/rsconnect-python"
+Documentation = "https://docs.posit.co/rsconnect-python"
+
+[tool.ruff]
+line-length = 120
+extend-exclude = [ "rsconnect-build", "rsconnect-build-test", "tests/testdata",]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportPrivateUsage = "none"
+reportUnnecessaryIsInstance = "none"
+reportUnnecessaryComparison = "none"
+
+[tool.uv.build-backend]
+module-name = "rsconnect"
+module-root = ""
+
+[tool.ruff.lint]
+select = [ "E", "F", "W",]
+ignore = [ "E203", "E231", "E302",]
+
+[tool.coverage.run]
+omit = [ "tests/*",]
+
+[tool.pytest.ini_options]
+markers = []
+addopts = "    --ignore=tests/testdata\n"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_metadata.py" = [ "E501",]

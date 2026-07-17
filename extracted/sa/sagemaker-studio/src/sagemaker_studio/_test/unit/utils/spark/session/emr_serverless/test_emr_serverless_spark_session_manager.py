@@ -1030,8 +1030,12 @@ def test_get_service_specific_configs_fta_supported(manager):
 
 
 def test_get_service_specific_configs_fta_not_supported(manager):
-    """Ensure _get_service_specific_configs does not include compat configs when FTA not supported."""
-    non_fta_app = {"releaseLabel": "emr-7.5.0"}
+    """Ensure _get_service_specific_configs does not include compat configs when FTA not supported.
+
+    On a release that supports native FGAC (>= emr-7.14 / emr-spark-8.1) the else branch
+    proceeds without raising and applies no compatibility-mode configs.
+    """
+    non_fta_app = {"releaseLabel": "emr-7.14.0"}
 
     with patch.object(manager, "_get_s3_access_grants_configs", return_value={}):
         configs = manager._get_service_specific_configs(non_fta_app)
@@ -1044,7 +1048,7 @@ def test_get_service_specific_configs_fta_not_supported(manager):
 
 def test_get_service_specific_configs_includes_s3ag(manager):
     """Ensure _get_service_specific_configs includes S3 Access Grants configs."""
-    app = {"releaseLabel": "emr-7.5.0"}
+    app = {"releaseLabel": "emr-7.14.0"}
     s3ag_configs = {
         "spark.hadoop.fs.s3.s3AccessGrants.enabled": "true",
         "spark.hadoop.fs.s3.s3AccessGrants.fallbackToIAM": "true",
@@ -1059,10 +1063,45 @@ def test_get_service_specific_configs_includes_s3ag(manager):
 
 def test_get_service_specific_configs_returns_dict_not_tuple(manager):
     """Ensure _get_service_specific_configs returns a plain dict (not a tuple)."""
-    app = {"releaseLabel": "emr-7.5.0"}
+    app = {"releaseLabel": "emr-7.14.0"}
 
     with patch.object(manager, "_get_s3_access_grants_configs", return_value={}):
         result = manager._get_service_specific_configs(app)
 
     assert isinstance(result, dict)
     assert not isinstance(result, tuple)
+
+
+def test_get_service_specific_configs_raises_on_unsupported_release(manager):
+    """The else (FGAC) branch must raise on a release that does not support native FGAC.
+
+    With no LF flag, FTA is not supported -> else branch. On emr-7.5.0 (< emr-7.14 /
+    emr-spark-8.1) native FGAC is unsupported, so a RuntimeError is raised instead of
+    silently proceeding without proper access-control configs.
+    """
+    unsupported_app = {"releaseLabel": "emr-7.5.0"}
+
+    with patch.object(manager, "_get_s3_access_grants_configs", return_value={}):
+        with pytest.raises(RuntimeError, match="fine-grained access control requires"):
+            manager._get_service_specific_configs(unsupported_app)
+
+
+def test_supports_native_fgac():
+    """_supports_native_fgac gates at emr-7.14 / emr-spark-8.1."""
+    fn = EMRServerlessSparkSessionManager._supports_native_fgac
+    # emr-<major>.<minor> scheme: >= 7.14 supported
+    assert fn("emr-7.14.0") is True
+    assert fn("emr-7.15.0") is True
+    assert fn("emr-8.0.0") is True
+    assert fn("emr-7.13.0") is False
+    assert fn("emr-7.5.0") is False
+    # emr-spark-<major>.<minor> scheme: >= 8.1 supported
+    assert fn("emr-spark-8.1.0") is True
+    assert fn("emr-spark-8.2.0") is True
+    assert fn("emr-spark-9.0.0") is True
+    assert fn("emr-spark-8.0.0") is False
+    assert fn("emr-spark-7.8.0") is False
+    # Unknown / empty labels are not supported
+    assert fn("") is False
+    # malformed emr-spark version (non-numeric) -> ValueError/IndexError caught -> not supported
+    assert fn("emr-spark-bogus") is False

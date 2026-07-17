@@ -50,7 +50,19 @@ from drydock.compaction import (
 from drydock.loop_detect import LoopTracker
 from drydock.task_state import TaskState
 from drydock.verification import looks_like_verification, parse_evidence
-from drydock.events import EventLog, emit as _emit
+from drydock.progress import ProgressTracker, assess_action, NO_PROGRESS_WINDOW
+from drydock.recovery import RecoveryController, SUPPRESSION_ITERATIONS
+from drydock.loop_detect import tool_signature
+from drydock.phases import AgentPhase, PhaseController
+from drydock.budget import BudgetState
+from drydock.tool_select import select_tools, DEFAULT_MAX_TOOLS
+from drydock.tool_registry import get as tool_get, canonical_name
+from drydock.tool_validate import repair_and_validate, INVALID_ARGUMENTS
+from drydock.tool_policy import (
+    requires_approval as tool_requires_approval,
+    effect_of as tool_effect_of,
+)
+from drydock.events import EventLog, SQLiteEventLog, emit as _emit
 from drydock.tuning import (
     filter_tool_schemas,
     hallucinated_tool_message,
@@ -85,7 +97,10 @@ class AgentState:
     turn_count: int = 0
     current_effort: str = ""  # "high"/"low" of the in-flight LLM call (for the UI)
     task: "TaskState" = field(default_factory=lambda: TaskState())  # structured objective
-    events: "EventLog | None" = None  # optional durable execution trace
+    events: "EventLog | SQLiteEventLog | None" = None  # optional durable execution trace
+    recovery_stage: int = 0  # live recovery escalation stage (0 = normal); for the TUI
+    progress_streak: int = 0  # consecutive no-progress (stall) actions; for the TUI
+    budget: "BudgetState" = field(default_factory=lambda: BudgetState())  # scoped budgets
 
 
 def drop_last_turn(messages: list) -> bool:
@@ -119,6 +134,8 @@ def run(
     When the model responds with text only (no tools), the turn ends.
     """
     state.messages.append({"role": "user", "content": user_message})
+    state.recovery_stage = 0  # clear the governor's display for a fresh request
+    state.progress_streak = 0
 
     # Capture the structured objective the FIRST time a task arrives, so it lives
     # outside the transcript. The original objective is authoritative for the task.
@@ -145,8 +162,15 @@ def run(
         if extra:
             system_prompt = system_prompt + extra
 
-    max_turns = config.get("max_turns", 200)
-    max_tool_calls = config.get("max_tool_calls", 0)  # 0 = unlimited
+    # Scoped budgets (PRD Epic N): the loop bounds itself on a PER-REQUEST
+    # iteration budget that resets each user message (so a long session doesn't
+    # starve later requests), while session totals stay cumulative. Limits come
+    # from config; the BudgetState persists on the AgentState across requests.
+    budget = state.budget
+    budget.max_model_iterations = config.get("max_turns", 200)
+    budget.max_tool_calls = config.get("max_tool_calls", 0)  # 0 = unlimited
+    budget.max_recovery_attempts = config.get("max_recovery_attempts", 0)
+    budget.start_request()
     # When set (sub-agents pass this), the model is offered ONLY these tools and
     # a call to anything else is refused — never executed. Keeps a read-only
     # sub-agent read-only and stops it from recursing into `task`.
@@ -176,11 +200,24 @@ def run(
     IDENTICAL_REPEAT_CAP = 8
     run_iteration = 0  # stream calls within THIS run() (resets per user message)
     loop_tracker = LoopTracker()
+    # Recovery tuning (PRD §13) is configurable; defaults match the PRD.
+    progress_tracker = ProgressTracker(
+        window=config.get("recovery_no_progress_window", NO_PROGRESS_WINDOW),
+    )  # scores each action; flags a stalled run
+    prev_failing = None  # failing-test count from the previous verification (delta)
+    verif_fail_counts: dict[str, int] = {}  # failure-summary -> times seen (Epic J3)
+    recovery = RecoveryController(
+        suppression_iterations=config.get("recovery_suppression_iterations",
+                                          SUPPRESSION_ITERATIONS),
+    )  # escalates when progress stalls (PRD Epic K)
+    recovery_terminate = False  # set by stage-5 recovery to end the run honestly
+    phases = PhaseController()  # owns phase transitions (PRD Epic B)
 
-    while state.turn_count < max_turns:
+    while not budget.iterations_exhausted():
         if _stopped():
             break
-        state.turn_count += 1
+        state.turn_count += 1     # cumulative session counter (telemetry / status line)
+        budget.record_turn()      # per-request iteration budget (PRD Epic N)
         run_iteration += 1
         assistant_turn: AssistantTurn | None = None
 
@@ -213,6 +250,16 @@ def run(
                 available = schemas()
                 if allow is not None:
                     available = [s for s in available if s.get("name") in allow]
+                # Dynamic tool selection (PRD Epic F): expose only the tools
+                # relevant to this task + phase, capped at max_tools (default 12).
+                # Trims nothing when already under the cap; core coding tools are
+                # never dropped.
+                available = select_tools(
+                    available,
+                    phase=str(state.task.phase),
+                    task_text=state.task.objective,
+                    max_tools=turn_config.get("max_tools", DEFAULT_MAX_TOOLS),
+                )
                 for event in stream(
                     model=turn_config["model"],
                     system=(system_prompt + _DECISIVE_SUFFIX) if decisive else system_prompt,
@@ -380,7 +427,7 @@ def run(
             if _needs_gate:
                 verify_gate_nudges += 1
                 if last_verification is None:
-                    state.task.phase = "verify"
+                    state.task.phase = phases.advance(state.task.phase, AgentPhase.VERIFY)
                     _emit(state, "verify_gate", kind="unverified", nudge=verify_gate_nudges)
                     msg = (
                         "[SYSTEM] You changed files but have not VERIFIED the work. "
@@ -389,7 +436,7 @@ def run(
                         "produced, and confirm it meets EVERY requirement."
                     )
                 else:  # a check ran and FAILED
-                    state.task.phase = "repair"
+                    state.task.phase = phases.advance(state.task.phase, AgentPhase.REPAIR)
                     _emit(state, "verify_gate", kind="failed", nudge=verify_gate_nudges,
                           summary=last_verification.summary)
                     msg = (
@@ -400,20 +447,31 @@ def run(
                 state.messages.append({"role": "user", "content": msg})
                 continue
             if session_has_edited and last_verification and last_verification.status == "pass":
-                state.task.phase = "complete"
+                # A check ran and PASSED — verification evidence exists, so the
+                # controller approves completion (from VERIFY, its only legal
+                # predecessor). This is the one path to COMPLETE.
+                state.task.phase = phases.advance(
+                    AgentPhase.VERIFY, AgentPhase.COMPLETE, verified=True)
             _emit(state, "done", phase=state.task.phase, edited=session_has_edited,
                   verified=bool(last_verification and last_verification.status == "pass"))
             if config.get("trajectory_file"):
                 from drydock import trajectory
                 trajectory.record(system_prompt, state, config)
+            # Task finished cleanly — drop the resume snapshot so a leftover file
+            # always means "interrupted" (PRD P2.1).
+            if config.get("resume_path"):
+                from drydock import resume as _resume
+                _resume.clear_snapshot(config["resume_path"])
             break
 
         # Execute each tool call
         for tc in assistant_turn.tool_calls:
             tool_call_count += 1
+            budget.record_tool_call()  # task-scoped tool-call budget (PRD Epic N)
             if tc["name"] in ("Edit", "Write"):
                 if not session_has_edited and state.task.phase in ("understand", "discover", "plan"):
-                    state.task.phase = "implement"  # first change → building
+                    state.task.phase = phases.advance(
+                        state.task.phase, AgentPhase.IMPLEMENT)  # first change → building
                 session_has_edited = True
 
             # STOP pressed: don't run the remaining tools, but still record a
@@ -428,8 +486,8 @@ def run(
                 })
                 continue
 
-            # Check tool call limit
-            if max_tool_calls > 0 and tool_call_count > max_tool_calls:
+            # Check tool call limit (task budget)
+            if budget.tool_budget_exhausted():
                 state.messages.append({
                     "role": "tool",
                     "tool_call_id": tc["id"],
@@ -440,10 +498,20 @@ def run(
 
             yield ToolStart(tc["name"], tc["input"])
 
+            # Recovery stage-3 suppression (PRD Epic K): if this exact call was
+            # flagged as a no-progress loop, redirect it to a guidance string
+            # instead of running it again — same advisory-not-blocking pattern as
+            # hallucinated tools. Narrow (this signature only) and self-expiring.
+            recovery.tick(run_iteration)
+            recovery_sig = tool_signature(tc["name"], tc["input"])
+
             # Redirect hallucinated tool names to a benign hint instead of a
             # "tool not found" error the model would loop on.
             halluc = hallucinated_tool_message(tc["name"])
-            if halluc is not None:
+            if recovery.is_suppressed(recovery_sig):
+                result = recovery.suppression_message(tc["name"])
+                tool_result = None
+            elif halluc is not None:
                 result = halluc
                 tool_result = None
             elif allow is not None and tc["name"] not in allow:
@@ -454,8 +522,69 @@ def run(
                 )
                 tool_result = None
             else:
-                tool_result = execute_structured(tc["name"], tc["input"], config)
-                result = tool_result.text
+                # Deterministic arg repair + validation (PRD Epic G): fix the safe
+                # slips (raw JSON, trailing comma, "10"->10) and refuse a call with
+                # missing/mistyped required args with a typed error instead of
+                # executing it and looping on a confusing failure.
+                _tool = tool_get(tc["name"])
+                _ro = bool(_tool.read_only) if _tool else False
+                _errs: list[str] = []
+                if _tool is not None:
+                    tc["input"], _errs, _ = repair_and_validate(_tool.schema, tc["input"] or {})
+                _refusal = None
+                if _errs:
+                    _refusal = (
+                        f"[{INVALID_ARGUMENTS}] {tc['name']} was not run — its "
+                        f"arguments are invalid: {'; '.join(_errs)}. Fix them and "
+                        f"call {tc['name']} again."
+                    )
+                # Effect-based approval (PRD Epic H): external mutations / credential
+                # access / destructive tools need the operator's okay first. Bash
+                # keeps its own finer command-level approval (bash_safety), so it's
+                # exempt here.
+                elif tc["name"] != "Bash" and not config.get("_approve_all") \
+                        and tool_requires_approval(tc["name"], read_only=_ro, config=config):
+                    approver = config.get("request_approval")
+                    if approver is not None:
+                        _eff = tool_effect_of(tc["name"], _ro)
+                        decision = approver(
+                            f"{tc['name']}  {str(tc['input'])[:120]}", f"{_eff.value} action")
+                        if decision == "always":
+                            config["_approve_all"] = True
+                        elif decision != "allow":
+                            _refusal = (
+                                f"REFUSED: you declined to approve this "
+                                f"{tc['name']} call ({_eff.value})."
+                            )
+                if _refusal is not None:
+                    result = _refusal
+                    tool_result = None
+                else:
+                    # Mark the action STARTED before running it (PRD P1.1/P2.2): a
+                    # tool_started with no matching tool_completed in the trace means
+                    # the process died mid-tool, so resume knows it's unresolved. The
+                    # effect lets resume decide whether it's safe to retry (read-only)
+                    # or needs approval (external mutation, P2.3).
+                    _emit(state, "tool_started", name=tc["name"],
+                          canonical=canonical_name(tc["name"]),
+                          effect=tool_effect_of(tc["name"], _ro).value,
+                          input=str(tc.get("input"))[:200])
+                    tool_result = execute_structured(tc["name"], tc["input"], config)
+                    result = tool_result.text
+            # Emit the completion event IMMEDIATELY after execution (before
+            # annotate/verify/progress post-processing) so the trace reads in
+            # execution order — ▶ start → ✓ done → its progress/verification —
+            # and result_chars reflects the RAW result, not one with advisory
+            # notes prepended.
+            _canon = canonical_name(tc["name"])
+            if tool_result is not None:
+                _emit(state, "tool", input=str(tc.get("input"))[:200],
+                      canonical=_canon, **tool_result.to_event())
+            else:
+                _emit(state, "tool", name=tc["name"], canonical=_canon,
+                      input=str(tc.get("input"))[:200],
+                      result_chars=len(str(result)),
+                      status="ok")
             # Track consecutive byte-identical calls — same name, args AND raw
             # result (captured before annotate prepends its note, which changes
             # each call) — for the safety valve below. A differing result
@@ -467,16 +596,103 @@ def run(
                 identical_repeat_streak, last_call_sig = 1, sig
             # Guide (never block) on exact-repeat tool calls: prepend an
             # advisory note when the same call is made again.
+            _raw_result = result  # outcome identity = the un-annotated body
             result = loop_tracker.annotate(tc["name"], tc["input"], result)
+            # Cycling detection (gov162 bench, large-scale-text-editing): the same
+            # exact (call, result) pair recurring — NON-consecutively — is a loop
+            # even when interleaved actions look productive (an identical macro
+            # rewritten 22× between exit-0 test runs). annotate() just recorded
+            # this pair, so the count includes the current call. Polling is exempt
+            # (its result changes → different pair each time).
+            _same_outcome = loop_tracker.outcome_count(tc["name"], tc["input"], _raw_result)
 
             # Verification evidence: if this Bash call was a test/check/exec, parse
             # its result so the completion gate knows whether it PASSED, not just ran.
+            _repeated_outcome = False
             if tc["name"] == "Bash":
                 _vcmd = (tc.get("input") or {}).get("command", "")
                 if looks_like_verification(_vcmd):
                     last_verification = parse_evidence(_vcmd, result)
                     _emit(state, "verification", status=last_verification.status,
                           exit_code=last_verification.exit_code)
+                    # Repeated-outcome detection (PRD Epic J3): the SAME failing
+                    # verification outcome recurring — regardless of which command
+                    # produced it (pytest vs python -m pytest vs a reworded check)
+                    # — is a stall signal even though no exact call repeats. Keyed
+                    # on the parsed failure summary, so a CHANGING failure (real
+                    # progress) never counts. Found in the wild: a bench task ran
+                    # 25 failing verifications in 38 turns with zero recovery
+                    # because every command differed slightly.
+                    if last_verification.status == "fail":
+                        _vkey = last_verification.summary or f"exit:{last_verification.exit_code}"
+                        verif_fail_counts[_vkey] = verif_fail_counts.get(_vkey, 0) + 1
+                        _repeated_outcome = verif_fail_counts[_vkey] >= 2
+
+            # Progress evaluation (PRD Epic L): score what this action actually
+            # achieved and slide it through a window so a stalled run — repeated
+            # actions that change nothing — is noticed even when no single call
+            # repeats byte-for-byte. Advisory: it recommends a recovery stage,
+            # it does not stop the loop.
+            _failing_before = prev_failing
+            _failing_after = None
+            if last_verification is not None and tc["name"] == "Bash" \
+                    and looks_like_verification((tc.get("input") or {}).get("command", "")):
+                _failing_after = last_verification.tests_failed
+                prev_failing = _failing_after
+            assessment = progress_tracker.record(assess_action(
+                # OUTCOME-aware repeat count: "repeated action without new
+                # information" means the same call returned the SAME result again
+                # — a poll whose output changes each time is novel information and
+                # must not accrue stall (found suppressing legit polling).
+                changed_state=bool(tool_result and tool_result.changed_state),
+                repeat_count=_same_outcome,
+                failing_tests_before=_failing_before if _failing_after is not None else None,
+                failing_tests_after=_failing_after,
+                repeated_outcome=_repeated_outcome,
+            ))
+            _emit(state, "progress", score=assessment.progress_score,
+                  types=assessment.progress_types,
+                  cumulative=progress_tracker.cumulative(),
+                  streak=progress_tracker.no_progress_streak())
+
+            # Recovery escalation (PRD Epic K): turn the progress window's verdict
+            # into graduated action. Advisory stages prepend guidance to this
+            # result; stage 3 suppresses THIS looping signature next time; stage 5
+            # asks the loop to stop honestly. The offender is the current call —
+            # only suppressed when the window says it's a no-progress loop.
+            _rec_stage = progress_tracker.recommended_stage()
+            # A call whose exact (call, result) pair has recurred past the
+            # threshold is cycling regardless of the global streak (interleaved
+            # "productive" actions kept resetting it) — floor the recommendation
+            # at stage 3 so THIS signature gets suppressed. Cycles alternate with
+            # other actions, so arm a window wide enough to outlast the period
+            # (the default window expires exactly when a period-2 cycle returns).
+            _cycling = _same_outcome >= config.get("recovery_same_outcome_threshold", 6)
+            if _cycling:
+                _rec_stage = max(_rec_stage or 0, 3)
+            directive = recovery.escalate(
+                _rec_stage,
+                offender_signature=recovery_sig,
+                iteration=run_iteration,
+                suppress_window=(recovery.suppression_iterations + 3) if _cycling else None,
+            )
+            if directive.active:
+                # Count real interventions (reflection and beyond, not the mild
+                # advisory) against the recovery budget; hitting the ceiling forces
+                # a controlled stop even if tool/iteration budget remains (PRD N1.4).
+                if directive.stage >= 2:
+                    budget.record_recovery()
+                terminate = directive.terminate or budget.recovery_exhausted()
+                _emit(state, "recovery", stage=directive.stage,
+                      suppressed=directive.suppress, terminate=terminate,
+                      attempts=budget.recovery_attempts)
+                if directive.note:
+                    result = f"{directive.note}\n{result}"
+                if terminate:
+                    recovery_terminate = True
+            # Surface the governor's live state to the TUI status line.
+            state.recovery_stage = recovery.stage
+            state.progress_streak = progress_tracker.no_progress_streak()
 
             # Sync the rolling plan when the model updates its checklist, keeping
             # stable step ids + capping pending steps; record each revision.
@@ -485,14 +701,6 @@ def run(
                     _emit(state, "plan", version=state.task.plan.version,
                           steps=[(s["id"], s["status"]) for s in state.task.plan.steps])
 
-            if tool_result is not None:
-                _emit(state, "tool", input=str(tc.get("input"))[:200],
-                      **tool_result.to_event())
-            else:
-                _emit(state, "tool", name=tc["name"],
-                      input=str(tc.get("input"))[:200],
-                      result_chars=len(str(result)),
-                      status="ok")
             yield ToolEnd(tc["name"], result)
 
             # Append tool result
@@ -502,6 +710,17 @@ def run(
                 "name": tc["name"],
                 "content": result,
             })
+
+        # Recovery ceiling (PRD Epic K, stage 5): the progress window stayed
+        # negative through every escalation stage. Stop the run honestly rather
+        # than spin to MAX_TOOL_TURNS — the stage-5 note was already injected so
+        # the model's final message reports the truth instead of claiming success.
+        if recovery_terminate:
+            yield TextChunk(
+                "\n[Stopped: repeated attempts stopped making progress and "
+                "escalating recovery did not help. Control is back to you.]\n"
+            )
+            break
 
         # Safety valve: the same call has run identically (same args AND result)
         # too many times in a row — repeating it changes nothing. End the turn
@@ -519,6 +738,14 @@ def run(
         # this turn's tools were running, before spending another LLM call.
         if _stopped():
             break
+
+        # Durable snapshot (PRD P2.1): persist the transcript + task state here, at
+        # a consistent point, so a crash/kill can resume this task. Gated on a
+        # configured path; atomic + defensive (never breaks the run).
+        _resume_path = config.get("resume_path")
+        if _resume_path:
+            from drydock import resume as _resume
+            _resume.save_snapshot(state, config, _resume_path)
 
         # Real progress this turn — reset the consecutive stall-nudge counter so
         # a long, productive plan can run as far as it needs (the cap only

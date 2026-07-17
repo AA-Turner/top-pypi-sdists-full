@@ -379,6 +379,23 @@ def filter_classpath_jars(
     return kept, dropped
 
 
+# spark-connect-client-jvm and the classic Spark jars (spark-catalyst, spark-sql)
+# both ship org.apache.spark.sql.* classes (Encoders, KeyValueGroupedDataset,
+# SparkSession); the JVM resolves each to whichever jar is earlier on the
+# classpath. execute_jar clients need the Connect copies, but the natural
+# (alphabetical) order puts spark-catalyst first, so classic Encoders wins and
+# typed Dataset closures fail with ClassCastException. Hoist the connect jar first.
+_CONNECT_CLIENT_JAR_PREFIX = "spark-connect-client-jvm"
+
+
+def order_connect_client_first(jars: list[Path]) -> list[Path]:
+    """Move ``spark-connect-client-jvm*`` jars to the front (stable partition) so
+    the Connect client wins class resolution over the classic Spark jars."""
+    connect = [jar for jar in jars if jar.name.startswith(_CONNECT_CLIENT_JAR_PREFIX)]
+    rest = [jar for jar in jars if not jar.name.startswith(_CONNECT_CLIENT_JAR_PREFIX)]
+    return connect + rest
+
+
 def log_classpath_filter_summary(kept: list[Path], dropped: list[Path]) -> None:
     """Emit an INFO summary and a DEBUG list of dropped jars."""
     if is_classpath_filtering_disabled():

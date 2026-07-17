@@ -1745,6 +1745,57 @@ class ComboOrder(QuantConnect.Orders.Order, metaclass=abc.ABCMeta):
         ...
 
 
+class FixOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Contains additional properties and settings for an order sent over a FIX connection"""
+
+    @property
+    def additional_properties(self) -> System.Collections.Generic.Dictionary[str, str]:
+        """
+        Custom FIX tags to send with the order. The key is the FIX tag number
+        and the value is the tag value, e.g. AdditionalProperties<"9301"> = "1"
+        """
+        ...
+
+    @additional_properties.setter
+    def additional_properties(self, value: System.Collections.Generic.Dictionary[str, str]) -> None:
+        ...
+
+    @property
+    def handle_instruction(self) -> typing.Optional[str]:
+        """Instruction for order handling on Broker floor"""
+        ...
+
+    @handle_instruction.setter
+    def handle_instruction(self, value: typing.Optional[str]) -> None:
+        ...
+
+    @property
+    def notes(self) -> str:
+        """Free format text string"""
+        ...
+
+    @notes.setter
+    def notes(self, value: str) -> None:
+        ...
+
+    AUTOMATED_EXECUTION_ORDER_PRIVATE: str = ...
+    """Automated execution order, private, no broker intervention"""
+
+    AUTOMATED_EXECUTION_ORDER_PUBLIC: str = ...
+    """Automated execution order, public, broker, intervention OK"""
+
+    MANUAL_ORDER: str = ...
+    """Staged order, broker intervention required"""
+
+    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """Returns a new instance clone of this object"""
+        ...
+
+
+class BloombergFixOrderProperties(QuantConnect.Orders.FixOrderProperties):
+    """Contains additional properties and settings for an order submitted to Fix Bloomberg"""
+
+
 class StopLimitOrder(QuantConnect.Orders.Order):
     """Stop Market Order Type Definition"""
 
@@ -1832,38 +1883,7 @@ class StopLimitOrder(QuantConnect.Orders.Order):
         ...
 
 
-class FixOrderProperites(QuantConnect.Orders.OrderProperties):
-    """FIX (Financial Information Exchange) order properties"""
-
-    @property
-    def handle_instruction(self) -> typing.Optional[str]:
-        """Instruction for order handling on Broker floor"""
-        ...
-
-    @handle_instruction.setter
-    def handle_instruction(self, value: typing.Optional[str]) -> None:
-        ...
-
-    @property
-    def notes(self) -> str:
-        """Free format text string"""
-        ...
-
-    @notes.setter
-    def notes(self, value: str) -> None:
-        ...
-
-    AUTOMATED_EXECUTION_ORDER_PRIVATE: str = ...
-    """Automated execution order, private, no broker intervention"""
-
-    AUTOMATED_EXECUTION_ORDER_PUBLIC: str = ...
-    """Automated execution order, public, broker, intervention OK"""
-
-    MANUAL_ORDER: str = ...
-    """Staged order, broker intervention required"""
-
-
-class TradingTechnologiesOrderProperties(QuantConnect.Orders.FixOrderProperites):
+class TradingTechnologiesOrderProperties(QuantConnect.Orders.FixOrderProperties):
     """Trading Technologies order properties"""
 
 
@@ -2421,6 +2441,15 @@ class StopMarketOrder(QuantConnect.Orders.Order):
         :returns: A string that represents the current object.
         """
         ...
+
+
+class FixOrderProperites(QuantConnect.Orders.FixOrderProperties):
+    """
+    FIX (Financial Information Exchange) order properties
+    
+    
+    FixOrderProperites is deprecated. Use FixOrderProperties instead.
+    """
 
 
 class ReadOrdersResponseJsonConverter:

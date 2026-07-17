@@ -28,7 +28,7 @@ from ocrmypdf._concurrent import Executor
 from ocrmypdf._exec import unpaper
 from ocrmypdf._jobcontext import PageContext, PdfContext
 from ocrmypdf._metadata import repair_docinfo_nuls
-from ocrmypdf._options import OcrOptions, ProcessingMode, TaggedPdfMode
+from ocrmypdf._options import OcrOptions, PathOrIO, ProcessingMode, TaggedPdfMode
 from ocrmypdf._pageboxes import log_box_repairs, repair_page_boxes
 from ocrmypdf._stdoutprotect import get_protected_stdout_fd
 from ocrmypdf.exceptions import (
@@ -140,7 +140,7 @@ def triage_image_file(input_file: Path, output_file: Path, options: OcrOptions) 
             layout_fun = img2pdf.get_fixed_dpi_layout_fun(
                 Resolution(options.image_dpi, options.image_dpi)
             )
-        with open(output_file, 'wb') as outf:
+        with output_file.open('wb') as outf:
             img2pdf.convert(
                 os.fspath(input_file),
                 layout_fun=layout_fun,
@@ -159,7 +159,7 @@ def _pdf_guess_version(input_file: Path, search_window=1024) -> str:
 
     Returns empty string if not found, indicating file is probably not PDF.
     """
-    with open(input_file, 'rb') as f:
+    with input_file.open('rb') as f:
         signature = f.read(search_window)
     m = re.search(rb'%PDF-(\d\.\d)', signature)
     if m:
@@ -683,6 +683,7 @@ def create_ocr_image(image: Path, page_context: PageContext) -> Path:
     """
     output_file = page_context.get_path('ocr.png')
     options = page_context.options
+    im: Image.Image
     with Image.open(image) as im:
         log.debug('resolution %r', im.info['dpi'])
 
@@ -832,7 +833,7 @@ def create_pdf_page_from_image(
 
     # Create a new single page PDF to hold
     bio = BytesIO()
-    with open(image, 'rb') as imfile:
+    with image.open('rb') as imfile:
         log.debug('convert')
 
         layout_fun = img2pdf.get_layout_fun(pagesize)
@@ -1198,7 +1199,7 @@ def should_linearize(working_file: Path, context: PdfContext) -> bool:
 
     For smaller files, linearization is not worth the effort.
     """
-    filesize = os.stat(working_file).st_size
+    filesize = working_file.stat().st_size
     return filesize > (context.options.fast_web_view * 1_000_000)
 
 
@@ -1284,7 +1285,8 @@ def enumerate_compress_ranges(
         A tuple containing a range of indices and the corresponding element.
         If the element is None, the range represents a skipped range of indices.
     """
-    skipped_from, index = None, None
+    skipped_from: int | None = None
+    index: int | None = None
     for index, txt_file in enumerate(iterable):
         index += 1
         if txt_file:
@@ -1296,6 +1298,9 @@ def enumerate_compress_ranges(
             if skipped_from is None:
                 skipped_from = index
     if skipped_from is not None:
+        # skipped_from can only be set inside the loop above, so the loop
+        # must have run at least once and index is guaranteed to be an int.
+        assert index is not None
         yield (skipped_from, index), None
 
 
@@ -1307,7 +1312,7 @@ def merge_sidecars(txt_files: Iterable[Path | None], context: PdfContext) -> Pat
     and returns the path to the merged file.
     """
     output_file = context.get_path('sidecar.txt')
-    with open(output_file, 'w', encoding="utf-8") as stream:
+    with output_file.open('w', encoding="utf-8") as stream:
         for (from_, to_), txt_file in enumerate_compress_ranges(txt_files):
             if from_ != 1:
                 stream.write('\f')  # Form feed between pages for all pages after first
@@ -1322,18 +1327,12 @@ def merge_sidecars(txt_files: Iterable[Path | None], context: PdfContext) -> Pat
     return output_file
 
 
-def copy_final(
-    input_file: Path, output_file: str | Path | BinaryIO, original_file: Path | None
-) -> None:
+def copy_final(input_file: Path, output_file: PathOrIO) -> None:
     """Copy the final temporary file to the output destination.
 
     Args:
-        input_file (Path): The intermediate input file to copy.
-        output_file (str | Path | BinaryIO): The output file to copy to.
-        original_file: The original file to copy attributes from.
-
-    Returns:
-        None
+        input_file: The intermediate input file to copy.
+        output_file: The output file to copy to.
     """
     log.debug('%s -> %s', input_file, output_file)
     with input_file.open('rb') as input_stream:
@@ -1359,5 +1358,7 @@ def copy_final(
             # At this point we overwrite the output_file specified by the user
             # use copyfileobj because then we use open() to create the file and
             # get the appropriate umask, ownership, etc.
-            with open(output_file, 'w+b') as output_stream:
+            # The `hasattr` check above already ruled out stream-like objects.
+            assert isinstance(output_file, str | bytes | os.PathLike)
+            with Path(os.fsdecode(output_file)).open('w+b') as output_stream:
                 copyfileobj(input_stream, output_stream)

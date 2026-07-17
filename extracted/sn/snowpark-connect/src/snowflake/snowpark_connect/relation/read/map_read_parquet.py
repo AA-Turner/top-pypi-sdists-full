@@ -67,7 +67,11 @@ from snowflake.snowpark_connect.relation.read.utils import (
     rename_columns_as_snowflake_standard,
 )
 from snowflake.snowpark_connect.type_support import emulate_integral_types
-from snowflake.snowpark_connect.utils.io_utils import cached_file_format
+from snowflake.snowpark_connect.utils.io_utils import (
+    cached_file_format,
+    db_schema_from_stage_path,
+    first_db_schema_from_paths,
+)
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -326,7 +330,7 @@ def _reconstruct_schema(node: dict[str, Any]) -> DataType:
 
 
 def _build_struct_from_paths(
-    path_type_pairs: list[tuple[str, str]]
+    path_type_pairs: list[tuple[str, str]],
 ) -> StructType | ArrayType | None:
     """
     Build a StructType from a list of (path, type) pairs from FLATTEN output.
@@ -633,18 +637,22 @@ def _merge_variant_schemas(
 
     # Build result types, replacing VARIANT/STRING with discovered schemas.
     return [
-        discovered_schemas[idx]
-        if (
-            idx in discovered_schemas
-            and discovered_schemas[idx]
-            # Only accept complex types (StructType/ArrayType/MapType) from discovery.
-            # Primitive types discovered via FLATTEN (e.g. BooleanType from "true"/"false"
-            # strings) are unreliable — the Parquet column is physically STRING and may
-            # contain non-castable values like \N null markers. INFER_SCHEMA's type is
-            # always more trustworthy for primitives.
-            and isinstance(discovered_schemas[idx], (StructType, ArrayType, MapType))
+        (
+            discovered_schemas[idx]
+            if (
+                idx in discovered_schemas
+                and discovered_schemas[idx]
+                # Only accept complex types (StructType/ArrayType/MapType) from discovery.
+                # Primitive types discovered via FLATTEN (e.g. BooleanType from "true"/"false"
+                # strings) are unreliable — the Parquet column is physically STRING and may
+                # contain non-castable values like \N null markers. INFER_SCHEMA's type is
+                # always more trustworthy for primitives.
+                and isinstance(
+                    discovered_schemas[idx], (StructType, ArrayType, MapType)
+                )
+            )
+            else field.datatype
         )
-        else field.datatype
         for idx, field in enumerate(df.schema.fields)
     ]
 
@@ -668,7 +676,12 @@ def _create_nvs_sample(
     """
     try:
         nvs_options = {**file_format_options, "USE_VECTORIZED_SCANNER": False}
-        nvs_format = cached_file_format(session, "parquet", nvs_options)
+        nvs_format = cached_file_format(
+            session,
+            "parquet",
+            nvs_options,
+            db_schema_fallback=db_schema_from_stage_path(path),
+        )
         reader_options: dict[str, Any] = {
             "FORMAT_NAME": nvs_format,
             "ENFORCE_EXISTING_FILE_FORMAT": True,
@@ -1489,7 +1502,12 @@ def map_read_parquet(
         # issued when the lazy DF is materialized by a cache_result call.
         "FORMAT_NAME": converted_snowpark_options.get(
             "FORMAT_NAME",
-            cached_file_format(session, "parquet", file_format_options),
+            cached_file_format(
+                session,
+                "parquet",
+                file_format_options,
+                db_schema_fallback=first_db_schema_from_paths(paths),
+            ),
         ),
         "ENFORCE_EXISTING_FILE_FORMAT": True,
     }
@@ -1864,9 +1882,11 @@ def _transform_complex_type(
         return StructType(
             [
                 StructField(
-                    analyzer_utils.unquote_if_quoted(f.name)
-                    if strip_quotes
-                    else f.name,
+                    (
+                        analyzer_utils.unquote_if_quoted(f.name)
+                        if strip_quotes
+                        else f.name
+                    ),
                     _transform_complex_type(
                         f.datatype,
                         strip_quotes=strip_quotes,

@@ -26,14 +26,14 @@ from typing import Any, Literal
 import jax
 from jax._src import core as jax_core
 from jax._src import deprecations
-from jax._src import linear_util as lu
+from jax._src import flattree as ft
 from jax._src import state
 from jax._src import util
 from jax._src.frozen_dict import FrozenDict
 from jax._src.interpreters import partial_eval as pe
 from jax._src.pallas import core as pallas_core
+from jax._src.tpu_custom_call import OptLevel
 import jax.numpy as jnp
-import numpy as np
 
 
 map, unsafe_map = util.safe_map, map
@@ -122,6 +122,8 @@ class CompilerParams:
       flag is at the best-effort basis, and the fusion will only be performed
       when compilers determine it is feasible. Also, the fusion is not always
       profitable and therefore should be used sparingly.
+    opt_level: Optimization level. This flag is only used for ``SC_*_SUBCORE``
+      kernels and it implicitly defaults to O3.
   """
 
   dimension_semantics: tuple[DimensionSemantics, ...] | None = None
@@ -140,6 +142,7 @@ class CompilerParams:
   use_tc_tiling_on_sc: bool | None = None
   needs_layout_passes: bool = True
   fuse_transposed_lhs_in_matmul: bool = False
+  opt_level: OptLevel | None = None
 
   def __init__(
       self,
@@ -159,6 +162,7 @@ class CompilerParams:
       use_tc_tiling_on_sc: bool | None = None,
       needs_layout_passes: bool = True,
       fuse_transposed_lhs_in_matmul: bool = False,
+      opt_level: OptLevel | None = None,
   ):
     object.__setattr__(
         self,
@@ -200,6 +204,7 @@ class CompilerParams:
         "fuse_transposed_lhs_in_matmul",
         fuse_transposed_lhs_in_matmul,
     )
+    object.__setattr__(self, "opt_level", opt_level)
 
   # Replace is a method, not a field.
   replace = dataclasses.replace
@@ -221,6 +226,10 @@ class MemorySpace(enum.Enum):
   SEMAPHORE = "semaphore_mem"
   HBM = "hbm"
 
+  @property
+  def memory_kind(self) -> str:
+    return "device"
+
   def __getattr__(self, name):
     if name == "HOST":
       # Deprecated on June 4, 2026.
@@ -229,7 +238,7 @@ class MemorySpace(enum.Enum):
           "pltpu.MemorySpace.HOST is deprecated. Use pl.HOST instead.",
           stacklevel=2,
       )
-      return pallas_core.MemorySpace.HOST
+      return jax_core.MemorySpace.Host
     super().__getattr__(name)  # pyrefly: ignore[missing-attribute]
 
   def __str__(self) -> str:
@@ -323,28 +332,23 @@ class PrefetchScalarGridSpec(pallas_core.GridSpec):
     )
 
 
-@dataclasses.dataclass(frozen=True)
-class TensorCore:
-  id: int
+def _get_default_num_cores() -> int:
+  abstract_device = jax.sharding.get_abstract_mesh().abstract_device
+  if abstract_device is None:
+    device = jax.devices()[0]
+  else:
+    device = abstract_device
+  return device.num_cores
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class TensorCoreMesh(pallas_core.Mesh):
   """A mesh of TensorCores."""
 
-  devices: np.ndarray
-  axis_names: Sequence[str]
-
-  def __init__(self, devices: np.ndarray, axis_names: Sequence[str]):
-    devices = np.copy(devices)
-    devices.setflags(write=False)
-    object.__setattr__(self, "devices", devices)
-    object.__setattr__(self, "axis_names", tuple(axis_names))
-
-  def __hash__(self) -> int:
-    return hash(
-        (self.devices.shape, tuple(np.ravel(self.devices)), self.axis_names)
-    )
+  axis_name: str
+  num_cores: int = dataclasses.field(
+      default_factory=_get_default_num_cores
+  )
 
   @property
   def core_type(self) -> CoreType:
@@ -356,7 +360,7 @@ class TensorCoreMesh(pallas_core.Mesh):
 
   @property
   def shape(self):
-    return collections.OrderedDict(zip(self.axis_names, self.devices.shape))
+    return collections.OrderedDict({self.axis_name: self.num_cores})
 
   @property
   def dimension_semantics(self) -> Sequence[DimensionSemantics]:
@@ -395,16 +399,10 @@ def create_tensorcore_mesh(
     raise ValueError("cannot specify both devices and num_cores")
   if num_cores is None:
     if devices is None:
-      abstract_device = jax.sharding.get_abstract_mesh().abstract_device
-      if abstract_device is None:
-        devices = [jax.devices()[0]]
-      else:
-        devices = [abstract_device]
-    num_cores = devices[0].num_cores
-  return TensorCoreMesh(
-      np.array([TensorCore(i) for i in range(num_cores)]),
-      [axis_name],
-  )
+      num_cores = _get_default_num_cores()
+    else:
+      num_cores = devices[0].num_cores
+  return TensorCoreMesh(axis_name=axis_name, num_cores=num_cores)
 
 
 def pass_scalars_as_refs(
@@ -501,11 +499,11 @@ def pass_scalars_as_refs(
       ),
       jax_core.extend_axis_env_nd(mesh.shape.items()),
   ):
-    new_jaxpr, _, _ = pe.trace_to_jaxpr_dynamic(
-        lu.wrap_init(
-            new_body, debug_info=jaxpr.debug_info.with_unknown_names()
-        ),
-        new_trace_avals,
+    # TODO(necula): Use trace_to_jaxpr_nocache.
+    new_jaxpr, _ = pe.trace_to_jaxpr(
+        new_body,
+        ft.flatten_args(*new_trace_avals),
+        jaxpr.debug_info.with_unknown_names(),
     )
   jaxpr = new_jaxpr.replace(
       constvars=new_jaxpr.invars[: len(jaxpr.constvars)],
@@ -543,7 +541,7 @@ def _tensorcore_mesh_discharge_rule(
     raise NotImplementedError("Mesh must be 1D")
   if compiler_params.dimension_semantics is not None:
     raise ValueError("dimension_semantics must be None for TensorCoreMesh")
-  num_cores = len(mesh.devices)
+  num_cores = mesh.num_cores
   if num_cores > 1:
     # Since each core will have its own VMEM, we currently disallow VMEM inputs
     # and outputs since other ops might not agree on how they are sharded across
@@ -600,10 +598,16 @@ def memory_space_to_tpu_memory_space(
         MemorySpace
         | pallas_core.MemorySpace
         | pallas_core.CoreMemorySpace
+        | jax_core.MemorySpace
         | None
     ),
     core_type: CoreType,
-) -> MemorySpace | pallas_core.MemorySpace | pallas_core.CoreMemorySpace:
+) -> (
+    MemorySpace
+    | pallas_core.MemorySpace
+    | pallas_core.CoreMemorySpace
+    | jax_core.MemorySpace
+):
   match memory_space:
     case None:
       match core_type:
@@ -619,7 +623,7 @@ def memory_space_to_tpu_memory_space(
           return MemorySpace.SMEM
         case _:
           raise ValueError(f"Unsupported core type: {core_type}")
-    case pallas_core.MemorySpace.ANY | pallas_core.MemorySpace.HOST:
+    case pallas_core.MemorySpace.ANY | jax_core.MemorySpace.Host:
       return memory_space
     case (
         pallas_core.MemorySpace.ERROR

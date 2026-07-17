@@ -997,6 +997,8 @@ export interface components {
             } | null;
             /** Pending */
             pending?: boolean | null;
+            /** Role */
+            role?: string | null;
             /** Source */
             source?: string | null;
             /** Span Id */
@@ -1655,8 +1657,16 @@ export interface components {
             target: string | string[];
             /** Timelines */
             timelines?: components["schemas"]["Timeline"][] | null;
+            /** Token Limit */
+            token_limit?: number | null;
+            /** Token Limit Type */
+            token_limit_type?: string | null;
+            /** Token Limit Usage */
+            token_limit_usage?: number | null;
             /** Total Time */
             total_time?: number | null;
+            /** Turn Count */
+            turn_count?: number | null;
             /** Uuid */
             uuid?: string | null;
             /** Working Time */
@@ -1759,8 +1769,16 @@ export interface components {
             started_at?: string | null;
             /** Target */
             target: string | string[];
+            /** Token Limit */
+            token_limit?: number | null;
+            /** Token Limit Type */
+            token_limit_type?: string | null;
+            /** Token Limit Usage */
+            token_limit_usage?: number | null;
             /** Total Time */
             total_time?: number | null;
+            /** Turn Count */
+            turn_count?: number | null;
             /** Uuid */
             uuid?: string | null;
             /** Working Time */
@@ -2416,6 +2434,8 @@ export interface components {
             files: components["schemas"]["LogHandle"][];
             /** Log Dir */
             log_dir: string;
+            /** Log Dir Uri */
+            log_dir_uri?: string | null;
         };
         /**
          * LogUpdate

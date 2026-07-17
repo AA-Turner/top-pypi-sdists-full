@@ -1191,6 +1191,7 @@ def permute_dims(a: ArrayLike, /, axes: tuple[int, ...]) -> Array:
            [3, 6]], dtype=int32)
   """
   a = util.ensure_arraylike("permute_dims", a)
+  axes = util.canonicalize_axis_tuple(tuple(axes), a.ndim, allow_duplicate=False)
   return lax.transpose(a, axes)
 
 
@@ -4221,7 +4222,7 @@ def pad(array: ArrayLike, pad_width: PadValueLike[int | Array | np.ndarray],
     mode: a string or callable. Supported pad modes are:
 
       - ``'constant'`` (default): pad with a constant value, which defaults to zero.
-      - ``'empty'``: pad with empty values (i.e. zero)
+      - ``'empty'``: pad with empty (i.e. uninitialized) values
       - ``'edge'``: pad with the edge values of the array.
       - ``'wrap'``: pad by wrapping the array.
       - ``'linear_ramp'``: pad with a linear ramp to specified ``end_values``.
@@ -7440,6 +7441,9 @@ def trim_zeros(filt: ArrayLike, trim: str ='fb',
 
   JAX implementation of :func:`numpy.trim_zeros`.
 
+  Because the size of the output of ``trim_zeros`` is data-dependent, the function
+  is not compatible with :func:`jax.jit` and other JAX transformations.
+
   Args:
     filt: N-dimensional input array.
     trim: string, optional, default = ``fb``. Specifies from which end the input
@@ -7953,7 +7957,8 @@ def cross(a, b, axisa: int = -1, axisb: int = -1, axisc: int = -1,
      c = a \times b
 
   In 3 dimensions, ``c`` is a length-3 array. In 2 dimensions, ``c`` is
-  a scalar.
+  a scalar. Note that 2-dimensional inputs are deprecated and will be
+  removed in JAX 0.12.0.
 
   Args:
     a: N-dimensional array. ``a.shape[axisa]`` indicates the dimension of
@@ -7976,13 +7981,6 @@ def cross(a, b, axisa: int = -1, axisb: int = -1, axisc: int = -1,
       computing cross products over 3-vectors.
 
   Examples:
-    A 2-dimensional cross product returns a scalar:
-
-    >>> a = jnp.array([1, 2])
-    >>> b = jnp.array([3, 4])
-    >>> jnp.cross(a, b)
-    Array(-2, dtype=int32)
-
     A 3-dimensional cross product returns a length-3 vector:
 
     >>> a = jnp.array([1, 2, 3])
@@ -8001,20 +7999,7 @@ def cross(a, b, axisa: int = -1, axisb: int = -1, axisc: int = -1,
     >>> jnp.cross(a, b)
     Array([[-5,  4, -1],
            [ 9, -6, -1]], dtype=int32)
-
-    Specifying axis=0 makes this a batched 2-dimensional cross product,
-    operating on the columns of the inputs:
-
-    >>> jnp.cross(a, b, axis=0)
-    Array([-2, -2, 12], dtype=int32)
-
-    Equivalently, we can independently specify the axis of the inputs ``a``
-    and ``b`` and the output ``c``:
-
-    >>> jnp.cross(a, b, axisa=0, axisb=0, axisc=0)
-    Array([-2, -2, 12], dtype=int32)
   """
-  # TODO(jakevdp): NumPy 2.0 deprecates 2D inputs. Follow suit here.
   util.check_arraylike("cross", a, b)
   if axis is not None:
     axisa = axis
@@ -8025,6 +8010,15 @@ def cross(a, b, axisa: int = -1, axisb: int = -1, axisc: int = -1,
 
   if a.shape[-1] not in (2, 3) or b.shape[-1] not in (2, 3):
     raise ValueError("Dimension must be either 2 or 3 for cross product")
+
+  if a.shape[-1] == 2 or b.shape[-1] == 2:
+    deprecations.warn(
+        "jax-numpy-cross-2d-input",
+        "Support for 2-dimensional vectors in jnp.cross is deprecated and "
+        "will be removed in JAX 0.12.0. Use arrays of 3-dimensional "
+        "vectors instead.",
+        stacklevel=2,
+    )
 
   if a.shape[-1] == 2 and b.shape[-1] == 2:
     return a[..., 0] * b[..., 1] - a[..., 1] * b[..., 0]
@@ -8539,6 +8533,11 @@ def roll(a: ArrayLike, shift: ArrayLike | Sequence[int],
     return roll(arr.ravel(), shift, 0).reshape(arr.shape)
   axis = _ensure_index_tuple(axis)
   axis = tuple(_canonicalize_axis(ax, arr.ndim) for ax in axis)
+  arr_aval = core.typeof(arr)
+  if any(arr_aval.sharding.spec[i] is not None for i in axis):
+    raise core.ShardingTypeError(
+        "`a` cannot be sharded on the axis being rolled over. Got arr"
+        f" type={arr_aval.str_short(True)} and {axis=}")
   try:
     shift = _ensure_index_tuple(shift)
   except TypeError:
@@ -9038,7 +9037,12 @@ def compress(condition: ArrayLike, a: ArrayLike, axis: int | None = None,
   arr = arr[:condition_arr.shape[0]]
 
   if size is None:
-    if reductions.any(extra):
+    msg = ("The size argument of jnp.compress must be specified in order to use "
+           "jnp.compress within JAX transformations like jax.jit, jax.vmap, and "
+           "jax.grad. For more information, refer to the jnp.compress documentation.")
+    condition_arr = core.concrete_or_error(None, condition_arr, msg)
+    extra = core.concrete_or_error(None, extra, msg)
+    if extra.any():
       raise ValueError("condition contains entries that are out of bounds")
     result = arr[condition_arr]
   elif not 0 <= size <= arr.shape[0]:

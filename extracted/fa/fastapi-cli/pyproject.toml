@@ -38,7 +38,7 @@ dependencies = [
     "rich-toolkit >= 0.14.8",
     "tomli >= 2.0.0; python_version < '3.11'",
 ]
-version = "0.0.30"
+version = "0.0.32"
 
 [project.optional-dependencies]
 standard = [

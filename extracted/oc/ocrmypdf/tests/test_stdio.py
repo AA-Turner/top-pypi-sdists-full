@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from subprocess import DEVNULL, PIPE, run
 
 import pytest
@@ -18,7 +19,7 @@ def test_stdin(ocrmypdf_exec, resources, outpdf):
     output_file = str(outpdf)
 
     # Runs: ocrmypdf - output.pdf < testfile.pdf
-    with open(input_file, 'rb') as input_stream:
+    with Path(input_file).open('rb') as input_stream:
         p_args = ocrmypdf_exec + [
             '-',
             output_file,
@@ -36,7 +37,7 @@ def test_stdout(ocrmypdf_exec, resources, outpdf):
     output_file = str(outpdf)
 
     # Runs: ocrmypdf francais.pdf - > test_stdout.pdf
-    with open(output_file, 'wb') as output_stream:
+    with Path(output_file).open('wb') as output_stream:
         p_args = ocrmypdf_exec + [
             input_file,
             '-',
@@ -58,7 +59,7 @@ def test_stdout_protected_from_pollution(ocrmypdf_exec, resources, outpdf):
     # A plugin deliberately writes garbage to stdout during the run. With stdout
     # protection active, that garbage must be diverted to stderr and never reach
     # the PDF we are writing to stdout.
-    with open(output_file, 'wb') as output_stream:
+    with Path(output_file).open('wb') as output_stream:
         p_args = ocrmypdf_exec + [
             input_file,
             '-',
@@ -70,7 +71,7 @@ def test_stdout_protected_from_pollution(ocrmypdf_exec, resources, outpdf):
         p = run(p_args, stdout=output_stream, stderr=PIPE, stdin=DEVNULL, check=True)
 
     assert check_pdf(output_file), "PDF on stdout was corrupted"
-    with open(output_file, 'rb') as f:
+    with Path(output_file).open('rb') as f:
         assert b'POLLUTION' not in f.read(), "pollution leaked into the PDF"
     assert b'POLLUTION' in p.stderr, "pollution was not diverted to stderr"
 

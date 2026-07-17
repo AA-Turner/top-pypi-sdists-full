@@ -14,6 +14,11 @@
 
 from neutron_lib.api import converters
 from neutron_lib.db import constants as db_const
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 FLAVOR = 'flavor'
 FLAVORS = FLAVOR + 's'
@@ -27,7 +32,7 @@ NAME = 'Neutron Service Flavors'
 API_PREFIX = ''
 DESCRIPTION = 'Flavor specification for Neutron advanced services.'
 UPDATED_TIMESTAMP = '2015-09-17T10:00:00-00:00'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     FLAVORS: {
         'id': {'allow_post': False, 'allow_put': False,
                'validate': {'type:uuid': None},
@@ -79,7 +84,8 @@ RESOURCE_ATTRIBUTE_MAP = {
                     'is_visible': True, 'default': True},
     },
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {
+
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {
     NEXT_PROVIDERS: {
         'parent': {'collection_name': FLAVORS,
                    'member_name': FLAVOR},
@@ -101,7 +107,7 @@ SUB_RESOURCE_ATTRIBUTE_MAP = {
                               'is_visible': True}}
     }
 }
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

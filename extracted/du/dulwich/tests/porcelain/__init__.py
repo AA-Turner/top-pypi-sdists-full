@@ -59,6 +59,8 @@ from dulwich.porcelain import (
     CheckoutError,  # Hypothetical or real error class
     CountObjectsResult,
     _checked_worktree_path,
+    _protocol_version_from_env,
+    _ssh_command_from_env,
     add,
     commit,
 )
@@ -333,6 +335,33 @@ class ArchiveTests(PorcelainTestCase):
         tf = tarfile.TarFile(fileobj=out)
         self.addCleanup(tf.close)
         self.assertEqual([], tf.getnames())
+
+    def test_remote(self) -> None:
+        calls = []
+
+        class FakeClient:
+            def archive(self, path, committish, write_data, **kwargs) -> None:
+                calls.append((path, committish))
+                write_data(b"tar data")
+
+        real = porcelain.get_transport_and_path
+        porcelain.get_transport_and_path = lambda location, **kwargs: (
+            FakeClient(),
+            location,
+        )
+        self.addCleanup(setattr, porcelain, "get_transport_and_path", real)
+
+        out = BytesIO()
+        err = BytesIO()
+        porcelain.archive(
+            remote="git://example.com/repo",
+            committish=b"HEAD",
+            outstream=out,
+            errstream=err,
+        )
+        self.assertEqual([(b"git://example.com/repo", b"HEAD")], calls)
+        self.assertEqual(b"tar data", out.getvalue())
+        self.assertEqual(b"", err.getvalue())
 
 
 class UpdateServerInfoTests(PorcelainTestCase):
@@ -13455,3 +13484,327 @@ class RequestPullTests(PorcelainTestCase):
         # The tag message appears between the first and second separators.
         body = out.getvalue().split("-" * 64 + "\n")
         self.assertEqual("Release version 1.0\n", body[1])
+
+
+class EnvOverrideTests(PorcelainTestCase):
+    """Tests for the porcelain env parameter overriding os.environ."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        config = self.repo.get_config()
+        config.set((b"user",), b"name", b"Config Name")
+        config.set((b"user",), b"email", b"config@example.com")
+        config.write_to_path()
+        # Poison the process environment: nothing below should pick these up
+        # when an explicit env is passed.
+        self.overrideEnv("GIT_AUTHOR_NAME", "Poison")
+        self.overrideEnv("GIT_AUTHOR_EMAIL", "poison@example.com")
+        self.overrideEnv("GIT_COMMITTER_NAME", "Poison")
+        self.overrideEnv("GIT_COMMITTER_EMAIL", "poison@example.com")
+
+    def _stage_file(self, name="foo") -> None:
+        path = os.path.join(self.repo.path, name)
+        with open(path, "w") as f:
+            f.write("contents")
+        porcelain.add(self.repo.path, paths=[path])
+
+    def test_commit_identity_from_env(self) -> None:
+        self._stage_file()
+        sha = porcelain.commit(
+            self.repo.path,
+            message=b"msg",
+            env={
+                "GIT_AUTHOR_NAME": "Env Author",
+                "GIT_AUTHOR_EMAIL": "author@example.com",
+                "GIT_COMMITTER_NAME": "Env Committer",
+                "GIT_COMMITTER_EMAIL": "committer@example.com",
+            },
+        )
+        commit = self.repo[sha]
+        self.assertEqual(b"Env Author <author@example.com>", commit.author)
+        self.assertEqual(b"Env Committer <committer@example.com>", commit.committer)
+
+    def test_commit_empty_env_ignores_os_environ(self) -> None:
+        self._stage_file()
+        sha = porcelain.commit(self.repo.path, message=b"msg", env={})
+        commit = self.repo[sha]
+        self.assertEqual(b"Config Name <config@example.com>", commit.author)
+        self.assertEqual(b"Config Name <config@example.com>", commit.committer)
+
+    def test_commit_default_env_uses_os_environ(self) -> None:
+        self._stage_file()
+        sha = porcelain.commit(self.repo.path, message=b"msg")
+        commit = self.repo[sha]
+        self.assertEqual(b"Poison <poison@example.com>", commit.author)
+
+    def test_commit_env_partial_override(self) -> None:
+        self._stage_file()
+        sha = porcelain.commit(
+            self.repo.path, message=b"msg", env={"GIT_AUTHOR_NAME": "Env Author"}
+        )
+        commit = self.repo[sha]
+        self.assertEqual(b"Env Author <config@example.com>", commit.author)
+
+    def test_default_identity_from_env(self) -> None:
+        # With no user.name/user.email anywhere, the identity falls back to the
+        # user running the process, which must also come from env.
+        self.assertEqual(
+            b"envuser <envuser@example.com>",
+            porcelain._get_user_identity(
+                porcelain.StackedConfig([]),
+                kind="AUTHOR",
+                env={"USER": "envuser", "EMAIL": "envuser@example.com"},
+            ),
+        )
+
+    def test_commit_config_override_from_env(self) -> None:
+        self._stage_file()
+        sha = porcelain.commit(
+            self.repo.path,
+            message=b"msg",
+            env={
+                "GIT_CONFIG_COUNT": "2",
+                "GIT_CONFIG_KEY_0": "user.name",
+                "GIT_CONFIG_VALUE_0": "Override Name",
+                "GIT_CONFIG_KEY_1": "user.email",
+                "GIT_CONFIG_VALUE_1": "override@example.com",
+            },
+        )
+        commit = self.repo[sha]
+        self.assertEqual(b"Override Name <override@example.com>", commit.author)
+
+    def test_get_user_timezones_env(self) -> None:
+        author_tz, commit_tz = porcelain.get_user_timezones(
+            env={"GIT_AUTHOR_DATE": "2005-04-07T22:13:13 +0300"}
+        )
+        self.assertEqual(10800, author_tz)
+        self.assertEqual(time.localtime().tm_gmtoff, commit_tz)
+
+    def test_var_env(self) -> None:
+        self.assertEqual(
+            "my-editor",
+            porcelain.var(
+                self.repo.path, "GIT_EDITOR", env={"GIT_EDITOR": "my-editor"}
+            ),
+        )
+
+    def test_var_list_env(self) -> None:
+        variables = porcelain.var_list(self.repo.path, env={"GIT_PAGER": "my-pager"})
+        self.assertEqual("my-pager", variables["GIT_PAGER"])
+
+    def test_reset_reflog_action_from_env(self) -> None:
+        self._stage_file("foo")
+        first = porcelain.commit(self.repo.path, message=b"first", env={})
+        self._stage_file("bar")
+        porcelain.commit(self.repo.path, message=b"second", env={})
+        # Reset back to the first commit so HEAD actually moves and a reflog
+        # entry gets written.
+        porcelain.reset(
+            self.repo.path,
+            "hard",
+            treeish=first,
+            env={"GIT_REFLOG_ACTION": "custom action"},
+        )
+        # HEAD is a symref, so the entry lands in the reflog of the branch it
+        # points at.
+        refnames, _ = self.repo.refs.follow(b"HEAD")
+        entries = list(self.repo.read_reflog(refnames[-1]))
+        self.assertEqual(b"custom action", entries[-1].message)
+
+    def test_tag_create_tagger_from_env(self) -> None:
+        self._stage_file()
+        porcelain.commit(self.repo.path, message=b"msg", env={})
+        porcelain.tag_create(
+            self.repo.path,
+            b"v1",
+            annotated=True,
+            message=b"tag message",
+            env={
+                "GIT_COMMITTER_NAME": "Env Tagger",
+                "GIT_COMMITTER_EMAIL": "tagger@example.com",
+            },
+        )
+        tag = self.repo[self.repo.refs[b"refs/tags/v1"]]
+        self.assertEqual(b"Env Tagger <tagger@example.com>", tag.tagger)
+
+    def _captured_ssh_command(self, run) -> str | None:
+        """Return the ssh_command ``run`` ends up handing to the transport."""
+        captured = {}
+        real = porcelain.get_transport_and_path
+
+        def get_transport_and_path(location, **transport_kwargs):
+            captured.update(transport_kwargs)
+            return real(location, **transport_kwargs)
+
+        porcelain.get_transport_and_path = get_transport_and_path
+        self.addCleanup(setattr, porcelain, "get_transport_and_path", real)
+        run()
+        return captured["ssh_command"]
+
+    def test_ls_remote_ssh_command_from_env(self) -> None:
+        self.assertEqual(
+            "/usr/bin/ssh -v",
+            self._captured_ssh_command(
+                lambda: porcelain.ls_remote(
+                    self.repo.path, env={"GIT_SSH_COMMAND": "/usr/bin/ssh -v"}
+                )
+            ),
+        )
+
+    def test_ls_remote_ssh_command_argument_wins(self) -> None:
+        self.assertEqual(
+            "explicit-ssh",
+            self._captured_ssh_command(
+                lambda: porcelain.ls_remote(
+                    self.repo.path,
+                    ssh_command="explicit-ssh",
+                    env={"GIT_SSH_COMMAND": "/usr/bin/ssh -v"},
+                )
+            ),
+        )
+
+    def test_ls_remote_ssh_command_defaults_to_os_environ(self) -> None:
+        self.overrideEnv("GIT_SSH_COMMAND", "/usr/bin/ssh -v")
+        self.assertEqual(
+            "/usr/bin/ssh -v",
+            self._captured_ssh_command(lambda: porcelain.ls_remote(self.repo.path)),
+        )
+
+    def test_clone_protocol_version_from_env(self) -> None:
+        captured = {}
+        real = porcelain.get_transport_and_path
+
+        def get_transport_and_path(location, **kwargs):
+            client, path = real(location, **kwargs)
+            real_clone = client.clone
+
+            def clone(*args, **clone_kwargs):
+                captured["protocol_version"] = clone_kwargs.get("protocol_version")
+                return real_clone(*args, **clone_kwargs)
+
+            client.clone = clone
+            return client, path
+
+        porcelain.get_transport_and_path = get_transport_and_path
+        self.addCleanup(setattr, porcelain, "get_transport_and_path", real)
+
+        target = os.path.join(self.test_dir, "proto-target")
+        porcelain.clone(
+            self.repo.path, target, env={"GIT_PROTOCOL": "version=2"}
+        ).close()
+        self.assertEqual(2, captured["protocol_version"])
+
+    def test_clone_ssh_command_from_os_environ(self) -> None:
+        # porcelain.clone() ignored GIT_SSH_COMMAND when the env var was only
+        # consulted by the CLI (#2209).
+        self.overrideEnv("GIT_SSH_COMMAND", "ssh -i /path/to/id_ed25519")
+        target = os.path.join(self.test_dir, "target")
+        self.assertEqual(
+            "ssh -i /path/to/id_ed25519",
+            self._captured_ssh_command(lambda: porcelain.clone(self.repo.path, target)),
+        )
+
+
+class SshCommandFromEnvTests(TestCase):
+    """Tests for :func:`dulwich.porcelain._ssh_command_from_env`.
+
+    GIT_SSH_COMMAND wins over GIT_SSH, matching git's own precedence.
+    """
+
+    def test_both_unset_returns_none(self) -> None:
+        self.assertIsNone(_ssh_command_from_env({}))
+
+    def test_git_ssh_command_wins(self) -> None:
+        self.assertEqual(
+            "/usr/bin/ssh -v",
+            _ssh_command_from_env(
+                {"GIT_SSH_COMMAND": "/usr/bin/ssh -v", "GIT_SSH": "/path/to/ssh"}
+            ),
+        )
+
+    def test_git_ssh_alone(self) -> None:
+        self.assertEqual(
+            "/path/to/ssh", _ssh_command_from_env({"GIT_SSH": "/path/to/ssh"})
+        )
+
+    def test_empty_git_ssh_command_falls_back(self) -> None:
+        # An empty string is effectively unset; fall back to GIT_SSH.
+        self.assertEqual(
+            "/path/to/ssh",
+            _ssh_command_from_env({"GIT_SSH_COMMAND": "", "GIT_SSH": "/path/to/ssh"}),
+        )
+
+    def test_defaults_to_os_environ(self) -> None:
+        self.overrideEnv("GIT_SSH_COMMAND", "/usr/bin/ssh -v")
+        self.overrideEnv("GIT_SSH", None)
+        self.assertEqual("/usr/bin/ssh -v", _ssh_command_from_env())
+
+
+class ProtocolVersionFromEnvTests(TestCase):
+    """Tests for :func:`dulwich.porcelain._protocol_version_from_env`."""
+
+    def test_unset_returns_none(self) -> None:
+        self.assertIsNone(_protocol_version_from_env({}))
+
+    def test_empty_returns_none(self) -> None:
+        self.assertIsNone(_protocol_version_from_env({"GIT_PROTOCOL": ""}))
+
+    def test_version_2(self) -> None:
+        self.assertEqual(2, _protocol_version_from_env({"GIT_PROTOCOL": "version=2"}))
+
+    def test_version_1(self) -> None:
+        self.assertEqual(1, _protocol_version_from_env({"GIT_PROTOCOL": "version=1"}))
+
+    def test_version_in_compound_value(self) -> None:
+        # GIT_PROTOCOL can carry multiple colon-separated key=value entries.
+        self.assertEqual(
+            2, _protocol_version_from_env({"GIT_PROTOCOL": "feature=extra:version=2"})
+        )
+
+    def test_non_version_key_returns_none(self) -> None:
+        self.assertIsNone(_protocol_version_from_env({"GIT_PROTOCOL": "feature=extra"}))
+
+    def test_unparsable_version_returns_none(self) -> None:
+        self.assertIsNone(_protocol_version_from_env({"GIT_PROTOCOL": "version=nope"}))
+
+    def test_defaults_to_os_environ(self) -> None:
+        self.overrideEnv("GIT_PROTOCOL", "version=2")
+        self.assertEqual(2, _protocol_version_from_env())
+
+
+class CoreWorktreeTests(PorcelainTestCase):
+    """Porcelain operates on the tree named by core.worktree."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.worktree = os.path.join(self.test_dir, "worktree")
+        os.mkdir(self.worktree)
+
+        with open(os.path.join(self.repo_path, "tracked"), "w") as f:
+            f.write("contents")
+        porcelain.add(self.repo_path, paths=["tracked"])
+        porcelain.commit(
+            self.repo_path,
+            message=b"initial",
+            author=b"T <t@example.com>",
+            committer=b"T <t@example.com>",
+        )
+
+        c = self.repo.get_config()
+        c.set((b"core",), b"worktree", self.worktree.encode())
+        c.write_to_path()
+
+    def test_status_reads_configured_worktree(self) -> None:
+        # The committed file lives in the original directory, not in the
+        # configured worktree, so it reads as deleted -- matching git.
+        with Repo(self.repo_path) as r:
+            self.assertEqual(self.worktree, r.path)
+            status = porcelain.status(r)
+            self.assertEqual([b"tracked"], status.unstaged)
+            self.assertEqual([], status.untracked)
+
+    def test_untracked_files_found_in_configured_worktree(self) -> None:
+        with open(os.path.join(self.worktree, "new"), "w") as f:
+            f.write("contents")
+        with Repo(self.repo_path) as r:
+            self.assertEqual([b"new"], porcelain.status(r).untracked)

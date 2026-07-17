@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: click-extra
-Version: 8.3.0
+Version: 8.4.0
 Summary: 🌈 Drop-in replacement for Click to make user-friendly and colorful CLI
 Keywords: ansi-colors,ansi-escape-codes,cli-framework,click,click-extension,click-plugin,cloup,colorization,config-file,configuration-file,hjson,ini,json5,pygments,pytest-plugin,python-cli,python-tabulate,sphinx-extension,tabulate,toml-parser
 Author: Kevin Deldycke
@@ -68,7 +68,7 @@ Requires-Dist: xmltodict>=1 ; extra == 'xml'
 Requires-Dist: pyyaml>=6.0.3 ; extra == 'yaml'
 Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/kdeldycke/click-extra
-Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v8.3.0
+Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v8.4.0
 Project-URL: Changelog, https://github.com/kdeldycke/click-extra/blob/main/changelog.md
 Project-URL: Issues, https://github.com/kdeldycke/click-extra/issues
 Project-URL: Repository, https://github.com/kdeldycke/click-extra
@@ -89,7 +89,7 @@ Description-Content-Type: text/markdown
 
 <p align="center">
   <a href="https://github.com/kdeldycke/click-extra/">
-    <img src="https://raw.githubusercontent.com/kdeldycke/click-extra/v8.3.0/docs/assets/logo-banner.svg" alt="Click Extra">
+    <img src="https://raw.githubusercontent.com/kdeldycke/click-extra/v8.4.0/docs/assets/logo-banner.svg" alt="Click Extra">
   </a>
 </p>
 
@@ -133,11 +133,11 @@ This is a great way to play with Click Extra and check that it runs fine on your
 
 It transforms this vanilla `click` CLI:
 
-![click CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/v8.3.0/docs/assets/click-help-screen.png)
+![click CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/v8.4.0/docs/assets/click-help-screen.png)
 
 Into this:
 
-![click-extra CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/v8.3.0/docs/assets/click-extra-screen.png)
+![click-extra CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/v8.4.0/docs/assets/click-extra-screen.png)
 
 To understand how we ended up with the result above, [go read the tutorial](https://kdeldycke.github.io/click-extra/tutorial.html).
 
@@ -175,6 +175,7 @@ To understand how we ended up with the result above, [go read the tutorial](http
 - [Colored `--version`](https://kdeldycke.github.io/click-extra/version.html) with [template variables](https://kdeldycke.github.io/click-extra/version.html#variables) for git metadata (branch, hash, date, tag) and [pre-baking](https://kdeldycke.github.io/click-extra/version.html#pre-baking-git-metadata) for compiled binaries (Nuitka, PyInstaller)
 - [Colored `--verbosity` LEVEL and logs](https://kdeldycke.github.io/click-extra/logging.html), plus `-v`/`--verbose` repetition for incremental bumping
 - [`--show-params`](https://kdeldycke.github.io/click-extra/parameters.html#show-params-option) to debug parameter defaults, values, environment variables and provenance
+- [`--tree`](https://kdeldycke.github.io/click-extra/tree.html) to print the whole hierarchy of nested subcommands with their descriptions
 - [`--time`/`--no-time`](https://kdeldycke.github.io/click-extra/execution.html#timer) to measure command execution duration
 - [`--table-format`](https://kdeldycke.github.io/click-extra/table.html#table-formats) to switch between 40+ table-rendering styles (uses [`print_table()`](https://kdeldycke.github.io/click-extra/table.html) and [`serialize_data()`](https://kdeldycke.github.io/click-extra/table.html#data-serialization))
 - [`--jobs`](https://kdeldycke.github.io/click-extra/execution.html#parallel-jobs) for parallel-execution worker counts
@@ -194,6 +195,7 @@ To understand how we ended up with the result above, [go read the tutorial](http
 
 - [CLI wrapper](https://kdeldycke.github.io/click-extra/wrap.html) (`click-extra wrap`) applies help colorization, themes, and config loading to any Click CLI without modifying its source code
 - [`show-params` subcommand](https://kdeldycke.github.io/click-extra/wrap.html#introspecting-external-clis) to introspect any external Click CLI's parameters
+- [`--tree` mode](https://kdeldycke.github.io/click-extra/tree.html#foreign-clis) to print any external Click CLI's subcommand hierarchy without running it
 - [User-defined themes via `--config`](https://kdeldycke.github.io/click-extra/wrap.html#custom-themes-via-config) work transparently through the wrapper, so users can theme third-party CLIs from their own `pyproject.toml`
 
 ### Performance and structure

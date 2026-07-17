@@ -7,7 +7,7 @@ import logging
 import os
 import signal
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -288,17 +288,22 @@ class Aigie:
             self._decision_tasks: set = set()
             if self.config.kytte_decision_grpc_url:
                 from aigie.decision import DecisionClient as _DecisionClient
+                from aigie.decision.executor import StepExecutor
 
                 self._decision_client = _DecisionClient(
                     self.config.kytte_decision_grpc_url,
                     api_key=self._auth_token,
                     use_tls=self.config.kytte_grpc_use_tls,
+                    step_executor=StepExecutor(),
+                    rewind_coordinator=self._rewind_coordinator,
                 )
                 logger.info(
                     "[AIGIE] gRPC determine enabled: target=%s tls=%s",
                     self._decision_client.target,
                     self.config.kytte_grpc_use_tls,
                 )
+                # Advertise executable verbs without blocking startup.
+                self._track_decision_task(self._decision_client.register_capabilities())
 
             # Initialize event buffer (always on)
             self._buffer = EventBuffer(
@@ -1048,17 +1053,23 @@ class Aigie:
         decision_client = getattr(self, "_decision_client", None)
         if decision_client is None:
             return
-        tasks = getattr(self, "_decision_tasks", None)
-        if tasks is None:
-            tasks = self._decision_tasks = set()
         for span_pb in spans_pb:
             # Authoritative judge gate (covers both the emit-time and
             # dispatch-time fire paths): never judge a paused/interrupted span.
             if span_pb.status in JUDGE_SKIP_STATUSES:
                 continue
-            task = asyncio.create_task(decision_client.evaluate_span(span_pb))
-            tasks.add(task)
-            task.add_done_callback(tasks.discard)
+            self._track_decision_task(decision_client.evaluate_span(span_pb))
+
+    def _track_decision_task(self, coro: Coroutine[Any, Any, Any]) -> None:
+        """Schedule a fire-and-forget decision-path task, holding a strong
+        reference in ``_decision_tasks`` until it completes so it isn't GC'd
+        mid-flight; drained on shutdown by ``_drain_decision_tasks``."""
+        tasks = getattr(self, "_decision_tasks", None)
+        if tasks is None:
+            tasks = self._decision_tasks = set()
+        task = asyncio.create_task(coro)
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
 
     async def _flush_events(self, events: list[BufferedEvent]) -> None:
         """

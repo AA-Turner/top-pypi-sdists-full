@@ -1,5 +1,28 @@
 use crate::runtime::get_runtime;
 use crate::unlikely;
+
+/// Parses an `otpauth://totp/...?algorithm=...&digits=...&period=...&secret=...` URI.
+/// Returns `(algorithm, digits, period, secret)` only if all four params are present;
+/// returns `None` if the URI has no query string or any required param is missing.
+fn parse_totp_uri(uri: &str) -> Option<(String, String, String, String)> {
+    let params_str = uri.split_once('?')?.1;
+    let mut algorithm = None;
+    let mut digits = None;
+    let mut period = None;
+    let mut secret = None;
+    for kv in params_str.split('&') {
+        if let Some((k, v)) = kv.split_once('=') {
+            match k {
+                "algorithm" => algorithm = Some(v.to_string()),
+                "digits" => digits = Some(v.to_string()),
+                "period" => period = Some(v.to_string()),
+                "secret" => secret = Some(v.to_string()),
+                _ => {}
+            }
+        }
+    }
+    Some((algorithm?, digits?, period?, secret?))
+}
 use anyhow::{anyhow, Result};
 use bytes::{Buf, BufMut};
 use log::{debug, error, info, warn};
@@ -512,6 +535,20 @@ impl Channel {
                                         if let Some(val) = user_details.distinguished_name {
                                             guacd_params_locked
                                                 .insert("distinguishedname".to_string(), val);
+                                        }
+                                        if let Some(totp_uri) = user_details.totp {
+                                            if let Some((alg, dig, per, sec)) =
+                                                parse_totp_uri(&totp_uri)
+                                            {
+                                                guacd_params_locked
+                                                    .insert("totpalgorithm".to_string(), alg);
+                                                guacd_params_locked
+                                                    .insert("totpdigits".to_string(), dig);
+                                                guacd_params_locked
+                                                    .insert("totpperiod".to_string(), per);
+                                                guacd_params_locked
+                                                    .insert("totpsecret".to_string(), sec);
+                                            }
                                         }
                                     }
                                 }
@@ -1448,5 +1485,35 @@ impl Channel {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_totp_uri;
+
+    #[test]
+    fn parse_totp_uri_all_fields_returns_tuple() {
+        let uri = "otpauth://totp/Example:user@host?algorithm=SHA1&digits=6&period=30&secret=JBSWY3DPEHPK3PXP";
+        let result = parse_totp_uri(uri);
+        assert!(result.is_some());
+        let (alg, dig, per, sec) = result.unwrap();
+        assert_eq!(alg, "SHA1");
+        assert_eq!(dig, "6");
+        assert_eq!(per, "30");
+        assert_eq!(sec, "JBSWY3DPEHPK3PXP");
+    }
+
+    #[test]
+    fn parse_totp_uri_missing_field_returns_none() {
+        // missing 'period' — all four must be present or we insert nothing
+        let uri = "otpauth://totp/Example?algorithm=SHA1&digits=6&secret=JBSWY3DPEHPK3PXP";
+        assert!(parse_totp_uri(uri).is_none());
+    }
+
+    #[test]
+    fn parse_totp_uri_no_query_string_returns_none() {
+        let uri = "otpauth://totp/Example";
+        assert!(parse_totp_uri(uri).is_none());
     }
 }

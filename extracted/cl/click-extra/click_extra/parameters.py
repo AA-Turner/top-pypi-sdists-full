@@ -21,15 +21,20 @@ import logging
 from contextlib import contextmanager, nullcontext
 from functools import cached_property, reduce
 from gettext import gettext as _
+from importlib import metadata
 from operator import getitem
 from typing import TypeVar
 
 import click
 import cloup
+from click import ParamType, get_current_context
+from click._utils import UNSET
 from deepmerge import always_merger
 
-from . import UNSET, EnumChoice, ParamType, Style, context, get_current_context
+from . import context
 from .envvar import param_envvar_ids
+from .styling import Style
+from .types import EnumChoice
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -225,7 +230,10 @@ def option_value_kind(
         return "flag"
     if getattr(param, "secondary_opts", None):
         return "flag"
-    if getattr(param, "flag_value", None) is not None:
+    flag_value = getattr(param, "flag_value", None)
+    # Click's development branch models an absent flag_value as the UNSET
+    # sentinel, not None.
+    if flag_value is not None and flag_value is not UNSET:
         return "optional"
     return "required"
 
@@ -253,6 +261,21 @@ def missing_extra_message(
         f"{subject} requires an optional dependency. "
         f"Install it with: pip install {package}[{extra}]"
     )
+
+
+def generator_tag() -> str:
+    """Provenance tag for generated artifacts: ``Click Extra <version>``.
+
+    Stamped into the header comments of the documents Click Extra generates
+    from a CLI (man pages, Carapace completion specs). This is Click Extra's
+    *own* version (the generator), not the documented CLI's version. Falls back
+    to the bare name when the distribution metadata is unavailable (such as
+    running from an uninstalled source tree).
+    """
+    try:
+        return f"Click Extra {metadata.version('click-extra')}"
+    except metadata.PackageNotFoundError:
+        return "Click Extra"
 
 
 class _ParameterMixin:
@@ -329,8 +352,8 @@ class ExtraOption(Option):
     """Dedicated to option implemented by ``click-extra`` itself.
 
     Provides a way to identify Click Extra's own options with certainty, and
-    restores the pre-Click-8.4.0 contract that eager callbacks can introspect
-    their own parameter source from within their own callback.
+    restores the pre-Click-8.4.0 contract that a callback (or a type's
+    ``convert()``) can introspect its own parameter source from within itself.
 
     .. note::
         This is the one click-extra class that deliberately keeps the ``Extra``
@@ -384,36 +407,42 @@ class ExtraOption(Option):
             Click ``8.4.0`` (PR `pallets/click#3404
             <https://github.com/pallets/click/pull/3404>`_) reordered
             ``Parameter.handle_parse_result`` so ``ctx.set_parameter_source`` runs
-            *after* ``process_value``. Eager callbacks that introspect their own
+            *after* ``process_value``. Callbacks that introspect their own
             provenance via ``ctx.get_parameter_source(self.name)`` therefore read
             ``None`` instead of the actual source. ``ColorOption``, ``ConfigOption``,
-            and ``ShowParamsOption`` all rely on this introspection to decide whether
-            an env var should override the default (``--color``), whether the
-            ``--config`` path was user-supplied, and what to render in the ``Source``
-            column of ``--show-params``.
+            and ``ShowParamsOption`` rely on this introspection (from their eager
+            callback) to decide whether an env var should override the default
+            (``--color``), whether the ``--config`` path was user-supplied, and what
+            to render in the ``Source`` column of ``--show-params``. ``JobsOption``
+            relies on the same introspection from its type's non-eager ``convert()``
+            (:class:`~click_extra.execution.JobCount`), to decide whether an
+            ``auto``/``max`` collapsing to a single job logs as a warning (explicit
+            request) or at info level (the option's own default).
 
             Click ``8.4.1`` restored the pre-``8.4.0`` contract upstream (PR
             `pallets/click#3484 <https://github.com/pallets/click/pull/3484>`_), so
             this override only matters for Click ``8.4.0`` itself, which sits inside
-            click-extra's supported ``>= 8.3.1`` range. Pre-recording the source here
-            for eager options keeps that contract on every supported Click.
-            ``super().handle_parse_result`` re-records the same value at the canonical
-            time, so the slot arbitration logic introduced by #3404 is unaffected:
-            ``slot_empty`` is computed from ``ctx.params``, not from
-            ``_parameter_source``.
+            click-extra's supported ``>= 8.3.1`` range. Pre-recording the source here,
+            for every option regardless of eagerness, keeps that contract on every
+            supported Click. ``super().handle_parse_result`` re-records the same
+            value at the canonical time, so the slot arbitration logic introduced by
+            #3404 is unaffected: ``slot_empty`` is computed from ``ctx.params``, not
+            from ``_parameter_source``.
 
             ``consume_value`` runs twice as a side effect: once here and once in
-            ``super``. Both calls are pure for click-extra's existing eager
-            flag-style options (no env var side effects, no prompt). Should a future
-            eager subclass need prompt behavior, this override would need to cache
-            the result instead.
+            ``super``. Both calls are pure for click-extra's existing options (no
+            env var side effects, no prompt): ``consume_value`` only resolves the raw
+            value and its source, it never invokes the parameter's ``type.convert()``,
+            so this pre-record cannot itself trigger a callback's or a type's logging
+            or validation twice. Should a future subclass need prompt behavior, this
+            override would need to cache the result instead.
 
             The pre-record is skipped when the slot already carries a source from
             an earlier option sharing the same ``name`` (Click's feature-switch
             pattern), so the arbitration logic in ``super`` still sees the original
             ``existing_source`` rather than a stale rewrite from this option.
         """
-        if self.is_eager and ctx.get_parameter_source(self.name) is None:
+        if ctx.get_parameter_source(self.name) is None:
             _value, source = self.consume_value(ctx, opts)
             ctx.set_parameter_source(self.name, source)
         return super().handle_parse_result(ctx, opts, args)
@@ -680,6 +709,14 @@ def format_param_row(
     if default_val is UNSET:
         default_val = None
 
+    # Click's development branch models an absent flag_value as the UNSET
+    # sentinel and resolves the effective value lazily in the
+    # flag_activation_value property. Read the latter to mirror the value
+    # released Click materializes in flag_value (None for a plain option or a
+    # counter, True for a boolean flag, the declared value otherwise).
+    if flag_value is UNSET:
+        flag_value = getattr(param, "flag_activation_value", None)
+
     if is_structured:
         default_val = _structured_value(default_val)
         flag_value = _structured_value(flag_value)
@@ -877,7 +914,8 @@ def render_params_table(
         ``consume_value()`` rather than ``handle_parse_result()`` so eager
         callbacks are not re-triggered.
     """
-    # Imported here to avoid circular imports with the table module.
+    # Imported here to avoid circular imports with the config, table and theme
+    # modules, which all import from this one.
     from .config import ConfigOption
     from .table import (
         DEFAULT_FORMAT,
@@ -1290,6 +1328,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
         ``docs/parameters.md``: editing a description here automatically
         rebuilds the docs table on the next ``sphinx-build``.
         """
+        # Imported here to avoid a circular import: table imports from this module.
         from .table import render_columns_markdown_table
 
         return render_columns_markdown_table(cls.TABLE_HEADERS)

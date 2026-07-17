@@ -13,6 +13,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from neutron_lib.types import ActionMap, ResourceAttributeMap
 
 ALIAS = 'bgp_dragent_scheduler'
 IS_SHIM_EXTENSION = True
@@ -24,9 +25,9 @@ BGP_DRINSTANCE = 'bgp-drinstance'
 BGP_DRINSTANCES = BGP_DRINSTANCE + 's'
 BGP_DRAGENT = 'bgp-dragent'
 BGP_DRAGENTS = BGP_DRAGENT + 's'
-RESOURCE_ATTRIBUTE_MAP = {}
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {}
 SUB_RESOURCE_ATTRIBUTE_MAP = None
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 ACTION_STATUS = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []

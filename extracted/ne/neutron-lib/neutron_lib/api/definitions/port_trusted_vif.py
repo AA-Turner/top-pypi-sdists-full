@@ -16,6 +16,7 @@ from neutron_lib.api import converters
 from neutron_lib.api.definitions import port
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants
+from neutron_lib.types import ActionMap, ResourceAttributeMap
 
 
 ALIAS = 'port-trusted-vif'
@@ -28,7 +29,7 @@ RESOURCE_NAME = port.RESOURCE_NAME
 COLLECTION_NAME = port.COLLECTION_NAME
 TRUSTED_VIF = 'trusted'
 
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         TRUSTED_VIF: {
             'allow_post': True,
@@ -44,7 +45,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 SUB_RESOURCE_ATTRIBUTE_MAP = None
-ACTION_MAP = {}
+ACTION_MAP: ActionMap = {}
 ACTION_STATUS = {}
 REQUIRED_EXTENSIONS = [portbindings.ALIAS]
 OPTIONAL_EXTENSIONS = []

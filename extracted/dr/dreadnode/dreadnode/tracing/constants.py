@@ -147,6 +147,12 @@ AIRT_ATTRIBUTE_TRANSFORM_ERRORED = f"{AIRT_NAMESPACE}.transform_errored"
 AIRT_ATTRIBUTE_TRANSFORMED_PROMPT = f"{AIRT_NAMESPACE}.transformed_prompt"
 AIRT_ATTRIBUTE_JUDGE_REASONING = f"{AIRT_NAMESPACE}.judge_reasoning"
 AIRT_ATTRIBUTE_JAILBREAK_THRESHOLD = f"{AIRT_NAMESPACE}.jailbreak_threshold"
+# Executed tool calls captured from an agentic target response (JSON-encoded list).
+# Populated for single-agent and multi-agent (ATLAS) probing so findings can show
+# which tools the target actually invoked.
+AIRT_ATTRIBUTE_TOOL_CALLS = f"{AIRT_NAMESPACE}.tool_calls"
+# Tool calls from the best trial, set on the study span (finding-level summary).
+AIRT_ATTRIBUTE_BEST_TOOL_CALLS = f"{AIRT_NAMESPACE}.best_tool_calls"
 
 # Adversarial ML attack attributes
 AIRT_ATTRIBUTE_ATTACK_DOMAIN = f"{AIRT_NAMESPACE}.attack_domain"

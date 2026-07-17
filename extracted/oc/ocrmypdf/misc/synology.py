@@ -13,13 +13,14 @@ import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 # pylint: disable=logging-format-interpolation
 # pylint: disable=logging-not-lazy
 
-script_dir = os.path.dirname(os.path.realpath(__file__))
+script_dir = Path(os.path.realpath(__file__)).parent
 timestamp = time.strftime("%Y-%m-%d-%H%M_")
-log_file = script_dir + '/' + timestamp + 'ocrmypdf.log'
+log_file = script_dir / (timestamp + 'ocrmypdf.log')
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(message)s',
@@ -33,10 +34,10 @@ for dir_name, _subdirs, file_list in os.walk(start_dir):
     logging.info(dir_name)
     os.chdir(dir_name)
     for filename in file_list:
-        file_stem, file_ext = os.path.splitext(filename)
+        file_stem, file_ext = Path(filename).stem, Path(filename).suffix
         if file_ext != '.pdf':
             continue
-        full_path = os.path.join(dir_name, filename)
+        full_path = Path(dir_name, filename)
         timestamp_ocr = time.strftime("%Y-%m-%d-%H%M_OCR_")
         filename_ocr = timestamp_ocr + file_stem + '.pdf'
         # create string for pdf processing
@@ -52,10 +53,10 @@ for dir_name, _subdirs, file_list in os.walk(start_dir):
             '-',
         ]
         logging.info(cmd)
-        full_path_ocr = os.path.join(dir_name, filename_ocr)
+        full_path_ocr = Path(dir_name, filename_ocr)
         with (
-            open(filename, 'rb') as input_file,
-            open(full_path_ocr, 'wb') as output_file,
+            Path(filename).open('rb') as input_file,
+            full_path_ocr.open('wb') as output_file,
         ):
             proc = subprocess.run(
                 cmd,
@@ -67,8 +68,8 @@ for dir_name, _subdirs, file_list in os.walk(start_dir):
                 errors='ignore',
             )
         logging.info(proc.stderr)
-        os.chmod(full_path_ocr, 0o664)
-        os.chmod(full_path, 0o664)
+        full_path_ocr.chmod(0o664)
+        full_path.chmod(0o664)
         full_path_ocr_archive = sys.argv[2]
         full_path_archive = sys.argv[2] + '/no_ocr'
         shutil.move(full_path_ocr, full_path_ocr_archive)

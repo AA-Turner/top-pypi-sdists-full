@@ -1,17 +1,11 @@
-# This file is part of Dictdiffer.
-#
-# Copyright (C) 2013 Fatih Erikli.
-# Copyright (C) 2013, 2014, 2015, 2016 CERN.
-# Copyright (C) 2017-2019 ETH Zurich, Swiss Data Science Center, Jiri Kuncar.
-#
-# Dictdiffer is free software; you can redistribute it and/or modify
-# it under the terms of the MIT License; see LICENSE file for more
-# details.
+# SPDX-FileCopyrightText: 2013 Fatih Erikli.
+# SPDX-FileCopyrightText: 2013, 2014, 2015, 2016 CERN.
+# SPDX-FileCopyrightText: 2017-2019 ETH Zurich, Swiss Data Science Center, Jiri Kuncar.
+# SPDX-License-Identifier: MIT
 
 """Dictdiffer is a helper module to diff and patch dictionaries."""
 
-from collections.abc import (Iterable, MutableMapping, MutableSequence,
-                             MutableSet)
+from collections.abc import Iterable, MutableMapping, MutableSequence, MutableSet
 from copy import deepcopy
 
 from .utils import EPSILON, PathLimit, are_different, dot_lookup
@@ -76,6 +70,10 @@ def diff(first, second, node=None, ignore=None, path_limit=None, expand=False,
     ...           path_limit=PathLimit([('a', 'b')])))
     [('add', '', [('a', {})]), ('add', 'a', [('b', 'c')])]
 
+    >>> from dictdiffer.utils import PathLimit
+    >>> list(diff({'a': {'b': 'c'}}, {'a': {'b': 'c'}}, path_limit=PathLimit([('a',)])))
+    []
+
     The patch can be expanded to small units e.g. when adding multiple values:
 
     >>> list(diff({'fruits': []}, {'fruits': ['apple', 'mango']}))
@@ -97,6 +95,8 @@ def diff(first, second, node=None, ignore=None, path_limit=None, expand=False,
     :param ignore: Set of keys that should not be checked.
     :param path_limit: List of path limit tuples or dictdiffer.utils.Pathlimit
                        object to limit the diff recursion depth.
+                       A diff is still performed beyond the path_limit,
+                       but individual differences will be aggregated up to the path_limit.
     :param expand: Expand the patches.
     :param tolerance: Threshold to consider when comparing two float numbers.
     :param absolute_tolerance: Absolute threshold to consider when comparing
@@ -203,6 +203,9 @@ def diff(first, second, node=None, ignore=None, path_limit=None, expand=False,
                 # callees again diff function to compare.
                 # otherwise, the change will be handled as `change` flag.
                 if path_limit and path_limit.path_is_limit(_node + [key]):
+                    if _first[key] == _second[key]:
+                        return
+
                     yield CHANGE, _node + [key], (
                         deepcopy(_first[key]), deepcopy(_second[key])
                     )

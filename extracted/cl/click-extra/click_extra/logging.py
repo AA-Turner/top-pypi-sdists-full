@@ -31,17 +31,19 @@ from logging import (
 )
 
 import click
+from boltons.strutils import strip_ansi
 from click.types import IntRange
 
-from . import EnumChoice, context
+from . import context
 from .parameters import ExtraOption, last_param, patch_attr
 from .theme import get_current_theme
+from .types import EnumChoice
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Mapping, Sequence
     from logging import LogRecord
-    from typing import IO, Any, Literal
+    from typing import IO, Any, ClassVar, Literal
 
 logger = getLogger(__name__)
 
@@ -142,9 +144,38 @@ class StreamHandler(logging.StreamHandler):
         self._stderr_output = stream == sys.stderr
 
     def emit(self, record: LogRecord) -> None:
-        """Use :func:`click.echo` to print to the console."""
+        """Use :func:`click.echo` to print to the console.
+
+        Cooperates with any :class:`~click_extra.spinner.Spinner` currently
+        animating on the same stream: the record is then printed through
+        :meth:`~click_extra.spinner.Spinner.echo`, which erases the in-progress
+        frame first, so a log line emitted mid-animation lands on its own line
+        instead of garbling the spinner (and vice versa).
+
+        The color tri-state is resolved through
+        :func:`~click_extra.color.invocation_color` rather than left to
+        :func:`click.echo`'s own context lookup: a record emitted from a
+        background thread (a subprocess stream reader, a fan-out worker) has no
+        reachable Click context, and would otherwise ignore ``--no-color`` and
+        keep its ANSI codes on a TTY.
+        """
         try:
-            click.echo(self.format(record), err=self._stderr_output)
+            # Imported here, not at module level: spinner.py and color.py are
+            # leaves this logging module must not force-load (nor risk an import
+            # cycle with) just to emit a record.
+            from .color import invocation_color
+            from .spinner import active_spinner
+
+            message = self.format(record)
+            color = invocation_color()
+            spinner = active_spinner(self._stream)
+            if spinner is not None:
+                # Spinner.echo writes raw: strip what click.echo would have.
+                if color is False:
+                    message = strip_ansi(message)
+                spinner.echo(message)
+            else:
+                click.echo(message, err=self._stderr_output, color=color)
         except RecursionError:
             raise
 
@@ -162,12 +193,31 @@ class Formatter(logging.Formatter):
 
         Colors are sourced from a :class:`click_extra.theme.HelpTheme`,
         resolved per-invocation via :func:`click_extra.theme.get_current_theme`.
+
+        A record carrying a ``label`` attribute (each line
+        :func:`~click_extra.execution.run_cli` streams from a subprocess is
+        tagged with its caller-provided label) renders it glued to the level
+        name, styled like an invoked command: ``debug:mas: Warning: ...``. The
+        tag stays out of the message text itself, so a foreign formatter is free
+        to render ``record.label`` its own way.
+
+        The record's ``levelname`` is restored afterwards: a record may be
+        formatted more than once (several handlers, a captured then re-rendered
+        record), and must not accumulate styling or glued labels.
         """
-        level = record.levelname.lower()
-        level_style = getattr(get_current_theme(), level, None)
-        if level_style:
-            record.levelname = level_style(level)
-        return super().formatMessage(record)
+        original_levelname = record.levelname
+        try:
+            theme = get_current_theme()
+            level = original_levelname.lower()
+            level_style = getattr(theme, level, None)
+            if level_style:
+                record.levelname = level_style(level)
+            label = getattr(record, "label", None)
+            if label:
+                record.levelname += ":" + theme.invoked_command(label)
+            return super().formatMessage(record)
+        finally:
+            record.levelname = original_levelname
 
 
 def basicConfig(
@@ -655,7 +705,57 @@ class VerbosityOption(_VerbosityOption):
         )
 
 
-class VerboseOption(_VerbosityOption):
+class _CounterOption(_VerbosityOption):
+    """Shared machinery of the ``-v``/``-q`` counting twins.
+
+    Each subclass declares the ``ctx.meta`` key its raw repetition count is
+    recorded under (:attr:`_counter_key`) and its direction word
+    (:attr:`_help_verb`, also reused by the debug trace); the recording,
+    reconciliation and tracing below are common to both.
+    """
+
+    _counter_key: ClassVar[str]
+    """The ``ctx.meta`` key the raw repetition count is recorded under."""
+
+    def set_level(self, ctx: click.Context, param: click.Parameter, value: int) -> None:
+        """Record the repetition count, then reconcile.
+
+        The number of repetitions is saved on the context under
+        :attr:`_counter_key` and folded into the verbosity counter by
+        ``_VerbosityOption.resolve_level``.
+        """
+        context.set(ctx, self._counter_key, value)
+        self.apply_verbosity(ctx)
+
+        # Report the net effect after the level has been applied, so the message has a
+        # chance to be seen at DEBUG level.
+        if value and not ctx.resilient_parsing:
+            logger.debug(
+                f"{self._help_verb}d log verbosity by {value} levels: "
+                f"from {self.get_base_level(ctx)} "
+                f"to {context.get(ctx, context.VERBOSITY_LEVEL)}."
+            )
+
+    def __init__(
+        self,
+        param_decls: Sequence[str] | None = None,
+        count: bool = True,
+        **kwargs,
+    ) -> None:
+        # Force type and default to have them aligned with the counting option's
+        # original behavior:
+        # https://github.com/pallets/click/blob/5dd6288/src/click/core.py#L2612-L2618
+        kwargs["type"] = IntRange(min=0)
+        kwargs["default"] = 0
+
+        super().__init__(
+            param_decls=param_decls,
+            count=count,
+            **kwargs,
+        )
+
+
+class VerboseOption(_CounterOption):
     """``--verbose``/``-v`` option to raise the log level of ``_VerbosityOption`` by
     one step per repetition.
 
@@ -678,49 +778,19 @@ class VerboseOption(_VerbosityOption):
     """
 
     _help_verb = "Increase"
-
-    def set_level(self, ctx: click.Context, param: click.Parameter, value: int) -> None:
-        """Record the ``-v`` repetition count, then reconcile.
-
-        The number of repetitions is saved in
-        ``ctx.meta[click_extra.context.VERBOSE]`` and folded into the verbosity
-        counter by ``_VerbosityOption.resolve_level``.
-        """
-        context.set(ctx, context.VERBOSE, value)
-        self.apply_verbosity(ctx)
-
-        # Report the net effect after the level has been applied, so the message has a
-        # chance to be seen at DEBUG level.
-        if value and not ctx.resilient_parsing:
-            logger.debug(
-                f"Increased log verbosity by {value} levels: "
-                f"from {self.get_base_level(ctx)} "
-                f"to {context.get(ctx, context.VERBOSITY_LEVEL)}."
-            )
+    _counter_key = context.VERBOSE
 
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
-        count: bool = True,
         **kwargs,
     ) -> None:
         if not param_decls:
             param_decls = ("--verbose", "-v")
-
-        # Force type and default to have them aligned with the counting option's
-        # original behavior:
-        # https://github.com/pallets/click/blob/5dd6288/src/click/core.py#L2612-L2618
-        kwargs["type"] = IntRange(min=0)
-        kwargs["default"] = 0
-
-        super().__init__(
-            param_decls=param_decls,
-            count=count,
-            **kwargs,
-        )
+        super().__init__(param_decls=param_decls, **kwargs)
 
 
-class QuietOption(_VerbosityOption):
+class QuietOption(_CounterOption):
     """``--quiet``/``-q`` option to lower the log level of ``_VerbosityOption`` by
     one step per repetition.
 
@@ -740,41 +810,13 @@ class QuietOption(_VerbosityOption):
     """
 
     _help_verb = "Decrease"
-
-    def set_level(self, ctx: click.Context, param: click.Parameter, value: int) -> None:
-        """Record the ``-q`` repetition count, then reconcile.
-
-        The number of repetitions is saved in
-        ``ctx.meta[click_extra.context.QUIET]`` and folded into the verbosity counter
-        by ``_VerbosityOption.resolve_level``.
-        """
-        context.set(ctx, context.QUIET, value)
-        self.apply_verbosity(ctx)
-
-        # Report the net effect after the level has been applied, so the message has a
-        # chance to be seen at DEBUG level.
-        if value and not ctx.resilient_parsing:
-            logger.debug(
-                f"Decreased log verbosity by {value} levels: "
-                f"from {self.get_base_level(ctx)} "
-                f"to {context.get(ctx, context.VERBOSITY_LEVEL)}."
-            )
+    _counter_key = context.QUIET
 
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
-        count: bool = True,
         **kwargs,
     ) -> None:
         if not param_decls:
             param_decls = ("--quiet", "-q")
-
-        # Force type and default to mirror the counting behavior of VerboseOption.
-        kwargs["type"] = IntRange(min=0)
-        kwargs["default"] = 0
-
-        super().__init__(
-            param_decls=param_decls,
-            count=count,
-            **kwargs,
-        )
+        super().__init__(param_decls=param_decls, **kwargs)

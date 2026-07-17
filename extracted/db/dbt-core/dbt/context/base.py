@@ -149,12 +149,12 @@ class Var:
 
     def __init__(
         self,
-        context: Mapping[str, Any],
+        context: BaseContext,
         cli_vars: Mapping[str, Any],
         node: Optional[Resource] = None,
         require_vars: bool = True,
     ) -> None:
-        self._context: Mapping[str, Any] = context
+        self._context: BaseContext = context
         self._cli_vars: Mapping[str, Any] = cli_vars
         self._node: Optional[Resource] = node
         self._require_vars: bool = require_vars
@@ -185,7 +185,7 @@ class Var:
         if not isinstance(raw, str):
             return raw
 
-        return get_rendered(raw, dict(self._context))
+        return get_rendered(raw, self._context._ctx)
 
     def __call__(self, var_name: str, default: Any = _VAR_NOTSET) -> Any:
         if self.has_var(var_name):
@@ -194,6 +194,24 @@ class Var:
             return default
         else:
             return self.get_missing_var(var_name)
+
+
+def _get_env_var(env: Mapping[str, str], var: str) -> tuple[Optional[str], bool]:
+    """Look up an environment variable, with case-insensitive fallback on Windows.
+
+    Returns (value, found_in_env) where found_in_env indicates whether the
+    variable was found in the environment (vs needing a default).
+    """
+    if var in env:
+        return env[var], True
+    if os.name == "nt":
+        # On Windows, env var names are case-insensitive at the OS level,
+        # but the cached env dict uses plain case-sensitive keys. Fall back
+        # to os.environ which preserves Windows' native case-insensitive lookup.
+        value = os.environ.get(var)
+        if value is not None:
+            return value, True
+    return None, False
 
 
 class BaseContext(metaclass=ContextMeta):
@@ -312,7 +330,7 @@ class BaseContext(metaclass=ContextMeta):
             from events
             where event_type = '{{ var("event_type", "activation") }}'
         """
-        return Var(self._ctx, self.cli_vars, require_vars=self.require_vars)
+        return Var(self, self.cli_vars, require_vars=self.require_vars)
 
     @contextmember()
     def env_var(self, var: str, default: Optional[str] = None) -> str:
@@ -325,9 +343,8 @@ class BaseContext(metaclass=ContextMeta):
         if var.startswith(SECRET_ENV_PREFIX):
             raise SecretEnvVarLocationError(var)
         env = get_invocation_context().env
-        if var in env:
-            return_value = env[var]
-        elif default is not None:
+        return_value, found_in_env = _get_env_var(env, var)
+        if return_value is None and default is not None:
             return_value = default
 
         if return_value is not None:
@@ -335,7 +352,7 @@ class BaseContext(metaclass=ContextMeta):
             # that so we can skip partial parsing.  Otherwise the file will be scheduled for
             # reparsing. If the default changes, the file will have been updated and therefore
             # will be scheduled for reparsing anyways.
-            self.env_vars[var] = return_value if var in env else DEFAULT_ENV_PLACEHOLDER
+            self.env_vars[var] = return_value if found_in_env else DEFAULT_ENV_PLACEHOLDER
 
             return return_value
         else:

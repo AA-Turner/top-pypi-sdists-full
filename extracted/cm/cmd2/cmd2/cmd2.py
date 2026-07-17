@@ -177,9 +177,6 @@ from .types import (
     UnboundCompleter,
 )
 
-with contextlib.suppress(ImportError):
-    from IPython import start_ipython
-
 try:
     if sys.platform == "win32":
         from prompt_toolkit.output.win32 import NoConsoleScreenBufferError  # type: ignore[attr-defined]
@@ -1382,7 +1379,7 @@ class Cmd:
             Settable(
                 "allow_style",
                 allow_style_type,
-                ru.rich_text_to_string(settable_description),
+                settable_description,
                 self,
                 choices_provider=get_allow_style_choices,
             )
@@ -1399,7 +1396,7 @@ class Cmd:
             Settable(
                 "editor",
                 str,
-                ru.rich_text_to_string(editor_description),
+                editor_description,
                 self,
             )
         )
@@ -1434,7 +1431,7 @@ class Cmd:
             Settable(
                 "traceback_width",
                 utils.optional_int,
-                ru.rich_text_to_string(traceback_width_description),
+                traceback_width_description,
                 self,
             )
         )
@@ -5151,13 +5148,7 @@ class Cmd:
         # Detect whether IPython is installed
         try:
             import traitlets.config.loader as traitlets_loader
-
-            # Allow users to install ipython from a cmd2 prompt when needed and still have ipy command work
-            try:
-                _dummy = start_ipython  # noqa: F823
-            except NameError:
-                from IPython import start_ipython
-
+            from IPython import start_ipython
             from IPython.terminal.interactiveshell import TerminalInteractiveShell
             from IPython.terminal.ipapp import TerminalIPythonApp
         except ImportError:

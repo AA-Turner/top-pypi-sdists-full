@@ -14,6 +14,11 @@
 
 from neutron_lib.api import converters
 from neutron_lib.api.definitions import l3
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 
 ENABLE_SNAT = 'enable_snat'
@@ -27,7 +32,7 @@ DESCRIPTION = 'Exposes the router "enable_snat" read-only configuration flag'
 UPDATED_TIMESTAMP = '2025-09-18T18:00:00-00:00'
 RESOURCE_NAME = l3.ROUTER
 COLLECTION_NAME = l3.ROUTERS
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         ENABLE_SNAT: {'allow_post': False,
                       'allow_put': False,
@@ -40,8 +45,8 @@ RESOURCE_ATTRIBUTE_MAP = {
                       },
     },
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

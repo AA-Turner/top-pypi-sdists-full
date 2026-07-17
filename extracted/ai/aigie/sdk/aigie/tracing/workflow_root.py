@@ -74,6 +74,7 @@ class WorkflowRoot:
         *,
         output: Any = _UNSET,
         error: BaseException | None = None,
+        status: str | None = None,
         metadata_updates: dict[str, Any] | None = None,
     ) -> None:
         if self._closed:
@@ -82,11 +83,18 @@ class WorkflowRoot:
         if output is _UNSET:
             state = self._spans.get_state(self._run_id)
             output = state.get(_PENDING_OUTPUT) if state else None
-        if error is not None:
+        # ``status`` lets the caller finalize an abandoned run as "interrupted"
+        # rather than as an error; default infers error/success from ``error``.
+        if status is None:
+            status = "error" if error is not None else "success"
+        if status == "error" and error is not None:
             self._spans.fail_span(
                 run_id=self._run_id, error=error, metadata_updates=metadata_updates
             )
         else:
             self._spans.close_span(
-                run_id=self._run_id, output=output, metadata_updates=metadata_updates
+                run_id=self._run_id,
+                output=output,
+                metadata_updates=metadata_updates,
+                status=status,
             )

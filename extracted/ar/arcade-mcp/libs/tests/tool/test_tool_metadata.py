@@ -347,6 +347,62 @@ class TestToolDecoratorWithMetadata:
             ServiceDomain.SALES_INTELLIGENCE
         ]
 
+    def test_decorator_accepts_contacts_domain(self):
+        """CONTACTS classifies address-book / people-directory services (e.g. Google Contacts)."""
+        assert ServiceDomain.CONTACTS.value == "contacts"
+
+        @tool(
+            desc="Search the organization directory",
+            metadata=ToolMetadata(
+                classification=Classification(service_domains=[ServiceDomain.CONTACTS]),
+                behavior=Behavior(operations=[Operation.READ], read_only=True, open_world=True),
+            ),
+        )
+        def search_directory() -> str:
+            return "results"
+
+        assert search_directory.__tool_metadata__.classification.service_domains == [
+            ServiceDomain.CONTACTS
+        ]
+
+    def test_decorator_accepts_survey_domain(self):
+        """SURVEY classifies survey / form-builder services (e.g. Google Forms)."""
+        assert ServiceDomain.SURVEY.value == "survey"
+
+        @tool(
+            desc="List form responses",
+            metadata=ToolMetadata(
+                classification=Classification(service_domains=[ServiceDomain.SURVEY]),
+                behavior=Behavior(operations=[Operation.READ], read_only=True, open_world=True),
+            ),
+        )
+        def list_responses() -> str:
+            return "results"
+
+        assert list_responses.__tool_metadata__.classification.service_domains == [
+            ServiceDomain.SURVEY
+        ]
+
+    def test_decorator_accepts_business_intelligence_domain(self):
+        """BUSINESS_INTELLIGENCE classifies BI / data-viz platforms (e.g. Power BI, Tableau)."""
+        assert ServiceDomain.BUSINESS_INTELLIGENCE.value == "business_intelligence"
+
+        @tool(
+            desc="Run a DAX query against a semantic model",
+            metadata=ToolMetadata(
+                classification=Classification(
+                    service_domains=[ServiceDomain.BUSINESS_INTELLIGENCE]
+                ),
+                behavior=Behavior(operations=[Operation.READ], read_only=True, open_world=True),
+            ),
+        )
+        def query_dataset() -> str:
+            return "results"
+
+        assert query_dataset.__tool_metadata__.classification.service_domains == [
+            ServiceDomain.BUSINESS_INTELLIGENCE
+        ]
+
     def test_decorator_without_metadata_is_backward_compatible(self):
         """Decorator should work without metadata (existing tools unchanged)."""
 

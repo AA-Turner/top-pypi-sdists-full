@@ -3,12 +3,13 @@
 from typing import Any
 
 from pyrig.core.subprocesses import Args
-from pyrig.rig.tools.base.tool import Group, Tool
+from pyrig.rig.tools.base.hooks import CheckHookTool
+from pyrig.rig.tools.base.tool import Group
 from pyrig.rig.tools.formatting.end_of_file import EndOfFileFormatter
 from pyrig.rig.tools.version_control.hooks.manager import VersionControlHookManager
 
 
-class YAMLLinter(Tool):
+class YAMLLinter(CheckHookTool):
     """Type-safe wrapper for the ryl YAML linter.
 
     Constructs ryl command-line arguments for linting and auto-fixing YAML
@@ -32,7 +33,7 @@ class YAMLLinter(Tool):
         return "ryl"
 
     def check_args(self, *args: str) -> Args:
-        """Construct ryl check arguments.
+        """Construct ryl lint arguments.
 
         No custom rule configuration or target path is baked in here; the
         hook's own `args=` supplies `--config-data`, and callers are
@@ -48,15 +49,7 @@ class YAMLLinter(Tool):
         """
         return self.args("check", *args)
 
-    def version_control_hooks(self) -> tuple[dict[str, Any], ...]:
-        """Return the YAML linting hook.
-
-        Returns:
-            `check_yaml_hook`, wrapped in a single-element tuple.
-        """
-        return (self.check_yaml_hook(),)
-
-    def check_yaml_hook(self) -> dict[str, Any]:
+    def check_hook(self) -> dict[str, Any]:
         """Return the hook metadata for linting and auto-fixing YAML files.
 
         Runs after the sequential text-fixing chain, alongside the other
@@ -68,7 +61,7 @@ class YAMLLinter(Tool):
         return VersionControlHookManager.I.hook(
             self.lint_yaml,
             priority=VersionControlHookManager.I.increase_priority(
-                EndOfFileFormatter.I.format_end_of_file_hook(),
+                EndOfFileFormatter.I.format_hook(),
             ),
             types=["yaml"],
             args=[

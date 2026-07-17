@@ -1,7 +1,7 @@
 import os
 import pathlib
 from dataclasses import dataclass, field
-from typing import Dict, List, Mapping, MutableMapping, Optional, Protocol
+from typing import Dict, List, Literal, Mapping, MutableMapping, Optional, Protocol
 
 import pathspec  # type: ignore
 
@@ -11,12 +11,14 @@ from dbt.contracts.files import (
     FileHash,
     FilePath,
     FixtureSourceFile,
+    OsiSourceFile,
     ParseFileType,
     SchemaSourceFile,
     SourceFile,
 )
 from dbt.events.types import InputFileDiffError
 from dbt.exceptions import ParsingError
+from dbt.flags import get_flags
 from dbt.parser.common import schema_file_keys
 from dbt.parser.schemas import yaml_from_file
 from dbt.parser.search import filesystem_search
@@ -39,6 +41,13 @@ class FileDiff(dbtClassMixin):
     # added and changed files, but we would lose some error handling.
     changed: List[InputFile]
     added: List[InputFile]
+
+
+def normalize_file_contents(contents: str) -> str:
+    """Normalize file contents by compacting whitespace and newlines to a single whitespace.
+    This ensures consistent checksums regardless of formatting differences.
+    """
+    return " ".join(contents.split())
 
 
 # This loads the files contents and creates the SourceFile object
@@ -83,7 +92,8 @@ def load_source_file(
         # the checksum to match the stored file contents
         file_contents = load_file_contents(path.absolute_path, strip=True)
         source_file.contents = file_contents
-        source_file.checksum = FileHash.from_contents(file_contents)
+        normalized_contents = normalize_file_contents(file_contents)
+        source_file.checksum = FileHash.from_contents(normalized_contents)
 
     if parse_file_type == ParseFileType.Schema and source_file.contents:
         dfy = yaml_from_file(source_file=source_file, validate=True)
@@ -123,12 +133,14 @@ def validate_yaml(file_path, dct):
 
 # Special processing for big seed files
 def load_seed_source_file(match: FilePath, project_name) -> SourceFile:
-    if match.seed_too_large():
+    # Users can configure the maximum seed size (MiB) that will be hashed for state comparison
+    maximum_seed_size = get_flags().MAXIMUM_SEED_SIZE_MIB * 1024 * 1024
+    # maximum_seed_size = 0 means no limit
+    if match.file_size > maximum_seed_size and maximum_seed_size != 0:
         # We don't want to calculate a hash of this file. Use the path.
         source_file = SourceFile.big_seed(match)
     else:
-        file_contents = load_file_contents(match.absolute_path, strip=True)
-        checksum = FileHash.from_contents(file_contents)
+        checksum = FileHash.from_path(match.absolute_path)
         source_file = SourceFile(path=match, checksum=checksum)
         source_file.contents = ""
     source_file.parse_file_type = ParseFileType.Seed
@@ -225,6 +237,32 @@ class ReadFilesFromFileSystem:
                 dbt_ignore_spec,
             )
 
+        self._read_osi_files_for_project(project)
+
+    def _read_osi_files_for_project(self, project):
+        for osi_path_name in project.osi_paths:
+            osi_dir = pathlib.Path(project.project_root) / osi_path_name
+            if not osi_dir.is_dir():
+                continue
+            for osi_path in sorted(osi_dir.rglob("*.json")):
+                rel_to_osi = osi_path.relative_to(osi_dir)
+                fp = FilePath(
+                    searched_path=osi_path_name,
+                    relative_path=str(rel_to_osi),
+                    modification_time=osi_path.stat().st_mtime,
+                    project_root=project.project_root,
+                )
+                contents = load_file_contents(str(osi_path), strip=True)
+                checksum = FileHash.from_contents(normalize_file_contents(contents))
+                sf = OsiSourceFile(
+                    path=fp,
+                    checksum=checksum,
+                    parse_file_type=ParseFileType.OSI,
+                    project_name=project.project_name,
+                    contents=contents,
+                )
+                self.files[sf.file_id] = sf
+
 
 @dataclass
 class ReadFilesFromDiff:
@@ -243,11 +281,12 @@ class ReadFilesFromDiff:
         # Copy the base file information from the existing manifest.
         # We will do deletions, adds, changes from the file_diff to emulate
         # a complete read of the project file system.
+        _cls_by_parse_type = {
+            ParseFileType.Schema: SchemaSourceFile,
+            ParseFileType.OSI: OsiSourceFile,
+        }
         for file_id, source_file in self.saved_files.items():
-            if isinstance(source_file, SchemaSourceFile):
-                file_cls = SchemaSourceFile
-            else:
-                file_cls = SourceFile
+            file_cls = _cls_by_parse_type.get(source_file.parse_file_type, SourceFile)
             new_source_file = file_cls(
                 path=source_file.path,
                 checksum=source_file.checksum,
@@ -384,36 +423,44 @@ class ReadFilesFromDiff:
         return file_type_lookup
 
 
+def _get_extensions(base_ext: Literal[".sql", ".md"]) -> List[str]:
+    """Given a base extension, returns a list of aliased extensions"""
+    if not getattr(get_flags(), "ALLOW_JINJA_FILE_EXTENSIONS", False):
+        return [base_ext]
+
+    return [base_ext, f"{base_ext}.j2", f"{base_ext}.jinja2", f"{base_ext}.jinja"]
+
+
 def get_file_types_for_project(project):
     file_types = {
         ParseFileType.Macro: {
             "paths": project.macro_paths,
-            "extensions": [".sql"],
+            "extensions": _get_extensions(".sql"),
             "parser": "MacroParser",
         },
         ParseFileType.Model: {
             "paths": project.model_paths,
-            "extensions": [".sql", ".py"],
+            "extensions": [".py"] + _get_extensions(".sql"),
             "parser": "ModelParser",
         },
         ParseFileType.Snapshot: {
             "paths": project.snapshot_paths,
-            "extensions": [".sql"],
+            "extensions": _get_extensions(".sql"),
             "parser": "SnapshotParser",
         },
         ParseFileType.Analysis: {
             "paths": project.analysis_paths,
-            "extensions": [".sql"],
+            "extensions": _get_extensions(".sql"),
             "parser": "AnalysisParser",
         },
         ParseFileType.SingularTest: {
             "paths": project.test_paths,
-            "extensions": [".sql"],
+            "extensions": _get_extensions(".sql"),
             "parser": "SingularTestParser",
         },
         ParseFileType.GenericTest: {
             "paths": project.generic_test_paths,
-            "extensions": [".sql"],
+            "extensions": _get_extensions(".sql"),
             "parser": "GenericTestParser",
         },
         ParseFileType.Seed: {
@@ -423,7 +470,7 @@ def get_file_types_for_project(project):
         },
         ParseFileType.Documentation: {
             "paths": project.docs_paths,
-            "extensions": [".md"],
+            "extensions": _get_extensions(".md"),
             "parser": "DocumentationParser",
         },
         ParseFileType.Schema: {
@@ -433,12 +480,12 @@ def get_file_types_for_project(project):
         },
         ParseFileType.Fixture: {
             "paths": project.fixture_paths,
-            "extensions": [".csv", ".sql"],
+            "extensions": [".csv"] + _get_extensions(".sql"),
             "parser": "FixtureParser",
         },
         ParseFileType.Function: {
             "paths": project.function_paths,
-            "extensions": [".sql", ".py"],
+            "extensions": [".py", ".js"] + _get_extensions(".sql"),
             "parser": "FunctionParser",
         },
     }

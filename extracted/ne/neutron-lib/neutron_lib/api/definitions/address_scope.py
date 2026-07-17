@@ -15,7 +15,11 @@
 from neutron_lib.api import converters
 from neutron_lib import constants
 from neutron_lib.db import constants as db_constants
-
+from neutron_lib.types import (
+    ActionMap,
+    ResourceAttributeMap,
+    SubResourceAttributeMap,
+)
 
 ADDRESS_SCOPE = 'address_scope'
 ADDRESS_SCOPE_ID = 'address_scope_id'
@@ -31,7 +35,7 @@ DESCRIPTION = 'Address scopes extension.'
 UPDATED_TIMESTAMP = '2015-07-26T10:00:00-00:00'
 RESOURCE_NAME = ADDRESS_SCOPE
 COLLECTION_NAME = RESOURCE_NAME + 's'
-RESOURCE_ATTRIBUTE_MAP = {
+RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     COLLECTION_NAME: {
         'id': {'allow_post': False,
                'allow_put': False,
@@ -90,8 +94,8 @@ RESOURCE_ATTRIBUTE_MAP = {
                              'is_visible': True},
     }
 }
-SUB_RESOURCE_ATTRIBUTE_MAP = {}
-ACTION_MAP = {}
+SUB_RESOURCE_ATTRIBUTE_MAP: SubResourceAttributeMap = {}
+ACTION_MAP: ActionMap = {}
 REQUIRED_EXTENSIONS = []
 OPTIONAL_EXTENSIONS = []
 ACTION_STATUS = {}

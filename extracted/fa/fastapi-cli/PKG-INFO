@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-cli
-Version: 0.0.30
+Version: 0.0.32
 Summary: Run and manage FastAPI apps from the command line with FastAPI CLI. 🚀
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
 License-Expression: MIT
@@ -120,6 +120,10 @@ When you run `fastapi dev`, it will run on development mode.
 By default, it will have **auto-reload** enabled, so it will automatically reload the server when you make changes to your code. This is resource intensive and could be less stable than without it, you should only use it for development.
 
 By default it will listen on the IP address `127.0.0.1`, which is the IP for your machine to communicate with itself alone (`localhost`).
+
+Before importing your app, `fastapi dev` sets the `FASTAPI_ENV` environment variable to `development`. If `FASTAPI_ENV` is already set, its existing value is preserved. This lets app startup code choose development-friendly behavior while allowing you to provide an app-specific environment such as `staging`.
+
+The conventional `FASTAPI_ENV` values are `development` and `production`. `fastapi run` currently leaves `FASTAPI_ENV` unchanged, so set it explicitly if your app needs to detect production mode.
 
 ## `fastapi run`
 

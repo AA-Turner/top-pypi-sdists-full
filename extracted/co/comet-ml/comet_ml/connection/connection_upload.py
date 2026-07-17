@@ -364,9 +364,7 @@ def _process_upload_with_retries(
 def _prepare_upload_params_and_headers(
     options: UploadOptions,
 ) -> Tuple[Dict[str, str], Dict[str, str]]:
-    params = get_clientlib_params(
-        options.experiment_id, options.project_id, options.api_key
-    )
+    params = get_clientlib_params(options.experiment_id, options.project_id)
 
     if options.additional_params is not None:
         params.update(options.additional_params)

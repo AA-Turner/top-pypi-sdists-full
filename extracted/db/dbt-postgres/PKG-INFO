@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-postgres
-Version: 1.10.2
+Version: 1.11.0
 Summary: The set of adapter protocols and base functionality that supports integration with dbt-core
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-postgres
 Project-URL: Documentation, https://docs.getdbt.com
@@ -20,9 +20,10 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10.0
 Requires-Dist: agate<2.0,>=1.0
-Requires-Dist: dbt-adapters<2.0,>=1.19.0
+Requires-Dist: dbt-adapters<2.0,>=1.24.1
 Requires-Dist: dbt-common<2.0,>=1.0.4
 Requires-Dist: dbt-core<2.0,>=1.8.0rc1
 Requires-Dist: psycopg2-binary<3.0,>=2.9

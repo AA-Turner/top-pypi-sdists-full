@@ -29,9 +29,9 @@ from jax._src import core as jax_core
 from jax._src import deprecations
 from jax._src import effects
 from jax._src import hijax
-from jax._src import linear_util as lu
 from jax._src import numpy as jnp
 from jax._src import state
+from jax._src import flattree as ft
 from jax._src import tree_util
 from jax._src import typing as jax_typing
 from jax._src.frozen_dict import FrozenDict
@@ -175,14 +175,14 @@ def _pallas_call_to_lojax(
     raise NotImplementedError("pallas_call does not support QDD for inputs")
   if any(aval.has_qdd for aval in out_avals):
     raise NotImplementedError("pallas_call does not support QDD for outputs")
-  closed_jaxpr = jax_core.ClosedJaxpr(jaxpr, ())
+  closed_jaxpr = jaxpr
   with grid_mapping.trace_env():
     closed_lo_jaxpr = pe.lower_jaxpr2(closed_jaxpr)
   assert not closed_lo_jaxpr.consts
-  lo_jaxpr = closed_lo_jaxpr.jaxpr
+  lo_jaxpr = closed_lo_jaxpr
   for block_mapping in grid_mapping.block_mappings:
     index_map_jaxpr = block_mapping.index_map_jaxpr
-    if index_map_jaxpr.jaxpr.is_high:
+    if index_map_jaxpr.is_high:
       raise NotImplementedError(
           "pallas_call does not support hijax for index_map"
       )
@@ -274,9 +274,9 @@ def _pallas_call_jvp_rule(
   nonzero_tangents = [not isinstance(t, ad_util.Zero) for t in tangents]
   tangents = [t for t in tangents if type(t) is not ad_util.Zero]
   nonzero_tangents_with_outputs = nonzero_tangents + [True] * grid_mapping.num_outputs
-  closed_jaxpr = jax_core.ClosedJaxpr(jaxpr, ())
+  closed_jaxpr = jaxpr
   jvp_jaxpr_, _ = ad.jvp_jaxpr(closed_jaxpr, nonzero_tangents_with_outputs, [])
-  jvp_jaxpr, () = jvp_jaxpr_.jaxpr, jvp_jaxpr_.consts  # TODO consts
+  jvp_jaxpr, () = jvp_jaxpr_, jvp_jaxpr_.consts  # TODO consts
   # `pallas_call` takes in inputs and returns outputs but its jaxpr *does not*.
   # `pallas_call` takes in a stateful jaxpr, meaning the jaxpr accepts input
   # `Ref`s that are read from followed by output `Ref`s that are written to.
@@ -340,7 +340,7 @@ def _batch_block_mapping(
     drop_last_args = args
 
     indices = jax_core.eval_jaxpr(
-        block_mapping.index_map_jaxpr.jaxpr,
+        block_mapping.index_map_jaxpr,
         block_mapping.index_map_jaxpr.consts,
         *drop_last_args,
     )
@@ -354,36 +354,27 @@ def _batch_block_mapping(
     return tuple(unflat_indices)
   idx_avals = [pallas_core.index_map_grid_aval, *block_mapping.index_map_jaxpr.in_avals]
 
-  block_mapping_flat_fn, out_tree_thunk = api_util.flatten_fun_nokwargs(
-      lu.wrap_init(_block_map_function,
-                   debug_info=block_mapping.index_map_jaxpr.jaxpr.debug_info.with_unknown_names()),
-      tree_util.tree_structure(idx_avals))
   with grid_mapping.trace_env():
-    block_mapping_jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(
-        block_mapping_flat_fn,
-        idx_avals)
-  new_index_map_out_tree = out_tree_thunk()
+    jaxpr, out_avals = pe.trace_to_jaxpr(
+        _block_map_function, ft.flatten_args(*idx_avals),
+        block_mapping.index_map_jaxpr.debug_info.with_unknown_names()
+    )
   shape = block_mapping.block_shape
   if dim is None:
     new_block_shape = shape
     new_array_aval = block_mapping.array_aval
   else:
-
     new_block_shape = tuple_insert(shape, dim, pallas_core.squeezed)
-
     array_shape = block_mapping.array_aval.shape
-
     array_shape = tuple_insert(array_shape, dim, axis_size)
-
     new_array_aval = jax_core.ShapedArray(
         array_shape, block_mapping.array_aval.dtype
     )
 
-  jaxpr = jax_core.ClosedJaxpr(block_mapping_jaxpr, consts)
   return block_mapping.replace(block_shape=new_block_shape,
                                array_aval=new_array_aval,
                                index_map_jaxpr=jaxpr,
-                               index_map_out_tree=new_index_map_out_tree)
+                               index_map_out_tree=out_avals.tree)
 
 
 def _broadcast_input_output_aliases(
@@ -794,22 +785,21 @@ def _trace_kernel_to_jaxpr(
     fun: Callable,
     debug_info: jax_core.DebugInfo,
     grid_mapping: GridMapping,
-    kernel_avals: tuple[state.AbstractRef, ...],
-    kernel_in_tree: tree_util.PyTreeDef,
+    kernel_avals: ft.FlatTree,  # of AbstractRef
     kernel_in_transforms: tuple[tuple[state.Transform, ...], ...],
     indexer: bool = False,
 ) -> tuple[jax_core.Jaxpr, tuple[jax_typing.Array, ...]]:
-  wrapped_kernel_fun, out_tree_thunk = api_util.flatten_fun(
-      lu.wrap_init(fun, debug_info=debug_info), kernel_in_tree)
-  wrapped_kernel_fun = primitives.wrap_with_transforms(
-      wrapped_kernel_fun, kernel_in_transforms
-  )
+  fun_with_transforms = primitives.wrap_with_transforms(
+      fun, kernel_in_transforms)
+
   with grid_mapping.trace_env(), config._check_vma(False):
     with config.mutable_array_checks(False):
-      jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(
-          wrapped_kernel_fun, kernel_avals
-      )
-      jaxpr, _ = pe.dce_jaxpr(jaxpr, used_outputs=[True] * len(jaxpr.outvars),
+      closed_jaxpr, out_avals = pe.trace_to_jaxpr(
+          fun_with_transforms, kernel_avals,
+          debug_info)
+      consts = closed_jaxpr.consts
+      jaxpr, _ = pe.dce_jaxpr(closed_jaxpr,
+                              used_outputs=[True] * len(closed_jaxpr.outvars),
                               instantiate=True)
     if consts:
       consts_avals = [
@@ -828,7 +818,7 @@ def _trace_kernel_to_jaxpr(
             f" [{pp_consts_avals}]. You should pass them as inputs."
         )
 
-  kernel_out_tree = out_tree_thunk()
+  kernel_out_tree = out_avals.tree
   if not indexer and kernel_out_tree != tree_util.tree_structure(None):
     raise ValueError(
         f"The kernel function in the pallas_call {debug_info.func_src_info} "
@@ -963,6 +953,14 @@ def _pallas_call_lowering(
               not config.jax_pallas_use_mosaic_gpu.value)
       ):
         backend = triton_backend
+        deprecations.warn(
+            "jax-pallas-triton",
+            "The Pallas Triton backend is deprecated and will be removed in"
+            " a future JAX version. To keep using Pallas on GPU, please migrate"
+            " to the Mosaic GPU backend. To keep using Triton, switch to"
+            " the official Triton bindings and jax_triton.",
+            stacklevel=2,
+        )
 
     if backend is None:
       raise _unsupported_lowering_error("gpu")
@@ -1093,25 +1091,25 @@ def _pallas_call_state_discharge_rule(
           ],
       )
   )
-  new_jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(
-      lu.wrap_init(_rewritten_body,
-                   debug_info=jaxpr.debug_info.with_unknown_names()),
-      [
+  closed_jaxpr, _ = pe.trace_to_jaxpr(
+      _rewritten_body,
+      ft.flatten_args(
           *index_map_avals,
           *ref_avals,
           *jaxpr_in_avals,
           *ref_avals,
           *jaxpr_out_avals,
           *jaxpr_rest_avals,
-      ],
+      ),
+      jaxpr.debug_info.with_unknown_names()
   )
   out_flat = pallas_call_p.bind(
-      *consts,
+      *closed_jaxpr.consts,
       *dynamic_grid_bounds,
       *index_operands,
       *ref_args,
       *rest_args,
-      jaxpr=new_jaxpr,
+      jaxpr=closed_jaxpr,
       input_output_aliases=tuple(new_input_output_aliases),
       grid_mapping=new_grid_mapping,
       mesh=mesh,
@@ -1302,22 +1300,21 @@ def _pallas_call(
       kernel_args_kwargs = (kernel_args, scratch_args)
     else:
       kernel_args_kwargs = (kernel_args + list(scratch_args), {})
-    flat_kernel_args, kernel_in_tree = tree_util.tree_flatten(
-        kernel_args_kwargs)
-    flat_kernel_avals = tuple(
-        x.ref if isinstance(x, state_types.TransformedRef) else x
-        for x in flat_kernel_args
+    kernel_args_ft = ft.flatten(
+        kernel_args_kwargs, registry=tree_util.default_registry
+    )
+    flat_kernel_avals = kernel_args_ft.map(
+        lambda x: x.ref if isinstance(x, state_types.TransformedRef) else x
     )
     if config._check_vma.value:
-      flat_kernel_avals = tuple(
-        a.update_manual_axis_type(jax_core.empty_mat)
-        for a in flat_kernel_avals
+      flat_kernel_avals = flat_kernel_avals.map(
+          lambda a: a.update_manual_axis_type(jax_core.empty_mat)
       )
     # Note that only a subset of all transforms can be found here, and they are
     # never expected to contain any arrays.
     kernel_arg_transforms = tuple(
         x.transforms if isinstance(x, state_types.TransformedRef) else ()
-        for x in flat_kernel_args
+        for x in kernel_args_ft.vals
     )
     kernel_dbg = api_util.debug_info("pallas_call kernel", kernel,
                                       *kernel_args_kwargs)
@@ -1325,7 +1322,7 @@ def _pallas_call(
       kernel_dbg = kernel_dbg.replace_func_name(mlir.sanitize_name(name))
     jaxpr, consts = _trace_kernel_to_jaxpr(
         kernel, kernel_dbg, grid_mapping, flat_kernel_avals,
-        kernel_in_tree, kernel_arg_transforms)
+        kernel_arg_transforms)
     for i_idx, o_idx in input_output_aliases.items():
       if i_idx not in range(len(flat_in_avals)):
         raise ValueError(

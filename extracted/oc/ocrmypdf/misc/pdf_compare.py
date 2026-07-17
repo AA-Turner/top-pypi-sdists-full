@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import os
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -60,10 +59,10 @@ def main():
         Path(d, "2.pdf").write_bytes(pdf_bytes2)
 
         with st.expander("Text"):
-            doc1 = pymupdf.open(os.path.join(d, "1.pdf"))
-            doc2 = pymupdf.open(os.path.join(d, "2.pdf"))
+            doc1 = pymupdf.open(Path(d, "1.pdf"))
+            doc2 = pymupdf.open(Path(d, "2.pdf"))
             for i, page1_2 in enumerate(zip(doc1, doc2, strict=False)):
-                st.write(f"Page {i+1}")
+                st.write(f"Page {i + 1}")
                 page1, page2 = page1_2
                 col1, col2 = st.columns(2)
                 with col1, st.container(border=True):

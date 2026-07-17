@@ -152,25 +152,19 @@ def to_json(types: list[snowpark_type.DataType], escape_quotes: bool = True) -> 
     return result.replace('"', '\\"') if escape_quotes else result
 
 
-def build_jvm_udxf_imports(
+def _build_jvm_udxf_imports(
     session: snowpark.Session, payload: bytes, udf_name: str
 ) -> List[str]:
     """
-    Build the list of imports needed for the JVM UDxF.
+    Build the list of imports needed for the JVM UDxF (stage-upload path).
+
+    Internal helper used by ``build_udxf_imports`` for the normal (non-Native-App)
+    case; other code should call ``build_udxf_imports``.
 
     This function:
     1. Saves the UDF payload to a binary file in the session stage
     2. Collects user-uploaded JAR files from the stage
     3. Returns a list of all required JAR files for the UDxF
-
-    Args:
-        session: Snowpark session
-        payload: Binary payload containing the serialized Scala UDF
-        udf_name: Name of the Scala UDF (used for the binary file name)
-        is_map_return: Indicates if the UDxF returns a Map (affects imports)
-
-    Returns:
-        List of JAR file paths to be imported by the UDxF
     """
     # Save pciudf._payload to a bin file:
     import io
@@ -206,6 +200,167 @@ def build_jvm_udxf_imports(
         + list(artifacts_store.get_jars())
         + list(config_imports)
     )
+
+
+def _scala_static_imports_dcr() -> list[str]:
+    """Relative version-stage paths for the static SCOS JARs (DCR inline-closure mode)."""
+    scala_version = get_scala_version()
+    if scala_version == "2.12":
+        return [
+            f"{RESOURCE_PATH}/{SPARK_CONNECT_CLIENT_JAR_212}",
+            f"{RESOURCE_PATH}/{SPARK_COMMON_UTILS_JAR_212}",
+            f"{RESOURCE_PATH}/{SPARK_SQL_JAR_212}",
+            f"{RESOURCE_PATH}/{JSON_4S_JAR_212}",
+            f"{RESOURCE_PATH}/{SAS_SCALA_UDF_JAR_212}",
+            f"{RESOURCE_PATH}/{SCALA_REFLECT_JAR_212}",
+        ]
+    if scala_version == "2.13":
+        return [
+            f"{RESOURCE_PATH}/{SPARK_CONNECT_CLIENT_JAR_213}",
+            f"{RESOURCE_PATH}/{SPARK_COMMON_UTILS_JAR_213}",
+            f"{RESOURCE_PATH}/{SPARK_SQL_JAR_213}",
+            f"{RESOURCE_PATH}/{JSON_4S_JAR_213}",
+            f"{RESOURCE_PATH}/{SAS_SCALA_UDF_JAR_213}",
+            f"{RESOURCE_PATH}/{SCALA_REFLECT_JAR_213}",
+        ]
+    exception = ValueError(
+        f"Unsupported Scala version: {scala_version}. Snowpark Connect supports Scala 2.12 and 2.13"
+    )
+    attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+    raise exception
+
+
+# The closure is base64-embedded as a Java string literal. The JVM constant-pool
+# CONSTANT_Utf8 limit is 65535 bytes; base64 is pure ASCII (1 byte/char) and
+# expands 4/3, so the hard cap is 65535 * 3/4 ≈ 48 KB of raw closure. We use 40 KB
+# as a conservative ceiling.
+#
+# Empirical data (from scala/src/test/resources/testUserFilter.bin):
+#   A real filter UDF on TestUser{id:Int, name:String, Address{street,city,zip}} = 3 KB.
+#   Case class transforms with 10–20 fields land at 3–10 KB.
+#   The 40 KB ceiling is hit only when a closure *captures* a large in-memory collection
+#   (~500+ Map entries / ~1500+ Seq elements), which is an anti-pattern regardless — that
+#   data should be passed as a table argument or loaded from a stage, not embedded in the closure.
+_INLINE_CLOSURE_MAX_BYTES = 40 * 1024
+
+
+def build_udxf_imports(
+    session: snowpark.Session, payload: bytes, udf_name: str
+) -> tuple[list[str], bytes | None]:
+    """Build IMPORTS for a closure-based JVM UDxF (scalar UDF, UDAF, or UDTF),
+    returning (imports, inline_payload).
+
+    Native-app-aware wrapper over ``_build_jvm_udxf_imports``:
+
+    - Normal mode: delegates to ``_build_jvm_udxf_imports`` (uploads the closure
+      binary to the session stage, returns absolute stage paths); ``inline_payload``
+      is None.
+    - Native App mode: skips the binary upload and returns relative version-stage
+      paths for the static SCOS JARs plus any user-configured paths from
+      ``snowpark.connect.udf.scala.version_stage_imports``; ``inline_payload`` is
+      the raw payload bytes to be base64-embedded in the Java handler body (via
+      ``apply_inline_closure``).
+    """
+    from snowflake.snowpark_connect.config import global_config, is_native_app_mode
+    from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+
+    if not is_native_app_mode():
+        return _build_jvm_udxf_imports(session, payload, udf_name), None
+
+    if len(payload) > _INLINE_CLOSURE_MAX_BYTES:
+        exception = ValueError(
+            f"JVM UDxF closure ({len(payload)} bytes) exceeds the {_INLINE_CLOSURE_MAX_BYTES}-byte "
+            "limit for Native App inline-closure mode. The closure is base64-embedded as a Java "
+            "string literal, and the JVM constant-pool UTF-8 limit (65535 bytes) caps the raw "
+            "closure at ~48 KB. Typical case-class transform closures are 1–10 KB; this limit is "
+            "usually exceeded only when the closure captures a large in-memory collection "
+            "(e.g. ~500 Map entries). Consider passing that data as a table argument instead of "
+            "capturing it in the closure."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+        raise exception
+
+    user_jar_config = global_config.get(
+        "snowpark.connect.udf.scala.version_stage_imports", ""
+    )
+    user_jars = (
+        [x.strip() for x in user_jar_config.strip("[] ").split(",") if x.strip()]
+        if user_jar_config
+        else []
+    )
+    invalid = [j for j in user_jars if not j.startswith("/")]
+    if invalid:
+        exception = ValueError(
+            f"snowpark.connect.udf.scala.version_stage_imports contains invalid paths: {invalid}. "
+            "In DCR inline-closure mode all imports must be version-stage-relative paths starting with '/'."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+        raise exception
+
+    return _scala_static_imports_dcr() + user_jars, payload
+
+
+def apply_inline_closure(
+    body: str, imports: list[str], inline_payload: bytes | None
+) -> str:
+    """Rewrite a generated JVM-UDxF Java body to source its closure inline.
+
+    In normal (file) mode this is a no-op: the body keeps its
+    ``OPERATION_FILE`` field and ``deserializeUdfPacket(OPERATION_FILE)`` call.
+
+    In Native App inline-closure mode (``inline_payload`` set) the closure
+    binary is not uploaded to the session stage; instead the bytes are
+    base64-embedded in the handler and deserialized via
+    ``deserializeUdfPacketFromBytes``. This mirrors what
+    ``JavaScalarUDFDef._gen_body_java`` does for the scalar path (#4747), and is
+    shared by the UDAF and all UDTF handler generators so a single
+    ``build_udxf_imports`` + ``apply_inline_closure`` pair covers every
+    closure-based JVM UDxF.
+
+    Both the ``OPERATION_FILE`` field declaration and the deserialize call are
+    matched by exact text. If either target is absent (e.g. a UDxF template drifted
+    in modifier order or spacing), this raises instead of silently no-op'ing — a
+    silent miss would leave the handler reading a ``.bin`` that was never uploaded
+    in native-app mode, i.e. a runtime failure with no test signal.
+    """
+    if inline_payload is None:
+        return body
+
+    import base64
+
+    # The def's _gen_body computes operation_file identically (imports[0] basename),
+    # so this target matches the field declaration it emitted.
+    operation_file = imports[0].split("/")[-1]
+    b64 = base64.b64encode(inline_payload).decode("ascii")
+    field_decl = (
+        f"private static final byte[] CLOSURE_BYTES = "
+        f'java.util.Base64.getDecoder().decode("{b64}");'
+    )
+
+    def _require_replace(text: str, target: str, repl: str, what: str) -> str:
+        if target not in text:
+            exception = RuntimeError(
+                f"apply_inline_closure: {what} not found in the generated handler; a "
+                "JVM-UDxF template has drifted from apply_inline_closure. Update the "
+                "replacement targets here (jvm_udf_utils.apply_inline_closure)."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
+            raise exception
+        return text.replace(target, repl)
+
+    body = _require_replace(
+        body,
+        f'private final static String OPERATION_FILE = "{operation_file}";',
+        field_decl,
+        "OPERATION_FILE declaration",
+    )
+    body = _require_replace(
+        body,
+        "com.snowflake.sas.scala.Utils$.MODULE$.deserializeUdfPacket(OPERATION_FILE)",
+        "com.snowflake.sas.scala.Utils$.MODULE$.deserializeUdfPacketFromBytes(CLOSURE_BYTES)",
+        "deserializeUdfPacket(OPERATION_FILE) call",
+    )
+    return body
 
 
 def _scala_static_imports_for_udf(stage_resource_path: str) -> list[str]:
