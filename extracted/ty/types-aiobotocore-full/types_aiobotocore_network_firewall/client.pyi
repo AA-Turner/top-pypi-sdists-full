@@ -32,6 +32,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     GetAnalysisReportResultsPaginator,
     ListAnalysisReportsPaginator,
+    ListContainerAssociationsPaginator,
     ListFirewallPoliciesPaginator,
     ListFirewallsPaginator,
     ListFlowOperationResultsPaginator,
@@ -55,6 +56,8 @@ from .type_defs import (
     AssociateSubnetsResponseTypeDef,
     AttachRuleGroupsToProxyConfigurationRequestTypeDef,
     AttachRuleGroupsToProxyConfigurationResponseTypeDef,
+    CreateContainerAssociationRequestTypeDef,
+    CreateContainerAssociationResponseTypeDef,
     CreateFirewallPolicyRequestTypeDef,
     CreateFirewallPolicyResponseTypeDef,
     CreateFirewallRequestTypeDef,
@@ -73,6 +76,8 @@ from .type_defs import (
     CreateTLSInspectionConfigurationResponseTypeDef,
     CreateVpcEndpointAssociationRequestTypeDef,
     CreateVpcEndpointAssociationResponseTypeDef,
+    DeleteContainerAssociationRequestTypeDef,
+    DeleteContainerAssociationResponseTypeDef,
     DeleteFirewallPolicyRequestTypeDef,
     DeleteFirewallPolicyResponseTypeDef,
     DeleteFirewallRequestTypeDef,
@@ -94,6 +99,8 @@ from .type_defs import (
     DeleteTLSInspectionConfigurationResponseTypeDef,
     DeleteVpcEndpointAssociationRequestTypeDef,
     DeleteVpcEndpointAssociationResponseTypeDef,
+    DescribeContainerAssociationRequestTypeDef,
+    DescribeContainerAssociationResponseTypeDef,
     DescribeFirewallMetadataRequestTypeDef,
     DescribeFirewallMetadataResponseTypeDef,
     DescribeFirewallPolicyRequestTypeDef,
@@ -134,6 +141,8 @@ from .type_defs import (
     GetAnalysisReportResultsResponseTypeDef,
     ListAnalysisReportsRequestTypeDef,
     ListAnalysisReportsResponseTypeDef,
+    ListContainerAssociationsRequestTypeDef,
+    ListContainerAssociationsResponseTypeDef,
     ListFirewallPoliciesRequestTypeDef,
     ListFirewallPoliciesResponseTypeDef,
     ListFirewallsRequestTypeDef,
@@ -169,6 +178,8 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateAvailabilityZoneChangeProtectionRequestTypeDef,
     UpdateAvailabilityZoneChangeProtectionResponseTypeDef,
+    UpdateContainerAssociationRequestTypeDef,
+    UpdateContainerAssociationResponseTypeDef,
     UpdateFirewallAnalysisSettingsRequestTypeDef,
     UpdateFirewallAnalysisSettingsResponseTypeDef,
     UpdateFirewallDeleteProtectionRequestTypeDef,
@@ -309,6 +320,16 @@ class NetworkFirewallClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#attach_rule_groups_to_proxy_configuration)
         """
 
+    async def create_container_association(
+        self, **kwargs: Unpack[CreateContainerAssociationRequestTypeDef]
+    ) -> CreateContainerAssociationResponseTypeDef:
+        """
+        Creates a container association for Network Firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_container_association.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#create_container_association)
+        """
+
     async def create_firewall(
         self, **kwargs: Unpack[CreateFirewallRequestTypeDef]
     ) -> CreateFirewallResponseTypeDef:
@@ -399,6 +420,16 @@ class NetworkFirewallClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_vpc_endpoint_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#create_vpc_endpoint_association)
+        """
+
+    async def delete_container_association(
+        self, **kwargs: Unpack[DeleteContainerAssociationRequestTypeDef]
+    ) -> DeleteContainerAssociationResponseTypeDef:
+        """
+        Deletes the specified container association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_container_association.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#delete_container_association)
         """
 
     async def delete_firewall(
@@ -510,6 +541,16 @@ class NetworkFirewallClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_vpc_endpoint_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#delete_vpc_endpoint_association)
+        """
+
+    async def describe_container_association(
+        self, **kwargs: Unpack[DescribeContainerAssociationRequestTypeDef]
+    ) -> DescribeContainerAssociationResponseTypeDef:
+        """
+        Returns the properties of a container association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_container_association.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#describe_container_association)
         """
 
     async def describe_firewall(
@@ -719,6 +760,16 @@ class NetworkFirewallClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#list_analysis_reports)
         """
 
+    async def list_container_associations(
+        self, **kwargs: Unpack[ListContainerAssociationsRequestTypeDef]
+    ) -> ListContainerAssociationsResponseTypeDef:
+        """
+        Retrieves the metadata for the container associations that you have defined.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_container_associations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#list_container_associations)
+        """
+
     async def list_firewall_policies(
         self, **kwargs: Unpack[ListFirewallPoliciesRequestTypeDef]
     ) -> ListFirewallPoliciesResponseTypeDef:
@@ -910,6 +961,16 @@ class NetworkFirewallClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#update_availability_zone_change_protection)
         """
 
+    async def update_container_association(
+        self, **kwargs: Unpack[UpdateContainerAssociationRequestTypeDef]
+    ) -> UpdateContainerAssociationResponseTypeDef:
+        """
+        Updates the properties of an existing container association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_container_association.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#update_container_association)
+        """
+
     async def update_firewall_analysis_settings(
         self, **kwargs: Unpack[UpdateFirewallAnalysisSettingsRequestTypeDef]
     ) -> UpdateFirewallAnalysisSettingsResponseTypeDef:
@@ -1078,6 +1139,17 @@ class NetworkFirewallClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_analysis_reports"]
     ) -> ListAnalysisReportsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_container_associations"]
+    ) -> ListContainerAssociationsPaginator:
         """
         Create a paginator for an operation.
 

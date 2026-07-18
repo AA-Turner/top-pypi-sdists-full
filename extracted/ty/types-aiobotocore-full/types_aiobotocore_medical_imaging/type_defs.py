@@ -63,6 +63,9 @@ __all__ = (
     "DeleteDatastoreResponseTypeDef",
     "DeleteImageSetRequestTypeDef",
     "DeleteImageSetResponseTypeDef",
+    "DicomJsonMetadataImportConfigurationOutputTypeDef",
+    "DicomJsonMetadataImportConfigurationTypeDef",
+    "DicomMetadataMappingTypeDef",
     "GetDICOMImportJobRequestTypeDef",
     "GetDICOMImportJobResponseTypeDef",
     "GetDatastoreRequestTypeDef",
@@ -76,6 +79,9 @@ __all__ = (
     "ImageFrameInformationTypeDef",
     "ImageSetPropertiesTypeDef",
     "ImageSetsMetadataSummaryTypeDef",
+    "ImportConfigurationOutputTypeDef",
+    "ImportConfigurationTypeDef",
+    "ImportConfigurationUnionTypeDef",
     "ListDICOMImportJobsRequestPaginateTypeDef",
     "ListDICOMImportJobsRequestTypeDef",
     "ListDICOMImportJobsResponseTypeDef",
@@ -157,19 +163,6 @@ class CreateDatastoreRequestTypeDef(TypedDict):
     losslessStorageFormat: NotRequired[LosslessStorageFormatType]
 
 
-class DICOMImportJobPropertiesTypeDef(TypedDict):
-    jobId: str
-    jobName: str
-    jobStatus: JobStatusType
-    datastoreId: str
-    dataAccessRoleArn: str
-    inputS3Uri: str
-    outputS3Uri: str
-    endedAt: NotRequired[datetime]
-    submittedAt: NotRequired[datetime]
-    message: NotRequired[str]
-
-
 class DICOMImportJobSummaryTypeDef(TypedDict):
     jobId: str
     jobName: str
@@ -233,6 +226,12 @@ class DeleteDatastoreRequestTypeDef(TypedDict):
 class DeleteImageSetRequestTypeDef(TypedDict):
     datastoreId: str
     imageSetId: str
+
+
+class DicomMetadataMappingTypeDef(TypedDict):
+    studyInstanceUID: str
+    metadataFilePath: str
+    seriesInstanceUID: NotRequired[str]
 
 
 class GetDICOMImportJobRequestTypeDef(TypedDict):
@@ -300,16 +299,6 @@ TimestampTypeDef = Union[datetime, str]
 class SortTypeDef(TypedDict):
     sortOrder: SortOrderType
     sortField: SortFieldType
-
-
-class StartDICOMImportJobRequestTypeDef(TypedDict):
-    dataAccessRoleArn: str
-    clientToken: str
-    datastoreId: str
-    inputS3Uri: str
-    outputS3Uri: str
-    jobName: NotRequired[str]
-    inputOwnerAccountId: NotRequired[str]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -397,11 +386,6 @@ class CopySourceImageSetInformationTypeDef(TypedDict):
     DICOMCopies: NotRequired[MetadataCopiesTypeDef]
 
 
-class GetDICOMImportJobResponseTypeDef(TypedDict):
-    jobProperties: DICOMImportJobPropertiesTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class ListDICOMImportJobsResponseTypeDef(TypedDict):
     jobSummaries: list[DICOMImportJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -428,6 +412,14 @@ class ListDatastoresResponseTypeDef(TypedDict):
     datastoreSummaries: list[DatastoreSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class DicomJsonMetadataImportConfigurationOutputTypeDef(TypedDict):
+    dicomMetadataMappings: list[DicomMetadataMappingTypeDef]
+
+
+class DicomJsonMetadataImportConfigurationTypeDef(TypedDict):
+    dicomMetadataMappings: Sequence[DicomMetadataMappingTypeDef]
 
 
 class GetImageFrameRequestTypeDef(TypedDict):
@@ -513,6 +505,16 @@ class SearchImageSetsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ImportConfigurationOutputTypeDef(TypedDict):
+    dicomJsonMetadataImportConfiguration: NotRequired[
+        DicomJsonMetadataImportConfigurationOutputTypeDef
+    ]
+
+
+class ImportConfigurationTypeDef(TypedDict):
+    dicomJsonMetadataImportConfiguration: NotRequired[DicomJsonMetadataImportConfigurationTypeDef]
+
+
 class ListImageSetVersionsResponseTypeDef(TypedDict):
     imageSetPropertiesList: list[ImageSetPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -545,9 +547,44 @@ class CopyImageSetRequestTypeDef(TypedDict):
     promoteToPrimary: NotRequired[bool]
 
 
+class DICOMImportJobPropertiesTypeDef(TypedDict):
+    jobId: str
+    jobName: str
+    jobStatus: JobStatusType
+    datastoreId: str
+    dataAccessRoleArn: str
+    inputS3Uri: str
+    outputS3Uri: str
+    endedAt: NotRequired[datetime]
+    submittedAt: NotRequired[datetime]
+    message: NotRequired[str]
+    importConfiguration: NotRequired[ImportConfigurationOutputTypeDef]
+
+
+ImportConfigurationUnionTypeDef = Union[
+    ImportConfigurationTypeDef, ImportConfigurationOutputTypeDef
+]
+
+
 class SearchCriteriaTypeDef(TypedDict):
     filters: NotRequired[Sequence[SearchFilterTypeDef]]
     sort: NotRequired[SortTypeDef]
+
+
+class GetDICOMImportJobResponseTypeDef(TypedDict):
+    jobProperties: DICOMImportJobPropertiesTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartDICOMImportJobRequestTypeDef(TypedDict):
+    dataAccessRoleArn: str
+    clientToken: str
+    datastoreId: str
+    inputS3Uri: str
+    outputS3Uri: str
+    jobName: NotRequired[str]
+    inputOwnerAccountId: NotRequired[str]
+    importConfiguration: NotRequired[ImportConfigurationUnionTypeDef]
 
 
 class SearchImageSetsRequestPaginateTypeDef(TypedDict):

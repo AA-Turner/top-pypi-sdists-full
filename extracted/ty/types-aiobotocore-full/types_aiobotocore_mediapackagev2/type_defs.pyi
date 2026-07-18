@@ -27,6 +27,7 @@ from .literals import (
     CmafEncryptionMethodType,
     ContainerTypeType,
     CustomAdTypeType,
+    DashAudioTimelinePatternType,
     DashCompactnessType,
     DashDrmSignalingType,
     DashPeriodTriggerType,
@@ -71,6 +72,9 @@ __all__ = (
     "CreateMssManifestConfigurationTypeDef",
     "CreateOriginEndpointRequestTypeDef",
     "CreateOriginEndpointResponseTypeDef",
+    "DashAvailabilityStartTimeConfigurationOutputTypeDef",
+    "DashAvailabilityStartTimeConfigurationTypeDef",
+    "DashAvailabilityStartTimeConfigurationUnionTypeDef",
     "DashBaseUrlTypeDef",
     "DashDvbFontDownloadTypeDef",
     "DashDvbMetricsReportingTypeDef",
@@ -269,6 +273,11 @@ class StartTagTypeDef(TypedDict):
 class ForceEndpointErrorConfigurationOutputTypeDef(TypedDict):
     EndpointErrorConditions: NotRequired[list[EndpointErrorConditionType]]
 
+class DashAvailabilityStartTimeConfigurationOutputTypeDef(TypedDict):
+    FixedAvailabilityStartTime: NotRequired[datetime]
+
+TimestampTypeDef = Union[datetime, str]
+
 class DashDvbFontDownloadTypeDef(TypedDict):
     Url: NotRequired[str]
     MimeType: NotRequired[str]
@@ -322,8 +331,6 @@ class FilterConfigurationOutputTypeDef(TypedDict):
     End: NotRequired[datetime]
     TimeDelaySeconds: NotRequired[int]
     ClipStartTime: NotRequired[datetime]
-
-TimestampTypeDef = Union[datetime, str]
 
 class ForceEndpointErrorConfigurationTypeDef(TypedDict):
     EndpointErrorConditions: NotRequired[Sequence[EndpointErrorConditionType]]
@@ -601,6 +608,21 @@ class UpdateChannelResponseTypeDef(TypedDict):
     OutputHeaderConfiguration: OutputHeaderConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DashAvailabilityStartTimeConfigurationTypeDef(TypedDict):
+    FixedAvailabilityStartTime: NotRequired[TimestampTypeDef]
+
+class FilterConfigurationTypeDef(TypedDict):
+    ManifestFilter: NotRequired[str]
+    DrmSettings: NotRequired[str]
+    Start: NotRequired[TimestampTypeDef]
+    End: NotRequired[TimestampTypeDef]
+    TimeDelaySeconds: NotRequired[int]
+    ClipStartTime: NotRequired[TimestampTypeDef]
+
+class HarvesterScheduleConfigurationTypeDef(TypedDict):
+    StartTime: TimestampTypeDef
+    EndTime: TimestampTypeDef
+
 class DashDvbSettingsOutputTypeDef(TypedDict):
     FontDownload: NotRequired[DashDvbFontDownloadTypeDef]
     ErrorMetrics: NotRequired[list[DashDvbMetricsReportingTypeDef]]
@@ -661,18 +683,6 @@ class GetMssManifestConfigurationTypeDef(TypedDict):
     FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
     ManifestWindowSeconds: NotRequired[int]
     ManifestLayout: NotRequired[MssManifestLayoutType]
-
-class FilterConfigurationTypeDef(TypedDict):
-    ManifestFilter: NotRequired[str]
-    DrmSettings: NotRequired[str]
-    Start: NotRequired[TimestampTypeDef]
-    End: NotRequired[TimestampTypeDef]
-    TimeDelaySeconds: NotRequired[int]
-    ClipStartTime: NotRequired[TimestampTypeDef]
-
-class HarvesterScheduleConfigurationTypeDef(TypedDict):
-    StartTime: TimestampTypeDef
-    EndTime: TimestampTypeDef
 
 ForceEndpointErrorConfigurationUnionTypeDef = Union[
     ForceEndpointErrorConfigurationTypeDef, ForceEndpointErrorConfigurationOutputTypeDef
@@ -737,6 +747,16 @@ class PutOriginEndpointPolicyRequestTypeDef(TypedDict):
     Policy: str
     CdnAuthConfiguration: NotRequired[CdnAuthConfigurationUnionTypeDef]
 
+DashAvailabilityStartTimeConfigurationUnionTypeDef = Union[
+    DashAvailabilityStartTimeConfigurationTypeDef,
+    DashAvailabilityStartTimeConfigurationOutputTypeDef,
+]
+FilterConfigurationUnionTypeDef = Union[
+    FilterConfigurationTypeDef, FilterConfigurationOutputTypeDef
+]
+HarvesterScheduleConfigurationUnionTypeDef = Union[
+    HarvesterScheduleConfigurationTypeDef, HarvesterScheduleConfigurationOutputTypeDef
+]
 DashDvbSettingsUnionTypeDef = Union[DashDvbSettingsTypeDef, DashDvbSettingsOutputTypeDef]
 
 class GetDashManifestConfigurationTypeDef(TypedDict):
@@ -757,8 +777,12 @@ class GetDashManifestConfigurationTypeDef(TypedDict):
     ProgramInformation: NotRequired[DashProgramInformationTypeDef]
     DvbSettings: NotRequired[DashDvbSettingsOutputTypeDef]
     Compactness: NotRequired[DashCompactnessType]
+    AudioTimelinePattern: NotRequired[DashAudioTimelinePatternType]
     SubtitleConfiguration: NotRequired[DashSubtitleConfigurationTypeDef]
     UriPathType: NotRequired[UriPathTypeType]
+    AvailabilityStartTimeConfiguration: NotRequired[
+        DashAvailabilityStartTimeConfigurationOutputTypeDef
+    ]
 
 class EncryptionOutputTypeDef(TypedDict):
     EncryptionMethod: EncryptionMethodTypeDef
@@ -773,13 +797,6 @@ class EncryptionTypeDef(TypedDict):
     ConstantInitializationVector: NotRequired[str]
     KeyRotationIntervalSeconds: NotRequired[int]
     CmafExcludeSegmentDrmMetadata: NotRequired[bool]
-
-FilterConfigurationUnionTypeDef = Union[
-    FilterConfigurationTypeDef, FilterConfigurationOutputTypeDef
-]
-HarvesterScheduleConfigurationUnionTypeDef = Union[
-    HarvesterScheduleConfigurationTypeDef, HarvesterScheduleConfigurationOutputTypeDef
-]
 
 class CreateHarvestJobResponseTypeDef(TypedDict):
     ChannelGroupName: str
@@ -840,44 +857,6 @@ class ListOriginEndpointsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class SegmentOutputTypeDef(TypedDict):
-    SegmentDurationSeconds: NotRequired[int]
-    SegmentName: NotRequired[str]
-    TsUseAudioRenditionGroup: NotRequired[bool]
-    IncludeIframeOnlyStreams: NotRequired[bool]
-    TsIncludeDvbSubtitles: NotRequired[bool]
-    Scte: NotRequired[ScteOutputTypeDef]
-    Encryption: NotRequired[EncryptionOutputTypeDef]
-
-class SegmentTypeDef(TypedDict):
-    SegmentDurationSeconds: NotRequired[int]
-    SegmentName: NotRequired[str]
-    TsUseAudioRenditionGroup: NotRequired[bool]
-    IncludeIframeOnlyStreams: NotRequired[bool]
-    TsIncludeDvbSubtitles: NotRequired[bool]
-    Scte: NotRequired[ScteTypeDef]
-    Encryption: NotRequired[EncryptionTypeDef]
-
-class CreateDashManifestConfigurationTypeDef(TypedDict):
-    ManifestName: str
-    ManifestWindowSeconds: NotRequired[int]
-    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
-    MinUpdatePeriodSeconds: NotRequired[int]
-    MinBufferTimeSeconds: NotRequired[int]
-    SuggestedPresentationDelaySeconds: NotRequired[int]
-    SegmentTemplateFormat: NotRequired[Literal["NUMBER_WITH_TIMELINE"]]
-    PeriodTriggers: NotRequired[Sequence[DashPeriodTriggerType]]
-    ScteDash: NotRequired[ScteDashTypeDef]
-    DrmSignaling: NotRequired[DashDrmSignalingType]
-    UtcTiming: NotRequired[DashUtcTimingTypeDef]
-    Profiles: NotRequired[Sequence[Literal["DVB_DASH"]]]
-    BaseUrls: NotRequired[Sequence[DashBaseUrlTypeDef]]
-    ProgramInformation: NotRequired[DashProgramInformationTypeDef]
-    DvbSettings: NotRequired[DashDvbSettingsUnionTypeDef]
-    Compactness: NotRequired[DashCompactnessType]
-    SubtitleConfiguration: NotRequired[DashSubtitleConfigurationTypeDef]
-    UriPathType: NotRequired[UriPathTypeType]
-
 class CreateHlsManifestConfigurationTypeDef(TypedDict):
     ManifestName: str
     ChildManifestName: NotRequired[str]
@@ -905,6 +884,48 @@ class CreateMssManifestConfigurationTypeDef(TypedDict):
     ManifestWindowSeconds: NotRequired[int]
     FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
     ManifestLayout: NotRequired[MssManifestLayoutType]
+
+class CreateDashManifestConfigurationTypeDef(TypedDict):
+    ManifestName: str
+    ManifestWindowSeconds: NotRequired[int]
+    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
+    MinUpdatePeriodSeconds: NotRequired[int]
+    MinBufferTimeSeconds: NotRequired[int]
+    SuggestedPresentationDelaySeconds: NotRequired[int]
+    SegmentTemplateFormat: NotRequired[Literal["NUMBER_WITH_TIMELINE"]]
+    PeriodTriggers: NotRequired[Sequence[DashPeriodTriggerType]]
+    ScteDash: NotRequired[ScteDashTypeDef]
+    DrmSignaling: NotRequired[DashDrmSignalingType]
+    UtcTiming: NotRequired[DashUtcTimingTypeDef]
+    Profiles: NotRequired[Sequence[Literal["DVB_DASH"]]]
+    BaseUrls: NotRequired[Sequence[DashBaseUrlTypeDef]]
+    ProgramInformation: NotRequired[DashProgramInformationTypeDef]
+    DvbSettings: NotRequired[DashDvbSettingsUnionTypeDef]
+    Compactness: NotRequired[DashCompactnessType]
+    AudioTimelinePattern: NotRequired[DashAudioTimelinePatternType]
+    SubtitleConfiguration: NotRequired[DashSubtitleConfigurationTypeDef]
+    UriPathType: NotRequired[UriPathTypeType]
+    AvailabilityStartTimeConfiguration: NotRequired[
+        DashAvailabilityStartTimeConfigurationUnionTypeDef
+    ]
+
+class SegmentOutputTypeDef(TypedDict):
+    SegmentDurationSeconds: NotRequired[int]
+    SegmentName: NotRequired[str]
+    TsUseAudioRenditionGroup: NotRequired[bool]
+    IncludeIframeOnlyStreams: NotRequired[bool]
+    TsIncludeDvbSubtitles: NotRequired[bool]
+    Scte: NotRequired[ScteOutputTypeDef]
+    Encryption: NotRequired[EncryptionOutputTypeDef]
+
+class SegmentTypeDef(TypedDict):
+    SegmentDurationSeconds: NotRequired[int]
+    SegmentName: NotRequired[str]
+    TsUseAudioRenditionGroup: NotRequired[bool]
+    IncludeIframeOnlyStreams: NotRequired[bool]
+    TsIncludeDvbSubtitles: NotRequired[bool]
+    Scte: NotRequired[ScteTypeDef]
+    Encryption: NotRequired[EncryptionTypeDef]
 
 class ListHarvestJobsResponseTypeDef(TypedDict):
     Items: list[HarvestJobTypeDef]

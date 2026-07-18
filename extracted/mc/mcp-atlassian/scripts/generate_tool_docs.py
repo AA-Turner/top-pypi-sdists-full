@@ -93,6 +93,9 @@ CATEGORY_TOOLS: dict[str, list[str]] = {
         "jira_get_service_desk_for_project",
         "jira_get_service_desk_queues",
         "jira_get_queue_issues",
+        "jira_get_request_types",
+        "jira_get_request_type_fields",
+        "jira_create_customer_request",
     ],
     "jira-forms-metrics": [
         "jira_get_issue_proforma_forms",
@@ -145,6 +148,11 @@ CATEGORY_TOOLS: dict[str, list[str]] = {
         "confluence_check_content_permissions",
         "confluence_get_space_permissions",
     ],
+    "confluence-templates": [
+        "confluence_list_page_templates",
+        "confluence_get_page_template",
+        "confluence_create_page_from_template",
+    ],
 }
 
 CATEGORY_META: dict[str, dict[str, str]] = {
@@ -176,7 +184,7 @@ CATEGORY_META: dict[str, dict[str, str]] = {
     },
     "jira-service-desk": {
         "title": "Jira Service Desk",
-        "description": "Service desk queues and queue issues",
+        "description": "Customer requests, service desks, and queues",
     },
     "jira-forms-metrics": {
         "title": "Jira Forms & Metrics",
@@ -201,6 +209,10 @@ CATEGORY_META: dict[str, dict[str, str]] = {
     "confluence-permissions": {
         "title": "Confluence Permissions",
         "description": "Inspect content and space permissions",
+    },
+    "confluence-templates": {
+        "title": "Confluence Templates",
+        "description": "List page templates and create pages from them",
     },
 }
 
@@ -304,13 +316,13 @@ async def get_all_tools() -> dict[str, dict[str, Any]]:
     from mcp_atlassian.servers.confluence import confluence_mcp
     from mcp_atlassian.servers.jira import jira_mcp
 
-    jira_tools = await jira_mcp.get_tools()
-    confluence_tools = await confluence_mcp.get_tools()
+    jira_tools = await jira_mcp.list_tools()
+    confluence_tools = await confluence_mcp.list_tools()
 
     all_tools: dict[str, dict[str, Any]] = {}
 
-    for name, tool in jira_tools.items():
-        prefixed = f"jira_{name}"
+    for tool in jira_tools:
+        prefixed = f"jira_{tool.name}"
         mcp_tool = tool.to_mcp_tool(name=prefixed)
         all_tools[prefixed] = {
             "mcp_tool": mcp_tool,
@@ -319,8 +331,8 @@ async def get_all_tools() -> dict[str, dict[str, Any]]:
             "is_write": "write" in (tool.tags if hasattr(tool, "tags") else set()),
         }
 
-    for name, tool in confluence_tools.items():
-        prefixed = f"confluence_{name}"
+    for tool in confluence_tools:
+        prefixed = f"confluence_{tool.name}"
         mcp_tool = tool.to_mcp_tool(name=prefixed)
         all_tools[prefixed] = {
             "mcp_tool": mcp_tool,

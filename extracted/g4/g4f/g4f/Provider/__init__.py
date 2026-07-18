@@ -8,14 +8,14 @@ from ..providers.create_images  import CreateImagesProvider
 def _resolve_provider(name: str) -> ProviderType:
     if name == "AnyProvider":
         from g4f.providers.any_provider import AnyProvider; return AnyProvider
-    if name == "AIBadgr":
+    elif name == "AIBadgr":
         from g4f.Provider.needs_auth.AIBadgr import AIBadgr; return AIBadgr
     elif name == "Anthropic":
         from g4f.Provider.needs_auth.Anthropic import Anthropic; return Anthropic
     elif name == "Antigravity":
         from g4f.Provider.needs_auth.Antigravity import Antigravity; return Antigravity
-    elif name == "ApiAirforce":
-        from g4f.Provider.needs_auth.ApiAirforce import ApiAirforce; return ApiAirforce
+    elif name == "Airforce" or name == "ApiAirforce":
+        from g4f.Provider.needs_auth.Airforce import Airforce; return Airforce
     elif name == "BingCreateImages":
         from g4f.Provider.needs_auth.BingCreateImages import BingCreateImages; return BingCreateImages
     elif name == "BlackForestLabs_Flux1Dev":
@@ -32,6 +32,8 @@ def _resolve_provider(name: str) -> ProviderType:
         from g4f.Provider.needs_auth.Cerebras import Cerebras; return Cerebras
     elif name == "Claude":
         from g4f.Provider.needs_auth.Claude import Claude; return Claude
+    elif name == "Cloudflare":
+        from g4f.Provider.Cloudflare import Cloudflare; return Cloudflare
     elif name == "Cohere":
         from g4f.Provider.needs_auth.Cohere import Cohere; return Cohere
     elif name == "CohereForAI_C4AI_Command":
@@ -47,11 +49,9 @@ def _resolve_provider(name: str) -> ProviderType:
     elif name == "Custom":
         from g4f.Provider.needs_auth.Custom import Custom; return Custom
     elif name == "DeepInfra":
-        from g4f.Provider.deepinfra import DeepInfra; return DeepInfra
-    elif name == "DeepSeek":
+        from .DeepInfra import DeepInfra; return DeepInfra
+    elif name == "DeepSeek" or name == "DeepSeekAPI":
         from g4f.Provider.needs_auth.DeepSeek import DeepSeek; return DeepSeek
-    elif name == "DeepSeekAPI":
-        from g4f.Provider.needs_auth.DeepSeek import DeepSeekAPI; return DeepSeekAPI
     elif name == "EasyChat":
         from g4f.Provider.EasyChat import EasyChat; return EasyChat
     elif name == "EdgeTTS":
@@ -78,8 +78,9 @@ def _resolve_provider(name: str) -> ProviderType:
         from g4f.Provider.needs_auth.GlhfChat import GlhfChat; return GlhfChat
     elif name == "GoogleSearch":
         from g4f.Provider.search.GoogleSearch import GoogleSearch; return GoogleSearch
+
     elif name == "GradientNetwork":
-        from g4f.Provider.GradientNetwork import GradientNetwork; return GradientNetwork
+        from .GradientNetwork import GradientNetwork; return GradientNetwork
     elif name == "Grok":
         from g4f.Provider.needs_auth.Grok import Grok; return Grok
     elif name == "Groq":
@@ -110,6 +111,8 @@ def _resolve_provider(name: str) -> ProviderType:
         from g4f.Provider.needs_auth.MetaAIAccount import MetaAIAccount; return MetaAIAccount
     elif name == "MicrosoftDesigner":
         from g4f.Provider.needs_auth.MicrosoftDesigner import MicrosoftDesigner; return MicrosoftDesigner
+    elif name == "Miklium":
+        from g4f.Provider.Miklium import Miklium; return Miklium
     elif name == "MiniMax":
         from g4f.Provider.needs_auth.mini_max.MiniMax import MiniMax; return MiniMax
     elif name == "Nvidia":
@@ -136,6 +139,8 @@ def _resolve_provider(name: str) -> ProviderType:
         from g4f.Provider.template.OpenaiTemplate import OpenaiTemplate; return OpenaiTemplate
     elif name == "OperaAria":
         from g4f.Provider.OperaAria import OperaAria; return OperaAria
+    elif name == "Perchance":
+        from g4f.Provider.Perchance import Perchance; return Perchance
     elif name == "Perplexity":
         from g4f.Provider.Perplexity import Perplexity; return Perplexity
     elif name == "PerplexityApi":
@@ -144,14 +149,14 @@ def _resolve_provider(name: str) -> ProviderType:
         from g4f.Provider.PhindAi import PhindAi; return PhindAi
     elif name == "Pi":
         from g4f.Provider.needs_auth.Pi import Pi; return Pi
-    elif name == "PollinationsAI":
-        from g4f.Provider.PollinationsAI import PollinationsAI; return PollinationsAI
+    elif name == "Pollinations" or name == "PollinationsAI":
+        from g4f.Provider.Pollinations import Pollinations; return Pollinations
     elif name == "PollinationsAudio":
         from g4f.Provider.audio.PollinationsAudio import PollinationsAudio; return PollinationsAudio
     elif name == "PollinationsImage":
         from g4f.Provider.PollinationsImage import PollinationsImage; return PollinationsImage
-    elif name == "PuterJS":
-        from g4f.Provider.needs_auth.PuterJS import PuterJS; return PuterJS
+    elif name == "Puter" or name == "PuterJS":
+        from g4f.Provider.needs_auth.Puter import Puter; return Puter
     elif name == "Qwen":
         from g4f.Provider.Qwen import Qwen; return Qwen
     elif name == "QwenCode":
@@ -164,6 +169,8 @@ def _resolve_provider(name: str) -> ProviderType:
         from g4f.Provider.search.SearXNG import SearXNG; return SearXNG
     elif name == "StabilityAI_SD35Large":
         from g4f.Provider.hf_space.StabilityAI_SD35Large import StabilityAI_SD35Large; return StabilityAI_SD35Large
+    elif name == "Surfsense":
+        from g4f.Provider.Surfsense import Surfsense; return Surfsense
     elif name == "TeachAnything":
         from g4f.Provider.TeachAnything import TeachAnything; return TeachAnything
     elif name == "ThebApi":
@@ -187,7 +194,7 @@ def _resolve_provider(name: str) -> ProviderType:
     elif name == "xAI":
         from g4f.Provider.needs_auth.xAI import xAI; return xAI
     else:
-        raise ValueError(f"Provider '{name}' not found")
+        raise ImportError(f"Provider '{name}' not found")
 
 _provider_names = [
     "AnyProvider",
@@ -203,6 +210,7 @@ _provider_names = [
     "CachedSearch",
     "Cerebras",
     "Claude",
+    "Cloudflare",
     "Cohere",
     "CohereForAI_C4AI_Command",
     "Copilot",
@@ -212,7 +220,6 @@ _provider_names = [
     "Custom",
     "DeepInfra",
     "DeepSeek",
-    "DeepSeekAPI",
     "EasyChat",
     "EdgeTTS",
     "Felo",
@@ -226,6 +233,7 @@ _provider_names = [
     "GithubCopilotAPI",
     "GlhfChat",
     "GoogleSearch",
+
     "GradientNetwork",
     "Grok",
     "Groq",
@@ -242,6 +250,7 @@ _provider_names = [
     "MetaAI",
     "MetaAIAccount",
     "MicrosoftDesigner",
+    "Miklium",
     "MiniMax",
     "Nvidia",
     "Ollama",
@@ -254,6 +263,7 @@ _provider_names = [
     "OpenaiChat",
     "OpenaiTemplate",
     "OperaAria",
+    "Perchance",
     "Perplexity",
     "PerplexityApi",
     "PhindAi",
@@ -268,6 +278,7 @@ _provider_names = [
     "Replicate",
     "SearXNG",
     "StabilityAI_SD35Large",
+    "Surfsense",
     "TeachAnything",
     "ThebApi",
     "Together",
@@ -300,9 +311,6 @@ _loaded_providers = {}
 def __getattr__(name: str):
     if name in _loaded_providers:
         return _loaded_providers[name]
-    if name in _provider_names:
-        _loaded_providers[name] = _resolve_provider(name)
-        return _loaded_providers[name]
     if name == "__providers__":
         # Load all providers if specifically requested
         providers_list = []
@@ -312,8 +320,10 @@ def __getattr__(name: str):
             except AttributeError:
                 pass
         return providers_list
-
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+    try:
+        return _resolve_provider(name)
+    except ImportError as e:
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'") from e
 
 def __dir__():
     return __all__
@@ -345,10 +355,12 @@ class ProviderUtils:
     def get_by_label(cls, label: str) -> ProviderType:
         if not label:
             raise ValueError("Label must be provided")
-            
+
         # Check explicit map
-        if label in __map__:
-            return __map__[label]
+        try:
+            return __getattr__(label)
+        except AttributeError:
+            pass
             
         # Fallback to search
         for provider_name in _provider_names:
@@ -367,9 +379,11 @@ class LazyProviderModule(types.ModuleType):
         if name.startswith('__'):
             return super().__getattribute__(name)
         
-        if name in _provider_names:
+        try:
             return __getattr__(name)
-            
+        except AttributeError:
+            pass
+        
         return super().__getattribute__(name)
 
 sys.modules[__name__].__class__ = LazyProviderModule

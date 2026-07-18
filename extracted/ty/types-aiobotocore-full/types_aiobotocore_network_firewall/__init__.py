@@ -13,6 +13,7 @@ Usage::
         Client,
         GetAnalysisReportResultsPaginator,
         ListAnalysisReportsPaginator,
+        ListContainerAssociationsPaginator,
         ListFirewallPoliciesPaginator,
         ListFirewallsPaginator,
         ListFlowOperationResultsPaginator,
@@ -35,6 +36,7 @@ Usage::
 
     get_analysis_report_results_paginator: GetAnalysisReportResultsPaginator = client.get_paginator("get_analysis_report_results")
     list_analysis_reports_paginator: ListAnalysisReportsPaginator = client.get_paginator("list_analysis_reports")
+    list_container_associations_paginator: ListContainerAssociationsPaginator = client.get_paginator("list_container_associations")
     list_firewall_policies_paginator: ListFirewallPoliciesPaginator = client.get_paginator("list_firewall_policies")
     list_firewalls_paginator: ListFirewallsPaginator = client.get_paginator("list_firewalls")
     list_flow_operation_results_paginator: ListFlowOperationResultsPaginator = client.get_paginator("list_flow_operation_results")
@@ -53,6 +55,7 @@ from .client import NetworkFirewallClient
 from .paginator import (
     GetAnalysisReportResultsPaginator,
     ListAnalysisReportsPaginator,
+    ListContainerAssociationsPaginator,
     ListFirewallPoliciesPaginator,
     ListFirewallsPaginator,
     ListFlowOperationResultsPaginator,
@@ -73,6 +76,7 @@ __all__ = (
     "Client",
     "GetAnalysisReportResultsPaginator",
     "ListAnalysisReportsPaginator",
+    "ListContainerAssociationsPaginator",
     "ListFirewallPoliciesPaginator",
     "ListFirewallsPaginator",
     "ListFlowOperationResultsPaginator",

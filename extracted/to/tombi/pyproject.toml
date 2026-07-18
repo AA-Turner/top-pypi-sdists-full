@@ -2,7 +2,7 @@
 
 [project]
 name = "tombi"
-version = "1.2.0"  # We use git tags for versioning. This is just a placeholder.
+version = "1.2.1"  # We use git tags for versioning. This is just a placeholder.
 description = "🦅 TOML Toolkit 🦅"
 readme = "python/tombi/README.md"
 requires-python = ">=3.10"

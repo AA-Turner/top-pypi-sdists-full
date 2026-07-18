@@ -24,22 +24,31 @@ from typing import IO, Any, Union
 from aiobotocore.response import StreamingBody
 
 from .literals import (
+    AcmeAccountStatusType,
+    AcmeContactType,
+    AcmeDomainValidationFailureReasonType,
+    AcmeDomainValidationStatusType,
+    AcmeEndpointStatusType,
     CertificateExportType,
+    CertificateKeyPairOriginType,
     CertificateStatusType,
     CertificateTransparencyLoggingPreferenceType,
     CertificateTypeType,
     ComparisonOperatorType,
+    DomainScopeOptionType,
     DomainStatusType,
     ExtendedKeyUsageNameType,
     FailureReasonType,
     KeyAlgorithmType,
     KeyUsageNameType,
+    PublicKeyAlgorithmType,
     RenewalEligibilityType,
     RenewalStatusType,
     RevocationReasonType,
     SearchCertificatesSortByType,
     SearchCertificatesSortOrderType,
     SortOrderType,
+    TimeTypeType,
     ValidationMethodType,
 )
 
@@ -52,8 +61,19 @@ else:
 __all__ = (
     "AcmCertificateMetadataFilterTypeDef",
     "AcmCertificateMetadataTypeDef",
+    "AcmeAccountSummaryTypeDef",
+    "AcmeAccountTypeDef",
+    "AcmeDomainValidationSummaryTypeDef",
+    "AcmeDomainValidationTypeDef",
+    "AcmeEndpointSummaryTypeDef",
+    "AcmeEndpointTypeDef",
+    "AcmeExternalAccountBindingSummaryTypeDef",
+    "AcmeExternalAccountBindingTypeDef",
     "AddTagsToCertificateRequestTypeDef",
     "BlobTypeDef",
+    "CertificateAuthorityOutputTypeDef",
+    "CertificateAuthorityTypeDef",
+    "CertificateAuthorityUnionTypeDef",
     "CertificateDetailTypeDef",
     "CertificateFilterStatementPaginatorTypeDef",
     "CertificateFilterStatementTypeDef",
@@ -63,36 +83,82 @@ __all__ = (
     "CertificateSearchResultTypeDef",
     "CertificateSummaryTypeDef",
     "CommonNameFilterTypeDef",
+    "CreateAcmeDomainValidationRequestTypeDef",
+    "CreateAcmeDomainValidationResponseTypeDef",
+    "CreateAcmeEndpointRequestTypeDef",
+    "CreateAcmeEndpointResponseTypeDef",
+    "CreateAcmeExternalAccountBindingRequestTypeDef",
+    "CreateAcmeExternalAccountBindingResponseTypeDef",
     "CustomAttributeTypeDef",
+    "DeleteAcmeDomainValidationRequestTypeDef",
+    "DeleteAcmeEndpointRequestTypeDef",
+    "DeleteAcmeExternalAccountBindingRequestTypeDef",
     "DeleteCertificateRequestTypeDef",
+    "DescribeAcmeAccountRequestTypeDef",
+    "DescribeAcmeAccountResponseTypeDef",
+    "DescribeAcmeDomainValidationRequestTypeDef",
+    "DescribeAcmeDomainValidationRequestWaitExtraTypeDef",
+    "DescribeAcmeDomainValidationRequestWaitTypeDef",
+    "DescribeAcmeDomainValidationResponseTypeDef",
+    "DescribeAcmeEndpointRequestTypeDef",
+    "DescribeAcmeEndpointRequestWaitExtraTypeDef",
+    "DescribeAcmeEndpointRequestWaitTypeDef",
+    "DescribeAcmeEndpointResponseTypeDef",
+    "DescribeAcmeExternalAccountBindingRequestTypeDef",
+    "DescribeAcmeExternalAccountBindingResponseTypeDef",
     "DescribeCertificateRequestTypeDef",
     "DescribeCertificateRequestWaitTypeDef",
     "DescribeCertificateResponseTypeDef",
     "DistinguishedNameTypeDef",
     "DnsNameFilterTypeDef",
+    "DnsPrevalidationDetailsTypeDef",
+    "DnsPrevalidationOptionsTypeDef",
+    "DomainScopeTypeDef",
     "DomainValidationOptionTypeDef",
     "DomainValidationTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "ExpirationTypeDef",
     "ExpiryEventsConfigurationTypeDef",
     "ExportCertificateRequestTypeDef",
     "ExportCertificateResponseTypeDef",
     "ExtendedKeyUsageTypeDef",
+    "FailureDetailsTypeDef",
     "FiltersTypeDef",
     "GeneralNameTypeDef",
     "GetAccountConfigurationResponseTypeDef",
+    "GetAcmeExternalAccountBindingCredentialsRequestTypeDef",
+    "GetAcmeExternalAccountBindingCredentialsResponseTypeDef",
     "GetCertificateRequestTypeDef",
     "GetCertificateResponseTypeDef",
     "HttpRedirectTypeDef",
     "ImportCertificateRequestTypeDef",
     "ImportCertificateResponseTypeDef",
     "KeyUsageTypeDef",
+    "ListAcmeAccountsRequestPaginateTypeDef",
+    "ListAcmeAccountsRequestTypeDef",
+    "ListAcmeAccountsResponseTypeDef",
+    "ListAcmeDomainValidationsRequestPaginateTypeDef",
+    "ListAcmeDomainValidationsRequestTypeDef",
+    "ListAcmeDomainValidationsResponseTypeDef",
+    "ListAcmeEndpointsRequestPaginateTypeDef",
+    "ListAcmeEndpointsRequestTypeDef",
+    "ListAcmeEndpointsResponseTypeDef",
+    "ListAcmeExternalAccountBindingsRequestPaginateTypeDef",
+    "ListAcmeExternalAccountBindingsRequestTypeDef",
+    "ListAcmeExternalAccountBindingsResponseTypeDef",
     "ListCertificatesRequestPaginateTypeDef",
     "ListCertificatesRequestTypeDef",
     "ListCertificatesResponseTypeDef",
     "ListTagsForCertificateRequestTypeDef",
     "ListTagsForCertificateResponseTypeDef",
+    "ListTagsForResourceRequestTypeDef",
+    "ListTagsForResourceResponseTypeDef",
     "OtherNameTypeDef",
     "PaginatorConfigTypeDef",
+    "PrevalidationDetailsTypeDef",
+    "PrevalidationOptionsTypeDef",
+    "PublicCertificateAuthorityOutputTypeDef",
+    "PublicCertificateAuthorityTypeDef",
     "PutAccountConfigurationRequestTypeDef",
     "RemoveTagsFromCertificateRequestTypeDef",
     "RenewCertificateRequestTypeDef",
@@ -102,6 +168,8 @@ __all__ = (
     "ResendValidationEmailRequestTypeDef",
     "ResourceRecordTypeDef",
     "ResponseMetadataTypeDef",
+    "RevokeAcmeAccountRequestTypeDef",
+    "RevokeAcmeExternalAccountBindingRequestTypeDef",
     "RevokeCertificateRequestTypeDef",
     "RevokeCertificateResponseTypeDef",
     "SearchCertificatesRequestPaginateTypeDef",
@@ -109,9 +177,13 @@ __all__ = (
     "SearchCertificatesResponseTypeDef",
     "SubjectAlternativeNameFilterTypeDef",
     "SubjectFilterTypeDef",
+    "TagResourceRequestTypeDef",
     "TagTypeDef",
     "TimestampRangeTypeDef",
     "TimestampTypeDef",
+    "UntagResourceRequestTypeDef",
+    "UpdateAcmeDomainValidationRequestTypeDef",
+    "UpdateAcmeEndpointRequestTypeDef",
     "UpdateCertificateOptionsRequestTypeDef",
     "WaiterConfigTypeDef",
     "X509AttributeFilterTypeDef",
@@ -129,6 +201,9 @@ AcmCertificateMetadataFilterTypeDef = TypedDict(
         "ExportOption": NotRequired[CertificateExportType],
         "ManagedBy": NotRequired[Literal["CLOUDFRONT"]],
         "ValidationMethod": NotRequired[ValidationMethodType],
+        "CertificateKeyPairOrigin": NotRequired[CertificateKeyPairOriginType],
+        "AcmeEndpointArn": NotRequired[str],
+        "AcmeAccountId": NotRequired[str],
     },
 )
 AcmCertificateMetadataTypeDef = TypedDict(
@@ -147,8 +222,34 @@ AcmCertificateMetadataTypeDef = TypedDict(
         "ExportOption": NotRequired[CertificateExportType],
         "ManagedBy": NotRequired[Literal["CLOUDFRONT"]],
         "ValidationMethod": NotRequired[ValidationMethodType],
+        "CertificateKeyPairOrigin": NotRequired[CertificateKeyPairOriginType],
+        "AcmeEndpointArn": NotRequired[str],
+        "AcmeAccountId": NotRequired[str],
     },
 )
+
+
+class AcmeAccountSummaryTypeDef(TypedDict):
+    AccountUrl: NotRequired[str]
+    PublicKeyThumbprint: NotRequired[str]
+    Status: NotRequired[AcmeAccountStatusType]
+    CreatedAt: NotRequired[datetime]
+    AcmeExternalAccountBindingArn: NotRequired[str]
+    Contacts: NotRequired[list[str]]
+
+
+class AcmeAccountTypeDef(TypedDict):
+    AccountUrl: NotRequired[str]
+    PublicKeyThumbprint: NotRequired[str]
+    Status: NotRequired[AcmeAccountStatusType]
+    CreatedAt: NotRequired[datetime]
+    AcmeExternalAccountBindingArn: NotRequired[str]
+    Contacts: NotRequired[list[str]]
+
+
+class FailureDetailsTypeDef(TypedDict):
+    Reason: NotRequired[AcmeDomainValidationFailureReasonType]
+    Message: NotRequired[str]
 
 
 class TagTypeDef(TypedDict):
@@ -156,7 +257,37 @@ class TagTypeDef(TypedDict):
     Value: NotRequired[str]
 
 
+class AcmeExternalAccountBindingSummaryTypeDef(TypedDict):
+    AcmeExternalAccountBindingArn: NotRequired[str]
+    AcmeEndpointArn: NotRequired[str]
+    RoleArn: NotRequired[str]
+    ExpiresAt: NotRequired[datetime]
+    RevokedAt: NotRequired[datetime]
+    LastUsedAt: NotRequired[datetime]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+
+
+class AcmeExternalAccountBindingTypeDef(TypedDict):
+    AcmeExternalAccountBindingArn: NotRequired[str]
+    AcmeEndpointArn: NotRequired[str]
+    RoleArn: NotRequired[str]
+    ExpiresAt: NotRequired[datetime]
+    RevokedAt: NotRequired[datetime]
+    LastUsedAt: NotRequired[datetime]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+
+
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
+
+
+class PublicCertificateAuthorityOutputTypeDef(TypedDict):
+    AllowedKeyAlgorithms: NotRequired[list[PublicKeyAlgorithmType]]
+
+
+class PublicCertificateAuthorityTypeDef(TypedDict):
+    AllowedKeyAlgorithms: NotRequired[Sequence[PublicKeyAlgorithmType]]
 
 
 class CertificateOptionsTypeDef(TypedDict):
@@ -198,6 +329,7 @@ CertificateSummaryTypeDef = TypedDict(
         "ImportedAt": NotRequired[datetime],
         "RevokedAt": NotRequired[datetime],
         "ManagedBy": NotRequired[Literal["CLOUDFRONT"]],
+        "CertificateKeyPairOrigin": NotRequired[CertificateKeyPairOriginType],
     },
 )
 
@@ -205,24 +337,6 @@ CertificateSummaryTypeDef = TypedDict(
 class CommonNameFilterTypeDef(TypedDict):
     Value: str
     ComparisonOperator: ComparisonOperatorType
-
-
-class CustomAttributeTypeDef(TypedDict):
-    ObjectIdentifier: NotRequired[str]
-    Value: NotRequired[str]
-
-
-class DeleteCertificateRequestTypeDef(TypedDict):
-    CertificateArn: str
-
-
-class DescribeCertificateRequestTypeDef(TypedDict):
-    CertificateArn: str
-
-
-class WaiterConfigTypeDef(TypedDict):
-    Delay: NotRequired[int]
-    MaxAttempts: NotRequired[int]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -233,19 +347,71 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 
+ExpirationTypeDef = TypedDict(
+    "ExpirationTypeDef",
+    {
+        "Value": int,
+        "Type": TimeTypeType,
+    },
+)
+
+
+class CustomAttributeTypeDef(TypedDict):
+    ObjectIdentifier: NotRequired[str]
+    Value: NotRequired[str]
+
+
+class DeleteAcmeDomainValidationRequestTypeDef(TypedDict):
+    AcmeDomainValidationArn: str
+
+
+class DeleteAcmeEndpointRequestTypeDef(TypedDict):
+    AcmeEndpointArn: str
+
+
+class DeleteAcmeExternalAccountBindingRequestTypeDef(TypedDict):
+    AcmeExternalAccountBindingArn: str
+
+
+class DeleteCertificateRequestTypeDef(TypedDict):
+    CertificateArn: str
+
+
+class DescribeAcmeAccountRequestTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    AccountUrl: str
+
+
+class DescribeAcmeDomainValidationRequestTypeDef(TypedDict):
+    AcmeDomainValidationArn: str
+
+
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
+
+
+class DescribeAcmeEndpointRequestTypeDef(TypedDict):
+    AcmeEndpointArn: str
+
+
+class DescribeAcmeExternalAccountBindingRequestTypeDef(TypedDict):
+    AcmeExternalAccountBindingArn: str
+
+
+class DescribeCertificateRequestTypeDef(TypedDict):
+    CertificateArn: str
+
+
 class DnsNameFilterTypeDef(TypedDict):
     Value: str
     ComparisonOperator: ComparisonOperatorType
 
 
-class DomainValidationOptionTypeDef(TypedDict):
-    DomainName: str
-    ValidationDomain: str
-
-
-class HttpRedirectTypeDef(TypedDict):
-    RedirectFrom: NotRequired[str]
-    RedirectTo: NotRequired[str]
+class DomainScopeTypeDef(TypedDict):
+    ExactDomain: NotRequired[DomainScopeOptionType]
+    Subdomains: NotRequired[DomainScopeOptionType]
+    Wildcards: NotRequired[DomainScopeOptionType]
 
 
 ResourceRecordTypeDef = TypedDict(
@@ -256,6 +422,16 @@ ResourceRecordTypeDef = TypedDict(
         "Value": str,
     },
 )
+
+
+class DomainValidationOptionTypeDef(TypedDict):
+    DomainName: str
+    ValidationDomain: str
+
+
+class HttpRedirectTypeDef(TypedDict):
+    RedirectFrom: NotRequired[str]
+    RedirectTo: NotRequired[str]
 
 
 class ExpiryEventsConfigurationTypeDef(TypedDict):
@@ -275,6 +451,10 @@ class OtherNameTypeDef(TypedDict):
     Value: NotRequired[str]
 
 
+class GetAcmeExternalAccountBindingCredentialsRequestTypeDef(TypedDict):
+    AcmeExternalAccountBindingArn: str
+
+
 class GetCertificateRequestTypeDef(TypedDict):
     CertificateArn: str
 
@@ -285,8 +465,35 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 
+class ListAcmeAccountsRequestTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class ListAcmeDomainValidationsRequestTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class ListAcmeEndpointsRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class ListAcmeExternalAccountBindingsRequestTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
 class ListTagsForCertificateRequestTypeDef(TypedDict):
     CertificateArn: str
+
+
+class ListTagsForResourceRequestTypeDef(TypedDict):
+    ResourceArn: str
 
 
 class RenewCertificateRequestTypeDef(TypedDict):
@@ -299,12 +506,26 @@ class ResendValidationEmailRequestTypeDef(TypedDict):
     ValidationDomain: str
 
 
+class RevokeAcmeAccountRequestTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    AccountUrl: str
+
+
+class RevokeAcmeExternalAccountBindingRequestTypeDef(TypedDict):
+    AcmeExternalAccountBindingArn: str
+
+
 class RevokeCertificateRequestTypeDef(TypedDict):
     CertificateArn: str
     RevocationReason: RevocationReasonType
 
 
 TimestampTypeDef = Union[datetime, str]
+
+
+class UntagResourceRequestTypeDef(TypedDict):
+    ResourceArn: str
+    TagKeys: Sequence[str]
 
 
 class CertificateMetadataTypeDef(TypedDict):
@@ -321,6 +542,11 @@ class RemoveTagsFromCertificateRequestTypeDef(TypedDict):
     Tags: Sequence[TagTypeDef]
 
 
+class TagResourceRequestTypeDef(TypedDict):
+    ResourceArn: str
+    Tags: Sequence[TagTypeDef]
+
+
 class ExportCertificateRequestTypeDef(TypedDict):
     CertificateArn: str
     Passphrase: BlobTypeDef
@@ -334,6 +560,14 @@ class ImportCertificateRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
+class CertificateAuthorityOutputTypeDef(TypedDict):
+    PublicCertificateAuthority: NotRequired[PublicCertificateAuthorityOutputTypeDef]
+
+
+class CertificateAuthorityTypeDef(TypedDict):
+    PublicCertificateAuthority: NotRequired[PublicCertificateAuthorityTypeDef]
+
+
 class UpdateCertificateOptionsRequestTypeDef(TypedDict):
     CertificateArn: str
     Options: CertificateOptionsTypeDef
@@ -341,6 +575,105 @@ class UpdateCertificateOptionsRequestTypeDef(TypedDict):
 
 class SubjectFilterTypeDef(TypedDict):
     CommonName: NotRequired[CommonNameFilterTypeDef]
+
+
+class CreateAcmeDomainValidationResponseTypeDef(TypedDict):
+    AcmeDomainValidationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateAcmeEndpointResponseTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateAcmeExternalAccountBindingResponseTypeDef(TypedDict):
+    ExternalAccountBinding: AcmeExternalAccountBindingTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeAcmeAccountResponseTypeDef(TypedDict):
+    AcmeAccount: AcmeAccountTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeAcmeExternalAccountBindingResponseTypeDef(TypedDict):
+    ExternalAccountBinding: AcmeExternalAccountBindingTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class EmptyResponseMetadataTypeDef(TypedDict):
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ExportCertificateResponseTypeDef(TypedDict):
+    Certificate: str
+    CertificateChain: str
+    PrivateKey: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetAcmeExternalAccountBindingCredentialsResponseTypeDef(TypedDict):
+    KeyId: str
+    MacKey: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetCertificateResponseTypeDef(TypedDict):
+    Certificate: str
+    CertificateChain: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ImportCertificateResponseTypeDef(TypedDict):
+    CertificateArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListAcmeAccountsResponseTypeDef(TypedDict):
+    AcmeAccounts: list[AcmeAccountSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListAcmeExternalAccountBindingsResponseTypeDef(TypedDict):
+    ExternalAccountBindings: list[AcmeExternalAccountBindingSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListCertificatesResponseTypeDef(TypedDict):
+    CertificateSummaryList: list[CertificateSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListTagsForCertificateResponseTypeDef(TypedDict):
+    Tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListTagsForResourceResponseTypeDef(TypedDict):
+    Tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RequestCertificateResponseTypeDef(TypedDict):
+    CertificateArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RevokeCertificateResponseTypeDef(TypedDict):
+    CertificateArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateAcmeExternalAccountBindingRequestTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    RoleArn: str
+    IdempotencyToken: NotRequired[str]
+    Expiration: NotRequired[ExpirationTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class DistinguishedNameTypeDef(TypedDict):
@@ -362,56 +695,44 @@ class DistinguishedNameTypeDef(TypedDict):
     Title: NotRequired[str]
 
 
+class DescribeAcmeDomainValidationRequestWaitExtraTypeDef(TypedDict):
+    AcmeDomainValidationArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeAcmeDomainValidationRequestWaitTypeDef(TypedDict):
+    AcmeDomainValidationArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeAcmeEndpointRequestWaitExtraTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeAcmeEndpointRequestWaitTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
 class DescribeCertificateRequestWaitTypeDef(TypedDict):
     CertificateArn: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
-class EmptyResponseMetadataTypeDef(TypedDict):
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ExportCertificateResponseTypeDef(TypedDict):
-    Certificate: str
-    CertificateChain: str
-    PrivateKey: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetCertificateResponseTypeDef(TypedDict):
-    Certificate: str
-    CertificateChain: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ImportCertificateResponseTypeDef(TypedDict):
-    CertificateArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListCertificatesResponseTypeDef(TypedDict):
-    CertificateSummaryList: list[CertificateSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class ListTagsForCertificateResponseTypeDef(TypedDict):
-    Tags: list[TagTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class RequestCertificateResponseTypeDef(TypedDict):
-    CertificateArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class RevokeCertificateResponseTypeDef(TypedDict):
-    CertificateArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class SubjectAlternativeNameFilterTypeDef(TypedDict):
     DnsName: NotRequired[DnsNameFilterTypeDef]
+
+
+class DnsPrevalidationOptionsTypeDef(TypedDict):
+    DomainScope: NotRequired[DomainScopeTypeDef]
+    HostedZoneId: NotRequired[str]
+
+
+class DnsPrevalidationDetailsTypeDef(TypedDict):
+    DomainScope: NotRequired[DomainScopeTypeDef]
+    HostedZoneId: NotRequired[str]
+    ResourceRecord: NotRequired[ResourceRecordTypeDef]
 
 
 class RequestCertificateRequestTypeDef(TypedDict):
@@ -449,6 +770,7 @@ class PutAccountConfigurationRequestTypeDef(TypedDict):
 
 class ListCertificatesRequestTypeDef(TypedDict):
     CertificateStatuses: NotRequired[Sequence[CertificateStatusType]]
+    CertificateKeyPairOrigins: NotRequired[Sequence[CertificateKeyPairOriginType]]
     Includes: NotRequired[FiltersTypeDef]
     NextToken: NotRequired[str]
     MaxItems: NotRequired[int]
@@ -456,8 +778,28 @@ class ListCertificatesRequestTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
 
 
+class ListAcmeAccountsRequestPaginateTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAcmeDomainValidationsRequestPaginateTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAcmeEndpointsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAcmeExternalAccountBindingsRequestPaginateTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListCertificatesRequestPaginateTypeDef(TypedDict):
     CertificateStatuses: NotRequired[Sequence[CertificateStatusType]]
+    CertificateKeyPairOrigins: NotRequired[Sequence[CertificateKeyPairOriginType]]
     Includes: NotRequired[FiltersTypeDef]
     SortBy: NotRequired[Literal["CREATED_AT"]]
     SortOrder: NotRequired[SortOrderType]
@@ -469,6 +811,37 @@ class TimestampRangeTypeDef(TypedDict):
     End: NotRequired[TimestampTypeDef]
 
 
+class AcmeEndpointSummaryTypeDef(TypedDict):
+    AcmeEndpointArn: NotRequired[str]
+    EndpointUrl: NotRequired[str]
+    Status: NotRequired[AcmeEndpointStatusType]
+    FailureReason: NotRequired[str]
+    AuthorizationBehavior: NotRequired[Literal["PRE_APPROVED"]]
+    Contact: NotRequired[AcmeContactType]
+    CertificateAuthority: NotRequired[CertificateAuthorityOutputTypeDef]
+    CertificateTags: NotRequired[list[TagTypeDef]]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+
+
+class AcmeEndpointTypeDef(TypedDict):
+    AcmeEndpointArn: NotRequired[str]
+    EndpointUrl: NotRequired[str]
+    Status: NotRequired[AcmeEndpointStatusType]
+    FailureReason: NotRequired[str]
+    AuthorizationBehavior: NotRequired[Literal["PRE_APPROVED"]]
+    Contact: NotRequired[AcmeContactType]
+    CertificateAuthority: NotRequired[CertificateAuthorityOutputTypeDef]
+    CertificateTags: NotRequired[list[TagTypeDef]]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+
+
+CertificateAuthorityUnionTypeDef = Union[
+    CertificateAuthorityTypeDef, CertificateAuthorityOutputTypeDef
+]
+
+
 class GeneralNameTypeDef(TypedDict):
     DirectoryName: NotRequired[DistinguishedNameTypeDef]
     DnsName: NotRequired[str]
@@ -477,6 +850,14 @@ class GeneralNameTypeDef(TypedDict):
     RegisteredId: NotRequired[str]
     Rfc822Name: NotRequired[str]
     UniformResourceIdentifier: NotRequired[str]
+
+
+class PrevalidationOptionsTypeDef(TypedDict):
+    DnsPrevalidation: NotRequired[DnsPrevalidationOptionsTypeDef]
+
+
+class PrevalidationDetailsTypeDef(TypedDict):
+    DnsPrevalidation: NotRequired[DnsPrevalidationDetailsTypeDef]
 
 
 class RenewalSummaryTypeDef(TypedDict):
@@ -497,6 +878,33 @@ class X509AttributeFilterTypeDef(TypedDict):
     NotBefore: NotRequired[TimestampRangeTypeDef]
 
 
+class ListAcmeEndpointsResponseTypeDef(TypedDict):
+    AcmeEndpoints: list[AcmeEndpointSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class DescribeAcmeEndpointResponseTypeDef(TypedDict):
+    AcmeEndpoint: AcmeEndpointTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateAcmeEndpointRequestTypeDef(TypedDict):
+    AuthorizationBehavior: Literal["PRE_APPROVED"]
+    CertificateAuthority: CertificateAuthorityUnionTypeDef
+    IdempotencyToken: NotRequired[str]
+    Contact: NotRequired[AcmeContactType]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    CertificateTags: NotRequired[Sequence[TagTypeDef]]
+
+
+class UpdateAcmeEndpointRequestTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    AuthorizationBehavior: NotRequired[Literal["PRE_APPROVED"]]
+    Contact: NotRequired[AcmeContactType]
+    CertificateAuthority: NotRequired[CertificateAuthorityUnionTypeDef]
+
+
 class X509AttributesTypeDef(TypedDict):
     Issuer: NotRequired[DistinguishedNameTypeDef]
     Subject: NotRequired[DistinguishedNameTypeDef]
@@ -507,6 +915,43 @@ class X509AttributesTypeDef(TypedDict):
     SerialNumber: NotRequired[str]
     NotAfter: NotRequired[datetime]
     NotBefore: NotRequired[datetime]
+
+
+class CreateAcmeDomainValidationRequestTypeDef(TypedDict):
+    AcmeEndpointArn: str
+    DomainName: str
+    PrevalidationOptions: PrevalidationOptionsTypeDef
+    IdempotencyToken: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class UpdateAcmeDomainValidationRequestTypeDef(TypedDict):
+    AcmeDomainValidationArn: str
+    PrevalidationOptions: NotRequired[PrevalidationOptionsTypeDef]
+
+
+class AcmeDomainValidationSummaryTypeDef(TypedDict):
+    AcmeDomainValidationArn: NotRequired[str]
+    AcmeEndpointArn: NotRequired[str]
+    DomainName: NotRequired[str]
+    PrevalidationType: NotRequired[Literal["DNS_PREVALIDATION"]]
+    PrevalidationDetails: NotRequired[PrevalidationDetailsTypeDef]
+    Status: NotRequired[AcmeDomainValidationStatusType]
+    FailureDetails: NotRequired[FailureDetailsTypeDef]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+
+
+class AcmeDomainValidationTypeDef(TypedDict):
+    AcmeDomainValidationArn: NotRequired[str]
+    AcmeEndpointArn: NotRequired[str]
+    DomainName: NotRequired[str]
+    PrevalidationType: NotRequired[Literal["DNS_PREVALIDATION"]]
+    PrevalidationDetails: NotRequired[PrevalidationDetailsTypeDef]
+    Status: NotRequired[AcmeDomainValidationStatusType]
+    FailureDetails: NotRequired[FailureDetailsTypeDef]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
 
 
 CertificateDetailTypeDef = TypedDict(
@@ -539,6 +984,9 @@ CertificateDetailTypeDef = TypedDict(
         "CertificateAuthorityArn": NotRequired[str],
         "RenewalEligibility": NotRequired[RenewalEligibilityType],
         "Options": NotRequired[CertificateOptionsTypeDef],
+        "CertificateKeyPairOrigin": NotRequired[CertificateKeyPairOriginType],
+        "AcmeEndpointArn": NotRequired[str],
+        "AcmeAccountId": NotRequired[str],
     },
 )
 
@@ -553,6 +1001,17 @@ class CertificateSearchResultTypeDef(TypedDict):
     CertificateArn: NotRequired[str]
     X509Attributes: NotRequired[X509AttributesTypeDef]
     CertificateMetadata: NotRequired[CertificateMetadataTypeDef]
+
+
+class ListAcmeDomainValidationsResponseTypeDef(TypedDict):
+    AcmeDomainValidations: list[AcmeDomainValidationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class DescribeAcmeDomainValidationResponseTypeDef(TypedDict):
+    AcmeDomainValidation: AcmeDomainValidationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeCertificateResponseTypeDef(TypedDict):

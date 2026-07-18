@@ -32,6 +32,7 @@ import threading
 from typing import Any, overload
 
 from smplkit._config import _service_url, resolve_client_config
+from smplkit._transport import with_default_user_agent
 from smplkit.errors import (
     NotFoundError,
     ValidationError,
@@ -309,6 +310,7 @@ def _platform_transport(
     headers: dict[str, str] = {}
     headers.update(cfg.extra_headers or {})
     headers.update(extra_headers or {})
+    headers = with_default_user_agent(headers)
     return _AppAuthClient(base_url=app_url.rstrip("/"), token=resolved_key, headers=headers)
 
 

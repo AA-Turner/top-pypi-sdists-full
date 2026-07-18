@@ -37,6 +37,7 @@ __all__ = (
     "EngagementInvitationPayloadTypeType",
     "EngagementScoreType",
     "EngagementSortNameType",
+    "ExpectedContractDurationTermType",
     "IndustryType",
     "InvitationStatusType",
     "InvolvementTypeChangeReasonType",
@@ -48,6 +49,7 @@ __all__ = (
     "ListEngagementsPaginatorName",
     "ListOpportunitiesPaginatorName",
     "ListOpportunityFromEngagementTasksPaginatorName",
+    "ListProspectingFromEngagementTasksPaginatorName",
     "ListResourceSnapshotJobsPaginatorName",
     "ListResourceSnapshotsPaginatorName",
     "ListSolutionsPaginatorName",
@@ -64,6 +66,8 @@ __all__ = (
     "PartnerCentralSellingAPIServiceName",
     "PaymentFrequencyType",
     "PrimaryNeedFromAwsType",
+    "ProspectingFromEngagementTaskSortNameType",
+    "ProspectingTaskStatusType",
     "ReasonCodeType",
     "ReceiverResponsibilityType",
     "RelatedEntityTypeType",
@@ -638,10 +642,11 @@ CurrencyCodeType = Literal[
 DeliveryModelType = Literal[
     "BYOL or AMI", "Managed Services", "Other", "Professional Services", "Resell", "SaaS or PaaS"
 ]
-EngagementContextTypeType = Literal["CustomerProject", "Lead"]
+EngagementContextTypeType = Literal["CustomerProject", "Lead", "ProspectingResult"]
 EngagementInvitationPayloadTypeType = Literal["LeadInvitation", "OpportunityInvitation"]
 EngagementScoreType = Literal["High", "Low", "Medium"]
 EngagementSortNameType = Literal["CreatedDate"]
+ExpectedContractDurationTermType = Literal["Months"]
 IndustryType = Literal[
     "Aerospace",
     "Agriculture",
@@ -690,6 +695,7 @@ ListEngagementResourceAssociationsPaginatorName = Literal["list_engagement_resou
 ListEngagementsPaginatorName = Literal["list_engagements"]
 ListOpportunitiesPaginatorName = Literal["list_opportunities"]
 ListOpportunityFromEngagementTasksPaginatorName = Literal["list_opportunity_from_engagement_tasks"]
+ListProspectingFromEngagementTasksPaginatorName = Literal["list_prospecting_from_engagement_tasks"]
 ListResourceSnapshotJobsPaginatorName = Literal["list_resource_snapshot_jobs"]
 ListResourceSnapshotsPaginatorName = Literal["list_resource_snapshots"]
 ListSolutionsPaginatorName = Literal["list_solutions"]
@@ -715,6 +721,10 @@ PrimaryNeedFromAwsType = Literal[
     "Co-Sell - Technical Consultation",
     "Co-Sell - Total Cost of Ownership Evaluation",
 ]
+ProspectingFromEngagementTaskSortNameType = Literal[
+    "FailedEngagementCount", "StartTime", "TaskName"
+]
+ProspectingTaskStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PENDING"]
 ReasonCodeType = Literal[
     "ContextNotFound",
     "CustomerProjectContextNotPermitted",
@@ -751,7 +761,12 @@ ReceiverResponsibilityType = Literal[
     "Training Partner",
 ]
 RelatedEntityTypeType = Literal[
-    "AwsMarketplaceOfferSets", "AwsMarketplaceOffers", "AwsProducts", "Solutions"
+    "AwsMarketplaceOfferSets",
+    "AwsMarketplaceOffers",
+    "AwsMarketplaceProducts",
+    "AwsMarketplaceSolutions",
+    "AwsProducts",
+    "Solutions",
 ]
 ResourceSnapshotJobStatusType = Literal["Running", "Stopped"]
 ResourceTypeType = Literal["Opportunity"]
@@ -979,8 +994,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1007,6 +1020,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -1074,10 +1089,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1110,6 +1125,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -1137,6 +1153,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -1158,7 +1175,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -1179,6 +1195,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -1223,6 +1240,7 @@ PaginatorName = Literal[
     "list_engagements",
     "list_opportunities",
     "list_opportunity_from_engagement_tasks",
+    "list_prospecting_from_engagement_tasks",
     "list_resource_snapshot_jobs",
     "list_resource_snapshots",
     "list_solutions",

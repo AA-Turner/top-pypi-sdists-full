@@ -53,6 +53,8 @@ __all__ = (
     "DaemonDeploymentStatusType",
     "DaemonDeploymentStoppedWaiterName",
     "DaemonDeploymentSuccessfulWaiterName",
+    "DaemonIpcModeType",
+    "DaemonPidModeType",
     "DaemonPropagateTagsType",
     "DaemonStatusType",
     "DaemonTaskDefinitionActiveWaiterName",
@@ -61,7 +63,10 @@ __all__ = (
     "DaemonTaskDefinitionStatusFilterType",
     "DaemonTaskDefinitionStatusType",
     "DeploymentControllerTypeType",
+    "DeploymentLifecycleHookActionType",
     "DeploymentLifecycleHookStageType",
+    "DeploymentLifecycleHookStatusType",
+    "DeploymentLifecycleHookTargetTypeType",
     "DeploymentRolloutStateType",
     "DeploymentStrategyType",
     "DesiredStatusType",
@@ -142,6 +147,7 @@ __all__ = (
     "TaskStopCodeType",
     "TasksRunningWaiterName",
     "TasksStoppedWaiterName",
+    "ThresholdTypeType",
     "TransportProtocolType",
     "UlimitNameType",
     "VersionConsistencyType",
@@ -219,6 +225,8 @@ DaemonDeploymentStatusType = Literal[
 ]
 DaemonDeploymentStoppedWaiterName = Literal["daemon_deployment_stopped"]
 DaemonDeploymentSuccessfulWaiterName = Literal["daemon_deployment_successful"]
+DaemonIpcModeType = Literal["none", "shared"]
+DaemonPidModeType = Literal["none", "shared"]
 DaemonPropagateTagsType = Literal["DAEMON", "NONE"]
 DaemonStatusType = Literal["ACTIVE", "DELETE_IN_PROGRESS"]
 DaemonTaskDefinitionActiveWaiterName = Literal["daemon_task_definition_active"]
@@ -227,15 +235,21 @@ DaemonTaskDefinitionRevisionFilterType = Literal["LAST_REGISTERED"]
 DaemonTaskDefinitionStatusFilterType = Literal["ACTIVE", "ALL", "DELETE_IN_PROGRESS"]
 DaemonTaskDefinitionStatusType = Literal["ACTIVE", "DELETED", "DELETE_IN_PROGRESS"]
 DeploymentControllerTypeType = Literal["CODE_DEPLOY", "ECS", "EXTERNAL"]
+DeploymentLifecycleHookActionType = Literal["CONTINUE", "ROLLBACK"]
 DeploymentLifecycleHookStageType = Literal[
     "POST_PRODUCTION_TRAFFIC_SHIFT",
     "POST_SCALE_UP",
     "POST_TEST_TRAFFIC_SHIFT",
+    "PRE_PRODUCTION_TRAFFIC_SHIFT",
     "PRE_SCALE_UP",
     "PRODUCTION_TRAFFIC_SHIFT",
     "RECONCILE_SERVICE",
     "TEST_TRAFFIC_SHIFT",
 ]
+DeploymentLifecycleHookStatusType = Literal[
+    "AWAITING_ACTION", "FAILED", "IN_PROGRESS", "SUCCEEDED", "TIMED_OUT"
+]
+DeploymentLifecycleHookTargetTypeType = Literal["AWS_LAMBDA", "PAUSE"]
 DeploymentRolloutStateType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 DeploymentStrategyType = Literal["BLUE_GREEN", "CANARY", "LINEAR", "ROLLING"]
 DesiredStatusType = Literal["PENDING", "RUNNING", "STOPPED"]
@@ -293,12 +307,12 @@ OSFamilyType = Literal[
 PidModeType = Literal["host", "task"]
 PlacementConstraintTypeType = Literal["distinctInstance", "memberOf"]
 PlacementStrategyTypeType = Literal["binpack", "random", "spread"]
-PlatformDeviceTypeType = Literal["GPU"]
+PlatformDeviceTypeType = Literal["GPU", "NEURON_DEVICE"]
 PropagateMITagsType = Literal["CAPACITY_PROVIDER", "NONE"]
 PropagateTagsType = Literal["NONE", "SERVICE", "TASK_DEFINITION"]
 ProxyConfigurationTypeType = Literal["APPMESH"]
 ResourceManagementTypeType = Literal["CUSTOMER", "ECS"]
-ResourceTypeType = Literal["GPU", "InferenceAccelerator"]
+ResourceTypeType = Literal["GPU", "InferenceAccelerator", "NeuronDevice"]
 ScaleUnitType = Literal["PERCENT"]
 SchedulingStrategyType = Literal["DAEMON", "REPLICA"]
 ScopeType = Literal["shared", "task"]
@@ -368,6 +382,7 @@ TaskStopCodeType = Literal[
 ]
 TasksRunningWaiterName = Literal["tasks_running"]
 TasksStoppedWaiterName = Literal["tasks_stopped"]
+ThresholdTypeType = Literal["BOUNDED_PERCENT", "COUNT", "UNBOUNDED_PERCENT"]
 TransportProtocolType = Literal["tcp", "udp"]
 UlimitNameType = Literal[
     "core",
@@ -581,8 +596,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -609,6 +622,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -676,10 +691,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -712,6 +727,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -739,6 +755,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -760,7 +777,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -781,6 +797,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

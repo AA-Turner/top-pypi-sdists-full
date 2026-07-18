@@ -92,6 +92,7 @@ from .type_defs import (
     DeleteRetentionPolicyRequestTypeDef,
     DeleteScheduledQueryRequestTypeDef,
     DeleteSubscriptionFilterRequestTypeDef,
+    DeleteSyslogConfigurationRequestTypeDef,
     DeleteTransformerRequestTypeDef,
     DescribeAccountPoliciesRequestTypeDef,
     DescribeAccountPoliciesResponseTypeDef,
@@ -169,6 +170,7 @@ from .type_defs import (
     GetScheduledQueryHistoryResponseTypeDef,
     GetScheduledQueryRequestTypeDef,
     GetScheduledQueryResponseTypeDef,
+    GetStorageTierPolicyResponseTypeDef,
     GetTransformerRequestTypeDef,
     GetTransformerResponseTypeDef,
     ListAggregateLogGroupSummariesRequestTypeDef,
@@ -187,6 +189,8 @@ from .type_defs import (
     ListScheduledQueriesResponseTypeDef,
     ListSourcesForS3TableIntegrationRequestTypeDef,
     ListSourcesForS3TableIntegrationResponseTypeDef,
+    ListSyslogConfigurationsRequestTypeDef,
+    ListSyslogConfigurationsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     ListTagsLogGroupRequestTypeDef,
@@ -218,7 +222,10 @@ from .type_defs import (
     PutResourcePolicyRequestTypeDef,
     PutResourcePolicyResponseTypeDef,
     PutRetentionPolicyRequestTypeDef,
+    PutStorageTierPolicyRequestTypeDef,
+    PutStorageTierPolicyResponseTypeDef,
     PutSubscriptionFilterRequestTypeDef,
+    PutSyslogConfigurationRequestTypeDef,
     PutTransformerRequestTypeDef,
     StartLiveTailRequestTypeDef,
     StartLiveTailResponseTypeDef,
@@ -630,6 +637,16 @@ class CloudWatchLogsClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#delete_subscription_filter)
         """
 
+    async def delete_syslog_configuration(
+        self, **kwargs: Unpack[DeleteSyslogConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a syslog configuration for a log group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/delete_syslog_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#delete_syslog_configuration)
+        """
+
     async def delete_transformer(
         self, **kwargs: Unpack[DeleteTransformerRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -1035,6 +1052,14 @@ class CloudWatchLogsClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#get_scheduled_query_history)
         """
 
+    async def get_storage_tier_policy(self) -> GetStorageTierPolicyResponseTypeDef:
+        """
+        Returns the storage tier policy for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_storage_tier_policy.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#get_storage_tier_policy)
+        """
+
     async def get_transformer(
         self, **kwargs: Unpack[GetTransformerRequestTypeDef]
     ) -> GetTransformerResponseTypeDef:
@@ -1129,6 +1154,16 @@ class CloudWatchLogsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/list_sources_for_s3_table_integration.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#list_sources_for_s3_table_integration)
+        """
+
+    async def list_syslog_configurations(
+        self, **kwargs: Unpack[ListSyslogConfigurationsRequestTypeDef]
+    ) -> ListSyslogConfigurationsResponseTypeDef:
+        """
+        Returns a list of syslog configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/list_syslog_configurations.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#list_syslog_configurations)
         """
 
     async def list_tags_for_resource(
@@ -1318,6 +1353,16 @@ class CloudWatchLogsClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#put_retention_policy)
         """
 
+    async def put_storage_tier_policy(
+        self, **kwargs: Unpack[PutStorageTierPolicyRequestTypeDef]
+    ) -> PutStorageTierPolicyResponseTypeDef:
+        """
+        Sets the storage tier policy for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_storage_tier_policy.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#put_storage_tier_policy)
+        """
+
     async def put_subscription_filter(
         self, **kwargs: Unpack[PutSubscriptionFilterRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -1327,6 +1372,16 @@ class CloudWatchLogsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_subscription_filter.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#put_subscription_filter)
+        """
+
+    async def put_syslog_configuration(
+        self, **kwargs: Unpack[PutSyslogConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Creates or updates a syslog configuration for a log group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_syslog_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#put_syslog_configuration)
         """
 
     async def put_transformer(

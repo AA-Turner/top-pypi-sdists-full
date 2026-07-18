@@ -31,6 +31,7 @@ from airbyte_ops_webapp.state import (
     OAUTH_ISSUER_ENV_VAR,
     OAUTH_PUBLIC_URL_ENV_VAR,
     OAUTH_REDIRECT_URI_ENV_VAR,
+    OAuthConfigState,
     mock_only_enabled,
 )
 
@@ -43,20 +44,18 @@ OAUTH_SESSION_PATH = "/oauth/session"
 OAUTH_TOKEN_PATH = "/oauth/token"
 
 
-def oauth_config() -> dict[str, str | bool]:
+def oauth_config() -> OAuthConfigState:
     issuer = os.getenv(OAUTH_ISSUER_ENV_VAR, DEFAULT_OAUTH_ISSUER).strip().rstrip("/")
-    return {
-        "enabled": _oauth_enabled(),
-        "issuer": issuer,
-        "client_id": os.getenv(
-            OAUTH_CLIENT_ID_ENV_VAR, DEFAULT_OAUTH_CLIENT_ID
-        ).strip(),
-        "redirect_uri": _oauth_redirect_uri(),
-        "authorization_endpoint": f"{issuer}/protocol/openid-connect/auth",
-        "token_endpoint": f"{issuer}/protocol/openid-connect/token",
-        "session_endpoint": OAUTH_SESSION_PATH,
-        "token_exchange_endpoint": OAUTH_TOKEN_PATH,
-    }
+    return OAuthConfigState(
+        enabled=_oauth_enabled(),
+        issuer=issuer,
+        client_id=os.getenv(OAUTH_CLIENT_ID_ENV_VAR, DEFAULT_OAUTH_CLIENT_ID).strip(),
+        redirect_uri=_oauth_redirect_uri(),
+        authorization_endpoint=f"{issuer}/protocol/openid-connect/auth",
+        token_endpoint=f"{issuer}/protocol/openid-connect/token",
+        session_endpoint=OAUTH_SESSION_PATH,
+        token_exchange_endpoint=OAUTH_TOKEN_PATH,
+    )
 
 
 def register_oauth_routes(mcp: FastMCP) -> None:
@@ -144,7 +143,7 @@ async def oauth_callback_response(_request: Request) -> HTMLResponse:
     config = oauth_config()
     return HTMLResponse(
         _oauth_callback_html(config),
-        headers={"Content-Security-Policy": _oauth_callback_csp(config)},
+        headers={"Content-Security-Policy": _oauth_callback_csp()},
     )
 
 
@@ -524,30 +523,30 @@ def _exchange_oauth_token(code: str, code_verifier: str) -> dict[str, object]:
     config = oauth_config()
     token_request = {
         "grant_type": "authorization_code",
-        "client_id": str(config["client_id"]),
+        "client_id": config.client_id,
         "code": code,
-        "redirect_uri": str(config["redirect_uri"]),
+        "redirect_uri": config.redirect_uri,
         "code_verifier": code_verifier,
     }
     client_secret = os.getenv(OAUTH_CLIENT_SECRET_ENV_VAR, "").strip()
     if client_secret:
         token_request["client_secret"] = client_secret
 
-    return _send_oauth_token_request(token_request, str(config["token_endpoint"]))
+    return _send_oauth_token_request(token_request, config.token_endpoint)
 
 
 def _refresh_oauth_token(refresh_token: str) -> dict[str, object]:
     config = oauth_config()
     token_request = {
         "grant_type": "refresh_token",
-        "client_id": str(config["client_id"]),
+        "client_id": config.client_id,
         "refresh_token": refresh_token,
     }
     client_secret = os.getenv(OAUTH_CLIENT_SECRET_ENV_VAR, "").strip()
     if client_secret:
         token_request["client_secret"] = client_secret
 
-    return _send_oauth_token_request(token_request, str(config["token_endpoint"]))
+    return _send_oauth_token_request(token_request, config.token_endpoint)
 
 
 def _send_oauth_token_request(
@@ -629,7 +628,7 @@ def _oauth_redirect_uri() -> str:
     return DEFAULT_OAUTH_LOCAL_REDIRECT_URI
 
 
-def _oauth_callback_csp(config: dict[str, str | bool]) -> str:
+def _oauth_callback_csp() -> str:
     return (
         "default-src 'none'; "
         "base-uri 'none'; "
@@ -775,8 +774,8 @@ OAUTH_JS_ACTIONS = {
 }
 
 
-def _oauth_callback_html(config: dict[str, str | bool]) -> str:
-    config_json = json.dumps(config).replace("</", r"<\/")
+def _oauth_callback_html(config: OAuthConfigState) -> str:
+    config_json = json.dumps(config.model_dump(mode="json")).replace("</", r"<\/")
     return f"""<!doctype html>
 <html lang="en">
 <head>

@@ -101,7 +101,11 @@ class TableContext(BaseModel):
     # Optional override for the "New …" CTA label (from surface title /
     # persona ``action_primary``). Empty → Fragment uses entity_title.
     create_label: str = ""
-    detail_url_template: str | None = None  # e.g. "/tasks/{id}"
+    detail_url_template: str | None = None  # e.g. "/tasks/{id}" or open-via hop
+    # #1600 P2: ordered open-via hop templates (first non-null FK wins)
+    detail_url_candidates: list[str] = Field(default_factory=list)
+    # #1614: same-entity ``.../{id}`` when open-via FK is null on a row
+    detail_url_fallback_template: str | None = None
     rows: list[dict[str, Any]] = Field(default_factory=list)
     total: int = 0
     page: int = 1
@@ -315,6 +319,22 @@ class IntegrationActionContext(BaseModel):
     api_url: str  # POST endpoint, e.g. "/api/companies/{id}/integrations/ch/verify"
 
 
+class DetailSectionContext(BaseModel):
+    """One titled section of fields on a VIEW/detail surface (#1600 Wedge B).
+
+    Multi-section view surfaces render as a stacked overview (header / strip /
+    …) rather than a single flat field grid. Empty ``sections`` on
+    ``DetailContext`` keeps the legacy flat layout.
+    """
+
+    name: str
+    title: str
+    fields: list[FieldContext] = Field(default_factory=list)
+    note: str | None = None
+    # ``strip`` = horizontal status/RAG badges (#1600); empty = field grid.
+    layout: str = ""
+
+
 class DetailContext(BaseModel):
     """Context for rendering a detail/view page."""
 
@@ -336,6 +356,8 @@ class DetailContext(BaseModel):
     # `components/detail_view.html` to include the HTMX-loaded audit
     # history fragment from `render_audit_history_region` (cycle 9).
     show_history: bool = False
+    # #1600 Wedge B: multi-section overview chrome (optional).
+    sections: list[DetailSectionContext] = Field(default_factory=list)
 
 
 class IslandContext(BaseModel):

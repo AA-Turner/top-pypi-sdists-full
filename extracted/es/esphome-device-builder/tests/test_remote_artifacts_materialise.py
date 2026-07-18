@@ -48,7 +48,6 @@ from esphome_device_builder.helpers.storage_path import (
     resolve_idedata_path,
     resolve_storage_path,
 )
-from tests.conftest import HAS_NATIVE_IDF_TOOLCHAIN
 from tests.test_remote_build_artifacts_download import _write_receiver_state
 
 _SENTINEL = object()
@@ -729,9 +728,6 @@ def test_materialise_remaps_posix_receiver_on_separator_mangling_offloader(
     assert (build_path / ".pioenvs" / "kitchen" / "firmware.bin").is_file()
 
 
-@pytest.mark.skipif(
-    not HAS_NATIVE_IDF_TOOLCHAIN, reason="esphome lacks the native ESP-IDF toolchain (< 2026.5.0)"
-)
 def test_materialise_native_idf_round_trip_without_pio_metadata(
     paired_roots: tuple[Path, Path],
 ) -> None:
@@ -744,6 +740,9 @@ def test_materialise_native_idf_round_trip_without_pio_metadata(
             "build/firmware.factory.bin": b"FACTORY",
             "build/firmware.ota.bin": b"OTA",
             "build/firmware.elf": b"ELF",
+            "build/bootloader/bootloader.bin": b"BOOT",
+            "build/partition_table/partition-table.bin": b"PART",
+            "build/ota_data_initial.bin": b"OTADATA",
         },
     )
     build_path = _materialise_in_tmp(tarball, offloader_root)
@@ -751,6 +750,9 @@ def test_materialise_native_idf_round_trip_without_pio_metadata(
     assert build_path == offloader_root / ".esphome" / "build" / "kitchen"
     assert (build_path / "build" / "kitchen.bin").is_file()
     assert (build_path / "build" / "firmware.factory.bin").is_file()
+    assert (build_path / "build" / "bootloader" / "bootloader.bin").is_file()
+    assert (build_path / "build" / "partition_table" / "partition-table.bin").is_file()
+    assert (build_path / "build" / "ota_data_initial.bin").is_file()
     assert not (build_path / "platformio.ini").exists()
     # Native IDF ships no idedata cache, so the offloader stages none.
     sentinel = offloader_root / "___DASHBOARD_SENTINEL___.yaml"

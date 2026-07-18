@@ -39,23 +39,36 @@ from .paginator import (
     ListCodeInterpretersPaginator,
     ListConfigurationBundlesPaginator,
     ListConfigurationBundleVersionsPaginator,
+    ListDatasetExamplesPaginator,
+    ListDatasetsPaginator,
+    ListDatasetVersionsPaginator,
     ListEvaluatorsPaginator,
     ListGatewayRulesPaginator,
     ListGatewaysPaginator,
     ListGatewayTargetsPaginator,
+    ListHarnessEndpointsPaginator,
     ListHarnessesPaginator,
+    ListHarnessVersionsPaginator,
     ListMemoriesPaginator,
     ListOauth2CredentialProvidersPaginator,
     ListOnlineEvaluationConfigsPaginator,
+    ListPaymentConnectorsPaginator,
+    ListPaymentCredentialProvidersPaginator,
+    ListPaymentManagersPaginator,
     ListPoliciesPaginator,
     ListPolicyEnginesPaginator,
+    ListPolicyEngineSummariesPaginator,
     ListPolicyGenerationAssetsPaginator,
     ListPolicyGenerationsPaginator,
+    ListPolicyGenerationSummariesPaginator,
+    ListPolicySummariesPaginator,
     ListRegistriesPaginator,
     ListRegistryRecordsPaginator,
     ListWorkloadIdentitiesPaginator,
 )
 from .type_defs import (
+    AddDatasetExamplesRequestTypeDef,
+    AddDatasetExamplesResponseTypeDef,
     CreateAgentRuntimeEndpointRequestTypeDef,
     CreateAgentRuntimeEndpointResponseTypeDef,
     CreateAgentRuntimeRequestTypeDef,
@@ -70,6 +83,10 @@ from .type_defs import (
     CreateCodeInterpreterResponseTypeDef,
     CreateConfigurationBundleRequestTypeDef,
     CreateConfigurationBundleResponseTypeDef,
+    CreateDatasetRequestTypeDef,
+    CreateDatasetResponseTypeDef,
+    CreateDatasetVersionRequestTypeDef,
+    CreateDatasetVersionResponseTypeDef,
     CreateEvaluatorRequestTypeDef,
     CreateEvaluatorResponseTypeDef,
     CreateGatewayRequestTypeDef,
@@ -78,6 +95,8 @@ from .type_defs import (
     CreateGatewayRuleResponseTypeDef,
     CreateGatewayTargetRequestTypeDef,
     CreateGatewayTargetResponseTypeDef,
+    CreateHarnessEndpointRequestTypeDef,
+    CreateHarnessEndpointResponseTypeDef,
     CreateHarnessRequestTypeDef,
     CreateHarnessResponseTypeDef,
     CreateMemoryInputTypeDef,
@@ -86,6 +105,12 @@ from .type_defs import (
     CreateOauth2CredentialProviderResponseTypeDef,
     CreateOnlineEvaluationConfigRequestTypeDef,
     CreateOnlineEvaluationConfigResponseTypeDef,
+    CreatePaymentConnectorRequestTypeDef,
+    CreatePaymentConnectorResponseTypeDef,
+    CreatePaymentCredentialProviderRequestTypeDef,
+    CreatePaymentCredentialProviderResponseTypeDef,
+    CreatePaymentManagerRequestTypeDef,
+    CreatePaymentManagerResponseTypeDef,
     CreatePolicyEngineRequestTypeDef,
     CreatePolicyEngineResponseTypeDef,
     CreatePolicyRequestTypeDef,
@@ -109,6 +134,10 @@ from .type_defs import (
     DeleteCodeInterpreterResponseTypeDef,
     DeleteConfigurationBundleRequestTypeDef,
     DeleteConfigurationBundleResponseTypeDef,
+    DeleteDatasetExamplesRequestTypeDef,
+    DeleteDatasetExamplesResponseTypeDef,
+    DeleteDatasetRequestTypeDef,
+    DeleteDatasetResponseTypeDef,
     DeleteEvaluatorRequestTypeDef,
     DeleteEvaluatorResponseTypeDef,
     DeleteGatewayRequestTypeDef,
@@ -117,6 +146,8 @@ from .type_defs import (
     DeleteGatewayRuleResponseTypeDef,
     DeleteGatewayTargetRequestTypeDef,
     DeleteGatewayTargetResponseTypeDef,
+    DeleteHarnessEndpointRequestTypeDef,
+    DeleteHarnessEndpointResponseTypeDef,
     DeleteHarnessRequestTypeDef,
     DeleteHarnessResponseTypeDef,
     DeleteMemoryInputTypeDef,
@@ -124,6 +155,11 @@ from .type_defs import (
     DeleteOauth2CredentialProviderRequestTypeDef,
     DeleteOnlineEvaluationConfigRequestTypeDef,
     DeleteOnlineEvaluationConfigResponseTypeDef,
+    DeletePaymentConnectorRequestTypeDef,
+    DeletePaymentConnectorResponseTypeDef,
+    DeletePaymentCredentialProviderRequestTypeDef,
+    DeletePaymentManagerRequestTypeDef,
+    DeletePaymentManagerResponseTypeDef,
     DeletePolicyEngineRequestTypeDef,
     DeletePolicyEngineResponseTypeDef,
     DeletePolicyRequestTypeDef,
@@ -149,6 +185,8 @@ from .type_defs import (
     GetConfigurationBundleResponseTypeDef,
     GetConfigurationBundleVersionRequestTypeDef,
     GetConfigurationBundleVersionResponseTypeDef,
+    GetDatasetRequestTypeDef,
+    GetDatasetResponseTypeDef,
     GetEvaluatorRequestTypeDef,
     GetEvaluatorResponseTypeDef,
     GetGatewayRequestTypeDef,
@@ -157,6 +195,8 @@ from .type_defs import (
     GetGatewayRuleResponseTypeDef,
     GetGatewayTargetRequestTypeDef,
     GetGatewayTargetResponseTypeDef,
+    GetHarnessEndpointRequestTypeDef,
+    GetHarnessEndpointResponseTypeDef,
     GetHarnessRequestTypeDef,
     GetHarnessResponseTypeDef,
     GetMemoryInputTypeDef,
@@ -165,12 +205,24 @@ from .type_defs import (
     GetOauth2CredentialProviderResponseTypeDef,
     GetOnlineEvaluationConfigRequestTypeDef,
     GetOnlineEvaluationConfigResponseTypeDef,
+    GetPaymentConnectorRequestTypeDef,
+    GetPaymentConnectorResponseTypeDef,
+    GetPaymentCredentialProviderRequestTypeDef,
+    GetPaymentCredentialProviderResponseTypeDef,
+    GetPaymentManagerRequestTypeDef,
+    GetPaymentManagerResponseTypeDef,
     GetPolicyEngineRequestTypeDef,
     GetPolicyEngineResponseTypeDef,
+    GetPolicyEngineSummaryRequestTypeDef,
+    GetPolicyEngineSummaryResponseTypeDef,
     GetPolicyGenerationRequestTypeDef,
     GetPolicyGenerationResponseTypeDef,
+    GetPolicyGenerationSummaryRequestTypeDef,
+    GetPolicyGenerationSummaryResponseTypeDef,
     GetPolicyRequestTypeDef,
     GetPolicyResponseTypeDef,
+    GetPolicySummaryRequestTypeDef,
+    GetPolicySummaryResponseTypeDef,
     GetRegistryRecordRequestTypeDef,
     GetRegistryRecordResponseTypeDef,
     GetRegistryRequestTypeDef,
@@ -199,6 +251,12 @@ from .type_defs import (
     ListConfigurationBundlesResponseTypeDef,
     ListConfigurationBundleVersionsRequestTypeDef,
     ListConfigurationBundleVersionsResponseTypeDef,
+    ListDatasetExamplesRequestTypeDef,
+    ListDatasetExamplesResponseTypeDef,
+    ListDatasetsRequestTypeDef,
+    ListDatasetsResponseTypeDef,
+    ListDatasetVersionsRequestTypeDef,
+    ListDatasetVersionsResponseTypeDef,
     ListEvaluatorsRequestTypeDef,
     ListEvaluatorsResponseTypeDef,
     ListGatewayRulesRequestTypeDef,
@@ -207,22 +265,38 @@ from .type_defs import (
     ListGatewaysResponseTypeDef,
     ListGatewayTargetsRequestTypeDef,
     ListGatewayTargetsResponseTypeDef,
+    ListHarnessEndpointsRequestTypeDef,
+    ListHarnessEndpointsResponseTypeDef,
     ListHarnessesRequestTypeDef,
     ListHarnessesResponseTypeDef,
+    ListHarnessVersionsRequestTypeDef,
+    ListHarnessVersionsResponseTypeDef,
     ListMemoriesInputTypeDef,
     ListMemoriesOutputTypeDef,
     ListOauth2CredentialProvidersRequestTypeDef,
     ListOauth2CredentialProvidersResponseTypeDef,
     ListOnlineEvaluationConfigsRequestTypeDef,
     ListOnlineEvaluationConfigsResponseTypeDef,
+    ListPaymentConnectorsRequestTypeDef,
+    ListPaymentConnectorsResponseTypeDef,
+    ListPaymentCredentialProvidersRequestTypeDef,
+    ListPaymentCredentialProvidersResponseTypeDef,
+    ListPaymentManagersRequestTypeDef,
+    ListPaymentManagersResponseTypeDef,
     ListPoliciesRequestTypeDef,
     ListPoliciesResponseTypeDef,
     ListPolicyEnginesRequestTypeDef,
     ListPolicyEnginesResponseTypeDef,
+    ListPolicyEngineSummariesRequestTypeDef,
+    ListPolicyEngineSummariesResponseTypeDef,
     ListPolicyGenerationAssetsRequestTypeDef,
     ListPolicyGenerationAssetsResponseTypeDef,
     ListPolicyGenerationsRequestTypeDef,
     ListPolicyGenerationsResponseTypeDef,
+    ListPolicyGenerationSummariesRequestTypeDef,
+    ListPolicyGenerationSummariesResponseTypeDef,
+    ListPolicySummariesRequestTypeDef,
+    ListPolicySummariesResponseTypeDef,
     ListRegistriesRequestTypeDef,
     ListRegistriesResponseTypeDef,
     ListRegistryRecordsRequestTypeDef,
@@ -251,6 +325,10 @@ from .type_defs import (
     UpdateApiKeyCredentialProviderResponseTypeDef,
     UpdateConfigurationBundleRequestTypeDef,
     UpdateConfigurationBundleResponseTypeDef,
+    UpdateDatasetExamplesRequestTypeDef,
+    UpdateDatasetExamplesResponseTypeDef,
+    UpdateDatasetRequestTypeDef,
+    UpdateDatasetResponseTypeDef,
     UpdateEvaluatorRequestTypeDef,
     UpdateEvaluatorResponseTypeDef,
     UpdateGatewayRequestTypeDef,
@@ -259,6 +337,8 @@ from .type_defs import (
     UpdateGatewayRuleResponseTypeDef,
     UpdateGatewayTargetRequestTypeDef,
     UpdateGatewayTargetResponseTypeDef,
+    UpdateHarnessEndpointRequestTypeDef,
+    UpdateHarnessEndpointResponseTypeDef,
     UpdateHarnessRequestTypeDef,
     UpdateHarnessResponseTypeDef,
     UpdateMemoryInputTypeDef,
@@ -267,6 +347,12 @@ from .type_defs import (
     UpdateOauth2CredentialProviderResponseTypeDef,
     UpdateOnlineEvaluationConfigRequestTypeDef,
     UpdateOnlineEvaluationConfigResponseTypeDef,
+    UpdatePaymentConnectorRequestTypeDef,
+    UpdatePaymentConnectorResponseTypeDef,
+    UpdatePaymentCredentialProviderRequestTypeDef,
+    UpdatePaymentCredentialProviderResponseTypeDef,
+    UpdatePaymentManagerRequestTypeDef,
+    UpdatePaymentManagerResponseTypeDef,
     UpdatePolicyEngineRequestTypeDef,
     UpdatePolicyEngineResponseTypeDef,
     UpdatePolicyRequestTypeDef,
@@ -348,6 +434,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#generate_presigned_url)
         """
 
+    async def add_dataset_examples(
+        self, **kwargs: Unpack[AddDatasetExamplesRequestTypeDef]
+    ) -> AddDatasetExamplesResponseTypeDef:
+        """
+        Adds examples to the dataset's DRAFT.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/add_dataset_examples.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#add_dataset_examples)
+        """
+
     async def create_agent_runtime(
         self, **kwargs: Unpack[CreateAgentRuntimeRequestTypeDef]
     ) -> CreateAgentRuntimeResponseTypeDef:
@@ -418,6 +514,26 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_configuration_bundle)
         """
 
+    async def create_dataset(
+        self, **kwargs: Unpack[CreateDatasetRequestTypeDef]
+    ) -> CreateDatasetResponseTypeDef:
+        """
+        Creates a new dataset resource asynchronously.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_dataset.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_dataset)
+        """
+
+    async def create_dataset_version(
+        self, **kwargs: Unpack[CreateDatasetVersionRequestTypeDef]
+    ) -> CreateDatasetVersionResponseTypeDef:
+        """
+        Publishes the current DRAFT as a new numbered version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_dataset_version.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_dataset_version)
+        """
+
     async def create_evaluator(
         self, **kwargs: Unpack[CreateEvaluatorRequestTypeDef]
     ) -> CreateEvaluatorResponseTypeDef:
@@ -462,10 +578,20 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         self, **kwargs: Unpack[CreateHarnessRequestTypeDef]
     ) -> CreateHarnessResponseTypeDef:
         """
-        Operation to create a Harness.
+        Operation to create a harness.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_harness.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_harness)
+        """
+
+    async def create_harness_endpoint(
+        self, **kwargs: Unpack[CreateHarnessEndpointRequestTypeDef]
+    ) -> CreateHarnessEndpointResponseTypeDef:
+        """
+        Operation to create a harness endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_harness_endpoint.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_harness_endpoint)
         """
 
     async def create_memory(
@@ -497,6 +623,38 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_online_evaluation_config.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_online_evaluation_config)
+        """
+
+    async def create_payment_connector(
+        self, **kwargs: Unpack[CreatePaymentConnectorRequestTypeDef]
+    ) -> CreatePaymentConnectorResponseTypeDef:
+        """
+        Creates a new payment connector for a payment manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_payment_connector.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_payment_connector)
+        """
+
+    async def create_payment_credential_provider(
+        self, **kwargs: Unpack[CreatePaymentCredentialProviderRequestTypeDef]
+    ) -> CreatePaymentCredentialProviderResponseTypeDef:
+        """
+        Creates a new payment credential provider for storing authentication
+        credentials used by payment connectors to communicate with external payment
+        providers.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_payment_credential_provider.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_payment_credential_provider)
+        """
+
+    async def create_payment_manager(
+        self, **kwargs: Unpack[CreatePaymentManagerRequestTypeDef]
+    ) -> CreatePaymentManagerResponseTypeDef:
+        """
+        Creates a new payment manager in your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_payment_manager.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_payment_manager)
         """
 
     async def create_policy(
@@ -619,6 +777,26 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_configuration_bundle)
         """
 
+    async def delete_dataset(
+        self, **kwargs: Unpack[DeleteDatasetRequestTypeDef]
+    ) -> DeleteDatasetResponseTypeDef:
+        """
+        Deletes a dataset version or an entire dataset asynchronously.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_dataset.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_dataset)
+        """
+
+    async def delete_dataset_examples(
+        self, **kwargs: Unpack[DeleteDatasetExamplesRequestTypeDef]
+    ) -> DeleteDatasetExamplesResponseTypeDef:
+        """
+        Deletes specific examples by ID from DRAFT.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_dataset_examples.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_dataset_examples)
+        """
+
     async def delete_evaluator(
         self, **kwargs: Unpack[DeleteEvaluatorRequestTypeDef]
     ) -> DeleteEvaluatorResponseTypeDef:
@@ -669,6 +847,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_harness)
         """
 
+    async def delete_harness_endpoint(
+        self, **kwargs: Unpack[DeleteHarnessEndpointRequestTypeDef]
+    ) -> DeleteHarnessEndpointResponseTypeDef:
+        """
+        Operation to delete a harness endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_harness_endpoint.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_harness_endpoint)
+        """
+
     async def delete_memory(
         self, **kwargs: Unpack[DeleteMemoryInputTypeDef]
     ) -> DeleteMemoryOutputTypeDef:
@@ -698,6 +886,36 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_online_evaluation_config.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_online_evaluation_config)
+        """
+
+    async def delete_payment_connector(
+        self, **kwargs: Unpack[DeletePaymentConnectorRequestTypeDef]
+    ) -> DeletePaymentConnectorResponseTypeDef:
+        """
+        Deletes a payment connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_payment_connector.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_payment_connector)
+        """
+
+    async def delete_payment_credential_provider(
+        self, **kwargs: Unpack[DeletePaymentCredentialProviderRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a payment credential provider and its associated stored credentials.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_payment_credential_provider.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_payment_credential_provider)
+        """
+
+    async def delete_payment_manager(
+        self, **kwargs: Unpack[DeletePaymentManagerRequestTypeDef]
+    ) -> DeletePaymentManagerResponseTypeDef:
+        """
+        Deletes a payment manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_payment_manager.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_payment_manager)
         """
 
     async def delete_policy(
@@ -840,6 +1058,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_configuration_bundle_version)
         """
 
+    async def get_dataset(
+        self, **kwargs: Unpack[GetDatasetRequestTypeDef]
+    ) -> GetDatasetResponseTypeDef:
+        """
+        Retrieves dataset metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_dataset.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_dataset)
+        """
+
     async def get_evaluator(
         self, **kwargs: Unpack[GetEvaluatorRequestTypeDef]
     ) -> GetEvaluatorResponseTypeDef:
@@ -885,10 +1113,20 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         self, **kwargs: Unpack[GetHarnessRequestTypeDef]
     ) -> GetHarnessResponseTypeDef:
         """
-        Operation to get a single Harness.
+        Operation to get a single harness.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_harness.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_harness)
+        """
+
+    async def get_harness_endpoint(
+        self, **kwargs: Unpack[GetHarnessEndpointRequestTypeDef]
+    ) -> GetHarnessEndpointResponseTypeDef:
+        """
+        Operation to get a single harness endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_harness_endpoint.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_harness_endpoint)
         """
 
     async def get_memory(self, **kwargs: Unpack[GetMemoryInputTypeDef]) -> GetMemoryOutputTypeDef:
@@ -920,6 +1158,36 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_online_evaluation_config)
         """
 
+    async def get_payment_connector(
+        self, **kwargs: Unpack[GetPaymentConnectorRequestTypeDef]
+    ) -> GetPaymentConnectorResponseTypeDef:
+        """
+        Retrieves information about a specific payment connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_payment_connector.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_payment_connector)
+        """
+
+    async def get_payment_credential_provider(
+        self, **kwargs: Unpack[GetPaymentCredentialProviderRequestTypeDef]
+    ) -> GetPaymentCredentialProviderResponseTypeDef:
+        """
+        Retrieves information about a specific payment credential provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_payment_credential_provider.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_payment_credential_provider)
+        """
+
+    async def get_payment_manager(
+        self, **kwargs: Unpack[GetPaymentManagerRequestTypeDef]
+    ) -> GetPaymentManagerResponseTypeDef:
+        """
+        Retrieves information about a specific payment manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_payment_manager.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_payment_manager)
+        """
+
     async def get_policy(
         self, **kwargs: Unpack[GetPolicyRequestTypeDef]
     ) -> GetPolicyResponseTypeDef:
@@ -942,6 +1210,17 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_policy_engine)
         """
 
+    async def get_policy_engine_summary(
+        self, **kwargs: Unpack[GetPolicyEngineSummaryRequestTypeDef]
+    ) -> GetPolicyEngineSummaryResponseTypeDef:
+        """
+        Retrieves a metadata-only summary of a specific policy engine without
+        decrypting customer content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_policy_engine_summary.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_policy_engine_summary)
+        """
+
     async def get_policy_generation(
         self, **kwargs: Unpack[GetPolicyGenerationRequestTypeDef]
     ) -> GetPolicyGenerationResponseTypeDef:
@@ -951,6 +1230,28 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_policy_generation.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_policy_generation)
+        """
+
+    async def get_policy_generation_summary(
+        self, **kwargs: Unpack[GetPolicyGenerationSummaryRequestTypeDef]
+    ) -> GetPolicyGenerationSummaryResponseTypeDef:
+        """
+        Retrieves a metadata-only summary of a specific policy generation request
+        without decrypting customer content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_policy_generation_summary.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_policy_generation_summary)
+        """
+
+    async def get_policy_summary(
+        self, **kwargs: Unpack[GetPolicySummaryRequestTypeDef]
+    ) -> GetPolicySummaryResponseTypeDef:
+        """
+        Retrieves a metadata-only summary of a specific policy without decrypting
+        customer content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_policy_summary.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_policy_summary)
         """
 
     async def get_registry(
@@ -1094,6 +1395,37 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_configuration_bundles)
         """
 
+    async def list_dataset_examples(
+        self, **kwargs: Unpack[ListDatasetExamplesRequestTypeDef]
+    ) -> ListDatasetExamplesResponseTypeDef:
+        """
+        Returns paginated examples from the dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_dataset_examples.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_dataset_examples)
+        """
+
+    async def list_dataset_versions(
+        self, **kwargs: Unpack[ListDatasetVersionsRequestTypeDef]
+    ) -> ListDatasetVersionsResponseTypeDef:
+        """
+        Lists all published versions of a dataset, sorted by version number descending
+        (newest first).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_dataset_versions.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_dataset_versions)
+        """
+
+    async def list_datasets(
+        self, **kwargs: Unpack[ListDatasetsRequestTypeDef]
+    ) -> ListDatasetsResponseTypeDef:
+        """
+        Lists all datasets in the caller's account, paginated.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_datasets.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_datasets)
+        """
+
     async def list_evaluators(
         self, **kwargs: Unpack[ListEvaluatorsRequestTypeDef]
     ) -> ListEvaluatorsResponseTypeDef:
@@ -1135,11 +1467,31 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_gateways)
         """
 
+    async def list_harness_endpoints(
+        self, **kwargs: Unpack[ListHarnessEndpointsRequestTypeDef]
+    ) -> ListHarnessEndpointsResponseTypeDef:
+        """
+        Operation to list the endpoints of a harness.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_harness_endpoints.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_harness_endpoints)
+        """
+
+    async def list_harness_versions(
+        self, **kwargs: Unpack[ListHarnessVersionsRequestTypeDef]
+    ) -> ListHarnessVersionsResponseTypeDef:
+        """
+        Operation to list the versions of a Harness.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_harness_versions.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_harness_versions)
+        """
+
     async def list_harnesses(
         self, **kwargs: Unpack[ListHarnessesRequestTypeDef]
     ) -> ListHarnessesResponseTypeDef:
         """
-        Operation to list Harnesses.
+        Operation to list harnesses.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_harnesses.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_harnesses)
@@ -1177,6 +1529,36 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_online_evaluation_configs)
         """
 
+    async def list_payment_connectors(
+        self, **kwargs: Unpack[ListPaymentConnectorsRequestTypeDef]
+    ) -> ListPaymentConnectorsResponseTypeDef:
+        """
+        Lists all payment connectors for a specified payment manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_payment_connectors.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_payment_connectors)
+        """
+
+    async def list_payment_credential_providers(
+        self, **kwargs: Unpack[ListPaymentCredentialProvidersRequestTypeDef]
+    ) -> ListPaymentCredentialProvidersResponseTypeDef:
+        """
+        Lists all payment credential providers in the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_payment_credential_providers.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_payment_credential_providers)
+        """
+
+    async def list_payment_managers(
+        self, **kwargs: Unpack[ListPaymentManagersRequestTypeDef]
+    ) -> ListPaymentManagersResponseTypeDef:
+        """
+        Lists all payment managers in the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_payment_managers.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_payment_managers)
+        """
+
     async def list_policies(
         self, **kwargs: Unpack[ListPoliciesRequestTypeDef]
     ) -> ListPoliciesResponseTypeDef:
@@ -1185,6 +1567,17 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policies.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_policies)
+        """
+
+    async def list_policy_engine_summaries(
+        self, **kwargs: Unpack[ListPolicyEngineSummariesRequestTypeDef]
+    ) -> ListPolicyEngineSummariesResponseTypeDef:
+        """
+        Retrieves a paginated list of metadata-only policy engine summaries without
+        decrypting customer content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policy_engine_summaries.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_policy_engine_summaries)
         """
 
     async def list_policy_engines(
@@ -1208,6 +1601,17 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_policy_generation_assets)
         """
 
+    async def list_policy_generation_summaries(
+        self, **kwargs: Unpack[ListPolicyGenerationSummariesRequestTypeDef]
+    ) -> ListPolicyGenerationSummariesResponseTypeDef:
+        """
+        Retrieves a paginated list of metadata-only policy generation summaries within
+        a policy engine without decrypting customer content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policy_generation_summaries.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_policy_generation_summaries)
+        """
+
     async def list_policy_generations(
         self, **kwargs: Unpack[ListPolicyGenerationsRequestTypeDef]
     ) -> ListPolicyGenerationsResponseTypeDef:
@@ -1217,6 +1621,17 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policy_generations.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_policy_generations)
+        """
+
+    async def list_policy_summaries(
+        self, **kwargs: Unpack[ListPolicySummariesRequestTypeDef]
+    ) -> ListPolicySummariesResponseTypeDef:
+        """
+        Retrieves a paginated list of metadata-only policy summaries within a policy
+        engine without decrypting customer content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policy_summaries.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_policy_summaries)
         """
 
     async def list_registries(
@@ -1369,6 +1784,26 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_configuration_bundle)
         """
 
+    async def update_dataset(
+        self, **kwargs: Unpack[UpdateDatasetRequestTypeDef]
+    ) -> UpdateDatasetResponseTypeDef:
+        """
+        Updates a dataset's metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_dataset.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_dataset)
+        """
+
+    async def update_dataset_examples(
+        self, **kwargs: Unpack[UpdateDatasetExamplesRequestTypeDef]
+    ) -> UpdateDatasetExamplesResponseTypeDef:
+        """
+        Updates multiple existing examples in-place on DRAFT.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_dataset_examples.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_dataset_examples)
+        """
+
     async def update_evaluator(
         self, **kwargs: Unpack[UpdateEvaluatorRequestTypeDef]
     ) -> UpdateEvaluatorResponseTypeDef:
@@ -1413,10 +1848,20 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateHarnessRequestTypeDef]
     ) -> UpdateHarnessResponseTypeDef:
         """
-        Operation to update a Harness.
+        Operation to update a harness.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_harness.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_harness)
+        """
+
+    async def update_harness_endpoint(
+        self, **kwargs: Unpack[UpdateHarnessEndpointRequestTypeDef]
+    ) -> UpdateHarnessEndpointResponseTypeDef:
+        """
+        Operation to update a harness endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_harness_endpoint.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_harness_endpoint)
         """
 
     async def update_memory(
@@ -1448,6 +1893,37 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_online_evaluation_config.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_online_evaluation_config)
+        """
+
+    async def update_payment_connector(
+        self, **kwargs: Unpack[UpdatePaymentConnectorRequestTypeDef]
+    ) -> UpdatePaymentConnectorResponseTypeDef:
+        """
+        Updates an existing payment connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_payment_connector.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_payment_connector)
+        """
+
+    async def update_payment_credential_provider(
+        self, **kwargs: Unpack[UpdatePaymentCredentialProviderRequestTypeDef]
+    ) -> UpdatePaymentCredentialProviderResponseTypeDef:
+        """
+        Updates an existing payment credential provider with new authentication
+        credentials.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_payment_credential_provider.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_payment_credential_provider)
+        """
+
+    async def update_payment_manager(
+        self, **kwargs: Unpack[UpdatePaymentManagerRequestTypeDef]
+    ) -> UpdatePaymentManagerResponseTypeDef:
+        """
+        Updates an existing payment manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_payment_manager.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_payment_manager)
         """
 
     async def update_policy(
@@ -1611,6 +2087,39 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_dataset_examples"]
+    ) -> ListDatasetExamplesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_dataset_versions"]
+    ) -> ListDatasetVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_datasets"]
+    ) -> ListDatasetsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_evaluators"]
     ) -> ListEvaluatorsPaginator:
         """
@@ -1646,6 +2155,28 @@ class BedrockAgentCoreControlClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_gateways"]
     ) -> ListGatewaysPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_harness_endpoints"]
+    ) -> ListHarnessEndpointsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_harness_versions"]
+    ) -> ListHarnessVersionsPaginator:
         """
         Create a paginator for an operation.
 
@@ -1699,8 +2230,52 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_payment_connectors"]
+    ) -> ListPaymentConnectorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_payment_credential_providers"]
+    ) -> ListPaymentCredentialProvidersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_payment_managers"]
+    ) -> ListPaymentManagersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_policies"]
     ) -> ListPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_engine_summaries"]
+    ) -> ListPolicyEngineSummariesPaginator:
         """
         Create a paginator for an operation.
 
@@ -1732,8 +2307,30 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_generation_summaries"]
+    ) -> ListPolicyGenerationSummariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_policy_generations"]
     ) -> ListPolicyGenerationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_summaries"]
+    ) -> ListPolicySummariesPaginator:
         """
         Create a paginator for an operation.
 

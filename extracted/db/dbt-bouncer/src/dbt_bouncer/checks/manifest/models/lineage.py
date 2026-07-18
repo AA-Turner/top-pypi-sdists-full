@@ -1,10 +1,11 @@
 """Checks related to model upstream dependencies and lineage."""
 
-from typing import Annotated, Literal
+from typing import Annotated
 
 from pydantic import Field
 
 from dbt_bouncer.check_framework.decorator import check, fail
+from dbt_bouncer.enums import Criteria
 from dbt_bouncer.utils import get_clean_model_name
 
 
@@ -12,7 +13,7 @@ from dbt_bouncer.utils import get_clean_model_name
 def check_model_depends_on_macros(
     model,
     *,
-    criteria: Literal["any", "all", "one"] = "all",
+    criteria: Criteria = Criteria.ALL,
     required_macros: list[str],
 ):
     """Models must depend on the specified macros.
@@ -22,7 +23,7 @@ def check_model_depends_on_macros(
         Some teams mandate that certain model types always use shared macros for consistency — for example, requiring all incremental models to call `dbt.is_incremental()`. This check enforces those conventions, preventing models from re-implementing logic that is already standardised in a shared macro.
 
     Parameters:
-        criteria (Literal["any", "all", "one"] | None): Whether the model must depend on any, all, or exactly one of the specified macros. Default: `all`.
+        criteria (Literal["all", "any", "one"]): Whether the model must depend on any, all, or exactly one of the specified macros. Default: `all`.
         required_macros (list[str]): List of macros the model must depend on. All macros must specify a namespace, e.g. `dbt.is_incremental`.
 
     Receives:
@@ -53,12 +54,12 @@ def check_model_depends_on_macros(
         (".").join(m.split(".")[1:])
         for m in getattr(model.depends_on, "macros", []) or []
     ]
-    if criteria == "any":
+    if criteria == Criteria.ANY:
         if not any(macro in upstream_macros for macro in required_macros):
             fail(
                 f"`{get_clean_model_name(model.unique_id)}` does not depend on any of the required macros: {required_macros}."
             )
-    elif criteria == "all":
+    elif criteria == Criteria.ALL:
         missing_macros = [
             macro for macro in required_macros if macro not in upstream_macros
         ]
@@ -67,7 +68,7 @@ def check_model_depends_on_macros(
                 f"`{get_clean_model_name(model.unique_id)}` is missing required macros: {missing_macros}."
             )
     elif (
-        criteria == "one"
+        criteria == Criteria.ONE
         and sum(macro in upstream_macros for macro in required_macros) != 1
     ):
         fail(
@@ -182,6 +183,67 @@ def check_model_has_no_upstream_dependencies(model):
     ):
         fail(
             f"`{get_clean_model_name(model.unique_id)}` has no upstream dependencies, this likely indicates hard-coded tables references."
+        )
+
+
+@check
+def check_model_materialization_by_fanout(
+    model,
+    ctx,
+    *,
+    min_downstream_models: Annotated[int, Field(gt=0)] = 3,
+    materializations: list[str] | None = None,
+):
+    """Heavily-reused models must use a durable materialization.
+
+    !!! info "Rationale"
+
+        A model consumed by many downstream models but materialized as a view
+        re-executes its full query logic on every downstream build, multiplying
+        warehouse compute and increasing overall pipeline latency. Hub models
+        with high fanout should be persisted as tables or incremental models so
+        that downstream builds read pre-computed results rather than re-running
+        the same transformations repeatedly.
+
+    Parameters:
+        materializations (list[str] | None): Accepted durable materializations for models above the fanout threshold.
+        min_downstream_models (int | None): The minimum number of downstream models that triggers this check.
+
+    Receives:
+        model (ModelNode): The ModelNode object to check.
+        models (list[ModelNode]): List of ModelNode objects parsed from `manifest.json`.
+
+    Other Parameters:
+        description (str | None): Description of what the check does and why it is implemented.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
+        materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
+        severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
+
+    Example(s):
+        ```yaml
+        manifest_checks:
+            - name: check_model_materialization_by_fanout
+        ```
+        ```yaml
+        manifest_checks:
+            - name: check_model_materialization_by_fanout
+              min_downstream_models: 5
+              materializations:
+                - incremental
+                - table
+        ```
+
+    """
+    materializations = materializations or ["incremental", "table"]
+    num_downstream_models = len(ctx.children_by_unique_id.get(model.unique_id, []))
+    materialized = model.config.materialized if model.config else None
+    if (
+        num_downstream_models >= min_downstream_models
+        and materialized not in materializations
+    ):
+        fail(
+            f"`{get_clean_model_name(model.unique_id)}` has {num_downstream_models} downstream models but is materialized as `{materialized}`; expected one of {materializations}."
         )
 
 
@@ -333,10 +395,7 @@ def check_model_max_fanout(
         ```
 
     """
-    num_downstream_models = sum(
-        model.unique_id in (getattr(m.depends_on, "nodes", []) if m.depends_on else [])
-        for m in ctx.models
-    )
+    num_downstream_models = len(ctx.children_by_unique_id.get(model.unique_id, []))
 
     if num_downstream_models > max_downstream_models:
         fail(

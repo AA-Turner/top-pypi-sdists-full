@@ -5,8 +5,12 @@ from typing import Union
 
 from .getters import get_bool
 
+#: Buffer types accepted by setter functions.
+#: Both :class:`bytearray` and writable :class:`memoryview` are supported.
+Buffer = Union[bytearray, memoryview]
 
-def set_bool(bytearray_: bytearray, byte_index: int, bool_index: int, value: bool) -> bytearray:
+
+def set_bool(bytearray_: Buffer, byte_index: int, bool_index: int, value: bool) -> Buffer:
     """Set boolean value on location in bytearray.
 
     Args:
@@ -40,7 +44,7 @@ def set_bool(bytearray_: bytearray, byte_index: int, bool_index: int, value: boo
     return bytearray_
 
 
-def set_byte(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
+def set_byte(bytearray_: Buffer, byte_index: int, _int: int) -> Buffer:
     """Set value in bytearray to byte
 
     Args:
@@ -61,7 +65,7 @@ def set_byte(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
     return bytearray_
 
 
-def set_word(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
+def set_word(bytearray_: Buffer, byte_index: int, _int: int) -> Buffer:
     """Set value in bytearray to word
 
     Notes:
@@ -80,7 +84,7 @@ def set_word(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
     return bytearray_
 
 
-def set_int(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
+def set_int(bytearray_: Buffer, byte_index: int, _int: int) -> Buffer:
     """Set value in bytearray to int
 
     Notes:
@@ -105,7 +109,7 @@ def set_int(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
     return bytearray_
 
 
-def set_uint(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
+def set_uint(bytearray_: Buffer, byte_index: int, _int: int) -> Buffer:
     """Set value in bytearray to unsigned int
 
     Notes:
@@ -131,7 +135,7 @@ def set_uint(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
     return bytearray_
 
 
-def set_real(bytearray_: bytearray, byte_index: int, real: Union[bool, str, float, int]) -> bytearray:
+def set_real(bytearray_: Buffer, byte_index: int, real: Union[bool, str, float, int]) -> Buffer:
     """Set Real value
 
     Notes:
@@ -155,7 +159,7 @@ def set_real(bytearray_: bytearray, byte_index: int, real: Union[bool, str, floa
     return bytearray_
 
 
-def set_fstring(bytearray_: bytearray, byte_index: int, value: str, max_length: int) -> bytearray:
+def set_fstring(bytearray_: Buffer, byte_index: int, value: str, max_length: int) -> Buffer:
     """Set space-padded fixed-length string value
 
     Args:
@@ -166,8 +170,8 @@ def set_fstring(bytearray_: bytearray, byte_index: int, value: str, max_length: 
 
     Raises:
         :obj:`TypeError`: if the `value` is not a :obj:`str`.
-        :obj:`ValueError`: if the length of the `value` is larger than the `max_size`
-        or 'value' contains non-ascii characters.
+        :obj:`ValueError`: if the length of the `value` is larger than the
+            ``max_size`` or ``value`` contains non-ASCII characters.
 
     Examples:
         >>> data = bytearray(20)
@@ -193,7 +197,7 @@ def set_fstring(bytearray_: bytearray, byte_index: int, value: str, max_length: 
     return bytearray_
 
 
-def set_string(bytearray_: bytearray, byte_index: int, value: str, max_size: int = 254) -> bytearray:
+def set_string(bytearray_: Buffer, byte_index: int, value: str, max_size: int = 254) -> Buffer:
     """Set string value
 
     Args:
@@ -204,8 +208,9 @@ def set_string(bytearray_: bytearray, byte_index: int, value: str, max_size: int
 
     Raises:
         :obj:`TypeError`: if the `value` is not a :obj:`str`.
-        :obj:`ValueError`: if the length of the `value` is larger than the `max_size`
-        or 'max_size' is greater than 254 or 'value' contains ascii characters > 255.
+        :obj:`ValueError`: if the length of the `value` is larger than the
+            ``max_size``, or ``max_size`` is greater than 254, or ``value``
+            contains characters with ordinal > 255.
 
     Examples:
         >>> from snap7.util import set_string
@@ -248,7 +253,7 @@ def set_string(bytearray_: bytearray, byte_index: int, value: str, max_size: int
     return bytearray_
 
 
-def set_dword(bytearray_: bytearray, byte_index: int, dword: int) -> bytearray:
+def set_dword(bytearray_: Buffer, byte_index: int, dword: int) -> Buffer:
     """Set a DWORD to the buffer.
 
     Notes:
@@ -271,7 +276,7 @@ def set_dword(bytearray_: bytearray, byte_index: int, dword: int) -> bytearray:
     return bytearray_
 
 
-def set_dint(bytearray_: bytearray, byte_index: int, dint: int) -> bytearray:
+def set_dint(bytearray_: Buffer, byte_index: int, dint: int) -> Buffer:
     """Set value in bytearray to dint
 
     Notes:
@@ -295,7 +300,7 @@ def set_dint(bytearray_: bytearray, byte_index: int, dint: int) -> bytearray:
     return bytearray_
 
 
-def set_udint(bytearray_: bytearray, byte_index: int, udint: int) -> bytearray:
+def set_udint(bytearray_: Buffer, byte_index: int, udint: int) -> Buffer:
     """Set value in bytearray to unsigned dint
 
     Notes:
@@ -319,7 +324,7 @@ def set_udint(bytearray_: bytearray, byte_index: int, udint: int) -> bytearray:
     return bytearray_
 
 
-def set_time(bytearray_: bytearray, byte_index: int, time_string: str) -> bytearray:
+def set_time(bytearray_: Buffer, byte_index: int, time_string: str) -> Buffer:
     """Set value in bytearray to time
 
     Notes:
@@ -366,7 +371,7 @@ def set_time(bytearray_: bytearray, byte_index: int, time_string: str) -> bytear
         raise ValueError("time value out of range, please check the value interval")
 
 
-def set_usint(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
+def set_usint(bytearray_: Buffer, byte_index: int, _int: int) -> Buffer:
     """Set unsigned small int
 
     Notes:
@@ -392,7 +397,7 @@ def set_usint(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
     return bytearray_
 
 
-def set_sint(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
+def set_sint(bytearray_: Buffer, byte_index: int, _int: int) -> Buffer:
     """Set small int to the buffer.
 
     Notes:
@@ -418,7 +423,7 @@ def set_sint(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
     return bytearray_
 
 
-def set_lreal(bytearray_: bytearray, byte_index: int, lreal: float) -> bytearray:
+def set_lreal(bytearray_: Buffer, byte_index: int, lreal: float) -> Buffer:
     """Set the long real
 
     Notes:
@@ -447,7 +452,7 @@ def set_lreal(bytearray_: bytearray, byte_index: int, lreal: float) -> bytearray
     return bytearray_
 
 
-def set_lword(bytearray_: bytearray, byte_index: int, lword: int) -> bytearray:
+def set_lword(bytearray_: Buffer, byte_index: int, lword: int) -> Buffer:
     """Set the long word
 
     Notes:
@@ -474,7 +479,7 @@ def set_lword(bytearray_: bytearray, byte_index: int, lword: int) -> bytearray:
     return bytearray_
 
 
-def set_char(bytearray_: bytearray, byte_index: int, chr_: str) -> bytearray:
+def set_char(bytearray_: Buffer, byte_index: int, chr_: str) -> Buffer:
     """Set char value in a bytearray.
 
     Notes:
@@ -510,7 +515,7 @@ def set_char(bytearray_: bytearray, byte_index: int, chr_: str) -> bytearray:
         raise ValueError(f"chr_ : {chr_} contains ascii value > 255, which is not compatible with PLC Type CHAR.")
 
 
-def set_date(bytearray_: bytearray, byte_index: int, date_: date) -> bytearray:
+def set_date(bytearray_: Buffer, byte_index: int, date_: date) -> Buffer:
     """Set value in bytearray to date
     Notes:
         Datatype `date` consists in the number of days elapsed from 1990-01-01.
@@ -530,11 +535,11 @@ def set_date(bytearray_: bytearray, byte_index: int, date_: date) -> bytearray:
     elif date_ > date(2168, 12, 31):
         raise ValueError("date is higher than specification allows.")
     _days = (date_ - date(1990, 1, 1)).days
-    bytearray_[byte_index : byte_index + 2] = struct.pack(">h", _days)
+    bytearray_[byte_index : byte_index + 2] = struct.pack(">H", _days)
     return bytearray_
 
 
-def set_wchar(bytearray_: bytearray, byte_index: int, chr_: str) -> bytearray:
+def set_wchar(bytearray_: Buffer, byte_index: int, chr_: str) -> Buffer:
     """Set wchar value in a bytearray.
 
     Notes:
@@ -563,7 +568,7 @@ def set_wchar(bytearray_: bytearray, byte_index: int, chr_: str) -> bytearray:
     return bytearray_
 
 
-def set_wstring(bytearray_: bytearray, byte_index: int, value: str, max_size: int = 16382) -> None:
+def set_wstring(bytearray_: Buffer, byte_index: int, value: str, max_size: int = 16382) -> None:
     """Set wstring value
 
     Notes:
@@ -591,6 +596,9 @@ def set_wstring(bytearray_: bytearray, byte_index: int, value: str, max_size: in
     if max_size > 16382:
         raise ValueError(f"max_size: {max_size} > max. allowed 16382 chars")
 
+    if any(ord(c) > 0xFFFF for c in value):
+        raise ValueError("WSTRING only supports BMP characters (U+0000 to U+FFFF)")
+
     size = len(value)
     if size > max_size:
         raise ValueError(f"size {size} > max_size {max_size}")
@@ -606,7 +614,7 @@ def set_wstring(bytearray_: bytearray, byte_index: int, value: str, max_size: in
     bytearray_[byte_index + 4 : byte_index + 4 + len(encoded)] = encoded
 
 
-def set_tod(bytearray_: bytearray, byte_index: int, tod: timedelta) -> bytearray:
+def set_tod(bytearray_: Buffer, byte_index: int, tod: timedelta) -> Buffer:
     """Set TIME_OF_DAY value in bytearray.
 
     Notes:
@@ -628,12 +636,12 @@ def set_tod(bytearray_: bytearray, byte_index: int, tod: timedelta) -> bytearray
     """
     if tod.days >= 1 or tod < timedelta(0):
         raise ValueError("TIME_OF_DAY must be between 00:00:00.000 and 23:59:59.999")
-    ms = int(tod.total_seconds() * 1000)
+    ms = (tod.days * 86400 + tod.seconds) * 1000 + tod.microseconds // 1000
     bytearray_[byte_index : byte_index + 4] = ms.to_bytes(4, byteorder="big")
     return bytearray_
 
 
-def set_dtl(bytearray_: bytearray, byte_index: int, dt_: datetime) -> bytearray:
+def set_dtl(bytearray_: Buffer, byte_index: int, dt_: datetime) -> Buffer:
     """Set DTL (Date and Time Long) value in bytearray.
 
     Notes:
@@ -678,7 +686,7 @@ def set_dtl(bytearray_: bytearray, byte_index: int, dt_: datetime) -> bytearray:
     return bytearray_
 
 
-def set_dt(bytearray_: bytearray, byte_index: int, dt_: datetime) -> bytearray:
+def set_dt(bytearray_: Buffer, byte_index: int, dt_: datetime) -> Buffer:
     """Set DATE_AND_TIME value in bytearray.
 
     Notes:
@@ -730,4 +738,131 @@ def set_dt(bytearray_: bytearray, byte_index: int, dt_: datetime) -> bytearray:
     weekday = (dt_.isoweekday() % 7) + 1
     bytearray_[byte_index + 7] = (ms_ones << 4) | weekday
 
+    return bytearray_
+
+
+def set_lint(bytearray_: Buffer, byte_index: int, value: int) -> Buffer:
+    """Set a long int value in bytearray.
+
+    Notes:
+        Datatype ``lint`` consists of 8 bytes (64-bit signed integer).
+        Range: -9223372036854775808 to +9223372036854775807.
+
+    Args:
+        bytearray_: buffer to write to.
+        byte_index: byte index from where to start writing.
+        value: value to write.
+
+    Returns:
+        Buffer with the written value.
+
+    Examples:
+        >>> data = bytearray(8)
+        >>> set_lint(data, 0, 12345)
+    """
+    bytearray_[byte_index : byte_index + 8] = struct.pack(">q", value)
+    return bytearray_
+
+
+def set_ulint(bytearray_: Buffer, byte_index: int, value: int) -> Buffer:
+    """Set an unsigned long int value in bytearray.
+
+    Notes:
+        Datatype ``ulint`` consists of 8 bytes (64-bit unsigned integer).
+        Range: 0 to 18446744073709551615.
+
+    Args:
+        bytearray_: buffer to write to.
+        byte_index: byte index from where to start writing.
+        value: value to write.
+
+    Returns:
+        Buffer with the written value.
+
+    Examples:
+        >>> data = bytearray(8)
+        >>> set_ulint(data, 0, 12345)
+    """
+    bytearray_[byte_index : byte_index + 8] = struct.pack(">Q", value)
+    return bytearray_
+
+
+def set_ltime(bytearray_: Buffer, byte_index: int, value: timedelta) -> Buffer:
+    """Set an LTIME value in bytearray.
+
+    Notes:
+        Datatype ``LTIME`` consists of 8 bytes (64-bit signed integer)
+        representing nanoseconds. Used in S7-1500 PLCs.
+
+    Args:
+        bytearray_: buffer to write to.
+        byte_index: byte index from where to start writing.
+        value: timedelta value to write.
+
+    Returns:
+        Buffer with the written value.
+
+    Examples:
+        >>> from datetime import timedelta
+        >>> data = bytearray(8)
+        >>> set_ltime(data, 0, timedelta(seconds=1))
+    """
+    # Use integer arithmetic to avoid float precision loss
+    nanoseconds = (value.days * 86400 + value.seconds) * 1_000_000_000 + value.microseconds * 1000
+    bytearray_[byte_index : byte_index + 8] = struct.pack(">q", nanoseconds)
+    return bytearray_
+
+
+def set_ltod(bytearray_: Buffer, byte_index: int, value: timedelta) -> Buffer:
+    """Set an LTOD (Long Time of Day) value in bytearray.
+
+    Notes:
+        Datatype ``LTOD`` consists of 8 bytes (64-bit unsigned integer)
+        representing nanoseconds since midnight. Used in S7-1500 PLCs.
+
+    Args:
+        bytearray_: buffer to write to.
+        byte_index: byte index from where to start writing.
+        value: timedelta representing time of day.
+
+    Returns:
+        Buffer with the written value.
+
+    Examples:
+        >>> from datetime import timedelta
+        >>> data = bytearray(8)
+        >>> set_ltod(data, 0, timedelta(hours=12, minutes=30))
+    """
+    if value.days >= 1:
+        raise ValueError("LTOD value must be less than 24 hours")
+    nanoseconds = (value.days * 86400 + value.seconds) * 1_000_000_000 + value.microseconds * 1000
+    bytearray_[byte_index : byte_index + 8] = struct.pack(">Q", nanoseconds)
+    return bytearray_
+
+
+def set_ldt(bytearray_: Buffer, byte_index: int, value: datetime) -> Buffer:
+    """Set an LDT (Long Date and Time) value in bytearray.
+
+    Notes:
+        Datatype ``LDT`` consists of 8 bytes (64-bit unsigned integer)
+        representing nanoseconds since 1970-01-01 00:00:00 UTC.
+        Used in S7-1500 PLCs.
+
+    Args:
+        bytearray_: buffer to write to.
+        byte_index: byte index from where to start writing.
+        value: datetime value to write.
+
+    Returns:
+        Buffer with the written value.
+
+    Examples:
+        >>> from datetime import datetime
+        >>> data = bytearray(8)
+        >>> set_ldt(data, 0, datetime(2024, 1, 15, 10, 30, 0))
+    """
+    epoch = datetime(1970, 1, 1)
+    delta = value - epoch
+    nanoseconds = (delta.days * 86400 + delta.seconds) * 1_000_000_000 + delta.microseconds * 1000
+    bytearray_[byte_index : byte_index + 8] = struct.pack(">Q", nanoseconds)
     return bytearray_

@@ -270,6 +270,20 @@ def _run_hooks_to_project_level_migration() -> bool:  # pyright: ignore[unused-f
     return run_migration(installation_dir=Path.cwd())
 
 
+def _run_skill_cleanup_migration() -> bool:
+    """Rename mcp-collision skills and patch SKILL.md name: fields (issue #931)."""
+    from .migrate_skill_cleanup import run_migration
+
+    return run_migration()
+
+
+def _run_remove_user_level_agents() -> bool:
+    """Remove stale MPM-owned agents from ~/.claude/agents/ (issue #924, Fix A)."""
+    from .v6_5_81_remove_user_level_agents import run_migration
+
+    return run_migration()
+
+
 # Registry of all migrations, ordered by version
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -456,6 +470,18 @@ MIGRATIONS: list[Migration] = [
         # run_always=True: idempotent per-project cleanup — each project (and the
         # user-level dir) is swept the next time claude-mpm starts in it.
         run_always=True,
+    ),
+    Migration(
+        id="v6_5_80_skill_cleanup",
+        version="6.5.80",
+        description="Rename mcp-collision skills and patch SKILL.md name fields",
+        run=_run_skill_cleanup_migration,
+    ),
+    Migration(
+        id="v6_5_81_remove_user_level_agents",
+        version="6.5.81",
+        description="Remove stale MPM-owned agents from ~/.claude/agents/ (issue #924, Fix A)",
+        run=_run_remove_user_level_agents,
     ),
 ]
 

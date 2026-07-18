@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cognee
-Version: 1.3.0
+Version: 1.4.0
 Summary: Cognee - is a library for enriching LLM context with a semantic layer for better understanding and reasoning.
 Project-URL: Homepage, https://www.cognee.ai
 Project-URL: Repository, https://github.com/topoteretes/cognee
@@ -118,11 +118,6 @@ Provides-Extra: fastembed
 Requires-Dist: fastembed<=0.8.0; extra == 'fastembed'
 Requires-Dist: onnxruntime<=1.23.2; (python_version < '3.14') and extra == 'fastembed'
 Requires-Dist: onnxruntime>=1.24.1; (python_version >= '3.14') and extra == 'fastembed'
-Provides-Extra: gmail
-Requires-Dist: dlt[sqlalchemy]<2,>=1.9.0; extra == 'gmail'
-Requires-Dist: google-api-python-client<3,>=2.100.0; extra == 'gmail'
-Requires-Dist: google-auth-oauthlib<2,>=1.1.0; extra == 'gmail'
-Requires-Dist: google-auth<3,>=2.23.0; extra == 'gmail'
 Provides-Extra: graphiti
 Requires-Dist: graphiti-core>=0.28.0; extra == 'graphiti'
 Provides-Extra: groq
@@ -546,6 +541,7 @@ Use [Cognee Cloud](https://www.cognee.ai) for a fully managed experience, or sel
 | **Fly.io** | Edge deployment, persistent volumes | `bash distributed/deploy/fly-deploy.sh` |
 | **Render** | Simple PaaS with managed Postgres | Deploy to Render button |
 | **Daytona** | Cloud sandboxes (SDK or CLI) | See `distributed/deploy/daytona_sandbox.py` |
+| **Islo** | Isolated cloud sandboxes (SDK) | See `distributed/deploy/islo_sandbox.py` |
 
 See the [`distributed/`](distributed/) folder for deploy scripts, worker configurations, and additional details.
 

@@ -32,6 +32,7 @@ from .literals import (
     CapabilityStatusType,
     ConfigChangeStatusType,
     ConnectionModeType,
+    DataSourceAttachmentStatusType,
     DataSourceStatusType,
     DeploymentStatusType,
     DeploymentStrategyType,
@@ -40,14 +41,18 @@ from .literals import (
     DomainPackageStatusType,
     DomainProcessingStatusTypeType,
     DomainStateType,
+    DomainUseCaseType,
     DryRunModeType,
+    EngineModeType,
     EngineTypeType,
     InboundConnectionStatusCodeType,
     IndexStatusType,
     InitiatedByType,
     InsightEntityTypeType,
+    InsightFeedbackThumbsType,
     InsightFieldTypeType,
     InsightPriorityLevelType,
+    InsightResponseStatusType,
     InsightSortOrderType,
     InsightStatusType,
     InsightTypeType,
@@ -68,6 +73,7 @@ from .literals import (
     PackageScopeOperationEnumType,
     PackageStatusType,
     PackageTypeType,
+    PauseStateType,
     PrincipalTypeType,
     PropertyValueTypeType,
     RequirementLevelType,
@@ -119,6 +125,8 @@ __all__ = (
     "AssociatePackageResponseTypeDef",
     "AssociatePackagesRequestTypeDef",
     "AssociatePackagesResponseTypeDef",
+    "AttachDataSourceRequestTypeDef",
+    "AttachDataSourceResponseTypeDef",
     "AuthorizeVpcEndpointAccessRequestTypeDef",
     "AuthorizeVpcEndpointAccessResponseTypeDef",
     "AuthorizedPrincipalTypeDef",
@@ -134,6 +142,9 @@ __all__ = (
     "AutoTuneOptionsUnionTypeDef",
     "AutoTuneStatusTypeDef",
     "AutoTuneTypeDef",
+    "AutomatedSnapshotPauseOptionsStatusTypeDef",
+    "AutomatedSnapshotPauseOptionsTypeDef",
+    "AutomatedSnapshotPauseRequestOptionsTypeDef",
     "AvailabilityZoneInfoTypeDef",
     "CancelDomainConfigChangeRequestTypeDef",
     "CancelDomainConfigChangeResponseTypeDef",
@@ -170,6 +181,7 @@ __all__ = (
     "CreateVpcEndpointRequestTypeDef",
     "CreateVpcEndpointResponseTypeDef",
     "CrossClusterSearchConnectionPropertiesTypeDef",
+    "DataSourceAttachmentSummaryTypeDef",
     "DataSourceDetailsTypeDef",
     "DataSourceTypeDef",
     "DataSourceTypeTypeDef",
@@ -193,6 +205,8 @@ __all__ = (
     "DeploymentStrategyOptionsTypeDef",
     "DeregisterCapabilityRequestTypeDef",
     "DeregisterCapabilityResponseTypeDef",
+    "DescribeDataSourceAttachmentRequestTypeDef",
+    "DescribeDataSourceAttachmentResponseTypeDef",
     "DescribeDomainAutoTunesRequestTypeDef",
     "DescribeDomainAutoTunesResponseTypeDef",
     "DescribeDomainChangeProgressRequestTypeDef",
@@ -226,6 +240,8 @@ __all__ = (
     "DescribeReservedInstancesResponseTypeDef",
     "DescribeVpcEndpointsRequestTypeDef",
     "DescribeVpcEndpointsResponseTypeDef",
+    "DetachDataSourceRequestTypeDef",
+    "DetachDataSourceResponseTypeDef",
     "DirectQueryDataSourceTypeDef",
     "DirectQueryDataSourceTypeTypeDef",
     "DissociatePackageRequestTypeDef",
@@ -249,8 +265,10 @@ __all__ = (
     "EmptyResponseMetadataTypeDef",
     "EncryptionAtRestOptionsStatusTypeDef",
     "EncryptionAtRestOptionsTypeDef",
+    "EngineModeStatusTypeDef",
     "EnvironmentInfoTypeDef",
     "ErrorDetailsTypeDef",
+    "ExportOptionsTypeDef",
     "FilterTypeDef",
     "GetApplicationRequestTypeDef",
     "GetApplicationResponseTypeDef",
@@ -267,6 +285,8 @@ __all__ = (
     "GetDomainMaintenanceStatusResponseTypeDef",
     "GetIndexRequestTypeDef",
     "GetIndexResponseTypeDef",
+    "GetMigrationRequestTypeDef",
+    "GetMigrationResponseTypeDef",
     "GetPackageVersionHistoryRequestTypeDef",
     "GetPackageVersionHistoryResponseTypeDef",
     "GetUpgradeHistoryRequestTypeDef",
@@ -284,6 +304,9 @@ __all__ = (
     "InboundConnectionStatusTypeDef",
     "InboundConnectionTypeDef",
     "InsightEntityTypeDef",
+    "InsightFeedbackEntityTypeDef",
+    "InsightFeedbackRequestTypeDef",
+    "InsightFeedbackResponseTypeDef",
     "InsightFieldTypeDef",
     "InsightTimeRangeTypeDef",
     "InsightTypeDef",
@@ -297,6 +320,8 @@ __all__ = (
     "ListApplicationsRequestPaginateTypeDef",
     "ListApplicationsRequestTypeDef",
     "ListApplicationsResponseTypeDef",
+    "ListDataSourceAttachmentsRequestTypeDef",
+    "ListDataSourceAttachmentsResponseTypeDef",
     "ListDataSourcesRequestTypeDef",
     "ListDataSourcesResponseTypeDef",
     "ListDirectQueryDataSourcesRequestTypeDef",
@@ -311,6 +336,8 @@ __all__ = (
     "ListInsightsResponseTypeDef",
     "ListInstanceTypeDetailsRequestTypeDef",
     "ListInstanceTypeDetailsResponseTypeDef",
+    "ListMigrationsRequestTypeDef",
+    "ListMigrationsResponseTypeDef",
     "ListPackagesForDomainRequestTypeDef",
     "ListPackagesForDomainResponseTypeDef",
     "ListScheduledActionsRequestTypeDef",
@@ -328,6 +355,11 @@ __all__ = (
     "LogPublishingOptionTypeDef",
     "LogPublishingOptionsStatusTypeDef",
     "MasterUserOptionsTypeDef",
+    "MigrationErrorTypeDef",
+    "MigrationOptionsTypeDef",
+    "MigrationSourceTypeDef",
+    "MigrationSummaryTypeDef",
+    "MigrationWorkspaceTypeDef",
     "ModifyingPropertiesTypeDef",
     "NaturalLanguageQueryGenerationOptionsInputTypeDef",
     "NaturalLanguageQueryGenerationOptionsOutputTypeDef",
@@ -374,6 +406,7 @@ __all__ = (
     "SAMLIdpTypeDef",
     "SAMLOptionsInputTypeDef",
     "SAMLOptionsOutputTypeDef",
+    "SavedObjectIdentifierTypeDef",
     "ScheduledActionTypeDef",
     "ScheduledAutoTuneDetailsTypeDef",
     "SecurityLakeDirectQueryDataSourceTypeDef",
@@ -388,6 +421,8 @@ __all__ = (
     "SoftwareUpdateOptionsTypeDef",
     "StartDomainMaintenanceRequestTypeDef",
     "StartDomainMaintenanceResponseTypeDef",
+    "StartMigrationRequestTypeDef",
+    "StartMigrationResponseTypeDef",
     "StartServiceSoftwareUpdateRequestTypeDef",
     "StartServiceSoftwareUpdateResponseTypeDef",
     "StorageTypeLimitTypeDef",
@@ -416,6 +451,7 @@ __all__ = (
     "UpgradeDomainResponseTypeDef",
     "UpgradeHistoryTypeDef",
     "UpgradeStepItemTypeDef",
+    "UseCaseStatusTypeDef",
     "VPCDerivedInfoStatusTypeDef",
     "VPCDerivedInfoTypeDef",
     "VPCOptionsTypeDef",
@@ -425,6 +461,7 @@ __all__ = (
     "VpcEndpointSummaryTypeDef",
     "VpcEndpointTypeDef",
     "WindowStartTimeTypeDef",
+    "WorkspaceConfigurationInputTypeDef",
     "ZoneAwarenessConfigTypeDef",
 )
 
@@ -535,6 +572,11 @@ ApplicationSummaryTypeDef = TypedDict(
 )
 
 
+class WorkspaceConfigurationInputTypeDef(TypedDict):
+    name: str
+    workspaceType: str
+
+
 class ServiceOptionsOutputTypeDef(TypedDict):
     SupportedRegions: NotRequired[list[str]]
 
@@ -567,6 +609,13 @@ class AutoTuneStatusTypeDef(TypedDict):
     UpdateVersion: NotRequired[int]
     ErrorMessage: NotRequired[str]
     PendingDeletion: NotRequired[bool]
+
+
+class AutomatedSnapshotPauseOptionsTypeDef(TypedDict):
+    Enabled: bool
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    State: NotRequired[PauseStateType]
 
 
 class AvailabilityZoneInfoTypeDef(TypedDict):
@@ -738,6 +787,7 @@ class SoftwareUpdateOptionsTypeDef(TypedDict):
 class VPCOptionsTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
     SecurityGroupIds: NotRequired[Sequence[str]]
+    EgressEnabled: NotRequired[bool]
 
 
 class CreateIndexRequestTypeDef(TypedDict):
@@ -770,6 +820,12 @@ class PackageSourceTypeDef(TypedDict):
 
 class PackageVendingOptionsTypeDef(TypedDict):
     VendingEnabled: bool
+
+
+class DataSourceAttachmentSummaryTypeDef(TypedDict):
+    attachmentId: NotRequired[str]
+    dataSourceArn: NotRequired[str]
+    status: NotRequired[DataSourceAttachmentStatusType]
 
 
 class S3GlueDataCatalogTypeDef(TypedDict):
@@ -828,6 +884,15 @@ class VpcEndpointSummaryTypeDef(TypedDict):
 class DeregisterCapabilityRequestTypeDef(TypedDict):
     applicationId: str
     capabilityName: str
+
+
+DescribeDataSourceAttachmentRequestTypeDef = TypedDict(
+    "DescribeDataSourceAttachmentRequestTypeDef",
+    {
+        "id": str,
+        "dataSourceArn": str,
+    },
+)
 
 
 class DescribeDomainAutoTunesRequestTypeDef(TypedDict):
@@ -938,6 +1003,15 @@ class VpcEndpointErrorTypeDef(TypedDict):
     ErrorMessage: NotRequired[str]
 
 
+DetachDataSourceRequestTypeDef = TypedDict(
+    "DetachDataSourceRequestTypeDef",
+    {
+        "id": str,
+        "dataSourceArn": str,
+    },
+)
+
+
 class PrometheusDirectQueryDataSourceTypeDef(TypedDict):
     RoleArn: str
     WorkspaceArn: str
@@ -1000,6 +1074,7 @@ class VPCDerivedInfoTypeDef(TypedDict):
     SubnetIds: NotRequired[list[str]]
     AvailabilityZones: NotRequired[list[str]]
     SecurityGroupIds: NotRequired[list[str]]
+    EgressEnabled: NotRequired[bool]
 
 
 class ValidationFailureTypeDef(TypedDict):
@@ -1007,6 +1082,13 @@ class ValidationFailureTypeDef(TypedDict):
     Message: NotRequired[str]
 
 
+SavedObjectIdentifierTypeDef = TypedDict(
+    "SavedObjectIdentifierTypeDef",
+    {
+        "type": str,
+        "id": str,
+    },
+)
 GetApplicationRequestTypeDef = TypedDict(
     "GetApplicationRequestTypeDef",
     {
@@ -1043,6 +1125,19 @@ class GetIndexRequestTypeDef(TypedDict):
     IndexName: str
 
 
+class GetMigrationRequestTypeDef(TypedDict):
+    migrationId: str
+
+
+class MigrationErrorTypeDef(TypedDict):
+    code: NotRequired[str]
+    message: NotRequired[str]
+
+
+class MigrationSourceTypeDef(TypedDict):
+    datasourceArn: str
+
+
 class GetPackageVersionHistoryRequestTypeDef(TypedDict):
     PackageID: str
     MaxResults: NotRequired[int]
@@ -1062,6 +1157,15 @@ class GetUpgradeStatusRequestTypeDef(TypedDict):
 class InboundConnectionStatusTypeDef(TypedDict):
     StatusCode: NotRequired[InboundConnectionStatusCodeType]
     Message: NotRequired[str]
+
+
+InsightFeedbackEntityTypeDef = TypedDict(
+    "InsightFeedbackEntityTypeDef",
+    {
+        "Type": Literal["DomainName"],
+        "Value": str,
+    },
+)
 
 
 class InsightTimeRangeTypeDef(TypedDict):
@@ -1117,6 +1221,16 @@ class ListApplicationsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 
+ListDataSourceAttachmentsRequestTypeDef = TypedDict(
+    "ListDataSourceAttachmentsRequestTypeDef",
+    {
+        "id": str,
+        "nextToken": NotRequired[str],
+        "maxResults": NotRequired[int],
+    },
+)
+
+
 class ListDataSourcesRequestTypeDef(TypedDict):
     DomainName: str
 
@@ -1150,6 +1264,13 @@ class ListInstanceTypeDetailsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     RetrieveAZs: NotRequired[bool]
     InstanceType: NotRequired[str]
+
+
+class ListMigrationsRequestTypeDef(TypedDict):
+    applicationId: str
+    status: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 
 class ListPackagesForDomainRequestTypeDef(TypedDict):
@@ -1203,6 +1324,15 @@ class ListVpcEndpointsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+MigrationWorkspaceTypeDef = TypedDict(
+    "MigrationWorkspaceTypeDef",
+    {
+        "workspaceId": NotRequired[str],
+        "createWorkspace": NotRequired[bool],
+        "name": NotRequired[str],
+        "type": NotRequired[str],
+    },
+)
 NodeConfigTypeDef = TypedDict(
     "NodeConfigTypeDef",
     {
@@ -1348,8 +1478,18 @@ class AdvancedOptionsStatusTypeDef(TypedDict):
     Status: OptionStatusTypeDef
 
 
+class EngineModeStatusTypeDef(TypedDict):
+    Options: EngineModeType
+    Status: OptionStatusTypeDef
+
+
 class IPAddressTypeStatusTypeDef(TypedDict):
     Options: IPAddressTypeType
+    Status: OptionStatusTypeDef
+
+
+class UseCaseStatusTypeDef(TypedDict):
+    Options: DomainUseCaseType
     Status: OptionStatusTypeDef
 
 
@@ -1372,6 +1512,19 @@ class AddDirectQueryDataSourceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+AttachDataSourceResponseTypeDef = TypedDict(
+    "AttachDataSourceResponseTypeDef",
+    {
+        "attachmentId": str,
+        "id": str,
+        "arn": str,
+        "dataSourceArn": str,
+        "status": DataSourceAttachmentStatusType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
 class CreateIndexResponseTypeDef(TypedDict):
     Status: IndexStatusType
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1390,6 +1543,28 @@ class DeleteIndexResponseTypeDef(TypedDict):
 class DeregisterCapabilityResponseTypeDef(TypedDict):
     status: CapabilityStatusType
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+DescribeDataSourceAttachmentResponseTypeDef = TypedDict(
+    "DescribeDataSourceAttachmentResponseTypeDef",
+    {
+        "attachmentId": str,
+        "id": str,
+        "arn": str,
+        "dataSourceArn": str,
+        "status": DataSourceAttachmentStatusType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+DetachDataSourceResponseTypeDef = TypedDict(
+    "DetachDataSourceResponseTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "dataSourceArn": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -1423,6 +1598,11 @@ class GetUpgradeStatusResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class InsightFeedbackResponseTypeDef(TypedDict):
+    Status: InsightResponseStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListVersionsResponseTypeDef(TypedDict):
     Versions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1442,6 +1622,12 @@ class PutDefaultApplicationSettingResponseTypeDef(TypedDict):
 
 class StartDomainMaintenanceResponseTypeDef(TypedDict):
     MaintenanceId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartMigrationResponseTypeDef(TypedDict):
+    migrationId: str
+    status: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1483,6 +1669,18 @@ class ListApplicationsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+AttachDataSourceRequestTypeDef = TypedDict(
+    "AttachDataSourceRequestTypeDef",
+    {
+        "id": str,
+        "dataSourceArn": str,
+        "workspaceId": NotRequired[str],
+        "workspaceConfiguration": NotRequired[WorkspaceConfigurationInputTypeDef],
+        "clientToken": NotRequired[str],
+    },
+)
+
+
 class AuthorizedPrincipalTypeDef(TypedDict):
     PrincipalType: NotRequired[PrincipalTypeType]
     Principal: NotRequired[str]
@@ -1503,6 +1701,17 @@ class AutoTuneMaintenanceScheduleTypeDef(TypedDict):
     StartAt: NotRequired[TimestampTypeDef]
     Duration: NotRequired[DurationTypeDef]
     CronExpressionForRecurrence: NotRequired[str]
+
+
+class AutomatedSnapshotPauseRequestOptionsTypeDef(TypedDict):
+    Enabled: bool
+    StartTime: NotRequired[TimestampTypeDef]
+    EndTime: NotRequired[TimestampTypeDef]
+
+
+class AutomatedSnapshotPauseOptionsStatusTypeDef(TypedDict):
+    Options: AutomatedSnapshotPauseOptionsTypeDef
+    Status: OptionStatusTypeDef
 
 
 class EnvironmentInfoTypeDef(TypedDict):
@@ -1587,16 +1796,6 @@ class ConnectionPropertiesTypeDef(TypedDict):
     CrossClusterSearch: NotRequired[CrossClusterSearchConnectionPropertiesTypeDef]
 
 
-UpdateApplicationRequestTypeDef = TypedDict(
-    "UpdateApplicationRequestTypeDef",
-    {
-        "id": str,
-        "dataSources": NotRequired[Sequence[DataSourceTypeDef]],
-        "appConfigs": NotRequired[Sequence[AppConfigTypeDef]],
-    },
-)
-
-
 class CreateApplicationRequestTypeDef(TypedDict):
     name: str
     clientToken: NotRequired[str]
@@ -1607,6 +1806,15 @@ class CreateApplicationRequestTypeDef(TypedDict):
     kmsKeyArn: NotRequired[str]
 
 
+UpdateApplicationRequestTypeDef = TypedDict(
+    "UpdateApplicationRequestTypeDef",
+    {
+        "id": str,
+        "dataSources": NotRequired[Sequence[DataSourceTypeDef]],
+        "appConfigs": NotRequired[Sequence[AppConfigTypeDef]],
+        "iamIdentityCenterOptions": NotRequired[IamIdentityCenterOptionsInputTypeDef],
+    },
+)
 CreateApplicationResponseTypeDef = TypedDict(
     "CreateApplicationResponseTypeDef",
     {
@@ -1726,6 +1934,12 @@ class CreatePackageRequestTypeDef(TypedDict):
     PackageEncryptionOptions: NotRequired[PackageEncryptionOptionsTypeDef]
 
 
+class ListDataSourceAttachmentsResponseTypeDef(TypedDict):
+    attachments: list[DataSourceAttachmentSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class DataSourceTypeTypeDef(TypedDict):
     S3GlueDataCatalog: NotRequired[S3GlueDataCatalogTypeDef]
 
@@ -1823,6 +2037,48 @@ class DryRunProgressStatusTypeDef(TypedDict):
     CreationDate: str
     UpdateDate: str
     ValidationFailures: NotRequired[list[ValidationFailureTypeDef]]
+
+
+ExportOptionsTypeDef = TypedDict(
+    "ExportOptionsTypeDef",
+    {
+        "types": NotRequired[Sequence[str]],
+        "objects": NotRequired[Sequence[SavedObjectIdentifierTypeDef]],
+        "includeReferencesDeep": NotRequired[bool],
+    },
+)
+
+
+class GetMigrationResponseTypeDef(TypedDict):
+    migrationId: str
+    status: str
+    applicationId: str
+    source: MigrationSourceTypeDef
+    exportedCount: int
+    importedCount: int
+    error: MigrationErrorTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class MigrationSummaryTypeDef(TypedDict):
+    migrationId: NotRequired[str]
+    status: NotRequired[str]
+    applicationId: NotRequired[str]
+    source: NotRequired[MigrationSourceTypeDef]
+    exportedCount: NotRequired[int]
+    importedCount: NotRequired[int]
+    error: NotRequired[MigrationErrorTypeDef]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+
+class InsightFeedbackRequestTypeDef(TypedDict):
+    Entity: InsightFeedbackEntityTypeDef
+    InsightId: str
+    Thumbs: InsightFeedbackThumbsType
+    FeedbackText: NotRequired[str]
 
 
 class ListInsightsRequestTypeDef(TypedDict):
@@ -2153,6 +2409,19 @@ class UpdateVpcEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class MigrationOptionsTypeDef(TypedDict):
+    source: MigrationSourceTypeDef
+    workspace: MigrationWorkspaceTypeDef
+    exportOptions: NotRequired[ExportOptionsTypeDef]
+    conflictResolution: NotRequired[str]
+
+
+class ListMigrationsResponseTypeDef(TypedDict):
+    migrations: list[MigrationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class AssociatePackageRequestTypeDef(TypedDict):
     PackageID: str
     DomainName: str
@@ -2366,6 +2635,12 @@ class ListDirectQueryDataSourcesResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class StartMigrationRequestTypeDef(TypedDict):
+    applicationId: str
+    migrationOptions: MigrationOptionsTypeDef
+    clientToken: NotRequired[str]
+
+
 class AssociatePackageResponseTypeDef(TypedDict):
     DomainPackageDetails: DomainPackageDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2457,6 +2732,9 @@ class DomainStatusTypeDef(TypedDict):
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     AIMLOptions: NotRequired[AIMLOptionsOutputTypeDef]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseOptionsTypeDef]
+    UseCase: NotRequired[DomainUseCaseType]
+    EngineMode: NotRequired[EngineModeType]
 
 
 class DescribeInstanceTypeLimitsResponseTypeDef(TypedDict):
@@ -2487,6 +2765,9 @@ class CreateDomainRequestTypeDef(TypedDict):
     SoftwareUpdateOptions: NotRequired[SoftwareUpdateOptionsTypeDef]
     AIMLOptions: NotRequired[AIMLOptionsInputTypeDef]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
+    UseCase: NotRequired[DomainUseCaseType]
+    EngineMode: NotRequired[EngineModeType]
 
 
 class UpdateDomainConfigRequestTypeDef(TypedDict):
@@ -2512,6 +2793,9 @@ class UpdateDomainConfigRequestTypeDef(TypedDict):
     SoftwareUpdateOptions: NotRequired[SoftwareUpdateOptionsTypeDef]
     AIMLOptions: NotRequired[AIMLOptionsInputTypeDef]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
+    UseCase: NotRequired[DomainUseCaseType]
+    EngineMode: NotRequired[EngineModeType]
 
 
 class DomainConfigTypeDef(TypedDict):
@@ -2537,6 +2821,9 @@ class DomainConfigTypeDef(TypedDict):
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     AIMLOptions: NotRequired[AIMLOptionsStatusTypeDef]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsStatusTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseOptionsStatusTypeDef]
+    UseCase: NotRequired[UseCaseStatusTypeDef]
+    EngineMode: NotRequired[EngineModeStatusTypeDef]
 
 
 class CreateDomainResponseTypeDef(TypedDict):

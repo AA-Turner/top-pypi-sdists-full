@@ -60,6 +60,7 @@ from .literals import (
     GameSessionStatusType,
     InstanceStatusType,
     IpProtocolType,
+    LinuxCapabilityType,
     ListComputeInputStatusType,
     LocationFilterType,
     LogDestinationType,
@@ -295,6 +296,9 @@ __all__ = (
     "InstanceTypeDef",
     "IpPermissionTypeDef",
     "LaunchTemplateSpecificationTypeDef",
+    "LinuxCapabilitiesOutputTypeDef",
+    "LinuxCapabilitiesTypeDef",
+    "LinuxCapabilitiesUnionTypeDef",
     "ListAliasesInputPaginateTypeDef",
     "ListAliasesInputTypeDef",
     "ListAliasesOutputTypeDef",
@@ -995,6 +999,9 @@ class ManagedCapacityConfigurationTypeDef(TypedDict):
     ZeroCapacityStrategy: NotRequired[ZeroCapacityStrategyType]
     ScaleInAfterInactivityMinutes: NotRequired[int]
 
+class LinuxCapabilitiesOutputTypeDef(TypedDict):
+    Include: NotRequired[list[LinuxCapabilityType]]
+
 class TargetTrackingConfigurationTypeDef(TypedDict):
     TargetValue: float
 
@@ -1041,6 +1048,9 @@ class GetPlayerConnectionDetailsInputTypeDef(TypedDict):
 class InstanceCredentialsTypeDef(TypedDict):
     UserName: NotRequired[str]
     Secret: NotRequired[str]
+
+class LinuxCapabilitiesTypeDef(TypedDict):
+    Include: NotRequired[Sequence[LinuxCapabilityType]]
 
 class ListAliasesInputTypeDef(TypedDict):
     RoutingStrategyType: NotRequired[RoutingStrategyTypeType]
@@ -1980,6 +1990,8 @@ class InstanceAccessTypeDef(TypedDict):
     OperatingSystem: NotRequired[OperatingSystemType]
     Credentials: NotRequired[InstanceCredentialsTypeDef]
 
+LinuxCapabilitiesUnionTypeDef = Union[LinuxCapabilitiesTypeDef, LinuxCapabilitiesOutputTypeDef]
+
 class PingBeaconTypeDef(TypedDict):
     UDPEndpoint: NotRequired[UDPEndpointTypeDef]
 
@@ -2098,6 +2110,7 @@ class UpdateContainerFleetOutputTypeDef(TypedDict):
 
 class DescribeContainerGroupPortMappingsOutputTypeDef(TypedDict):
     FleetId: str
+    FleetArn: str
     Location: str
     ContainerGroupDefinitionArn: str
     ContainerGroupType: ContainerGroupTypeType
@@ -2115,6 +2128,7 @@ class GameServerContainerDefinitionTypeDef(TypedDict):
     PortConfiguration: NotRequired[ContainerPortConfigurationOutputTypeDef]
     ResolvedImageDigest: NotRequired[str]
     ServerSdkVersion: NotRequired[str]
+    LinuxCapabilities: NotRequired[LinuxCapabilitiesOutputTypeDef]
 
 class SupportContainerDefinitionTypeDef(TypedDict):
     ContainerName: NotRequired[str]
@@ -2128,6 +2142,7 @@ class SupportContainerDefinitionTypeDef(TypedDict):
     PortConfiguration: NotRequired[ContainerPortConfigurationOutputTypeDef]
     ResolvedImageDigest: NotRequired[str]
     Vcpu: NotRequired[float]
+    LinuxCapabilities: NotRequired[LinuxCapabilitiesOutputTypeDef]
 
 ContainerPortConfigurationUnionTypeDef = Union[
     ContainerPortConfigurationTypeDef, ContainerPortConfigurationOutputTypeDef
@@ -2397,6 +2412,7 @@ class GameServerContainerDefinitionInputTypeDef(TypedDict):
     DependsOn: NotRequired[Sequence[ContainerDependencyTypeDef]]
     MountPoints: NotRequired[Sequence[ContainerMountPointTypeDef]]
     EnvironmentOverride: NotRequired[Sequence[ContainerEnvironmentTypeDef]]
+    LinuxCapabilities: NotRequired[LinuxCapabilitiesUnionTypeDef]
 
 class SupportContainerDefinitionInputTypeDef(TypedDict):
     ContainerName: str
@@ -2409,6 +2425,7 @@ class SupportContainerDefinitionInputTypeDef(TypedDict):
     MemoryHardLimitMebibytes: NotRequired[int]
     PortConfiguration: NotRequired[ContainerPortConfigurationUnionTypeDef]
     Vcpu: NotRequired[float]
+    LinuxCapabilities: NotRequired[LinuxCapabilitiesUnionTypeDef]
 
 class DescribeGameSessionDetailsOutputTypeDef(TypedDict):
     GameSessionDetails: list[GameSessionDetailTypeDef]

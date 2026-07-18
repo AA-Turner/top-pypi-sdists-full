@@ -31,27 +31,41 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     ListAgentSpacesPaginator,
+    ListAssetFilesPaginator,
+    ListAssetsPaginator,
+    ListAssetTypesPaginator,
+    ListAssetVersionsPaginator,
     ListAssociationsPaginator,
     ListBacklogTasksPaginator,
     ListExecutionsPaginator,
     ListGoalsPaginator,
     ListJournalRecordsPaginator,
     ListServicesPaginator,
+    ListTriggersPaginator,
 )
 from .type_defs import (
     AssociateServiceInputTypeDef,
     AssociateServiceOutputTypeDef,
     CreateAgentSpaceInputTypeDef,
     CreateAgentSpaceOutputTypeDef,
+    CreateAssetFileRequestTypeDef,
+    CreateAssetFileResponseTypeDef,
+    CreateAssetRequestTypeDef,
+    CreateAssetResponseTypeDef,
     CreateBacklogTaskRequestTypeDef,
     CreateBacklogTaskResponseTypeDef,
     CreateChatRequestTypeDef,
     CreateChatResponseTypeDef,
     CreatePrivateConnectionInputTypeDef,
     CreatePrivateConnectionOutputTypeDef,
+    CreateTriggerRequestTypeDef,
+    CreateTriggerResponseTypeDef,
     DeleteAgentSpaceInputTypeDef,
+    DeleteAssetFileRequestTypeDef,
+    DeleteAssetRequestTypeDef,
     DeletePrivateConnectionInputTypeDef,
     DeletePrivateConnectionOutputTypeDef,
+    DeleteTriggerRequestTypeDef,
     DeregisterServiceInputTypeDef,
     DescribePrivateConnectionInputTypeDef,
     DescribePrivateConnectionOutputTypeDef,
@@ -63,6 +77,12 @@ from .type_defs import (
     GetAccountUsageOutputTypeDef,
     GetAgentSpaceInputTypeDef,
     GetAgentSpaceOutputTypeDef,
+    GetAssetContentRequestTypeDef,
+    GetAssetContentResponseTypeDef,
+    GetAssetFileRequestTypeDef,
+    GetAssetFileResponseTypeDef,
+    GetAssetRequestTypeDef,
+    GetAssetResponseTypeDef,
     GetAssociationInputTypeDef,
     GetAssociationOutputTypeDef,
     GetBacklogTaskRequestTypeDef,
@@ -73,8 +93,18 @@ from .type_defs import (
     GetRecommendationResponseTypeDef,
     GetServiceInputTypeDef,
     GetServiceOutputTypeDef,
+    GetTriggerRequestTypeDef,
+    GetTriggerResponseTypeDef,
     ListAgentSpacesInputTypeDef,
     ListAgentSpacesOutputTypeDef,
+    ListAssetFilesRequestTypeDef,
+    ListAssetFilesResponseTypeDef,
+    ListAssetsRequestTypeDef,
+    ListAssetsResponseTypeDef,
+    ListAssetTypesRequestTypeDef,
+    ListAssetTypesResponseTypeDef,
+    ListAssetVersionsRequestTypeDef,
+    ListAssetVersionsResponseTypeDef,
     ListAssociationsInputTypeDef,
     ListAssociationsOutputTypeDef,
     ListBacklogTasksRequestTypeDef,
@@ -96,6 +126,8 @@ from .type_defs import (
     ListServicesOutputTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListTriggersRequestTypeDef,
+    ListTriggersResponseTypeDef,
     ListWebhooksInputTypeDef,
     ListWebhooksOutputTypeDef,
     RegisterServiceInputTypeDef,
@@ -106,6 +138,10 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateAgentSpaceInputTypeDef,
     UpdateAgentSpaceOutputTypeDef,
+    UpdateAssetFileRequestTypeDef,
+    UpdateAssetFileResponseTypeDef,
+    UpdateAssetRequestTypeDef,
+    UpdateAssetResponseTypeDef,
     UpdateAssociationInputTypeDef,
     UpdateAssociationOutputTypeDef,
     UpdateBacklogTaskRequestTypeDef,
@@ -118,6 +154,8 @@ from .type_defs import (
     UpdatePrivateConnectionCertificateOutputTypeDef,
     UpdateRecommendationRequestTypeDef,
     UpdateRecommendationResponseTypeDef,
+    UpdateTriggerRequestTypeDef,
+    UpdateTriggerResponseTypeDef,
     ValidateAwsAssociationsInputTypeDef,
 )
 
@@ -196,6 +234,26 @@ class DevOpsAgentServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#create_agent_space)
         """
 
+    async def create_asset(
+        self, **kwargs: Unpack[CreateAssetRequestTypeDef]
+    ) -> CreateAssetResponseTypeDef:
+        """
+        Creates a new asset in the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/create_asset.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#create_asset)
+        """
+
+    async def create_asset_file(
+        self, **kwargs: Unpack[CreateAssetFileRequestTypeDef]
+    ) -> CreateAssetFileResponseTypeDef:
+        """
+        Creates a file in an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/create_asset_file.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#create_asset_file)
+        """
+
     async def create_backlog_task(
         self, **kwargs: Unpack[CreateBacklogTaskRequestTypeDef]
     ) -> CreateBacklogTaskResponseTypeDef:
@@ -226,6 +284,16 @@ class DevOpsAgentServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#create_private_connection)
         """
 
+    async def create_trigger(
+        self, **kwargs: Unpack[CreateTriggerRequestTypeDef]
+    ) -> CreateTriggerResponseTypeDef:
+        """
+        Creates a new Trigger in the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/create_trigger.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#create_trigger)
+        """
+
     async def delete_agent_space(
         self, **kwargs: Unpack[DeleteAgentSpaceInputTypeDef]
     ) -> dict[str, Any]:
@@ -236,6 +304,24 @@ class DevOpsAgentServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#delete_agent_space)
         """
 
+    async def delete_asset(self, **kwargs: Unpack[DeleteAssetRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes an asset and all its files from the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/delete_asset.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#delete_asset)
+        """
+
+    async def delete_asset_file(
+        self, **kwargs: Unpack[DeleteAssetFileRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a file from an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/delete_asset_file.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#delete_asset_file)
+        """
+
     async def delete_private_connection(
         self, **kwargs: Unpack[DeletePrivateConnectionInputTypeDef]
     ) -> DeletePrivateConnectionOutputTypeDef:
@@ -244,6 +330,14 @@ class DevOpsAgentServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/delete_private_connection.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#delete_private_connection)
+        """
+
+    async def delete_trigger(self, **kwargs: Unpack[DeleteTriggerRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a Trigger from the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/delete_trigger.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#delete_trigger)
         """
 
     async def deregister_service(
@@ -314,6 +408,34 @@ class DevOpsAgentServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#get_agent_space)
         """
 
+    async def get_asset(self, **kwargs: Unpack[GetAssetRequestTypeDef]) -> GetAssetResponseTypeDef:
+        """
+        Gets an asset from the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_asset.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#get_asset)
+        """
+
+    async def get_asset_content(
+        self, **kwargs: Unpack[GetAssetContentRequestTypeDef]
+    ) -> GetAssetContentResponseTypeDef:
+        """
+        Gets an asset's content as a zip bundle.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_asset_content.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#get_asset_content)
+        """
+
+    async def get_asset_file(
+        self, **kwargs: Unpack[GetAssetFileRequestTypeDef]
+    ) -> GetAssetFileResponseTypeDef:
+        """
+        Gets a file from an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_asset_file.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#get_asset_file)
+        """
+
     async def get_association(
         self, **kwargs: Unpack[GetAssociationInputTypeDef]
     ) -> GetAssociationOutputTypeDef:
@@ -364,6 +486,16 @@ class DevOpsAgentServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#get_service)
         """
 
+    async def get_trigger(
+        self, **kwargs: Unpack[GetTriggerRequestTypeDef]
+    ) -> GetTriggerResponseTypeDef:
+        """
+        Gets a Trigger from the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_trigger.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#get_trigger)
+        """
+
     async def list_agent_spaces(
         self, **kwargs: Unpack[ListAgentSpacesInputTypeDef]
     ) -> ListAgentSpacesOutputTypeDef:
@@ -372,6 +504,46 @@ class DevOpsAgentServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/list_agent_spaces.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#list_agent_spaces)
+        """
+
+    async def list_asset_files(
+        self, **kwargs: Unpack[ListAssetFilesRequestTypeDef]
+    ) -> ListAssetFilesResponseTypeDef:
+        """
+        Lists files in an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/list_asset_files.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#list_asset_files)
+        """
+
+    async def list_asset_types(
+        self, **kwargs: Unpack[ListAssetTypesRequestTypeDef]
+    ) -> ListAssetTypesResponseTypeDef:
+        """
+        Lists the supported asset types.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/list_asset_types.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#list_asset_types)
+        """
+
+    async def list_asset_versions(
+        self, **kwargs: Unpack[ListAssetVersionsRequestTypeDef]
+    ) -> ListAssetVersionsResponseTypeDef:
+        """
+        Lists versions of an asset in the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/list_asset_versions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#list_asset_versions)
+        """
+
+    async def list_assets(
+        self, **kwargs: Unpack[ListAssetsRequestTypeDef]
+    ) -> ListAssetsResponseTypeDef:
+        """
+        Lists assets in the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/list_assets.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#list_assets)
         """
 
     async def list_associations(
@@ -483,6 +655,16 @@ class DevOpsAgentServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#list_tags_for_resource)
         """
 
+    async def list_triggers(
+        self, **kwargs: Unpack[ListTriggersRequestTypeDef]
+    ) -> ListTriggersResponseTypeDef:
+        """
+        Lists Triggers in the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/list_triggers.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#list_triggers)
+        """
+
     async def list_webhooks(
         self, **kwargs: Unpack[ListWebhooksInputTypeDef]
     ) -> ListWebhooksOutputTypeDef:
@@ -538,6 +720,26 @@ class DevOpsAgentServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/update_agent_space.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#update_agent_space)
+        """
+
+    async def update_asset(
+        self, **kwargs: Unpack[UpdateAssetRequestTypeDef]
+    ) -> UpdateAssetResponseTypeDef:
+        """
+        Updates an asset in the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/update_asset.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#update_asset)
+        """
+
+    async def update_asset_file(
+        self, **kwargs: Unpack[UpdateAssetFileRequestTypeDef]
+    ) -> UpdateAssetFileResponseTypeDef:
+        """
+        Updates a file in an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/update_asset_file.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#update_asset_file)
         """
 
     async def update_association(
@@ -601,6 +803,16 @@ class DevOpsAgentServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#update_recommendation)
         """
 
+    async def update_trigger(
+        self, **kwargs: Unpack[UpdateTriggerRequestTypeDef]
+    ) -> UpdateTriggerResponseTypeDef:
+        """
+        Updates the status of an existing Trigger.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/update_trigger.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#update_trigger)
+        """
+
     async def validate_aws_associations(
         self, **kwargs: Unpack[ValidateAwsAssociationsInputTypeDef]
     ) -> dict[str, Any]:
@@ -616,6 +828,50 @@ class DevOpsAgentServiceClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_agent_spaces"]
     ) -> ListAgentSpacesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_asset_files"]
+    ) -> ListAssetFilesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_asset_types"]
+    ) -> ListAssetTypesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_asset_versions"]
+    ) -> ListAssetVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_assets"]
+    ) -> ListAssetsPaginator:
         """
         Create a paginator for an operation.
 
@@ -682,6 +938,17 @@ class DevOpsAgentServiceClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_services"]
     ) -> ListServicesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_triggers"]
+    ) -> ListTriggersPaginator:
         """
         Create a paginator for an operation.
 

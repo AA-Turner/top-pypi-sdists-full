@@ -2,8 +2,9 @@
 
 import re
 import unicodedata
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Union
+from typing import List, Optional, Set, Tuple, Union
 
 _DIR = Path(__file__).parent
 ESPEAK_DATA_DIR = _DIR / "espeak-ng-data"
@@ -18,7 +19,12 @@ class EspeakPhonemizer:
 
         espeakbridge.initialize(str(espeak_data_dir))
 
-    def phonemize(self, voice: str, text: str) -> list[list[str]]:
+    def phonemize(
+        self,
+        voice: str,
+        text: str,
+        vowel_clusters: Optional[Set[Tuple[str, ...]]] = None,
+    ) -> list[list[str]]:
         """Text to phonemes grouped by sentence."""
         from . import espeakbridge  # avoid circular import
 
@@ -44,10 +50,48 @@ class EspeakPhonemizer:
             sentence_phonemes.extend(list(unicodedata.normalize("NFD", phonemes_str)))
 
             if end_of_sentence:
+                if vowel_clusters:
+                    sentence_phonemes = _merge_known_vowel_clusters(
+                        sentence_phonemes, vowel_clusters
+                    )
+
                 all_phonemes.append(sentence_phonemes)
                 sentence_phonemes = []
 
         if sentence_phonemes:
+            # Text without a final sentence terminator
+            if vowel_clusters:
+                sentence_phonemes = _merge_known_vowel_clusters(
+                    sentence_phonemes, vowel_clusters
+                )
+
             all_phonemes.append(sentence_phonemes)
 
         return all_phonemes
+
+
+def _merge_known_vowel_clusters(
+    phones: Sequence[str], clusters: Set[Tuple[str, ...]]
+) -> List[str]:
+    """Merge adjacent recognized vowel clusters."""
+    max_len = max(len(k) for k in clusters)
+    out: list[str] = []
+    i = 0
+
+    while i < len(phones):
+        match: Tuple[str, ...] | None = None
+
+        for n in range(min(max_len, len(phones) - i), 1, -1):
+            candidate = tuple(phones[i : i + n])
+            if candidate in clusters:
+                match = candidate
+                break
+
+        if match is not None:
+            out.append("".join(match))
+            i += len(match)
+        else:
+            out.append(phones[i])
+            i += 1
+
+    return out

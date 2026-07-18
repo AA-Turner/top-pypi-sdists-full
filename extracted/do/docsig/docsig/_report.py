@@ -2,10 +2,7 @@
 docsig._report
 ==============
 
-Collect and format docstring-check failures for reporting. This module
-defines Failure (per-function validation results), Failed (one reported
-issue), Failures (sequence of failures), and report() to print them and
-return the highest exit code.
+Format and print docstring-check diagnostics for CLI and tooling.
 """
 
 import contextlib as _contextlib
@@ -13,12 +10,12 @@ import json as _json
 import os as _os
 import sys as _sys
 import typing as _t
-from dataclasses import dataclass as _dataclass
 from warnings import warn as _warn
 
 import astroid as _ast
 
 from ._config import Config as _Config
+from ._diagnostic import Diagnostic as _Diagnostic
 from ._module import Function as _Function
 from ._stub import UNNAMED as _UNNAMED
 from ._stub import VALID_DESCRIPTION as _VALID_DESCRIPTION
@@ -36,14 +33,14 @@ _MIN_MATCH = 0.8
 _MAX_MATCH = 1.0
 
 
-def check_function(func: _Function, config: _Config) -> "FunctionChecker":
+def check_function(func: _Function, config: _Config) -> "_FunctionResult":
     """Run configured checks for one function and return the result.
 
     :param func: Function under check.
     :param config: Configuration object.
     :return: Collected diagnostics for the function.
     """
-    return FunctionChecker(func, config)
+    return FunctionChecker(func, config).run()
 
 
 class RetCode:
@@ -68,24 +65,11 @@ class RetCode:
         return max(self._data)
 
 
-class Failures(list["FunctionChecker"]):
-    """Sequence of Failure instances (one per function checked)."""
+class Failures(list["_FunctionResult"]):
+    """Sequence of result instances (one per function checked)."""
 
 
-@_dataclass(frozen=True, order=True)
-class Diagnostic:  # pylint: disable=too-few-public-methods
-    """Single reported issue."""
-
-    name: str
-    ref: str
-    description: str
-    symbolic: str
-    lineno: int
-    hint: str | None = None
-    new: bool = False
-
-
-class FunctionChecker(list[Diagnostic]):
+class FunctionChecker:  # pylint: disable=too-few-public-methods
     """Collect docstring and signature failures for one function.
 
     Runs configured checks and appends Failed entries for each
@@ -96,9 +80,9 @@ class FunctionChecker(list[Diagnostic]):
     """
 
     def __init__(self, func: _Function, config: _Config) -> None:
-        super().__init__()
-        self._retcode = RetCode()
         self._func = func
+        self._config = config
+        self._diagnostics: list[_Diagnostic] = []
         if config.target:
             self._func.messages.extend(
                 i for i in _E.all if i not in config.target
@@ -113,8 +97,15 @@ class FunctionChecker(list[Diagnostic]):
         ):
             self._name = f"{self._func.parent.name}.{self._name}"
 
+        self._collector = _Collector(func, self._name, self._func.lineno)
+
+    def run(self) -> "_FunctionResult":
+        """Run the function checks and return the result.
+
+        :return: Function result.
+        """
         if self._func.error is not None:
-            self._retcode.add(2)
+            self._collector.retcode.add(2)
             self._sig9xx_error()
         else:
             self._sig0xx_config()
@@ -128,9 +119,9 @@ class FunctionChecker(list[Diagnostic]):
                     sig = self._func.signature.args.get(index)
                     self._sig4xx_parameters(doc, sig)
 
-                self._sig5xx_returns(config.check.property_returns)
+                self._sig5xx_returns(self._config.check.property_returns)
 
-        self.sort()
+        return _FunctionResult(self._name, self._func.lineno, self._collector)
 
     def _add(
         self,
@@ -138,18 +129,7 @@ class FunctionChecker(list[Diagnostic]):
         include_hint: bool = False,
         **kwargs: _t.Any,
     ) -> None:
-        self._retcode.add(int(not value.new))
-        failed = Diagnostic(
-            self._name,
-            value.ref,
-            value.description.format(**kwargs),
-            value.symbolic,
-            self.lineno,
-            value.hint if include_hint else None,
-            value.new,
-        )
-        if value not in self._func.messages and failed not in self:
-            super().append(failed)
+        self._collector.add(value, include_hint=include_hint, **kwargs)
 
     @staticmethod
     def _normalize_params(from_: _Params, to: _Params) -> None:
@@ -371,7 +351,7 @@ class FunctionChecker(list[Diagnostic]):
         # invalid-syntax
         if self._func.error is _ast.AstroidSyntaxError:
             self._add(_E[901])
-            self._retcode.add(123)
+            self._collector.retcode.add(123)
         # unicode-decode-error
         if self._func.error is UnicodeDecodeError:
             self._add(_E[902])
@@ -382,6 +362,73 @@ class FunctionChecker(list[Diagnostic]):
         if self._func.error is _ast.DuplicateBasesError:
             self._add(_E[904])
 
+
+class _Collector:
+    def __init__(
+        self,
+        func: _Function,
+        qualified_name: str,
+        lineno: int,
+    ) -> None:
+        self._func = func
+        self._qualified_name = qualified_name
+        self._lineno = lineno
+        self._diagnostics: list[_Diagnostic] = []
+        self._retcode = RetCode()
+
+    def add(
+        self,
+        value: _Message,
+        include_hint: bool = False,
+        **kwargs: _t.Any,
+    ) -> None:
+        """Add a diagnostic message.
+
+        :param value: Message to add.
+        :param include_hint: Whether to include the hint.
+        :param kwargs: Additional arguments to format the description.
+        """
+        self._retcode.add(int(not value.new))
+        diagnostic = _Diagnostic(
+            self._qualified_name,
+            value.ref,
+            value.description.format(**kwargs),
+            value.symbolic,
+            self._lineno,
+            value.hint if include_hint else None,
+            value.new,
+        )
+        if (
+            value not in self._func.messages
+            and diagnostic not in self._diagnostics
+        ):
+            self._diagnostics.append(diagnostic)
+
+    @property
+    def diagnostics(self) -> list[_Diagnostic]:
+        """Diagnostics sorted for stable output."""
+        return sorted(self._diagnostics)
+
+    @property
+    def retcode(self) -> RetCode:
+        """Exit code (non-zero if any check failed)."""
+        return self._retcode
+
+    def __bool__(self) -> bool:
+        return bool(self._diagnostics)
+
+
+class _FunctionResult:
+    def __init__(
+        self,
+        name: str,
+        lineno: int,
+        collector: _Collector,
+    ) -> None:
+        self._name = name
+        self._lineno = lineno
+        self._collector = collector
+
     @property
     def name(self) -> str:
         """Qualified name (Class.method) when nested, else bare name."""
@@ -390,12 +437,18 @@ class FunctionChecker(list[Diagnostic]):
     @property
     def lineno(self) -> int:
         """Line number of the function in the source."""
-        return self._func.lineno
+        return self._lineno
 
     @property
     def retcode(self) -> int:
         """Exit code (non-zero if any check failed)."""
-        return self._retcode.result
+        return self._collector.retcode.result
+
+    def __iter__(self) -> _t.Iterator[_Diagnostic]:
+        return iter(self._collector.diagnostics)
+
+    def __bool__(self) -> bool:
+        return bool(self._collector)
 
 
 # TODO: make report json by default and wrap with a reporter for cli
@@ -404,12 +457,13 @@ def report(
     config: _Config,
     file: str | None = None,
 ) -> int:
-    """Print failures to stdout and return the highest exit code.
+    """Print failures and return the highest exit code.
 
     Iterates over failures, prints each with path, line header, and
     messages, then returns the maximum retcode (0 or non-zero).
 
-    :param failures: Failures to print (one Failure per function).
+    :param failures: Failures to print (one FunctionResult per
+        function).
     :param config: Config for ANSI and formatting.
     :param file: Module path when failures came from a file (optional).
     :return: Exit code (non-zero if any check failed).

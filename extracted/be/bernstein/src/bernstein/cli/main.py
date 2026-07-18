@@ -64,11 +64,13 @@ from bernstein.cli.commands.consensus_cmd import consensus_group
 from bernstein.cli.commands.criterion_profile_cmd import criterion_profile_group
 from bernstein.cli.commands.decisions_cmd import decisions_group
 from bernstein.cli.commands.desktop_register_cmd import desktop_register_cmd
+from bernstein.cli.commands.events_cmd import events_group
 from bernstein.cli.commands.export_cmd import export_cmd
 from bernstein.cli.commands.fleet_cmd import fleet_group
 from bernstein.cli.commands.fork_cmd import fork_cmd
 from bernstein.cli.commands.integrations_cmd import integrations_group
 from bernstein.cli.commands.knowledge_cmd import knowledge_group
+from bernstein.cli.commands.pool_cmd import pool_group
 from bernstein.cli.commands.resume_cmd import resume_cmd
 from bernstein.cli.commands.role_adapter_policy_cmd import security_group as _role_adapter_security_group
 from bernstein.cli.commands.run_names_cmd import run_lookup_cmd
@@ -130,6 +132,7 @@ from bernstein.cli.task_cmd import (
     reject,
     review_cmd,
     sync,
+    task_group,
 )
 from bernstein.cli.templates_cmd import templates_group
 from bernstein.cli.triggers_cmd import triggers_group
@@ -855,6 +858,8 @@ def cli(
         max_blast_radius=None,
         # Bot-added: drift autofix (regen_contract_drift.py)
         attach=(),
+        # Bot-added: drift autofix (regen_contract_drift.py)
+        refresh_cache=False,
     )
 
 
@@ -864,6 +869,7 @@ def cli(
 
 # From task_cmd module - all registered with @click.command()
 cli.add_command(cancel)
+cli.add_command(task_group, "task")
 cli.add_command(add_task, "add-task")
 cli.add_command(sync)
 cli.add_command(review_cmd, "review")
@@ -909,6 +915,7 @@ cli.add_command(_thread_cmd, "thread")
 cli.add_command(github_group)
 cli.add_command(graph_group, "graph")
 cli.add_command(policy_group, "policy")
+cli.add_command(pool_group, "pool")
 cli.add_command(_role_adapter_security_group, "security")
 cli.add_command(mcp_server, "mcp")
 # Wire the release-1.9 community catalog as a subgroup of `bernstein mcp`.
@@ -1017,6 +1024,7 @@ cli.add_command(resume_cmd, "resume")
 cli.add_command(fork_cmd, "fork")
 cli.add_command(wrap_up, "wrap-up")
 cli.add_command(audit_group, "audit")
+cli.add_command(events_group, "events")
 cli.add_command(bom_group, "bom")
 cli.add_command(bundle_group, "bundle")
 cli.add_command(compliance_group, "compliance")
@@ -1062,6 +1070,11 @@ cli.add_command(fingerprint_group, "fingerprint")
 cli.add_command(fleet_group, "fleet")
 cli.add_command(triggers_group, "triggers")
 cli.add_command(schedule_group, "schedule")
+
+# Per-goal SLA contracts + signed violation receipts (#2549)
+from bernstein.cli.commands.sla_cmd import sla_group  # noqa: E402
+
+cli.add_command(sla_group, "sla")
 
 # Operator supervisor surface (#1800)
 from bernstein.cli.commands.supervisor_cmd import supervisor_group  # noqa: E402
@@ -1137,6 +1150,14 @@ cli.add_command(review_receipt_group, "review-receipt")
 from bernstein.cli.commands.escalation_cmd import escalation_group  # noqa: E402
 
 cli.add_command(escalation_group, "escalation")
+# Intent capsules with deterministic drift verification (#2514).
+from bernstein.cli.commands.intent_cmd import intent_group  # noqa: E402
+
+cli.add_command(intent_group, "intent")
+# Chain-anchored worker context capsules (#2545).
+from bernstein.cli.commands.context_cmd import context_group  # noqa: E402
+
+cli.add_command(context_group, "context")
 # Signed maker-checker / judge-panel gate adjudications (#2294).
 from bernstein.cli.commands.gate_cmd import gate_group  # noqa: E402
 
@@ -1258,6 +1279,15 @@ cli.add_command(hook_gate_group, "hook-gate")
 from bernstein.cli.commands.ledger_cmd import ledger_group  # noqa: E402
 
 cli.add_command(ledger_group, "ledger")
+
+# Ledger-projected missions: multi-day goals with phase gates + envelopes (#2509).
+from bernstein.cli.commands.mission_cmd import mission_group  # noqa: E402
+
+cli.add_command(mission_group, "mission")
+# Named resource pools with lease-backed admission projected from the ledger (#2544).
+from bernstein.cli.commands.limits_cmd import limits_group  # noqa: E402
+
+cli.add_command(limits_group, "limits")
 
 # Detached run service: submit a goal, disconnect, reattach later (#2352).
 from bernstein.cli.commands.run_service_cmd import run_service_group  # noqa: E402

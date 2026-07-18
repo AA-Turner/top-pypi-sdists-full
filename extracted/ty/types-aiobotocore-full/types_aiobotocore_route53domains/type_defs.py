@@ -689,11 +689,11 @@ class RegisterDomainRequestTypeDef(TypedDict):
 
 class TransferDomainRequestTypeDef(TypedDict):
     DomainName: str
-    DurationInYears: int
     AdminContact: ContactDetailUnionTypeDef
     RegistrantContact: ContactDetailUnionTypeDef
     TechContact: ContactDetailUnionTypeDef
     IdnLangCode: NotRequired[str]
+    DurationInYears: NotRequired[int]
     Nameservers: NotRequired[Sequence[NameserverUnionTypeDef]]
     AuthCode: NotRequired[str]
     AutoRenew: NotRequired[bool]

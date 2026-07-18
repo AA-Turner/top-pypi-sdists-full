@@ -23,22 +23,49 @@ from typing import Union
 
 from .literals import (
     AccessType,
+    AutonomousDatabaseBackupStatusType,
+    AutonomousDatabaseBackupTypeType,
+    AutonomousDatabaseResourceStatusType,
+    AutonomousDatabaseWalletStatusType,
+    AutonomousMaintenanceScheduleTypeType,
+    CharacterSetTypeType,
+    CloneTypeType,
     ComputeModelType,
+    DatabaseEditionType,
+    DatabaseManagementStatusType,
+    DatabaseTypeType,
+    DataGuardRoleType,
+    DataSafeStatusType,
     DayOfWeekNameType,
     DbNodeResourceStatusType,
     DbServerPatchingStatusType,
+    DbWorkloadType,
+    DisasterRecoveryTypeType,
     DiskRedundancyType,
+    EncryptionKeyProviderInputType,
+    EncryptionKeyProviderType,
+    ExternalIdTypeType,
     IamRoleStatusType,
     IormLifecycleStateType,
     LicenseModelType,
     ManagedResourceStatusType,
     MonthNameType,
+    NetServicesArchitectureType,
     ObjectiveType,
     OciOnboardingStatusType,
+    OpenModeType,
+    OperationsInsightsStatusType,
     PatchingModeTypeType,
+    PermissionLevelType,
     PreferenceTypeType,
+    RefreshableModeType,
+    RefreshableStatusType,
+    RepeatCadenceType,
     ResourceStatusType,
     ShapeTypeType,
+    SourceTypeType,
+    StandbyAllowlistedIpsSourceType,
+    WalletTypeType,
 )
 
 if sys.version_info >= (3, 12):
@@ -50,7 +77,21 @@ else:
 __all__ = (
     "AcceptMarketplaceRegistrationInputTypeDef",
     "AssociateIamRoleToResourceInputTypeDef",
+    "AutonomousDatabaseApexTypeDef",
+    "AutonomousDatabaseBackupSummaryTypeDef",
+    "AutonomousDatabaseBackupTypeDef",
+    "AutonomousDatabaseCharacterSetSummaryTypeDef",
+    "AutonomousDatabaseConnectionStringsTypeDef",
+    "AutonomousDatabaseConnectionUrlsTypeDef",
+    "AutonomousDatabasePeerSummaryTypeDef",
+    "AutonomousDatabaseSummaryTypeDef",
+    "AutonomousDatabaseTypeDef",
+    "AutonomousDatabaseVersionSummaryTypeDef",
+    "AutonomousDatabaseWalletDetailsTypeDef",
     "AutonomousVirtualMachineSummaryTypeDef",
+    "AwsEncryptionKeyConfigurationInputTypeDef",
+    "AwsEncryptionKeyConfigurationTypeDef",
+    "CloneToRefreshableConfigurationTypeDef",
     "CloudAutonomousVmClusterResourceDetailsTypeDef",
     "CloudAutonomousVmClusterSummaryTypeDef",
     "CloudAutonomousVmClusterTypeDef",
@@ -59,6 +100,12 @@ __all__ = (
     "CloudExadataInfrastructureUnallocatedResourcesTypeDef",
     "CloudVmClusterSummaryTypeDef",
     "CloudVmClusterTypeDef",
+    "CreateAutonomousDatabaseBackupInputTypeDef",
+    "CreateAutonomousDatabaseBackupOutputTypeDef",
+    "CreateAutonomousDatabaseInputTypeDef",
+    "CreateAutonomousDatabaseOutputTypeDef",
+    "CreateAutonomousDatabaseWalletInputTypeDef",
+    "CreateAutonomousDatabaseWalletOutputTypeDef",
     "CreateCloudAutonomousVmClusterInputTypeDef",
     "CreateCloudAutonomousVmClusterOutputTypeDef",
     "CreateCloudExadataInfrastructureInputTypeDef",
@@ -69,9 +116,15 @@ __all__ = (
     "CreateOdbNetworkOutputTypeDef",
     "CreateOdbPeeringConnectionInputTypeDef",
     "CreateOdbPeeringConnectionOutputTypeDef",
+    "CrossRegionDataGuardConfigurationTypeDef",
+    "CrossRegionDisasterRecoveryConfigurationTypeDef",
     "CrossRegionS3RestoreSourcesAccessTypeDef",
     "CustomerContactTypeDef",
     "DataCollectionOptionsTypeDef",
+    "DatabaseCloneConfigurationTypeDef",
+    "DatabaseConnectionStringProfileTypeDef",
+    "DatabaseStandbySummaryTypeDef",
+    "DatabaseToolTypeDef",
     "DayOfWeekTypeDef",
     "DbIormConfigTypeDef",
     "DbNodeSummaryTypeDef",
@@ -80,13 +133,27 @@ __all__ = (
     "DbServerSummaryTypeDef",
     "DbServerTypeDef",
     "DbSystemShapeSummaryTypeDef",
+    "DeleteAutonomousDatabaseBackupInputTypeDef",
+    "DeleteAutonomousDatabaseInputTypeDef",
     "DeleteCloudAutonomousVmClusterInputTypeDef",
     "DeleteCloudExadataInfrastructureInputTypeDef",
     "DeleteCloudVmClusterInputTypeDef",
     "DeleteOdbNetworkInputTypeDef",
     "DeleteOdbPeeringConnectionInputTypeDef",
     "DisassociateIamRoleFromResourceInputTypeDef",
+    "DisasterRecoveryConfigurationTypeDef",
+    "EncryptionKeyConfigurationInputTypeDef",
+    "EncryptionKeyConfigurationTypeDef",
+    "EncryptionSummaryTypeDef",
     "ExadataIormConfigTypeDef",
+    "FailoverAutonomousDatabaseInputTypeDef",
+    "FailoverAutonomousDatabaseOutputTypeDef",
+    "GetAutonomousDatabaseBackupInputTypeDef",
+    "GetAutonomousDatabaseBackupOutputTypeDef",
+    "GetAutonomousDatabaseInputTypeDef",
+    "GetAutonomousDatabaseOutputTypeDef",
+    "GetAutonomousDatabaseWalletDetailsInputTypeDef",
+    "GetAutonomousDatabaseWalletDetailsOutputTypeDef",
     "GetCloudAutonomousVmClusterInputTypeDef",
     "GetCloudAutonomousVmClusterOutputTypeDef",
     "GetCloudExadataInfrastructureInputTypeDef",
@@ -108,6 +175,24 @@ __all__ = (
     "IamRoleTypeDef",
     "InitializeServiceInputTypeDef",
     "KmsAccessTypeDef",
+    "ListAutonomousDatabaseBackupsInputPaginateTypeDef",
+    "ListAutonomousDatabaseBackupsInputTypeDef",
+    "ListAutonomousDatabaseBackupsOutputTypeDef",
+    "ListAutonomousDatabaseCharacterSetsInputPaginateTypeDef",
+    "ListAutonomousDatabaseCharacterSetsInputTypeDef",
+    "ListAutonomousDatabaseCharacterSetsOutputTypeDef",
+    "ListAutonomousDatabaseClonesInputPaginateTypeDef",
+    "ListAutonomousDatabaseClonesInputTypeDef",
+    "ListAutonomousDatabaseClonesOutputTypeDef",
+    "ListAutonomousDatabasePeersInputPaginateTypeDef",
+    "ListAutonomousDatabasePeersInputTypeDef",
+    "ListAutonomousDatabasePeersOutputTypeDef",
+    "ListAutonomousDatabaseVersionsInputPaginateTypeDef",
+    "ListAutonomousDatabaseVersionsInputTypeDef",
+    "ListAutonomousDatabaseVersionsOutputTypeDef",
+    "ListAutonomousDatabasesInputPaginateTypeDef",
+    "ListAutonomousDatabasesInputTypeDef",
+    "ListAutonomousDatabasesOutputTypeDef",
     "ListAutonomousVirtualMachinesInputPaginateTypeDef",
     "ListAutonomousVirtualMachinesInputTypeDef",
     "ListAutonomousVirtualMachinesOutputTypeDef",
@@ -143,6 +228,9 @@ __all__ = (
     "ListSystemVersionsOutputTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "LongTermBackupScheduleOutputTypeDef",
+    "LongTermBackupScheduleTypeDef",
+    "LongTermBackupScheduleUnionTypeDef",
     "MaintenanceWindowOutputTypeDef",
     "MaintenanceWindowTypeDef",
     "MaintenanceWindowUnionTypeDef",
@@ -150,25 +238,52 @@ __all__ = (
     "ManagedServicesTypeDef",
     "MonthTypeDef",
     "OciDnsForwardingConfigTypeDef",
+    "OciEncryptionKeyConfigurationTypeDef",
+    "OciIamRoleTypeDef",
     "OciIdentityDomainTypeDef",
     "OdbNetworkSummaryTypeDef",
     "OdbNetworkTypeDef",
     "OdbPeeringConnectionSummaryTypeDef",
     "OdbPeeringConnectionTypeDef",
+    "OkvEncryptionKeyConfigurationTypeDef",
     "PaginatorConfigTypeDef",
+    "PointInTimeRestoreConfigurationTypeDef",
+    "RebootAutonomousDatabaseInputTypeDef",
+    "RebootAutonomousDatabaseOutputTypeDef",
     "RebootDbNodeInputTypeDef",
     "RebootDbNodeOutputTypeDef",
+    "ResourcePoolSummaryTypeDef",
     "ResponseMetadataTypeDef",
+    "RestoreAutonomousDatabaseInputTypeDef",
+    "RestoreAutonomousDatabaseOutputTypeDef",
+    "RestoreFromBackupConfigurationTypeDef",
     "S3AccessTypeDef",
+    "ScheduledOperationDetailsTypeDef",
     "ServiceNetworkEndpointTypeDef",
+    "ShrinkAutonomousDatabaseInputTypeDef",
+    "ShrinkAutonomousDatabaseOutputTypeDef",
+    "SourceConfigurationTypeDef",
+    "StartAutonomousDatabaseInputTypeDef",
+    "StartAutonomousDatabaseOutputTypeDef",
     "StartDbNodeInputTypeDef",
     "StartDbNodeOutputTypeDef",
+    "StopAutonomousDatabaseInputTypeDef",
+    "StopAutonomousDatabaseOutputTypeDef",
     "StopDbNodeInputTypeDef",
     "StopDbNodeOutputTypeDef",
     "StsAccessTypeDef",
+    "SubscriptionErrorTypeDef",
+    "SwitchoverAutonomousDatabaseInputTypeDef",
+    "SwitchoverAutonomousDatabaseOutputTypeDef",
     "SystemVersionSummaryTypeDef",
     "TagResourceRequestTypeDef",
+    "TimestampTypeDef",
+    "TransportableTablespaceTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateAutonomousDatabaseBackupInputTypeDef",
+    "UpdateAutonomousDatabaseBackupOutputTypeDef",
+    "UpdateAutonomousDatabaseInputTypeDef",
+    "UpdateAutonomousDatabaseOutputTypeDef",
     "UpdateCloudExadataInfrastructureInputTypeDef",
     "UpdateCloudExadataInfrastructureOutputTypeDef",
     "UpdateOdbNetworkInputTypeDef",
@@ -189,6 +304,145 @@ class AssociateIamRoleToResourceInputTypeDef(TypedDict):
     resourceArn: str
 
 
+class AutonomousDatabaseApexTypeDef(TypedDict):
+    apexVersion: NotRequired[str]
+    ordsVersion: NotRequired[str]
+
+
+AutonomousDatabaseBackupSummaryTypeDef = TypedDict(
+    "AutonomousDatabaseBackupSummaryTypeDef",
+    {
+        "autonomousDatabaseBackupId": NotRequired[str],
+        "autonomousDatabaseBackupArn": NotRequired[str],
+        "autonomousDatabaseId": NotRequired[str],
+        "ocid": NotRequired[str],
+        "displayName": NotRequired[str],
+        "dbVersion": NotRequired[str],
+        "status": NotRequired[AutonomousDatabaseBackupStatusType],
+        "statusReason": NotRequired[str],
+        "isAutomatic": NotRequired[bool],
+        "retentionPeriodInDays": NotRequired[int],
+        "sizeInTBs": NotRequired[float],
+        "timeAvailableTill": NotRequired[datetime],
+        "timeStarted": NotRequired[datetime],
+        "timeEnded": NotRequired[datetime],
+        "type": NotRequired[AutonomousDatabaseBackupTypeType],
+    },
+)
+AutonomousDatabaseBackupTypeDef = TypedDict(
+    "AutonomousDatabaseBackupTypeDef",
+    {
+        "autonomousDatabaseBackupId": NotRequired[str],
+        "autonomousDatabaseBackupArn": NotRequired[str],
+        "autonomousDatabaseId": NotRequired[str],
+        "ocid": NotRequired[str],
+        "displayName": NotRequired[str],
+        "dbVersion": NotRequired[str],
+        "status": NotRequired[AutonomousDatabaseBackupStatusType],
+        "statusReason": NotRequired[str],
+        "isAutomatic": NotRequired[bool],
+        "retentionPeriodInDays": NotRequired[int],
+        "sizeInTBs": NotRequired[float],
+        "timeAvailableTill": NotRequired[datetime],
+        "timeStarted": NotRequired[datetime],
+        "timeEnded": NotRequired[datetime],
+        "type": NotRequired[AutonomousDatabaseBackupTypeType],
+    },
+)
+
+
+class AutonomousDatabaseCharacterSetSummaryTypeDef(TypedDict):
+    characterSet: NotRequired[str]
+
+
+class DatabaseConnectionStringProfileTypeDef(TypedDict):
+    consumerGroup: NotRequired[str]
+    displayName: NotRequired[str]
+    hostFormat: NotRequired[str]
+    isRegional: NotRequired[bool]
+    protocol: NotRequired[str]
+    sessionMode: NotRequired[str]
+    syntaxFormat: NotRequired[str]
+    tlsAuthentication: NotRequired[str]
+    value: NotRequired[str]
+
+
+class AutonomousDatabaseConnectionUrlsTypeDef(TypedDict):
+    apexUrl: NotRequired[str]
+    databaseTransformsUrl: NotRequired[str]
+    graphStudioUrl: NotRequired[str]
+    machineLearningNotebookUrl: NotRequired[str]
+    machineLearningUserManagementUrl: NotRequired[str]
+    mongoDbUrl: NotRequired[str]
+    ordsUrl: NotRequired[str]
+    spatialStudioUrl: NotRequired[str]
+    sqlDevWebUrl: NotRequired[str]
+
+
+class AutonomousDatabasePeerSummaryTypeDef(TypedDict):
+    autonomousDatabaseId: NotRequired[str]
+    autonomousDatabaseArn: NotRequired[str]
+    ocid: NotRequired[str]
+    region: NotRequired[str]
+
+
+class CustomerContactTypeDef(TypedDict):
+    email: NotRequired[str]
+
+
+class DatabaseStandbySummaryTypeDef(TypedDict):
+    availabilityDomain: NotRequired[str]
+    lagTimeInSeconds: NotRequired[int]
+    status: NotRequired[AutonomousDatabaseResourceStatusType]
+    statusReason: NotRequired[str]
+    maintenanceTargetComponent: NotRequired[str]
+    timeDataGuardRoleChanged: NotRequired[datetime]
+    timeDisasterRecoveryRoleChanged: NotRequired[datetime]
+    timeMaintenanceBegin: NotRequired[datetime]
+    timeMaintenanceEnd: NotRequired[datetime]
+
+
+class DatabaseToolTypeDef(TypedDict):
+    isEnabled: NotRequired[bool]
+    name: NotRequired[str]
+    computeCount: NotRequired[float]
+    maxIdleTimeInMinutes: NotRequired[int]
+
+
+class DisasterRecoveryConfigurationTypeDef(TypedDict):
+    disasterRecoveryType: NotRequired[DisasterRecoveryTypeType]
+    isReplicateAutomaticBackups: NotRequired[bool]
+    isSnapshotStandby: NotRequired[bool]
+    timeSnapshotStandbyEnabledTill: NotRequired[datetime]
+
+
+class LongTermBackupScheduleOutputTypeDef(TypedDict):
+    isDisabled: NotRequired[bool]
+    repeatCadence: NotRequired[RepeatCadenceType]
+    retentionPeriodInDays: NotRequired[int]
+    timeOfBackup: NotRequired[datetime]
+
+
+class ResourcePoolSummaryTypeDef(TypedDict):
+    isDisabled: NotRequired[bool]
+    poolSize: NotRequired[int]
+    poolStorageSizeInTBs: NotRequired[int]
+    availableStorageCapacityInTBs: NotRequired[float]
+    totalComputeCapacity: NotRequired[int]
+    availableComputeCapacity: NotRequired[int]
+
+
+class AutonomousDatabaseVersionSummaryTypeDef(TypedDict):
+    dbWorkload: NotRequired[DbWorkloadType]
+    details: NotRequired[str]
+    version: NotRequired[str]
+
+
+class AutonomousDatabaseWalletDetailsTypeDef(TypedDict):
+    status: NotRequired[AutonomousDatabaseWalletStatusType]
+    timeRotated: NotRequired[datetime]
+
+
 class AutonomousVirtualMachineSummaryTypeDef(TypedDict):
     autonomousVirtualMachineId: NotRequired[str]
     status: NotRequired[ResourceStatusType]
@@ -205,6 +459,21 @@ class AutonomousVirtualMachineSummaryTypeDef(TypedDict):
     ociResourceAnchorName: NotRequired[str]
 
 
+class AwsEncryptionKeyConfigurationInputTypeDef(TypedDict):
+    iamRoleArn: NotRequired[str]
+    externalIdType: NotRequired[ExternalIdTypeType]
+    kmsKeyId: NotRequired[str]
+
+
+class AwsEncryptionKeyConfigurationTypeDef(TypedDict):
+    iamRoleArn: NotRequired[str]
+    externalIdType: NotRequired[ExternalIdTypeType]
+    kmsKeyId: NotRequired[str]
+
+
+TimestampTypeDef = Union[datetime, str]
+
+
 class CloudAutonomousVmClusterResourceDetailsTypeDef(TypedDict):
     cloudAutonomousVmClusterId: NotRequired[str]
     unallocatedAdbStorageInTBs: NotRequired[float]
@@ -217,14 +486,18 @@ class IamRoleTypeDef(TypedDict):
     awsIntegration: NotRequired[Literal["KmsTde"]]
 
 
-class CustomerContactTypeDef(TypedDict):
-    email: NotRequired[str]
-
-
 class DataCollectionOptionsTypeDef(TypedDict):
     isDiagnosticsEventsEnabled: NotRequired[bool]
     isHealthMonitoringEnabled: NotRequired[bool]
     isIncidentLogsEnabled: NotRequired[bool]
+
+
+class CreateAutonomousDatabaseBackupInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    displayName: NotRequired[str]
+    retentionPeriodInDays: NotRequired[int]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -233,6 +506,17 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+
+class TransportableTablespaceTypeDef(TypedDict):
+    ttsBundleUrl: NotRequired[str]
+
+
+class CreateAutonomousDatabaseWalletInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    password: str
+    walletType: NotRequired[WalletTypeType]
+    clientToken: NotRequired[str]
 
 
 class CreateOdbNetworkInputTypeDef(TypedDict):
@@ -265,10 +549,25 @@ class CreateOdbPeeringConnectionInputTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
 
 
+class CrossRegionDataGuardConfigurationTypeDef(TypedDict):
+    sourceAutonomousDatabaseArn: str
+
+
+class CrossRegionDisasterRecoveryConfigurationTypeDef(TypedDict):
+    sourceAutonomousDatabaseArn: str
+    remoteDisasterRecoveryType: DisasterRecoveryTypeType
+    isReplicateAutomaticBackups: NotRequired[bool]
+
+
 class CrossRegionS3RestoreSourcesAccessTypeDef(TypedDict):
     region: NotRequired[str]
     ipv4Addresses: NotRequired[list[str]]
     status: NotRequired[ManagedResourceStatusType]
+
+
+class DatabaseCloneConfigurationTypeDef(TypedDict):
+    sourceAutonomousDatabaseId: str
+    cloneType: CloneTypeType
 
 
 class DayOfWeekTypeDef(TypedDict):
@@ -375,6 +674,14 @@ class DbSystemShapeSummaryTypeDef(TypedDict):
     areServerTypesSupported: NotRequired[bool]
 
 
+class DeleteAutonomousDatabaseBackupInputTypeDef(TypedDict):
+    autonomousDatabaseBackupId: str
+
+
+class DeleteAutonomousDatabaseInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+
+
 class DeleteCloudAutonomousVmClusterInputTypeDef(TypedDict):
     cloudAutonomousVmClusterId: str
 
@@ -400,6 +707,36 @@ class DisassociateIamRoleFromResourceInputTypeDef(TypedDict):
     iamRoleArn: str
     awsIntegration: Literal["KmsTde"]
     resourceArn: str
+
+
+class OciEncryptionKeyConfigurationTypeDef(TypedDict):
+    kmsKeyId: str
+    vaultId: str
+
+
+class OkvEncryptionKeyConfigurationTypeDef(TypedDict):
+    certificateDirectoryName: str
+    directoryName: str
+    okvKmsKey: str
+    okvUri: str
+    certificateId: NotRequired[str]
+
+
+class FailoverAutonomousDatabaseInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    peerDbArn: NotRequired[str]
+
+
+class GetAutonomousDatabaseBackupInputTypeDef(TypedDict):
+    autonomousDatabaseBackupId: str
+
+
+class GetAutonomousDatabaseInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+
+
+class GetAutonomousDatabaseWalletDetailsInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
 
 
 class GetCloudAutonomousVmClusterInputTypeDef(TypedDict):
@@ -429,6 +766,11 @@ class GetDbServerInputTypeDef(TypedDict):
     dbServerId: str
 
 
+class OciIamRoleTypeDef(TypedDict):
+    iamRoleArn: NotRequired[str]
+    awsIntegration: NotRequired[Literal["KmsTde"]]
+
+
 class OciIdentityDomainTypeDef(TypedDict):
     ociIdentityDomainId: NotRequired[str]
     ociIdentityDomainResourceUrl: NotRequired[str]
@@ -436,6 +778,10 @@ class OciIdentityDomainTypeDef(TypedDict):
     status: NotRequired[ResourceStatusType]
     statusReason: NotRequired[str]
     accountSetupCloudFormationUrl: NotRequired[str]
+
+
+class SubscriptionErrorTypeDef(TypedDict):
+    errorMessage: NotRequired[str]
 
 
 class GetOdbNetworkInputTypeDef(TypedDict):
@@ -479,6 +825,47 @@ class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+
+ListAutonomousDatabaseBackupsInputTypeDef = TypedDict(
+    "ListAutonomousDatabaseBackupsInputTypeDef",
+    {
+        "autonomousDatabaseId": str,
+        "maxResults": NotRequired[int],
+        "nextToken": NotRequired[str],
+        "status": NotRequired[AutonomousDatabaseBackupStatusType],
+        "type": NotRequired[AutonomousDatabaseBackupTypeType],
+    },
+)
+
+
+class ListAutonomousDatabaseCharacterSetsInputTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    characterSetType: NotRequired[CharacterSetTypeType]
+
+
+class ListAutonomousDatabaseClonesInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListAutonomousDatabasePeersInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListAutonomousDatabaseVersionsInputTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    dbWorkload: NotRequired[DbWorkloadType]
+
+
+class ListAutonomousDatabasesInputTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 
 class ListAutonomousVirtualMachinesInputTypeDef(TypedDict):
@@ -609,9 +996,28 @@ class OciDnsForwardingConfigTypeDef(TypedDict):
     ociDnsListenerIp: NotRequired[str]
 
 
+class RebootAutonomousDatabaseInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    isOnlineReboot: NotRequired[bool]
+
+
 class RebootDbNodeInputTypeDef(TypedDict):
     cloudVmClusterId: str
     dbNodeId: str
+
+
+class RestoreFromBackupConfigurationTypeDef(TypedDict):
+    autonomousDatabaseBackupId: str
+    cloneType: CloneTypeType
+    cloneTableSpaceList: NotRequired[Sequence[int]]
+
+
+class ShrinkAutonomousDatabaseInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+
+
+class StartAutonomousDatabaseInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
 
 
 class StartDbNodeInputTypeDef(TypedDict):
@@ -619,9 +1025,18 @@ class StartDbNodeInputTypeDef(TypedDict):
     dbNodeId: str
 
 
+class StopAutonomousDatabaseInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+
+
 class StopDbNodeInputTypeDef(TypedDict):
     cloudVmClusterId: str
     dbNodeId: str
+
+
+class SwitchoverAutonomousDatabaseInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    peerDbArn: NotRequired[str]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -632,6 +1047,11 @@ class TagResourceRequestTypeDef(TypedDict):
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
+
+
+class UpdateAutonomousDatabaseBackupInputTypeDef(TypedDict):
+    autonomousDatabaseBackupId: str
+    retentionPeriodInDays: NotRequired[int]
 
 
 class UpdateOdbNetworkInputTypeDef(TypedDict):
@@ -655,6 +1075,49 @@ class UpdateOdbPeeringConnectionInputTypeDef(TypedDict):
     displayName: NotRequired[str]
     peerNetworkCidrsToBeAdded: NotRequired[Sequence[str]]
     peerNetworkCidrsToBeRemoved: NotRequired[Sequence[str]]
+
+
+class AutonomousDatabaseConnectionStringsTypeDef(TypedDict):
+    allConnectionStrings: NotRequired[dict[str, str]]
+    dedicated: NotRequired[str]
+    high: NotRequired[str]
+    medium: NotRequired[str]
+    low: NotRequired[str]
+    profiles: NotRequired[list[DatabaseConnectionStringProfileTypeDef]]
+
+
+class EncryptionKeyConfigurationInputTypeDef(TypedDict):
+    awsEncryptionKey: NotRequired[AwsEncryptionKeyConfigurationInputTypeDef]
+
+
+class CloneToRefreshableConfigurationTypeDef(TypedDict):
+    sourceAutonomousDatabaseId: str
+    refreshableMode: NotRequired[RefreshableModeType]
+    autoRefreshFrequencyInSeconds: NotRequired[int]
+    autoRefreshPointLagInSeconds: NotRequired[int]
+    timeOfAutoRefreshStart: NotRequired[TimestampTypeDef]
+    openMode: NotRequired[OpenModeType]
+    cloneType: NotRequired[CloneTypeType]
+
+
+class LongTermBackupScheduleTypeDef(TypedDict):
+    isDisabled: NotRequired[bool]
+    repeatCadence: NotRequired[RepeatCadenceType]
+    retentionPeriodInDays: NotRequired[int]
+    timeOfBackup: NotRequired[TimestampTypeDef]
+
+
+class PointInTimeRestoreConfigurationTypeDef(TypedDict):
+    sourceAutonomousDatabaseId: str
+    cloneType: CloneTypeType
+    timestamp: NotRequired[TimestampTypeDef]
+    useLatestAvailableBackupTimestamp: NotRequired[bool]
+    cloneTableSpaceList: NotRequired[Sequence[int]]
+
+
+class RestoreAutonomousDatabaseInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    timestamp: TimestampTypeDef
 
 
 class CloudExadataInfrastructureUnallocatedResourcesTypeDef(TypedDict):
@@ -689,6 +1152,27 @@ class CreateCloudVmClusterInputTypeDef(TypedDict):
     timeZone: NotRequired[str]
     clientToken: NotRequired[str]
     scanListenerPortTcp: NotRequired[int]
+
+
+class CreateAutonomousDatabaseBackupOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    autonomousDatabaseBackupId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateAutonomousDatabaseOutputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    displayName: str
+    status: AutonomousDatabaseResourceStatusType
+    statusReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateAutonomousDatabaseWalletOutputTypeDef(TypedDict):
+    autonomousDatabaseWalletFile: bytes
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateCloudAutonomousVmClusterOutputTypeDef(TypedDict):
@@ -731,6 +1215,48 @@ class CreateOdbPeeringConnectionOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class FailoverAutonomousDatabaseOutputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    displayName: str
+    status: AutonomousDatabaseResourceStatusType
+    statusReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetAutonomousDatabaseBackupOutputTypeDef(TypedDict):
+    autonomousDatabaseBackup: AutonomousDatabaseBackupTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetAutonomousDatabaseWalletDetailsOutputTypeDef(TypedDict):
+    autonomousDatabaseWalletDetails: AutonomousDatabaseWalletDetailsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListAutonomousDatabaseBackupsOutputTypeDef(TypedDict):
+    autonomousDatabaseBackups: list[AutonomousDatabaseBackupSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListAutonomousDatabaseCharacterSetsOutputTypeDef(TypedDict):
+    autonomousDatabaseCharacterSets: list[AutonomousDatabaseCharacterSetSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListAutonomousDatabasePeersOutputTypeDef(TypedDict):
+    autonomousDatabasePeers: list[AutonomousDatabasePeerSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListAutonomousDatabaseVersionsOutputTypeDef(TypedDict):
+    autonomousDatabaseVersions: list[AutonomousDatabaseVersionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ListAutonomousVirtualMachinesOutputTypeDef(TypedDict):
     autonomousVirtualMachines: list[AutonomousVirtualMachineSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -742,9 +1268,41 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class RebootAutonomousDatabaseOutputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    displayName: str
+    status: AutonomousDatabaseResourceStatusType
+    statusReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class RebootDbNodeOutputTypeDef(TypedDict):
     dbNodeId: str
     status: DbNodeResourceStatusType
+    statusReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RestoreAutonomousDatabaseOutputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    displayName: str
+    status: AutonomousDatabaseResourceStatusType
+    statusReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ShrinkAutonomousDatabaseOutputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    displayName: str
+    status: AutonomousDatabaseResourceStatusType
+    statusReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartAutonomousDatabaseOutputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    displayName: str
+    status: AutonomousDatabaseResourceStatusType
     statusReason: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -756,9 +1314,41 @@ class StartDbNodeOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class StopAutonomousDatabaseOutputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    displayName: str
+    status: AutonomousDatabaseResourceStatusType
+    statusReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class StopDbNodeOutputTypeDef(TypedDict):
     dbNodeId: str
     status: DbNodeResourceStatusType
+    statusReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SwitchoverAutonomousDatabaseOutputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    displayName: str
+    status: AutonomousDatabaseResourceStatusType
+    statusReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateAutonomousDatabaseBackupOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    autonomousDatabaseBackupId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateAutonomousDatabaseOutputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    displayName: str
+    status: AutonomousDatabaseResourceStatusType
     statusReason: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -785,6 +1375,12 @@ class UpdateOdbPeeringConnectionOutputTypeDef(TypedDict):
     statusReason: str
     odbPeeringConnectionId: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ScheduledOperationDetailsTypeDef(TypedDict):
+    dayOfWeek: DayOfWeekTypeDef
+    scheduledStartTime: NotRequired[str]
+    scheduledStopTime: NotRequired[str]
 
 
 class ExadataIormConfigTypeDef(TypedDict):
@@ -857,11 +1453,21 @@ class ListDbSystemShapesOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class EncryptionKeyConfigurationTypeDef(TypedDict):
+    awsEncryptionKey: NotRequired[AwsEncryptionKeyConfigurationTypeDef]
+    ociEncryptionKey: NotRequired[OciEncryptionKeyConfigurationTypeDef]
+    okvEncryptionKey: NotRequired[OkvEncryptionKeyConfigurationTypeDef]
+
+
 class GetOciOnboardingStatusOutputTypeDef(TypedDict):
     status: OciOnboardingStatusType
     existingTenancyActivationLink: str
     newTenancyActivationLink: str
     ociIdentityDomain: OciIdentityDomainTypeDef
+    autonomousDatabaseOciIntegrationIamRoles: list[OciIamRoleTypeDef]
+    linkedOciTenancyId: str
+    linkedOciCompartmentId: str
+    subscriptionErrors: list[SubscriptionErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -874,6 +1480,41 @@ class ListGiVersionsOutputTypeDef(TypedDict):
     giVersions: list[GiVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+ListAutonomousDatabaseBackupsInputPaginateTypeDef = TypedDict(
+    "ListAutonomousDatabaseBackupsInputPaginateTypeDef",
+    {
+        "autonomousDatabaseId": str,
+        "status": NotRequired[AutonomousDatabaseBackupStatusType],
+        "type": NotRequired[AutonomousDatabaseBackupTypeType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+
+
+class ListAutonomousDatabaseCharacterSetsInputPaginateTypeDef(TypedDict):
+    characterSetType: NotRequired[CharacterSetTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAutonomousDatabaseClonesInputPaginateTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAutonomousDatabasePeersInputPaginateTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAutonomousDatabaseVersionsInputPaginateTypeDef(TypedDict):
+    dbWorkload: NotRequired[DbWorkloadType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAutonomousDatabasesInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListAutonomousVirtualMachinesInputPaginateTypeDef(TypedDict):
@@ -980,6 +1621,20 @@ class ManagedServicesTypeDef(TypedDict):
     stsAccess: NotRequired[StsAccessTypeDef]
     kmsAccess: NotRequired[KmsAccessTypeDef]
     crossRegionS3RestoreSourcesAccess: NotRequired[list[CrossRegionS3RestoreSourcesAccessTypeDef]]
+
+
+LongTermBackupScheduleUnionTypeDef = Union[
+    LongTermBackupScheduleTypeDef, LongTermBackupScheduleOutputTypeDef
+]
+
+
+class SourceConfigurationTypeDef(TypedDict):
+    databaseClone: NotRequired[DatabaseCloneConfigurationTypeDef]
+    restoreFromBackup: NotRequired[RestoreFromBackupConfigurationTypeDef]
+    pointInTimeRestore: NotRequired[PointInTimeRestoreConfigurationTypeDef]
+    crossRegionDataGuard: NotRequired[CrossRegionDataGuardConfigurationTypeDef]
+    crossRegionDisasterRecovery: NotRequired[CrossRegionDisasterRecoveryConfigurationTypeDef]
+    cloneToRefreshable: NotRequired[CloneToRefreshableConfigurationTypeDef]
 
 
 class GetCloudExadataInfrastructureUnallocatedResourcesOutputTypeDef(TypedDict):
@@ -1090,6 +1745,11 @@ class ListDbServersOutputTypeDef(TypedDict):
 class GetDbServerOutputTypeDef(TypedDict):
     dbServer: DbServerTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class EncryptionSummaryTypeDef(TypedDict):
+    encryptionKeyProvider: NotRequired[EncryptionKeyProviderType]
+    encryptionKeyConfiguration: NotRequired[EncryptionKeyConfigurationTypeDef]
 
 
 class CloudAutonomousVmClusterSummaryTypeDef(TypedDict):
@@ -1337,6 +1997,94 @@ class OdbNetworkTypeDef(TypedDict):
     ec2PlacementGroupIds: NotRequired[list[str]]
 
 
+class UpdateAutonomousDatabaseInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    adminPassword: NotRequired[str]
+    computeCount: NotRequired[float]
+    cpuCoreCount: NotRequired[int]
+    dataStorageSizeInTBs: NotRequired[int]
+    dataStorageSizeInGBs: NotRequired[int]
+    displayName: NotRequired[str]
+    dbName: NotRequired[str]
+    dbVersion: NotRequired[str]
+    dbWorkload: NotRequired[DbWorkloadType]
+    dbToolsDetails: NotRequired[Sequence[DatabaseToolTypeDef]]
+    databaseEdition: NotRequired[DatabaseEditionType]
+    licenseModel: NotRequired[LicenseModelType]
+    isAutoScalingEnabled: NotRequired[bool]
+    isAutoScalingForStorageEnabled: NotRequired[bool]
+    isBackupRetentionLocked: NotRequired[bool]
+    isLocalDataGuardEnabled: NotRequired[bool]
+    isMtlsConnectionRequired: NotRequired[bool]
+    isRefreshableClone: NotRequired[bool]
+    isDisconnectPeer: NotRequired[bool]
+    backupRetentionPeriodInDays: NotRequired[int]
+    byolComputeCountLimit: NotRequired[float]
+    localAdgAutoFailoverMaxDataLossLimit: NotRequired[int]
+    autonomousMaintenanceScheduleType: NotRequired[AutonomousMaintenanceScheduleTypeType]
+    customerContactsToSendToOCI: NotRequired[Sequence[CustomerContactTypeDef]]
+    scheduledOperations: NotRequired[Sequence[ScheduledOperationDetailsTypeDef]]
+    longTermBackupSchedule: NotRequired[LongTermBackupScheduleUnionTypeDef]
+    openMode: NotRequired[OpenModeType]
+    permissionLevel: NotRequired[PermissionLevelType]
+    refreshableMode: NotRequired[RefreshableModeType]
+    privateEndpointIp: NotRequired[str]
+    privateEndpointLabel: NotRequired[str]
+    peerDbId: NotRequired[str]
+    resourcePoolLeaderId: NotRequired[str]
+    resourcePoolSummary: NotRequired[ResourcePoolSummaryTypeDef]
+    standbyAllowlistedIpsSource: NotRequired[StandbyAllowlistedIpsSourceType]
+    standbyAllowlistedIps: NotRequired[Sequence[str]]
+    allowlistedIps: NotRequired[Sequence[str]]
+    autoRefreshFrequencyInSeconds: NotRequired[int]
+    autoRefreshPointLagInSeconds: NotRequired[int]
+    timeOfAutoRefreshStart: NotRequired[TimestampTypeDef]
+    encryptionKeyProvider: NotRequired[EncryptionKeyProviderInputType]
+    encryptionKeyConfiguration: NotRequired[EncryptionKeyConfigurationInputTypeDef]
+
+
+class CreateAutonomousDatabaseInputTypeDef(TypedDict):
+    odbNetworkId: NotRequired[str]
+    displayName: NotRequired[str]
+    dbName: NotRequired[str]
+    adminPassword: NotRequired[str]
+    computeCount: NotRequired[float]
+    dataStorageSizeInTBs: NotRequired[int]
+    dataStorageSizeInGBs: NotRequired[int]
+    dbWorkload: NotRequired[DbWorkloadType]
+    isAutoScalingEnabled: NotRequired[bool]
+    isAutoScalingForStorageEnabled: NotRequired[bool]
+    licenseModel: NotRequired[LicenseModelType]
+    characterSet: NotRequired[str]
+    ncharacterSet: NotRequired[str]
+    dbVersion: NotRequired[str]
+    databaseEdition: NotRequired[DatabaseEditionType]
+    standbyAllowlistedIpsSource: NotRequired[StandbyAllowlistedIpsSourceType]
+    autonomousMaintenanceScheduleType: NotRequired[AutonomousMaintenanceScheduleTypeType]
+    backupRetentionPeriodInDays: NotRequired[int]
+    byolComputeCountLimit: NotRequired[float]
+    cpuCoreCount: NotRequired[int]
+    customerContactsToSendToOCI: NotRequired[Sequence[CustomerContactTypeDef]]
+    privateEndpointIp: NotRequired[str]
+    privateEndpointLabel: NotRequired[str]
+    resourcePoolLeaderId: NotRequired[str]
+    resourcePoolSummary: NotRequired[ResourcePoolSummaryTypeDef]
+    scheduledOperations: NotRequired[Sequence[ScheduledOperationDetailsTypeDef]]
+    standbyAllowlistedIps: NotRequired[Sequence[str]]
+    allowlistedIps: NotRequired[Sequence[str]]
+    transportableTablespace: NotRequired[TransportableTablespaceTypeDef]
+    isBackupRetentionLocked: NotRequired[bool]
+    isLocalDataGuardEnabled: NotRequired[bool]
+    isMtlsConnectionRequired: NotRequired[bool]
+    dbToolsDetails: NotRequired[Sequence[DatabaseToolTypeDef]]
+    source: NotRequired[SourceTypeType]
+    sourceConfiguration: NotRequired[SourceConfigurationTypeDef]
+    encryptionKeyProvider: NotRequired[EncryptionKeyProviderInputType]
+    encryptionKeyConfiguration: NotRequired[EncryptionKeyConfigurationInputTypeDef]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
 class ListCloudVmClustersOutputTypeDef(TypedDict):
     cloudVmClusters: list[CloudVmClusterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1346,6 +2094,218 @@ class ListCloudVmClustersOutputTypeDef(TypedDict):
 class GetCloudVmClusterOutputTypeDef(TypedDict):
     cloudVmCluster: CloudVmClusterTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AutonomousDatabaseSummaryTypeDef(TypedDict):
+    autonomousDatabaseId: NotRequired[str]
+    autonomousDatabaseArn: NotRequired[str]
+    ociResourceAnchorName: NotRequired[str]
+    percentProgress: NotRequired[float]
+    ocid: NotRequired[str]
+    ociUrl: NotRequired[str]
+    displayName: NotRequired[str]
+    dbName: NotRequired[str]
+    sourceId: NotRequired[str]
+    status: NotRequired[AutonomousDatabaseResourceStatusType]
+    statusReason: NotRequired[str]
+    databaseType: NotRequired[DatabaseTypeType]
+    dbVersion: NotRequired[str]
+    dbWorkload: NotRequired[DbWorkloadType]
+    characterSet: NotRequired[str]
+    ncharacterSet: NotRequired[str]
+    databaseEdition: NotRequired[DatabaseEditionType]
+    licenseModel: NotRequired[LicenseModelType]
+    openMode: NotRequired[OpenModeType]
+    permissionLevel: NotRequired[PermissionLevelType]
+    isMtlsConnectionRequired: NotRequired[bool]
+    autonomousMaintenanceScheduleType: NotRequired[AutonomousMaintenanceScheduleTypeType]
+    netServicesArchitecture: NotRequired[NetServicesArchitectureType]
+    availableUpgradeVersions: NotRequired[list[str]]
+    byolComputeCountLimit: NotRequired[int]
+    connectionStringDetails: NotRequired[AutonomousDatabaseConnectionStringsTypeDef]
+    serviceConsoleUrl: NotRequired[str]
+    sqlWebDeveloperUrl: NotRequired[str]
+    customerContacts: NotRequired[list[CustomerContactTypeDef]]
+    apexDetails: NotRequired[AutonomousDatabaseApexTypeDef]
+    standbyDb: NotRequired[DatabaseStandbySummaryTypeDef]
+    localStandbyDb: NotRequired[DatabaseStandbySummaryTypeDef]
+    dataSafeStatus: NotRequired[DataSafeStatusType]
+    databaseManagementStatus: NotRequired[DatabaseManagementStatusType]
+    operationsInsightsStatus: NotRequired[OperationsInsightsStatusType]
+    availabilityZone: NotRequired[str]
+    availabilityZoneId: NotRequired[str]
+    maintenanceTargetComponent: NotRequired[str]
+    connectionUrls: NotRequired[AutonomousDatabaseConnectionUrlsTypeDef]
+    dbToolsDetails: NotRequired[list[DatabaseToolTypeDef]]
+    scheduledOperations: NotRequired[list[ScheduledOperationDetailsTypeDef]]
+    resourcePoolLeaderId: NotRequired[str]
+    computeCount: NotRequired[float]
+    computeModel: NotRequired[ComputeModelType]
+    cpuCoreCount: NotRequired[int]
+    memoryPerOracleComputeUnitInGBs: NotRequired[int]
+    provisionableCpus: NotRequired[list[int]]
+    isAutoScalingEnabled: NotRequired[bool]
+    dataStorageSizeInTBs: NotRequired[float]
+    dataStorageSizeInGBs: NotRequired[int]
+    usedDataStorageSizeInTBs: NotRequired[float]
+    usedDataStorageSizeInGBs: NotRequired[int]
+    actualUsedDataStorageSizeInTBs: NotRequired[float]
+    allocatedStorageSizeInTBs: NotRequired[float]
+    inMemoryAreaInGBs: NotRequired[int]
+    isAutoScalingForStorageEnabled: NotRequired[bool]
+    odbNetworkId: NotRequired[str]
+    odbNetworkArn: NotRequired[str]
+    privateEndpoint: NotRequired[str]
+    privateEndpointIp: NotRequired[str]
+    privateEndpointLabel: NotRequired[str]
+    allowlistedIps: NotRequired[list[str]]
+    standbyAllowlistedIps: NotRequired[list[str]]
+    standbyAllowlistedIpsSource: NotRequired[StandbyAllowlistedIpsSourceType]
+    isLocalDataGuardEnabled: NotRequired[bool]
+    isRemoteDataGuardEnabled: NotRequired[bool]
+    localDisasterRecoveryType: NotRequired[DisasterRecoveryTypeType]
+    role: NotRequired[DataGuardRoleType]
+    peerDbIds: NotRequired[list[str]]
+    failedDataRecoveryInSeconds: NotRequired[int]
+    localAdgAutoFailoverMaxDataLossLimit: NotRequired[int]
+    remoteDisasterRecoveryConfiguration: NotRequired[DisasterRecoveryConfigurationTypeDef]
+    isRefreshableClone: NotRequired[bool]
+    refreshableMode: NotRequired[RefreshableModeType]
+    refreshableStatus: NotRequired[RefreshableStatusType]
+    autoRefreshFrequencyInSeconds: NotRequired[int]
+    autoRefreshPointLagInSeconds: NotRequired[int]
+    isReconnectCloneEnabled: NotRequired[bool]
+    cloneTableSpaceList: NotRequired[list[int]]
+    backupRetentionPeriodInDays: NotRequired[int]
+    longTermBackupSchedule: NotRequired[LongTermBackupScheduleOutputTypeDef]
+    isBackupRetentionLocked: NotRequired[bool]
+    totalBackupStorageSizeInGBs: NotRequired[float]
+    resourcePoolSummary: NotRequired[ResourcePoolSummaryTypeDef]
+    encryptionSummary: NotRequired[EncryptionSummaryTypeDef]
+    createdAt: NotRequired[datetime]
+    timeOfLastBackup: NotRequired[datetime]
+    timeMaintenanceBegin: NotRequired[datetime]
+    timeMaintenanceEnd: NotRequired[datetime]
+    timeLocalDataGuardEnabled: NotRequired[datetime]
+    timeDataGuardRoleChanged: NotRequired[datetime]
+    timeOfLastSwitchover: NotRequired[datetime]
+    timeOfLastFailover: NotRequired[datetime]
+    timeOfLastRefresh: NotRequired[datetime]
+    timeOfLastRefreshPoint: NotRequired[datetime]
+    timeOfNextRefresh: NotRequired[datetime]
+    timeOfAutoRefreshStart: NotRequired[datetime]
+    timeDeletionOfFreeAutonomousDatabase: NotRequired[datetime]
+    timeReclamationOfFreeAutonomousDatabase: NotRequired[datetime]
+    timeDisasterRecoveryRoleChanged: NotRequired[datetime]
+    timeUntilReconnectCloneEnabled: NotRequired[datetime]
+    nextLongTermBackupTimeStamp: NotRequired[datetime]
+    timeUndeleted: NotRequired[datetime]
+
+
+class AutonomousDatabaseTypeDef(TypedDict):
+    autonomousDatabaseId: NotRequired[str]
+    autonomousDatabaseArn: NotRequired[str]
+    ociResourceAnchorName: NotRequired[str]
+    percentProgress: NotRequired[float]
+    ocid: NotRequired[str]
+    ociUrl: NotRequired[str]
+    displayName: NotRequired[str]
+    dbName: NotRequired[str]
+    sourceId: NotRequired[str]
+    status: NotRequired[AutonomousDatabaseResourceStatusType]
+    statusReason: NotRequired[str]
+    databaseType: NotRequired[DatabaseTypeType]
+    dbVersion: NotRequired[str]
+    dbWorkload: NotRequired[DbWorkloadType]
+    characterSet: NotRequired[str]
+    ncharacterSet: NotRequired[str]
+    databaseEdition: NotRequired[DatabaseEditionType]
+    licenseModel: NotRequired[LicenseModelType]
+    openMode: NotRequired[OpenModeType]
+    permissionLevel: NotRequired[PermissionLevelType]
+    isMtlsConnectionRequired: NotRequired[bool]
+    autonomousMaintenanceScheduleType: NotRequired[AutonomousMaintenanceScheduleTypeType]
+    netServicesArchitecture: NotRequired[NetServicesArchitectureType]
+    availableUpgradeVersions: NotRequired[list[str]]
+    byolComputeCountLimit: NotRequired[int]
+    connectionStringDetails: NotRequired[AutonomousDatabaseConnectionStringsTypeDef]
+    serviceConsoleUrl: NotRequired[str]
+    sqlWebDeveloperUrl: NotRequired[str]
+    customerContacts: NotRequired[list[CustomerContactTypeDef]]
+    apexDetails: NotRequired[AutonomousDatabaseApexTypeDef]
+    standbyDb: NotRequired[DatabaseStandbySummaryTypeDef]
+    localStandbyDb: NotRequired[DatabaseStandbySummaryTypeDef]
+    dataSafeStatus: NotRequired[DataSafeStatusType]
+    databaseManagementStatus: NotRequired[DatabaseManagementStatusType]
+    operationsInsightsStatus: NotRequired[OperationsInsightsStatusType]
+    availabilityZone: NotRequired[str]
+    availabilityZoneId: NotRequired[str]
+    maintenanceTargetComponent: NotRequired[str]
+    connectionUrls: NotRequired[AutonomousDatabaseConnectionUrlsTypeDef]
+    dbToolsDetails: NotRequired[list[DatabaseToolTypeDef]]
+    scheduledOperations: NotRequired[list[ScheduledOperationDetailsTypeDef]]
+    resourcePoolLeaderId: NotRequired[str]
+    computeCount: NotRequired[float]
+    computeModel: NotRequired[ComputeModelType]
+    cpuCoreCount: NotRequired[int]
+    memoryPerOracleComputeUnitInGBs: NotRequired[int]
+    provisionableCpus: NotRequired[list[int]]
+    isAutoScalingEnabled: NotRequired[bool]
+    dataStorageSizeInTBs: NotRequired[float]
+    dataStorageSizeInGBs: NotRequired[int]
+    usedDataStorageSizeInTBs: NotRequired[float]
+    usedDataStorageSizeInGBs: NotRequired[int]
+    actualUsedDataStorageSizeInTBs: NotRequired[float]
+    allocatedStorageSizeInTBs: NotRequired[float]
+    inMemoryAreaInGBs: NotRequired[int]
+    isAutoScalingForStorageEnabled: NotRequired[bool]
+    odbNetworkId: NotRequired[str]
+    odbNetworkArn: NotRequired[str]
+    privateEndpoint: NotRequired[str]
+    privateEndpointIp: NotRequired[str]
+    privateEndpointLabel: NotRequired[str]
+    allowlistedIps: NotRequired[list[str]]
+    standbyAllowlistedIps: NotRequired[list[str]]
+    standbyAllowlistedIpsSource: NotRequired[StandbyAllowlistedIpsSourceType]
+    isLocalDataGuardEnabled: NotRequired[bool]
+    isRemoteDataGuardEnabled: NotRequired[bool]
+    localDisasterRecoveryType: NotRequired[DisasterRecoveryTypeType]
+    role: NotRequired[DataGuardRoleType]
+    peerDbIds: NotRequired[list[str]]
+    failedDataRecoveryInSeconds: NotRequired[int]
+    localAdgAutoFailoverMaxDataLossLimit: NotRequired[int]
+    remoteDisasterRecoveryConfiguration: NotRequired[DisasterRecoveryConfigurationTypeDef]
+    isRefreshableClone: NotRequired[bool]
+    refreshableMode: NotRequired[RefreshableModeType]
+    refreshableStatus: NotRequired[RefreshableStatusType]
+    autoRefreshFrequencyInSeconds: NotRequired[int]
+    autoRefreshPointLagInSeconds: NotRequired[int]
+    isReconnectCloneEnabled: NotRequired[bool]
+    cloneTableSpaceList: NotRequired[list[int]]
+    backupRetentionPeriodInDays: NotRequired[int]
+    longTermBackupSchedule: NotRequired[LongTermBackupScheduleOutputTypeDef]
+    isBackupRetentionLocked: NotRequired[bool]
+    totalBackupStorageSizeInGBs: NotRequired[float]
+    resourcePoolSummary: NotRequired[ResourcePoolSummaryTypeDef]
+    encryptionSummary: NotRequired[EncryptionSummaryTypeDef]
+    createdAt: NotRequired[datetime]
+    timeOfLastBackup: NotRequired[datetime]
+    timeMaintenanceBegin: NotRequired[datetime]
+    timeMaintenanceEnd: NotRequired[datetime]
+    timeLocalDataGuardEnabled: NotRequired[datetime]
+    timeDataGuardRoleChanged: NotRequired[datetime]
+    timeOfLastSwitchover: NotRequired[datetime]
+    timeOfLastFailover: NotRequired[datetime]
+    timeOfLastRefresh: NotRequired[datetime]
+    timeOfLastRefreshPoint: NotRequired[datetime]
+    timeOfNextRefresh: NotRequired[datetime]
+    timeOfAutoRefreshStart: NotRequired[datetime]
+    timeDeletionOfFreeAutonomousDatabase: NotRequired[datetime]
+    timeReclamationOfFreeAutonomousDatabase: NotRequired[datetime]
+    timeDisasterRecoveryRoleChanged: NotRequired[datetime]
+    timeUntilReconnectCloneEnabled: NotRequired[datetime]
+    nextLongTermBackupTimeStamp: NotRequired[datetime]
+    timeUndeleted: NotRequired[datetime]
 
 
 class ListCloudAutonomousVmClustersOutputTypeDef(TypedDict):
@@ -1418,4 +2378,21 @@ class ListOdbNetworksOutputTypeDef(TypedDict):
 
 class GetOdbNetworkOutputTypeDef(TypedDict):
     odbNetwork: OdbNetworkTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListAutonomousDatabaseClonesOutputTypeDef(TypedDict):
+    autonomousDatabaseClones: list[AutonomousDatabaseSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListAutonomousDatabasesOutputTypeDef(TypedDict):
+    autonomousDatabases: list[AutonomousDatabaseSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class GetAutonomousDatabaseOutputTypeDef(TypedDict):
+    autonomousDatabase: AutonomousDatabaseTypeDef
     ResponseMetadata: ResponseMetadataTypeDef

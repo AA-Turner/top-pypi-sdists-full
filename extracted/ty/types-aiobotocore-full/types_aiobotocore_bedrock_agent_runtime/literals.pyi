@@ -25,12 +25,18 @@ __all__ = (
     "ActionGroupSignatureType",
     "ActionInvocationTypeType",
     "AgentCollaborationType",
+    "AgenticRetrieveRerankingConfigurationTypeType",
+    "AgenticRetrieveRerankingModelTypeType",
+    "AgenticRetrieveStatusType",
+    "AgenticRetrieveStepType",
+    "AgenticRetrieveTypeType",
     "AgentsforBedrockRuntimeServiceName",
     "AttributeTypeType",
     "ConfirmationStateType",
     "ConversationRoleType",
     "CreationModeType",
     "CustomControlMethodType",
+    "DocumentOutputFormatType",
     "ExecutionTypeType",
     "ExternalSourceTypeType",
     "FileSourceTypeType",
@@ -43,6 +49,8 @@ __all__ = (
     "FlowExecutionStatusType",
     "FlowNodeIODataTypeType",
     "FlowNodeInputCategoryType",
+    "FoundationModelConfigurationTypeType",
+    "FoundationModelTypeType",
     "GeneratedQueryTypeType",
     "GetAgentMemoryPaginatorName",
     "GuadrailActionType",
@@ -67,6 +75,7 @@ __all__ = (
     "ListInvocationStepsPaginatorName",
     "ListInvocationsPaginatorName",
     "ListSessionsPaginatorName",
+    "ManagedSearchRerankingConfigurationTypeType",
     "MemoryTypeType",
     "NodeErrorCodeType",
     "NodeTypeType",
@@ -87,6 +96,7 @@ __all__ = (
     "RerankSourceTypeType",
     "RerankingConfigurationTypeType",
     "RerankingMetadataSelectionModeType",
+    "RerankingModelTypeType",
     "ResourceServiceName",
     "ResponseStateType",
     "RetrievalResultContentColumnTypeType",
@@ -112,11 +122,19 @@ ActionGroupSignatureType = Literal[
 ]
 ActionInvocationTypeType = Literal["RESULT", "USER_CONFIRMATION", "USER_CONFIRMATION_AND_RESULT"]
 AgentCollaborationType = Literal["DISABLED", "SUPERVISOR", "SUPERVISOR_ROUTER"]
+AgenticRetrieveRerankingConfigurationTypeType = Literal["BEDROCK_RERANKING_MODEL"]
+AgenticRetrieveRerankingModelTypeType = Literal["CUSTOM", "MANAGED", "NONE"]
+AgenticRetrieveStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
+AgenticRetrieveStepType = Literal[
+    "FullDocumentExpansion", "Planning", "Retrieval", "SpeculativeRetrieval"
+]
+AgenticRetrieveTypeType = Literal["BedrockKnowledgeBase"]
 AttributeTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
 ConfirmationStateType = Literal["CONFIRM", "DENY"]
 ConversationRoleType = Literal["assistant", "user"]
 CreationModeType = Literal["DEFAULT", "OVERRIDDEN"]
 CustomControlMethodType = Literal["RETURN_CONTROL"]
+DocumentOutputFormatType = Literal["EXTRACTED", "RAW"]
 ExecutionTypeType = Literal["LAMBDA", "RETURN_CONTROL"]
 ExternalSourceTypeType = Literal["BYTE_CONTENT", "S3"]
 FileSourceTypeType = Literal["BYTE_CONTENT", "S3"]
@@ -129,6 +147,8 @@ FlowExecutionEventTypeType = Literal["Flow", "Node"]
 FlowExecutionStatusType = Literal["Aborted", "Failed", "Running", "Succeeded", "TimedOut"]
 FlowNodeIODataTypeType = Literal["Array", "Boolean", "Number", "Object", "String"]
 FlowNodeInputCategoryType = Literal["ExitLoop", "LoopCondition", "ReturnValueToLoopStart"]
+FoundationModelConfigurationTypeType = Literal["BEDROCK_FOUNDATION_MODEL"]
+FoundationModelTypeType = Literal["CUSTOM", "MANAGED"]
 GeneratedQueryTypeType = Literal["REDSHIFT_SQL"]
 GetAgentMemoryPaginatorName = Literal["get_agent_memory"]
 GuadrailActionType = Literal["INTERVENED", "NONE"]
@@ -193,6 +213,7 @@ ListFlowExecutionsPaginatorName = Literal["list_flow_executions"]
 ListInvocationStepsPaginatorName = Literal["list_invocation_steps"]
 ListInvocationsPaginatorName = Literal["list_invocations"]
 ListSessionsPaginatorName = Literal["list_sessions"]
+ManagedSearchRerankingConfigurationTypeType = Literal["BEDROCK_RERANKING_MODEL"]
 MemoryTypeType = Literal["SESSION_SUMMARY"]
 NodeErrorCodeType = Literal["BAD_GATEWAY", "DEPENDENCY_FAILED", "INTERNAL_SERVER", "VALIDATION"]
 NodeTypeType = Literal[
@@ -226,13 +247,23 @@ RerankQueryContentTypeType = Literal["TEXT"]
 RerankSourceTypeType = Literal["INLINE"]
 RerankingConfigurationTypeType = Literal["BEDROCK_RERANKING_MODEL"]
 RerankingMetadataSelectionModeType = Literal["ALL", "SELECTIVE"]
+RerankingModelTypeType = Literal["CUSTOM", "MANAGED", "NONE"]
 ResponseStateType = Literal["FAILURE", "REPROMPT"]
 RetrievalResultContentColumnTypeType = Literal[
     "BLOB", "BOOLEAN", "DOUBLE", "LONG", "NULL", "STRING"
 ]
 RetrievalResultContentTypeType = Literal["AUDIO", "IMAGE", "ROW", "TEXT", "VIDEO"]
 RetrievalResultLocationTypeType = Literal[
-    "CONFLUENCE", "CUSTOM", "KENDRA", "S3", "SALESFORCE", "SHAREPOINT", "SQL", "WEB"
+    "CONFLUENCE",
+    "CUSTOM",
+    "GOOGLEDRIVE",
+    "KENDRA",
+    "ONEDRIVE",
+    "S3",
+    "SALESFORCE",
+    "SHAREPOINT",
+    "SQL",
+    "WEB",
 ]
 RetrieveAndGenerateTypeType = Literal["EXTERNAL_SOURCES", "KNOWLEDGE_BASE"]
 RetrievePaginatorName = Literal["retrieve"]
@@ -438,8 +469,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -466,6 +495,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -533,10 +564,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -569,6 +600,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -596,6 +628,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -617,7 +650,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -638,6 +670,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

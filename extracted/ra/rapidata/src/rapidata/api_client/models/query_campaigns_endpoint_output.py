@@ -18,9 +18,9 @@ import json
 
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from rapidata.api_client.models.boosting_control_mode import BoostingControlMode
-from rapidata.api_client.models.campaign_status_model import CampaignStatusModel
+from rapidata.api_client.models.campaign_status import CampaignStatus
 from pydantic import ValidationError
 from rapidata.api_client.lazy_model import LazyValidatedModel
 from typing import Optional, Set
@@ -32,14 +32,15 @@ class QueryCampaignsEndpointOutput(LazyValidatedModel):
     """ # noqa: E501
     id: StrictStr = Field(description="The unique identifier of the campaign.")
     name: StrictStr = Field(description="The name of the campaign.")
-    status: CampaignStatusModel = Field(description="The current status of the campaign.")
+    status: CampaignStatus = Field(description="The current status of the campaign.")
     priority: StrictInt = Field(description="The priority level of the campaign.")
     has_booster: StrictBool = Field(description="Whether the campaign has a booster.", alias="hasBooster")
     boost_level: StrictInt = Field(description="The campaign's effective boost level (0-10). 0 when no boost is active.  Lets clients render and edit the level without unpacking the boosting profile.", alias="boostLevel")
     boosting_control_mode: BoostingControlMode = Field(description="How the campaign's boost is controlled — Manual (user-editable) or Automatic  (managed by an owning service; boost edits are rejected by the API).", alias="boostingControlMode")
     owner_mail: StrictStr = Field(description="The email of the campaign owner.", alias="ownerMail")
+    organization_id: Optional[StrictStr] = Field(default=None, description="The id of the organization that owns the entity.", alias="organizationId")
     created_at: datetime = Field(description="The timestamp when the campaign was created.", alias="createdAt")
-    __properties: ClassVar[List[str]] = ["id", "name", "status", "priority", "hasBooster", "boostLevel", "boostingControlMode", "ownerMail", "createdAt"]
+    __properties: ClassVar[List[str]] = ["id", "name", "status", "priority", "hasBooster", "boostLevel", "boostingControlMode", "ownerMail", "organizationId", "createdAt"]
 
     # model_config is inherited from LazyValidatedModel
 
@@ -76,6 +77,11 @@ class QueryCampaignsEndpointOutput(LazyValidatedModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if organization_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.organization_id is None and "organization_id" in self.model_fields_set:
+            _dict['organizationId'] = None
+
         return _dict
 
     @classmethod
@@ -96,6 +102,7 @@ class QueryCampaignsEndpointOutput(LazyValidatedModel):
             "boostLevel": obj.get("boostLevel"),
             "boostingControlMode": obj.get("boostingControlMode"),
             "ownerMail": obj.get("ownerMail"),
+            "organizationId": obj.get("organizationId"),
             "createdAt": obj.get("createdAt")
         }
         try:

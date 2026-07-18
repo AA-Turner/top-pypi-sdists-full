@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "AuthFlowType",
+    "CapabilityTypeType",
     "DevOpsAgentServiceServiceName",
     "EventChannelTypeType",
     "ExecutionStatusType",
@@ -33,12 +34,17 @@ __all__ = (
     "GoalTypeType",
     "IpAddressTypeType",
     "ListAgentSpacesPaginatorName",
+    "ListAssetFilesPaginatorName",
+    "ListAssetTypesPaginatorName",
+    "ListAssetVersionsPaginatorName",
+    "ListAssetsPaginatorName",
     "ListAssociationsPaginatorName",
     "ListBacklogTasksPaginatorName",
     "ListExecutionsPaginatorName",
     "ListGoalsPaginatorName",
     "ListJournalRecordsPaginatorName",
     "ListServicesPaginatorName",
+    "ListTriggersPaginatorName",
     "MCPServerAuthorizationMethodType",
     "MonitorAccountTypeType",
     "NewRelicRegionType",
@@ -50,6 +56,8 @@ __all__ = (
     "PrivateConnectionTypeType",
     "RecommendationPriorityType",
     "RecommendationStatusType",
+    "RemoteAgentAuthorizationMethodType",
+    "ResourceConfigDnsResolutionType",
     "ResourceServiceName",
     "SchedulerStateType",
     "ServiceName",
@@ -66,6 +74,9 @@ __all__ = (
 
 
 AuthFlowType = Literal["iam", "idc", "idp"]
+CapabilityTypeType = Literal[
+    "RELEASE_READINESS_REVIEW", "RELEASE_READINESS_REVIEW_AUTOMATED_TESTING"
+]
 EventChannelTypeType = Literal["webhook"]
 ExecutionStatusType = Literal["CANCELED", "FAILED", "RUNNING", "STOPPED", "TIMED_OUT"]
 GitLabTokenTypeType = Literal["group", "personal"]
@@ -74,12 +85,17 @@ GoalStatusType = Literal["ACTIVE", "COMPLETE", "PAUSED"]
 GoalTypeType = Literal["CUSTOMER_DEFINED", "ONCALL_REPORT"]
 IpAddressTypeType = Literal["DUAL_STACK", "IPV4", "IPV6"]
 ListAgentSpacesPaginatorName = Literal["list_agent_spaces"]
+ListAssetFilesPaginatorName = Literal["list_asset_files"]
+ListAssetTypesPaginatorName = Literal["list_asset_types"]
+ListAssetVersionsPaginatorName = Literal["list_asset_versions"]
+ListAssetsPaginatorName = Literal["list_assets"]
 ListAssociationsPaginatorName = Literal["list_associations"]
 ListBacklogTasksPaginatorName = Literal["list_backlog_tasks"]
 ListExecutionsPaginatorName = Literal["list_executions"]
 ListGoalsPaginatorName = Literal["list_goals"]
 ListJournalRecordsPaginatorName = Literal["list_journal_records"]
 ListServicesPaginatorName = Literal["list_services"]
+ListTriggersPaginatorName = Literal["list_triggers"]
 MCPServerAuthorizationMethodType = Literal[
     "api-key", "bearer-token", "oauth-3lo", "oauth-client-credentials"
 ]
@@ -95,8 +111,11 @@ PostRegisterServiceSupportedServiceType = Literal[
     "mcpserverdatadog",
     "mcpservergrafana",
     "mcpservernewrelic",
+    "mcpserversigv4",
     "mcpserversplunk",
     "pagerduty",
+    "remoteagent",
+    "remoteagentsigv4",
     "servicenow",
 ]
 PriorityType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM", "MINIMAL"]
@@ -108,6 +127,8 @@ RecommendationPriorityType = Literal["HIGH", "LOW", "MEDIUM"]
 RecommendationStatusType = Literal[
     "ACCEPTED", "CLOSED", "COMPLETED", "PROPOSED", "REJECTED", "UPDATE_IN_PROGRESS"
 ]
+RemoteAgentAuthorizationMethodType = Literal["api-key", "bearer-token", "oauth-client-credentials"]
+ResourceConfigDnsResolutionType = Literal["IN_VPC", "PUBLIC"]
 SchedulerStateType = Literal["DISABLED", "ENABLED"]
 ServiceType = Literal[
     "azure",
@@ -121,8 +142,11 @@ ServiceType = Literal[
     "mcpserverdatadog",
     "mcpservergrafana",
     "mcpservernewrelic",
+    "mcpserversigv4",
     "mcpserversplunk",
     "pagerduty",
+    "remoteagent",
+    "remoteagentsigv4",
     "servicenow",
     "slack",
 ]
@@ -138,9 +162,10 @@ TaskStatusType = Literal[
     "PENDING_CUSTOMER_APPROVAL",
     "PENDING_START",
     "PENDING_TRIAGE",
+    "SKIPPED",
     "TIMED_OUT",
 ]
-TaskTypeType = Literal["EVALUATION", "INVESTIGATION"]
+TaskTypeType = Literal["EVALUATION", "INVESTIGATION", "RELEASE_READINESS_REVIEW", "RELEASE_TESTING"]
 UserTypeType = Literal["IAM", "IDC", "IDP"]
 ValidationStatusType = Literal["invalid", "pending-confirmation", "valid"]
 WebhookTypeType = Literal["apikey", "gitlab", "hmac", "pagerduty"]
@@ -338,8 +363,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -366,6 +389,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -433,10 +458,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -469,6 +494,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -496,6 +522,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -517,7 +544,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -538,6 +564,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -575,10 +602,15 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "list_agent_spaces",
+    "list_asset_files",
+    "list_asset_types",
+    "list_asset_versions",
+    "list_assets",
     "list_associations",
     "list_backlog_tasks",
     "list_executions",
     "list_goals",
     "list_journal_records",
     "list_services",
+    "list_triggers",
 ]

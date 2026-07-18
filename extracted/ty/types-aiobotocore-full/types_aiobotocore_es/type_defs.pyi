@@ -40,6 +40,7 @@ from .literals import (
     OutboundCrossClusterSearchConnectionStatusCodeType,
     OverallChangeStatusType,
     PackageStatusType,
+    PauseStateType,
     PrincipalTypeType,
     PropertyValueTypeType,
     ReservedElasticsearchInstancePaymentOptionType,
@@ -86,6 +87,9 @@ __all__ = (
     "AutoTuneOptionsUnionTypeDef",
     "AutoTuneStatusTypeDef",
     "AutoTuneTypeDef",
+    "AutomatedSnapshotPauseOptionsStatusTypeDef",
+    "AutomatedSnapshotPauseOptionsTypeDef",
+    "AutomatedSnapshotPauseRequestOptionsTypeDef",
     "CancelDomainConfigChangeRequestTypeDef",
     "CancelDomainConfigChangeResponseTypeDef",
     "CancelElasticsearchServiceSoftwareUpdateRequestTypeDef",
@@ -320,6 +324,12 @@ class AutoTuneStatusTypeDef(TypedDict):
     UpdateVersion: NotRequired[int]
     ErrorMessage: NotRequired[str]
     PendingDeletion: NotRequired[bool]
+
+class AutomatedSnapshotPauseOptionsTypeDef(TypedDict):
+    Enabled: bool
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    State: NotRequired[PauseStateType]
 
 class CancelDomainConfigChangeRequestTypeDef(TypedDict):
     DomainName: str
@@ -697,6 +707,15 @@ class AutoTuneMaintenanceScheduleTypeDef(TypedDict):
     StartAt: NotRequired[TimestampTypeDef]
     Duration: NotRequired[DurationTypeDef]
     CronExpressionForRecurrence: NotRequired[str]
+
+class AutomatedSnapshotPauseRequestOptionsTypeDef(TypedDict):
+    Enabled: bool
+    StartTime: NotRequired[TimestampTypeDef]
+    EndTime: NotRequired[TimestampTypeDef]
+
+class AutomatedSnapshotPauseOptionsStatusTypeDef(TypedDict):
+    Options: AutomatedSnapshotPauseOptionsTypeDef
+    Status: OptionStatusTypeDef
 
 class CancelDomainConfigChangeResponseTypeDef(TypedDict):
     DryRun: bool
@@ -1157,6 +1176,7 @@ class ElasticsearchDomainStatusTypeDef(TypedDict):
     DomainProcessingStatus: NotRequired[DomainProcessingStatusTypeType]
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseOptionsTypeDef]
 
 class DescribeElasticsearchInstanceTypeLimitsResponseTypeDef(TypedDict):
     LimitsByRole: dict[str, LimitsTypeDef]
@@ -1180,6 +1200,7 @@ class CreateElasticsearchDomainRequestTypeDef(TypedDict):
     AutoTuneOptions: NotRequired[AutoTuneOptionsInputTypeDef]
     TagList: NotRequired[Sequence[TagTypeDef]]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
 
 class UpdateElasticsearchDomainConfigRequestTypeDef(TypedDict):
     DomainName: str
@@ -1198,6 +1219,7 @@ class UpdateElasticsearchDomainConfigRequestTypeDef(TypedDict):
     AutoTuneOptions: NotRequired[AutoTuneOptionsUnionTypeDef]
     DryRun: NotRequired[bool]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
 
 class ElasticsearchDomainConfigTypeDef(TypedDict):
     ElasticsearchVersion: NotRequired[ElasticsearchVersionStatusTypeDef]
@@ -1217,6 +1239,7 @@ class ElasticsearchDomainConfigTypeDef(TypedDict):
     ChangeProgressDetails: NotRequired[ChangeProgressDetailsTypeDef]
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsStatusTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseOptionsStatusTypeDef]
 
 class CreateElasticsearchDomainResponseTypeDef(TypedDict):
     DomainStatus: ElasticsearchDomainStatusTypeDef

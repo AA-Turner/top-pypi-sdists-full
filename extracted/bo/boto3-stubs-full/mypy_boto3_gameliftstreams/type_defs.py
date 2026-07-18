@@ -410,6 +410,7 @@ StreamSessionSummaryTypeDef = TypedDict(
         "ApplicationArn": NotRequired[str],
         "ExportFilesMetadata": NotRequired[ExportFilesMetadataTypeDef],
         "Location": NotRequired[str],
+        "RoleArn": NotRequired[str],
     },
 )
 
@@ -464,6 +465,7 @@ GetStreamSessionOutputTypeDef = TypedDict(
         "CreatedAt": datetime,
         "ApplicationArn": str,
         "ExportFilesMetadata": ExportFilesMetadataTypeDef,
+        "RoleArn": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -483,6 +485,7 @@ StartStreamSessionInputTypeDef = TypedDict(
         "AdditionalLaunchArgs": NotRequired[Sequence[str]],
         "AdditionalEnvironmentVariables": NotRequired[Mapping[str, str]],
         "PerformanceStatsConfiguration": NotRequired[PerformanceStatsConfigurationTypeDef],
+        "RoleArn": NotRequired[str],
     },
 )
 StartStreamSessionOutputTypeDef = TypedDict(
@@ -509,6 +512,7 @@ StartStreamSessionOutputTypeDef = TypedDict(
         "CreatedAt": datetime,
         "ApplicationArn": str,
         "ExportFilesMetadata": ExportFilesMetadataTypeDef,
+        "RoleArn": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 from airbyte.exceptions import PyAirbyteInputError
+from airbyte_ops_mcp.connector_ops.rollouts._helpers import RolloutConfiguration
 
 from airbyte_ops_webapp import state as state_module
 from airbyte_ops_webapp.auth import mock_session as mock_session_module
@@ -14,6 +15,8 @@ from airbyte_ops_webapp.models import (
     ConnectorRollout,
     ConnectorVersion,
     OverridePlan,
+    RolloutSyncSummary,
+    TierPopulationFactors,
 )
 from airbyte_ops_webapp.pages.connector_version_manager import (
     _helpers as helpers_module,
@@ -72,13 +75,13 @@ def test_mock_recent_releases_are_sorted_newest_first() -> None:
 
     assert [release.connector_name for release in releases] == [
         "source-github",
+        "source-github",
         "source-postgres",
-        "destination-snowflake",
     ]
     assert [release.docker_image_tag for release in releases] == [
+        "1.10.0-rc.1",
         "1.9.4",
         "3.7.2",
-        "3.3.1",
     ]
 
 
@@ -461,21 +464,22 @@ def test_connector_version_manager_tool_calls_have_error_handlers(
     collect_tool_calls(app_json)
 
     assert [call["tool"] for call in tool_calls] == [
+        # Selector tabs (default tab is active-rollouts)
+        "load_active_rollouts_tab",
         "load_connector_version_context",
         "load_recent_releases_tab",
         "load_connector_version_context",
-        "load_active_rollouts_tab",
+        "load_pinned_versions_tab",
+        # Origin filter chips (4 chips x 2 serialized branches + initial)
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
         "load_connector_version_context",
-        "load_pinned_versions_tab",
-        # Filter chips (4 chips x 2 serialized branches + initial = 8 extra)
-        "load_pinned_versions_tab",
-        "load_pinned_versions_tab",
-        "load_pinned_versions_tab",
-        "load_pinned_versions_tab",
-        "load_pinned_versions_tab",
-        "load_pinned_versions_tab",
-        "load_pinned_versions_tab",
-        "load_pinned_versions_tab",
         "load_connector_version_context",
         # Rollout actions: advance, promote next stage, promote GA, cancel
         "advance_rollout",
@@ -486,6 +490,10 @@ def test_connector_version_manager_tool_calls_have_error_handlers(
         "load_connector_context",
         "finalize_rollout",
         "load_connector_context",
+        # Yank action (shown only when no active rollout)
+        "yank_connector_version",
+        "load_connector_context",
+        # Pin actions
         "resolve_scope_guid",
         "remove_selected_pins",
         "load_version_pins",
@@ -519,7 +527,7 @@ def test_connector_version_manager_selector_has_four_tabs(
     ).to_json()
     serialized_app = json.dumps(app_json)
 
-    assert "Latest Versions" in serialized_app
+    assert "Default Versions" in serialized_app
     assert "Recent Releases" in serialized_app
     assert "Active Rollouts" in serialized_app
     assert "Pinned Versions" in serialized_app
@@ -931,3 +939,656 @@ def test_cloud_scope_url_errors(
             workspace_id=workspace_id,
             actor_type=actor_type,
         )
+
+
+def _factors(
+    *,
+    pinned: int,
+    gate_pass: int,
+    off_version: int = 0,
+    no_recent_sync: int = 0,
+    failed: int = 0,
+) -> TierPopulationFactors:
+    """Build a self-consistent `TierPopulationFactors` for card tests.
+
+    `active = pinned + off_version + unpinned` where `unpinned = gate_pass +
+    no_recent_sync + failed`; `eligible = pinned + gate_pass` mirrors the
+    backend's `nActorsEligibleOrAlreadyPinned`."""
+    unpinned = gate_pass + no_recent_sync + failed
+    active = pinned + off_version + unpinned
+    return TierPopulationFactors(
+        active=active,
+        pinned_to_rollout=pinned,
+        off_version_pinned=off_version,
+        unpinned=unpinned,
+        gate_pass=gate_pass,
+        gate_excluded_failed=failed,
+        gate_excluded_no_recent_sync=no_recent_sync,
+        addressable=active,
+        addressable_gated=pinned + gate_pass,
+    )
+
+
+def test_build_rollout_summary_uses_active_only_total_and_tier_eligible() -> None:
+    """One active-only total up top; a started tier's realized `Pinned` coverage
+    comes from the active-only population (`factors` / `pinned_by_tier`), NOT the
+    inflated rollout-scan `num_pinned`/`num_eligible`. Not-started tiers still
+    surface their gated-eligible count so future stages can be sized."""
+    active_rollouts = [
+        {
+            "tier": "TIER_2",
+            "rollout_id": "r-t2",
+            "state": "in_progress",
+            "current_target_rollout_pct": "100",
+        }
+    ]
+    tier_summaries = {
+        "TIER_2": RolloutSyncSummary(
+            health="8 healthy | 0 unhealthy | 1 awaiting | 11 disabled",
+            num_pinned=575,
+            num_eligible=193,
+            num_actors=893,
+            num_healthy=8,
+            num_unhealthy=0,
+        )
+    }
+    summary = helpers_module.build_rollout_summary(
+        active_rollouts,
+        total_actors_display="280",
+        tier_summaries=tier_summaries,
+        eligible_by_tier={"TIER_2": 246, "TIER_1": 6, "TIER_0": 28},
+        pinned_by_tier={"TIER_2": 157, "TIER_1": 0, "TIER_0": 0},
+        factors_by_tier={"TIER_2": _factors(pinned=157, gate_pass=89)},
+    )
+
+    # Single connector-wide total reflects the active-only population, not 893.
+    assert summary["total_actors_display"] == "280"
+
+    cards = {c["tier_value"]: c for c in summary["tier_cards"]}
+    t2 = cards["TIER_2"]
+    assert t2["started"] is True
+    assert t2["status_label"] == "Complete"
+    # Realized coverage from active-only counts (157/246 = 64%), never the scan's
+    # inflated 575/193.
+    assert t2["pinned_summary"] == "157 of 246 eligible (64%)"
+    assert t2["eligible_header"] == "246 Eligible Actors"
+    # Health reconciles with the active-only pinned count: healthy + unhealthy +
+    # awaiting = 157 (the pinned cohort). Awaiting absorbs the remainder.
+    elig = [r["text"] for r in t2["eligible_rows"]]
+    assert any("8 succeeding" in t for t in elig)
+    assert any("0 failing" in t for t in elig)
+    assert any("149 awaiting results" in t for t in elig)
+
+    # Not-started tiers surface their eligible count for stage planning.
+    assert cards["TIER_1"]["started"] is False
+    assert cards["TIER_1"]["eligible_header"] == "6 Eligible Actors"
+    assert cards["TIER_0"]["tier_label"] == "Tier 0"
+    assert cards["TIER_0"]["eligible_header"] == "28 Eligible Actors"
+
+
+def test_build_rollout_summary_pinned_never_exceeds_eligible() -> None:
+    """Regression for source-faker: the rollout scan reported 575 pinned while
+    only 73 actors were active/eligible. The card uses the active-only counts
+    (`factors`) so the numerator can't exceed the denominator."""
+    active_rollouts = [
+        {
+            "tier": "TIER_2",
+            "rollout_id": "r-t2",
+            "state": "in_progress",
+            "current_target_rollout_pct": "50",
+        }
+    ]
+    tier_summaries = {
+        "TIER_2": RolloutSyncSummary(
+            health="2 healthy | 0 unhealthy | 0 awaiting | 573 disabled",
+            num_pinned=575,
+            num_eligible=575,
+            num_actors=575,
+            num_healthy=2,
+            num_unhealthy=0,
+        )
+    }
+    summary = helpers_module.build_rollout_summary(
+        active_rollouts,
+        total_actors_display="73",
+        tier_summaries=tier_summaries,
+        eligible_by_tier={"TIER_2": 73, "TIER_1": 0, "TIER_0": 0},
+        pinned_by_tier={"TIER_2": 36, "TIER_1": 0, "TIER_0": 0},
+        factors_by_tier={"TIER_2": _factors(pinned=36, gate_pass=37)},
+    )
+    t2 = {c["tier_value"]: c for c in summary["tier_cards"]}["TIER_2"]
+    assert t2["pinned_summary"] == "36 of 73 eligible (49%)"
+
+
+def test_build_rollout_summary_health_reconciles_with_active_pinned() -> None:
+    """Regression for source-faker: the health counts must be recomputed over the
+    active-only pinned population, so succeeding + failing + awaiting == pinned.
+    Awaiting absorbs the active-pinned actors with no result yet; dormant pinned
+    actors are not shown."""
+    active_rollouts = [
+        {
+            "tier": "TIER_2",
+            "rollout_id": "r-t2",
+            "state": "in_progress",
+            "current_target_rollout_pct": "50",
+        }
+    ]
+    tier_summaries = {
+        "TIER_2": RolloutSyncSummary(
+            health="2 healthy | 0 unhealthy | 0 awaiting | 573 disabled",
+            num_pinned=575,
+            num_eligible=575,
+            num_actors=575,
+            num_healthy=2,
+            num_unhealthy=0,
+        )
+    }
+    summary = helpers_module.build_rollout_summary(
+        active_rollouts,
+        total_actors_display="73",
+        tier_summaries=tier_summaries,
+        eligible_by_tier={"TIER_2": 73, "TIER_1": 0, "TIER_0": 0},
+        pinned_by_tier={"TIER_2": 9, "TIER_1": 0, "TIER_0": 0},
+        factors_by_tier={"TIER_2": _factors(pinned=9, gate_pass=64)},
+    )
+    t2 = {c["tier_value"]: c for c in summary["tier_cards"]}["TIER_2"]
+    assert t2["pinned_summary"] == "9 of 73 eligible (12%)"
+    # succeeding(2) + failing(0) + awaiting(7) = 9 = pinned.
+    elig = [r["text"] for r in t2["eligible_rows"]]
+    assert any("2 succeeding" in t for t in elig)
+    assert any("0 failing" in t for t in elig)
+    assert any("7 awaiting results" in t for t in elig)
+
+
+def test_format_pinned_pct_uses_float_division_and_one_decimal() -> None:
+    """The rollout percentage is the realized pinned/eligible ratio, computed
+    with float division to one decimal place. Regression for `1 / 7` rendering a
+    truncated `0%` (integer division) instead of `14.3%`; `0` eligible has no
+    ratio, so it renders `N/A` rather than a misleading `0.0%`."""
+    assert helpers_module.format_pinned_pct(1, 7) == "14.3%"
+    assert helpers_module.format_pinned_pct(20, 20) == "100.0%"
+    assert helpers_module.format_pinned_pct(0, 7) == "0.0%"
+    assert helpers_module.format_pinned_pct(3, 0) == "N/A"
+
+
+def test_build_rollout_summary_realized_coverage_is_pinned_over_eligible() -> None:
+    """The compact `Pinned` line shows realized coverage — `1 of 7 eligible
+    (14%)` — computed as pinned/eligible from the active-only population, distinct
+    from the backend `Deployed` stage percentage."""
+    active_rollouts = [
+        {
+            "tier": "TIER_2",
+            "rollout_id": "r-t2",
+            "state": "in_progress",
+            "current_target_rollout_pct": "20",
+        }
+    ]
+    tier_summaries = {
+        "TIER_2": RolloutSyncSummary(
+            health="1 healthy | 0 unhealthy | 0 awaiting | 6 disabled",
+            num_pinned=7,
+            num_eligible=7,
+            num_actors=7,
+            num_healthy=1,
+            num_unhealthy=0,
+        )
+    }
+    summary = helpers_module.build_rollout_summary(
+        active_rollouts,
+        total_actors_display="7",
+        tier_summaries=tier_summaries,
+        eligible_by_tier={"TIER_2": 7, "TIER_1": 0, "TIER_0": 0},
+        pinned_by_tier={"TIER_2": 1, "TIER_1": 0, "TIER_0": 0},
+        factors_by_tier={"TIER_2": _factors(pinned=1, gate_pass=6)},
+    )
+    t2 = {c["tier_value"]: c for c in summary["tier_cards"]}["TIER_2"]
+    assert t2["deployed_display"] == "20%"
+    assert t2["pinned_summary"] == "1 of 7 eligible (14%)"
+
+
+@pytest.mark.parametrize(
+    "config_dict,expected",
+    [
+        pytest.param(
+            {
+                "defaultRolloutMode": "autopilot",
+                "autopilotConfig": {"strategy": "fast"},
+            },
+            "ON (Fast)",
+            id="autopilot_fast",
+        ),
+        pytest.param(
+            {
+                "defaultRolloutMode": "autopilot",
+                "autopilotConfig": {"strategy": "slow"},
+            },
+            "ON (Slow)",
+            id="autopilot_slow",
+        ),
+        pytest.param(
+            {
+                "defaultRolloutMode": "autopilot",
+                "autopilotConfig": {"strategy": "default"},
+            },
+            "ON (Fast)",
+            id="autopilot_default_resolves_to_fast",
+        ),
+        pytest.param(
+            {"defaultRolloutMode": "autopilot"},
+            "ON (Fast)",
+            id="autopilot_no_config_defaults_to_fast",
+        ),
+        pytest.param(
+            {"defaultRolloutMode": "manual"},
+            "OFF",
+            id="manual_is_off",
+        ),
+    ],
+)
+def test_autopilot_display_includes_strategy(
+    monkeypatch: pytest.MonkeyPatch,
+    config_dict: dict[str, object],
+    expected: str,
+) -> None:
+    """The Autopilot line shows the strategy suffix (`ON (Fast)` / `ON (Slow)`)
+    when autopilot is enabled, and `OFF` (no suffix) otherwise. `default`
+    strategy and a missing `autopilotConfig` both resolve to `Fast`."""
+    config = RolloutConfiguration.model_validate(config_dict)
+    monkeypatch.setattr(
+        helpers_module, "get_connector_rollout_config", lambda *_a, **_k: config
+    )
+    assert helpers_module._autopilot_display("conn-id", "1.0.0") == expected
+
+
+def test_autopilot_display_off_when_config_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A registry lookup failure degrades to `OFF` rather than raising."""
+
+    def _raise(*_a: object, **_k: object) -> object:
+        raise RuntimeError("registry unavailable")
+
+    monkeypatch.setattr(helpers_module, "get_connector_rollout_config", _raise)
+    assert helpers_module._autopilot_display("conn-id", "1.0.0") == "OFF"
+
+
+def test_get_connector_population_keeps_total_when_tier_resolution_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A BigQuery tier-refresh `RuntimeError` must not break the context load:
+    the connector-wide total still renders, per-tier eligible degrades to zero."""
+    monkeypatch.setattr(
+        adapter_module,
+        "query_actor_population_by_org",
+        lambda **_: [
+            {"organization_id": "o1", "actor_count": 30, "pinned_actor_count": 0},
+            {"organization_id": "o2", "actor_count": 12, "pinned_actor_count": 2},
+        ],
+    )
+
+    monkeypatch.setattr(
+        adapter_module,
+        "get_gcp_credentials_for_bigquery_ro",
+        lambda **_: object(),
+    )
+
+    def _raise_tier_error(*_args: object, **_kwargs: object) -> object:
+        raise RuntimeError("BigQuery tier refresh failed and no stale cache")
+
+    monkeypatch.setattr(adapter_module, "summarize_population", _raise_tier_error)
+
+    population = OpsMcpAdapter().get_connector_population(
+        "def-id", is_destination=False
+    )
+
+    assert population.total_active == 42
+    assert population.eligible_tier_2 == 0
+    assert population.eligible_tier_1 == 0
+    assert population.eligible_tier_0 == 0
+    # Tier data was unavailable — mark it so the UI shows "eligible unknown"
+    # rather than a misleading genuine zero.
+    assert population.tier_resolution_available is False
+
+
+def test_get_connector_population_maps_eligible_by_tier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When tier data is available, each tier's eligible count is its
+    job-status-*gated* audience (`addressable_gated_by_tier` = the backend's
+    `nActorsEligibleOrAlreadyPinned`: gate_pass + pinned-to-rollout), and pinned
+    is the active actors pinned to *this* RC (`pinned_to_version_active_by_tier`),
+    so `pinned <= eligible` per tier. `total_eligible` is their sum."""
+    captured: dict[str, object] = {}
+
+    def _fake_query(**kwargs: object) -> list[dict[str, object]]:
+        captured["target_version_id"] = kwargs.get("target_version_id")
+        captured["rollout_created_at"] = kwargs.get("rollout_created_at")
+        return [{"organization_id": "o1", "actor_count": 35, "pinned_actor_count": 7}]
+
+    monkeypatch.setattr(adapter_module, "query_actor_population_by_org", _fake_query)
+    sentinel_credentials = object()
+
+    def _fake_creds(*, access_token_override: str | None = None) -> object:
+        captured["access_token_override"] = access_token_override
+        return sentinel_credentials
+
+    monkeypatch.setattr(
+        adapter_module, "get_gcp_credentials_for_bigquery_ro", _fake_creds
+    )
+
+    # Active fleet is 35, but the eligible denominator is the gated audience
+    # (`addressable_gated_by_tier` = gate_pass + pinned-to-rollout): Tier-2 = 13
+    # (8 + 5), Tier-1 = 10, Tier-0 = 5. The per-tier eligibles therefore sum to
+    # 28 (< total_active) — off-version pins, recent-failure, and no-recent-sync
+    # actors are all excluded from the gated set.
+    fake_summary = SimpleNamespace(
+        active_by_tier=SimpleNamespace(
+            tier_2_count=20, tier_1_count=10, tier_0_count=5
+        ),
+        eligible_by_tier=SimpleNamespace(
+            tier_2_count=13, tier_1_count=10, tier_0_count=5
+        ),
+        pinned_any_by_tier=SimpleNamespace(
+            tier_2_count=7, tier_1_count=0, tier_0_count=0
+        ),
+        addressable_by_tier=SimpleNamespace(
+            tier_2_count=18, tier_1_count=10, tier_0_count=5
+        ),
+        pinned_to_version_active_by_tier=SimpleNamespace(
+            tier_2_count=5, tier_1_count=0, tier_0_count=0
+        ),
+        off_version_pinned_by_tier=SimpleNamespace(
+            tier_2_count=2, tier_1_count=0, tier_0_count=0
+        ),
+        gate_pass_by_tier=SimpleNamespace(
+            tier_2_count=8, tier_1_count=10, tier_0_count=5
+        ),
+        gate_excluded_failed_by_tier=SimpleNamespace(
+            tier_2_count=2, tier_1_count=0, tier_0_count=0
+        ),
+        gate_excluded_no_recent_sync_by_tier=SimpleNamespace(
+            tier_2_count=3, tier_1_count=0, tier_0_count=0
+        ),
+        addressable_gated_by_tier=SimpleNamespace(
+            tier_2_count=13, tier_1_count=10, tier_0_count=5
+        ),
+    )
+
+    def _fake_summarize(*_args: object, **kwargs: object) -> object:
+        captured["credentials"] = kwargs.get("credentials")
+        return fake_summary
+
+    monkeypatch.setattr(adapter_module, "summarize_population", _fake_summarize)
+
+    population = OpsMcpAdapter().get_connector_population(
+        "def-id",
+        is_destination=False,
+        target_version_id="rc-version-123",
+        google_access_token="user-bq-token",
+    )
+
+    assert population.total_active == 35
+    # Eligible is the gated audience (gate_pass + pinned-to-rollout).
+    assert population.eligible_tier_2 == 13
+    assert population.eligible_tier_1 == 10
+    assert population.eligible_tier_0 == 5
+    # Pinned is the active actors pinned to *this* RC, a subset of eligible.
+    assert population.pinned_tier_2 == 5
+    assert population.pinned_tier_1 == 0
+    assert population.pinned_tier_0 == 0
+    assert population.pinned_tier_2 <= population.eligible_tier_2
+    # The gated per-tier eligibles sum to less than the connector-wide active
+    # total (that gap is off-version + failed + no-recent-sync actors), and the
+    # headline `total_eligible` equals that sum so the cards reconcile.
+    assert (
+        population.eligible_tier_2
+        + population.eligible_tier_1
+        + population.eligible_tier_0
+        == 28
+    )
+    assert population.total_eligible == 28
+    assert population.tier_resolution_available is True
+    # The full distinct-factor breakdown is surfaced per tier (nothing
+    # collapsed). The gated eligible denominator is displayed; `addressable` is
+    # still carried on the factors for the eligible fallback but is no longer
+    # shown as its own row.
+    t2 = population.factors_tier_2
+    assert t2 is not None
+    assert t2.active == 20
+    assert t2.pinned_to_rollout == 5
+    assert t2.off_version_pinned == 2
+    # `active = pinned + off-version + unpinned`.
+    assert t2.unpinned == 13
+    # The job-status gate partitions the unpinned set exactly.
+    assert (
+        t2.gate_pass + t2.gate_excluded_failed + t2.gate_excluded_no_recent_sync
+        == t2.unpinned
+    )
+    assert t2.gate_pass == 8
+    assert t2.gate_excluded_failed == 2
+    assert t2.gate_excluded_no_recent_sync == 3
+    # The gated eligible denominator (gate_pass + pinned) is displayed; the raw
+    # addressable value is still carried for the fallback.
+    assert t2.addressable == 18
+    assert t2.addressable_gated == 13
+    # The rollout's RC version id is threaded through to the population query.
+    assert captured["target_version_id"] == "rc-version-123"
+    # The signed-in user's BigQuery token is threaded through to the tier lookup.
+    assert captured["access_token_override"] == "user-bq-token"
+    assert captured["credentials"] is sentinel_credentials
+
+
+def test_format_ratio_pct_rounds_and_handles_edges() -> None:
+    """`format_ratio_pct` renders compact whole-number percentages and lets the
+    caller choose the 0-of-0 convention (`100%` for started coverage, `0%` for a
+    failure ratio). A non-zero sub-1% ratio never reads a misleading `0%`."""
+    fr = helpers_module.format_ratio_pct
+    assert fr(10, 14) == "71%"
+    assert fr(6, 10) == "60%"
+    assert fr(0, 10) == "0%"
+    assert fr(1, 500) == "<1%"
+    assert fr(0, 0) == "\u2014"
+    assert fr(0, 0, empty="100%") == "100%"
+    assert fr(0, 0, empty="0%") == "0%"
+
+
+def test_tier_rollout_status_maps_state_to_glyph() -> None:
+    """The status glyph reflects the rollout `state`: no/initialized rollout reads
+    Not started, paused reads Paused, failures win over deployed %, 100%-clean
+    reads Complete, otherwise In progress."""
+    status = helpers_module.tier_rollout_status
+    assert (
+        status(has_rollout=False, state="", deployed_pct=0, failing=0)[1]
+        == "Not started"
+    )
+    assert (
+        status(has_rollout=True, state="initialized", deployed_pct=0, failing=0)[1]
+        == "Not started"
+    )
+    assert (
+        status(has_rollout=True, state="paused", deployed_pct=25, failing=0)[1]
+        == "Paused"
+    )
+    assert (
+        status(has_rollout=True, state="in_progress", deployed_pct=100, failing=1)[1]
+        == "Attention"
+    )
+    assert (
+        status(has_rollout=True, state="in_progress", deployed_pct=100, failing=0)[1]
+        == "Complete"
+    )
+    assert (
+        status(has_rollout=True, state="in_progress", deployed_pct=50, failing=0)[1]
+        == "In progress"
+    )
+
+
+def test_build_breakdown_columns_two_columns_reconcile() -> None:
+    """`build_breakdown_columns` splits actors into Eligible / Ineligible columns
+    whose headers sum to `active`. Eligible subdivides into pinned (by health) and
+    not-yet-pinned; Ineligible lists off-version pins first, then no-recent-sync
+    and recent-failure. Percentages: pinned/not-yet-pinned share of eligible,
+    health rows share of pinned."""
+    factors = TierPopulationFactors(
+        active=84,
+        pinned_to_rollout=10,
+        off_version_pinned=2,
+        unpinned=72,
+        gate_pass=4,
+        gate_excluded_failed=1,
+        gate_excluded_no_recent_sync=67,
+        addressable=82,
+        addressable_gated=14,
+    )
+    cols = helpers_module.build_breakdown_columns(
+        factors, succeeding=6, failing=0, awaiting=4
+    )
+    assert cols["eligible_header"] == "14 Eligible Actors"
+    assert cols["ineligible_header"] == "70 Ineligible"
+    elig = [r["text"] for r in cols["eligible_rows"]]
+    assert any("10 pinned (71%)" in t for t in elig)
+    assert any("6 succeeding (60%)" in t for t in elig)
+    assert any("0 failing (0%)" in t for t in elig)
+    assert any("4 awaiting results (40%)" in t for t in elig)
+    assert any("4 not yet pinned (29%)" in t for t in elig)
+    inelig = [r["text"] for r in cols["ineligible_rows"]]
+    assert "2 pinned to another version" in inelig[0]
+    assert any("67 no recent sync" in t for t in inelig)
+    assert any("1 recent failure" in t for t in inelig)
+
+
+def test_build_breakdown_columns_omits_health_subgroup_when_absent() -> None:
+    """Without post-pin health counts, the pinned row renders with no
+    succeeding/failing/awaiting subrows."""
+    factors = TierPopulationFactors(
+        active=5,
+        pinned_to_rollout=2,
+        unpinned=3,
+        gate_pass=3,
+        addressable=5,
+        addressable_gated=5,
+    )
+    cols = helpers_module.build_breakdown_columns(factors)
+    elig = [r["text"] for r in cols["eligible_rows"]]
+    assert any("2 pinned" in t for t in elig)
+    assert not any("succeeding" in t for t in elig)
+
+
+def test_build_rollout_summary_card_fields() -> None:
+    """A started tier card exposes the status glyph, the compact Deployed/Pinned/
+    Failed line values, and the two-column breakdown headers. A 100%-deployed,
+    no-failure tier reads Complete."""
+    factors = TierPopulationFactors(
+        active=84,
+        pinned_to_rollout=10,
+        off_version_pinned=2,
+        unpinned=72,
+        gate_pass=4,
+        gate_excluded_failed=1,
+        gate_excluded_no_recent_sync=67,
+        addressable=82,
+        addressable_gated=14,
+    )
+    summary = helpers_module.build_rollout_summary(
+        [
+            {
+                "tier": "TIER_2",
+                "rollout_id": "r-t2",
+                "state": "in_progress",
+                "current_target_rollout_pct": "100",
+            }
+        ],
+        tier_summaries={
+            "TIER_2": RolloutSyncSummary(
+                health="6 healthy | 0 unhealthy | 4 awaiting",
+                num_healthy=6,
+                num_unhealthy=0,
+            )
+        },
+        pinned_by_tier={"TIER_2": 10},
+        eligible_by_tier={"TIER_2": 14},
+        factors_by_tier={"TIER_2": factors},
+    )
+    t2 = {c["tier_value"]: c for c in summary["tier_cards"]}["TIER_2"]
+    assert t2["started"] is True
+    assert t2["status_label"] == "Complete"
+    assert t2["deployed_display"] == "100%"
+    assert t2["pinned_summary"] == "10 of 14 eligible (71%)"
+    assert t2["failed_summary"] == "0 of 10 pinned (0%)"
+    assert t2["eligible_header"] == "14 Eligible Actors"
+    assert t2["ineligible_header"] == "70 Ineligible"
+
+
+def test_build_rollout_summary_not_started_tier_marked() -> None:
+    """A tier with no rollout row reads Not started with `—` deployed, yet still
+    surfaces its gated-eligible actor count so future stages can be sized."""
+    factors = TierPopulationFactors(
+        active=2,
+        pinned_to_rollout=0,
+        unpinned=2,
+        gate_pass=1,
+        gate_excluded_no_recent_sync=1,
+        addressable=2,
+        addressable_gated=1,
+    )
+    summary = helpers_module.build_rollout_summary(
+        [
+            {
+                "tier": "TIER_2",
+                "rollout_id": "r-t2",
+                "state": "in_progress",
+                "current_target_rollout_pct": "50",
+            }
+        ],
+        eligible_by_tier={"TIER_0": 2},
+        factors_by_tier={"TIER_0": factors},
+    )
+    t0 = {c["tier_value"]: c for c in summary["tier_cards"]}["TIER_0"]
+    assert t0["started"] is False
+    assert t0["status_label"] == "Not started"
+    assert t0["deployed_display"] == "\u2014"
+    assert t0["eligible_header"] == "1 Eligible Actors"
+
+
+def test_build_rollout_summary_initialized_rollout_is_not_started() -> None:
+    """A rollout row that exists but is `initialized` reads Not started (not In
+    progress) — the ⚪ status prevents an unstarted tier from looking live."""
+    summary = helpers_module.build_rollout_summary(
+        [
+            {
+                "tier": "TIER_2",
+                "rollout_id": "r-t2",
+                "state": "in_progress",
+                "current_target_rollout_pct": "50",
+            },
+            {
+                "tier": "TIER_1",
+                "rollout_id": "r-t1",
+                "state": "initialized",
+                "current_target_rollout_pct": "0",
+            },
+        ],
+    )
+    t1 = {c["tier_value"]: c for c in summary["tier_cards"]}["TIER_1"]
+    assert t1["started"] is False
+    assert t1["status_label"] == "Not started"
+
+
+def test_build_rollout_summary_started_zero_eligible_reads_full_coverage() -> None:
+    """A *started* tier with a 0-of-0 eligible audience reads `100%` coverage (all
+    that will pin are pinned), while the failure ratio stays `0%`."""
+    factors = TierPopulationFactors()
+    summary = helpers_module.build_rollout_summary(
+        [
+            {
+                "tier": "TIER_2",
+                "rollout_id": "r-t2",
+                "state": "in_progress",
+                "current_target_rollout_pct": "100",
+            }
+        ],
+        factors_by_tier={"TIER_2": factors},
+    )
+    t2 = {c["tier_value"]: c for c in summary["tier_cards"]}["TIER_2"]
+    assert t2["pinned_summary"] == "0 of 0 eligible (100%)"
+    assert t2["failed_summary"] == "0 of 0 pinned (0%)"

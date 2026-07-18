@@ -53,6 +53,9 @@ from connector_sdk_types.generated.models.create_account_response import CreateA
 from connector_sdk_types.generated.models.created_account import CreatedAccount
 from connector_sdk_types.generated.models.created_effect import CreatedEffect
 from connector_sdk_types.generated.models.credential import Credential
+from connector_sdk_types.generated.models.credential_last_activity import (
+    CredentialLastActivity,
+)
 from connector_sdk_types.generated.models.credential_status import CredentialStatus
 from connector_sdk_types.generated.models.credential_type import CredentialType
 from connector_sdk_types.generated.models.custom_attribute_customized_type import (
@@ -132,6 +135,18 @@ from connector_sdk_types.generated.models.get_connected_info200_response import 
 from connector_sdk_types.generated.models.get_connected_info_request import GetConnectedInfoRequest
 from connector_sdk_types.generated.models.get_connected_info_response import (
     GetConnectedInfoResponse,
+)
+from connector_sdk_types.generated.models.get_credential_last_activity import (
+    GetCredentialLastActivity,
+)
+from connector_sdk_types.generated.models.get_credential_last_activity200_response import (
+    GetCredentialLastActivity200Response,
+)
+from connector_sdk_types.generated.models.get_credential_last_activity_request import (
+    GetCredentialLastActivityRequest,
+)
+from connector_sdk_types.generated.models.get_credential_last_activity_response import (
+    GetCredentialLastActivityResponse,
 )
 from connector_sdk_types.generated.models.get_last_activity import GetLastActivity
 from connector_sdk_types.generated.models.get_last_activity200_response import (
@@ -366,6 +381,7 @@ __all__ = [
     "CreatedAccount",
     "CreatedEffect",
     "Credential",
+    "CredentialLastActivity",
     "CredentialStatus",
     "CredentialType",
     "CustomAttributeCustomizedType",
@@ -418,6 +434,10 @@ __all__ = [
     "GetConnectedInfo200Response",
     "GetConnectedInfoRequest",
     "GetConnectedInfoResponse",
+    "GetCredentialLastActivity",
+    "GetCredentialLastActivity200Response",
+    "GetCredentialLastActivityRequest",
+    "GetCredentialLastActivityResponse",
     "GetLastActivity",
     "GetLastActivity200Response",
     "GetLastActivityRequest",

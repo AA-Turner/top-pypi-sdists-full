@@ -14,6 +14,8 @@ Usage::
     from types_aiobotocore_dsql.waiter import (
         ClusterActiveWaiter,
         ClusterNotExistsWaiter,
+        StreamActiveWaiter,
+        StreamNotExistsWaiter,
     )
 
     session = get_session()
@@ -22,6 +24,8 @@ Usage::
 
         cluster_active_waiter: ClusterActiveWaiter = client.get_waiter("cluster_active")
         cluster_not_exists_waiter: ClusterNotExistsWaiter = client.get_waiter("cluster_not_exists")
+        stream_active_waiter: StreamActiveWaiter = client.get_waiter("stream_active")
+        stream_not_exists_waiter: StreamNotExistsWaiter = client.get_waiter("stream_not_exists")
     ```
 """
 
@@ -31,7 +35,12 @@ import sys
 
 from aiobotocore.waiter import AIOWaiter
 
-from .type_defs import GetClusterInputWaitExtraTypeDef, GetClusterInputWaitTypeDef
+from .type_defs import (
+    GetClusterInputWaitExtraTypeDef,
+    GetClusterInputWaitTypeDef,
+    GetStreamInputWaitExtraTypeDef,
+    GetStreamInputWaitTypeDef,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Unpack
@@ -39,7 +48,12 @@ else:
     from typing_extensions import Unpack
 
 
-__all__ = ("ClusterActiveWaiter", "ClusterNotExistsWaiter")
+__all__ = (
+    "ClusterActiveWaiter",
+    "ClusterNotExistsWaiter",
+    "StreamActiveWaiter",
+    "StreamNotExistsWaiter",
+)
 
 
 class ClusterActiveWaiter(AIOWaiter):
@@ -69,4 +83,34 @@ class ClusterNotExistsWaiter(AIOWaiter):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/waiter/ClusterNotExists.html#AuroraDSQL.Waiter.ClusterNotExists.wait)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dsql/waiters/#clusternotexistswaiter)
+        """
+
+
+class StreamActiveWaiter(AIOWaiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/waiter/StreamActive.html#AuroraDSQL.Waiter.StreamActive)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dsql/waiters/#streamactivewaiter)
+    """
+
+    async def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetStreamInputWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/waiter/StreamActive.html#AuroraDSQL.Waiter.StreamActive.wait)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dsql/waiters/#streamactivewaiter)
+        """
+
+
+class StreamNotExistsWaiter(AIOWaiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/waiter/StreamNotExists.html#AuroraDSQL.Waiter.StreamNotExists)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dsql/waiters/#streamnotexistswaiter)
+    """
+
+    async def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetStreamInputWaitExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/waiter/StreamNotExists.html#AuroraDSQL.Waiter.StreamNotExists.wait)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dsql/waiters/#streamnotexistswaiter)
         """

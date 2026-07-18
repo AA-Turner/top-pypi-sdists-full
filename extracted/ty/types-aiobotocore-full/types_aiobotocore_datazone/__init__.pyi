@@ -33,6 +33,8 @@ Usage::
         ListLineageEventsPaginator,
         ListLineageNodeHistoryPaginator,
         ListMetadataGenerationRunsPaginator,
+        ListNotebookRunsPaginator,
+        ListNotebooksPaginator,
         ListNotificationsPaginator,
         ListPolicyGrantsPaginator,
         ListProjectMembershipsPaginator,
@@ -79,6 +81,8 @@ Usage::
     list_lineage_events_paginator: ListLineageEventsPaginator = client.get_paginator("list_lineage_events")
     list_lineage_node_history_paginator: ListLineageNodeHistoryPaginator = client.get_paginator("list_lineage_node_history")
     list_metadata_generation_runs_paginator: ListMetadataGenerationRunsPaginator = client.get_paginator("list_metadata_generation_runs")
+    list_notebook_runs_paginator: ListNotebookRunsPaginator = client.get_paginator("list_notebook_runs")
+    list_notebooks_paginator: ListNotebooksPaginator = client.get_paginator("list_notebooks")
     list_notifications_paginator: ListNotificationsPaginator = client.get_paginator("list_notifications")
     list_policy_grants_paginator: ListPolicyGrantsPaginator = client.get_paginator("list_policy_grants")
     list_project_memberships_paginator: ListProjectMembershipsPaginator = client.get_paginator("list_project_memberships")
@@ -122,6 +126,8 @@ from .paginator import (
     ListLineageEventsPaginator,
     ListLineageNodeHistoryPaginator,
     ListMetadataGenerationRunsPaginator,
+    ListNotebookRunsPaginator,
+    ListNotebooksPaginator,
     ListNotificationsPaginator,
     ListPolicyGrantsPaginator,
     ListProjectMembershipsPaginator,
@@ -167,6 +173,8 @@ __all__ = (
     "ListLineageEventsPaginator",
     "ListLineageNodeHistoryPaginator",
     "ListMetadataGenerationRunsPaginator",
+    "ListNotebookRunsPaginator",
+    "ListNotebooksPaginator",
     "ListNotificationsPaginator",
     "ListPolicyGrantsPaginator",
     "ListProjectMembershipsPaginator",

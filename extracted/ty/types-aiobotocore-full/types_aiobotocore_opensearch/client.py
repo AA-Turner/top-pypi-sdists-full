@@ -42,6 +42,8 @@ from .type_defs import (
     AssociatePackageResponseTypeDef,
     AssociatePackagesRequestTypeDef,
     AssociatePackagesResponseTypeDef,
+    AttachDataSourceRequestTypeDef,
+    AttachDataSourceResponseTypeDef,
     AuthorizeVpcEndpointAccessRequestTypeDef,
     AuthorizeVpcEndpointAccessResponseTypeDef,
     CancelDomainConfigChangeRequestTypeDef,
@@ -78,6 +80,8 @@ from .type_defs import (
     DeleteVpcEndpointResponseTypeDef,
     DeregisterCapabilityRequestTypeDef,
     DeregisterCapabilityResponseTypeDef,
+    DescribeDataSourceAttachmentRequestTypeDef,
+    DescribeDataSourceAttachmentResponseTypeDef,
     DescribeDomainAutoTunesRequestTypeDef,
     DescribeDomainAutoTunesResponseTypeDef,
     DescribeDomainChangeProgressRequestTypeDef,
@@ -110,6 +114,8 @@ from .type_defs import (
     DescribeReservedInstancesResponseTypeDef,
     DescribeVpcEndpointsRequestTypeDef,
     DescribeVpcEndpointsResponseTypeDef,
+    DetachDataSourceRequestTypeDef,
+    DetachDataSourceResponseTypeDef,
     DissociatePackageRequestTypeDef,
     DissociatePackageResponseTypeDef,
     DissociatePackagesRequestTypeDef,
@@ -130,14 +136,20 @@ from .type_defs import (
     GetDomainMaintenanceStatusResponseTypeDef,
     GetIndexRequestTypeDef,
     GetIndexResponseTypeDef,
+    GetMigrationRequestTypeDef,
+    GetMigrationResponseTypeDef,
     GetPackageVersionHistoryRequestTypeDef,
     GetPackageVersionHistoryResponseTypeDef,
     GetUpgradeHistoryRequestTypeDef,
     GetUpgradeHistoryResponseTypeDef,
     GetUpgradeStatusRequestTypeDef,
     GetUpgradeStatusResponseTypeDef,
+    InsightFeedbackRequestTypeDef,
+    InsightFeedbackResponseTypeDef,
     ListApplicationsRequestTypeDef,
     ListApplicationsResponseTypeDef,
+    ListDataSourceAttachmentsRequestTypeDef,
+    ListDataSourceAttachmentsResponseTypeDef,
     ListDataSourcesRequestTypeDef,
     ListDataSourcesResponseTypeDef,
     ListDirectQueryDataSourcesRequestTypeDef,
@@ -152,6 +164,8 @@ from .type_defs import (
     ListInsightsResponseTypeDef,
     ListInstanceTypeDetailsRequestTypeDef,
     ListInstanceTypeDetailsResponseTypeDef,
+    ListMigrationsRequestTypeDef,
+    ListMigrationsResponseTypeDef,
     ListPackagesForDomainRequestTypeDef,
     ListPackagesForDomainResponseTypeDef,
     ListScheduledActionsRequestTypeDef,
@@ -180,6 +194,8 @@ from .type_defs import (
     RollbackServiceSoftwareUpdateResponseTypeDef,
     StartDomainMaintenanceRequestTypeDef,
     StartDomainMaintenanceResponseTypeDef,
+    StartMigrationRequestTypeDef,
+    StartMigrationResponseTypeDef,
     StartServiceSoftwareUpdateRequestTypeDef,
     StartServiceSoftwareUpdateResponseTypeDef,
     UpdateApplicationRequestTypeDef,
@@ -329,6 +345,16 @@ class OpenSearchServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/associate_packages.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#associate_packages)
+        """
+
+    async def attach_data_source(
+        self, **kwargs: Unpack[AttachDataSourceRequestTypeDef]
+    ) -> AttachDataSourceResponseTypeDef:
+        """
+        Attaches a data source to an OpenSearch application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/attach_data_source.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#attach_data_source)
         """
 
     async def authorize_vpc_endpoint_access(
@@ -528,6 +554,17 @@ class OpenSearchServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#deregister_capability)
         """
 
+    async def describe_data_source_attachment(
+        self, **kwargs: Unpack[DescribeDataSourceAttachmentRequestTypeDef]
+    ) -> DescribeDataSourceAttachmentResponseTypeDef:
+        """
+        Returns the current status and details of a specific data source attachment for
+        an OpenSearch application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/describe_data_source_attachment.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#describe_data_source_attachment)
+        """
+
     async def describe_domain(
         self, **kwargs: Unpack[DescribeDomainRequestTypeDef]
     ) -> DescribeDomainResponseTypeDef:
@@ -702,6 +739,16 @@ class OpenSearchServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#describe_vpc_endpoints)
         """
 
+    async def detach_data_source(
+        self, **kwargs: Unpack[DetachDataSourceRequestTypeDef]
+    ) -> DetachDataSourceResponseTypeDef:
+        """
+        Removes a data source from an OpenSearch application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/detach_data_source.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#detach_data_source)
+        """
+
     async def dissociate_package(
         self, **kwargs: Unpack[DissociatePackageRequestTypeDef]
     ) -> DissociatePackageResponseTypeDef:
@@ -802,6 +849,18 @@ class OpenSearchServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#get_index)
         """
 
+    async def get_migration(
+        self, **kwargs: Unpack[GetMigrationRequestTypeDef]
+    ) -> GetMigrationResponseTypeDef:
+        """
+        Retrieves the current status and progress of a migration job, including the
+        number of exported and imported objects and error details if the migration
+        failed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/get_migration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#get_migration)
+        """
+
     async def get_package_version_history(
         self, **kwargs: Unpack[GetPackageVersionHistoryRequestTypeDef]
     ) -> GetPackageVersionHistoryResponseTypeDef:
@@ -836,6 +895,16 @@ class OpenSearchServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#get_upgrade_status)
         """
 
+    async def insight_feedback(
+        self, **kwargs: Unpack[InsightFeedbackRequestTypeDef]
+    ) -> InsightFeedbackResponseTypeDef:
+        """
+        Submits feedback for an existing insight in an Amazon OpenSearch Service domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/insight_feedback.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#insight_feedback)
+        """
+
     async def list_applications(
         self, **kwargs: Unpack[ListApplicationsRequestTypeDef]
     ) -> ListApplicationsResponseTypeDef:
@@ -844,6 +913,18 @@ class OpenSearchServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/list_applications.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#list_applications)
+        """
+
+    async def list_data_source_attachments(
+        self, **kwargs: Unpack[ListDataSourceAttachmentsRequestTypeDef]
+    ) -> ListDataSourceAttachmentsResponseTypeDef:
+        """
+        Returns a paginated list of all data source attachments for an OpenSearch
+        application, including attachments in all states (<code>PENDING</code>,
+        <code>ATTACHED</code>, and <code>FAILED</code>).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/list_data_source_attachments.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#list_data_source_attachments)
         """
 
     async def list_data_sources(
@@ -918,6 +999,16 @@ class OpenSearchServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/list_instance_type_details.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#list_instance_type_details)
+        """
+
+    async def list_migrations(
+        self, **kwargs: Unpack[ListMigrationsRequestTypeDef]
+    ) -> ListMigrationsResponseTypeDef:
+        """
+        Lists migration jobs for an Amazon OpenSearch Service application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/list_migrations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#list_migrations)
         """
 
     async def list_packages_for_domain(
@@ -1075,6 +1166,17 @@ class OpenSearchServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/start_domain_maintenance.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#start_domain_maintenance)
+        """
+
+    async def start_migration(
+        self, **kwargs: Unpack[StartMigrationRequestTypeDef]
+    ) -> StartMigrationResponseTypeDef:
+        """
+        Initiates a migration job to migrate saved objects from a data source to an
+        Amazon OpenSearch Service application workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/start_migration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#start_migration)
         """
 
     async def start_service_software_update(

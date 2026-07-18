@@ -1,7 +1,7 @@
 """Read ``bernstein doctor observe`` snapshots into evolution signals.
 
 The daily observability workflow appends one JSON snapshot per day under
-``docs/observability/snapshots/<YYYY-MM-DD>.json``. Every metric row carries a
+``docs/_internal/observability/snapshots/<YYYY-MM-DD>.json``. Every metric row carries a
 ``threshold_status`` (``ok|warn|fail``) and a ``numeric`` value. This module
 turns the two most recent snapshots into signals the self-improvement loop can
 consume:
@@ -22,12 +22,13 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import operator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 #: Default location of the daily snapshot corpus, relative to the repo root.
-DEFAULT_SNAPSHOTS_DIR = Path("docs/observability/snapshots")
+DEFAULT_SNAPSHOTS_DIR = Path("docs/_internal/observability/snapshots")
 
 #: ``(backend, metric)`` security signals and the severity of an increase.
 _SECURITY_METRICS: dict[tuple[str, str], str] = {
@@ -80,7 +81,7 @@ def latest_two_snapshots(
         except ValueError:
             continue
         dated.append((day, path))
-    dated.sort(key=lambda item: item[0])
+    dated.sort(key=operator.itemgetter(0))
     if not dated:
         return (None, None)
     curr = _load(dated[-1][1])

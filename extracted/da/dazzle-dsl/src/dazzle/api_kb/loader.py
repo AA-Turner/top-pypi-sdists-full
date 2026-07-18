@@ -45,6 +45,12 @@ class OperationSpec:
     description: str = ""
     request_schema: dict[str, Any] = field(default_factory=dict)
     response_schema: dict[str, Any] = field(default_factory=dict)
+    # Fragment / search_select keys (search vs detail may differ from foreign model).
+    # e.g. display_key, value_key, secondary_key, items_key, query_param, detail_url
+    fragment: dict[str, Any] = field(default_factory=dict)
+    # API response field → canonical/foreign-model field (e.g. title → company_name).
+    # Applied by fragment_routes before display_key / autofill lookup.
+    field_map: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -233,19 +239,21 @@ class ApiPack:
                 token = os.environ.get(self.auth.env_var, "")
                 headers["Authorization"] = f"Bearer {token}"
 
-        # Infer display/value keys from the first foreign model
+        # Infer display/value keys from the first foreign model, then layer
+        # per-operation fragment keys (search APIs often use different shapes
+        # than profile/detail — e.g. Companies House search `title` vs profile
+        # `company_name`). Explicit op.fragment wins over inference.
         display_key = "name"
         value_key = "id"
         secondary_key = ""
         if self.foreign_models:
             fm = self.foreign_models[0]
             value_key = fm.key_field
-            # Pick a likely display field
+            # Prefer canonical foreign-model names; field_map remaps API → these.
             for candidate in ("name", "company_name", "title", "label", "description"):
                 if candidate in fm.fields:
                     display_key = candidate
                     break
-            # Pick a secondary field
             for candidate in ("company_number", "status", "company_status", "type", "category"):
                 if candidate in fm.fields and candidate != display_key:
                     secondary_key = candidate
@@ -261,6 +269,21 @@ class ApiPack:
             "items_key": "items",
             "autofill": {},
         }
+        # Per-op fragment config (search_display_key / detail keys / etc.)
+        frag = op.fragment or {}
+        for key in (
+            "display_key",
+            "value_key",
+            "secondary_key",
+            "items_key",
+            "query_param",
+            "detail_url",
+            "autofill",
+        ):
+            if key in frag and frag[key] is not None:
+                result[key] = frag[key]
+        if op.field_map:
+            result["field_map"] = dict(op.field_map)
         result.update(overrides)
         return result
 
@@ -337,29 +360,61 @@ def _get_packs_dir() -> Path:
     return Path(__file__).parent
 
 
-def _load_pack_from_toml(toml_path: Path) -> ApiPack:
-    """Load a single pack from a TOML file."""
-    with open(toml_path, "rb") as f:
-        data = tomllib.load(f)
+# Module-level pack registry (#1616) — no MCP dependency. Dual-lock installs
+# without the mcp extra must still resolve companies_house_lookup etc.
+_pack_cache: dict[str, ApiPack] = {}
+_packs_loaded: bool = False
+_pack_project_root: Path | None = None
 
-    pack_info = data.get("pack", {})
 
-    # Parse auth
-    auth_data = data.get("auth", {})
-    auth = None
-    if auth_data:
-        auth = AuthSpec(
-            auth_type=auth_data.get("type", "none"),
-            header=auth_data.get("header"),
-            prefix=auth_data.get("prefix"),
-            env_var=auth_data.get("env_var"),
-            token_url=auth_data.get("token_url"),
-            scopes=auth_data.get("scopes", []),
+def set_pack_project_root(path: Path | None) -> None:
+    """Point discovery at a project root (optional local ``.dazzle/api_packs``).
+
+    Clears the pack cache so the next ``load_pack`` rediscovers. Called from
+    HTTP boot and MCP ``set_project_root`` when available.
+    """
+    global _pack_project_root, _packs_loaded, _pack_cache
+    _pack_project_root = path.resolve() if path is not None else None
+    _packs_loaded = False
+    _pack_cache = {}
+
+
+def _resolve_project_root() -> Path:
+    if _pack_project_root is not None:
+        return _pack_project_root
+    return Path.cwd()
+
+
+def _parse_operations(raw: dict[str, Any]) -> list[OperationSpec]:
+    """Parse operations tables, including fragment keys and field_map aliases."""
+    operations: list[OperationSpec] = []
+    for op_name, op_spec in raw.items():
+        if not isinstance(op_spec, dict):
+            continue
+        frag_raw = op_spec.get("fragment") or {}
+        fragment: dict[str, Any] = dict(frag_raw) if isinstance(frag_raw, dict) else {}
+        map_raw = op_spec.get("field_map") or {}
+        field_map: dict[str, str] = (
+            {str(k): str(v) for k, v in map_raw.items()} if isinstance(map_raw, dict) else {}
         )
+        operations.append(
+            OperationSpec(
+                name=op_name,
+                method=op_spec.get("method", "GET"),
+                path=op_spec.get("path", ""),
+                description=op_spec.get("description", ""),
+                request_schema=op_spec.get("request_schema", {}),
+                response_schema=op_spec.get("response_schema", {}),
+                fragment=fragment,
+                field_map=field_map,
+            )
+        )
+    return operations
 
-    # Parse env vars
-    env_vars = []
-    for name, spec in data.get("env_vars", {}).items():
+
+def _parse_env_vars(raw: dict[str, Any]) -> list[EnvVarSpec]:
+    env_vars: list[EnvVarSpec] = []
+    for name, spec in raw.items():
         if isinstance(spec, dict):
             env_vars.append(
                 EnvVarSpec(
@@ -371,25 +426,12 @@ def _load_pack_from_toml(toml_path: Path) -> ApiPack:
             )
         else:
             env_vars.append(EnvVarSpec(name=name, description=str(spec)))
+    return env_vars
 
-    # Parse operations
-    operations = []
-    for op_name, op_spec in data.get("operations", {}).items():
-        if isinstance(op_spec, dict):
-            operations.append(
-                OperationSpec(
-                    name=op_name,
-                    method=op_spec.get("method", "GET"),
-                    path=op_spec.get("path", ""),
-                    description=op_spec.get("description", ""),
-                    request_schema=op_spec.get("request_schema", {}),
-                    response_schema=op_spec.get("response_schema", {}),
-                )
-            )
 
-    # Parse foreign models
-    foreign_models = []
-    for model_name, model_spec in data.get("foreign_models", {}).items():
+def _parse_foreign_models(raw: dict[str, Any]) -> list[ForeignModelSpec]:
+    foreign_models: list[ForeignModelSpec] = []
+    for model_name, model_spec in raw.items():
         if isinstance(model_spec, dict):
             foreign_models.append(
                 ForeignModelSpec(
@@ -400,29 +442,30 @@ def _load_pack_from_toml(toml_path: Path) -> ApiPack:
                     fields=model_spec.get("fields", {}),
                 )
             )
+    return foreign_models
 
-    # Parse infrastructure
-    infra_data = data.get("infrastructure", {})
-    infrastructure = None
-    if infra_data:
-        sandbox_data = infra_data.get("sandbox", {})
-        sandbox = None
-        if sandbox_data:
-            sandbox = SandboxSpec(
-                available=sandbox_data.get("available", False),
-                env_prefix=sandbox_data.get("env_prefix", ""),
-                docs=sandbox_data.get("docs", ""),
-            )
 
-        infrastructure = InfrastructureSpec(
-            hosting=infra_data.get("hosting", "cloud_only"),
-            local_env_overrides=infra_data.get("local_env_overrides", {}),
-            sandbox=sandbox,
+def _parse_infrastructure(infra_data: dict[str, Any]) -> InfrastructureSpec | None:
+    if not infra_data:
+        return None
+    sandbox_data = infra_data.get("sandbox", {})
+    sandbox = None
+    if sandbox_data:
+        sandbox = SandboxSpec(
+            available=sandbox_data.get("available", False),
+            env_prefix=sandbox_data.get("env_prefix", ""),
+            docs=sandbox_data.get("docs", ""),
         )
+    return InfrastructureSpec(
+        hosting=infra_data.get("hosting", "cloud_only"),
+        local_env_overrides=infra_data.get("local_env_overrides", {}),
+        sandbox=sandbox,
+    )
 
-    # Parse webhooks
+
+def _parse_webhooks(raw: dict[str, Any]) -> list[WebhookEventSpec]:
     webhooks: list[WebhookEventSpec] = []
-    for wh_name, wh_spec in data.get("webhooks", {}).items():
+    for wh_name, wh_spec in raw.items():
         if isinstance(wh_spec, dict):
             webhooks.append(
                 WebhookEventSpec(
@@ -437,6 +480,27 @@ def _load_pack_from_toml(toml_path: Path) -> ApiPack:
             )
         elif isinstance(wh_spec, str):
             webhooks.append(WebhookEventSpec(name=wh_name, description=wh_spec))
+    return webhooks
+
+
+def _load_pack_from_toml(toml_path: Path) -> ApiPack:
+    """Load a single pack from a TOML file."""
+    with open(toml_path, "rb") as f:
+        data = tomllib.load(f)
+
+    pack_info = data.get("pack", {})
+
+    auth_data = data.get("auth", {})
+    auth = None
+    if auth_data:
+        auth = AuthSpec(
+            auth_type=auth_data.get("type", "none"),
+            header=auth_data.get("header"),
+            prefix=auth_data.get("prefix"),
+            env_var=auth_data.get("env_var"),
+            token_url=auth_data.get("token_url"),
+            scopes=auth_data.get("scopes", []),
+        )
 
     return ApiPack(
         name=pack_info.get("name", toml_path.stem),
@@ -447,11 +511,11 @@ def _load_pack_from_toml(toml_path: Path) -> ApiPack:
         base_url=pack_info.get("base_url", ""),
         docs_url=pack_info.get("docs_url", ""),
         auth=auth,
-        env_vars=env_vars,
-        operations=operations,
-        foreign_models=foreign_models,
-        infrastructure=infrastructure,
-        webhooks=webhooks,
+        env_vars=_parse_env_vars(data.get("env_vars", {})),
+        operations=_parse_operations(data.get("operations", {})),
+        foreign_models=_parse_foreign_models(data.get("foreign_models", {})),
+        infrastructure=_parse_infrastructure(data.get("infrastructure", {})),
+        webhooks=_parse_webhooks(data.get("webhooks", {})),
     )
 
 
@@ -472,24 +536,26 @@ def _collect_packs_from_dir(packs_dir: Path, into: dict[str, ApiPack]) -> None:
 
 
 def _discover_packs() -> None:
-    """Discover all available packs (project-local first, then built-in)."""
-    from dazzle.mcp.server.state import get_state
+    """Discover all available packs (project-local first, then built-in).
 
-    state = get_state()
-    if state.packs_loaded:
+    #1616: pure path — no ``dazzle.mcp`` import. HTTP dual-lock pins without
+    the mcp extra must still resolve ``companies_house_lookup`` etc.
+    """
+    global _pack_cache, _packs_loaded
+    if _packs_loaded:
         return
 
     new_cache: dict[str, ApiPack] = {}
 
     # Project-local packs take priority
-    project_packs_dir = state.project_root / ".dazzle" / "api_packs"
+    project_packs_dir = _resolve_project_root() / ".dazzle" / "api_packs"
     _collect_packs_from_dir(project_packs_dir, new_cache)
 
     # Built-in packs (won't overwrite project-local ones with same name)
     _collect_packs_from_dir(_get_packs_dir(), new_cache)
 
-    state.pack_cache = new_cache
-    state.packs_loaded = True
+    _pack_cache = new_cache
+    _packs_loaded = True
 
 
 def load_pack(pack_name: str) -> ApiPack | None:
@@ -502,10 +568,8 @@ def load_pack(pack_name: str) -> ApiPack | None:
     Returns:
         The ApiPack if found, None otherwise
     """
-    from dazzle.mcp.server.state import get_state
-
     _discover_packs()
-    return get_state().pack_cache.get(pack_name)
+    return _pack_cache.get(pack_name)
 
 
 def list_packs() -> list[ApiPack]:
@@ -515,10 +579,8 @@ def list_packs() -> list[ApiPack]:
     Returns:
         List of all discovered ApiPacks
     """
-    from dazzle.mcp.server.state import get_state
-
     _discover_packs()
-    return list(get_state().pack_cache.values())
+    return list(_pack_cache.values())
 
 
 def search_packs(
@@ -537,10 +599,8 @@ def search_packs(
     Returns:
         List of matching ApiPacks
     """
-    from dazzle.mcp.server.state import get_state
-
     _discover_packs()
-    results = list(get_state().pack_cache.values())
+    results = list(_pack_cache.values())
 
     if category:
         category_lower = category.lower()
@@ -570,13 +630,11 @@ def get_all_env_vars() -> list[EnvVarSpec]:
     Returns:
         Deduplicated list of all env vars across packs
     """
-    from dazzle.mcp.server.state import get_state
-
     _discover_packs()
     seen: set[str] = set()
     result: list[EnvVarSpec] = []
 
-    for pack in get_state().pack_cache.values():
+    for pack in _pack_cache.values():
         for env_var in pack.env_vars:
             if env_var.name not in seen:
                 seen.add(env_var.name)
@@ -595,10 +653,8 @@ def generate_env_example(pack_names: list[str] | None = None) -> str:
     Returns:
         Combined .env.example content
     """
-    from dazzle.mcp.server.state import get_state
-
     _discover_packs()
-    cache = get_state().pack_cache
+    cache = _pack_cache
 
     if pack_names is None:
         packs = list(cache.values())

@@ -28,6 +28,7 @@ class OpenBridgeConfiguration(
 
     class Field(AbstractObject.Field):
         active = 'active'
+        associated_sgw_data_source_id = 'associated_sgw_data_source_id'
         blocked_event_types = 'blocked_event_types'
         blocked_websites = 'blocked_websites'
         browser_agent = 'browser_agent'
@@ -46,6 +47,7 @@ class OpenBridgeConfiguration(
         instance_version = 'instance_version'
         is_sgw_instance = 'is_sgw_instance'
         is_sgw_pixel_from_meta_pixel = 'is_sgw_pixel_from_meta_pixel'
+        mpc_fallback_domain = 'mpc_fallback_domain'
         partner_name = 'partner_name'
         pixel_id = 'pixel_id'
         sgw_account_id = 'sgw_account_id'
@@ -148,6 +150,7 @@ class OpenBridgeConfiguration(
           api_utils.warning('`success` and `failure` callback only work for batch call.')
         param_types = {
             'active': 'bool',
+            'associated_sgw_data_source_id': 'unsigned int',
             'blocked_event_types': 'list<string>',
             'blocked_websites': 'list<string>',
             'capi_publishing_state': 'capi_publishing_state_enum',
@@ -199,6 +202,7 @@ class OpenBridgeConfiguration(
 
     _field_types = {
         'active': 'bool',
+        'associated_sgw_data_source_id': 'string',
         'blocked_event_types': 'list<string>',
         'blocked_websites': 'list<string>',
         'browser_agent': 'list<string>',
@@ -217,6 +221,7 @@ class OpenBridgeConfiguration(
         'instance_version': 'string',
         'is_sgw_instance': 'bool',
         'is_sgw_pixel_from_meta_pixel': 'bool',
+        'mpc_fallback_domain': 'string',
         'partner_name': 'string',
         'pixel_id': 'string',
         'sgw_account_id': 'string',

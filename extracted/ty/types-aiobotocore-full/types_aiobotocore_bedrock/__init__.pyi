@@ -12,6 +12,7 @@ Usage::
     from types_aiobotocore_bedrock import (
         BedrockClient,
         Client,
+        ListAdvancedPromptOptimizationJobsPaginator,
         ListAutomatedReasoningPoliciesPaginator,
         ListAutomatedReasoningPolicyBuildWorkflowsPaginator,
         ListAutomatedReasoningPolicyTestCasesPaginator,
@@ -38,6 +39,7 @@ Usage::
         ...
 
 
+    list_advanced_prompt_optimization_jobs_paginator: ListAdvancedPromptOptimizationJobsPaginator = client.get_paginator("list_advanced_prompt_optimization_jobs")
     list_automated_reasoning_policies_paginator: ListAutomatedReasoningPoliciesPaginator = client.get_paginator("list_automated_reasoning_policies")
     list_automated_reasoning_policy_build_workflows_paginator: ListAutomatedReasoningPolicyBuildWorkflowsPaginator = client.get_paginator("list_automated_reasoning_policy_build_workflows")
     list_automated_reasoning_policy_test_cases_paginator: ListAutomatedReasoningPolicyTestCasesPaginator = client.get_paginator("list_automated_reasoning_policy_test_cases")
@@ -61,6 +63,7 @@ Usage::
 
 from .client import BedrockClient
 from .paginator import (
+    ListAdvancedPromptOptimizationJobsPaginator,
     ListAutomatedReasoningPoliciesPaginator,
     ListAutomatedReasoningPolicyBuildWorkflowsPaginator,
     ListAutomatedReasoningPolicyTestCasesPaginator,
@@ -86,6 +89,7 @@ Client = BedrockClient
 __all__ = (
     "BedrockClient",
     "Client",
+    "ListAdvancedPromptOptimizationJobsPaginator",
     "ListAutomatedReasoningPoliciesPaginator",
     "ListAutomatedReasoningPolicyBuildWorkflowsPaginator",
     "ListAutomatedReasoningPolicyTestCasesPaginator",

@@ -38,6 +38,7 @@ class AdsValueAdjustmentRuleCollection(
 
     class EntryPoint:
         advertising_settings = 'ADVERTISING_SETTINGS'
+        l2_audience = 'L2_AUDIENCE'
         l2_conversion_location = 'L2_CONVERSION_LOCATION'
         l2_global = 'L2_GLOBAL'
         l2_nca_goal = 'L2_NCA_GOAL'

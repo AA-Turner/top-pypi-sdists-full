@@ -88,6 +88,7 @@ RuntimeEnvironmentType = Literal[
     "FLINK-1_6",
     "FLINK-1_8",
     "FLINK-2_2",
+    "FLINK-2_3",
     "SQL-1_0",
     "ZEPPELIN-FLINK-1_0",
     "ZEPPELIN-FLINK-2_0",

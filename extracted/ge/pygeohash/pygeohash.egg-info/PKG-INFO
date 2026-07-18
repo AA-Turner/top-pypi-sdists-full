@@ -1,17 +1,18 @@
 Metadata-Version: 2.4
 Name: pygeohash
-Version: 3.3.0
+Version: 3.3.1
 Summary: Python module for interacting with geohashes
 Author-email: Will McGinnis <will@mcginniscommawill.com>
 License: MIT
 Project-URL: Homepage, https://pygeohash.mcginniscommawill.com
 Project-URL: Bug Tracker, https://github.com/wdm0006/pygeohash/issues
-Project-URL: Download, https://github.com/wdm0006/pygeohash/tarball/3.3.0
+Project-URL: Download, https://github.com/wdm0006/pygeohash/tarball/3.3.1
 Keywords: geohash,gis
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
+Classifier: Typing :: Typed
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
@@ -46,7 +47,7 @@ Requires-Dist: types-requests>=2.31.0; extra == "dev"
 Requires-Dist: types-setuptools>=69.0.0; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
 Requires-Dist: pandas-stubs; extra == "dev"
-Requires-Dist: numpy; extra == "dev"
+Requires-Dist: numpy<2.5; extra == "dev"
 Requires-Dist: mutmut>=2.4.4; extra == "dev"
 Dynamic: license-file
 

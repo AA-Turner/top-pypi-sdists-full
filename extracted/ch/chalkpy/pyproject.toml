@@ -104,6 +104,11 @@ sentence-transformers = [
     "sentence-transformers==5.3.0"
 ]
 
+# Direct scaling-group model calls via chalkcompute's native client.
+compute = [
+    "chalkcompute>=2.3.2",
+]
+
 # SQL-specific
 sql = [
     "sqlalchemy[asyncio]>=1.4.26,<2",

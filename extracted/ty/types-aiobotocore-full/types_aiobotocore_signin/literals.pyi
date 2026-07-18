@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_signin.literals import SignInServiceServiceName
+    from types_aiobotocore_signin.literals import ListResourcePermissionStatementsPaginatorName
 
-    data: SignInServiceServiceName = "signin"
+    data: ListResourcePermissionStatementsPaginatorName = "list_resource_permission_statements"
     ```
 """
 
@@ -21,8 +21,15 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Literal
 
-__all__ = ("ResourceServiceName", "ServiceName", "SignInServiceServiceName")
+__all__ = (
+    "ListResourcePermissionStatementsPaginatorName",
+    "PaginatorName",
+    "ResourceServiceName",
+    "ServiceName",
+    "SignInServiceServiceName",
+)
 
+ListResourcePermissionStatementsPaginatorName = Literal["list_resource_permission_statements"]
 SignInServiceServiceName = Literal["signin"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -217,8 +224,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -245,6 +250,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -312,10 +319,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -348,6 +355,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -375,6 +383,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -396,7 +405,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -417,6 +425,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -452,3 +461,4 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
+PaginatorName = Literal["list_resource_permission_statements"]

@@ -141,7 +141,7 @@ jobs:
             echo "No Python package changes detected."
           fi
 
-  pyrefly-check:
+  ty-check:
     name: Type Checking
     runs-on: ubuntu-latest
     steps:
@@ -158,7 +158,7 @@ jobs:
               - 'tests/**'
               - 'pyproject.toml'
               - 'uv.lock'
-              - 'pyrefly.toml'
+              - 'ty.toml'
               - '.github/workflows/lint-check.yml'
 
       - name: Install uv
@@ -179,12 +179,8 @@ jobs:
           AIRBYTE_INTERNAL_OPS_CHANGED: ${{ steps.package-changes.outputs.airbyte-internal-ops }}
         run: |
           set -euo pipefail
-          targets=()
           if [[ "$GITHUB_EVENT_NAME" == "push" || "$AIRBYTE_INTERNAL_OPS_CHANGED" == "true" ]]; then
-            targets+=("src/airbyte_ops_mcp/mcp")
-          fi
-          if [[ ${#targets[@]} -eq 0 ]]; then
+            uv run ty check
+          else
             echo "No Python package changes detected."
-            exit 0
           fi
-          uv run pyrefly check "${targets[@]}"

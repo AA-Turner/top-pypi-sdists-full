@@ -15,6 +15,7 @@ Usage::
         GetChannelSchedulePaginator,
         ListAlertsPaginator,
         ListChannelsPaginator,
+        ListFunctionsPaginator,
         ListLiveSourcesPaginator,
         ListPlaybackConfigurationsPaginator,
         ListPrefetchSchedulesPaginator,
@@ -29,6 +30,7 @@ Usage::
         get_channel_schedule_paginator: GetChannelSchedulePaginator = client.get_paginator("get_channel_schedule")
         list_alerts_paginator: ListAlertsPaginator = client.get_paginator("list_alerts")
         list_channels_paginator: ListChannelsPaginator = client.get_paginator("list_channels")
+        list_functions_paginator: ListFunctionsPaginator = client.get_paginator("list_functions")
         list_live_sources_paginator: ListLiveSourcesPaginator = client.get_paginator("list_live_sources")
         list_playback_configurations_paginator: ListPlaybackConfigurationsPaginator = client.get_paginator("list_playback_configurations")
         list_prefetch_schedules_paginator: ListPrefetchSchedulesPaginator = client.get_paginator("list_prefetch_schedules")
@@ -51,6 +53,8 @@ from .type_defs import (
     ListAlertsResponseTypeDef,
     ListChannelsRequestPaginateTypeDef,
     ListChannelsResponseTypeDef,
+    ListFunctionsRequestPaginateTypeDef,
+    ListFunctionsResponseTypeDef,
     ListLiveSourcesRequestPaginateTypeDef,
     ListLiveSourcesResponseTypeDef,
     ListPlaybackConfigurationsRequestPaginateTypeDef,
@@ -72,6 +76,7 @@ __all__ = (
     "GetChannelSchedulePaginator",
     "ListAlertsPaginator",
     "ListChannelsPaginator",
+    "ListFunctionsPaginator",
     "ListLiveSourcesPaginator",
     "ListPlaybackConfigurationsPaginator",
     "ListPrefetchSchedulesPaginator",
@@ -131,6 +136,24 @@ class ListChannelsPaginator(_ListChannelsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediatailor/paginator/ListChannels.html#MediaTailor.Paginator.ListChannels.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediatailor/paginators/#listchannelspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListFunctionsPaginatorBase = AioPaginator[ListFunctionsResponseTypeDef]
+else:
+    _ListFunctionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListFunctionsPaginator(_ListFunctionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediatailor/paginator/ListFunctions.html#MediaTailor.Paginator.ListFunctions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediatailor/paginators/#listfunctionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListFunctionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListFunctionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediatailor/paginator/ListFunctions.html#MediaTailor.Paginator.ListFunctions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediatailor/paginators/#listfunctionspaginator)
         """
 
 if TYPE_CHECKING:

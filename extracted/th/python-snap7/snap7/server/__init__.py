@@ -6,6 +6,7 @@ Provides a complete S7 server emulator without dependencies on the Snap7 C libra
 
 import socket
 import struct
+import sys
 import threading
 import time
 import logging
@@ -569,6 +570,8 @@ class Server:
                 try:
                     self.server_socket.settimeout(0.1)  # Short timeout for responsive shutdown
                     client_socket, address = self.server_socket.accept()
+                    client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                    client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 
                     logger.info(f"Client connected from {address}")
 
@@ -734,65 +737,53 @@ class Server:
         return header + parameters
 
     def _handle_read_area(self, request: Dict[str, Any], client_address: Tuple[str, int]) -> bytes:
-        """Handle read area request."""
+        """Handle read area request (single or multi-item)."""
         try:
-            # Parse address specification from request parameters
+            params = request.get("parameters", {})
+            item_count = params.get("item_count", 1)
+
+            # Multi-item read
+            if item_count > 1 and "address_specs" in params:
+                return self._handle_multi_read_area(request, client_address)
+
+            # Single-item read (original path)
             addr_info = self._parse_read_address(request)
             if not addr_info:
-                return self._build_error_response(request, 0x8001)  # Invalid address
+                return self._build_error_response(request, 0x8001)
 
             area, db_number, start, count = addr_info
 
-            # Read data from registered memory area
             read_data = self._read_from_memory_area(area, db_number, start, count)
             if read_data is None:
-                return self._build_error_response(request, 0x8404)  # Area not found
+                return self._build_error_response(request, 0x8404)
 
-            # Calculate data length - need to include transport header + data
-            data_len = 4 + len(read_data)  # Transport header (4 bytes) + data
+            data_len = 4 + len(read_data)
 
-            # Build successful response
-            # S7 response header includes error class + error code
             header = struct.pack(
                 ">BBHHHHBB",
-                0x32,  # Protocol ID
-                S7PDUType.ACK_DATA,  # PDU type
-                0x0000,  # Reserved
-                request["sequence"],  # Sequence (echo)
-                0x0002,  # Parameter length
-                data_len,  # Data length
-                0x00,  # Error class (success)
-                0x00,  # Error code (success)
+                0x32,
+                S7PDUType.ACK_DATA,
+                0x0000,
+                request["sequence"],
+                0x0002,
+                data_len,
+                0x00,
+                0x00,
             )
 
-            # Parameters
-            parameters = struct.pack(
-                ">BB",
-                S7Function.READ_AREA,  # Function code
-                0x01,  # Item count
-            )
+            parameters = struct.pack(">BB", S7Function.READ_AREA, 0x01)
 
-            # Data section
-            data_section = (
-                struct.pack(
-                    ">BBH",
-                    0xFF,  # Return code (success)
-                    0x04,  # Transport size (04 = byte data)
-                    len(read_data) * 8,  # Data length in bits
-                )
-                + read_data
-            )
+            data_section = struct.pack(">BBH", 0xFF, 0x04, len(read_data) * 8) + read_data
 
-            # Trigger read event callback
             if self.read_callback:
                 event = SrvEvent()
                 event.EvtTime = int(time.time())
                 event.EvtSender = 0
-                event.EvtCode = 0x00004000  # Read event
+                event.EvtCode = 0x00004000
                 event.EvtRetCode = 0
-                event.EvtParam1 = 1  # Area
-                event.EvtParam2 = 0  # Offset
-                event.EvtParam3 = len(read_data)  # Size
+                event.EvtParam1 = 1
+                event.EvtParam2 = 0
+                event.EvtParam3 = len(read_data)
                 event.EvtParam4 = 0
                 try:
                     self.read_callback(event)
@@ -804,6 +795,64 @@ class Server:
         except Exception as e:
             logger.error(f"Error handling read request: {e}")
             return self._build_error_response(request, 0x8000)
+
+    def _handle_multi_read_area(self, request: Dict[str, Any], client_address: Tuple[str, int]) -> bytes:
+        """Handle multi-item read area request.
+
+        Reads multiple address specifications and returns all data items in a
+        single response with proper fill-byte alignment between items.
+        """
+        params = request["parameters"]
+        address_specs: List[Dict[str, Any]] = params["address_specs"]
+        item_count = len(address_specs)
+
+        # Build data section: concatenated items with fill bytes
+        data_parts = bytearray()
+        for i, addr in enumerate(address_specs):
+            area = addr.get("area", S7Area.DB)
+            db_number = addr.get("db_number", 0)
+            start = addr.get("start", 0)
+            count = addr.get("count", 1)
+            word_len = addr.get("word_len", S7WordLen.BYTE)
+
+            # Convert count to bytes
+            if word_len in (S7WordLen.TIMER, S7WordLen.COUNTER, S7WordLen.WORD):
+                byte_count = count * 2
+            elif word_len in (S7WordLen.DWORD, S7WordLen.REAL):
+                byte_count = count * 4
+            elif word_len == S7WordLen.BIT:
+                byte_count = 1
+            else:
+                byte_count = count
+
+            read_data = self._read_from_memory_area(area, db_number, start, byte_count)
+            if read_data is None:
+                # Item error: not found
+                data_parts.extend(struct.pack(">BBH", 0x0A, 0x00, 0x0000))
+            else:
+                data_parts.extend(struct.pack(">BBH", 0xFF, 0x04, len(read_data) * 8))
+                data_parts.extend(read_data)
+                # Fill byte for even alignment (not after last item)
+                if i < item_count - 1 and len(read_data) % 2 != 0:
+                    data_parts.append(0x00)
+
+        data_len = len(data_parts)
+
+        header = struct.pack(
+            ">BBHHHHBB",
+            0x32,
+            S7PDUType.ACK_DATA,
+            0x0000,
+            request["sequence"],
+            0x0002,  # param length
+            data_len,
+            0x00,
+            0x00,
+        )
+
+        parameters = struct.pack(">BB", S7Function.READ_AREA, item_count)
+
+        return header + parameters + bytes(data_parts)
 
     def _parse_read_address(self, request: Dict[str, Any]) -> Optional[Tuple[S7Area, int, int, int]]:
         """
@@ -1182,10 +1231,24 @@ class Server:
         elif function_code == S7Function.READ_AREA:
             # Parse read area parameters
             if len(param_data) >= 14:  # Minimum for read area request
-                # Function code (1) + item count (1) + address spec (12)
+                # Function code (1) + item count (1) + N * address spec (12 each)
                 item_count = param_data[1]
 
-                # Parse address specification starting at byte 2
+                if item_count > 1:
+                    # Multi-item read: parse all address specs
+                    address_specs: List[Dict[str, Any]] = []
+                    offset = 2
+                    for _ in range(item_count):
+                        if offset + 12 > len(param_data):
+                            break
+                        addr_spec = param_data[offset : offset + 12]
+                        parsed_addr = self._parse_address_specification(addr_spec)
+                        if parsed_addr:
+                            address_specs.append(parsed_addr)
+                        offset += 12
+                    return {"function_code": function_code, "item_count": item_count, "address_specs": address_specs}
+
+                # Single-item read
                 if len(param_data) >= 14:
                     addr_spec = param_data[2:14]  # 12 bytes of address specification
                     logger.debug(f"Extracted address spec from params: {addr_spec.hex()}")
@@ -1206,30 +1269,16 @@ class Server:
 
                     return {"function_code": function_code, "item_count": item_count, "address_spec": parsed_addr}
         elif function_code == S7Function.PLC_CONTROL:
-            # Parse PLC control parameters
-            # Format varies: simple start or PI service (compress/copy_ram_to_rom)
-            if len(param_data) >= 2:
-                # Check for restart type (simple start)
-                restart_type = param_data[1]
-                if restart_type in (1, 2):
-                    return {"function_code": function_code, "restart_type": restart_type}
-
-            # Check for PI service (compress/copy_ram_to_rom)
-            # Format: func(1) + reserved(7) + pi_len(1) + pi_service
-            # Or: func(1) + reserved(6) + file_id_len(1) + pi_len(1) + file_id + pi_service
-            if len(param_data) >= 10:
-                # Look for PI service
-                pi_len = param_data[8]
-                if pi_len > 0 and len(param_data) >= 9 + pi_len:
-                    pi_service = param_data[9 : 9 + pi_len]
-                    # Check for file_id (copy_ram_to_rom)
-                    file_id_len = param_data[7]
-                    file_id = b""
-                    if file_id_len > 0 and len(param_data) >= 9 + file_id_len + pi_len:
-                        # Reparse with file_id
-                        file_id = param_data[9 : 9 + file_id_len]
-                        pi_service = param_data[9 + file_id_len : 9 + file_id_len + pi_len]
-                    return {"function_code": function_code, "pi_service": pi_service, "file_id": file_id}
+            if b"P_PROGRAM" in param_data:
+                restart_type = 2 if b"C " in param_data else 1
+                return {"function_code": function_code, "restart_type": restart_type, "pi_service": b"P_PROGRAM"}
+            elif b"_MSZL" in param_data:
+                file_id = b"P" if b"P_MSZL" in param_data else b""
+                return {"function_code": function_code, "pi_service": b"_MSZL", "file_id": file_id}
+            elif b"_DELE" in param_data:
+                return {"function_code": function_code, "pi_service": b"_DELE"}
+            if len(param_data) >= 2 and param_data[1] in (1, 2):
+                return {"function_code": function_code, "restart_type": param_data[1]}
 
         return {"function_code": function_code}
 
@@ -1586,22 +1635,24 @@ class Server:
             SZL data bytes or None if not available
         """
         # SZL 0x001C: Component identification (S7CpuInfo)
+        # Each field is in a 34-byte SZL record: 2-byte index + 32-byte data
+        # The client parses at specific offsets matching real PLC format:
+        #   ASName at offset 6, ModuleName at offset 40,
+        #   Copyright at offset 108, SerialNumber at offset 142,
+        #   ModuleTypeName at offset 176
         if szl_id == 0x001C:
-            # S7CpuInfo structure fields (each is a null-terminated string)
-            module_type = b"CPU 315-2 PN/DP\x00"
-            serial_number = b"S C-C2UR28922012\x00"
-            as_name = b"SNAP7-SERVER\x00"
-            copyright_info = b"Original Siemens Equipment\x00"
-            module_name = b"CPU 315-2 PN/DP\x00"
-
-            # Pad to fixed sizes (from C structure)
-            module_type = module_type.ljust(32, b"\x00")[:32]
-            serial_number = serial_number.ljust(24, b"\x00")[:24]
-            as_name = as_name.ljust(24, b"\x00")[:24]
-            copyright_info = copyright_info.ljust(26, b"\x00")[:26]
-            module_name = module_name.ljust(24, b"\x00")[:24]
-
-            return module_type + serial_number + as_name + copyright_info + module_name
+            data = bytearray(210)
+            # Record 1: ASName at offset 6 (index bytes at 4-5, data at 6)
+            data[6 : 6 + 24] = b"SNAP7-SERVER\x00".ljust(24, b"\x00")[:24]
+            # Record 2: ModuleName at offset 40
+            data[40 : 40 + 24] = b"CPU 315-2 PN/DP\x00".ljust(24, b"\x00")[:24]
+            # Record 3: Copyright at offset 108
+            data[108 : 108 + 26] = b"Original Siemens Equipment\x00".ljust(26, b"\x00")[:26]
+            # Record 4: SerialNumber at offset 142
+            data[142 : 142 + 24] = b"S C-C2UR28922012\x00".ljust(24, b"\x00")[:24]
+            # Record 5: ModuleTypeName at offset 176
+            data[176 : 176 + 32] = b"CPU 315-2 PN/DP\x00".ljust(32, b"\x00")[:32]
+            return bytes(data)
 
         # SZL 0x0011: Module identification (S7OrderCode)
         elif szl_id == 0x0011:
@@ -1637,10 +1688,10 @@ class Server:
         elif szl_id == 0x0000:
             # Return list of available SZL IDs
             available_ids = [0x0000, 0x0011, 0x001C, 0x0131, 0x0232]
-            data = b""
+            result = b""
             for id_val in available_ids:
-                data += struct.pack(">H", id_val)
-            return data
+                result += struct.pack(">H", id_val)
+            return result
 
         return None
 
@@ -2419,6 +2470,17 @@ class Server:
     ) -> None:
         """Context manager exit."""
         self.destroy()
+
+    def __del__(self) -> None:
+        # Best-effort cleanup on garbage collection. Prefer destroy() or
+        # a `with` block; during interpreter shutdown module globals may
+        # already be None, so we skip finalization and swallow errors.
+        if sys.is_finalizing():
+            return
+        try:
+            self.destroy()
+        except Exception:
+            pass
 
 
 class ServerISOConnection:

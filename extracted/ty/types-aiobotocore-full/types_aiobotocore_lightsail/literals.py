@@ -106,6 +106,7 @@ __all__ = (
     "NetworkProtocolType",
     "OperationStatusType",
     "OperationTypeType",
+    "OriginIpAddressTypeEnumType",
     "OriginProtocolPolicyEnumType",
     "PaginatorName",
     "PortAccessTypeType",
@@ -473,6 +474,7 @@ OperationTypeType = Literal[
     "UpdateRelationalDatabase",
     "UpdateRelationalDatabaseParameters",
 ]
+OriginIpAddressTypeEnumType = Literal["dualstack", "ipv4", "ipv6"]
 OriginProtocolPolicyEnumType = Literal["http-only", "https-only"]
 PortAccessTypeType = Literal["Private", "Public"]
 PortInfoSourceTypeType = Literal["CLOSED", "DEFAULT", "INSTANCE", "NONE"]
@@ -481,6 +483,7 @@ PricingUnitType = Literal["Bundles", "GB", "GB-Mo", "Hrs", "Queries"]
 R53HostedZoneDeletionStateCodeType = Literal["FAILED", "PENDING", "STARTED", "SUCCEEDED"]
 RecordStateType = Literal["Failed", "Started", "Succeeded"]
 RegionNameType = Literal[
+    "ap-east-1",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-south-1",
@@ -491,9 +494,11 @@ RegionNameType = Literal[
     "ca-central-1",
     "eu-central-1",
     "eu-north-1",
+    "eu-south-2",
     "eu-west-1",
     "eu-west-2",
     "eu-west-3",
+    "sa-east-1",
     "us-east-1",
     "us-east-2",
     "us-west-1",
@@ -745,8 +750,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -773,6 +776,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -840,10 +845,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -876,6 +881,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -903,6 +909,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -924,7 +931,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -945,6 +951,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -1003,6 +1010,7 @@ PaginatorName = Literal[
     "get_static_ips",
 ]
 RegionName = Literal[
+    "ap-east-1",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-south-1",
@@ -1013,9 +1021,11 @@ RegionName = Literal[
     "ca-central-1",
     "eu-central-1",
     "eu-north-1",
+    "eu-south-2",
     "eu-west-1",
     "eu-west-2",
     "eu-west-3",
+    "sa-east-1",
     "us-east-1",
     "us-east-2",
     "us-west-2",

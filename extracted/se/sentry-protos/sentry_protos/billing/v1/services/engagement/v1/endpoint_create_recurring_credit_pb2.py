@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1.services.engagement.v1 import recurring_credit_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_engagement_dot_v1_dot_recurring__credit__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nVsentry_protos/billing/v1/services/engagement/v1/endpoint_create_recurring_credit.proto\x12/sentry_protos.billing.v1.services.engagement.v1\x1a\x46sentry_protos/billing/v1/services/engagement/v1/recurring_credit.proto\"\xf9\x01\n\x1c\x43reateRecurringCreditRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x1a\n\rline_item_uid\x18\x02 \x01(\tH\x00\x88\x01\x01\x12R\n\x04type\x18\x03 \x01(\x0e\x32\x44.sentry_protos.billing.v1.services.engagement.v1.RecurringCreditType\x12\x0e\n\x06\x61mount\x18\x04 \x01(\x04\x12\x19\n\x11number_of_periods\x18\x05 \x01(\x04\x12\x13\n\x0b\x63ontract_id\x18\x06 \x01(\x04\x42\x10\n\x0e_line_item_uid\"\x1f\n\x1d\x43reateRecurringCreditResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nVsentry_protos/billing/v1/services/engagement/v1/endpoint_create_recurring_credit.proto\x12/sentry_protos.billing.v1.services.engagement.v1\x1a\x46sentry_protos/billing/v1/services/engagement/v1/recurring_credit.proto\"\xec\x02\n\x1c\x43reateRecurringCreditRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x1a\n\rline_item_uid\x18\x02 \x01(\tH\x00\x88\x01\x01\x12R\n\x04type\x18\x03 \x01(\x0e\x32\x44.sentry_protos.billing.v1.services.engagement.v1.RecurringCreditType\x12\x0e\n\x06\x61mount\x18\x04 \x01(\x04\x12\x19\n\x11number_of_periods\x18\x05 \x01(\x04\x12\x13\n\x0b\x63ontract_id\x18\x06 \x01(\x04\x12_\n\rsource_config\x18\x07 \x01(\x0b\x32\x43.sentry_protos.billing.v1.services.engagement.v1.CreditSourceConfigH\x01\x88\x01\x01\x42\x10\n\x0e_line_item_uidB\x10\n\x0e_source_config\"\x1f\n\x1d\x43reateRecurringCreditResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,7 +33,7 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.se
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_CREATERECURRINGCREDITREQUEST']._serialized_start=212
-  _globals['_CREATERECURRINGCREDITREQUEST']._serialized_end=461
-  _globals['_CREATERECURRINGCREDITRESPONSE']._serialized_start=463
-  _globals['_CREATERECURRINGCREDITRESPONSE']._serialized_end=494
+  _globals['_CREATERECURRINGCREDITREQUEST']._serialized_end=576
+  _globals['_CREATERECURRINGCREDITRESPONSE']._serialized_start=578
+  _globals['_CREATERECURRINGCREDITRESPONSE']._serialized_end=609
 # @@protoc_insertion_point(module_scope)

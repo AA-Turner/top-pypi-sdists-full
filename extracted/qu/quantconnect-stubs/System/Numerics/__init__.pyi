@@ -80,9 +80,13 @@ System_Numerics_IMultiplyOperators_TOther = typing.TypeVar("System_Numerics_IMul
 System_Numerics_IMultiplyOperators_TResult = typing.TypeVar("System_Numerics_IMultiplyOperators_TResult")
 System_Numerics_IUnsignedNumber_TSelf = typing.TypeVar("System_Numerics_IUnsignedNumber_TSelf")
 System_Numerics_INumber_TSelf = typing.TypeVar("System_Numerics_INumber_TSelf")
+System_Numerics_Decimal64_ConvertToInteger_TInteger = typing.TypeVar("System_Numerics_Decimal64_ConvertToInteger_TInteger")
+System_Numerics_Decimal64_ConvertToIntegerNative_TInteger = typing.TypeVar("System_Numerics_Decimal64_ConvertToIntegerNative_TInteger")
 System_Numerics_Decimal64_CreateChecked_TOther = typing.TypeVar("System_Numerics_Decimal64_CreateChecked_TOther")
 System_Numerics_Decimal64_CreateSaturating_TOther = typing.TypeVar("System_Numerics_Decimal64_CreateSaturating_TOther")
 System_Numerics_Decimal64_CreateTruncating_TOther = typing.TypeVar("System_Numerics_Decimal64_CreateTruncating_TOther")
+System_Numerics_Decimal32_ConvertToInteger_TInteger = typing.TypeVar("System_Numerics_Decimal32_ConvertToInteger_TInteger")
+System_Numerics_Decimal32_ConvertToIntegerNative_TInteger = typing.TypeVar("System_Numerics_Decimal32_ConvertToIntegerNative_TInteger")
 System_Numerics_Decimal32_CreateChecked_TOther = typing.TypeVar("System_Numerics_Decimal32_CreateChecked_TOther")
 System_Numerics_Decimal32_CreateSaturating_TOther = typing.TypeVar("System_Numerics_Decimal32_CreateSaturating_TOther")
 System_Numerics_Decimal32_CreateTruncating_TOther = typing.TypeVar("System_Numerics_Decimal32_CreateTruncating_TOther")
@@ -95,6 +99,8 @@ System_Numerics_INumberBase_TryConvertFromTruncating_TOther = typing.TypeVar("Sy
 System_Numerics_INumberBase_TryConvertToChecked_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertToChecked_TOther")
 System_Numerics_INumberBase_TryConvertToSaturating_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertToSaturating_TOther")
 System_Numerics_INumberBase_TryConvertToTruncating_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertToTruncating_TOther")
+System_Numerics_Decimal128_ConvertToInteger_TInteger = typing.TypeVar("System_Numerics_Decimal128_ConvertToInteger_TInteger")
+System_Numerics_Decimal128_ConvertToIntegerNative_TInteger = typing.TypeVar("System_Numerics_Decimal128_ConvertToIntegerNative_TInteger")
 System_Numerics_Decimal128_CreateChecked_TOther = typing.TypeVar("System_Numerics_Decimal128_CreateChecked_TOther")
 System_Numerics_Decimal128_CreateSaturating_TOther = typing.TypeVar("System_Numerics_Decimal128_CreateSaturating_TOther")
 System_Numerics_Decimal128_CreateTruncating_TOther = typing.TypeVar("System_Numerics_Decimal128_CreateTruncating_TOther")
@@ -3352,6 +3358,36 @@ class TotalOrderIeee754Comparer(typing.Generic[System_Numerics_TotalOrderIeee754
         ...
 
 
+class _Typed_Decimal64_ConvertToInteger(typing.Generic[System_Numerics_Decimal64_ConvertToInteger_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Numerics.Decimal64) -> System_Numerics_Decimal64_ConvertToInteger_TInteger:
+        ...
+
+
+class _Decimal64_ConvertToInteger:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal64_ConvertToInteger_TInteger]) -> System.Numerics._Typed_Decimal64_ConvertToInteger[System_Numerics_Decimal64_ConvertToInteger_TInteger]:
+        ...
+
+
+class _Typed_Decimal64_ConvertToIntegerNative(typing.Generic[System_Numerics_Decimal64_ConvertToIntegerNative_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Numerics.Decimal64) -> System_Numerics_Decimal64_ConvertToIntegerNative_TInteger:
+        ...
+
+
+class _Decimal64_ConvertToIntegerNative:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal64_ConvertToIntegerNative_TInteger]) -> System.Numerics._Typed_Decimal64_ConvertToIntegerNative[System_Numerics_Decimal64_ConvertToIntegerNative_TInteger]:
+        ...
+
+
 class _Typed_Decimal64_CreateChecked(typing.Generic[System_Numerics_Decimal64_CreateChecked_TOther]):
     """"""
 
@@ -3397,7 +3433,7 @@ class _Decimal64_CreateTruncating:
         ...
 
 
-class Decimal64(System.IComparable[System_Numerics_Decimal64], System.Numerics.INumberBase[System_Numerics_Decimal64], System.Numerics.IMinMaxValue[System_Numerics_Decimal64], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal64, int]):
+class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable[System_Numerics_Decimal64], System.Numerics.IFloatingPoint[System_Numerics_Decimal64], System.ISpanFormattable, System.ISpanParsable[System_Numerics_Decimal64], System.Numerics.IMinMaxValue[System_Numerics_Decimal64], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_Decimal64], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal64, int]):
     """This class has no documentation."""
 
     POSITIVE_INFINITY: System.Numerics.Decimal64
@@ -3425,6 +3461,10 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.Numerics.I
     PI: System.Numerics.Decimal64
 
     TAU: System.Numerics.Decimal64
+
+    convert_to_integer: System.Numerics._Decimal64_ConvertToInteger
+
+    convert_to_integer_native: System.Numerics._Decimal64_ConvertToIntegerNative
 
     create_checked: System.Numerics._Decimal64_CreateChecked
 
@@ -3465,6 +3505,9 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.Numerics.I
     def __iadd__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
+    def __imod__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
     def __imul__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
@@ -3498,6 +3541,9 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.Numerics.I
     def __lt__(self, right: System.Numerics.Decimal64) -> bool:
         ...
 
+    def __mod__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
     def __mul__(self, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
@@ -3518,6 +3564,18 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.Numerics.I
 
     @staticmethod
     def abs(value: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def bit_decrement(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def bit_increment(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def ceiling(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @staticmethod
@@ -3548,7 +3606,23 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.Numerics.I
     def equals(self, obj: typing.Any) -> bool:
         ...
 
+    @staticmethod
+    def floor(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def fused_multiply_add(left: System.Numerics.Decimal64, right: System.Numerics.Decimal64, addend: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
     def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def ieee_754_remainder(left: System.Numerics.Decimal64, right: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def i_log_b(x: System.Numerics.Decimal64) -> int:
         ...
 
     @staticmethod
@@ -3688,7 +3762,47 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.Numerics.I
         ...
 
     @staticmethod
+    def quantize(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def quantum(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Numerics.Decimal64, digits: int) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Numerics.Decimal64, mode: System.MidpointRounding) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Numerics.Decimal64, digits: int, mode: System.MidpointRounding) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def same_quantum(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def scale_b(x: System.Numerics.Decimal64, n: int) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
     def sign(value: System.Numerics.Decimal64) -> int:
+        ...
+
+    @staticmethod
+    def sqrt(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @overload
@@ -3705,6 +3819,10 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.Numerics.I
 
     @overload
     def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def truncate(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @overload
@@ -4088,6 +4206,36 @@ class ISignedNumber(typing.Generic[System_Numerics_ISignedNumber_TSelf], System.
     """This class has no documentation."""
 
 
+class _Typed_Decimal32_ConvertToInteger(typing.Generic[System_Numerics_Decimal32_ConvertToInteger_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Numerics.Decimal32) -> System_Numerics_Decimal32_ConvertToInteger_TInteger:
+        ...
+
+
+class _Decimal32_ConvertToInteger:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal32_ConvertToInteger_TInteger]) -> System.Numerics._Typed_Decimal32_ConvertToInteger[System_Numerics_Decimal32_ConvertToInteger_TInteger]:
+        ...
+
+
+class _Typed_Decimal32_ConvertToIntegerNative(typing.Generic[System_Numerics_Decimal32_ConvertToIntegerNative_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Numerics.Decimal32) -> System_Numerics_Decimal32_ConvertToIntegerNative_TInteger:
+        ...
+
+
+class _Decimal32_ConvertToIntegerNative:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal32_ConvertToIntegerNative_TInteger]) -> System.Numerics._Typed_Decimal32_ConvertToIntegerNative[System_Numerics_Decimal32_ConvertToIntegerNative_TInteger]:
+        ...
+
+
 class _Typed_Decimal32_CreateChecked(typing.Generic[System_Numerics_Decimal32_CreateChecked_TOther]):
     """"""
 
@@ -4133,7 +4281,7 @@ class _Decimal32_CreateTruncating:
         ...
 
 
-class Decimal32(System.IComparable[System_Numerics_Decimal32], System.Numerics.INumberBase[System_Numerics_Decimal32], System.Numerics.IMinMaxValue[System_Numerics_Decimal32], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal32, int]):
+class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable[System_Numerics_Decimal32], System.Numerics.IFloatingPoint[System_Numerics_Decimal32], System.ISpanFormattable, System.ISpanParsable[System_Numerics_Decimal32], System.Numerics.IMinMaxValue[System_Numerics_Decimal32], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_Decimal32], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal32, int]):
     """This class has no documentation."""
 
     POSITIVE_INFINITY: System.Numerics.Decimal32
@@ -4161,6 +4309,10 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.Numerics.I
     PI: System.Numerics.Decimal32
 
     TAU: System.Numerics.Decimal32
+
+    convert_to_integer: System.Numerics._Decimal32_ConvertToInteger
+
+    convert_to_integer_native: System.Numerics._Decimal32_ConvertToIntegerNative
 
     create_checked: System.Numerics._Decimal32_CreateChecked
 
@@ -4201,6 +4353,9 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.Numerics.I
     def __iadd__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
+    def __imod__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
     def __imul__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
@@ -4234,6 +4389,9 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.Numerics.I
     def __lt__(self, right: System.Numerics.Decimal32) -> bool:
         ...
 
+    def __mod__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
     def __mul__(self, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
@@ -4254,6 +4412,18 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.Numerics.I
 
     @staticmethod
     def abs(value: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def bit_decrement(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def bit_increment(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def ceiling(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @staticmethod
@@ -4284,7 +4454,23 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.Numerics.I
     def equals(self, obj: typing.Any) -> bool:
         ...
 
+    @staticmethod
+    def floor(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def fused_multiply_add(left: System.Numerics.Decimal32, right: System.Numerics.Decimal32, addend: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
     def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def ieee_754_remainder(left: System.Numerics.Decimal32, right: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def i_log_b(x: System.Numerics.Decimal32) -> int:
         ...
 
     @staticmethod
@@ -4424,7 +4610,47 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.Numerics.I
         ...
 
     @staticmethod
+    def quantize(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def quantum(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Numerics.Decimal32, digits: int) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Numerics.Decimal32, mode: System.MidpointRounding) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Numerics.Decimal32, digits: int, mode: System.MidpointRounding) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def same_quantum(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def scale_b(x: System.Numerics.Decimal32, n: int) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
     def sign(value: System.Numerics.Decimal32) -> int:
+        ...
+
+    @staticmethod
+    def sqrt(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @overload
@@ -4441,6 +4667,10 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.Numerics.I
 
     @overload
     def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def truncate(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @overload
@@ -5575,6 +5805,36 @@ class INumber(typing.Generic[System_Numerics_INumber_TSelf], System.IComparable[
     """This class has no documentation."""
 
 
+class _Typed_Decimal128_ConvertToInteger(typing.Generic[System_Numerics_Decimal128_ConvertToInteger_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Numerics.Decimal128) -> System_Numerics_Decimal128_ConvertToInteger_TInteger:
+        ...
+
+
+class _Decimal128_ConvertToInteger:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal128_ConvertToInteger_TInteger]) -> System.Numerics._Typed_Decimal128_ConvertToInteger[System_Numerics_Decimal128_ConvertToInteger_TInteger]:
+        ...
+
+
+class _Typed_Decimal128_ConvertToIntegerNative(typing.Generic[System_Numerics_Decimal128_ConvertToIntegerNative_TInteger]):
+    """"""
+
+    @overload
+    def __call__(self, value: System.Numerics.Decimal128) -> System_Numerics_Decimal128_ConvertToIntegerNative_TInteger:
+        ...
+
+
+class _Decimal128_ConvertToIntegerNative:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_Decimal128_ConvertToIntegerNative_TInteger]) -> System.Numerics._Typed_Decimal128_ConvertToIntegerNative[System_Numerics_Decimal128_ConvertToIntegerNative_TInteger]:
+        ...
+
+
 class _Typed_Decimal128_CreateChecked(typing.Generic[System_Numerics_Decimal128_CreateChecked_TOther]):
     """"""
 
@@ -5620,7 +5880,7 @@ class _Decimal128_CreateTruncating:
         ...
 
 
-class Decimal128(System.IComparable[System_Numerics_Decimal128], System.Numerics.INumberBase[System_Numerics_Decimal128], System.Numerics.IMinMaxValue[System_Numerics_Decimal128], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal128, System.UInt128]):
+class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatable[System_Numerics_Decimal128], System.Numerics.IFloatingPoint[System_Numerics_Decimal128], System.ISpanFormattable, System.ISpanParsable[System_Numerics_Decimal128], System.Numerics.IMinMaxValue[System_Numerics_Decimal128], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_Decimal128], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal128, System.UInt128]):
     """This class has no documentation."""
 
     POSITIVE_INFINITY: System.Numerics.Decimal128
@@ -5648,6 +5908,10 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.Numerics
     PI: System.Numerics.Decimal128
 
     TAU: System.Numerics.Decimal128
+
+    convert_to_integer: System.Numerics._Decimal128_ConvertToInteger
+
+    convert_to_integer_native: System.Numerics._Decimal128_ConvertToIntegerNative
 
     create_checked: System.Numerics._Decimal128_CreateChecked
 
@@ -5688,6 +5952,9 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.Numerics
     def __iadd__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
+    def __imod__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
     def __imul__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
@@ -5721,6 +5988,9 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.Numerics
     def __lt__(self, right: System.Numerics.Decimal128) -> bool:
         ...
 
+    def __mod__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
     def __mul__(self, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
@@ -5741,6 +6011,18 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.Numerics
 
     @staticmethod
     def abs(value: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def bit_decrement(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def bit_increment(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def ceiling(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @staticmethod
@@ -5771,7 +6053,23 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.Numerics
     def equals(self, obj: typing.Any) -> bool:
         ...
 
+    @staticmethod
+    def floor(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def fused_multiply_add(left: System.Numerics.Decimal128, right: System.Numerics.Decimal128, addend: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
     def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def ieee_754_remainder(left: System.Numerics.Decimal128, right: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def i_log_b(x: System.Numerics.Decimal128) -> int:
         ...
 
     @staticmethod
@@ -5911,7 +6209,47 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.Numerics
         ...
 
     @staticmethod
+    def quantize(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def quantum(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Numerics.Decimal128, digits: int) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Numerics.Decimal128, mode: System.MidpointRounding) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Numerics.Decimal128, digits: int, mode: System.MidpointRounding) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def same_quantum(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def scale_b(x: System.Numerics.Decimal128, n: int) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
     def sign(value: System.Numerics.Decimal128) -> int:
+        ...
+
+    @staticmethod
+    def sqrt(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @overload
@@ -5928,6 +6266,10 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.Numerics
 
     @overload
     def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def truncate(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @overload

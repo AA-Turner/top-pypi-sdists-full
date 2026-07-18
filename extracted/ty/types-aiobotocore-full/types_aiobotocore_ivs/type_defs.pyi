@@ -129,6 +129,7 @@ __all__ = (
     "PlaybackKeyPairTypeDef",
     "PlaybackRestrictionPolicySummaryTypeDef",
     "PlaybackRestrictionPolicyTypeDef",
+    "PostRollConfigurationTypeDef",
     "PutMetadataRequestTypeDef",
     "RecordingConfigurationSummaryTypeDef",
     "RecordingConfigurationTypeDef",
@@ -153,6 +154,8 @@ __all__ = (
     "ThumbnailConfigurationTypeDef",
     "ThumbnailConfigurationUnionTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateAdConfigurationRequestTypeDef",
+    "UpdateAdConfigurationResponseTypeDef",
     "UpdateChannelRequestTypeDef",
     "UpdateChannelResponseTypeDef",
     "UpdatePlaybackRestrictionPolicyRequestTypeDef",
@@ -162,6 +165,10 @@ __all__ = (
 
 class MediaTailorPlaybackConfigurationTypeDef(TypedDict):
     playbackConfigurationArn: NotRequired[str]
+
+class PostRollConfigurationTypeDef(TypedDict):
+    durationSeconds: int
+    enabled: bool
 
 class AudioConfigurationTypeDef(TypedDict):
     codec: NotRequired[str]
@@ -471,18 +478,29 @@ class AdConfigurationSummaryTypeDef(TypedDict):
     arn: str
     mediaTailorPlaybackConfigurations: list[MediaTailorPlaybackConfigurationTypeDef]
     name: NotRequired[str]
+    postRollConfiguration: NotRequired[PostRollConfigurationTypeDef]
     tags: NotRequired[dict[str, str]]
 
 class AdConfigurationTypeDef(TypedDict):
     arn: str
     mediaTailorPlaybackConfigurations: list[MediaTailorPlaybackConfigurationTypeDef]
     name: NotRequired[str]
+    postRollConfiguration: NotRequired[PostRollConfigurationTypeDef]
     tags: NotRequired[dict[str, str]]
 
 class CreateAdConfigurationRequestTypeDef(TypedDict):
     mediaTailorPlaybackConfigurations: Sequence[MediaTailorPlaybackConfigurationTypeDef]
     name: NotRequired[str]
+    postRollConfiguration: NotRequired[PostRollConfigurationTypeDef]
     tags: NotRequired[Mapping[str, str]]
+
+class UpdateAdConfigurationRequestTypeDef(TypedDict):
+    arn: str
+    name: NotRequired[str]
+    mediaTailorPlaybackConfigurations: NotRequired[
+        Sequence[MediaTailorPlaybackConfigurationTypeDef]
+    ]
+    postRollConfiguration: NotRequired[PostRollConfigurationTypeDef]
 
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
@@ -696,6 +714,10 @@ class CreateAdConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetAdConfigurationResponseTypeDef(TypedDict):
+    adConfiguration: AdConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAdConfigurationResponseTypeDef(TypedDict):
     adConfiguration: AdConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 

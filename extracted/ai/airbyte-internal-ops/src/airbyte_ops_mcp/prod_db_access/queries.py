@@ -39,9 +39,11 @@ from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_CONNECTOR_ROLLOUTS,
     SELECT_CONNECTOR_VERSIONS,
     SELECT_DATAPLANES_LIST,
+    SELECT_DESTINATION_ACTOR_POPULATION_BY_ORG,
     SELECT_DESTINATION_CONNECTION_STATS,
     SELECT_DESTINATION_SUCCESSFUL_SYNCS_FOR_VERSION,
     SELECT_DESTINATION_SYNC_RESULTS_FOR_VERSION,
+    SELECT_DESTINATION_VERSION_ACTOR_HEALTH,
     SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR,
     SELECT_NEW_CONNECTOR_RELEASES,
     SELECT_ORG_WORKSPACES,
@@ -53,9 +55,11 @@ from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_RECENT_SUCCESSFUL_SYNCS_FOR_SOURCE_CONNECTOR,
     SELECT_RECENT_SYNCS_FOR_DESTINATION_CONNECTOR,
     SELECT_RECENT_SYNCS_FOR_SOURCE_CONNECTOR,
+    SELECT_SOURCE_ACTOR_POPULATION_BY_ORG,
     SELECT_SOURCE_CONNECTION_STATS,
     SELECT_SOURCE_SUCCESSFUL_SYNCS_FOR_VERSION,
     SELECT_SOURCE_SYNC_RESULTS_FOR_VERSION,
+    SELECT_SOURCE_VERSION_ACTOR_HEALTH,
     SELECT_VERSION_ID_BY_TAG,
     SELECT_VERSION_INFO_BY_ID,
     SELECT_VERSIONS_WITH_PINS,
@@ -535,6 +539,115 @@ def query_syncs_for_connector_version(
             "actor_definition_version_id": connector_version_id,
             "cutoff_date": cutoff_date,
             "limit": limit,
+        },
+        query_name=query_name,
+        gsm_client=gsm_client,
+    )
+
+
+def query_version_actor_health(
+    connector_version_id: str,
+    is_destination: bool,
+    days: int = 7,
+    *,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Aggregate per-actor sync health for a specific connector version.
+
+    Returns one row per actor that ran the version within the last `days`,
+    with `total_jobs`, `succeeded_jobs`, `failed_jobs`, `latest_status`, plus
+    `organization_id` and `dataplane_name` for tier resolution. Filters on the
+    version stamped into `jobs.config` at job-creation time (the same primitive
+    as `query_syncs_for_connector_version`), so the population reflects actors
+    that actually ran this version rather than the current pin state.
+
+    Args:
+        connector_version_id: Connector version UUID to summarize.
+        is_destination: `True` for destination connectors, `False` for source.
+        days: Number of days to look back (default: 7).
+        gsm_client: GCP Secret Manager client. If `None`, a new client is created.
+    """
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+    if is_destination:
+        query = SELECT_DESTINATION_VERSION_ACTOR_HEALTH
+        query_name = "SELECT_DESTINATION_VERSION_ACTOR_HEALTH"
+    else:
+        query = SELECT_SOURCE_VERSION_ACTOR_HEALTH
+        query_name = "SELECT_SOURCE_VERSION_ACTOR_HEALTH"
+    return _run_sql_query(
+        query,
+        parameters={
+            "actor_definition_version_id": connector_version_id,
+            "cutoff_date": cutoff_date,
+        },
+        query_name=query_name,
+        gsm_client=gsm_client,
+    )
+
+
+def query_actor_population_by_org(
+    actor_definition_id: str,
+    is_destination: bool,
+    *,
+    target_version_id: str | None = None,
+    rollout_created_at: str | None = None,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Aggregate the active-actor population for a connector definition by org.
+
+    Returns one row per organization with `actor_count` (enabled actors of the
+    definition that have at least one *active* connection, i.e.
+    `connection.status = 'active'` \u2014 inactive/disabled and deprecated
+    connections are excluded) and
+    `pinned_actor_count` (those with an effective `connector_version` pin at any
+    scope). Each row also carries `organization_id` and `dataplane_name` so the
+    caller can resolve customer tiers. The eligible (unpinned) population is
+    `actor_count - pinned_actor_count`.
+
+    When `target_version_id` is supplied, each row also carries
+    `pinned_to_version_count` \u2014 active actors whose *effective* pin is that
+    version. Actors pinned to a *different* version are then
+    `pinned_actor_count - pinned_to_version_count`, letting the caller exclude
+    them from a specific-version rollout's addressable audience. When it is
+    `None`, `pinned_to_version_count` is `0` for every row.
+
+    Every row also carries three mutually-exclusive job-status factors that
+    partition the *unpinned* active actors, reproducing the platform's
+    `filterByJobStatus` eligibility gate over the window starting at
+    `rollout_created_at`:
+
+    - `eligible_gated_count`: most-recent `sync` succeeded on a non-manual
+      active connection and failed on none (the gate the backend applies).
+    - `gate_excluded_failed_count`: at least one recent failed sync.
+    - `gate_excluded_no_recent_sync_count`: no qualifying sync in the window.
+
+    Keeping the exclusion reasons distinct lets the caller surface every factor
+    instead of collapsing them. When `rollout_created_at` is `None` the window
+    matches nothing, so every unpinned actor lands in
+    `gate_excluded_no_recent_sync_count` and the caller should fall back to the
+    ungated population.
+
+    Args:
+        actor_definition_id: Connector definition UUID to summarize.
+        is_destination: `True` for destination connectors, `False` for source.
+        target_version_id: Release-candidate `actor_definition_version` UUID to
+            attribute pins to. `None` disables the per-version breakdown.
+        rollout_created_at: The rollout's `created_at` timestamp (ISO string)
+            used as the job-status window start. `None` disables the gate.
+        gsm_client: GCP Secret Manager client. If `None`, a new client is created.
+    """
+    if is_destination:
+        query = SELECT_DESTINATION_ACTOR_POPULATION_BY_ORG
+        query_name = "SELECT_DESTINATION_ACTOR_POPULATION_BY_ORG"
+    else:
+        query = SELECT_SOURCE_ACTOR_POPULATION_BY_ORG
+        query_name = "SELECT_SOURCE_ACTOR_POPULATION_BY_ORG"
+    return _run_sql_query(
+        query,
+        parameters={
+            "actor_definition_id": actor_definition_id,
+            "target_version_id": target_version_id,
+            "rollout_created_at": rollout_created_at,
         },
         query_name=query_name,
         gsm_client=gsm_client,

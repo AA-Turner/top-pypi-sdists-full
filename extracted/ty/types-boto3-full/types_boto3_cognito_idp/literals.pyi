@@ -70,6 +70,7 @@ __all__ = (
     "MessageActionTypeType",
     "OAuthFlowTypeType",
     "PaginatorName",
+    "PasswordHashingAlgorithmTypeType",
     "PreTokenGenerationLambdaVersionTypeType",
     "PreventUserExistenceErrorTypesType",
     "RecoveryOptionNameTypeType",
@@ -199,6 +200,7 @@ ListUsersPaginatorName = Literal["list_users"]
 LogLevelType = Literal["ERROR", "INFO"]
 MessageActionTypeType = Literal["RESEND", "SUPPRESS"]
 OAuthFlowTypeType = Literal["client_credentials", "code", "implicit"]
+PasswordHashingAlgorithmTypeType = Literal["ARGON2ID", "BCRYPT", "PBKDF2_SHA256", "SCRYPT"]
 PreTokenGenerationLambdaVersionTypeType = Literal["V1_0", "V2_0", "V3_0"]
 PreventUserExistenceErrorTypesType = Literal["ENABLED", "LEGACY"]
 RecoveryOptionNameTypeType = Literal["admin_only", "verified_email", "verified_phone_number"]

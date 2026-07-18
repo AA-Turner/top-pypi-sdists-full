@@ -156,6 +156,7 @@ __all__ = (
     "KafkaClusterClientVpcConfigUnionTypeDef",
     "KafkaClusterDescriptionTypeDef",
     "KafkaClusterEncryptionInTransitTypeDef",
+    "KafkaClusterMTLSAuthenticationTypeDef",
     "KafkaClusterSaslScramAuthenticationTypeDef",
     "KafkaClusterSummaryTypeDef",
     "KafkaClusterTypeDef",
@@ -296,6 +297,7 @@ __all__ = (
     "VpcConnectivityScramTypeDef",
     "VpcConnectivityTlsTypeDef",
     "VpcConnectivityTypeDef",
+    "ZookeeperAccessTypeDef",
     "ZookeeperNodeInfoTypeDef",
 )
 
@@ -548,6 +550,9 @@ class JmxExporterInfoTypeDef(TypedDict):
 class JmxExporterTypeDef(TypedDict):
     EnabledInBroker: bool
 
+class KafkaClusterMTLSAuthenticationTypeDef(TypedDict):
+    SecretArn: str
+
 class KafkaClusterSaslScramAuthenticationTypeDef(TypedDict):
     Mechanism: KafkaClusterSaslScramMechanismType
     SecretArn: str
@@ -649,6 +654,9 @@ class VpcConnectionTypeDef(TypedDict):
     Authentication: NotRequired[str]
     VpcId: NotRequired[str]
     State: NotRequired[VpcConnectionStateType]
+
+class ZookeeperAccessTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
 
 class NodeExporterInfoTypeDef(TypedDict):
     EnabledInBroker: bool
@@ -1163,7 +1171,8 @@ class ServerlessSaslTypeDef(TypedDict):
     Iam: NotRequired[IamTypeDef]
 
 class KafkaClusterClientAuthenticationTypeDef(TypedDict):
-    SaslScram: KafkaClusterSaslScramAuthenticationTypeDef
+    SaslScram: NotRequired[KafkaClusterSaslScramAuthenticationTypeDef]
+    MTLS: NotRequired[KafkaClusterMTLSAuthenticationTypeDef]
 
 KafkaClusterClientVpcConfigUnionTypeDef = Union[
     KafkaClusterClientVpcConfigTypeDef, KafkaClusterClientVpcConfigOutputTypeDef
@@ -1444,6 +1453,7 @@ class MutableClusterInfoTypeDef(TypedDict):
     NumberOfBrokerNodes: NotRequired[int]
     EnhancedMonitoring: NotRequired[EnhancedMonitoringType]
     OpenMonitoring: NotRequired[OpenMonitoringTypeDef]
+    ZookeeperAccess: NotRequired[ZookeeperAccessTypeDef]
     KafkaVersion: NotRequired[str]
     LoggingInfo: NotRequired[LoggingInfoTypeDef]
     InstanceType: NotRequired[str]
@@ -1456,8 +1466,9 @@ class MutableClusterInfoTypeDef(TypedDict):
 
 class UpdateConnectivityRequestTypeDef(TypedDict):
     ClusterArn: str
-    ConnectivityInfo: ConnectivityInfoTypeDef
     CurrentVersion: str
+    ConnectivityInfo: NotRequired[ConnectivityInfoTypeDef]
+    ZookeeperAccess: NotRequired[ZookeeperAccessTypeDef]
 
 class ClusterInfoTypeDef(TypedDict):
     ActiveOperationArn: NotRequired[str]

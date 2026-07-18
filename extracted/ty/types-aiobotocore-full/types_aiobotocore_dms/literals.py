@@ -56,11 +56,20 @@ __all__ = (
     "EncryptionModeValueType",
     "EndpointDeletedWaiterName",
     "EndpointSettingTypeValueType",
+    "ExtensionPackAssociatedWaiterName",
     "KafkaSaslMechanismType",
     "KafkaSecurityProtocolType",
     "KafkaSslEndpointIdentificationAlgorithmType",
     "LongVarcharMappingTypeType",
     "MessageFormatValueType",
+    "MetadataModelAssessedWaiterName",
+    "MetadataModelConversionCancelledWaiterName",
+    "MetadataModelConvertedWaiterName",
+    "MetadataModelCreatedWaiterName",
+    "MetadataModelCreationCancelledWaiterName",
+    "MetadataModelExportedAsScriptWaiterName",
+    "MetadataModelExportedToTargetWaiterName",
+    "MetadataModelImportedWaiterName",
     "MigrationTypeValueType",
     "MySQLAuthenticationMethodType",
     "NestingLevelValueType",
@@ -144,11 +153,20 @@ EncodingTypeValueType = Literal["plain", "plain-dictionary", "rle-dictionary"]
 EncryptionModeValueType = Literal["sse-kms", "sse-s3"]
 EndpointDeletedWaiterName = Literal["endpoint_deleted"]
 EndpointSettingTypeValueType = Literal["boolean", "enum", "integer", "string"]
+ExtensionPackAssociatedWaiterName = Literal["extension_pack_associated"]
 KafkaSaslMechanismType = Literal["plain", "scram-sha-512"]
 KafkaSecurityProtocolType = Literal["plaintext", "sasl-ssl", "ssl-authentication", "ssl-encryption"]
 KafkaSslEndpointIdentificationAlgorithmType = Literal["https", "none"]
 LongVarcharMappingTypeType = Literal["clob", "nclob", "wstring"]
 MessageFormatValueType = Literal["json", "json-unformatted"]
+MetadataModelAssessedWaiterName = Literal["metadata_model_assessed"]
+MetadataModelConversionCancelledWaiterName = Literal["metadata_model_conversion_cancelled"]
+MetadataModelConvertedWaiterName = Literal["metadata_model_converted"]
+MetadataModelCreatedWaiterName = Literal["metadata_model_created"]
+MetadataModelCreationCancelledWaiterName = Literal["metadata_model_creation_cancelled"]
+MetadataModelExportedAsScriptWaiterName = Literal["metadata_model_exported_as_script"]
+MetadataModelExportedToTargetWaiterName = Literal["metadata_model_exported_to_target"]
+MetadataModelImportedWaiterName = Literal["metadata_model_imported"]
 MigrationTypeValueType = Literal["cdc", "full-load", "full-load-and-cdc"]
 MySQLAuthenticationMethodType = Literal["iam", "password"]
 NestingLevelValueType = Literal["none", "one"]
@@ -381,8 +399,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -409,6 +425,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -476,10 +494,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -512,6 +530,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -539,6 +558,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -560,7 +580,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -581,6 +600,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -636,6 +656,15 @@ PaginatorName = Literal[
 ]
 WaiterName = Literal[
     "endpoint_deleted",
+    "extension_pack_associated",
+    "metadata_model_assessed",
+    "metadata_model_conversion_cancelled",
+    "metadata_model_converted",
+    "metadata_model_created",
+    "metadata_model_creation_cancelled",
+    "metadata_model_exported_as_script",
+    "metadata_model_exported_to_target",
+    "metadata_model_imported",
     "replication_instance_available",
     "replication_instance_deleted",
     "replication_task_deleted",

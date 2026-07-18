@@ -30,6 +30,7 @@ __all__ = (
     "AddonStatusType",
     "ArgoCdRoleType",
     "AuthenticationModeType",
+    "CancellationStatusType",
     "CapabilityDeletePropagationPolicyType",
     "CapabilityIssueCodeType",
     "CapabilityStatusType",
@@ -43,6 +44,7 @@ __all__ = (
     "ClusterVersionStatusType",
     "ConfigStatusType",
     "ConnectorConfigProviderType",
+    "ControlPlaneEgressModeTypeType",
     "DescribeAddonVersionsPaginatorName",
     "DescribeClusterVersionsPaginatorName",
     "EKSServiceName",
@@ -83,6 +85,7 @@ __all__ = (
     "ResolveConflictsType",
     "ResourceServiceName",
     "ServiceName",
+    "SpreadLevelType",
     "SsoIdentityTypeType",
     "SupportTypeType",
     "TaintEffectType",
@@ -146,6 +149,7 @@ AddonStatusType = Literal[
 ]
 ArgoCdRoleType = Literal["ADMIN", "EDITOR", "VIEWER"]
 AuthenticationModeType = Literal["API", "API_AND_CONFIG_MAP", "CONFIG_MAP"]
+CancellationStatusType = Literal["Failed", "InProgress", "Successful"]
 CapabilityDeletePropagationPolicyType = Literal["RETAIN"]
 CapabilityIssueCodeType = Literal["AccessDenied", "ClusterUnreachable"]
 CapabilityStatusType = Literal[
@@ -153,7 +157,7 @@ CapabilityStatusType = Literal[
 ]
 CapabilityTypeType = Literal["ACK", "ARGOCD", "KRO"]
 CapacityTypesType = Literal["CAPACITY_BLOCK", "ON_DEMAND", "SPOT"]
-CategoryType = Literal["MISCONFIGURATION", "UPGRADE_READINESS"]
+CategoryType = Literal["MISCONFIGURATION", "ROLLBACK_READINESS", "UPGRADE_READINESS"]
 ClusterActiveWaiterName = Literal["cluster_active"]
 ClusterDeletedWaiterName = Literal["cluster_deleted"]
 ClusterIssueCodeType = Literal[
@@ -183,6 +187,7 @@ ConfigStatusType = Literal["ACTIVE", "CREATING", "DELETING"]
 ConnectorConfigProviderType = Literal[
     "AKS", "ANTHOS", "EC2", "EKS_ANYWHERE", "GKE", "OPENSHIFT", "OTHER", "RANCHER", "TANZU"
 ]
+ControlPlaneEgressModeTypeType = Literal["AWS_MANAGED", "CUSTOMER_ISOLATED", "CUSTOMER_ROUTED"]
 DescribeAddonVersionsPaginatorName = Literal["describe_addon_versions"]
 DescribeClusterVersionsPaginatorName = Literal["describe_cluster_versions"]
 EksAnywhereSubscriptionLicenseTypeType = Literal["Cluster"]
@@ -281,6 +286,7 @@ NodegroupUpdateStrategiesType = Literal["DEFAULT", "MINIMAL"]
 ProvisionedControlPlaneTierType = Literal["standard", "tier-2xl", "tier-4xl", "tier-8xl", "tier-xl"]
 RepairActionType = Literal["NoAction", "Reboot", "Replace"]
 ResolveConflictsType = Literal["NONE", "OVERWRITE", "PRESERVE"]
+SpreadLevelType = Literal["host", "rack"]
 SsoIdentityTypeType = Literal["SSO_GROUP", "SSO_USER"]
 SupportTypeType = Literal["EXTENDED", "STANDARD"]
 TaintEffectType = Literal["NO_EXECUTE", "NO_SCHEDULE", "PREFER_NO_SCHEDULE"]
@@ -290,6 +296,7 @@ UpdateParamTypeType = Literal[
     "ClusterLogging",
     "ComputeConfig",
     "ConfigurationValues",
+    "ControlPlaneEgressMode",
     "DeletionProtection",
     "DesiredSize",
     "EncryptionConfig",
@@ -305,6 +312,7 @@ UpdateParamTypeType = Literal[
     "MaxUnavailable",
     "MaxUnavailablePercentage",
     "MinSize",
+    "NetworkAccess",
     "NodeRepairConfig",
     "NodeRepairEnabled",
     "PlatformVersion",
@@ -314,6 +322,9 @@ UpdateParamTypeType = Literal[
     "ReleaseVersion",
     "RemoteNetworkConfig",
     "ResolveConflicts",
+    "RoleArn",
+    "RoleMappingsToAddOrUpdate",
+    "RoleMappingsToRemove",
     "SecurityGroups",
     "ServiceAccountRoleArn",
     "StorageConfig",
@@ -323,6 +334,7 @@ UpdateParamTypeType = Literal[
     "UpdateStrategy",
     "UpdatedTier",
     "UpgradePolicy",
+    "VendedLogs",
     "Version",
     "WarmPoolEnabled",
     "WarmPoolMaxGroupPreparedCapacity",
@@ -338,7 +350,9 @@ UpdateTypeType = Literal[
     "AssociateEncryptionConfig",
     "AssociateIdentityProviderConfig",
     "AutoModeUpdate",
+    "CapabilityUpdate",
     "ConfigUpdate",
+    "ControlPlaneEgressUpdate",
     "ControlPlaneScalingConfigUpdate",
     "DeletionProtectionUpdate",
     "DisassociateIdentityProviderConfig",
@@ -347,6 +361,7 @@ UpdateTypeType = Literal[
     "RemoteNetworkConfigUpdate",
     "UpgradePolicyUpdate",
     "VendedLogsUpdate",
+    "VersionRollback",
     "VersionUpdate",
     "VpcConfigUpdate",
     "ZonalShiftConfigUpdate",
@@ -547,8 +562,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -575,6 +588,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -642,10 +657,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -678,6 +693,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -705,6 +721,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -726,7 +743,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -747,6 +763,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

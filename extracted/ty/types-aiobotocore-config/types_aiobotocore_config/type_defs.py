@@ -52,6 +52,7 @@ from .literals import (
     ResourceCountGroupKeyType,
     ResourceEvaluationStatusType,
     ResourceTypeType,
+    RuleEvaluationVisibilityType,
     SortOrderType,
 )
 
@@ -86,6 +87,7 @@ __all__ = (
     "AggregatorFiltersUnionTypeDef",
     "AssociateResourceTypesRequestTypeDef",
     "AssociateResourceTypesResponseTypeDef",
+    "AzureConnectorConfigurationTypeDef",
     "BaseConfigurationItemTypeDef",
     "BatchGetAggregateResourceConfigRequestTypeDef",
     "BatchGetAggregateResourceConfigResponseTypeDef",
@@ -124,12 +126,17 @@ __all__ = (
     "ConformancePackInputParameterTypeDef",
     "ConformancePackRuleComplianceTypeDef",
     "ConformancePackStatusDetailTypeDef",
+    "ConnectorConfigurationTypeDef",
+    "ConnectorFilterTypeDef",
+    "ConnectorSummaryTypeDef",
+    "ConnectorTypeDef",
     "CustomPolicyDetailsTypeDef",
     "DeleteAggregationAuthorizationRequestTypeDef",
     "DeleteConfigRuleRequestTypeDef",
     "DeleteConfigurationAggregatorRequestTypeDef",
     "DeleteConfigurationRecorderRequestTypeDef",
     "DeleteConformancePackRequestTypeDef",
+    "DeleteConnectorRequestTypeDef",
     "DeleteDeliveryChannelRequestTypeDef",
     "DeleteEvaluationResultsRequestTypeDef",
     "DeleteOrganizationConfigRuleRequestTypeDef",
@@ -262,6 +269,8 @@ __all__ = (
     "GetConformancePackComplianceSummaryRequestPaginateTypeDef",
     "GetConformancePackComplianceSummaryRequestTypeDef",
     "GetConformancePackComplianceSummaryResponseTypeDef",
+    "GetConnectorRequestTypeDef",
+    "GetConnectorResponseTypeDef",
     "GetCustomRulePolicyRequestTypeDef",
     "GetCustomRulePolicyResponseTypeDef",
     "GetDiscoveredResourceCountsRequestTypeDef",
@@ -290,6 +299,9 @@ __all__ = (
     "ListConfigurationRecordersResponseTypeDef",
     "ListConformancePackComplianceScoresRequestTypeDef",
     "ListConformancePackComplianceScoresResponseTypeDef",
+    "ListConnectorsRequestPaginateTypeDef",
+    "ListConnectorsRequestTypeDef",
+    "ListConnectorsResponseTypeDef",
     "ListDiscoveredResourcesRequestPaginateTypeDef",
     "ListDiscoveredResourcesRequestTypeDef",
     "ListDiscoveredResourcesResponseTypeDef",
@@ -329,6 +341,8 @@ __all__ = (
     "PutConfigurationRecorderRequestTypeDef",
     "PutConformancePackRequestTypeDef",
     "PutConformancePackResponseTypeDef",
+    "PutConnectorRequestTypeDef",
+    "PutConnectorResponseTypeDef",
     "PutDeliveryChannelRequestTypeDef",
     "PutEvaluationsRequestTypeDef",
     "PutEvaluationsResponseTypeDef",
@@ -348,6 +362,8 @@ __all__ = (
     "PutServiceLinkedConfigurationRecorderResponseTypeDef",
     "PutStoredQueryRequestTypeDef",
     "PutStoredQueryResponseTypeDef",
+    "PutThirdPartyServiceLinkedConfigurationRecorderRequestTypeDef",
+    "PutThirdPartyServiceLinkedConfigurationRecorderResponseTypeDef",
     "QueryInfoTypeDef",
     "RecordingGroupOutputTypeDef",
     "RecordingGroupTypeDef",
@@ -378,6 +394,9 @@ __all__ = (
     "ResourceValueTypeDef",
     "ResponseMetadataTypeDef",
     "RetentionConfigurationTypeDef",
+    "ScopeConfigurationOutputTypeDef",
+    "ScopeConfigurationTypeDef",
+    "ScopeConfigurationUnionTypeDef",
     "ScopeOutputTypeDef",
     "ScopeTypeDef",
     "SelectAggregateResourceConfigRequestPaginateTypeDef",
@@ -516,6 +535,11 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 
+class AzureConnectorConfigurationTypeDef(TypedDict):
+    tenantIdentifier: str
+    clientIdentifier: str
+
+
 class BaseConfigurationItemTypeDef(TypedDict):
     version: NotRequired[str]
     accountId: NotRequired[str]
@@ -593,6 +617,7 @@ class ScopeOutputTypeDef(TypedDict):
     TagKey: NotRequired[str]
     TagValue: NotRequired[str]
     ComplianceResourceId: NotRequired[str]
+    ServicePrincipals: NotRequired[list[str]]
 
 
 class ScopeTypeDef(TypedDict):
@@ -600,6 +625,7 @@ class ScopeTypeDef(TypedDict):
     TagKey: NotRequired[str]
     TagValue: NotRequired[str]
     ComplianceResourceId: NotRequired[str]
+    ServicePrincipals: NotRequired[Sequence[str]]
 
 
 class ConfigSnapshotDeliveryPropertiesTypeDef(TypedDict):
@@ -631,6 +657,13 @@ class ConfigurationRecorderFilterTypeDef(TypedDict):
     filterValue: NotRequired[Sequence[str]]
 
 
+class ScopeConfigurationOutputTypeDef(TypedDict):
+    scopeType: str
+    allRegions: bool
+    scopeValues: NotRequired[list[str]]
+    includedRegions: NotRequired[list[str]]
+
+
 class ConfigurationRecorderStatusTypeDef(TypedDict):
     arn: NotRequired[str]
     name: NotRequired[str]
@@ -649,6 +682,14 @@ class ConfigurationRecorderSummaryTypeDef(TypedDict):
     name: str
     recordingScope: RecordingScopeType
     servicePrincipal: NotRequired[str]
+    provider: NotRequired[Literal["AZURE"]]
+
+
+class ScopeConfigurationTypeDef(TypedDict):
+    scopeType: str
+    allRegions: bool
+    scopeValues: NotRequired[Sequence[str]]
+    includedRegions: NotRequired[Sequence[str]]
 
 
 class ConformancePackComplianceFiltersTypeDef(TypedDict):
@@ -705,6 +746,19 @@ class ConformancePackStatusDetailTypeDef(TypedDict):
     LastUpdateCompletedTime: NotRequired[datetime]
 
 
+class ConnectorFilterTypeDef(TypedDict):
+    filterName: NotRequired[Literal["provider"]]
+    filterValues: NotRequired[Sequence[str]]
+
+
+class ConnectorSummaryTypeDef(TypedDict):
+    arn: str
+    name: str
+    provider: Literal["AZURE"]
+    tenantIdentifier: str
+    createdTime: datetime
+
+
 class CustomPolicyDetailsTypeDef(TypedDict):
     PolicyRuntime: str
     PolicyText: str
@@ -730,6 +784,10 @@ class DeleteConfigurationRecorderRequestTypeDef(TypedDict):
 
 class DeleteConformancePackRequestTypeDef(TypedDict):
     ConformancePackName: str
+
+
+class DeleteConnectorRequestTypeDef(TypedDict):
+    Arn: str
 
 
 class DeleteDeliveryChannelRequestTypeDef(TypedDict):
@@ -773,7 +831,8 @@ class DeleteRetentionConfigurationRequestTypeDef(TypedDict):
 
 
 class DeleteServiceLinkedConfigurationRecorderRequestTypeDef(TypedDict):
-    ServicePrincipal: str
+    ServicePrincipal: NotRequired[str]
+    Arn: NotRequired[str]
 
 
 class DeleteStoredQueryRequestTypeDef(TypedDict):
@@ -817,6 +876,7 @@ class DescribeConfigRuleEvaluationStatusRequestTypeDef(TypedDict):
 
 class DescribeConfigRulesFiltersTypeDef(TypedDict):
     EvaluationMode: NotRequired[EvaluationModeType]
+    RuleEvaluationVisibility: NotRequired[RuleEvaluationVisibilityType]
 
 
 class DescribeConfigurationAggregatorSourcesStatusRequestTypeDef(TypedDict):
@@ -1029,6 +1089,10 @@ class GetConformancePackComplianceSummaryRequestTypeDef(TypedDict):
     ConformancePackNames: Sequence[str]
     Limit: NotRequired[int]
     NextToken: NotRequired[str]
+
+
+class GetConnectorRequestTypeDef(TypedDict):
+    Arn: str
 
 
 class GetCustomRulePolicyRequestTypeDef(TypedDict):
@@ -1425,6 +1489,11 @@ class PutConformancePackResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class PutConnectorResponseTypeDef(TypedDict):
+    Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class PutOrganizationConfigRuleResponseTypeDef(TypedDict):
     OrganizationConfigRuleArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1446,9 +1515,19 @@ class PutStoredQueryResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class PutThirdPartyServiceLinkedConfigurationRecorderResponseTypeDef(TypedDict):
+    Arn: str
+    Name: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class StartResourceEvaluationResponseTypeDef(TypedDict):
     ResourceEvaluationId: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ConnectorConfigurationTypeDef(TypedDict):
+    azure: NotRequired[AzureConnectorConfigurationTypeDef]
 
 
 class BatchGetAggregateResourceConfigResponseTypeDef(TypedDict):
@@ -1573,6 +1652,9 @@ class ListConfigurationRecordersResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+ScopeConfigurationUnionTypeDef = Union[ScopeConfigurationTypeDef, ScopeConfigurationOutputTypeDef]
+
+
 class DescribeConformancePackComplianceRequestTypeDef(TypedDict):
     ConformancePackName: str
     Filters: NotRequired[ConformancePackComplianceFiltersTypeDef]
@@ -1610,16 +1692,6 @@ class OrganizationConformancePackTypeDef(TypedDict):
     ExcludedAccounts: NotRequired[list[str]]
 
 
-class PutOrganizationConformancePackRequestTypeDef(TypedDict):
-    OrganizationConformancePackName: str
-    TemplateS3Uri: NotRequired[str]
-    TemplateBody: NotRequired[str]
-    DeliveryS3Bucket: NotRequired[str]
-    DeliveryS3KeyPrefix: NotRequired[str]
-    ConformancePackInputParameters: NotRequired[Sequence[ConformancePackInputParameterTypeDef]]
-    ExcludedAccounts: NotRequired[Sequence[str]]
-
-
 class ConformancePackDetailTypeDef(TypedDict):
     ConformancePackName: str
     ConformancePackArn: str
@@ -1648,6 +1720,18 @@ class DescribeConformancePackComplianceResponseTypeDef(TypedDict):
 
 class DescribeConformancePackStatusResponseTypeDef(TypedDict):
     ConformancePackStatusDetails: list[ConformancePackStatusDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListConnectorsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[ConnectorFilterTypeDef]]
+
+
+class ListConnectorsResponseTypeDef(TypedDict):
+    ConnectorSummaries: list[ConnectorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1798,6 +1882,11 @@ class ListConfigurationRecordersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListConnectorsRequestPaginateTypeDef(TypedDict):
+    Filters: NotRequired[Sequence[ConnectorFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListDiscoveredResourcesRequestPaginateTypeDef(TypedDict):
     resourceType: ResourceTypeType
     resourceIds: NotRequired[Sequence[str]]
@@ -1831,8 +1920,8 @@ class DescribeConfigRulesRequestPaginateTypeDef(TypedDict):
 
 class DescribeConfigRulesRequestTypeDef(TypedDict):
     ConfigRuleNames: NotRequired[Sequence[str]]
-    NextToken: NotRequired[str]
     Filters: NotRequired[DescribeConfigRulesFiltersTypeDef]
+    NextToken: NotRequired[str]
 
 
 class DescribeOrganizationConfigRuleStatusesResponseTypeDef(TypedDict):
@@ -2084,6 +2173,17 @@ class PutConformancePackRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
+class PutOrganizationConformancePackRequestTypeDef(TypedDict):
+    OrganizationConformancePackName: str
+    TemplateS3Uri: NotRequired[str]
+    TemplateBody: NotRequired[str]
+    DeliveryS3Bucket: NotRequired[str]
+    DeliveryS3KeyPrefix: NotRequired[str]
+    ConformancePackInputParameters: NotRequired[Sequence[ConformancePackInputParameterTypeDef]]
+    ExcludedAccounts: NotRequired[Sequence[str]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
 class PutServiceLinkedConfigurationRecorderRequestTypeDef(TypedDict):
     ServicePrincipal: str
     Tags: NotRequired[Sequence[TagTypeDef]]
@@ -2209,6 +2309,18 @@ class ConfigurationAggregatorTypeDef(TypedDict):
 AggregatorFiltersUnionTypeDef = Union[AggregatorFiltersTypeDef, AggregatorFiltersOutputTypeDef]
 
 
+class ConnectorTypeDef(TypedDict):
+    name: str
+    arn: str
+    connectorConfiguration: ConnectorConfigurationTypeDef
+    createdTime: datetime
+
+
+class PutConnectorRequestTypeDef(TypedDict):
+    ConnectorConfiguration: ConnectorConfigurationTypeDef
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
 class AggregateComplianceCountTypeDef(TypedDict):
     GroupName: NotRequired[str]
     ComplianceSummary: NotRequired[ComplianceSummaryTypeDef]
@@ -2265,6 +2377,13 @@ class GetResourceConfigHistoryResponseTypeDef(TypedDict):
     configurationItems: list[ConfigurationItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class PutThirdPartyServiceLinkedConfigurationRecorderRequestTypeDef(TypedDict):
+    ServicePrincipal: str
+    ConnectorArn: str
+    ScopeConfiguration: ScopeConfigurationUnionTypeDef
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class DescribeOrganizationConformancePacksResponseTypeDef(TypedDict):
@@ -2356,6 +2475,7 @@ class PutOrganizationConfigRuleRequestTypeDef(TypedDict):
     OrganizationCustomRuleMetadata: NotRequired[OrganizationCustomRuleMetadataUnionTypeDef]
     ExcludedAccounts: NotRequired[Sequence[str]]
     OrganizationCustomPolicyRuleMetadata: NotRequired[OrganizationCustomPolicyRuleMetadataTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class ConfigurationRecorderOutputTypeDef(TypedDict):
@@ -2366,6 +2486,8 @@ class ConfigurationRecorderOutputTypeDef(TypedDict):
     recordingMode: NotRequired[RecordingModeOutputTypeDef]
     recordingScope: NotRequired[RecordingScopeType]
     servicePrincipal: NotRequired[str]
+    connectorArn: NotRequired[str]
+    scopeConfiguration: NotRequired[ScopeConfigurationOutputTypeDef]
 
 
 class ConfigurationRecorderTypeDef(TypedDict):
@@ -2376,6 +2498,8 @@ class ConfigurationRecorderTypeDef(TypedDict):
     recordingMode: NotRequired[RecordingModeTypeDef]
     recordingScope: NotRequired[RecordingScopeType]
     servicePrincipal: NotRequired[str]
+    connectorArn: NotRequired[str]
+    scopeConfiguration: NotRequired[ScopeConfigurationTypeDef]
 
 
 class DescribeRemediationExecutionStatusResponseTypeDef(TypedDict):
@@ -2411,6 +2535,7 @@ class ConfigRuleOutputTypeDef(TypedDict):
     ConfigRuleState: NotRequired[ConfigRuleStateType]
     CreatedBy: NotRequired[str]
     EvaluationModes: NotRequired[list[EvaluationModeConfigurationTypeDef]]
+    RuleEvaluationVisibility: NotRequired[RuleEvaluationVisibilityType]
 
 
 class ConfigRuleTypeDef(TypedDict):
@@ -2425,6 +2550,7 @@ class ConfigRuleTypeDef(TypedDict):
     ConfigRuleState: NotRequired[ConfigRuleStateType]
     CreatedBy: NotRequired[str]
     EvaluationModes: NotRequired[Sequence[EvaluationModeConfigurationTypeDef]]
+    RuleEvaluationVisibility: NotRequired[RuleEvaluationVisibilityType]
 
 
 class RemediationParameterValueTypeDef(TypedDict):
@@ -2449,6 +2575,11 @@ class PutConfigurationAggregatorRequestTypeDef(TypedDict):
     OrganizationAggregationSource: NotRequired[OrganizationAggregationSourceUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
     AggregatorFilters: NotRequired[AggregatorFiltersUnionTypeDef]
+
+
+class GetConnectorResponseTypeDef(TypedDict):
+    Connector: ConnectorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetAggregateConfigRuleComplianceSummaryResponseTypeDef(TypedDict):

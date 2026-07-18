@@ -53,6 +53,8 @@ Usage::
         ListInferenceExperimentsPaginator,
         ListInferenceRecommendationsJobStepsPaginator,
         ListInferenceRecommendationsJobsPaginator,
+        ListJobSchemaVersionsPaginator,
+        ListJobsPaginator,
         ListLabelingJobsForWorkteamPaginator,
         ListLabelingJobsPaginator,
         ListLineageGroupsPaginator,
@@ -146,6 +148,8 @@ Usage::
         list_inference_experiments_paginator: ListInferenceExperimentsPaginator = client.get_paginator("list_inference_experiments")
         list_inference_recommendations_job_steps_paginator: ListInferenceRecommendationsJobStepsPaginator = client.get_paginator("list_inference_recommendations_job_steps")
         list_inference_recommendations_jobs_paginator: ListInferenceRecommendationsJobsPaginator = client.get_paginator("list_inference_recommendations_jobs")
+        list_job_schema_versions_paginator: ListJobSchemaVersionsPaginator = client.get_paginator("list_job_schema_versions")
+        list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
         list_labeling_jobs_for_workteam_paginator: ListLabelingJobsForWorkteamPaginator = client.get_paginator("list_labeling_jobs_for_workteam")
         list_labeling_jobs_paginator: ListLabelingJobsPaginator = client.get_paginator("list_labeling_jobs")
         list_lineage_groups_paginator: ListLineageGroupsPaginator = client.get_paginator("list_lineage_groups")
@@ -285,6 +289,10 @@ from .type_defs import (
     ListInferenceRecommendationsJobsResponseTypeDef,
     ListInferenceRecommendationsJobStepsRequestPaginateTypeDef,
     ListInferenceRecommendationsJobStepsResponseTypeDef,
+    ListJobSchemaVersionsRequestPaginateTypeDef,
+    ListJobSchemaVersionsResponseTypeDef,
+    ListJobsRequestPaginateTypeDef,
+    ListJobsResponseTypeDef,
     ListLabelingJobsForWorkteamRequestPaginateTypeDef,
     ListLabelingJobsForWorkteamResponseTypeDef,
     ListLabelingJobsRequestPaginateTypeDef,
@@ -426,6 +434,8 @@ __all__ = (
     "ListInferenceExperimentsPaginator",
     "ListInferenceRecommendationsJobStepsPaginator",
     "ListInferenceRecommendationsJobsPaginator",
+    "ListJobSchemaVersionsPaginator",
+    "ListJobsPaginator",
     "ListLabelingJobsForWorkteamPaginator",
     "ListLabelingJobsPaginator",
     "ListLineageGroupsPaginator",
@@ -1230,6 +1240,42 @@ class ListInferenceRecommendationsJobsPaginator(_ListInferenceRecommendationsJob
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListInferenceRecommendationsJobs.html#SageMaker.Paginator.ListInferenceRecommendationsJobs.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listinferencerecommendationsjobspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListJobSchemaVersionsPaginatorBase = AioPaginator[ListJobSchemaVersionsResponseTypeDef]
+else:
+    _ListJobSchemaVersionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListJobSchemaVersionsPaginator(_ListJobSchemaVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListJobSchemaVersions.html#SageMaker.Paginator.ListJobSchemaVersions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listjobschemaversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListJobSchemaVersionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListJobSchemaVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListJobSchemaVersions.html#SageMaker.Paginator.ListJobSchemaVersions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listjobschemaversionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListJobsPaginatorBase = AioPaginator[ListJobsResponseTypeDef]
+else:
+    _ListJobsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListJobsPaginator(_ListJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListJobs.html#SageMaker.Paginator.ListJobs)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listjobspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListJobsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListJobsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListJobs.html#SageMaker.Paginator.ListJobs.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listjobspaginator)
         """
 
 if TYPE_CHECKING:

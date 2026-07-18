@@ -25309,6 +25309,15 @@ class ConfigureQueryLogEvents(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class ConfirmSsoRecoveryCodes(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("active_count",)
+    active_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="activeCount")
+    """Number of active recovery codes remaining after the confirmed code
+    is consumed.
+    """
+
+
 class ConnectPlatformServiceToExistingAgent(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("agent_id",)
@@ -31070,6 +31079,18 @@ class DeleteGithubActionTriggerAppInstallation(sgqlc.types.Type):
     """True if deleting the installation was successful"""
 
 
+class DeleteGithubActionTriggerDispatchConfig(sgqlc.types.Type):
+    """Remove an agent's draft-PR dispatch target from an installation.
+    Other agents' dispatch targets are unaffected. Without an entry
+    the agent's findings can no longer be dispatched.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deleted")
+    """True if an entry existed and was removed"""
+
+
 class DeleteGithubInstallation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("deleted",)
@@ -35686,6 +35707,26 @@ class GetTableauAssetWarningByIdResponse(sgqlc.types.Type):
     """The message body of the warning."""
 
 
+class GithubActionTriggerAgentDispatchConfig(sgqlc.types.Type):
+    """One agent's draft-PR dispatch target on an installation.  Agents
+    sharing a trace table share a dispatch target; combine with
+    getAgentMetadataV2 (which supplies each agent's traceTableMcon) to
+    render per-agent configuration.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("agent_trace_table_mcon", "dispatch_config")
+    agent_trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="agentTraceTableMcon"
+    )
+    """Trace-table MCON of the agent this dispatch target applies to"""
+
+    dispatch_config = sgqlc.types.Field(
+        sgqlc.types.non_null("GithubActionTriggerDispatchConfig"), graphql_name="dispatchConfig"
+    )
+    """The agent's configured dispatch target"""
+
+
 class GithubActionTriggerAppInfo(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("install_link", "installations")
@@ -35718,6 +35759,7 @@ class GithubActionTriggerAppInstallation(sgqlc.types.Type):
         "display_name",
         "settings_link",
         "dispatch_config",
+        "agent_dispatch_configs",
         "permissions",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
@@ -35737,7 +35779,20 @@ class GithubActionTriggerAppInstallation(sgqlc.types.Type):
     dispatch_config = sgqlc.types.Field(
         "GithubActionTriggerDispatchConfig", graphql_name="dispatchConfig"
     )
-    """Draft-PR dispatch target; null until configured"""
+    """Always null — dispatch targets are per agent; use
+    agentDispatchConfigs
+    """
+
+    agent_dispatch_configs = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(GithubActionTriggerAgentDispatchConfig))
+        ),
+        graphql_name="agentDispatchConfigs",
+    )
+    """Per-agent draft-PR dispatch targets configured on this
+    installation, keyed by the agent's trace-table MCON; empty until
+    configured
+    """
 
     permissions = sgqlc.types.Field(
         "GithubActionTriggerInstallationPermissions", graphql_name="permissions"
@@ -35762,6 +35817,33 @@ class GithubActionTriggerDispatchConfig(sgqlc.types.Type):
 
     ref = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ref")
     """Git ref whose copy of the workflow is run, e.g. main"""
+
+
+class GithubActionTriggerDispatchTarget(sgqlc.types.Type):
+    """Resolved draft-PR dispatch route for a finding: which installation
+    and per-agent config triggerGithubActionDraftPrWorkflow would
+    dispatch through.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("installation_uuid", "gh_org", "agent_trace_table_mcon", "dispatch_config")
+    installation_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="installationUuid"
+    )
+    """Internal UUID of the installation the dispatch goes through"""
+
+    gh_org = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ghOrg")
+    """GitHub organization of that installation"""
+
+    agent_trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="agentTraceTableMcon"
+    )
+    """Trace-table MCON of the finding's agent"""
+
+    dispatch_config = sgqlc.types.Field(
+        sgqlc.types.non_null(GithubActionTriggerDispatchConfig), graphql_name="dispatchConfig"
+    )
+    """The agent's configured dispatch target"""
 
 
 class GithubActionTriggerInstallationPermissions(sgqlc.types.Type):
@@ -40738,6 +40820,7 @@ class Mutation(sgqlc.types.Type):
         "link_github_action_trigger_app_installation",
         "delete_github_action_trigger_app_installation",
         "update_github_action_trigger_dispatch_config",
+        "delete_github_action_trigger_dispatch_config",
         "trigger_github_action_draft_pr_workflow",
         "register_github_app_on_ghes",
         "register_gitlab_app",
@@ -41045,6 +41128,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_saml_identity_provider",
         "delete_saml_identity_provider",
         "generate_sso_recovery_codes",
+        "confirm_sso_recovery_codes",
         "revoke_sso_recovery_codes",
         "invite_users",
         "invite_users_v2",
@@ -41084,6 +41168,7 @@ class Mutation(sgqlc.types.Type):
         "toggle_mute_tables",
         "toggle_mute_with_regex",
         "toggle_slack_reply_warning",
+        "refresh_slack_app_scopes",
         "toggle_slack_agent_dispatch",
         "toggle_slack_broadcast_updates",
         "toggle_connection_enable",
@@ -46797,6 +46882,14 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "agent_trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String),
+                        graphql_name="agentTraceTableMcon",
+                        default=None,
+                    ),
+                ),
+                (
                     "installation_uuid",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
@@ -46818,11 +46911,13 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Sets the draft-PR dispatch target for an action-
-    trigger app installation
+    """(experimental) Sets an agent's draft-PR dispatch target on an
+    action-trigger app installation
 
     Arguments:
 
+    * `agent_trace_table_mcon` (`String!`): Trace-table MCON of the
+      agent this dispatch target applies to
     * `installation_uuid` (`UUID!`): UUID of the installation to
       configure
     * `ref` (`String`): Git ref whose copy of the workflow is run
@@ -46831,6 +46926,39 @@ class Mutation(sgqlc.types.Type):
       the installation's organization
     * `workflow_file` (`String!`): Workflow file name in the
       repository, e.g. mc-draft-pr.yml
+    """
+
+    delete_github_action_trigger_dispatch_config = sgqlc.types.Field(
+        DeleteGithubActionTriggerDispatchConfig,
+        graphql_name="deleteGithubActionTriggerDispatchConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String),
+                        graphql_name="agentTraceTableMcon",
+                        default=None,
+                    ),
+                ),
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Removes an agent's draft-PR dispatch target from an
+    action-trigger app installation
+
+    Arguments:
+
+    * `agent_trace_table_mcon` (`String!`): Trace-table MCON of the
+      agent whose dispatch target is removed
+    * `installation_uuid` (`UUID!`): UUID of the installation to
+      remove the entry from
     """
 
     trigger_github_action_draft_pr_workflow = sgqlc.types.Field(
@@ -46859,8 +46987,8 @@ class Mutation(sgqlc.types.Type):
     * `finding_uuid` (`UUID!`): UUID of the finding whose context is
       dispatched
     * `installation_uuid` (`UUID`): Installation to dispatch through.
-      Optional when the account has exactly one configured
-      installation.
+      Optional — resolved from the finding's agent's dispatch config
+      when omitted.
     """
 
     register_github_app_on_ghes = sgqlc.types.Field(
@@ -59300,10 +59428,12 @@ class Mutation(sgqlc.types.Type):
       base64
     * `metadata_url` (`String`): The URL of the metadata file
     * `recovery_code_confirmation` (`String`): One of the account's
-      active SSO recovery codes, confirming the admin has saved them.
-      Required when the account uses SSO recovery codes; the submitted
-      code is consumed. Generate a set with generateSsoRecoveryCodes
-      first.
+      active SSO recovery codes, confirming the admin has saved them;
+      the submitted code is consumed. Required on the first SSO enable
+      when the account uses SSO recovery codes (generate a set with
+      generateSsoRecoveryCodes first). Editing an existing
+      configuration needs no confirmation as long as an active set
+      exists.
     """
 
     delete_saml_identity_provider = sgqlc.types.Field(
@@ -59316,6 +59446,32 @@ class Mutation(sgqlc.types.Type):
     """(experimental) Generate a fresh set of single-use SSO recovery
     codes for the account, invalidating any previously active set. The
     plaintext codes are returned once.
+    """
+
+    confirm_sso_recovery_codes = sgqlc.types.Field(
+        ConfirmSsoRecoveryCodes,
+        graphql_name="confirmSsoRecoveryCodes",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "code",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="code", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Confirm a freshly generated SSO recovery-code set
+    by entering one of its codes back; the submitted code is consumed.
+    Required after every generate or regenerate so the account's
+    active set is always a proven-saved one.
+
+    Arguments:
+
+    * `code` (`String!`): One of the account's active recovery codes,
+      entered back to confirm the freshly generated set was saved. The
+      submitted code is consumed.
     """
 
     revoke_sso_recovery_codes = sgqlc.types.Field(
@@ -59658,6 +59814,7 @@ class Mutation(sgqlc.types.Type):
         graphql_name="deauthorizeSlackApp",
         args=sgqlc.types.ArgDict(
             (
+                ("force", sgqlc.types.Arg(Boolean, graphql_name="force", default=None)),
                 (
                     "slack_app_type",
                     sgqlc.types.Arg(
@@ -59672,6 +59829,9 @@ class Mutation(sgqlc.types.Type):
     )
     """Arguments:
 
+    * `force` (`Boolean`): Remove the integration even when it still
+      backs active notification settings (the disconnect is rejected
+      otherwise).
     * `slack_app_type` (`SlackAppType!`): Slack App Type
     * `team_id` (`String`): Slack Team ID
     """
@@ -60566,6 +60726,38 @@ class Mutation(sgqlc.types.Type):
 
     * `enable` (`Boolean!`): If true, enable the feature
     * `team_id` (`String`): Slack Team ID
+    """
+
+    refresh_slack_app_scopes = sgqlc.types.Field(
+        "RefreshSlackAppScopes",
+        graphql_name="refreshSlackAppScopes",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "slack_app_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(SlackAppType),
+                        graphql_name="slackAppType",
+                        default=None,
+                    ),
+                ),
+                (
+                    "team_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="teamId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Re-read the workspace's live bot scopes from Slack
+    into the install record (for scopes granted outside the Monte
+    Carlo install flow).
+
+    Arguments:
+
+    * `slack_app_type` (`SlackAppType!`): Slack App Type
+    * `team_id` (`String!`): Slack Team ID
     """
 
     toggle_slack_agent_dispatch = sgqlc.types.Field(
@@ -67649,6 +67841,7 @@ class Query(sgqlc.types.Type):
         "get_ms_teams_channels",
         "get_github_integrations",
         "get_github_action_trigger_integrations",
+        "get_github_action_trigger_dispatch_target",
         "get_gitlab_integrations",
         "get_gitlab_integration",
         "get_github_pull_requests",
@@ -67886,6 +68079,8 @@ class Query(sgqlc.types.Type):
         "active_sso_migration_job",
         "findings",
         "finding",
+        "get_domain_monitoring_plan",
+        "get_domain_monitoring_plan_children",
         "get_schema_changes",
         "get_event_groups",
         "get_event_groups_paginated",
@@ -73119,6 +73314,33 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) Monte Carlo Action Trigger GitHub App integration
     info
+    """
+
+    get_github_action_trigger_dispatch_target = sgqlc.types.Field(
+        GithubActionTriggerDispatchTarget,
+        graphql_name="getGithubActionTriggerDispatchTarget",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "finding_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="findingUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Where triggerGithubActionDraftPrWorkflow would
+    dispatch the finding — non-null exactly when the finding is
+    dispatchable (its agent has a dispatch target configured, the
+    finding carries action context to dispatch, and draft-PR workflow
+    dispatch is enabled for your account); null otherwise, so it can
+    drive the visibility of a dispatch action in the UI
+
+    Arguments:
+
+    * `finding_uuid` (`UUID!`): UUID of the finding to resolve the
+      dispatch target for
     """
 
     get_gitlab_integrations = sgqlc.types.Field(GitlabAppInfo, graphql_name="getGitlabIntegrations")
@@ -82687,6 +82909,73 @@ class Query(sgqlc.types.Type):
     * `id` (`UUID!`)None
     """
 
+    get_domain_monitoring_plan = sgqlc.types.Field(
+        "Finding",
+        graphql_name="getDomainMonitoringPlan",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Returns a domain's latest top-level MONITORING_GAP
+    monitoring-plan finding (the container produced by a monitoring
+    run), or null when the domain has no plan. Monitor-permission-
+    gated (monitors/management write or propose) — NOT alerts/access —
+    so a monitor-only user who ran the plan can read it back. Read its
+    phases and staged monitors via getDomainMonitoringPlanChildren.
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain whose
+      monitoring plan to fetch.
+    """
+
+    get_domain_monitoring_plan_children = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("Finding")),
+        graphql_name="getDomainMonitoringPlanChildren",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "parent_finding_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="parentFindingUuid", default=None
+                    ),
+                ),
+                (
+                    "finding_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(FindingType)),
+                        graphql_name="findingTypes",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Returns the direct children of a monitoring-plan
+    finding — a container's phase findings and a phase's staged
+    monitor findings (with proposedMonitor apply state) — in detection
+    order. Monitor-permission-gated (monitors/management write or
+    propose); the parent is validated to be a MONITORING_GAP finding
+    in a domain the caller is authorized on, so this can never read
+    arbitrary or alerts findings.
+
+    Arguments:
+
+    * `parent_finding_uuid` (`UUID!`): UUID of a MONITORING_GAP plan
+      finding whose direct children to fetch.
+    * `finding_types` (`[FindingType!]`): Optional filter narrowing
+      the returned children to these finding types (e.g.
+      [MONITORING_GAP] for phases, [MONITOR_DEPLOYED] for staged
+      monitors). Omitted / null returns every direct child.
+    """
+
     get_schema_changes = sgqlc.types.Field(
         "SchemaChangeConnection",
         graphql_name="getSchemaChanges",
@@ -91765,6 +92054,21 @@ class RefreshOpenTelemetryCollectorConfig(sgqlc.types.Type):
     """
 
 
+class RefreshSlackAppScopes(sgqlc.types.Type):
+    """Re-read the workspace's live bot scopes from Slack into the
+    install record. Use after granting scopes outside the Monte Carlo
+    install flow (e.g. a reinstall from Slack's app configuration
+    page).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("bot_scopes",)
+    bot_scopes = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="botScopes"
+    )
+    """The refreshed bot scopes now recorded for the installation"""
+
+
 class RegisterGithubAppInstallationRequest(sgqlc.types.Type):
     """Called from the FE as part of the post-installation callback in
     case the user requested approval from her Github admin, instead of
@@ -94178,6 +94482,8 @@ class SlackCredentialsV2(sgqlc.types.Type):
         "team_name",
         "agent_dispatch_enabled",
         "is_notification_dispatcher",
+        "binding_health",
+        "notification_settings_count",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -94207,6 +94513,17 @@ class SlackCredentialsV2(sgqlc.types.Type):
     """Whether this binding's app currently dispatches new notifications
     for its workspace (feature flag + toggle + binding health +
     scopes).
+    """
+
+    binding_health = sgqlc.types.Field(String, graphql_name="bindingHealth")
+    """OK, or the reason this binding was sidelined (e.g. invalid_auth,
+    app_uninstalled). Set by send-time auth failures and Slack-side
+    uninstalls.
+    """
+
+    notification_settings_count = sgqlc.types.Field(Int, graphql_name="notificationSettingsCount")
+    """Active Slack notification settings delivered through this
+    binding's workspace — the disconnect-impact count.
     """
 
 
@@ -98092,6 +98409,7 @@ class TraceNode(sgqlc.types.Type):
         "node_name",
         "span_id",
         "trace_id",
+        "node_id",
         "parent_span_id",
         "duration",
         "start_time",
@@ -98108,6 +98426,7 @@ class TraceNode(sgqlc.types.Type):
         "workflow",
         "task",
         "child_span_ids",
+        "child_node_ids",
         "start_extra_ns",
         "end_extra_ns",
         "status",
@@ -98120,6 +98439,8 @@ class TraceNode(sgqlc.types.Type):
     span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
 
     trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+
+    node_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="nodeId")
 
     parent_span_id = sgqlc.types.Field(String, graphql_name="parentSpanId")
 
@@ -98156,6 +98477,11 @@ class TraceNode(sgqlc.types.Type):
     child_span_ids = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="childSpanIds",
+    )
+
+    child_node_ids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="childNodeIds",
     )
 
     start_extra_ns = sgqlc.types.Field(Int, graphql_name="startExtraNs")
@@ -98761,11 +99087,12 @@ class TriggerCustomRule(sgqlc.types.Type):
 class TriggerGithubActionDraftPrWorkflow(sgqlc.types.Type):
     """Dispatch the customer's draft-PR workflow with a finding's
     context.  Sends compact finding context (finding UUID, title,
-    summary, recommendation) as workflow_dispatch inputs to the
-    workflow configured on the installation. The customer's workflow
+    action context) as workflow_dispatch inputs to the workflow
+    configured for the finding's agent. The customer's workflow
     performs the code change and opens the draft PR with its own
-    credentials. Requires draft-PR workflow dispatch to be enabled for
-    your account.
+    credentials. Fails when the finding's agent has no dispatch target
+    configured or the finding carries no action context. Requires
+    draft-PR workflow dispatch to be enabled for your account.
     """
 
     __schema__ = schema
@@ -99510,12 +99837,20 @@ class UpdateGcpDataformCredentialsV2Mutation(sgqlc.types.Type):
 
 
 class UpdateGithubActionTriggerDispatchConfig(sgqlc.types.Type):
-    """Set which customer workflow draft-PR dispatches target for an
-    installation.
+    """Set which customer workflow an agent's draft-PR dispatches target.
+    Upserts the agent's entry on the installation — other agents'
+    dispatch targets are unaffected.
     """
 
     __schema__ = schema
-    __field_names__ = ("dispatch_config",)
+    __field_names__ = ("agent_trace_table_mcon", "dispatch_config")
+    agent_trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="agentTraceTableMcon"
+    )
+    """Trace-table MCON of the agent the stored dispatch target applies
+    to
+    """
+
     dispatch_config = sgqlc.types.Field(
         sgqlc.types.non_null(GithubActionTriggerDispatchConfig), graphql_name="dispatchConfig"
     )
@@ -107498,6 +107833,9 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         "excluded_assignments_with_properties",
         "agent_assistant",
         "effective_triage_enabled",
+        "triage_enabled_override",
+        "tsa_threshold_override",
+        "effective_tsa_threshold",
         "table_counts",
         "monitor_counts",
         "alert_counts",
@@ -107572,6 +107910,28 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
     triaged automatically. Combines the account-level automated-triage
     default with the domain's override, matching the automated-triage
     settings page.
+    """
+
+    triage_enabled_override = sgqlc.types.Field(Boolean, graphql_name="triageEnabledOverride")
+    """(experimental) Raw per-domain automated-triage toggle override.
+    Null means the domain inherits the account-level automated-triage
+    default; see effectiveTriageEnabled for the resolved value.
+    """
+
+    tsa_threshold_override = sgqlc.types.Field(
+        TsaAutomationThreshold, graphql_name="tsaThresholdOverride"
+    )
+    """(experimental) Raw per-domain troubleshooting-agent threshold
+    override. Null means the domain inherits the account-level
+    threshold.
+    """
+
+    effective_tsa_threshold = sgqlc.types.Field(
+        TsaAutomationThreshold, graphql_name="effectiveTsaThreshold"
+    )
+    """(experimental) Effective troubleshooting-agent threshold for this
+    domain after applying the override on top of the account-level
+    threshold. OFF whenever effectiveTriageEnabled is false.
     """
 
     table_counts = sgqlc.types.Field(DomainTableCounts, graphql_name="tableCounts")

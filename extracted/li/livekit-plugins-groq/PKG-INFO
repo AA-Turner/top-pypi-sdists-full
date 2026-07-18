@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-groq
-Version: 1.6.5
+Version: 1.6.6
 Summary: Groq inference plugin for LiveKit Agents
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -18,7 +18,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
 Requires-Dist: aiohttp
 Requires-Dist: livekit
-Requires-Dist: livekit-agents[codecs,openai]>=1.6.5
+Requires-Dist: livekit-agents[codecs,openai]>=1.6.6
 Description-Content-Type: text/markdown
 
 # Groq plugin for LiveKit Agents

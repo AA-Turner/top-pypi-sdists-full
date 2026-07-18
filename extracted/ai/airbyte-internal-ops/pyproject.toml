@@ -71,12 +71,11 @@ dev = [
     "ruff>=0.1.0",
     "poethepoet>=0.24.0",
     "deptry>=0.12.0",
-    "mypy>=1.8.0",
     "pdoc>=15.0.0",
     "types-pyyaml>=6.0.12",
     "types-requests>=2.32.0",
     "types-beautifulsoup4>=4.12.0",
-    "pyrefly>=0.45.2",
+    "ty>=0.0.56",
 ]
 erd = [
     "google-generativeai>=0.7.2,<1.0",

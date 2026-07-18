@@ -30,22 +30,37 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    GetAgreementEntitlementsPaginator,
+    GetAgreementTermsPaginator,
     ListAgreementCancellationRequestsPaginator,
+    ListAgreementChargesPaginator,
     ListAgreementInvoiceLineItemsPaginator,
     ListAgreementPaymentRequestsPaginator,
     ListBillingAdjustmentRequestsPaginator,
+    SearchAgreementsPaginator,
 )
 from .type_defs import (
+    AcceptAgreementCancellationRequestInputTypeDef,
+    AcceptAgreementCancellationRequestOutputTypeDef,
+    AcceptAgreementPaymentRequestInputTypeDef,
+    AcceptAgreementPaymentRequestOutputTypeDef,
+    AcceptAgreementRequestInputTypeDef,
+    AcceptAgreementRequestOutputTypeDef,
     BatchCreateBillingAdjustmentRequestInputTypeDef,
     BatchCreateBillingAdjustmentRequestOutputTypeDef,
     CancelAgreementCancellationRequestInputTypeDef,
     CancelAgreementCancellationRequestOutputTypeDef,
+    CancelAgreementInputTypeDef,
     CancelAgreementPaymentRequestInputTypeDef,
     CancelAgreementPaymentRequestOutputTypeDef,
+    CreateAgreementRequestInputTypeDef,
+    CreateAgreementRequestOutputTypeDef,
     DescribeAgreementInputTypeDef,
     DescribeAgreementOutputTypeDef,
     GetAgreementCancellationRequestInputTypeDef,
     GetAgreementCancellationRequestOutputTypeDef,
+    GetAgreementEntitlementsInputTypeDef,
+    GetAgreementEntitlementsOutputTypeDef,
     GetAgreementPaymentRequestInputTypeDef,
     GetAgreementPaymentRequestOutputTypeDef,
     GetAgreementTermsInputTypeDef,
@@ -54,18 +69,25 @@ from .type_defs import (
     GetBillingAdjustmentRequestOutputTypeDef,
     ListAgreementCancellationRequestsInputTypeDef,
     ListAgreementCancellationRequestsOutputTypeDef,
+    ListAgreementChargesInputTypeDef,
+    ListAgreementChargesOutputTypeDef,
     ListAgreementInvoiceLineItemsInputTypeDef,
     ListAgreementInvoiceLineItemsOutputTypeDef,
     ListAgreementPaymentRequestsInputTypeDef,
     ListAgreementPaymentRequestsOutputTypeDef,
     ListBillingAdjustmentRequestsInputTypeDef,
     ListBillingAdjustmentRequestsOutputTypeDef,
+    RejectAgreementCancellationRequestInputTypeDef,
+    RejectAgreementCancellationRequestOutputTypeDef,
+    RejectAgreementPaymentRequestInputTypeDef,
+    RejectAgreementPaymentRequestOutputTypeDef,
     SearchAgreementsInputTypeDef,
     SearchAgreementsOutputTypeDef,
     SendAgreementCancellationRequestInputTypeDef,
     SendAgreementCancellationRequestOutputTypeDef,
     SendAgreementPaymentRequestInputTypeDef,
     SendAgreementPaymentRequestOutputTypeDef,
+    UpdatePurchaseOrdersInputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -83,6 +105,7 @@ class Exceptions(BaseClientExceptions):
     ConflictException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
 
@@ -122,6 +145,38 @@ class AgreementServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#generate_presigned_url)
         """
 
+    async def accept_agreement_cancellation_request(
+        self, **kwargs: Unpack[AcceptAgreementCancellationRequestInputTypeDef]
+    ) -> AcceptAgreementCancellationRequestOutputTypeDef:
+        """
+        Allows buyers (acceptors) to accept a cancellation request that is in
+        <code>PENDING_APPROVAL</code> status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/accept_agreement_cancellation_request.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#accept_agreement_cancellation_request)
+        """
+
+    async def accept_agreement_payment_request(
+        self, **kwargs: Unpack[AcceptAgreementPaymentRequestInputTypeDef]
+    ) -> AcceptAgreementPaymentRequestOutputTypeDef:
+        """
+        Allows buyers (acceptors) to accept a payment request that is in
+        <code>PENDING_APPROVAL</code> status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/accept_agreement_payment_request.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#accept_agreement_payment_request)
+        """
+
+    async def accept_agreement_request(
+        self, **kwargs: Unpack[AcceptAgreementRequestInputTypeDef]
+    ) -> AcceptAgreementRequestOutputTypeDef:
+        """
+        Accepts an agreement request to finalize the agreement.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/accept_agreement_request.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#accept_agreement_request)
+        """
+
     async def batch_create_billing_adjustment_request(
         self, **kwargs: Unpack[BatchCreateBillingAdjustmentRequestInputTypeDef]
     ) -> BatchCreateBillingAdjustmentRequestOutputTypeDef:
@@ -131,6 +186,16 @@ class AgreementServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/batch_create_billing_adjustment_request.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#batch_create_billing_adjustment_request)
+        """
+
+    async def cancel_agreement(
+        self, **kwargs: Unpack[CancelAgreementInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Allows an acceptor to cancel an active agreement.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/cancel_agreement.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#cancel_agreement)
         """
 
     async def cancel_agreement_cancellation_request(
@@ -155,6 +220,17 @@ class AgreementServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#cancel_agreement_payment_request)
         """
 
+    async def create_agreement_request(
+        self, **kwargs: Unpack[CreateAgreementRequestInputTypeDef]
+    ) -> CreateAgreementRequestOutputTypeDef:
+        """
+        Creates an agreement request that acts as a quote for the terms you want to
+        accept.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/create_agreement_request.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#create_agreement_request)
+        """
+
     async def describe_agreement(
         self, **kwargs: Unpack[DescribeAgreementInputTypeDef]
     ) -> DescribeAgreementOutputTypeDef:
@@ -174,6 +250,16 @@ class AgreementServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_agreement_cancellation_request.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#get_agreement_cancellation_request)
+        """
+
+    async def get_agreement_entitlements(
+        self, **kwargs: Unpack[GetAgreementEntitlementsInputTypeDef]
+    ) -> GetAgreementEntitlementsOutputTypeDef:
+        """
+        Obtains details about the entitlements of an agreement.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_agreement_entitlements.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#get_agreement_entitlements)
         """
 
     async def get_agreement_payment_request(
@@ -217,6 +303,17 @@ class AgreementServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#list_agreement_cancellation_requests)
         """
 
+    async def list_agreement_charges(
+        self, **kwargs: Unpack[ListAgreementChargesInputTypeDef]
+    ) -> ListAgreementChargesOutputTypeDef:
+        """
+        Allows acceptors to view charges and purchase orders that are associated with
+        an agreement.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/list_agreement_charges.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#list_agreement_charges)
+        """
+
     async def list_agreement_invoice_line_items(
         self, **kwargs: Unpack[ListAgreementInvoiceLineItemsInputTypeDef]
     ) -> ListAgreementInvoiceLineItemsOutputTypeDef:
@@ -248,11 +345,34 @@ class AgreementServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#list_billing_adjustment_requests)
         """
 
+    async def reject_agreement_cancellation_request(
+        self, **kwargs: Unpack[RejectAgreementCancellationRequestInputTypeDef]
+    ) -> RejectAgreementCancellationRequestOutputTypeDef:
+        """
+        Allows buyers (acceptors) to reject a cancellation request that is in
+        <code>PENDING_APPROVAL</code> status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/reject_agreement_cancellation_request.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#reject_agreement_cancellation_request)
+        """
+
+    async def reject_agreement_payment_request(
+        self, **kwargs: Unpack[RejectAgreementPaymentRequestInputTypeDef]
+    ) -> RejectAgreementPaymentRequestOutputTypeDef:
+        """
+        Allows buyers (acceptors) to reject a payment request that is in
+        <code>PENDING_APPROVAL</code> status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/reject_agreement_payment_request.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#reject_agreement_payment_request)
+        """
+
     async def search_agreements(
         self, **kwargs: Unpack[SearchAgreementsInputTypeDef]
     ) -> SearchAgreementsOutputTypeDef:
         """
-        Searches across all agreements that a proposer has in AWS Marketplace.
+        Searches across all agreements that a proposer or an acceptor has in AWS
+        Marketplace.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/search_agreements.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#search_agreements)
@@ -281,10 +401,54 @@ class AgreementServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#send_agreement_payment_request)
         """
 
+    async def update_purchase_orders(
+        self, **kwargs: Unpack[UpdatePurchaseOrdersInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Allows acceptors to associate purchase orders with agreement charges after an
+        agreement is created.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/update_purchase_orders.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#update_purchase_orders)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_agreement_entitlements"]
+    ) -> GetAgreementEntitlementsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_agreement_terms"]
+    ) -> GetAgreementTermsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#get_paginator)
+        """
+
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_agreement_cancellation_requests"]
     ) -> ListAgreementCancellationRequestsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agreement_charges"]
+    ) -> ListAgreementChargesPaginator:
         """
         Create a paginator for an operation.
 
@@ -318,6 +482,17 @@ class AgreementServiceClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_billing_adjustment_requests"]
     ) -> ListBillingAdjustmentRequestsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_marketplace_agreement/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_agreements"]
+    ) -> SearchAgreementsPaginator:
         """
         Create a paginator for an operation.
 

@@ -10,9 +10,16 @@ from typing import Any
 from airbyte.exceptions import PyAirbyteInputError
 from airbyte_ops_mcp.cloud_admin import api_client as cloud_api
 from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
+from airbyte_ops_mcp.github_actions import trigger_workflow_dispatch
+from airbyte_ops_mcp.github_api import resolve_ci_trigger_github_token
 from fastmcp import FastMCPApp
 
-from airbyte_ops_webapp.models import OverridePlan, ScopeType
+from airbyte_ops_webapp.models import (
+    OverridePlan,
+    RolloutSyncSummary,
+    ScopeType,
+    TierPopulationFactors,
+)
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     DEFAULT_ADMIN_USER_ID,
     auth_available,
@@ -45,11 +52,19 @@ from airbyte_ops_webapp.services.connector_version_manager.adapter import (
 from airbyte_ops_webapp.services.connector_version_manager.demo_mode import (
     MockPinningAdapter,
 )
+from airbyte_ops_webapp.state import mock_only_enabled
 
 connector_version_manager_app = FastMCPApp("Connector Version Manager")
 
 # Number of pins fetched per "Load More" click.
 _PIN_BATCH_SIZE = 100
+
+# Registry yank workflow dispatch target (mirrors `mcp/registry.py`).
+_YANK_WORKFLOW_REPO_OWNER = "airbytehq"
+_YANK_WORKFLOW_REPO_NAME = "airbyte"
+_YANK_WORKFLOW_DEFAULT_BRANCH = "master"
+_YANK_WORKFLOW_FILE = "version-yank-command.yml"
+YANK_STORE = "coral:prod"
 
 
 def _fmt_date_short(value: str) -> str:
@@ -61,6 +76,29 @@ def _fmt_date_short(value: str) -> str:
     except ValueError:
         return value
     return parsed.strftime("%Y-%m-%d (%a)")
+
+
+def _fmt_date_long(value: str) -> str:
+    """Format an ISO datetime string to `Ddd, Mon D, YYYY` (e.g. `Tue, Mar 3, 2026`)."""
+    if not value:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return value
+    return f"{parsed:%a}, {parsed:%b} {parsed.day}, {parsed:%Y}"
+
+
+def _version_with_date(tag: str, raw_date: str) -> str:
+    """Combine a version tag with its release date, e.g. `1.2.0 (Tue, Mar 3, 2026)`.
+
+    Falls back to just the tag when no release date is available, so the row
+    never renders an empty `()`.
+    """
+    if not tag:
+        return ""
+    formatted = _fmt_date_long(raw_date)
+    return f"{tag} ({formatted})" if formatted else tag
 
 
 def _override_plan(
@@ -303,15 +341,123 @@ def _build_context_result(
     scope_type: ScopeType = "workspace",
     scope_id: str = "",
     actor_workspace_id: str = "",
+    adapter: OpsMcpAdapter | None = None,
+    include_rollout_sync_summary: bool = False,
+    google_access_token: str = "",
 ) -> dict[str, Any]:
-    """Assemble the standard context result dict."""
+    """Assemble the standard context result dict.
+
+    When `include_rollout_sync_summary` is set and an `adapter` is provided, each
+    active tier rollout's `get_actor_sync_info` health + population counts are
+    folded into `rollout_summary` — per-tier `tier_cards` (rollout line and
+    health) plus a single connector-level `total_actors_display`. This is skipped
+    for unauthenticated or error paths so the card still renders without them.
+    """
+    rollout_summary = build_rollout_summary(active_rollouts)
+    if include_rollout_sync_summary and adapter is not None and active_rollouts:
+        tier_summaries: dict[str, RolloutSyncSummary] = {}
+        for rollout in active_rollouts:
+            rollout_id = rollout.get("rollout_id", "")
+            tier = rollout.get("tier", "")
+            if not rollout_id or not tier:
+                continue
+            tier_summaries[tier] = adapter.get_rollout_sync_summary(rollout_id)
+        connector_dict = (
+            asdict(connector) if not isinstance(connector, dict) else connector
+        )
+        # All tier rollouts share one RC version, so attribute the population's
+        # pins to it — this lets the card's eligible/pinned exclude actors pinned
+        # to a *different* version. Take the first rollout that carries a version.
+        target_version_id = next(
+            (
+                str(rollout.get("release_candidate_version_id", ""))
+                for rollout in active_rollouts
+                if rollout.get("release_candidate_version_id")
+            ),
+            "",
+        )
+        # Earliest rollout `created_at` across the active tier rollouts is the
+        # job-status window start passed to the population query — it enables the
+        # platform's `filterByJobStatus` eligibility gate so the card's eligible
+        # denominator tracks the backend's rollout audience. Earliest (widest
+        # window) is the most inclusive single window across tiers.
+        rollout_created_ats = [
+            str(rollout.get("created_at", ""))
+            for rollout in active_rollouts
+            if rollout.get("created_at")
+        ]
+        rollout_created_at = min(rollout_created_ats) if rollout_created_ats else ""
+        population = adapter.get_connector_population(
+            connector_dict.get("id", ""),
+            is_destination=connector_dict.get("connector_type", "source")
+            == "destination",
+            target_version_id=target_version_id,
+            rollout_created_at=rollout_created_at,
+            google_access_token=google_access_token,
+        )
+        # The headline "Eligible Actors" count is the backend's gated-eligible
+        # total (`nActorsEligibleOrAlreadyPinned`). When tier resolution
+        # succeeded, `total_eligible` is authoritative even at `0` (e.g. all
+        # active actors are off-version pinned or gate-excluded), so render it
+        # verbatim — including `0`. Only when tier resolution was unavailable
+        # (no gated-eligible total) do we fall back to the connector-wide active
+        # count, leaving the row blank if there are no active actors either.
+        if population.tier_resolution_available:
+            total_actors_display = f"{population.total_eligible:,}"
+        elif population.total_active:
+            total_actors_display = f"{population.total_active:,}"
+        else:
+            total_actors_display = ""
+        # Only pass per-tier eligible counts when tier resolution actually
+        # succeeded, so the UI can tell a genuine `0 eligible` apart from
+        # "eligible unknown" (BigQuery tier data unavailable). Keyed by the
+        # disjoint cohort the card enumerates; the final `ALL`/GA stage is
+        # surfaced under `TIER_0`.
+        eligible_by_tier: dict[str, int] = {}
+        pinned_by_tier: dict[str, int] = {}
+        factors_by_tier: dict[str, TierPopulationFactors] = {}
+        if population.tier_resolution_available:
+            eligible_by_tier = {
+                CustomerTier.TIER_2.value: population.eligible_tier_2,
+                CustomerTier.TIER_1.value: population.eligible_tier_1,
+                CustomerTier.TIER_0.value: population.eligible_tier_0,
+            }
+            # Active-only pinned counts (pinned ⊆ eligible) from the same
+            # population as `eligible_by_tier`, so the card's numerator can't
+            # exceed its denominator (which the rollout scan's `num_pinned`
+            # can, since it counts inactive/tombstoned pinned actors).
+            pinned_by_tier = {
+                CustomerTier.TIER_2.value: population.pinned_tier_2,
+                CustomerTier.TIER_1.value: population.pinned_tier_1,
+                CustomerTier.TIER_0.value: population.pinned_tier_0,
+            }
+            # The full distinct-factor breakdown per tier, so the card can
+            # over-communicate every factor and show how both the addressable
+            # and the backend-eligible denominators are built.
+            factors_by_tier = {
+                tier: factors
+                for tier, factors in (
+                    (CustomerTier.TIER_2.value, population.factors_tier_2),
+                    (CustomerTier.TIER_1.value, population.factors_tier_1),
+                    (CustomerTier.TIER_0.value, population.factors_tier_0),
+                )
+                if factors is not None
+            }
+        rollout_summary = build_rollout_summary(
+            active_rollouts,
+            total_actors_display=total_actors_display,
+            tier_summaries=tier_summaries,
+            eligible_by_tier=eligible_by_tier,
+            pinned_by_tier=pinned_by_tier,
+            factors_by_tier=factors_by_tier,
+        )
     return {
         "connector": asdict(connector)
         if not isinstance(connector, dict)
         else connector,
         "versions": versions,
         "active_rollouts": active_rollouts,
-        "rollout_summary": build_rollout_summary(active_rollouts),
+        "rollout_summary": rollout_summary,
         "current_state": current_state,
         "current_state_markdown": json_text(current_state),
         "ancestor_configs": ancestor_configs or [],
@@ -334,6 +480,7 @@ def load_connector_context(
     actor_workspace_id: str = "",
     context_guid: str = "",
     auth_bearer_token: str = "",
+    google_access_token: str = "",
 ) -> dict[str, Any]:
     """Load connector versions and scoped pin context."""
     if not connector_id:
@@ -354,6 +501,8 @@ def load_connector_context(
         "scope_type": scope_type,
         "scope_id": scope_id,
         "actor_workspace_id": actor_workspace_id,
+        "adapter": adapter,
+        "google_access_token": google_access_token,
     }
     if not auth_available(auth_bearer_token or None):
         versions, _version_error = version_rows_or_empty(adapter, connector)
@@ -366,6 +515,7 @@ def load_connector_context(
         )
     versions, version_error = version_rows_or_empty(adapter, connector)
     ctx_kwargs["versions"] = versions
+    ctx_kwargs["include_rollout_sync_summary"] = True
     resolved_context_label = ""
     if context_guid.strip():
         try:
@@ -441,6 +591,7 @@ def _load_context_from_compound_value(
     actor_workspace_id: str = "",
     context_guid: str = "",
     auth_bearer_token: str = "",
+    google_access_token: str = "",
 ) -> dict[str, Any]:
     """Shared helper: split a `connector_id|version` value, load context."""
     connector_id, _separator, version = compound_value.partition("|")
@@ -451,6 +602,7 @@ def _load_context_from_compound_value(
         actor_workspace_id=actor_workspace_id,
         context_guid=context_guid,
         auth_bearer_token=auth_bearer_token,
+        google_access_token=google_access_token,
     )
     context["selected_connector_id"] = connector_id
     context["target_version"] = version
@@ -465,6 +617,7 @@ def load_recent_release_context(
     actor_workspace_id: str = "",
     context_guid: str = "",
     auth_bearer_token: str = "",
+    google_access_token: str = "",
 ) -> dict[str, Any]:
     """Load connector context from a recent release combobox selection."""
     return _load_context_from_compound_value(
@@ -474,6 +627,7 @@ def load_recent_release_context(
         actor_workspace_id,
         context_guid,
         auth_bearer_token,
+        google_access_token,
     )
 
 
@@ -485,6 +639,7 @@ def load_progressive_rollout_context(
     actor_workspace_id: str = "",
     context_guid: str = "",
     auth_bearer_token: str = "",
+    google_access_token: str = "",
 ) -> dict[str, Any]:
     """Load connector context from a progressive rollout selection."""
     return _load_context_from_compound_value(
@@ -494,6 +649,7 @@ def load_progressive_rollout_context(
         actor_workspace_id,
         context_guid,
         auth_bearer_token,
+        google_access_token,
     )
 
 
@@ -506,6 +662,7 @@ def load_connector_version_context(
     actor_workspace_id: str = "",
     context_guid: str = "",
     auth_bearer_token: str = "",
+    google_access_token: str = "",
 ) -> dict[str, Any]:
     """Load connector context and auto-resolve pins for a specific version.
 
@@ -520,6 +677,7 @@ def load_connector_version_context(
         actor_workspace_id=actor_workspace_id,
         context_guid=context_guid,
         auth_bearer_token=auth_bearer_token,
+        google_access_token=google_access_token,
     )
     context["selected_connector_id"] = connector_id
     effective_version = version_tag or context["connector"].get("latest_version", "")
@@ -543,6 +701,12 @@ def load_connector_version_context(
     context["latest_version_release_date"] = _fmt_date_short(
         latest_version_release_date
     )
+    context["selected_version_display"] = _version_with_date(
+        effective_version, selected_version_release_date
+    )
+    context["default_version_display"] = _version_with_date(
+        latest_version, latest_version_release_date
+    )
 
     adapter = get_adapter(auth_bearer_token or None)
 
@@ -557,16 +721,12 @@ def load_connector_version_context(
         context["version_pins"] = pin_rows
         context["version_pins_total"] = total
         context["version_pins_offset"] = _PIN_BATCH_SIZE
-        context["show_load_more_pins"] = total > _PIN_BATCH_SIZE
-        context["all_pins_loaded"] = len(pin_rows) >= total
         context["selected_version_id"] = resolved_version_id
         context["selected_version_tag"] = effective_version
     else:
         context["version_pins"] = []
         context["version_pins_total"] = 0
         context["version_pins_offset"] = 0
-        context["show_load_more_pins"] = False
-        context["all_pins_loaded"] = True
         context["selected_version_id"] = ""
         context["selected_version_tag"] = effective_version
 
@@ -594,8 +754,6 @@ def load_version_pins(
         "version_pins": pin_rows,
         "version_pins_total": total,
         "version_pins_offset": new_end,
-        "show_load_more_pins": total > _PIN_BATCH_SIZE,
-        "all_pins_loaded": len(pin_rows) >= total,
         "selected_version_id": version_id,
         "selected_version_tag": version_tag,
     }
@@ -745,8 +903,6 @@ def remove_selected_pins(
         "version_pins": pin_rows,
         "version_pins_total": total,
         "version_pins_offset": _PIN_BATCH_SIZE,
-        "show_load_more_pins": total > _PIN_BATCH_SIZE,
-        "all_pins_loaded": len(pin_rows) >= total,
         "selected_version_id": version_id,
         "selected_version_tag": version_tag,
     }
@@ -929,6 +1085,85 @@ def promote_to_next_stage(
         "rollout_action_result": (
             f"Successfully started {tier_label} rollout for "
             f"{docker_repository}:{docker_image_tag}."
+        ),
+        "rollout_action_success": True,
+    }
+
+
+@connector_version_manager_app.tool()
+def yank_connector_version(
+    connector_name: str,
+    version: str,
+    reason: str = "",
+    reference_url: str = "",
+) -> dict[str, Any]:
+    """Yank a released connector version from the production registry.
+
+    Dispatches the `version-yank-command.yml` workflow which marks the version
+    as yanked in `coral:prod` and recompiles the registry so the version is
+    excluded from latest-version resolution. Intended for already-released
+    versions that have no active progressive rollout.
+
+    The optional `reference_url` is folded into the yank marker's `reason` as
+    audit context. It is deliberately **not** passed as the workflow's
+    `approval-url` input: that input is the unsupervised-agent HITL approval
+    guard used by the CLI/MCP path, which does not apply to this
+    human-operated webapp (see `CONTRIBUTING.md`).
+    """
+    if not connector_name or not version:
+        return {
+            "rollout_action_result": (
+                "A connector and version must be selected before yanking."
+            ),
+            "rollout_action_success": False,
+        }
+
+    if mock_only_enabled():
+        return {
+            "rollout_action_result": (
+                f"[Mock] Would yank {connector_name}@{version} on {YANK_STORE}."
+            ),
+            "rollout_action_success": True,
+        }
+
+    try:
+        token = resolve_ci_trigger_github_token()
+    except ValueError as exc:
+        return {
+            "rollout_action_result": f"Failed to yank version: {exc}",
+            "rollout_action_success": False,
+        }
+
+    workflow_inputs: dict[str, str] = {
+        "connector-name": connector_name,
+        "version": version,
+        "store": YANK_STORE,
+        "unyank": "false",
+    }
+    marker_reason = reason
+    if reference_url:
+        marker_reason = (
+            f"{reason}\n\nReference: {reference_url}"
+            if reason
+            else f"Reference: {reference_url}"
+        )
+    if marker_reason:
+        workflow_inputs["reason"] = marker_reason
+
+    dispatch_result = trigger_workflow_dispatch(
+        owner=_YANK_WORKFLOW_REPO_OWNER,
+        repo=_YANK_WORKFLOW_REPO_NAME,
+        workflow_file=_YANK_WORKFLOW_FILE,
+        ref=_YANK_WORKFLOW_DEFAULT_BRANCH,
+        inputs=workflow_inputs,
+        token=token,
+    )
+
+    view_url = dispatch_result.run_url or dispatch_result.workflow_url
+    return {
+        "rollout_action_result": (
+            f"Yank workflow triggered for {connector_name}@{version} on "
+            f"{YANK_STORE}. View progress at: {view_url}"
         ),
         "rollout_action_success": True,
     }

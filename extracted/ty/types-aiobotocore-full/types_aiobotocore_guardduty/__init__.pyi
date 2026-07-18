@@ -18,6 +18,7 @@ Usage::
         ListFiltersPaginator,
         ListFindingsPaginator,
         ListIPSetsPaginator,
+        ListInvestigationsPaginator,
         ListInvitationsPaginator,
         ListMalwareScansPaginator,
         ListMembersPaginator,
@@ -39,6 +40,7 @@ Usage::
     list_filters_paginator: ListFiltersPaginator = client.get_paginator("list_filters")
     list_findings_paginator: ListFindingsPaginator = client.get_paginator("list_findings")
     list_ip_sets_paginator: ListIPSetsPaginator = client.get_paginator("list_ip_sets")
+    list_investigations_paginator: ListInvestigationsPaginator = client.get_paginator("list_investigations")
     list_invitations_paginator: ListInvitationsPaginator = client.get_paginator("list_invitations")
     list_malware_scans_paginator: ListMalwareScansPaginator = client.get_paginator("list_malware_scans")
     list_members_paginator: ListMembersPaginator = client.get_paginator("list_members")
@@ -56,6 +58,7 @@ from .paginator import (
     ListDetectorsPaginator,
     ListFiltersPaginator,
     ListFindingsPaginator,
+    ListInvestigationsPaginator,
     ListInvitationsPaginator,
     ListIPSetsPaginator,
     ListMalwareScansPaginator,
@@ -77,6 +80,7 @@ __all__ = (
     "ListFiltersPaginator",
     "ListFindingsPaginator",
     "ListIPSetsPaginator",
+    "ListInvestigationsPaginator",
     "ListInvitationsPaginator",
     "ListMalwareScansPaginator",
     "ListMembersPaginator",

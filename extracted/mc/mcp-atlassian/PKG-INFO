@@ -1,27 +1,28 @@
 Metadata-Version: 2.4
 Name: mcp-atlassian
-Version: 0.22.1
+Version: 0.23.0
 Summary: The Model Context Protocol (MCP) Atlassian integration is an open-source implementation that bridges Atlassian products (Jira and Confluence) with AI language models following Anthropic's MCP specification. This project enables secure, contextual AI interactions with Atlassian tools while maintaining data privacy and security. Key features include:
 Author-email: sooperset <soomiles.dev@gmail.com>
 License-File: LICENSE
 Requires-Python: >=3.10
+Requires-Dist: anyio>=4.0.0
 Requires-Dist: atlassian-python-api>=4.0.0
 Requires-Dist: beautifulsoup4>=4.12.3
 Requires-Dist: cachetools>=5.0.0
 Requires-Dist: click>=8.1.7
 Requires-Dist: fakeredis<2.35.0,>=2.32.1
-Requires-Dist: fastmcp<2.15.0,>=2.14.0
+Requires-Dist: fastmcp<4.0.0,>=3.2.4
 Requires-Dist: httpx>=0.28.0
 Requires-Dist: keyring>=25.6.0
-Requires-Dist: markdown-to-confluence<0.4.0,>=0.3.4
+Requires-Dist: markdown-to-confluence<0.7.0,>=0.6.0
 Requires-Dist: markdown>=3.7.0
 Requires-Dist: markdownify>=0.11.6
-Requires-Dist: mcp<2.0.0,>=1.8.0
+Requires-Dist: mcp<2.0.0,>=1.27.0
 Requires-Dist: pydantic<3.0,>=2.10.6
 Requires-Dist: python-dateutil>=2.9.0.post0
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: requests[socks]>=2.31.0
-Requires-Dist: starlette>=0.49.1
+Requires-Dist: starlette>=1.0.1
 Requires-Dist: thefuzz>=0.22.1
 Requires-Dist: trio>=0.29.0
 Requires-Dist: truststore>=0.10.0
@@ -31,6 +32,8 @@ Requires-Dist: tzdata>=2024.1; platform_system == 'Windows'
 Requires-Dist: unidecode>=1.3.0
 Requires-Dist: urllib3>=2.6.3
 Requires-Dist: uvicorn>=0.27.1
+Provides-Extra: wpad
+Requires-Dist: pypac>=0.17.2; extra == 'wpad'
 Description-Content-Type: text/markdown
 
 # MCP Atlassian
@@ -86,6 +89,25 @@ Add to your Claude Desktop or Cursor MCP configuration:
 
 > **Server/Data Center users**: Use `JIRA_PERSONAL_TOKEN` instead of `JIRA_USERNAME` + `JIRA_API_TOKEN`. See [Authentication](https://mcp-atlassian.soomiles.com/docs/authentication) for details.
 
+#### Autohand Code
+
+Use the same `uvx` server with your Atlassian credentials:
+
+```bash
+autohand mcp add mcp-atlassian env \
+  JIRA_URL=https://your-company.atlassian.net \
+  JIRA_USERNAME=your.email@company.com \
+  JIRA_API_TOKEN=your_api_token \
+  CONFLUENCE_URL=https://your-company.atlassian.net/wiki \
+  CONFLUENCE_USERNAME=your.email@company.com \
+  CONFLUENCE_API_TOKEN=your_api_token \
+  uvx mcp-atlassian
+```
+
+Add `--scope project` after `add` to keep the configuration in the current
+project. See [Autohand Code](https://github.com/autohandai/code-cli/) for current
+installation and CLI details.
+
 ### 3. Start Using
 
 Ask your AI assistant to:
@@ -130,7 +152,7 @@ Documentation is also available in [llms.txt format](https://llmstxt.org/), whic
 | `jira_update_issue` - Update issues | `confluence_update_page` - Update pages |
 | `jira_transition_issue` - Change status | `confluence_add_comment` - Add comments |
 
-**88 tools total** — See [Tools Reference](https://mcp-atlassian.soomiles.com/docs/tools-reference) for the complete list.
+**93 tools total** — See [Tools Reference](https://mcp-atlassian.soomiles.com/docs/tools-reference) for the complete list.
 
 ## Security
 

@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "GetStreamPaginatorName",
+    "IteratorPositionType",
     "KeyspacesStreamsServiceName",
     "ListStreamsPaginatorName",
     "OriginTypeType",
@@ -36,6 +37,7 @@ __all__ = (
 )
 
 GetStreamPaginatorName = Literal["get_stream"]
+IteratorPositionType = Literal["AT_TIP", "BEHIND_TIP"]
 ListStreamsPaginatorName = Literal["list_streams"]
 OriginTypeType = Literal["REPLICATION", "TTL", "USER"]
 ShardFilterTypeType = Literal["CHILD_SHARDS"]
@@ -238,8 +240,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -266,6 +266,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -333,10 +335,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -369,6 +371,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -396,6 +399,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -417,7 +421,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -438,6 +441,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

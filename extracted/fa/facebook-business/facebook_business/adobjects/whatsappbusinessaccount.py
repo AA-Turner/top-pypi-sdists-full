@@ -56,6 +56,7 @@ class WhatsAppBusinessAccount(
         template_auto_archival_enabled = 'template_auto_archival_enabled'
         timezone_id = 'timezone_id'
         whatsapp_business_manager_messaging_limit = 'whatsapp_business_manager_messaging_limit'
+        whatsapp_manager_marketing_messages_max_price_enroll_status = 'whatsapp_manager_marketing_messages_max_price_enroll_status'
 
     class BusinessVerificationStatus:
         expired = 'expired'
@@ -77,6 +78,10 @@ class WhatsAppBusinessAccount(
         tier_50 = 'TIER_50'
         tier_unlimited = 'TIER_UNLIMITED'
         untiered = 'UNTIERED'
+
+    class WhatsappManagerMarketingMessagesMaxPriceEnrollStatus:
+        opt_in = 'OPT_IN'
+        opt_out = 'OPT_OUT'
 
     class Tasks:
         develop = 'DEVELOP'
@@ -163,8 +168,10 @@ class WhatsAppBusinessAccount(
             'disable_marketing_messages_on_cloud_api': 'bool',
             'is_enabled_for_insights': 'bool',
             'template_auto_archival_enabled': 'bool',
+            'whatsapp_manager_marketing_messages_max_price_enroll_status': 'whatsapp_manager_marketing_messages_max_price_enroll_status_enum',
         }
         enums = {
+            'whatsapp_manager_marketing_messages_max_price_enroll_status_enum': WhatsAppBusinessAccount.WhatsappManagerMarketingMessagesMaxPriceEnrollStatus.__dict__.values(),
         }
         request = FacebookRequest(
             node_id=self['id'],
@@ -982,6 +989,7 @@ class WhatsAppBusinessAccount(
             'is_primary_device_delivery_only': 'bool',
             'language': 'string',
             'library_template_body_inputs': 'map',
+            'library_template_body_param_inputs': 'list<map>',
             'library_template_button_inputs': 'list<map>',
             'library_template_name': 'string',
             'message_send_ttl_seconds': 'unsigned int',
@@ -1946,12 +1954,14 @@ class WhatsAppBusinessAccount(
         'template_auto_archival_enabled': 'bool',
         'timezone_id': 'string',
         'whatsapp_business_manager_messaging_limit': 'WhatsappBusinessManagerMessagingLimit',
+        'whatsapp_manager_marketing_messages_max_price_enroll_status': 'string',
     }
     @classmethod
     def _get_field_enum_info(cls):
         field_enum_info = {}
         field_enum_info['BusinessVerificationStatus'] = WhatsAppBusinessAccount.BusinessVerificationStatus.__dict__.values()
         field_enum_info['WhatsappBusinessManagerMessagingLimit'] = WhatsAppBusinessAccount.WhatsappBusinessManagerMessagingLimit.__dict__.values()
+        field_enum_info['WhatsappManagerMarketingMessagesMaxPriceEnrollStatus'] = WhatsAppBusinessAccount.WhatsappManagerMarketingMessagesMaxPriceEnrollStatus.__dict__.values()
         field_enum_info['Tasks'] = WhatsAppBusinessAccount.Tasks.__dict__.values()
         field_enum_info['Type'] = WhatsAppBusinessAccount.Type.__dict__.values()
         field_enum_info['Category'] = WhatsAppBusinessAccount.Category.__dict__.values()

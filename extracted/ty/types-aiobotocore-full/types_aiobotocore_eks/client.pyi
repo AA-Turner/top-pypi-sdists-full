@@ -53,6 +53,8 @@ from .type_defs import (
     AssociateEncryptionConfigResponseTypeDef,
     AssociateIdentityProviderConfigRequestTypeDef,
     AssociateIdentityProviderConfigResponseTypeDef,
+    CancelUpdateRequestTypeDef,
+    CancelUpdateResponseTypeDef,
     CreateAccessEntryRequestTypeDef,
     CreateAccessEntryResponseTypeDef,
     CreateAddonRequestTypeDef,
@@ -271,6 +273,16 @@ class EKSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/associate_identity_provider_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#associate_identity_provider_config)
+        """
+
+    async def cancel_update(
+        self, **kwargs: Unpack[CancelUpdateRequestTypeDef]
+    ) -> CancelUpdateResponseTypeDef:
+        """
+        Cancels an in-progress update to an Amazon EKS cluster on a best-effort basis.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/cancel_update.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#cancel_update)
         """
 
     async def create_access_entry(

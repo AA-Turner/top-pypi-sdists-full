@@ -333,7 +333,7 @@ class WorkSpacesClient(AioBaseClient):
         self, **kwargs: Unpack[CreateConnectClientAddInRequestTypeDef]
     ) -> CreateConnectClientAddInResultTypeDef:
         """
-        Creates a client-add-in for Amazon Connect within a directory.
+        Creates a client-add-in for Connect Customer within a directory.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/create_connect_client_add_in.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#create_connect_client_add_in)
@@ -451,7 +451,7 @@ class WorkSpacesClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteConnectClientAddInRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Deletes a client-add-in for Amazon Connect that is configured within a
+        Deletes a client-add-in for Connect Customer that is configured within a
         directory.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/delete_connect_client_add_in.html)
@@ -602,7 +602,7 @@ class WorkSpacesClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeConnectClientAddInsRequestTypeDef]
     ) -> DescribeConnectClientAddInsResultTypeDef:
         """
-        Retrieves a list of Amazon Connect client add-ins that have been created.
+        Retrieves a list of Connect Customer client add-ins that have been created.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/describe_connect_client_add_ins.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#describe_connect_client_add_ins)
@@ -1129,7 +1129,7 @@ class WorkSpacesClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateConnectClientAddInRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Updates a Amazon Connect client add-in.
+        Updates a Connect Customer client add-in.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/update_connect_client_add_in.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#update_connect_client_add_in)

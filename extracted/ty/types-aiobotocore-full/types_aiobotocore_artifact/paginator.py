@@ -12,6 +12,8 @@ Usage::
 
     from types_aiobotocore_artifact.client import ArtifactClient
     from types_aiobotocore_artifact.paginator import (
+        ListComplianceInquiriesPaginator,
+        ListComplianceInquiryQueriesPaginator,
         ListCustomerAgreementsPaginator,
         ListReportVersionsPaginator,
         ListReportsPaginator,
@@ -21,6 +23,8 @@ Usage::
     with session.create_client("artifact") as client:
         client: ArtifactClient
 
+        list_compliance_inquiries_paginator: ListComplianceInquiriesPaginator = client.get_paginator("list_compliance_inquiries")
+        list_compliance_inquiry_queries_paginator: ListComplianceInquiryQueriesPaginator = client.get_paginator("list_compliance_inquiry_queries")
         list_customer_agreements_paginator: ListCustomerAgreementsPaginator = client.get_paginator("list_customer_agreements")
         list_report_versions_paginator: ListReportVersionsPaginator = client.get_paginator("list_report_versions")
         list_reports_paginator: ListReportsPaginator = client.get_paginator("list_reports")
@@ -35,6 +39,10 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    ListComplianceInquiriesRequestPaginateTypeDef,
+    ListComplianceInquiriesResponseTypeDef,
+    ListComplianceInquiryQueriesRequestPaginateTypeDef,
+    ListComplianceInquiryQueriesResponseTypeDef,
     ListCustomerAgreementsRequestPaginateTypeDef,
     ListCustomerAgreementsResponseTypeDef,
     ListReportsRequestPaginateTypeDef,
@@ -49,7 +57,57 @@ else:
     from typing_extensions import Unpack
 
 
-__all__ = ("ListCustomerAgreementsPaginator", "ListReportVersionsPaginator", "ListReportsPaginator")
+__all__ = (
+    "ListComplianceInquiriesPaginator",
+    "ListComplianceInquiryQueriesPaginator",
+    "ListCustomerAgreementsPaginator",
+    "ListReportVersionsPaginator",
+    "ListReportsPaginator",
+)
+
+
+if TYPE_CHECKING:
+    _ListComplianceInquiriesPaginatorBase = AioPaginator[ListComplianceInquiriesResponseTypeDef]
+else:
+    _ListComplianceInquiriesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListComplianceInquiriesPaginator(_ListComplianceInquiriesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/paginator/ListComplianceInquiries.html#Artifact.Paginator.ListComplianceInquiries)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/paginators/#listcomplianceinquiriespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListComplianceInquiriesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListComplianceInquiriesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/paginator/ListComplianceInquiries.html#Artifact.Paginator.ListComplianceInquiries.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/paginators/#listcomplianceinquiriespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListComplianceInquiryQueriesPaginatorBase = AioPaginator[
+        ListComplianceInquiryQueriesResponseTypeDef
+    ]
+else:
+    _ListComplianceInquiryQueriesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListComplianceInquiryQueriesPaginator(_ListComplianceInquiryQueriesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/paginator/ListComplianceInquiryQueries.html#Artifact.Paginator.ListComplianceInquiryQueries)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/paginators/#listcomplianceinquiryqueriespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListComplianceInquiryQueriesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListComplianceInquiryQueriesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/paginator/ListComplianceInquiryQueries.html#Artifact.Paginator.ListComplianceInquiryQueries.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/paginators/#listcomplianceinquiryqueriespaginator)
+        """
 
 
 if TYPE_CHECKING:

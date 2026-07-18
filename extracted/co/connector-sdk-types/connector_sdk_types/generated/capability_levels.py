@@ -21,6 +21,7 @@ CAPABILITY_LEVELS: dict[str, Literal['read', 'write']] = {
     "get_account_entitlement_associations": "read",
     "get_application": "read",
     "get_application_account": "read",
+    "get_credential_last_activity": "read",
     "get_data_recency": "read",
     "get_last_activity": "read",
     "get_non_human_account_last_activity": "read",

@@ -1,13 +1,13 @@
 [project]
 name = "flet-web"
-version = "0.86.0"
+version = "0.86.1"
 description = "Flet web client in Flutter."
 authors = [{ name = "Appveyor Systems Inc.", email = "hello@flet.dev" }]
 license = "Apache-2.0"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "flet==0.86.0",
+    "flet==0.86.1",
     "fastapi >=0.115.12",
     "uvicorn[standard] >=0.35.0"
 ]

@@ -5,25 +5,26 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
-#include "allocators/defaults.hpp"
 #include "primitives/allocation.hpp"
 
 namespace omnimalloc {
 
 // Neighborhood size, iteration budget, and tabu memory for
-// `TabuSearchAllocator`.
+// `tabu_search_place`. Policy defaults live on the Python
+// `TabuSearchAllocator`; every field crosses the boundary explicitly.
 struct TabuSearchConfig {
-  uint64_t seed = 42;
-  int max_iterations = 500;
-  int neighborhood_size = 20;  // candidate swaps sampled per iteration
-  int tabu_tenure = 15;        // iterations a reversed swap stays forbidden
-  // Wall-clock budget checked once per iteration; 0 disables it. Each
+  uint64_t seed{};
+  int max_iterations{};
+  int neighborhood_size{};  // candidate swaps sampled per iteration
+  int tabu_tenure{};        // iterations a reversed swap stays forbidden
+  // Wall-clock budget checked once per iteration; nullopt disables it. Each
   // iteration evaluates `neighborhood_size` full O(n) placements, so
   // `max_iterations` alone does not bound runtime as `allocations` grows -
   // this does.
-  double timeout = kDefaultTimeout;
+  std::optional<double> timeout;
 };
 
 // Tabu search over first-fit placement orders. Each iteration samples
@@ -34,16 +35,8 @@ struct TabuSearchConfig {
 // being immediately reversed for `tabu_tenure` iterations, which lets the
 // search climb out of local optima without cycling between the same two
 // orders. Runs entirely in C++ for the same reason as
-// `SimulatedAnnealingAllocator`: no Python round trip per candidate.
-class TabuSearchAllocator {
- public:
-  explicit TabuSearchAllocator(TabuSearchConfig config = TabuSearchConfig{});
-
-  [[nodiscard]] std::vector<Allocation> allocate(
-      const std::vector<Allocation>& allocations) const;
-
- private:
-  TabuSearchConfig config_;
-};
+// `simulated_annealing_place`: no Python round trip per candidate.
+[[nodiscard]] std::vector<Allocation> tabu_search_place(
+    const std::vector<Allocation>& allocations, const TabuSearchConfig& config);
 
 }  // namespace omnimalloc

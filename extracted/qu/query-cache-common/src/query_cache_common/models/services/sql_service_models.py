@@ -67,6 +67,16 @@ class ReadyToExecuteResponse(BaseSerDeModel):
     execution_decision_id: t.Optional[str] = ""
 
 
+@proto_dataclass(sql_service_pb2.ReadyToExecuteUntrackedResponse)
+class ReadyToExecuteUntrackedResponse(BaseSerDeModel):
+    pass
+
+
+@proto_dataclass(sql_service_pb2.UndecidedResponse)
+class UndecidedResponse(BaseSerDeModel):
+    pass
+
+
 @proto_dataclass(sql_service_pb2.SkipExecutionResponse)
 class SkipExecutionResponse(BaseSerDeModel):
     explained_decision: shared_models.ExplainedDecision

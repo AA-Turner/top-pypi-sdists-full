@@ -68,6 +68,9 @@ __all__ = (
     "ListAvailableResourceDimensionsResponseTypeDef",
     "ListAvailableResourceMetricsRequestTypeDef",
     "ListAvailableResourceMetricsResponseTypeDef",
+    "ListPerformanceAnalysisReportRecommendationsRequestPaginateTypeDef",
+    "ListPerformanceAnalysisReportRecommendationsRequestTypeDef",
+    "ListPerformanceAnalysisReportRecommendationsResponseTypeDef",
     "ListPerformanceAnalysisReportsRequestTypeDef",
     "ListPerformanceAnalysisReportsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
@@ -75,6 +78,7 @@ __all__ = (
     "MetricDimensionGroupsTypeDef",
     "MetricKeyDataPointsTypeDef",
     "MetricQueryTypeDef",
+    "PaginatorConfigTypeDef",
     "PerformanceInsightsMetricTypeDef",
     "RecommendationTypeDef",
     "ResponseMetadataTypeDef",
@@ -178,6 +182,7 @@ class GetResourceMetadataRequestTypeDef(TypedDict):
 class RecommendationTypeDef(TypedDict):
     RecommendationId: NotRequired[str]
     RecommendationDescription: NotRequired[str]
+    RecommendationDetails: NotRequired[str]
 
 
 class ListAvailableResourceDimensionsRequestTypeDef(TypedDict):
@@ -201,6 +206,21 @@ class ResponseResourceMetricTypeDef(TypedDict):
     Metric: NotRequired[str]
     Description: NotRequired[str]
     Unit: NotRequired[str]
+
+
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+
+class ListPerformanceAnalysisReportRecommendationsRequestTypeDef(TypedDict):
+    ServiceType: ServiceTypeType
+    Identifier: str
+    AnalysisReportId: str
+    RecommendationIds: NotRequired[Sequence[str]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class ListPerformanceAnalysisReportsRequestTypeDef(TypedDict):
@@ -246,7 +266,7 @@ class CreatePerformanceAnalysisReportRequestTypeDef(TypedDict):
     ServiceType: ServiceTypeType
     Identifier: str
     StartTime: TimestampTypeDef
-    EndTime: TimestampTypeDef
+    EndTime: NotRequired[TimestampTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
@@ -310,10 +330,24 @@ class GetResourceMetadataResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListPerformanceAnalysisReportRecommendationsResponseTypeDef(TypedDict):
+    Recommendations: list[RecommendationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListAvailableResourceMetricsResponseTypeDef(TypedDict):
     Metrics: list[ResponseResourceMetricTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class ListPerformanceAnalysisReportRecommendationsRequestPaginateTypeDef(TypedDict):
+    ServiceType: ServiceTypeType
+    Identifier: str
+    AnalysisReportId: str
+    RecommendationIds: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class MetricKeyDataPointsTypeDef(TypedDict):

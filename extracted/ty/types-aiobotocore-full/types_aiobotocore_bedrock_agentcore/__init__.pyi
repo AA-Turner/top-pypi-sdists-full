@@ -18,6 +18,8 @@ Usage::
         ListEventsPaginator,
         ListMemoryExtractionJobsPaginator,
         ListMemoryRecordsPaginator,
+        ListPaymentInstrumentsPaginator,
+        ListPaymentSessionsPaginator,
         ListRecommendationsPaginator,
         ListSessionsPaginator,
         RetrieveMemoryRecordsPaginator,
@@ -35,6 +37,8 @@ Usage::
     list_events_paginator: ListEventsPaginator = client.get_paginator("list_events")
     list_memory_extraction_jobs_paginator: ListMemoryExtractionJobsPaginator = client.get_paginator("list_memory_extraction_jobs")
     list_memory_records_paginator: ListMemoryRecordsPaginator = client.get_paginator("list_memory_records")
+    list_payment_instruments_paginator: ListPaymentInstrumentsPaginator = client.get_paginator("list_payment_instruments")
+    list_payment_sessions_paginator: ListPaymentSessionsPaginator = client.get_paginator("list_payment_sessions")
     list_recommendations_paginator: ListRecommendationsPaginator = client.get_paginator("list_recommendations")
     list_sessions_paginator: ListSessionsPaginator = client.get_paginator("list_sessions")
     retrieve_memory_records_paginator: RetrieveMemoryRecordsPaginator = client.get_paginator("retrieve_memory_records")
@@ -49,6 +53,8 @@ from .paginator import (
     ListEventsPaginator,
     ListMemoryExtractionJobsPaginator,
     ListMemoryRecordsPaginator,
+    ListPaymentInstrumentsPaginator,
+    ListPaymentSessionsPaginator,
     ListRecommendationsPaginator,
     ListSessionsPaginator,
     RetrieveMemoryRecordsPaginator,
@@ -65,6 +71,8 @@ __all__ = (
     "ListEventsPaginator",
     "ListMemoryExtractionJobsPaginator",
     "ListMemoryRecordsPaginator",
+    "ListPaymentInstrumentsPaginator",
+    "ListPaymentSessionsPaginator",
     "ListRecommendationsPaginator",
     "ListSessionsPaginator",
     "RetrieveMemoryRecordsPaginator",

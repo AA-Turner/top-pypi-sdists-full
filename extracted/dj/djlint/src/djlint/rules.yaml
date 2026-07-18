@@ -13,9 +13,7 @@
 - rule:
     name: T002
     message: Double quotes should be used in tags.
-    flags: re.DOTALL
-    patterns:
-      - "{%[ \t]*?(?:trans(?:late)?|with|extends|include|now)[\\s]+?(?:(?:(?!%}|').)+?=)?'(?:(?!%}|').)*?'(?:(?!%}).)*?%}"
+    python_module: djlint.rules.T002
 - rule:
     name: T003
     message: "Endblock should have name. Ex: {% endblock body %}."
@@ -125,15 +123,15 @@
     message: (Django) Internal links should use the {% url ... %} pattern.
     flags: re.DOTALL|re.I
     patterns:
-      - <(?:a|div|span|input)\b(\"[^\"]*\"|'[^']*'|{{[^}]*}}|{%[^%]*%}|{#[^#]*#}|[^'\">{}])*?\s(?:href|data-url|data-src|action)=[\"|'](?!(?:https?://)|//|javascript:|on\w+:|mailto:|tel:|data:|sms:|/[\"'])[\w|/]+
-      - <form\b(\"[^\"]*\"|'[^']*'|{{[^}]*}}|{%[^%]*%}|{#[^#]*#}|[^'\">{}])*?\saction=[\"|'](?!(?:https?://)|//|javascript:|on\w+:|mailto:|tel:|/[\"'])[\w|/|\s]+
+      - <(?:a|div|span|input)\b(\"[^\"]*\"|'[^']*'|{{[^}]*}}|{%[^%]*%}|{#[^#]*#}|[^'\">{}])*?\s(?:href|data-url|data-src|action)=[\"|'](?!(?:[a-z][a-z0-9+.-]*:|//|/[\"']))[\w|/]+
+      - <form\b(\"[^\"]*\"|'[^']*'|{{[^}]*}}|{%[^%]*%}|{#[^#]*#}|[^'\">{}])*?\saction=[\"|'](?!(?:[a-z][a-z0-9+.-]*:|//|/[\"']))[\w|/|\s]+
 - rule:
     name: J018
     message: (Jinja) Internal links should use the {{ url_for() ... }} pattern.
     flags: re.DOTALL|re.I
     patterns:
-      - <(?:a|div|span|input)\b(\"[^\"]*\"|'[^']*'|{{[^}]*}}|{%[^%]*%}|{#[^#]*#}|[^'\">{}])*?\s(?:href|data-url|data-src|action)=[\"|'](?!(?:https?://)|//|javascript:|on\w+:|mailto:|tel:|data:|sms:|/[\"'])[\w|/]+
-      - <form\b(\"[^\"]*\"|'[^']*'|{{[^}]*}}|{%[^%]*%}|{#[^#]*#}|[^'\">{}])*?\saction=[\"|'](?!(?:https?://)|//|javascript:|on\w+:|mailto:|tel:|/[\"'])[\w|/|\s]+
+      - <(?:a|div|span|input)\b(\"[^\"]*\"|'[^']*'|{{[^}]*}}|{%[^%]*%}|{#[^#]*#}|[^'\">{}])*?\s(?:href|data-url|data-src|action)=[\"|'](?!(?:[a-z][a-z0-9+.-]*:|//|/[\"']))[\w|/]+
+      - <form\b(\"[^\"]*\"|'[^']*'|{{[^}]*}}|{%[^%]*%}|{#[^#]*#}|[^'\">{}])*?\saction=[\"|'](?!(?:[a-z][a-z0-9+.-]*:|//|/[\"']))[\w|/|\s]+
 - rule:
     name: H019
     message: Replace 'javascript:abc()' with on_ event and real url.
@@ -181,7 +179,7 @@
     flags: re.I
     patterns:
       - <\w+\b(?:\"[^\"]*\"|'[^']*'|{[^}]*}|[^'\">{}])*?\s(class|id)\b=(\"\"|'')
-      - <\w+\b(?:\"[^\"]*\"|'[^']*'|{[^}]*}|[^'\">{}])*?\s(class|id)\b(?=\s|/?>)
+      - <\w+\b(?:\"[^\"]*\"|'[^']*'|{[^}]*}|[^'\">{}])*?\s(class|id)\b(?!\s*=)(?=\s|/?>)
 - rule:
     name: T027
     message: Unclosed string found in template syntax.
@@ -248,6 +246,4 @@
 - rule:
     name: H037
     message: Duplicate attribute found.
-    flags: re.I
-    patterns:
-      - <\w+\b(?:\"[^\"]*\"|'[^']*'|{{(?:(?!}}).)*}}|{%(?:(?!%}).)*%}|{#(?:(?!#}).)*#}|[^'\">{}])*?\s\K([-:a-z_][-:\w]*?)(?==(?:\"[^\"]*\"|'[^']*'|{{(?:(?!}}).)*}}|{%(?:(?!%}).)*%}|{#(?:(?!#}).)*#}|[^'\">{}])*\s\1=)
+    python_module: djlint.rules.H037

@@ -635,7 +635,9 @@ class Row:
                 return type_to_func[type_](bytearray_, byte_index)
         raise ValueError
 
-    def set_value(self, byte_index: Union[str, int], type_: str, value: Union[bool, str, float]) -> Optional[bytearray]:
+    def set_value(
+        self, byte_index: Union[str, int], type_: str, value: Union[bool, str, float, date, datetime, timedelta]
+    ) -> Optional[Union[bytearray, memoryview]]:
         """Sets the value for a specific type in the specified byte index.
 
         Args:
@@ -685,7 +687,7 @@ class Row:
             set_wstring(bytearray_, byte_index, value, max_size_int)
             return None
 
-        if type_ == "REAL":
+        if type_ == "REAL" and isinstance(value, (bool, str, float, int)):
             return set_real(bytearray_, byte_index, value)
 
         if type_ == "LREAL" and isinstance(value, float):

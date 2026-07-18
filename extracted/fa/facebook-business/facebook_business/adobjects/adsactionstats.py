@@ -31,6 +31,7 @@ class AdsActionStats(
         field_1d_ev_all_conversions = '1d_ev_all_conversions'
         field_1d_ev_first_conversion = '1d_ev_first_conversion'
         field_1d_passback = '1d_passback'
+        field_1d_sequenced = '1d_sequenced'
         field_1d_view = '1d_view'
         field_1d_view_all_conversions = '1d_view_all_conversions'
         field_1d_view_first_conversion = '1d_view_first_conversion'
@@ -38,6 +39,7 @@ class AdsActionStats(
         field_28d_click_all_conversions = '28d_click_all_conversions'
         field_28d_click_first_conversion = '28d_click_first_conversion'
         field_28d_passback = '28d_passback'
+        field_28d_sequenced = '28d_sequenced'
         field_28d_view = '28d_view'
         field_28d_view_all_conversions = '28d_view_all_conversions'
         field_28d_view_first_conversion = '28d_view_first_conversion'
@@ -45,6 +47,7 @@ class AdsActionStats(
         field_7d_click_all_conversions = '7d_click_all_conversions'
         field_7d_click_first_conversion = '7d_click_first_conversion'
         field_7d_passback = '7d_passback'
+        field_7d_sequenced = '7d_sequenced'
         field_7d_view = '7d_view'
         field_7d_view_all_conversions = '7d_view_all_conversions'
         field_7d_view_first_conversion = '7d_view_first_conversion'
@@ -91,6 +94,7 @@ class AdsActionStats(
         '1d_ev_all_conversions': 'string',
         '1d_ev_first_conversion': 'string',
         '1d_passback': 'string',
+        '1d_sequenced': 'string',
         '1d_view': 'string',
         '1d_view_all_conversions': 'string',
         '1d_view_first_conversion': 'string',
@@ -98,6 +102,7 @@ class AdsActionStats(
         '28d_click_all_conversions': 'string',
         '28d_click_first_conversion': 'string',
         '28d_passback': 'string',
+        '28d_sequenced': 'string',
         '28d_view': 'string',
         '28d_view_all_conversions': 'string',
         '28d_view_first_conversion': 'string',
@@ -105,6 +110,7 @@ class AdsActionStats(
         '7d_click_all_conversions': 'string',
         '7d_click_first_conversion': 'string',
         '7d_passback': 'string',
+        '7d_sequenced': 'string',
         '7d_view': 'string',
         '7d_view_all_conversions': 'string',
         '7d_view_first_conversion': 'string',

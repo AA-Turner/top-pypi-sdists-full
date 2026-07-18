@@ -580,14 +580,15 @@ class GetPermissionsBoundaryForPermissionSetRequestTypeDef(TypedDict):
     PermissionSetArn: str
 
 
-class InstanceMetadataTypeDef(TypedDict):
-    InstanceArn: NotRequired[str]
-    IdentityStoreId: NotRequired[str]
-    OwnerAccountId: NotRequired[str]
-    Name: NotRequired[str]
-    CreatedDate: NotRequired[datetime]
-    Status: NotRequired[InstanceStatusType]
-    StatusReason: NotRequired[str]
+RegionMetadataTypeDef = TypedDict(
+    "RegionMetadataTypeDef",
+    {
+        "RegionName": NotRequired[str],
+        "Status": NotRequired[RegionStatusType],
+        "AddedDate": NotRequired[datetime],
+        "IsPrimaryRegion": NotRequired[bool],
+    },
+)
 
 
 class OperationStatusFilterTypeDef(TypedDict):
@@ -706,17 +707,6 @@ class ListRegionsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-RegionMetadataTypeDef = TypedDict(
-    "RegionMetadataTypeDef",
-    {
-        "RegionName": NotRequired[str],
-        "Status": NotRequired[RegionStatusType],
-        "AddedDate": NotRequired[datetime],
-        "IsPrimaryRegion": NotRequired[bool],
-    },
-)
-
-
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     InstanceArn: NotRequired[str]
@@ -832,6 +822,8 @@ class CreateAccountAssignmentResponseTypeDef(TypedDict):
 
 class CreateApplicationResponseTypeDef(TypedDict):
     ApplicationArn: str
+    InstanceArn: str
+    IdentityStoreArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1073,8 +1065,20 @@ class UpdateInstanceRequestTypeDef(TypedDict):
     EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
 
 
-class ListInstancesResponseTypeDef(TypedDict):
-    Instances: list[InstanceMetadataTypeDef]
+class InstanceMetadataTypeDef(TypedDict):
+    InstanceArn: NotRequired[str]
+    IdentityStoreId: NotRequired[str]
+    OwnerAccountId: NotRequired[str]
+    Name: NotRequired[str]
+    CreatedDate: NotRequired[datetime]
+    Status: NotRequired[InstanceStatusType]
+    StatusReason: NotRequired[str]
+    PrimaryRegion: NotRequired[str]
+    Regions: NotRequired[list[RegionMetadataTypeDef]]
+
+
+class ListRegionsResponseTypeDef(TypedDict):
+    Regions: list[RegionMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1259,12 +1263,6 @@ class ListPermissionSetProvisioningStatusResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class ListRegionsResponseTypeDef(TypedDict):
-    Regions: list[RegionMetadataTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
 class ListTrustedTokenIssuersResponseTypeDef(TypedDict):
     TrustedTokenIssuers: list[TrustedTokenIssuerMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1340,6 +1338,12 @@ class GrantTypeDef(TypedDict):
     TokenExchange: NotRequired[Mapping[str, Any]]
 
 
+class ListInstancesResponseTypeDef(TypedDict):
+    Instances: list[InstanceMetadataTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class CreateTrustedTokenIssuerRequestTypeDef(TypedDict):
     InstanceArn: str
     Name: str
@@ -1369,6 +1373,7 @@ class ApplicationTypeDef(TypedDict):
     Name: NotRequired[str]
     ApplicationAccount: NotRequired[str]
     InstanceArn: NotRequired[str]
+    IdentityStoreArn: NotRequired[str]
     Status: NotRequired[ApplicationStatusType]
     PortalOptions: NotRequired[PortalOptionsTypeDef]
     Description: NotRequired[str]
@@ -1393,6 +1398,7 @@ class DescribeApplicationResponseTypeDef(TypedDict):
     Name: str
     ApplicationAccount: str
     InstanceArn: str
+    IdentityStoreArn: str
     Status: ApplicationStatusType
     PortalOptions: PortalOptionsTypeDef
     Description: str

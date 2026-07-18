@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: glfw
-Version: 2.10.0
+Version: 2.10.1
 Summary: A ctypes-based wrapper for GLFW3.
 Home-page: https://github.com/FlorianRhiem/pyGLFW
 Author: Florian Rhiem
@@ -15,8 +15,18 @@ Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Scientific/Engineering :: Visualization
-Provides-Extra: preview
 License-File: LICENSE.txt
+Provides-Extra: preview
+Requires-Dist: glfw_preview; extra == "preview"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: summary
 
 pyGLFW
 ======

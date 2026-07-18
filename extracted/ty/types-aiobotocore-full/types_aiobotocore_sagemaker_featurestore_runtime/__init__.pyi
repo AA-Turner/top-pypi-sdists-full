@@ -11,6 +11,7 @@ Usage::
     from aiobotocore.session import get_session
     from types_aiobotocore_sagemaker_featurestore_runtime import (
         Client,
+        ListRecordsPaginator,
         SageMakerFeatureStoreRuntimeClient,
     )
 
@@ -19,11 +20,14 @@ Usage::
         client: SageMakerFeatureStoreRuntimeClient
         ...
 
+
+    list_records_paginator: ListRecordsPaginator = client.get_paginator("list_records")
     ```
 """
 
 from .client import SageMakerFeatureStoreRuntimeClient
+from .paginator import ListRecordsPaginator
 
 Client = SageMakerFeatureStoreRuntimeClient
 
-__all__ = ("Client", "SageMakerFeatureStoreRuntimeClient")
+__all__ = ("Client", "ListRecordsPaginator", "SageMakerFeatureStoreRuntimeClient")

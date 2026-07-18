@@ -25,6 +25,8 @@ Usage::
         ListConfiguredTablesPaginator,
         ListIdMappingTablesPaginator,
         ListIdNamespaceAssociationsPaginator,
+        ListIntermediateTableVersionsPaginator,
+        ListIntermediateTablesPaginator,
         ListMembersPaginator,
         ListMembershipsPaginator,
         ListPrivacyBudgetTemplatesPaginator,
@@ -51,6 +53,8 @@ Usage::
         list_configured_tables_paginator: ListConfiguredTablesPaginator = client.get_paginator("list_configured_tables")
         list_id_mapping_tables_paginator: ListIdMappingTablesPaginator = client.get_paginator("list_id_mapping_tables")
         list_id_namespace_associations_paginator: ListIdNamespaceAssociationsPaginator = client.get_paginator("list_id_namespace_associations")
+        list_intermediate_table_versions_paginator: ListIntermediateTableVersionsPaginator = client.get_paginator("list_intermediate_table_versions")
+        list_intermediate_tables_paginator: ListIntermediateTablesPaginator = client.get_paginator("list_intermediate_tables")
         list_members_paginator: ListMembersPaginator = client.get_paginator("list_members")
         list_memberships_paginator: ListMembershipsPaginator = client.get_paginator("list_memberships")
         list_privacy_budget_templates_paginator: ListPrivacyBudgetTemplatesPaginator = client.get_paginator("list_privacy_budget_templates")
@@ -95,6 +99,10 @@ from .type_defs import (
     ListIdMappingTablesOutputTypeDef,
     ListIdNamespaceAssociationsInputPaginateTypeDef,
     ListIdNamespaceAssociationsOutputTypeDef,
+    ListIntermediateTablesInputPaginateTypeDef,
+    ListIntermediateTablesOutputTypeDef,
+    ListIntermediateTableVersionsInputPaginateTypeDef,
+    ListIntermediateTableVersionsOutputTypeDef,
     ListMembershipsInputPaginateTypeDef,
     ListMembershipsOutputTypeDef,
     ListMembersInputPaginateTypeDef,
@@ -130,6 +138,8 @@ __all__ = (
     "ListConfiguredTablesPaginator",
     "ListIdMappingTablesPaginator",
     "ListIdNamespaceAssociationsPaginator",
+    "ListIntermediateTableVersionsPaginator",
+    "ListIntermediateTablesPaginator",
     "ListMembersPaginator",
     "ListMembershipsPaginator",
     "ListPrivacyBudgetTemplatesPaginator",
@@ -398,6 +408,44 @@ class ListIdNamespaceAssociationsPaginator(_ListIdNamespaceAssociationsPaginator
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/paginator/ListIdNamespaceAssociations.html#CleanRoomsService.Paginator.ListIdNamespaceAssociations.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/paginators/#listidnamespaceassociationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListIntermediateTableVersionsPaginatorBase = AioPaginator[
+        ListIntermediateTableVersionsOutputTypeDef
+    ]
+else:
+    _ListIntermediateTableVersionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListIntermediateTableVersionsPaginator(_ListIntermediateTableVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/paginator/ListIntermediateTableVersions.html#CleanRoomsService.Paginator.ListIntermediateTableVersions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/paginators/#listintermediatetableversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListIntermediateTableVersionsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListIntermediateTableVersionsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/paginator/ListIntermediateTableVersions.html#CleanRoomsService.Paginator.ListIntermediateTableVersions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/paginators/#listintermediatetableversionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListIntermediateTablesPaginatorBase = AioPaginator[ListIntermediateTablesOutputTypeDef]
+else:
+    _ListIntermediateTablesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListIntermediateTablesPaginator(_ListIntermediateTablesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/paginator/ListIntermediateTables.html#CleanRoomsService.Paginator.ListIntermediateTables)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/paginators/#listintermediatetablespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListIntermediateTablesInputPaginateTypeDef]
+    ) -> AioPageIterator[ListIntermediateTablesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/paginator/ListIntermediateTables.html#CleanRoomsService.Paginator.ListIntermediateTables.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/paginators/#listintermediatetablespaginator)
         """
 
 if TYPE_CHECKING:

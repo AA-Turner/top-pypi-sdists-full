@@ -11,9 +11,126 @@ import typer
 
 agent_app = typer.Typer(
     name="agent",
-    help="Agent-first development commands.",
+    help=(
+        "Agent-first development commands: closed-loop control plane "
+        "(context/prove/playbook, no mcp extra) plus sync/seed/signals."
+    ),
     no_args_is_help=True,
 )
+
+
+@agent_app.command("context")
+def closed_loop_context(
+    project: Path = typer.Option(
+        Path("."),
+        "--project",
+        "-p",
+        help="Project root (directory with dazzle.toml).",
+    ),
+    pretty: bool = typer.Option(True, "--pretty/--compact"),
+) -> None:
+    """#1605 brownfield map + runtime.truth + next_steps (JSON). No mcp extra."""
+    from dazzle.agent_loop import build_context
+
+    root = project.resolve()
+    if not (root / "dazzle.toml").exists():
+        typer.echo(f"Error: {root} has no dazzle.toml", err=True)
+        raise typer.Exit(1)
+    payload = build_context(root)
+    if pretty:
+        typer.echo(json.dumps(payload, indent=2, default=str))
+    else:
+        typer.echo(json.dumps(payload, default=str))
+
+
+@agent_app.command("playbook")
+def closed_loop_playbook(
+    name: str = typer.Argument("domain_logic", help="Playbook name"),
+    body_only: bool = typer.Option(False, "--body", help="Print markdown only"),
+) -> None:
+    """#1605 domain_logic closed-loop playbook. No mcp extra."""
+    from dazzle.agent_loop import build_playbook
+
+    payload = build_playbook(name)
+    if not payload.get("ok"):
+        typer.echo(payload.get("error"), err=True)
+        raise typer.Exit(1)
+    if body_only:
+        typer.echo(payload.get("body", ""))
+    else:
+        typer.echo(json.dumps(payload, indent=2))
+
+
+@agent_app.command("prove")
+def closed_loop_prove(
+    story_id: str = typer.Argument(None, help="Story id (optional)"),
+    project: Path = typer.Option(Path("."), "--project", "-p"),
+    static: bool = typer.Option(
+        True,
+        "--static/--runtime",
+        help="Static binding (default) or host-readiness runtime prove.",
+    ),
+    journey: bool = typer.Option(
+        False,
+        "--journey",
+        help="Journey graph prove (hub/open-via). JSON result.",
+    ),
+) -> None:
+    """#1605 prove story — static, runtime host readiness, or journey graph."""
+    from dazzle.agent_loop import prove_stories
+
+    root = project.resolve()
+    if journey:
+        mode = "journey"
+    else:
+        mode = "static" if static else "runtime"
+    data = prove_stories(root, story_id=story_id, mode=mode)
+    typer.echo(json.dumps(data, indent=2, default=str))
+    if not data.get("ok"):
+        raise typer.Exit(1)
+
+
+@agent_app.command("wall")
+def closed_loop_wall(
+    project: Path = typer.Option(
+        Path("."),
+        "--project",
+        "-p",
+        help="Project root (directory with dazzle.toml).",
+    ),
+    markdown: bool = typer.Option(
+        False,
+        "--markdown",
+        "-m",
+        help="Print markdown board only (default: JSON).",
+    ),
+) -> None:
+    """#1605 story wall by binding + static prove (no mcp extra).
+
+    Buckets: executed+pass_static / executed+fail_static / narrative_only /
+    unbound_accepted. Complements process-coverage wall on MCP story tool.
+    Includes #1617 representation prove line (attach_representation_to_wall).
+    """
+    from dazzle.agent_loop import binding_wall
+    from dazzle.core.appspec_loader import load_project_appspec
+    from dazzle.representation import attach_representation_to_wall
+
+    root = project.resolve()
+    if not (root / "dazzle.toml").exists():
+        typer.echo(f"Error: {root} has no dazzle.toml", err=True)
+        raise typer.Exit(1)
+    appspec = load_project_appspec(root)
+    data = attach_representation_to_wall(binding_wall(root, appspec), appspec)
+    if markdown:
+        typer.echo(data.get("markdown", ""))
+    else:
+        typer.echo(json.dumps(data, indent=2, default=str))
+    if data.get("counts", {}).get("unbound_accepted") or data.get("counts", {}).get(
+        "executed_fail_static"
+    ):
+        raise typer.Exit(1)
+    if data.get("representation") and not data["representation"].get("ok", True):
+        raise typer.Exit(1)
 
 
 @agent_app.command("sync")

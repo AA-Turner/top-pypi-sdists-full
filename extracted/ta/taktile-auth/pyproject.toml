@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taktile-auth"
-version = "1.2.16"
+version = "1.2.18"
 description = "Auth Package for Taktile"
 readme = "PYPI.md"
 authors = ["Taktile GmbH <devops@taktile.com>"]

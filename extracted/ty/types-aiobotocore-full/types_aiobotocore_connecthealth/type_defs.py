@@ -93,6 +93,7 @@ __all__ = (
     "ManagedTemplateResponseTypeDef",
     "ManagedTemplateTypeDef",
     "MedicalScribeAudioEventTypeDef",
+    "MedicalScribeBinaryAudioEventTypeDef",
     "MedicalScribeChannelDefinitionTypeDef",
     "MedicalScribeConfigurationEventTypeDef",
     "MedicalScribeInputStreamTypeDef",
@@ -403,6 +404,10 @@ class MedicalScribeAudioEventTypeDef(TypedDict):
     audioChunk: BlobTypeDef
 
 
+class MedicalScribeBinaryAudioEventTypeDef(TypedDict):
+    audioChunk: BlobTypeDef
+
+
 class CreateDomainInputTypeDef(TypedDict):
     name: str
     kmsKeyArn: NotRequired[str]
@@ -582,6 +587,7 @@ class GetMedicalScribeListeningSessionOutputTypeDef(TypedDict):
 
 class MedicalScribeInputStreamTypeDef(TypedDict):
     audioEvent: NotRequired[MedicalScribeAudioEventTypeDef]
+    binaryAudioEvent: NotRequired[MedicalScribeBinaryAudioEventTypeDef]
     sessionControlEvent: NotRequired[MedicalScribeSessionControlEventTypeDef]
     configurationEvent: NotRequired[MedicalScribeConfigurationEventTypeDef]
 

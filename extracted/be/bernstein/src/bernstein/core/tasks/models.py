@@ -13,6 +13,7 @@ from bernstein.core import defaults as _defaults
 from bernstein.core.defaults import AGENT
 
 if TYPE_CHECKING:
+    from bernstein.core.persistence.cache_policy import CachePolicy
     from bernstein.core.protocols.cluster.cluster_tls import TLSConfig
 
 logger = logging.getLogger(__name__)
@@ -182,6 +183,7 @@ class TaskStatus(Enum):
     WAITING_FOR_SUBTASKS = "waiting_for_subtasks"
     CANCELLED = "cancelled"
     ORPHANED = "orphaned"  # Agent crashed mid-task; pending crash recovery
+    SUSPENDED = "suspended"  # Operator-parked mid-session; infra released, resumable from an attested receipt (#2552)
     PENDING_APPROVAL = "pending_approval"  # Completed; awaiting human approval before taking effect
     ABANDONED = "abandoned"  # Agent voluntarily abandoned with a structured reason (#1350)
     BLOCKED_BY_ABANDON = "blocked_by_abandon"  # Downstream task waiting on an abandoned dependency (#1350)
@@ -359,6 +361,26 @@ def _normalize_attachments(raw: object) -> list[str]:
     return [str(a) for a in raw]
 
 
+def _parse_cache_policy(raw: object) -> CachePolicy | None:
+    """Coerce a ``cache_policy`` payload into a :class:`CachePolicy` or ``None``.
+
+    Accepts a JSON mapping (parsed via ``CachePolicy.from_dict``) or an existing
+    ``CachePolicy``. ``None`` (the default) means the task declares no policy and
+    runs byte-identically to the pre-policy spawn path. Imported lazily so the
+    task model has no runtime dependency on the cache subsystem when no policy is
+    declared. (issue #2551)
+    """
+    if raw is None:
+        return None
+    from bernstein.core.persistence.cache_policy import CachePolicy
+
+    if isinstance(raw, CachePolicy):
+        return raw
+    if isinstance(raw, dict):
+        return CachePolicy.from_dict(raw)
+    raise TypeError(f"Task.cache_policy must be a mapping or CachePolicy, got {type(raw).__name__}")
+
+
 def _normalize_evidence_producers(raw: object) -> list[dict[str, Any]]:
     """Coerce an ``evidence_producers`` payload into a ``list[dict]``.
 
@@ -424,6 +446,12 @@ class Task:
     # above continues to govern the *post-completion* review gate so that
     # legacy approve/reject/pending tests stay intact.
     approval_spec: ApprovalSpec | None = None
+    # Issue #2551: opt-in cache policy declared on the task spec. When set, the
+    # cache boundary composes keys over the policy's ingredient recipe, applies
+    # the drift verdict, and routes fleet-key contention through a claim. When
+    # None (the default) the task runs byte-identically to the pre-policy spawn
+    # path. Parsed by ``bernstein.core.persistence.cache_policy.CachePolicy``.
+    cache_policy: CachePolicy | None = None
     risk_level: Literal["low", "medium", "high", "critical"] = "low"  # Risk for approval workflow routing
     sensitivity: Literal["public", "internal", "confidential"] = "internal"  # Data classification level
     max_output_tokens: int | None = None  # Escalated limit for model output
@@ -447,6 +475,11 @@ class Task:
     subtask_wait_started_at: float | None = None  # Epoch when task entered WAITING_FOR_SUBTASKS
     parent_context: str | None = None  # Parent agent's context summary (key decisions, files explored) for subtasks
     requires: list[str] = field(default_factory=list[str])  # Capability-based addressing: e.g. ["python", "testing"]
+    # Issue #2544: free-form admission tags. Declared tags gate the claim
+    # deterministically (AND-of-all under their pool/tag limits) and are sealed
+    # into a post-hoc tag-conformance receipt after completion. Empty = the
+    # task makes no admission-tag claim. See bernstein.core.admission.
+    tags: list[str] = field(default_factory=list[str])
     best_of_n: int | None = (
         None  # Opt-in best-of-N candidate fan-out (K in [2, BEST_OF_N.max_candidates]); None/<=1 = single agent
     )
@@ -561,6 +594,7 @@ class Task:
             approval_spec=(
                 ApprovalSpec.from_dict(raw["approval_spec"]) if isinstance(raw.get("approval_spec"), dict) else None
             ),
+            cache_policy=_parse_cache_policy(raw.get("cache_policy")),
             risk_level=raw.get("risk_level", "low"),
             max_output_tokens=raw.get("max_output_tokens"),
             meta_messages=list(raw.get("meta_messages", [])),
@@ -583,6 +617,7 @@ class Task:
             subtask_wait_started_at=raw.get("subtask_wait_started_at"),
             parent_context=raw.get("parent_context"),
             requires=list(raw.get("requires", [])),
+            tags=[str(t) for t in raw.get("tags", [])],
             best_of_n=(lambda v: None if v is None else int(v))(raw.get("best_of_n")),
             refinement_rounds=(lambda v: None if v is None else int(v))(raw.get("refinement_rounds")),
             agent_restart_between_retries=bool(raw.get("agent_restart_between_retries", False)),

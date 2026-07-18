@@ -838,6 +838,30 @@ class TestEventsListSearch:
             client._close()
 
 
+class TestEventsListCategory:
+    """``category`` → ``filter[category]`` exact-match filter on events.list."""
+
+    def test_omitted_by_default(self):
+        handler, seen = _list_url_capture(_EVENTS_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.events.list()
+            url = seen[0]
+            assert "filter%5Bcategory%5D" not in url
+            assert "filter[category]" not in url
+        finally:
+            client._close()
+
+    def test_supplied_threads_filter_category(self):
+        handler, seen = _list_url_capture(_EVENTS_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.events.list(category="billing")
+            assert "filter%5Bcategory%5D=billing" in seen[0]
+        finally:
+            client._close()
+
+
 class TestResourceTypesListEnvironments:
     def test_omitted_by_default(self):
         handler, seen = _list_url_capture(_DISCOVERY_BODY)

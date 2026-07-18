@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    deadline::PyDeadlineContext,
     function::{build_memo_states_payload, context_memo_states_to_pydict},
     prelude::*,
     runtime::{PyAsyncContext, PyCallback, build_on_error},
@@ -21,7 +22,7 @@ use cocoindex_core::engine::{
 use pyo3_async_runtimes::tokio::future_into_py;
 
 /// Python wrapper for ComponentProcessorInfo that shares the same Arc instance.
-#[pyclass(name = "ComponentProcessorInfo")]
+#[pyclass(name = "ComponentProcessorInfo", from_py_object)]
 #[derive(Clone)]
 pub struct PyComponentProcessorInfo(pub Arc<ComponentProcessorInfo>);
 
@@ -38,7 +39,7 @@ impl PyComponentProcessorInfo {
     }
 }
 
-#[pyclass(name = "ComponentProcessor")]
+#[pyclass(name = "ComponentProcessor", from_py_object)]
 #[derive(Clone)]
 pub struct PyComponentProcessor {
     processor_fn: PyCallback,
@@ -183,6 +184,7 @@ pub fn use_mount_async<'py>(
     stable_path: PyStablePath,
     comp_ctx: PyComponentProcessorContext,
     fn_ctx: &PyFnCallContext,
+    deadline: PyDeadlineContext,
 ) -> PyResult<Bound<'py, PyAny>> {
     let child = comp_ctx
         .0
@@ -194,7 +196,7 @@ pub fn use_mount_async<'py>(
     comp_ctx.0.push_active_member(&child);
     future_into_py(py, async move {
         let handle = child
-            .use_mount(&comp_ctx.0, processor)
+            .use_mount(&comp_ctx.0, processor, deadline.0)
             .await
             .into_py_result()?;
         Ok(PyComponentMountRunHandle(Some(handle)))

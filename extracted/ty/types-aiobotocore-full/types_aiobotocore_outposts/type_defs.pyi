@@ -34,11 +34,15 @@ from .literals import (
     ComputeAssetStateType,
     DecommissionRequestStatusType,
     FiberOpticCableTypeType,
+    FormFactorType,
     LineItemStatusType,
     MaximumSupportedWeightLbsType,
     OpticalStandardType,
+    OrderingRequirementStatusType,
+    OrderingRequirementTypeType,
     OrderStatusType,
     OrderTypeType,
+    OutpostGenerationType,
     PaymentOptionType,
     PaymentTermType,
     PowerConnectorType,
@@ -46,6 +50,12 @@ from .literals import (
     PowerFeedDropType,
     PowerPhaseType,
     PricingResultType,
+    QuoteCapacityTypeType,
+    QuoteConstraintTypeType,
+    QuoteRackUseTypeType,
+    QuoteSpecificationTypeType,
+    QuoteStatusType,
+    RackUnitHeightType,
     ShipmentCarrierType,
     SubscriptionStatusType,
     SubscriptionTypeType,
@@ -70,6 +80,7 @@ __all__ = (
     "BlockingInstanceTypeDef",
     "CancelCapacityTaskInputTypeDef",
     "CancelOrderInputTypeDef",
+    "CapacitySummaryTypeDef",
     "CapacityTaskFailureTypeDef",
     "CapacityTaskSummaryTypeDef",
     "CatalogItemTypeDef",
@@ -79,13 +90,18 @@ __all__ = (
     "CreateOrderOutputTypeDef",
     "CreateOutpostInputTypeDef",
     "CreateOutpostOutputTypeDef",
+    "CreateQuoteInputTypeDef",
+    "CreateQuoteOutputTypeDef",
     "CreateRenewalInputTypeDef",
     "CreateRenewalOutputTypeDef",
     "CreateSiteInputTypeDef",
     "CreateSiteOutputTypeDef",
     "DeleteOutpostInputTypeDef",
+    "DeleteQuoteInputTypeDef",
     "DeleteSiteInputTypeDef",
+    "DetailedInstanceTypeItemTypeDef",
     "EC2CapacityTypeDef",
+    "FormFactorConfigTypeDef",
     "GetCapacityTaskInputTypeDef",
     "GetCapacityTaskOutputTypeDef",
     "GetCatalogItemInputTypeDef",
@@ -105,6 +121,8 @@ __all__ = (
     "GetOutpostSupportedInstanceTypesInputPaginateTypeDef",
     "GetOutpostSupportedInstanceTypesInputTypeDef",
     "GetOutpostSupportedInstanceTypesOutputTypeDef",
+    "GetQuoteInputTypeDef",
+    "GetQuoteOutputTypeDef",
     "GetRenewalPricingInputTypeDef",
     "GetRenewalPricingOutputTypeDef",
     "GetSiteAddressInputTypeDef",
@@ -134,12 +152,18 @@ __all__ = (
     "ListCatalogItemsInputPaginateTypeDef",
     "ListCatalogItemsInputTypeDef",
     "ListCatalogItemsOutputTypeDef",
+    "ListOrderableInstanceTypesInputPaginateTypeDef",
+    "ListOrderableInstanceTypesInputTypeDef",
+    "ListOrderableInstanceTypesOutputTypeDef",
     "ListOrdersInputPaginateTypeDef",
     "ListOrdersInputTypeDef",
     "ListOrdersOutputTypeDef",
     "ListOutpostsInputPaginateTypeDef",
     "ListOutpostsInputTypeDef",
     "ListOutpostsOutputTypeDef",
+    "ListQuotesInputPaginateTypeDef",
+    "ListQuotesInputTypeDef",
+    "ListQuotesOutputTypeDef",
     "ListSitesInputPaginateTypeDef",
     "ListSitesInputTypeDef",
     "ListSitesOutputTypeDef",
@@ -147,11 +171,20 @@ __all__ = (
     "ListTagsForResourceResponseTypeDef",
     "OrderSummaryTypeDef",
     "OrderTypeDef",
+    "OrderingRequirementTypeDef",
     "OutpostTypeDef",
     "PaginatorConfigTypeDef",
     "PricingOptionTypeDef",
+    "QuoteCapacityTypeDef",
+    "QuoteConstraintTypeDef",
+    "QuoteOptionTypeDef",
+    "QuoteSpecificationTypeDef",
+    "QuoteSummaryTypeDef",
+    "QuoteTypeDef",
     "RackPhysicalPropertiesTypeDef",
+    "RackSpecificationDetailsTypeDef",
     "ResponseMetadataTypeDef",
+    "ServerSpecificationDetailsTypeDef",
     "ShipmentInformationTypeDef",
     "SiteTypeDef",
     "StartCapacityTaskInputTypeDef",
@@ -166,6 +199,8 @@ __all__ = (
     "UntagResourceRequestTypeDef",
     "UpdateOutpostInputTypeDef",
     "UpdateOutpostOutputTypeDef",
+    "UpdateQuoteInputTypeDef",
+    "UpdateQuoteOutputTypeDef",
     "UpdateSiteAddressInputTypeDef",
     "UpdateSiteAddressOutputTypeDef",
     "UpdateSiteInputTypeDef",
@@ -212,6 +247,11 @@ class CancelCapacityTaskInputTypeDef(TypedDict):
 
 class CancelOrderInputTypeDef(TypedDict):
     OrderId: str
+
+class QuoteCapacityTypeDef(TypedDict):
+    QuoteCapacityType: NotRequired[QuoteCapacityTypeType]
+    Unit: NotRequired[str]
+    Quantity: NotRequired[float]
 
 CapacityTaskFailureTypeDef = TypedDict(
     "CapacityTaskFailureTypeDef",
@@ -278,6 +318,10 @@ class OutpostTypeDef(TypedDict):
     SiteArn: NotRequired[str]
     SupportedHardwareType: NotRequired[SupportedHardwareTypeType]
 
+class QuoteConstraintTypeDef(TypedDict):
+    QuoteConstraintType: NotRequired[QuoteConstraintTypeType]
+    Value: NotRequired[str]
+
 class CreateRenewalInputTypeDef(TypedDict):
     PaymentOption: PaymentOptionType
     PaymentTerm: PaymentTermType
@@ -298,8 +342,15 @@ class RackPhysicalPropertiesTypeDef(TypedDict):
 class DeleteOutpostInputTypeDef(TypedDict):
     OutpostId: str
 
+class DeleteQuoteInputTypeDef(TypedDict):
+    QuoteIdentifier: str
+
 class DeleteSiteInputTypeDef(TypedDict):
     SiteId: str
+
+class FormFactorConfigTypeDef(TypedDict):
+    FormFactor: NotRequired[FormFactorType]
+    OutpostGeneration: NotRequired[OutpostGenerationType]
 
 class GetCapacityTaskInputTypeDef(TypedDict):
     CapacityTaskId: str
@@ -340,6 +391,7 @@ class SubscriptionTypeDef(TypedDict):
     OrderIds: NotRequired[list[str]]
     BeginDate: NotRequired[datetime]
     EndDate: NotRequired[datetime]
+    Currency: NotRequired[Literal["USD"]]
     MonthlyRecurringPrice: NotRequired[float]
     UpfrontPrice: NotRequired[float]
 
@@ -361,6 +413,9 @@ class GetOutpostSupportedInstanceTypesInputTypeDef(TypedDict):
     AssetId: NotRequired[str]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+class GetQuoteInputTypeDef(TypedDict):
+    QuoteIdentifier: str
 
 class GetRenewalPricingInputTypeDef(TypedDict):
     OutpostIdentifier: str
@@ -421,6 +476,11 @@ class ListCatalogItemsInputTypeDef(TypedDict):
     SupportedStorageFilter: NotRequired[Sequence[SupportedStorageEnumType]]
     EC2FamilyFilter: NotRequired[Sequence[str]]
 
+class ListOrderableInstanceTypesInputTypeDef(TypedDict):
+    OutpostGenerationFilter: NotRequired[OutpostGenerationType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
 class ListOrdersInputTypeDef(TypedDict):
     OutpostIdentifierFilter: NotRequired[str]
     NextToken: NotRequired[str]
@@ -442,6 +502,10 @@ class ListOutpostsInputTypeDef(TypedDict):
     AvailabilityZoneFilter: NotRequired[Sequence[str]]
     AvailabilityZoneIdFilter: NotRequired[Sequence[str]]
 
+class ListQuotesInputTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
 class ListSitesInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -452,11 +516,17 @@ class ListSitesInputTypeDef(TypedDict):
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
 
+class OrderingRequirementTypeDef(TypedDict):
+    StatusMessage: NotRequired[str]
+    OrderingRequirementType: NotRequired[OrderingRequirementTypeType]
+    Status: NotRequired[OrderingRequirementStatusType]
+
 class SubscriptionPricingDetailsTypeDef(TypedDict):
     PaymentOption: NotRequired[PaymentOptionType]
     PaymentTerm: NotRequired[PaymentTermType]
     UpfrontPrice: NotRequired[float]
     MonthlyRecurringPrice: NotRequired[float]
+    Currency: NotRequired[Literal["USD"]]
 
 class StartConnectionRequestTypeDef(TypedDict):
     AssetId: str
@@ -512,6 +582,11 @@ class ComputeAttributesTypeDef(TypedDict):
     InstanceTypeCapacities: NotRequired[list[AssetInstanceTypeCapacityTypeDef]]
     MaxVcpus: NotRequired[int]
 
+class CapacitySummaryTypeDef(TypedDict):
+    ExistingCapacities: NotRequired[list[QuoteCapacityTypeDef]]
+    FinalCapacities: NotRequired[list[QuoteCapacityTypeDef]]
+    CapacityChange: NotRequired[list[QuoteCapacityTypeDef]]
+
 class CatalogItemTypeDef(TypedDict):
     CatalogItemId: NotRequired[str]
     ItemStatus: NotRequired[CatalogItemStatusType]
@@ -521,9 +596,31 @@ class CatalogItemTypeDef(TypedDict):
     SupportedUplinkGbps: NotRequired[list[int]]
     SupportedStorage: NotRequired[list[SupportedStorageEnumType]]
 
+class RackSpecificationDetailsTypeDef(TypedDict):
+    RackId: NotRequired[str]
+    RackUse: NotRequired[QuoteRackUseTypeType]
+    RackPowerDrawKva: NotRequired[float]
+    RackWeightLbs: NotRequired[float]
+    RackHeightInches: NotRequired[float]
+    RackWidthInches: NotRequired[float]
+    RackDepthInches: NotRequired[float]
+    RackUnitHeight: NotRequired[RackUnitHeightType]
+    EC2Capacities: NotRequired[list[EC2CapacityTypeDef]]
+
+class ServerSpecificationDetailsTypeDef(TypedDict):
+    ServerPowerDrawKva: NotRequired[float]
+    ServerWeightLbs: NotRequired[float]
+    ServerHeightInches: NotRequired[float]
+    ServerWidthInches: NotRequired[float]
+    ServerDepthInches: NotRequired[float]
+    RackUnitHeight: NotRequired[RackUnitHeightType]
+    EC2Capacities: NotRequired[list[EC2CapacityTypeDef]]
+
 class CreateOrderInputTypeDef(TypedDict):
     OutpostIdentifier: str
     PaymentOption: PaymentOptionType
+    QuoteIdentifier: NotRequired[str]
+    QuoteOptionIdentifier: NotRequired[str]
     LineItems: NotRequired[Sequence[LineItemRequestTypeDef]]
     PaymentTerm: NotRequired[PaymentTermType]
 
@@ -533,6 +630,7 @@ class CreateRenewalOutputTypeDef(TypedDict):
     OutpostId: str
     UpfrontPrice: float
     MonthlyRecurringPrice: float
+    Currency: Literal["USD"]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetConnectionResponseTypeDef(TypedDict):
@@ -597,6 +695,25 @@ class UpdateOutpostOutputTypeDef(TypedDict):
     Outpost: OutpostTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateQuoteInputTypeDef(TypedDict):
+    CountryCode: str
+    RequestedCapacities: Sequence[QuoteCapacityTypeDef]
+    OutpostIdentifier: NotRequired[str]
+    RequestedConstraints: NotRequired[Sequence[QuoteConstraintTypeDef]]
+    RequestedPaymentOptions: NotRequired[Sequence[PaymentOptionType]]
+    RequestedPaymentTerms: NotRequired[Sequence[PaymentTermType]]
+    Description: NotRequired[str]
+
+class UpdateQuoteInputTypeDef(TypedDict):
+    QuoteIdentifier: str
+    OutpostIdentifier: NotRequired[str]
+    CountryCode: NotRequired[str]
+    RequestedCapacities: NotRequired[Sequence[QuoteCapacityTypeDef]]
+    RequestedConstraints: NotRequired[Sequence[QuoteConstraintTypeDef]]
+    RequestedPaymentOptions: NotRequired[Sequence[PaymentOptionType]]
+    RequestedPaymentTerms: NotRequired[Sequence[PaymentTermType]]
+    Description: NotRequired[str]
+
 class CreateSiteInputTypeDef(TypedDict):
     Name: str
     Description: NotRequired[str]
@@ -618,6 +735,13 @@ class SiteTypeDef(TypedDict):
     OperatingAddressStateOrRegion: NotRequired[str]
     OperatingAddressCity: NotRequired[str]
     RackPhysicalProperties: NotRequired[RackPhysicalPropertiesTypeDef]
+
+class DetailedInstanceTypeItemTypeDef(TypedDict):
+    InstanceType: NotRequired[str]
+    VCPUs: NotRequired[int]
+    MemoryInMib: NotRequired[int]
+    NetworkPerformance: NotRequired[str]
+    FormFactorConfigs: NotRequired[list[FormFactorConfigTypeDef]]
 
 class GetCapacityTaskOutputTypeDef(TypedDict):
     CapacityTaskId: str
@@ -696,6 +820,10 @@ class ListCatalogItemsInputPaginateTypeDef(TypedDict):
     EC2FamilyFilter: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListOrderableInstanceTypesInputPaginateTypeDef(TypedDict):
+    OutpostGenerationFilter: NotRequired[OutpostGenerationType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListOrdersInputPaginateTypeDef(TypedDict):
     OutpostIdentifierFilter: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -704,6 +832,9 @@ class ListOutpostsInputPaginateTypeDef(TypedDict):
     LifeCycleStatusFilter: NotRequired[Sequence[str]]
     AvailabilityZoneFilter: NotRequired[Sequence[str]]
     AvailabilityZoneIdFilter: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListQuotesInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListSitesInputPaginateTypeDef(TypedDict):
@@ -769,6 +900,12 @@ class ListCatalogItemsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class QuoteSpecificationTypeDef(TypedDict):
+    QuoteSpecificationType: NotRequired[QuoteSpecificationTypeType]
+    ExistingRackSpecificationDetails: NotRequired[RackSpecificationDetailsTypeDef]
+    FinalRackSpecificationDetails: NotRequired[RackSpecificationDetailsTypeDef]
+    ServerSpecificationDetails: NotRequired[ServerSpecificationDetailsTypeDef]
+
 class CreateSiteOutputTypeDef(TypedDict):
     Site: SiteTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -790,6 +927,11 @@ class UpdateSiteRackPhysicalPropertiesOutputTypeDef(TypedDict):
     Site: SiteTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListOrderableInstanceTypesOutputTypeDef(TypedDict):
+    InstanceTypes: list[DetailedInstanceTypeItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class StartCapacityTaskInputTypeDef(TypedDict):
     OutpostIdentifier: str
     InstancePools: Sequence[InstanceTypeCapacityTypeDef]
@@ -801,6 +943,8 @@ class StartCapacityTaskInputTypeDef(TypedDict):
 
 class OrderTypeDef(TypedDict):
     OutpostId: NotRequired[str]
+    QuoteIdentifier: NotRequired[str]
+    QuoteOptionIdentifier: NotRequired[str]
     OrderId: NotRequired[str]
     Status: NotRequired[OrderStatusType]
     LineItems: NotRequired[list[LineItemTypeDef]]
@@ -820,10 +964,69 @@ class ListAssetsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class QuoteOptionTypeDef(TypedDict):
+    QuoteOptionIdentifier: NotRequired[str]
+    Capacities: NotRequired[list[QuoteCapacityTypeDef]]
+    CapacitySummary: NotRequired[CapacitySummaryTypeDef]
+    Specifications: NotRequired[list[QuoteSpecificationTypeDef]]
+    PricingOptions: NotRequired[list[PricingOptionTypeDef]]
+
 class CreateOrderOutputTypeDef(TypedDict):
     Order: OrderTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetOrderOutputTypeDef(TypedDict):
     Order: OrderTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class QuoteSummaryTypeDef(TypedDict):
+    QuoteId: NotRequired[str]
+    AccountId: NotRequired[str]
+    QuoteStatus: NotRequired[QuoteStatusType]
+    StatusMessage: NotRequired[str]
+    OutpostArn: NotRequired[str]
+    CountryCode: NotRequired[str]
+    RequestedCapacities: NotRequired[list[QuoteCapacityTypeDef]]
+    RequestedConstraints: NotRequired[list[QuoteConstraintTypeDef]]
+    RequestedPaymentOptions: NotRequired[list[PaymentOptionType]]
+    RequestedPaymentTerms: NotRequired[list[PaymentTermType]]
+    QuoteOptions: NotRequired[list[QuoteOptionTypeDef]]
+    SubmittedOrderId: NotRequired[str]
+    CreatedDate: NotRequired[datetime]
+    ExpirationDate: NotRequired[datetime]
+    Description: NotRequired[str]
+
+class QuoteTypeDef(TypedDict):
+    QuoteId: NotRequired[str]
+    AccountId: NotRequired[str]
+    QuoteStatus: NotRequired[QuoteStatusType]
+    StatusMessage: NotRequired[str]
+    OutpostArn: NotRequired[str]
+    CountryCode: NotRequired[str]
+    RequestedCapacities: NotRequired[list[QuoteCapacityTypeDef]]
+    RequestedConstraints: NotRequired[list[QuoteConstraintTypeDef]]
+    RequestedPaymentOptions: NotRequired[list[PaymentOptionType]]
+    RequestedPaymentTerms: NotRequired[list[PaymentTermType]]
+    QuoteOptions: NotRequired[list[QuoteOptionTypeDef]]
+    OrderingRequirements: NotRequired[list[OrderingRequirementTypeDef]]
+    SubmittedOrderId: NotRequired[str]
+    CreatedDate: NotRequired[datetime]
+    ExpirationDate: NotRequired[datetime]
+    Description: NotRequired[str]
+
+class ListQuotesOutputTypeDef(TypedDict):
+    Quotes: list[QuoteSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class CreateQuoteOutputTypeDef(TypedDict):
+    Quote: QuoteTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetQuoteOutputTypeDef(TypedDict):
+    Quote: QuoteTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateQuoteOutputTypeDef(TypedDict):
+    Quote: QuoteTypeDef
     ResponseMetadata: ResponseMetadataTypeDef

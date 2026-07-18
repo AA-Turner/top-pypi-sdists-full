@@ -21,12 +21,11 @@ import websockets
 import websockets.asyncio.client
 
 from smplkit._debug import debug
-from smplkit._version import __version__
+from smplkit._transport import SDK_USER_AGENT
 
 logger = logging.getLogger("smplkit.ws")
 
 _BACKOFF_SCHEDULE = [1, 2, 4, 8, 16, 32, 60]
-_WS_USER_AGENT = f"smplkit-python-sdk/{__version__}"
 
 
 class SharedWebSocket:
@@ -189,12 +188,12 @@ class SharedWebSocket:
 
         # CloudFront's WAF blocks WebSocket upgrades that omit a User-Agent
         # header. The `websockets` library doesn't set one by default
-        # (browsers do), so inject it explicitly to match the User-Agent
-        # we'd send on HTTP. Without this, the upgrade returns HTTP 403
+        # (browsers do), so inject the same SDK-identifying User-Agent the
+        # HTTP transports send. Without this, the upgrade returns HTTP 403
         # before reaching our backend.
         self._ws = await websockets.asyncio.client.connect(
             url,
-            additional_headers={"User-Agent": _WS_USER_AGENT},
+            additional_headers={"User-Agent": SDK_USER_AGENT},
         )
         debug("websocket", "WebSocket connected, waiting for confirmation")
 

@@ -22,14 +22,21 @@ from datetime import datetime
 from typing import Union
 
 from .literals import (
+    BillingEntityType,
+    BillTypeType,
     ConnectionTestingMethodType,
     EinvoiceDeliveryAttachmentTypeType,
     EinvoiceDeliveryDocumentTypeType,
+    EinvoiceDeliveryStatusType,
+    InvoiceFrequencyType,
     InvoiceTypeType,
     ListInvoiceSummariesResourceTypeType,
     ProcurementPortalNameType,
     ProcurementPortalPreferenceStatusType,
     PurchaseOrderDataSourceTypeType,
+    ReceiverRoleType,
+    SupplementalDocumentTypeType,
+    TaxAuthorityStatusType,
 )
 
 if sys.version_info >= (3, 12):
@@ -154,9 +161,11 @@ TimestampTypeDef = Union[datetime, str]
 
 class DeleteInvoiceUnitRequestTypeDef(TypedDict):
     InvoiceUnitArn: str
+    ClientToken: NotRequired[str]
 
 class DeleteProcurementPortalPreferenceRequestTypeDef(TypedDict):
     ProcurementPortalPreferenceArn: str
+    ClientToken: NotRequired[str]
 
 class DiscountsBreakdownAmountTypeDef(TypedDict):
     Description: NotRequired[str]
@@ -169,6 +178,7 @@ class PurchaseOrderDataSourceTypeDef(TypedDict):
 
 class EntityTypeDef(TypedDict):
     InvoicingEntity: NotRequired[str]
+    BillingEntity: NotRequired[BillingEntityType]
 
 class FeesBreakdownAmountTypeDef(TypedDict):
     Description: NotRequired[str]
@@ -192,6 +202,8 @@ class GetProcurementPortalPreferenceRequestTypeDef(TypedDict):
     ProcurementPortalPreferenceArn: str
 
 class SupplementalDocumentTypeDef(TypedDict):
+    DocumentType: NotRequired[SupplementalDocumentTypeType]
+    DocumentId: NotRequired[str]
     DocumentUrl: NotRequired[str]
     DocumentUrlExpirationDate: NotRequired[datetime]
 
@@ -258,6 +270,7 @@ class UpdateProcurementPortalPreferenceStatusRequestTypeDef(TypedDict):
     EinvoiceDeliveryPreferenceStatusReason: NotRequired[str]
     PurchaseOrderRetrievalPreferenceStatus: NotRequired[ProcurementPortalPreferenceStatusType]
     PurchaseOrderRetrievalPreferenceStatusReason: NotRequired[str]
+    ClientToken: NotRequired[str]
 
 class CreateInvoiceUnitResponseTypeDef(TypedDict):
     InvoiceUnitArn: str
@@ -416,6 +429,7 @@ class InvoiceSummariesFilterTypeDef(TypedDict):
     TimeInterval: NotRequired[DateIntervalTypeDef]
     BillingPeriod: NotRequired[BillingPeriodTypeDef]
     InvoicingEntity: NotRequired[str]
+    ReceiverRole: NotRequired[ReceiverRoleType]
 
 class ProcurementPortalPreferenceTypeDef(TypedDict):
     AwsAccountId: str
@@ -466,12 +480,14 @@ class CreateInvoiceUnitRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     TaxInheritanceDisabled: NotRequired[bool]
     ResourceTags: NotRequired[Sequence[ResourceTagTypeDef]]
+    ClientToken: NotRequired[str]
 
 class UpdateInvoiceUnitRequestTypeDef(TypedDict):
     InvoiceUnitArn: str
     Description: NotRequired[str]
     TaxInheritanceDisabled: NotRequired[bool]
     Rule: NotRequired[InvoiceUnitRuleUnionTypeDef]
+    ClientToken: NotRequired[str]
 
 class ListProcurementPortalPreferencesResponseTypeDef(TypedDict):
     ProcurementPortalPreferences: list[ProcurementPortalPreferenceSummaryTypeDef]
@@ -526,6 +542,7 @@ class PutProcurementPortalPreferenceRequestTypeDef(TypedDict):
     ProcurementPortalInstanceEndpoint: NotRequired[str]
     TestEnvPreference: NotRequired[TestEnvPreferenceInputTypeDef]
     EinvoiceDeliveryPreference: NotRequired[EinvoiceDeliveryPreferenceUnionTypeDef]
+    ClientToken: NotRequired[str]
 
 class InvoiceCurrencyAmountTypeDef(TypedDict):
     TotalAmount: NotRequired[str]
@@ -539,11 +556,19 @@ class InvoiceSummaryTypeDef(TypedDict):
     InvoiceId: NotRequired[str]
     IssuedDate: NotRequired[datetime]
     DueDate: NotRequired[datetime]
+    BillSourceAccounts: NotRequired[list[str]]
+    BillSourceAccountsTotalCount: NotRequired[int]
+    ReceiverRole: NotRequired[ReceiverRoleType]
     Entity: NotRequired[EntityTypeDef]
     BillingPeriod: NotRequired[BillingPeriodTypeDef]
+    InvoiceFrequency: NotRequired[InvoiceFrequencyType]
+    BillType: NotRequired[BillTypeType]
     InvoiceType: NotRequired[InvoiceTypeType]
+    CommercialInvoiceId: NotRequired[str]
     OriginalInvoiceId: NotRequired[str]
     PurchaseOrderNumber: NotRequired[str]
+    EinvoiceDeliveryStatus: NotRequired[EinvoiceDeliveryStatusType]
+    TaxAuthorityStatus: NotRequired[TaxAuthorityStatusType]
     BaseCurrencyAmount: NotRequired[InvoiceCurrencyAmountTypeDef]
     TaxCurrencyAmount: NotRequired[InvoiceCurrencyAmountTypeDef]
     PaymentCurrencyAmount: NotRequired[InvoiceCurrencyAmountTypeDef]

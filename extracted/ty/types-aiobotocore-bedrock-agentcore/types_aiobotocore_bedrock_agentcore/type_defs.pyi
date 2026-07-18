@@ -29,6 +29,7 @@ from .literals import (
     ABTestStatusType,
     AutomationStreamStatusType,
     BatchEvaluationStatusType,
+    BlockchainChainIdType,
     BrowserActionStatusType,
     BrowserEnterprisePolicyTypeType,
     BrowserSessionStatusType,
@@ -36,18 +37,26 @@ from .literals import (
     CodeInterpreterSessionStatusType,
     CommandExecutionStatusType,
     ContentBlockTypeType,
+    CryptoWalletNetworkType,
     DescriptorTypeType,
+    HarnessBedrockApiFormatType,
     HarnessConversationRoleType,
+    HarnessOpenAiApiFormatType,
     HarnessStopReasonType,
     HarnessToolTypeType,
     HarnessToolUseStatusType,
     HarnessToolUseTypeType,
+    InsightsFailureCategoryType,
     LanguageRuntimeType,
+    MemoryRecordOperatorTypeType,
     MemoryRecordStatusType,
     MouseButtonType,
     Oauth2FlowTypeType,
     OAuthGrantTypeType,
     OperatorTypeType,
+    PaymentHttpMethodTypeType,
+    PaymentInstrumentStatusType,
+    PaymentSessionStatusType,
     ProgrammingLanguageType,
     RecommendationStatusType,
     RecommendationTypeType,
@@ -74,18 +83,22 @@ __all__ = (
     "ABTestSummaryTypeDef",
     "AccessDeniedExceptionTypeDef",
     "ActorSummaryTypeDef",
+    "AffectedSessionTypeDef",
     "AgentCardDefinitionTypeDef",
     "AgentSkillsDescriptorTypeDef",
     "AgentTracesConfigOutputTypeDef",
     "AgentTracesConfigTypeDef",
+    "AmountTypeDef",
     "AutomationStreamTypeDef",
     "AutomationStreamUpdateTypeDef",
+    "AvailableLimitsTypeDef",
     "BasicAuthTypeDef",
     "BatchCreateMemoryRecordsInputTypeDef",
     "BatchCreateMemoryRecordsOutputTypeDef",
     "BatchDeleteMemoryRecordsInputTypeDef",
     "BatchDeleteMemoryRecordsOutputTypeDef",
     "BatchEvaluationSummaryTypeDef",
+    "BatchEvaluationTraceConfigTypeDef",
     "BatchUpdateMemoryRecordsInputTypeDef",
     "BatchUpdateMemoryRecordsOutputTypeDef",
     "BlobTypeDef",
@@ -113,6 +126,8 @@ __all__ = (
     "CodeInterpreterResultTypeDef",
     "CodeInterpreterSessionSummaryTypeDef",
     "CodeInterpreterStreamOutputTypeDef",
+    "CoinbaseCdpTokenRequestInputTypeDef",
+    "CoinbaseCdpTokenResponseOutputTypeDef",
     "CompleteResourceTokenAuthRequestTypeDef",
     "ConfidenceIntervalTypeDef",
     "ConfigurationBundleRefTypeDef",
@@ -129,6 +144,12 @@ __all__ = (
     "CreateABTestResponseTypeDef",
     "CreateEventInputTypeDef",
     "CreateEventOutputTypeDef",
+    "CreatePaymentInstrumentRequestTypeDef",
+    "CreatePaymentInstrumentResponseTypeDef",
+    "CreatePaymentSessionRequestTypeDef",
+    "CreatePaymentSessionResponseTypeDef",
+    "CryptoX402PaymentInputTypeDef",
+    "CryptoX402PaymentOutputTypeDef",
     "CustomDescriptorTypeDef",
     "DataSourceConfigOutputTypeDef",
     "DataSourceConfigTypeDef",
@@ -141,9 +162,15 @@ __all__ = (
     "DeleteEventOutputTypeDef",
     "DeleteMemoryRecordInputTypeDef",
     "DeleteMemoryRecordOutputTypeDef",
+    "DeletePaymentInstrumentRequestTypeDef",
+    "DeletePaymentInstrumentResponseTypeDef",
+    "DeletePaymentSessionRequestTypeDef",
+    "DeletePaymentSessionResponseTypeDef",
     "DeleteRecommendationRequestTypeDef",
     "DeleteRecommendationResponseTypeDef",
     "DescriptorsTypeDef",
+    "EmbeddedCryptoWalletOutputTypeDef",
+    "EmbeddedCryptoWalletTypeDef",
     "EvaluateRequestTypeDef",
     "EvaluateResponseTypeDef",
     "EvaluationContentTypeDef",
@@ -160,12 +187,19 @@ __all__ = (
     "EvaluatorTypeDef",
     "EventMetadataFilterExpressionTypeDef",
     "EventTypeDef",
+    "ExecutionSummaryAffectedSessionTypeDef",
+    "ExecutionSummaryClusterTypeDef",
+    "ExecutionSummaryClusteringResultContentTypeDef",
     "ExternalProxyOutputTypeDef",
     "ExternalProxyTypeDef",
     "ExtractionJobFilterInputTypeDef",
     "ExtractionJobMessagesTypeDef",
     "ExtractionJobMetadataTypeDef",
     "ExtractionJobTypeDef",
+    "FailureAnalysisResultContentTypeDef",
+    "FailureCategoryClusterTypeDef",
+    "FailureSpanDetailTypeDef",
+    "FailureSubCategoryClusterTypeDef",
     "FilterInputTypeDef",
     "FilterValueTypeDef",
     "GatewayFilterOutputTypeDef",
@@ -185,12 +219,20 @@ __all__ = (
     "GetEventOutputTypeDef",
     "GetMemoryRecordInputTypeDef",
     "GetMemoryRecordOutputTypeDef",
+    "GetPaymentInstrumentBalanceRequestTypeDef",
+    "GetPaymentInstrumentBalanceResponseTypeDef",
+    "GetPaymentInstrumentRequestTypeDef",
+    "GetPaymentInstrumentResponseTypeDef",
+    "GetPaymentSessionRequestTypeDef",
+    "GetPaymentSessionResponseTypeDef",
     "GetRecommendationRequestTypeDef",
     "GetRecommendationResponseTypeDef",
     "GetResourceApiKeyRequestTypeDef",
     "GetResourceApiKeyResponseTypeDef",
     "GetResourceOauth2TokenRequestTypeDef",
     "GetResourceOauth2TokenResponseTypeDef",
+    "GetResourcePaymentTokenRequestTypeDef",
+    "GetResourcePaymentTokenResponseTypeDef",
     "GetWorkloadAccessTokenForJWTRequestTypeDef",
     "GetWorkloadAccessTokenForJWTResponseTypeDef",
     "GetWorkloadAccessTokenForUserIdRequestTypeDef",
@@ -213,6 +255,7 @@ __all__ = (
     "HarnessGatewayOutboundAuthTypeDef",
     "HarnessGeminiModelConfigTypeDef",
     "HarnessInlineFunctionConfigTypeDef",
+    "HarnessLiteLlmModelConfigTypeDef",
     "HarnessMessageStartEventTypeDef",
     "HarnessMessageStopEventTypeDef",
     "HarnessMessageTypeDef",
@@ -223,6 +266,10 @@ __all__ = (
     "HarnessReasoningContentBlockTypeDef",
     "HarnessReasoningTextBlockTypeDef",
     "HarnessRemoteMcpConfigTypeDef",
+    "HarnessSkillAwsSkillsSourceTypeDef",
+    "HarnessSkillGitAuthTypeDef",
+    "HarnessSkillGitSourceTypeDef",
+    "HarnessSkillS3SourceTypeDef",
     "HarnessSkillTypeDef",
     "HarnessStreamMetricsTypeDef",
     "HarnessSystemContentBlockTypeDef",
@@ -238,6 +285,8 @@ __all__ = (
     "HarnessToolUseBlockTypeDef",
     "InlineGroundTruthTypeDef",
     "InputContentBlockTypeDef",
+    "InsightTypeDef",
+    "InsightsFailureSignalTypeDef",
     "InternalServerExceptionTypeDef",
     "InvokeAgentRuntimeCommandRequestBodyTypeDef",
     "InvokeAgentRuntimeCommandRequestTypeDef",
@@ -259,6 +308,11 @@ __all__ = (
     "KeyTypeArgumentsTypeDef",
     "KeyTypeResultTypeDef",
     "LeftExpressionTypeDef",
+    "LinkedAccountDeveloperJwtTypeDef",
+    "LinkedAccountEmailTypeDef",
+    "LinkedAccountOAuth2TypeDef",
+    "LinkedAccountSmsTypeDef",
+    "LinkedAccountTypeDef",
     "ListABTestsRequestPaginateTypeDef",
     "ListABTestsRequestTypeDef",
     "ListABTestsResponseTypeDef",
@@ -281,6 +335,12 @@ __all__ = (
     "ListMemoryRecordsInputPaginateTypeDef",
     "ListMemoryRecordsInputTypeDef",
     "ListMemoryRecordsOutputTypeDef",
+    "ListPaymentInstrumentsRequestPaginateTypeDef",
+    "ListPaymentInstrumentsRequestTypeDef",
+    "ListPaymentInstrumentsResponseTypeDef",
+    "ListPaymentSessionsRequestPaginateTypeDef",
+    "ListPaymentSessionsRequestTypeDef",
+    "ListPaymentSessionsResponseTypeDef",
     "ListRecommendationsRequestPaginateTypeDef",
     "ListRecommendationsRequestTypeDef",
     "ListRecommendationsResponseTypeDef",
@@ -293,7 +353,12 @@ __all__ = (
     "MemoryMetadataFilterExpressionTypeDef",
     "MemoryRecordCreateInputTypeDef",
     "MemoryRecordDeleteInputTypeDef",
+    "MemoryRecordLeftExpressionTypeDef",
+    "MemoryRecordMetadataValueOutputTypeDef",
+    "MemoryRecordMetadataValueTypeDef",
+    "MemoryRecordMetadataValueUnionTypeDef",
     "MemoryRecordOutputTypeDef",
+    "MemoryRecordRightExpressionTypeDef",
     "MemoryRecordSummaryTypeDef",
     "MemoryRecordTypeDef",
     "MemoryRecordUpdateInputTypeDef",
@@ -307,13 +372,29 @@ __all__ = (
     "MouseMoveResultTypeDef",
     "MouseScrollArgumentsTypeDef",
     "MouseScrollResultTypeDef",
+    "OAuth2AuthenticationTypeDef",
     "OAuthCredentialProviderTypeDef",
+    "OnlineEvaluationConfigSourceOutputTypeDef",
+    "OnlineEvaluationConfigSourceTypeDef",
     "OutputConfigTypeDef",
     "PaginatorConfigTypeDef",
     "PayloadTypeOutputTypeDef",
     "PayloadTypeTypeDef",
     "PayloadTypeUnionTypeDef",
+    "PaymentInputTypeDef",
+    "PaymentInstrumentDetailsOutputTypeDef",
+    "PaymentInstrumentDetailsTypeDef",
+    "PaymentInstrumentDetailsUnionTypeDef",
+    "PaymentInstrumentSummaryTypeDef",
+    "PaymentInstrumentTypeDef",
+    "PaymentOutputTypeDef",
+    "PaymentSessionSummaryTypeDef",
+    "PaymentSessionTypeDef",
+    "PaymentTokenRequestInputTypeDef",
+    "PaymentTokenResponseOutputTypeDef",
     "PerVariantOnlineEvaluationConfigTypeDef",
+    "ProcessPaymentRequestTypeDef",
+    "ProcessPaymentResponseTypeDef",
     "ProxyBypassOutputTypeDef",
     "ProxyBypassTypeDef",
     "ProxyConfigurationOutputTypeDef",
@@ -341,6 +422,7 @@ __all__ = (
     "RetrieveMemoryRecordsInputTypeDef",
     "RetrieveMemoryRecordsOutputTypeDef",
     "RightExpressionTypeDef",
+    "RootCauseClusterTypeDef",
     "RuntimeClientErrorTypeDef",
     "S3LocationTypeDef",
     "SaveBrowserSessionProfileRequestTypeDef",
@@ -356,6 +438,7 @@ __all__ = (
     "SessionFilterConfigOutputTypeDef",
     "SessionFilterConfigTypeDef",
     "SessionFilterTypeDef",
+    "SessionLimitsTypeDef",
     "SessionMetadataShapeTypeDef",
     "SessionSummaryTypeDef",
     "SkillDefinitionTypeDef",
@@ -380,6 +463,8 @@ __all__ = (
     "StopRuntimeSessionRequestTypeDef",
     "StopRuntimeSessionResponseTypeDef",
     "StreamUpdateTypeDef",
+    "StripePrivyTokenRequestInputTypeDef",
+    "StripePrivyTokenResponseOutputTypeDef",
     "SystemPromptConfigTypeDef",
     "SystemPromptConfigurationBundleTypeDef",
     "SystemPromptRecommendationConfigOutputTypeDef",
@@ -388,6 +473,7 @@ __all__ = (
     "TargetRefTypeDef",
     "ThrottlingExceptionTypeDef",
     "TimestampTypeDef",
+    "TokenBalanceTypeDef",
     "TokenUsageTypeDef",
     "ToolArgumentsTypeDef",
     "ToolDescriptionConfigTypeDef",
@@ -409,6 +495,9 @@ __all__ = (
     "UpdateBrowserStreamRequestTypeDef",
     "UpdateBrowserStreamResponseTypeDef",
     "UserIdentifierTypeDef",
+    "UserIntentAffectedSessionTypeDef",
+    "UserIntentClusterTypeDef",
+    "UserIntentClusteringResultContentTypeDef",
     "ValidationExceptionFieldTypeDef",
     "ValidationExceptionTypeDef",
     "VariantConfigurationTypeDef",
@@ -449,6 +538,13 @@ class SkillDefinitionTypeDef(TypedDict):
 class SkillMdDefinitionTypeDef(TypedDict):
     inlineContent: NotRequired[str]
 
+class BatchEvaluationTraceConfigTypeDef(TypedDict):
+    batchEvaluationArn: str
+
+class AmountTypeDef(TypedDict):
+    value: str
+    currency: Literal["USD"]
+
 class AutomationStreamTypeDef(TypedDict):
     streamEndpoint: str
     streamStatus: AutomationStreamStatusType
@@ -478,6 +574,9 @@ class MemoryRecordDeleteInputTypeDef(TypedDict):
 
 class EvaluatorTypeDef(TypedDict):
     evaluatorId: str
+
+class InsightTypeDef(TypedDict):
+    insightId: str
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
@@ -625,6 +724,17 @@ class ServiceQuotaExceededExceptionTypeDef(TypedDict):
 class ThrottlingExceptionTypeDef(TypedDict):
     message: NotRequired[str]
 
+class CoinbaseCdpTokenRequestInputTypeDef(TypedDict):
+    requestMethod: PaymentHttpMethodTypeType
+    requestPath: str
+    requestHost: NotRequired[str]
+    includeWalletAuthToken: NotRequired[bool]
+    requestBody: NotRequired[str]
+
+class CoinbaseCdpTokenResponseOutputTypeDef(TypedDict):
+    bearerToken: str
+    walletAuthToken: NotRequired[str]
+
 class UserIdentifierTypeDef(TypedDict):
     userToken: NotRequired[str]
     userId: NotRequired[str]
@@ -676,6 +786,14 @@ class ControlStatsTypeDef(TypedDict):
 class MetadataValueTypeDef(TypedDict):
     stringValue: NotRequired[str]
 
+class CryptoX402PaymentInputTypeDef(TypedDict):
+    version: str
+    payload: Mapping[str, Any]
+
+class CryptoX402PaymentOutputTypeDef(TypedDict):
+    version: str
+    payload: dict[str, Any]
+
 class CustomDescriptorTypeDef(TypedDict):
     inlineContent: NotRequired[str]
 
@@ -694,6 +812,17 @@ class DeleteEventInputTypeDef(TypedDict):
 class DeleteMemoryRecordInputTypeDef(TypedDict):
     memoryId: str
     memoryRecordId: str
+
+class DeletePaymentInstrumentRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentConnectorId: str
+    paymentInstrumentId: str
+    userId: NotRequired[str]
+
+class DeletePaymentSessionRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentSessionId: str
+    userId: NotRequired[str]
 
 class DeleteRecommendationRequestTypeDef(TypedDict):
     recommendationId: str
@@ -722,6 +851,11 @@ class EvaluatorStatisticsTypeDef(TypedDict):
 class LeftExpressionTypeDef(TypedDict):
     metadataKey: NotRequired[str]
 
+class ExecutionSummaryAffectedSessionTypeDef(TypedDict):
+    sessionId: str
+    approachTaken: str
+    finalOutcome: str
+
 class ExtractionJobFilterInputTypeDef(TypedDict):
     strategyId: NotRequired[str]
     sessionId: NotRequired[str]
@@ -734,6 +868,11 @@ class MessageMetadataTypeDef(TypedDict):
 
 class ExtractionJobTypeDef(TypedDict):
     jobId: str
+
+class InsightsFailureSignalTypeDef(TypedDict):
+    category: InsightsFailureCategoryType
+    evidence: str
+    confidence: float
 
 class GatewayFilterOutputTypeDef(TypedDict):
     targetPaths: NotRequired[list[str]]
@@ -774,6 +913,35 @@ class GetMemoryRecordInputTypeDef(TypedDict):
     memoryId: str
     memoryRecordId: str
 
+class GetPaymentInstrumentBalanceRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentConnectorId: str
+    paymentInstrumentId: str
+    chain: BlockchainChainIdType
+    token: Literal["USDC"]
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
+
+class TokenBalanceTypeDef(TypedDict):
+    amount: str
+    decimals: int
+    token: Literal["USDC"]
+    network: CryptoWalletNetworkType
+    chain: BlockchainChainIdType
+
+class GetPaymentInstrumentRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentInstrumentId: str
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
+    paymentConnectorId: NotRequired[str]
+
+class GetPaymentSessionRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentSessionId: str
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
+
 class GetRecommendationRequestTypeDef(TypedDict):
     recommendationId: str
 
@@ -791,6 +959,8 @@ class GetResourceOauth2TokenRequestTypeDef(TypedDict):
     forceAuthentication: NotRequired[bool]
     customParameters: NotRequired[Mapping[str, str]]
     customState: NotRequired[str]
+    resources: NotRequired[Sequence[str]]
+    audiences: NotRequired[Sequence[str]]
 
 class GetWorkloadAccessTokenForJWTRequestTypeDef(TypedDict):
     workloadName: str
@@ -817,6 +987,8 @@ class HarnessBedrockModelConfigTypeDef(TypedDict):
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
     topP: NotRequired[float]
+    apiFormat: NotRequired[HarnessBedrockApiFormatType]
+    additionalParams: NotRequired[Mapping[str, Any]]
 
 class HarnessReasoningContentBlockDeltaTypeDef(TypedDict):
     text: NotRequired[str]
@@ -881,6 +1053,15 @@ class HarnessInlineFunctionConfigTypeDef(TypedDict):
     description: str
     inputSchema: Mapping[str, Any]
 
+class HarnessLiteLlmModelConfigTypeDef(TypedDict):
+    modelId: str
+    apiKeyArn: NotRequired[str]
+    apiBase: NotRequired[str]
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    additionalParams: NotRequired[Mapping[str, Any]]
+
 class HarnessMessageStartEventTypeDef(TypedDict):
     role: HarnessConversationRoleType
 
@@ -903,6 +1084,8 @@ class HarnessOpenAiModelConfigTypeDef(TypedDict):
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
     topP: NotRequired[float]
+    apiFormat: NotRequired[HarnessOpenAiApiFormatType]
+    additionalParams: NotRequired[Mapping[str, Any]]
 
 class HarnessReasoningTextBlockTypeDef(TypedDict):
     text: str
@@ -912,8 +1095,15 @@ class HarnessRemoteMcpConfigTypeDef(TypedDict):
     url: str
     headers: NotRequired[Mapping[str, str]]
 
-class HarnessSkillTypeDef(TypedDict):
-    path: NotRequired[str]
+class HarnessSkillAwsSkillsSourceTypeDef(TypedDict):
+    paths: NotRequired[Sequence[str]]
+
+class HarnessSkillGitAuthTypeDef(TypedDict):
+    credentialArn: str
+    username: NotRequired[str]
+
+class HarnessSkillS3SourceTypeDef(TypedDict):
+    uri: str
 
 class HarnessSystemContentBlockTypeDef(TypedDict):
     text: NotRequired[str]
@@ -928,6 +1118,22 @@ class InvokeAgentRuntimeCommandRequestBodyTypeDef(TypedDict):
 
 class RuntimeClientErrorTypeDef(TypedDict):
     message: NotRequired[str]
+
+class LinkedAccountDeveloperJwtTypeDef(TypedDict):
+    kid: str
+    sub: str
+
+class LinkedAccountEmailTypeDef(TypedDict):
+    emailAddress: str
+
+class OAuth2AuthenticationTypeDef(TypedDict):
+    sub: str
+    emailAddress: NotRequired[str]
+    name: NotRequired[str]
+    username: NotRequired[str]
+
+class LinkedAccountSmsTypeDef(TypedDict):
+    phoneNumber: str
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -959,13 +1165,38 @@ class ListCodeInterpreterSessionsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     status: NotRequired[CodeInterpreterSessionStatusType]
 
-class ListMemoryRecordsInputTypeDef(TypedDict):
-    memoryId: str
-    namespace: NotRequired[str]
-    namespacePath: NotRequired[str]
-    memoryStrategyId: NotRequired[str]
-    maxResults: NotRequired[int]
+class ListPaymentInstrumentsRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
+    paymentConnectorId: NotRequired[str]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class PaymentInstrumentSummaryTypeDef(TypedDict):
+    paymentInstrumentId: str
+    paymentManagerArn: str
+    paymentConnectorId: str
+    userId: str
+    paymentInstrumentType: Literal["EMBEDDED_CRYPTO_WALLET"]
+    status: PaymentInstrumentStatusType
+    createdAt: datetime
+    updatedAt: datetime
+
+class ListPaymentSessionsRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class PaymentSessionSummaryTypeDef(TypedDict):
+    paymentSessionId: str
+    paymentManagerArn: str
+    userId: str
+    expiryTimeInMinutes: int
+    createdAt: datetime
+    updatedAt: datetime
 
 class ListRecommendationsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
@@ -1004,6 +1235,27 @@ class ToolsDefinitionTypeDef(TypedDict):
 
 class MemoryContentTypeDef(TypedDict):
     text: NotRequired[str]
+
+class MemoryRecordLeftExpressionTypeDef(TypedDict):
+    metadataKey: NotRequired[str]
+
+class MemoryRecordMetadataValueOutputTypeDef(TypedDict):
+    stringValue: NotRequired[str]
+    stringListValue: NotRequired[list[str]]
+    numberValue: NotRequired[float]
+    dateTimeValue: NotRequired[datetime]
+
+class StripePrivyTokenRequestInputTypeDef(TypedDict):
+    requestPath: str
+    requestBody: str
+    requestHost: NotRequired[str]
+    includeAuthorizationSignature: NotRequired[bool]
+
+class StripePrivyTokenResponseOutputTypeDef(TypedDict):
+    appId: str
+    basicAuthToken: str
+    authorizationSignature: NotRequired[str]
+    requestExpiry: NotRequired[int]
 
 class ProxyBypassOutputTypeDef(TypedDict):
     domainPatterns: NotRequired[list[str]]
@@ -1074,6 +1326,11 @@ class ToolDescriptionConfigTypeDef(TypedDict):
 class ToolDescriptionOutputTypeDef(TypedDict):
     toolName: str
     recommendedToolDescription: NotRequired[str]
+    explanation: NotRequired[str]
+
+class UserIntentAffectedSessionTypeDef(TypedDict):
+    sessionId: str
+    userMessages: list[str]
 
 class ValidationExceptionFieldTypeDef(TypedDict):
     name: str
@@ -1093,6 +1350,13 @@ class ABTestEvaluationConfigTypeDef(TypedDict):
 class AgentSkillsDescriptorTypeDef(TypedDict):
     skillMd: SkillMdDefinitionTypeDef
     skillDefinition: NotRequired[SkillDefinitionTypeDef]
+
+class AvailableLimitsTypeDef(TypedDict):
+    availableSpendAmount: NotRequired[AmountTypeDef]
+    updatedAt: NotRequired[datetime]
+
+class SessionLimitsTypeDef(TypedDict):
+    maxSpendAmount: AmountTypeDef
 
 class StreamUpdateTypeDef(TypedDict):
     automationStreamUpdate: NotRequired[AutomationStreamUpdateTypeDef]
@@ -1142,6 +1406,14 @@ class DeleteEventOutputTypeDef(TypedDict):
 
 class DeleteMemoryRecordOutputTypeDef(TypedDict):
     memoryRecordId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeletePaymentInstrumentResponseTypeDef(TypedDict):
+    status: PaymentInstrumentStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeletePaymentSessionResponseTypeDef(TypedDict):
+    status: PaymentSessionStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteRecommendationResponseTypeDef(TypedDict):
@@ -1311,6 +1583,10 @@ class CloudWatchFilterConfigOutputTypeDef(TypedDict):
     sessionIds: NotRequired[list[str]]
     timeRange: NotRequired[SessionFilterConfigOutputTypeDef]
 
+class OnlineEvaluationConfigSourceOutputTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    timeRange: NotRequired[SessionFilterConfigOutputTypeDef]
+
 CloudWatchLogsFilterTypeDef = TypedDict(
     "CloudWatchLogsFilterTypeDef",
     {
@@ -1319,6 +1595,12 @@ CloudWatchLogsFilterTypeDef = TypedDict(
         "value": FilterValueTypeDef,
     },
 )
+
+class MemoryRecordMetadataValueTypeDef(TypedDict):
+    stringValue: NotRequired[str]
+    stringListValue: NotRequired[Sequence[str]]
+    numberValue: NotRequired[float]
+    dateTimeValue: NotRequired[TimestampTypeDef]
 
 class SessionFilterConfigTypeDef(TypedDict):
     startTime: NotRequired[TimestampTypeDef]
@@ -1386,11 +1668,24 @@ class ContextTypeDef(TypedDict):
 class RightExpressionTypeDef(TypedDict):
     metadataValue: NotRequired[MetadataValueTypeDef]
 
+class PaymentInputTypeDef(TypedDict):
+    cryptoX402: NotRequired[CryptoX402PaymentInputTypeDef]
+
+class PaymentOutputTypeDef(TypedDict):
+    cryptoX402: NotRequired[CryptoX402PaymentOutputTypeDef]
+
 class EvaluatorSummaryTypeDef(TypedDict):
     evaluatorId: NotRequired[str]
     statistics: NotRequired[EvaluatorStatisticsTypeDef]
     totalEvaluated: NotRequired[int]
     totalFailed: NotRequired[int]
+
+class ExecutionSummaryClusterTypeDef(TypedDict):
+    clusterId: int
+    name: str
+    description: str
+    affectedSessionCount: int
+    affectedSessions: list[ExecutionSummaryAffectedSessionTypeDef]
 
 ListMemoryExtractionJobsInputTypeDef = TypedDict(
     "ListMemoryExtractionJobsInputTypeDef",
@@ -1410,7 +1705,18 @@ class StartMemoryExtractionJobInputTypeDef(TypedDict):
     extractionJob: ExtractionJobTypeDef
     clientToken: NotRequired[str]
 
+class FailureSpanDetailTypeDef(TypedDict):
+    spanId: str
+    traceId: str
+    signals: list[InsightsFailureSignalTypeDef]
+
 GatewayFilterUnionTypeDef = Union[GatewayFilterTypeDef, GatewayFilterOutputTypeDef]
+
+class GetPaymentInstrumentBalanceResponseTypeDef(TypedDict):
+    paymentInstrumentId: str
+    tokenBalance: TokenBalanceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 GroundTruthTurnTypeDef = TypedDict(
     "GroundTruthTurnTypeDef",
     {
@@ -1442,10 +1748,16 @@ class HarnessModelConfigurationTypeDef(TypedDict):
     bedrockModelConfig: NotRequired[HarnessBedrockModelConfigTypeDef]
     openAiModelConfig: NotRequired[HarnessOpenAiModelConfigTypeDef]
     geminiModelConfig: NotRequired[HarnessGeminiModelConfigTypeDef]
+    liteLlmModelConfig: NotRequired[HarnessLiteLlmModelConfigTypeDef]
 
 class HarnessReasoningContentBlockTypeDef(TypedDict):
     reasoningText: NotRequired[HarnessReasoningTextBlockTypeDef]
     redactedContent: NotRequired[BlobTypeDef]
+
+class HarnessSkillGitSourceTypeDef(TypedDict):
+    url: str
+    path: NotRequired[str]
+    auth: NotRequired[HarnessSkillGitAuthTypeDef]
 
 HarnessToolResultBlockTypeDef = TypedDict(
     "HarnessToolResultBlockTypeDef",
@@ -1470,6 +1782,13 @@ class InvokeAgentRuntimeCommandRequestTypeDef(TypedDict):
     qualifier: NotRequired[str]
     accountId: NotRequired[str]
 
+class LinkedAccountOAuth2TypeDef(TypedDict):
+    google: NotRequired[OAuth2AuthenticationTypeDef]
+    apple: NotRequired[OAuth2AuthenticationTypeDef]
+    x: NotRequired[OAuth2AuthenticationTypeDef]
+    telegram: NotRequired[OAuth2AuthenticationTypeDef]
+    github: NotRequired[OAuth2AuthenticationTypeDef]
+
 class ListABTestsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -1489,16 +1808,32 @@ ListMemoryExtractionJobsInputPaginateTypeDef = TypedDict(
     },
 )
 
-class ListMemoryRecordsInputPaginateTypeDef(TypedDict):
-    memoryId: str
-    namespace: NotRequired[str]
-    namespacePath: NotRequired[str]
-    memoryStrategyId: NotRequired[str]
+class ListPaymentInstrumentsRequestPaginateTypeDef(TypedDict):
+    paymentManagerArn: str
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
+    paymentConnectorId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPaymentSessionsRequestPaginateTypeDef(TypedDict):
+    paymentManagerArn: str
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRecommendationsRequestPaginateTypeDef(TypedDict):
     statusFilter: NotRequired[RecommendationStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPaymentInstrumentsResponseTypeDef(TypedDict):
+    paymentInstruments: list[PaymentInstrumentSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListPaymentSessionsResponseTypeDef(TypedDict):
+    paymentSessions: list[PaymentSessionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListRecommendationsResponseTypeDef(TypedDict):
     recommendationSummaries: list[RecommendationSummaryTypeDef]
@@ -1534,13 +1869,6 @@ class McpDescriptorTypeDef(TypedDict):
     server: ServerDefinitionTypeDef
     tools: ToolsDefinitionTypeDef
 
-class MemoryRecordCreateInputTypeDef(TypedDict):
-    requestIdentifier: str
-    namespaces: Sequence[str]
-    content: MemoryContentTypeDef
-    timestamp: TimestampTypeDef
-    memoryStrategyId: NotRequired[str]
-
 class MemoryRecordSummaryTypeDef(TypedDict):
     memoryRecordId: str
     content: MemoryContentTypeDef
@@ -1548,7 +1876,7 @@ class MemoryRecordSummaryTypeDef(TypedDict):
     namespaces: list[str]
     createdAt: datetime
     score: NotRequired[float]
-    metadata: NotRequired[dict[str, MetadataValueTypeDef]]
+    metadata: NotRequired[dict[str, MemoryRecordMetadataValueOutputTypeDef]]
 
 class MemoryRecordTypeDef(TypedDict):
     memoryRecordId: str
@@ -1556,14 +1884,15 @@ class MemoryRecordTypeDef(TypedDict):
     memoryStrategyId: str
     namespaces: list[str]
     createdAt: datetime
-    metadata: NotRequired[dict[str, MetadataValueTypeDef]]
+    metadata: NotRequired[dict[str, MemoryRecordMetadataValueOutputTypeDef]]
 
-class MemoryRecordUpdateInputTypeDef(TypedDict):
-    memoryRecordId: str
-    timestamp: TimestampTypeDef
-    content: NotRequired[MemoryContentTypeDef]
-    namespaces: NotRequired[Sequence[str]]
-    memoryStrategyId: NotRequired[str]
+class PaymentTokenRequestInputTypeDef(TypedDict):
+    coinbaseCdpTokenRequest: NotRequired[CoinbaseCdpTokenRequestInputTypeDef]
+    stripePrivyTokenRequest: NotRequired[StripePrivyTokenRequestInputTypeDef]
+
+class PaymentTokenResponseOutputTypeDef(TypedDict):
+    coinbaseCdpTokenResponse: NotRequired[CoinbaseCdpTokenResponseOutputTypeDef]
+    stripePrivyTokenResponse: NotRequired[StripePrivyTokenResponseOutputTypeDef]
 
 class RecommendationEvaluationConfigOutputTypeDef(TypedDict):
     evaluators: list[RecommendationEvaluatorReferenceTypeDef]
@@ -1574,6 +1903,7 @@ class RecommendationEvaluationConfigTypeDef(TypedDict):
 class SystemPromptRecommendationResultTypeDef(TypedDict):
     recommendedSystemPrompt: NotRequired[str]
     configurationBundle: NotRequired[RecommendationResultConfigurationBundleTypeDef]
+    explanation: NotRequired[str]
     errorCode: NotRequired[str]
     errorMessage: NotRequired[str]
 
@@ -1598,6 +1928,13 @@ class ToolDescriptionRecommendationResultTypeDef(TypedDict):
     errorCode: NotRequired[str]
     errorMessage: NotRequired[str]
 
+class UserIntentClusterTypeDef(TypedDict):
+    clusterId: int
+    name: str
+    description: str
+    affectedSessionCount: int
+    affectedSessions: list[UserIntentAffectedSessionTypeDef]
+
 class ValidationExceptionTypeDef(TypedDict):
     message: str
     reason: ValidationExceptionReasonType
@@ -1606,6 +1943,24 @@ class ValidationExceptionTypeDef(TypedDict):
 ABTestEvaluationConfigUnionTypeDef = Union[
     ABTestEvaluationConfigTypeDef, ABTestEvaluationConfigOutputTypeDef
 ]
+
+class CreatePaymentSessionRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    expiryTimeInMinutes: int
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
+    limits: NotRequired[SessionLimitsTypeDef]
+    clientToken: NotRequired[str]
+
+class PaymentSessionTypeDef(TypedDict):
+    paymentSessionId: str
+    paymentManagerArn: str
+    userId: str
+    expiryTimeInMinutes: int
+    createdAt: datetime
+    updatedAt: datetime
+    limits: NotRequired[SessionLimitsTypeDef]
+    availableLimits: NotRequired[AvailableLimitsTypeDef]
 
 class UpdateBrowserStreamRequestTypeDef(TypedDict):
     browserIdentifier: str
@@ -1675,8 +2030,16 @@ class CloudWatchLogsRuleOutputTypeDef(TypedDict):
 class CloudWatchLogsRuleTypeDef(TypedDict):
     filters: NotRequired[Sequence[CloudWatchLogsFilterTypeDef]]
 
+MemoryRecordMetadataValueUnionTypeDef = Union[
+    MemoryRecordMetadataValueTypeDef, MemoryRecordMetadataValueOutputTypeDef
+]
+
 class CloudWatchFilterConfigTypeDef(TypedDict):
     sessionIds: NotRequired[Sequence[str]]
+    timeRange: NotRequired[SessionFilterConfigTypeDef]
+
+class OnlineEvaluationConfigSourceTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
     timeRange: NotRequired[SessionFilterConfigTypeDef]
 
 class StartBatchEvaluationResponseTypeDef(TypedDict):
@@ -1684,9 +2047,12 @@ class StartBatchEvaluationResponseTypeDef(TypedDict):
     batchEvaluationArn: str
     batchEvaluationName: str
     evaluators: list[EvaluatorTypeDef]
+    insights: list[InsightTypeDef]
     status: BatchEvaluationStatusType
     createdAt: datetime
     outputConfig: OutputConfigTypeDef
+    tags: dict[str, str]
+    kmsKeyArn: str
     description: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1735,14 +2101,28 @@ EventMetadataFilterExpressionTypeDef = TypedDict(
         "right": NotRequired[RightExpressionTypeDef],
     },
 )
-MemoryMetadataFilterExpressionTypeDef = TypedDict(
-    "MemoryMetadataFilterExpressionTypeDef",
-    {
-        "left": LeftExpressionTypeDef,
-        "operator": OperatorTypeType,
-        "right": NotRequired[RightExpressionTypeDef],
-    },
-)
+
+class ProcessPaymentRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentSessionId: str
+    paymentInstrumentId: str
+    paymentType: Literal["CRYPTO_X402"]
+    paymentInput: PaymentInputTypeDef
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
+    clientToken: NotRequired[str]
+
+class ProcessPaymentResponseTypeDef(TypedDict):
+    processPaymentId: str
+    paymentManagerArn: str
+    paymentSessionId: str
+    paymentInstrumentId: str
+    paymentType: Literal["CRYPTO_X402"]
+    status: Literal["PROOF_GENERATED"]
+    paymentOutput: PaymentOutputTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class EvaluationJobResultsTypeDef(TypedDict):
     numberOfSessionsCompleted: NotRequired[int]
@@ -1752,6 +2132,9 @@ class EvaluationJobResultsTypeDef(TypedDict):
     numberOfSessionsIgnored: NotRequired[int]
     evaluatorSummaries: NotRequired[list[EvaluatorSummaryTypeDef]]
 
+class ExecutionSummaryClusteringResultContentTypeDef(TypedDict):
+    executionSummaries: list[ExecutionSummaryClusterTypeDef]
+
 class ExtractionJobMetadataTypeDef(TypedDict):
     jobID: str
     messages: ExtractionJobMessagesTypeDef
@@ -1760,6 +2143,13 @@ class ExtractionJobMetadataTypeDef(TypedDict):
     strategyId: NotRequired[str]
     sessionId: NotRequired[str]
     actorId: NotRequired[str]
+
+class AffectedSessionTypeDef(TypedDict):
+    sessionId: str
+    explanation: str
+    fixType: str
+    recommendation: str
+    failureSpans: list[FailureSpanDetailTypeDef]
 
 class InlineGroundTruthTypeDef(TypedDict):
     assertions: NotRequired[Sequence[EvaluationContentTypeDef]]
@@ -1778,22 +2168,29 @@ class HarnessAgentCoreGatewayConfigTypeDef(TypedDict):
     gatewayArn: str
     outboundAuth: NotRequired[HarnessGatewayOutboundAuthTypeDef]
 
+class HarnessSkillTypeDef(TypedDict):
+    path: NotRequired[str]
+    s3: NotRequired[HarnessSkillS3SourceTypeDef]
+    git: NotRequired[HarnessSkillGitSourceTypeDef]
+    awsSkills: NotRequired[HarnessSkillAwsSkillsSourceTypeDef]
+
 class HarnessContentBlockTypeDef(TypedDict):
     text: NotRequired[str]
     toolUse: NotRequired[HarnessToolUseBlockTypeDef]
     toolResult: NotRequired[HarnessToolResultBlockTypeDef]
     reasoningContent: NotRequired[HarnessReasoningContentBlockTypeDef]
 
+class LinkedAccountTypeDef(TypedDict):
+    email: NotRequired[LinkedAccountEmailTypeDef]
+    sms: NotRequired[LinkedAccountSmsTypeDef]
+    developerJwt: NotRequired[LinkedAccountDeveloperJwtTypeDef]
+    oAuth2: NotRequired[LinkedAccountOAuth2TypeDef]
+
 class DescriptorsTypeDef(TypedDict):
     mcp: NotRequired[McpDescriptorTypeDef]
     a2a: NotRequired[A2aDescriptorTypeDef]
     custom: NotRequired[CustomDescriptorTypeDef]
     agentSkills: NotRequired[AgentSkillsDescriptorTypeDef]
-
-class BatchCreateMemoryRecordsInputTypeDef(TypedDict):
-    memoryId: str
-    records: Sequence[MemoryRecordCreateInputTypeDef]
-    clientToken: NotRequired[str]
 
 class ListMemoryRecordsOutputTypeDef(TypedDict):
     memoryRecordSummaries: list[MemoryRecordSummaryTypeDef]
@@ -1809,9 +2206,14 @@ class GetMemoryRecordOutputTypeDef(TypedDict):
     memoryRecord: MemoryRecordTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class BatchUpdateMemoryRecordsInputTypeDef(TypedDict):
-    memoryId: str
-    records: Sequence[MemoryRecordUpdateInputTypeDef]
+class GetResourcePaymentTokenRequestTypeDef(TypedDict):
+    workloadIdentityToken: str
+    resourceCredentialProviderName: str
+    paymentTokenRequest: PaymentTokenRequestInputTypeDef
+
+class GetResourcePaymentTokenResponseTypeDef(TypedDict):
+    paymentTokenResponse: PaymentTokenResponseOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 BrowserEnterprisePolicyTypeDef = TypedDict(
     "BrowserEnterprisePolicyTypeDef",
@@ -1839,6 +2241,9 @@ class RecommendationResultTypeDef(TypedDict):
     systemPromptRecommendationResult: NotRequired[SystemPromptRecommendationResultTypeDef]
     toolDescriptionRecommendationResult: NotRequired[ToolDescriptionRecommendationResultTypeDef]
 
+class UserIntentClusteringResultContentTypeDef(TypedDict):
+    userIntents: list[UserIntentClusterTypeDef]
+
 class InvokeAgentRuntimeCommandStreamOutputTypeDef(TypedDict):
     chunk: NotRequired[ResponseChunkTypeDef]
     accessDeniedException: NotRequired[AccessDeniedExceptionTypeDef]
@@ -1848,6 +2253,14 @@ class InvokeAgentRuntimeCommandStreamOutputTypeDef(TypedDict):
     throttlingException: NotRequired[ThrottlingExceptionTypeDef]
     validationException: NotRequired[ValidationExceptionTypeDef]
     runtimeClientError: NotRequired[RuntimeClientErrorTypeDef]
+
+class CreatePaymentSessionResponseTypeDef(TypedDict):
+    paymentSession: PaymentSessionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetPaymentSessionResponseTypeDef(TypedDict):
+    paymentSession: PaymentSessionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ProxyOutputTypeDef(TypedDict):
     externalProxy: NotRequired[ExternalProxyOutputTypeDef]
@@ -1884,6 +2297,7 @@ class StartCodeInterpreterSessionRequestTypeDef(TypedDict):
 
 class DataSourceConfigOutputTypeDef(TypedDict):
     cloudWatchLogs: NotRequired[CloudWatchLogsSourceOutputTypeDef]
+    onlineEvaluationConfigSource: NotRequired[OnlineEvaluationConfigSourceOutputTypeDef]
 
 class CloudWatchLogsTraceConfigOutputTypeDef(TypedDict):
     logGroupArns: list[str]
@@ -1898,6 +2312,25 @@ class CloudWatchLogsTraceConfigTypeDef(TypedDict):
     startTime: TimestampTypeDef
     endTime: TimestampTypeDef
     rule: NotRequired[CloudWatchLogsRuleTypeDef]
+
+class MemoryRecordCreateInputTypeDef(TypedDict):
+    requestIdentifier: str
+    namespaces: Sequence[str]
+    content: MemoryContentTypeDef
+    timestamp: TimestampTypeDef
+    memoryStrategyId: NotRequired[str]
+    metadata: NotRequired[Mapping[str, MemoryRecordMetadataValueUnionTypeDef]]
+
+class MemoryRecordRightExpressionTypeDef(TypedDict):
+    metadataValue: NotRequired[MemoryRecordMetadataValueUnionTypeDef]
+
+class MemoryRecordUpdateInputTypeDef(TypedDict):
+    memoryRecordId: str
+    timestamp: TimestampTypeDef
+    content: NotRequired[MemoryContentTypeDef]
+    namespaces: NotRequired[Sequence[str]]
+    memoryStrategyId: NotRequired[str]
+    metadata: NotRequired[Mapping[str, MemoryRecordMetadataValueUnionTypeDef]]
 
 class CloudWatchLogsSourceTypeDef(TypedDict):
     serviceNames: Sequence[str]
@@ -1944,12 +2377,6 @@ class FilterInputTypeDef(TypedDict):
     branch: NotRequired[BranchFilterTypeDef]
     eventMetadata: NotRequired[Sequence[EventMetadataFilterExpressionTypeDef]]
 
-class SearchCriteriaTypeDef(TypedDict):
-    searchQuery: str
-    memoryStrategyId: NotRequired[str]
-    topK: NotRequired[int]
-    metadataFilters: NotRequired[Sequence[MemoryMetadataFilterExpressionTypeDef]]
-
 class BatchEvaluationSummaryTypeDef(TypedDict):
     batchEvaluationId: str
     batchEvaluationArn: str
@@ -1958,14 +2385,24 @@ class BatchEvaluationSummaryTypeDef(TypedDict):
     createdAt: datetime
     description: NotRequired[str]
     evaluators: NotRequired[list[EvaluatorTypeDef]]
+    insights: NotRequired[list[InsightTypeDef]]
     evaluationResults: NotRequired[EvaluationJobResultsTypeDef]
     errorDetails: NotRequired[list[str]]
+    kmsKeyArn: NotRequired[str]
     updatedAt: NotRequired[datetime]
 
 class ListMemoryExtractionJobsOutputTypeDef(TypedDict):
     jobs: list[ExtractionJobMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class RootCauseClusterTypeDef(TypedDict):
+    clusterId: int
+    name: str
+    rootCause: str
+    recommendation: str
+    affectedSessionCount: int
+    affectedSessions: list[AffectedSessionTypeDef]
 
 class GroundTruthSourceTypeDef(TypedDict):
     inline: NotRequired[InlineGroundTruthTypeDef]
@@ -1992,6 +2429,18 @@ class HarnessMessageTypeDef(TypedDict):
     role: HarnessConversationRoleType
     content: Sequence[HarnessContentBlockTypeDef]
 
+class EmbeddedCryptoWalletOutputTypeDef(TypedDict):
+    network: CryptoWalletNetworkType
+    linkedAccounts: list[LinkedAccountTypeDef]
+    walletAddress: NotRequired[str]
+    redirectUrl: NotRequired[str]
+
+class EmbeddedCryptoWalletTypeDef(TypedDict):
+    network: CryptoWalletNetworkType
+    linkedAccounts: Sequence[LinkedAccountTypeDef]
+    walletAddress: NotRequired[str]
+    redirectUrl: NotRequired[str]
+
 class RegistryRecordSummaryTypeDef(TypedDict):
     registryArn: str
     recordArn: str
@@ -2015,6 +2464,7 @@ class CreateABTestRequestTypeDef(TypedDict):
     gatewayFilter: NotRequired[GatewayFilterUnionTypeDef]
     enableOnCreate: NotRequired[bool]
     clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 class UpdateABTestRequestTypeDef(TypedDict):
     abTestId: str
@@ -2054,31 +2504,37 @@ class ProxyConfigurationTypeDef(TypedDict):
     proxies: Sequence[ProxyTypeDef]
     bypass: NotRequired[ProxyBypassTypeDef]
 
-class GetBatchEvaluationResponseTypeDef(TypedDict):
-    batchEvaluationId: str
-    batchEvaluationArn: str
-    batchEvaluationName: str
-    status: BatchEvaluationStatusType
-    createdAt: datetime
-    evaluators: list[EvaluatorTypeDef]
-    dataSourceConfig: DataSourceConfigOutputTypeDef
-    outputConfig: OutputConfigTypeDef
-    evaluationResults: EvaluationJobResultsTypeDef
-    errorDetails: list[str]
-    description: str
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class AgentTracesConfigOutputTypeDef(TypedDict):
     sessionSpans: NotRequired[list[dict[str, Any]]]
     cloudwatchLogs: NotRequired[CloudWatchLogsTraceConfigOutputTypeDef]
+    batchEvaluation: NotRequired[BatchEvaluationTraceConfigTypeDef]
 
 class AgentTracesConfigTypeDef(TypedDict):
     sessionSpans: NotRequired[Sequence[Mapping[str, Any]]]
     cloudwatchLogs: NotRequired[CloudWatchLogsTraceConfigTypeDef]
+    batchEvaluation: NotRequired[BatchEvaluationTraceConfigTypeDef]
+
+class BatchCreateMemoryRecordsInputTypeDef(TypedDict):
+    memoryId: str
+    records: Sequence[MemoryRecordCreateInputTypeDef]
+    clientToken: NotRequired[str]
+
+MemoryMetadataFilterExpressionTypeDef = TypedDict(
+    "MemoryMetadataFilterExpressionTypeDef",
+    {
+        "left": MemoryRecordLeftExpressionTypeDef,
+        "operator": MemoryRecordOperatorTypeType,
+        "right": NotRequired[MemoryRecordRightExpressionTypeDef],
+    },
+)
+
+class BatchUpdateMemoryRecordsInputTypeDef(TypedDict):
+    memoryId: str
+    records: Sequence[MemoryRecordUpdateInputTypeDef]
 
 class DataSourceConfigTypeDef(TypedDict):
     cloudWatchLogs: NotRequired[CloudWatchLogsSourceTypeDef]
+    onlineEvaluationConfigSource: NotRequired[OnlineEvaluationConfigSourceTypeDef]
 
 class GetABTestResponseTypeDef(TypedDict):
     abTestId: str
@@ -2129,6 +2585,7 @@ class CreateEventInputTypeDef(TypedDict):
     branch: NotRequired[BranchTypeDef]
     clientToken: NotRequired[str]
     metadata: NotRequired[Mapping[str, MetadataValueTypeDef]]
+    extractionMode: NotRequired[Literal["SKIP"]]
 
 ListEventsInputPaginateTypeDef = TypedDict(
     "ListEventsInputPaginateTypeDef",
@@ -2154,25 +2611,17 @@ ListEventsInputTypeDef = TypedDict(
     },
 )
 
-class RetrieveMemoryRecordsInputPaginateTypeDef(TypedDict):
-    memoryId: str
-    searchCriteria: SearchCriteriaTypeDef
-    namespace: NotRequired[str]
-    namespacePath: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class RetrieveMemoryRecordsInputTypeDef(TypedDict):
-    memoryId: str
-    searchCriteria: SearchCriteriaTypeDef
-    namespace: NotRequired[str]
-    namespacePath: NotRequired[str]
-    nextToken: NotRequired[str]
-    maxResults: NotRequired[int]
-
 class ListBatchEvaluationsResponseTypeDef(TypedDict):
     batchEvaluations: list[BatchEvaluationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class FailureSubCategoryClusterTypeDef(TypedDict):
+    clusterId: int
+    name: str
+    description: str
+    affectedSessionCount: int
+    rootCauses: list[RootCauseClusterTypeDef]
 
 class SessionMetadataShapeTypeDef(TypedDict):
     sessionId: str
@@ -2192,6 +2641,12 @@ HarnessToolTypeDef = TypedDict(
         "config": NotRequired[HarnessToolConfigurationTypeDef],
     },
 )
+
+class PaymentInstrumentDetailsOutputTypeDef(TypedDict):
+    embeddedCryptoWallet: NotRequired[EmbeddedCryptoWalletOutputTypeDef]
+
+class PaymentInstrumentDetailsTypeDef(TypedDict):
+    embeddedCryptoWallet: NotRequired[EmbeddedCryptoWalletTypeDef]
 
 class SearchRegistryRecordsResponseTypeDef(TypedDict):
     registryRecords: list[RegistryRecordSummaryTypeDef]
@@ -2220,7 +2675,7 @@ ProxyConfigurationUnionTypeDef = Union[ProxyConfigurationTypeDef, ProxyConfigura
 class SystemPromptRecommendationConfigOutputTypeDef(TypedDict):
     systemPrompt: SystemPromptConfigTypeDef
     agentTraces: AgentTracesConfigOutputTypeDef
-    evaluationConfig: RecommendationEvaluationConfigOutputTypeDef
+    evaluationConfig: NotRequired[RecommendationEvaluationConfigOutputTypeDef]
 
 class ToolDescriptionRecommendationConfigOutputTypeDef(TypedDict):
     toolDescription: ToolDescriptionSourceOutputTypeDef
@@ -2229,13 +2684,43 @@ class ToolDescriptionRecommendationConfigOutputTypeDef(TypedDict):
 class SystemPromptRecommendationConfigTypeDef(TypedDict):
     systemPrompt: SystemPromptConfigTypeDef
     agentTraces: AgentTracesConfigTypeDef
-    evaluationConfig: RecommendationEvaluationConfigTypeDef
+    evaluationConfig: NotRequired[RecommendationEvaluationConfigTypeDef]
 
 class ToolDescriptionRecommendationConfigTypeDef(TypedDict):
     toolDescription: ToolDescriptionSourceTypeDef
     agentTraces: AgentTracesConfigTypeDef
 
+class ListMemoryRecordsInputPaginateTypeDef(TypedDict):
+    memoryId: str
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
+    memoryStrategyId: NotRequired[str]
+    metadataFilters: NotRequired[Sequence[MemoryMetadataFilterExpressionTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListMemoryRecordsInputTypeDef(TypedDict):
+    memoryId: str
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
+    memoryStrategyId: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    metadataFilters: NotRequired[Sequence[MemoryMetadataFilterExpressionTypeDef]]
+
+class SearchCriteriaTypeDef(TypedDict):
+    searchQuery: str
+    memoryStrategyId: NotRequired[str]
+    topK: NotRequired[int]
+    metadataFilters: NotRequired[Sequence[MemoryMetadataFilterExpressionTypeDef]]
+
 DataSourceConfigUnionTypeDef = Union[DataSourceConfigTypeDef, DataSourceConfigOutputTypeDef]
+
+class FailureCategoryClusterTypeDef(TypedDict):
+    clusterId: int
+    name: str
+    description: str
+    affectedSessionCount: int
+    subCategories: list[FailureSubCategoryClusterTypeDef]
 
 class EvaluationMetadataTypeDef(TypedDict):
     sessionMetadata: NotRequired[Sequence[SessionMetadataShapeTypeDef]]
@@ -2244,6 +2729,8 @@ class InvokeHarnessRequestTypeDef(TypedDict):
     harnessArn: str
     runtimeSessionId: str
     messages: Sequence[HarnessMessageTypeDef]
+    qualifier: NotRequired[str]
+    runtimeUserId: NotRequired[str]
     model: NotRequired[HarnessModelConfigurationTypeDef]
     systemPrompt: NotRequired[Sequence[HarnessSystemContentBlockTypeDef]]
     tools: NotRequired[Sequence[HarnessToolTypeDef]]
@@ -2253,6 +2740,21 @@ class InvokeHarnessRequestTypeDef(TypedDict):
     maxTokens: NotRequired[int]
     timeoutSeconds: NotRequired[int]
     actorId: NotRequired[str]
+
+class PaymentInstrumentTypeDef(TypedDict):
+    paymentInstrumentId: str
+    paymentManagerArn: str
+    paymentConnectorId: str
+    userId: str
+    paymentInstrumentType: Literal["EMBEDDED_CRYPTO_WALLET"]
+    paymentInstrumentDetails: PaymentInstrumentDetailsOutputTypeDef
+    createdAt: datetime
+    status: PaymentInstrumentStatusType
+    updatedAt: datetime
+
+PaymentInstrumentDetailsUnionTypeDef = Union[
+    PaymentInstrumentDetailsTypeDef, PaymentInstrumentDetailsOutputTypeDef
+]
 
 class StartBrowserSessionRequestTypeDef(TypedDict):
     browserIdentifier: str
@@ -2278,13 +2780,51 @@ class RecommendationConfigTypeDef(TypedDict):
     systemPromptRecommendationConfig: NotRequired[SystemPromptRecommendationConfigTypeDef]
     toolDescriptionRecommendationConfig: NotRequired[ToolDescriptionRecommendationConfigTypeDef]
 
+class RetrieveMemoryRecordsInputPaginateTypeDef(TypedDict):
+    memoryId: str
+    searchCriteria: SearchCriteriaTypeDef
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class RetrieveMemoryRecordsInputTypeDef(TypedDict):
+    memoryId: str
+    searchCriteria: SearchCriteriaTypeDef
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class FailureAnalysisResultContentTypeDef(TypedDict):
+    failures: list[FailureCategoryClusterTypeDef]
+
 class StartBatchEvaluationRequestTypeDef(TypedDict):
     batchEvaluationName: str
     dataSourceConfig: DataSourceConfigUnionTypeDef
     evaluators: NotRequired[Sequence[EvaluatorTypeDef]]
+    insights: NotRequired[Sequence[InsightTypeDef]]
     clientToken: NotRequired[str]
     evaluationMetadata: NotRequired[EvaluationMetadataTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+    kmsKeyArn: NotRequired[str]
     description: NotRequired[str]
+
+class CreatePaymentInstrumentResponseTypeDef(TypedDict):
+    paymentInstrument: PaymentInstrumentTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetPaymentInstrumentResponseTypeDef(TypedDict):
+    paymentInstrument: PaymentInstrumentTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreatePaymentInstrumentRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentConnectorId: str
+    paymentInstrumentType: Literal["EMBEDDED_CRYPTO_WALLET"]
+    paymentInstrumentDetails: PaymentInstrumentDetailsUnionTypeDef
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
+    clientToken: NotRequired[str]
 
 GetRecommendationResponseTypeDef = TypedDict(
     "GetRecommendationResponseTypeDef",
@@ -2299,6 +2839,7 @@ GetRecommendationResponseTypeDef = TypedDict(
         "createdAt": datetime,
         "updatedAt": datetime,
         "recommendationResult": RecommendationResultTypeDef,
+        "kmsKeyArn": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2320,6 +2861,27 @@ StartRecommendationResponseTypeDef = TypedDict(
 RecommendationConfigUnionTypeDef = Union[
     RecommendationConfigTypeDef, RecommendationConfigOutputTypeDef
 ]
+
+class GetBatchEvaluationResponseTypeDef(TypedDict):
+    batchEvaluationId: str
+    batchEvaluationArn: str
+    batchEvaluationName: str
+    status: BatchEvaluationStatusType
+    createdAt: datetime
+    evaluators: list[EvaluatorTypeDef]
+    insights: list[InsightTypeDef]
+    dataSourceConfig: DataSourceConfigOutputTypeDef
+    outputConfig: OutputConfigTypeDef
+    evaluationResults: EvaluationJobResultsTypeDef
+    failureAnalysisResult: FailureAnalysisResultContentTypeDef
+    userIntentResult: UserIntentClusteringResultContentTypeDef
+    executionSummaryResult: ExecutionSummaryClusteringResultContentTypeDef
+    errorDetails: list[str]
+    description: str
+    updatedAt: datetime
+    kmsKeyArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 StartRecommendationRequestTypeDef = TypedDict(
     "StartRecommendationRequestTypeDef",
     {
@@ -2327,6 +2889,8 @@ StartRecommendationRequestTypeDef = TypedDict(
         "type": RecommendationTypeType,
         "recommendationConfig": RecommendationConfigUnionTypeDef,
         "description": NotRequired[str],
+        "kmsKeyArn": NotRequired[str],
         "clientToken": NotRequired[str],
+        "tags": NotRequired[Mapping[str, str]],
     },
 )

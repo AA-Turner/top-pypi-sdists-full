@@ -203,3 +203,71 @@ def test_iset_index_method():
         if i % 3:
             index = indexed_list.index(i)
             assert i == indexed_list.pop(index)
+
+
+def test_iset_slice_after_removal():
+    # PR #423: slice bounds were mapped into item_list space while islice
+    # consumed the apparent (dead-slot-free) stream, so any removal made
+    # slices over-count.
+    x = IndexedSet(range(10))
+    x.pop(2)  # leaves [0, 1, 3, 4, 5, 6, 7, 8, 9] with a dead slot
+    assert list(x[1:4]) == [1, 3, 4]
+    assert list(x[-3:]) == [7, 8, 9]
+    assert list(x[2:-1]) == [3, 4, 5, 6, 7, 8]
+    assert isinstance(x[1:4], IndexedSet)
+
+
+def test_iset_slice_agreement():
+    # Slicing must not depend on dead slots: a set with removals must slice
+    # identically to a freshly-built set with the same contents (all steps,
+    # including the reversed-window negative-step semantics), and positive
+    # steps must match list slicing exactly.
+    bounds = (None, -12, -9, -5, -1, 0, 1, 4, 8, 9, 12)
+    steps = (None, 1, 2, 3, -1, -2, -3)
+    for pops in ([], [2], [0, 1, 2], [7, 8, 9], [0, 3, 6, 9], [1, 2, 5, 6]):
+        iset = IndexedSet(range(10))
+        for p in pops:
+            iset.discard(p)
+        fresh = IndexedSet(iset)  # same contents, no dead slots
+        ref = list(iset)
+        for start in bounds:
+            for stop in bounds:
+                for step in steps:
+                    s = slice(start, stop, step)
+                    assert list(iset[s]) == list(fresh[s]), (pops, s)
+                    if step is None or step > 0:
+                        assert list(iset[s]) == ref[s], (pops, s)
+
+
+def test_iset_scalar_index_bounds():
+    # Out-of-range negatives used to wrap silently: __getitem__ normalized
+    # the index and _get_real_index normalized it AGAIN, so x[-10] on a
+    # 9-element set returned x[-1], and pop(-15) removed a middle element.
+    x = IndexedSet(range(10))
+    x.pop(2)  # len 9, one dead slot
+    assert x[-1] == 9
+    assert x[-9] == 0
+    with raises(IndexError):
+        x[9]
+    with raises(IndexError):
+        x[-10]
+    with raises(IndexError):
+        x.pop(-15)
+    assert 4 in x  # pop(-15) formerly silently removed 4
+    with raises(IndexError):
+        IndexedSet()[0]
+
+
+def test_iset_scalar_index_multiple_dead_intervals():
+    # exercise the _get_real_index interval walk across several dead ranges
+    iset = IndexedSet(range(100))
+    for p in (5, 20, 40, 60, 80):
+        iset.discard(p)
+    assert len(iset.dead_indices) == 5  # below compaction threshold (100/8)
+    ref = list(iset)
+    for i in list(range(-95, 95, 7)) + [0, -1, 94, -95]:
+        assert iset[i] == ref[i]
+    with raises(IndexError):
+        iset[95]
+    with raises(IndexError):
+        iset[-96]

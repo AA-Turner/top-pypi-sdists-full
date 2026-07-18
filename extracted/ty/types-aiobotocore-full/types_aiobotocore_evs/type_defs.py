@@ -25,6 +25,7 @@ from .literals import (
     CheckResultType,
     CheckTypeType,
     ConnectorStateType,
+    ConnectorTypeType,
     EntitlementStatusType,
     EnvironmentStateType,
     HostStateType,
@@ -70,6 +71,8 @@ __all__ = (
     "EnvironmentSummaryTypeDef",
     "EnvironmentTypeDef",
     "ErrorDetailTypeDef",
+    "GetDepotUrlRequestTypeDef",
+    "GetDepotUrlResponseTypeDef",
     "GetEnvironmentRequestTypeDef",
     "GetEnvironmentResponseTypeDef",
     "GetVersionsResponseTypeDef",
@@ -133,6 +136,7 @@ CheckTypeDef = TypedDict(
     "CheckTypeDef",
     {
         "type": NotRequired[CheckTypeType],
+        "id": NotRequired[str],
         "result": NotRequired[CheckResultType],
         "impairedSince": NotRequired[datetime],
     },
@@ -170,7 +174,7 @@ CreateEnvironmentConnectorRequestTypeDef = TypedDict(
     "CreateEnvironmentConnectorRequestTypeDef",
     {
         "environmentId": str,
-        "type": Literal["VCENTER"],
+        "type": ConnectorTypeType,
         "applianceFqdn": str,
         "secretIdentifier": str,
         "clientToken": NotRequired[str],
@@ -265,6 +269,11 @@ class ErrorDetailTypeDef(TypedDict):
     errorMessage: str
 
 
+class GetDepotUrlRequestTypeDef(TypedDict):
+    environmentId: str
+    rotate: NotRequired[bool]
+
+
 class GetEnvironmentRequestTypeDef(TypedDict):
     environmentId: str
 
@@ -353,6 +362,12 @@ class UpdateEnvironmentConnectorRequestTypeDef(TypedDict):
     secretIdentifier: NotRequired[str]
 
 
+class GetDepotUrlResponseTypeDef(TypedDict):
+    depotUrl: str
+    token: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -364,7 +379,7 @@ ConnectorTypeDef = TypedDict(
     {
         "environmentId": NotRequired[str],
         "connectorId": NotRequired[str],
-        "type": NotRequired[Literal["VCENTER"]],
+        "type": NotRequired[ConnectorTypeType],
         "applianceFqdn": NotRequired[str],
         "secretArn": NotRequired[str],
         "state": NotRequired[ConnectorStateType],
@@ -605,14 +620,14 @@ class CreateEnvironmentRequestTypeDef(TypedDict):
     serviceAccessSubnetId: str
     vcfVersion: VcfVersionType
     termsAccepted: bool
-    licenseInfo: Sequence[LicenseInfoTypeDef]
     initialVlans: InitialVlansTypeDef
-    hosts: Sequence[HostInfoForCreateTypeDef]
-    connectivityInfo: ConnectivityInfoUnionTypeDef
-    vcfHostnames: VcfHostnamesTypeDef
-    siteId: str
     clientToken: NotRequired[str]
     environmentName: NotRequired[str]
     kmsKeyId: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
     serviceAccessSecurityGroups: NotRequired[ServiceAccessSecurityGroupsUnionTypeDef]
+    connectivityInfo: NotRequired[ConnectivityInfoUnionTypeDef]
+    licenseInfo: NotRequired[Sequence[LicenseInfoTypeDef]]
+    hosts: NotRequired[Sequence[HostInfoForCreateTypeDef]]
+    vcfHostnames: NotRequired[VcfHostnamesTypeDef]
+    siteId: NotRequired[str]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray-spatial
-Version: 0.10.16
+Version: 0.10.17
 Summary: xarray-based spatial analysis tools
 Home-page: https://github.com/xarray-contrib/xarray-spatial
 Author: Xarray-Spatial Developers
@@ -36,7 +36,9 @@ Requires-Dist: sphinx; extra == "doc"
 Requires-Dist: sphinx-panels; extra == "doc"
 Requires-Dist: sphinx_rtd_theme; extra == "doc"
 Provides-Extra: examples
-Requires-Dist: datashader>=0.15.0; extra == "examples"
+Requires-Dist: matplotlib; extra == "examples"
+Requires-Dist: geopandas; extra == "examples"
+Requires-Dist: shapely; extra == "examples"
 Provides-Extra: plot
 Requires-Dist: matplotlib; extra == "plot"
 Provides-Extra: vector

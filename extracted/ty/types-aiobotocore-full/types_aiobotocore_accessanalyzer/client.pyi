@@ -56,8 +56,11 @@ from .type_defs import (
     CreateAnalyzerRequestTypeDef,
     CreateAnalyzerResponseTypeDef,
     CreateArchiveRuleRequestTypeDef,
+    CreateServiceLinkedAnalyzerRequestTypeDef,
+    CreateServiceLinkedAnalyzerResponseTypeDef,
     DeleteAnalyzerRequestTypeDef,
     DeleteArchiveRuleRequestTypeDef,
+    DeleteServiceLinkedAnalyzerRequestTypeDef,
     EmptyResponseMetadataTypeDef,
     GenerateFindingRecommendationRequestTypeDef,
     GetAccessPreviewRequestTypeDef,
@@ -247,6 +250,16 @@ class AccessAnalyzerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_accessanalyzer/client/#create_archive_rule)
         """
 
+    async def create_service_linked_analyzer(
+        self, **kwargs: Unpack[CreateServiceLinkedAnalyzerRequestTypeDef]
+    ) -> CreateServiceLinkedAnalyzerResponseTypeDef:
+        """
+        Creates a service-linked analyzer managed by an Amazon Web Services service.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/create_service_linked_analyzer.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_accessanalyzer/client/#create_service_linked_analyzer)
+        """
+
     async def delete_analyzer(
         self, **kwargs: Unpack[DeleteAnalyzerRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -265,6 +278,16 @@ class AccessAnalyzerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/delete_archive_rule.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_accessanalyzer/client/#delete_archive_rule)
+        """
+
+    async def delete_service_linked_analyzer(
+        self, **kwargs: Unpack[DeleteServiceLinkedAnalyzerRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a service-linked analyzer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/delete_service_linked_analyzer.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_accessanalyzer/client/#delete_service_linked_analyzer)
         """
 
     async def generate_finding_recommendation(

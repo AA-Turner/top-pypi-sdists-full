@@ -57,6 +57,8 @@ from .type_defs import (
     DeleteEnvironmentResponseTypeDef,
     DisassociateEipFromVlanRequestTypeDef,
     DisassociateEipFromVlanResponseTypeDef,
+    GetDepotUrlRequestTypeDef,
+    GetDepotUrlResponseTypeDef,
     GetEnvironmentRequestTypeDef,
     GetEnvironmentResponseTypeDef,
     GetVersionsResponseTypeDef,
@@ -234,6 +236,17 @@ class EVSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/disassociate_eip_from_vlan.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/client/#disassociate_eip_from_vlan)
+        """
+
+    async def get_depot_url(
+        self, **kwargs: Unpack[GetDepotUrlRequestTypeDef]
+    ) -> GetDepotUrlResponseTypeDef:
+        """
+        Returns a URL and authentication token for accessing the Amazon EVS Custom
+        Addon depot.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/get_depot_url.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/client/#get_depot_url)
         """
 
     async def get_environment(

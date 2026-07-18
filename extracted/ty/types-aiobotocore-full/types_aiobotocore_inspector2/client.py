@@ -37,6 +37,8 @@ from .paginator import (
     ListCisScanResultsAggregatedByChecksPaginator,
     ListCisScanResultsAggregatedByTargetResourcePaginator,
     ListCisScansPaginator,
+    ListConnectorScanConfigurationsPaginator,
+    ListConnectorsPaginator,
     ListCoveragePaginator,
     ListCoverageStatisticsPaginator,
     ListDelegatedAdminAccountsPaginator,
@@ -76,6 +78,8 @@ from .type_defs import (
     CreateCodeSecurityIntegrationResponseTypeDef,
     CreateCodeSecurityScanConfigurationRequestTypeDef,
     CreateCodeSecurityScanConfigurationResponseTypeDef,
+    CreateConnectorRequestTypeDef,
+    CreateConnectorResponseTypeDef,
     CreateFilterRequestTypeDef,
     CreateFilterResponseTypeDef,
     CreateFindingsReportRequestTypeDef,
@@ -88,6 +92,7 @@ from .type_defs import (
     DeleteCodeSecurityIntegrationResponseTypeDef,
     DeleteCodeSecurityScanConfigurationRequestTypeDef,
     DeleteCodeSecurityScanConfigurationResponseTypeDef,
+    DeleteConnectorRequestTypeDef,
     DeleteFilterRequestTypeDef,
     DeleteFilterResponseTypeDef,
     DescribeOrganizationConfigurationResponseTypeDef,
@@ -113,6 +118,7 @@ from .type_defs import (
     GetCodeSecurityScanConfigurationResponseTypeDef,
     GetCodeSecurityScanRequestTypeDef,
     GetCodeSecurityScanResponseTypeDef,
+    GetConfigurationRequestTypeDef,
     GetConfigurationResponseTypeDef,
     GetDelegatedAdminAccountResponseTypeDef,
     GetEc2DeepInspectionConfigurationResponseTypeDef,
@@ -140,6 +146,10 @@ from .type_defs import (
     ListCodeSecurityScanConfigurationAssociationsResponseTypeDef,
     ListCodeSecurityScanConfigurationsRequestTypeDef,
     ListCodeSecurityScanConfigurationsResponseTypeDef,
+    ListConnectorScanConfigurationsRequestTypeDef,
+    ListConnectorScanConfigurationsResponseTypeDef,
+    ListConnectorsRequestTypeDef,
+    ListConnectorsResponseTypeDef,
     ListCoverageRequestTypeDef,
     ListCoverageResponseTypeDef,
     ListCoverageStatisticsRequestTypeDef,
@@ -176,6 +186,9 @@ from .type_defs import (
     UpdateCodeSecurityScanConfigurationRequestTypeDef,
     UpdateCodeSecurityScanConfigurationResponseTypeDef,
     UpdateConfigurationRequestTypeDef,
+    UpdateConnectorRequestTypeDef,
+    UpdateConnectorResponseTypeDef,
+    UpdateConnectorScanConfigurationRequestTypeDef,
     UpdateEc2DeepInspectionConfigurationRequestTypeDef,
     UpdateEc2DeepInspectionConfigurationResponseTypeDef,
     UpdateEncryptionKeyRequestTypeDef,
@@ -185,6 +198,7 @@ from .type_defs import (
     UpdateOrganizationConfigurationResponseTypeDef,
     UpdateOrgEc2DeepInspectionConfigurationRequestTypeDef,
 )
+from .waiter import ConnectorConnectedWaiter, ConnectorDeletedWaiter, ConnectorEnabledWaiter
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
@@ -389,6 +403,17 @@ class Inspector2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#create_code_security_scan_configuration)
         """
 
+    async def create_connector(
+        self, **kwargs: Unpack[CreateConnectorRequestTypeDef]
+    ) -> CreateConnectorResponseTypeDef:
+        """
+        Creates a connector that links an external cloud provider to Amazon Inspector
+        for vulnerability scanning.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/create_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#create_connector)
+        """
+
     async def create_filter(
         self, **kwargs: Unpack[CreateFilterRequestTypeDef]
     ) -> CreateFilterResponseTypeDef:
@@ -447,6 +472,16 @@ class Inspector2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/delete_code_security_scan_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#delete_code_security_scan_configuration)
+        """
+
+    async def delete_connector(
+        self, **kwargs: Unpack[DeleteConnectorRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a connector from your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/delete_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#delete_connector)
         """
 
     async def delete_filter(
@@ -577,9 +612,11 @@ class Inspector2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#get_code_security_scan_configuration)
         """
 
-    async def get_configuration(self) -> GetConfigurationResponseTypeDef:
+    async def get_configuration(
+        self, **kwargs: Unpack[GetConfigurationRequestTypeDef]
+    ) -> GetConfigurationResponseTypeDef:
         """
-        Retrieves setting configurations for Inspector scans.
+        Retrieves setting configurations for Amazon Inspector scans.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#get_configuration)
@@ -724,6 +761,26 @@ class Inspector2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/list_code_security_scan_configurations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#list_code_security_scan_configurations)
+        """
+
+    async def list_connector_scan_configurations(
+        self, **kwargs: Unpack[ListConnectorScanConfigurationsRequestTypeDef]
+    ) -> ListConnectorScanConfigurationsResponseTypeDef:
+        """
+        Lists scan configurations for Amazon Web Services Config connectors.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/list_connector_scan_configurations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#list_connector_scan_configurations)
+        """
+
+    async def list_connectors(
+        self, **kwargs: Unpack[ListConnectorsRequestTypeDef]
+    ) -> ListConnectorsResponseTypeDef:
+        """
+        Lists connectors in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/list_connectors.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#list_connectors)
         """
 
     async def list_coverage(
@@ -938,10 +995,32 @@ class Inspector2Client(AioBaseClient):
         self, **kwargs: Unpack[UpdateConfigurationRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Updates setting configurations for your Amazon Inspector account.
+        Updates the scan configuration for your Amazon Inspector account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/update_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#update_configuration)
+        """
+
+    async def update_connector(
+        self, **kwargs: Unpack[UpdateConnectorRequestTypeDef]
+    ) -> UpdateConnectorResponseTypeDef:
+        """
+        Updates the description or provider-specific configuration details of an
+        existing connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/update_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#update_connector)
+        """
+
+    async def update_connector_scan_configuration(
+        self, **kwargs: Unpack[UpdateConnectorScanConfigurationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates scan configuration settings for resources associated with an Amazon Web
+        Services Config connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/update_connector_scan_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#update_connector_scan_configuration)
         """
 
     async def update_ec2_deep_inspection_configuration(
@@ -1075,6 +1154,28 @@ class Inspector2Client(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_connector_scan_configurations"]
+    ) -> ListConnectorScanConfigurationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_connectors"]
+    ) -> ListConnectorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_coverage"]
     ) -> ListCoveragePaginator:
         """
@@ -1170,6 +1271,39 @@ class Inspector2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_paginator.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["connector_connected"]
+    ) -> ConnectorConnectedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["connector_deleted"]
+    ) -> ConnectorDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["connector_enabled"]
+    ) -> ConnectorEnabledWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/client/#get_waiter)
         """
 
     async def __aenter__(self) -> Self:

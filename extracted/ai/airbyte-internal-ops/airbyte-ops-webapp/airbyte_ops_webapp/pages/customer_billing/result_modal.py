@@ -23,7 +23,11 @@ from airbyte_ops_webapp.pages.customer_billing._helpers import (
 from airbyte_ops_webapp.pages.customer_billing._mcp_tools import (
     lookup_organization,
 )
-from airbyte_ops_webapp.theme import BUTTON_INFO_CLASS
+from airbyte_ops_webapp.theme import (
+    BUTTON_INFO_CLASS,
+    AbFieldLabel,
+    AbFieldValue,
+)
 
 
 def render_result_modal() -> None:
@@ -73,7 +77,7 @@ def _render_success_content() -> None:
         with If(STATE.apply_result.tier_warning):
             Text(
                 content=STATE.apply_result.tier_warning,
-                style={"color": "#B42318", "fontWeight": "600", "fontSize": "0.875rem"},
+                css_class="text-[#B42318] font-semibold text-sm",
             )
 
 
@@ -83,21 +87,15 @@ def _render_error_content() -> None:
         Markdown("**Update Failed**")
         Text(
             content=STATE.apply_result.message,
-            style={"fontSize": "0.875rem"},
+            css_class="text-sm",
         )
 
 
 def _render_result_field(label: str, value: object) -> None:
     """Render a single label-value row in the modal."""
     with Grid(columns=2, gap=2):
-        Text(
-            label,
-            style={"fontSize": "0.875rem", "opacity": "0.7"},
-        )
-        Text(
-            content=value,
-            style={"fontSize": "0.875rem", "fontWeight": "500"},
-        )
+        AbFieldLabel(label)
+        AbFieldValue(content=value)
 
 
 def _render_done_button() -> None:

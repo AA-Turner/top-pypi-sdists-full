@@ -16,6 +16,7 @@ import contextvars
 import copy
 import dataclasses
 import json
+import operator
 import os
 import pprint
 import re
@@ -53,6 +54,7 @@ from blosc2.schema import (
     ObjectSpec,
     SchemaSpec,
     StructSpec,
+    Utf8Spec,
     VLBytesSpec,
     VLStringSpec,
     complex64,
@@ -87,6 +89,28 @@ from blosc2.schema_compiler import (
     schema_from_dict,
     schema_to_dict,
 )
+
+
+def _is_arrow_string_type(pa, pa_type) -> bool:
+    """True for any Arrow string-like type, including the view-based layout.
+
+    ``string_view`` (Arrow's variable-length view layout, e.g. Polars'
+    default export type for string columns via the PyCapsule interface) is
+    not one of ``string``/``large_string``/``utf8``/``large_utf8`` but is
+    handled identically everywhere those are.
+    """
+    if pa_type in (pa.string(), pa.large_string(), pa.utf8(), pa.large_utf8()):
+        return True
+    is_string_view = getattr(pa.types, "is_string_view", None)
+    return bool(is_string_view is not None and is_string_view(pa_type))
+
+
+def _is_arrow_binary_type(pa, pa_type) -> bool:
+    """True for any Arrow binary-like type, including the view-based layout."""
+    if pa.types.is_binary(pa_type) or pa.types.is_large_binary(pa_type):
+        return True
+    is_binary_view = getattr(pa.types, "is_binary_view", None)
+    return bool(is_binary_view is not None and is_binary_view(pa_type))
 
 
 @dataclass(frozen=True)
@@ -163,9 +187,9 @@ class NullPolicy:
             return self.float_value
         if pa_type == pa.bool_():
             return self.bool_value
-        if pa_type in (pa.string(), pa.large_string(), pa.utf8(), pa.large_utf8()):
+        if _is_arrow_string_type(pa, pa_type):
             return self.string_value
-        if pa.types.is_binary(pa_type) or pa.types.is_large_binary(pa_type):
+        if _is_arrow_binary_type(pa, pa_type):
             return self.bytes_value
         if pa.types.is_timestamp(pa_type):
             return self.timestamp_value
@@ -804,6 +828,208 @@ class RowTransformer:
         return self.evaluate_batch({self.source: table[self.source][:]})
 
 
+class NullableExpr:
+    """Lazy result of arithmetic involving nullable columns.
+
+    Arithmetic on nullable int/timestamp columns promotes to float64 with
+    NaN marking the null rows (nullable float columns already use NaN), so
+    NaN is the single null representation for every derived expression.  This wrapper carries that fact plus the
+    owning table, so reductions (``sum``/``mean``/``min``/``max``/``std``)
+    skip nulls and dead physical rows exactly like the corresponding
+    :class:`Column` reductions — instead of NaN-poisoning the way a plain
+    :class:`blosc2.LazyExpr` reduction would.
+
+    Everything else (``compute()``, slicing, use as an operand) behaves like
+    the wrapped expression; further arithmetic keeps the wrapper, since NaN
+    propagates through it.
+
+    ``null_pred`` is the boolean lazy predicate (over the raw physical
+    columns) marking the null rows. It is carried along instead of being
+    re-derived as ``isnan(expr)`` because applying further lazy operations
+    on top of a ``where()``-carrying expression is unreliable, and because
+    it keeps nulls distinct from NaNs the arithmetic itself may produce
+    (e.g. ``0/0``): those are values, not nulls, and are not skipped.
+    """
+
+    def __init__(self, expr, table, null_pred):
+        self._expr = expr
+        self._table = table
+        self._null_pred = null_pred
+
+    def __getattr__(self, name):
+        return getattr(self._expr, name)
+
+    def __getitem__(self, key):
+        return self._expr[key]
+
+    def __repr__(self):
+        return f"NullableExpr({self._expr!r})"
+
+    def compute(self, **kwargs):
+        return self._expr.compute(**kwargs)
+
+    # ---- chaining: arithmetic keeps the NaN-null channel ----
+
+    def _wrap(self, expr, other=None):
+        pred = self._null_pred
+        if isinstance(other, NullableExpr):
+            pred = pred | other._null_pred
+        return NullableExpr(expr, self._table, pred)
+
+    @staticmethod
+    def _operand(other):
+        return other._expr if isinstance(other, NullableExpr) else other
+
+    @staticmethod
+    def _defer(other) -> bool:
+        # Column operands re-enter through Column.__r<op>__, which applies
+        # the column's own sentinel-null rewrite (operating on its raw
+        # storage here would leak sentinel values into the result).
+        return isinstance(other, Column)
+
+    def __add__(self, other):
+        if self._defer(other):
+            return NotImplemented
+        return self._wrap(self._expr + self._operand(other), other)
+
+    def __radd__(self, other):
+        return self._wrap(other + self._expr)
+
+    def __sub__(self, other):
+        if self._defer(other):
+            return NotImplemented
+        return self._wrap(self._expr - self._operand(other), other)
+
+    def __rsub__(self, other):
+        return self._wrap(other - self._expr)
+
+    def __mul__(self, other):
+        if self._defer(other):
+            return NotImplemented
+        return self._wrap(self._expr * self._operand(other), other)
+
+    def __rmul__(self, other):
+        return self._wrap(other * self._expr)
+
+    def __truediv__(self, other):
+        if self._defer(other):
+            return NotImplemented
+        return self._wrap(self._expr / self._operand(other), other)
+
+    def __rtruediv__(self, other):
+        return self._wrap(other / self._expr)
+
+    def __floordiv__(self, other):
+        if self._defer(other):
+            return NotImplemented
+        return self._wrap(self._expr // self._operand(other), other)
+
+    def __rfloordiv__(self, other):
+        return self._wrap(other // self._expr)
+
+    def __mod__(self, other):
+        if self._defer(other):
+            return NotImplemented
+        return self._wrap(self._expr % self._operand(other), other)
+
+    def __rmod__(self, other):
+        return self._wrap(other % self._expr)
+
+    def __pow__(self, other):
+        if self._defer(other):
+            return NotImplemented
+        # nan ** 0 == 1.0 would silently resurrect a null as a real value.
+        pred = self._null_pred
+        if isinstance(other, NullableExpr):
+            pred = pred | other._null_pred
+        return self._wrap(blosc2.where(pred, np.nan, self._expr ** self._operand(other)), other)
+
+    def __rpow__(self, other):
+        # 1 ** nan == 1.0, same hazard as __pow__.
+        return self._wrap(blosc2.where(self._null_pred, np.nan, other**self._expr))
+
+    def __neg__(self):
+        return self._wrap(-self._expr)
+
+    # ---- comparisons: IEEE NaN already gives SQL False, except for != ----
+
+    def __lt__(self, other):
+        return NotImplemented if self._defer(other) else self._expr < self._operand(other)
+
+    def __le__(self, other):
+        return NotImplemented if self._defer(other) else self._expr <= self._operand(other)
+
+    def __gt__(self, other):
+        return NotImplemented if self._defer(other) else self._expr > self._operand(other)
+
+    def __ge__(self, other):
+        return NotImplemented if self._defer(other) else self._expr >= self._operand(other)
+
+    def __eq__(self, other):
+        return NotImplemented if self._defer(other) else self._expr == self._operand(other)
+
+    def __ne__(self, other):
+        # IEEE says nan != x is True; SQL null semantics say a null satisfies
+        # no comparison. Guard both sides (Column and NullableExpr operands
+        # carry their own null predicates).
+        result = (self._expr != Column._unwrap_operand(other)) & ~self._null_pred
+        other_pred = None
+        if isinstance(other, Column):
+            other_pred = other._raw_null_pred()
+        elif isinstance(other, NullableExpr):
+            other_pred = other._null_pred
+        if other_pred is not None:
+            result = result & ~other_pred
+        return result
+
+    # ---- reductions: skip nulls and dead physical rows ----
+
+    def _reduction_mask(self, where=None):
+        """Live, non-null rows in physical coordinates — the same recipe as
+        ``Column._lazy_nonnull_mask``, with the carried null predicate in
+        place of the per-column sentinel check."""
+        t = self._table
+        n_rows = t._known_n_rows()
+        mask = None if (n_rows is not None and n_rows == len(t._valid_rows)) else t._valid_rows
+        if where is not None:
+            mask = where if mask is None else mask & where
+        nonnull = ~self._null_pred
+        return nonnull if mask is None else mask & nonnull
+
+    def sum(self, dtype=None, *, where=None):
+        """Sum of live, non-null values; zero when every value is null."""
+        return float(self._expr.sum(where=self._reduction_mask(where), dtype=dtype or np.float64))
+
+    def mean(self, *, where=None):
+        """Mean of live, non-null values; NaN when every value is null."""
+        try:
+            return float(self._expr.mean(where=self._reduction_mask(where), dtype=np.float64))
+        except ValueError:
+            return float("nan")
+
+    def std(self, ddof: int = 0, *, where=None):
+        """Standard deviation of live, non-null values; NaN when every value is null."""
+        try:
+            return float(self._expr.std(where=self._reduction_mask(where), dtype=np.float64, ddof=ddof))
+        except ValueError:
+            return float("nan")
+
+    def _minmax(self, op: str, where):
+        mask = self._reduction_mask(where)
+        count = int(mask.where(blosc2.ones(self._expr.shape, dtype=np.int64), 0).sum(dtype=np.int64))
+        if count == 0:
+            raise ValueError(f"{op}() called on an expression where all values are null.")
+        return getattr(self._expr, op)(where=mask)
+
+    def min(self, *, where=None):
+        """Minimum of live, non-null values; raises ``ValueError`` if all are null."""
+        return self._minmax("min", where)
+
+    def max(self, *, where=None):
+        """Maximum of live, non-null values; raises ``ValueError`` if all are null."""
+        return self._minmax("max", where)
+
+
 class Column:
     """Column view for a :class:`CTable`, with vectorized operations and reductions."""
 
@@ -863,7 +1089,15 @@ class Column:
     def is_varlen_scalar(self) -> bool:
         """True if this column holds variable-length scalar strings or bytes."""
         col = self._table._schema.columns_by_name.get(self._col_name)
-        return col is not None and isinstance(col.spec, (VLStringSpec, VLBytesSpec, StructSpec, ObjectSpec))
+        return col is not None and isinstance(
+            col.spec, (VLStringSpec, VLBytesSpec, StructSpec, ObjectSpec, Utf8Spec)
+        )
+
+    @property
+    def is_utf8(self) -> bool:
+        """True if this column stores variable-length UTF-8 strings (offsets + bytes)."""
+        col = self._table._schema.columns_by_name.get(self._col_name)
+        return col is not None and isinstance(col.spec, Utf8Spec)
 
     @property
     def is_dictionary(self) -> bool:
@@ -992,9 +1226,16 @@ class Column:
             # underlying NDArray, skipping the O(nrows) live-position scan and
             # letting NDArray's strided-gather fast path handle coarse steps.
             # Plain stored columns only; everything else falls through to the
-            # position-gather path below.
+            # position-gather path below.  utf8 is a varlen-scalar kind but
+            # Utf8Array slices itself efficiently (offsets+bytes span read),
+            # so it takes the fast path too instead of the index-gather one.
             if (
-                not (self.is_computed or self.is_list or self.is_varlen_scalar or self.is_dictionary)
+                not (
+                    self.is_computed
+                    or self.is_list
+                    or self.is_dictionary
+                    or (self.is_varlen_scalar and not self.is_utf8)
+                )
                 and self._has_identity_positions()
             ):
                 return self._maybe_decode_timestamp_values(np.asarray(self._raw_col[key]))
@@ -1003,6 +1244,8 @@ class Column:
             # slice semantics (including negative steps) follow NumPy.
             selected_pos = real_pos[key]
             if selected_pos.size == 0:
+                if self.is_utf8:
+                    return self._raw_col[selected_pos]
                 if self.is_list or self.is_varlen_scalar or self.is_dictionary:
                     return []
                 if self.is_ndarray:
@@ -1121,9 +1364,19 @@ class Column:
         return table_view.take(indices)[self._col_name]
 
     def __setitem__(self, key: int | slice | list | np.ndarray, value):  # noqa: C901
-        """Set one or more live column values; accepts the same index forms as :meth:`__getitem__`."""
+        """Set one or more live column values; accepts the same index forms as :meth:`__getitem__`.
+
+        Raises ``ValueError`` if the table is read-only or is a view; use
+        :meth:`CTable.take` or :meth:`CTable.copy` to get an independent,
+        writable table first.
+        """
         if self._table._read_only:
             raise ValueError("Table is read-only (opened with mode='r').")
+        if self._table.base is not None:
+            raise ValueError(
+                "Cannot assign values through a view. Use .take(indices) or .copy() "
+                "to get an independent, writable table first."
+            )
         if self.is_computed:
             raise ValueError(f"Column {self._col_name!r} is a computed column and cannot be written to.")
         # In-place column mutation invalidates any incremental summary accumulator
@@ -1502,6 +1755,12 @@ class Column:
 
     def _ensure_queryable(self) -> None:
         self._ensure_not_stale()
+        if self.is_utf8:
+            raise NotImplementedError(
+                f"Column {self._col_name!r} is a variable-length utf8 column; "
+                "only comparisons (==, !=, <, <=, >, >=) are supported, not arithmetic "
+                "or bitwise operations."
+            )
         if self.is_varlen_scalar:
             raise NotImplementedError(
                 f"Column {self._col_name!r} is a vlstring/vlbytes column; "
@@ -1530,6 +1789,8 @@ class Column:
         if isinstance(other, Column):
             other._ensure_queryable()
             return other._raw_col
+        if isinstance(other, NullableExpr):
+            return other._expr
         return other
 
     @property
@@ -1571,6 +1832,66 @@ class Column:
             return other.astype(f"datetime64[{spec.unit}]").astype(np.int64)
         return other
 
+    def _raw_null_pred(self):
+        """Boolean lazy predicate over the raw physical array, True where the
+        value is this column's null sentinel.
+
+        Returns ``None`` when there is nothing to propagate: no ``null_value``
+        configured, or a fixed-shape ndarray column (whose per-item sentinel
+        mask does not align 1:1 with the row-level predicates built here;
+        see ``Column.is_null()`` for those instead). Dictionary and
+        variable-length scalar columns never reach here because
+        ``_ensure_queryable`` already rejects them for arithmetic/comparisons.
+        """
+        if self.is_ndarray:
+            return None
+        nv = self.null_value
+        if nv is None:
+            return None
+        if isinstance(nv, (float, np.floating)) and np.isnan(nv):
+            return blosc2.isnan(self._raw_col)
+        return self._raw_col == nv
+
+    def _combined_null_pred(self, other):
+        """OR of self's and other's raw null predicates; ``None`` if neither
+        operand is nullable (the zero-overhead case)."""
+        self_pred = self._raw_null_pred()
+        if isinstance(other, Column):
+            other_pred = other._raw_null_pred()
+        elif isinstance(other, NullableExpr):
+            other_pred = other._null_pred
+        else:
+            other_pred = None
+        if self_pred is None:
+            return other_pred
+        if other_pred is None:
+            return self_pred
+        return self_pred | other_pred
+
+    def _null_aware_arith(self, other, raw_result):
+        """Sentinel-based null propagation for arithmetic: rows where any
+        nullable operand is null
+        become NaN in the result, promoting integer/timestamp results to
+        float64 the same way pandas' legacy int-null arithmetic does. The
+        result is a :class:`NullableExpr`, so reductions on it skip nulls
+        like the corresponding Column reductions. Costs nothing when neither
+        operand is nullable — *raw_result* is returned unchanged.
+        """
+        null_pred = self._combined_null_pred(other)
+        if null_pred is None:
+            return raw_result
+        return NullableExpr(blosc2.where(null_pred, np.nan, raw_result), self._table, null_pred)
+
+    def _null_aware_compare(self, other, raw_result):
+        """SQL ``WHERE`` semantics for comparisons: a null
+        operand never satisfies any comparison, so null rows are forced to
+        False. Costs nothing when neither operand is nullable.
+        """
+        null_pred = self._combined_null_pred(other)
+        if null_pred is None:
+            return raw_result
+        return raw_result & ~null_pred
+
     def __neg__(self):
         self._ensure_queryable()
         return -self._raw_col
@@ -1585,59 +1906,59 @@ class Column:
 
     def __add__(self, other):
         self._ensure_queryable()
-        return self._raw_col + self._unwrap_operand(other)
+        return self._null_aware_arith(other, self._raw_col + self._unwrap_operand(other))
 
     def __radd__(self, other):
         self._ensure_queryable()
-        return self._unwrap_operand(other) + self._raw_col
+        return self._null_aware_arith(other, self._unwrap_operand(other) + self._raw_col)
 
     def __sub__(self, other):
         self._ensure_queryable()
-        return self._raw_col - self._unwrap_operand(other)
+        return self._null_aware_arith(other, self._raw_col - self._unwrap_operand(other))
 
     def __rsub__(self, other):
         self._ensure_queryable()
-        return self._unwrap_operand(other) - self._raw_col
+        return self._null_aware_arith(other, self._unwrap_operand(other) - self._raw_col)
 
     def __mul__(self, other):
         self._ensure_queryable()
-        return self._raw_col * self._unwrap_operand(other)
+        return self._null_aware_arith(other, self._raw_col * self._unwrap_operand(other))
 
     def __rmul__(self, other):
         self._ensure_queryable()
-        return self._unwrap_operand(other) * self._raw_col
+        return self._null_aware_arith(other, self._unwrap_operand(other) * self._raw_col)
 
     def __truediv__(self, other):
         self._ensure_queryable()
-        return self._raw_col / self._unwrap_operand(other)
+        return self._null_aware_arith(other, self._raw_col / self._unwrap_operand(other))
 
     def __rtruediv__(self, other):
         self._ensure_queryable()
-        return self._unwrap_operand(other) / self._raw_col
+        return self._null_aware_arith(other, self._unwrap_operand(other) / self._raw_col)
 
     def __floordiv__(self, other):
         self._ensure_queryable()
-        return self._raw_col // self._unwrap_operand(other)
+        return self._null_aware_arith(other, self._raw_col // self._unwrap_operand(other))
 
     def __rfloordiv__(self, other):
         self._ensure_queryable()
-        return self._unwrap_operand(other) // self._raw_col
+        return self._null_aware_arith(other, self._unwrap_operand(other) // self._raw_col)
 
     def __mod__(self, other):
         self._ensure_queryable()
-        return self._raw_col % self._unwrap_operand(other)
+        return self._null_aware_arith(other, self._raw_col % self._unwrap_operand(other))
 
     def __rmod__(self, other):
         self._ensure_queryable()
-        return self._unwrap_operand(other) % self._raw_col
+        return self._null_aware_arith(other, self._unwrap_operand(other) % self._raw_col)
 
     def __pow__(self, other):
         self._ensure_queryable()
-        return self._raw_col ** self._unwrap_operand(other)
+        return self._null_aware_arith(other, self._raw_col ** self._unwrap_operand(other))
 
     def __rpow__(self, other):
         self._ensure_queryable()
-        return self._unwrap_operand(other) ** self._raw_col
+        return self._null_aware_arith(other, self._unwrap_operand(other) ** self._raw_col)
 
     def __and__(self, other):
         self._ensure_queryable()
@@ -1670,20 +1991,26 @@ class Column:
         return ~self._raw_col
 
     def __lt__(self, other):
+        if self.is_utf8:
+            return self._utf8_compare(np.less, other)
         self._ensure_comparable()
-        return self._raw_col < self._coerce_timestamp_operand(other)
+        return self._null_aware_compare(other, self._raw_col < self._coerce_timestamp_operand(other))
 
     def __le__(self, other):
+        if self.is_utf8:
+            return self._utf8_compare(np.less_equal, other)
         self._ensure_comparable()
-        return self._raw_col <= self._coerce_timestamp_operand(other)
+        return self._null_aware_compare(other, self._raw_col <= self._coerce_timestamp_operand(other))
 
     def __eq__(self, other):
         if self.is_dictionary:
             return self._dictionary_eq(other)
+        if self.is_utf8:
+            return self._utf8_compare(np.equal, other)
         self._ensure_comparable()
         if self._is_nullable_bool and isinstance(other, (bool, np.bool_)):
-            return self._raw_col == int(other)
-        return self._raw_col == self._coerce_timestamp_operand(other)
+            return self._null_aware_compare(other, self._raw_col == int(other))
+        return self._null_aware_compare(other, self._raw_col == self._coerce_timestamp_operand(other))
 
     def __ne__(self, other):
         if self.is_dictionary:
@@ -1691,10 +2018,127 @@ class Column:
             if isinstance(result, np.ndarray):
                 return ~result
             return ~np.asarray(result, dtype=bool)
+        if self.is_utf8:
+            return self._utf8_compare(np.not_equal, other)
         self._ensure_comparable()
         if self._is_nullable_bool and isinstance(other, (bool, np.bool_)):
-            return self._raw_col == int(not other)
-        return self._raw_col != self._coerce_timestamp_operand(other)
+            return self._null_aware_compare(other, self._raw_col == int(not other))
+        return self._null_aware_compare(other, self._raw_col != self._coerce_timestamp_operand(other))
+
+    def _utf8_chunked_bool(self, fn, *, chunk_size: int = 65536) -> np.ndarray:
+        """Apply ``fn(chunk, start, stop)`` over this utf8 column's logical rows.
+
+        *fn* returns a boolean array for each ``StringDType`` chunk read from
+        the underlying :class:`~blosc2.utf8_array.Utf8Array`.  Returns a
+        physical-length (``_valid_rows``-length) boolean NumPy array; rows
+        beyond the column's logical length are left ``False``.
+        """
+        arr = self._raw_col
+        n_phys = len(self._table._valid_rows)
+        n_logical = len(arr)
+        result = np.zeros(n_phys, dtype=np.bool_)
+        for start in range(0, n_logical, chunk_size):
+            stop = min(start + chunk_size, n_logical)
+            result[start:stop] = fn(arr[start:stop], start, stop)
+        return result
+
+    def _utf8_chunked_bytes(self, fn, *, chunk_size: int = 65536) -> np.ndarray:
+        """Apply ``fn(arr, start, stop)`` over this utf8 column's logical rows.
+
+        Like :meth:`_utf8_chunked_bool`, but *fn* operates directly on the
+        underlying :class:`~blosc2.utf8_array.Utf8Array` (raw offsets/bytes)
+        instead of a materialized ``StringDType`` chunk, so no per-row decode
+        happens.  Returns a physical-length boolean NumPy array; rows beyond
+        the column's logical length are left ``False``.
+        """
+        arr = self._raw_col
+        n_phys = len(self._table._valid_rows)
+        n_logical = len(arr)
+        result = np.zeros(n_phys, dtype=np.bool_)
+        for start in range(0, n_logical, chunk_size):
+            stop = min(start + chunk_size, n_logical)
+            result[start:stop] = fn(arr, start, stop)
+        return result
+
+    def _utf8_compare(self, numpy_op, other):
+        """Comparison predicate for a utf8 column.
+
+        Compares against a Python ``str`` scalar or another utf8
+        :class:`Column` (element-wise).  Returns a physical-length boolean
+        ``blosc2.NDArray``, already intersected with this column's live-row
+        mask.  A null value on either side never satisfies any comparison
+        (SQL ``WHERE`` semantics), matching :meth:`_null_aware_compare` for
+        every other column kind.
+        """
+        if isinstance(other, Column):
+            if not other.is_utf8:
+                raise TypeError(
+                    f"Column {self._col_name!r} is a utf8 column; it can only be compared with a "
+                    f"str or another utf8 Column, got Column {other._col_name!r}."
+                )
+            return self._utf8_compare_column(numpy_op, other)
+        if isinstance(other, str):
+            return self._utf8_compare_scalar(numpy_op, other)
+        raise TypeError(
+            f"Column {self._col_name!r} is a utf8 column; it can only be compared with a str "
+            f"or another utf8 Column, got {type(other).__name__!r}."
+        )
+
+    def _utf8_compare_column(self, numpy_op, other: Column):
+        """Column-vs-Column comparison, evaluated chunk by chunk on decoded
+        ``StringDType`` values since numexpr/miniexpr cannot operate on them.
+        """
+        other_arr = other._raw_col
+        nv = self.null_value
+        other_nv = other.null_value
+
+        def fn(chunk, start, stop):
+            rhs = other_arr[start:stop]
+            res = numpy_op(chunk, rhs)
+            if nv is not None:
+                res &= chunk != nv
+            if other_nv is not None:
+                res &= rhs != other_nv
+            return res
+
+        raw = self._utf8_chunked_bool(fn)
+        return blosc2.asarray(raw) & self._lazy_valid_rows()
+
+    def _utf8_compare_scalar(self, numpy_op, value: str):
+        """Scalar comparison, evaluated chunk by chunk directly on raw UTF-8
+        bytes (no decode to ``StringDType``) via
+        :meth:`~blosc2.utf8_array.Utf8Array.equal_mask_span` /
+        :meth:`~blosc2.utf8_array.Utf8Array.order_masks_span`.
+        """
+        nv = self.null_value
+
+        if numpy_op in (np.equal, np.not_equal):
+
+            def fn(arr, start, stop):
+                res = arr.equal_mask_span(value, start, stop)
+                if numpy_op is np.not_equal:
+                    res = ~res
+                if nv is not None:
+                    res &= ~arr.equal_mask_span(nv, start, stop)
+                return res
+        else:
+
+            def fn(arr, start, stop):
+                lt, gt = arr.order_masks_span(value, start, stop)
+                if numpy_op is np.less:
+                    res = lt
+                elif numpy_op is np.less_equal:
+                    res = ~gt
+                elif numpy_op is np.greater:
+                    res = gt
+                else:  # np.greater_equal
+                    res = ~lt
+                if nv is not None:
+                    res = res & ~arr.equal_mask_span(nv, start, stop)
+                return res
+
+        raw = self._utf8_chunked_bytes(fn)
+        return blosc2.asarray(raw) & self._lazy_valid_rows()
 
     def _dictionary_eq(self, other):
         """Return a physical-slot boolean predicate for dictionary equality.
@@ -1770,18 +2214,26 @@ class Column:
         return mask
 
     def __gt__(self, other):
+        if self.is_utf8:
+            return self._utf8_compare(np.greater, other)
         self._ensure_comparable()
-        return self._raw_col > self._coerce_timestamp_operand(other)
+        return self._null_aware_compare(other, self._raw_col > self._coerce_timestamp_operand(other))
 
     def __ge__(self, other):
+        if self.is_utf8:
+            return self._utf8_compare(np.greater_equal, other)
         self._ensure_comparable()
-        return self._raw_col >= self._coerce_timestamp_operand(other)
+        return self._null_aware_compare(other, self._raw_col >= self._coerce_timestamp_operand(other))
 
     @property
     def dtype(self):
-        """NumPy dtype of the underlying storage, or ``None`` for
-        variable-length columns (:func:`~blosc2.vlstring`,
-        :func:`~blosc2.vlbytes`, :func:`~blosc2.list`)."""
+        """NumPy dtype of the underlying storage.
+
+        ``None`` for variable-length columns with no fixed element dtype
+        (:func:`~blosc2.vlstring`, :func:`~blosc2.vlbytes`,
+        :func:`~blosc2.list`).  :func:`~blosc2.utf8` columns report
+        ``numpy.dtypes.StringDType()``, the dtype of their materialized reads.
+        """
         return getattr(self._raw_col, "dtype", None)
 
     def iter_chunks(self, size: int = 65536):
@@ -1811,7 +2263,7 @@ class Column:
             return
         if self.is_list:
             raise TypeError("Column.iter_chunks() is not supported for list columns in V1.")
-        if self.is_varlen_scalar:
+        if self.is_varlen_scalar and not self.is_utf8:
             raise TypeError("Column.iter_chunks() is not supported for varlen scalar columns.")
         valid = self._valid_rows
         raw = self._raw_col
@@ -1835,7 +2287,13 @@ class Column:
                 segment = raw[start : start + actual]
             else:
                 mask = valid[start : start + actual]
-                segment = raw[start : start + actual][mask]
+                data_part = raw[start : start + actual]
+                if len(data_part) < actual:
+                    # Logically-sized storage (utf8) is shorter than the
+                    # capacity-sized validity mask; rows past its end are
+                    # never live, so the extra mask tail is all False.
+                    mask = mask[: len(data_part)]
+                segment = data_part[mask]
 
             if len(segment) == 0:
                 continue
@@ -1901,9 +2359,6 @@ class Column:
     def assign(self, data) -> None:
         """Replace all live values in this column with *data*.
 
-        Works on both full tables and views — on a view, only the rows
-        visible through the view's mask are overwritten.
-
         Parameters
         ----------
         data:
@@ -1914,13 +2369,20 @@ class Column:
         Raises
         ------
         ValueError
-            If ``len(data)`` does not match the number of live rows, or the
-            table is opened read-only.
+            If ``len(data)`` does not match the number of live rows, the
+            table is opened read-only, or the table is a view (use
+            :meth:`CTable.take` or :meth:`CTable.copy` to get an
+            independent, writable table first).
         TypeError
             If values cannot be coerced to the column's dtype.
         """
         if self._table._read_only:
             raise ValueError("Table is read-only (opened with mode='r').")
+        if self._table.base is not None:
+            raise ValueError(
+                "Cannot assign values through a view. Use .take(indices) or .copy() "
+                "to get an independent, writable table first."
+            )
         if self.is_computed:
             raise ValueError(f"Column {self._col_name!r} is a computed column and cannot be written to.")
         if self.is_list:
@@ -1979,6 +2441,11 @@ class Column:
                 elem_mask = arr == nv
             inner_axes = tuple(range(1, elem_mask.ndim))
             return elem_mask.all(axis=inner_axes) if inner_axes else elem_mask.astype(np.bool_)
+        if np.issubdtype(arr.dtype, np.datetime64):
+            # Timestamp columns materialize with the int64 sentinel already
+            # decoded into np.datetime64('NaT') (they share the same bit
+            # pattern), so the sentinel value itself never appears in arr.
+            return np.isnat(arr)
         if isinstance(nv, (float, np.floating)) and np.isnan(nv):
             return np.isnan(arr)
         return arr == nv
@@ -1993,7 +2460,7 @@ class Column:
         """
         if self.is_dictionary:
             return self._dictionary_eq(None)
-        if self.is_varlen_scalar:
+        if self.is_varlen_scalar and not self.is_utf8:
             return np.array([v is None for v in self], dtype=np.bool_)
         return self._null_mask_for(self[:])
 
@@ -2009,11 +2476,25 @@ class Column:
         """
         if self.is_dictionary:
             return int(self.is_null().sum())
-        if self.is_varlen_scalar:
+        if self.is_varlen_scalar and not self.is_utf8:
             return sum(1 for v in self if v is None)
         if self.null_value is None:
             return 0
         return int(self.is_null().sum())
+
+    def fillna(self, value):
+        """Return live values with null sentinels replaced by *value*.
+
+        Dictionary and variable-length scalar columns (whose nulls are
+        native ``None`` cells) return a list; other columns return a NumPy
+        array.
+        """
+        if (self.is_dictionary or self.is_varlen_scalar) and not self.is_utf8:
+            return [value if v is None else v for v in self[:]]
+        arr = np.array(self[:], copy=True)
+        if self.null_value is not None:
+            arr[self._null_mask_for(arr)] = value
+        return arr
 
     def _nonnull_chunks(self):
         """Yield chunks of live, non-null values.
@@ -3180,6 +3661,111 @@ class _ColumnSummaryAccumulator:
         return np.concatenate(parts)
 
 
+class ColExpr:
+    """Unbound column expression: a recipe that, given a table, evaluates
+    against that table's columns.
+
+    ``blosc2.col("x") + 1`` builds a deferred computation; passing it to
+    :meth:`CTable.assign` or using it to index/filter a table binds it,
+    replaying the operators on ``table["x"]`` — so all :class:`Column`
+    semantics (null propagation, SQL comparison rules, dictionary/timestamp
+    handling) apply identically to the bound form ``t.x + 1``.
+
+    Only operators are supported; method calls such as ``col("x").sum()``
+    are not, since there is no table to evaluate against yet. Use the bound
+    form (``t.x.sum()``) for those.
+    """
+
+    def __init__(self, bind, repr_str):
+        self._bind = bind  # callable: CTable -> Column/LazyExpr/NullableExpr/scalar
+        self._repr = repr_str
+
+    def __repr__(self):
+        return self._repr
+
+    def __getattr__(self, name):
+        raise AttributeError(
+            f"{name!r} is not supported on an unbound column expression (only operators are). "
+            f"Bind it to a table first, e.g. use t.{self._repr}.{name}(...) instead of "
+            f"{self._repr}.{name}(...)."
+        )
+
+
+def _colexpr_binop(op, symbol, reflected=False):
+    def bind(self, other, t):
+        left = self._bind(t)
+        right = other._bind(t) if isinstance(other, ColExpr) else other
+        return op(right, left) if reflected else op(left, right)
+
+    def method(self, other):
+        other_repr = other._repr if isinstance(other, ColExpr) else repr(other)
+        if reflected:
+            repr_str = f"({other_repr} {symbol} {self._repr})"
+        else:
+            repr_str = f"({self._repr} {symbol} {other_repr})"
+        return ColExpr(lambda t: bind(self, other, t), repr_str)
+
+    return method
+
+
+def _colexpr_unary(op, symbol):
+    def method(self):
+        return ColExpr(lambda t: op(self._bind(t)), f"({symbol}{self._repr})")
+
+    return method
+
+
+_COLEXPR_BINOPS = [
+    ("__add__", operator.add, "+", False),
+    ("__radd__", operator.add, "+", True),
+    ("__sub__", operator.sub, "-", False),
+    ("__rsub__", operator.sub, "-", True),
+    ("__mul__", operator.mul, "*", False),
+    ("__rmul__", operator.mul, "*", True),
+    ("__truediv__", operator.truediv, "/", False),
+    ("__rtruediv__", operator.truediv, "/", True),
+    ("__floordiv__", operator.floordiv, "//", False),
+    ("__rfloordiv__", operator.floordiv, "//", True),
+    ("__mod__", operator.mod, "%", False),
+    ("__rmod__", operator.mod, "%", True),
+    ("__pow__", operator.pow, "**", False),
+    ("__rpow__", operator.pow, "**", True),
+    ("__and__", operator.and_, "&", False),
+    ("__rand__", operator.and_, "&", True),
+    ("__or__", operator.or_, "|", False),
+    ("__ror__", operator.or_, "|", True),
+    ("__lt__", operator.lt, "<", False),
+    ("__le__", operator.le, "<=", False),
+    ("__gt__", operator.gt, ">", False),
+    ("__ge__", operator.ge, ">=", False),
+    ("__eq__", operator.eq, "==", False),
+    ("__ne__", operator.ne, "!=", False),
+]
+for _dunder, _op, _symbol, _reflected in _COLEXPR_BINOPS:
+    setattr(ColExpr, _dunder, _colexpr_binop(_op, _symbol, _reflected))
+ColExpr.__neg__ = _colexpr_unary(operator.neg, "-")
+ColExpr.__invert__ = _colexpr_unary(operator.invert, "~")
+del _dunder, _op, _symbol, _reflected
+
+
+def col(name: str) -> ColExpr:
+    """Build an unbound column expression referencing a column by name.
+
+    The name is resolved against a table's columns only when the expression
+    is bound — passed to :meth:`CTable.assign`, or used to index/filter a
+    table (``t[col("x") > 0]``, ``t.where(col("x") > 0)``). An unknown name
+    therefore fails at bind time with the table's normal unknown-column
+    error, not when ``col()`` is called.
+
+    Examples
+    --------
+    >>> import blosc2
+    >>> from blosc2 import col
+    >>> t.assign(profit=col("revenue") - col("cost"))  # doctest: +SKIP
+    """
+    return ColExpr(lambda t: t[name], name)
+
+
 class CTable(_CTableIndexingMixin, Generic[RowT]):
     """Columnar compressed table with typed columns and row-oriented access."""
 
@@ -3355,6 +3941,11 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             # ---- Create new table ----
             if storage.is_read_only():
                 raise FileNotFoundError(f"No CTable found at {urlpath!r}")
+            if urlpath is not None and mode == "a":
+                raise FileNotFoundError(
+                    f"No CTable found at {urlpath!r}: mode='a' opens an existing table; "
+                    "use mode='w' to create a new one."
+                )
 
             # Build compiled schema from either a dataclass or a legacy Pydantic model
             if dataclasses.is_dataclass(row_type) and isinstance(row_type, type):
@@ -3459,7 +4050,11 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
 
     @staticmethod
     def _is_varlen_scalar_column(col: CompiledColumn) -> bool:
-        return isinstance(col.spec, (VLStringSpec, VLBytesSpec, StructSpec, ObjectSpec))
+        return isinstance(col.spec, (VLStringSpec, VLBytesSpec, StructSpec, ObjectSpec, Utf8Spec))
+
+    @staticmethod
+    def _is_utf8_column(col: CompiledColumn) -> bool:
+        return isinstance(col.spec, Utf8Spec)
 
     @staticmethod
     def _is_dictionary_column(col: CompiledColumn) -> bool:
@@ -3565,7 +4160,7 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             return policy.float_value
         if isinstance(spec, b2_bool):
             return policy.bool_value
-        if isinstance(spec, string):
+        if isinstance(spec, (string, Utf8Spec)):
             return policy.string_value
         if isinstance(spec, b2_bytes):
             return policy.bytes_value
@@ -3615,7 +4210,7 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             if null_value != 255:
                 raise ValueError(f"Null sentinel for nullable bool column {name!r} must be 255")
             return
-        if isinstance(spec, string):
+        if isinstance(spec, (string, Utf8Spec)):
             if not isinstance(null_value, str):
                 raise TypeError(f"Null sentinel for string column {name!r} must be str")
             return
@@ -4917,6 +5512,7 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
 
         from blosc2.ctable_storage import (
             _DICT_SUFFIX,
+            _UTF8_DATA_SUFFIX,
             _column_name_to_relpath,
         )
 
@@ -4944,6 +5540,9 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             if self._is_dictionary_column(col):
                 estore[key] = arr.codes
                 estore[key + _DICT_SUFFIX] = arr._dict_store._backend
+            elif self._is_utf8_column(col):
+                estore[key] = arr.offsets
+                estore[key + _UTF8_DATA_SUFFIX] = arr.data
             elif self._is_varlen_scalar_column(col):
                 estore[key] = arr._backend
             else:
@@ -5550,6 +6149,12 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
         """Return a view of the first *N* live rows (default 5)."""
         if N <= 0:
             return self.view(blosc2.zeros(shape=len(self._valid_rows), dtype=np.bool_))
+        _slp = getattr(self, "_cached_live_positions", None)
+        if _slp is not None and self.base is not None:
+            # A lazily-sorted view: physical row order is not row order, so the
+            # first N *logical* rows are the first N entries of the stored
+            # permutation, not the first N physical positions.
+            return self._view_from_positions(_slp[:N])
         if self._n_rows <= N:
             return self.view(self._valid_rows)
 
@@ -5571,6 +6176,10 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
         """Return a view of the last *N* live rows (default 5)."""
         if N <= 0:
             return self.view(blosc2.zeros(shape=len(self._valid_rows), dtype=np.bool_))
+        _slp = getattr(self, "_cached_live_positions", None)
+        if _slp is not None and self.base is not None:
+            # See head(): physical order is not row order for a sorted view.
+            return self._view_from_positions(_slp[-N:] if len(_slp) > N else _slp)
         if self._n_rows <= N:
             return self.view(self._valid_rows)
 
@@ -5771,8 +6380,15 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             If ``True`` (default), rows with null/NaN group keys are skipped.
             If ``False``, null/NaN keys form their own group.
         engine:
-            Execution engine.  Phase 1 accepts ``"auto"`` and uses the NumPy
-            chunked implementation.
+            Execution engine for built-in aggregations (``size``, ``count``,
+            ``sum``, ``mean``, ``min``, ``max``, ``argmin``, ``argmax``):
+
+            * ``"auto"`` (default) -- currently always the NumPy/Cython
+              chunked implementation; may choose automatically in the future.
+            * ``"numpy"`` -- explicitly request the NumPy/Cython chunked
+              implementation.
+            * ``"jit"`` -- reserved for a miniexpr-JIT execution path; not
+              implemented yet (raises :class:`NotImplementedError`).
         chunk_size:
             Optional number of physical rows processed per chunk.
 
@@ -5783,8 +6399,13 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             ``.size()``, ``.count(column)`` or ``.agg({...})`` to materialize a
             grouped result as a new :class:`CTable`.
         """
-        if engine != "auto":
-            raise ValueError("Only engine='auto' is supported for group_by() in Phase 1")
+        if engine not in ("auto", "numpy", "jit"):
+            raise ValueError(f"engine must be 'auto', 'numpy', or 'jit', got {engine!r}")
+        if engine == "jit":
+            raise NotImplementedError(
+                "engine='jit' is reserved for a future miniexpr-JIT execution path; "
+                "use 'auto' or 'numpy' for now."
+            )
         from blosc2.groupby import CTableGroupBy
 
         return CTableGroupBy(self, keys, sort=sort, dropna=dropna, engine=engine, chunk_size=chunk_size)
@@ -6016,6 +6637,10 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
     def _pa_type_from_spec(pa, spec):
         if isinstance(spec, DictionarySpec):
             return pa.dictionary(pa.int32(), pa.string(), ordered=spec.ordered)
+        if isinstance(spec, Utf8Spec):
+            # Always large_string: 64-bit offsets match the int64 offsets array,
+            # so multi-GB string columns export without int32-offset overflow.
+            return pa.large_string()
         if isinstance(spec, VLStringSpec):
             return pa.string()
         if isinstance(spec, VLBytesSpec):
@@ -6094,6 +6719,15 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
         names = self._resolve_arrow_columns(columns, include_computed=include_computed)
         arrow_names = self._export_arrow_names(names)
 
+        # Dictionary columns need the physical positions of their live rows.
+        # This depends only on self._valid_rows (fixed for the whole call), so
+        # it is computed once here instead of once per batch per dictionary
+        # column — the previous per-batch recompute was an O(n_rows) scan
+        # repeated O(n_rows / batch_size) times.
+        dict_real_pos = None
+        if any(name in self.col_names and self[name].is_dictionary for name in names):
+            dict_real_pos = blosc2.where(self._valid_rows, _arange(len(self._valid_rows))).compute()
+
         for start in range(0, self._n_rows, batch_size):
             stop = min(start + batch_size, self._n_rows)
             arrays = []
@@ -6108,6 +6742,26 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
                     spec = self._schema.columns_by_name[name].spec
                     arrays.append(pa.array(col[start:stop], type=self._pa_type_from_spec(pa, spec)))
                     continue
+                if col.is_utf8:
+                    spec = self._schema.columns_by_name[name].spec
+                    arr8 = self._cols[name]
+                    nv = col.null_value
+                    if self.base is None and self._last_pos == self._n_rows and stop <= arr8._persisted_rows:
+                        # Dense root table: logical rows == persisted rows, so
+                        # export straight from the offsets/bytes buffers with
+                        # no per-row decode (storage is already Arrow layout).
+                        arrays.append(arr8.arrow_slice(pa, start, stop, nv))
+                        continue
+                    values = col[start:stop]  # StringDType array with sentinel nulls
+                    null_mask = col._null_mask_for(values) if nv is not None else None
+                    arrays.append(
+                        pa.array(
+                            values.astype(object),
+                            type=self._pa_type_from_spec(pa, spec),
+                            mask=null_mask if null_mask is not None and null_mask.any() else None,
+                        )
+                    )
+                    continue
                 if col.is_varlen_scalar:
                     spec = self._schema.columns_by_name[name].spec
                     values = col[start:stop]  # list of str/bytes/None
@@ -6116,10 +6770,9 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
                 if col.is_dictionary:
                     dc = self._cols[name]  # DictionaryColumn
                     spec = self._schema.columns_by_name[name].spec
-                    # Get physical positions for live rows in [start, stop)
-                    valid = self._valid_rows
-                    real_pos = blosc2.where(valid, _arange(len(valid))).compute()
-                    batch_real_pos = real_pos[start:stop]
+                    # Physical positions for live rows in [start, stop),
+                    # precomputed once above (not per batch/column).
+                    batch_real_pos = dict_real_pos[start:stop]
                     if len(batch_real_pos) == 0:
                         pa_dict = pa.array(dc.dictionary, type=pa.string())
                         pa_indices = pa.array([], type=pa.int32())
@@ -6202,6 +6855,21 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
         schema = self._arrow_schema_for_columns()
         return pa.Table.from_batches(batches, schema=schema)
 
+    def __arrow_c_stream__(self, requested_schema=None):
+        """Arrow PyCapsule protocol: export live rows as a stream of record batches.
+
+        Lets Arrow-native consumers (pyarrow, DuckDB, Polars, pandas) read this
+        table directly, pulling decompressed batches lazily with bounded memory.
+        Strict zero-copy is impossible here (the data is compressed on disk;
+        decompression *is* the copy), but there is zero intermediate
+        materialization: only one batch is decompressed at a time.
+        """
+        pa = self._require_pyarrow("__arrow_c_stream__")
+        reader = pa.RecordBatchReader.from_batches(
+            self._arrow_schema_for_columns(), self.iter_arrow_batches()
+        )
+        return reader.__arrow_c_stream__(requested_schema)
+
     @staticmethod
     def _auto_null_sentinel(pa, pa_type, *, null_policy: NullPolicy):
         return null_policy.sentinel_for_arrow_type(pa, pa_type)
@@ -6211,7 +6879,9 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
         """True when *pa_type* has no typed CTable mapping."""
         if pa.types.is_dictionary(pa_type):
             vt = pa_type.value_type
-            return vt not in (pa.string(), pa.large_string(), pa.utf8(), pa.large_utf8())
+            return not _is_arrow_string_type(pa, vt)
+        if _is_arrow_string_type(pa, pa_type):
+            return False
         if pa_type in (
             pa.int8(),
             pa.int16(),
@@ -6224,13 +6894,9 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             pa.float32(),
             pa.float64(),
             pa.bool_(),
-            pa.string(),
-            pa.large_string(),
-            pa.utf8(),
-            pa.large_utf8(),
         ):
             return False
-        if pa.types.is_binary(pa_type) or pa.types.is_large_binary(pa_type):
+        if _is_arrow_binary_type(pa, pa_type):
             return False
         if pa.types.is_timestamp(pa_type):
             return False
@@ -6282,7 +6948,7 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
 
         if pa.types.is_dictionary(pa_type):
             vt = pa_type.value_type
-            if vt in (pa.string(), pa.large_string(), pa.utf8(), pa.large_utf8()):
+            if _is_arrow_string_type(pa, vt):
                 index_type = pa_type.index_type
                 # Accept signed and unsigned integer index types; validate fit in int32.
                 if not (pa.types.is_integer(index_type) or pa.types.is_unsigned_integer(index_type)):
@@ -6355,7 +7021,7 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
                 item_arrow_col = None
                 nullable = True
             item_string_max_length = string_max_length
-            if pa_type.value_type in (pa.string(), pa.large_string(), pa.utf8(), pa.large_utf8()):
+            if _is_arrow_string_type(pa, pa_type.value_type):
                 item_string_max_length = max(string_max_length or 1, 1_000_000)
             item_spec = CTable._arrow_type_to_spec(
                 pa,
@@ -6376,7 +7042,7 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
                     )
                     child_col = combined.field(field.name)
                 child_string_max_length = string_max_length
-                if field.type in (pa.string(), pa.large_string(), pa.utf8(), pa.large_utf8()):
+                if _is_arrow_string_type(pa, field.type):
                     child_string_max_length = max(string_max_length or 1, 1_000_000)
                 fields[field.name] = CTable._arrow_type_to_spec(
                     pa,
@@ -6388,14 +7054,22 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
                 )
             return b2s.struct(fields, nullable=nullable)
 
-        if pa_type in (pa.string(), pa.large_string(), pa.utf8(), pa.large_utf8()):
+        if _is_arrow_string_type(pa, pa_type):
             if string_max_length is None:
-                # No fixed-width threshold given: store as variable-length scalar string.
-                return b2s.vlstring(nullable=nullable)
+                from blosc2.utf8_array import have_string_dtype
+
+                if not have_string_dtype():
+                    # utf8 columns need numpy.dtypes.StringDType (NumPy >= 2.0).
+                    # On older NumPy, keep the historical import behavior:
+                    # variable-length msgpack strings with native-None nulls.
+                    return b2s.vlstring(nullable=nullable)
+                # No fixed-width threshold given: store as a variable-length
+                # utf8 column (offsets + bytes, StringDType reads).
+                return b2s.utf8(nullable=nullable, null_value=null_value)
             max_length = max(string_max_length, len(null_value) if null_value is not None else 1, 1)
             return b2s.string(max_length=max_length, null_value=null_value)
 
-        if pa.types.is_binary(pa_type) or pa.types.is_large_binary(pa_type):
+        if _is_arrow_binary_type(pa, pa_type):
             if string_max_length is None:
                 # No fixed-width threshold given: store as variable-length scalar bytes.
                 return b2s.vlbytes(nullable=nullable)
@@ -6448,16 +7122,21 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             field_is_struct = pa.types.is_struct(field.type)
             field_is_dictionary = pa.types.is_dictionary(field.type)
             column_string_max_length = cls._string_max_length_for_column(string_max_length, name)
+            # Scalar strings without a fixed-width threshold import as utf8
+            # columns, which use null sentinels like other scalar columns;
+            # only binary columns keep the native-None varlen treatment.
+            # On NumPy < 2.0 (no StringDType) utf8 columns are unavailable and
+            # scalar strings keep the historical vlstring treatment instead.
+            from blosc2.utf8_array import have_string_dtype
+
             field_is_varlen_scalar = (
                 not field_is_list
                 and not field_is_struct
                 and not field_is_dictionary
                 and column_string_max_length is None
                 and (
-                    pa.types.is_string(field.type)
-                    or pa.types.is_large_string(field.type)
-                    or pa.types.is_binary(field.type)
-                    or pa.types.is_large_binary(field.type)
+                    _is_arrow_binary_type(pa, field.type)
+                    or (not have_string_dtype() and _is_arrow_string_type(pa, field.type))
                 )
             )
             field_needs_object_fallback = cls._arrow_type_needs_object_fallback(pa, field.type)
@@ -6474,7 +7153,7 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
                 )
             if has_null_value_override and field_is_varlen_scalar:
                 raise TypeError(
-                    f"column_null_values is not supported for vlstring/vlbytes column {name!r}; "
+                    f"column_null_values is not supported for vlbytes/vlstring column {name!r}; "
                     "these columns represent nulls as native None."
                 )
             if has_null_value_override:
@@ -6569,6 +7248,11 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
                 shutil.rmtree(urlpath)
             else:
                 os.remove(urlpath)
+        elif mode == "a" and not os.path.exists(urlpath):
+            raise FileNotFoundError(
+                f"No CTable found at {urlpath!r}: mode='a' opens an existing table; "
+                "use mode='w' to create a new one."
+            )
         return FileTableStorage(urlpath, mode)
 
     @classmethod
@@ -7038,7 +7722,7 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
     def from_arrow(  # noqa: C901
         cls,
         schema,
-        batches,
+        batches=None,
         *,
         urlpath: str | None = None,
         mode: str = "w",
@@ -7077,12 +7761,14 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             t.trip.begin.lon.max()
 
         When *string_max_length* is ``None`` (the default), scalar Arrow
-        ``string`` / ``large_string`` columns are imported as
-        :func:`~blosc2.vlstring` columns and ``binary`` / ``large_binary``
-        columns are imported as :func:`~blosc2.vlbytes` columns.  Non-struct
-        ``struct`` columns (not containing only scalar leaves) are imported as
+        ``string`` / ``large_string`` columns are imported as variable-length
+        :func:`~blosc2.utf8` columns (offsets + bytes storage; nullable
+        columns get a null sentinel string from the active
+        :class:`NullPolicy`) and ``binary`` / ``large_binary`` columns are
+        imported as :func:`~blosc2.vlbytes` columns.  Non-struct ``struct``
+        columns (not containing only scalar leaves) are imported as
         :func:`~blosc2.struct` columns backed by batched variable-length
-        storage.  Null values for these variable-length scalar columns are
+        storage.  Null values for ``vlbytes``/``struct`` columns are
         represented as native ``None`` with no sentinel needed.
 
         When *string_max_length* is set to a positive integer, scalar string
@@ -7090,7 +7776,7 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
         :func:`~blosc2.string` / :func:`~blosc2.bytes` columns whose dtype is
         sized to *string_max_length* characters/bytes. It may also be a mapping
         from column name to max length; omitted string/binary columns remain
-        :func:`~blosc2.vlstring` / :func:`~blosc2.vlbytes` columns.
+        :func:`~blosc2.utf8` / :func:`~blosc2.vlbytes` columns.
 
         ``blosc2_batch_size`` controls how many rows are buffered before
         BatchArray-backed imported columns (list columns and variable-length
@@ -7109,8 +7795,32 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
         ``column_cparams`` optionally maps column names to per-column compression
         parameters. These override the table-level ``cparams`` for fixed-width
         columns imported from Arrow.
+
+        *schema* may also be any object implementing the Arrow PyCapsule
+        interchange protocol (``__arrow_c_stream__``) — a pyarrow
+        ``Table``/``RecordBatchReader``, a Polars ``DataFrame``, a DuckDB
+        result, or another :class:`CTable` — in which case *batches* must be
+        omitted and the schema/batches are pulled from the stream::
+
+            t = blosc2.CTable.from_arrow(polars_df)
+            t = blosc2.CTable.from_arrow(duckdb_result, urlpath="out.b2z")
         """
         pa = cls._require_pyarrow("from_arrow()")
+        if hasattr(schema, "__arrow_c_stream__"):
+            if batches is not None:
+                raise TypeError(
+                    "from_arrow() takes either a single Arrow-stream object "
+                    "(implementing __arrow_c_stream__) or a (schema, batches) pair, not both."
+                )
+            if not hasattr(pa.RecordBatchReader, "from_stream"):
+                raise RuntimeError("Importing from an Arrow PyCapsule stream requires pyarrow >= 14.0.")
+            reader = pa.RecordBatchReader.from_stream(schema)
+            schema, batches = reader.schema, reader
+        elif batches is None:
+            raise TypeError(
+                "from_arrow() requires batches unless the first argument is an "
+                "Arrow-stream object implementing __arrow_c_stream__."
+            )
         if blosc2_batch_size is not None and blosc2_batch_size <= 0:
             raise ValueError("blosc2_batch_size must be a positive integer or None")
         if blosc2_items_per_block is not None and blosc2_items_per_block <= 0:
@@ -8293,7 +9003,7 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             self._invalidate_index_catalog_cache()
 
         if isinstance(self._storage, FileTableStorage):
-            self._cols[new] = self._storage.rename_column(old, new)
+            self._cols[new] = self._rename_stored_column(old, new)
         else:
             self._cols[new] = self._cols[old]
         del self._cols[old]
@@ -8325,6 +9035,18 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             self._storage.save_schema(self._schema_dict_with_computed())
         if rebuild_kwargs is not None:
             self.create_index(new, **rebuild_kwargs)
+
+    def _rename_stored_column(self, old: str, new: str):
+        """Rename a stored column's persistent leaves and return the reopened column."""
+        old_compiled_col = self._schema.columns_by_name[old]
+        if hasattr(self._cols[old], "flush"):
+            self._cols[old].flush()
+        renamed_col = self._storage.rename_column(old, new)
+        if self._is_utf8_column(old_compiled_col):
+            # rename_column returns the bare offsets NDArray; reopen the
+            # offsets + bytes pair as a proper utf8 column object.
+            renamed_col = self._storage.open_varlen_scalar_column(new, old_compiled_col.spec)
+        return renamed_col
 
     # ------------------------------------------------------------------
     # Computed / virtual columns
@@ -9314,6 +10036,83 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             if affected is None or name in affected:
                 self.refresh_generated_column(name)
 
+    def apply(
+        self,
+        func,
+        *,
+        columns: list[str] | None = None,
+        dtype=None,
+        engine: str = "auto",
+    ) -> np.ndarray:
+        """Run a row-batch UDF over live column values and materialize the result.
+
+        Sugar over :func:`blosc2.lazyudf` using this table's columns as
+        inputs: ``blosc2.lazyudf(func, tuple(t[c] for c in columns),
+        dtype=dtype, jit=...).compute()``. There is no separate execution
+        path — this reuses exactly the machinery :meth:`add_computed_column`
+        and :meth:`add_generated_column` already use for DSL/UDF columns.
+
+        Parameters
+        ----------
+        func:
+            UDF passed straight to :func:`blosc2.lazyudf`; see that function
+            for the expected signature (``func(inputs_tuple, output,
+            offset)``) and for how a :func:`blosc2.dsl_kernel`-decorated
+            kernel is transpiled instead of run as plain Python.
+        columns:
+            Names of *stored* columns to bind as *func*'s inputs, in order
+            (computed/generated columns are not supported). Defaults to
+            every stored column, in schema order.
+        dtype:
+            Result dtype. Required unless *func* is a
+            :func:`blosc2.dsl_kernel` kernel, whose dtype can be inferred by
+            NumPy type promotion of the input dtypes -- same rule as
+            :func:`blosc2.lazyudf`.
+        engine:
+            Forwarded to :func:`blosc2.lazyudf` as its ``jit`` policy:
+            ``"auto"`` (default) lets it choose, ``"jit"`` forces JIT
+            (only effective for a transpilable :func:`blosc2.dsl_kernel`),
+            ``"numpy"`` disables JIT.
+
+        Returns
+        -------
+        numpy.ndarray
+            The UDF's result for the live rows only (on a view, the rows
+            visible through the view).
+
+        Examples
+        --------
+        >>> import blosc2
+        >>> from dataclasses import dataclass
+        >>> @dataclass
+        ... class Row:
+        ...     price: float = blosc2.field(blosc2.float64())
+        ...     qty: float = blosc2.field(blosc2.float64())
+        >>> t = blosc2.CTable(Row, new_data=[(10.0, 2.0), (5.0, 3.0)])
+        >>> def revenue(inputs, output, offset):
+        ...     price, qty = inputs
+        ...     output[:] = price * qty
+        >>> t.apply(revenue, columns=["price", "qty"], dtype=blosc2.float64().dtype)[:]
+        array([20., 15.])
+        """
+        if engine not in ("auto", "numpy", "jit"):
+            raise ValueError(f"engine must be 'auto', 'numpy', or 'jit', got {engine!r}")
+        jit = {"auto": None, "numpy": False, "jit": True}[engine]
+        names = columns if columns is not None else list(self._stored_col_names)
+        missing = [n for n in names if self._logical_to_physical_name(n) not in self._cols]
+        if missing:
+            raise ValueError(
+                f"apply() only accepts stored columns, got {missing!r}. "
+                f"Stored columns: {list(self._stored_col_names)!r}."
+            )
+        # Operands are the raw (full-capacity) storage arrays -- the same
+        # inputs add_computed_column()/add_generated_column() pass to
+        # lazyudf() for DSL/UDF columns -- so the live-row mask is applied
+        # once, here, to the result rather than to every operand.
+        operands = tuple(self._cols[self._logical_to_physical_name(name)] for name in names)
+        result = blosc2.lazyudf(func, operands, dtype=dtype, jit=jit).compute()
+        return result[self._valid_rows]
+
     def add_generated_column(  # noqa: C901
         self,
         name: str,
@@ -9796,6 +10595,115 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
         if isinstance(self._storage, FileTableStorage):
             self._storage.save_schema(self._schema_dict_with_computed())
 
+    @staticmethod
+    def _coerce_assign_operand(value):
+        """Reduce an assign() value to a form add_computed_column's transformer
+        machinery accepts: a LazyExpr, DSLKernel, callable, or string."""
+        if isinstance(value, NullableExpr):
+            return value._expr
+        if isinstance(value, Column):
+            value._ensure_queryable()
+            raw = value._raw_col
+            return raw if isinstance(raw, blosc2.LazyExpr) else blosc2.lazyexpr(raw)
+        return value
+
+    def assign(self, **named_exprs) -> CTable:
+        """Return a view with additional computed columns, without copying data.
+
+        Each keyword argument names a new computed column; the value defines
+        it, in any of the forms :meth:`add_computed_column` accepts (a string
+        expression, a :class:`blosc2.LazyExpr`), plus a :class:`Column`,
+        :class:`NullableExpr`, or an unbound :func:`col` expression.
+
+        Unlike :meth:`add_computed_column`, which mutates the table in place
+        and cannot be called on a view, ``assign()`` never mutates ``self``:
+        it returns a new view sharing this table's column storage, with its
+        own computed-column metadata. This makes it composable in a chain::
+
+            result = (
+                t.assign(profit=col("revenue") - col("cost"))[col("profit") > 0]
+                .sort_by("profit", ascending=False)
+                .head(10)
+            )
+
+        Values are bound against ``self``, before any of this call's new
+        columns exist — so a later keyword cannot reference an earlier one
+        from the same ``assign()`` call (that raises the usual unknown-column
+        error). Chain two ``assign()`` calls for that::
+
+            t2 = t.assign(profit=col("revenue") - col("cost"))
+            t3 = t2.assign(margin=col("profit") / col("revenue"))
+
+        Parameters
+        ----------
+        **named_exprs:
+            One computed-column definition per keyword.
+
+        Returns
+        -------
+        CTable
+            A read-only view (see :meth:`select`) with the additional
+            computed columns.
+
+        Raises
+        ------
+        ValueError
+            If a name collides with an existing stored or computed column.
+
+        Examples
+        --------
+        >>> import blosc2
+        >>> from blosc2 import col
+        >>> from dataclasses import dataclass
+        >>> @dataclass
+        ... class Row:
+        ...     revenue: float = blosc2.field(blosc2.float64())
+        ...     cost: float = blosc2.field(blosc2.float64())
+        >>> t = blosc2.CTable(Row, new_data=[(100.0, 40.0), (50.0, 60.0)])
+        >>> t2 = t.assign(profit=col("revenue") - col("cost"))
+        >>> t2.profit[:]
+        array([ 60., -10.])
+        """
+        bound = {}
+        for name, expr in named_exprs.items():
+            _validate_column_name(name)
+            if name in self._cols:
+                raise ValueError(f"A stored column named {name!r} already exists.")
+            if name in self._computed_cols or name in bound:
+                raise ValueError(f"A computed column named {name!r} already exists.")
+            value = expr._bind(self) if isinstance(expr, ColExpr) else expr
+            bound[name] = self._coerce_assign_operand(value)
+
+        view = CTable._make_view(self, self._valid_rows)
+        view._computed_cols = dict(self._computed_cols)
+        view.col_names = list(self.col_names)
+        view._col_widths = dict(self._col_widths)
+        for name, value in bound.items():
+            desc = view._normalize_transformer(value)
+            if desc["kind"] == "dsl":
+                kernel = desc["kernel"]
+                col_deps = desc["col_deps"]
+                view._computed_cols[name] = {
+                    "kind": "dsl",
+                    "dsl_source": kernel.dsl_source,
+                    "kernel": kernel,
+                    "col_deps": col_deps,
+                    "dtype": view._dsl_result_dtype(kernel, col_deps, None),
+                    "jit_backend": desc.get("jit_backend"),
+                }
+            else:
+                lazy = desc["lazy"]
+                view._computed_cols[name] = {
+                    "kind": "expression",
+                    "expression": lazy.expression,
+                    "col_deps": desc["col_deps"],
+                    "lazy": lazy,
+                    "dtype": lazy.dtype,
+                }
+            view.col_names.append(name)
+            view._col_widths[name] = max(len(name), 15)
+        return view
+
     # ------------------------------------------------------------------
     # Column / row access
     # ------------------------------------------------------------------
@@ -9956,7 +10864,20 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
 
             col = t["where"]             # column named "where"
             method = t.where             # CTable.where method
+
+        Row-range, gathered-row, boolean-mask, sorted (:meth:`sort_by`), and
+        column-projection results are all lightweight **views**: they share
+        physical storage with the base table instead of copying it. Views
+        are read-only — assigning into a value returned by indexing a view
+        raises ``ValueError``; use :meth:`take` or :meth:`copy` to obtain an
+        independent, writable table. Mutating the base table while a view
+        exists leaves the view's row mask frozen at the time the view was
+        created, so the view may go stale (it will not see rows appended to
+        the base afterwards, and may still reference rows later deleted from
+        the base).
         """
+        if isinstance(key, ColExpr):
+            key = key._bind(self)
         if isinstance(key, str):
             physical = self._logical_to_physical_name(key)
             if physical in self._cols or physical in self._computed_cols:
@@ -10096,6 +11017,12 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
                 replacement.flush()
                 self._cols[name] = replacement
                 continue
+            if self._is_utf8_column(col):
+                # Clustered fancy-index gather, then a bulk rewrite through the
+                # existing backing arrays so a store-backed column stays
+                # persistent on disk.
+                v.set_all(v[real_poss[: self._n_rows]])
+                continue
             if self._is_varlen_scalar_column(col):
                 compacted = [v[int(pos)] for pos in real_poss[: self._n_rows]]
                 replacement = _ScalarVarLenArray(col.spec)
@@ -10167,14 +11094,13 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
                 )
             dtype = self._col_dtype(name)
             if dtype is None:
-                cc = self._schema.columns_by_name.get(name)
-                if cc is not None and isinstance(
-                    cc.spec, (VLStringSpec, VLBytesSpec, StructSpec, ObjectSpec)
+                if col_info is not None and isinstance(
+                    col_info.spec, (VLStringSpec, VLBytesSpec, StructSpec, ObjectSpec)
                 ):
                     raise TypeError(
                         f"Column {name!r} is a varlen scalar column and does not support sort ordering."
                     )
-                if cc is not None and self._is_dictionary_column(cc):
+                if col_info is not None and self._is_dictionary_column(col_info):
                     pass  # dictionary columns: sorting supported (decoded strings)
                 else:
                     raise TypeError(
@@ -10353,7 +11279,7 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
 
             # Value key
             if not asc:
-                if raw.dtype.kind in "USO":
+                if raw.dtype.kind in "USOT":
                     # strings can't be negated — invert via rank
                     rank = np.argsort(np.argsort(raw, kind="stable"), kind="stable")
                     lex_keys.append((n - 1 - rank).astype(np.intp))
@@ -10701,6 +11627,10 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             elif self._is_dictionary_column(col):
                 sorted_codes = arr.codes[sorted_pos]
                 arr.codes[:n] = sorted_codes
+            elif self._is_utf8_column(col):
+                # Bulk-rewrite through the existing backing arrays so a
+                # store-backed column stays persistent on disk.
+                arr.set_all(arr[sorted_pos])
             else:
                 arr[:n] = arr[sorted_pos]
         self._valid_rows[:n] = True
@@ -10724,6 +11654,8 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
                     result._cols[col_name].encode(v)
                 sorted_codes = arr.codes[sorted_pos]
                 result._cols[col_name].codes[:n] = sorted_codes
+            elif self._is_utf8_column(col):
+                result._cols[col_name].set_all(arr[sorted_pos])
             else:
                 result._cols[col_name][:n] = arr[sorted_pos]
         result._valid_rows[:n] = True
@@ -11235,6 +12167,8 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
         if isinstance(spec, DictionarySpec):
             ordered_tag = ", ordered" if spec.ordered else ""
             return f"dictionary[str{ordered_tag}]"
+        if isinstance(spec, Utf8Spec):
+            return "utf8"
         if isinstance(spec, VLStringSpec):
             return "vlstring"
         if isinstance(spec, VLBytesSpec):
@@ -11736,6 +12670,11 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
                     f"Column {col.name!r} is a fixed-shape ndarray column. String expressions only "
                     "support scalar columns. Use an element projection or a row-wise reduction first."
                 )
+            if self._is_utf8_column(col) and self._expression_references_name(expr, col.name):
+                raise NotImplementedError(
+                    f"Column {col.name!r} is a variable-length utf8 column; "
+                    "string expressions on utf8 columns are not supported yet."
+                )
             if self._is_varlen_scalar_column(col) and self._expression_references_name(expr, col.name):
                 raise NotImplementedError(
                     f"Column {col.name!r} is a variable-length scalar column (vlstring/vlbytes/struct/object); "
@@ -11745,9 +12684,33 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
     def _guard_varlen_scalar_expression(self, expr: str) -> None:
         self._guard_scalar_expression(expr)
 
+    def _is_nullable_column(self, name: str) -> bool:
+        col = self[name]
+        return col.null_value is not None or col.is_dictionary or col.is_varlen_scalar
+
+    def dropna(self, subset: list[str] | None = None) -> CTable:
+        """Return a view excluding rows where any column in *subset* is null.
+
+        Parameters
+        ----------
+        subset:
+            Column names to check for nulls. Defaults to every nullable
+            column (sentinel-backed, dictionary, or variable-length scalar).
+
+        Returns
+        -------
+        CTable
+            A read-only view over the live, non-null rows (see :meth:`where`).
+        """
+        names = subset if subset is not None else [n for n in self.col_names if self._is_nullable_column(n)]
+        mask = np.ones(self.nrows, dtype=np.bool_)
+        for name in names:
+            mask &= self[name].notnull()
+        return self.where(mask)
+
     def where(  # noqa: C901
         self,
-        expr_result: str | np.ndarray | blosc2.NDArray | blosc2.LazyExpr | blosc2.LazyUDF | Column,
+        expr_result: str | np.ndarray | blosc2.NDArray | blosc2.LazyExpr | blosc2.LazyUDF | Column | ColExpr,
         *,
         columns: list[str] | tuple[str, ...] | None = None,
     ) -> CTable:
@@ -11759,10 +12722,10 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
 
         The predicate can be supplied as a boolean :class:`blosc2.LazyExpr`,
         a boolean :class:`blosc2.NDArray`, a boolean NumPy array, a boolean
-        ``Column``, a :class:`blosc2.LazyUDF` (including those backed by a
-        :func:`blosc2.dsl_kernel`), or a string expression evaluated against
-        this table's columns.  String expressions can reference stored and
-        computed columns directly by name.
+        ``Column``, an unbound :func:`col` expression, a :class:`blosc2.LazyUDF`
+        (including those backed by a :func:`blosc2.dsl_kernel`), or a string
+        expression evaluated against this table's columns.  String expressions
+        can reference stored and computed columns directly by name.
 
         The returned object is a :class:`CTable` view sharing the original
         column data.  The row-selection mask is evaluated immediately and
@@ -11835,6 +12798,8 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             t.where((t.x > 0) and (t.y < 10))
             t.where(not t.returned)
         """
+        if isinstance(expr_result, ColExpr):
+            expr_result = expr_result._bind(self)
         if isinstance(expr_result, str):
             self._guard_varlen_scalar_expression(expr_result)
             operands = self._where_expression_operands(expr_result)

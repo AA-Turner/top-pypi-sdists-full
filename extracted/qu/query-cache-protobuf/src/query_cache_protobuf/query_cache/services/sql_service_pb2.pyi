@@ -371,3 +371,53 @@ class SkipExecutionResponse(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["_execution_runtime_ms", b"_execution_runtime_ms"]) -> typing.Literal["execution_runtime_ms"] | None: ...
 
 global___SkipExecutionResponse = SkipExecutionResponse
+
+@typing.final
+class ReadyToExecuteUntrackedResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___ReadyToExecuteUntrackedResponse = ReadyToExecuteUntrackedResponse
+
+@typing.final
+class UndecidedResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___UndecidedResponse = UndecidedResponse
+
+@typing.final
+class SubmitSQLSpeculativeResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    READY_TO_EXECUTE_UNTRACKED_FIELD_NUMBER: builtins.int
+    SKIP_EXECUTION_FIELD_NUMBER: builtins.int
+    READY_TO_CLONE_FIELD_NUMBER: builtins.int
+    UNDECIDED_FIELD_NUMBER: builtins.int
+    @property
+    def ready_to_execute_untracked(self) -> global___ReadyToExecuteUntrackedResponse: ...
+    @property
+    def skip_execution(self) -> global___SkipExecutionResponse: ...
+    @property
+    def ready_to_clone(self) -> query_cache_protobuf.query_cache.services.clone_service_pb2.ReadyToCloneResponse: ...
+    @property
+    def undecided(self) -> global___UndecidedResponse: ...
+    def __init__(
+        self,
+        *,
+        ready_to_execute_untracked: global___ReadyToExecuteUntrackedResponse | None = ...,
+        skip_execution: global___SkipExecutionResponse | None = ...,
+        ready_to_clone: query_cache_protobuf.query_cache.services.clone_service_pb2.ReadyToCloneResponse | None = ...,
+        undecided: global___UndecidedResponse | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["ready_to_clone", b"ready_to_clone", "ready_to_execute_untracked", b"ready_to_execute_untracked", "response", b"response", "skip_execution", b"skip_execution", "undecided", b"undecided"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["ready_to_clone", b"ready_to_clone", "ready_to_execute_untracked", b"ready_to_execute_untracked", "response", b"response", "skip_execution", b"skip_execution", "undecided", b"undecided"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["response", b"response"]) -> typing.Literal["ready_to_execute_untracked", "skip_execution", "ready_to_clone", "undecided"] | None: ...
+
+global___SubmitSQLSpeculativeResponse = SubmitSQLSpeculativeResponse

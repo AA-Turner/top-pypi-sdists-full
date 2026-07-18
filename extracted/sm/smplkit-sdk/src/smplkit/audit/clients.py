@@ -42,6 +42,7 @@ from uuid import UUID
 import httpx
 
 from smplkit._config import _service_url, resolve_client_config
+from smplkit._transport import with_default_user_agent
 
 from smplkit._generated.audit.api.categories import (
     list_categories as _gen_list_categories,
@@ -238,45 +239,51 @@ def _audit_transport(
     *,
     api_key: str | None,
     base_url: str | None,
+    environment: str | None,
     profile: str | None,
     base_domain: str | None,
     scheme: str | None,
     debug: bool | None,
     extra_headers: dict[str, str] | None,
-) -> AuthenticatedClient:
-    """Build a standalone audit transport from resolved config.
+) -> tuple[AuthenticatedClient, str | None]:
+    """Build a standalone audit transport and resolve the environment.
 
-    ``base_url``/``api_key`` are used directly when both are supplied (the
-    path a top-level client takes after it has already resolved them);
-    otherwise the config resolver fills in whatever is missing
-    (``~/.smplkit`` / env vars / defaults). Environment scoping no longer
-    rides on this transport (ADR-055): the configured environment travels on
-    the event request body when recording and as the default
-    ``filter[environment]`` on the read surfaces, so the transport carries
-    only auth plus any caller-supplied ``extra_headers``.
+    ``api_key``/``base_url``/``environment`` are used directly when all
+    three are supplied (the path a top-level client takes after it has
+    already resolved them); otherwise the config resolver fills in whatever
+    is missing (``~/.smplkit`` / env vars / defaults). Environment scoping
+    no longer rides on this transport (ADR-055): the resolved environment
+    is returned to the caller so it can travel on the event request body
+    when recording and as the default ``filter[environment]`` on the read
+    surfaces; the transport carries only auth plus any caller-supplied
+    ``extra_headers``.
     """
-    if api_key is None or base_url is None:
+    if api_key is None or base_url is None or environment is None:
         cfg = resolve_client_config(
             profile=profile,
             api_key=api_key,
             base_domain=base_domain,
             scheme=scheme,
+            environment=environment,
             debug=debug,
         )
         api_key = api_key if api_key is not None else cfg.api_key
         base_url = base_url if base_url is not None else _service_url(cfg.scheme, "audit", cfg.base_domain)
+        environment = environment if environment is not None else cfg.environment
         cfg_extra = cfg.extra_headers
     else:
         cfg_extra = None
     headers: dict[str, str] = {"Accept": "application/vnd.api+json"}
     headers.update(cfg_extra or {})
     headers.update(extra_headers or {})
-    return AuthenticatedClient(
+    headers = with_default_user_agent(headers)
+    auth = AuthenticatedClient(
         base_url=base_url.rstrip("/"),
         token=api_key,
         timeout=httpx.Timeout(10.0),
         headers=headers,
     )
+    return auth, environment
 
 
 def _build_record_body(
@@ -353,10 +360,15 @@ def _record_post_fn(auth: AuthenticatedClient):
 class EventsClient:
     """Surface for ``client.audit.events.*`` (sync)."""
 
-    def __init__(self, *, auth_client: AuthenticatedClient, environment: str | None = None) -> None:
+    def __init__(
+        self, *, auth_client: AuthenticatedClient, environment: str | None = None, buffered: bool = True
+    ) -> None:
         self._auth = auth_client
         self._environment = environment
-        self._buffer = AuditEventBuffer(post_fn=_record_post_fn(auth_client))
+        # Stateless mode (buffered=False) installs no buffer at all — no
+        # worker thread, no background state — so a client may be
+        # constructed per request in serverless environments.
+        self._buffer = AuditEventBuffer(post_fn=_record_post_fn(auth_client)) if buffered else None
 
     def record(
         self,
@@ -376,11 +388,11 @@ class EventsClient:
         flush: bool = False,
         flush_timeout: float | None = 5.0,
     ) -> None:
-        """Enqueue an audit event for asynchronous delivery.
+        """Record an audit event.
 
-        Returns immediately when ``flush`` is False (the default) — the
-        buffer's worker thread performs the actual POST with retry on
-        transient failures.
+        In the default buffered mode this enqueues for asynchronous
+        delivery and returns immediately — the buffer's worker thread
+        performs the actual POST with retry on transient failures.
 
         When ``flush=True``, this call blocks until the buffer has
         drained or ``flush_timeout`` elapses. Use this when the caller
@@ -388,6 +400,11 @@ class EventsClient:
         are CLI tools, in-test assertions, and any flow about to exit
         the process. The fire-and-forget default remains the right
         choice on the request-handling hot path.
+
+        In stateless mode (``buffered=False`` on the client) every call
+        performs one blocking POST and raises on failure; ``flush`` and
+        ``flush_timeout`` are meaningless there and ignored — the event
+        is already durable on return.
 
         Args:
             event_type: What happened (e.g. ``"invoice.created"``). Any
@@ -442,7 +459,9 @@ class EventsClient:
                 each enabled forwarder so the skip is visible in the
                 forwarder delivery log.
             flush: When True, block until the buffer drains (or
-                ``flush_timeout`` elapses) before returning.
+                ``flush_timeout`` elapses) before returning. Ignored in
+                stateless mode (``buffered=False``), where every record
+                is already durable on return.
             flush_timeout: Upper bound on the blocking flush, in seconds.
                 Ignored when ``flush`` is False. ``None`` blocks
                 indefinitely.
@@ -461,6 +480,11 @@ class EventsClient:
             do_not_forward=do_not_forward,
             environment=self._environment,
         )
+        if self._buffer is None:
+            idem = idempotency_key if idempotency_key is not None else UNSET
+            resp = _gen_record_event.sync_detailed(client=self._auth, body=body, idempotency_key=idem)
+            _expect_status(resp, 200, 201)
+            return
         self._buffer.enqueue(body, idempotency_key=idempotency_key)
         if flush:
             self._buffer.flush(timeout=flush_timeout)
@@ -471,11 +495,15 @@ class EventsClient:
         Equivalent to passing ``flush=True`` to a final
         :meth:`record` call. Useful for draining buffered events at
         process shutdown or after a batch of fire-and-forget records.
+        A no-op in stateless mode (``buffered=False``), where every
+        record is already durable on return.
 
         Args:
             timeout: Upper bound on the blocking flush, in seconds.
                 ``None`` blocks indefinitely. Defaults to ``5.0``.
         """
+        if self._buffer is None:
+            return
         self._buffer.flush(timeout=timeout)
 
     def list(
@@ -486,6 +514,7 @@ class EventsClient:
         resource_id: str | None = None,
         actor_type: str | None = None,
         actor_id: str | None = None,
+        category: str | None = None,
         occurred_at_range: str | None = None,
         search: str | None = None,
         environments: list[str] | None = None,
@@ -525,6 +554,9 @@ class EventsClient:
                 value. Omit to match any.
             actor_id: Return only events whose ``actor_id`` matches this
                 value as a literal string. Omit to match any.
+            category: Filter to this exact category — the indexed
+                correlation label callers stamp on related events. Omit
+                to match any.
             occurred_at_range: Restrict to events whose ``occurred_at``
                 falls in this range. Omit to leave the time window open.
             search: Optional free-text filter — returns only events whose
@@ -551,6 +583,7 @@ class EventsClient:
             filterresource_id=resource_id if resource_id is not None else UNSET,
             filteractor_type=actor_type if actor_type is not None else UNSET,
             filteractor_id=actor_id if actor_id is not None else UNSET,
+            filtercategory=category if category is not None else UNSET,
             filteroccurred_at=occurred_at_range if occurred_at_range is not None else UNSET,
             filtersearch=search if search is not None else UNSET,
             filterenvironment=_resolve_environment_filter(environments, self._environment),
@@ -582,7 +615,8 @@ class EventsClient:
         return Event._from_resource(resp.parsed.to_dict()["data"])
 
     def _close(self) -> None:
-        self._buffer.close()
+        if self._buffer is not None:
+            self._buffer.close()
 
 
 class ResourceTypesClient:
@@ -771,10 +805,15 @@ class CategoriesClient:
 class AsyncEventsClient:
     """Surface for ``client.audit.events.*`` (async)."""
 
-    def __init__(self, *, auth_client: AuthenticatedClient, environment: str | None = None) -> None:
+    def __init__(
+        self, *, auth_client: AuthenticatedClient, environment: str | None = None, buffered: bool = True
+    ) -> None:
         self._auth = auth_client
         self._environment = environment
-        self._buffer = AuditEventBuffer(post_fn=_record_post_fn(auth_client))
+        # Stateless mode (buffered=False) installs no buffer at all — no
+        # worker thread, no background state — so a client may be
+        # constructed per request in serverless environments.
+        self._buffer = AuditEventBuffer(post_fn=_record_post_fn(auth_client)) if buffered else None
 
     async def record(
         self,
@@ -794,13 +833,19 @@ class AsyncEventsClient:
         flush: bool = False,
         flush_timeout: float | None = 5.0,
     ) -> None:
-        """Enqueue an audit event for asynchronous delivery.
+        """Record an audit event.
 
-        Fire-and-forget: the event is appended to an in-memory buffer drained
-        by a background worker thread, so this returns without awaiting any
-        network round-trip — nothing blocks the event loop. When
-        ``flush=True`` the buffer drain is awaited off the loop (run in a
-        thread executor) so it stays loop-safe.
+        In the default buffered mode this is fire-and-forget: the event is
+        appended to an in-memory buffer drained by a background worker
+        thread, so this returns without awaiting any network round-trip —
+        nothing blocks the event loop. When ``flush=True`` the buffer drain
+        is awaited off the loop (run in a thread executor) so it stays
+        loop-safe.
+
+        In stateless mode (``buffered=False`` on the client) every call
+        performs one awaited POST and raises on failure; ``flush`` and
+        ``flush_timeout`` are meaningless there and ignored — the event is
+        already durable on return.
 
         Args:
             event_type: What happened (e.g. ``"invoice.created"``). Any
@@ -846,7 +891,9 @@ class AsyncEventsClient:
                 is recorded for each enabled forwarder so the skip is
                 visible in the forwarder delivery log.
             flush: When ``True``, await the buffer drain (or until
-                ``flush_timeout`` elapses) before returning.
+                ``flush_timeout`` elapses) before returning. Ignored in
+                stateless mode (``buffered=False``), where every record
+                is already durable on return.
             flush_timeout: Upper bound on the awaited flush, in seconds.
                 Ignored when ``flush`` is ``False``. ``None`` waits
                 indefinitely. Defaults to ``5.0``.
@@ -865,6 +912,11 @@ class AsyncEventsClient:
             do_not_forward=do_not_forward,
             environment=self._environment,
         )
+        if self._buffer is None:
+            idem = idempotency_key if idempotency_key is not None else UNSET
+            resp = await _gen_record_event.asyncio_detailed(client=self._auth, body=body, idempotency_key=idem)
+            _expect_status(resp, 200, 201)
+            return
         self._buffer.enqueue(body, idempotency_key=idempotency_key)
         if flush:
             await self.flush(timeout=flush_timeout)
@@ -874,12 +926,16 @@ class AsyncEventsClient:
 
         Use this to drain buffered events at process shutdown or after a
         batch of fire-and-forget records. The drain runs in a thread
-        executor so it never blocks the event loop.
+        executor so it never blocks the event loop. A no-op in stateless
+        mode (``buffered=False``), where every record is already durable
+        on return.
 
         Args:
             timeout: Upper bound on the awaited drain, in seconds. ``None``
                 waits indefinitely. Defaults to ``5.0``.
         """
+        if self._buffer is None:
+            return
         await asyncio.get_running_loop().run_in_executor(None, self._buffer.flush, timeout)
 
     async def list(
@@ -890,6 +946,7 @@ class AsyncEventsClient:
         resource_id: str | None = None,
         actor_type: str | None = None,
         actor_id: str | None = None,
+        category: str | None = None,
         occurred_at_range: str | None = None,
         search: str | None = None,
         environments: list[str] | None = None,
@@ -929,6 +986,9 @@ class AsyncEventsClient:
                 value. Omit to match any.
             actor_id: Return only events whose ``actor_id`` matches this
                 value as a literal string. Omit to match any.
+            category: Filter to this exact category — the indexed
+                correlation label callers stamp on related events. Omit
+                to match any.
             occurred_at_range: Restrict to events whose ``occurred_at``
                 falls in this range. Omit to leave the time window open.
             search: Optional free-text filter — returns only events whose
@@ -955,6 +1015,7 @@ class AsyncEventsClient:
             filterresource_id=resource_id if resource_id is not None else UNSET,
             filteractor_type=actor_type if actor_type is not None else UNSET,
             filteractor_id=actor_id if actor_id is not None else UNSET,
+            filtercategory=category if category is not None else UNSET,
             filteroccurred_at=occurred_at_range if occurred_at_range is not None else UNSET,
             filtersearch=search if search is not None else UNSET,
             filterenvironment=_resolve_environment_filter(environments, self._environment),
@@ -986,7 +1047,8 @@ class AsyncEventsClient:
         return Event._from_resource(resp.parsed.to_dict()["data"])
 
     def _close(self) -> None:
-        self._buffer.close()
+        if self._buffer is not None:
+            self._buffer.close()
 
 
 class AsyncResourceTypesClient:
@@ -1186,12 +1248,13 @@ class AuditClient:
             ``~/.smplkit``.
         environment: Deployment environment to scope recording and reads to.
             Sent on the event request body when recording and as the default
-            ``filter[environment]`` on the read surfaces. Optional — forwarder
-            CRUD and discovery are environment-agnostic, and reads accept an
-            explicit ``environments=[...]`` filter that overrides this default.
-            When reached via ``SmplClient`` this is the SDK's configured runtime
-            environment; on a standalone client without it, recording falls back
-            to the server-side default environment.
+            ``filter[environment]`` on the read surfaces. When omitted,
+            resolved from ``SMPLKIT_ENVIRONMENT`` or ``~/.smplkit``. Optional —
+            forwarder CRUD and discovery are environment-agnostic, and reads
+            accept an explicit ``environments=[...]`` filter that overrides
+            this default. When reached via ``SmplClient`` this is the SDK's
+            configured runtime environment; without one anywhere, recording
+            falls back to the server-side default environment.
         profile: Named ``~/.smplkit`` profile section.
         base_url: Full audit-service base URL. Usually resolved from
             ``base_domain``/``scheme``; supplied directly by the top-level
@@ -1200,6 +1263,13 @@ class AuditClient:
         scheme: URL scheme (default ``"https"``).
         debug: Enable SDK debug logging.
         extra_headers: Extra headers attached to every request.
+        buffered: When ``True`` (the default), ``events.record`` enqueues onto
+            an in-memory buffer drained by a background worker thread. Pass
+            ``False`` for stateless mode: no buffer and no worker thread are
+            ever created, and every ``events.record`` call performs one
+            blocking POST that raises on failure — the right shape for
+            serverless environments where the process may freeze or exit
+            right after the handler returns.
         auth_client: Internal — a pre-built transport supplied by a top-level
             client so the audit surface shares one connection pool. Not for
             direct use.
@@ -1222,16 +1292,18 @@ class AuditClient:
         scheme: str | None = None,
         debug: bool | None = None,
         extra_headers: dict[str, str] | None = None,
+        buffered: bool = True,
         auth_client: AuthenticatedClient | None = None,
     ) -> None:
-        self._environment = environment
         if auth_client is not None:
+            # Parent-wired: the supplied environment wins over resolution.
             self._auth = auth_client
             self._owns_transport = False
         else:
-            self._auth = _audit_transport(
+            self._auth, environment = _audit_transport(
                 api_key=api_key,
                 base_url=base_url,
+                environment=environment,
                 profile=profile,
                 base_domain=base_domain,
                 scheme=scheme,
@@ -1239,12 +1311,13 @@ class AuditClient:
                 extra_headers=extra_headers,
             )
             self._owns_transport = True
+        self._environment = environment
         # Lazy import breaks the cycle: smplkit.audit.forwarders imports the
         # shared audit dataclasses from smplkit.audit.models, which is loaded
         # before this client module.
         from smplkit.audit.forwarders import ForwardersClient
 
-        self.events = EventsClient(auth_client=self._auth, environment=environment)
+        self.events = EventsClient(auth_client=self._auth, environment=environment, buffered=buffered)
         self.resource_types = ResourceTypesClient(auth_client=self._auth, environment=environment)
         self.event_types = EventTypesClient(auth_client=self._auth, environment=environment)
         self.categories = CategoriesClient(auth_client=self._auth, environment=environment)
@@ -1277,7 +1350,11 @@ class AsyncAuditClient:
     Genuinely async: event reads, discovery, and forwarder CRUD perform their
     network round-trips with ``await``; only ``events.record`` is
     fire-and-forget (it enqueues onto a background worker thread and returns
-    without awaiting), which is the correct shape for the hot path.
+    without awaiting), which is the correct shape for the hot path. Pass
+    ``buffered=False`` for stateless mode: no buffer and no worker thread are
+    ever created, and every ``events.record`` call performs one awaited POST
+    that raises on failure — the right shape for serverless environments
+    where the process may freeze or exit right after the handler returns.
     """
 
     events: AsyncEventsClient
@@ -1297,16 +1374,18 @@ class AsyncAuditClient:
         scheme: str | None = None,
         debug: bool | None = None,
         extra_headers: dict[str, str] | None = None,
+        buffered: bool = True,
         auth_client: AuthenticatedClient | None = None,
     ) -> None:
-        self._environment = environment
         if auth_client is not None:
+            # Parent-wired: the supplied environment wins over resolution.
             self._auth = auth_client
             self._owns_transport = False
         else:
-            self._auth = _audit_transport(
+            self._auth, environment = _audit_transport(
                 api_key=api_key,
                 base_url=base_url,
+                environment=environment,
                 profile=profile,
                 base_domain=base_domain,
                 scheme=scheme,
@@ -1314,9 +1393,10 @@ class AsyncAuditClient:
                 extra_headers=extra_headers,
             )
             self._owns_transport = True
+        self._environment = environment
         from smplkit.audit.forwarders import AsyncForwardersClient
 
-        self.events = AsyncEventsClient(auth_client=self._auth, environment=environment)
+        self.events = AsyncEventsClient(auth_client=self._auth, environment=environment, buffered=buffered)
         self.resource_types = AsyncResourceTypesClient(auth_client=self._auth, environment=environment)
         self.event_types = AsyncEventTypesClient(auth_client=self._auth, environment=environment)
         self.categories = AsyncCategoriesClient(auth_client=self._auth, environment=environment)

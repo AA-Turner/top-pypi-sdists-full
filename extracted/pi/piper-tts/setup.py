@@ -21,10 +21,19 @@ TASHKEEL_DATA_FILES = [
         "hint_id_map.json",
     )
 ]
+# Web page and images for the HTTP server
+HTTP_DATA_FILES = [
+    f.relative_to(MODULE_DIR)
+    for f in itertools.chain(
+        (MODULE_DIR / "templates").rglob("*"),
+        (MODULE_DIR / "img").rglob("*"),
+    )
+    if f.is_file()
+]
 
 setup(
     name="piper-tts",
-    version="1.4.2",
+    version="1.5.0",
     description="Fast and local neural text-to-speech engine",
     url="http://github.com/OHF-voice/piper1-gpl",
     license="GPL-3.0-or-later",
@@ -68,6 +77,7 @@ setup(
             "scikit-build<1",
             "cmake>=3.18,<4",
             "ninja>=1,<2",
+            "onnx>=1,<2",  # for alignments
         ],
         "http": [
             "flask>=3,<4",
@@ -83,14 +93,23 @@ setup(
             "requests>=2,<3",
         ],
     },
-    packages=["piper", "piper.tashkeel", "piper.train"],
+    packages=[
+        "piper",
+        "piper.tashkeel",
+        "piper.train",
+        "piper.train.vits",
+        "piper.train.vits.monotonic_align",
+    ],
     package_dir={"": "src"},
     include_package_data=True,
     package_data={
         "piper": [
             str(p)
             for p in itertools.chain(
-                PIPER_DATA_FILES, ESPEAK_NG_DATA_FILES, TASHKEEL_DATA_FILES
+                PIPER_DATA_FILES,
+                ESPEAK_NG_DATA_FILES,
+                TASHKEEL_DATA_FILES,
+                HTTP_DATA_FILES,
             )
         ],
     },

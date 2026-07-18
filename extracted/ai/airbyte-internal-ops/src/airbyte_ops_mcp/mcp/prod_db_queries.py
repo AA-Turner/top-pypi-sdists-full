@@ -30,6 +30,7 @@ from airbyte_ops_mcp.cloud_admin.registry_lookup import (
 from airbyte_ops_mcp.constants import OrganizationAliasEnum, WorkspaceAliasEnum
 from airbyte_ops_mcp.prod_db_access.queries import (
     is_source_connector,
+    query_actor_population_by_org,
     query_actors_pinned_to_version,
     query_connection_sync_activity_from_prod,
     query_connections_by_connector,
@@ -44,6 +45,7 @@ from airbyte_ops_mcp.prod_db_access.queries import (
     query_recent_syncs_for_connector,
     query_source_connection_stats,
     query_syncs_for_connector_version,
+    query_version_actor_health,
     query_versions_with_pins,
     query_workspace_info,
     query_workspaces_by_email_domain,
@@ -54,9 +56,14 @@ from airbyte_ops_mcp.prod_db_access.queries import (
 )
 from airbyte_ops_mcp.tier_cache import (
     TierFilter,
+    TierSummary,
     enrich_rows_by_org,
     filter_rows_by_tier,
     get_org_tiers,
+)
+from airbyte_ops_mcp.version_summaries import (
+    summarize_population,
+    summarize_version_health,
 )
 
 
@@ -845,7 +852,7 @@ def query_prod_failed_sync_attempts_for_connector(
             canonical_name=source_canonical_name,
         )
     else:
-        resolved_definition_id = source_definition_id  # type: ignore[assignment]
+        resolved_definition_id = source_definition_id  # ty: ignore[invalid-assignment]
 
     # Resolve organization ID alias
     resolved_organization_id = OrganizationAliasEnum.resolve(organization_id)
@@ -1033,7 +1040,7 @@ def query_prod_connections_by_connector(
             canonical_name=destination_canonical_name,
         )
     else:
-        resolved_definition_id = destination_definition_id  # type: ignore[assignment]
+        resolved_definition_id = destination_definition_id  # ty: ignore[invalid-assignment]
 
     # Resolve organization ID alias
     resolved_organization_id = OrganizationAliasEnum.resolve(organization_id)
@@ -2039,6 +2046,390 @@ def query_connector_pin_stats(
         )
         for row in rows
     ]
+
+
+# =============================================================================
+# Health and Population Summary Models and Tools
+# =============================================================================
+
+
+def _resolve_connector_target(
+    *,
+    connector_version_id: str | None,
+    connector_name: str | None,
+    connector_version: str | None,
+    connector_definition_id: str | None,
+    connector_canonical_name: str | None,
+) -> tuple[str | None, str, str, str | None]:
+    """Resolve mixed connector inputs to a common target tuple.
+
+    Returns `(version_id, definition_id, docker_repository, docker_image_tag)`.
+    `version_id` and `docker_image_tag` are `None` when only a definition-level
+    identifier was supplied.
+    """
+    if connector_version_id is not None:
+        info = resolve_version_info(connector_version_id)
+        return (
+            connector_version_id,
+            str(info["actor_definition_id"]),
+            info["docker_repository"],
+            info.get("docker_image_tag"),
+        )
+    if connector_name is not None and connector_version is not None:
+        docker_repository = f"airbyte/{connector_name}"
+        info = resolve_version_id_by_tag(
+            docker_repository=docker_repository,
+            docker_image_tag=connector_version,
+        )
+        return (
+            str(info["version_id"]),
+            str(info["actor_definition_id"]),
+            docker_repository,
+            connector_version,
+        )
+
+    definition_id: str | None = None
+    if connector_definition_id is not None:
+        definition_id = connector_definition_id
+    elif connector_canonical_name is not None:
+        definition_id = resolve_canonical_name_to_definition_id(
+            canonical_name=connector_canonical_name,
+        )
+    if definition_id is None:
+        raise PyAirbyteInputError(
+            message=(
+                "Provide one of: `connector_version_id`, "
+                "`connector_name` + `connector_version`, "
+                "`connector_definition_id`, or `connector_canonical_name`."
+            ),
+        )
+    versions = query_connector_versions(definition_id)
+    if not versions:
+        raise PyAirbyteInputError(
+            message=f"No connector versions found for definition: {definition_id}",
+        )
+    return (None, definition_id, versions[0]["docker_repository"], None)
+
+
+class ConnectorPopulationSummary(BaseModel):
+    """Applied vs potential pinning audience for a connector, split by tier."""
+
+    connector_definition_id: str = Field(description="The connector definition UUID")
+    connector_version_id: str | None = Field(
+        default=None,
+        description="The version UUID, when a specific version was requested",
+    )
+    docker_repository: str = Field(description="Docker repository path")
+    docker_image_tag: str | None = Field(
+        default=None, description="Docker image tag, when a version was requested"
+    )
+    customer_tier_filter: str = Field(
+        description="Tier filter applied to the counts (`TIER_0`/`TIER_1`/`TIER_2`/`ALL`)"
+    )
+    active: TierSummary = Field(
+        description=(
+            "Potential audience: enabled actors of the definition (those with at "
+            "least one active connection, `status = 'active'`), by tier"
+        )
+    )
+    pinned_any: TierSummary = Field(
+        description="Active actors already pinned to any version, by tier"
+    )
+    eligible: TierSummary = Field(
+        description="Active actors not pinned to any version (available to pin), by tier"
+    )
+    pinned_to_version: TierSummary | None = Field(
+        default=None,
+        description=(
+            "Applied audience: actors pinned to the requested version, by tier. "
+            "`None` when no specific version was requested."
+        ),
+    )
+
+
+class ConnectorVersionHealthSummary(BaseModel):
+    """Four-bucket health rollup for the actors running a connector version."""
+
+    connector_version_id: str = Field(description="The connector version UUID")
+    connector_definition_id: str = Field(description="The connector definition UUID")
+    docker_repository: str = Field(description="Docker repository path")
+    docker_image_tag: str | None = Field(
+        default=None, description="Docker image tag for this version"
+    )
+    days: int = Field(description="Lookback window in days")
+    customer_tier_filter: str = Field(
+        description="Tier filter applied to the counts (`TIER_0`/`TIER_1`/`TIER_2`/`ALL`)"
+    )
+    healthy: int = Field(description="Actors with at least one successful sync")
+    unhealthy: int = Field(
+        description="Actors with failures and no successes in the window"
+    )
+    awaiting: int = Field(
+        description="Actors that ran but produced only non-terminal jobs (no result yet)"
+    )
+    disabled: int = Field(
+        description=(
+            "Actors pinned to the version that produced no jobs in the window — "
+            "the dormant/inactive audience"
+        )
+    )
+    total_actors: int = Field(description="Total actors counted across all states")
+    healthy_by_tier: TierSummary = Field(description="Healthy actors by tier")
+    unhealthy_by_tier: TierSummary = Field(description="Unhealthy actors by tier")
+    awaiting_by_tier: TierSummary = Field(description="Awaiting-results actors by tier")
+    disabled_by_tier: TierSummary = Field(description="Disabled actors by tier")
+
+
+@mcp_tool(
+    read_only=True,
+    idempotent=True,
+    open_world=True,
+)
+def query_connector_population_summary(
+    connector_version_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Connector version UUID. When provided, the applied audience "
+                "(`pinned_to_version`) is included. Provide this OR "
+                "`connector_name` + `connector_version` OR a definition-level "
+                "identifier."
+            ),
+        ),
+    ] = None,
+    connector_name: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Canonical connector name (e.g. `source-postgres`). Used with "
+                "`connector_version` to resolve the version UUID."
+            ),
+        ),
+    ] = None,
+    connector_version: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Semver version tag (e.g. `0.3.59`). Used with `connector_name`."
+            ),
+        ),
+    ] = None,
+    connector_definition_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Connector definition UUID for a definition-level summary "
+                "(no `pinned_to_version` breakdown)."
+            ),
+        ),
+    ] = None,
+    connector_canonical_name: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Canonical connector name resolved to a definition ID via the "
+                "registry, for a definition-level summary."
+            ),
+        ),
+    ] = None,
+    customer_tier_filter: Annotated[
+        TierFilter,
+        Field(
+            description=(
+                "Which customer tiers to count. Defaults to `TIER_2`; pass "
+                "`ALL` to include TIER_0/TIER_1 (revenue-critical) customers."
+            ),
+        ),
+    ] = "TIER_2",
+) -> ConnectorPopulationSummary:
+    """Summarize the applied vs potential pinning audience for a connector, by tier.
+
+    Answers "how many actors are pinned and how many are eligible for pinning,
+    split by tier" — the population view analogous to a rollout's audience.
+
+    - `active`: the potential audience — non-tombstoned actors of the
+      definition that have at least one *active* connection
+      (`connection.status = 'active'`). Inactive/disabled and deprecated
+      connections are excluded, so this reflects the enabled, rollout-touchable
+      population rather than every actor ever created.
+    - `pinned_any`: active actors that already have an effective
+      `connector_version` pin at any scope (actor/workspace/org).
+    - `eligible`: `active` minus `pinned_any` — actors available to pin.
+    - `pinned_to_version`: the applied audience for the requested version
+      (only when a version identifier was provided).
+
+    Backed by `scoped_configuration` + actor/connection tables, so it is cheap
+    to compute. Accepts a version identifier (preferred, adds
+    `pinned_to_version`) or a definition-level identifier.
+    """
+    version_id, definition_id, docker_repository, docker_image_tag = (
+        _resolve_connector_target(
+            connector_version_id=connector_version_id,
+            connector_name=connector_name,
+            connector_version=connector_version,
+            connector_definition_id=connector_definition_id,
+            connector_canonical_name=connector_canonical_name,
+        )
+    )
+    is_destination = not is_source_connector(docker_repository)
+
+    population_rows = query_actor_population_by_org(
+        actor_definition_id=definition_id,
+        is_destination=is_destination,
+    )
+    pinned_version_rows = (
+        query_actors_pinned_to_version(version_id) if version_id is not None else None
+    )
+    summary = summarize_population(
+        population_rows,
+        pinned_version_rows=pinned_version_rows,
+        tier_filter=customer_tier_filter,
+        # The population query above is run without a `target_version_id`, so the
+        # version-aware summaries do not apply (the per-version audience comes
+        # from `pinned_version_rows` instead).
+        has_target_version=False,
+    )
+    return ConnectorPopulationSummary(
+        connector_definition_id=definition_id,
+        connector_version_id=version_id,
+        docker_repository=docker_repository,
+        docker_image_tag=docker_image_tag,
+        customer_tier_filter=customer_tier_filter,
+        active=summary.active_by_tier,
+        pinned_any=summary.pinned_any_by_tier,
+        eligible=summary.eligible_by_tier,
+        pinned_to_version=summary.pinned_to_version_by_tier,
+    )
+
+
+@mcp_tool(
+    read_only=True,
+    idempotent=True,
+    open_world=True,
+)
+def query_connector_version_health_summary(
+    connector_version_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Connector version UUID. Provide this OR "
+                "`connector_name` + `connector_version`."
+            ),
+        ),
+    ] = None,
+    connector_name: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Canonical connector name (e.g. `source-postgres`). Used with "
+                "`connector_version` to resolve the version UUID."
+            ),
+        ),
+    ] = None,
+    connector_version: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Semver version tag (e.g. `0.3.59`). Used with `connector_name`."
+            ),
+        ),
+    ] = None,
+    days: Annotated[
+        int,
+        Field(
+            description="Number of days to look back (default: 7, max: 30)",
+            ge=1,
+            le=30,
+        ),
+    ] = 7,
+    include_pinned_disabled: Annotated[
+        bool,
+        Field(
+            description=(
+                "If `True` (default), actors pinned to the version that ran no "
+                "jobs in the window are counted as `disabled`."
+            ),
+        ),
+    ] = True,
+    customer_tier_filter: Annotated[
+        TierFilter,
+        Field(
+            description=(
+                "Which customer tiers to count. Defaults to `TIER_2`; pass "
+                "`ALL` to include TIER_0/TIER_1 (revenue-critical) customers."
+            ),
+        ),
+    ] = "TIER_2",
+) -> ConnectorVersionHealthSummary:
+    """Summarize actor health for a connector version into four buckets.
+
+    Answers "how many actors on a version are healthy / unhealthy / awaiting /
+    disabled". Classification per actor over the lookback window:
+
+    - `healthy`: at least one successful sync (the same success signal the
+      autopilot health gate uses).
+    - `unhealthy`: failures and no successes.
+    - `awaiting`: ran but produced only non-terminal jobs (no result yet).
+    - `disabled`: (when `include_pinned_disabled`) pinned to the version with no
+      jobs at all in the window — the dormant/inactive audience.
+
+    Built on the attempt/version primitive — the version stamped into
+    `jobs.config` at job-creation time — not the current pin state, so it
+    reflects actors that actually ran this version. This scans jobs over the
+    window and is more expensive than the population summary; keep `days`
+    bounded and query per-version.
+    """
+    if connector_version_id is None and not (
+        connector_name is not None and connector_version is not None
+    ):
+        raise PyAirbyteInputError(
+            message=(
+                "Provide either `connector_version_id` or both "
+                "`connector_name` and `connector_version`."
+            ),
+        )
+    version_id, definition_id, docker_repository, docker_image_tag = (
+        _resolve_connector_target(
+            connector_version_id=connector_version_id,
+            connector_name=connector_name,
+            connector_version=connector_version,
+            connector_definition_id=None,
+            connector_canonical_name=None,
+        )
+    )
+    assert version_id is not None
+    is_destination = not is_source_connector(docker_repository)
+
+    health_rows = query_version_actor_health(
+        version_id,
+        is_destination=is_destination,
+        days=days,
+    )
+    pinned_actor_rows = (
+        query_actors_pinned_to_version(version_id) if include_pinned_disabled else None
+    )
+    summary = summarize_version_health(
+        health_rows,
+        pinned_actor_rows=pinned_actor_rows,
+        tier_filter=customer_tier_filter,
+    )
+    return ConnectorVersionHealthSummary(
+        connector_version_id=version_id,
+        connector_definition_id=definition_id,
+        docker_repository=docker_repository,
+        docker_image_tag=docker_image_tag,
+        days=days,
+        customer_tier_filter=customer_tier_filter,
+        healthy=summary.healthy,
+        unhealthy=summary.unhealthy,
+        awaiting=summary.awaiting,
+        disabled=summary.disabled,
+        total_actors=summary.total_actors,
+        healthy_by_tier=summary.healthy_by_tier,
+        unhealthy_by_tier=summary.unhealthy_by_tier,
+        awaiting_by_tier=summary.awaiting_by_tier,
+        disabled_by_tier=summary.disabled_by_tier,
+    )
 
 
 def register_prod_db_query_tools(app: FastMCP) -> None:

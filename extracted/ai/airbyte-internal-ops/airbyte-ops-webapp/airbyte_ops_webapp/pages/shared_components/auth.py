@@ -23,16 +23,9 @@ from airbyte_ops_webapp.auth.oauth import logout_oauth_action
 from airbyte_ops_webapp.theme import (
     BUTTON_INFO_CLASS,
     BUTTON_OUTLINE_CLASS,
-    PANEL_CARD_CLASS,
-    _card_style,
-    _primary_link_style,
+    AbCard,
+    AbPrimaryLink,
 )
-
-
-def _login_card_style() -> dict[str, str]:
-    style = _card_style()
-    style.update({"maxWidth": "32rem", "width": "100%"})
-    return style
 
 
 def render_auth_status() -> None:
@@ -44,11 +37,11 @@ def render_auth_status() -> None:
                     "🔒",
                     href="/authorization",
                     target="_top",
-                    style={"textDecoration": "none", "fontSize": "0.9rem"},
+                    css_class="no-underline text-[0.9rem]",
                 )
                 Text(
                     STATE.oauth_user_email,
-                    style={"fontSize": "0.8rem", "opacity": "0.85"},
+                    css_class="text-[0.8rem] opacity-[0.85]",
                 )
             Button(
                 "Log out",
@@ -58,11 +51,10 @@ def render_auth_status() -> None:
                 onClick=logout_oauth_action(),
             )
         with If(~STATE.oauth_authenticated):
-            Link(
+            AbPrimaryLink(
                 "Log in",
                 href="/authorization",
                 target="_top",
-                style=_primary_link_style(),
             )
 
 
@@ -97,13 +89,13 @@ def _render_notification_bell() -> None:
         # --- content ---
         with Column(
             gap=1,
-            style={"maxHeight": "16rem", "overflowY": "auto", "minWidth": "18rem"},
+            css_class="max-h-64 overflow-y-auto min-w-72",
         ):
             with (
                 If(STATE.notifications.length() > 0),
                 Row(
                     justify="end",
-                    style={"marginBottom": "0.25rem"},
+                    css_class="mb-1",
                 ),
             ):
                 Button(
@@ -120,20 +112,17 @@ def _render_notification_bell() -> None:
             with (
                 ForEach(STATE.notifications),
                 Div(
-                    style={
-                        "padding": "0.4rem 0.5rem",
-                        "borderBottom": "1px solid rgba(255,255,255,0.1)",
-                        "fontSize": "0.8rem",
-                        "wordBreak": "break-word",
-                        "overflowWrap": "break-word",
-                    },
+                    css_class=(
+                        "px-2 py-[0.4rem] border-b border-white/10 "
+                        "text-[0.8rem] break-words"
+                    ),
                 ),
             ):
                 Text(ITEM)
 
 
 def render_login_card() -> None:
-    with Div(css_class=PANEL_CARD_CLASS, style=_login_card_style()):
+    with AbCard(css_class="max-w-lg w-full"):
         with CardHeader():
             H2("Log in with Airbyte")
         with CardContent(), Column(gap=3):

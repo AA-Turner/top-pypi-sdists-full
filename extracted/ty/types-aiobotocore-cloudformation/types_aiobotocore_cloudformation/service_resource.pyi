@@ -48,6 +48,7 @@ from .type_defs import (
     CancelUpdateStackInputStackCancelUpdateTypeDef,
     CreateStackInputServiceResourceCreateStackTypeDef,
     DeleteStackInputStackDeleteTypeDef,
+    DeploymentConfigTypeDef,
     ModuleInfoTypeDef,
     OperationEntryTypeDef,
     OutputTypeDef,
@@ -344,6 +345,7 @@ class Stack(AIOBoto3ServiceResource):
     stack_status: Awaitable[StackStatusType]
     stack_status_reason: Awaitable[str]
     disable_rollback: Awaitable[bool]
+    deployment_config: Awaitable[DeploymentConfigTypeDef]
     notification_arns: Awaitable[list[str]]
     timeout_in_minutes: Awaitable[int]
     capabilities: Awaitable[list[CapabilityType]]

@@ -74,6 +74,7 @@ __all__ = (
     "OperationTypeType",
     "PackageTypeType",
     "PaginatorName",
+    "PropagateTagsModeType",
     "ProvisionedConcurrencyStatusEnumType",
     "PublishedVersionActiveWaiterName",
     "RecursiveLoopType",
@@ -81,6 +82,7 @@ __all__ = (
     "ResourceServiceName",
     "ResponseStreamingInvocationTypeType",
     "RuntimeType",
+    "S3ObjectStorageModeType",
     "SchemaRegistryEventRecordFormatType",
     "ServiceName",
     "SnapStartApplyOnType",
@@ -183,6 +185,7 @@ LastUpdateStatusReasonCodeType = Literal[
     "InvalidZipFileException",
     "KMSKeyAccessDenied",
     "KMSKeyNotFound",
+    "ServiceQuotaExceededException",
     "SubnetOutOfIPAddresses",
     "VcpuLimitExceeded",
 ]
@@ -211,6 +214,7 @@ OperationStatusType = Literal[
 ]
 OperationTypeType = Literal["CALLBACK", "CHAINED_INVOKE", "CONTEXT", "EXECUTION", "STEP", "WAIT"]
 PackageTypeType = Literal["Image", "Zip"]
+PropagateTagsModeType = Literal["Explicit", "None"]
 ProvisionedConcurrencyStatusEnumType = Literal["FAILED", "IN_PROGRESS", "READY"]
 PublishedVersionActiveWaiterName = Literal["published_version_active"]
 RecursiveLoopType = Literal["Allow", "Terminate"]
@@ -263,6 +267,7 @@ RuntimeType = Literal[
     "ruby3.4",
     "ruby4.0",
 ]
+S3ObjectStorageModeType = Literal["COPY", "REFERENCE"]
 SchemaRegistryEventRecordFormatType = Literal["JSON", "SOURCE"]
 SnapStartApplyOnType = Literal["None", "PublishedVersions"]
 SnapStartOptimizationStatusType = Literal["Off", "On"]
@@ -313,6 +318,7 @@ StateReasonCodeType = Literal[
     "KMSKeyAccessDenied",
     "KMSKeyNotFound",
     "Restoring",
+    "ServiceQuotaExceededException",
     "SubnetOutOfIPAddresses",
     "VcpuLimitExceeded",
 ]
@@ -524,8 +530,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -552,6 +556,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -619,10 +625,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -655,6 +661,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -682,6 +689,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -703,7 +711,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -724,6 +731,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

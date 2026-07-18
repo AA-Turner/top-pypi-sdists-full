@@ -57,6 +57,7 @@ from .literals import (
     LogLevelType,
     MessageActionTypeType,
     OAuthFlowTypeType,
+    PasswordHashingAlgorithmTypeType,
     PreTokenGenerationLambdaVersionTypeType,
     PreventUserExistenceErrorTypesType,
     RecoveryOptionNameTypeType,
@@ -224,6 +225,7 @@ __all__ = (
     "EmailMfaConfigTypeTypeDef",
     "EmailMfaSettingsTypeTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "EumsSmsConfigurationTypeTypeDef",
     "EventContextDataTypeTypeDef",
     "EventFeedbackTypeTypeDef",
     "EventRiskTypeTypeDef",
@@ -716,6 +718,7 @@ class CreateUserImportJobRequestTypeDef(TypedDict):
     JobName: str
     UserPoolId: str
     CloudWatchLogsRoleArn: str
+    PasswordHashingAlgorithm: NotRequired[PasswordHashingAlgorithmTypeType]
 
 class UserImportJobTypeTypeDef(TypedDict):
     JobName: NotRequired[str]
@@ -731,6 +734,7 @@ class UserImportJobTypeTypeDef(TypedDict):
     SkippedUsers: NotRequired[int]
     FailedUsers: NotRequired[int]
     CompletionMessage: NotRequired[str]
+    PasswordHashingAlgorithm: NotRequired[PasswordHashingAlgorithmTypeType]
 
 class RefreshTokenRotationTypeTypeDef(TypedDict):
     Feature: FeatureTypeType
@@ -784,11 +788,6 @@ IssuerConfigurationTypeTypeDef = TypedDict(
 class KeyConfigurationTypeTypeDef(TypedDict):
     KeyType: NotRequired[EncryptionKeyTypeType]
     KmsKeyArn: NotRequired[str]
-
-class SmsConfigurationTypeTypeDef(TypedDict):
-    SnsCallerArn: str
-    ExternalId: NotRequired[str]
-    SnsRegion: NotRequired[str]
 
 class UsernameConfigurationTypeTypeDef(TypedDict):
     CaseSensitive: bool
@@ -907,6 +906,15 @@ class DescribeUserPoolRequestTypeDef(TypedDict):
 class EmailMfaConfigTypeTypeDef(TypedDict):
     Message: NotRequired[str]
     Subject: NotRequired[str]
+
+class EumsSmsConfigurationTypeTypeDef(TypedDict):
+    CallerArn: str
+    ExternalId: NotRequired[str]
+    OriginationIdentity: NotRequired[str]
+    ConfigurationSetName: NotRequired[str]
+    InEntityId: NotRequired[str]
+    InTemplateId: NotRequired[str]
+    Region: NotRequired[str]
 
 class FailoverTypeTypeDef(TypedDict):
     SecondaryRegion: str
@@ -1759,9 +1767,11 @@ class UpdateUserPoolReplicaResponseTypeDef(TypedDict):
     UserPoolReplica: UserPoolReplicaTypeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class SmsMfaConfigTypeTypeDef(TypedDict):
-    SmsAuthenticationMessage: NotRequired[str]
-    SmsConfiguration: NotRequired[SmsConfigurationTypeTypeDef]
+class SmsConfigurationTypeTypeDef(TypedDict):
+    SnsCallerArn: NotRequired[str]
+    ExternalId: NotRequired[str]
+    SnsRegion: NotRequired[str]
+    EumsSms: NotRequired[EumsSmsConfigurationTypeTypeDef]
 
 class RoutingTypeTypeDef(TypedDict):
     Failover: NotRequired[FailoverTypeTypeDef]
@@ -2009,29 +2019,9 @@ class UpdateUserPoolClientResponseTypeDef(TypedDict):
     UserPoolClient: UserPoolClientTypeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class GetUserPoolMfaConfigResponseTypeDef(TypedDict):
-    SmsMfaConfiguration: SmsMfaConfigTypeTypeDef
-    SoftwareTokenMfaConfiguration: SoftwareTokenMfaConfigTypeTypeDef
-    EmailMfaConfiguration: EmailMfaConfigTypeTypeDef
-    MfaConfiguration: UserPoolMfaTypeType
-    WebAuthnConfiguration: WebAuthnConfigurationTypeTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class SetUserPoolMfaConfigRequestTypeDef(TypedDict):
-    UserPoolId: str
-    SmsMfaConfiguration: NotRequired[SmsMfaConfigTypeTypeDef]
-    SoftwareTokenMfaConfiguration: NotRequired[SoftwareTokenMfaConfigTypeTypeDef]
-    EmailMfaConfiguration: NotRequired[EmailMfaConfigTypeTypeDef]
-    MfaConfiguration: NotRequired[UserPoolMfaTypeType]
-    WebAuthnConfiguration: NotRequired[WebAuthnConfigurationTypeTypeDef]
-
-class SetUserPoolMfaConfigResponseTypeDef(TypedDict):
-    SmsMfaConfiguration: SmsMfaConfigTypeTypeDef
-    SoftwareTokenMfaConfiguration: SoftwareTokenMfaConfigTypeTypeDef
-    EmailMfaConfiguration: EmailMfaConfigTypeTypeDef
-    MfaConfiguration: UserPoolMfaTypeType
-    WebAuthnConfiguration: WebAuthnConfigurationTypeTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class SmsMfaConfigTypeTypeDef(TypedDict):
+    SmsAuthenticationMessage: NotRequired[str]
+    SmsConfiguration: NotRequired[SmsConfigurationTypeTypeDef]
 
 class CreateUserPoolDomainRequestTypeDef(TypedDict):
     Domain: str
@@ -2164,6 +2154,30 @@ class UpdateManagedLoginBrandingRequestTypeDef(TypedDict):
     UseCognitoProvidedValues: NotRequired[bool]
     Settings: NotRequired[Mapping[str, Any]]
     Assets: NotRequired[Sequence[AssetTypeUnionTypeDef]]
+
+class GetUserPoolMfaConfigResponseTypeDef(TypedDict):
+    SmsMfaConfiguration: SmsMfaConfigTypeTypeDef
+    SoftwareTokenMfaConfiguration: SoftwareTokenMfaConfigTypeTypeDef
+    EmailMfaConfiguration: EmailMfaConfigTypeTypeDef
+    MfaConfiguration: UserPoolMfaTypeType
+    WebAuthnConfiguration: WebAuthnConfigurationTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class SetUserPoolMfaConfigRequestTypeDef(TypedDict):
+    UserPoolId: str
+    SmsMfaConfiguration: NotRequired[SmsMfaConfigTypeTypeDef]
+    SoftwareTokenMfaConfiguration: NotRequired[SoftwareTokenMfaConfigTypeTypeDef]
+    EmailMfaConfiguration: NotRequired[EmailMfaConfigTypeTypeDef]
+    MfaConfiguration: NotRequired[UserPoolMfaTypeType]
+    WebAuthnConfiguration: NotRequired[WebAuthnConfigurationTypeTypeDef]
+
+class SetUserPoolMfaConfigResponseTypeDef(TypedDict):
+    SmsMfaConfiguration: SmsMfaConfigTypeTypeDef
+    SoftwareTokenMfaConfiguration: SoftwareTokenMfaConfigTypeTypeDef
+    EmailMfaConfiguration: EmailMfaConfigTypeTypeDef
+    MfaConfiguration: UserPoolMfaTypeType
+    WebAuthnConfiguration: WebAuthnConfigurationTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeUserPoolDomainResponseTypeDef(TypedDict):
     DomainDescription: DomainDescriptionTypeTypeDef

@@ -74,6 +74,7 @@ ws_admin/org_id,ws_id:
     - w+d:workspace_management/org_id,ws_id,{env=*,type=entity}
     - w:workspace_feature_query/org_id,ws_id,{env=live,component=status,current_status_live=*}
     - r+w:workspace_file/org_id,ws_id,{env=*}
+    - r+w:workspace_wizard/org_id,ws_id,{env=*}
     - r+w:workspace_case_template/org_id,ws_id
     - r+w:workspace_case/org_id,ws_id
     - r+w:workspace_case_queue/org_id,ws_id
@@ -143,6 +144,7 @@ api_key_sandbox/org_id,ws_id:
     - r:workspace_management/org_id,ws_id,{env=sandbox,type=*}
     - r+w:workspace_review_case/org_id,ws_id,{env=sandbox}
     - r+w:workspace_case/org_id,ws_id
+    - api_key_wizard/org_id,ws_id
 api_key_production/org_id,ws_id:
     - d_member/org_id
     - ws_viewer/org_id,ws_id
@@ -157,6 +159,8 @@ api_key_production/org_id,ws_id:
     - r:workspace_management/org_id,ws_id,{env=live,type=*}
     - r+w:workspace_file/org_id,ws_id,{env=live}
     - r+w:workspace_case/org_id,ws_id
+    - r+w:workspace_case_queue/org_id,ws_id
+    - api_key_wizard/org_id,ws_id
 api_key_job_admin/org_id,ws_id:
     - ws_viewer/org_id,ws_id
     - r+w+d:workspace_job/org_id,ws_id

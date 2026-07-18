@@ -213,6 +213,10 @@ class FirmwareJob(DashboardModel):
     # yet -- most compile output is opaque, but the heavy phases (PIO
     # build, esptool flash) do emit percentages we can latch onto.
     progress: int | None = None
+    # Largest ninja ``[N/M]`` total seen this run — backs the sub-build
+    # gate in ``_ninja_progress``. Parser bookkeeping only: kept off
+    # the wire and off disk.
+    ninja_total: int = field(default=0, metadata={"serialize": "omit"})
     # Offloader's ``dashboard_id`` when this job came in via the
     # peer-link ``submit_job`` flow (issue #106). Empty for
     # locally-submitted jobs. Surfaced in the firmware-tasks UI
@@ -340,6 +344,19 @@ class FirmwareJob(DashboardModel):
         return self.job_type is JobType.UPLOAD or self.is_rename_tail
 
     @property
+    def wipes_local_build_tree(self) -> bool:
+        """
+        Whether this job deletes local build artifacts a flash could be reading.
+
+        A REMOTE-source clean / reset targets the paired receiver's tree,
+        never this dashboard's.
+        """
+        return (
+            self.job_type in (JobType.CLEAN, JobType.RESET_BUILD_ENV)
+            and self.source is not JobSource.REMOTE
+        )
+
+    @property
     def new_filename(self) -> str:
         """The YAML filename a rename's ``new_name`` resolves to."""
         return f"{self.new_name}.yaml"
@@ -421,9 +438,9 @@ class FirmwareJob(DashboardModel):
           another build server uses :meth:`clear_run_state`
           instead, so it doesn't claim a restart that didn't
           happen.)
-        - **Clears per-run state** — ``progress`` / ``error`` /
-          ``started_at`` / ``completed_at`` / ``exit_code``
-          back to their defaults.
+        - **Clears per-run state** — ``progress`` / ``ninja_total`` /
+          ``error`` / ``started_at`` / ``completed_at`` /
+          ``exit_code`` back to their defaults.
         - **Doesn't change ``status``** — the caller decides
           the transition (load path flips ``RUNNING`` →
           ``QUEUED``; future callers might want a different
@@ -485,13 +502,14 @@ class FirmwareJob(DashboardModel):
             self.apply_build_source(REMOTE_PENDING_JOB_BUILD_SOURCE)
 
     def clear_run_state(self) -> None:
-        """Clear per-run fields (progress / error / timing / exit code); keeps output and identity.
+        """Clear per-run fields (progress / gauge / error / timing); keeps output and identity.
 
         ``reset`` is this plus a restart marker; a mid-build re-route to
         another server calls this directly so the log isn't stamped with a
         restart notice that never happened.
         """
         self.progress = None
+        self.ninja_total = 0
         self.error = None
         self.failure_reason = JobFailureReason.NONE
         self.started_at = None

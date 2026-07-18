@@ -67,6 +67,7 @@ from .paginator import (
     GetResourcePoliciesPaginator,
     ListAssociationsPaginator,
     ListAssociationVersionsPaginator,
+    ListCloudConnectorsPaginator,
     ListCommandInvocationsPaginator,
     ListCommandsPaginator,
     ListComplianceItemsPaginator,
@@ -80,6 +81,7 @@ from .paginator import (
     ListOpsMetadataPaginator,
     ListResourceComplianceSummariesPaginator,
     ListResourceDataSyncPaginator,
+    ValidateCloudConnectorPaginator,
 )
 from .type_defs import (
     AddTagsToResourceRequestTypeDef,
@@ -94,6 +96,8 @@ from .type_defs import (
     CreateAssociationBatchResultTypeDef,
     CreateAssociationRequestTypeDef,
     CreateAssociationResultTypeDef,
+    CreateCloudConnectorRequestTypeDef,
+    CreateCloudConnectorResultTypeDef,
     CreateDocumentRequestTypeDef,
     CreateDocumentResultTypeDef,
     CreateMaintenanceWindowRequestTypeDef,
@@ -107,6 +111,8 @@ from .type_defs import (
     CreateResourceDataSyncRequestTypeDef,
     DeleteActivationRequestTypeDef,
     DeleteAssociationRequestTypeDef,
+    DeleteCloudConnectorRequestTypeDef,
+    DeleteCloudConnectorResultTypeDef,
     DeleteDocumentRequestTypeDef,
     DeleteInventoryRequestTypeDef,
     DeleteInventoryResultTypeDef,
@@ -201,6 +207,8 @@ from .type_defs import (
     GetAutomationExecutionResultTypeDef,
     GetCalendarStateRequestTypeDef,
     GetCalendarStateResponseTypeDef,
+    GetCloudConnectorRequestTypeDef,
+    GetCloudConnectorResultTypeDef,
     GetCommandInvocationRequestTypeDef,
     GetCommandInvocationResultTypeDef,
     GetConnectionStatusRequestTypeDef,
@@ -255,6 +263,8 @@ from .type_defs import (
     ListAssociationsResultTypeDef,
     ListAssociationVersionsRequestTypeDef,
     ListAssociationVersionsResultTypeDef,
+    ListCloudConnectorsRequestTypeDef,
+    ListCloudConnectorsResultTypeDef,
     ListCommandInvocationsRequestTypeDef,
     ListCommandInvocationsResultTypeDef,
     ListCommandsRequestTypeDef,
@@ -331,6 +341,8 @@ from .type_defs import (
     UpdateAssociationResultTypeDef,
     UpdateAssociationStatusRequestTypeDef,
     UpdateAssociationStatusResultTypeDef,
+    UpdateCloudConnectorRequestTypeDef,
+    UpdateCloudConnectorResultTypeDef,
     UpdateDocumentDefaultVersionRequestTypeDef,
     UpdateDocumentDefaultVersionResultTypeDef,
     UpdateDocumentMetadataRequestTypeDef,
@@ -350,6 +362,8 @@ from .type_defs import (
     UpdatePatchBaselineResultTypeDef,
     UpdateResourceDataSyncRequestTypeDef,
     UpdateServiceSettingRequestTypeDef,
+    ValidateCloudConnectorRequestTypeDef,
+    ValidateCloudConnectorResultTypeDef,
 )
 from .waiter import CommandExecutedWaiter
 
@@ -379,6 +393,7 @@ class Exceptions(BaseClientExceptions):
     AutomationStepNotFoundException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     ComplianceTypeCountLimitExceededException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
     CustomSchemaCountLimitExceededException: type[BotocoreClientError]
     DocumentAlreadyExists: type[BotocoreClientError]
     DocumentLimitExceeded: type[BotocoreClientError]
@@ -613,6 +628,17 @@ class SSMClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#create_association_batch)
         """
 
+    async def create_cloud_connector(
+        self, **kwargs: Unpack[CreateCloudConnectorRequestTypeDef]
+    ) -> CreateCloudConnectorResultTypeDef:
+        """
+        Creates a cloud connector that establishes a connection between Systems Manager
+        and a third-party cloud environment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/create_cloud_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#create_cloud_connector)
+        """
+
     async def create_document(
         self, **kwargs: Unpack[CreateDocumentRequestTypeDef]
     ) -> CreateDocumentResultTypeDef:
@@ -695,6 +721,16 @@ class SSMClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/delete_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#delete_association)
+        """
+
+    async def delete_cloud_connector(
+        self, **kwargs: Unpack[DeleteCloudConnectorRequestTypeDef]
+    ) -> DeleteCloudConnectorResultTypeDef:
+        """
+        Deletes a cloud connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/delete_cloud_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#delete_cloud_connector)
         """
 
     async def delete_document(
@@ -1230,6 +1266,16 @@ class SSMClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#get_calendar_state)
         """
 
+    async def get_cloud_connector(
+        self, **kwargs: Unpack[GetCloudConnectorRequestTypeDef]
+    ) -> GetCloudConnectorResultTypeDef:
+        """
+        Returns detailed information about a cloud connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/get_cloud_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#get_cloud_connector)
+        """
+
     async def get_command_invocation(
         self, **kwargs: Unpack[GetCommandInvocationRequestTypeDef]
     ) -> GetCommandInvocationResultTypeDef:
@@ -1511,6 +1557,17 @@ class SSMClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/list_associations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#list_associations)
+        """
+
+    async def list_cloud_connectors(
+        self, **kwargs: Unpack[ListCloudConnectorsRequestTypeDef]
+    ) -> ListCloudConnectorsResultTypeDef:
+        """
+        Returns a list of cloud connectors in the current Amazon Web Services account
+        and Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/list_cloud_connectors.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#list_cloud_connectors)
         """
 
     async def list_command_invocations(
@@ -1939,6 +1996,16 @@ class SSMClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#update_association_status)
         """
 
+    async def update_cloud_connector(
+        self, **kwargs: Unpack[UpdateCloudConnectorRequestTypeDef]
+    ) -> UpdateCloudConnectorResultTypeDef:
+        """
+        Updates an existing cloud connector with new configuration details.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/update_cloud_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#update_cloud_connector)
+        """
+
     async def update_document(
         self, **kwargs: Unpack[UpdateDocumentRequestTypeDef]
     ) -> UpdateDocumentResultTypeDef:
@@ -2061,6 +2128,16 @@ class SSMClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/update_service_setting.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#update_service_setting)
+        """
+
+    async def validate_cloud_connector(
+        self, **kwargs: Unpack[ValidateCloudConnectorRequestTypeDef]
+    ) -> ValidateCloudConnectorResultTypeDef:
+        """
+        Validates the configuration and connectivity of a cloud connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/validate_cloud_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#validate_cloud_connector)
         """
 
     @overload  # type: ignore[override]
@@ -2472,6 +2549,17 @@ class SSMClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cloud_connectors"]
+    ) -> ListCloudConnectorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_command_invocations"]
     ) -> ListCommandInvocationsPaginator:
         """
@@ -2606,6 +2694,17 @@ class SSMClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_resource_data_sync"]
     ) -> ListResourceDataSyncPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["validate_cloud_connector"]
+    ) -> ValidateCloudConnectorPaginator:
         """
         Create a paginator for an operation.
 

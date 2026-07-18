@@ -18,6 +18,8 @@ Usage::
         ListEventsPaginator,
         ListMemoryExtractionJobsPaginator,
         ListMemoryRecordsPaginator,
+        ListPaymentInstrumentsPaginator,
+        ListPaymentSessionsPaginator,
         ListRecommendationsPaginator,
         ListSessionsPaginator,
         RetrieveMemoryRecordsPaginator,
@@ -33,6 +35,8 @@ Usage::
         list_events_paginator: ListEventsPaginator = client.get_paginator("list_events")
         list_memory_extraction_jobs_paginator: ListMemoryExtractionJobsPaginator = client.get_paginator("list_memory_extraction_jobs")
         list_memory_records_paginator: ListMemoryRecordsPaginator = client.get_paginator("list_memory_records")
+        list_payment_instruments_paginator: ListPaymentInstrumentsPaginator = client.get_paginator("list_payment_instruments")
+        list_payment_sessions_paginator: ListPaymentSessionsPaginator = client.get_paginator("list_payment_sessions")
         list_recommendations_paginator: ListRecommendationsPaginator = client.get_paginator("list_recommendations")
         list_sessions_paginator: ListSessionsPaginator = client.get_paginator("list_sessions")
         retrieve_memory_records_paginator: RetrieveMemoryRecordsPaginator = client.get_paginator("retrieve_memory_records")
@@ -59,6 +63,10 @@ from .type_defs import (
     ListMemoryExtractionJobsOutputTypeDef,
     ListMemoryRecordsInputPaginateTypeDef,
     ListMemoryRecordsOutputTypeDef,
+    ListPaymentInstrumentsRequestPaginateTypeDef,
+    ListPaymentInstrumentsResponseTypeDef,
+    ListPaymentSessionsRequestPaginateTypeDef,
+    ListPaymentSessionsResponseTypeDef,
     ListRecommendationsRequestPaginateTypeDef,
     ListRecommendationsResponseTypeDef,
     ListSessionsInputPaginateTypeDef,
@@ -79,6 +87,8 @@ __all__ = (
     "ListEventsPaginator",
     "ListMemoryExtractionJobsPaginator",
     "ListMemoryRecordsPaginator",
+    "ListPaymentInstrumentsPaginator",
+    "ListPaymentSessionsPaginator",
     "ListRecommendationsPaginator",
     "ListSessionsPaginator",
     "RetrieveMemoryRecordsPaginator",
@@ -190,6 +200,42 @@ class ListMemoryRecordsPaginator(_ListMemoryRecordsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListMemoryRecords.html#BedrockAgentCore.Paginator.ListMemoryRecords.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/paginators/#listmemoryrecordspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPaymentInstrumentsPaginatorBase = AioPaginator[ListPaymentInstrumentsResponseTypeDef]
+else:
+    _ListPaymentInstrumentsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListPaymentInstrumentsPaginator(_ListPaymentInstrumentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListPaymentInstruments.html#BedrockAgentCore.Paginator.ListPaymentInstruments)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/paginators/#listpaymentinstrumentspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPaymentInstrumentsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListPaymentInstrumentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListPaymentInstruments.html#BedrockAgentCore.Paginator.ListPaymentInstruments.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/paginators/#listpaymentinstrumentspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPaymentSessionsPaginatorBase = AioPaginator[ListPaymentSessionsResponseTypeDef]
+else:
+    _ListPaymentSessionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListPaymentSessionsPaginator(_ListPaymentSessionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListPaymentSessions.html#BedrockAgentCore.Paginator.ListPaymentSessions)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/paginators/#listpaymentsessionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPaymentSessionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListPaymentSessionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/paginator/ListPaymentSessions.html#BedrockAgentCore.Paginator.ListPaymentSessions.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/paginators/#listpaymentsessionspaginator)
         """
 
 if TYPE_CHECKING:

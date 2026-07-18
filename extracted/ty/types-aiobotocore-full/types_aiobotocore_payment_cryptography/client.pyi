@@ -33,6 +33,8 @@ from .paginator import ListAliasesPaginator, ListKeysPaginator, ListTagsForResou
 from .type_defs import (
     AddKeyReplicationRegionsInputTypeDef,
     AddKeyReplicationRegionsOutputTypeDef,
+    AssociateMpaTeamInputTypeDef,
+    AssociateMpaTeamOutputTypeDef,
     CreateAliasInputTypeDef,
     CreateAliasOutputTypeDef,
     CreateKeyInputTypeDef,
@@ -40,8 +42,11 @@ from .type_defs import (
     DeleteAliasInputTypeDef,
     DeleteKeyInputTypeDef,
     DeleteKeyOutputTypeDef,
+    DeleteResourcePolicyInputTypeDef,
     DisableDefaultKeyReplicationRegionsInputTypeDef,
     DisableDefaultKeyReplicationRegionsOutputTypeDef,
+    DisassociateMpaTeamInputTypeDef,
+    DisassociateMpaTeamOutputTypeDef,
     EnableDefaultKeyReplicationRegionsInputTypeDef,
     EnableDefaultKeyReplicationRegionsOutputTypeDef,
     ExportKeyInputTypeDef,
@@ -53,12 +58,16 @@ from .type_defs import (
     GetDefaultKeyReplicationRegionsOutputTypeDef,
     GetKeyInputTypeDef,
     GetKeyOutputTypeDef,
+    GetMpaTeamAssociationInputTypeDef,
+    GetMpaTeamAssociationOutputTypeDef,
     GetParametersForExportInputTypeDef,
     GetParametersForExportOutputTypeDef,
     GetParametersForImportInputTypeDef,
     GetParametersForImportOutputTypeDef,
     GetPublicKeyCertificateInputTypeDef,
     GetPublicKeyCertificateOutputTypeDef,
+    GetResourcePolicyInputTypeDef,
+    GetResourcePolicyOutputTypeDef,
     ImportKeyInputTypeDef,
     ImportKeyOutputTypeDef,
     ListAliasesInputTypeDef,
@@ -67,6 +76,8 @@ from .type_defs import (
     ListKeysOutputTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
+    PutResourcePolicyInputTypeDef,
+    PutResourcePolicyOutputTypeDef,
     RemoveKeyReplicationRegionsInputTypeDef,
     RemoveKeyReplicationRegionsOutputTypeDef,
     RestoreKeyInputTypeDef,
@@ -93,6 +104,7 @@ class Exceptions(BaseClientExceptions):
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
+    PublicPolicyException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
     ServiceUnavailableException: type[BotocoreClientError]
@@ -146,6 +158,16 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#add_key_replication_regions)
         """
 
+    async def associate_mpa_team(
+        self, **kwargs: Unpack[AssociateMpaTeamInputTypeDef]
+    ) -> AssociateMpaTeamOutputTypeDef:
+        """
+        Associates a Multi-Party Approval (MPA) team with a protected operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/associate_mpa_team.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#associate_mpa_team)
+        """
+
     async def create_alias(
         self, **kwargs: Unpack[CreateAliasInputTypeDef]
     ) -> CreateAliasOutputTypeDef:
@@ -184,6 +206,17 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#delete_key)
         """
 
+    async def delete_resource_policy(
+        self, **kwargs: Unpack[DeleteResourcePolicyInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes the resource-based policy attached to an Amazon Web Services Payment
+        Cryptography key.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/delete_resource_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#delete_resource_policy)
+        """
+
     async def disable_default_key_replication_regions(
         self, **kwargs: Unpack[DisableDefaultKeyReplicationRegionsInputTypeDef]
     ) -> DisableDefaultKeyReplicationRegionsOutputTypeDef:
@@ -196,6 +229,17 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/disable_default_key_replication_regions.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#disable_default_key_replication_regions)
+        """
+
+    async def disassociate_mpa_team(
+        self, **kwargs: Unpack[DisassociateMpaTeamInputTypeDef]
+    ) -> DisassociateMpaTeamOutputTypeDef:
+        """
+        Removes the association between a Multi-Party Approval (MPA) team and a
+        protected operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/disassociate_mpa_team.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#disassociate_mpa_team)
         """
 
     async def enable_default_key_replication_regions(
@@ -260,6 +304,17 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#get_key)
         """
 
+    async def get_mpa_team_association(
+        self, **kwargs: Unpack[GetMpaTeamAssociationInputTypeDef]
+    ) -> GetMpaTeamAssociationOutputTypeDef:
+        """
+        Returns the Multi-Party Approval (MPA) team association for a protected
+        operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/get_mpa_team_association.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#get_mpa_team_association)
+        """
+
     async def get_parameters_for_export(
         self, **kwargs: Unpack[GetParametersForExportInputTypeDef]
     ) -> GetParametersForExportOutputTypeDef:
@@ -292,6 +347,17 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/get_public_key_certificate.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#get_public_key_certificate)
+        """
+
+    async def get_resource_policy(
+        self, **kwargs: Unpack[GetResourcePolicyInputTypeDef]
+    ) -> GetResourcePolicyOutputTypeDef:
+        """
+        Returns the resource-based policy attached to an Amazon Web Services Payment
+        Cryptography key.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/get_resource_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#get_resource_policy)
         """
 
     async def import_key(self, **kwargs: Unpack[ImportKeyInputTypeDef]) -> ImportKeyOutputTypeDef:
@@ -331,6 +397,17 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/list_tags_for_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#list_tags_for_resource)
+        """
+
+    async def put_resource_policy(
+        self, **kwargs: Unpack[PutResourcePolicyInputTypeDef]
+    ) -> PutResourcePolicyOutputTypeDef:
+        """
+        Attaches or replaces a resource-based policy on an Amazon Web Services Payment
+        Cryptography key.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/put_resource_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#put_resource_policy)
         """
 
     async def remove_key_replication_regions(

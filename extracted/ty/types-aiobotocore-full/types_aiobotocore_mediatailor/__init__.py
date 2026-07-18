@@ -14,6 +14,7 @@ Usage::
         GetChannelSchedulePaginator,
         ListAlertsPaginator,
         ListChannelsPaginator,
+        ListFunctionsPaginator,
         ListLiveSourcesPaginator,
         ListPlaybackConfigurationsPaginator,
         ListPrefetchSchedulesPaginator,
@@ -31,6 +32,7 @@ Usage::
     get_channel_schedule_paginator: GetChannelSchedulePaginator = client.get_paginator("get_channel_schedule")
     list_alerts_paginator: ListAlertsPaginator = client.get_paginator("list_alerts")
     list_channels_paginator: ListChannelsPaginator = client.get_paginator("list_channels")
+    list_functions_paginator: ListFunctionsPaginator = client.get_paginator("list_functions")
     list_live_sources_paginator: ListLiveSourcesPaginator = client.get_paginator("list_live_sources")
     list_playback_configurations_paginator: ListPlaybackConfigurationsPaginator = client.get_paginator("list_playback_configurations")
     list_prefetch_schedules_paginator: ListPrefetchSchedulesPaginator = client.get_paginator("list_prefetch_schedules")
@@ -44,6 +46,7 @@ from .paginator import (
     GetChannelSchedulePaginator,
     ListAlertsPaginator,
     ListChannelsPaginator,
+    ListFunctionsPaginator,
     ListLiveSourcesPaginator,
     ListPlaybackConfigurationsPaginator,
     ListPrefetchSchedulesPaginator,
@@ -59,6 +62,7 @@ __all__ = (
     "GetChannelSchedulePaginator",
     "ListAlertsPaginator",
     "ListChannelsPaginator",
+    "ListFunctionsPaginator",
     "ListLiveSourcesPaginator",
     "ListPlaybackConfigurationsPaginator",
     "ListPrefetchSchedulesPaginator",

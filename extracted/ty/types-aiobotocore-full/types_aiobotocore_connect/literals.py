@@ -30,11 +30,14 @@ __all__ = (
     "AgentStatusTypeType",
     "AiUseCaseType",
     "AllowedUserActionType",
+    "AnalyticsModeType",
     "AnsweringMachineDetectionStatusType",
     "ApplicationTypeType",
     "ArtifactStatusType",
     "AttachmentScopeType",
+    "AuthCodeEntityTypeType",
     "AutoEvaluationStatusType",
+    "BehaviorType",
     "BehaviorTypeType",
     "BooleanComparisonTypeType",
     "ChannelType",
@@ -42,6 +45,9 @@ __all__ = (
     "ComparisonType",
     "ConfigurableNotificationPriorityType",
     "ConnectServiceName",
+    "ContactEvaluationAttributeComparisonTypeType",
+    "ContactEvaluationAttributeKeyType",
+    "ContactFieldType",
     "ContactFlowModuleStateType",
     "ContactFlowModuleStatusType",
     "ContactFlowStateType",
@@ -80,6 +86,8 @@ __all__ = (
     "EvaluationFormScoringModeType",
     "EvaluationFormScoringStatusType",
     "EvaluationFormSingleSelectQuestionDisplayModeType",
+    "EvaluationFormValidationFindingSeverityType",
+    "EvaluationFormValidationStatusType",
     "EvaluationFormVersionStatusType",
     "EvaluationQuestionAnswerAnalysisTypeType",
     "EvaluationReviewNotificationRecipientTypeType",
@@ -170,6 +178,7 @@ __all__ = (
     "ListWorkspacePagesPaginatorName",
     "ListWorkspacesPaginatorName",
     "LocaleCodeType",
+    "MaskModeType",
     "MediaStreamTypeType",
     "MediaTypeType",
     "MeetingFeatureStatusType",
@@ -181,6 +190,7 @@ __all__ = (
     "NotificationPriorityType",
     "NotificationSourceType",
     "NotificationStatusType",
+    "NotificationTypeType",
     "NumberComparisonTypeType",
     "NumericQuestionPropertyAutomationLabelType",
     "OperationalStatusType",
@@ -194,10 +204,12 @@ __all__ = (
     "ParticipantTimerActionType",
     "ParticipantTimerTypeType",
     "ParticipantTypeType",
+    "PerformanceCategoryNameType",
     "PhoneNumberCountryCodeType",
     "PhoneNumberTypeType",
     "PhoneNumberWorkflowStatusType",
     "PhoneTypeType",
+    "PolicyType",
     "QuestionRuleCategoryAutomationConditionType",
     "QueueStatusType",
     "QueueTypeType",
@@ -257,6 +269,7 @@ __all__ = (
     "StatusType",
     "StorageTypeType",
     "StringComparisonTypeType",
+    "SummaryModeType",
     "TargetListTypeType",
     "TaskTemplateFieldTypeType",
     "TaskTemplateStatusType",
@@ -297,6 +310,7 @@ AgentStatusStateType = Literal["DISABLED", "ENABLED"]
 AgentStatusTypeType = Literal["CUSTOM", "OFFLINE", "ROUTABLE"]
 AiUseCaseType = Literal["AgentAssistance", "SelfService"]
 AllowedUserActionType = Literal["CALL", "DISCARD"]
+AnalyticsModeType = Literal["AutomatedInteraction", "ContactLens", "PostContact", "RealTime"]
 AnsweringMachineDetectionStatusType = Literal[
     "AMD_ERROR",
     "AMD_NOT_APPLICABLE",
@@ -316,13 +330,18 @@ AnsweringMachineDetectionStatusType = Literal[
 ApplicationTypeType = Literal["MCP", "THIRD_PARTY_APPLICATION"]
 ArtifactStatusType = Literal["APPROVED", "IN_PROGRESS", "REJECTED"]
 AttachmentScopeType = Literal["CASE", "CHAT", "EMAIL", "TASK"]
+AuthCodeEntityTypeType = Literal["CUSTOMER_PROFILE"]
 AutoEvaluationStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
+BehaviorType = Literal["Disable", "Enable"]
 BehaviorTypeType = Literal["ROUTE_ANY_CHANNEL", "ROUTE_CURRENT_CHANNEL_ONLY"]
 BooleanComparisonTypeType = Literal["IS_FALSE", "IS_TRUE"]
 ChannelType = Literal["CHAT", "EMAIL", "TASK", "VOICE"]
 ChatEventTypeType = Literal["DISCONNECT", "EVENT", "MESSAGE"]
 ComparisonType = Literal["LT"]
 ConfigurableNotificationPriorityType = Literal["HIGH", "LOW"]
+ContactEvaluationAttributeComparisonTypeType = Literal["EXACT"]
+ContactEvaluationAttributeKeyType = Literal["ContactAgentId"]
+ContactFieldType = Literal["ADDITIONAL_EMAIL_RECIPIENTS", "CUSTOMER_ENDPOINT", "EMAIL_SUBJECT"]
 ContactFlowModuleStateType = Literal["ACTIVE", "ARCHIVED"]
 ContactFlowModuleStatusType = Literal["PUBLISHED", "SAVED"]
 ContactFlowStateType = Literal["ACTIVE", "ARCHIVED"]
@@ -428,9 +447,11 @@ EvaluationFormQuestionAutomationAnswerSourceTypeType = Literal["CONTACT_LENS_DAT
 EvaluationFormQuestionTypeType = Literal[
     "DATETIME", "MULTISELECT", "NUMERIC", "SINGLESELECT", "TEXT"
 ]
-EvaluationFormScoringModeType = Literal["QUESTION_ONLY", "SECTION_ONLY"]
+EvaluationFormScoringModeType = Literal["POINTS_BASED", "QUESTION_ONLY", "SECTION_ONLY"]
 EvaluationFormScoringStatusType = Literal["DISABLED", "ENABLED"]
 EvaluationFormSingleSelectQuestionDisplayModeType = Literal["DROPDOWN", "RADIO"]
+EvaluationFormValidationFindingSeverityType = Literal["ERROR", "WARNING"]
+EvaluationFormValidationStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 EvaluationFormVersionStatusType = Literal["ACTIVE", "DRAFT"]
 EvaluationQuestionAnswerAnalysisTypeType = Literal["CONTACT_LENS_DATA", "GEN_AI"]
 EvaluationReviewNotificationRecipientTypeType = Literal["USER_ID"]
@@ -439,6 +460,7 @@ EvaluationSuggestedAnswerStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDE
 EvaluationTranscriptTypeType = Literal["RAW", "REDACTED"]
 EvaluationTypeType = Literal["CALIBRATION", "STANDARD"]
 EventSourceNameType = Literal[
+    "OnAlertUpdate",
     "OnCaseCreate",
     "OnCaseUpdate",
     "OnContactEvaluationSubmit",
@@ -449,6 +471,9 @@ EventSourceNameType = Literal[
     "OnRealTimeCallAnalysisAvailable",
     "OnRealTimeChatAnalysisAvailable",
     "OnSalesforceCaseCreate",
+    "OnSchedulePublish",
+    "OnScheduleTimeOffRequestActivity",
+    "OnScheduleUpdate",
     "OnSlaBreach",
     "OnZendeskTicketCreate",
     "OnZendeskTicketStatusUpdate",
@@ -475,6 +500,7 @@ FileUseCaseTypeType = Literal[
     "EMAIL_MESSAGE_PLAIN_TEXT",
     "EMAIL_MESSAGE_PLAIN_TEXT_REDACTED",
     "EMAIL_MESSAGE_REDACTED",
+    "VOICE_RECORDING",
 ]
 FilterV2StringConditionComparisonOperatorType = Literal["NOT_EXISTS"]
 FlowAssociationResourceTypeType = Literal[
@@ -667,6 +693,7 @@ LocaleCodeType = Literal[
     "zh_CN",
     "zh_TW",
 ]
+MaskModeType = Literal["EntityType", "PII"]
 MediaStreamTypeType = Literal["AUDIO", "VIDEO"]
 MediaTypeType = Literal[
     "IMAGE_LOGO_DARK_FAVICON",
@@ -683,6 +710,7 @@ NotificationDeliveryTypeType = Literal["EMAIL"]
 NotificationPriorityType = Literal["HIGH", "LOW", "URGENT"]
 NotificationSourceType = Literal["CUSTOMER", "RULES", "SYSTEM"]
 NotificationStatusType = Literal["HIDDEN", "READ", "UNREAD"]
+NotificationTypeType = Literal["WIDGET_ACTION", "WIDGET_VIEW"]
 NumberComparisonTypeType = Literal[
     "EQUAL", "GREATER", "GREATER_OR_EQUAL", "LESSER", "LESSER_OR_EQUAL", "NOT_EQUAL", "RANGE"
 ]
@@ -713,6 +741,7 @@ ParticipantStateType = Literal["CONNECTED", "DISCONNECTED", "INITIAL", "MISSED"]
 ParticipantTimerActionType = Literal["Unset"]
 ParticipantTimerTypeType = Literal["DISCONNECT_NONCUSTOMER", "IDLE"]
 ParticipantTypeType = Literal["AGENT", "ALL", "CUSTOMER", "MANAGER", "THIRDPARTY"]
+PerformanceCategoryNameType = Literal["EXCEEDS_EXPECTATIONS", "NEEDS_IMPROVEMENT"]
 PhoneNumberCountryCodeType = Literal[
     "AD",
     "AE",
@@ -957,6 +986,7 @@ PhoneNumberTypeType = Literal[
 ]
 PhoneNumberWorkflowStatusType = Literal["CLAIMED", "FAILED", "IN_PROGRESS"]
 PhoneTypeType = Literal["DESK_PHONE", "SOFT_PHONE"]
+PolicyType = Literal["None", "RedactedAndOriginal", "RedactedOnly"]
 QuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
 QueueStatusType = Literal["DISABLED", "ENABLED"]
 QueueTypeType = Literal["AGENT", "STANDARD"]
@@ -1049,6 +1079,7 @@ StatisticType = Literal["AVG", "MAX", "SUM"]
 StatusType = Literal["COMPLETE", "DELETED", "IN_PROGRESS"]
 StorageTypeType = Literal["KINESIS_FIREHOSE", "KINESIS_STREAM", "KINESIS_VIDEO_STREAM", "S3"]
 StringComparisonTypeType = Literal["CONTAINS", "EXACT", "STARTS_WITH"]
+SummaryModeType = Literal["AutomatedInteraction", "ContactChain", "PostContact"]
 TargetListTypeType = Literal["PROFICIENCIES"]
 TaskTemplateFieldTypeType = Literal[
     "BOOLEAN",
@@ -1323,8 +1354,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1351,6 +1380,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -1418,10 +1449,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1454,6 +1485,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -1481,6 +1513,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -1502,7 +1535,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -1523,6 +1555,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

@@ -34,6 +34,7 @@ from .literals import (
     InstanceLimitsHandlingType,
     InstanceOnboardingJobFailureCodeType,
     InstanceOnboardingJobStatusCodeType,
+    LocalTimeZoneDetectionScopeType,
     LocalTimeZoneDetectionTypeType,
     ProfileOutboundRequestFailureCodeType,
 )
@@ -48,6 +49,7 @@ __all__ = (
     "CampaignFiltersTypeDef",
     "CampaignSummaryTypeDef",
     "CampaignTypeDef",
+    "ChannelContextTypeDef",
     "ChannelSubtypeConfigOutputTypeDef",
     "ChannelSubtypeConfigTypeDef",
     "ChannelSubtypeConfigUnionTypeDef",
@@ -85,6 +87,7 @@ __all__ = (
     "EmptyResponseMetadataTypeDef",
     "EncryptionConfigTypeDef",
     "EntryLimitsConfigTypeDef",
+    "EventTriggerContextTypeDef",
     "EventTriggerTypeDef",
     "FailedCampaignStateResponseTypeDef",
     "FailedProfileOutboundRequestTypeDef",
@@ -183,6 +186,7 @@ __all__ = (
     "UpdateCampaignNameRequestTypeDef",
     "UpdateCampaignScheduleRequestTypeDef",
     "UpdateCampaignSourceRequestTypeDef",
+    "WebNotificationContextTypeDef",
     "WhatsAppChannelSubtypeConfigOutputTypeDef",
     "WhatsAppChannelSubtypeConfigTypeDef",
     "WhatsAppChannelSubtypeParametersTypeDef",
@@ -212,6 +216,10 @@ class ScheduleOutputTypeDef(TypedDict):
     endTime: datetime
     refreshFrequency: NotRequired[str]
 
+class WebNotificationContextTypeDef(TypedDict):
+    sessionId: NotRequired[str]
+    browserId: NotRequired[str]
+
 class EmailChannelSubtypeParametersTypeDef(TypedDict):
     destinationEmailAddress: str
     templateParameters: Mapping[str, str]
@@ -238,10 +246,12 @@ class CommunicationLimitTypeDef(TypedDict):
 class LocalTimeZoneConfigOutputTypeDef(TypedDict):
     defaultTimeZone: NotRequired[str]
     localTimeZoneDetection: NotRequired[list[LocalTimeZoneDetectionTypeType]]
+    localTimeZoneDetectionScope: NotRequired[LocalTimeZoneDetectionScopeType]
 
 class LocalTimeZoneConfigTypeDef(TypedDict):
     defaultTimeZone: NotRequired[str]
     localTimeZoneDetection: NotRequired[Sequence[LocalTimeZoneDetectionTypeType]]
+    localTimeZoneDetectionScope: NotRequired[LocalTimeZoneDetectionScopeType]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -550,6 +560,9 @@ CampaignSummaryTypeDef = TypedDict(
     },
 )
 
+class ChannelContextTypeDef(TypedDict):
+    webNotificationContext: NotRequired[WebNotificationContextTypeDef]
+
 class CommunicationLimitsOutputTypeDef(TypedDict):
     communicationLimitsList: NotRequired[list[CommunicationLimitTypeDef]]
 
@@ -648,11 +661,6 @@ class OpenHoursOutputTypeDef(TypedDict):
 class OpenHoursTypeDef(TypedDict):
     dailyHours: NotRequired[Mapping[DayOfWeekType, Sequence[TimeRangeTypeDef]]]
 
-class ProfileOutboundRequestTypeDef(TypedDict):
-    clientToken: str
-    profileId: str
-    expirationTime: NotRequired[TimestampTypeDef]
-
 class ScheduleTypeDef(TypedDict):
     startTime: TimestampTypeDef
     endTime: TimestampTypeDef
@@ -724,6 +732,10 @@ class ListCampaignsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class EventTriggerContextTypeDef(TypedDict):
+    sourceEvent: NotRequired[str]
+    channelContext: NotRequired[ChannelContextTypeDef]
+
 class CommunicationLimitsConfigOutputTypeDef(TypedDict):
     allChannelSubtypes: NotRequired[CommunicationLimitsOutputTypeDef]
     instanceLimitsHandling: NotRequired[InstanceLimitsHandlingType]
@@ -763,13 +775,6 @@ class ListConnectInstanceIntegrationsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-PutProfileOutboundRequestBatchRequestTypeDef = TypedDict(
-    "PutProfileOutboundRequestBatchRequestTypeDef",
-    {
-        "id": str,
-        "profileOutboundRequests": Sequence[ProfileOutboundRequestTypeDef],
-    },
-)
 ScheduleUnionTypeDef = Union[ScheduleTypeDef, ScheduleOutputTypeDef]
 
 class TelephonyOutboundModeOutputTypeDef(TypedDict):
@@ -796,6 +801,12 @@ class OutboundRequestTypeDef(TypedDict):
     clientToken: str
     expirationTime: TimestampTypeDef
     channelSubtypeParameters: ChannelSubtypeParametersTypeDef
+
+class ProfileOutboundRequestTypeDef(TypedDict):
+    clientToken: str
+    profileId: str
+    expirationTime: NotRequired[TimestampTypeDef]
+    eventTriggerContext: NotRequired[EventTriggerContextTypeDef]
 
 class GetInstanceCommunicationLimitsResponseTypeDef(TypedDict):
     communicationLimitsConfig: InstanceCommunicationLimitsConfigOutputTypeDef
@@ -846,6 +857,13 @@ PutOutboundRequestBatchRequestTypeDef = TypedDict(
     {
         "id": str,
         "outboundRequests": Sequence[OutboundRequestTypeDef],
+    },
+)
+PutProfileOutboundRequestBatchRequestTypeDef = TypedDict(
+    "PutProfileOutboundRequestBatchRequestTypeDef",
+    {
+        "id": str,
+        "profileOutboundRequests": Sequence[ProfileOutboundRequestTypeDef],
     },
 )
 UpdateCampaignCommunicationLimitsRequestTypeDef = TypedDict(

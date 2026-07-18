@@ -9,7 +9,6 @@ from prefab_ui.components import (
     Button,
     CardContent,
     Column,
-    Div,
     Input,
     Row,
     Text,
@@ -29,25 +28,23 @@ from airbyte_ops_webapp.pages.customer_billing._mcp_tools import (
 from airbyte_ops_webapp.pages.shared_components.org_lookup_modal import (
     render_org_lookup_modal,
 )
-from airbyte_ops_webapp.theme import BUTTON_INFO_CLASS, PANEL_CARD_CLASS, _card_style
+from airbyte_ops_webapp.theme import BUTTON_INFO_CLASS, AbCard, AbSectionTitle
 
 
 def render_org_lookup() -> None:
     """Render the organization lookup card."""
     with (
-        Div(css_class=PANEL_CARD_CLASS, style=_card_style()),
+        AbCard(),
         CardContent(),
         Column(gap=3),
     ):
-        Text(
-            "Look Up Organization", style={"fontWeight": "700", "fontSize": "1.125rem"}
-        )
+        AbSectionTitle("Look Up Organization")
         with Row(gap=2, align="end"):
             Input(
                 name="org_query",
                 value=STATE.org_query,
                 placeholder="Organization ID or Workspace ID",
-                style={"flex": "1"},
+                css_class="flex-1",
             )
             render_org_lookup_modal(
                 search_tool=search_orgs_workspaces,

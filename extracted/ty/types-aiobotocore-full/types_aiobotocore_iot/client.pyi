@@ -2872,7 +2872,7 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[SearchIndexRequestTypeDef]
     ) -> SearchIndexResponseTypeDef:
         """
-        The query search index.
+        Searches the specified index.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/search_index.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#search_index)

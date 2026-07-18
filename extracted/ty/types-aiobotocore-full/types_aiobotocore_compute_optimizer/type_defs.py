@@ -206,6 +206,7 @@ __all__ = (
     "GetRecommendationSummariesResponseTypeDef",
     "GpuInfoTypeDef",
     "GpuTypeDef",
+    "IdleDimensionTypeDef",
     "IdleEstimatedMonthlySavingsTypeDef",
     "IdleRecommendationErrorTypeDef",
     "IdleRecommendationFilterTypeDef",
@@ -527,14 +528,13 @@ class GpuTypeDef(TypedDict):
     gpuMemorySizeInMiB: NotRequired[int]
 
 
+class IdleDimensionTypeDef(TypedDict):
+    key: NotRequired[str]
+    values: NotRequired[list[str]]
+
+
 class IdleEstimatedMonthlySavingsTypeDef(TypedDict):
     currency: NotRequired[CurrencyType]
-    value: NotRequired[float]
-
-
-class IdleUtilizationMetricTypeDef(TypedDict):
-    name: NotRequired[IdleMetricNameType]
-    statistic: NotRequired[MetricStatisticType]
     value: NotRequired[float]
 
 
@@ -719,6 +719,7 @@ class UpdateEnrollmentStatusResponseTypeDef(TypedDict):
 
 class EBSEffectiveRecommendationPreferencesTypeDef(TypedDict):
     savingsEstimationMode: NotRequired[EBSSavingsEstimationModeTypeDef]
+    lookBackPeriod: NotRequired[LookBackPeriodPreferenceType]
 
 
 class EBSSavingsOpportunityAfterDiscountsTypeDef(TypedDict):
@@ -736,6 +737,7 @@ class GetEBSVolumeRecommendationsRequestTypeDef(TypedDict):
 
 class ECSEffectiveRecommendationPreferencesTypeDef(TypedDict):
     savingsEstimationMode: NotRequired[ECSSavingsEstimationModeTypeDef]
+    lookBackPeriod: NotRequired[LookBackPeriodPreferenceType]
 
 
 class ECSSavingsOpportunityAfterDiscountsTypeDef(TypedDict):
@@ -992,6 +994,13 @@ class GetIdleRecommendationsRequestTypeDef(TypedDict):
 
 class GpuInfoTypeDef(TypedDict):
     gpus: NotRequired[list[GpuTypeDef]]
+
+
+class IdleUtilizationMetricTypeDef(TypedDict):
+    name: NotRequired[IdleMetricNameType]
+    statistic: NotRequired[MetricStatisticType]
+    value: NotRequired[float]
+    dimensions: NotRequired[list[IdleDimensionTypeDef]]
 
 
 class IdleSavingsOpportunityAfterDiscountsTypeDef(TypedDict):

@@ -25,6 +25,7 @@ from .literals import (
     AdminStatusType,
     AutoEnableMembersType,
     ClusterStatusType,
+    ConfidenceType,
     CoverageFilterCriterionKeyType,
     CoverageSortKeyType,
     CoverageStatisticsTypeType,
@@ -48,6 +49,8 @@ from .literals import (
     FreeTrialFeatureResultType,
     GroupByTypeType,
     IndicatorTypeType,
+    InvestigationSortFieldType,
+    InvestigationStatusType,
     IpSetFormatType,
     IpSetStatusType,
     KubernetesResourcesTypesType,
@@ -70,6 +73,7 @@ from .literals import (
     PublicBucketRestrictBehaviorType,
     PublishingStatusType,
     ResourceTypeType,
+    RiskLevelType,
     ScanCategoryType,
     ScanResultStatusType,
     ScanResultType,
@@ -124,6 +128,7 @@ __all__ = (
     "BucketLevelPermissionsTypeDef",
     "BucketPolicyTypeDef",
     "CityTypeDef",
+    "CloudDetailsTypeDef",
     "CloudTrailConfigurationResultTypeDef",
     "CloudformationStackTypeDef",
     "ConditionOutputTypeDef",
@@ -131,6 +136,7 @@ __all__ = (
     "ContainerFindingResourceTypeDef",
     "ContainerInstanceDetailsTypeDef",
     "ContainerTypeDef",
+    "ContinuousScanDetailsTypeDef",
     "CountryTypeDef",
     "CoverageEc2InstanceDetailsTypeDef",
     "CoverageEcsClusterDetailsTypeDef",
@@ -148,6 +154,8 @@ __all__ = (
     "CreateFilterResponseTypeDef",
     "CreateIPSetRequestTypeDef",
     "CreateIPSetResponseTypeDef",
+    "CreateInvestigationRequestTypeDef",
+    "CreateInvestigationResponseTypeDef",
     "CreateMalwareProtectionPlanRequestTypeDef",
     "CreateMalwareProtectionPlanResponseTypeDef",
     "CreateMembersRequestTypeDef",
@@ -255,6 +263,8 @@ __all__ = (
     "GetFindingsStatisticsResponseTypeDef",
     "GetIPSetRequestTypeDef",
     "GetIPSetResponseTypeDef",
+    "GetInvestigationRequestTypeDef",
+    "GetInvestigationResponseTypeDef",
     "GetInvitationsCountResponseTypeDef",
     "GetMalwareProtectionPlanRequestTypeDef",
     "GetMalwareProtectionPlanResponseTypeDef",
@@ -288,6 +298,10 @@ __all__ = (
     "IncrementalScanDetailsTypeDef",
     "IndicatorTypeDef",
     "InstanceDetailsTypeDef",
+    "InvestigationMetadataTypeDef",
+    "InvestigationSortCriteriaTypeDef",
+    "InvestigationSummaryTypeDef",
+    "InvestigationTypeDef",
     "InvitationTypeDef",
     "InviteMembersRequestTypeDef",
     "InviteMembersResponseTypeDef",
@@ -323,6 +337,9 @@ __all__ = (
     "ListIPSetsRequestPaginateTypeDef",
     "ListIPSetsRequestTypeDef",
     "ListIPSetsResponseTypeDef",
+    "ListInvestigationsRequestPaginateTypeDef",
+    "ListInvestigationsRequestTypeDef",
+    "ListInvestigationsResponseTypeDef",
     "ListInvitationsRequestPaginateTypeDef",
     "ListInvitationsRequestTypeDef",
     "ListInvitationsResponseTypeDef",
@@ -409,6 +426,7 @@ __all__ = (
     "PrivateIpAddressDetailsTypeDef",
     "ProcessDetailsTypeDef",
     "ProductCodeTypeDef",
+    "ProductTypeDef",
     "PublicAccessConfigurationTypeDef",
     "PublicAccessTypeDef",
     "RdsDbInstanceDetailsTypeDef",
@@ -438,6 +456,7 @@ __all__ = (
     "ScanConditionOutputTypeDef",
     "ScanConditionPairTypeDef",
     "ScanConditionTypeDef",
+    "ScanConfigurationContinuousScanDetailsTypeDef",
     "ScanConfigurationRecoveryPointTypeDef",
     "ScanConfigurationTypeDef",
     "ScanDetectionsTypeDef",
@@ -477,6 +496,7 @@ __all__ = (
     "ThreatIntelligenceDetailTypeDef",
     "ThreatTypeDef",
     "ThreatsDetectedItemCountTypeDef",
+    "TimestampTypeDef",
     "TotalTypeDef",
     "TriggerDetailsTypeDef",
     "UnarchiveFindingsRequestTypeDef",
@@ -685,6 +705,12 @@ class CityTypeDef(TypedDict):
     CityName: NotRequired[str]
 
 
+class CloudDetailsTypeDef(TypedDict):
+    Provider: Literal["AWS"]
+    Region: str
+    Account: str
+
+
 class CloudTrailConfigurationResultTypeDef(TypedDict):
     Status: DataSourceStatusType
 
@@ -747,6 +773,9 @@ class VolumeMountTypeDef(TypedDict):
     MountPath: NotRequired[str]
 
 
+TimestampTypeDef = Union[datetime, str]
+
+
 class CountryTypeDef(TypedDict):
     CountryCode: NotRequired[str]
     CountryName: NotRequired[str]
@@ -789,6 +818,12 @@ class CreateIPSetRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
     ExpectedBucketOwner: NotRequired[str]
+
+
+class CreateInvestigationRequestTypeDef(TypedDict):
+    DetectorId: str
+    TriggerPrompt: str
+    ClientToken: NotRequired[str]
 
 
 class UnprocessedAccountTypeDef(TypedDict):
@@ -1132,6 +1167,11 @@ class GetIPSetRequestTypeDef(TypedDict):
     IpSetId: str
 
 
+class GetInvestigationRequestTypeDef(TypedDict):
+    DetectorId: str
+    InvestigationId: str
+
+
 class GetMalwareProtectionPlanRequestTypeDef(TypedDict):
     MalwareProtectionPlanId: str
 
@@ -1235,6 +1275,28 @@ class IndicatorTypeDef(TypedDict):
     Key: IndicatorTypeType
     Values: NotRequired[list[str]]
     Title: NotRequired[str]
+
+
+class ProductTypeDef(TypedDict):
+    Name: str
+    Feature: NotRequired[str]
+
+
+class InvestigationSortCriteriaTypeDef(TypedDict):
+    AttributeName: NotRequired[InvestigationSortFieldType]
+    OrderBy: NotRequired[OrderByType]
+
+
+class InvestigationSummaryTypeDef(TypedDict):
+    InvestigationId: NotRequired[str]
+    Status: NotRequired[InvestigationStatusType]
+    TriggerPrompt: NotRequired[str]
+    RiskLevel: NotRequired[RiskLevelType]
+    Confidence: NotRequired[ConfidenceType]
+    Title: NotRequired[str]
+    AccountId: NotRequired[str]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
 
 
 class InvitationTypeDef(TypedDict):
@@ -1485,10 +1547,6 @@ class RecoveryPointDetailsTypeDef(TypedDict):
     BackupVaultName: NotRequired[str]
 
 
-class RecoveryPointTypeDef(TypedDict):
-    BackupVaultName: str
-
-
 class S3ObjectTypeDef(TypedDict):
     ETag: NotRequired[str]
     Key: NotRequired[str]
@@ -1518,8 +1576,9 @@ class ScanConditionPairTypeDef(TypedDict):
     Value: NotRequired[str]
 
 
-class ScanConfigurationRecoveryPointTypeDef(TypedDict):
-    BackupVaultName: NotRequired[str]
+class ScanConfigurationContinuousScanDetailsTypeDef(TypedDict):
+    EndTime: datetime
+    StartTime: NotRequired[datetime]
 
 
 class TriggerDetailsTypeDef(TypedDict):
@@ -1709,6 +1768,11 @@ class ContainerTypeDef(TypedDict):
     SecurityContext: NotRequired[SecurityContextTypeDef]
 
 
+class ContinuousScanDetailsTypeDef(TypedDict):
+    EndTime: TimestampTypeDef
+    StartTime: NotRequired[TimestampTypeDef]
+
+
 class CoverageEcsClusterDetailsTypeDef(TypedDict):
     ClusterName: NotRequired[str]
     FargateDetails: NotRequired[FargateDetailsTypeDef]
@@ -1727,6 +1791,11 @@ class CreateFilterResponseTypeDef(TypedDict):
 
 class CreateIPSetResponseTypeDef(TypedDict):
     IpSetId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateInvestigationResponseTypeDef(TypedDict):
+    InvestigationId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2207,6 +2276,30 @@ SignalTypeDef = TypedDict(
 )
 
 
+class InvestigationMetadataTypeDef(TypedDict):
+    Version: str
+    Product: ProductTypeDef
+
+
+class ListInvestigationsRequestPaginateTypeDef(TypedDict):
+    DetectorId: str
+    SortCriteria: NotRequired[InvestigationSortCriteriaTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListInvestigationsRequestTypeDef(TypedDict):
+    DetectorId: str
+    SortCriteria: NotRequired[InvestigationSortCriteriaTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListInvestigationsResponseTypeDef(TypedDict):
+    Investigations: list[InvestigationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListInvitationsResponseTypeDef(TypedDict):
     Invitations: list[InvitationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2338,12 +2431,6 @@ class S3BucketTypeDef(TypedDict):
     S3ObjectUids: NotRequired[list[str]]
 
 
-class StartMalwareScanConfigurationTypeDef(TypedDict):
-    Role: str
-    IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
-    RecoveryPoint: NotRequired[RecoveryPointTypeDef]
-
-
 class SendObjectMalwareScanRequestTypeDef(TypedDict):
     S3Object: NotRequired[S3ObjectForSendObjectMalwareScanTypeDef]
 
@@ -2356,11 +2443,9 @@ class ScanConditionTypeDef(TypedDict):
     MapEquals: Sequence[ScanConditionPairTypeDef]
 
 
-class ScanConfigurationTypeDef(TypedDict):
-    Role: NotRequired[str]
-    TriggerDetails: NotRequired[TriggerDetailsTypeDef]
-    IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
-    RecoveryPoint: NotRequired[ScanConfigurationRecoveryPointTypeDef]
+class ScanConfigurationRecoveryPointTypeDef(TypedDict):
+    BackupVaultName: NotRequired[str]
+    ContinuousScanDetails: NotRequired[ScanConfigurationContinuousScanDetailsTypeDef]
 
 
 class ScanThreatNameTypeDef(TypedDict):
@@ -2461,6 +2546,11 @@ class GetFilterResponseTypeDef(TypedDict):
 
 
 FindingCriteriaUnionTypeDef = Union[FindingCriteriaTypeDef, FindingCriteriaOutputTypeDef]
+
+
+class RecoveryPointTypeDef(TypedDict):
+    BackupVaultName: str
+    ContinuousScanDetails: NotRequired[ContinuousScanDetailsTypeDef]
 
 
 class CoverageResourceDetailsTypeDef(TypedDict):
@@ -2572,6 +2662,24 @@ KubernetesWorkloadDetailsTypeDef = TypedDict(
         "HostPID": NotRequired[bool],
     },
 )
+
+
+class InvestigationTypeDef(TypedDict):
+    InvestigationId: str
+    Status: InvestigationStatusType
+    TriggerPrompt: str
+    TriggeredBy: str
+    Metadata: NotRequired[InvestigationMetadataTypeDef]
+    Cloud: NotRequired[CloudDetailsTypeDef]
+    RiskLevel: NotRequired[RiskLevelType]
+    Risk: NotRequired[str]
+    Confidence: NotRequired[ConfidenceType]
+    Summary: NotRequired[str]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    Error: NotRequired[str]
+
+
 RuntimeContextTypeDef = TypedDict(
     "RuntimeContextTypeDef",
     {
@@ -2600,6 +2708,9 @@ RuntimeContextTypeDef = TypedDict(
         "ServiceName": NotRequired[str],
         "CommandLineExample": NotRequired[str],
         "ThreatFilePath": NotRequired[str],
+        "FileOperation": NotRequired[str],
+        "FilePath": NotRequired[str],
+        "RelatedFilePaths": NotRequired[list[str]],
     },
 )
 
@@ -2717,12 +2828,6 @@ ResourceDataTypeDef = TypedDict(
 )
 
 
-class StartMalwareScanRequestTypeDef(TypedDict):
-    ResourceArn: str
-    ClientToken: NotRequired[str]
-    ScanConfiguration: NotRequired[StartMalwareScanConfigurationTypeDef]
-
-
 class ScanResourceCriteriaOutputTypeDef(TypedDict):
     Include: NotRequired[dict[Literal["EC2_INSTANCE_TAG"], ScanConditionOutputTypeDef]]
     Exclude: NotRequired[dict[Literal["EC2_INSTANCE_TAG"], ScanConditionOutputTypeDef]]
@@ -2731,6 +2836,13 @@ class ScanResourceCriteriaOutputTypeDef(TypedDict):
 class ScanResourceCriteriaTypeDef(TypedDict):
     Include: NotRequired[Mapping[Literal["EC2_INSTANCE_TAG"], ScanConditionTypeDef]]
     Exclude: NotRequired[Mapping[Literal["EC2_INSTANCE_TAG"], ScanConditionTypeDef]]
+
+
+class ScanConfigurationTypeDef(TypedDict):
+    Role: NotRequired[str]
+    TriggerDetails: NotRequired[TriggerDetailsTypeDef]
+    IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
+    RecoveryPoint: NotRequired[ScanConfigurationRecoveryPointTypeDef]
 
 
 class ThreatDetectedByNameTypeDef(TypedDict):
@@ -2830,6 +2942,12 @@ class UpdateFilterRequestTypeDef(TypedDict):
     Action: NotRequired[FilterActionType]
     Rank: NotRequired[int]
     FindingCriteria: NotRequired[FindingCriteriaUnionTypeDef]
+
+
+class StartMalwareScanConfigurationTypeDef(TypedDict):
+    Role: str
+    IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
+    RecoveryPoint: NotRequired[RecoveryPointTypeDef]
 
 
 class CoverageResourceTypeDef(TypedDict):
@@ -2932,6 +3050,11 @@ class EcsClusterDetailsTypeDef(TypedDict):
 class KubernetesDetailsTypeDef(TypedDict):
     KubernetesUserDetails: NotRequired[KubernetesUserDetailsTypeDef]
     KubernetesWorkloadDetails: NotRequired[KubernetesWorkloadDetailsTypeDef]
+
+
+class GetInvestigationResponseTypeDef(TypedDict):
+    Investigation: InvestigationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class RuntimeDetailsTypeDef(TypedDict):
@@ -3059,6 +3182,12 @@ S3BucketDetailTypeDef = TypedDict(
         "S3ObjectDetails": NotRequired[list[S3ObjectDetailTypeDef]],
     },
 )
+
+
+class StartMalwareScanRequestTypeDef(TypedDict):
+    ResourceArn: str
+    ClientToken: NotRequired[str]
+    ScanConfiguration: NotRequired[StartMalwareScanConfigurationTypeDef]
 
 
 class ListCoverageResponseTypeDef(TypedDict):

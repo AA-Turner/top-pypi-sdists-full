@@ -6,7 +6,7 @@ This module provides the main MCP server for Airbyte admin operations.
 The server can run in two modes:
 - **stdio mode** (default): For direct MCP client connections via stdin/stdout
 - **HTTP mode**: For HTTP-based MCP connections. Transport auth is assembled by
-  `fastmcp_extensions.build_mcp_auth`, which supports two client shapes on the
+  `fastmcp_extensions.resolve_mcp_auth`, which supports two client shapes on the
   same deployment:
     - **Interactive** (humans in a browser): Keycloak Authorization Code + PKCE
       via `OIDCProxy`, enabled when `OIDC_CONFIG_URL`, `OIDC_CLIENT_ID`, and
@@ -87,6 +87,9 @@ from airbyte_ops_mcp.mcp.gcp_logs import register_gcp_logs_tools
 from airbyte_ops_mcp.mcp.github_actions import register_github_actions_tools
 from airbyte_ops_mcp.mcp.github_repo_ops import register_github_repo_ops_tools
 from airbyte_ops_mcp.mcp.human_in_the_loop import register_human_in_the_loop_tools
+from airbyte_ops_mcp.mcp.motherduck_diagnostics import (
+    register_motherduck_diagnostics_tools,
+)
 from airbyte_ops_mcp.mcp.organization_agentic_flag import (
     register_organization_agentic_flag_tools,
 )
@@ -280,6 +283,7 @@ def register_server_assets(app: FastMCP) -> None:
     register_devin_secret_request_tools(app)
     register_tier_lookup_tools(app)
     register_release_block_tools(app)
+    register_motherduck_diagnostics_tools(app)
 
 
 register_server_assets(app)

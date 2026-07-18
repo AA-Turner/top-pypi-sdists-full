@@ -21,10 +21,13 @@ from airbyte_ops_webapp.pages.shared_components.auth import render_auth_status
 from airbyte_ops_webapp.theme import (
     AIRBYTE_LOGO_CLASS,
     BREADCRUMB_NAV_CLASS,
-    ENV_BANNER_CLASS,
-    HERO_CARD_CLASS,
+    ENV_BANNER_DOT_CLASS,
+    ENV_BANNER_LINK_CLASS,
+    VERSION_FOOTER_LINK_CLASS,
+    AbEnvBanner,
+    AbHeroCard,
+    AbVersionFooter,
     _airbyte_logo_svg,
-    _hero_style,
 )
 
 OPS_HOME_PATH = "/home"
@@ -38,7 +41,7 @@ def render_page_hero(
     show_auth_controls: bool = False,
 ) -> None:
     with (
-        Div(css_class=HERO_CARD_CLASS, style=_hero_style()),
+        AbHeroCard(),
         CardHeader(),
         Row(
             align="start",
@@ -88,55 +91,22 @@ _MOCK_BANNER_GRADIENT = "linear-gradient(90deg, #a855f7 0%, #d763ec 100%)"
 _PREVIEW_BANNER_GRADIENT = "linear-gradient(90deg, #d97706 0%, #f59e0b 100%)"
 
 
-def _banner_style(gradient: str) -> dict[str, str]:
-    return {
-        "background": gradient,
-        "color": "#fff",
-        "display": "flex",
-        "alignItems": "center",
-        "justifyContent": "center",
-        "gap": "0.5rem",
-        "padding": "0.375rem 1rem",
-        "fontSize": "0.8125rem",
-        "fontWeight": "600",
-        "letterSpacing": "0.02em",
-        "textAlign": "center",
-        "width": "100%",
-    }
-
-
-def _dot_style() -> dict[str, str]:
-    return {
-        "width": "7px",
-        "height": "7px",
-        "borderRadius": "50%",
-        "background": "#fbbf24",
-        "display": "inline-block",
-    }
-
-
 def render_environment_banners() -> None:
     """Render top-line banners for mock mode and/or preview deploys."""
     with (
         If(STATE.is_mock_only),
-        Div(
-            css_class=ENV_BANNER_CLASS,
-            style=_banner_style(_MOCK_BANNER_GRADIENT),
-        ),
+        AbEnvBanner(gradient=_MOCK_BANNER_GRADIENT),
     ):
-        Span("", style=_dot_style())
+        Span("", css_class=ENV_BANNER_DOT_CLASS)
         Text(
             "Mock Mode \u2014 Demo data only. "
             "No credentials loaded. Apply actions are simulated."
         )
     with (
         If(STATE.is_preview_deploy),
-        Div(
-            css_class=ENV_BANNER_CLASS,
-            style=_banner_style(_PREVIEW_BANNER_GRADIENT),
-        ),
+        AbEnvBanner(gradient=_PREVIEW_BANNER_GRADIENT),
     ):
-        Span("", style=_dot_style())
+        Span("", css_class=ENV_BANNER_DOT_CLASS)
         with If(STATE.preview_pr_url):
             Text(
                 "\U0001f535 Build Preview \u2014 "
@@ -146,36 +116,23 @@ def render_environment_banners() -> None:
                 "PR #" + STATE.preview_pr_number,
                 href=STATE.preview_pr_url,
                 target="_blank",
-                style={"color": "#fff", "textDecoration": "underline"},
+                css_class=ENV_BANNER_LINK_CLASS,
             )
             Text(". Please provide any feedback on the GitHub PR ")
             Link(
                 "here",
                 href=STATE.preview_pr_url,
                 target="_blank",
-                style={"color": "#fff", "textDecoration": "underline"},
+                css_class=ENV_BANNER_LINK_CLASS,
             )
             Text(".")
         with If(~STATE.preview_pr_url):
             Text("\U0001f535 Build Preview \u2014 You are using a pre-release build.")
 
 
-def _version_footer_style() -> dict[str, str]:
-    return {
-        "display": "flex",
-        "alignItems": "center",
-        "justifyContent": "center",
-        "gap": "0.75rem",
-        "padding": "0.75rem 1rem",
-        "fontSize": "0.75rem",
-        "opacity": "0.5",
-        "color": "#ccc",
-    }
-
-
 def render_version_footer() -> None:
     """Render a subtle footer showing deployed version info."""
-    with Div(style=_version_footer_style()):
+    with AbVersionFooter():
         with If(STATE.ops_package_version):
             Text("v" + STATE.ops_package_version)
         with If(STATE.ops_package_version & STATE.deploy_sha):
@@ -185,7 +142,7 @@ def render_version_footer() -> None:
                 STATE.deploy_sha,
                 href=STATE.deploy_sha_url,
                 target="_blank",
-                style={"color": "#ccc", "textDecoration": "underline"},
+                css_class=VERSION_FOOTER_LINK_CLASS,
             )
         with If(~STATE.deploy_sha & ~STATE.ops_package_version):
             Text("version unknown")

@@ -26,6 +26,7 @@ __all__ = (
     "AccessTypeType",
     "ArtifactTypeType",
     "AuthenticationProviderTypeType",
+    "CleanUpStrategyType",
     "CodeRemediationStrategyType",
     "CodeRemediationTaskStatusType",
     "ConfidenceLevelType",
@@ -34,10 +35,15 @@ __all__ = (
     "DomainVerificationMethodType",
     "ErrorCodeType",
     "FindingStatusType",
+    "GitLabTokenTypeType",
+    "IpAddressTypeType",
     "JobStatusType",
     "ListAgentSpacesPaginatorName",
     "ListApplicationsPaginatorName",
     "ListArtifactsPaginatorName",
+    "ListCodeReviewJobTasksPaginatorName",
+    "ListCodeReviewJobsForCodeReviewPaginatorName",
+    "ListCodeReviewsPaginatorName",
     "ListDiscoveredEndpointsPaginatorName",
     "ListFindingsPaginatorName",
     "ListIntegratedResourcesPaginatorName",
@@ -46,26 +52,47 @@ __all__ = (
     "ListPentestJobTasksPaginatorName",
     "ListPentestJobsForPentestPaginatorName",
     "ListPentestsPaginatorName",
+    "ListPrivateConnectionsPaginatorName",
+    "ListSecurityRequirementPacksPaginatorName",
+    "ListSecurityRequirementsPaginatorName",
     "ListTargetDomainsPaginatorName",
+    "ListThreatModelJobTasksPaginatorName",
+    "ListThreatModelJobsPaginatorName",
+    "ListThreatModelsPaginatorName",
+    "ListThreatsPaginatorName",
     "LogTypeType",
+    "ManagementTypeType",
     "MembershipTypeFilterType",
     "MembershipTypeType",
     "NetworkTrafficRuleEffectType",
     "NetworkTrafficRuleTypeType",
     "PaginatorName",
+    "PrivateConnectionStatusType",
+    "PrivateConnectionTypeType",
     "ProviderType",
     "ProviderTypeType",
+    "ResourceConfigDnsResolutionType",
     "ResourceServiceName",
     "ResourceTypeType",
     "RiskLevelType",
     "RiskTypeType",
     "SecurityAgentServiceName",
+    "SecurityRequirementArtifactFormatType",
+    "SecurityRequirementPackImportStatusType",
+    "SecurityRequirementPackStatusType",
     "ServiceName",
+    "SkillTypeType",
     "StepNameType",
     "StepStatusType",
+    "StrideCategoryType",
     "TargetDomainStatusType",
     "TaskExecutionStatusType",
+    "ThreatActorType",
+    "ThreatSeverityType",
+    "ThreatStatusType",
     "UserRoleType",
+    "ValidationModeType",
+    "ValidationStatusType",
 )
 
 
@@ -74,18 +101,24 @@ ArtifactTypeType = Literal["DOC", "DOCX", "JPEG", "JSON", "MD", "PDF", "PNG", "T
 AuthenticationProviderTypeType = Literal[
     "AWS_IAM_ROLE", "AWS_INTERNAL", "AWS_LAMBDA", "SECRETS_MANAGER"
 ]
+CleanUpStrategyType = Literal["BEST_EFFORT_DELETE", "RETAIN_ALL"]
 CodeRemediationStrategyType = Literal["AUTOMATIC", "DISABLED"]
 CodeRemediationTaskStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 ConfidenceLevelType = Literal["FALSE_POSITIVE", "HIGH", "LOW", "MEDIUM", "UNCONFIRMED"]
 ContextTypeType = Literal["CLIENT_ERROR", "ERROR", "INFO", "WARNING"]
 DNSRecordTypeType = Literal["TXT"]
-DomainVerificationMethodType = Literal["DNS_TXT", "HTTP_ROUTE"]
+DomainVerificationMethodType = Literal["DNS_TXT", "HTTP_ROUTE", "PRIVATE_VPC"]
 ErrorCodeType = Literal["CLIENT_ERROR", "INTERNAL_ERROR", "STOPPED_BY_USER"]
 FindingStatusType = Literal["ACCEPTED", "ACTIVE", "FALSE_POSITIVE", "RESOLVED"]
+GitLabTokenTypeType = Literal["GROUP", "PERSONAL"]
+IpAddressTypeType = Literal["DUAL_STACK", "IPV4", "IPV6"]
 JobStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "STOPPED", "STOPPING"]
 ListAgentSpacesPaginatorName = Literal["list_agent_spaces"]
 ListApplicationsPaginatorName = Literal["list_applications"]
 ListArtifactsPaginatorName = Literal["list_artifacts"]
+ListCodeReviewJobTasksPaginatorName = Literal["list_code_review_job_tasks"]
+ListCodeReviewJobsForCodeReviewPaginatorName = Literal["list_code_review_jobs_for_code_review"]
+ListCodeReviewsPaginatorName = Literal["list_code_reviews"]
 ListDiscoveredEndpointsPaginatorName = Literal["list_discovered_endpoints"]
 ListFindingsPaginatorName = Literal["list_findings"]
 ListIntegratedResourcesPaginatorName = Literal["list_integrated_resources"]
@@ -94,15 +127,28 @@ ListMembershipsPaginatorName = Literal["list_memberships"]
 ListPentestJobTasksPaginatorName = Literal["list_pentest_job_tasks"]
 ListPentestJobsForPentestPaginatorName = Literal["list_pentest_jobs_for_pentest"]
 ListPentestsPaginatorName = Literal["list_pentests"]
+ListPrivateConnectionsPaginatorName = Literal["list_private_connections"]
+ListSecurityRequirementPacksPaginatorName = Literal["list_security_requirement_packs"]
+ListSecurityRequirementsPaginatorName = Literal["list_security_requirements"]
 ListTargetDomainsPaginatorName = Literal["list_target_domains"]
+ListThreatModelJobTasksPaginatorName = Literal["list_threat_model_job_tasks"]
+ListThreatModelJobsPaginatorName = Literal["list_threat_model_jobs"]
+ListThreatModelsPaginatorName = Literal["list_threat_models"]
+ListThreatsPaginatorName = Literal["list_threats"]
 LogTypeType = Literal["CLOUDWATCH"]
+ManagementTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
 MembershipTypeFilterType = Literal["ALL", "USER"]
 MembershipTypeType = Literal["USER"]
 NetworkTrafficRuleEffectType = Literal["ALLOW", "DENY"]
 NetworkTrafficRuleTypeType = Literal["URL"]
-ProviderType = Literal["GITHUB"]
+PrivateConnectionStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "DELETE_FAILED", "DELETE_IN_PROGRESS"
+]
+PrivateConnectionTypeType = Literal["SELF_MANAGED", "SERVICE_MANAGED"]
+ProviderType = Literal["BITBUCKET", "CONFLUENCE", "GITHUB", "GITLAB"]
 ProviderTypeType = Literal["DOCUMENTATION", "SOURCE_CODE"]
-ResourceTypeType = Literal["CODE_REPOSITORY"]
+ResourceConfigDnsResolutionType = Literal["IN_VPC", "PUBLIC"]
+ResourceTypeType = Literal["CODE_REPOSITORY", "DOCUMENT"]
 RiskLevelType = Literal["CRITICAL", "HIGH", "INFORMATIONAL", "LOW", "MEDIUM", "UNKNOWN"]
 RiskTypeType = Literal[
     "ARBITRARY_FILE_UPLOAD",
@@ -134,11 +180,30 @@ RiskTypeType = Literal[
     "UNKNOWN",
     "XML_EXTERNAL_ENTITY",
 ]
-StepNameType = Literal["FINALIZING", "PENTEST", "PREFLIGHT", "STATIC_ANALYSIS"]
+SecurityRequirementArtifactFormatType = Literal["DOC", "DOCX", "MD", "PDF", "TXT"]
+SecurityRequirementPackImportStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PENDING"]
+SecurityRequirementPackStatusType = Literal["DISABLED", "ENABLED"]
+SkillTypeType = Literal["FINDING_PERSONALIZATION", "LOGIN_OPTIMIZATION"]
+StepNameType = Literal["FINALIZING", "PENTEST", "PREFLIGHT", "STATIC_ANALYSIS", "VALIDATION"]
 StepStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "NOT_STARTED", "STOPPED"]
+StrideCategoryType = Literal[
+    "DENIAL_OF_SERVICE",
+    "ELEVATION_OF_PRIVILEGE",
+    "INFORMATION_DISCLOSURE",
+    "REPUDIATION",
+    "SPOOFING",
+    "TAMPERING",
+]
 TargetDomainStatusType = Literal["FAILED", "PENDING", "UNREACHABLE", "VERIFIED"]
 TaskExecutionStatusType = Literal["ABORTED", "COMPLETED", "FAILED", "INTERNAL_ERROR", "IN_PROGRESS"]
+ThreatActorType = Literal["AGENT", "CUSTOMER"]
+ThreatSeverityType = Literal["CRITICAL", "HIGH", "INFO", "LOW", "MEDIUM"]
+ThreatStatusType = Literal["DISMISSED", "OPEN", "RESOLVED"]
 UserRoleType = Literal["MEMBER"]
+ValidationModeType = Literal["DISABLED", "SIMULATED"]
+ValidationStatusType = Literal[
+    "CONFIRMED", "NOT_REPRODUCED", "NOT_VALIDATED", "VALIDATING", "VALIDATION_FAILED"
+]
 SecurityAgentServiceName = Literal["securityagent"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -333,8 +398,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -361,6 +424,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -428,10 +493,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -464,6 +529,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -491,6 +557,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -512,7 +579,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -533,6 +599,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -572,6 +639,9 @@ PaginatorName = Literal[
     "list_agent_spaces",
     "list_applications",
     "list_artifacts",
+    "list_code_review_job_tasks",
+    "list_code_review_jobs_for_code_review",
+    "list_code_reviews",
     "list_discovered_endpoints",
     "list_findings",
     "list_integrated_resources",
@@ -580,5 +650,12 @@ PaginatorName = Literal[
     "list_pentest_job_tasks",
     "list_pentest_jobs_for_pentest",
     "list_pentests",
+    "list_private_connections",
+    "list_security_requirement_packs",
+    "list_security_requirements",
     "list_target_domains",
+    "list_threat_model_job_tasks",
+    "list_threat_model_jobs",
+    "list_threat_models",
+    "list_threats",
 ]

@@ -24,7 +24,9 @@ else:
 __all__ = (
     "AdminStatusType",
     "AutoEnableMembersType",
+    "CloudProviderType",
     "ClusterStatusType",
+    "ConfidenceType",
     "CoverageFilterCriterionKeyType",
     "CoverageSortKeyType",
     "CoverageStatisticsTypeType",
@@ -52,6 +54,8 @@ __all__ = (
     "GroupByTypeType",
     "GuardDutyServiceName",
     "IndicatorTypeType",
+    "InvestigationSortFieldType",
+    "InvestigationStatusType",
     "IpSetFormatType",
     "IpSetStatusType",
     "KubernetesResourcesTypesType",
@@ -60,6 +64,7 @@ __all__ = (
     "ListFiltersPaginatorName",
     "ListFindingsPaginatorName",
     "ListIPSetsPaginatorName",
+    "ListInvestigationsPaginatorName",
     "ListInvitationsPaginatorName",
     "ListMalwareScansCriterionKeyType",
     "ListMalwareScansPaginatorName",
@@ -90,6 +95,7 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "ResourceTypeType",
+    "RiskLevelType",
     "ScanCategoryType",
     "ScanCriterionKeyType",
     "ScanResultStatusType",
@@ -112,7 +118,9 @@ __all__ = (
 
 AdminStatusType = Literal["DISABLE_IN_PROGRESS", "ENABLED"]
 AutoEnableMembersType = Literal["ALL", "NEW", "NONE"]
+CloudProviderType = Literal["AWS"]
 ClusterStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "PENDING", "UPDATING"]
+ConfidenceType = Literal["High", "Low", "Medium", "Unknown"]
 CoverageFilterCriterionKeyType = Literal[
     "ACCOUNT_ID",
     "ADDON_VERSION",
@@ -156,6 +164,7 @@ DescribeMalwareScansPaginatorName = Literal["describe_malware_scans"]
 DestinationTypeType = Literal["S3"]
 DetectionSourceType = Literal["AMAZON", "BITDEFENDER"]
 DetectorFeatureResultType = Literal[
+    "AI_ANALYST",
     "CLOUD_TRAIL",
     "DNS_LOGS",
     "EBS_MALWARE_PROTECTION",
@@ -168,6 +177,7 @@ DetectorFeatureResultType = Literal[
     "S3_DATA_EVENTS",
 ]
 DetectorFeatureType = Literal[
+    "AI_ANALYST",
     "EBS_MALWARE_PROTECTION",
     "EKS_AUDIT_LOGS",
     "EKS_RUNTIME_MONITORING",
@@ -230,7 +240,11 @@ IndicatorTypeType = Literal[
     "MALICIOUS_DOMAIN",
     "MALICIOUS_FILE",
     "MALICIOUS_IP",
+    "MALICIOUS_PACKAGE",
     "MALICIOUS_PROCESS",
+    "MISCONFIGURATION",
+    "REACHABILITY",
+    "SENSITIVE_DATA",
     "SUSPICIOUS_NETWORK",
     "SUSPICIOUS_PROCESS",
     "SUSPICIOUS_USER_AGENT",
@@ -238,7 +252,10 @@ IndicatorTypeType = Literal[
     "UNUSUAL_API_FOR_ACCOUNT",
     "UNUSUAL_ASN_FOR_ACCOUNT",
     "UNUSUAL_ASN_FOR_USER",
+    "VULNERABILITY",
 ]
+InvestigationSortFieldType = Literal["CONFIDENCE", "END_TIME", "RISK_LEVEL", "START_TIME", "STATUS"]
+InvestigationStatusType = Literal["COMPLETED", "FAILED", "RUNNING"]
 IpSetFormatType = Literal["ALIEN_VAULT", "FIRE_EYE", "OTX_CSV", "PROOF_POINT", "STIX", "TXT"]
 IpSetStatusType = Literal[
     "ACTIVATING", "ACTIVE", "DEACTIVATING", "DELETED", "DELETE_PENDING", "ERROR", "INACTIVE"
@@ -258,6 +275,7 @@ ListDetectorsPaginatorName = Literal["list_detectors"]
 ListFiltersPaginatorName = Literal["list_filters"]
 ListFindingsPaginatorName = Literal["list_findings"]
 ListIPSetsPaginatorName = Literal["list_ip_sets"]
+ListInvestigationsPaginatorName = Literal["list_investigations"]
 ListInvitationsPaginatorName = Literal["list_invitations"]
 ListMalwareScansCriterionKeyType = Literal[
     "ACCOUNT_ID",
@@ -285,6 +303,7 @@ MalwareProtectionResourceTypeType = Literal[
     "EC2_INSTANCE",
     "EC2_RECOVERY_POINT",
     "S3_BUCKET",
+    "S3_POINT_IN_TIME_RECOVERY",
     "S3_RECOVERY_POINT",
 ]
 MalwareProtectionScanStatusType = Literal[
@@ -317,6 +336,7 @@ PublishingStatusType = Literal[
     "PENDING_VERIFICATION", "PUBLISHING", "STOPPED", "UNABLE_TO_PUBLISH_FIX_DESTINATION_PROPERTY"
 ]
 ResourceTypeType = Literal["EC2", "ECS", "EKS"]
+RiskLevelType = Literal["Critical", "High", "Info", "Low", "Medium"]
 ScanCategoryType = Literal["FULL_SCAN", "INCREMENTAL_SCAN"]
 ScanCriterionKeyType = Literal["EC2_INSTANCE_TAG"]
 ScanResultStatusType = Literal["NO_THREATS_FOUND", "THREATS_FOUND"]
@@ -587,8 +607,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -615,6 +633,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -682,10 +702,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -718,6 +738,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -745,6 +766,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -766,7 +788,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -787,6 +808,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -828,6 +850,7 @@ PaginatorName = Literal[
     "list_detectors",
     "list_filters",
     "list_findings",
+    "list_investigations",
     "list_invitations",
     "list_ip_sets",
     "list_malware_scans",

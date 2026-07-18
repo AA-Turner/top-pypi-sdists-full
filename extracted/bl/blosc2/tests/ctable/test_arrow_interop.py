@@ -306,13 +306,39 @@ def test_from_arrow_all_numeric_types():
     assert t.col_names == list(at.column_names)
 
 
-def test_from_arrow_string_default_is_vlstring():
-    """Without string_max_length, scalar string columns become vlstring (variable-length)."""
+def test_from_arrow_string_default_is_utf8():
+    """Without string_max_length, scalar string columns become utf8 (variable-length).
+
+    On NumPy < 2.0 (no StringDType) they fall back to vlstring instead.
+    """
     at = pa.table({"name": pa.array(["hi", "hello world", "!"], type=pa.string())})
     t = CTable.from_arrow(at.schema, at.to_batches())
     assert t["name"].is_varlen_scalar
-    assert t["name"].dtype is None
+    if hasattr(np.dtypes, "StringDType"):
+        assert t["name"].is_utf8
+        assert t["name"].dtype == np.dtypes.StringDType()
+    else:
+        assert not t["name"].is_utf8
+        assert t["name"].dtype is None
     assert list(t["name"][:]) == ["hi", "hello world", "!"]
+
+
+def test_from_arrow_string_view_imports_as_utf8():
+    """Arrow's view-based string layout (Polars' default PyCapsule export type)
+
+    is not one of string/large_string/utf8/large_utf8, but must still import
+    like them instead of raising "No blosc2 spec for Arrow type".
+    """
+    if not hasattr(pa.types, "is_string_view"):
+        pytest.skip("this pyarrow version has no string_view type")
+    at = pa.table({"name": pa.array(["hi", None, "!"], type=pa.string())}).cast(
+        pa.schema([pa.field("name", pa.string_view(), nullable=True)])
+    )
+    assert pa.types.is_string_view(at.schema.field("name").type)
+    t = CTable.from_arrow(at.schema, at.to_batches())
+    if hasattr(np.dtypes, "StringDType"):
+        assert t["name"].is_utf8
+    assert list(t["name"].fillna("<null>")) == ["hi", "<null>", "!"]
 
 
 def test_from_arrow_string_fixed_width_with_max_length():
@@ -428,6 +454,41 @@ def test_from_arrow_dictionary_codes_use_aligned_grid():
     assert list(t["c"][:5]) == c.to_pylist()[:5]
 
 
+def test_to_arrow_dictionary_multi_batch_with_deletions():
+    """Dictionary-column export across several batches, with holes in the
+    live-row mask from a deletion, still maps each batch to the correct
+    physical positions.
+
+    Regression test for a perf fix where the live-row-position array was
+    recomputed from scratch on every batch (and every dictionary column);
+    this exercises the same code path across a batch boundary to make sure
+    the now-precomputed-once array still slices correctly per batch.
+    """
+
+    @dataclass
+    class Row:
+        category: str = blosc2.field(blosc2.dictionary())
+        value: int = blosc2.field(blosc2.int64())
+
+    n = 5000  # several batches at the default Arrow batch size (2048)
+    categories = ["alpha", "beta", "gamma"]
+    data = {
+        "category": [categories[i % 3] for i in range(n)],
+        "value": list(range(n)),
+    }
+    t = CTable(Row, new_data=data)
+    t.delete(slice(100, 250))  # punch a hole spanning a batch boundary
+
+    expected_category = [categories[i % 3] for i in range(n) if not (100 <= i < 250)]
+    expected_value = [i for i in range(n) if not (100 <= i < 250)]
+
+    batches = list(t.iter_arrow_batches(batch_size=500))
+    assert len(batches) > 1  # actually exercises multiple batches
+    at = pa.Table.from_batches(batches)
+    assert at["category"].to_pylist() == expected_category
+    assert at["value"].to_pylist() == expected_value
+
+
 def test_from_arrow_variable_batches_roundtrip():
     """Variable-sized Arrow batches that straddle the column chunk grid import
     losslessly (exercises the chunk-aligned write buffer)."""
@@ -457,6 +518,112 @@ def test_from_arrow_variable_batches_roundtrip():
     np.testing.assert_array_equal(t._cols["d"][:], d_all)
     # All rows marked valid by the single end-of-import write.
     assert int(blosc2.count_nonzero(t._valid_rows[:n])) == n
+
+
+# ===========================================================================
+# __arrow_c_stream__ (Arrow PyCapsule protocol)
+# ===========================================================================
+
+
+@dataclass
+class MixedRow:
+    id: int = blosc2.field(blosc2.int64(null_value=np.iinfo(np.int64).min))
+    value: float = blosc2.field(blosc2.float64(null_value=float("nan")))
+    label: str = blosc2.field(blosc2.string(max_length=8))
+    active: bool = blosc2.field(blosc2.bool())
+    kind: str = blosc2.field(blosc2.dictionary())
+
+
+def _mixed_table():
+    null_id = np.iinfo(np.int64).min
+    data = [
+        (0, 0.0, "r0", True, "a"),
+        (null_id, 1.5, "r1", False, "b"),
+        (2, float("nan"), "r2", True, "a"),
+        (3, 3.5, "r3", False, "c"),
+    ]
+    return CTable(MixedRow, new_data=data)
+
+
+def test_arrow_c_stream_matches_to_arrow():
+    t = _mixed_table()
+    via_capsule = pa.table(t)
+    assert via_capsule.equals(t.to_arrow())
+
+
+def test_arrow_c_stream_filtered_view():
+    t = _mixed_table()
+    view = t[t.id != t["id"].null_value]
+    assert pa.table(view).equals(view.to_arrow())
+
+
+def test_arrow_c_stream_nulls_survive():
+    t = _mixed_table()
+    at = pa.table(t)
+    assert at["id"][1].as_py() is None
+    assert at["value"][2].as_py() is None
+
+
+def test_from_arrow_accepts_capsule_producer():
+    t = CTable(Row, new_data=DATA10)
+    at = t.to_arrow()
+    via_capsule = CTable.from_arrow(at)
+    via_batches = CTable.from_arrow(at.schema, at.to_batches())
+    assert via_capsule.to_arrow().equals(via_batches.to_arrow())
+
+
+def test_arrow_c_stream_empty_table():
+    t = CTable(MixedRow)
+    at = pa.table(t)
+    assert at.num_rows == 0
+    assert at.schema.equals(t.to_arrow().schema)
+
+
+def test_from_arrow_accepts_another_ctable():
+    # A CTable is itself a capsule producer, so it can be ingested directly.
+    # The fixed-width "label" column re-imports as utf8 (large_string), so
+    # compare column values rather than the exact Arrow schema.
+    t = _mixed_table()
+    roundtripped = CTable.from_arrow(t)
+    left, right = roundtripped.to_arrow(), t.to_arrow()
+    assert left.column("label").to_pylist() == right.column("label").to_pylist()
+    assert left.drop(["label"]).equals(right.drop(["label"]))
+
+
+def test_from_arrow_streams_filtered_view():
+    t = _mixed_table()
+    view = t[t.id != t["id"].null_value]
+    left = CTable.from_arrow(view).to_arrow()
+    right = view.to_arrow()
+    assert left.column("label").to_pylist() == right.column("label").to_pylist()
+    assert left.drop(["label"]).equals(right.drop(["label"]))
+
+
+def test_from_arrow_rejects_capsule_plus_batches():
+    at = pa.table({"id": [1, 2]})
+    with pytest.raises(TypeError, match="not both"):
+        CTable.from_arrow(at, at.to_batches())
+
+
+def test_from_arrow_requires_batches_for_plain_schema():
+    at = pa.table({"id": [1, 2]})
+    with pytest.raises(TypeError, match="requires batches"):
+        CTable.from_arrow(at.schema)
+
+
+def test_duckdb_reads_ctable_directly():
+    duckdb = pytest.importorskip("duckdb")
+    t = CTable(Row, new_data=DATA10)
+    result = duckdb.sql("SELECT count(*) AS n FROM t").fetchone()
+    assert result[0] == len(DATA10)
+
+
+def test_polars_reads_ctable_directly():
+    pl = pytest.importorskip("polars")
+    t = CTable(Row, new_data=DATA10)
+    df = pl.DataFrame(t)
+    assert df.shape == (len(DATA10), 4)
+    assert df.columns == ["id", "score", "active", "label"]
 
 
 if __name__ == "__main__":

@@ -6,7 +6,13 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 from pydantic import Field
 
 from dbt_bouncer.check_framework.decorator import check, fail
-from dbt_bouncer.utils import clean_path_str, compile_pattern, is_description_populated
+from dbt_bouncer.check_framework.exceptions import NestedDict
+from dbt_bouncer.utils import (
+    clean_path_str,
+    compile_pattern,
+    find_missing_meta_keys,
+    is_description_populated,
+)
 
 if TYPE_CHECKING:
     from jinja2 import Environment
@@ -36,6 +42,51 @@ def _get_jinja_environment() -> "Environment":
         }
 
     return Environment(autoescape=True, extensions=[TagExtension])
+
+
+def _parse_macro_argument_names(macro_sql: str) -> list[str]:
+    """Return the argument names declared in a macro's Jinja signature.
+
+    Handles "true" macros, materializations (which have no arguments), and
+    generic tests. Shared by `check_macro_arguments_description_populated` and
+    `check_macro_max_number_of_arguments` so both agree on what counts as an
+    argument.
+
+    Args:
+        macro_sql: The raw Jinja source of the macro.
+
+    Returns:
+        The declared argument names, in order.
+
+    """
+    from jinja2 import nodes
+
+    environment = _get_jinja_environment()
+    ast = environment.parse(macro_sql)
+
+    if hasattr(ast.body[0], "args"):
+        # Assume macro is a "true" macro
+        return [a.name for a in getattr(ast.body[0], "args", [])]
+
+    if "materialization" in [
+        x.value.value
+        for x in ast.body[0].nodes[0].kwargs  # type: ignore[attr-defined]
+        if isinstance(x.value, nodes.Const)
+    ]:
+        # Materializations don't have arguments
+        return []
+
+    # Macro is a test. Extract the argument names from the test signature
+    # (`{% test name(arg_1, arg_2, ...) %}`) rather than walking the macro
+    # body. Walking the body is fragile: it breaks for tests whose body is a
+    # single macro call or contains a `{% set %}` statement, which parses to a
+    # `jinja2.nodes.Assign` node with no `.nodes` attribute (see issue #927).
+    signature_call = ast.body[0].nodes[0]  # type: ignore[attr-defined]
+    # With autoescape enabled the signature is wrapped in an `escape(...)`
+    # call; unwrap it to reach the test's own call node.
+    if signature_call.args and isinstance(signature_call.args[0], nodes.Call):
+        signature_call = signature_call.args[0]
+    return [a.name for a in signature_call.args if isinstance(a, nodes.Name)]
 
 
 @check
@@ -78,37 +129,7 @@ def check_macro_arguments_description_populated(
         ```
 
     """
-    from jinja2 import nodes
-
-    environment = _get_jinja_environment()
-    ast = environment.parse(macro.macro_sql)
-
-    if hasattr(ast.body[0], "args"):
-        # Assume macro is a "true" macro
-        macro_arguments = [a.name for a in getattr(ast.body[0], "args", [])]
-    else:
-        if "materialization" in [
-            x.value.value
-            for x in ast.body[0].nodes[0].kwargs  # type: ignore[attr-defined]
-            if isinstance(x.value, nodes.Const)
-        ]:
-            # Materializations don't have arguments
-            macro_arguments = []
-        else:
-            # Macro is a test. Extract the argument names from the test
-            # signature (`{% test name(arg_1, arg_2, ...) %}`) rather than
-            # walking the macro body. Walking the body is fragile: it breaks
-            # for tests whose body is a single macro call or contains a
-            # `{% set %}` statement, which parses to a `jinja2.nodes.Assign`
-            # node with no `.nodes` attribute (see issue #927).
-            signature_call = ast.body[0].nodes[0]  # type: ignore[attr-defined]
-            # With autoescape enabled the signature is wrapped in an
-            # `escape(...)` call; unwrap it to reach the test's own call node.
-            if signature_call.args and isinstance(signature_call.args[0], nodes.Call):
-                signature_call = signature_call.args[0]
-            macro_arguments = [
-                a.name for a in signature_call.args if isinstance(a, nodes.Name)
-            ]
+    macro_arguments = _parse_macro_argument_names(macro.macro_sql)
 
     # macro_arguments: List of args parsed from macro SQL
     # macro.arguments: List of args manually added to the properties file
@@ -209,6 +230,87 @@ def check_macro_description_populated(
 
 
 @check
+def check_macro_has_meta_keys(macro, *, keys: NestedDict):
+    """The `meta` config for macros must have the specified keys.
+
+    !!! info "Rationale"
+
+        The `meta` config is a flexible, project-defined dictionary used to track ownership, maturity levels, PII classification, and other governance attributes. Requiring specific keys ensures that these attributes are consistently populated across all macros, enabling automated reporting, data cataloguing, and access-control workflows that depend on them.
+
+    Parameters:
+        keys (NestedDict): A list (that may contain sub-lists) of required keys.
+
+    Receives:
+        macro (Macros): The Macros object to check.
+
+    Other Parameters:
+        description (str | None): Description of what the check does and why it is implemented.
+        exclude (str | list[str] | None): Regex pattern(s) to match the macro path. Macro paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the macro path. Only macro paths that match any pattern will be checked.
+        severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
+
+    Example(s):
+        ```yaml
+        manifest_checks:
+            - name: check_macro_has_meta_keys
+              keys:
+                - maturity
+                - owner
+        ```
+
+    """
+    missing_keys = find_missing_meta_keys(
+        meta_config=macro.meta, required_keys=keys.model_dump()
+    )
+    if missing_keys:
+        fail(
+            f"`{macro.name}` is missing the following keys from the `meta` config: {[x.replace('>>', '') for x in missing_keys]}"
+        )
+
+
+@check
+def check_macro_max_number_of_arguments(
+    macro, *, max_number_of_arguments: Annotated[int, Field(gt=0)] = 4
+):
+    """Macros may not have more than the specified number of arguments.
+
+    !!! info "Rationale"
+
+        A macro with many arguments is usually a code smell — it often signals that the macro is doing several jobs at once, or that a group of related arguments should be collapsed into a single dictionary or config object. Long argument lists are harder to call correctly, harder to document, and more prone to positional-argument mistakes. Capping the argument count nudges teams toward smaller, single-responsibility macros with clearer interfaces.
+
+    Parameters:
+        max_number_of_arguments (int): The maximum number of permitted arguments.
+
+    Receives:
+        macro (Macros): The Macros object to check.
+
+    Other Parameters:
+        description (str | None): Description of what the check does and why it is implemented.
+        exclude (str | list[str] | None): Regex pattern(s) to match the macro path. Macro paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the macro path. Only macro paths that match any pattern will be checked.
+        severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
+
+    Example(s):
+        ```yaml
+        manifest_checks:
+            - name: check_macro_max_number_of_arguments
+        ```
+        ```yaml
+        manifest_checks:
+            - name: check_macro_max_number_of_arguments
+              max_number_of_arguments: 4
+        ```
+
+    """
+    actual_number_of_arguments = len(_parse_macro_argument_names(macro.macro_sql))
+
+    if actual_number_of_arguments > max_number_of_arguments:
+        fail(
+            f"Macro `{macro.name}` has {actual_number_of_arguments} arguments, this is more than the maximum permitted number of arguments ({max_number_of_arguments})."
+        )
+
+
+@check
 def check_macro_max_number_of_lines(
     macro, *, max_number_of_lines: Annotated[int, Field(gt=0)] = 100
 ):
@@ -287,6 +389,42 @@ def check_macro_name_matches_file_name(macro):
     else:
         if macro.name != file_stem:
             fail(f"Macro `{macro.name}` is not in a file of the same name.")
+
+
+@check
+def check_macro_names(macro, *, macro_name_pattern: str):
+    """Macros must have a name that matches the supplied regex.
+
+    !!! info "Rationale"
+
+        Consistent macro naming conventions — such as requiring a shared prefix or suffix — make it immediately obvious which macros belong to the project versus packages, and help distinguish utility macros from test helpers or overrides. Enforcing a naming pattern prevents ad-hoc names that make the codebase harder to navigate and search.
+
+    Parameters:
+        macro_name_pattern (str): Regexp the macro name must match.
+
+    Receives:
+        macro (Macros): The Macros object to check.
+
+    Other Parameters:
+        description (str | None): Description of what the check does and why it is implemented.
+        exclude (str | list[str] | None): Regex pattern(s) to match the macro path. Macro paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the macro path. Only macro paths that match any pattern will be checked.
+        severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
+
+    Example(s):
+        ```yaml
+        manifest_checks:
+            - name: check_macro_names
+              include: ^macros/finance
+              macro_name_pattern: ^finance_
+        ```
+
+    """
+    compiled_pattern = compile_pattern(macro_name_pattern.strip())
+    if compiled_pattern.match(str(macro.name)) is None:
+        fail(
+            f"`{macro.name}` does not match the supplied regex `{macro_name_pattern.strip()}`."
+        )
 
 
 @check

@@ -6,18 +6,21 @@ from prefab_ui.components import (
     Badge,
     CardContent,
     Column,
-    Div,
     Grid,
     Markdown,
-    Text,
 )
 from prefab_ui.components.control_flow import If
 from prefab_ui.rx import STATE
 
 from airbyte_ops_webapp.theme import (
-    PANEL_CARD_CLASS,
-    STATUS_CARD_CLASS,
-    _card_style,
+    AbCard,
+    AbCardLabel,
+    AbCardMeta,
+    AbCardValue,
+    AbFieldLabel,
+    AbFieldValue,
+    AbSectionTitle,
+    AbStatusCard,
 )
 
 
@@ -31,64 +34,37 @@ def render_status_bar() -> None:
 
 def _render_org_card() -> None:
     with (
-        Div(css_class=STATUS_CARD_CLASS, style=_card_style()),
+        AbStatusCard(),
         CardContent(),
         Column(gap=1),
     ):
-        Text(
-            "Organization",
-            style={"fontSize": "0.75rem", "opacity": "0.7", "fontWeight": "600"},
-        )
-        Text(
-            content=STATE.org_info.organization_name,
-            style={"fontSize": "1.25rem", "fontWeight": "700"},
-        )
-        Text(
-            content=STATE.org_info.organization_id,
-            style={"fontSize": "0.75rem", "opacity": "0.6"},
-        )
+        AbCardLabel("Organization")
+        AbCardValue(content=STATE.org_info.organization_name)
+        AbCardMeta(content=STATE.org_info.organization_id)
         with If(STATE.org_info.email):
-            Text(
-                content=STATE.org_info.email,
-                style={"fontSize": "0.75rem", "opacity": "0.6"},
-            )
+            AbCardMeta(content=STATE.org_info.email)
 
 
 def _render_payment_status_card() -> None:
     with (
-        Div(css_class=STATUS_CARD_CLASS, style=_card_style()),
+        AbStatusCard(),
         CardContent(),
         Column(gap=1),
     ):
-        Text(
-            "Payment Status",
-            style={"fontSize": "0.75rem", "opacity": "0.7", "fontWeight": "600"},
-        )
-        Text(
-            content=STATE.payment_config.payment_status,
-            style={"fontSize": "1.25rem", "fontWeight": "700"},
-        )
+        AbCardLabel("Payment Status")
+        AbCardValue(content=STATE.payment_config.payment_status)
         with If(STATE.payment_config.grace_period_end_at):
-            Text(
-                content=STATE.payment_config.grace_period_end_at,
-                style={"fontSize": "0.75rem", "opacity": "0.6"},
-            )
+            AbCardMeta(content=STATE.payment_config.grace_period_end_at)
 
 
 def _render_tier_card() -> None:
     with (
-        Div(css_class=STATUS_CARD_CLASS, style=_card_style()),
+        AbStatusCard(),
         CardContent(),
         Column(gap=1),
     ):
-        Text(
-            "Customer Tier",
-            style={"fontSize": "0.75rem", "opacity": "0.7", "fontWeight": "600"},
-        )
-        Text(
-            content=STATE.payment_config.customer_tier,
-            style={"fontSize": "1.25rem", "fontWeight": "700"},
-        )
+        AbCardLabel("Customer Tier")
+        AbCardValue(content=STATE.payment_config.customer_tier)
         with If(STATE.payment_config.tier_warning):
             Badge(
                 STATE.payment_config.tier_warning,
@@ -99,14 +75,11 @@ def _render_tier_card() -> None:
 def render_billing_config() -> None:
     """Render the left-panel read-only billing configuration summary."""
     with (
-        Div(css_class=PANEL_CARD_CLASS, style=_card_style()),
+        AbCard(),
         CardContent(),
         Column(gap=3),
     ):
-        Text(
-            "Current Billing Configuration",
-            style={"fontWeight": "700", "fontSize": "1.125rem"},
-        )
+        AbSectionTitle("Current Billing Configuration")
         _render_config_field("Payment Status", STATE.payment_config.payment_status)
         _render_config_field(
             "Subscription Status", STATE.payment_config.subscription_status
@@ -139,11 +112,5 @@ def render_billing_config() -> None:
 def _render_config_field(label: str, value: object) -> None:
     """Render a single label-value row."""
     with Grid(columns=2, gap=2):
-        Text(
-            label,
-            style={"fontSize": "0.875rem", "opacity": "0.7"},
-        )
-        Text(
-            content=value,
-            style={"fontSize": "0.875rem", "fontWeight": "500"},
-        )
+        AbFieldLabel(label)
+        AbFieldValue(content=value)

@@ -36,6 +36,7 @@ class AdAccountUserSettings(
         ads_manager_footer_row_toast_impressions = 'ads_manager_footer_row_toast_impressions'
         auto_review_video_caption = 'auto_review_video_caption'
         budget_optimization_quick_view_created = 'budget_optimization_quick_view_created'
+        budget_pool_qv_created = 'budget_pool_qv_created'
         campaign_overview_columns = 'campaign_overview_columns'
         column_suggestion_status = 'column_suggestion_status'
         conditional_formatting_rules = 'conditional_formatting_rules'
@@ -163,6 +164,7 @@ class AdAccountUserSettings(
         'ads_manager_footer_row_toast_impressions': 'int',
         'auto_review_video_caption': 'bool',
         'budget_optimization_quick_view_created': 'bool',
+        'budget_pool_qv_created': 'bool',
         'campaign_overview_columns': 'list<string>',
         'column_suggestion_status': 'string',
         'conditional_formatting_rules': 'list<string>',

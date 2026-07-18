@@ -28,6 +28,7 @@ from .literals import (
     ExportStatusCodeType,
     FormatOptionType,
     OverwriteOptionType,
+    S3OutputTypeType,
 )
 
 if sys.version_info >= (3, 12):
@@ -183,7 +184,7 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 
 class S3OutputConfigurationsTypeDef(TypedDict):
-    OutputType: Literal["CUSTOM"]
+    OutputType: S3OutputTypeType
     Format: FormatOptionType
     Compression: CompressionOptionType
     Overwrite: OverwriteOptionType

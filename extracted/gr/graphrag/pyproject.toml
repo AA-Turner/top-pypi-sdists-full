@@ -1,7 +1,7 @@
 [project]
 name = "graphrag"
 # Maintainers: do not change the version here manually
-version = "3.1.0"
+version = "3.1.1"
 description = "GraphRAG: A graph-based retrieval-augmented generation (RAG) system."
 authors = [
     {name = "Alonso Guevara Fernández", email = "alonsog@microsoft.com"},
@@ -33,23 +33,26 @@ classifiers = [
 
 dependencies = [
     "azure-identity~=1.25",
-    "azure-search-documents~=11.5",
+    "azure-search-documents~=12.0",
     "azure-storage-blob~=12.24",
     "devtools~=0.12",
-    "graphrag-cache==3.1.0",
-    "graphrag-chunking==3.1.0",
-    "graphrag-common==3.1.0",
-    "graphrag-input==3.1.0",
-    "graphrag-llm==3.1.0",
-    "graphrag-storage==3.1.0",
-    "graphrag-vectors==3.1.0",
-    "graspologic-native~=1.2",
+    "graphrag-cache==3.1.1",
+    "graphrag-chunking==3.1.1",
+    "graphrag-common==3.1.1",
+    "graphrag-input==3.1.1",
+    "graphrag-llm==3.1.1",
+    "graphrag-storage==3.1.1",
+    "graphrag-vectors==3.1.1",
+    # Hold on the 1.2.x line: graspologic-native 1.3.x changes Leiden clustering
+    # output (community counts/levels), which breaks pinned regression tests and the
+    # golden community data. Revisit deliberately with a golden-data refresh.
+    "graspologic-native>=1.2,<1.3",
     "json-repair~=0.30",
     "networkx~=3.4",
     "nltk~=3.9",
     "numpy~=2.1",
-    "pandas~=2.3",
-    "pyarrow~=22.0",
+    "pandas~=3.0",
+    "pyarrow~=25.0",
     "pydantic~=2.10",
     "spacy~=3.8",
     "blis~=1.0",

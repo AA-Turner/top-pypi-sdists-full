@@ -29,6 +29,7 @@ from .literals import (
     LambdaEventStructureVersionType,
     ListenerProtocolType,
     PrivateDnsPreferenceType,
+    ResourceConfigDnsResolutionType,
     ResourceConfigurationIpAddressTypeType,
     ResourceConfigurationStatusType,
     ResourceConfigurationTypeType,
@@ -308,6 +309,7 @@ class CreateResourceGatewayRequestTypeDef(TypedDict):
     securityGroupIds: NotRequired[Sequence[str]]
     ipAddressType: NotRequired[ResourceGatewayIpAddressTypeType]
     ipv4AddressesPerEni: NotRequired[int]
+    resourceConfigDnsResolution: NotRequired[ResourceConfigDnsResolutionType]
     tags: NotRequired[Mapping[str, str]]
 
 
@@ -347,6 +349,7 @@ class CreateServiceRequestTypeDef(TypedDict):
     customDomainName: NotRequired[str]
     certificateArn: NotRequired[str]
     authType: NotRequired[AuthTypeType]
+    idleTimeoutSeconds: NotRequired[int]
 
 
 class DeleteAccessLogSubscriptionRequestTypeDef(TypedDict):
@@ -634,6 +637,7 @@ ResourceGatewaySummaryTypeDef = TypedDict(
         "securityGroupIds": NotRequired[list[str]],
         "ipAddressType": NotRequired[ResourceGatewayIpAddressTypeType],
         "ipv4AddressesPerEni": NotRequired[int],
+        "resourceConfigDnsResolution": NotRequired[ResourceConfigDnsResolutionType],
         "createdAt": NotRequired[datetime],
         "lastUpdatedAt": NotRequired[datetime],
     },
@@ -823,6 +827,7 @@ class UpdateServiceRequestTypeDef(TypedDict):
     serviceIdentifier: str
     certificateArn: NotRequired[str]
     authType: NotRequired[AuthTypeType]
+    idleTimeoutSeconds: NotRequired[int]
 
 
 CreateAccessLogSubscriptionResponseTypeDef = TypedDict(
@@ -849,6 +854,7 @@ CreateResourceGatewayResponseTypeDef = TypedDict(
         "securityGroupIds": list[str],
         "ipAddressType": ResourceGatewayIpAddressTypeType,
         "ipv4AddressesPerEni": int,
+        "resourceConfigDnsResolution": ResourceConfigDnsResolutionType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -963,9 +969,12 @@ GetResourceGatewayResponseTypeDef = TypedDict(
         "status": ResourceGatewayStatusType,
         "vpcId": str,
         "subnetIds": list[str],
+        "serviceManaged": bool,
+        "managedBy": str,
         "securityGroupIds": list[str],
         "ipAddressType": ResourceGatewayIpAddressTypeType,
         "ipv4AddressesPerEni": int,
+        "resourceConfigDnsResolution": ResourceConfigDnsResolutionType,
         "createdAt": datetime,
         "lastUpdatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -1050,6 +1059,7 @@ UpdateServiceResponseTypeDef = TypedDict(
         "customDomainName": str,
         "certificateArn": str,
         "authType": AuthTypeType,
+        "idleTimeoutSeconds": int,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1111,6 +1121,7 @@ CreateServiceResponseTypeDef = TypedDict(
         "certificateArn": str,
         "status": ServiceStatusType,
         "authType": AuthTypeType,
+        "idleTimeoutSeconds": int,
         "dnsEntry": DnsEntryTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -1174,6 +1185,7 @@ GetServiceResponseTypeDef = TypedDict(
         "certificateArn": str,
         "status": ServiceStatusType,
         "authType": AuthTypeType,
+        "idleTimeoutSeconds": int,
         "failureCode": str,
         "failureMessage": str,
         "ResponseMetadata": ResponseMetadataTypeDef,

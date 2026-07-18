@@ -33,6 +33,7 @@ from .paginator import (
     GetChannelSchedulePaginator,
     ListAlertsPaginator,
     ListChannelsPaginator,
+    ListFunctionsPaginator,
     ListLiveSourcesPaginator,
     ListPlaybackConfigurationsPaginator,
     ListPrefetchSchedulesPaginator,
@@ -58,6 +59,7 @@ from .type_defs import (
     CreateVodSourceResponseTypeDef,
     DeleteChannelPolicyRequestTypeDef,
     DeleteChannelRequestTypeDef,
+    DeleteFunctionRequestTypeDef,
     DeleteLiveSourceRequestTypeDef,
     DeletePlaybackConfigurationRequestTypeDef,
     DeletePrefetchScheduleRequestTypeDef,
@@ -79,6 +81,8 @@ from .type_defs import (
     GetChannelPolicyResponseTypeDef,
     GetChannelScheduleRequestTypeDef,
     GetChannelScheduleResponseTypeDef,
+    GetFunctionRequestTypeDef,
+    GetFunctionResponseTypeDef,
     GetPlaybackConfigurationRequestTypeDef,
     GetPlaybackConfigurationResponseTypeDef,
     GetPrefetchScheduleRequestTypeDef,
@@ -87,6 +91,8 @@ from .type_defs import (
     ListAlertsResponseTypeDef,
     ListChannelsRequestTypeDef,
     ListChannelsResponseTypeDef,
+    ListFunctionsRequestTypeDef,
+    ListFunctionsResponseTypeDef,
     ListLiveSourcesRequestTypeDef,
     ListLiveSourcesResponseTypeDef,
     ListPlaybackConfigurationsRequestTypeDef,
@@ -100,6 +106,8 @@ from .type_defs import (
     ListVodSourcesRequestTypeDef,
     ListVodSourcesResponseTypeDef,
     PutChannelPolicyRequestTypeDef,
+    PutFunctionRequestTypeDef,
+    PutFunctionResponseTypeDef,
     PutPlaybackConfigurationRequestTypeDef,
     PutPlaybackConfigurationResponseTypeDef,
     StartChannelRequestTypeDef,
@@ -266,6 +274,16 @@ class MediaTailorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediatailor/client/#delete_channel_policy)
         """
 
+    async def delete_function(
+        self, **kwargs: Unpack[DeleteFunctionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediatailor/client/delete_function.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediatailor/client/#delete_function)
+        """
+
     async def delete_live_source(
         self, **kwargs: Unpack[DeleteLiveSourceRequestTypeDef]
     ) -> dict[str, Any]:
@@ -395,6 +413,16 @@ class MediaTailorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediatailor/client/#get_channel_schedule)
         """
 
+    async def get_function(
+        self, **kwargs: Unpack[GetFunctionRequestTypeDef]
+    ) -> GetFunctionResponseTypeDef:
+        """
+        Retrieves the configuration and metadata for a function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediatailor/client/get_function.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediatailor/client/#get_function)
+        """
+
     async def get_playback_configuration(
         self, **kwargs: Unpack[GetPlaybackConfigurationRequestTypeDef]
     ) -> GetPlaybackConfigurationResponseTypeDef:
@@ -435,6 +463,16 @@ class MediaTailorClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediatailor/client/list_channels.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediatailor/client/#list_channels)
+        """
+
+    async def list_functions(
+        self, **kwargs: Unpack[ListFunctionsRequestTypeDef]
+    ) -> ListFunctionsResponseTypeDef:
+        """
+        Retrieves all functions associated with your AWS account in the current Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediatailor/client/list_functions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediatailor/client/#list_functions)
         """
 
     async def list_live_sources(
@@ -505,6 +543,16 @@ class MediaTailorClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediatailor/client/put_channel_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediatailor/client/#put_channel_policy)
+        """
+
+    async def put_function(
+        self, **kwargs: Unpack[PutFunctionRequestTypeDef]
+    ) -> PutFunctionResponseTypeDef:
+        """
+        Creates or updates a function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediatailor/client/put_function.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediatailor/client/#put_function)
         """
 
     async def put_playback_configuration(
@@ -629,6 +677,17 @@ class MediaTailorClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_channels"]
     ) -> ListChannelsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediatailor/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediatailor/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_functions"]
+    ) -> ListFunctionsPaginator:
         """
         Create a paginator for an operation.
 

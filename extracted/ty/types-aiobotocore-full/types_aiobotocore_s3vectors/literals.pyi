@@ -28,6 +28,7 @@ __all__ = (
     "ListVectorBucketsPaginatorName",
     "ListVectorsPaginatorName",
     "PaginatorName",
+    "QueryVectorsPaginatorName",
     "ResourceServiceName",
     "S3VectorsServiceName",
     "ServiceName",
@@ -39,6 +40,7 @@ DistanceMetricType = Literal["cosine", "euclidean"]
 ListIndexesPaginatorName = Literal["list_indexes"]
 ListVectorBucketsPaginatorName = Literal["list_vector_buckets"]
 ListVectorsPaginatorName = Literal["list_vectors"]
+QueryVectorsPaginatorName = Literal["query_vectors"]
 SseTypeType = Literal["AES256", "aws:kms"]
 S3VectorsServiceName = Literal["s3vectors"]
 ServiceName = Literal[
@@ -234,8 +236,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -262,6 +262,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -329,10 +331,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -365,6 +367,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -392,6 +395,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -413,7 +417,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -434,6 +437,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -469,4 +473,4 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_indexes", "list_vector_buckets", "list_vectors"]
+PaginatorName = Literal["list_indexes", "list_vector_buckets", "list_vectors", "query_vectors"]

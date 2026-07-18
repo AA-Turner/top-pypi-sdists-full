@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fast-agent-mcp
-Version: 0.9.13
+Version: 0.9.14
 Summary: Code, Build and Evaluate agents - excellent Model and Skills/MCP/ACP/A2A Support
 Author-email: Shaun Smith <fastagent@llmindset.co.uk>
 License:                                  Apache License
@@ -229,7 +229,7 @@ Requires-Dist: email-validator==2.3.0
 Requires-Dist: fastapi==0.136.3
 Requires-Dist: fastmcp==3.4.4
 Requires-Dist: google-genai==2.10.0
-Requires-Dist: huggingface-hub==1.22.0
+Requires-Dist: huggingface-hub==1.24.0
 Requires-Dist: jsonschema==4.26.0
 Requires-Dist: keyring==25.7.0
 Requires-Dist: mcp==1.28.1

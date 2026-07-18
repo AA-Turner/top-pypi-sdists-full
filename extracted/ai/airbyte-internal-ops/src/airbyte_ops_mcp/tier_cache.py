@@ -546,6 +546,8 @@ def enrich_rows_by_org(
     rows: list[dict[str, Any]],
     org_id_key: str = "organization_id",
     dataplane_name_key: str = "dataplane_name",
+    *,
+    credentials: google.auth.credentials.Credentials | None = None,
 ) -> list[dict[str, Any]]:
     """Add `customer_tier` and `is_eu` fields to each row based on organization_id.
 
@@ -553,9 +555,12 @@ def enrich_rows_by_org(
     field (or the field specified by `org_id_key`). If the row already has a
     `dataplane_name` field, `is_eu` is derived from it; otherwise defaults to False.
 
+    `credentials` are optional GCP credentials used to refresh the tier cache from
+    BigQuery (e.g. a per-user OAuth token); falls back to the default identity.
+
     This mutates and returns the same list (no copy).
     """
-    tier_cache = _load_tier_cache()
+    tier_cache = _load_tier_cache(credentials=credentials)
 
     for row in rows:
         org_id = str(row.get(org_id_key, ""))
@@ -596,6 +601,35 @@ def build_tier_summary(rows: list[dict[str, Any]]) -> TierSummary:
         tier_1_count=tier_1,
         tier_2_count=tier_2,
         total=len(rows),
+    )
+
+
+def build_weighted_tier_summary(
+    rows: list[dict[str, Any]],
+    count_key: str,
+) -> TierSummary:
+    """Build a tier distribution summary weighting each row by `count_key`.
+
+    Unlike `build_tier_summary` (which counts one per row), this sums the
+    integer value at `count_key` into each tier bucket. Use it for rows that
+    are already aggregated (e.g. per-organization counts) where each row
+    represents more than one underlying entity. Rows must already carry a
+    `customer_tier` field (from `enrich_rows_by_org`).
+    """
+    tier_0 = sum(
+        int(r.get(count_key, 0)) for r in rows if r.get("customer_tier") == "TIER_0"
+    )
+    tier_1 = sum(
+        int(r.get(count_key, 0)) for r in rows if r.get("customer_tier") == "TIER_1"
+    )
+    tier_2 = sum(
+        int(r.get(count_key, 0)) for r in rows if r.get("customer_tier") == "TIER_2"
+    )
+    return TierSummary(
+        tier_0_count=tier_0,
+        tier_1_count=tier_1,
+        tier_2_count=tier_2,
+        total=tier_0 + tier_1 + tier_2,
     )
 
 

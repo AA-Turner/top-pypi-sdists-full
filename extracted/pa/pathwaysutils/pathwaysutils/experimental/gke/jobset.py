@@ -11,11 +11,15 @@
 # limitations under the License.
 """Pathways JobSet generator and builder (with Worker Job Config)."""
 
+import hashlib
 import json
 import logging
 import math
-from typing import Any, Mapping
+import time
+from typing import Any, Mapping, Sequence
 from kubernetes import client
+from kubernetes import config as k8s_config
+import yaml
 
 # GKE sidecar containers restartPolicy compatibility placeholder.
 
@@ -99,6 +103,7 @@ class PathwaysJobSet:
       elastic_slices: int = 0,
       labels: Mapping[str, str] | None = None,
       annotations: Mapping[str, str] | None = None,
+      shared_pathways_service: bool = False,
   ):
     """Initializes the instance.
 
@@ -120,6 +125,13 @@ class PathwaysJobSet:
       labels: Optional labels for the JobSet.
       annotations: Optional annotations for the JobSet.
     """
+    if shared_pathways_service and user_pod_template:
+      raise ValueError(
+          "Cannot enable shared_pathways_service when user_pod_template is"
+          " provided."
+      )
+    self._shared_pathways_service = shared_pathways_service
+
     self._name = name
     self._namespace = namespace
     self._jobset_api_version = jobset_api_version
@@ -157,6 +169,7 @@ class PathwaysJobSet:
         user_pod_template=user_pod_template,
         main_container_name=main_container_name,
         elastic_slices=elastic_slices,
+        shared_pathways_service=shared_pathways_service,
     )
 
     # Build worker template.
@@ -164,7 +177,7 @@ class PathwaysJobSet:
         pathways_dir=pathways_dir,
         num_vms=num_vms,
         chips_per_vm=chips_per_vm,
-        gke_accel_type=gke_accel_type,
+        gke_accel_type=gke_accel_type,  # pyrefly: ignore[bad-argument-type]
         topology=topology,
         image_tag=image_tag,
         max_slice_restarts=max_slice_restarts,
@@ -172,11 +185,19 @@ class PathwaysJobSet:
     )
 
     self._success_policy = None
-    if user_pod_template:
+    if user_pod_template or shared_pathways_service:
       self._success_policy = {
           "operator": "All",
           "targetReplicatedJobs": [PATHWAYS_HEAD_JOB_NAME],
       }
+
+  @property
+  def head_job_template(self) -> client.V1JobTemplateSpec:
+    return self._head_job_template
+
+  @property
+  def worker_job_template(self) -> client.V1JobTemplateSpec:
+    return self._worker_job_template
 
   def _build_head_job_template(
       self,
@@ -187,6 +208,7 @@ class PathwaysJobSet:
       user_pod_template: Mapping[str, Any] | None,
       main_container_name: str,
       elastic_slices: int,
+      shared_pathways_service: bool,
   ) -> client.V1JobTemplateSpec:
     """Builds the head job template for the JobSet.
 
@@ -306,8 +328,8 @@ class PathwaysJobSet:
       head_pod_spec.host_network = True
       head_pod_spec.dns_policy = "ClusterFirstWithHostNet"
 
-      rm_container.restart_policy = "Always"
-      proxy_container.restart_policy = "Always"
+      rm_container.restart_policy = "Always"  # pyrefly: ignore[missing-attribute]
+      proxy_container.restart_policy = "Always"  # pyrefly: ignore[missing-attribute]
 
       init_containers = head_pod_spec.init_containers or []
       init_containers.extend([rm_container, proxy_container])
@@ -345,10 +367,13 @@ class PathwaysJobSet:
       labels = user_pod_template.get("metadata", {}).get("labels", {})
     else:
       # Headless mode.
+      containers = [rm_container]
+      if not shared_pathways_service:
+        containers.append(proxy_container)
       head_pod_spec = client.V1PodSpec(
           host_network=True,
           dns_policy="ClusterFirstWithHostNet",
-          containers=[rm_container, proxy_container],
+          containers=containers,
       )
       annotations = {}
       labels = {}
@@ -530,6 +555,161 @@ class PathwaysJobSet:
     )
     return worker_job_template
 
+  def _filter_matching_containers(
+      self,
+      containers_param: str | Sequence[str],
+      all_containers: list[client.V1Container],
+  ) -> list[client.V1Container]:
+    """Filters containers matching the containers_param selection."""
+    if containers_param == "all":
+      return all_containers
+    if containers_param == "worker":
+      return [c for c in all_containers if c.name == "pathways-worker"]
+
+    filter_names = (
+        [containers_param]
+        if isinstance(containers_param, str)
+        else set(containers_param)
+    )
+    return [c for c in all_containers if c.name in filter_names]
+
+  def _enable_gcsfuse_annotations(
+      self, job_template: client.V1JobTemplateSpec
+  ) -> None:
+    """Enables gke-gcsfuse/volumes annotation on job and pod metadata."""
+    job_metadata = job_template.metadata or client.V1ObjectMeta()
+    job_annotations = job_metadata.annotations or {}
+    job_annotations["gke-gcsfuse/volumes"] = "true"
+    job_metadata.annotations = job_annotations
+    job_template.metadata = job_metadata
+
+    pod_metadata = job_template.spec.template.metadata or client.V1ObjectMeta()
+    pod_annotations = pod_metadata.annotations or {}
+    pod_annotations["gke-gcsfuse/volumes"] = "true"
+    pod_metadata.annotations = pod_annotations
+    job_template.spec.template.metadata = pod_metadata
+
+  def _add_volume_to_pod_spec(
+      self, pod_spec: client.V1PodSpec, volume: client.V1Volume
+  ) -> None:
+    """Appends volume to pod_spec if not already present."""
+    volumes = pod_spec.volumes or []
+    if not any(v.name == volume.name for v in volumes):
+      volumes.append(volume)
+      pod_spec.volumes = volumes
+
+  def add_colocated_python(
+      self,
+      image: str,
+      shm_mount_path: str = "/tmp/shared-memory",
+      shm_size_limit: str | None = None,
+  ) -> "PathwaysJobSet":
+    """Adds colocated python sidecar to the worker pods."""
+    pod_spec = self._worker_job_template.spec.template.spec
+
+    # Add shared memory volume if not exists.
+    volumes = pod_spec.volumes or []
+    shm_volume_name = "shared-memory"
+    shm_exists = any(v.name == shm_volume_name for v in volumes)
+    if not shm_exists:
+      volumes.append(
+          client.V1Volume(
+              name=shm_volume_name,
+              empty_dir=client.V1EmptyDirVolumeSource(
+                  medium="Memory", size_limit=shm_size_limit
+              ),
+          )
+      )
+      pod_spec.volumes = volumes
+
+    # Add colocated python container.
+    colocated_container = client.V1Container(
+        name="colocated-python-sidecar",
+        image=image,
+        image_pull_policy="Always",
+        env=[
+            client.V1EnvVar(name="GRPC_SERVER_ADDRESS", value="0.0.0.0:50051"),
+            client.V1EnvVar(
+                name="CLOUD_PATHWAYS_SIDECAR_SHM_DIRECTORY",
+                value=shm_mount_path,
+            ),
+        ],
+        ports=[client.V1ContainerPort(container_port=50051)],
+        volume_mounts=[
+            client.V1VolumeMount(name="shared-tmp", mount_path="/tmp"),
+            client.V1VolumeMount(name=shm_volume_name, mount_path=shm_mount_path),
+        ],
+    )
+    colocated_container.restart_policy = "Always"  # pyrefly: ignore[missing-attribute]
+
+    init_containers = pod_spec.init_containers or []
+    init_containers.append(colocated_container)
+    pod_spec.init_containers = init_containers
+
+    # Add volume mount to pathways-worker.
+    for container in pod_spec.containers:
+      if container.name == "pathways-worker":
+        volume_mounts = container.volume_mounts or []
+        volume_mounts.append(
+            client.V1VolumeMount(
+                name=shm_volume_name, mount_path=shm_mount_path
+            )
+        )
+        container.volume_mounts = volume_mounts
+        # Add env var for shm dir.
+        env = container.env or []
+        env.append(
+            client.V1EnvVar(
+                name="cloud_pathways_sidecar_shm_directory",
+                value=shm_mount_path,
+            )
+        )
+        container.env = env
+        break
+
+    return self
+
+  def add_gcsfuse(
+      self,
+      containers: str | Sequence[str],
+      mount_path: str,
+      bucket: str,
+      read_only: bool = False,
+  ) -> "PathwaysJobSet":
+    """Adds GCSFuse mount to specified containers."""
+    bucket_hash = int(hashlib.md5(bucket.encode()).hexdigest(), 16) % (10**8)
+    volume_name = f"gcsfuse-{bucket_hash}"
+    volume = client.V1Volume(
+        name=volume_name,
+        csi=client.V1CSIVolumeSource(
+            driver="gcsfuse.csi.storage.gke.io",
+            volume_attributes={"bucketName": bucket},
+        ),
+    )
+    volume_mount = client.V1VolumeMount(
+        name=volume_name,
+        mount_path=mount_path,
+        read_only=read_only,
+    )
+
+    for job_template in (self._head_job_template, self._worker_job_template):
+      pod_spec = job_template.spec.template.spec
+      all_containers = (pod_spec.containers or []) + (pod_spec.init_containers or [])
+
+      matching = self._filter_matching_containers(containers, all_containers)
+      if not matching:
+        continue
+
+      self._enable_gcsfuse_annotations(job_template)
+      self._add_volume_to_pod_spec(pod_spec, volume)
+
+      for container in matching:
+        volume_mounts = container.volume_mounts or []
+        volume_mounts.append(volume_mount)
+        container.volume_mounts = volume_mounts
+
+    return self
+
   def _compile_config(self) -> dict[str, Any]:
     """Compiles the JobSet configuration into a dictionary."""
     with client.ApiClient() as api_client:
@@ -540,40 +720,204 @@ class PathwaysJobSet:
           self._worker_job_template
       )
 
-    replicated_jobs = [
-        {
-            "name": PATHWAYS_HEAD_JOB_NAME,
-            "replicas": 1,
-            "template": serialized_head,
-        },
-        {
-            "name": PATHWAYS_WORKER_JOB_NAME,
-            "replicas": self._worker_replicas,
-            "template": serialized_worker,
-        },
-    ]
+    head_job = {
+        "name": PATHWAYS_HEAD_JOB_NAME,
+        "replicas": 1,
+        "template": serialized_head,
+    }
+    worker_job = {
+        "name": PATHWAYS_WORKER_JOB_NAME,
+        "replicas": self._worker_replicas,
+        "template": serialized_worker,
+    }
+
+    coordinator = {
+        "replicatedJob": PATHWAYS_HEAD_JOB_NAME,
+    }
+
+    failure_policy: dict[str, Any] = {
+        "restartStrategy": "Recreate",
+    }
+    if self._max_restarts > 0:
+      failure_policy["maxRestarts"] = self._max_restarts
 
     jobset_config = {
-        "apiVersion": f"jobset.sigs.k8s.io/{self._jobset_api_version}",
+        "apiVersion": f"jobset.x-k8s.io/{self._jobset_api_version}",
         "kind": "JobSet",
         "metadata": {
             "name": self._name,
             "namespace": self._namespace,
         },
         "spec": {
-            "failurePolicy": {"maxRestarts": self._max_restarts},
-            "replicatedJobs": replicated_jobs,
+            "startupPolicy": {"startupPolicyOrder": "InOrder"},
+            "failurePolicy": failure_policy,
+            "network": {
+                "enableDNSHostnames": True,
+                "publishNotReadyAddresses": True,
+            },
+            "coordinator": coordinator,
+            "replicatedJobs": [head_job, worker_job],
         },
     }
     if self._labels:
-      jobset_config["metadata"]["labels"] = self._labels
+      jobset_config["metadata"]["labels"] = self._labels  # pyrefly: ignore[bad-assignment]
     if self._annotations:
-      jobset_config["metadata"]["annotations"] = self._annotations
+      jobset_config["metadata"]["annotations"] = self._annotations  # pyrefly: ignore[bad-assignment]
     if self._success_policy:
-      jobset_config["spec"]["successPolicy"] = self._success_policy
+      jobset_config["spec"]["successPolicy"] = self._success_policy  # pyrefly: ignore[bad-assignment]
 
     return jobset_config
 
   def to_dict(self) -> dict[str, Any]:
     """Returns the JobSet configuration as a dictionary."""
     return self._compile_config()
+
+  def export_yaml(self, filepath: str) -> None:
+    """Exports the JobSet configuration to a YAML file."""
+    with open(filepath, "w") as f:
+      yaml.dump(self.to_dict(), f, default_flow_style=False)
+
+  @classmethod
+  def import_yaml(cls, filepath: str) -> "PathwaysJobSet":
+    """Imports a JobSet configuration from a YAML file."""
+    with open(filepath, "r") as f:
+      config = yaml.safe_load(f)
+
+    cls._validate_config(config)
+
+    instance = cls.__new__(cls)
+    instance._name = config["metadata"]["name"]
+    instance._namespace = config["metadata"].get("namespace", "default")
+    api_version_parts = config.get("apiVersion", "").split("/")
+    instance._jobset_api_version = (
+        api_version_parts[-1] if len(api_version_parts) > 1 else "v1alpha2"
+    )
+    instance._max_restarts = (
+        config["spec"].get("failurePolicy", {}).get("maxRestarts", 0)
+    )
+    instance._labels = config["metadata"].get("labels", {})
+    instance._annotations = config["metadata"].get("annotations", {})
+
+    # Extract replicated jobs and deserialize.
+    head_job_template: client.V1JobTemplateSpec | None = None
+    worker_job_template: client.V1JobTemplateSpec | None = None
+
+    with client.ApiClient() as api_client:
+      for job in config["spec"]["replicatedJobs"]:
+        if job["name"] == PATHWAYS_HEAD_JOB_NAME:
+          head_job_template = _deserialize_dict(
+              api_client, job["template"], client.V1JobTemplateSpec
+          )
+        elif job["name"] in ("worker", PATHWAYS_WORKER_JOB_NAME):
+          worker_job_template = _deserialize_dict(
+              api_client, job["template"], client.V1JobTemplateSpec
+          )
+          instance._worker_replicas = job["replicas"]
+
+    if head_job_template is None:
+      raise ValueError(f"Missing head job ({PATHWAYS_HEAD_JOB_NAME}) in config")
+    if worker_job_template is None:
+      raise ValueError(
+          f"Missing worker job ({PATHWAYS_WORKER_JOB_NAME}) in config"
+      )
+
+    instance._head_job_template = head_job_template
+    instance._worker_job_template = worker_job_template
+
+    instance._success_policy = config["spec"].get("successPolicy")
+    return instance
+
+  @classmethod
+  def _validate_config(cls, config: dict[str, Any]) -> None:
+    """Validates that the config is a valid Pathways JobSet."""
+    if config.get("kind") != "JobSet":
+      raise ValueError("Resource kind is not JobSet")
+    jobs = {
+        j["name"]: j for j in config.get("spec", {}).get("replicatedJobs", [])
+    }
+    if "head" not in jobs and PATHWAYS_HEAD_JOB_NAME not in jobs:
+      raise ValueError(
+          f"Missing head replicated job ('head' or '{PATHWAYS_HEAD_JOB_NAME}')"
+      )
+    if "worker" not in jobs and PATHWAYS_WORKER_JOB_NAME not in jobs:
+      raise ValueError(
+          "Missing worker replicated job ('worker' or"
+          f" '{PATHWAYS_WORKER_JOB_NAME}')"
+      )
+
+  def apply(
+      self, recreate: bool = False, field_manager: str = "pathwaysutils"
+  ) -> None:
+    """Applies the JobSet to the GKE cluster."""
+
+    try:
+      k8s_config.load_kube_config()
+    except Exception:  # pylint: disable=broad-except
+      try:
+        k8s_config.load_incluster_config()
+      except Exception as e:
+        raise RuntimeError("Failed to load Kubernetes configuration") from e
+
+    api = client.CustomObjectsApi()
+    group = "jobset.x-k8s.io"
+    version = self._jobset_api_version
+    plural = "jobsets"
+
+    exists = False
+    try:
+      api.get_namespaced_custom_object(
+          group, version, self._namespace, plural, self._name
+      )
+      exists = True
+    except client.rest.ApiException as e:
+      if e.status != 404:
+        raise
+
+    if exists:
+      if recreate:
+        _logger.info(
+            "JobSet %s already exists. Deleting it first...", self._name
+        )
+        api.delete_namespaced_custom_object(
+            group, version, self._namespace, plural, self._name
+        )
+
+        # Poll for deletion.
+        max_retries = 30
+        for i in range(max_retries):
+          try:
+            api.get_namespaced_custom_object(
+                group, version, self._namespace, plural, self._name
+            )
+            _logger.info(
+                "Waiting for JobSet %s to be deleted... (%d/%d)",
+                self._name,
+                i + 1,
+                max_retries,
+            )
+            time.sleep(2)
+          except client.rest.ApiException as e:
+            if e.status == 404:
+              _logger.info("JobSet %s deleted.", self._name)
+              break
+            raise
+        else:
+          raise RuntimeError(
+              f"Timeout waiting for JobSet {self._name} to be deleted"
+          )
+      else:
+        raise RuntimeError(
+            f"JobSet {self._name} already exists. Use recreate=True to"
+            " overwrite."
+        )
+
+    _logger.info("Creating JobSet %s...", self._name)
+    api.create_namespaced_custom_object(
+        group=group,
+        version=version,
+        namespace=self._namespace,
+        plural=plural,
+        body=self.to_dict(),
+        field_manager=field_manager,
+    )
+    _logger.info("JobSet %s created successfully.", self._name)

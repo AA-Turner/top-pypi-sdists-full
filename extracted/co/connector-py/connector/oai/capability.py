@@ -52,6 +52,8 @@ from connector_sdk_types.generated import (
     GetApplicationResponse,
     GetAuthorizationUrlRequest,
     GetAuthorizationUrlResponse,
+    GetCredentialLastActivityRequest,
+    GetCredentialLastActivityResponse,
     GetDataRecencyRequest,
     GetDataRecencyResponse,
     GetLastActivityRequest,
@@ -824,6 +826,14 @@ _STANDARD_CAPABILITY_SIGNATURES: dict[StandardCapabilityName, CapabilitySignatur
         ),
         output_payload=_payload_type_data(
             envelope_type=GetNonHumanAccountLastActivityResponse, is_request=False
+        ),
+    ),
+    StandardCapabilityName.GET_CREDENTIAL_LAST_ACTIVITY: CapabilitySignature(
+        input_payload=_payload_type_data(
+            envelope_type=GetCredentialLastActivityRequest, is_request=True
+        ),
+        output_payload=_payload_type_data(
+            envelope_type=GetCredentialLastActivityResponse, is_request=False
         ),
     ),
     StandardCapabilityName.LIST_ENTITLEMENTS: CapabilitySignature(

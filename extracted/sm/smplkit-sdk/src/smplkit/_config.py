@@ -45,15 +45,17 @@ class ResolvedConfig:
 class ResolvedClientConfig:
     """Resolved configuration for a product client.
 
-    CRUD operations against the platform are not tied to an environment
-    or service, so those fields are not part of the resolved config and
-    not required at construction time.
+    ``environment`` and ``service`` are optional deployment scoping: clients
+    without an environment concept (platform, account) simply ignore them,
+    and CRUD operations never require them at construction time.
     """
 
     api_key: str
     base_domain: str
     scheme: str
     debug: bool
+    environment: str | None = None
+    service: str | None = None
     extra_headers: dict[str, str] | None = None
 
 
@@ -228,25 +230,32 @@ def resolve_client_config(
     api_key: str | None = None,
     base_domain: str | None = None,
     scheme: str | None = None,
+    environment: str | None = None,
+    service: str | None = None,
     debug: bool | None = None,
     _home_dir: Path | None = None,
 ) -> ResolvedClientConfig:
     """Resolve configuration for a product client.
 
-    Mirrors :func:`resolve_config` but skips ``environment`` / ``service``
-    requirements — they have no meaning for CRUD operations.
+    Mirrors :func:`resolve_config` — every standalone sub-client resolves
+    exactly like the top-level client: defaults → ``~/.smplkit`` file →
+    ``SMPLKIT_*`` environment variables → constructor arguments.
+    ``environment`` and ``service`` remain optional; clients without an
+    environment concept simply ignore the resolved values.
     """
     resolved: dict[str, str | bool | None] = {
         "api_key": None,
         "base_domain": "smplkit.com",
         "scheme": "https",
+        "environment": None,
+        "service": None,
         "debug": False,
     }
 
     active_profile = profile or os.environ.get("SMPLKIT_PROFILE") or "default"
 
     file_values = _read_config_file(active_profile, home_dir=_home_dir)
-    for key in ("api_key", "base_domain", "scheme", "debug"):
+    for key in ("api_key", "base_domain", "scheme", "environment", "service", "debug"):
         if key in file_values:
             val = file_values[key]
             if key == "debug":
@@ -258,6 +267,8 @@ def resolve_client_config(
         ("api_key", "SMPLKIT_API_KEY"),
         ("base_domain", "SMPLKIT_BASE_DOMAIN"),
         ("scheme", "SMPLKIT_SCHEME"),
+        ("environment", "SMPLKIT_ENVIRONMENT"),
+        ("service", "SMPLKIT_SERVICE"),
         ("debug", "SMPLKIT_DEBUG"),
     ):
         env_val = os.environ.get(env_var, "")
@@ -271,6 +282,8 @@ def resolve_client_config(
         "api_key": api_key,
         "base_domain": base_domain,
         "scheme": scheme,
+        "environment": environment,
+        "service": service,
         "debug": debug,
     }
     for key, val in constructor_args.items():
@@ -285,9 +298,14 @@ def resolve_client_config(
             f"  3. Add api_key to the [{active_profile}] section in ~/.smplkit"
         )
 
+    resolved_environment = resolved["environment"]
+    resolved_service = resolved["service"]
     return ResolvedClientConfig(
         api_key=str(resolved["api_key"]),
         base_domain=str(resolved["base_domain"]),
         scheme=str(resolved["scheme"]),
         debug=bool(resolved["debug"]),
+        # Preserve None rather than coercing to the literal string "None".
+        environment=str(resolved_environment) if resolved_environment is not None else None,
+        service=str(resolved_service) if resolved_service is not None else None,
     )

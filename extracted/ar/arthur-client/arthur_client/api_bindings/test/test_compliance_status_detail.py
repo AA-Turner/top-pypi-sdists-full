@@ -46,6 +46,7 @@ class TestComplianceStatusDetail(unittest.TestCase):
                         arthur_client.api_bindings.models.non_compliant_alert_rule_status.NonCompliantAlertRuleStatus(
                             id = '', 
                             name = '', 
+                            policy_alert_rule_id = '', 
                             alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
                                 description = '', 
                                 id = '', ), 
@@ -78,6 +79,7 @@ class TestComplianceStatusDetail(unittest.TestCase):
                         arthur_client.api_bindings.models.non_compliant_alert_rule_status.NonCompliantAlertRuleStatus(
                             id = '', 
                             name = '', 
+                            policy_alert_rule_id = '', 
                             alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
                                 description = '', 
                                 id = '', ), 

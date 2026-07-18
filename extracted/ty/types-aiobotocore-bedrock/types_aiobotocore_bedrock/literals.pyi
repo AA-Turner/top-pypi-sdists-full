@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_bedrock.literals import AgreementStatusType
+    from types_aiobotocore_bedrock.literals import AdvancedPromptOptimizationJobStatusType
 
-    data: AgreementStatusType = "AVAILABLE"
+    data: AdvancedPromptOptimizationJobStatusType = "Completed"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AdvancedPromptOptimizationJobStatusType",
     "AgreementStatusType",
     "ApplicationTypeType",
     "AttributeTypeType",
@@ -42,6 +43,7 @@ __all__ = (
     "CustomModelDeploymentStatusType",
     "CustomModelDeploymentUpdateStatusType",
     "CustomizationTypeType",
+    "DataRetentionModeType",
     "EntitlementAvailabilityType",
     "EvaluationJobStatusType",
     "EvaluationJobTypeType",
@@ -69,6 +71,7 @@ __all__ = (
     "InferenceTypeType",
     "InputTagsType",
     "JobStatusDetailsType",
+    "ListAdvancedPromptOptimizationJobsPaginatorName",
     "ListAutomatedReasoningPoliciesPaginatorName",
     "ListAutomatedReasoningPolicyBuildWorkflowsPaginatorName",
     "ListAutomatedReasoningPolicyTestCasesPaginatorName",
@@ -120,6 +123,9 @@ __all__ = (
     "VectorSearchRerankingConfigurationTypeType",
 )
 
+AdvancedPromptOptimizationJobStatusType = Literal[
+    "Completed", "Deleting", "Failed", "InProgress", "PartiallyCompleted", "Stopped", "Stopping"
+]
 AgreementStatusType = Literal["AVAILABLE", "ERROR", "NOT_AVAILABLE", "PENDING"]
 ApplicationTypeType = Literal["ModelEvaluation", "RagEvaluation"]
 AttributeTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
@@ -162,7 +168,9 @@ AutomatedReasoningPolicyBuildWorkflowTypeType = Literal[
     "GENERATE_POLICY_SCENARIOS",
     "IMPORT_POLICY",
     "INGEST_CONTENT",
+    "ITERATIVELY_REFINE_POLICY",
     "REFINE_POLICY",
+    "RESOLVE_POLICY_AMBIGUITIES",
 ]
 AutomatedReasoningPolicyTestRunResultType = Literal["FAILED", "PASSED"]
 AutomatedReasoningPolicyTestRunStatusType = Literal[
@@ -175,6 +183,7 @@ CustomModelDeploymentUpdateStatusType = Literal["UpdateCompleted", "UpdateFailed
 CustomizationTypeType = Literal[
     "CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED", "REINFORCEMENT_FINE_TUNING"
 ]
+DataRetentionModeType = Literal["default", "inherit", "none", "provider_data_share"]
 EntitlementAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
 EvaluationJobStatusType = Literal[
     "Completed", "Deleting", "Failed", "InProgress", "Stopped", "Stopping"
@@ -242,6 +251,7 @@ InputTagsType = Literal["HONOR", "IGNORE"]
 JobStatusDetailsType = Literal[
     "Completed", "Failed", "InProgress", "NotStarted", "Stopped", "Stopping"
 ]
+ListAdvancedPromptOptimizationJobsPaginatorName = Literal["list_advanced_prompt_optimization_jobs"]
 ListAutomatedReasoningPoliciesPaginatorName = Literal["list_automated_reasoning_policies"]
 ListAutomatedReasoningPolicyBuildWorkflowsPaginatorName = Literal[
     "list_automated_reasoning_policy_build_workflows"
@@ -500,8 +510,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -528,6 +536,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -595,10 +605,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -631,6 +641,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -658,6 +669,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -679,7 +691,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -700,6 +711,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -736,6 +748,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_advanced_prompt_optimization_jobs",
     "list_automated_reasoning_policies",
     "list_automated_reasoning_policy_build_workflows",
     "list_automated_reasoning_policy_test_cases",

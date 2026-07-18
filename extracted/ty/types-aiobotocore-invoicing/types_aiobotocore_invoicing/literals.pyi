@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_invoicing.literals import BuyerDomainType
+    from types_aiobotocore_invoicing.literals import BillTypeType
 
-    data: BuyerDomainType = "NetworkID"
+    data: BillTypeType = "ANNIVERSARY"
     ```
 """
 
@@ -22,10 +22,14 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "BillTypeType",
+    "BillingEntityType",
     "BuyerDomainType",
     "ConnectionTestingMethodType",
     "EinvoiceDeliveryAttachmentTypeType",
     "EinvoiceDeliveryDocumentTypeType",
+    "EinvoiceDeliveryStatusType",
+    "InvoiceFrequencyType",
     "InvoiceTypeType",
     "InvoicingServiceName",
     "ListInvoiceSummariesPaginatorName",
@@ -37,11 +41,16 @@ __all__ = (
     "ProcurementPortalPreferenceStatusType",
     "ProtocolType",
     "PurchaseOrderDataSourceTypeType",
+    "ReceiverRoleType",
     "ResourceServiceName",
     "ServiceName",
+    "SupplementalDocumentTypeType",
     "SupplierDomainType",
+    "TaxAuthorityStatusType",
 )
 
+BillTypeType = Literal["ANNIVERSARY", "PURCHASE", "REFUND"]
+BillingEntityType = Literal["AWS", "AWS_MARKETPLACE"]
 BuyerDomainType = Literal["NetworkID"]
 ConnectionTestingMethodType = Literal["PROD_ENV_DOLLAR_TEST", "TEST_ENV_REPLAY_TEST"]
 EinvoiceDeliveryAttachmentTypeType = Literal["INVOICE_PDF", "RFP_PDF"]
@@ -52,7 +61,9 @@ EinvoiceDeliveryDocumentTypeType = Literal[
     "AWS_MARKETPLACE_INVOICE",
     "AWS_REQUEST_FOR_PAYMENT",
 ]
-InvoiceTypeType = Literal["CREDIT_MEMO", "INVOICE"]
+EinvoiceDeliveryStatusType = Literal["DELIVERED", "NOT_DELIVERED"]
+InvoiceFrequencyType = Literal["ONE_TIME", "RECURRING"]
+InvoiceTypeType = Literal["CREDIT_MEMO", "INVOICE", "PAYMENT_RECEIPT"]
 ListInvoiceSummariesPaginatorName = Literal["list_invoice_summaries"]
 ListInvoiceSummariesResourceTypeType = Literal["ACCOUNT_ID", "INVOICE_ID"]
 ListInvoiceUnitsPaginatorName = Literal["list_invoice_units"]
@@ -70,7 +81,12 @@ ProtocolType = Literal["CXML"]
 PurchaseOrderDataSourceTypeType = Literal[
     "ASSOCIATED_PURCHASE_ORDER_REQUIRED", "PURCHASE_ORDER_NOT_REQUIRED"
 ]
+ReceiverRoleType = Literal["BUYER", "RESELLER", "SELLER"]
+SupplementalDocumentTypeType = Literal[
+    "GOVERNMENT_INVOICE", "PAYMENT_RECEIPT", "SUPPLEMENT", "TAX_E_INVOICE"
+]
 SupplierDomainType = Literal["NetworkID"]
+TaxAuthorityStatusType = Literal["CANCELLED", "ISSUED"]
 InvoicingServiceName = Literal["invoicing"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -265,8 +281,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -293,6 +307,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -360,10 +376,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -396,6 +412,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -423,6 +440,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -444,7 +462,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -465,6 +482,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

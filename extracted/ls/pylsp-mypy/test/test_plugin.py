@@ -11,7 +11,7 @@ from pylsp import _utils, uris
 from pylsp.config.config import Config
 from pylsp.workspace import Document, Workspace
 
-from pylsp_mypy import plugin
+from pylsp_mypy import backend, plugin
 
 # TODO using these file as a document is a bad idea as tests can break by adding new tests
 DOC_URI = f"file:/{Path(__file__)}"
@@ -218,7 +218,7 @@ def test_option_overrides_dmypy(last_diagnostics_monkeypatch, workspace):
     )
 
     m = Mock(wraps=lambda a, **_: Mock(returncode=0, **{"stdout": ""}))
-    last_diagnostics_monkeypatch.setattr(plugin.subprocess, "run", m)
+    last_diagnostics_monkeypatch.setattr(backend.subprocess, "run", m)
 
     document = Document(DOC_URI, workspace, DOC_TYPE_ERR)
 
@@ -236,6 +236,7 @@ def test_option_overrides_dmypy(last_diagnostics_monkeypatch, workspace):
         "--status-file",
         ".dmypy.json",
         "run",
+        "--export-types",
         "--",
         "--python-executable",
         "/tmp/fake",
@@ -244,7 +245,7 @@ def test_option_overrides_dmypy(last_diagnostics_monkeypatch, workspace):
         "--no-pretty",
         document.path,
     ]
-    m.assert_called_with(expected, capture_output=True, **plugin.windows_flag, encoding="utf-8")
+    m.assert_called_with(expected, capture_output=True, **backend.windows_flag, encoding="utf-8")
 
 
 def test_dmypy_status_file(tmpdir, last_diagnostics_monkeypatch, workspace):
@@ -439,7 +440,7 @@ def test_config_overrides_mypy_command(last_diagnostics_monkeypatch, workspace):
     )
 
     m = Mock(wraps=lambda a, **_: Mock(returncode=0, **{"stdout": ""}))
-    last_diagnostics_monkeypatch.setattr(plugin.subprocess, "run", m)
+    last_diagnostics_monkeypatch.setattr(backend.subprocess, "run", m)
 
     document = Document(DOC_URI, workspace, DOC_TYPE_ERR)
 
@@ -475,7 +476,7 @@ def test_config_overrides_dmypy_command(last_diagnostics_monkeypatch, workspace)
     )
 
     m = Mock(wraps=lambda a, **_: Mock(returncode=0, **{"stdout": ""}))
-    last_diagnostics_monkeypatch.setattr(plugin.subprocess, "run", m)
+    last_diagnostics_monkeypatch.setattr(backend.subprocess, "run", m)
 
     document = Document(DOC_URI, workspace, DOC_TYPE_ERR)
 

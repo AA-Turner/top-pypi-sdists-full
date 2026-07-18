@@ -63,6 +63,7 @@ class LeadGenFormPreviewDetails(
         return_to_facebook_text = 'return_to_facebook_text'
         review_your_info_text = 'review_your_info_text'
         secure_sharing_text = 'secure_sharing_text'
+        secure_sharing_text_for_embedded_booking = 'secure_sharing_text_for_embedded_booking'
         secure_sharing_text_for_embedded_booking_calendly = 'secure_sharing_text_for_embedded_booking_calendly'
         secure_sharing_text_for_embedded_booking_ghl = 'secure_sharing_text_for_embedded_booking_ghl'
         secure_sharing_text_for_optional_privacy_policy = 'secure_sharing_text_for_optional_privacy_policy'
@@ -113,6 +114,7 @@ class LeadGenFormPreviewDetails(
         'return_to_facebook_text': 'string',
         'review_your_info_text': 'string',
         'secure_sharing_text': 'string',
+        'secure_sharing_text_for_embedded_booking': 'string',
         'secure_sharing_text_for_embedded_booking_calendly': 'string',
         'secure_sharing_text_for_embedded_booking_ghl': 'string',
         'secure_sharing_text_for_optional_privacy_policy': 'string',

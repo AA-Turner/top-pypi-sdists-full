@@ -19,12 +19,14 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any, Union
+from typing import IO, Any, Union
 
 from aiobotocore.eventstream import AioEventStream
+from aiobotocore.response import StreamingBody
 
 from .literals import (
     AuthFlowType,
+    CapabilityTypeType,
     ExecutionStatusType,
     GithubRepoOwnerTypeType,
     GitLabTokenTypeType,
@@ -40,6 +42,8 @@ from .literals import (
     PrivateConnectionTypeType,
     RecommendationPriorityType,
     RecommendationStatusType,
+    RemoteAgentAuthorizationMethodType,
+    ResourceConfigDnsResolutionType,
     SchedulerStateType,
     ServiceType,
     TaskSortFieldType,
@@ -61,26 +65,51 @@ __all__ = (
     "AdditionalServiceDetailsTypeDef",
     "AdditionalServiceRegistrationStepTypeDef",
     "AgentSpaceTypeDef",
+    "AssetContentTypeDef",
+    "AssetFileBodyOutputTypeDef",
+    "AssetFileBodyTypeDef",
+    "AssetFileBodyUnionTypeDef",
+    "AssetFileContentTypeDef",
+    "AssetFileSummaryTypeDef",
+    "AssetFileTypeDef",
+    "AssetSourceUrlContentTypeDef",
+    "AssetTypeDef",
+    "AssetTypeSummaryTypeDef",
+    "AssetVersionMetadataTypeDef",
+    "AssetZipContentOutputTypeDef",
+    "AssetZipContentTypeDef",
+    "AssetZipContentUnionTypeDef",
     "AssistantMessageBlockTypeDef",
     "AssociateServiceInputTypeDef",
     "AssociateServiceOutputTypeDef",
     "AssociationTypeDef",
     "AzureConfigurationTypeDef",
     "AzureDevOpsConfigurationTypeDef",
+    "BlobTypeDef",
+    "CapabilityConfigurationTypeDef",
     "ChatExecutionTypeDef",
     "CreateAgentSpaceInputTypeDef",
     "CreateAgentSpaceOutputTypeDef",
+    "CreateAssetFileRequestTypeDef",
+    "CreateAssetFileResponseTypeDef",
+    "CreateAssetRequestTypeDef",
+    "CreateAssetResponseTypeDef",
     "CreateBacklogTaskRequestTypeDef",
     "CreateBacklogTaskResponseTypeDef",
     "CreateChatRequestTypeDef",
     "CreateChatResponseTypeDef",
     "CreatePrivateConnectionInputTypeDef",
     "CreatePrivateConnectionOutputTypeDef",
+    "CreateTriggerRequestTypeDef",
+    "CreateTriggerResponseTypeDef",
     "DatadogAuthorizationConfigTypeDef",
     "DatadogServiceDetailsTypeDef",
     "DeleteAgentSpaceInputTypeDef",
+    "DeleteAssetFileRequestTypeDef",
+    "DeleteAssetRequestTypeDef",
     "DeletePrivateConnectionInputTypeDef",
     "DeletePrivateConnectionOutputTypeDef",
+    "DeleteTriggerRequestTypeDef",
     "DeregisterServiceInputTypeDef",
     "DescribePrivateConnectionInputTypeDef",
     "DescribePrivateConnectionOutputTypeDef",
@@ -100,6 +129,12 @@ __all__ = (
     "GetAccountUsageOutputTypeDef",
     "GetAgentSpaceInputTypeDef",
     "GetAgentSpaceOutputTypeDef",
+    "GetAssetContentRequestTypeDef",
+    "GetAssetContentResponseTypeDef",
+    "GetAssetFileRequestTypeDef",
+    "GetAssetFileResponseTypeDef",
+    "GetAssetRequestTypeDef",
+    "GetAssetResponseTypeDef",
     "GetAssociationInputTypeDef",
     "GetAssociationOutputTypeDef",
     "GetBacklogTaskRequestTypeDef",
@@ -110,6 +145,8 @@ __all__ = (
     "GetRecommendationResponseTypeDef",
     "GetServiceInputTypeDef",
     "GetServiceOutputTypeDef",
+    "GetTriggerRequestTypeDef",
+    "GetTriggerResponseTypeDef",
     "GitHubConfigurationTypeDef",
     "GitLabConfigurationTypeDef",
     "GitLabDetailsTypeDef",
@@ -125,6 +162,18 @@ __all__ = (
     "ListAgentSpacesInputPaginateTypeDef",
     "ListAgentSpacesInputTypeDef",
     "ListAgentSpacesOutputTypeDef",
+    "ListAssetFilesRequestPaginateTypeDef",
+    "ListAssetFilesRequestTypeDef",
+    "ListAssetFilesResponseTypeDef",
+    "ListAssetTypesRequestPaginateTypeDef",
+    "ListAssetTypesRequestTypeDef",
+    "ListAssetTypesResponseTypeDef",
+    "ListAssetVersionsRequestPaginateTypeDef",
+    "ListAssetVersionsRequestTypeDef",
+    "ListAssetVersionsResponseTypeDef",
+    "ListAssetsRequestPaginateTypeDef",
+    "ListAssetsRequestTypeDef",
+    "ListAssetsResponseTypeDef",
     "ListAssociationsInputPaginateTypeDef",
     "ListAssociationsInputTypeDef",
     "ListAssociationsOutputTypeDef",
@@ -152,6 +201,9 @@ __all__ = (
     "ListServicesOutputTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListTriggersRequestPaginateTypeDef",
+    "ListTriggersRequestTypeDef",
+    "ListTriggersResponseTypeDef",
     "ListWebhooksInputTypeDef",
     "ListWebhooksOutputTypeDef",
     "MCPServerAPIKeyConfigTypeDef",
@@ -166,6 +218,10 @@ __all__ = (
     "MCPServerNewRelicConfigurationTypeDef",
     "MCPServerOAuth3LOConfigTypeDef",
     "MCPServerOAuthClientCredentialsConfigTypeDef",
+    "MCPServerSigV4AuthorizationConfigTypeDef",
+    "MCPServerSigV4ConfigurationOutputTypeDef",
+    "MCPServerSigV4ConfigurationTypeDef",
+    "MCPServerSigV4ServiceDetailsTypeDef",
     "MessageTypeDef",
     "NewRelicApiKeyConfigTypeDef",
     "NewRelicServiceAuthorizationConfigTypeDef",
@@ -194,12 +250,23 @@ __all__ = (
     "RegisteredGithubServiceDetailsTypeDef",
     "RegisteredGrafanaServerDetailsTypeDef",
     "RegisteredMCPServerDetailsTypeDef",
+    "RegisteredMCPServerSigV4DetailsTypeDef",
     "RegisteredNewRelicDetailsTypeDef",
     "RegisteredPagerDutyDetailsTypeDef",
+    "RegisteredRemoteAgentDetailsTypeDef",
+    "RegisteredRemoteAgentSigV4DetailsTypeDef",
     "RegisteredServiceNowDetailsTypeDef",
     "RegisteredServiceTypeDef",
     "RegisteredSlackServiceDetailsTypeDef",
+    "RemoteAgentAPIKeyConfigTypeDef",
+    "RemoteAgentAuthorizationConfigTypeDef",
+    "RemoteAgentBearerTokenConfigTypeDef",
+    "RemoteAgentOAuthClientCredentialsConfigTypeDef",
+    "RemoteAgentServiceDetailsTypeDef",
+    "RemoteAgentSigV4AuthorizationConfigTypeDef",
+    "RemoteAgentSigV4ServiceDetailsTypeDef",
     "ResponseMetadataTypeDef",
+    "ScheduleConditionTypeDef",
     "SelfManagedInputTypeDef",
     "SendMessageContentBlockDeltaEventTypeDef",
     "SendMessageContentBlockDeltaTypeDef",
@@ -235,9 +302,15 @@ __all__ = (
     "TaskFilterTypeDef",
     "TaskTypeDef",
     "TimestampTypeDef",
+    "TriggerConditionTypeDef",
+    "TriggerTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAgentSpaceInputTypeDef",
     "UpdateAgentSpaceOutputTypeDef",
+    "UpdateAssetFileRequestTypeDef",
+    "UpdateAssetFileResponseTypeDef",
+    "UpdateAssetRequestTypeDef",
+    "UpdateAssetResponseTypeDef",
     "UpdateAssociationInputTypeDef",
     "UpdateAssociationOutputTypeDef",
     "UpdateBacklogTaskRequestTypeDef",
@@ -250,6 +323,8 @@ __all__ = (
     "UpdatePrivateConnectionCertificateOutputTypeDef",
     "UpdateRecommendationRequestTypeDef",
     "UpdateRecommendationResponseTypeDef",
+    "UpdateTriggerRequestTypeDef",
+    "UpdateTriggerResponseTypeDef",
     "UsageMetricTypeDef",
     "UserMessageBlockTypeDef",
     "UserReferenceTypeDef",
@@ -292,6 +367,16 @@ class RegisteredMCPServerDetailsTypeDef(TypedDict):
     description: NotRequired[str]
     apiKeyHeader: NotRequired[str]
 
+class RegisteredMCPServerSigV4DetailsTypeDef(TypedDict):
+    name: str
+    endpoint: str
+    region: str
+    service: str
+    roleArn: str
+    description: NotRequired[str]
+    mcpRoleArn: NotRequired[str]
+    customHeaders: NotRequired[dict[str, str]]
+
 class RegisteredNewRelicDetailsTypeDef(TypedDict):
     accountId: str
     region: NewRelicRegionType
@@ -299,6 +384,21 @@ class RegisteredNewRelicDetailsTypeDef(TypedDict):
 
 class RegisteredPagerDutyDetailsTypeDef(TypedDict):
     scopes: list[str]
+
+class RegisteredRemoteAgentDetailsTypeDef(TypedDict):
+    name: str
+    endpoint: str
+    authorizationMethod: RemoteAgentAuthorizationMethodType
+    description: NotRequired[str]
+    apiKeyHeader: NotRequired[str]
+
+class RegisteredRemoteAgentSigV4DetailsTypeDef(TypedDict):
+    name: str
+    endpoint: str
+    region: str
+    service: str
+    description: NotRequired[str]
+    roleArn: NotRequired[str]
 
 class RegisteredServiceNowDetailsTypeDef(TypedDict):
     instanceUrl: NotRequired[str]
@@ -319,9 +419,51 @@ class AgentSpaceTypeDef(TypedDict):
     locale: NotRequired[str]
     kmsKeyArn: NotRequired[str]
 
+class AssetSourceUrlContentTypeDef(TypedDict):
+    url: str
+
+AssetFileBodyOutputTypeDef = TypedDict(
+    "AssetFileBodyOutputTypeDef",
+    {
+        "bytes": NotRequired[bytes],
+        "text": NotRequired[str],
+    },
+)
+BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
+
+class AssetFileSummaryTypeDef(TypedDict):
+    path: str
+    version: int
+    createdAt: datetime
+    updatedAt: datetime
+    metadata: NotRequired[dict[str, Any]]
+
+class AssetTypeDef(TypedDict):
+    assetId: str
+    assetType: str
+    metadata: dict[str, Any]
+    version: int
+    createdAt: datetime
+    updatedAt: datetime
+
+class AssetTypeSummaryTypeDef(TypedDict):
+    assetType: str
+    description: str
+
+class AssetVersionMetadataTypeDef(TypedDict):
+    version: int
+    createdAt: datetime
+    updatedAt: datetime
+
+class AssetZipContentOutputTypeDef(TypedDict):
+    zipFile: bytes
+
 class AssistantMessageBlockTypeDef(TypedDict):
     text: NotRequired[str]
     toolUse: NotRequired[dict[str, Any]]
+
+class CapabilityConfigurationTypeDef(TypedDict):
+    enabled: NotRequired[bool]
 
 class GenericWebhookTypeDef(TypedDict):
     webhookUrl: NotRequired[str]
@@ -377,8 +519,21 @@ class MCPServerAuthorizationDiscoveryConfigTypeDef(TypedDict):
 class DeleteAgentSpaceInputTypeDef(TypedDict):
     agentSpaceId: str
 
+class DeleteAssetFileRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    assetId: str
+    path: str
+
+class DeleteAssetRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    assetId: str
+
 class DeletePrivateConnectionInputTypeDef(TypedDict):
     name: str
+
+class DeleteTriggerRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    triggerId: str
 
 class DeregisterServiceInputTypeDef(TypedDict):
     serviceId: str
@@ -463,6 +618,22 @@ class UsageMetricTypeDef(TypedDict):
 class GetAgentSpaceInputTypeDef(TypedDict):
     agentSpaceId: str
 
+class GetAssetContentRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    assetId: str
+    assetVersion: NotRequired[int]
+
+class GetAssetFileRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    assetId: str
+    path: str
+    assetVersion: NotRequired[int]
+
+class GetAssetRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    assetId: str
+    assetVersion: NotRequired[int]
+
 class GetAssociationInputTypeDef(TypedDict):
     agentSpaceId: str
     associationId: str
@@ -482,17 +653,23 @@ class GetRecommendationRequestTypeDef(TypedDict):
 class GetServiceInputTypeDef(TypedDict):
     serviceId: str
 
+class GetTriggerRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    triggerId: str
+
 class GitHubConfigurationTypeDef(TypedDict):
     repoName: str
     repoId: str
     owner: str
     ownerType: GithubRepoOwnerTypeType
     instanceIdentifier: NotRequired[str]
+    runtimeRoleArn: NotRequired[str]
 
 class GitLabConfigurationTypeDef(TypedDict):
     projectId: str
     projectPath: str
     instanceIdentifier: NotRequired[str]
+    runtimeRoleArn: NotRequired[str]
 
 class GitLabDetailsTypeDef(TypedDict):
     targetUrl: str
@@ -523,6 +700,25 @@ class PaginatorConfigTypeDef(TypedDict):
 class ListAgentSpacesInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+
+class ListAssetFilesRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    assetId: str
+    assetVersion: NotRequired[int]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class ListAssetTypesRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class ListAssetVersionsRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    assetId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+TimestampTypeDef = Union[datetime, str]
 
 class ListAssociationsInputTypeDef(TypedDict):
     agentSpaceId: str
@@ -572,6 +768,8 @@ PrivateConnectionSummaryTypeDef = TypedDict(
         "vpcId": NotRequired[str],
         "resourceConfigurationId": NotRequired[str],
         "certificateExpiryTime": NotRequired[datetime],
+        "dnsResolution": NotRequired[ResourceConfigDnsResolutionType],
+        "failureMessage": NotRequired[str],
     },
 )
 
@@ -591,6 +789,12 @@ class ListServicesInputTypeDef(TypedDict):
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
+
+class ListTriggersRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    status: NotRequired[str]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class ListWebhooksInputTypeDef(TypedDict):
     agentSpaceId: str
@@ -650,6 +854,19 @@ class MCPServerNewRelicConfigurationTypeDef(TypedDict):
     accountId: str
     endpoint: str
 
+class MCPServerSigV4AuthorizationConfigTypeDef(TypedDict):
+    region: str
+    service: str
+    roleArn: NotRequired[str]
+    mcpRoleArn: NotRequired[str]
+    customHeaders: NotRequired[Mapping[str, str]]
+
+class MCPServerSigV4ConfigurationOutputTypeDef(TypedDict):
+    tools: list[str]
+
+class MCPServerSigV4ConfigurationTypeDef(TypedDict):
+    tools: Sequence[str]
+
 class UserMessageBlockTypeDef(TypedDict):
     text: NotRequired[str]
     toolResult: NotRequired[dict[str, Any]]
@@ -689,6 +906,7 @@ class ServiceManagedInputTypeDef(TypedDict):
     ipv4AddressesPerEni: NotRequired[int]
     portRanges: NotRequired[Sequence[str]]
     certificate: NotRequired[str]
+    dnsResolution: NotRequired[ResourceConfigDnsResolutionType]
 
 class RecommendationContentTypeDef(TypedDict):
     summary: str
@@ -706,6 +924,32 @@ class RegisteredAzureIdentityDetailsTypeDef(TypedDict):
     clientId: str
     webIdentityRoleArn: str
     webIdentityTokenAudiences: Sequence[str]
+
+class RemoteAgentAPIKeyConfigTypeDef(TypedDict):
+    apiKeyName: str
+    apiKeyValue: str
+    apiKeyHeader: str
+
+class RemoteAgentBearerTokenConfigTypeDef(TypedDict):
+    tokenName: str
+    tokenValue: str
+    authorizationHeader: NotRequired[str]
+
+class RemoteAgentOAuthClientCredentialsConfigTypeDef(TypedDict):
+    clientId: str
+    clientSecret: str
+    exchangeUrl: str
+    clientName: NotRequired[str]
+    exchangeParameters: NotRequired[Mapping[str, str]]
+    scopes: NotRequired[Sequence[str]]
+
+class RemoteAgentSigV4AuthorizationConfigTypeDef(TypedDict):
+    region: str
+    service: str
+    roleArn: NotRequired[str]
+
+class ScheduleConditionTypeDef(TypedDict):
+    expression: str
 
 class SendMessageJsonDeltaTypeDef(TypedDict):
     partialJson: NotRequired[str]
@@ -790,8 +1034,6 @@ class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
 
-TimestampTypeDef = Union[datetime, str]
-
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
@@ -823,6 +1065,12 @@ class UpdateRecommendationRequestTypeDef(TypedDict):
     additionalContext: NotRequired[str]
     clientToken: NotRequired[str]
 
+class UpdateTriggerRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    triggerId: str
+    status: NotRequired[str]
+    clientToken: NotRequired[str]
+
 class ValidateAwsAssociationsInputTypeDef(TypedDict):
     agentSpaceId: str
 
@@ -839,13 +1087,39 @@ class AdditionalServiceDetailsTypeDef(TypedDict):
     azureidentity: NotRequired[RegisteredAzureIdentityDetailsOutputTypeDef]
     mcpservergrafana: NotRequired[RegisteredGrafanaServerDetailsTypeDef]
     pagerduty: NotRequired[RegisteredPagerDutyDetailsTypeDef]
+    mcpserversigv4: NotRequired[RegisteredMCPServerSigV4DetailsTypeDef]
+    remoteagent: NotRequired[RegisteredRemoteAgentDetailsTypeDef]
+    remoteagentsigv4: NotRequired[RegisteredRemoteAgentSigV4DetailsTypeDef]
 
 class AdditionalServiceRegistrationStepTypeDef(TypedDict):
     oauth: NotRequired[OAuthAdditionalStepDetailsTypeDef]
 
+class AssetFileTypeDef(TypedDict):
+    path: str
+    content: AssetFileBodyOutputTypeDef
+    version: int
+    createdAt: datetime
+    updatedAt: datetime
+    metadata: NotRequired[dict[str, Any]]
+
+AssetFileBodyTypeDef = TypedDict(
+    "AssetFileBodyTypeDef",
+    {
+        "bytes": NotRequired[BlobTypeDef],
+        "text": NotRequired[str],
+    },
+)
+
+class AssetZipContentTypeDef(TypedDict):
+    zipFile: BlobTypeDef
+
 class CreateAgentSpaceOutputTypeDef(TypedDict):
     agentSpace: AgentSpaceTypeDef
     tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateAssetResponseTypeDef(TypedDict):
+    asset: AssetTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateChatResponseTypeDef(TypedDict):
@@ -864,6 +1138,8 @@ CreatePrivateConnectionOutputTypeDef = TypedDict(
         "resourceConfigurationId": str,
         "status": PrivateConnectionStatusType,
         "certificateExpiryTime": datetime,
+        "dnsResolution": ResourceConfigDnsResolutionType,
+        "failureMessage": str,
         "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -885,6 +1161,8 @@ DescribePrivateConnectionOutputTypeDef = TypedDict(
         "resourceConfigurationId": str,
         "status": PrivateConnectionStatusType,
         "certificateExpiryTime": datetime,
+        "dnsResolution": ResourceConfigDnsResolutionType,
+        "failureMessage": str,
         "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -898,8 +1176,37 @@ class GetAgentSpaceOutputTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetAssetContentResponseTypeDef(TypedDict):
+    content: AssetZipContentOutputTypeDef
+    version: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAssetResponseTypeDef(TypedDict):
+    asset: AssetTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListAgentSpacesOutputTypeDef(TypedDict):
     agentSpaces: list[AgentSpaceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListAssetFilesResponseTypeDef(TypedDict):
+    items: list[AssetFileSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListAssetTypesResponseTypeDef(TypedDict):
+    items: list[AssetTypeSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListAssetVersionsResponseTypeDef(TypedDict):
+    items: list[AssetVersionMetadataTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListAssetsResponseTypeDef(TypedDict):
+    items: list[AssetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -909,6 +1216,10 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 
 class UpdateAgentSpaceOutputTypeDef(TypedDict):
     agentSpace: AgentSpaceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAssetResponseTypeDef(TypedDict):
+    asset: AssetTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 UpdatePrivateConnectionCertificateOutputTypeDef = TypedDict(
@@ -922,6 +1233,8 @@ UpdatePrivateConnectionCertificateOutputTypeDef = TypedDict(
         "resourceConfigurationId": str,
         "status": PrivateConnectionStatusType,
         "certificateExpiryTime": datetime,
+        "dnsResolution": ResourceConfigDnsResolutionType,
+        "failureMessage": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -948,12 +1261,14 @@ class DynatraceServiceAuthorizationConfigTypeDef(TypedDict):
 
 class EnableOperatorAppOutputTypeDef(TypedDict):
     agentSpaceId: str
+    operatorAppUrl: str
     iam: IamAuthConfigurationTypeDef
     idc: IdcAuthConfigurationTypeDef
     idp: IdpAuthConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetOperatorAppOutputTypeDef(TypedDict):
+    operatorAppUrl: str
     iam: IamAuthConfigurationTypeDef
     idc: IdcAuthConfigurationTypeDef
     idp: IdpAuthConfigurationTypeDef
@@ -1011,6 +1326,20 @@ class JournalRecordTypeDef(TypedDict):
 class ListAgentSpacesInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListAssetFilesRequestPaginateTypeDef(TypedDict):
+    agentSpaceId: str
+    assetId: str
+    assetVersion: NotRequired[int]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAssetTypesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAssetVersionsRequestPaginateTypeDef(TypedDict):
+    agentSpaceId: str
+    assetId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListAssociationsInputPaginateTypeDef(TypedDict):
     agentSpaceId: str
     filterServiceTypes: NotRequired[str]
@@ -1038,6 +1367,34 @@ class ListServicesInputPaginateTypeDef(TypedDict):
     filterServiceType: NotRequired[ServiceType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListTriggersRequestPaginateTypeDef(TypedDict):
+    agentSpaceId: str
+    status: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAssetsRequestPaginateTypeDef(TypedDict):
+    agentSpaceId: str
+    assetType: NotRequired[str]
+    updatedAfter: NotRequired[TimestampTypeDef]
+    updatedBefore: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAssetsRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    assetType: NotRequired[str]
+    updatedAfter: NotRequired[TimestampTypeDef]
+    updatedBefore: NotRequired[TimestampTypeDef]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class TaskFilterTypeDef(TypedDict):
+    createdAfter: NotRequired[TimestampTypeDef]
+    createdBefore: NotRequired[TimestampTypeDef]
+    priority: NotRequired[Sequence[PriorityType]]
+    status: NotRequired[Sequence[TaskStatusType]]
+    taskType: NotRequired[Sequence[TaskTypeType]]
+    primaryTaskId: NotRequired[str]
+
 class ListPrivateConnectionsOutputTypeDef(TypedDict):
     privateConnections: list[PrivateConnectionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1052,6 +1409,12 @@ class MCPServerAuthorizationConfigTypeDef(TypedDict):
     apiKey: NotRequired[MCPServerAPIKeyConfigTypeDef]
     bearerToken: NotRequired[MCPServerBearerTokenConfigTypeDef]
     authorizationDiscovery: NotRequired[MCPServerAuthorizationDiscoveryConfigTypeDef]
+
+class MCPServerSigV4ServiceDetailsTypeDef(TypedDict):
+    name: str
+    endpoint: str
+    authorizationConfig: MCPServerSigV4AuthorizationConfigTypeDef
+    description: NotRequired[str]
 
 class MessageTypeDef(TypedDict):
     userMessage: NotRequired[list[UserMessageBlockTypeDef]]
@@ -1081,6 +1444,8 @@ class RecommendationTypeDef(TypedDict):
     goalId: NotRequired[str]
     goalVersion: NotRequired[int]
     additionalContext: NotRequired[str]
+    rankPosition: NotRequired[int]
+    rankedAt: NotRequired[datetime]
 
 class TaskTypeDef(TypedDict):
     agentSpaceId: str
@@ -1105,6 +1470,20 @@ RegisteredAzureIdentityDetailsUnionTypeDef = Union[
     RegisteredAzureIdentityDetailsTypeDef, RegisteredAzureIdentityDetailsOutputTypeDef
 ]
 
+class RemoteAgentAuthorizationConfigTypeDef(TypedDict):
+    apiKey: NotRequired[RemoteAgentAPIKeyConfigTypeDef]
+    oAuthClientCredentials: NotRequired[RemoteAgentOAuthClientCredentialsConfigTypeDef]
+    bearerToken: NotRequired[RemoteAgentBearerTokenConfigTypeDef]
+
+class RemoteAgentSigV4ServiceDetailsTypeDef(TypedDict):
+    name: str
+    endpoint: str
+    authorizationConfig: RemoteAgentSigV4AuthorizationConfigTypeDef
+    description: NotRequired[str]
+
+class TriggerConditionTypeDef(TypedDict):
+    schedule: NotRequired[ScheduleConditionTypeDef]
+
 class SendMessageContentBlockDeltaTypeDef(TypedDict):
     textDelta: NotRequired[SendMessageTextDeltaTypeDef]
     jsonDelta: NotRequired[SendMessageJsonDeltaTypeDef]
@@ -1115,6 +1494,7 @@ class SendMessageRequestTypeDef(TypedDict):
     content: str
     context: NotRequired[SendMessageContextTypeDef]
     userId: NotRequired[str]
+    assetIds: NotRequired[Sequence[str]]
 
 class SendMessageResponseCompletedEventTypeDef(TypedDict):
     responseId: NotRequired[str]
@@ -1127,14 +1507,6 @@ class ServiceNowServiceAuthorizationConfigTypeDef(TypedDict):
 class SlackTransmissionTargetTypeDef(TypedDict):
     opsOncallTarget: SlackChannelTypeDef
     opsSRETarget: NotRequired[SlackChannelTypeDef]
-
-class TaskFilterTypeDef(TypedDict):
-    createdAfter: NotRequired[TimestampTypeDef]
-    createdBefore: NotRequired[TimestampTypeDef]
-    priority: NotRequired[Sequence[PriorityType]]
-    status: NotRequired[Sequence[TaskStatusType]]
-    taskType: NotRequired[Sequence[TaskTypeType]]
-    primaryTaskId: NotRequired[str]
 
 class RegisteredServiceTypeDef(TypedDict):
     serviceId: str
@@ -1151,6 +1523,21 @@ class RegisterServiceOutputTypeDef(TypedDict):
     kmsKeyArn: str
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateAssetFileResponseTypeDef(TypedDict):
+    file: AssetFileTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAssetFileResponseTypeDef(TypedDict):
+    file: AssetFileTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAssetFileResponseTypeDef(TypedDict):
+    file: AssetFileTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+AssetFileBodyUnionTypeDef = Union[AssetFileBodyTypeDef, AssetFileBodyOutputTypeDef]
+AssetZipContentUnionTypeDef = Union[AssetZipContentTypeDef, AssetZipContentOutputTypeDef]
 
 class DatadogServiceDetailsTypeDef(TypedDict):
     name: str
@@ -1175,6 +1562,28 @@ class ListJournalRecordsResponseTypeDef(TypedDict):
     records: list[JournalRecordTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+ListBacklogTasksRequestPaginateTypeDef = TypedDict(
+    "ListBacklogTasksRequestPaginateTypeDef",
+    {
+        "agentSpaceId": str,
+        "filter": NotRequired[TaskFilterTypeDef],
+        "sortField": NotRequired[TaskSortFieldType],
+        "order": NotRequired[TaskSortOrderType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+ListBacklogTasksRequestTypeDef = TypedDict(
+    "ListBacklogTasksRequestTypeDef",
+    {
+        "agentSpaceId": str,
+        "filter": NotRequired[TaskFilterTypeDef],
+        "limit": NotRequired[int],
+        "nextToken": NotRequired[str],
+        "sortField": NotRequired[TaskSortFieldType],
+        "order": NotRequired[TaskSortOrderType],
+    },
+)
 
 class GrafanaServiceDetailsTypeDef(TypedDict):
     name: str
@@ -1234,6 +1643,37 @@ class UpdateBacklogTaskResponseTypeDef(TypedDict):
     task: TaskTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class RemoteAgentServiceDetailsTypeDef(TypedDict):
+    name: str
+    endpoint: str
+    authorizationConfig: RemoteAgentAuthorizationConfigTypeDef
+    description: NotRequired[str]
+
+CreateTriggerRequestTypeDef = TypedDict(
+    "CreateTriggerRequestTypeDef",
+    {
+        "agentSpaceId": str,
+        "type": str,
+        "condition": TriggerConditionTypeDef,
+        "action": Mapping[str, Any],
+        "status": NotRequired[str],
+        "clientToken": NotRequired[str],
+    },
+)
+TriggerTypeDef = TypedDict(
+    "TriggerTypeDef",
+    {
+        "triggerId": str,
+        "agentSpaceId": str,
+        "type": str,
+        "condition": TriggerConditionTypeDef,
+        "action": dict[str, Any],
+        "status": str,
+        "createdAt": datetime,
+        "updatedAt": datetime,
+    },
+)
+
 class SendMessageContentBlockDeltaEventTypeDef(TypedDict):
     index: NotRequired[int]
     delta: NotRequired[SendMessageContentBlockDeltaTypeDef]
@@ -1248,28 +1688,6 @@ class SlackConfigurationTypeDef(TypedDict):
     workspaceName: str
     transmissionTarget: SlackTransmissionTargetTypeDef
 
-ListBacklogTasksRequestPaginateTypeDef = TypedDict(
-    "ListBacklogTasksRequestPaginateTypeDef",
-    {
-        "agentSpaceId": str,
-        "filter": NotRequired[TaskFilterTypeDef],
-        "sortField": NotRequired[TaskSortFieldType],
-        "order": NotRequired[TaskSortOrderType],
-        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
-    },
-)
-ListBacklogTasksRequestTypeDef = TypedDict(
-    "ListBacklogTasksRequestTypeDef",
-    {
-        "agentSpaceId": str,
-        "filter": NotRequired[TaskFilterTypeDef],
-        "limit": NotRequired[int],
-        "nextToken": NotRequired[str],
-        "sortField": NotRequired[TaskSortFieldType],
-        "order": NotRequired[TaskSortOrderType],
-    },
-)
-
 class GetServiceOutputTypeDef(TypedDict):
     service: RegisteredServiceTypeDef
     tags: dict[str, str]
@@ -1280,11 +1698,49 @@ class ListServicesOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class AssetFileContentTypeDef(TypedDict):
+    path: str
+    body: AssetFileBodyUnionTypeDef
+    metadata: NotRequired[Mapping[str, Any]]
+
+class CreateAssetFileRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    assetId: str
+    path: str
+    content: AssetFileBodyUnionTypeDef
+    metadata: NotRequired[Mapping[str, Any]]
+    clientToken: NotRequired[str]
+
+class UpdateAssetFileRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    assetId: str
+    path: str
+    content: NotRequired[AssetFileBodyUnionTypeDef]
+    metadata: NotRequired[Mapping[str, Any]]
+    clientToken: NotRequired[str]
+
 class ListPendingMessagesResponseTypeDef(TypedDict):
     agentSpaceId: str
     executionId: str
     messages: list[PendingMessageTypeDef]
     createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateTriggerResponseTypeDef(TypedDict):
+    trigger: TriggerTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetTriggerResponseTypeDef(TypedDict):
+    trigger: TriggerTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListTriggersResponseTypeDef(TypedDict):
+    items: list[TriggerTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class UpdateTriggerResponseTypeDef(TypedDict):
+    trigger: TriggerTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SendMessageEventsTypeDef(TypedDict):
@@ -1310,6 +1766,9 @@ class ServiceDetailsTypeDef(TypedDict):
     mcpservergrafana: NotRequired[GrafanaServiceDetailsTypeDef]
     pagerduty: NotRequired[PagerDutyDetailsTypeDef]
     azureidentity: NotRequired[RegisteredAzureIdentityDetailsUnionTypeDef]
+    mcpserversigv4: NotRequired[MCPServerSigV4ServiceDetailsTypeDef]
+    remoteagent: NotRequired[RemoteAgentServiceDetailsTypeDef]
+    remoteagentsigv4: NotRequired[RemoteAgentSigV4ServiceDetailsTypeDef]
 
 class ServiceConfigurationOutputTypeDef(TypedDict):
     sourceAws: NotRequired[SourceAwsConfigurationTypeDef]
@@ -1328,6 +1787,9 @@ class ServiceConfigurationOutputTypeDef(TypedDict):
     azuredevops: NotRequired[AzureDevOpsConfigurationTypeDef]
     mcpservergrafana: NotRequired[MCPServerGrafanaConfigurationOutputTypeDef]
     pagerduty: NotRequired[PagerDutyConfigurationOutputTypeDef]
+    mcpserversigv4: NotRequired[MCPServerSigV4ConfigurationOutputTypeDef]
+    remoteagent: NotRequired[dict[str, Any]]
+    remoteagentsigv4: NotRequired[dict[str, Any]]
 
 class ServiceConfigurationTypeDef(TypedDict):
     sourceAws: NotRequired[SourceAwsConfigurationTypeDef]
@@ -1346,6 +1808,18 @@ class ServiceConfigurationTypeDef(TypedDict):
     azuredevops: NotRequired[AzureDevOpsConfigurationTypeDef]
     mcpservergrafana: NotRequired[MCPServerGrafanaConfigurationTypeDef]
     pagerduty: NotRequired[PagerDutyConfigurationTypeDef]
+    mcpserversigv4: NotRequired[MCPServerSigV4ConfigurationTypeDef]
+    remoteagent: NotRequired[Mapping[str, Any]]
+    remoteagentsigv4: NotRequired[Mapping[str, Any]]
+
+AssetContentTypeDef = TypedDict(
+    "AssetContentTypeDef",
+    {
+        "file": NotRequired[AssetFileContentTypeDef],
+        "zip": NotRequired[AssetZipContentUnionTypeDef],
+        "sourceUrl": NotRequired[AssetSourceUrlContentTypeDef],
+    },
+)
 
 class SendMessageResponseTypeDef(TypedDict):
     events: AioEventStream[SendMessageEventsTypeDef]
@@ -1356,6 +1830,8 @@ class RegisterServiceInputTypeDef(TypedDict):
     serviceDetails: ServiceDetailsTypeDef
     kmsKeyArn: NotRequired[str]
     privateConnectionName: NotRequired[str]
+    targetUrlPrivateConnectionName: NotRequired[str]
+    exchangeUrlPrivateConnectionName: NotRequired[str]
     name: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -1367,10 +1843,25 @@ class AssociationTypeDef(TypedDict):
     serviceId: str
     configuration: ServiceConfigurationOutputTypeDef
     status: NotRequired[ValidationStatusType]
+    capabilities: NotRequired[dict[CapabilityTypeType, CapabilityConfigurationTypeDef]]
 
 ServiceConfigurationUnionTypeDef = Union[
     ServiceConfigurationTypeDef, ServiceConfigurationOutputTypeDef
 ]
+
+class CreateAssetRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    assetType: str
+    content: AssetContentTypeDef
+    metadata: NotRequired[Mapping[str, Any]]
+    clientToken: NotRequired[str]
+
+class UpdateAssetRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    assetId: str
+    metadata: NotRequired[Mapping[str, Any]]
+    content: NotRequired[AssetContentTypeDef]
+    clientToken: NotRequired[str]
 
 class AssociateServiceOutputTypeDef(TypedDict):
     association: AssociationTypeDef
@@ -1395,8 +1886,10 @@ class AssociateServiceInputTypeDef(TypedDict):
     agentSpaceId: str
     serviceId: str
     configuration: ServiceConfigurationUnionTypeDef
+    capabilities: NotRequired[Mapping[CapabilityTypeType, CapabilityConfigurationTypeDef]]
 
 class UpdateAssociationInputTypeDef(TypedDict):
     agentSpaceId: str
     associationId: str
     configuration: ServiceConfigurationUnionTypeDef
+    capabilities: NotRequired[Mapping[CapabilityTypeType, CapabilityConfigurationTypeDef]]

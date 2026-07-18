@@ -124,7 +124,6 @@ from .platform_data import (
     SOLARIS,
     SOURCEMAGE,
     SUNOS,
-    TUMBLEWEED,
     TUXEDO,
     UBUNTU,
     ULTRAMARINE,
@@ -179,7 +178,7 @@ from .terminal_data import (
 # Architecture groups
 # =============================================================================
 
-ALL_ARCHITECTURES: Group = Group(
+ALL_ARCHITECTURES = Group(
     "all_architectures",
     "All architectures",
     "🏛️",
@@ -394,7 +393,7 @@ LITTLE_ENDIAN = Group(
 # Platform groups
 # =============================================================================
 
-ALL_PLATFORMS: Group = Group(
+ALL_PLATFORMS = Group(
     "all_platforms",
     "All platforms",
     "⚙️",
@@ -453,7 +452,6 @@ ALL_PLATFORMS: Group = Group(
         SOLARIS,
         SOURCEMAGE,
         SUNOS,
-        TUMBLEWEED,
         TUXEDO,
         UBUNTU,
         ULTRAMARINE,
@@ -485,7 +483,7 @@ UNIX = Group(
     "unix",
     "All Unix",
     "⨷",
-    tuple(ALL_PLATFORMS - ALL_WINDOWS),
+    ALL_PLATFORMS - ALL_WINDOWS,
 )
 """All Unix-like operating systems and compatibility layers."""
 
@@ -494,7 +492,7 @@ UNIX_WITHOUT_MACOS = Group(
     "unix_without_macos",
     "All Unix excluding macOS",
     "⨂",
-    tuple(UNIX - MACOS),
+    UNIX - MACOS,
 )
 """All Unix platforms, without macOS.
 
@@ -526,7 +524,7 @@ BSD_WITHOUT_MACOS = Group(
     "bsd_without_macos",
     "All BSD excluding macOS",
     "🅱️",
-    tuple(BSD - MACOS),
+    BSD - MACOS,
 )
 """All BSD platforms, without macOS.
 
@@ -579,7 +577,6 @@ LINUX = Group(
         SLES,
         SLITAZ,
         SOURCEMAGE,
-        TUMBLEWEED,
         TUXEDO,
         UBUNTU,
         ULTRAMARINE,
@@ -619,7 +616,7 @@ LINUX_LIKE = Group(
     "linux_like",
     "All Linux & compatibility layers",
     "🐣",
-    tuple(LINUX | LINUX_LAYERS),
+    LINUX | LINUX_LAYERS,
 )
 """Sum of all Linux distributions and Linux compatibility layers."""
 
@@ -683,7 +680,7 @@ OTHER_POSIX = Group(
     "other_posix",
     "Other POSIX-compliant platforms",
     "🅟",
-    tuple(UNIX - BSD - LINUX - LINUX_LAYERS - SYSTEM_V - UNIX_LAYERS),
+    UNIX - BSD - LINUX - LINUX_LAYERS - SYSTEM_V - UNIX_LAYERS,
 )
 """All other UNIX-like or POSIX-compliant platforms.
 
@@ -710,7 +707,7 @@ Are considered of this family ([according Wikipedia](https://en.wikipedia.org/wi
 # Shell groups
 # =============================================================================
 
-ALL_SHELLS: Group = Group(
+ALL_SHELLS = Group(
     "all_shells",
     "All shells",
     "🐚",
@@ -764,7 +761,7 @@ WINDOWS_SHELLS = Group(
 # Terminal groups
 # =============================================================================
 
-ALL_TERMINALS: Group = Group(
+ALL_TERMINALS = Group(
     "all_terminals",
     "All terminals",
     "💻",
@@ -841,7 +838,7 @@ WEB_TERMINALS = Group(
 
 ALL_CI = Group(
     "all_ci",
-    "CI systems",
+    "All CI systems",
     "♺",
     (
         AZURE_PIPELINES,
@@ -876,7 +873,7 @@ This group does not contain the {data}`~extra_platforms.UNKNOWN_CI` trait.
 
 ALL_AGENTS = Group(
     "all_agents",
-    "AI coding agents",
+    "All AI coding agents",
     "🧠",
     (
         CLAUDE_CODE,
@@ -916,15 +913,13 @@ ALL_TRAITS = Group(
     "all_traits",
     "All architectures, platforms, shells, terminals, CI systems, and agents",
     "⁕",
-    tuple(
-        ALL_ARCHITECTURES
-        | ALL_PLATFORMS
-        | ALL_SHELLS
-        | ALL_TERMINALS
-        | ALL_CI
-        | ALL_AGENTS
-        | UNKNOWN
-    ),
+    ALL_ARCHITECTURES
+    | ALL_PLATFORMS
+    | ALL_SHELLS
+    | ALL_TERMINALS
+    | ALL_CI
+    | ALL_AGENTS
+    | UNKNOWN,
 )
 """All predefined architectures, platforms, shells, terminals, CI systems, and agents.
 
@@ -938,7 +933,6 @@ This group includes all `UNKNOWN_*` traits.
 # Collections of groups
 # =============================================================================
 
-#: All groups whose members are {class}`~extra_platforms.Architecture`.
 ALL_ARCHITECTURE_GROUPS: frozenset[Group] = frozenset(
     (
         ALL_ARCHITECTURES,
@@ -957,9 +951,9 @@ ALL_ARCHITECTURE_GROUPS: frozenset[Group] = frozenset(
         LITTLE_ENDIAN,
     ),
 )
+"""All groups whose members are {class}`~extra_platforms.Architecture`."""
 
 
-#: All groups whose members are {class}`~extra_platforms.Platform`.
 ALL_PLATFORM_GROUPS: frozenset[Group] = frozenset(
     (
         ALL_PLATFORMS,
@@ -976,9 +970,9 @@ ALL_PLATFORM_GROUPS: frozenset[Group] = frozenset(
         OTHER_POSIX,
     ),
 )
+"""All groups whose members are {class}`~extra_platforms.Platform`."""
 
 
-#: All groups whose members are {class}`~extra_platforms.Shell`.
 ALL_SHELL_GROUPS: frozenset[Group] = frozenset(
     (
         ALL_SHELLS,
@@ -988,9 +982,9 @@ ALL_SHELL_GROUPS: frozenset[Group] = frozenset(
         WINDOWS_SHELLS,
     ),
 )
+"""All groups whose members are {class}`~extra_platforms.Shell`."""
 
 
-#: All groups whose members are {class}`~extra_platforms.Terminal`.
 ALL_TERMINAL_GROUPS: frozenset[Group] = frozenset(
     (
         ALL_TERMINALS,
@@ -1000,37 +994,30 @@ ALL_TERMINAL_GROUPS: frozenset[Group] = frozenset(
         WEB_TERMINALS,
     ),
 )
+"""All groups whose members are {class}`~extra_platforms.Terminal`."""
 
 
-#: All groups whose members are {class}`~extra_platforms.CI`.
-#:
-#: ```{note}
-#: Not that useful as there is only one CI group, but provided for symmetry with
-#: {data}`ALL_ARCHITECTURE_GROUPS` and {data}`ALL_PLATFORM_GROUPS`.
-#: ```
 ALL_CI_GROUPS: frozenset[Group] = frozenset((ALL_CI,))
+"""All groups whose members are {class}`~extra_platforms.CI`.
+
+```{note}
+Not that useful as there is only one CI group, but provided for symmetry with
+{data}`ALL_ARCHITECTURE_GROUPS` and {data}`ALL_PLATFORM_GROUPS`.
+```
+"""
 
 
-#: All groups whose members are {class}`~extra_platforms.Agent`.
-#:
-#: ```{note}
-#: Not that useful as there is only one agent group, but provided for symmetry with
-#: {data}`ALL_ARCHITECTURE_GROUPS` and {data}`ALL_PLATFORM_GROUPS`.
-#: ```
 ALL_AGENT_GROUPS: frozenset[Group] = frozenset((ALL_AGENTS,))
+"""All groups whose members are {class}`~extra_platforms.Agent`.
+
+```{note}
+Not that useful as there is only one agent group, but provided for symmetry with
+{data}`ALL_ARCHITECTURE_GROUPS` and {data}`ALL_PLATFORM_GROUPS`.
+```
+"""
 
 
-#: Non-overlapping groups.
-#:
-#: ```{hint}
-#: These groups together cover all {class}`~extra_platforms.Architecture`,
-#: {class}`~extra_platforms.Platform`, {class}`~extra_platforms.CI`,
-#: and {class}`~extra_platforms.Agent` traits,
-#: including traits from the {data}`~extra_platforms.UNKNOWN` group.
-#:
-#: All groups in this collection are marked as {attr}`~extra_platforms.Group.canonical`.
-#: ```
-NON_OVERLAPPING_GROUPS: frozenset[Group] = frozenset(
+CANONICAL_GROUPS: frozenset[Group] = frozenset(
     (
         # Architecture groups.
         ALL_ARM,
@@ -1068,14 +1055,21 @@ NON_OVERLAPPING_GROUPS: frozenset[Group] = frozenset(
         UNKNOWN,
     ),
 )
+"""Canonical, non-overlapping groups.
+
+```{hint}
+These groups together cover all {class}`~extra_platforms.Architecture`,
+{class}`~extra_platforms.Platform`, {class}`~extra_platforms.Shell`,
+{class}`~extra_platforms.Terminal`, {class}`~extra_platforms.CI`,
+and {class}`~extra_platforms.Agent` traits,
+including traits from the {data}`~extra_platforms.UNKNOWN` group.
+
+All groups in this collection are marked as {attr}`~extra_platforms.Group.canonical`.
+```
+"""
 
 
-#: Overlapping groups, defined for convenience.
-#:
-#: ```{hint}
-#: None of these groups are marked as {attr}`~extra_platforms.Group.canonical`.
-#: ```
-EXTRA_GROUPS: frozenset[Group] = frozenset(
+NON_CANONICAL_GROUPS: frozenset[Group] = frozenset(
     (
         ALL_TRAITS,
         # Architecture groups.
@@ -1096,41 +1090,51 @@ EXTRA_GROUPS: frozenset[Group] = frozenset(
         ALL_TERMINALS,
     ),
 )
+"""Non-canonical, overlapping groups, defined for convenience.
+
+```{hint}
+None of these groups are marked as {attr}`~extra_platforms.Group.canonical`.
+```
+"""
 
 
-#: All predefined groups.
-#:
-#: ```{hint}
-#: This collection contains both {attr}`~extra_platforms.Group.canonical` and
-#: non-canonical groups, including the {data}`~extra_platforms.UNKNOWN` group.
-#: ```
-ALL_GROUPS: frozenset[Group] = frozenset(NON_OVERLAPPING_GROUPS | EXTRA_GROUPS)
+ALL_GROUPS: frozenset[Group] = frozenset(CANONICAL_GROUPS | NON_CANONICAL_GROUPS)
+"""All predefined groups.
+
+```{hint}
+This collection contains both {attr}`~extra_platforms.Group.canonical` and
+non-canonical groups, including the {data}`~extra_platforms.UNKNOWN` group.
+```
+"""
 
 
 # =============================================================================
 # ID collections
 # =============================================================================
 
-#: A {class}`frozenset` of all recognized traits IDs.
-#:
-#: ```{attention}
-#: This collection does not contain all the `UNKNOWN_*` traits.
-#: ```
-ALL_TRAIT_IDS: frozenset[str] = frozenset(p.id for p in ALL_TRAITS - UNKNOWN)
+ALL_TRAIT_IDS: frozenset[str] = frozenset(trait.id for trait in ALL_TRAITS - UNKNOWN)
+"""A {class}`frozenset` of all recognized traits IDs.
+
+```{attention}
+This collection does not contain all the `UNKNOWN_*` traits.
+```
+"""
 
 
-#: A {class}`frozenset` of all recognized group IDs.
-#:
-#: ```{attention}
-#: This collection does not contain the {data}`~extra_platforms.UNKNOWN` group.
-#: ```
-ALL_GROUP_IDS: frozenset[str] = frozenset(p.id for p in ALL_GROUPS - {UNKNOWN})
+ALL_GROUP_IDS: frozenset[str] = frozenset(group.id for group in ALL_GROUPS - {UNKNOWN})
+"""A {class}`frozenset` of all recognized group IDs.
+
+```{attention}
+This collection does not contain the {data}`~extra_platforms.UNKNOWN` group.
+```
+"""
 
 
-#: A {class}`frozenset` of all recognized traits and group IDs.
-#:
-#: ```{attention}
-#: This collection does not contain all the `UNKNOWN_*` traits and the
-#: {data}`~extra_platforms.UNKNOWN` group.
-#: ```
 ALL_IDS: frozenset[str] = ALL_TRAIT_IDS | ALL_GROUP_IDS
+"""A {class}`frozenset` of all recognized traits and group IDs.
+
+```{attention}
+This collection does not contain all the `UNKNOWN_*` traits and the
+{data}`~extra_platforms.UNKNOWN` group.
+```
+"""

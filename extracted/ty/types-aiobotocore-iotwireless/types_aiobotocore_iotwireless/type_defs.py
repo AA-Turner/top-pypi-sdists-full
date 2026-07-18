@@ -117,6 +117,7 @@ __all__ = (
     "CreateWirelessGatewayTaskRequestTypeDef",
     "CreateWirelessGatewayTaskResponseTypeDef",
     "DakCertificateMetadataTypeDef",
+    "DefaultSessionParametersMulticastTypeDef",
     "DeleteDestinationRequestTypeDef",
     "DeleteDeviceProfileRequestTypeDef",
     "DeleteFuotaTaskRequestTypeDef",
@@ -555,6 +556,11 @@ class DakCertificateMetadataTypeDef(TypedDict):
     FactorySupport: NotRequired[bool]
     ApId: NotRequired[str]
     DeviceTypeId: NotRequired[str]
+
+
+class DefaultSessionParametersMulticastTypeDef(TypedDict):
+    DlDr: NotRequired[int]
+    DlFreq: NotRequired[int]
 
 
 class DeleteDestinationRequestTypeDef(TypedDict):
@@ -1842,6 +1848,7 @@ class LoRaWANMulticastGetTypeDef(TypedDict):
     NumberOfDevicesRequested: NotRequired[int]
     NumberOfDevicesInGroup: NotRequired[int]
     ParticipatingGateways: NotRequired[ParticipatingGatewaysMulticastOutputTypeDef]
+    DefaultSessionParameters: NotRequired[DefaultSessionParametersMulticastTypeDef]
 
 
 class MulticastWirelessMetadataTypeDef(TypedDict):
@@ -2213,6 +2220,7 @@ class LoRaWANMulticastTypeDef(TypedDict):
     RfRegion: NotRequired[SupportedRfRegionType]
     DlClass: NotRequired[DlClassType]
     ParticipatingGateways: NotRequired[ParticipatingGatewaysMulticastUnionTypeDef]
+    DefaultSessionParameters: NotRequired[DefaultSessionParametersMulticastTypeDef]
 
 
 class PutPositionConfigurationRequestTypeDef(TypedDict):

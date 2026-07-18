@@ -20,12 +20,18 @@ from dazzle.core.ir.money import CURRENCY_SCALES, get_currency_scale
 from dazzle.core.ir.triples import WidgetKind, resolve_widget
 from dazzle.core.strings import to_api_plural
 from dazzle.page import app_paths
+from dazzle.page.open_via import (
+    resolve_list_detail_url_candidates,
+    resolve_list_detail_url_template,
+    resolve_list_same_entity_detail_template,
+)
 from dazzle.render.context import (
     ColumnContext,
     CompanionContext,
     CompanionEntryContext,
     CompanionStageContext,
     DetailContext,
+    DetailSectionContext,
     ExternalLinkAction,
     FieldContext,
     FieldSourceContext,
@@ -139,16 +145,19 @@ def _field_type_to_column_type(
     ISO-8601 text.
     """
     if not field_spec or not field_spec.type:
+        # Framework-injected timestamps (created_at / updated_at) — match HTMX
+        # `field_kind_to_col_type` so list cells humanise with time (#1597).
         if field_name.endswith("_at"):
-            return "date"
+            return "datetime"
         return "text"
     kind = field_spec.type.kind
     type_map = {
         FieldTypeKind.BOOL: "bool",
         FieldTypeKind.DATE: "date",
-        # datetime stays date-only in dense list cells (time would be noise per
-        # row); the detail view renders it as `datetime` with time (#1491 1d).
-        FieldTypeKind.DATETIME: "date",
+        # Align with HTMX workspace_columns.field_kind_to_col_type (#1597):
+        # datetime must stay distinct from date so list cells show time and
+        # C2.3 edit-kind is not forced through a text path.
+        FieldTypeKind.DATETIME: "datetime",
         FieldTypeKind.MONEY: "currency",
         # decimal keeps its natural precision via str() (a price 19.99 must not
         # round); float is rounded to avoid leaking full binary precision (#1491).
@@ -500,12 +509,34 @@ def _build_state_machine_field_options(
     return [], None
 
 
+def _effective_field_source_ref(element_options: dict[str, Any]) -> str | None:
+    """Return ``source=`` or aliased ``search_trigger=`` (#1599)."""
+    from dazzle.page.field_source_alias import resolve_search_trigger_to_source
+
+    source_ref = element_options.get("source")
+    if source_ref:
+        return str(source_ref)
+    trigger = element_options.get("search_trigger")
+    if trigger:
+        return resolve_search_trigger_to_source(str(trigger))
+    return None
+
+
 def _resolve_field_source(
     source_ref: str,
 ) -> FieldSourceContext | None:
-    """Resolve a source= option (e.g. pack.operation) to a FieldSourceContext."""
-    if not source_ref or "." not in source_ref:
+    """Resolve a source= option (e.g. pack.operation) to a FieldSourceContext.
+
+    #1599: when the author declared ``source=`` / aliased ``search_trigger=``,
+    always emit a typeahead context so create/edit never silently degrade to
+    a plain text input. Pack metadata (display/value keys) is best-effort;
+    the search endpoint always carries ``?source=<pack>`` so HTMX lookup works.
+    """
+    if not source_ref or not str(source_ref).strip():
         return None
+    source_ref = str(source_ref).strip()
+    pack_name = source_ref.split(".", 1)[0]
+    op_name = source_ref.rsplit(".", 1)[-1] if "." in source_ref else ""
 
     # Try the centralised resolver first (uses pre-built fragment_sources)
     source_ctx: FieldSourceContext | None = None
@@ -522,26 +553,31 @@ def _resolve_field_source(
         )
         source_ctx = None
 
-    # Fall back to direct API pack resolution
-    if source_ctx is None:
-        pack_name, op_name = source_ref.rsplit(".", 1)
-        try:
-            from dazzle.api_kb import load_pack
+    # Fall back to direct API pack resolution (keys + endpoint with ?source=)
+    if source_ctx is None and pack_name:
+        source_config: dict[str, Any] = {}
+        if op_name:
+            try:
+                from dazzle.api_kb import load_pack
 
-            pack = load_pack(pack_name)
-            if pack:
-                source_config = pack.generate_fragment_source(op_name)
-                source_ctx = FieldSourceContext(
-                    endpoint="/_dazzle/fragments/search",
-                    display_key=source_config.get("display_key", "name"),
-                    value_key=source_config.get("value_key", "id"),
-                    secondary_key=source_config.get("secondary_key", ""),
-                    autofill=source_config.get("autofill", {}),
+                pack = load_pack(pack_name)
+                if pack:
+                    source_config = pack.generate_fragment_source(op_name)
+            except Exception:
+                logger.warning(
+                    "Failed to resolve field source '%s' via API pack",
+                    source_ref,
+                    exc_info=True,
                 )
-        except Exception:
-            logger.warning(
-                "Failed to resolve field source '%s' via API pack", source_ref, exc_info=True
-            )
+        # Always return a context so form emission becomes search_select —
+        # missing pack metadata must not collapse to plain text (#1599 dogfood).
+        source_ctx = FieldSourceContext(
+            endpoint=f"/_dazzle/fragments/search?source={pack_name}",
+            display_key=source_config.get("display_key", "name"),
+            value_key=source_config.get("value_key", "id"),
+            secondary_key=source_config.get("secondary_key", ""),
+            autofill=source_config.get("autofill", {}),
+        )
 
     return source_ctx
 
@@ -603,11 +639,11 @@ def _build_form_fields(
         is_required = bool(field_spec and field_spec.is_required)
 
         source_ctx: FieldSourceContext | None = None
-        source_ref = element_options.get("source")
+        source_ref = _effective_field_source_ref(element_options)
         if source_ref:
             source_ctx = _resolve_field_source(source_ref)
-            if source_ctx:
-                form_type = "search_select"
+            # Declared source always becomes search_select (never plain text).
+            form_type = "search_select"
 
         # Widget override from DSL: field name "Label" widget=rich_text
         widget_hint = element_options.get("widget")
@@ -728,11 +764,10 @@ def _build_form_sections(
             is_required = bool(field_spec and field_spec.is_required)
 
             source_ctx: FieldSourceContext | None = None
-            source_ref = element.options.get("source")
+            source_ref = _effective_field_source_ref(element.options or {})
             if source_ref:
                 source_ctx = _resolve_field_source(source_ref)
-                if source_ctx:
-                    form_type = "search_select"
+                form_type = "search_select"
 
             # Widget override from DSL: field name "Label" widget=rich_text
             widget_hint = element.options.get("widget")
@@ -812,6 +847,33 @@ def _build_form_sections(
         )
 
     return sections
+
+
+def _list_detail_url_template(
+    surface: ir.SurfaceSpec,
+    entity: ir.EntitySpec | None,
+    *,
+    app_prefix: str,
+    entity_slug: str,
+) -> str:
+    """List row drill template — same-entity detail or #1603 open-via FK hop."""
+    targets = getattr(surface, "open_via_targets", None) or []
+    if surface is not None and (getattr(surface, "open_via", None) or targets):
+        return resolve_list_detail_url_template(surface, entity, app_prefix=app_prefix)
+    return app_paths.detail_path(app_prefix, entity_slug)
+
+
+def _list_detail_url_candidates(
+    surface: ir.SurfaceSpec,
+    entity: ir.EntitySpec | None,
+    *,
+    app_prefix: str,
+) -> list[str]:
+    """Ordered open-via hop templates for polymorphic first-non-null (#1600 P2)."""
+    targets = getattr(surface, "open_via_targets", None) or []
+    if surface is not None and (getattr(surface, "open_via", None) or targets):
+        return resolve_list_detail_url_candidates(surface, entity, app_prefix=app_prefix)
+    return []
 
 
 def _extract_surface_purpose(ux: ir.UXSpec | None) -> tuple[str, dict[str, str]]:
@@ -919,9 +981,10 @@ def _compile_list_surface(
     table_id = f"dt-{surface.name}"
 
     # Derive inline-editable columns from field types.
-    # Editable: text, bool, badge (enum), date.
+    # Editable: text, bool, badge (enum), date, datetime (date-time editor).
     # Not editable: pk, ref, computed, sensitive, money, _id FK columns.
-    _EDITABLE_COL_TYPES = {"text", "bool", "badge", "date"}
+    # Keep in lockstep with server.py C2.3 (entity_htmx_meta inline_editable).
+    _EDITABLE_COL_TYPES = {"text", "bool", "badge", "date", "datetime"}
     _NON_EDITABLE_KEYS = {"id", "created_at", "updated_at"}
     inline_editable = [
         col.key
@@ -959,7 +1022,17 @@ def _compile_list_surface(
             columns=columns,
             api_endpoint=api_endpoint,
             create_url=create_url,
-            detail_url_template=app_paths.detail_path(app_prefix, entity_slug),
+            detail_url_template=_list_detail_url_template(
+                surface, entity, app_prefix=app_prefix, entity_slug=entity_slug
+            ),
+            # #1600 P2: multi-hop open-via (first non-null FK)
+            detail_url_candidates=_list_detail_url_candidates(
+                surface, entity, app_prefix=app_prefix
+            ),
+            # #1614: null open-via FK → same-entity detail (keeps row drill)
+            detail_url_fallback_template=resolve_list_same_entity_detail_template(
+                entity, surface, app_prefix=app_prefix
+            ),
             search_enabled=bool(search_fields),
             default_sort_field=default_sort_field,
             default_sort_dir=default_sort_dir,
@@ -980,7 +1053,11 @@ def _compile_list_surface(
             search_first=search_first,
             table_id=table_id,
             inline_editable=inline_editable,
-            bulk_actions=True,
+            # #1593: shell must match hydrated rows — bulk select-all / toolbar
+            # only when the list surface declares `ux: bulk_actions:` (same as
+            # server.py entity_htmx_meta). Unconditional True left a lonely
+            # header checkbox with zero row boxes.
+            bulk_actions=bool(ux and getattr(ux, "bulk_actions", None)),
         ),
     )
 
@@ -1247,6 +1324,17 @@ def _compile_view_surface(
         claimed: set[str] = set()
         for group in surface.related_groups:
             group_tabs = [t for t in related_tabs if t.entity_name in group.show]
+            # Optional columns: projection — keep scannable 3–5 fields, not
+            # the full warehouse dump (CyFuture #1600 P1 related residual).
+            proj = list(getattr(group, "columns", None) or [])
+            if proj:
+                order = {name: i for i, name in enumerate(proj)}
+                projected_tabs: list[RelatedTabContext] = []
+                for tab in group_tabs:
+                    filtered = [c for c in tab.columns if c.key in order]
+                    filtered.sort(key=lambda c: order.get(c.key, 999))
+                    projected_tabs.append(tab.model_copy(update={"columns": filtered}))
+                group_tabs = projected_tabs
             claimed.update(group.show)
             if group_tabs:
                 related_groups_ctx.append(
@@ -1297,6 +1385,30 @@ def _compile_view_surface(
 
     page_purpose, persona_purposes = _extract_surface_purpose(surface.ux)
 
+    # #1600 Wedge B: multi-section overview chrome — preserve section titles
+    # on VIEW so client hubs stack identity / compliance / … instead of a
+    # single flat field grid. Flat fields list remains for backward compat.
+    detail_sections: list[DetailSectionContext] = []
+    if surface.sections:
+        fields_by_name = {f.name: f for f in fields}
+        for section in surface.sections:
+            sec_fields = [
+                fields_by_name[el.field_name]
+                for el in section.elements
+                if el.field_name in fields_by_name
+            ]
+            if not sec_fields:
+                continue
+            detail_sections.append(
+                DetailSectionContext(
+                    name=section.name,
+                    title=section.title or section.name.replace("_", " ").title(),
+                    fields=sec_fields,
+                    note=getattr(section, "note", None),
+                    layout=str(getattr(section, "layout", None) or ""),
+                )
+            )
+
     # v0.61.126 (#942): ``display: pdf_viewer`` surface override. Routes
     # the view surface through the built-in PDF viewer chrome instead of
     # the generic detail layout. Storage-bound fields keep precedence
@@ -1337,6 +1449,7 @@ def _compile_view_surface(
             related_groups=related_groups_ctx,
             external_link_actions=external_links,
             show_history=surface.show_history,  # #956 cycle 10
+            sections=detail_sections,
         ),
         pdf_viewer=pdf_viewer_ctx,
     )

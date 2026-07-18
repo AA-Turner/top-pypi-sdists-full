@@ -27,6 +27,7 @@ Usage::
         ListMessageTemplateVersionsPaginator,
         ListMessageTemplatesPaginator,
         ListMessagesPaginator,
+        ListModelsPaginator,
         ListQuickResponsesPaginator,
         ListSpansPaginator,
         QueryAssistantPaginator,
@@ -55,6 +56,7 @@ Usage::
         list_message_template_versions_paginator: ListMessageTemplateVersionsPaginator = client.get_paginator("list_message_template_versions")
         list_message_templates_paginator: ListMessageTemplatesPaginator = client.get_paginator("list_message_templates")
         list_messages_paginator: ListMessagesPaginator = client.get_paginator("list_messages")
+        list_models_paginator: ListModelsPaginator = client.get_paginator("list_models")
         list_quick_responses_paginator: ListQuickResponsesPaginator = client.get_paginator("list_quick_responses")
         list_spans_paginator: ListSpansPaginator = client.get_paginator("list_spans")
         query_assistant_paginator: QueryAssistantPaginator = client.get_paginator("query_assistant")
@@ -103,6 +105,8 @@ from .type_defs import (
     ListMessageTemplatesResponseTypeDef,
     ListMessageTemplateVersionsRequestPaginateTypeDef,
     ListMessageTemplateVersionsResponseTypeDef,
+    ListModelsRequestPaginateTypeDef,
+    ListModelsResponseTypeDef,
     ListQuickResponsesRequestPaginateTypeDef,
     ListQuickResponsesResponseTypeDef,
     ListSpansRequestPaginateTypeDef,
@@ -140,6 +144,7 @@ __all__ = (
     "ListMessageTemplateVersionsPaginator",
     "ListMessageTemplatesPaginator",
     "ListMessagesPaginator",
+    "ListModelsPaginator",
     "ListQuickResponsesPaginator",
     "ListSpansPaginator",
     "QueryAssistantPaginator",
@@ -419,6 +424,24 @@ class ListMessagesPaginator(_ListMessagesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/paginator/ListMessages.html#QConnect.Paginator.ListMessages.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qconnect/paginators/#listmessagespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListModelsPaginatorBase = AioPaginator[ListModelsResponseTypeDef]
+else:
+    _ListModelsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListModelsPaginator(_ListModelsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/paginator/ListModels.html#QConnect.Paginator.ListModels)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qconnect/paginators/#listmodelspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListModelsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListModelsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/paginator/ListModels.html#QConnect.Paginator.ListModels.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qconnect/paginators/#listmodelspaginator)
         """
 
 if TYPE_CHECKING:

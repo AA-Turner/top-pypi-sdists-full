@@ -58,6 +58,7 @@ from .paginator import (
     GetResourceConfigHistoryPaginator,
     ListAggregateDiscoveredResourcesPaginator,
     ListConfigurationRecordersPaginator,
+    ListConnectorsPaginator,
     ListDiscoveredResourcesPaginator,
     ListResourceEvaluationsPaginator,
     ListTagsForResourcePaginator,
@@ -76,6 +77,7 @@ from .type_defs import (
     DeleteConfigurationAggregatorRequestTypeDef,
     DeleteConfigurationRecorderRequestTypeDef,
     DeleteConformancePackRequestTypeDef,
+    DeleteConnectorRequestTypeDef,
     DeleteDeliveryChannelRequestTypeDef,
     DeleteEvaluationResultsRequestTypeDef,
     DeleteOrganizationConfigRuleRequestTypeDef,
@@ -165,6 +167,8 @@ from .type_defs import (
     GetConformancePackComplianceDetailsResponseTypeDef,
     GetConformancePackComplianceSummaryRequestTypeDef,
     GetConformancePackComplianceSummaryResponseTypeDef,
+    GetConnectorRequestTypeDef,
+    GetConnectorResponseTypeDef,
     GetCustomRulePolicyRequestTypeDef,
     GetCustomRulePolicyResponseTypeDef,
     GetDiscoveredResourceCountsRequestTypeDef,
@@ -187,6 +191,8 @@ from .type_defs import (
     ListConfigurationRecordersResponseTypeDef,
     ListConformancePackComplianceScoresRequestTypeDef,
     ListConformancePackComplianceScoresResponseTypeDef,
+    ListConnectorsRequestTypeDef,
+    ListConnectorsResponseTypeDef,
     ListDiscoveredResourcesRequestTypeDef,
     ListDiscoveredResourcesResponseTypeDef,
     ListResourceEvaluationsRequestTypeDef,
@@ -203,6 +209,8 @@ from .type_defs import (
     PutConfigurationRecorderRequestTypeDef,
     PutConformancePackRequestTypeDef,
     PutConformancePackResponseTypeDef,
+    PutConnectorRequestTypeDef,
+    PutConnectorResponseTypeDef,
     PutDeliveryChannelRequestTypeDef,
     PutEvaluationsRequestTypeDef,
     PutEvaluationsResponseTypeDef,
@@ -222,6 +230,8 @@ from .type_defs import (
     PutServiceLinkedConfigurationRecorderResponseTypeDef,
     PutStoredQueryRequestTypeDef,
     PutStoredQueryResponseTypeDef,
+    PutThirdPartyServiceLinkedConfigurationRecorderRequestTypeDef,
+    PutThirdPartyServiceLinkedConfigurationRecorderResponseTypeDef,
     SelectAggregateResourceConfigRequestTypeDef,
     SelectAggregateResourceConfigResponseTypeDef,
     SelectResourceConfigRequestTypeDef,
@@ -270,6 +280,7 @@ class Exceptions(BaseClientExceptions):
     MaxNumberOfConfigRulesExceededException: type[BotocoreClientError]
     MaxNumberOfConfigurationRecordersExceededException: type[BotocoreClientError]
     MaxNumberOfConformancePacksExceededException: type[BotocoreClientError]
+    MaxNumberOfConnectorsExceededException: type[BotocoreClientError]
     MaxNumberOfDeliveryChannelsExceededException: type[BotocoreClientError]
     MaxNumberOfOrganizationConfigRulesExceededException: type[BotocoreClientError]
     MaxNumberOfOrganizationConformancePacksExceededException: type[BotocoreClientError]
@@ -425,6 +436,16 @@ class ConfigServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/delete_conformance_pack.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#delete_conformance_pack)
+        """
+
+    async def delete_connector(
+        self, **kwargs: Unpack[DeleteConnectorRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the specified connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/delete_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#delete_connector)
         """
 
     async def delete_delivery_channel(
@@ -941,6 +962,16 @@ class ConfigServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#get_conformance_pack_compliance_summary)
         """
 
+    async def get_connector(
+        self, **kwargs: Unpack[GetConnectorRequestTypeDef]
+    ) -> GetConnectorResponseTypeDef:
+        """
+        Returns the details of the specified connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/get_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#get_connector)
+        """
+
     async def get_custom_rule_policy(
         self, **kwargs: Unpack[GetCustomRulePolicyRequestTypeDef]
     ) -> GetCustomRulePolicyResponseTypeDef:
@@ -1060,6 +1091,16 @@ class ConfigServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#list_conformance_pack_compliance_scores)
         """
 
+    async def list_connectors(
+        self, **kwargs: Unpack[ListConnectorsRequestTypeDef]
+    ) -> ListConnectorsResponseTypeDef:
+        """
+        Returns a list of connectors depending on the filters you specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/list_connectors.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#list_connectors)
+        """
+
     async def list_discovered_resources(
         self, **kwargs: Unpack[ListDiscoveredResourcesRequestTypeDef]
     ) -> ListDiscoveredResourcesResponseTypeDef:
@@ -1153,6 +1194,17 @@ class ConfigServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/put_conformance_pack.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#put_conformance_pack)
+        """
+
+    async def put_connector(
+        self, **kwargs: Unpack[PutConnectorRequestTypeDef]
+    ) -> PutConnectorResponseTypeDef:
+        """
+        Creates a connector that specifies the connection between a third-party cloud
+        service provider and Config.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/put_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#put_connector)
         """
 
     async def put_delivery_channel(
@@ -1271,6 +1323,18 @@ class ConfigServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/put_stored_query.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#put_stored_query)
+        """
+
+    async def put_third_party_service_linked_configuration_recorder(
+        self, **kwargs: Unpack[PutThirdPartyServiceLinkedConfigurationRecorderRequestTypeDef]
+    ) -> PutThirdPartyServiceLinkedConfigurationRecorderResponseTypeDef:
+        """
+        Creates or updates a service-linked configuration recorder that is linked to a
+        third-party cloud service provider based on the <code>ConnectorArn</code> you
+        specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/put_third_party_service_linked_configuration_recorder.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#put_third_party_service_linked_configuration_recorder)
         """
 
     async def select_aggregate_resource_config(
@@ -1673,6 +1737,17 @@ class ConfigServiceClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_configuration_recorders"]
     ) -> ListConfigurationRecordersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_connectors"]
+    ) -> ListConnectorsPaginator:
         """
         Create a paginator for an operation.
 

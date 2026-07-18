@@ -1840,6 +1840,7 @@ ImageRecipeTypeDef = TypedDict(
         "workingDirectory": NotRequired[str],
         "additionalInstanceConfiguration": NotRequired[AdditionalInstanceConfigurationTypeDef],
         "amiTags": NotRequired[dict[str, str]],
+        "amiWatermarks": NotRequired[list[str]],
     },
 )
 
@@ -2160,6 +2161,7 @@ class CreateImageRecipeRequestTypeDef(TypedDict):
     workingDirectory: NotRequired[str]
     additionalInstanceConfiguration: NotRequired[AdditionalInstanceConfigurationTypeDef]
     amiTags: NotRequired[Mapping[str, str]]
+    amiWatermarks: NotRequired[Sequence[str]]
 
 class ListImageScanFindingsResponseTypeDef(TypedDict):
     requestId: str

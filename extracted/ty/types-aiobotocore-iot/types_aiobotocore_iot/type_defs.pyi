@@ -231,6 +231,8 @@ __all__ = (
     "ConfigurationDetailsTypeDef",
     "ConfigurationTypeDef",
     "ConfirmTopicRuleDestinationRequestTypeDef",
+    "ConnectivityFilterOutputTypeDef",
+    "ConnectivityFilterTypeDef",
     "CreateAuditSuppressionRequestTypeDef",
     "CreateAuthorizerRequestTypeDef",
     "CreateAuthorizerResponseTypeDef",
@@ -1252,6 +1254,7 @@ class BatchConfigTypeDef(TypedDict):
     maxBatchOpenMs: NotRequired[int]
     maxBatchSize: NotRequired[int]
     maxBatchSizeBytes: NotRequired[int]
+    batchAcrossTopics: NotRequired[bool]
 
 class MachineLearningDetectionConfigTypeDef(TypedDict):
     confidenceLevel: ConfidenceLevelType
@@ -1407,6 +1410,12 @@ class ConfigurationTypeDef(TypedDict):
 
 class ConfirmTopicRuleDestinationRequestTypeDef(TypedDict):
     confirmationToken: str
+
+class ConnectivityFilterOutputTypeDef(TypedDict):
+    includeSocketInformation: NotRequired[list[Literal["GET_THING_CONNECTIVITY_DATA"]]]
+
+class ConnectivityFilterTypeDef(TypedDict):
+    includeSocketInformation: NotRequired[Sequence[Literal["GET_THING_CONNECTIVITY_DATA"]]]
 
 TimestampTypeDef = Union[datetime, str]
 
@@ -1943,6 +1952,7 @@ StatisticsTypeDef = TypedDict(
 
 class GetThingConnectivityDataRequestTypeDef(TypedDict):
     thingName: str
+    includeSocketInformation: NotRequired[bool]
 
 class GetTopicRuleDestinationRequestTypeDef(TypedDict):
     arn: str
@@ -2581,6 +2591,10 @@ class ThingConnectivityTypeDef(TypedDict):
     connected: NotRequired[bool]
     timestamp: NotRequired[int]
     disconnectReason: NotRequired[str]
+    keepAliveDuration: NotRequired[int]
+    cleanSession: NotRequired[bool]
+    sessionExpiry: NotRequired[int]
+    clientId: NotRequired[str]
 
 class TimestreamDimensionTypeDef(TypedDict):
     name: str
@@ -3043,6 +3057,15 @@ class GetThingConnectivityDataResponseTypeDef(TypedDict):
     connected: bool
     timestamp: datetime
     disconnectReason: DisconnectReasonValueType
+    sourceIp: str
+    sourcePort: int
+    targetIp: str
+    targetPort: int
+    vpcEndpointId: str
+    keepAliveDuration: int
+    cleanSession: bool
+    sessionExpiry: int
+    clientId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAttachedPoliciesResponseTypeDef(TypedDict):
@@ -3810,10 +3833,12 @@ class ListFleetMetricsResponseTypeDef(TypedDict):
 class IndexingFilterOutputTypeDef(TypedDict):
     namedShadowNames: NotRequired[list[str]]
     geoLocations: NotRequired[list[GeoLocationTargetTypeDef]]
+    connectivity: NotRequired[ConnectivityFilterOutputTypeDef]
 
 class IndexingFilterTypeDef(TypedDict):
     namedShadowNames: NotRequired[Sequence[str]]
     geoLocations: NotRequired[Sequence[GeoLocationTargetTypeDef]]
+    connectivity: NotRequired[ConnectivityFilterTypeDef]
 
 class GetBehaviorModelTrainingSummariesRequestPaginateTypeDef(TypedDict):
     securityProfileName: NotRequired[str]

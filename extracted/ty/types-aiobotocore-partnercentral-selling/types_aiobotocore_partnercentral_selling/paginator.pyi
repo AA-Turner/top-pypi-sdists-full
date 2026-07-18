@@ -20,6 +20,7 @@ Usage::
         ListEngagementsPaginator,
         ListOpportunitiesPaginator,
         ListOpportunityFromEngagementTasksPaginator,
+        ListProspectingFromEngagementTasksPaginator,
         ListResourceSnapshotJobsPaginator,
         ListResourceSnapshotsPaginator,
         ListSolutionsPaginator,
@@ -37,6 +38,7 @@ Usage::
         list_engagements_paginator: ListEngagementsPaginator = client.get_paginator("list_engagements")
         list_opportunities_paginator: ListOpportunitiesPaginator = client.get_paginator("list_opportunities")
         list_opportunity_from_engagement_tasks_paginator: ListOpportunityFromEngagementTasksPaginator = client.get_paginator("list_opportunity_from_engagement_tasks")
+        list_prospecting_from_engagement_tasks_paginator: ListProspectingFromEngagementTasksPaginator = client.get_paginator("list_prospecting_from_engagement_tasks")
         list_resource_snapshot_jobs_paginator: ListResourceSnapshotJobsPaginator = client.get_paginator("list_resource_snapshot_jobs")
         list_resource_snapshots_paginator: ListResourceSnapshotsPaginator = client.get_paginator("list_resource_snapshots")
         list_solutions_paginator: ListSolutionsPaginator = client.get_paginator("list_solutions")
@@ -67,6 +69,8 @@ from .type_defs import (
     ListOpportunitiesResponseTypeDef,
     ListOpportunityFromEngagementTasksRequestPaginateTypeDef,
     ListOpportunityFromEngagementTasksResponseTypeDef,
+    ListProspectingFromEngagementTasksRequestPaginateTypeDef,
+    ListProspectingFromEngagementTasksResponseTypeDef,
     ListResourceSnapshotJobsRequestPaginateTypeDef,
     ListResourceSnapshotJobsResponseTypeDef,
     ListResourceSnapshotsRequestPaginateTypeDef,
@@ -89,6 +93,7 @@ __all__ = (
     "ListEngagementsPaginator",
     "ListOpportunitiesPaginator",
     "ListOpportunityFromEngagementTasksPaginator",
+    "ListProspectingFromEngagementTasksPaginator",
     "ListResourceSnapshotJobsPaginator",
     "ListResourceSnapshotsPaginator",
     "ListSolutionsPaginator",
@@ -246,6 +251,26 @@ class ListOpportunityFromEngagementTasksPaginator(_ListOpportunityFromEngagement
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/paginator/ListOpportunityFromEngagementTasks.html#PartnerCentralSellingAPI.Paginator.ListOpportunityFromEngagementTasks.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_partnercentral_selling/paginators/#listopportunityfromengagementtaskspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListProspectingFromEngagementTasksPaginatorBase = AioPaginator[
+        ListProspectingFromEngagementTasksResponseTypeDef
+    ]
+else:
+    _ListProspectingFromEngagementTasksPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListProspectingFromEngagementTasksPaginator(_ListProspectingFromEngagementTasksPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/paginator/ListProspectingFromEngagementTasks.html#PartnerCentralSellingAPI.Paginator.ListProspectingFromEngagementTasks)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_partnercentral_selling/paginators/#listprospectingfromengagementtaskspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListProspectingFromEngagementTasksRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListProspectingFromEngagementTasksResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/paginator/ListProspectingFromEngagementTasks.html#PartnerCentralSellingAPI.Paginator.ListProspectingFromEngagementTasks.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_partnercentral_selling/paginators/#listprospectingfromengagementtaskspaginator)
         """
 
 if TYPE_CHECKING:

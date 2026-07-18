@@ -32,6 +32,7 @@ from .literals import (
     DataFormatType,
     DataPullModeType,
     DateDimensionTypeType,
+    DiversityCapTypeType,
     EstimateStatusType,
     EventStreamDestinationStatusType,
     EventStreamStateType,
@@ -121,6 +122,11 @@ __all__ = (
     "BatchGetProfileErrorTypeDef",
     "BatchGetProfileRequestTypeDef",
     "BatchGetProfileResponseTypeDef",
+    "BatchPutProfileObjectErrorItemTypeDef",
+    "BatchPutProfileObjectRequestItemTypeDef",
+    "BatchPutProfileObjectRequestTypeDef",
+    "BatchPutProfileObjectResponseItemTypeDef",
+    "BatchPutProfileObjectResponseTypeDef",
     "BatchTypeDef",
     "CalculatedAttributeDimensionOutputTypeDef",
     "CalculatedAttributeDimensionTypeDef",
@@ -201,6 +207,9 @@ __all__ = (
     "DimensionOutputTypeDef",
     "DimensionTypeDef",
     "DimensionUnionTypeDef",
+    "DiversityColumnTypeDef",
+    "DiversityConfigOutputTypeDef",
+    "DiversityConfigTypeDef",
     "DomainObjectTypeFieldTypeDef",
     "DomainObjectTypesListItemTypeDef",
     "DomainStatsTypeDef",
@@ -426,6 +435,7 @@ __all__ = (
     "RangeOverrideTypeDef",
     "RangeTypeDef",
     "ReadinessTypeDef",
+    "RecommendationDiversityConfigTypeDef",
     "RecommendationTypeDef",
     "RecommenderConfigOutputTypeDef",
     "RecommenderConfigTypeDef",
@@ -622,6 +632,22 @@ class BatchGetProfileErrorTypeDef(TypedDict):
 class BatchGetProfileRequestTypeDef(TypedDict):
     DomainName: str
     ProfileIds: Sequence[str]
+
+
+class BatchPutProfileObjectErrorItemTypeDef(TypedDict):
+    Id: str
+    Code: int
+    Message: NotRequired[str]
+
+
+class BatchPutProfileObjectRequestItemTypeDef(TypedDict):
+    Id: str
+    Object: str
+
+
+class BatchPutProfileObjectResponseItemTypeDef(TypedDict):
+    Id: str
+    ProfileObjectUniqueKey: str
 
 
 TimestampTypeDef = Union[datetime, str]
@@ -841,6 +867,12 @@ class ObjectTypeKeyOutputTypeDef(TypedDict):
     FieldNames: NotRequired[list[str]]
 
 
+class DiversityColumnTypeDef(TypedDict):
+    Name: str
+    CapType: DiversityCapTypeType
+    Target: str
+
+
 class DomainObjectTypeFieldTypeDef(TypedDict):
     Source: str
     Target: str
@@ -1056,6 +1088,11 @@ class MetadataConfigTypeDef(TypedDict):
     MetadataColumns: NotRequired[Sequence[str]]
 
 
+class RecommendationDiversityConfigTypeDef(TypedDict):
+    Enabled: bool
+    Values: NotRequired[Mapping[str, int]]
+
+
 class RecommenderFilterTypeDef(TypedDict):
     Name: NotRequired[str]
     Values: NotRequired[Mapping[str, str]]
@@ -1082,6 +1119,7 @@ class GetRecommenderRequestTypeDef(TypedDict):
 class TrainingMetricsTypeDef(TypedDict):
     Time: NotRequired[datetime]
     Metrics: NotRequired[dict[TrainingMetricNameType, float]]
+    RecommenderVersionName: NotRequired[str]
 
 
 class GetRecommenderSchemaRequestTypeDef(TypedDict):
@@ -1961,6 +1999,18 @@ class AutoMergingOutputTypeDef(TypedDict):
     MinAllowedConfidenceScoreForMerging: NotRequired[float]
 
 
+class BatchPutProfileObjectRequestTypeDef(TypedDict):
+    DomainName: str
+    ObjectTypeName: str
+    Items: Sequence[BatchPutProfileObjectRequestItemTypeDef]
+
+
+class BatchPutProfileObjectResponseTypeDef(TypedDict):
+    Successful: list[BatchPutProfileObjectResponseItemTypeDef]
+    Failed: list[BatchPutProfileObjectErrorItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class BatchTypeDef(TypedDict):
     StartTime: TimestampTypeDef
     EndTime: TimestampTypeDef
@@ -2129,6 +2179,14 @@ class PutProfileObjectTypeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DiversityConfigOutputTypeDef(TypedDict):
+    DiversityColumns: NotRequired[list[DiversityColumnTypeDef]]
+
+
+class DiversityConfigTypeDef(TypedDict):
+    DiversityColumns: NotRequired[Sequence[DiversityColumnTypeDef]]
+
+
 class GetDomainObjectTypeResponseTypeDef(TypedDict):
     ObjectTypeName: str
     Description: str
@@ -2259,6 +2317,7 @@ class GetProfileRecommendationsRequestTypeDef(TypedDict):
     CandidateIds: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     MetadataConfig: NotRequired[MetadataConfigTypeDef]
+    DiversityConfig: NotRequired[RecommendationDiversityConfigTypeDef]
 
 
 class GetSimilarProfilesRequestPaginateTypeDef(TypedDict):
@@ -2641,6 +2700,8 @@ class RecommenderConfigOutputTypeDef(TypedDict):
     TrainingFrequency: NotRequired[int]
     InferenceConfig: NotRequired[InferenceConfigTypeDef]
     IncludedColumns: NotRequired[dict[str, list[str]]]
+    ExcludedColumns: NotRequired[dict[str, list[str]]]
+    DiversityConfig: NotRequired[DiversityConfigOutputTypeDef]
 
 
 class RecommenderConfigTypeDef(TypedDict):
@@ -2648,6 +2709,8 @@ class RecommenderConfigTypeDef(TypedDict):
     TrainingFrequency: NotRequired[int]
     InferenceConfig: NotRequired[InferenceConfigTypeDef]
     IncludedColumns: NotRequired[Mapping[str, Sequence[str]]]
+    ExcludedColumns: NotRequired[Mapping[str, Sequence[str]]]
+    DiversityConfig: NotRequired[DiversityConfigTypeDef]
 
 
 class EventTriggerConditionOutputTypeDef(TypedDict):
@@ -2878,6 +2941,7 @@ class RecommenderUpdateTypeDef(TypedDict):
     CreatedAt: NotRequired[datetime]
     LastUpdatedAt: NotRequired[datetime]
     FailureReason: NotRequired[str]
+    RecommenderVersionName: NotRequired[str]
 
 
 RecommenderConfigUnionTypeDef = Union[RecommenderConfigTypeDef, RecommenderConfigOutputTypeDef]
@@ -3057,6 +3121,7 @@ class GetRecommenderResponseTypeDef(TypedDict):
     CreatedAt: datetime
     FailureReason: str
     LatestRecommenderUpdate: RecommenderUpdateTypeDef
+    ActiveRecommenderVersionName: str
     TrainingMetrics: list[TrainingMetricsTypeDef]
     Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3091,6 +3156,7 @@ class UpdateRecommenderRequestTypeDef(TypedDict):
     RecommenderName: str
     Description: NotRequired[str]
     RecommenderConfig: NotRequired[RecommenderConfigUnionTypeDef]
+    RecommenderVersionName: NotRequired[str]
 
 
 class CreateCalculatedAttributeDefinitionResponseTypeDef(TypedDict):

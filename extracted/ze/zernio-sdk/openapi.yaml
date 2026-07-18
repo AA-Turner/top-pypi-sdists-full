@@ -2852,6 +2852,27 @@ components:
         timestamp:
           type: string
           format: date-time
+    InboxMessageEditAttachment:
+      type: object
+      description: Attachment snapshot inside an edit-history entry.
+      properties:
+        type: { type: string }
+        url: { type: string }
+        payload: { type: object }
+    InboxMessageEditHistoryEntry:
+      type: object
+      description: One prior version of an edited message.
+      required: [text, attachments, editedAt]
+      properties:
+        text:
+          type: [string, "null"]
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/InboxMessageEditAttachment'
+        editedAt:
+          type: string
+          format: date-time
     WebhookPayloadMessageEdited:
       type: object
       description: |
@@ -2871,22 +2892,7 @@ components:
           type: array
           description: Prior versions of the message, oldest first.
           items:
-            type: object
-            required: [text, attachments, editedAt]
-            properties:
-              text:
-                type: [string, "null"]
-              attachments:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    type: { type: string }
-                    url: { type: string }
-                    payload: { type: object }
-              editedAt:
-                type: string
-                format: date-time
+            $ref: '#/components/schemas/InboxMessageEditHistoryEntry'
         editCount:
           type: integer
           description: Total number of edits applied to this message.
@@ -4870,6 +4876,14 @@ components:
           type: string
           description: Full profile URL for the connected account on its platform.
         isActive: { type: boolean }
+        needsReconnection:
+          type: boolean
+          description: |
+            The platform definitively reported the stored OAuth token as dead.
+            While true, GET /v1/connect/{platform}/ads returns a
+            fresh authUrl (implicit force=true) instead of alreadyConnected,
+            so re-running the connect flow recovers the account. Cleared
+            automatically when the account is re-authorized.
         followersCount:
           type: number
           description: Follower count (only included if user has analytics add-on)
@@ -9469,6 +9483,7 @@ paths:
                         bucket_label: "30d+"
                         avg_pct_of_final: 0.8
                         post_count: 41
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Analytics access required. Legacy plans need the Analytics add-on; included by default on usage-based plans.
@@ -14036,6 +14051,20 @@ paths:
           description: User does not have access to the specified profile
         '404':
           description: Selected page not found in available pages
+        '409':
+          description: |
+            Reconnect identity mismatch. The OAuth
+            was initiated as a `force=true` token-recovery re-auth
+            (`GET /v1/connect/{platform}/ads`), but the grant landed on a different
+            Facebook user or page than the connected account. The existing account
+            is left untouched.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  code: { type: string, enum: [RECONNECT_ACCOUNT_MISMATCH] }
         '500':
           description: Failed to save Facebook connection
 
@@ -18574,6 +18603,87 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
 
+  /v1/accounts/{accountId}/gmb-locations/assign:
+    post:
+      operationId: assignGoogleBusinessLocation
+      tags: [Connect]
+      summary: Assign GBP location to another profile
+      description: >
+        Connect a Google Business location onto a DIFFERENT profile by reusing the
+        OAuth grant from an already-connected GBP account — no browser, no
+        re-authorization. Built for agencies whose single Google account has manager
+        access to many client locations and who run one profile per client: connect
+        one location the normal way (browser OAuth), then bulk-assign the rest onto
+        each client's profile via this endpoint. The path `accountId` is a SOURCE
+        connected GBP account (the token holder); the body `profileId` is the TARGET
+        profile. Returns 409 if the target profile already has a Google Business
+        connection (switch its location with PUT gmb-locations instead).
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+          description: A source connected GBP account whose OAuth grant is reused.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profileId, selectedLocationId]
+              properties:
+                profileId:
+                  type: string
+                  description: Target profile to connect the location onto.
+                selectedLocationId:
+                  type: string
+                  description: The Google Business location ID to assign (e.g. "locations/123").
+                googleAccountId:
+                  type: string
+                  description: >
+                    Optional but recommended. The Google Business Account resource name
+                    ("accounts/123") that owns the location (from GET gmb-locations). When
+                    provided the location is resolved directly instead of by enumerating the
+                    account, required for accounts with many locations.
+            example:
+              profileId: "507f1f77bcf86cd799439011"
+              selectedLocationId: "locations/12345678901234567890"
+              googleAccountId: "accounts/123456789"
+      responses:
+        '200':
+          description: Location assigned to the target profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  account:
+                    type: object
+                    properties:
+                      accountId: { type: string }
+                      platform: { type: string }
+                      username: { type: string }
+                      displayName: { type: string }
+                      isActive: { type: boolean }
+                      selectedLocationName: { type: string }
+                      selectedLocationId: { type: string }
+              example:
+                message: "Google Business location assigned to profile successfully"
+                account:
+                  accountId: "6a41f0ab70e2d329a7741307"
+                  platform: "googlebusiness"
+                  username: "Snap Fitness Dianella"
+                  displayName: "Snap Fitness Dianella"
+                  isActive: true
+                  selectedLocationName: "Snap Fitness Dianella"
+                  selectedLocationId: "locations/12345678901234567890"
+        '400': { description: 'Invalid body, or selected location not found under the Google account' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'Payment required, or target profile exceeds plan limit' }
+        '404': { description: Source Google Business account not found }
+        '409': { description: 'Target profile already has a Google Business connection (use PUT gmb-locations to switch its location)' }
+
   /v1/accounts/{accountId}/facebook-post-reactions:
     get:
       operationId: getFacebookPostReactions
@@ -21447,18 +21557,7 @@ paths:
                           type: array
                           description: Every prior version of the message, oldest first.
                           items:
-                            type: object
-                            properties:
-                              text: { type: [string, "null"] }
-                              attachments:
-                                type: array
-                                items:
-                                  type: object
-                                  properties:
-                                    type: { type: string }
-                                    url: { type: string }
-                                    payload: { type: object }
-                              editedAt: { type: string, format: date-time }
+                            $ref: '#/components/schemas/InboxMessageEditHistoryEntry'
                         isDeleted:
                           type: boolean
                           description: True if the sender has deleted (unsent) this message. The original message and attachments fields remain populated.
@@ -24362,6 +24461,7 @@ paths:
                   callingEnabled: { type: boolean }
                   sipHostname: { type: string }
                   forwardTo: { type: string }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: WhatsApp phone number not found }
         '422': { description: "Not eligible to enable calling: not on usage-based billing, or the number's messaging limit is below Meta's ~2,000-daily-recipient threshold (TIER_250). Warm the number up to raise the limit." }
@@ -24401,6 +24501,7 @@ paths:
                   items: { type: string, minLength: 2, maxLength: 2 }
       responses:
         '200': { description: Updated }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: WhatsApp phone number not found }
         '422': { description: Calling must be enabled before settings can be updated }
@@ -24423,6 +24524,7 @@ paths:
         - { name: accountId, in: query, required: true, schema: { type: string } }
       responses:
         '200': { description: Disabled }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: WhatsApp phone number not found }
 
@@ -26758,6 +26860,18 @@ paths:
                     the customer must complete KYC at that URL before the number
                     is ordered. See GET /v1/phone-numbers/countries.
                   default: US
+                numberType:
+                  type: string
+                  enum: [local, mobile, national, toll_free]
+                  description: >
+                    Which of the country's offered number types to order
+                    (see `types[]` on GET /v1/phone-numbers/countries). Omitted
+                    = the country's default type, which is always the
+                    WhatsApp-safe choice. Capabilities, price, and KYC
+                    requirements are per (country, type): toll_free can never
+                    connect WhatsApp (400 when combined with
+                    connectWhatsapp:true), and wantsSms:true requires an
+                    SMS-capable type.
                 connectWhatsapp:
                   type: boolean
                   default: true
@@ -26856,6 +26970,7 @@ paths:
                 properties:
                   status: { type: string, enum: [kyc_required] }
                   country: { type: string }
+                  numberType: { type: string, description: The type that will be ordered after KYC approval. }
                   kycUrl: { type: string }
         '402': { description: 'Payment method required (Metronome user with no card on file). Response body carries code: PAYMENT_REQUIRED; add a card, then retry.' }
         '422': { description: 'International numbers require usage-based billing (legacy Stripe users are US-only). Response body code: USAGE_BILLING_REQUIRED.' }
@@ -26894,6 +27009,26 @@ paths:
                         whatsappAvailable: { type: boolean, description: WhatsApp can be enabled on numbers from this country. }
                         smsAvailable: { type: boolean, description: Whether this country's number type can do SMS. Use it to filter the picker when the buyer wants SMS (pair with `wantsSms` on purchase). }
                         outboundCallingAvailable: { type: boolean, description: "WhatsApp Business Calling (BIC) outbound availability, a Meta feature blocked in some countries. NOT the PSTN Calls feature (`callsAvailable`)." }
+                        inStock: { type: boolean, description: "Live carrier-stock snapshot (refreshed every 6h + on availability checks): false when NO offered type currently has deliverable inventory, so a purchase would fail. Treat as advisory; the purchase itself re-checks." }
+                        types:
+                          type: array
+                          description: >
+                            Every number type offered in this country (default
+                            first). Capabilities, KYC tier, monthly price, and
+                            stock are per type. The country-level fields above
+                            mirror the first (default) entry. Pass the chosen
+                            `numberType` to POST /v1/phone-numbers/purchase.
+                          items:
+                            type: object
+                            properties:
+                              numberType: { type: string, enum: [local, mobile, national, toll_free] }
+                              tier: { type: integer, enum: [1, 2, 3, 4] }
+                              needsKyc: { type: boolean }
+                              monthlyCents: { type: integer }
+                              whatsappAvailable: { type: boolean, description: "Always false for toll_free (WhatsApp does not reliably register toll-free numbers)." }
+                              smsAvailable: { type: boolean }
+                              callsAvailable: { type: boolean }
+                              inStock: { type: boolean }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /v1/phone-numbers/available:
@@ -26957,6 +27092,7 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: country, in: query, required: true, schema: { type: string }, description: ISO-2 country code. }
+        - { name: numberType, in: query, required: false, schema: { type: string, enum: [local, mobile, national, toll_free] }, description: "Check a specific offered type (stock and address constraints are per type). Omitted = the country's default type." }
       responses:
         '200':
           description: Availability + address constraint.
@@ -27199,6 +27335,7 @@ paths:
                 properties:
                   status: { type: string, enum: [kyc_required] }
                   country: { type: string }
+                  numberType: { type: string, description: The type that will be ordered after KYC approval. }
                   kycUrl: { type: string }
         '402': { description: 'Payment method required (Metronome user with no card on file). Response body carries code: PAYMENT_REQUIRED; add a card, then retry.' }
         '422': { description: 'International numbers require usage-based billing (legacy Stripe users are US-only). Response body code: USAGE_BILLING_REQUIRED.' }
@@ -27303,6 +27440,7 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: country, in: query, required: true, schema: { type: string }, description: ISO-2 country code. }
+        - { name: numberType, in: query, required: false, schema: { type: string, enum: [local, mobile, national, toll_free] }, description: "Check a specific offered type (stock and address constraints are per type). Omitted = the country's default type." }
       responses:
         '200':
           description: Availability + address constraint.
@@ -27335,6 +27473,7 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: country, in: query, required: true, schema: { type: string } }
+        - { name: numberType, in: query, required: false, schema: { type: string, enum: [local, mobile, national, toll_free] }, description: "Requirements and reuse eligibility are per (country, type). Omitted = the country's default type. Pass the same value on the POST." }
       responses:
         '200':
           description: The KYC form spec.
@@ -28696,6 +28835,7 @@ paths:
                     type: [array, "null"]
                     items: { type: string, minLength: 2, maxLength: 2 }
                   outboundDisabled: { type: boolean, description: "True when the number's country blocks business-initiated (outbound) WhatsApp calling; inbound still works." }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Number not found }
     post:
@@ -28739,6 +28879,7 @@ paths:
                   callingEnabled: { type: boolean }
                   sipHostname: { type: string }
                   forwardTo: { type: string }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Phone number not found }
         '422': { description: "Not eligible to enable calling: not on usage-based billing, or the number's messaging limit is below Meta's ~2,000-daily-recipient threshold (TIER_250). Warm the number up to raise the limit." }
@@ -28774,6 +28915,7 @@ paths:
                   items: { type: string, minLength: 2, maxLength: 2 }
       responses:
         '200': { description: Updated }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Phone number not found }
         '422': { description: Calling must be enabled before settings can be updated }
@@ -28792,6 +28934,7 @@ paths:
         - { name: accountId, in: query, required: true, schema: { type: string } }
       responses:
         '200': { description: Disabled }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Phone number not found }
 
@@ -30360,6 +30503,7 @@ paths:
                         type: { type: string, enum: [text, number, date, boolean, select] }
                         options: { type: array, items: { type: string } }
                         createdAt: { type: string, format: date-time }
+        '400': { description: Invalid profileId format }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       operationId: createCustomField
@@ -30397,6 +30541,7 @@ paths:
                       type: { type: string, enum: [text, number, date, boolean, select] }
                       options: { type: array, items: { type: string } }
                       createdAt: { type: string, format: date-time }
+        '400': { description: Invalid request body }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409': { description: Duplicate slug }
 
@@ -30409,6 +30554,7 @@ paths:
       parameters:
         - { name: fieldId, in: path, required: true, schema: { type: string } }
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -30433,6 +30579,7 @@ paths:
                       slug: { type: string }
                       type: { type: string }
                       options: { type: array, items: { type: string } }
+        '400': { description: Invalid fieldId or request body }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
@@ -30444,6 +30591,7 @@ paths:
         - { name: fieldId, in: path, required: true, schema: { type: string } }
       responses:
         '200': { description: Custom field deleted }
+        '400': { description: Invalid fieldId format }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -31139,6 +31287,7 @@ paths:
                       limit: { type: integer }
                       skip: { type: integer }
                       hasMore: { type: boolean }
+        '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
@@ -33035,6 +33184,155 @@ paths:
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /v1/ads/insights:
+    get:
+      operationId: queryAdInsights
+      tags: [Ads]
+      summary: Flexible live insights query (Meta)
+      description: |
+        Live, flexible insights query against Meta's Graph API. Unlike GET /v1/ads/{adId}/analytics
+        (fixed metric set, cached), this forwards caller-chosen `fields`, `breakdowns` and `filtering`
+        to any Meta insights node and returns Meta's rows verbatim.
+
+        `objectId` selects the node: an ad account, campaign, ad set or ad platform id.
+        `level` sets row granularity independently of the node.
+
+        Semantic validation is Meta's: an unknown field or invalid breakdown combination returns a 400
+        carrying Meta's message. For long ranges or agency-scale accounts prefer the async variant
+        (POST /v1/ads/insights/reports). Meta only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+        - { name: objectId, in: query, required: true, schema: { type: string }, description: "Meta insights node: act_<n>, campaign id, ad set id or ad id." }
+        - { name: level, in: query, schema: { type: string, enum: [ad, adset, campaign, account] }, description: Row granularity }
+        - { name: fields, in: query, schema: { type: string }, description: "Comma-separated Graph insights fields (e.g. spend,impressions,frequency,website_purchase_roas). Omitted = Meta's default set." }
+        - { name: breakdowns, in: query, schema: { type: string }, description: "Comma-separated Graph breakdowns (e.g. age,gender or publisher_platform)." }
+        - { name: filtering, in: query, schema: { type: string }, description: "JSON array of Meta filter objects: [{\"field\", \"operator\", \"value\"}]. Applied server-side by Meta." }
+        - { name: datePreset, in: query, schema: { type: string }, description: "Meta date_preset (e.g. last_7d, last_30d, this_month). Mutually exclusive with fromDate/toDate." }
+        - { name: fromDate, in: query, schema: { type: string, format: date }, description: "Start of range (YYYY-MM-DD); requires toDate." }
+        - { name: toDate, in: query, schema: { type: string, format: date }, description: "End of range (YYYY-MM-DD); requires fromDate." }
+        - { name: timeIncrement, in: query, schema: { type: string }, description: "Days per row (1-90), monthly, or all_days." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 25 }, description: Rows per page }
+        - { name: after, in: query, schema: { type: string }, description: "Cursor from paging.after of the previous page." }
+      responses:
+        '200':
+          description: Insight rows (raw Meta shape)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  objectId: { type: string }
+                  data:
+                    type: array
+                    items: { type: object, description: "Raw Meta insights row; keys are the requested Graph fields plus date_start/date_stop." }
+                  paging:
+                    type: object
+                    properties:
+                      after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
+        '400': { description: "Invalid input, or Meta rejected the query (unknown field, invalid breakdown combo) — message carries Meta's error" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: Meta rate limit reached }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+  /v1/ads/insights/reports:
+    post:
+      operationId: createAdInsightsReport
+      tags: [Ads]
+      summary: Submit an async insights report run (Meta)
+      description: |
+        Submits an asynchronous Meta insights report. Same query surface as GET /v1/ads/insights, but
+        in the JSON body; Meta processes the report server-side, which is the right choice for long
+        ranges or large accounts where the sync query is slow or rate-limited. Returns a `reportRunId`
+        to poll via GET /v1/ads/insights/reports/{reportRunId}. Meta only.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, objectId]
+              properties:
+                accountId: { type: string, description: "Zernio SocialAccount id (posting or ads variant)." }
+                objectId: { type: string, description: "Meta insights node: act_<n>, campaign id, ad set id or ad id." }
+                level: { type: string, enum: [ad, adset, campaign, account] }
+                fields: { type: string, description: "Comma-separated Graph insights fields." }
+                breakdowns: { type: string, description: "Comma-separated Graph breakdowns." }
+                filtering:
+                  type: array
+                  description: "Meta filter objects, applied server-side."
+                  items:
+                    type: object
+                    required: [field, operator]
+                    properties:
+                      field: { type: string }
+                      operator: { type: string }
+                      value: {}
+                datePreset: { type: string, description: "Mutually exclusive with fromDate/toDate." }
+                fromDate: { type: string, format: date }
+                toDate: { type: string, format: date }
+                timeIncrement:
+                  oneOf: [{ type: integer, minimum: 1, maximum: 90 }, { type: string, enum: [monthly, all_days] }]
+      responses:
+        '202':
+          description: Report run submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportRunId: { type: string }
+                  status: { type: string, example: Job Started }
+        '400': { description: "Invalid input, or Meta rejected the report parameters" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: Meta rate limit reached }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+  /v1/ads/insights/reports/{reportRunId}:
+    get:
+      operationId: getAdInsightsReport
+      tags: [Ads]
+      summary: Poll an async insights report run (Meta)
+      description: |
+        Status and results for a report run created via POST /v1/ads/insights/reports. While the job
+        runs, returns `status` and `percentCompletion`. Once `status` is "Job Completed" the response
+        also carries a `data` page, cursor-paginated via `limit` / `after`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: reportRunId, in: path, required: true, schema: { type: string } }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id used to resolve the Meta token (must be the same connection that created the run)." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 25 } }
+        - { name: after, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Report run status (plus results when completed)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportRunId: { type: string }
+                  status: { type: string, description: "Meta async_status: Job Not Started, Job Started, Job Running, Job Completed, Job Failed, Job Skipped." }
+                  percentCompletion: { type: integer }
+                  dateStart: { type: string }
+                  dateStop: { type: string }
+                  data:
+                    type: array
+                    items: { type: object }
+                    description: "Present only when status is Job Completed."
+                  paging:
+                    type: object
+                    properties:
+                      after: { type: [string, "null"] }
+        '400': { description: "Invalid input, or the report run is not readable with this account's token" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: Meta rate limit reached }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
   /v1/ads/{adId}/analytics:
     get:
       operationId: getAdAnalytics
@@ -33374,8 +33672,8 @@ paths:
                         timezoneName: { type: string, description: "IANA timezone of the ad account (Meta only). Drives daily-budget reset and Insights day boundaries." }
                         timezoneOffsetHoursUtc: { type: number, description: "Signed UTC offset in hours, reflecting current DST (Meta only)." }
                         minimumDailyBudget: { type: number, description: "Meta only. Minimum daily budget for the account, in the account currency's major units. This is the impressions-billed minimum; other billing events have higher minimums. Absent when the connected token cannot read it." }
-                        selectable: { type: boolean, description: "Meta only. Whether the account can create/run ads now. Absent (treat as true) on non-Meta platforms." }
-                        unusableReason: { type: [string, "null"], description: "Meta only. Human-readable reason when selectable is false; null when selectable." }
+                        selectable: { type: boolean, description: "Meta and X only. Whether the account can create/run ads now. Absent (treat as true) on other platforms." }
+                        unusableReason: { type: [string, "null"], description: "Meta and X only. Human-readable reason when selectable is false; null when selectable." }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422':
           description: Platform ads connection required (TikTok Ads, X Ads) or Instagram missing linked Facebook account

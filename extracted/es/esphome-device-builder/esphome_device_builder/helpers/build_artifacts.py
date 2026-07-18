@@ -317,3 +317,17 @@ def remove_device_files(yaml_path: Path, configuration: str) -> None:
     unlink_storage_sidecar(configuration)
     unlink_compiled_config(configuration)
     yaml_path.unlink(missing_ok=True)
+
+
+def resolve_elf_path(storage: StorageJSON) -> Path | None:
+    """Return the build's ``firmware.elf``; ``None`` without a firmware path.
+
+    Beside ``firmware.bin`` on every platform, which is what
+    ``remote_build/artifact_platforms/*.py`` packs and what makes the ELF
+    reachable from the sidecar alone.
+    """
+    if storage.firmware_bin_path is None:
+        return None
+    # Through Path(): the sidecar types the field loosely, so the join off it
+    # would be Any and every caller would silently lose the return type.
+    return Path(storage.firmware_bin_path).parent / "firmware.elf"

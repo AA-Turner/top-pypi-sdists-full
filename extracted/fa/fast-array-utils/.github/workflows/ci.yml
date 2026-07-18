@@ -18,9 +18,9 @@ jobs:
       envs: ${{ steps.get-envs.outputs.envs }}
       pythons: ${{ steps.get-pythons.outputs.pythons }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0, filter: "blob:none" }
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v8.3.2
       - name: Get test environments
         id: get-envs
         run: |
@@ -39,6 +39,8 @@ jobs:
   test:
     name: Tests
     needs: get-environments
+    permissions:
+      id-token: write  # for codecov OIDC
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -50,50 +52,52 @@ jobs:
               python: "3.14"
             os: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0, filter: "blob:none" }
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v8.3.2
         with:
           python-version: ${{ matrix.env.python }}
       - name: create environment
-        run: uvx hatch env create ${{ matrix.env.name }}
+        run: uvx hatch -v env create ${{ matrix.env.name }}
       - name: run tests with coverage
         run: |
           uvx hatch run ${{ matrix.env.name }}:run-cov
           # https://github.com/codecov/codecov-cli/issues/648
           uvx hatch run ${{ matrix.env.name }}:coverage xml
           rm test-data/.coverage
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           name: ${{ matrix.env.name }}
           fail_ci_if_error: true
           files: test-data/coverage.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
   bench:
     name: CPU Benchmarks
+    permissions:
+      id-token: write  # for codspeed OIDC
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0, filter: "blob:none" }
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v8.3.2
       - run: uv pip install --system --group=test -e .[full]
-      - uses: CodSpeedHQ/action@v3
+      - uses: CodSpeedHQ/action@v4
         with:
+          mode: simulation
           run: pytest -m benchmark --codspeed -n auto
-          token: ${{ secrets.CODSPEED_TOKEN }}
   import:
     name: Import Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0, filter: "blob:none" }
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v8.3.2
       - run: uv pip install --system -e .
       - run: python -c 'import fast_array_utils as fau; print(fau.__all__)'
       - run: uv pip install --system -e .[testing]
@@ -104,11 +108,9 @@ jobs:
     env:
       SKIP: no-commit-to-branch  # this CI runs on the main branch
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0, filter: "blob:none" }
-      - uses: j178/prek-action@v1
-        with:
-          working-directory: ${{ github.workspace }}
+      - uses: j178/prek-action@v2.0.5
   pass:
     name: All Checks
     if: always()

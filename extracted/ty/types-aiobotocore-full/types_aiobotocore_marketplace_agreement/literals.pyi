@@ -24,14 +24,20 @@ else:
 __all__ = (
     "AgreementCancellationRequestReasonCodeType",
     "AgreementCancellationRequestStatusType",
+    "AgreementEntitlementStatusReasonCodeType",
+    "AgreementEntitlementStatusType",
     "AgreementServiceServiceName",
     "AgreementStatusType",
     "BillingAdjustmentErrorCodeType",
     "BillingAdjustmentReasonCodeType",
     "BillingAdjustmentStatusType",
+    "GetAgreementEntitlementsPaginatorName",
+    "GetAgreementTermsPaginatorName",
+    "IntentType",
     "InvoiceTypeType",
     "LineItemGroupByType",
     "ListAgreementCancellationRequestsPaginatorName",
+    "ListAgreementChargesPaginatorName",
     "ListAgreementInvoiceLineItemsPaginatorName",
     "ListAgreementPaymentRequestsPaginatorName",
     "ListBillingAdjustmentRequestsPaginatorName",
@@ -40,8 +46,11 @@ __all__ = (
     "PaymentRequestStatusType",
     "RegionName",
     "ResourceServiceName",
+    "SearchAgreementsPaginatorName",
     "ServiceName",
     "SortOrderType",
+    "TaxEstimationType",
+    "TimingType",
 )
 
 AgreementCancellationRequestReasonCodeType = Literal[
@@ -56,6 +65,20 @@ AgreementCancellationRequestReasonCodeType = Literal[
 ]
 AgreementCancellationRequestStatusType = Literal[
     "APPROVED", "CANCELLED", "PENDING_APPROVAL", "REJECTED", "VALIDATION_FAILED"
+]
+AgreementEntitlementStatusReasonCodeType = Literal[
+    "ACCOUNT_SUSPENDED",
+    "AGREEMENT_ACTIVE",
+    "AGREEMENT_INACTIVE",
+    "FUTURE_START_DATE",
+    "INCOMPATIBLE_CURRENCY",
+    "INVALID_PAYMENT_INSTRUMENT",
+    "PRODUCT_RESTRICTED",
+    "PROVISIONING_IN_PROGRESS",
+    "UNSUPPORTED_OPERATION",
+]
+AgreementEntitlementStatusType = Literal[
+    "DEPROVISIONED", "FAILED", "PENDING", "PROVISIONED", "SCHEDULED"
 ]
 AgreementStatusType = Literal[
     "ACTIVE",
@@ -81,9 +104,13 @@ BillingAdjustmentReasonCodeType = Literal[
     "UNINTENDED_RENEWAL",
 ]
 BillingAdjustmentStatusType = Literal["COMPLETED", "PENDING", "VALIDATION_FAILED"]
+GetAgreementEntitlementsPaginatorName = Literal["get_agreement_entitlements"]
+GetAgreementTermsPaginatorName = Literal["get_agreement_terms"]
+IntentType = Literal["AMEND", "NEW", "REPLACE"]
 InvoiceTypeType = Literal["CREDIT_MEMO", "INVOICE"]
 LineItemGroupByType = Literal["INVOICE_ID"]
 ListAgreementCancellationRequestsPaginatorName = Literal["list_agreement_cancellation_requests"]
+ListAgreementChargesPaginatorName = Literal["list_agreement_charges"]
 ListAgreementInvoiceLineItemsPaginatorName = Literal["list_agreement_invoice_line_items"]
 ListAgreementPaymentRequestsPaginatorName = Literal["list_agreement_payment_requests"]
 ListBillingAdjustmentRequestsPaginatorName = Literal["list_billing_adjustment_requests"]
@@ -91,7 +118,10 @@ PaymentRequestApprovalStrategyType = Literal["AUTO_APPROVE_ON_EXPIRATION", "WAIT
 PaymentRequestStatusType = Literal[
     "APPROVED", "CANCELLED", "PENDING_APPROVAL", "REJECTED", "VALIDATING", "VALIDATION_FAILED"
 ]
+SearchAgreementsPaginatorName = Literal["search_agreements"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
+TaxEstimationType = Literal["DISABLED", "ENABLED"]
+TimingType = Literal["BILLING_PERIOD", "ON_ACCEPTANCE", "SCHEDULED"]
 AgreementServiceServiceName = Literal["marketplace-agreement"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -286,8 +316,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -314,6 +342,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -381,10 +411,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -417,6 +447,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -444,6 +475,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -465,7 +497,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -486,6 +517,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -522,9 +554,13 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "get_agreement_entitlements",
+    "get_agreement_terms",
     "list_agreement_cancellation_requests",
+    "list_agreement_charges",
     "list_agreement_invoice_line_items",
     "list_agreement_payment_requests",
     "list_billing_adjustment_requests",
+    "search_agreements",
 ]
 RegionName = Literal["us-east-1"]

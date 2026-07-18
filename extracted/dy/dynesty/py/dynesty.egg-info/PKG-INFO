@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dynesty
-Version: 3.0.0
+Version: 3.1.0
 Summary: A dynamic nested sampling package for computing Bayesian posteriors and evidences.
 Author-email: Sergey E Koposov <skoposov@ed.ac.uk>, Joshua S Speagle <j.speagle@utoronto.ca>
 Project-URL: Homepage, https://github.com/joshspeagle/dynesty/

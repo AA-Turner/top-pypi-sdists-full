@@ -12,15 +12,18 @@ consumers (`Table` cells via `_render_tables`, `Text` via `_emit_text`) call
 would be double-encoded (e.g. `&` → `&amp;amp;`). This mirrors the old stub's
 raw `str(value)` contract.
 
-FK display values are already resolved upstream (`fk_display_only`), so a
-``ref`` cell's value is already the name. Phase 2 (#1470) adds the explicit
-``format:`` override via `override=`.
+FK display: prefer an already-resolved name string; when the value is still a
+hydrated dict (related-group path, #1615), resolve via ``_ref_display_name``
+(``__display__`` / name heuristics). Never dump ``str(dict)`` into the UI.
+Phase 2 (#1470) adds the explicit ``format:`` override via `override=`.
 """
 
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
+
+from dazzle.i18n.display_locale import DisplayLocaleProfile, get_display_locale
 
 # v1 currency symbols; unknown codes fall back to a "<amount> <CODE>" suffix.
 _CURRENCY_SYMBOLS = {"GBP": "£", "USD": "$", "EUR": "€"}
@@ -63,39 +66,105 @@ def _currency_major(value: Any, code: str) -> str:
     return _currency_str(major, code)
 
 
-def _friendly_dt(value: Any, *, with_time: bool) -> str:
-    """Return a friendly (non-ISO) date/datetime string (raw)."""
+def _profile(profile: DisplayLocaleProfile | None = None) -> DisplayLocaleProfile:
+    if profile is not None:
+        return profile
+    return get_display_locale()
+
+
+def _friendly_dt(
+    value: Any, *, with_time: bool, profile: DisplayLocaleProfile | None = None
+) -> str:
+    """Return a locale-profile date/datetime string (raw).
+
+    Pure ``date`` values never TZ-shift. ``datetime`` values display in the
+    profile timezone (#1597).
+    """
+    prof = _profile(profile)
     if isinstance(value, str):
         try:
-            value = datetime.fromisoformat(value)
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
             return str(value)
+    if isinstance(value, datetime) and with_time:
+        return prof.format_datetime_value(value)
     if isinstance(value, (datetime, date)):
-        # `value.day` avoids the non-portable `%-d` strftime directive.
-        tail = (
-            value.strftime("%b %Y %H:%M")
-            if isinstance(value, datetime) and with_time
-            else value.strftime("%b %Y")
-        )
-        return f"{value.day} {tail}"
+        # date-only (or datetime column treated as date): calendar day, no TZ
+        d = value.date() if isinstance(value, datetime) else value
+        return prof.format_date_value(d)
     return str(value)
 
 
-def _infer(value: Any, kind: str, currency_code: str) -> str:
+def _badge_display(value: Any) -> str:
+    if isinstance(value, dict):
+        from dazzle.render.filters import _ref_display_name
+
+        return _title_case(_ref_display_name(value))
+    return _title_case(str(value))
+
+
+def _ref_or_dict_display(value: Any) -> str:
+    """#1615 hydrated FK dicts; not used for kind=json (handled separately)."""
+    from dazzle.render.filters import _ref_display_name
+
+    if isinstance(value, dict):
+        return _ref_display_name(value)
+    return str(value)
+
+
+def _infer(
+    value: Any,
+    kind: str,
+    currency_code: str,
+    profile: DisplayLocaleProfile | None = None,
+) -> str:
+    prof = _profile(profile)
     # bool first: catches bool values regardless of the (coarse) column kind.
     if kind == "bool" or isinstance(value, bool):
         return "Yes" if value else "No"
     if kind == "currency":
-        return _currency(value, currency_code or "GBP")
+        return _currency(value, currency_code or prof.currency_default or "GBP")
+    if kind == "json":
+        return _json_bag_summary(value)
     if kind == "badge":
-        return _title_case(str(value))
+        return _badge_display(value)
+    if kind == "ref" or isinstance(value, dict):
+        return _ref_or_dict_display(value)
     if kind == "date":
-        return _friendly_dt(value, with_time=isinstance(value, datetime))
-    # float/Decimal round to 2dp (the column vocabulary collapses these to "text",
-    # so rounding is keyed off the Python value type, not the kind).
+        return _friendly_dt(value, with_time=False, profile=prof)
+    if kind == "datetime":
+        return _friendly_dt(value, with_time=True, profile=prof)
     if isinstance(value, (float, Decimal)):
         return f"{float(value):.2f}"
     return str(value)
+
+
+def _json_bag_summary(value: Any, *, max_pairs: int = 4, length: int = 80) -> str:
+    """Compact JSON/JSONB display for extension bags (#1619 / #1491 1d)."""
+    parsed: Any = value
+    if isinstance(value, str):
+        try:
+            import json as _json
+
+            parsed = _json.loads(value)
+        except Exception:
+            raw = str(value)
+            return raw[:length] + ("…" if len(raw) > length else "")
+    text: str
+    if isinstance(parsed, dict):
+        parts = [f"{k}: {v}" for k, v in list(parsed.items())[:max_pairs]]
+        text = " · ".join(parts)
+        if len(parsed) > max_pairs:
+            text += " · …"
+    elif isinstance(parsed, (list, tuple)):
+        parts = [str(x) for x in list(parsed)[:max_pairs]]
+        text = ", ".join(parts)
+        if len(parsed) > max_pairs:
+            text += ", …"
+    else:
+        text = str(parsed)
+    out = text[:length] + "…" if len(text) > length else text
+    return str(out)
 
 
 def format_cell(
@@ -104,46 +173,61 @@ def format_cell(
     *,
     currency_code: str = "",
     override: ResolvedFormat | None = None,
+    profile: DisplayLocaleProfile | None = None,
 ) -> str:
     """Render ``value`` to a RAW (unescaped) display string.
 
     ``kind`` is the column's display type (``text``/``bool``/``date``/
-    ``currency``/``badge``/``ref``). ``override`` (Phase 2) wins over inference.
+    ``currency``/``badge``/``ref``/``json``). ``override`` (Phase 2) wins over inference.
+    ``profile`` (#1597) is the display locale; defaults to the request-bound
+    :func:`~dazzle.i18n.display_locale.get_display_locale` (product en-GB).
     The renderer escapes the result at emit time — do not escape here.
     """
     if value is None or value == "":
         return ""
     if override is not None:
-        return _apply_override(value, override, currency_code)
-    return _infer(value, kind, currency_code)
+        return _apply_override(value, override, currency_code, profile=profile)
+    return _infer(value, kind, currency_code, profile=profile)
 
 
 def _coerce_dt(value: Any) -> datetime | date | None:
     if isinstance(value, str):
         try:
-            return datetime.fromisoformat(value)
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
             return None
     return value if isinstance(value, (datetime, date)) else None
 
 
-def _format_temporal(value: Any, kind: str, arg: str | None) -> str:
+def _format_temporal(
+    value: Any,
+    kind: str,
+    arg: str | None,
+    profile: DisplayLocaleProfile | None = None,
+) -> str:
     dtv = _coerce_dt(value)
     if dtv is None:
         return str(value)
     if arg == "iso":
         return dtv.isoformat()
     if arg == "long":
-        return f"{dtv.day} {dtv.strftime('%B %Y')}"
-    return _friendly_dt(dtv, with_time=(kind == "datetime"))
+        d = dtv.date() if isinstance(dtv, datetime) else dtv
+        return f"{d.day} {d.strftime('%B %Y')}"
+    return _friendly_dt(dtv, with_time=(kind == "datetime"), profile=profile)
 
 
-def _relative(value: Any) -> str:
+def _relative(value: Any, profile: DisplayLocaleProfile | None = None) -> str:
+    """Relative day labels using tenant-timezone ``today`` (#1597)."""
     dtv = _coerce_dt(value)
     if dtv is None:
         return str(value)
-    d = dtv.date() if isinstance(dtv, datetime) else dtv
-    delta = (d - date.today()).days
+    # Calendar dates: no TZ. Datetimes: convert to tenant TZ before taking date.
+    prof = _profile(profile)
+    if isinstance(dtv, datetime):
+        d = prof.to_display_datetime(dtv).date()
+    else:
+        d = dtv
+    delta = (d - prof.today()).days
     if delta == 0:
         return "today"
     if delta == 1:
@@ -169,23 +253,30 @@ _SIMPLE_OVERRIDES: dict[str, Any] = {
 }
 
 
-def _apply_override(value: Any, fmt: ResolvedFormat, currency_code: str) -> str:
+def _apply_override(
+    value: Any,
+    fmt: ResolvedFormat,
+    currency_code: str,
+    profile: DisplayLocaleProfile | None = None,
+) -> str:
     """Apply an explicit ``format:`` override (#1470 Phase 2). Returns RAW.
 
     Validation (`_format_kind_error`) has already rejected unknown kinds and
     type mismatches, so this dispatches the v1 vocabulary directly.
     """
+    prof = _profile(profile)
     kind, arg = fmt.kind, fmt.arg
     if kind == "currency":
-        return _currency_major(value, arg or currency_code or "GBP")
+        # Explicit format: currency(CODE) or field currency wins; never convert.
+        return _currency_major(value, arg or currency_code or prof.currency_default or "GBP")
     if kind == "percent":
         return f"{float(value) * 100:,.{_dp(arg)}f}%"
     if kind == "round":
         return f"{float(value):,.{_dp(arg)}f}"
     if kind in ("date", "datetime"):
-        return _format_temporal(value, kind, arg)
+        return _format_temporal(value, kind, arg, profile=prof)
     if kind == "relative":
-        return _relative(value)
+        return _relative(value, profile=prof)
     transform = _SIMPLE_OVERRIDES.get(kind)
     if transform is not None:
         return str(transform(value))

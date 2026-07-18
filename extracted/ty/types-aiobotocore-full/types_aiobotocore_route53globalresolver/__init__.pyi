@@ -20,6 +20,7 @@ Usage::
         ListGlobalResolversPaginator,
         ListHostedZoneAssociationsPaginator,
         ListManagedFirewallDomainListsPaginator,
+        ListSharedDNSViewsPaginator,
         Route53GlobalResolverClient,
     )
 
@@ -38,6 +39,7 @@ Usage::
     list_global_resolvers_paginator: ListGlobalResolversPaginator = client.get_paginator("list_global_resolvers")
     list_hosted_zone_associations_paginator: ListHostedZoneAssociationsPaginator = client.get_paginator("list_hosted_zone_associations")
     list_managed_firewall_domain_lists_paginator: ListManagedFirewallDomainListsPaginator = client.get_paginator("list_managed_firewall_domain_lists")
+    list_shared_dns_views_paginator: ListSharedDNSViewsPaginator = client.get_paginator("list_shared_dns_views")
     ```
 """
 
@@ -52,6 +54,7 @@ from .paginator import (
     ListGlobalResolversPaginator,
     ListHostedZoneAssociationsPaginator,
     ListManagedFirewallDomainListsPaginator,
+    ListSharedDNSViewsPaginator,
 )
 
 Client = Route53GlobalResolverClient
@@ -67,5 +70,6 @@ __all__ = (
     "ListGlobalResolversPaginator",
     "ListHostedZoneAssociationsPaginator",
     "ListManagedFirewallDomainListsPaginator",
+    "ListSharedDNSViewsPaginator",
     "Route53GlobalResolverClient",
 )

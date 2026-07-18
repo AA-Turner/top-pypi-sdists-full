@@ -1,6 +1,6 @@
 [package]
 name = "ruff_cache"
-version = "0.0.4"
+version = "0.0.5"
 description = "This is an internal component crate of Ruff"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -12,6 +12,7 @@ license = { workspace = true }
 readme = "README.md"
 
 [dependencies]
+char_str = { workspace = true }
 filetime = { workspace = true }
 glob = { workspace = true }
 globset = { workspace = true }

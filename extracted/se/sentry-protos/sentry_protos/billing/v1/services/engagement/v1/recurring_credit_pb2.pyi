@@ -43,6 +43,48 @@ RECURRING_CREDIT_TYPE_DISCOUNT_PERCENT: RecurringCreditType.ValueType  # 3
 """A percentage-point discount: 10 = 10%."""
 global___RecurringCreditType = RecurringCreditType
 
+class _CreditSource:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _CreditSourceEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_CreditSource.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    CREDIT_SOURCE_UNSPECIFIED: _CreditSource.ValueType  # 0
+    CREDIT_SOURCE_PROMO_CODE: _CreditSource.ValueType  # 1
+    """A promo code redemption."""
+    CREDIT_SOURCE_ADMIN: _CreditSource.ValueType  # 2
+    """A manual admin grant."""
+
+class CreditSource(_CreditSource, metaclass=_CreditSourceEnumTypeWrapper):
+    """External system that granted a RecurringCredit."""
+
+CREDIT_SOURCE_UNSPECIFIED: CreditSource.ValueType  # 0
+CREDIT_SOURCE_PROMO_CODE: CreditSource.ValueType  # 1
+"""A promo code redemption."""
+CREDIT_SOURCE_ADMIN: CreditSource.ValueType  # 2
+"""A manual admin grant."""
+global___CreditSource = CreditSource
+
+@typing.final
+class CreditSourceConfig(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SOURCE_FIELD_NUMBER: builtins.int
+    SOURCE_ID_FIELD_NUMBER: builtins.int
+    source: global___CreditSource.ValueType
+    source_id: builtins.str
+    def __init__(
+        self,
+        *,
+        source: global___CreditSource.ValueType = ...,
+        source_id: builtins.str | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["_source_id", b"_source_id", "source_id", b"source_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_source_id", b"_source_id", "source", b"source", "source_id", b"source_id"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_source_id", b"_source_id"]) -> typing.Literal["source_id"] | None: ...
+
+global___CreditSourceConfig = CreditSourceConfig
+
 @typing.final
 class RecurringCredit(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

@@ -54,6 +54,7 @@ from .literals import (
     RunRetentionModeType,
     RunStatusType,
     SchemaValueTypeType,
+    ScratchStorageModeType,
     SequenceStoreStatusType,
     ShareResourceTypeType,
     ShareStatusType,
@@ -535,6 +536,7 @@ class InlineSettingTypeDef(TypedDict):
     parameters: NotRequired[Mapping[str, Any]]
     outputBucketOwnerId: NotRequired[str]
     runTags: NotRequired[Mapping[str, str]]
+    engineSettings: NotRequired[Mapping[str, Any]]
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
@@ -649,6 +651,8 @@ class DefaultRunSettingOutputTypeDef(TypedDict):
     workflowVersionName: NotRequired[str]
     networkingMode: NotRequired[NetworkingModeType]
     configurationName: NotRequired[str]
+    engineSettings: NotRequired[dict[str, Any]]
+    scratchStorageMode: NotRequired[ScratchStorageModeType]
 
 class DefaultRunSettingTypeDef(TypedDict):
     workflowId: str
@@ -671,6 +675,8 @@ class DefaultRunSettingTypeDef(TypedDict):
     workflowVersionName: NotRequired[str]
     networkingMode: NotRequired[NetworkingModeType]
     configurationName: NotRequired[str]
+    engineSettings: NotRequired[Mapping[str, Any]]
+    scratchStorageMode: NotRequired[ScratchStorageModeType]
 
 SourceReferenceTypeDef = TypedDict(
     "SourceReferenceTypeDef",
@@ -1222,6 +1228,7 @@ RunListItemTypeDef = TypedDict(
         "stopTime": NotRequired[datetime],
         "storageType": NotRequired[StorageTypeType],
         "workflowVersionName": NotRequired[str],
+        "workflowName": NotRequired[str],
     },
 )
 
@@ -1346,7 +1353,9 @@ class StartRunRequestTypeDef(TypedDict):
     workflowOwnerId: NotRequired[str]
     workflowVersionName: NotRequired[str]
     networkingMode: NotRequired[NetworkingModeType]
+    scratchStorageMode: NotRequired[ScratchStorageModeType]
     configurationName: NotRequired[str]
+    engineSettings: NotRequired[Mapping[str, Any]]
 
 class VariantImportItemSourceTypeDef(TypedDict):
     source: str
@@ -2293,8 +2302,10 @@ GetRunResponseTypeDef = TypedDict(
         "workflowVersionName": str,
         "workflowUuid": str,
         "networkingMode": NetworkingModeType,
+        "scratchStorageMode": ScratchStorageModeType,
         "configuration": ConfigurationDetailsTypeDef,
         "vpcConfig": VpcConfigResponseTypeDef,
+        "engineSettings": dict[str, Any],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2842,6 +2853,8 @@ GetWorkflowResponseTypeDef = TypedDict(
         "readme": str,
         "definitionRepositoryDetails": DefinitionRepositoryDetailsTypeDef,
         "readmePath": str,
+        "profiles": list[str],
+        "profileParameterTemplates": dict[str, dict[str, WorkflowParameterTypeDef]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2872,6 +2885,8 @@ GetWorkflowVersionResponseTypeDef = TypedDict(
         "readme": str,
         "definitionRepositoryDetails": DefinitionRepositoryDetailsTypeDef,
         "readmePath": str,
+        "profiles": list[str],
+        "profileParameterTemplates": dict[str, dict[str, WorkflowParameterTypeDef]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

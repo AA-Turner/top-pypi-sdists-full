@@ -28,6 +28,7 @@ __all__ = (
     "BlockResponseType",
     "ConfidenceThresholdType",
     "DnsThreatProtectionType",
+    "DomainListTypeType",
     "FirewallDomainImportOperationType",
     "FirewallDomainListStatusType",
     "FirewallDomainRedirectionActionType",
@@ -41,6 +42,7 @@ __all__ = (
     "ListFirewallDomainsPaginatorName",
     "ListFirewallRuleGroupAssociationsPaginatorName",
     "ListFirewallRuleGroupsPaginatorName",
+    "ListFirewallRuleTypesPaginatorName",
     "ListFirewallRulesPaginatorName",
     "ListOutpostResolversPaginatorName",
     "ListResolverConfigsPaginatorName",
@@ -82,6 +84,7 @@ BlockOverrideDnsTypeType = Literal["CNAME"]
 BlockResponseType = Literal["NODATA", "NXDOMAIN", "OVERRIDE"]
 ConfidenceThresholdType = Literal["HIGH", "LOW", "MEDIUM"]
 DnsThreatProtectionType = Literal["DGA", "DICTIONARY_DGA", "DNS_TUNNELING"]
+DomainListTypeType = Literal["CONTENT", "THREAT"]
 FirewallDomainImportOperationType = Literal["REPLACE"]
 FirewallDomainListStatusType = Literal[
     "COMPLETE", "COMPLETE_IMPORT_FAILED", "DELETING", "IMPORTING", "UPDATING"
@@ -101,6 +104,7 @@ IpAddressStatusType = Literal[
     "DELETING",
     "DETACHING",
     "FAILED_CREATION",
+    "FAILED_CREATION_INSUFFICIENT_EC2_CAPACITY_IN_OUTPOST",
     "FAILED_RESOURCE_GONE",
     "ISOLATED",
     "REMAP_ATTACHING",
@@ -113,6 +117,7 @@ ListFirewallDomainListsPaginatorName = Literal["list_firewall_domain_lists"]
 ListFirewallDomainsPaginatorName = Literal["list_firewall_domains"]
 ListFirewallRuleGroupAssociationsPaginatorName = Literal["list_firewall_rule_group_associations"]
 ListFirewallRuleGroupsPaginatorName = Literal["list_firewall_rule_groups"]
+ListFirewallRuleTypesPaginatorName = Literal["list_firewall_rule_types"]
 ListFirewallRulesPaginatorName = Literal["list_firewall_rules"]
 ListOutpostResolversPaginatorName = Literal["list_outpost_resolvers"]
 ListResolverConfigsPaginatorName = Literal["list_resolver_configs"]
@@ -367,8 +372,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -395,6 +398,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -462,10 +467,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -498,6 +503,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -525,6 +531,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -546,7 +553,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -567,6 +573,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -608,6 +615,7 @@ PaginatorName = Literal[
     "list_firewall_domains",
     "list_firewall_rule_group_associations",
     "list_firewall_rule_groups",
+    "list_firewall_rule_types",
     "list_firewall_rules",
     "list_outpost_resolvers",
     "list_resolver_configs",

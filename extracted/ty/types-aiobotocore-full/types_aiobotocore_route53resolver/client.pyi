@@ -36,6 +36,7 @@ from .paginator import (
     ListFirewallRuleGroupAssociationsPaginator,
     ListFirewallRuleGroupsPaginator,
     ListFirewallRulesPaginator,
+    ListFirewallRuleTypesPaginator,
     ListOutpostResolversPaginator,
     ListResolverConfigsPaginator,
     ListResolverDnssecConfigsPaginator,
@@ -56,6 +57,12 @@ from .type_defs import (
     AssociateResolverQueryLogConfigResponseTypeDef,
     AssociateResolverRuleRequestTypeDef,
     AssociateResolverRuleResponseTypeDef,
+    BatchCreateFirewallRuleRequestTypeDef,
+    BatchCreateFirewallRuleResponseTypeDef,
+    BatchDeleteFirewallRuleRequestTypeDef,
+    BatchDeleteFirewallRuleResponseTypeDef,
+    BatchUpdateFirewallRuleRequestTypeDef,
+    BatchUpdateFirewallRuleResponseTypeDef,
     CreateFirewallDomainListRequestTypeDef,
     CreateFirewallDomainListResponseTypeDef,
     CreateFirewallRuleGroupRequestTypeDef,
@@ -136,6 +143,8 @@ from .type_defs import (
     ListFirewallRuleGroupsResponseTypeDef,
     ListFirewallRulesRequestTypeDef,
     ListFirewallRulesResponseTypeDef,
+    ListFirewallRuleTypesRequestTypeDef,
+    ListFirewallRuleTypesResponseTypeDef,
     ListOutpostResolversRequestTypeDef,
     ListOutpostResolversResponseTypeDef,
     ListResolverConfigsRequestTypeDef,
@@ -287,6 +296,36 @@ class Route53ResolverClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53resolver/client/#associate_resolver_rule)
         """
 
+    async def batch_create_firewall_rule(
+        self, **kwargs: Unpack[BatchCreateFirewallRuleRequestTypeDef]
+    ) -> BatchCreateFirewallRuleResponseTypeDef:
+        """
+        Creates multiple DNS Firewall rules in the specified rule group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/batch_create_firewall_rule.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53resolver/client/#batch_create_firewall_rule)
+        """
+
+    async def batch_delete_firewall_rule(
+        self, **kwargs: Unpack[BatchDeleteFirewallRuleRequestTypeDef]
+    ) -> BatchDeleteFirewallRuleResponseTypeDef:
+        """
+        Deletes multiple DNS Firewall rules from the specified rule group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/batch_delete_firewall_rule.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53resolver/client/#batch_delete_firewall_rule)
+        """
+
+    async def batch_update_firewall_rule(
+        self, **kwargs: Unpack[BatchUpdateFirewallRuleRequestTypeDef]
+    ) -> BatchUpdateFirewallRuleResponseTypeDef:
+        """
+        Updates multiple DNS Firewall rules in the specified rule group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/batch_update_firewall_rule.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53resolver/client/#batch_update_firewall_rule)
+        """
+
     async def create_firewall_domain_list(
         self, **kwargs: Unpack[CreateFirewallDomainListRequestTypeDef]
     ) -> CreateFirewallDomainListResponseTypeDef:
@@ -301,8 +340,7 @@ class Route53ResolverClient(AioBaseClient):
         self, **kwargs: Unpack[CreateFirewallRuleRequestTypeDef]
     ) -> CreateFirewallRuleResponseTypeDef:
         """
-        Creates a single DNS Firewall rule in the specified rule group, using the
-        specified domain list.
+        Creates a single DNS Firewall rule in the specified rule group.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/create_firewall_rule.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53resolver/client/#create_firewall_rule)
@@ -699,6 +737,18 @@ class Route53ResolverClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53resolver/client/#list_firewall_rule_groups)
         """
 
+    async def list_firewall_rule_types(
+        self, **kwargs: Unpack[ListFirewallRuleTypesRequestTypeDef]
+    ) -> ListFirewallRuleTypesResponseTypeDef:
+        """
+        Retrieves the rule-type variants that can be used in the
+        <code>FirewallRuleType</code> field of <a>CreateFirewallRule</a> and
+        <a>UpdateFirewallRule</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/list_firewall_rule_types.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53resolver/client/#list_firewall_rule_types)
+        """
+
     async def list_firewall_rules(
         self, **kwargs: Unpack[ListFirewallRulesRequestTypeDef]
     ) -> ListFirewallRulesResponseTypeDef:
@@ -1010,6 +1060,17 @@ class Route53ResolverClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_firewall_rule_groups"]
     ) -> ListFirewallRuleGroupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53resolver/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_firewall_rule_types"]
+    ) -> ListFirewallRuleTypesPaginator:
         """
         Create a paginator for an operation.
 

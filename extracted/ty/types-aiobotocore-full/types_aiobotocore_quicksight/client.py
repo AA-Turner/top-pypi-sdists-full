@@ -51,7 +51,9 @@ from .paginator import (
     ListIAMPolicyAssignmentsForUserPaginator,
     ListIAMPolicyAssignmentsPaginator,
     ListIngestionsPaginator,
+    ListKnowledgeBasesPaginator,
     ListNamespacesPaginator,
+    ListOAuthClientApplicationsPaginator,
     ListRoleMembershipsPaginator,
     ListTemplateAliasesPaginator,
     ListTemplatesPaginator,
@@ -68,11 +70,14 @@ from .paginator import (
     SearchFlowsPaginator,
     SearchFoldersPaginator,
     SearchGroupsPaginator,
+    SearchKnowledgeBasesPaginator,
     SearchTopicsPaginator,
 )
 from .type_defs import (
     BatchCreateTopicReviewedAnswerRequestTypeDef,
     BatchCreateTopicReviewedAnswerResponseTypeDef,
+    BatchDeleteKnowledgeBaseRequestTypeDef,
+    BatchDeleteKnowledgeBaseResponseTypeDef,
     BatchDeleteTopicReviewedAnswerRequestTypeDef,
     BatchDeleteTopicReviewedAnswerResponseTypeDef,
     CancelIngestionRequestTypeDef,
@@ -83,6 +88,8 @@ from .type_defs import (
     CreateAccountSubscriptionResponseTypeDef,
     CreateActionConnectorRequestTypeDef,
     CreateActionConnectorResponseTypeDef,
+    CreateAgentRequestTypeDef,
+    CreateAgentResponseTypeDef,
     CreateAnalysisRequestTypeDef,
     CreateAnalysisResponseTypeDef,
     CreateBrandRequestTypeDef,
@@ -95,6 +102,8 @@ from .type_defs import (
     CreateDataSetResponseTypeDef,
     CreateDataSourceRequestTypeDef,
     CreateDataSourceResponseTypeDef,
+    CreateFlowRequestTypeDef,
+    CreateFlowResponseTypeDef,
     CreateFolderMembershipRequestTypeDef,
     CreateFolderMembershipResponseTypeDef,
     CreateFolderRequestTypeDef,
@@ -107,12 +116,18 @@ from .type_defs import (
     CreateIAMPolicyAssignmentResponseTypeDef,
     CreateIngestionRequestTypeDef,
     CreateIngestionResponseTypeDef,
+    CreateKnowledgeBaseRequestTypeDef,
+    CreateKnowledgeBaseResponseTypeDef,
     CreateNamespaceRequestTypeDef,
     CreateNamespaceResponseTypeDef,
+    CreateOAuthClientApplicationRequestTypeDef,
+    CreateOAuthClientApplicationResponseTypeDef,
     CreateRefreshScheduleRequestTypeDef,
     CreateRefreshScheduleResponseTypeDef,
     CreateRoleMembershipRequestTypeDef,
     CreateRoleMembershipResponseTypeDef,
+    CreateSpaceRequestTypeDef,
+    CreateSpaceResponseTypeDef,
     CreateTemplateAliasRequestTypeDef,
     CreateTemplateAliasResponseTypeDef,
     CreateTemplateRequestTypeDef,
@@ -135,6 +150,8 @@ from .type_defs import (
     DeleteAccountSubscriptionResponseTypeDef,
     DeleteActionConnectorRequestTypeDef,
     DeleteActionConnectorResponseTypeDef,
+    DeleteAgentRequestTypeDef,
+    DeleteAgentResponseTypeDef,
     DeleteAnalysisRequestTypeDef,
     DeleteAnalysisResponseTypeDef,
     DeleteBrandAssignmentRequestTypeDef,
@@ -153,6 +170,8 @@ from .type_defs import (
     DeleteDataSourceResponseTypeDef,
     DeleteDefaultQBusinessApplicationRequestTypeDef,
     DeleteDefaultQBusinessApplicationResponseTypeDef,
+    DeleteFlowRequestTypeDef,
+    DeleteFlowResponseTypeDef,
     DeleteFolderMembershipRequestTypeDef,
     DeleteFolderMembershipResponseTypeDef,
     DeleteFolderRequestTypeDef,
@@ -165,14 +184,20 @@ from .type_defs import (
     DeleteIAMPolicyAssignmentResponseTypeDef,
     DeleteIdentityPropagationConfigRequestTypeDef,
     DeleteIdentityPropagationConfigResponseTypeDef,
+    DeleteKnowledgeBaseRequestTypeDef,
+    DeleteKnowledgeBaseResponseTypeDef,
     DeleteNamespaceRequestTypeDef,
     DeleteNamespaceResponseTypeDef,
+    DeleteOAuthClientApplicationRequestTypeDef,
+    DeleteOAuthClientApplicationResponseTypeDef,
     DeleteRefreshScheduleRequestTypeDef,
     DeleteRefreshScheduleResponseTypeDef,
     DeleteRoleCustomPermissionRequestTypeDef,
     DeleteRoleCustomPermissionResponseTypeDef,
     DeleteRoleMembershipRequestTypeDef,
     DeleteRoleMembershipResponseTypeDef,
+    DeleteSpaceRequestTypeDef,
+    DeleteSpaceResponseTypeDef,
     DeleteTemplateAliasRequestTypeDef,
     DeleteTemplateAliasResponseTypeDef,
     DeleteTemplateRequestTypeDef,
@@ -205,6 +230,10 @@ from .type_defs import (
     DescribeActionConnectorPermissionsResponseTypeDef,
     DescribeActionConnectorRequestTypeDef,
     DescribeActionConnectorResponseTypeDef,
+    DescribeAgentPermissionsRequestTypeDef,
+    DescribeAgentPermissionsResponseTypeDef,
+    DescribeAgentRequestTypeDef,
+    DescribeAgentResponseTypeDef,
     DescribeAnalysisDefinitionRequestTypeDef,
     DescribeAnalysisDefinitionResponseTypeDef,
     DescribeAnalysisPermissionsRequestTypeDef,
@@ -249,6 +278,8 @@ from .type_defs import (
     DescribeDataSourceResponseTypeDef,
     DescribeDefaultQBusinessApplicationRequestTypeDef,
     DescribeDefaultQBusinessApplicationResponseTypeDef,
+    DescribeFlowRequestTypeDef,
+    DescribeFlowResponseTypeDef,
     DescribeFolderPermissionsRequestTypeDef,
     DescribeFolderPermissionsResponseTypeDef,
     DescribeFolderRequestTypeDef,
@@ -267,8 +298,14 @@ from .type_defs import (
     DescribeIpRestrictionResponseTypeDef,
     DescribeKeyRegistrationRequestTypeDef,
     DescribeKeyRegistrationResponseTypeDef,
+    DescribeKnowledgeBasePermissionsRequestTypeDef,
+    DescribeKnowledgeBasePermissionsResponseTypeDef,
+    DescribeKnowledgeBaseRequestTypeDef,
+    DescribeKnowledgeBaseResponseTypeDef,
     DescribeNamespaceRequestTypeDef,
     DescribeNamespaceResponseTypeDef,
+    DescribeOAuthClientApplicationRequestTypeDef,
+    DescribeOAuthClientApplicationResponseTypeDef,
     DescribeQPersonalizationConfigurationRequestTypeDef,
     DescribeQPersonalizationConfigurationResponseTypeDef,
     DescribeQuickSightQSearchConfigurationRequestTypeDef,
@@ -279,6 +316,10 @@ from .type_defs import (
     DescribeRoleCustomPermissionResponseTypeDef,
     DescribeSelfUpgradeConfigurationRequestTypeDef,
     DescribeSelfUpgradeConfigurationResponseTypeDef,
+    DescribeSpacePermissionsRequestTypeDef,
+    DescribeSpacePermissionsResponseTypeDef,
+    DescribeSpaceRequestTypeDef,
+    DescribeSpaceResponseTypeDef,
     DescribeTemplateAliasRequestTypeDef,
     DescribeTemplateAliasResponseTypeDef,
     DescribeTemplateDefinitionRequestTypeDef,
@@ -323,6 +364,8 @@ from .type_defs import (
     GetSessionEmbedUrlResponseTypeDef,
     ListActionConnectorsRequestTypeDef,
     ListActionConnectorsResponseTypeDef,
+    ListAgentsRequestTypeDef,
+    ListAgentsResponseTypeDef,
     ListAnalysesRequestTypeDef,
     ListAnalysesResponseTypeDef,
     ListAssetBundleExportJobsRequestTypeDef,
@@ -361,14 +404,22 @@ from .type_defs import (
     ListIdentityPropagationConfigsResponseTypeDef,
     ListIngestionsRequestTypeDef,
     ListIngestionsResponseTypeDef,
+    ListKnowledgeBasesRequestTypeDef,
+    ListKnowledgeBasesResponseTypeDef,
     ListNamespacesRequestTypeDef,
     ListNamespacesResponseTypeDef,
+    ListOAuthClientApplicationsRequestTypeDef,
+    ListOAuthClientApplicationsResponseTypeDef,
     ListRefreshSchedulesRequestTypeDef,
     ListRefreshSchedulesResponseTypeDef,
     ListRoleMembershipsRequestTypeDef,
     ListRoleMembershipsResponseTypeDef,
     ListSelfUpgradesRequestTypeDef,
     ListSelfUpgradesResponseTypeDef,
+    ListSpaceResourcesRequestTypeDef,
+    ListSpaceResourcesResponseTypeDef,
+    ListSpacesRequestTypeDef,
+    ListSpacesResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     ListTemplateAliasesRequestTypeDef,
@@ -391,6 +442,8 @@ from .type_defs import (
     ListTopicsResponseTypeDef,
     ListUserGroupsRequestTypeDef,
     ListUserGroupsResponseTypeDef,
+    ListUsersIndexCapacityRequestTypeDef,
+    ListUsersIndexCapacityResponseTypeDef,
     ListUsersRequestTypeDef,
     ListUsersResponseTypeDef,
     ListVPCConnectionsRequestTypeDef,
@@ -405,6 +458,8 @@ from .type_defs import (
     RestoreAnalysisResponseTypeDef,
     SearchActionConnectorsRequestTypeDef,
     SearchActionConnectorsResponseTypeDef,
+    SearchAgentsRequestTypeDef,
+    SearchAgentsResponseTypeDef,
     SearchAnalysesRequestTypeDef,
     SearchAnalysesResponseTypeDef,
     SearchDashboardsRequestTypeDef,
@@ -419,6 +474,10 @@ from .type_defs import (
     SearchFoldersResponseTypeDef,
     SearchGroupsRequestTypeDef,
     SearchGroupsResponseTypeDef,
+    SearchKnowledgeBasesRequestTypeDef,
+    SearchKnowledgeBasesResponseTypeDef,
+    SearchSpacesRequestTypeDef,
+    SearchSpacesResponseTypeDef,
     SearchTopicsRequestTypeDef,
     SearchTopicsResponseTypeDef,
     StartAssetBundleExportJobRequestTypeDef,
@@ -445,6 +504,10 @@ from .type_defs import (
     UpdateActionConnectorPermissionsResponseTypeDef,
     UpdateActionConnectorRequestTypeDef,
     UpdateActionConnectorResponseTypeDef,
+    UpdateAgentPermissionsRequestTypeDef,
+    UpdateAgentPermissionsResponseTypeDef,
+    UpdateAgentRequestTypeDef,
+    UpdateAgentResponseTypeDef,
     UpdateAnalysisPermissionsRequestTypeDef,
     UpdateAnalysisPermissionsResponseTypeDef,
     UpdateAnalysisRequestTypeDef,
@@ -481,6 +544,8 @@ from .type_defs import (
     UpdateDefaultQBusinessApplicationResponseTypeDef,
     UpdateFlowPermissionsInputTypeDef,
     UpdateFlowPermissionsOutputTypeDef,
+    UpdateFlowRequestTypeDef,
+    UpdateFlowResponseTypeDef,
     UpdateFolderPermissionsRequestTypeDef,
     UpdateFolderPermissionsResponseTypeDef,
     UpdateFolderRequestTypeDef,
@@ -495,6 +560,12 @@ from .type_defs import (
     UpdateIpRestrictionResponseTypeDef,
     UpdateKeyRegistrationRequestTypeDef,
     UpdateKeyRegistrationResponseTypeDef,
+    UpdateKnowledgeBasePermissionsRequestTypeDef,
+    UpdateKnowledgeBasePermissionsResponseTypeDef,
+    UpdateKnowledgeBaseRequestTypeDef,
+    UpdateKnowledgeBaseResponseTypeDef,
+    UpdateOAuthClientApplicationRequestTypeDef,
+    UpdateOAuthClientApplicationResponseTypeDef,
     UpdatePublicSharingSettingsRequestTypeDef,
     UpdatePublicSharingSettingsResponseTypeDef,
     UpdateQPersonalizationConfigurationRequestTypeDef,
@@ -509,6 +580,12 @@ from .type_defs import (
     UpdateSelfUpgradeConfigurationResponseTypeDef,
     UpdateSelfUpgradeRequestTypeDef,
     UpdateSelfUpgradeResponseTypeDef,
+    UpdateSpacePermissionsRequestTypeDef,
+    UpdateSpacePermissionsResponseTypeDef,
+    UpdateSpaceRequestTypeDef,
+    UpdateSpaceResourcesRequestTypeDef,
+    UpdateSpaceResourcesResponseTypeDef,
+    UpdateSpaceResponseTypeDef,
     UpdateSPICECapacityConfigurationRequestTypeDef,
     UpdateSPICECapacityConfigurationResponseTypeDef,
     UpdateTemplateAliasRequestTypeDef,
@@ -618,6 +695,16 @@ class QuickSightClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#batch_create_topic_reviewed_answer)
         """
 
+    async def batch_delete_knowledge_base(
+        self, **kwargs: Unpack[BatchDeleteKnowledgeBaseRequestTypeDef]
+    ) -> BatchDeleteKnowledgeBaseResponseTypeDef:
+        """
+        Deletes one or more knowledge bases.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/batch_delete_knowledge_base.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#batch_delete_knowledge_base)
+        """
+
     async def batch_delete_topic_reviewed_answer(
         self, **kwargs: Unpack[BatchDeleteTopicReviewedAnswerRequestTypeDef]
     ) -> BatchDeleteTopicReviewedAnswerResponseTypeDef:
@@ -667,6 +754,16 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_action_connector.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#create_action_connector)
+        """
+
+    async def create_agent(
+        self, **kwargs: Unpack[CreateAgentRequestTypeDef]
+    ) -> CreateAgentResponseTypeDef:
+        """
+        Creates an agent in Amazon QuickSight.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_agent.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#create_agent)
         """
 
     async def create_analysis(
@@ -730,6 +827,16 @@ class QuickSightClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#create_data_source)
         """
 
+    async def create_flow(
+        self, **kwargs: Unpack[CreateFlowRequestTypeDef]
+    ) -> CreateFlowResponseTypeDef:
+        """
+        Creates a new flow in the specified Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_flow.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#create_flow)
+        """
+
     async def create_folder(
         self, **kwargs: Unpack[CreateFolderRequestTypeDef]
     ) -> CreateFolderResponseTypeDef:
@@ -791,6 +898,16 @@ class QuickSightClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#create_ingestion)
         """
 
+    async def create_knowledge_base(
+        self, **kwargs: Unpack[CreateKnowledgeBaseRequestTypeDef]
+    ) -> CreateKnowledgeBaseResponseTypeDef:
+        """
+        Creates a knowledge base from a specified data source.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_knowledge_base.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#create_knowledge_base)
+        """
+
     async def create_namespace(
         self, **kwargs: Unpack[CreateNamespaceRequestTypeDef]
     ) -> CreateNamespaceResponseTypeDef:
@@ -800,6 +917,16 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_namespace.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#create_namespace)
+        """
+
+    async def create_o_auth_client_application(
+        self, **kwargs: Unpack[CreateOAuthClientApplicationRequestTypeDef]
+    ) -> CreateOAuthClientApplicationResponseTypeDef:
+        """
+        Creates an OAuthClientApplication.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_o_auth_client_application.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#create_o_auth_client_application)
         """
 
     async def create_refresh_schedule(
@@ -821,6 +948,16 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_role_membership.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#create_role_membership)
+        """
+
+    async def create_space(
+        self, **kwargs: Unpack[CreateSpaceRequestTypeDef]
+    ) -> CreateSpaceResponseTypeDef:
+        """
+        Creates a new Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_space.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#create_space)
         """
 
     async def create_template(
@@ -936,6 +1073,16 @@ class QuickSightClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#delete_action_connector)
         """
 
+    async def delete_agent(
+        self, **kwargs: Unpack[DeleteAgentRequestTypeDef]
+    ) -> DeleteAgentResponseTypeDef:
+        """
+        Deletes an agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_agent.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#delete_agent)
+        """
+
     async def delete_analysis(
         self, **kwargs: Unpack[DeleteAnalysisRequestTypeDef]
     ) -> DeleteAnalysisResponseTypeDef:
@@ -1026,6 +1173,16 @@ class QuickSightClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#delete_default_q_business_application)
         """
 
+    async def delete_flow(
+        self, **kwargs: Unpack[DeleteFlowRequestTypeDef]
+    ) -> DeleteFlowResponseTypeDef:
+        """
+        Permanently deletes a flow from the specified Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_flow.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#delete_flow)
+        """
+
     async def delete_folder(
         self, **kwargs: Unpack[DeleteFolderRequestTypeDef]
     ) -> DeleteFolderResponseTypeDef:
@@ -1087,6 +1244,16 @@ class QuickSightClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#delete_identity_propagation_config)
         """
 
+    async def delete_knowledge_base(
+        self, **kwargs: Unpack[DeleteKnowledgeBaseRequestTypeDef]
+    ) -> DeleteKnowledgeBaseResponseTypeDef:
+        """
+        Deletes a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_knowledge_base.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#delete_knowledge_base)
+        """
+
     async def delete_namespace(
         self, **kwargs: Unpack[DeleteNamespaceRequestTypeDef]
     ) -> DeleteNamespaceResponseTypeDef:
@@ -1096,6 +1263,16 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_namespace.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#delete_namespace)
+        """
+
+    async def delete_o_auth_client_application(
+        self, **kwargs: Unpack[DeleteOAuthClientApplicationRequestTypeDef]
+    ) -> DeleteOAuthClientApplicationResponseTypeDef:
+        """
+        Deletes an OAuthClientApplication.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_o_auth_client_application.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#delete_o_auth_client_application)
         """
 
     async def delete_refresh_schedule(
@@ -1126,6 +1303,16 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_role_membership.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#delete_role_membership)
+        """
+
+    async def delete_space(
+        self, **kwargs: Unpack[DeleteSpaceRequestTypeDef]
+    ) -> DeleteSpaceResponseTypeDef:
+        """
+        Deletes an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_space.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#delete_space)
         """
 
     async def delete_template(
@@ -1292,6 +1479,26 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_action_connector_permissions.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_action_connector_permissions)
+        """
+
+    async def describe_agent(
+        self, **kwargs: Unpack[DescribeAgentRequestTypeDef]
+    ) -> DescribeAgentResponseTypeDef:
+        """
+        Describes an agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_agent.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_agent)
+        """
+
+    async def describe_agent_permissions(
+        self, **kwargs: Unpack[DescribeAgentPermissionsRequestTypeDef]
+    ) -> DescribeAgentPermissionsResponseTypeDef:
+        """
+        Describes the resource permissions for an agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_agent_permissions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_agent_permissions)
         """
 
     async def describe_analysis(
@@ -1516,6 +1723,17 @@ class QuickSightClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_default_q_business_application)
         """
 
+    async def describe_flow(
+        self, **kwargs: Unpack[DescribeFlowRequestTypeDef]
+    ) -> DescribeFlowResponseTypeDef:
+        """
+        Returns the full details of a flow for the latest version of the requested
+        publish state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_flow.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_flow)
+        """
+
     async def describe_folder(
         self, **kwargs: Unpack[DescribeFolderRequestTypeDef]
     ) -> DescribeFolderResponseTypeDef:
@@ -1609,6 +1827,26 @@ class QuickSightClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_key_registration)
         """
 
+    async def describe_knowledge_base(
+        self, **kwargs: Unpack[DescribeKnowledgeBaseRequestTypeDef]
+    ) -> DescribeKnowledgeBaseResponseTypeDef:
+        """
+        Describes a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_knowledge_base.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_knowledge_base)
+        """
+
+    async def describe_knowledge_base_permissions(
+        self, **kwargs: Unpack[DescribeKnowledgeBasePermissionsRequestTypeDef]
+    ) -> DescribeKnowledgeBasePermissionsResponseTypeDef:
+        """
+        Describes the resource permissions for a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_knowledge_base_permissions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_knowledge_base_permissions)
+        """
+
     async def describe_namespace(
         self, **kwargs: Unpack[DescribeNamespaceRequestTypeDef]
     ) -> DescribeNamespaceResponseTypeDef:
@@ -1617,6 +1855,16 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_namespace.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_namespace)
+        """
+
+    async def describe_o_auth_client_application(
+        self, **kwargs: Unpack[DescribeOAuthClientApplicationRequestTypeDef]
+    ) -> DescribeOAuthClientApplicationResponseTypeDef:
+        """
+        Describes an OAuthClientApplication.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_o_auth_client_application.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_o_auth_client_application)
         """
 
     async def describe_q_personalization_configuration(
@@ -1667,6 +1915,26 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_self_upgrade_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_self_upgrade_configuration)
+        """
+
+    async def describe_space(
+        self, **kwargs: Unpack[DescribeSpaceRequestTypeDef]
+    ) -> DescribeSpaceResponseTypeDef:
+        """
+        Describes an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_space.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_space)
+        """
+
+    async def describe_space_permissions(
+        self, **kwargs: Unpack[DescribeSpacePermissionsRequestTypeDef]
+    ) -> DescribeSpacePermissionsResponseTypeDef:
+        """
+        Describes the permissions for an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_space_permissions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_space_permissions)
         """
 
     async def describe_template(
@@ -1898,6 +2166,16 @@ class QuickSightClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#list_action_connectors)
         """
 
+    async def list_agents(
+        self, **kwargs: Unpack[ListAgentsRequestTypeDef]
+    ) -> ListAgentsResponseTypeDef:
+        """
+        Lists all agents in an Amazon QuickSight account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_agents.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#list_agents)
+        """
+
     async def list_analyses(
         self, **kwargs: Unpack[ListAnalysesRequestTypeDef]
     ) -> ListAnalysesResponseTypeDef:
@@ -2094,6 +2372,16 @@ class QuickSightClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#list_ingestions)
         """
 
+    async def list_knowledge_bases(
+        self, **kwargs: Unpack[ListKnowledgeBasesRequestTypeDef]
+    ) -> ListKnowledgeBasesResponseTypeDef:
+        """
+        Lists all knowledge bases in an Amazon QuickSight account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_knowledge_bases.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#list_knowledge_bases)
+        """
+
     async def list_namespaces(
         self, **kwargs: Unpack[ListNamespacesRequestTypeDef]
     ) -> ListNamespacesResponseTypeDef:
@@ -2102,6 +2390,17 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_namespaces.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#list_namespaces)
+        """
+
+    async def list_o_auth_client_applications(
+        self, **kwargs: Unpack[ListOAuthClientApplicationsRequestTypeDef]
+    ) -> ListOAuthClientApplicationsResponseTypeDef:
+        """
+        Lists all OAuthClientApplications in the current Amazon Web Services Region
+        that belong to this Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_o_auth_client_applications.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#list_o_auth_client_applications)
         """
 
     async def list_refresh_schedules(
@@ -2132,6 +2431,26 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_self_upgrades.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#list_self_upgrades)
+        """
+
+    async def list_space_resources(
+        self, **kwargs: Unpack[ListSpaceResourcesRequestTypeDef]
+    ) -> ListSpaceResourcesResponseTypeDef:
+        """
+        Lists the resources in an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_space_resources.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#list_space_resources)
+        """
+
+    async def list_spaces(
+        self, **kwargs: Unpack[ListSpacesRequestTypeDef]
+    ) -> ListSpacesResponseTypeDef:
+        """
+        Lists all Amazon QuickSight spaces in an Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_spaces.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#list_spaces)
         """
 
     async def list_tags_for_resource(
@@ -2256,6 +2575,16 @@ class QuickSightClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#list_users)
         """
 
+    async def list_users_index_capacity(
+        self, **kwargs: Unpack[ListUsersIndexCapacityRequestTypeDef]
+    ) -> ListUsersIndexCapacityResponseTypeDef:
+        """
+        Lists per-user index capacity consumption for an account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_users_index_capacity.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#list_users_index_capacity)
+        """
+
     async def list_vpc_connections(
         self, **kwargs: Unpack[ListVPCConnectionsRequestTypeDef]
     ) -> ListVPCConnectionsResponseTypeDef:
@@ -2317,6 +2646,16 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_action_connectors.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#search_action_connectors)
+        """
+
+    async def search_agents(
+        self, **kwargs: Unpack[SearchAgentsRequestTypeDef]
+    ) -> SearchAgentsResponseTypeDef:
+        """
+        Searches for agents based on specified filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_agents.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#search_agents)
         """
 
     async def search_analyses(
@@ -2390,6 +2729,26 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_groups.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#search_groups)
+        """
+
+    async def search_knowledge_bases(
+        self, **kwargs: Unpack[SearchKnowledgeBasesRequestTypeDef]
+    ) -> SearchKnowledgeBasesResponseTypeDef:
+        """
+        Searches for a subset of knowledge bases based on specified filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_knowledge_bases.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#search_knowledge_bases)
+        """
+
+    async def search_spaces(
+        self, **kwargs: Unpack[SearchSpacesRequestTypeDef]
+    ) -> SearchSpacesResponseTypeDef:
+        """
+        Searches for Amazon QuickSight spaces that match the specified filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_spaces.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#search_spaces)
         """
 
     async def search_topics(
@@ -2524,6 +2883,26 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_action_connector_permissions.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_action_connector_permissions)
+        """
+
+    async def update_agent(
+        self, **kwargs: Unpack[UpdateAgentRequestTypeDef]
+    ) -> UpdateAgentResponseTypeDef:
+        """
+        Updates an existing agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_agent.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_agent)
+        """
+
+    async def update_agent_permissions(
+        self, **kwargs: Unpack[UpdateAgentPermissionsRequestTypeDef]
+    ) -> UpdateAgentPermissionsResponseTypeDef:
+        """
+        Updates the resource permissions for an agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_agent_permissions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_agent_permissions)
         """
 
     async def update_analysis(
@@ -2696,6 +3075,16 @@ class QuickSightClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_default_q_business_application)
         """
 
+    async def update_flow(
+        self, **kwargs: Unpack[UpdateFlowRequestTypeDef]
+    ) -> UpdateFlowResponseTypeDef:
+        """
+        Updates an existing flow.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_flow.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_flow)
+        """
+
     async def update_flow_permissions(
         self, **kwargs: Unpack[UpdateFlowPermissionsInputTypeDef]
     ) -> UpdateFlowPermissionsOutputTypeDef:
@@ -2775,6 +3164,36 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_key_registration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_key_registration)
+        """
+
+    async def update_knowledge_base(
+        self, **kwargs: Unpack[UpdateKnowledgeBaseRequestTypeDef]
+    ) -> UpdateKnowledgeBaseResponseTypeDef:
+        """
+        Updates the properties of an existing knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_knowledge_base.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_knowledge_base)
+        """
+
+    async def update_knowledge_base_permissions(
+        self, **kwargs: Unpack[UpdateKnowledgeBasePermissionsRequestTypeDef]
+    ) -> UpdateKnowledgeBasePermissionsResponseTypeDef:
+        """
+        Updates the resource permissions for a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_knowledge_base_permissions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_knowledge_base_permissions)
+        """
+
+    async def update_o_auth_client_application(
+        self, **kwargs: Unpack[UpdateOAuthClientApplicationRequestTypeDef]
+    ) -> UpdateOAuthClientApplicationResponseTypeDef:
+        """
+        Updates an OAuthClientApplication.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_o_auth_client_application.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_o_auth_client_application)
         """
 
     async def update_public_sharing_settings(
@@ -2857,6 +3276,36 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_self_upgrade_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_self_upgrade_configuration)
+        """
+
+    async def update_space(
+        self, **kwargs: Unpack[UpdateSpaceRequestTypeDef]
+    ) -> UpdateSpaceResponseTypeDef:
+        """
+        Updates the metadata of an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_space.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_space)
+        """
+
+    async def update_space_permissions(
+        self, **kwargs: Unpack[UpdateSpacePermissionsRequestTypeDef]
+    ) -> UpdateSpacePermissionsResponseTypeDef:
+        """
+        Updates the permissions for an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_space_permissions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_space_permissions)
+        """
+
+    async def update_space_resources(
+        self, **kwargs: Unpack[UpdateSpaceResourcesRequestTypeDef]
+    ) -> UpdateSpaceResourcesResponseTypeDef:
+        """
+        Adds or removes resources from an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_space_resources.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#update_space_resources)
         """
 
     async def update_template(
@@ -3213,8 +3662,30 @@ class QuickSightClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_knowledge_bases"]
+    ) -> ListKnowledgeBasesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_namespaces"]
     ) -> ListNamespacesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_o_auth_client_applications"]
+    ) -> ListOAuthClientApplicationsPaginator:
         """
         Create a paginator for an operation.
 
@@ -3391,6 +3862,17 @@ class QuickSightClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_groups"]
     ) -> SearchGroupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_knowledge_bases"]
+    ) -> SearchKnowledgeBasesPaginator:
         """
         Create a paginator for an operation.
 

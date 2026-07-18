@@ -493,11 +493,13 @@ class ApiImplType1(ApiImpl):
             try:
                 vehicle.tire_pressure_unit = PressureUnit(_pu_raw)
             except ValueError:
-                # Some vehicles return a PressureUnit not in the enum (e.g. 3,
-                # see API #1230 / kia_uvo #1784 #1785). Degrade gracefully instead
-                # of crashing the whole vehicle update / integration setup.
-                _LOGGER.warning(
-                    "%s - Unknown tire PressureUnit %r; tire pressure values ignored",
+                # PressureUnit outside {0:psi,1:kpa,2:bar}; e.g. 3 on
+                # indirect-TPMS vehicles (no direct sensor, kia_uvo #1786) ->
+                # the car reports no per-tire pressure, so unavailable is
+                # correct. Expected on some vehicles, so debug, not warning.
+                _LOGGER.debug(
+                    "%s - Tire PressureUnit %r not in {0:psi,1:kpa,2:bar}; "
+                    "tire pressure values ignored",
                     DOMAIN,
                     _pu_raw,
                 )
@@ -542,6 +544,16 @@ class ApiImplType1(ApiImpl):
         # 12V auxiliary battery fault warning. None when unreported.
         vehicle.battery_auxiliary_fail_warning_is_on = bool_or_none(
             get_child_value(state, "Electronics.Battery.Auxiliary.FailWarning")
+        )
+        # Power/ignition/sleep — gap vs CA/IN flat format.
+        vehicle.accessory_on = bool_or_none(
+            get_child_value(state, "Electronics.PowerSupply.Accessory")
+        )
+        vehicle.ign3 = bool_or_none(
+            get_child_value(state, "Electronics.PowerSupply.Ignition3")
+        )
+        vehicle.sleep_mode_check = bool_or_none(
+            get_child_value(state, "RemoteControl.SleepMode")
         )
         vehicle.trunk_is_open = get_child_value(state, "Body.Trunk.Open")
 

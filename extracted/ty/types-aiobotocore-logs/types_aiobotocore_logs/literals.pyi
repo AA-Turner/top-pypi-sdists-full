@@ -27,6 +27,9 @@ __all__ = (
     "CloudWatchLogsServiceName",
     "DataProtectionStatusType",
     "DeliveryDestinationTypeType",
+    "DeliverySourceConfigurationSchemaValueTypeType",
+    "DeliverySourceStatusReasonType",
+    "DeliverySourceStatusType",
     "DescribeConfigurationTemplatesPaginatorName",
     "DescribeDeliveriesPaginatorName",
     "DescribeDeliveryDestinationsPaginatorName",
@@ -74,15 +77,18 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "S3TableIntegrationSourceStatusType",
+    "ScheduleTypeType",
     "ScheduledQueryDestinationTypeType",
     "ScheduledQueryStateType",
     "ScopeType",
     "ServiceName",
     "StandardUnitType",
     "StateType",
+    "StorageTierType",
     "SuppressionStateType",
     "SuppressionTypeType",
     "SuppressionUnitType",
+    "SyslogSourceTypeType",
     "TypeType",
 )
 
@@ -92,6 +98,11 @@ AnomalyDetectorStatusType = Literal[
 ]
 DataProtectionStatusType = Literal["ACTIVATED", "ARCHIVED", "DELETED", "DISABLED"]
 DeliveryDestinationTypeType = Literal["CWL", "FH", "S3", "XRAY"]
+DeliverySourceConfigurationSchemaValueTypeType = Literal[
+    "boolean", "double", "int", "long", "string"
+]
+DeliverySourceStatusReasonType = Literal["RESOURCE_DELETED"]
+DeliverySourceStatusType = Literal["ACTIVE", "INACTIVE"]
 DescribeConfigurationTemplatesPaginatorName = Literal["describe_configuration_templates"]
 DescribeDeliveriesPaginatorName = Literal["describe_deliveries"]
 DescribeDeliveryDestinationsPaginatorName = Literal["describe_delivery_destinations"]
@@ -160,6 +171,7 @@ QueryStatusType = Literal[
 S3TableIntegrationSourceStatusType = Literal[
     "ACTIVE", "DATA_SOURCE_DELETE_IN_PROGRESS", "FAILED", "UNHEALTHY"
 ]
+ScheduleTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
 ScheduledQueryDestinationTypeType = Literal["S3"]
 ScheduledQueryStateType = Literal["DISABLED", "ENABLED"]
 ScopeType = Literal["ALL"]
@@ -193,9 +205,11 @@ StandardUnitType = Literal[
     "Terabytes/Second",
 ]
 StateType = Literal["Active", "Baseline", "Suppressed"]
+StorageTierType = Literal["INTELLIGENT_TIERING", "STANDARD"]
 SuppressionStateType = Literal["SUPPRESSED", "UNSUPPRESSED"]
 SuppressionTypeType = Literal["INFINITE", "LIMITED"]
 SuppressionUnitType = Literal["HOURS", "MINUTES", "SECONDS"]
+SyslogSourceTypeType = Literal["VPCE"]
 TypeType = Literal["boolean", "double", "integer", "string"]
 CloudWatchLogsServiceName = Literal["logs"]
 ServiceName = Literal[
@@ -391,8 +405,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -419,6 +431,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -486,10 +500,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -522,6 +536,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -549,6 +564,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -570,7 +586,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -591,6 +606,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

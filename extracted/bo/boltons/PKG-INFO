@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: boltons
-Version: 26.0.0
+Version: 26.1.0
 Summary: When they're not builtins, they're boltons.
 Author-email: Mahmoud Hashemi <mahmoud@hatnote.com>
 Requires-Python: >=3.7

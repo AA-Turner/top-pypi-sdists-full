@@ -46,8 +46,9 @@ class DeviceRuntimeState(DashboardModel):
     fields the metadata sidecar persists (``deployed_version``,
     ``deployed_config_hash``, ``queued_update``,
     ``api_encryption_active``) are also seeded from disk on cold load,
-    while ``state`` / ``active_source`` / ``ip_addresses`` start empty
-    and repopulate on the next announce. A Device rebuild carries the
+    while ``state`` / ``active_source`` / ``ip_addresses`` /
+    ``deployed_identity_live`` start empty and repopulate on the next
+    announce. A Device rebuild carries the
     whole object from the previous in-memory instance so a re-scan
     doesn't wipe what the monitors have discovered since.
     """
@@ -79,6 +80,14 @@ class DeviceRuntimeState(DashboardModel):
     # confirmed, ``""`` = TXT seen with the key absent (confirmed
     # plaintext), ``None`` = no broadcast yet.
     api_encryption_active: str | None = None
+    # True while fresh first-party evidence backs the deployed identity:
+    # an unexpired ``_http._tcp`` identity TXT (non-API devices), a live
+    # Native API ``device_info`` connection (api devices the mDNS ledger
+    # doesn't own), or a flash this dashboard performed this session.
+    # Never a reachability claim. Session-only: a cold start has no
+    # evidence for the sidecar-seeded values, which is exactly what the
+    # flag reports.
+    deployed_identity_live: bool = False
 
 
 # Canonical name set for routing flat attr names onto ``runtime_state``.
@@ -139,6 +148,7 @@ class Device(DashboardModel):
     pending_changes_via_hash: bool = False
     update_available: bool = False  # True if compiled with older ESPHome version
     uses_mqtt: bool = False  # True if the YAML declares a top-level mqtt: block
+    uses_deep_sleep: bool = False  # True if the YAML declares a top-level deep_sleep: block
     # Native API surface flags — drive the lock-icon indicator in
     # the device list. Both fields are computed in
     # ``helpers.device_yaml.load_device_from_storage`` as the

@@ -660,8 +660,14 @@ class ToProtoConverter:
             )
 
         elif isinstance(captured_global, FunctionCapturedGlobalStruct):  # pyright: ignore[reportUnnecessaryIsInstance]
+            # global_name must be the name the capturing function's source references (the
+            # dict key), not the struct's class name: `from pydantic.v1 import BaseModel as
+            # V1BaseModel` must round-trip keyed as 'V1BaseModel', or the rehydrated
+            # function's globals cannot resolve the alias. Using the class name here also
+            # made the value deduper collapse differently-aliased captures of the same
+            # struct into one entry recorded under the class name.
             return pb.FunctionReferenceCapturedGlobal(
-                global_name=captured_global.name,
+                global_name=name,
                 struct=pb.FunctionGlobalCapturedStruct(
                     name=captured_global.name,
                     module=captured_global.module,

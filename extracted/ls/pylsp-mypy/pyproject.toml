@@ -1,3 +1,55 @@
+[project]
+name = "pylsp-mypy"
+version = "0.8.0"
+authors = [
+    {name = "Dr. Richard Kellnberger"},
+    {name = "Tom van Ommeren"}
+]
+description = "Mypy linter for the Python LSP Server"
+readme = "README.md"
+dependencies = [
+  "python-lsp-server >= 1.13.1",
+  "mypy >= 0.981",
+  "tomli >= 1.1.0 ; python_version < \"3.11\""
+]
+requires-python = ">= 3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["mypy", "typing"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Operating System :: OS Independent"
+]
+
+[project.urls]
+Homepage = "https://github.com/Richardk2n/pylsp-mypy"
+Repository = "https://github.com/Richardk2n/pylsp-mypy.git"
+
+[project.optional-dependencies]
+test = [
+  "tox",
+  "pytest",
+  "pytest-cov",
+  "coverage"
+]
+
+[project.entry-points.pylsp]
+pylsp_mypy = "pylsp_mypy.plugin"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+exclude = ["test"]
+
 [tool.black]
 line-length = 100
 include = '\.pyi?$'
@@ -17,13 +69,19 @@ exclude = '''
 profile = "black"
 line_length = 100
 
+[tool.flake8]
+max-complexity = 20
+max-line-length = 100
+
 [tool.pylsp-mypy]
 enabled = true
 live_mode = true
 strict = true
+hover = true
 
 [tool.mypy]
 python_version = "3.10"
+untyped_calls_exclude = ["pylsp"]
 
 [[tool.mypy.overrides]]
 module = "pylsp.*"

@@ -9,6 +9,7 @@ from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
 
 from airbyte_ops_webapp.models import (
     ConnectorOption,
+    ConnectorPopulation,
     ConnectorRelease,
     ConnectorRollout,
     ConnectorVersion,
@@ -16,8 +17,10 @@ from airbyte_ops_webapp.models import (
     CurrentVersionState,
     OperationResult,
     OverridePlan,
+    RolloutSyncSummary,
     ScopedConfiguration,
     ScopeType,
+    TierPopulationFactors,
     VersionPinRow,
     build_version_override_payload,
     version_override_tool_name,
@@ -30,6 +33,77 @@ from airbyte_ops_webapp.services.connector_version_manager.adapter import (
 # Artificial delays for realistic tab-loading UX in mock/demo mode.
 _MOCK_DELAY_DEFAULT = 0.75
 _MOCK_DELAY_HEAVY = 2.5
+
+
+def _mock_tier_factors(addressable: int, pinned: int) -> TierPopulationFactors:
+    """Synthesize a tier's `TierPopulationFactors` for demo mode.
+
+    Derives an illustrative but internally-consistent factor breakdown from the
+    tier's addressable and rollout-pinned counts so the demo UI can show the
+    traceable arithmetic (`active = pinned + off-version + unpinned`,
+    `unpinned = gate_pass + failed + no_recent_sync`). Values are fabricated for
+    the demo; the live adapter derives them from the population query.
+    """
+    off_version = round(addressable * 0.08)
+    unpinned = max(addressable - pinned, 0)
+    gate_pass = round(unpinned * 0.45)
+    gate_failed = round(unpinned * 0.15)
+    gate_no_recent_sync = max(unpinned - gate_pass - gate_failed, 0)
+    return TierPopulationFactors(
+        active=addressable + off_version,
+        pinned_to_rollout=pinned,
+        off_version_pinned=off_version,
+        unpinned=unpinned,
+        gate_pass=gate_pass,
+        gate_excluded_failed=gate_failed,
+        gate_excluded_no_recent_sync=gate_no_recent_sync,
+        addressable=addressable,
+        addressable_gated=gate_pass + pinned,
+    )
+
+
+def _mock_population(
+    tier_2: tuple[int, int],
+    tier_1: tuple[int, int],
+    tier_0: tuple[int, int],
+) -> ConnectorPopulation:
+    """Build a demo `ConnectorPopulation` from per-tier `(addressable, pinned)`.
+
+    Each tier's eligible denominator is the gated-eligible count
+    (`gate_pass + pinned`, matching the live adapter and the card's "Eligible"
+    row), and `total_eligible` is their sum. `total_active` remains the
+    connector-wide active count (retained for fallback).
+    """
+    factors = {
+        tier: _mock_tier_factors(addressable, pinned)
+        for tier, (addressable, pinned) in (
+            (CustomerTier.TIER_2, tier_2),
+            (CustomerTier.TIER_1, tier_1),
+            (CustomerTier.TIER_0, tier_0),
+        )
+    }
+    f2, f1, f0 = (
+        factors[CustomerTier.TIER_2],
+        factors[CustomerTier.TIER_1],
+        factors[CustomerTier.TIER_0],
+    )
+    return ConnectorPopulation(
+        total_active=f2.active + f1.active + f0.active,
+        total_eligible=f2.addressable_gated
+        + f1.addressable_gated
+        + f0.addressable_gated,
+        eligible_tier_2=f2.addressable_gated,
+        eligible_tier_1=f1.addressable_gated,
+        eligible_tier_0=f0.addressable_gated,
+        pinned_tier_2=f2.pinned_to_rollout,
+        pinned_tier_1=f1.pinned_to_rollout,
+        pinned_tier_0=f0.pinned_to_rollout,
+        tier_resolution_available=True,
+        factors_tier_2=f2,
+        factors_tier_1=f1,
+        factors_tier_0=f0,
+    )
+
 
 MOCK_CONNECTORS: tuple[ConnectorOption, ...] = (
     ConnectorOption(
@@ -89,6 +163,16 @@ MOCK_VERSIONS: dict[str, tuple[ConnectorVersion, ...]] = {
         ),
     ),
     "ef69ef6e-aa7f-4af1-a01d-ef775033524e": (
+        ConnectorVersion(
+            version_id="adv_github_1100rc1",
+            docker_image_tag="1.10.0-rc.1",
+            docker_repository="airbyte/source-github",
+            release_stage="generally_available",
+            support_level="certified",
+            cdk_version="python:6.50.0",
+            language="python",
+            last_published="2026-06-20T11:30:00Z",
+        ),
         ConnectorVersion(
             version_id="adv_github_194",
             docker_image_tag="1.9.4",
@@ -363,6 +447,23 @@ MOCK_ROLLOUTS: dict[str, tuple[ConnectorRollout, ...]] = {
             rollout_strategy="auto",
             rc_pin_count=2,
             tier=CustomerTier.TIER_2,
+        ),
+        ConnectorRollout(
+            rollout_id="mock-postgres-rollout-t1",
+            connector_id="b5ea17b1-f170-46dc-bc31-cc744ca984c1",
+            connector_name="source-postgres",
+            connector_type="source",
+            docker_repository="airbyte/source-postgres",
+            state="in_progress",
+            rc_docker_image_tag="3.8.0-rc.12",
+            initial_docker_image_tag="3.7.2",
+            current_target_rollout_pct="30",
+            final_target_rollout_pct="100",
+            created_at="2026-05-02T11:00:00Z",
+            updated_at="2026-06-23T09:15:00Z",
+            rollout_strategy="auto",
+            rc_pin_count=2,
+            tier=CustomerTier.TIER_1,
         ),
     ),
     "ef69ef6e-aa7f-4af1-a01d-ef775033524e": (
@@ -691,14 +792,115 @@ class MockPinningAdapter(OpsMcpAdapter):
             organization_name="Mock Organization",
         )
 
-    def get_connection_health_summary(
+    def get_rollout_sync_summary(self, rollout_id: str) -> RolloutSyncSummary:
+        """Return a mock rollout health + population summary, keyed by rollout.
+
+        Distinct values per rollout ID so the per-tier cards render realistic
+        (differing) breakdowns in demo mode.
+        """
+        if not rollout_id:
+            return RolloutSyncSummary()
+        per_rollout = {
+            # source-github T2: 100% deployed, no failures -> 🟢 Complete
+            "mock-github-rollout-t2": RolloutSyncSummary(
+                health="18 healthy | 0 unhealthy | 2 awaiting",
+                num_pinned=20,
+                num_eligible=20,
+                num_actors=240,
+                num_healthy=18,
+                num_unhealthy=0,
+            ),
+            # source-github T1: initialized (not started) -> ⚪ Not started
+            "mock-github-rollout": RolloutSyncSummary(
+                health="0 healthy | 0 unhealthy | 0 awaiting",
+                num_pinned=0,
+                num_eligible=60,
+                num_actors=240,
+                num_healthy=0,
+                num_unhealthy=0,
+            ),
+            # source-postgres T2: 50% deployed with failures -> 🟡 Attention
+            "mock-postgres-rollout": RolloutSyncSummary(
+                health="30 healthy | 3 unhealthy | 12 awaiting",
+                num_pinned=45,
+                num_eligible=65,
+                num_actors=300,
+                num_healthy=30,
+                num_unhealthy=3,
+            ),
+            # source-postgres T1: 30% deployed, no failures -> 🔵 In progress
+            "mock-postgres-rollout-t1": RolloutSyncSummary(
+                health="10 healthy | 0 unhealthy | 2 awaiting",
+                num_pinned=12,
+                num_eligible=23,
+                num_actors=120,
+                num_healthy=10,
+                num_unhealthy=0,
+            ),
+            # destination-snowflake: paused -> ⏸️ Paused
+            "mock-snowflake-rollout": RolloutSyncSummary(
+                health="9 healthy | 0 unhealthy | 3 awaiting",
+                num_pinned=12,
+                num_eligible=30,
+                num_actors=300,
+                num_healthy=9,
+                num_unhealthy=0,
+            ),
+        }
+        return per_rollout.get(
+            rollout_id,
+            RolloutSyncSummary(
+                health="8 healthy | 1 unhealthy | 1 awaiting",
+                num_pinned=12,
+                num_eligible=40,
+                num_actors=120,
+                num_healthy=8,
+                num_unhealthy=1,
+            ),
+        )
+
+    def get_connector_population(
         self,
-        connector_id: str,
-        connector_type: str,
-        version_tag: str = "",
-    ) -> str:
-        """Return a mock connection health summary."""
-        return "12 active connections (10 succeeded, 2 failed) | 3 pinned"
+        connector_definition_id: str,
+        *,
+        is_destination: bool,
+        target_version_id: str = "",
+        rollout_created_at: str = "",
+        google_access_token: str = "",
+    ) -> ConnectorPopulation:
+        """Return a mock enabled (active-only) population, keyed by connector.
+
+        Each tier is seeded from `(addressable, pinned)` counts; the eligible
+        denominator surfaced on the card is the gated-eligible count
+        (`gate_pass + pinned`), and `pinned_<tier>` is a subset of it, so the
+        card's `pinned / eligible` numerator never exceeds its denominator.
+        `total_eligible` is the connector-wide gated-eligible count and
+        `total_active` the connector-wide active count. Each `factors_<tier>`
+        carries the full distinct-factor breakdown (see
+        `airbyte_ops_webapp.models.TierPopulationFactors`) so the demo UI can show
+        the traceable arithmetic. `target_version_id` and `rollout_created_at` are
+        accepted for parity with the live adapter but the mock values are already
+        version-scoped.
+        """
+        per_connector = {
+            # source-github
+            "ef69ef6e-aa7f-4af1-a01d-ef775033524e": _mock_population(
+                (20, 20), (60, 0), (4, 0)
+            ),
+            # source-postgres (T2 in-progress w/ failures, T1 in-progress clean)
+            "b5ea17b1-f170-46dc-bc31-cc744ca984c1": _mock_population(
+                (90, 45), (36, 12), (6, 0)
+            ),
+            # destination-snowflake (only the ALL/T0 stage is rolling out; T2/T1
+            # have no rollout row, so their pinned counts are 0)
+            "25c5221d-dce2-4163-ade9-739ef790f503": _mock_population(
+                (50, 0), (20, 0), (40, 12)
+            ),
+        }
+        return per_connector.get(
+            connector_definition_id,
+            _mock_population((40, 32), (10, 0), (2, 0)),
+        )
 
     def list_version_pins(
         self,

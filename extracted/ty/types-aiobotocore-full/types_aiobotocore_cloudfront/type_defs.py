@@ -983,6 +983,7 @@ class TrustStoreTypeDef(TypedDict):
     NumberOfCaCertificates: NotRequired[int]
     LastModifiedTime: NotRequired[datetime]
     Reason: NotRequired[str]
+    UseClientCertificateOCSPEndpoint: NotRequired[bool]
 
 
 class CustomErrorResponseTypeDef(TypedDict):
@@ -2203,12 +2204,6 @@ class UpdateAnycastIpListRequestTypeDef(TypedDict):
     IpamCidrConfigs: NotRequired[Sequence[IpamCidrConfigTypeDef]]
 
 
-class CreateKeyValueStoreRequestTypeDef(TypedDict):
-    Name: str
-    Comment: NotRequired[str]
-    ImportSource: NotRequired[ImportSourceTypeDef]
-
-
 class CreateKeyValueStoreResultTypeDef(TypedDict):
     KeyValueStore: KeyValueStoreTypeDef
     ETag: str
@@ -2803,8 +2798,9 @@ class VpcOriginListTypeDef(TypedDict):
 
 class UpdateTrustStoreRequestTypeDef(TypedDict):
     Id: str
-    CaCertificatesBundleSource: CaCertificatesBundleSourceTypeDef
     IfMatch: str
+    CaCertificatesBundleSource: NotRequired[CaCertificatesBundleSourceTypeDef]
+    UseClientCertificateOCSPEndpoint: NotRequired[bool]
 
 
 class ForwardedValuesOutputTypeDef(TypedDict):
@@ -3762,9 +3758,17 @@ class CreateDistributionTenantRequestTypeDef(TypedDict):
     Enabled: NotRequired[bool]
 
 
+class CreateKeyValueStoreRequestTypeDef(TypedDict):
+    Name: str
+    Comment: NotRequired[str]
+    ImportSource: NotRequired[ImportSourceTypeDef]
+    Tags: NotRequired[TagsUnionTypeDef]
+
+
 class CreateTrustStoreRequestTypeDef(TypedDict):
     Name: str
     CaCertificatesBundleSource: CaCertificatesBundleSourceTypeDef
+    UseClientCertificateOCSPEndpoint: NotRequired[bool]
     Tags: NotRequired[TagsUnionTypeDef]
 
 
@@ -4018,6 +4022,7 @@ class CreateFunctionRequestTypeDef(TypedDict):
     Name: str
     FunctionConfig: FunctionConfigUnionTypeDef
     FunctionCode: BlobTypeDef
+    Tags: NotRequired[TagsUnionTypeDef]
 
 
 class UpdateConnectionFunctionRequestTypeDef(TypedDict):

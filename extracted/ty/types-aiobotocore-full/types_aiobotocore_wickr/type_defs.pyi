@@ -52,6 +52,7 @@ __all__ = (
     "BlockedGuestUserTypeDef",
     "BotTypeDef",
     "CallingSettingsTypeDef",
+    "ConsentPopupConfigTypeDef",
     "CreateBotRequestTypeDef",
     "CreateBotResponseTypeDef",
     "CreateDataRetentionBotChallengeRequestTypeDef",
@@ -287,6 +288,12 @@ class CallingSettingsTypeDef(TypedDict):
     canStart11Call: NotRequired[bool]
     canVideoCall: NotRequired[bool]
     forceTcpCall: NotRequired[bool]
+
+class ConsentPopupConfigTypeDef(TypedDict):
+    enabled: bool
+    header: NotRequired[str]
+    content: NotRequired[str]
+    closeButtonLabel: NotRequired[str]
 
 class CreateBotRequestTypeDef(TypedDict):
     networkId: str
@@ -918,6 +925,7 @@ class NetworkSettingsTypeDef(TypedDict):
     readReceiptConfig: NotRequired[ReadReceiptConfigTypeDef]
     dataRetention: NotRequired[bool]
     enableTrustedDataFormat: NotRequired[bool]
+    consentPopup: NotRequired[ConsentPopupConfigTypeDef]
 
 class SecurityGroupSettingsOutputTypeDef(TypedDict):
     alwaysReauthenticate: NotRequired[bool]
@@ -950,6 +958,7 @@ class SecurityGroupSettingsOutputTypeDef(TypedDict):
     showMasterRecoveryKey: NotRequired[bool]
     shredder: NotRequired[ShredderSettingsTypeDef]
     ssoMaxIdleMinutes: NotRequired[int]
+    maxNonSsoSessionMinutes: NotRequired[int]
     federationMode: NotRequired[int]
     lockoutThreshold: NotRequired[int]
     permittedNetworks: NotRequired[list[str]]
@@ -997,6 +1006,7 @@ class SecurityGroupSettingsTypeDef(TypedDict):
     showMasterRecoveryKey: NotRequired[bool]
     shredder: NotRequired[ShredderSettingsTypeDef]
     ssoMaxIdleMinutes: NotRequired[int]
+    maxNonSsoSessionMinutes: NotRequired[int]
     federationMode: NotRequired[int]
     lockoutThreshold: NotRequired[int]
     permittedNetworks: NotRequired[Sequence[str]]

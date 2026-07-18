@@ -20,7 +20,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from uuid import UUID
-from rapidata.api_client.models.i_asset_model import IAssetModel
+from rapidata.api_client.models.i_asset import IAsset
 from pydantic import ValidationError
 from rapidata.api_client.lazy_model import LazyValidatedModel
 from typing import Optional, Set
@@ -33,15 +33,16 @@ class GetSamplesByParticipantEndpointISampleOutputGetSamplesByParticipantEndpoin
     t: StrictStr = Field(alias="_t")
     id: StrictStr = Field(description="The unique identifier of the sample.")
     identifier: StrictStr = Field(description="The identifier used to correlate samples of different participants.")
-    asset: IAssetModel = Field(description="The asset associated with the sample.")
+    asset: IAsset = Field(description="The asset associated with the sample.")
     english_prompt: Optional[StrictStr] = Field(default=None, description="An optional prompt text translated to English.", alias="englishPrompt")
     original_prompt: Optional[StrictStr] = Field(default=None, description="An optional prompt text as originally provided.", alias="originalPrompt")
-    prompt_asset: Optional[IAssetModel] = Field(default=None, description="An optional prompt asset associated with the sample.", alias="promptAsset")
+    prompt_asset: Optional[IAsset] = Field(default=None, description="An optional prompt asset associated with the sample.", alias="promptAsset")
     tags: List[StrictStr]
     created_at: Optional[datetime] = Field(default=None, description="The timestamp when the sample was created.", alias="createdAt")
     owner_id: Optional[UUID] = Field(default=None, description="The id of the customer that owns the sample.", alias="ownerId")
     owner_mail: StrictStr = Field(description="The mail of the customer that owns the sample.", alias="ownerMail")
-    __properties: ClassVar[List[str]] = ["_t", "id", "identifier", "asset", "englishPrompt", "originalPrompt", "promptAsset", "tags", "createdAt", "ownerId", "ownerMail"]
+    organization_id: Optional[StrictStr] = Field(default=None, description="The id of the organization that owns the entity.", alias="organizationId")
+    __properties: ClassVar[List[str]] = ["_t", "id", "identifier", "asset", "englishPrompt", "originalPrompt", "promptAsset", "tags", "createdAt", "ownerId", "ownerMail", "organizationId"]
 
     @field_validator('t')
     def t_validate_enum(cls, value):
@@ -101,6 +102,11 @@ class GetSamplesByParticipantEndpointISampleOutputGetSamplesByParticipantEndpoin
         if self.original_prompt is None and "original_prompt" in self.model_fields_set:
             _dict['originalPrompt'] = None
 
+        # set to None if organization_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.organization_id is None and "organization_id" in self.model_fields_set:
+            _dict['organizationId'] = None
+
         return _dict
 
     @classmethod
@@ -116,14 +122,15 @@ class GetSamplesByParticipantEndpointISampleOutputGetSamplesByParticipantEndpoin
             "_t": obj.get("_t"),
             "id": obj.get("id"),
             "identifier": obj.get("identifier"),
-            "asset": IAssetModel.from_dict(obj["asset"]) if obj.get("asset") is not None else None,
+            "asset": IAsset.from_dict(obj["asset"]) if obj.get("asset") is not None else None,
             "englishPrompt": obj.get("englishPrompt"),
             "originalPrompt": obj.get("originalPrompt"),
-            "promptAsset": IAssetModel.from_dict(obj["promptAsset"]) if obj.get("promptAsset") is not None else None,
+            "promptAsset": IAsset.from_dict(obj["promptAsset"]) if obj.get("promptAsset") is not None else None,
             "tags": obj.get("tags"),
             "createdAt": obj.get("createdAt"),
             "ownerId": obj.get("ownerId"),
-            "ownerMail": obj.get("ownerMail")
+            "ownerMail": obj.get("ownerMail"),
+            "organizationId": obj.get("organizationId")
         }
         try:
             _obj = cls.model_validate(_data)

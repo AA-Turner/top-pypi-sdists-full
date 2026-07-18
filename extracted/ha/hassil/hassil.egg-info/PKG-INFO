@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hassil
-Version: 3.8.1
+Version: 3.10.0
 Summary: The Home Assistant Intent Language parser
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License: Apache-2.0

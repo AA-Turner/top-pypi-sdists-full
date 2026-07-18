@@ -255,7 +255,7 @@ def condense_html(html: str, config: Config, source: str | None = None) -> str:
 
     # put short single line tags on one line
     html = re.sub(
-        rf"(<({config.optional_single_line_html_tags})\b(?:\"[^\"]*\"|'[^']*'|{{[^}}]*}}|[^'\">{{}}])*>)\s*([^<\n]*?)\s*?(</(\2)>)",
+        rf"(<({config.optional_single_line_html_tags})\b(?:\"[^\"]*\"|'[^']*'|{{{{[^}}]*}}}}|{{[^}}]*}}|[^'\">{{}}])*>)\s*([^<\n]*?)\s*?(</(\2)>)",
         func,
         html,
         flags=RE_FLAGS_IMSX,
@@ -273,7 +273,7 @@ def condense_html(html: str, config: Config, source: str | None = None) -> str:
         except StopIteration:
             was_authored_multiline = False
 
-        if was_authored_multiline:
+        if was_authored_multiline or inside_html_attribute(html, match):
             return match.group()
 
         return condense_line(config, html, match)

@@ -271,6 +271,7 @@ from dazzle.cli.api_pack import api_pack_app  # noqa: E402
 from dazzle.cli.auth import auth_app  # noqa: E402
 from dazzle.cli.backup import backup_app  # noqa: E402
 from dazzle.cli.capability import capability_app  # noqa: E402
+from dazzle.cli.clean import clean_app  # noqa: E402
 from dazzle.cli.compliance import compliance_app  # noqa: E402
 from dazzle.cli.composition import composition_app  # noqa: E402
 from dazzle.cli.conformance import conformance_app  # noqa: E402
@@ -296,11 +297,14 @@ from dazzle.cli.perf import perf_app  # noqa: E402
 from dazzle.cli.pipeline import pipeline_app  # noqa: E402
 from dazzle.cli.pitch import pitch_app  # noqa: E402
 from dazzle.cli.process_cli import process_app  # noqa: E402
+from dazzle.cli.prove import prove_app  # noqa: E402
 from dazzle.cli.pulse import pulse_app  # noqa: E402
 from dazzle.cli.qa import qa_app  # noqa: E402
 from dazzle.cli.quality import quality_app  # noqa: E402
 from dazzle.cli.rbac import rbac_app  # noqa: E402
+from dazzle.cli.representation import representation_app  # noqa: E402
 from dazzle.cli.rhythm import rhythm_app  # noqa: E402
+from dazzle.cli.scaffold import scaffold_app  # noqa: E402
 from dazzle.cli.sentinel import sentinel_app  # noqa: E402
 from dazzle.cli.signing import signing_app  # noqa: E402
 from dazzle.cli.spec import spec_app  # noqa: E402
@@ -325,6 +329,7 @@ app.add_typer(conformance_app, name="conformance")
 app.add_typer(backup_app, name="backup")
 app.add_typer(composition_app, name="composition")
 app.add_typer(contribution_app, name="contribution")
+app.add_typer(clean_app, name="clean")
 app.add_typer(db_app, name="db")
 app.add_typer(demo_app, name="demo")
 app.add_typer(discovery_app, name="discovery")
@@ -334,6 +339,9 @@ app.add_typer(docs_app, name="docs")
 app.add_typer(vocab_app, name="vocab")
 app.add_typer(worker_app, name="worker")
 app.add_typer(stubs_app, name="stubs")
+app.add_typer(scaffold_app, name="scaffold")
+app.add_typer(prove_app, name="prove")
+app.add_typer(representation_app, name="representation")
 app.add_typer(story_app, name="story")
 app.add_typer(tenant_app, name="tenant")
 app.add_typer(theme_app, name="theme")

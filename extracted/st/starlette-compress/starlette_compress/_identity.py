@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from starlette.datastructures import MutableHeaders
-
-from starlette_compress._utils import is_start_message_satisfied
+from starlette_compress._utils import (
+    classify_start_message,
+    mutable_response_headers,
+)
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -20,52 +21,71 @@ class IdentityResponder:
         self.minimum_size = minimum_size
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        started = False
         start_message: Message | None = None
-        headers_set: bool = False
+        streaming = False
+        pathsend_capable = 'http.response.pathsend' in scope.get('extensions', ())
 
         async def wrapper(message: Message) -> None:
-            nonlocal start_message, headers_set
+            nonlocal started, start_message, streaming
 
             message_type: str = message['type']
 
-            # handle start message
             if message_type == 'http.response.start':
-                if start_message is not None:
+                if started:
                     raise AssertionError(
                         'Unexpected repeated http.response.start message'
                     )
 
-                if is_start_message_satisfied(message):
-                    # capture start message and wait for response body
-                    start_message = message
-                    return
-                else:
+                verdict = classify_start_message(message)
+                if verdict == 'skip':
+                    started = True
                     await send(message)
                     return
 
-            # skip if start message is not satisfied or unknown message type
-            if start_message is None or message_type != 'http.response.body':
-                if start_message is not None:
-                    await send(start_message)
-                    start_message = None
-                await send(message)
+                streaming = verdict == 'streaming'
+
+                # Streaming types without pathsend: send start immediately so
+                # clients see headers before the first body; pass messages through.
+                if streaming and not pathsend_capable:
+                    headers = mutable_response_headers(message)
+                    headers.add_vary_header('Accept-Encoding')
+                    # Content-Length is preserved for identity
+                    started = True
+                    await send(message)
+                    return
+
+                start_message = message
+                started = True
                 return
 
-            if not headers_set:
+            if start_message is not None:
+                if message_type != 'http.response.body':
+                    pending = start_message
+                    start_message = None
+                    await send(pending)
+                    await send(message)
+                    return
+
                 body: bytes = message.get('body', b'')
                 more_body: bool = message.get('more_body', False)
 
-                # skip compression for small responses
-                if not more_body and len(body) < self.minimum_size:
-                    await send(start_message)
+                if not streaming and not more_body and len(body) < self.minimum_size:
+                    pending = start_message
+                    start_message = None
+                    await send(pending)
                     await send(message)
                     return
 
-                headers = MutableHeaders(raw=start_message['headers'])
+                headers = mutable_response_headers(start_message)
                 headers.add_vary_header('Accept-Encoding')
-                await send(start_message)
-                headers_set = True
+                pending = start_message
+                start_message = None
+                await send(pending)
+                await send(message)
+                return
 
+            # Committed identity: pure passthrough, including empty bodies.
             await send(message)
 
         await self.app(scope, receive, wrapper)

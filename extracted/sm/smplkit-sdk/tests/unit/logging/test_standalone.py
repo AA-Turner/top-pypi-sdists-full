@@ -40,8 +40,9 @@ class TestStandaloneConstruction:
         assert client._owns_transport is True
         assert client._parent is None
         assert client._environment == "prod"
-        # Standalone has no parent to inherit a service from.
-        assert client._service is None
+        # Standalone resolves service like the top-level client — here from
+        # the ambient SMPLKIT_SERVICE the test fixture sets.
+        assert client._service == "test-service"
         assert client._app_base_url == "https://app.example.test"
         assert client._logging_base_url == "https://logging.example.test"
         # The two management sub-clients share the client's discovery buffer.

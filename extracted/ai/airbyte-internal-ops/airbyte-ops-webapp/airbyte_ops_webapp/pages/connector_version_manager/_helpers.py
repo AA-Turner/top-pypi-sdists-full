@@ -9,14 +9,24 @@ from typing import Any
 
 from airbyte.exceptions import PyAirbyteInputError
 from airbyte_ops_mcp.connector_ops.rollouts._helpers import get_connector_rollout_config
-from airbyte_ops_mcp.connector_ops.rollouts.constants import TIER_ORDER
+from airbyte_ops_mcp.connector_ops.rollouts.constants import (
+    STRATEGY_DEFAULT,
+    TIER_ORDER,
+    CustomerTier,
+    resolve_strategy,
+)
 from prefab_ui.actions import AppendState, SetState, ShowToast
 from prefab_ui.actions.mcp import CallTool
 from prefab_ui.components import ComboboxOption, SelectOption
 from prefab_ui.rx import ERROR, RESULT, STATE
 
 from airbyte_ops_webapp.auth.mock_session import mock_oauth_is_authenticated
-from airbyte_ops_webapp.models import ConnectorOption, ScopeType
+from airbyte_ops_webapp.models import (
+    ConnectorOption,
+    RolloutSyncSummary,
+    ScopeType,
+    TierPopulationFactors,
+)
 from airbyte_ops_webapp.services.connector_version_manager.adapter import (
     OpsMcpAdapter,
     _cloud_scope_url,
@@ -34,6 +44,18 @@ from airbyte_ops_webapp.state import (
 DEFAULT_ADMIN_USER_EMAIL = "devin-local@example.com"
 DEFAULT_ADMIN_USER_ID = "00000000-0000-0000-0000-000000000000"
 CONTEXT_ERROR = "Connector context failed to load."
+
+# The per-tier rollout cards enumerate the three disjoint customer cohorts
+# (Tier 2, Tier 1, Tier 0). The progressive-rollout backend models the final
+# stage as `CustomerTier.ALL` (GA to everyone) rather than a `TIER_0` stage, so
+# that stage is surfaced under the `TIER_0` cohort it ultimately brings in.
+# Each entry pairs the displayed cohort with the rollout `tier` value that
+# feeds it. Rollout progression / next-stage logic still uses `TIER_ORDER`.
+_CARD_TIER_STAGES: list[tuple[CustomerTier, str]] = [
+    (CustomerTier.TIER_2, CustomerTier.TIER_2.value),
+    (CustomerTier.TIER_1, CustomerTier.TIER_1.value),
+    (CustomerTier.TIER_0, CustomerTier.ALL.value),
+]
 APPLY_ERROR = "Apply change failed. No connector version override was applied."
 SCOPE_PLACEHOLDER_SUFFIX = "_example"
 
@@ -77,6 +99,8 @@ EMPTY_ROLLOUT_SUMMARY: dict[str, Any] = {
     "autopilot": "",
     "updated_at": "",
     "total_rc_pins": "0",
+    "total_actors_display": "",
+    "tier_cards": [],
     "connector_id": "",
     "connector_name": "",
     "docker_repository": "",
@@ -188,13 +212,297 @@ def progressive_rollout_options() -> list[dict[str, str]]:
     ]
 
 
-def _is_autopilot(connector_id: str, rc_version: str | None) -> bool:
-    """Check the registry rolloutConfiguration to determine autopilot status."""
+def format_rollout_pct(pct: object) -> str:
+    """Format a rollout target percentage for display.
+
+    Normalizes empty/missing values to `"0%"` so a started tier never renders a
+    bare `"%"`. Accepts values already carrying a trailing `%`.
+    """
+    text = str(pct if pct is not None else "").strip().rstrip("%").strip()
+    if not text:
+        text = "0"
+    return f"{text}%"
+
+
+def format_pinned_pct(pinned: int, eligible: int) -> str:
+    """Format the actual pinned/eligible rollout ratio as a 1-decimal percentage.
+
+    This is the *realized* rollout progress (how much of the eligible audience is
+    pinned), not the rollout's target stage percentage. Uses float division to
+    one decimal place (e.g. `1 / 7` renders `14.3%`, not a truncated `0%`).
+    Returns `N/A` when `eligible` is `0` — there's no addressable audience to
+    compute a ratio against, and a bare `0.0%` would be misleading.
+    """
+    if eligible <= 0:
+        return "N/A"
+    return f"{pinned / eligible * 100:.1f}%"
+
+
+_EM_DASH = "\u2014"
+_ARROW = "\u21b3"
+
+# Status glyphs for a tier's rollout stage — shape + color so an operator can
+# scan tier state at a glance without reading the numbers.
+_STATUS_NOT_STARTED = ("\u26aa", "Not started")  # white circle
+_STATUS_IN_PROGRESS = ("\U0001f535", "In progress")  # blue circle
+_STATUS_ATTENTION = ("\U0001f7e1", "Attention")  # yellow circle
+_STATUS_COMPLETE = ("\U0001f7e2", "Complete")  # green circle
+_STATUS_PAUSED = ("\u23f8\ufe0f", "Paused")  # pause glyph
+
+# Rollout `state` values that mean the stage exists but has not begun pinning —
+# treated as "not started" so a not-yet-running tier never looks live.
+_NOT_STARTED_STATES = frozenset({"", "initialized", "not_started", "pending"})
+# Rollout `state` values that mean the stage is finished.
+_DONE_STATES = frozenset({"finalized", "succeeded", "completed", "promoted"})
+
+
+def _is_started(has_rollout: bool, state: str) -> bool:
+    """Whether a tier's rollout is actually running (not merely defined)."""
+    return has_rollout and (state or "").strip().lower() not in _NOT_STARTED_STATES
+
+
+def format_ratio_pct(numerator: int, denominator: int, *, empty: str = _EM_DASH) -> str:
+    """Format a whole-number `numerator / denominator` percentage.
+
+    Rounds to the nearest whole percent for a compact rollout card (e.g. `10 / 14`
+    renders `71%`). A non-zero ratio that rounds below `1%` renders `<1%`, so a
+    small-but-present cohort never reads a misleading `0%`. When `denominator` is
+    `0` the ratio is undefined and `empty` is returned — callers pass `"100%"` for
+    a *started* coverage ratio (0-of-0 eligible is fully covered) or `"0%"` for a
+    failure ratio (0-of-0 pinned has no failures).
+    """
+    if denominator <= 0:
+        return empty
+    pct = numerator / denominator * 100
+    if 0 < pct < 1:
+        return "<1%"
+    return f"{round(pct)}%"
+
+
+def tier_rollout_status(
+    *, has_rollout: bool, state: str, deployed_pct: int, failing: int
+) -> tuple[str, str]:
+    """Pick the `(emoji, label)` status glyph for a tier's rollout stage.
+
+    - `⚪ Not started` — no rollout for the tier, or one that is defined but hasn't
+      begun pinning (`initialized` / `pending`).
+    - `⏸️ Paused` — the rollout is paused.
+    - `🟡 Attention` — the rollout is running with one or more failing pinned
+      connectors.
+    - `🟢 Complete` — the rollout is finished, or reports 100% deployed (every
+      actor that will pin is pinned), with no failures.
+    - `🔵 In progress` — the rollout is still rolling out, no failures.
+    """
+    normalized = (state or "").strip().lower()
+    if not _is_started(has_rollout, normalized):
+        return _STATUS_NOT_STARTED
+    if normalized == "paused":
+        return _STATUS_PAUSED
+    if failing > 0:
+        return _STATUS_ATTENTION
+    if normalized in _DONE_STATES or deployed_pct >= 100:
+        return _STATUS_COMPLETE
+    return _STATUS_IN_PROGRESS
+
+
+def _pct_to_int(pct: object) -> int:
+    """Parse a rollout percentage (`"50"`, `"50%"`, `50`) to an `int`; `0` on failure."""
+    text = str(pct if pct is not None else "").strip().rstrip("%").strip()
+    try:
+        return round(float(text))
+    except ValueError:
+        return 0
+
+
+def build_breakdown_columns(
+    factors: TierPopulationFactors,
+    *,
+    started: bool = True,
+    succeeding: int | None = None,
+    failing: int | None = None,
+    awaiting: int | None = None,
+) -> dict[str, Any]:
+    """Build the two-column, operator-facing population breakdown for a tier card.
+
+    Partitions the tier's active actors into two columns whose headers sum to the
+    active total (`eligible + ineligible == active`), all scoped to the rollout
+    version:
+
+    - **Eligible** (`pinned_to_rollout + gate_pass`) — the platform's
+      `nActorsEligibleOrAlreadyPinned`. Subdivided into `pinned` (optionally
+      broken out by post-pin health into `succeeding` / `failing` /
+      `awaiting results` when the rollout scan supplied those counts) and
+      `not yet pinned` (`gate_pass`).
+    - **Ineligible** (`off_version_pinned + gate_excluded_no_recent_sync +
+      gate_excluded_failed`) — subdivided into `pinned to another version`,
+      `no recent sync`, and `recent failure`. Actors pinned to another version
+      are listed first; their sync recency is moot for this rollout, so they are
+      implicitly mutually exclusive with the sync/failure rows.
+
+    Percentages are whole-number cohort shares (`pinned` / `not yet pinned` as a
+    share of `eligible`; health rows as a share of `pinned`). `started` controls
+    the 0-of-0 coverage convention — a started tier with no eligible actors reads
+    `100%`, an unstarted one reads `—`.
+
+    Returns a dict with `eligible_header`, `eligible_rows`, `ineligible_header`,
+    and `ineligible_rows` (each row a `{"text": ...}` for the renderer).
+    """
+    pinned = factors.pinned_to_rollout
+    eligible_unpinned = factors.gate_pass
+    eligible = pinned + eligible_unpinned
+    ineligible = (
+        factors.off_version_pinned
+        + factors.gate_excluded_no_recent_sync
+        + factors.gate_excluded_failed
+    )
+    coverage_empty = "100%" if started else _EM_DASH
+
+    eligible_rows: list[dict[str, str]] = [
+        {
+            "text": f"{_ARROW} {pinned:,} pinned "
+            f"({format_ratio_pct(pinned, eligible, empty=coverage_empty)})"
+        }
+    ]
+    if succeeding is not None or failing is not None or awaiting is not None:
+        succeeding_n = succeeding or 0
+        failing_n = failing or 0
+        awaiting_n = awaiting or 0
+        eligible_rows.extend(
+            [
+                {
+                    "text": f"    {_ARROW} {succeeding_n:,} succeeding "
+                    f"({format_ratio_pct(succeeding_n, pinned, empty=_EM_DASH)})"
+                },
+                {
+                    "text": f"    {_ARROW} {failing_n:,} failing "
+                    f"({format_ratio_pct(failing_n, pinned, empty=_EM_DASH)})"
+                },
+                {
+                    "text": f"    {_ARROW} {awaiting_n:,} awaiting results "
+                    f"({format_ratio_pct(awaiting_n, pinned, empty=_EM_DASH)})"
+                },
+            ]
+        )
+    eligible_rows.append(
+        {
+            "text": f"{_ARROW} {eligible_unpinned:,} not yet pinned "
+            f"({format_ratio_pct(eligible_unpinned, eligible, empty=coverage_empty)})"
+        }
+    )
+
+    ineligible_rows: list[dict[str, str]] = [
+        {"text": f"{_ARROW} {factors.off_version_pinned:,} pinned to another version"},
+        {"text": f"{_ARROW} {factors.gate_excluded_no_recent_sync:,} no recent sync"},
+        {"text": f"{_ARROW} {factors.gate_excluded_failed:,} recent failure"},
+    ]
+
+    return {
+        "eligible_header": f"{eligible:,} Eligible Actors",
+        "eligible_rows": eligible_rows,
+        "ineligible_header": f"{ineligible:,} Ineligible",
+        "ineligible_rows": ineligible_rows,
+    }
+
+
+def build_tier_card(
+    display_tier: CustomerTier,
+    *,
+    has_rollout: bool,
+    state: str = "",
+    deployed_display: str,
+    deployed_pct: int,
+    factors: TierPopulationFactors | None,
+    eligible_fallback: int = 0,
+    succeeding: int | None = None,
+    failing: int | None = None,
+    awaiting: int | None = None,
+) -> dict[str, Any]:
+    """Assemble the per-tier rollout card dict consumed by the overview renderer.
+
+    Combines the status glyph (`tier_rollout_status`, from `has_rollout` + the
+    rollout `state`), the compact Rollout Status line values (`Deployed` /
+    `Pinned` / `Failed`), and the two-column Actor Breakdown
+    (`build_breakdown_columns`). `deployed_pct` is the backend-reported integer
+    percent used both for the status glyph and the `Deployed` line;
+    `deployed_display` is its formatted string (or `—` when there is no rollout).
+
+    A tier counts as *started* only when it has a rollout whose `state` has begun
+    pinning (see `_is_started`); this drives the 0-of-0 coverage convention.
+
+    When `factors` is `None` (tier resolution unavailable) the breakdown columns
+    collapse to just the eligible header from `eligible_fallback`.
+    """
+    started = _is_started(has_rollout, state)
+    fail_count = failing or 0
+    emoji, status_label = tier_rollout_status(
+        has_rollout=has_rollout,
+        state=state,
+        deployed_pct=deployed_pct,
+        failing=fail_count,
+    )
+    if factors is not None:
+        pinned = factors.pinned_to_rollout
+        eligible = pinned + factors.gate_pass
+        columns = build_breakdown_columns(
+            factors,
+            started=started,
+            succeeding=succeeding,
+            failing=failing,
+            awaiting=awaiting,
+        )
+    else:
+        pinned = 0
+        eligible = eligible_fallback
+        columns = {
+            "eligible_header": f"{eligible:,} Eligible Actors",
+            "eligible_rows": [],
+            "ineligible_header": _EM_DASH,
+            "ineligible_rows": [],
+        }
+    coverage_empty = "100%" if started else _EM_DASH
+    pinned_summary = (
+        f"{pinned:,} of {eligible:,} eligible "
+        f"({format_ratio_pct(pinned, eligible, empty=coverage_empty)})"
+    )
+    failed_summary = (
+        f"{fail_count:,} of {pinned:,} pinned "
+        f"({format_ratio_pct(fail_count, pinned, empty='0%')})"
+    )
+    return {
+        "tier_label": display_tier.label,
+        "tier_value": display_tier.value,
+        "started": started,
+        "status_emoji": emoji,
+        "status_label": status_label,
+        "deployed_display": deployed_display,
+        "pinned_summary": pinned_summary,
+        "failed_summary": failed_summary,
+        **columns,
+    }
+
+
+def _autopilot_display(connector_id: str, rc_version: str | None) -> str:
+    """Autopilot status with its strategy, e.g. `"ON (Fast)"` / `"ON (Slow)"`.
+
+    Reads the registry `rolloutConfiguration`: `defaultRolloutMode` gates
+    `ON`/`OFF`, and `autopilotConfig.strategy` (defaulting to `default`, which
+    resolves to `fast`) selects the speed suffix. Returns `"OFF"` (no suffix)
+    when autopilot is disabled or the config can't be read.
+    """
     try:
         config = get_connector_rollout_config(connector_id, rc_version=rc_version)
-        return config.default_rollout_mode.value == "autopilot"
+        if config.default_rollout_mode.value != "autopilot":
+            return "OFF"
+        autopilot_config = config.autopilot_config
+        raw_strategy = (
+            autopilot_config.strategy.value
+            if autopilot_config is not None and autopilot_config.strategy is not None
+            else STRATEGY_DEFAULT
+        )
+        strategy = resolve_strategy(raw_strategy)
+        return f"ON ({strategy.value.title()})"
     except Exception:
-        return False
+        return "OFF"
 
 
 def progressive_rollout_rows() -> list[dict[str, Any]]:
@@ -224,15 +532,31 @@ def progressive_rollout_rows() -> list[dict[str, Any]]:
             key=lambda r: tier_index.get(r.get("tier", "TIER_2"), 0),
         )
 
-        # Build per-tier summary string
+        # Build per-tier summary string, each tier prefixed with its status
+        # glyph. This is an approximation: the top-level query has each tier's
+        # `state` + `current_target_rollout_pct` (cheap rollout-table read) but
+        # not the per-tier failure count, so `failing=0` here — the 🟡 Attention
+        # glyph can only surface in the detailed view (which runs the population
+        # scan). All other states (Not started / In progress / Complete / Paused)
+        # are exact.
         tier_parts: list[str] = []
-        for tier in TIER_ORDER:
-            matching = [r for r in sorted_group if r.get("tier") == tier.value]
+        for display_tier, stage_value in _CARD_TIER_STAGES:
+            matching = [r for r in sorted_group if r.get("tier") == stage_value]
             if matching:
-                pct = matching[0].get("current_target_rollout_pct", "0")
-                tier_parts.append(f"{tier.label}: {pct}%")
+                rollout = matching[0]
+                emoji, _ = tier_rollout_status(
+                    has_rollout=True,
+                    state=str(rollout.get("state") or ""),
+                    deployed_pct=_pct_to_int(rollout.get("current_target_rollout_pct")),
+                    failing=0,
+                )
+                pct = format_rollout_pct(rollout.get("current_target_rollout_pct"))
+                tier_parts.append(f"{emoji} {display_tier.label}: {pct}")
             else:
-                tier_parts.append(f"{tier.label}: \u2014")
+                emoji, _ = tier_rollout_status(
+                    has_rollout=False, state="", deployed_pct=0, failing=0
+                )
+                tier_parts.append(f"{emoji} {display_tier.label}: \u2014")
 
         highest = sorted_group[-1]
         connector_id = highest.get("connector_id", "")
@@ -248,9 +572,7 @@ def progressive_rollout_rows() -> list[dict[str, Any]]:
                 "rc_docker_image_tag": rc_tag,
                 "tier_summary": " | ".join(tier_parts),
                 "state": highest.get("state", ""),
-                "autopilot_display": (
-                    "ON" if _is_autopilot(connector_id, rc_tag) else "OFF"
-                ),
+                "autopilot_display": _autopilot_display(connector_id, rc_tag),
                 "rc_pin_count_display": f"{total_pins:,}",
             }
         )
@@ -444,12 +766,19 @@ def fail_tool_call(message: Any) -> list[Any]:
     ]
 
 
-def rollout_action_success_actions() -> list[Any]:
-    """Post-action feedback for successful rollout operations.
+def rollout_action_success_actions(
+    toast_title: str = "Rollout action completed",
+    refresh_message: str = "Refreshing rollouts\u2026",
+) -> list[Any]:
+    """Post-action feedback for a successful connector-version action.
 
     Shows a success toast, appends to the notifications panel, marks
     notifications as unviewed, clears the stale rollout selection, and
     refreshes the connector context (including active rollouts list).
+
+    `toast_title` and `refresh_message` default to rollout-specific copy;
+    non-rollout callers (e.g. `yank_connector_version`) pass their own copy so
+    the toast and loading label reflect the action performed.
     """
     from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
         load_connector_context,
@@ -460,7 +789,7 @@ def rollout_action_success_actions() -> list[Any]:
         SetState("rollout_action_result", RESULT.rollout_action_result),
         SetState("rollout_action_success", RESULT.rollout_action_success),
         ShowToast(
-            "Rollout action completed",
+            toast_title,
             description=RESULT.rollout_action_result,
             variant="success",
         ),
@@ -471,7 +800,7 @@ def rollout_action_success_actions() -> list[Any]:
         SetState("active_rollouts", []),
         SetState("rollout_summary", EMPTY_ROLLOUT_SUMMARY),
         # Refresh context to reload the active rollouts list from DB.
-        *start_tool_call("Refreshing rollouts\u2026"),
+        *start_tool_call(refresh_message),
         CallTool(
             load_connector_context,
             arguments={
@@ -481,6 +810,7 @@ def rollout_action_success_actions() -> list[Any]:
                 "actor_workspace_id": STATE.actor_workspace_id,
                 "context_guid": STATE.context_guid,
                 "auth_bearer_token": STATE.auth_bearer_token,
+                "google_access_token": STATE.google_access_token,
             },
             on_success=[
                 *context_success_actions(),
@@ -627,33 +957,129 @@ def rollout_rows_or_empty(
     for row in rows:
         connector_id = row.get("connector_id", "")
         rc_tag = row.get("rc_docker_image_tag")
-        row["autopilot_display"] = (
-            "ON" if _is_autopilot(connector_id, rc_tag) else "OFF"
-        )
+        row["autopilot_display"] = _autopilot_display(connector_id, rc_tag)
         row["rc_pin_count_display"] = str(row.get("rc_pin_count", 0))
     return rows, ""
 
 
-def build_rollout_summary(active_rollouts: list[dict[str, Any]]) -> dict[str, Any]:
-    """Consolidate multiple tier rollouts into a single summary for the UI."""
+def build_rollout_summary(
+    active_rollouts: list[dict[str, Any]],
+    *,
+    total_actors_display: str = "",
+    tier_summaries: dict[str, RolloutSyncSummary] | None = None,
+    eligible_by_tier: dict[str, int] | None = None,
+    pinned_by_tier: dict[str, int] | None = None,
+    factors_by_tier: dict[str, TierPopulationFactors] | None = None,
+) -> dict[str, Any]:
+    """Consolidate multiple tier rollouts into a single summary for the UI.
+
+    `total_actors_display` is the connector-wide *enabled* actor count (active
+    connections only, same across tiers), surfaced once on the rollout card
+    rather than repeated per tier.
+
+    `tier_summaries` maps a tier value (e.g. `"TIER_2"`) to the
+    `RolloutSyncSummary` for that tier's *active* rollout. When supplied, one
+    card per tier is emitted in `tier_cards`: the rollout line combines
+    pinned/eligible counts with the target percentage (e.g.
+    `20 pinned / 20 eligible (100%)`) and a health one-liner.
+
+    `eligible_by_tier` maps a tier value to its enabled, addressable actor count
+    from the DB population query. It is used to show `0 pinned / N eligible`
+    on tiers whose rollout has *not* started, so future stages can be sized.
+
+    `pinned_by_tier` maps a tier value to its *active-only* pinned actor count
+    (`pinned_any_by_tier`), sourced from the same population as
+    `eligible_by_tier`. When supplied it is preferred over the rollout scan's
+    `num_pinned` for the numerator, guaranteeing `pinned <= eligible` on the
+    card (the scan counts inactive/tombstoned pinned actors and can exceed the
+    active eligible audience).
+
+    `factors_by_tier` maps a tier value to its full `TierPopulationFactors`.
+    When supplied, each tier card's two-column Actor Breakdown (via
+    `build_tier_card` / `build_breakdown_columns`) partitions the population into
+    an `Eligible` column (pinned — subdivided by post-pin health — and
+    not-yet-pinned) and an `Ineligible` column (pinned to another version, no
+    recent sync, recent failure), whose headers sum to `active`. It also drives
+    the realized `Pinned` coverage on the compact Rollout Status line.
+    """
     if not active_rollouts:
         return dict(EMPTY_ROLLOUT_SUMMARY)
 
+    tier_summaries = tier_summaries or {}
+    eligible_by_tier = eligible_by_tier or {}
+    pinned_by_tier = pinned_by_tier or {}
+    factors_by_tier = factors_by_tier or {}
     tier_index = {t.value: i for i, t in enumerate(TIER_ORDER)}
     sorted_rollouts = sorted(
         active_rollouts,
         key=lambda r: tier_index.get(r.get("tier", "TIER_2"), 0),
     )
 
-    # Build per-tier summary string
+    # Build per-tier summary string and per-tier cards
     tier_parts: list[str] = []
-    for tier in TIER_ORDER:
-        matching = [r for r in sorted_rollouts if r.get("tier") == tier.value]
+    tier_cards: list[dict[str, Any]] = []
+    for display_tier, stage_value in _CARD_TIER_STAGES:
+        # The full distinct-factor breakdown for this tier (traceable arithmetic
+        # and both denominators). Built per branch below once the pinned-health
+        # subdivision is known; empty when tier resolution was unavailable.
+        factors = factors_by_tier.get(display_tier.value)
+        matching = [r for r in sorted_rollouts if r.get("tier") == stage_value]
+        eligible_fallback = eligible_by_tier.get(display_tier.value) or 0
         if matching:
-            pct = matching[0].get("current_target_rollout_pct", "0")
-            tier_parts.append(f"{tier.label}: {pct}%")
+            rollout = matching[0]
+            pct = format_rollout_pct(rollout.get("current_target_rollout_pct"))
+            # Only the current-stage percentage is surfaced (a single clean
+            # backend-reported number); the final-goal field is not shown.
+            deployed_pct = _pct_to_int(rollout.get("current_target_rollout_pct"))
+            tier_parts.append(f"{display_tier.label}: {pct}")
+            summary = tier_summaries.get(stage_value)
+            # Post-pin health subdivision for the pinned cohort; populated from the
+            # rollout scan below when available. `healthy | unhealthy | awaiting`
+            # partition the active pinned set (`awaiting` absorbs active-pinned
+            # actors with no terminal result yet). Fall back to no subdivision when
+            # tier resolution is unavailable — the scan's `num_pinned` counts
+            # inactive/tombstoned pinned actors and can exceed the active audience.
+            succeeding: int | None = None
+            failing: int | None = None
+            awaiting_health: int | None = None
+            active_pinned = pinned_by_tier.get(display_tier.value)
+            if summary is not None and summary.health and active_pinned is not None:
+                awaiting_health = max(
+                    active_pinned - summary.num_healthy - summary.num_unhealthy,
+                    0,
+                )
+                succeeding = summary.num_healthy
+                failing = summary.num_unhealthy
+            tier_cards.append(
+                build_tier_card(
+                    display_tier,
+                    has_rollout=True,
+                    state=str(rollout.get("state") or ""),
+                    deployed_display=pct,
+                    deployed_pct=deployed_pct,
+                    factors=factors,
+                    eligible_fallback=eligible_fallback,
+                    succeeding=succeeding,
+                    failing=failing,
+                    awaiting=awaiting_health,
+                )
+            )
         else:
-            tier_parts.append(f"{tier.label}: —")
+            # No *active rollout row* for this tier — it hasn't started. Eligible
+            # actor counts still render (from `factors`, else `eligible_by_tier`)
+            # so future stages can be sized, but the ⚪ status makes clear the
+            # numbers are not live rollout data.
+            tier_parts.append(f"{display_tier.label}: {_EM_DASH}")
+            tier_cards.append(
+                build_tier_card(
+                    display_tier,
+                    has_rollout=False,
+                    deployed_display=_EM_DASH,
+                    deployed_pct=0,
+                    factors=factors,
+                    eligible_fallback=eligible_fallback,
+                )
+            )
 
     # Highest tier is the last in sorted order
     highest_rollout = sorted_rollouts[-1]
@@ -693,6 +1119,8 @@ def build_rollout_summary(active_rollouts: list[dict[str, Any]]) -> dict[str, An
         "autopilot": autopilot,
         "updated_at": updated_at,
         "total_rc_pins": str(total_pins),
+        "total_actors_display": total_actors_display,
+        "tier_cards": tier_cards,
         "connector_id": highest_rollout.get("connector_id", ""),
         "connector_name": highest_rollout.get("connector_name", ""),
         "docker_repository": highest_rollout.get("docker_repository", ""),

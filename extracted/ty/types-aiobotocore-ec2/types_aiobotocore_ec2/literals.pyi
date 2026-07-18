@@ -26,6 +26,8 @@ __all__ = (
     "AcceleratorNameType",
     "AcceleratorTypeType",
     "AccountAttributeNameType",
+    "AccountVpcEncryptionControlModeType",
+    "AccountVpcEncryptionControlStateType",
     "ActivityStatusType",
     "AddressAttributeNameType",
     "AddressFamilyType",
@@ -38,8 +40,10 @@ __all__ = (
     "AllowedImagesSettingsEnabledStateType",
     "AllowsMultipleInstanceTypesType",
     "AmdSevSnpSpecificationType",
+    "AmdSevSnpType",
     "AnalysisStatusType",
     "ApplianceModeSupportValueType",
+    "ApplyCancellationChargesType",
     "ArchitectureTypeType",
     "ArchitectureValuesType",
     "AsnAssociationStateType",
@@ -77,6 +81,7 @@ __all__ = (
     "CapacityManagerMonitoredTagKeyStatusType",
     "CapacityManagerStatusType",
     "CapacityReservationBillingRequestStatusType",
+    "CapacityReservationCancellationQuoteStateType",
     "CapacityReservationDeliveryPreferenceType",
     "CapacityReservationFleetStateType",
     "CapacityReservationInstancePlatformType",
@@ -164,6 +169,7 @@ __all__ = (
     "DescribeInstanceTypesPaginatorName",
     "DescribeInstancesPaginatorName",
     "DescribeInternetGatewaysPaginatorName",
+    "DescribeIpamPoolAllocationsPaginatorName",
     "DescribeIpamPoolsPaginatorName",
     "DescribeIpamPrefixListResolverTargetsPaginatorName",
     "DescribeIpamPrefixListResolversPaginatorName",
@@ -294,7 +300,9 @@ __all__ = (
     "FleetCapacityReservationUsageStrategyType",
     "FleetEventTypeType",
     "FleetExcessCapacityTerminationPolicyType",
+    "FleetHttpTokensStateType",
     "FleetInstanceMatchCriteriaType",
+    "FleetInstanceMetadataEndpointStateType",
     "FleetOnDemandAllocationStrategyType",
     "FleetReplacementStrategyType",
     "FleetReservationTypeType",
@@ -493,7 +501,9 @@ __all__ = (
     "PaginatorName",
     "PartitionLoadFrequencyType",
     "PasswordDataAvailableWaiterName",
+    "PayerResponsibilityScopeType",
     "PayerResponsibilityType",
+    "PayerResponsibilityTypeType",
     "PaymentOptionType",
     "PeriodTypeType",
     "PermissionGroupType",
@@ -601,6 +611,7 @@ __all__ = (
     "SummaryStatusType",
     "SupportedAdditionalProcessorFeatureType",
     "SystemStatusOkWaiterName",
+    "TaggableResourceTypeType",
     "TargetCapacityUnitTypeType",
     "TargetStorageTierType",
     "TelemetryStatusType",
@@ -714,6 +725,14 @@ AcceleratorNameType = Literal[
 ]
 AcceleratorTypeType = Literal["fpga", "gpu", "inference", "media"]
 AccountAttributeNameType = Literal["default-vpc", "supported-platforms"]
+AccountVpcEncryptionControlModeType = Literal["attempt-enforce", "attempt-monitor", "unmanaged"]
+AccountVpcEncryptionControlStateType = Literal[
+    "default-state",
+    "transitions-failed",
+    "transitions-in-progress",
+    "transitions-partially-successful",
+    "transitions-successful",
+]
 ActivityStatusType = Literal["error", "fulfilled", "pending_fulfillment", "pending_termination"]
 AddressAttributeNameType = Literal["domain-name"]
 AddressFamilyType = Literal["ipv4", "ipv6"]
@@ -721,6 +740,7 @@ AddressTransferStatusType = Literal["accepted", "disabled", "pending"]
 AffinityType = Literal["default", "host"]
 AllocationStateType = Literal[
     "available",
+    "configuring",
     "pending",
     "permanent-failure",
     "released",
@@ -734,13 +754,15 @@ AllocationStrategyType = Literal[
     "lowestPrice",
     "priceCapacityOptimized",
 ]
-AllocationTypeType = Literal["future", "used"]
+AllocationTypeType = Literal["cancelling", "future", "used"]
 AllowedImagesSettingsDisabledStateType = Literal["disabled"]
 AllowedImagesSettingsEnabledStateType = Literal["audit-mode", "enabled"]
 AllowsMultipleInstanceTypesType = Literal["off", "on"]
 AmdSevSnpSpecificationType = Literal["disabled", "enabled"]
+AmdSevSnpType = Literal["disabled", "enabled"]
 AnalysisStatusType = Literal["failed", "running", "succeeded"]
 ApplianceModeSupportValueType = Literal["disable", "enable"]
+ApplyCancellationChargesType = Literal["commitment-wind-down"]
 ArchitectureTypeType = Literal["arm64", "arm64_mac", "i386", "x86_64", "x86_64_mac"]
 ArchitectureValuesType = Literal["arm64", "arm64_mac", "i386", "x86_64", "x86_64_mac"]
 AsnAssociationStateType = Literal[
@@ -835,6 +857,7 @@ CapacityManagerStatusType = Literal["disabled", "enabled"]
 CapacityReservationBillingRequestStatusType = Literal[
     "accepted", "cancelled", "expired", "pending", "rejected", "revoked"
 ]
+CapacityReservationCancellationQuoteStateType = Literal["active", "expired", "pending"]
 CapacityReservationDeliveryPreferenceType = Literal["fixed", "incremental"]
 CapacityReservationFleetStateType = Literal[
     "active",
@@ -872,6 +895,7 @@ CapacityReservationStateType = Literal[
     "active",
     "assessing",
     "cancelled",
+    "cancelling",
     "delayed",
     "expired",
     "failed",
@@ -988,6 +1012,7 @@ DescribeInstanceTypeOfferingsPaginatorName = Literal["describe_instance_type_off
 DescribeInstanceTypesPaginatorName = Literal["describe_instance_types"]
 DescribeInstancesPaginatorName = Literal["describe_instances"]
 DescribeInternetGatewaysPaginatorName = Literal["describe_internet_gateways"]
+DescribeIpamPoolAllocationsPaginatorName = Literal["describe_ipam_pool_allocations"]
 DescribeIpamPoolsPaginatorName = Literal["describe_ipam_pools"]
 DescribeIpamPrefixListResolverTargetsPaginatorName = Literal[
     "describe_ipam_prefix_list_resolver_targets"
@@ -1194,7 +1219,9 @@ FleetCapacityReservationTenancyType = Literal["default"]
 FleetCapacityReservationUsageStrategyType = Literal["use-capacity-reservations-first"]
 FleetEventTypeType = Literal["fleet-change", "instance-change", "service-error"]
 FleetExcessCapacityTerminationPolicyType = Literal["no-termination", "termination"]
+FleetHttpTokensStateType = Literal["optional", "required"]
 FleetInstanceMatchCriteriaType = Literal["open"]
+FleetInstanceMetadataEndpointStateType = Literal["disabled", "enabled"]
 FleetOnDemandAllocationStrategyType = Literal["lowest-price", "prioritized"]
 FleetReplacementStrategyType = Literal["launch", "launch-before-terminate"]
 FleetReservationTypeType = Literal["interruptible-capacity-reservation"]
@@ -1647,6 +1674,19 @@ InstanceTypeType = Literal[
     "c8i.metal-48xl",
     "c8i.metal-96xl",
     "c8i.xlarge",
+    "c8ib.12xlarge",
+    "c8ib.16xlarge",
+    "c8ib.24xlarge",
+    "c8ib.2xlarge",
+    "c8ib.32xlarge",
+    "c8ib.48xlarge",
+    "c8ib.4xlarge",
+    "c8ib.8xlarge",
+    "c8ib.96xlarge",
+    "c8ib.large",
+    "c8ib.metal-48xl",
+    "c8ib.metal-96xl",
+    "c8ib.xlarge",
     "c8id.12xlarge",
     "c8id.16xlarge",
     "c8id.24xlarge",
@@ -1660,6 +1700,47 @@ InstanceTypeType = Literal[
     "c8id.metal-48xl",
     "c8id.metal-96xl",
     "c8id.xlarge",
+    "c8in.12xlarge",
+    "c8in.16xlarge",
+    "c8in.24xlarge",
+    "c8in.2xlarge",
+    "c8in.32xlarge",
+    "c8in.48xlarge",
+    "c8in.4xlarge",
+    "c8in.8xlarge",
+    "c8in.96xlarge",
+    "c8in.large",
+    "c8in.metal-48xl",
+    "c8in.metal-96xl",
+    "c8in.xlarge",
+    "c8ine.12xlarge",
+    "c8ine.2xlarge",
+    "c8ine.4xlarge",
+    "c8ine.8xlarge",
+    "c8ine.large",
+    "c8ine.xlarge",
+    "c9g.12xlarge",
+    "c9g.16xlarge",
+    "c9g.24xlarge",
+    "c9g.2xlarge",
+    "c9g.48xlarge",
+    "c9g.4xlarge",
+    "c9g.8xlarge",
+    "c9g.large",
+    "c9g.medium",
+    "c9g.metal-48xl",
+    "c9g.xlarge",
+    "c9gd.12xlarge",
+    "c9gd.16xlarge",
+    "c9gd.24xlarge",
+    "c9gd.2xlarge",
+    "c9gd.48xlarge",
+    "c9gd.4xlarge",
+    "c9gd.8xlarge",
+    "c9gd.large",
+    "c9gd.medium",
+    "c9gd.metal-48xl",
+    "c9gd.xlarge",
     "cc1.4xlarge",
     "cc2.8xlarge",
     "cg1.4xlarge",
@@ -1738,6 +1819,12 @@ InstanceTypeType = Literal[
     "g6f.4xlarge",
     "g6f.large",
     "g6f.xlarge",
+    "g7.12xlarge",
+    "g7.24xlarge",
+    "g7.2xlarge",
+    "g7.48xlarge",
+    "g7.4xlarge",
+    "g7.8xlarge",
     "g7e.12xlarge",
     "g7e.24xlarge",
     "g7e.2xlarge",
@@ -2143,6 +2230,19 @@ InstanceTypeType = Literal[
     "m8i.metal-48xl",
     "m8i.metal-96xl",
     "m8i.xlarge",
+    "m8ib.12xlarge",
+    "m8ib.16xlarge",
+    "m8ib.24xlarge",
+    "m8ib.2xlarge",
+    "m8ib.32xlarge",
+    "m8ib.48xlarge",
+    "m8ib.4xlarge",
+    "m8ib.8xlarge",
+    "m8ib.96xlarge",
+    "m8ib.large",
+    "m8ib.metal-48xl",
+    "m8ib.metal-96xl",
+    "m8ib.xlarge",
     "m8id.12xlarge",
     "m8id.16xlarge",
     "m8id.24xlarge",
@@ -2156,6 +2256,74 @@ InstanceTypeType = Literal[
     "m8id.metal-48xl",
     "m8id.metal-96xl",
     "m8id.xlarge",
+    "m8idb.12xlarge",
+    "m8idb.16xlarge",
+    "m8idb.24xlarge",
+    "m8idb.2xlarge",
+    "m8idb.32xlarge",
+    "m8idb.48xlarge",
+    "m8idb.4xlarge",
+    "m8idb.8xlarge",
+    "m8idb.96xlarge",
+    "m8idb.large",
+    "m8idb.metal-48xl",
+    "m8idb.metal-96xl",
+    "m8idb.xlarge",
+    "m8idn.12xlarge",
+    "m8idn.16xlarge",
+    "m8idn.24xlarge",
+    "m8idn.2xlarge",
+    "m8idn.32xlarge",
+    "m8idn.48xlarge",
+    "m8idn.4xlarge",
+    "m8idn.8xlarge",
+    "m8idn.96xlarge",
+    "m8idn.large",
+    "m8idn.metal-48xl",
+    "m8idn.metal-96xl",
+    "m8idn.xlarge",
+    "m8in.12xlarge",
+    "m8in.16xlarge",
+    "m8in.24xlarge",
+    "m8in.2xlarge",
+    "m8in.32xlarge",
+    "m8in.48xlarge",
+    "m8in.4xlarge",
+    "m8in.8xlarge",
+    "m8in.96xlarge",
+    "m8in.large",
+    "m8in.metal-48xl",
+    "m8in.metal-96xl",
+    "m8in.xlarge",
+    "m8ine.12xlarge",
+    "m8ine.2xlarge",
+    "m8ine.4xlarge",
+    "m8ine.8xlarge",
+    "m8ine.large",
+    "m8ine.xlarge",
+    "m9g.12xlarge",
+    "m9g.16xlarge",
+    "m9g.24xlarge",
+    "m9g.2xlarge",
+    "m9g.48xlarge",
+    "m9g.4xlarge",
+    "m9g.8xlarge",
+    "m9g.large",
+    "m9g.metal-24xl",
+    "m9g.metal-48xl",
+    "m9g.xlarge",
+    "m9gd.12xlarge",
+    "m9gd.16xlarge",
+    "m9gd.24xlarge",
+    "m9gd.2xlarge",
+    "m9gd.48xlarge",
+    "m9gd.4xlarge",
+    "m9gd.8xlarge",
+    "m9gd.large",
+    "m9gd.metal-24xl",
+    "m9gd.metal-48xl",
+    "m9gd.xlarge",
+    "mac-m3ultra.metal",
     "mac-m4.metal",
     "mac-m4max.metal",
     "mac-m4pro.metal",
@@ -2450,6 +2618,19 @@ InstanceTypeType = Literal[
     "r8i.metal-48xl",
     "r8i.metal-96xl",
     "r8i.xlarge",
+    "r8ib.12xlarge",
+    "r8ib.16xlarge",
+    "r8ib.24xlarge",
+    "r8ib.2xlarge",
+    "r8ib.32xlarge",
+    "r8ib.48xlarge",
+    "r8ib.4xlarge",
+    "r8ib.8xlarge",
+    "r8ib.96xlarge",
+    "r8ib.large",
+    "r8ib.metal-48xl",
+    "r8ib.metal-96xl",
+    "r8ib.xlarge",
     "r8id.12xlarge",
     "r8id.16xlarge",
     "r8id.24xlarge",
@@ -2463,6 +2644,45 @@ InstanceTypeType = Literal[
     "r8id.metal-48xl",
     "r8id.metal-96xl",
     "r8id.xlarge",
+    "r8idb.12xlarge",
+    "r8idb.16xlarge",
+    "r8idb.24xlarge",
+    "r8idb.2xlarge",
+    "r8idb.32xlarge",
+    "r8idb.48xlarge",
+    "r8idb.4xlarge",
+    "r8idb.8xlarge",
+    "r8idb.96xlarge",
+    "r8idb.large",
+    "r8idb.metal-48xl",
+    "r8idb.metal-96xl",
+    "r8idb.xlarge",
+    "r8idn.12xlarge",
+    "r8idn.16xlarge",
+    "r8idn.24xlarge",
+    "r8idn.2xlarge",
+    "r8idn.32xlarge",
+    "r8idn.48xlarge",
+    "r8idn.4xlarge",
+    "r8idn.8xlarge",
+    "r8idn.96xlarge",
+    "r8idn.large",
+    "r8idn.metal-48xl",
+    "r8idn.metal-96xl",
+    "r8idn.xlarge",
+    "r8in.12xlarge",
+    "r8in.16xlarge",
+    "r8in.24xlarge",
+    "r8in.2xlarge",
+    "r8in.32xlarge",
+    "r8in.48xlarge",
+    "r8in.4xlarge",
+    "r8in.8xlarge",
+    "r8in.96xlarge",
+    "r8in.large",
+    "r8in.metal-48xl",
+    "r8in.metal-96xl",
+    "r8in.xlarge",
     "t1.micro",
     "t2.2xlarge",
     "t2.large",
@@ -2948,7 +3168,9 @@ OperationTypeType = Literal["add", "remove"]
 OutputFormatType = Literal["csv", "parquet"]
 PartitionLoadFrequencyType = Literal["daily", "monthly", "none", "weekly"]
 PasswordDataAvailableWaiterName = Literal["password_data_available"]
+PayerResponsibilityScopeType = Literal["vpc-endpoint-charges"]
 PayerResponsibilityType = Literal["ServiceOwner"]
+PayerResponsibilityTypeType = Literal["vpc-endpoint-account", "vpc-endpoint-service-account"]
 PaymentOptionType = Literal["AllUpfront", "NoUpfront", "PartialUpfront"]
 PeriodTypeType = Literal[
     "fifteen-minutes", "five-minutes", "one-day", "one-hour", "one-week", "three-hours"
@@ -2957,7 +3179,7 @@ PermissionGroupType = Literal["all"]
 PhcSupportType = Literal["supported", "unsupported"]
 PlacementGroupStateType = Literal["available", "deleted", "deleting", "pending"]
 PlacementGroupStrategyType = Literal["cluster", "partition", "spread"]
-PlacementStrategyType = Literal["cluster", "partition", "spread"]
+PlacementStrategyType = Literal["cluster", "partition", "precision-time", "spread"]
 PlatformValuesType = Literal["windows"]
 PrefixListStateType = Literal[
     "create-complete",
@@ -3026,6 +3248,7 @@ ResourceTypeType = Literal[
     "capacity-block",
     "capacity-manager-data-export",
     "capacity-reservation",
+    "capacity-reservation-cancellation-quote",
     "capacity-reservation-fleet",
     "carrier-gateway",
     "client-vpn-endpoint",
@@ -3054,6 +3277,7 @@ ResourceTypeType = Literal[
     "ipam-external-resource-verification-token",
     "ipam-policy",
     "ipam-pool",
+    "ipam-pool-allocation",
     "ipam-prefix-list-resolver",
     "ipam-prefix-list-resolver-target",
     "ipam-resource-discovery",
@@ -3281,6 +3505,7 @@ SubnetStateType = Literal[
 SummaryStatusType = Literal["impaired", "initializing", "insufficient-data", "not-applicable", "ok"]
 SupportedAdditionalProcessorFeatureType = Literal["amd-sev-snp", "nested-virtualization"]
 SystemStatusOkWaiterName = Literal["system_status_ok"]
+TaggableResourceTypeType = Literal["auto-scaling-group", "instance", "network-interface"]
 TargetCapacityUnitTypeType = Literal["memory-mib", "units", "vcpu"]
 TargetStorageTierType = Literal["archive"]
 TelemetryStatusType = Literal["DOWN", "UP"]
@@ -3663,8 +3888,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -3691,6 +3914,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -3758,10 +3983,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -3794,6 +4019,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -3821,6 +4047,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -3842,7 +4069,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -3863,6 +4089,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -3948,6 +4175,7 @@ PaginatorName = Literal[
     "describe_instance_types",
     "describe_instances",
     "describe_internet_gateways",
+    "describe_ipam_pool_allocations",
     "describe_ipam_pools",
     "describe_ipam_prefix_list_resolver_targets",
     "describe_ipam_prefix_list_resolvers",

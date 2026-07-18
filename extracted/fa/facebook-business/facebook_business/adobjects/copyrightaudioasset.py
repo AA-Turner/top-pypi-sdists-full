@@ -29,20 +29,24 @@ class CopyrightAudioAsset(
     class Field(AbstractObject.Field):
         audio_availability_status = 'audio_availability_status'
         audio_library_policy = 'audio_library_policy'
+        canonical_reference_file = 'canonical_reference_file'
         creation_time = 'creation_time'
         id = 'id'
         reference_file_isrcs = 'reference_file_isrcs'
         reference_files = 'reference_files'
+        representative_reference_file = 'representative_reference_file'
         title = 'title'
         update_time = 'update_time'
 
     _field_types = {
         'audio_availability_status': 'string',
         'audio_library_policy': 'list<map<string, list<map<string, Object>>>>',
+        'canonical_reference_file': 'AudioAsset',
         'creation_time': 'datetime',
         'id': 'string',
         'reference_file_isrcs': 'list<string>',
         'reference_files': 'list<Object>',
+        'representative_reference_file': 'AudioAsset',
         'title': 'string',
         'update_time': 'datetime',
     }

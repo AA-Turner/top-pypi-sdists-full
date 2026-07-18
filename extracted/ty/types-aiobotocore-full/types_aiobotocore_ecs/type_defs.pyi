@@ -48,12 +48,17 @@ from .literals import (
     CpuManufacturerType,
     DaemonDeploymentRollbackMonitorsStatusType,
     DaemonDeploymentStatusType,
+    DaemonIpcModeType,
+    DaemonPidModeType,
     DaemonPropagateTagsType,
     DaemonStatusType,
     DaemonTaskDefinitionStatusFilterType,
     DaemonTaskDefinitionStatusType,
     DeploymentControllerTypeType,
+    DeploymentLifecycleHookActionType,
     DeploymentLifecycleHookStageType,
+    DeploymentLifecycleHookStatusType,
+    DeploymentLifecycleHookTargetTypeType,
     DeploymentRolloutStateType,
     DeploymentStrategyType,
     DesiredStatusType,
@@ -83,6 +88,7 @@ from .literals import (
     PidModeType,
     PlacementConstraintTypeType,
     PlacementStrategyTypeType,
+    PlatformDeviceTypeType,
     PropagateMITagsType,
     PropagateTagsType,
     ResourceManagementTypeType,
@@ -103,6 +109,7 @@ from .literals import (
     TaskDefinitionStatusType,
     TaskFilesystemTypeType,
     TaskStopCodeType,
+    ThresholdTypeType,
     TransportProtocolType,
     UlimitNameType,
     VersionConsistencyType,
@@ -149,6 +156,8 @@ __all__ = (
     "ContainerRestartPolicyUnionTypeDef",
     "ContainerStateChangeTypeDef",
     "ContainerTypeDef",
+    "ContinueServiceDeploymentRequestTypeDef",
+    "ContinueServiceDeploymentResponseTypeDef",
     "CreateCapacityProviderRequestTypeDef",
     "CreateCapacityProviderResponseTypeDef",
     "CreateClusterRequestTypeDef",
@@ -218,7 +227,9 @@ __all__ = (
     "DeploymentConfigurationUnionTypeDef",
     "DeploymentControllerTypeDef",
     "DeploymentEphemeralStorageTypeDef",
+    "DeploymentLifecycleHookDetailTypeDef",
     "DeploymentLifecycleHookOutputTypeDef",
+    "DeploymentLifecycleHookTimeoutConfigurationTypeDef",
     "DeploymentLifecycleHookTypeDef",
     "DeploymentTypeDef",
     "DeregisterContainerInstanceRequestTypeDef",
@@ -392,6 +403,11 @@ __all__ = (
     "ManagedTargetGroupTypeDef",
     "MemoryGiBPerVCpuRequestTypeDef",
     "MemoryMiBRequestTypeDef",
+    "MetricConfigurationOutputTypeDef",
+    "MetricConfigurationTypeDef",
+    "MonitoringConfigurationOutputTypeDef",
+    "MonitoringConfigurationTypeDef",
+    "MonitoringConfigurationUnionTypeDef",
     "MountPointTypeDef",
     "NetworkBandwidthGbpsRequestTypeDef",
     "NetworkBindingTypeDef",
@@ -433,6 +449,7 @@ __all__ = (
     "RollbackTypeDef",
     "RunTaskRequestTypeDef",
     "RunTaskResponseTypeDef",
+    "RuntimePlatformOverrideTypeDef",
     "RuntimePlatformTypeDef",
     "S3FilesVolumeConfigurationTypeDef",
     "ScaleTypeDef",
@@ -461,6 +478,7 @@ __all__ = (
     "ServiceManagedEBSVolumeConfigurationUnionTypeDef",
     "ServiceRegistryTypeDef",
     "ServiceRevisionLoadBalancerTypeDef",
+    "ServiceRevisionOverridesTypeDef",
     "ServiceRevisionSummaryTypeDef",
     "ServiceRevisionTypeDef",
     "ServiceTypeDef",
@@ -495,6 +513,7 @@ __all__ = (
     "TaskSetTypeDef",
     "TaskTypeDef",
     "TaskVolumeConfigurationTypeDef",
+    "ThresholdConfigurationTypeDef",
     "TimeoutConfigurationTypeDef",
     "TimestampTypeDef",
     "TmpfsOutputTypeDef",
@@ -763,6 +782,11 @@ class NetworkInterfaceTypeDef(TypedDict):
     privateIpv4Address: NotRequired[str]
     ipv6Address: NotRequired[str]
 
+class ContinueServiceDeploymentRequestTypeDef(TypedDict):
+    serviceDeploymentArn: str
+    hookId: str
+    action: NotRequired[DeploymentLifecycleHookActionType]
+
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
@@ -956,28 +980,32 @@ class DeploymentAlarmsTypeDef(TypedDict):
     rollback: bool
     enable: bool
 
-class DeploymentCircuitBreakerTypeDef(TypedDict):
-    enable: bool
-    rollback: bool
-
-class DeploymentLifecycleHookOutputTypeDef(TypedDict):
-    hookTargetArn: NotRequired[str]
-    roleArn: NotRequired[str]
-    lifecycleStages: NotRequired[list[DeploymentLifecycleHookStageType]]
-    hookDetails: NotRequired[dict[str, Any]]
+ThresholdConfigurationTypeDef = TypedDict(
+    "ThresholdConfigurationTypeDef",
+    {
+        "type": ThresholdTypeType,
+        "value": int,
+    },
+)
 
 class LinearConfigurationTypeDef(TypedDict):
     stepPercent: NotRequired[float]
     stepBakeTimeInMinutes: NotRequired[int]
 
-class DeploymentLifecycleHookTypeDef(TypedDict):
-    hookTargetArn: NotRequired[str]
-    roleArn: NotRequired[str]
-    lifecycleStages: NotRequired[Sequence[DeploymentLifecycleHookStageType]]
-    hookDetails: NotRequired[Mapping[str, Any]]
-
 class DeploymentEphemeralStorageTypeDef(TypedDict):
     kmsKeyId: NotRequired[str]
+
+class DeploymentLifecycleHookDetailTypeDef(TypedDict):
+    hookId: NotRequired[str]
+    targetType: NotRequired[DeploymentLifecycleHookTargetTypeType]
+    targetArn: NotRequired[str]
+    status: NotRequired[DeploymentLifecycleHookStatusType]
+    expiresAt: NotRequired[datetime]
+    timeoutAction: NotRequired[DeploymentLifecycleHookActionType]
+
+class DeploymentLifecycleHookTimeoutConfigurationTypeDef(TypedDict):
+    timeoutInMinutes: NotRequired[int]
+    action: NotRequired[DeploymentLifecycleHookActionType]
 
 class ServiceConnectServiceResourceTypeDef(TypedDict):
     discoveryName: NotRequired[str]
@@ -1404,11 +1432,19 @@ class ManagedInstancesNetworkConfigurationTypeDef(TypedDict):
     subnets: NotRequired[Sequence[str]]
     securityGroups: NotRequired[Sequence[str]]
 
+class MetricConfigurationOutputTypeDef(TypedDict):
+    metricNames: list[str]
+    resolutionSeconds: int
+
+class MetricConfigurationTypeDef(TypedDict):
+    metricNames: Sequence[str]
+    resolutionSeconds: int
+
 PlatformDeviceTypeDef = TypedDict(
     "PlatformDeviceTypeDef",
     {
         "id": str,
-        "type": Literal["GPU"],
+        "type": PlatformDeviceTypeType,
     },
 )
 
@@ -1453,6 +1489,9 @@ class RollbackTypeDef(TypedDict):
     reason: NotRequired[str]
     startedAt: NotRequired[datetime]
     serviceRevisionArn: NotRequired[str]
+
+class RuntimePlatformOverrideTypeDef(TypedDict):
+    cpuArchitecture: NotRequired[str]
 
 class S3FilesVolumeConfigurationTypeDef(TypedDict):
     fileSystemArn: str
@@ -1716,6 +1755,11 @@ class ContainerTypeDef(TypedDict):
     memory: NotRequired[str]
     memoryReservation: NotRequired[str]
     gpuIds: NotRequired[list[str]]
+    neuronDeviceIds: NotRequired[list[str]]
+
+class ContinueServiceDeploymentResponseTypeDef(TypedDict):
+    serviceDeploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateDaemonResponseTypeDef(TypedDict):
     daemonArn: str
@@ -1915,27 +1959,27 @@ class PutAccountSettingResponseTypeDef(TypedDict):
     setting: SettingTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class DeploymentConfigurationOutputTypeDef(TypedDict):
-    deploymentCircuitBreaker: NotRequired[DeploymentCircuitBreakerTypeDef]
-    maximumPercent: NotRequired[int]
-    minimumHealthyPercent: NotRequired[int]
-    alarms: NotRequired[DeploymentAlarmsOutputTypeDef]
-    strategy: NotRequired[DeploymentStrategyType]
-    bakeTimeInMinutes: NotRequired[int]
-    lifecycleHooks: NotRequired[list[DeploymentLifecycleHookOutputTypeDef]]
-    linearConfiguration: NotRequired[LinearConfigurationTypeDef]
-    canaryConfiguration: NotRequired[CanaryConfigurationTypeDef]
+class DeploymentCircuitBreakerTypeDef(TypedDict):
+    enable: bool
+    rollback: bool
+    resetOnHealthyTask: NotRequired[bool]
+    thresholdConfiguration: NotRequired[ThresholdConfigurationTypeDef]
 
-class DeploymentConfigurationTypeDef(TypedDict):
-    deploymentCircuitBreaker: NotRequired[DeploymentCircuitBreakerTypeDef]
-    maximumPercent: NotRequired[int]
-    minimumHealthyPercent: NotRequired[int]
-    alarms: NotRequired[DeploymentAlarmsTypeDef]
-    strategy: NotRequired[DeploymentStrategyType]
-    bakeTimeInMinutes: NotRequired[int]
-    lifecycleHooks: NotRequired[Sequence[DeploymentLifecycleHookTypeDef]]
-    linearConfiguration: NotRequired[LinearConfigurationTypeDef]
-    canaryConfiguration: NotRequired[CanaryConfigurationTypeDef]
+class DeploymentLifecycleHookOutputTypeDef(TypedDict):
+    targetType: NotRequired[DeploymentLifecycleHookTargetTypeType]
+    hookTargetArn: NotRequired[str]
+    roleArn: NotRequired[str]
+    lifecycleStages: NotRequired[list[DeploymentLifecycleHookStageType]]
+    hookDetails: NotRequired[dict[str, Any]]
+    timeoutConfiguration: NotRequired[DeploymentLifecycleHookTimeoutConfigurationTypeDef]
+
+class DeploymentLifecycleHookTypeDef(TypedDict):
+    targetType: NotRequired[DeploymentLifecycleHookTargetTypeType]
+    hookTargetArn: NotRequired[str]
+    roleArn: NotRequired[str]
+    lifecycleStages: NotRequired[Sequence[DeploymentLifecycleHookStageType]]
+    hookDetails: NotRequired[Mapping[str, Any]]
+    timeoutConfiguration: NotRequired[DeploymentLifecycleHookTimeoutConfigurationTypeDef]
 
 class DescribeDaemonDeploymentsRequestWaitExtraTypeDef(TypedDict):
     daemonDeploymentArns: Sequence[str]
@@ -2188,10 +2232,19 @@ ManagedInstancesNetworkConfigurationUnionTypeDef = Union[
     ManagedInstancesNetworkConfigurationTypeDef, ManagedInstancesNetworkConfigurationOutputTypeDef
 ]
 
+class MonitoringConfigurationOutputTypeDef(TypedDict):
+    metricConfigurations: NotRequired[list[MetricConfigurationOutputTypeDef]]
+
+class MonitoringConfigurationTypeDef(TypedDict):
+    metricConfigurations: NotRequired[Sequence[MetricConfigurationTypeDef]]
+
 class ResolvedConfigurationTypeDef(TypedDict):
     loadBalancers: NotRequired[list[ServiceRevisionLoadBalancerTypeDef]]
 
 ResourceUnionTypeDef = Union[ResourceTypeDef, ResourceOutputTypeDef]
+
+class ServiceRevisionOverridesTypeDef(TypedDict):
+    runtimePlatform: NotRequired[RuntimePlatformOverrideTypeDef]
 
 class ServiceConnectTestTrafficHeaderRulesTypeDef(TypedDict):
     name: str
@@ -2431,28 +2484,27 @@ class ContainerDefinitionOutputTypeDef(TypedDict):
     firelensConfiguration: NotRequired[FirelensConfigurationOutputTypeDef]
     credentialSpecs: NotRequired[list[str]]
 
-class ServiceDeploymentTypeDef(TypedDict):
-    serviceDeploymentArn: NotRequired[str]
-    serviceArn: NotRequired[str]
-    clusterArn: NotRequired[str]
-    createdAt: NotRequired[datetime]
-    startedAt: NotRequired[datetime]
-    finishedAt: NotRequired[datetime]
-    stoppedAt: NotRequired[datetime]
-    updatedAt: NotRequired[datetime]
-    sourceServiceRevisions: NotRequired[list[ServiceRevisionSummaryTypeDef]]
-    targetServiceRevision: NotRequired[ServiceRevisionSummaryTypeDef]
-    status: NotRequired[ServiceDeploymentStatusType]
-    statusReason: NotRequired[str]
-    lifecycleStage: NotRequired[ServiceDeploymentLifecycleStageType]
-    deploymentConfiguration: NotRequired[DeploymentConfigurationOutputTypeDef]
-    rollback: NotRequired[RollbackTypeDef]
-    deploymentCircuitBreaker: NotRequired[ServiceDeploymentCircuitBreakerTypeDef]
-    alarms: NotRequired[ServiceDeploymentAlarmsTypeDef]
+class DeploymentConfigurationOutputTypeDef(TypedDict):
+    deploymentCircuitBreaker: NotRequired[DeploymentCircuitBreakerTypeDef]
+    maximumPercent: NotRequired[int]
+    minimumHealthyPercent: NotRequired[int]
+    alarms: NotRequired[DeploymentAlarmsOutputTypeDef]
+    strategy: NotRequired[DeploymentStrategyType]
+    bakeTimeInMinutes: NotRequired[int]
+    lifecycleHooks: NotRequired[list[DeploymentLifecycleHookOutputTypeDef]]
+    linearConfiguration: NotRequired[LinearConfigurationTypeDef]
+    canaryConfiguration: NotRequired[CanaryConfigurationTypeDef]
 
-DeploymentConfigurationUnionTypeDef = Union[
-    DeploymentConfigurationTypeDef, DeploymentConfigurationOutputTypeDef
-]
+class DeploymentConfigurationTypeDef(TypedDict):
+    deploymentCircuitBreaker: NotRequired[DeploymentCircuitBreakerTypeDef]
+    maximumPercent: NotRequired[int]
+    minimumHealthyPercent: NotRequired[int]
+    alarms: NotRequired[DeploymentAlarmsTypeDef]
+    strategy: NotRequired[DeploymentStrategyType]
+    bakeTimeInMinutes: NotRequired[int]
+    lifecycleHooks: NotRequired[Sequence[DeploymentLifecycleHookTypeDef]]
+    linearConfiguration: NotRequired[LinearConfigurationTypeDef]
+    canaryConfiguration: NotRequired[CanaryConfigurationTypeDef]
 
 class ClusterConfigurationTypeDef(TypedDict):
     executeCommandConfiguration: NotRequired[ExecuteCommandConfigurationTypeDef]
@@ -2462,6 +2514,7 @@ class ExpressGatewayServiceConfigurationTypeDef(TypedDict):
     serviceRevisionArn: NotRequired[str]
     executionRoleArn: NotRequired[str]
     taskRoleArn: NotRequired[str]
+    taskDefinitionArn: NotRequired[str]
     cpu: NotRequired[str]
     memory: NotRequired[str]
     networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationOutputTypeDef]
@@ -2519,6 +2572,10 @@ class ECSManagedResourcesTypeDef(TypedDict):
     metricAlarms: NotRequired[list[ManagedMetricAlarmTypeDef]]
     serviceSecurityGroups: NotRequired[list[ManagedSecurityGroupTypeDef]]
     logGroups: NotRequired[list[ManagedLogGroupTypeDef]]
+
+MonitoringConfigurationUnionTypeDef = Union[
+    MonitoringConfigurationTypeDef, MonitoringConfigurationOutputTypeDef
+]
 
 class RegisterContainerInstanceRequestTypeDef(TypedDict):
     cluster: NotRequired[str]
@@ -2723,11 +2780,32 @@ class DaemonTaskDefinitionTypeDef(TypedDict):
     registeredAt: NotRequired[datetime]
     deleteRequestedAt: NotRequired[datetime]
     registeredBy: NotRequired[str]
+    pidMode: NotRequired[DaemonPidModeType]
+    ipcMode: NotRequired[DaemonIpcModeType]
 
-class DescribeServiceDeploymentsResponseTypeDef(TypedDict):
-    serviceDeployments: list[ServiceDeploymentTypeDef]
-    failures: list[FailureTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
+class ServiceDeploymentTypeDef(TypedDict):
+    serviceDeploymentArn: NotRequired[str]
+    serviceArn: NotRequired[str]
+    clusterArn: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    startedAt: NotRequired[datetime]
+    finishedAt: NotRequired[datetime]
+    stoppedAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    sourceServiceRevisions: NotRequired[list[ServiceRevisionSummaryTypeDef]]
+    targetServiceRevision: NotRequired[ServiceRevisionSummaryTypeDef]
+    status: NotRequired[ServiceDeploymentStatusType]
+    statusReason: NotRequired[str]
+    lifecycleStage: NotRequired[ServiceDeploymentLifecycleStageType]
+    lifecycleHookDetails: NotRequired[list[DeploymentLifecycleHookDetailTypeDef]]
+    deploymentConfiguration: NotRequired[DeploymentConfigurationOutputTypeDef]
+    rollback: NotRequired[RollbackTypeDef]
+    deploymentCircuitBreaker: NotRequired[ServiceDeploymentCircuitBreakerTypeDef]
+    alarms: NotRequired[ServiceDeploymentAlarmsTypeDef]
+
+DeploymentConfigurationUnionTypeDef = Union[
+    DeploymentConfigurationTypeDef, DeploymentConfigurationOutputTypeDef
+]
 
 class ClusterTypeDef(TypedDict):
     clusterArn: NotRequired[str]
@@ -2784,18 +2862,19 @@ class UpdatedExpressGatewayServiceTypeDef(TypedDict):
     updatedAt: NotRequired[datetime]
 
 class CreateExpressGatewayServiceRequestTypeDef(TypedDict):
-    executionRoleArn: str
     infrastructureRoleArn: str
-    primaryContainer: ExpressGatewayContainerUnionTypeDef
+    executionRoleArn: NotRequired[str]
     serviceName: NotRequired[str]
     cluster: NotRequired[str]
     healthCheckPath: NotRequired[str]
+    primaryContainer: NotRequired[ExpressGatewayContainerUnionTypeDef]
     taskRoleArn: NotRequired[str]
     networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationUnionTypeDef]
     cpu: NotRequired[str]
     memory: NotRequired[str]
     scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
     tags: NotRequired[Sequence[TagTypeDef]]
+    taskDefinitionArn: NotRequired[str]
 
 class UpdateExpressGatewayServiceRequestTypeDef(TypedDict):
     serviceArn: str
@@ -2807,6 +2886,7 @@ class UpdateExpressGatewayServiceRequestTypeDef(TypedDict):
     cpu: NotRequired[str]
     memory: NotRequired[str]
     scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
+    taskDefinitionArn: NotRequired[str]
 
 class TaskDefinitionTypeDef(TypedDict):
     taskDefinitionArn: NotRequired[str]
@@ -2905,6 +2985,11 @@ class StopTaskResponseTypeDef(TypedDict):
 
 class DescribeDaemonTaskDefinitionResponseTypeDef(TypedDict):
     daemonTaskDefinition: DaemonTaskDefinitionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeServiceDeploymentsResponseTypeDef(TypedDict):
+    serviceDeployments: list[ServiceDeploymentTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateClusterResponseTypeDef(TypedDict):
@@ -3234,6 +3319,8 @@ class ServiceRevisionTypeDef(TypedDict):
     vpcLatticeConfigurations: NotRequired[list[VpcLatticeConfigurationTypeDef]]
     resolvedConfiguration: NotRequired[ResolvedConfigurationTypeDef]
     ecsManagedResources: NotRequired[ECSManagedResourcesTypeDef]
+    overrides: NotRequired[ServiceRevisionOverridesTypeDef]
+    monitoring: NotRequired[MonitoringConfigurationOutputTypeDef]
 
 ServiceConnectConfigurationUnionTypeDef = Union[
     ServiceConnectConfigurationTypeDef, ServiceConnectConfigurationOutputTypeDef
@@ -3248,6 +3335,8 @@ class RegisterDaemonTaskDefinitionRequestTypeDef(TypedDict):
     memory: NotRequired[str]
     volumes: NotRequired[Sequence[DaemonVolumeTypeDef]]
     tags: NotRequired[Sequence[TagTypeDef]]
+    pidMode: NotRequired[DaemonPidModeType]
+    ipcMode: NotRequired[DaemonIpcModeType]
 
 class RegisterTaskDefinitionRequestTypeDef(TypedDict):
     family: str
@@ -3338,6 +3427,7 @@ class CreateServiceRequestTypeDef(TypedDict):
     serviceConnectConfiguration: NotRequired[ServiceConnectConfigurationUnionTypeDef]
     volumeConfigurations: NotRequired[Sequence[ServiceVolumeConfigurationUnionTypeDef]]
     vpcLatticeConfigurations: NotRequired[Sequence[VpcLatticeConfigurationTypeDef]]
+    monitoring: NotRequired[MonitoringConfigurationUnionTypeDef]
 
 class UpdateServiceRequestTypeDef(TypedDict):
     service: str
@@ -3362,6 +3452,7 @@ class UpdateServiceRequestTypeDef(TypedDict):
     serviceConnectConfiguration: NotRequired[ServiceConnectConfigurationUnionTypeDef]
     volumeConfigurations: NotRequired[Sequence[ServiceVolumeConfigurationUnionTypeDef]]
     vpcLatticeConfigurations: NotRequired[Sequence[VpcLatticeConfigurationTypeDef]]
+    monitoring: NotRequired[MonitoringConfigurationUnionTypeDef]
 
 class CreateServiceResponseTypeDef(TypedDict):
     service: ServiceTypeDef

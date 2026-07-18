@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 # import apis into sdk package
 from unitycatalog.client.api.catalogs_api import CatalogsApi

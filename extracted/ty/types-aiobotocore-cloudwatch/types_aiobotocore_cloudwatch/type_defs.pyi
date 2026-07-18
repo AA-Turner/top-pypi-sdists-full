@@ -19,7 +19,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
 
 from .literals import (
     ActionsSuppressedByType,
@@ -53,6 +53,7 @@ __all__ = (
     "AnomalyDetectorConfigurationTypeDef",
     "AnomalyDetectorConfigurationUnionTypeDef",
     "AnomalyDetectorTypeDef",
+    "AssociateDatasetKmsKeyInputTypeDef",
     "CloudwatchEventDetailConfigurationTypeDef",
     "CloudwatchEventDetailTypeDef",
     "CloudwatchEventMetricStatsMetricTypeDef",
@@ -81,6 +82,7 @@ __all__ = (
     "DescribeAlarmsForMetricOutputTypeDef",
     "DescribeAlarmsInputPaginateTypeDef",
     "DescribeAlarmsInputTypeDef",
+    "DescribeAlarmsInputWaitExtraExtraTypeDef",
     "DescribeAlarmsInputWaitExtraTypeDef",
     "DescribeAlarmsInputWaitTypeDef",
     "DescribeAlarmsOutputTypeDef",
@@ -94,6 +96,7 @@ __all__ = (
     "DisableAlarmActionsInputTypeDef",
     "DisableInsightRulesInputTypeDef",
     "DisableInsightRulesOutputTypeDef",
+    "DisassociateDatasetKmsKeyInputTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EnableAlarmActionsInputTypeDef",
     "EnableInsightRulesInputTypeDef",
@@ -101,11 +104,16 @@ __all__ = (
     "EntityMetricDataTypeDef",
     "EntityTypeDef",
     "EvaluationCriteriaTypeDef",
+    "EvaluationWindowOutputTypeDef",
+    "EvaluationWindowTypeDef",
+    "EvaluationWindowUnionTypeDef",
     "GetAlarmMuteRuleInputTypeDef",
     "GetAlarmMuteRuleInputWaitTypeDef",
     "GetAlarmMuteRuleOutputTypeDef",
     "GetDashboardInputTypeDef",
     "GetDashboardOutputTypeDef",
+    "GetDatasetInputTypeDef",
+    "GetDatasetOutputTypeDef",
     "GetInsightRuleReportInputTypeDef",
     "GetInsightRuleReportOutputTypeDef",
     "GetMetricDataInputPaginateTypeDef",
@@ -139,6 +147,7 @@ __all__ = (
     "ListMetricsOutputTypeDef",
     "ListTagsForResourceInputTypeDef",
     "ListTagsForResourceOutputTypeDef",
+    "LogAlarmTypeDef",
     "ManagedRuleDescriptionTypeDef",
     "ManagedRuleStateTypeDef",
     "ManagedRuleTypeDef",
@@ -176,10 +185,12 @@ __all__ = (
     "PartialFailureTypeDef",
     "PutAlarmMuteRuleInputTypeDef",
     "PutAnomalyDetectorInputTypeDef",
+    "PutAnomalyDetectorOutputTypeDef",
     "PutCompositeAlarmInputTypeDef",
     "PutDashboardInputTypeDef",
     "PutDashboardOutputTypeDef",
     "PutInsightRuleInputTypeDef",
+    "PutLogAlarmInputTypeDef",
     "PutManagedInsightRulesInputTypeDef",
     "PutManagedInsightRulesOutputTypeDef",
     "PutMetricAlarmInputMetricPutAlarmTypeDef",
@@ -192,7 +203,11 @@ __all__ = (
     "RangeTypeDef",
     "ResponseMetadataTypeDef",
     "RuleTypeDef",
+    "ScheduleConfigurationTypeDef",
     "ScheduleTypeDef",
+    "ScheduledQueryConfigurationOutputTypeDef",
+    "ScheduledQueryConfigurationTypeDef",
+    "ScheduledQueryConfigurationUnionTypeDef",
     "SetAlarmStateInputAlarmSetStateTypeDef",
     "SetAlarmStateInputTypeDef",
     "SingleMetricAnomalyDetectorOutputTypeDef",
@@ -206,6 +221,7 @@ __all__ = (
     "TimestampTypeDef",
     "UntagResourceInputTypeDef",
     "WaiterConfigTypeDef",
+    "WallClockWindowTypeDef",
 )
 
 class AlarmContributorTypeDef(TypedDict):
@@ -246,6 +262,10 @@ class DimensionTypeDef(TypedDict):
 
 class MetricCharacteristicsTypeDef(TypedDict):
     PeriodicSpikes: NotRequired[bool]
+
+class AssociateDatasetKmsKeyInputTypeDef(TypedDict):
+    DatasetIdentifier: str
+    KmsKeyArn: str
 
 class CloudwatchEventStateTypeDef(TypedDict):
     timestamp: str
@@ -377,6 +397,9 @@ class DisableAlarmActionsInputTypeDef(TypedDict):
 class DisableInsightRulesInputTypeDef(TypedDict):
     RuleNames: Sequence[str]
 
+class DisassociateDatasetKmsKeyInputTypeDef(TypedDict):
+    DatasetIdentifier: str
+
 class EnableAlarmActionsInputTypeDef(TypedDict):
     AlarmNames: Sequence[str]
 
@@ -387,6 +410,9 @@ class EntityTypeDef(TypedDict):
     KeyAttributes: NotRequired[Mapping[str, str]]
     Attributes: NotRequired[Mapping[str, str]]
 
+class WallClockWindowTypeDef(TypedDict):
+    Timezone: NotRequired[str]
+
 class GetAlarmMuteRuleInputTypeDef(TypedDict):
     AlarmMuteRuleName: str
 
@@ -395,6 +421,9 @@ class MuteTargetsOutputTypeDef(TypedDict):
 
 class GetDashboardInputTypeDef(TypedDict):
     DashboardName: str
+
+class GetDatasetInputTypeDef(TypedDict):
+    DatasetIdentifier: str
 
 class InsightRuleMetricDatapointTypeDef(TypedDict):
     Timestamp: datetime
@@ -484,14 +513,15 @@ class MetricStreamStatisticsMetricTypeDef(TypedDict):
 class MuteTargetsTypeDef(TypedDict):
     AlarmNames: Sequence[str]
 
-class PutDashboardInputTypeDef(TypedDict):
-    DashboardName: str
-    DashboardBody: str
-
 class ScheduleTypeDef(TypedDict):
     Expression: str
     Duration: str
     Timezone: NotRequired[str]
+
+class ScheduleConfigurationTypeDef(TypedDict):
+    ScheduleExpression: str
+    StartTimeOffset: NotRequired[int]
+    EndTimeOffset: NotRequired[int]
 
 class SetAlarmStateInputAlarmSetStateTypeDef(TypedDict):
     StateValue: StateValueType
@@ -531,6 +561,7 @@ class DescribeAlarmsForMetricInputTypeDef(TypedDict):
     Unit: NotRequired[StandardUnitType]
 
 class DescribeAnomalyDetectorsInputTypeDef(TypedDict):
+    AnomalyDetectorIds: NotRequired[Sequence[str]]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     Namespace: NotRequired[str]
@@ -598,6 +629,12 @@ class GetDashboardOutputTypeDef(TypedDict):
     DashboardName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetDatasetOutputTypeDef(TypedDict):
+    DatasetId: str
+    Arn: str
+    KmsKeyArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetMetricStatisticsOutputTypeDef(TypedDict):
     Label: str
     Datapoints: list[DatapointTypeDef]
@@ -620,6 +657,10 @@ class ListDashboardsOutputTypeDef(TypedDict):
     DashboardEntries: list[DashboardEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class PutAnomalyDetectorOutputTypeDef(TypedDict):
+    AnomalyDetectorId: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class PutDashboardOutputTypeDef(TypedDict):
     DashboardValidationMessages: list[DashboardValidationMessageTypeDef]
@@ -708,6 +749,7 @@ class DescribeAlarmsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeAnomalyDetectorsInputPaginateTypeDef(TypedDict):
+    AnomalyDetectorIds: NotRequired[Sequence[str]]
     Namespace: NotRequired[str]
     MetricName: NotRequired[str]
     Dimensions: NotRequired[Sequence[DimensionTypeDef]]
@@ -722,6 +764,18 @@ class ListAlarmMuteRulesInputPaginateTypeDef(TypedDict):
 class ListDashboardsInputPaginateTypeDef(TypedDict):
     DashboardNamePrefix: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeAlarmsInputWaitExtraExtraTypeDef(TypedDict):
+    AlarmNames: NotRequired[Sequence[str]]
+    AlarmNamePrefix: NotRequired[str]
+    AlarmTypes: NotRequired[Sequence[AlarmTypeType]]
+    ChildrenOfAlarmName: NotRequired[str]
+    ParentsOfAlarmName: NotRequired[str]
+    StateValue: NotRequired[StateValueType]
+    ActionPrefix: NotRequired[str]
+    MaxRecords: NotRequired[int]
+    NextToken: NotRequired[str]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class DescribeAlarmsInputWaitExtraTypeDef(TypedDict):
     AlarmNames: NotRequired[Sequence[str]]
@@ -774,6 +828,14 @@ class ListMetricsInputTypeDef(TypedDict):
     IncludeLinkedAccounts: NotRequired[bool]
     OwningAccount: NotRequired[str]
 
+class EvaluationWindowOutputTypeDef(TypedDict):
+    WallClockWindow: NotRequired[WallClockWindowTypeDef]
+    SlidingWindow: NotRequired[dict[str, Any]]
+
+class EvaluationWindowTypeDef(TypedDict):
+    WallClockWindow: NotRequired[WallClockWindowTypeDef]
+    SlidingWindow: NotRequired[Mapping[str, Any]]
+
 class MetricDataResultTypeDef(TypedDict):
     Id: NotRequired[str]
     Label: NotRequired[str]
@@ -813,6 +875,11 @@ class PutCompositeAlarmInputTypeDef(TypedDict):
     ActionsSuppressor: NotRequired[str]
     ActionsSuppressorWaitPeriod: NotRequired[int]
     ActionsSuppressorExtensionPeriod: NotRequired[int]
+
+class PutDashboardInputTypeDef(TypedDict):
+    DashboardName: str
+    DashboardBody: str
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 class PutInsightRuleInputTypeDef(TypedDict):
     RuleName: str
@@ -856,6 +923,24 @@ MuteTargetsUnionTypeDef = Union[MuteTargetsTypeDef, MuteTargetsOutputTypeDef]
 class RuleTypeDef(TypedDict):
     Schedule: ScheduleTypeDef
 
+class ScheduledQueryConfigurationOutputTypeDef(TypedDict):
+    QueryString: str
+    ScheduledQueryRoleARN: str
+    ScheduleConfiguration: ScheduleConfigurationTypeDef
+    AggregationExpression: str
+    LogGroupIdentifiers: NotRequired[list[str]]
+    QueryARN: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+
+class ScheduledQueryConfigurationTypeDef(TypedDict):
+    QueryString: str
+    ScheduledQueryRoleARN: str
+    ScheduleConfiguration: ScheduleConfigurationTypeDef
+    AggregationExpression: str
+    LogGroupIdentifiers: NotRequired[Sequence[str]]
+    QueryARN: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
 class ListMetricsOutputTypeDef(TypedDict):
     Metrics: list[MetricOutputTypeDef]
     OwningAccounts: list[str]
@@ -887,6 +972,8 @@ CloudwatchEventMetricTypeDef = TypedDict(
 class AnomalyDetectorConfigurationTypeDef(TypedDict):
     ExcludedTimeRanges: NotRequired[Sequence[RangeTypeDef]]
     MetricTimezone: NotRequired[str]
+
+EvaluationWindowUnionTypeDef = Union[EvaluationWindowTypeDef, EvaluationWindowOutputTypeDef]
 
 class GetMetricDataOutputTypeDef(TypedDict):
     MetricDataResults: list[MetricDataResultTypeDef]
@@ -956,6 +1043,34 @@ class PutAlarmMuteRuleInputTypeDef(TypedDict):
     StartDate: NotRequired[TimestampTypeDef]
     ExpireDate: NotRequired[TimestampTypeDef]
 
+class LogAlarmTypeDef(TypedDict):
+    AlarmName: NotRequired[str]
+    AlarmArn: NotRequired[str]
+    AlarmDescription: NotRequired[str]
+    AlarmConfigurationUpdatedTimestamp: NotRequired[datetime]
+    ActionsEnabled: NotRequired[bool]
+    OKActions: NotRequired[list[str]]
+    AlarmActions: NotRequired[list[str]]
+    InsufficientDataActions: NotRequired[list[str]]
+    StateValue: NotRequired[StateValueType]
+    StateReason: NotRequired[str]
+    StateReasonData: NotRequired[str]
+    StateUpdatedTimestamp: NotRequired[datetime]
+    ScheduledQueryConfiguration: NotRequired[ScheduledQueryConfigurationOutputTypeDef]
+    QueryResultsToEvaluate: NotRequired[int]
+    QueryResultsToAlarm: NotRequired[int]
+    Threshold: NotRequired[float]
+    ComparisonOperator: NotRequired[ComparisonOperatorType]
+    TreatMissingData: NotRequired[str]
+    StateTransitionedTimestamp: NotRequired[datetime]
+    EvaluationState: NotRequired[EvaluationStateType]
+    ActionLogLineCount: NotRequired[int]
+    ActionLogLineRoleArn: NotRequired[str]
+
+ScheduledQueryConfigurationUnionTypeDef = Union[
+    ScheduledQueryConfigurationTypeDef, ScheduledQueryConfigurationOutputTypeDef
+]
+
 class MetricDataQueryOutputTypeDef(TypedDict):
     Id: str
     MetricStat: NotRequired[MetricStatOutputTypeDef]
@@ -1018,6 +1133,23 @@ class PutMetricStreamInputTypeDef(TypedDict):
     StatisticsConfigurations: NotRequired[Sequence[MetricStreamStatisticsConfigurationUnionTypeDef]]
     IncludeLinkedAccountsMetrics: NotRequired[bool]
 
+class PutLogAlarmInputTypeDef(TypedDict):
+    AlarmName: str
+    ScheduledQueryConfiguration: ScheduledQueryConfigurationUnionTypeDef
+    QueryResultsToEvaluate: int
+    QueryResultsToAlarm: int
+    Threshold: float
+    ComparisonOperator: ComparisonOperatorType
+    AlarmDescription: NotRequired[str]
+    ActionLogLineCount: NotRequired[int]
+    ActionLogLineRoleArn: NotRequired[str]
+    ActionsEnabled: NotRequired[bool]
+    OKActions: NotRequired[Sequence[str]]
+    AlarmActions: NotRequired[Sequence[str]]
+    InsufficientDataActions: NotRequired[Sequence[str]]
+    TreatMissingData: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
 class MetricAlarmTypeDef(TypedDict):
     AlarmName: NotRequired[str]
     AlarmArn: NotRequired[str]
@@ -1048,6 +1180,7 @@ class MetricAlarmTypeDef(TypedDict):
     ThresholdMetricId: NotRequired[str]
     EvaluationState: NotRequired[EvaluationStateType]
     StateTransitionedTimestamp: NotRequired[datetime]
+    EvaluationWindow: NotRequired[EvaluationWindowOutputTypeDef]
     EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
     EvaluationInterval: NotRequired[int]
 
@@ -1071,6 +1204,7 @@ class DescribeAlarmsForMetricOutputTypeDef(TypedDict):
 class DescribeAlarmsOutputTypeDef(TypedDict):
     CompositeAlarms: list[CompositeAlarmTypeDef]
     MetricAlarms: list[MetricAlarmTypeDef]
+    LogAlarms: list[LogAlarmTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1081,6 +1215,7 @@ class MetricStatAlarmTypeDef(TypedDict):
     Unit: NotRequired[StandardUnitType]
 
 class AnomalyDetectorTypeDef(TypedDict):
+    AnomalyDetectorId: NotRequired[str]
     Namespace: NotRequired[str]
     MetricName: NotRequired[str]
     Dimensions: NotRequired[list[DimensionTypeDef]]
@@ -1172,6 +1307,7 @@ class PutMetricAlarmInputMetricPutAlarmTypeDef(TypedDict):
     Metrics: NotRequired[Sequence[MetricDataQueryUnionTypeDef]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ThresholdMetricId: NotRequired[str]
+    EvaluationWindow: NotRequired[EvaluationWindowUnionTypeDef]
     EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
     EvaluationInterval: NotRequired[int]
 
@@ -1198,6 +1334,7 @@ class PutMetricAlarmInputTypeDef(TypedDict):
     Metrics: NotRequired[Sequence[MetricDataQueryUnionTypeDef]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ThresholdMetricId: NotRequired[str]
+    EvaluationWindow: NotRequired[EvaluationWindowUnionTypeDef]
     EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
     EvaluationInterval: NotRequired[int]
 
@@ -1206,6 +1343,7 @@ MetricMathAnomalyDetectorUnionTypeDef = Union[
 ]
 
 class DeleteAnomalyDetectorInputTypeDef(TypedDict):
+    AnomalyDetectorId: NotRequired[str]
     Namespace: NotRequired[str]
     MetricName: NotRequired[str]
     Dimensions: NotRequired[Sequence[DimensionTypeDef]]

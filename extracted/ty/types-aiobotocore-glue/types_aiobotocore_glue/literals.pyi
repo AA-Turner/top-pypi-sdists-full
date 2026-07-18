@@ -94,6 +94,7 @@ __all__ = (
     "GetUserDefinedFunctionsPaginatorName",
     "GetWorkflowRunsPaginatorName",
     "GlueRecordTypeType",
+    "GlueResourceTypeType",
     "GlueServiceName",
     "HTTPMethodType",
     "HudiTargetCompressionTypeType",
@@ -116,9 +117,14 @@ __all__ = (
     "LanguageType",
     "LastCrawlStatusType",
     "LastRefreshTypeType",
+    "ListAssetTypesPaginatorName",
     "ListBlueprintsPaginatorName",
     "ListConnectionTypesPaginatorName",
     "ListEntitiesPaginatorName",
+    "ListFormTypesPaginatorName",
+    "ListGlossariesPaginatorName",
+    "ListGlossaryTermsPaginatorName",
+    "ListIterableFormsPaginatorName",
     "ListJobsPaginatorName",
     "ListMaterializedViewRefreshTaskRunsPaginatorName",
     "ListRegistriesPaginatorName",
@@ -162,9 +168,13 @@ __all__ = (
     "SchemaDiffTypeType",
     "SchemaStatusType",
     "SchemaVersionStatusType",
+    "SearchAssetsPaginatorName",
+    "SearchFilterOperatorType",
+    "SearchSortOrderType",
     "SeparatorType",
     "ServiceName",
     "SessionStatusType",
+    "SessionTypeType",
     "SettingSourceType",
     "SortDirectionTypeType",
     "SortType",
@@ -471,6 +481,7 @@ GetWorkflowRunsPaginatorName = Literal["get_workflow_runs"]
 GlueRecordTypeType = Literal[
     "BIGDECIMAL", "BYTE", "DATE", "DOUBLE", "FLOAT", "INT", "LONG", "SHORT", "STRING", "TIMESTAMP"
 ]
+GlueResourceTypeType = Literal["JOB", "SESSION"]
 HTTPMethodType = Literal["GET", "POST"]
 HudiTargetCompressionTypeType = Literal["gzip", "lzo", "snappy", "uncompressed"]
 HyperTargetCompressionTypeType = Literal["uncompressed"]
@@ -557,9 +568,14 @@ JoinTypeType = Literal["equijoin", "left", "leftanti", "leftsemi", "outer", "rig
 LanguageType = Literal["PYTHON", "SCALA"]
 LastCrawlStatusType = Literal["CANCELLED", "FAILED", "SUCCEEDED"]
 LastRefreshTypeType = Literal["FULL", "INCREMENTAL"]
+ListAssetTypesPaginatorName = Literal["list_asset_types"]
 ListBlueprintsPaginatorName = Literal["list_blueprints"]
 ListConnectionTypesPaginatorName = Literal["list_connection_types"]
 ListEntitiesPaginatorName = Literal["list_entities"]
+ListFormTypesPaginatorName = Literal["list_form_types"]
+ListGlossariesPaginatorName = Literal["list_glossaries"]
+ListGlossaryTermsPaginatorName = Literal["list_glossary_terms"]
+ListIterableFormsPaginatorName = Literal["list_iterable_forms"]
 ListJobsPaginatorName = Literal["list_jobs"]
 ListMaterializedViewRefreshTaskRunsPaginatorName = Literal[
     "list_materialized_view_refresh_task_runs"
@@ -624,8 +640,14 @@ ScheduleTypeType = Literal["AUTO", "CRON"]
 SchemaDiffTypeType = Literal["SYNTAX_DIFF"]
 SchemaStatusType = Literal["AVAILABLE", "DELETING", "PENDING"]
 SchemaVersionStatusType = Literal["AVAILABLE", "DELETING", "FAILURE", "PENDING"]
+SearchAssetsPaginatorName = Literal["search_assets"]
+SearchFilterOperatorType = Literal[
+    "equals", "greaterThan", "greaterThanOrEquals", "lessThan", "lessThanOrEquals", "notExists"
+]
+SearchSortOrderType = Literal["ASCENDING", "DESCENDING"]
 SeparatorType = Literal["comma", "ctrla", "pipe", "semicolon", "tab"]
 SessionStatusType = Literal["FAILED", "PROVISIONING", "READY", "STOPPED", "STOPPING", "TIMEOUT"]
+SessionTypeType = Literal["LIVY", "SPARK_CONNECT"]
 SettingSourceType = Literal["CATALOG", "TABLE"]
 SortDirectionTypeType = Literal["ASCENDING", "DESCENDING"]
 SortType = Literal["ASC", "DESC"]
@@ -634,7 +656,7 @@ SourceControlProviderType = Literal["AWS_CODE_COMMIT", "BITBUCKET", "GITHUB", "G
 StartingPositionType = Literal["earliest", "latest", "timestamp", "trim_horizon"]
 StatementStateType = Literal["AVAILABLE", "CANCELLED", "CANCELLING", "ERROR", "RUNNING", "WAITING"]
 StatisticEvaluationLevelType = Literal["Column", "Dataset", "Multicolumn"]
-TableAttributesType = Literal["NAME", "TABLE_TYPE"]
+TableAttributesType = Literal["DEFAULT", "LATEST_ICEBERG_METADATA", "NAME", "TABLE_TYPE"]
 TableOptimizerEventTypeType = Literal["completed", "failed", "in_progress", "starting"]
 TableOptimizerTypeType = Literal["compaction", "orphan_file_deletion", "retention"]
 TargetFormatType = Literal[
@@ -865,8 +887,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -893,6 +913,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -960,10 +982,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -996,6 +1018,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -1023,6 +1046,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -1044,7 +1068,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -1065,6 +1088,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -1119,9 +1143,14 @@ PaginatorName = Literal[
     "get_triggers",
     "get_user_defined_functions",
     "get_workflow_runs",
+    "list_asset_types",
     "list_blueprints",
     "list_connection_types",
     "list_entities",
+    "list_form_types",
+    "list_glossaries",
+    "list_glossary_terms",
+    "list_iterable_forms",
     "list_jobs",
     "list_materialized_view_refresh_task_runs",
     "list_registries",
@@ -1131,6 +1160,7 @@ PaginatorName = Literal[
     "list_triggers",
     "list_usage_profiles",
     "list_workflows",
+    "search_assets",
 ]
 RegionName = Literal[
     "af-south-1",

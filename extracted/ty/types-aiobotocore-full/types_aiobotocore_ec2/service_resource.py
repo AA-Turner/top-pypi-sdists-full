@@ -206,6 +206,7 @@ from .type_defs import (
     IamInstanceProfileTypeDef,
     ImageAttributeTypeDef,
     ImageCreateTagsRequestTypeDef,
+    ImageWatermarkTypeDef,
     ImportKeyPairRequestServiceResourceImportKeyPairTypeDef,
     InstanceAttributeTypeDef,
     InstanceBlockDeviceMappingTypeDef,
@@ -3265,6 +3266,8 @@ class Image(AIOBoto3ServiceResource):
     source_image_id: Awaitable[str]
     source_image_region: Awaitable[str]
     free_tier_eligible: Awaitable[bool]
+    public_ssm_parameter_name: Awaitable[str]
+    image_watermarks: Awaitable[list[ImageWatermarkTypeDef]]
     image_id: Awaitable[str]
     image_location: Awaitable[str]
     state: Awaitable[ImageStateType]
@@ -4223,6 +4226,7 @@ class PlacementGroup(AIOBoto3ServiceResource):
     spread_level: Awaitable[SpreadLevelType]
     linked_group_id: Awaitable[str]
     operator: Awaitable[OperatorResponseTypeDef]
+    parent_group_id: Awaitable[str]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:

@@ -44,6 +44,7 @@ from importlib.metadata import entry_points
 from typing import TYPE_CHECKING, Any, Callable
 
 from smplkit._config import _service_url, resolve_client_config
+from smplkit._transport import with_default_user_agent
 from smplkit._debug import debug
 from smplkit.errors import (
     ConflictError,
@@ -192,24 +193,29 @@ def _logging_transport(
     profile: str | None,
     base_domain: str | None,
     scheme: str | None,
+    environment: str | None,
+    service: str | None,
     debug: bool | None,
     extra_headers: dict[str, str] | None,
-) -> tuple[AuthenticatedClient, _AppAuthClient, str]:
-    """Build standalone logging + app transports and resolve the app base URL.
+) -> tuple[AuthenticatedClient, _AppAuthClient, str, str | None, str | None]:
+    """Build standalone logging + app transports; resolve app URL, environment, service.
 
     ``base_url``/``api_key`` are used directly when both are supplied (the
     path a top-level client takes after it has already resolved them);
     otherwise the config resolver fills in whatever is missing
-    (``~/.smplkit`` / env vars / defaults). The app transport is needed for
-    the WebSocket gateway, which lives on the app service (like flags); the
-    app base URL is returned so a standalone client can open its own WebSocket
-    against the event gateway.
+    (``~/.smplkit`` / env vars / defaults). ``environment`` and ``service``
+    resolve through the same chain (constructor kwarg wins). The app
+    transport is needed for the WebSocket gateway, which lives on the app
+    service (like flags); the app base URL is returned so a standalone
+    client can open its own WebSocket against the event gateway.
     """
     cfg = resolve_client_config(
         profile=profile,
         api_key=api_key,
         base_domain=base_domain,
         scheme=scheme,
+        environment=environment,
+        service=service,
         debug=debug,
     )
     resolved_key = api_key if api_key is not None else cfg.api_key
@@ -218,9 +224,10 @@ def _logging_transport(
     headers: dict[str, str] = {}
     headers.update(cfg.extra_headers or {})
     headers.update(extra_headers or {})
+    headers = with_default_user_agent(headers)
     logging_http = AuthenticatedClient(base_url=logging_url.rstrip("/"), token=resolved_key, headers=headers)
     app_http = _AppAuthClient(base_url=app_url.rstrip("/"), token=resolved_key, headers=headers)
-    return logging_http, app_http, app_url
+    return logging_http, app_http, app_url, cfg.environment, cfg.service
 
 
 # ---------------------------------------------------------------------------
@@ -282,10 +289,18 @@ class LoggersClient:
     one queue.
     """
 
-    def __init__(self, http_client: AuthenticatedClient, *, base_url: str, buffer: _LoggerRegistrationBuffer) -> None:
+    def __init__(
+        self,
+        http_client: AuthenticatedClient,
+        *,
+        base_url: str,
+        buffer: _LoggerRegistrationBuffer,
+        streaming: bool = True,
+    ) -> None:
         self._http_client = http_client
         self._base_url = base_url
         self._buffer = buffer
+        self._streaming = streaming
 
     def register(
         self,
@@ -319,7 +334,14 @@ class LoggersClient:
             self.flush()
             return
         if self._buffer.pending_count >= _LOGGER_BATCH_FLUSH_SIZE:
+            self._schedule_threshold_flush()
+
+    def _schedule_threshold_flush(self) -> None:
+        """Flush past the batch threshold — on a daemon thread in streaming mode, inline otherwise."""
+        if self._streaming:
             threading.Thread(target=self._threshold_flush, daemon=True).start()
+        else:
+            self._threshold_flush()
 
     def _threshold_flush(self) -> None:
         try:
@@ -453,10 +475,18 @@ class LoggersClient:
 class AsyncLoggersClient:
     """Surface for ``client.logging.loggers.*`` (async)."""
 
-    def __init__(self, http_client: AuthenticatedClient, *, base_url: str, buffer: _LoggerRegistrationBuffer) -> None:
+    def __init__(
+        self,
+        http_client: AuthenticatedClient,
+        *,
+        base_url: str,
+        buffer: _LoggerRegistrationBuffer,
+        streaming: bool = True,
+    ) -> None:
         self._http_client = http_client
         self._base_url = base_url
         self._buffer = buffer
+        self._streaming = streaming
 
     def register(
         self,
@@ -482,7 +512,14 @@ class AsyncLoggersClient:
                 src.environment,
             )
         if self._buffer.pending_count >= _LOGGER_BATCH_FLUSH_SIZE:
+            self._schedule_threshold_flush()
+
+    def _schedule_threshold_flush(self) -> None:
+        """Flush past the batch threshold — on a daemon thread in streaming mode, inline otherwise."""
+        if self._streaming:
             threading.Thread(target=self._threshold_flush, daemon=True).start()
+        else:
+            self._threshold_flush()
 
     def _threshold_flush(self) -> None:
         try:
@@ -900,7 +937,11 @@ class LoggingClient:
         api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
             ``~/.smplkit``.
         environment: Deployment environment used to resolve runtime levels and
-            to scope discovery declarations. Optional.
+            to scope discovery declarations. When omitted, resolved from
+            ``SMPLKIT_ENVIRONMENT`` or ``~/.smplkit``. Optional.
+        service: Service name used to scope discovery declarations (which
+            service each logger was seen in). When omitted, resolved from
+            ``SMPLKIT_SERVICE`` or ``~/.smplkit``. Optional.
         base_url: Full logging-service base URL. Usually resolved from
             ``base_domain``/``scheme``; supplied directly by the top-level
             clients which have already computed it.
@@ -909,6 +950,12 @@ class LoggingClient:
         scheme: URL scheme (default ``"https"``).
         debug: Enable SDK debug logging.
         extra_headers: Extra headers attached to every request.
+        streaming: When ``True`` (the default), :meth:`install` opens a
+            WebSocket so level changes arrive live. Pass ``False`` for
+            stateless mode: :meth:`install` still discovers loggers and
+            fetches + applies levels once, but no WebSocket and no background
+            threads are ever created — call :meth:`refresh` to re-fetch on
+            demand. The right shape for serverless environments.
         parent: Internal — the owning :class:`smplkit.SmplClient`. Not for
             direct use.
         transport: Internal — a pre-built logging transport supplied by a
@@ -925,33 +972,39 @@ class LoggingClient:
         api_key: str | None = None,
         *,
         environment: str | None = None,
+        service: str | None = None,
         base_url: str | None = None,
         profile: str | None = None,
         base_domain: str | None = None,
         scheme: str | None = None,
         debug: bool | None = None,
         extra_headers: dict[str, str] | None = None,
+        streaming: bool = True,
         parent: SmplClient | None = None,
         transport: AuthenticatedClient | None = None,
         metrics: _MetricsReporter | None = None,
     ) -> None:
         self._parent = parent
         self._metrics = metrics
-        self._environment = parent._environment if parent is not None else environment
-        self._service = parent._service if parent is not None else None
+        self._streaming = streaming
         self._standalone_api_key: str | None = None
         if transport is not None:
+            # Parent-wired: the parent's resolved environment/service win.
+            self._environment = parent._environment if parent is not None else environment
+            self._service = parent._service if parent is not None else service
             self._logging_http = transport
             self._logging_base_url = str(transport._base_url)
             self._app_base_url: str | None = None
             self._owns_transport = False
         else:
-            self._logging_http, app_http, self._app_base_url = _logging_transport(
+            self._logging_http, app_http, self._app_base_url, self._environment, self._service = _logging_transport(
                 api_key=api_key,
                 base_url=base_url,
                 profile=profile,
                 base_domain=base_domain,
                 scheme=scheme,
+                environment=environment,
+                service=service,
                 debug=debug,
                 extra_headers=extra_headers,
             )
@@ -963,7 +1016,9 @@ class LoggingClient:
         # Discovery buffer is owned by this client; the loggers sub-client
         # shares it so discovery and explicit registration drain together.
         self._buffer = _LoggerRegistrationBuffer()
-        self.loggers = LoggersClient(self._logging_http, base_url=self._logging_base_url, buffer=self._buffer)
+        self.loggers = LoggersClient(
+            self._logging_http, base_url=self._logging_base_url, buffer=self._buffer, streaming=streaming
+        )
         self.log_groups = LogGroupsClient(self._logging_http, base_url=self._logging_base_url)
 
         # Live-surface state.
@@ -1039,6 +1094,12 @@ class LoggingClient:
         if self._connected:
             return
 
+        # Acquire the socket up front (streaming mode) so a failure to open
+        # the live channel surfaces before adapters are hooked or any state
+        # mutates. In stateless mode (streaming=False) no socket is ever
+        # created and refresh() re-fetches on demand.
+        ws = self._ensure_ws() if self._streaming else None
+
         # 0. Load adapters
         if not self._adapters:
             self._adapters = _auto_load_adapters()
@@ -1080,12 +1141,13 @@ class LoggingClient:
             debug("resolution", traceback.format_exc().strip())
 
         # 7. Register WebSocket event handlers for real-time level updates
-        self._ws_manager = self._ensure_ws()
-        self._ws_manager.on("logger_changed", self._handle_logger_changed)
-        self._ws_manager.on("logger_deleted", self._handle_logger_deleted)
-        self._ws_manager.on("group_changed", self._handle_group_changed)
-        self._ws_manager.on("group_deleted", self._handle_group_deleted)
-        self._ws_manager.on("loggers_changed", self._handle_loggers_changed)
+        if ws is not None:
+            self._ws_manager = ws
+            ws.on("logger_changed", self._handle_logger_changed)
+            ws.on("logger_deleted", self._handle_logger_deleted)
+            ws.on("group_changed", self._handle_group_changed)
+            ws.on("group_deleted", self._handle_group_deleted)
+            ws.on("loggers_changed", self._handle_loggers_changed)
 
         self._connected = True
 
@@ -1502,33 +1564,39 @@ class AsyncLoggingClient:
         api_key: str | None = None,
         *,
         environment: str | None = None,
+        service: str | None = None,
         base_url: str | None = None,
         profile: str | None = None,
         base_domain: str | None = None,
         scheme: str | None = None,
         debug: bool | None = None,
         extra_headers: dict[str, str] | None = None,
+        streaming: bool = True,
         parent: AsyncSmplClient | None = None,
         transport: AuthenticatedClient | None = None,
         metrics: _AsyncMetricsReporter | None = None,
     ) -> None:
         self._parent = parent
         self._metrics = metrics
-        self._environment = parent._environment if parent is not None else environment
-        self._service = parent._service if parent is not None else None
+        self._streaming = streaming
         self._standalone_api_key: str | None = None
         if transport is not None:
+            # Parent-wired: the parent's resolved environment/service win.
+            self._environment = parent._environment if parent is not None else environment
+            self._service = parent._service if parent is not None else service
             self._logging_http = transport
             self._logging_base_url = str(transport._base_url)
             self._app_base_url: str | None = None
             self._owns_transport = False
         else:
-            self._logging_http, app_http, self._app_base_url = _logging_transport(
+            self._logging_http, app_http, self._app_base_url, self._environment, self._service = _logging_transport(
                 api_key=api_key,
                 base_url=base_url,
                 profile=profile,
                 base_domain=base_domain,
                 scheme=scheme,
+                environment=environment,
+                service=service,
                 debug=debug,
                 extra_headers=extra_headers,
             )
@@ -1538,7 +1606,9 @@ class AsyncLoggingClient:
             self._standalone_api_key = api_key if api_key is not None else self._logging_http.token
 
         self._buffer = _LoggerRegistrationBuffer()
-        self.loggers = AsyncLoggersClient(self._logging_http, base_url=self._logging_base_url, buffer=self._buffer)
+        self.loggers = AsyncLoggersClient(
+            self._logging_http, base_url=self._logging_base_url, buffer=self._buffer, streaming=streaming
+        )
         self.log_groups = AsyncLogGroupsClient(self._logging_http, base_url=self._logging_base_url)
 
         self._connected = False
@@ -1651,6 +1721,12 @@ class AsyncLoggingClient:
         if self._connected:
             return
 
+        # Acquire the socket up front (streaming mode) so a failure to open
+        # the live channel surfaces before adapters are hooked or any state
+        # mutates. In stateless mode (streaming=False) no socket is ever
+        # created and refresh() re-fetches on demand.
+        ws = self._ensure_ws() if self._streaming else None
+
         # 0. Load adapters
         if not self._adapters:
             self._adapters = _auto_load_adapters()
@@ -1686,12 +1762,13 @@ class AsyncLoggingClient:
             debug("resolution", traceback.format_exc().strip())
 
         # Register WebSocket event handlers for real-time level updates
-        self._ws_manager = self._ensure_ws()
-        self._ws_manager.on("logger_changed", self._handle_logger_changed)
-        self._ws_manager.on("logger_deleted", self._handle_logger_deleted)
-        self._ws_manager.on("group_changed", self._handle_group_changed)
-        self._ws_manager.on("group_deleted", self._handle_group_deleted)
-        self._ws_manager.on("loggers_changed", self._handle_loggers_changed)
+        if ws is not None:
+            self._ws_manager = ws
+            ws.on("logger_changed", self._handle_logger_changed)
+            ws.on("logger_deleted", self._handle_logger_deleted)
+            ws.on("group_changed", self._handle_group_changed)
+            ws.on("group_deleted", self._handle_group_deleted)
+            ws.on("loggers_changed", self._handle_loggers_changed)
 
         self._connected = True
 
@@ -1810,10 +1887,13 @@ class AsyncLoggingClient:
         debug("websocket", "loggers_changed: full re-fetch")
         api_key = self._standalone_api_key if self._parent is None else self._parent._api_key
         logging_base_url = self._logging_base_url
+        # Mirror the main transport's headers so this loop-scoped rebuild
+        # keeps the caller's extra headers and the User-Agent decision.
+        headers = with_default_user_agent(dict(self._logging_http._headers))
         pre = self._snapshot_effective_levels()
 
         async def _do_refresh() -> None:
-            http = AuthenticatedClient(base_url=logging_base_url, token=api_key)
+            http = AuthenticatedClient(base_url=logging_base_url, token=api_key, headers=headers)
             try:
                 await self._fetch_cache(trigger="loggers_changed WS event", http_client=http)
             finally:
@@ -1842,10 +1922,13 @@ class AsyncLoggingClient:
         """
         api_key = self._standalone_api_key if self._parent is None else self._parent._api_key
         logging_base_url = self._logging_base_url
+        # Mirror the main transport's headers so this loop-scoped rebuild
+        # keeps the caller's extra headers and the User-Agent decision.
+        headers = with_default_user_agent(dict(self._logging_http._headers))
         import asyncio as _asyncio
 
         async def _run_async() -> None:
-            http = AuthenticatedClient(base_url=logging_base_url, token=api_key)
+            http = AuthenticatedClient(base_url=logging_base_url, token=api_key, headers=headers)
             try:
                 await coro_fn(key, http, pre)
             finally:

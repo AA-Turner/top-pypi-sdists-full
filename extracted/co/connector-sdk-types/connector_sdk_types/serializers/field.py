@@ -16,6 +16,10 @@ class SemanticType(str, Enum):
     ACCOUNT_ID = "account-id"
     # Represents the ID of an account, additional account the user must select
     AUXILIARY_ACCOUNT_ID = "auxiliary-account-id"
+    # Represents the ID of a non-human account discovered by the connector
+    NON_HUMAN_ACCOUNT_ID = "non-human-account-id"
+    # Represents the ID of a credential discovered by the connector
+    CREDENTIAL_ID = "credential-id"
     # Represents the ID of an application discovered by the connector
     APPLICATION_ID = "application-id"
     # Represents the ID of an application instance discovered by the connector

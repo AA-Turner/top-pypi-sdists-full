@@ -33,6 +33,7 @@ class AdCreativeSourcingSpec(
         enable_social_feedback_preservation = 'enable_social_feedback_preservation'
         featured_offering_spec = 'featured_offering_spec'
         intent = 'intent'
+        ncs_testimonial = 'ncs_testimonial'
         pca_spec = 'pca_spec'
         product_media_metadata_spec = 'product_media_metadata_spec'
         promotion_metadata_spec = 'promotion_metadata_spec'
@@ -52,6 +53,7 @@ class AdCreativeSourcingSpec(
         'enable_social_feedback_preservation': 'bool',
         'featured_offering_spec': 'Object',
         'intent': 'Object',
+        'ncs_testimonial': 'Object',
         'pca_spec': 'Object',
         'product_media_metadata_spec': 'Object',
         'promotion_metadata_spec': 'list<AdCreativePromotionMetadataSpec>',

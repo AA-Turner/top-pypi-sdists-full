@@ -41,20 +41,32 @@ from .models import (
     ExposedPort,
     ExposePortRequest,
     FileUploadResponse,
+    ImageCoordinateState,
+    ImageMutationError,
+    ImageOwner,
+    ImageUpdateItem,
+    ImageUpdatePatch,
+    ImageUpdateResult,
+    ImageUpdateSource,
     ImageVisibility,
     ListExposedPortsResponse,
+    PersonalImageOwner,
+    PlatformImageOwner,
     ReadFileResponse,
     RegistryCredentialSummary,
     Sandbox,
     SandboxListResponse,
     SandboxStatus,
     SSHSession,
+    TeamImageOwner,
     TransferImageResult,
+    UpdateImagesRequest,
+    UpdateImagesResponse,
     UpdateSandboxRequest,
 )
 from .sandbox import AsyncSandboxClient, AsyncTemplateClient, SandboxClient, TemplateClient
 
-__version__ = "0.2.31"
+__version__ = "0.2.32"
 
 # Deprecated alias for backward compatibility
 TimeoutError = APITimeoutError
@@ -93,6 +105,18 @@ __all__ = [
     "BulkImageTransferResponse",
     "TransferImageResult",
     "ImageVisibility",
+    "ImageOwner",
+    "PersonalImageOwner",
+    "TeamImageOwner",
+    "PlatformImageOwner",
+    "ImageUpdateSource",
+    "ImageUpdatePatch",
+    "ImageUpdateItem",
+    "UpdateImagesRequest",
+    "UpdateImagesResponse",
+    "ImageUpdateResult",
+    "ImageCoordinateState",
+    "ImageMutationError",
     # Port Forwarding
     "ExposePortRequest",
     "ExposedPort",

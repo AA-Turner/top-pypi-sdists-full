@@ -216,6 +216,7 @@ __all__ = (
     "H264DynamicSubGopType",
     "H264EndOfStreamMarkersType",
     "H264EntropyEncodingType",
+    "H264ExplicitWeightedPredictionType",
     "H264FieldEncodingType",
     "H264FlickerAdaptiveQuantizationType",
     "H264FramerateControlType",
@@ -275,7 +276,6 @@ __all__ = (
     "HlsAudioTrackTypeType",
     "HlsCaptionLanguageSettingType",
     "HlsCaptionSegmentLengthControlType",
-    "HlsClearLeadType",
     "HlsClientCacheType",
     "HlsCodecSpecificationType",
     "HlsDescriptiveVideoServiceFlagType",
@@ -701,7 +701,9 @@ ChromaPositionModeType = Literal["AUTO", "FORCE_CENTER", "FORCE_TOP_LEFT"]
 CmafClientCacheType = Literal["DISABLED", "ENABLED"]
 CmafCodecSpecificationType = Literal["RFC_4281", "RFC_6381"]
 CmafEncryptionTypeType = Literal["AES_CTR", "SAMPLE_AES"]
-CmafImageBasedTrickPlayType = Literal["ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME"]
+CmafImageBasedTrickPlayType = Literal[
+    "ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME", "VARIANTS"
+]
 CmafInitializationVectorInManifestType = Literal["EXCLUDE", "INCLUDE"]
 CmafIntervalCadenceType = Literal["FOLLOW_CUSTOM", "FOLLOW_IFRAME", "FOLLOW_SEGMENTATION"]
 CmafKeyProviderTypeType = Literal["SPEKE", "STATIC_KEY"]
@@ -746,6 +748,7 @@ CodecType = Literal[
     "HEVC",
     "JPEG2000",
     "MJPEG",
+    "MP2",
     "MP3",
     "MP4V",
     "MPEG1",
@@ -818,7 +821,9 @@ DashIsoGroupAudioChannelConfigSchemeIdUriType = Literal[
     "DOLBY_CHANNEL_CONFIGURATION", "MPEG_CHANNEL_CONFIGURATION"
 ]
 DashIsoHbbtvComplianceType = Literal["HBBTV_1_5", "NONE"]
-DashIsoImageBasedTrickPlayType = Literal["ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME"]
+DashIsoImageBasedTrickPlayType = Literal[
+    "ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME", "VARIANTS"
+]
 DashIsoIntervalCadenceType = Literal["FOLLOW_CUSTOM", "FOLLOW_IFRAME", "FOLLOW_SEGMENTATION"]
 DashIsoMpdManifestBandwidthTypeType = Literal["AVERAGE", "MAX"]
 DashIsoMpdProfileType = Literal["MAIN_PROFILE", "ON_DEMAND_PROFILE"]
@@ -913,7 +918,9 @@ F4vMoovPlacementType = Literal["NORMAL", "PROGRESSIVE_DOWNLOAD"]
 FileSourceConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
 FileSourceTimeDeltaUnitsType = Literal["MILLISECONDS", "SECONDS"]
 FontScriptType = Literal["AUTOMATIC", "HANS", "HANT"]
-FormatType = Literal["avi", "matroska", "mp4", "mpegts", "mxf", "quicktime", "wave", "webm"]
+FormatType = Literal[
+    "avi", "matroska", "mp3", "mp4", "mpegps", "mpegts", "mxf", "quicktime", "wave", "webm"
+]
 FrameControlType = Literal["NEAREST_IDRFRAME", "NEAREST_IFRAME"]
 FrameMetricTypeType = Literal["MS_SSIM", "PSNR", "PSNR_HVS", "QVBR", "SHOT_CHANGE", "SSIM", "VMAF"]
 GifFramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
@@ -944,6 +951,7 @@ H264CodecProfileType = Literal[
 H264DynamicSubGopType = Literal["ADAPTIVE", "STATIC"]
 H264EndOfStreamMarkersType = Literal["INCLUDE", "SUPPRESS"]
 H264EntropyEncodingType = Literal["CABAC", "CAVLC"]
+H264ExplicitWeightedPredictionType = Literal["DISABLED", "ENABLED"]
 H264FieldEncodingType = Literal["FORCE_FIELD", "MBAFF", "PAFF"]
 H264FlickerAdaptiveQuantizationType = Literal["DISABLED", "ENABLED"]
 H264FramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
@@ -1040,14 +1048,15 @@ HlsAudioTrackTypeType = Literal[
 ]
 HlsCaptionLanguageSettingType = Literal["INSERT", "NONE", "OMIT"]
 HlsCaptionSegmentLengthControlType = Literal["LARGE_SEGMENTS", "MATCH_VIDEO"]
-HlsClearLeadType = Literal["DISABLED", "ENABLED"]
 HlsClientCacheType = Literal["DISABLED", "ENABLED"]
 HlsCodecSpecificationType = Literal["RFC_4281", "RFC_6381"]
 HlsDescriptiveVideoServiceFlagType = Literal["DONT_FLAG", "FLAG"]
 HlsDirectoryStructureType = Literal["SINGLE_DIRECTORY", "SUBDIRECTORY_PER_STREAM"]
 HlsEncryptionTypeType = Literal["AES128", "SAMPLE_AES"]
 HlsIFrameOnlyManifestType = Literal["EXCLUDE", "INCLUDE", "INCLUDE_AS_TS"]
-HlsImageBasedTrickPlayType = Literal["ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME"]
+HlsImageBasedTrickPlayType = Literal[
+    "ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME", "VARIANTS"
+]
 HlsInitializationVectorInManifestType = Literal["EXCLUDE", "INCLUDE"]
 HlsIntervalCadenceType = Literal["FOLLOW_CUSTOM", "FOLLOW_IFRAME", "FOLLOW_SEGMENTATION"]
 HlsKeyProviderTypeType = Literal["SPEKE", "STATIC_KEY"]
@@ -1830,8 +1839,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1858,6 +1865,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -1925,10 +1934,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1961,6 +1970,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -1988,6 +1998,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -2009,7 +2020,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -2030,6 +2040,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

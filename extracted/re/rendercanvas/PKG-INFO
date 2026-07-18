@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rendercanvas
-Version: 2.6.3
+Version: 2.7.0
 Summary: One canvas API, multiple backends
 Keywords: canvas,rendering,graphics,wgpu,qt,wx,glfw,jupyter
 Author: Almar Klein, Korijn van Golen
@@ -13,8 +13,8 @@ Requires-Dist: flit ; extra == "docs"
 Requires-Dist: sphinx>7.2 ; extra == "docs"
 Requires-Dist: sphinx_rtd_theme ; extra == "docs"
 Requires-Dist: sphinx-gallery ; extra == "docs"
-Requires-Dist: numpy ; extra == "docs"
 Requires-Dist: wgpu ; extra == "docs"
+Requires-Dist: blessed ; extra == "docs"
 Requires-Dist: flit ; extra == "examples"
 Requires-Dist: numpy ; extra == "examples"
 Requires-Dist: wgpu ; extra == "examples"
@@ -22,15 +22,20 @@ Requires-Dist: glfw ; extra == "examples"
 Requires-Dist: pyside6 ; extra == "examples"
 Requires-Dist: imageio ; extra == "examples"
 Requires-Dist: pytest ; extra == "examples"
+Requires-Dist: blessed ; extra == "examples"
 Requires-Dist: glfw>=1.9 ; extra == "glfw"
 Requires-Dist: jupyter_rfb>=0.4.2 ; extra == "jupyter"
+Requires-Dist: simplejpeg ; extra == "jupyter" and ( implementation_name != 'pypy')
 Requires-Dist: ruff ; extra == "lint"
 Requires-Dist: pre-commit ; extra == "lint"
+Requires-Dist: anywidget ; extra == "notebook"
+Requires-Dist: simplejpeg ; extra == "notebook" and ( implementation_name != 'pypy')
+Requires-Dist: blessed ; extra == "terminal"
 Requires-Dist: pytest ; extra == "tests"
-Requires-Dist: numpy ; extra == "tests"
 Requires-Dist: wgpu ; extra == "tests"
 Requires-Dist: glfw ; extra == "tests"
 Requires-Dist: trio ; extra == "tests"
+Requires-Dist: simplejpeg ; extra == "tests" and ( implementation_name != 'pypy')
 Project-URL: Documentation, https://rendercanvas.readthedocs.io
 Project-URL: Homepage, https://github.com/pygfx/rendercanvas
 Project-URL: Repository, https://github.com/pygfx/rendercanvas
@@ -40,6 +45,8 @@ Provides-Extra: examples
 Provides-Extra: glfw
 Provides-Extra: jupyter
 Provides-Extra: lint
+Provides-Extra: notebook
+Provides-Extra: terminal
 Provides-Extra: tests
 
 [![CI](https://github.com/pygfx/rendercanvas/workflows/CI/badge.svg)](https://github.com/pygfx/rendercanvas/actions)
@@ -78,18 +85,24 @@ Providing a generic API for:
 * presenting rendered results as a bitmap ([`BitmapContext`](https://rendercanvas.readthedocs.io/stable/contexts.html#rendercanvas.contexts.BitmapContext)).
 * working with events that have standardized behavior.
 
-Implement that on top of a variety of backends:
+The following backends are currently available:
 
-* Running on desktop with a light backend (glfw).
-* Running in the browser (with Pyodide or PyScript).
-* Running from a (Jupyter) notebook.
-* Embedding as a widget in a GUI library.
-  * Qt
-  * wx
-* In addition to the GUI libraries mentioned above, the following event loops are supported:
-  * asyncio
-  * trio
-  * raw
+* `auto` - automatically selects an appropriate backend.
+* `glfw` - a native desktop window.
+* `offscreen` - for offscreen rendering.
+* `terminal` - to render in the terminal (e.g. over SSH).
+* `qt` (`pyside6` / `pyside2` / `pyqt6` / `pyqt5`) - to embed a render canvas in a qt GUI.
+* `wx` - to embed a render canvas in a wx GUI.
+* `anywidget` - for notebooks like Jupyter, VSCode, and Marimo.
+* `jupyter` - previous backend for notebooks that uses jupyter_rfb.
+* `http` - for server side rendering, display in a browser connected via the internet.
+* `pyodide` - to run in the browser with Pyodide or PyScript.
+
+In addition to the GUI libraries mentioned above, the following event loops are supported:
+
+  * `asyncio`
+  * `trio`
+  * `raw`
 
 
 ## Installation
@@ -171,14 +184,24 @@ See the [docs on async](https://rendercanvas.readthedocs.io/stable/start.html#as
 This code is distributed under the 2-clause BSD license.
 
 
-## Developers
+## Contributing
+
+See the [contribution guide](CONTRIBUTING.md).
+
+### Development install
 
 * Clone the repo.
 * Install `rendercanvas` and developer deps using `pip install -e .[dev]`.
+
+### Quick tips
+
 * Use `ruff format` to apply autoformatting.
 * Use `ruff check` to check for linting errors.
-* Optionally, if you install [pre-commit](https://github.com/pre-commit/pre-commit/) hooks with `pre-commit install`, lint fixes and formatting will be automatically applied on `git commit`.
 * Use `pytest tests` to run the tests.
 * Use `pytest examples` to run a subset of the examples.
+
+### Code of Conduct
+
+This repository follows the [PyGfx Code of Conduct](https://github.com/pygfx/pygfx/blob/main/CODE_OF_CONDUCT.md)
 
 

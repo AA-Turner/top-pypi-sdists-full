@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "AccessType",
+    "AdminPasswordSourceType",
     "AutonomousDatabaseBackupStatusType",
     "AutonomousDatabaseBackupTypeType",
     "AutonomousDatabaseResourceStatusType",
@@ -71,6 +72,7 @@ __all__ = (
     "NetServicesArchitectureType",
     "ObjectiveType",
     "OciAwsIntegrationType",
+    "OciIamRoleStatusType",
     "OciOnboardingStatusType",
     "OdbServiceName",
     "OpenModeType",
@@ -90,10 +92,12 @@ __all__ = (
     "StandbyAllowlistedIpsSourceType",
     "SupportedAwsIntegrationType",
     "VpcEndpointTypeType",
+    "WalletPasswordSourceType",
     "WalletTypeType",
 )
 
 AccessType = Literal["DISABLED", "ENABLED"]
+AdminPasswordSourceType = Literal["API_REQUEST_PARAMETER", "CUSTOMER_MANAGED_AWS_SECRET"]
 AutonomousDatabaseBackupStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 AutonomousDatabaseBackupTypeType = Literal[
     "CUMULATIVE_INCREMENTAL",
@@ -212,7 +216,10 @@ MonthNameType = Literal[
 ]
 NetServicesArchitectureType = Literal["DEDICATED", "SHARED"]
 ObjectiveType = Literal["AUTO", "BALANCED", "BASIC", "HIGH_THROUGHPUT", "LOW_LATENCY"]
-OciAwsIntegrationType = Literal["KmsTde"]
+OciAwsIntegrationType = Literal["KmsTde", "SecretsManager"]
+OciIamRoleStatusType = Literal[
+    "AVAILABLE", "PROVISIONING", "PROVISION_FAILED", "TERMINATE_FAILED", "TERMINATING"
+]
 OciOnboardingStatusType = Literal[
     "ACTIVATING",
     "ACTIVE",
@@ -259,6 +266,7 @@ SourceTypeType = Literal[
 StandbyAllowlistedIpsSourceType = Literal["NOT_APPLICABLE", "PRIMARY", "SEPARATE"]
 SupportedAwsIntegrationType = Literal["KmsTde"]
 VpcEndpointTypeType = Literal["SERVICENETWORK"]
+WalletPasswordSourceType = Literal["API_REQUEST_PARAMETER", "CUSTOMER_MANAGED_AWS_SECRET"]
 WalletTypeType = Literal["INSTANCE", "REGIONAL"]
 OdbServiceName = Literal["odb"]
 ServiceName = Literal[
@@ -454,8 +462,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -482,6 +488,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -549,10 +557,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -635,7 +643,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -656,6 +663,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

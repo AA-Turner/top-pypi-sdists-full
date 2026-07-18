@@ -22,6 +22,7 @@ from datetime import datetime
 from typing import Union
 
 from .literals import (
+    CertificateAssociationStatusType,
     ConnectivityTypeType,
     FilterTypeType,
     GatewayTypeType,
@@ -32,6 +33,7 @@ from .literals import (
     ResponderErrorMaskingActionType,
     ResponderErrorMaskingLoggingTypeType,
     ResponderGatewayStatusType,
+    RuleStatusType,
 )
 
 if sys.version_info >= (3, 12):
@@ -44,12 +46,17 @@ __all__ = (
     "AcceptLinkRequestTypeDef",
     "AcceptLinkResponseTypeDef",
     "ActionTypeDef",
+    "AssociateCertificateRequestTypeDef",
+    "AssociateCertificateResponseTypeDef",
     "AutoScalingGroupsConfigurationOutputTypeDef",
     "AutoScalingGroupsConfigurationTypeDef",
+    "CertificateAssociationSummaryTypeDef",
     "CreateInboundExternalLinkRequestTypeDef",
     "CreateInboundExternalLinkResponseTypeDef",
     "CreateLinkRequestTypeDef",
     "CreateLinkResponseTypeDef",
+    "CreateLinkRoutingRuleRequestTypeDef",
+    "CreateLinkRoutingRuleResponseTypeDef",
     "CreateOutboundExternalLinkRequestTypeDef",
     "CreateOutboundExternalLinkResponseTypeDef",
     "CreateRequesterGatewayRequestTypeDef",
@@ -60,12 +67,16 @@ __all__ = (
     "DeleteInboundExternalLinkResponseTypeDef",
     "DeleteLinkRequestTypeDef",
     "DeleteLinkResponseTypeDef",
+    "DeleteLinkRoutingRuleRequestTypeDef",
+    "DeleteLinkRoutingRuleResponseTypeDef",
     "DeleteOutboundExternalLinkRequestTypeDef",
     "DeleteOutboundExternalLinkResponseTypeDef",
     "DeleteRequesterGatewayRequestTypeDef",
     "DeleteRequesterGatewayResponseTypeDef",
     "DeleteResponderGatewayRequestTypeDef",
     "DeleteResponderGatewayResponseTypeDef",
+    "DisassociateCertificateRequestTypeDef",
+    "DisassociateCertificateResponseTypeDef",
     "EksEndpointsConfigurationTypeDef",
     "FilterCriterionOutputTypeDef",
     "FilterCriterionTypeDef",
@@ -73,6 +84,10 @@ __all__ = (
     "FilterOutputTypeDef",
     "FilterTypeDef",
     "FilterUnionTypeDef",
+    "GetCertificateAssociationRequestTypeDef",
+    "GetCertificateAssociationRequestWaitExtraTypeDef",
+    "GetCertificateAssociationRequestWaitTypeDef",
+    "GetCertificateAssociationResponseTypeDef",
     "GetInboundExternalLinkRequestTypeDef",
     "GetInboundExternalLinkRequestWaitExtraTypeDef",
     "GetInboundExternalLinkRequestWaitTypeDef",
@@ -82,6 +97,10 @@ __all__ = (
     "GetLinkRequestWaitExtraTypeDef",
     "GetLinkRequestWaitTypeDef",
     "GetLinkResponseTypeDef",
+    "GetLinkRoutingRuleRequestTypeDef",
+    "GetLinkRoutingRuleRequestWaitExtraTypeDef",
+    "GetLinkRoutingRuleRequestWaitTypeDef",
+    "GetLinkRoutingRuleResponseTypeDef",
     "GetOutboundExternalLinkRequestTypeDef",
     "GetOutboundExternalLinkRequestWaitExtraTypeDef",
     "GetOutboundExternalLinkRequestWaitTypeDef",
@@ -102,6 +121,13 @@ __all__ = (
     "LinkAttributesTypeDef",
     "LinkAttributesUnionTypeDef",
     "LinkLogSettingsTypeDef",
+    "LinkRoutingRuleSummaryTypeDef",
+    "ListCertificateAssociationsRequestPaginateTypeDef",
+    "ListCertificateAssociationsRequestTypeDef",
+    "ListCertificateAssociationsResponseTypeDef",
+    "ListLinkRoutingRulesRequestPaginateTypeDef",
+    "ListLinkRoutingRulesRequestTypeDef",
+    "ListLinkRoutingRulesResponseTypeDef",
     "ListLinksRequestPaginateTypeDef",
     "ListLinksRequestTypeDef",
     "ListLinksResponseStructureTypeDef",
@@ -132,12 +158,14 @@ __all__ = (
     "OpenRtbAttributeModuleParametersTypeDef",
     "OpenRtbAttributeModuleParametersUnionTypeDef",
     "PaginatorConfigTypeDef",
+    "QueryStringKeyValuePairTypeDef",
     "RateLimiterModuleParametersTypeDef",
     "RejectLinkRequestTypeDef",
     "RejectLinkResponseTypeDef",
     "ResponderErrorMaskingForHttpCodeOutputTypeDef",
     "ResponderErrorMaskingForHttpCodeTypeDef",
     "ResponseMetadataTypeDef",
+    "RuleConditionTypeDef",
     "TagResourceRequestTypeDef",
     "TrustStoreConfigurationOutputTypeDef",
     "TrustStoreConfigurationTypeDef",
@@ -147,6 +175,8 @@ __all__ = (
     "UpdateLinkModuleFlowResponseTypeDef",
     "UpdateLinkRequestTypeDef",
     "UpdateLinkResponseTypeDef",
+    "UpdateLinkRoutingRuleRequestTypeDef",
+    "UpdateLinkRoutingRuleResponseTypeDef",
     "UpdateRequesterGatewayRequestTypeDef",
     "UpdateRequesterGatewayResponseTypeDef",
     "UpdateResponderGatewayRequestTypeDef",
@@ -172,6 +202,12 @@ class NoBidActionTypeDef(TypedDict):
     noBidReasonCode: NotRequired[int]
 
 
+class AssociateCertificateRequestTypeDef(TypedDict):
+    gatewayId: str
+    acmCertificateArn: str
+    clientToken: str
+
+
 class HealthCheckConfigTypeDef(TypedDict):
     port: int
     path: str
@@ -181,6 +217,13 @@ class HealthCheckConfigTypeDef(TypedDict):
     statusCodeMatcher: NotRequired[str]
     healthyThresholdCount: NotRequired[int]
     unhealthyThresholdCount: NotRequired[int]
+
+
+class CertificateAssociationSummaryTypeDef(TypedDict):
+    acmCertificateArn: str
+    status: CertificateAssociationStatusType
+    associatedAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
 
 
 class CreateRequesterGatewayRequestTypeDef(TypedDict):
@@ -206,6 +249,12 @@ class DeleteLinkRequestTypeDef(TypedDict):
     linkId: str
 
 
+class DeleteLinkRoutingRuleRequestTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+    ruleId: str
+
+
 class DeleteOutboundExternalLinkRequestTypeDef(TypedDict):
     gatewayId: str
     linkId: str
@@ -217,6 +266,11 @@ class DeleteRequesterGatewayRequestTypeDef(TypedDict):
 
 class DeleteResponderGatewayRequestTypeDef(TypedDict):
     gatewayId: str
+
+
+class DisassociateCertificateRequestTypeDef(TypedDict):
+    gatewayId: str
+    acmCertificateArn: str
 
 
 class EksEndpointsConfigurationTypeDef(TypedDict):
@@ -238,9 +292,9 @@ class FilterCriterionTypeDef(TypedDict):
     values: Sequence[str]
 
 
-class GetInboundExternalLinkRequestTypeDef(TypedDict):
+class GetCertificateAssociationRequestTypeDef(TypedDict):
     gatewayId: str
-    linkId: str
+    acmCertificateArn: str
 
 
 class WaiterConfigTypeDef(TypedDict):
@@ -248,9 +302,20 @@ class WaiterConfigTypeDef(TypedDict):
     MaxAttempts: NotRequired[int]
 
 
+class GetInboundExternalLinkRequestTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+
+
 class GetLinkRequestTypeDef(TypedDict):
     gatewayId: str
     linkId: str
+
+
+class GetLinkRoutingRuleRequestTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+    ruleId: str
 
 
 class GetOutboundExternalLinkRequestTypeDef(TypedDict):
@@ -295,6 +360,19 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 
+class ListCertificateAssociationsRequestTypeDef(TypedDict):
+    gatewayId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
+class ListLinkRoutingRulesRequestTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
 class ListLinksRequestTypeDef(TypedDict):
     gatewayId: str
     nextToken: NotRequired[str]
@@ -329,6 +407,11 @@ class RateLimiterModuleParametersTypeDef(TypedDict):
     tps: NotRequired[float]
 
 
+class QueryStringKeyValuePairTypeDef(TypedDict):
+    key: str
+    value: str
+
+
 class RejectLinkRequestTypeDef(TypedDict):
     gatewayId: str
     linkId: str
@@ -354,11 +437,25 @@ class UpdateRequesterGatewayRequestTypeDef(TypedDict):
     description: NotRequired[str]
 
 
+class AssociateCertificateResponseTypeDef(TypedDict):
+    gatewayId: str
+    acmCertificateArn: str
+    status: CertificateAssociationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateInboundExternalLinkResponseTypeDef(TypedDict):
     gatewayId: str
     linkId: str
     status: LinkStatusType
     domainName: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateLinkRoutingRuleResponseTypeDef(TypedDict):
+    ruleId: str
+    status: RuleStatusType
+    createdAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -388,6 +485,12 @@ class DeleteLinkResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteLinkRoutingRuleResponseTypeDef(TypedDict):
+    ruleId: str
+    status: RuleStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteOutboundExternalLinkResponseTypeDef(TypedDict):
     linkId: str
     status: LinkStatusType
@@ -403,6 +506,22 @@ class DeleteRequesterGatewayResponseTypeDef(TypedDict):
 class DeleteResponderGatewayResponseTypeDef(TypedDict):
     gatewayId: str
     status: ResponderGatewayStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DisassociateCertificateResponseTypeDef(TypedDict):
+    gatewayId: str
+    acmCertificateArn: str
+    status: CertificateAssociationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetCertificateAssociationResponseTypeDef(TypedDict):
+    gatewayId: str
+    acmCertificateArn: str
+    status: CertificateAssociationStatusType
+    associatedAt: datetime
+    updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -452,6 +571,13 @@ class UpdateLinkResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateLinkRoutingRuleResponseTypeDef(TypedDict):
+    ruleId: str
+    status: RuleStatusType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateRequesterGatewayResponseTypeDef(TypedDict):
     gatewayId: str
     status: RequesterGatewayStatusType
@@ -481,6 +607,12 @@ class AutoScalingGroupsConfigurationTypeDef(TypedDict):
     healthCheckConfig: NotRequired[HealthCheckConfigTypeDef]
 
 
+class ListCertificateAssociationsResponseTypeDef(TypedDict):
+    certificateAssociations: list[CertificateAssociationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class CreateResponderGatewayResponseTypeDef(TypedDict):
     gatewayId: str
     status: ResponderGatewayStatusType
@@ -494,6 +626,18 @@ class FilterOutputTypeDef(TypedDict):
 
 
 FilterCriterionUnionTypeDef = Union[FilterCriterionTypeDef, FilterCriterionOutputTypeDef]
+
+
+class GetCertificateAssociationRequestWaitExtraTypeDef(TypedDict):
+    gatewayId: str
+    acmCertificateArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class GetCertificateAssociationRequestWaitTypeDef(TypedDict):
+    gatewayId: str
+    acmCertificateArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
 class GetInboundExternalLinkRequestWaitExtraTypeDef(TypedDict):
@@ -523,6 +667,20 @@ class GetLinkRequestWaitExtraTypeDef(TypedDict):
 class GetLinkRequestWaitTypeDef(TypedDict):
     gatewayId: str
     linkId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class GetLinkRoutingRuleRequestWaitExtraTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+    ruleId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class GetLinkRoutingRuleRequestWaitTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+    ruleId: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
@@ -572,6 +730,17 @@ class LinkAttributesTypeDef(TypedDict):
     customerProvidedId: NotRequired[str]
 
 
+class ListCertificateAssociationsRequestPaginateTypeDef(TypedDict):
+    gatewayId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListLinkRoutingRulesRequestPaginateTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListLinksRequestPaginateTypeDef(TypedDict):
     gatewayId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -586,6 +755,17 @@ class ListResponderGatewaysRequestPaginateTypeDef(TypedDict):
 
 
 ListenerConfigUnionTypeDef = Union[ListenerConfigTypeDef, ListenerConfigOutputTypeDef]
+
+
+class RuleConditionTypeDef(TypedDict):
+    hostHeader: NotRequired[str]
+    hostHeaderWildcard: NotRequired[str]
+    pathPrefix: NotRequired[str]
+    pathExact: NotRequired[str]
+    queryStringEquals: NotRequired[QueryStringKeyValuePairTypeDef]
+    queryStringExists: NotRequired[str]
+
+
 TrustStoreConfigurationUnionTypeDef = Union[
     TrustStoreConfigurationTypeDef, TrustStoreConfigurationOutputTypeDef
 ]
@@ -619,6 +799,45 @@ class LinkLogSettingsTypeDef(TypedDict):
 LinkAttributesUnionTypeDef = Union[LinkAttributesTypeDef, LinkAttributesOutputTypeDef]
 
 
+class CreateLinkRoutingRuleRequestTypeDef(TypedDict):
+    clientToken: str
+    gatewayId: str
+    linkId: str
+    priority: int
+    conditions: RuleConditionTypeDef
+    tags: NotRequired[Mapping[str, str]]
+
+
+class GetLinkRoutingRuleResponseTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+    ruleId: str
+    priority: int
+    conditions: RuleConditionTypeDef
+    status: RuleStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class LinkRoutingRuleSummaryTypeDef(TypedDict):
+    ruleId: str
+    priority: int
+    conditions: RuleConditionTypeDef
+    status: RuleStatusType
+    createdAt: datetime
+    updatedAt: datetime
+
+
+class UpdateLinkRoutingRuleRequestTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+    ruleId: str
+    priority: int
+    conditions: RuleConditionTypeDef
+
+
 class GetResponderGatewayResponseTypeDef(TypedDict):
     vpcId: str
     subnetIds: list[str]
@@ -638,6 +857,7 @@ class GetResponderGatewayResponseTypeDef(TypedDict):
     activeLinksCount: int
     totalLinksCount: int
     inboundLinksCount: int
+    linksRequestedCount: int
     gatewayType: GatewayTypeType
     externalInboundEndpoint: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -697,6 +917,12 @@ class CreateOutboundExternalLinkRequestTypeDef(TypedDict):
     logSettings: LinkLogSettingsTypeDef
     attributes: NotRequired[LinkAttributesUnionTypeDef]
     tags: NotRequired[Mapping[str, str]]
+
+
+class ListLinkRoutingRulesResponseTypeDef(TypedDict):
+    rules: list[LinkRoutingRuleSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class CreateResponderGatewayRequestTypeDef(TypedDict):

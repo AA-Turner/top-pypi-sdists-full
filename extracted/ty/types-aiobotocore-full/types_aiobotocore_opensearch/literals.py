@@ -36,6 +36,7 @@ __all__ = (
     "CapabilityStatusType",
     "ConfigChangeStatusType",
     "ConnectionModeType",
+    "DataSourceAttachmentStatusType",
     "DataSourceStatusType",
     "DeploymentStatusType",
     "DeploymentStrategyType",
@@ -44,15 +45,20 @@ __all__ = (
     "DomainPackageStatusType",
     "DomainProcessingStatusTypeType",
     "DomainStateType",
+    "DomainUseCaseType",
     "DryRunModeType",
+    "EngineModeType",
     "EngineTypeType",
     "IPAddressTypeType",
     "InboundConnectionStatusCodeType",
     "IndexStatusType",
     "InitiatedByType",
     "InsightEntityTypeType",
+    "InsightFeedbackEntityTypeType",
+    "InsightFeedbackThumbsType",
     "InsightFieldTypeType",
     "InsightPriorityLevelType",
+    "InsightResponseStatusType",
     "InsightSortOrderType",
     "InsightStatusType",
     "InsightTypeType",
@@ -76,6 +82,7 @@ __all__ = (
     "PackageStatusType",
     "PackageTypeType",
     "PaginatorName",
+    "PauseStateType",
     "PrincipalTypeType",
     "PropertyValueTypeType",
     "RegionName",
@@ -140,6 +147,7 @@ ConfigChangeStatusType = Literal[
     "ValidationFailed",
 ]
 ConnectionModeType = Literal["DIRECT", "VPC_ENDPOINT"]
+DataSourceAttachmentStatusType = Literal["ATTACHED", "FAILED", "PENDING"]
 DataSourceStatusType = Literal["ACTIVE", "DISABLED"]
 DeploymentStatusType = Literal[
     "COMPLETED", "ELIGIBLE", "IN_PROGRESS", "NOT_ELIGIBLE", "PENDING_UPDATE"
@@ -162,7 +170,9 @@ DomainProcessingStatusTypeType = Literal[
     "UpgradingEngineVersion",
 ]
 DomainStateType = Literal["Active", "NotAvailable", "Processing"]
+DomainUseCaseType = Literal["MIXED", "OBSERVABILITY", "SEARCH", "VECTOR"]
 DryRunModeType = Literal["Basic", "Verbose"]
+EngineModeType = Literal["GENERAL", "OPTIMIZED"]
 EngineTypeType = Literal["Elasticsearch", "OpenSearch"]
 IPAddressTypeType = Literal["dualstack", "ipv4"]
 InboundConnectionStatusCodeType = Literal[
@@ -178,8 +188,11 @@ InboundConnectionStatusCodeType = Literal[
 IndexStatusType = Literal["CREATED", "DELETED", "UPDATED"]
 InitiatedByType = Literal["CUSTOMER", "SERVICE"]
 InsightEntityTypeType = Literal["Account", "DomainName"]
+InsightFeedbackEntityTypeType = Literal["DomainName"]
+InsightFeedbackThumbsType = Literal["Down", "Up"]
 InsightFieldTypeType = Literal["metric", "text"]
 InsightPriorityLevelType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
+InsightResponseStatusType = Literal["ERROR", "SUCCESS"]
 InsightSortOrderType = Literal["ASC", "DESC"]
 InsightStatusType = Literal["ACTIVE", "DISMISSED", "RESOLVED"]
 InsightTypeType = Literal["EVENT", "RECOMMENDATION"]
@@ -335,6 +348,7 @@ PackageStatusType = Literal[
     "VALIDATION_FAILED",
 ]
 PackageTypeType = Literal["PACKAGE-CONFIG", "PACKAGE-LICENSE", "TXT-DICTIONARY", "ZIP-PLUGIN"]
+PauseStateType = Literal["Active", "Completed", "Disabled", "Scheduled"]
 PrincipalTypeType = Literal["AWS_ACCOUNT", "AWS_SERVICE"]
 PropertyValueTypeType = Literal["PLAIN_TEXT", "STRINGIFIED_JSON"]
 RequirementLevelType = Literal["NONE", "OPTIONAL", "REQUIRED"]
@@ -556,8 +570,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -584,6 +596,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -651,10 +665,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -687,6 +701,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -714,6 +729,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -735,7 +751,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -756,6 +771,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

@@ -162,6 +162,7 @@ async def test_calculator_with_multiple_operations(memory_logger):
     assert len(task_spans) == 1, f"Should have exactly one task span, got {len(task_spans)}"
 
     task_span = task_spans[0]
+    assert task_span["context"]["span_origin"]["instrumentation"]["name"] == "claude-agent-sdk-auto"
     assert task_span["span_attributes"]["name"] == "Claude Agent"
     assert "15 multiplied by 7" in task_span["input"]
     assert task_span["output"] is not None
@@ -191,6 +192,8 @@ async def test_calculator_with_multiple_operations(memory_logger):
 
     for llm_span in llm_spans:
         assert llm_span["span_attributes"]["name"] == "anthropic.messages.create"
+        assert llm_span.get("metadata", {}).get("provider") == "anthropic"
+        assert llm_span.get("metadata", {}).get("model")
         assert isinstance(llm_span["output"], list)
         assert len(llm_span["output"]) > 0
         for metric_name in ("prompt_tokens", "completion_tokens", "tokens"):

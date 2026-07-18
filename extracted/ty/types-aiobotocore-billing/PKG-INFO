@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-billing
-Version: 3.7.0
-Summary: Type annotations for aiobotocore Billing 3.7.0 service generated with mypy-boto3-builder 8.12.0
+Version: 3.8.0
+Summary: Type annotations for aiobotocore Billing 3.8.0 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore Billing 3.7.0](https://pypi.org/project/aiobotocore/) compatible
+[aiobotocore Billing 3.8.0](https://pypi.org/project/aiobotocore/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==3.7.0' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==3.8.0' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Add `Billing` service.
 4. Use provided commands to install generated packages.
@@ -332,6 +332,7 @@ from aiobotocore.session import get_session
 
 from types_aiobotocore_billing import BillingClient
 from types_aiobotocore_billing.paginator import (
+    GetCreditAllocationHistoryPaginator,
     ListBillingViewsPaginator,
     ListSourceViewsForBillingViewPaginator,
 )
@@ -342,6 +343,9 @@ async with session.create_client("billing") as client:
 
     # Explicit type annotations are optional here
     # Types should be correctly discovered by mypy and IDEs
+    get_credit_allocation_history_paginator: GetCreditAllocationHistoryPaginator = (
+        client.get_paginator("get_credit_allocation_history")
+    )
     list_billing_views_paginator: ListBillingViewsPaginator = client.get_paginator(
         "list_billing_views"
     )
@@ -361,10 +365,10 @@ Full list of `Billing` Literals can be found in
 [docs](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/literals/).
 
 ```python
-from types_aiobotocore_billing.literals import BillingViewStatusReasonType
+from types_aiobotocore_billing.literals import ApplicationTypeType
 
 
-def check_value(value: BillingViewStatusReasonType) -> bool: ...
+def check_value(value: ApplicationTypeType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>
@@ -379,12 +383,12 @@ Full list of `Billing` TypeDefs can be found in
 
 ```python
 # TypedDict usage example
-from types_aiobotocore_billing.type_defs import AssociateSourceViewsRequestTypeDef
+from types_aiobotocore_billing.type_defs import AmountTypeDef
 
 
-def get_value() -> AssociateSourceViewsRequestTypeDef:
+def get_value() -> AmountTypeDef:
     return {
-        "arn": ...,
+        "currencyCode": ...,
     }
 ```
 

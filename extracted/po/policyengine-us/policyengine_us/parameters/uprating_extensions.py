@@ -31,6 +31,81 @@ def get_irs_cpi(parameters: ParameterNode, year: int) -> float:
     return sum(monthly_cpi_values) / MONTHS_IN_YEAR
 
 
+def get_or_ctc_cola(parameters: ParameterNode, tax_year: int) -> float:
+    """Calculate the Oregon Kids' Credit cost-of-living adjustment.
+
+    ORS 315.273(5)(b)-(c): the percentage (if any) by which the monthly
+    averaged unchained U.S. City Average CPI-U for the 12 consecutive months
+    ending August 31 of the prior calendar year exceeds the monthly averaged
+    index for the second quarter of calendar year 2022.
+
+    The CPI-U series holds monthly observations through the latest BLS
+    release, then annual projection points at February instants; a monthly
+    refresh that reaches a February replaces that instant's projection with
+    the observed value. Windows with observed months average them, carrying
+    the last observation flat through any unobserved tail; windows with no
+    observed month read the tax year's annual projection point, whose
+    February instant necessarily lies beyond the last observation and so
+    can only hold a projection. No branch reads an instant a refresh could
+    have turned from projection into observation.
+    """
+    cpi = parameters.gov.bls.cpi.cpi_u
+    base = sum(cpi(f"2022-{month:02d}-01") for month in (4, 5, 6)) / 3
+    # February instants can hold annual projections, so only non-February
+    # instants identify the end of the observed monthly series (one month
+    # conservative when observations end exactly on a February).
+    last_observation = max(
+        instant(value.instant_str)
+        for value in cpi.values_list
+        if not value.instant_str.endswith("-02-01")
+    )
+    window_start = instant(f"{tax_year - 2}-09-01")
+    window_months = [
+        window_start.offset(month, MONTH) for month in range(MONTHS_IN_YEAR)
+    ]
+    observed = [month for month in window_months if month <= last_observation]
+    if not observed:
+        window = cpi(f"{tax_year - 1}-02-01")
+    else:
+        unobserved_tail = MONTHS_IN_YEAR - len(observed)
+        window = (
+            sum(cpi(month) for month in observed) + cpi(observed[-1]) * unobserved_tail
+        ) / MONTHS_IN_YEAR
+    return max(window / base - 1, 0)
+
+
+def extend_or_ctc_parameters(parameters: ParameterNode, end_year: int) -> None:
+    """Project the Oregon Kids' Credit amount and phase-out start.
+
+    ORS 315.273(5) recomputes both dollar amounts each tax year from the
+    statutory bases ($1,000 per child and a $25,000 income threshold),
+    applying the cost-of-living adjustment and rounding any increase down to
+    the next lower multiple of $50 (subsection (5)(d)). Each year is computed
+    from the bases rather than chained from later rounded values, so no
+    rounding residue compounds; Department of Revenue published values
+    encoded in the YAML take precedence for their own years.
+    """
+    ROUNDING_INTERVAL = 50
+    ctc = parameters.gov.states.children["or"].tax.income.credits.ctc
+    for parameter, base in (
+        (ctc.amount, 1_000),
+        (ctc.reduction.start, 25_000),
+    ):
+        first_projected_year = 1 + max(
+            int(value.instant_str[:4]) for value in parameter.values_list
+        )
+        for year in range(first_projected_year, end_year + 1):
+            cola = get_or_ctc_cola(parameters, year)
+            increase = math.floor(base * cola / ROUNDING_INTERVAL) * ROUNDING_INTERVAL
+            parameter.update(
+                period=f"year:{year}-01-01:1", value=float(base + increase)
+            )
+        parameter.update(
+            start=instant(f"{end_year}-01-01"),
+            value=parameter(f"{end_year}-01-01"),
+        )
+
+
 def extend_parameter_values(
     parameter: Parameter,
     last_projected_year: int,
@@ -387,5 +462,11 @@ def set_all_uprating_parameters(parameters: ParameterNode) -> ParameterNode:
             period_month=1,
             period_day=1,
         )
+
+    # Oregon Kids' Credit dollar amounts follow the ORS 315.273(5)
+    # cost-of-living schedule (unchained CPI-U over a 2022 Q2 base), computed
+    # from the statutory base amounts. Must run after the CPI-U extension
+    # above so projected windows are available.
+    extend_or_ctc_parameters(parameters, end_year=END_YEAR)
 
     return parameters

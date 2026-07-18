@@ -32,12 +32,10 @@ from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
     resolve_scope_guid,
 )
 from airbyte_ops_webapp.theme import (
-    AIRBYTE_SECONDARY,
     BUTTON_DESTRUCTIVE_CLASS,
     CODE_BLOCK_CLASS,
-    SUCCESS_CARD_CLASS,
-    _card_style,
-    _code_surface_style,
+    AbCodeSurface,
+    AbSuccessCard,
 )
 
 
@@ -52,7 +50,7 @@ def render_pin_modal(state: dict[str, object]) -> None:
         description="Configure and apply a connector version override.",
         name="pin_modal_open",
     ):
-        Div(style={"display": "none"})
+        Div(css_class="hidden")
 
         with Column(gap=4):
             _render_connector_info()
@@ -75,7 +73,7 @@ def _render_connector_info() -> None:
 def _render_scope_section() -> None:
     Markdown("**Scope**")
     with Row(gap=2, align="end"):
-        with Column(gap=0, style={"flex": "1"}):
+        with Column(gap=0, css_class="flex-1"):
             Input(
                 name="context_guid",
                 placeholder="Context GUID: accepts Organization, Workspace, or Actor IDs",
@@ -125,19 +123,19 @@ def _render_scope_resolution_display() -> None:
     with If(STATE.context_error):
         Text(
             content=STATE.context_error,
-            style={"color": "#dc2626", "fontSize": "0.85rem"},
+            css_class="text-[#dc2626] text-[0.85rem]",
         )
     with If(STATE.scope_url):
         Link(
             content=STATE.resolved_context_label,
             href=STATE.scope_url,
             target="_blank",
-            style={"fontSize": "0.85rem"},
+            css_class="text-[0.85rem]",
         )
     with Else(), If(STATE.resolved_context_label):
         Text(
             content=STATE.resolved_context_label,
-            style={"fontSize": "0.85rem", "color": "#6b7280"},
+            css_class="text-[0.85rem] text-[#6b7280]",
         )
 
 
@@ -149,7 +147,7 @@ def _render_justification_section() -> None:
         placeholder="Required justification for set/unset operation",
         rows=3,
     )
-    Text("Related PR/Issue URL", style={"fontSize": "0.85rem", "fontWeight": "500"})
+    Text("Related PR/Issue URL", css_class="text-[0.85rem] font-medium")
     Input(
         name="reference_url",
         value=STATE.reference_url,
@@ -211,14 +209,6 @@ def _render_apply_section() -> None:
                                     "version_pins_offset",
                                     RESULT.version_pins_offset,
                                 ),
-                                SetState(
-                                    "show_load_more_pins",
-                                    RESULT.show_load_more_pins,
-                                ),
-                                SetState(
-                                    "all_pins_loaded",
-                                    RESULT.all_pins_loaded,
-                                ),
                                 SetState("selected_pin_index", -1),
                                 SetState("selected_pin_checks", []),
                                 SetState("selected_pin", EMPTY_PIN_STATE),
@@ -241,12 +231,9 @@ def _render_apply_section() -> None:
 def _render_result_section() -> None:
     with (
         If(STATE.apply_message),
-        Div(
-            css_class=SUCCESS_CARD_CLASS,
-            style=_card_style(accent=AIRBYTE_SECONDARY),
-        ),
+        AbSuccessCard(),
         Column(gap=2),
     ):
         Markdown(STATE.apply_message)
-        with Div(style=_code_surface_style()):
+        with AbCodeSurface():
             Text(STATE.apply_result_json, css_class=CODE_BLOCK_CLASS)

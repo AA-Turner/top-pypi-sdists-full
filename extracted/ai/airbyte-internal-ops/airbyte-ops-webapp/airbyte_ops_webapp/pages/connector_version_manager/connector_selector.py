@@ -21,7 +21,6 @@ from prefab_ui.components import (
     Row,
     Tab,
     Tabs,
-    Text,
 )
 from prefab_ui.components.control_flow import Else, If
 from prefab_ui.rx import EVENT, RESULT, STATE
@@ -40,18 +39,18 @@ from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
     load_pinned_versions_tab,
     load_recent_releases_tab,
 )
-from airbyte_ops_webapp.theme import PANEL_CARD_CLASS, _card_style
+from airbyte_ops_webapp.theme import AbCard, AbStatValue
 
 # Fixed-height scrollable container for all 4 selector tabs (~8-9 visible rows).
 # `overflow: auto` scrolls both axes so wide tables scroll horizontally (rather
 # than bleeding out) while the sticky header pins to this wrapper on vertical
 # scroll.
-_TAB_LIST_STYLE = {"maxHeight": "480px", "overflow": "auto"}
+_TAB_LIST_CLASS = "max-h-[480px] overflow-auto"
 
 
 def render_connector_selector(state: dict[str, object]) -> None:
     """Render the connector version selector with four DataTable tabs."""
-    with Div(css_class=PANEL_CARD_CLASS, style=_card_style()):
+    with AbCard():
         with CardHeader():
             H2("Select a Connector Version")
         with (
@@ -96,7 +95,7 @@ def render_connector_selector(state: dict[str, object]) -> None:
 
 
 def _render_latest_versions_tab() -> None:
-    with If(STATE.latest_version_rows), Div(style=_TAB_LIST_STYLE):
+    with If(STATE.latest_version_rows), Div(css_class=_TAB_LIST_CLASS):
         DataTable(
             columns=[
                 DataTableColumn(
@@ -186,7 +185,7 @@ def _render_lazy_tab(
 
 
 def _render_recent_releases_table() -> None:
-    with Div(style=_TAB_LIST_STYLE):
+    with Div(css_class=_TAB_LIST_CLASS):
         DataTable(
             columns=[
                 DataTableColumn(
@@ -220,11 +219,10 @@ def _render_recent_releases_table() -> None:
 
 
 def _render_active_rollouts_table() -> None:
-    Text(
+    AbStatValue(
         content=STATE.progressive_rollout_rows.length().number() + " active rollout(s)",
-        css_class="airbyte-stat-value",
     )
-    with Div(style=_TAB_LIST_STYLE):
+    with Div(css_class=_TAB_LIST_CLASS):
         DataTable(
             columns=[
                 DataTableColumn(
@@ -277,7 +275,7 @@ def _render_active_rollouts_table() -> None:
 
 def _render_pinned_versions_table() -> None:
     _render_pin_origin_filter_chips()
-    with Div(style=_TAB_LIST_STYLE):
+    with Div(css_class=_TAB_LIST_CLASS):
         DataTable(
             columns=[
                 DataTableColumn(
@@ -398,12 +396,12 @@ def _version_context_success_actions() -> list:
         SetState("version_pins", RESULT.version_pins),
         SetState("version_pins_total", RESULT.version_pins_total),
         SetState("version_pins_offset", RESULT.version_pins_offset),
-        SetState("show_load_more_pins", RESULT.show_load_more_pins),
-        SetState("all_pins_loaded", RESULT.all_pins_loaded),
         SetState("selected_version_id", RESULT.selected_version_id),
         SetState("selected_version_tag", RESULT.selected_version_tag),
         SetState("selected_version_release_date", RESULT.selected_version_release_date),
         SetState("latest_version_release_date", RESULT.latest_version_release_date),
+        SetState("selected_version_display", RESULT.selected_version_display),
+        SetState("default_version_display", RESULT.default_version_display),
         SetState("selected_pin_index", -1),
         SetState("selected_pin_checks", []),
         SetState("selected_pin", EMPTY_PIN_STATE),
@@ -432,14 +430,14 @@ def _row_click_actions(
         SetState("active_rollouts", []),
         SetState("version_pins", []),
         SetState("version_pins_total", 0),
-        SetState("show_load_more_pins", False),
-        SetState("all_pins_loaded", True),
         SetState("selected_pin_index", -1),
         SetState("selected_pin_checks", []),
         SetState("selected_pin", EMPTY_PIN_STATE),
         SetState("selected_rollout", EMPTY_ROLLOUT_STATE),
         SetState("selected_version_release_date", ""),
         SetState("latest_version_release_date", ""),
+        SetState("selected_version_display", ""),
+        SetState("default_version_display", ""),
         # Set selected version / connector refs for context call.
         SetState("selected_connector_id", connector_id_ref),
         SetState("target_version", version_tag_ref),
@@ -455,6 +453,7 @@ def _row_click_actions(
                 "actor_workspace_id": STATE.actor_workspace_id,
                 "context_guid": STATE.context_guid,
                 "auth_bearer_token": STATE.auth_bearer_token,
+                "google_access_token": STATE.google_access_token,
             },
             on_success=_version_context_success_actions(),
             on_error=fail_context_actions(),

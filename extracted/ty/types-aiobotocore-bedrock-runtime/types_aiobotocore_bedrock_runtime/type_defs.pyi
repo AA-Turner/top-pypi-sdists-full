@@ -32,6 +32,10 @@ from .literals import (
     DocumentFormatType,
     GuardrailActionType,
     GuardrailAutomatedReasoningLogicWarningTypeType,
+    GuardrailChecksContentFilterCategoryType,
+    GuardrailChecksPromptAttackCategoryType,
+    GuardrailChecksRoleType,
+    GuardrailChecksSensitiveInformationEntityTypeType,
     GuardrailContentFilterConfidenceType,
     GuardrailContentFilterStrengthType,
     GuardrailContentFilterTypeType,
@@ -149,6 +153,26 @@ __all__ = (
     "GuardrailAutomatedReasoningTranslationOptionTypeDef",
     "GuardrailAutomatedReasoningTranslationTypeDef",
     "GuardrailAutomatedReasoningValidFindingTypeDef",
+    "GuardrailChecksConfigTypeDef",
+    "GuardrailChecksContentBlockTypeDef",
+    "GuardrailChecksContentFilterCategoryConfigTypeDef",
+    "GuardrailChecksContentFilterConfigTypeDef",
+    "GuardrailChecksContentFilterResultEntryTypeDef",
+    "GuardrailChecksContentFilterResultTypeDef",
+    "GuardrailChecksContentFilterUsageTypeDef",
+    "GuardrailChecksMessageTypeDef",
+    "GuardrailChecksPromptAttackCategoryConfigTypeDef",
+    "GuardrailChecksPromptAttackConfigTypeDef",
+    "GuardrailChecksPromptAttackResultEntryTypeDef",
+    "GuardrailChecksPromptAttackResultTypeDef",
+    "GuardrailChecksPromptAttackUsageTypeDef",
+    "GuardrailChecksResultsTypeDef",
+    "GuardrailChecksSensitiveInformationConfigTypeDef",
+    "GuardrailChecksSensitiveInformationEntityConfigTypeDef",
+    "GuardrailChecksSensitiveInformationResultEntryTypeDef",
+    "GuardrailChecksSensitiveInformationResultTypeDef",
+    "GuardrailChecksSensitiveInformationUsageTypeDef",
+    "GuardrailChecksUsageResultsTypeDef",
     "GuardrailConfigurationTypeDef",
     "GuardrailContentBlockTypeDef",
     "GuardrailContentFilterTypeDef",
@@ -196,6 +220,8 @@ __all__ = (
     "ImageSourceUnionTypeDef",
     "InferenceConfigurationTypeDef",
     "InternalServerExceptionTypeDef",
+    "InvokeGuardrailChecksRequestTypeDef",
+    "InvokeGuardrailChecksResponseTypeDef",
     "InvokeModelRequestTypeDef",
     "InvokeModelResponseTypeDef",
     "InvokeModelTokensRequestTypeDef",
@@ -502,6 +528,50 @@ class GuardrailAutomatedReasoningStatementTypeDef(TypedDict):
     logic: NotRequired[str]
     naturalLanguage: NotRequired[str]
 
+class GuardrailChecksContentBlockTypeDef(TypedDict):
+    text: NotRequired[str]
+
+class GuardrailChecksContentFilterCategoryConfigTypeDef(TypedDict):
+    category: GuardrailChecksContentFilterCategoryType
+
+class GuardrailChecksContentFilterResultEntryTypeDef(TypedDict):
+    category: GuardrailChecksContentFilterCategoryType
+    severityScore: float
+
+class GuardrailChecksContentFilterUsageTypeDef(TypedDict):
+    textUnits: int
+
+class GuardrailChecksPromptAttackCategoryConfigTypeDef(TypedDict):
+    category: GuardrailChecksPromptAttackCategoryType
+
+class GuardrailChecksPromptAttackResultEntryTypeDef(TypedDict):
+    category: GuardrailChecksPromptAttackCategoryType
+    severityScore: float
+
+class GuardrailChecksPromptAttackUsageTypeDef(TypedDict):
+    textUnits: int
+
+GuardrailChecksSensitiveInformationEntityConfigTypeDef = TypedDict(
+    "GuardrailChecksSensitiveInformationEntityConfigTypeDef",
+    {
+        "type": GuardrailChecksSensitiveInformationEntityTypeType,
+    },
+)
+GuardrailChecksSensitiveInformationResultEntryTypeDef = TypedDict(
+    "GuardrailChecksSensitiveInformationResultEntryTypeDef",
+    {
+        "type": GuardrailChecksSensitiveInformationEntityTypeType,
+        "confidenceScore": float,
+        "beginOffset": int,
+        "endOffset": int,
+        "messageIndex": int,
+        "contentIndex": int,
+    },
+)
+
+class GuardrailChecksSensitiveInformationUsageTypeDef(TypedDict):
+    textUnits: int
+
 class GuardrailTextBlockTypeDef(TypedDict):
     text: str
     qualifiers: NotRequired[Sequence[GuardrailContentQualifierType]]
@@ -724,6 +794,7 @@ class InvokeModelRequestTypeDef(TypedDict):
     guardrailVersion: NotRequired[str]
     performanceConfigLatency: NotRequired[PerformanceConfigLatencyType]
     serviceTier: NotRequired[ServiceTierTypeType]
+    requestMetadata: NotRequired[str]
 
 class InvokeModelTokensRequestTypeDef(TypedDict):
     body: BlobTypeDef
@@ -738,6 +809,7 @@ class InvokeModelWithResponseStreamRequestTypeDef(TypedDict):
     guardrailVersion: NotRequired[str]
     performanceConfigLatency: NotRequired[PerformanceConfigLatencyType]
     serviceTier: NotRequired[ServiceTierTypeType]
+    requestMetadata: NotRequired[str]
 
 VideoSourceTypeDef = TypedDict(
     "VideoSourceTypeDef",
@@ -803,6 +875,34 @@ class GuardrailAutomatedReasoningTranslationTypeDef(TypedDict):
     untranslatedPremises: NotRequired[list[GuardrailAutomatedReasoningInputTextReferenceTypeDef]]
     untranslatedClaims: NotRequired[list[GuardrailAutomatedReasoningInputTextReferenceTypeDef]]
     confidence: NotRequired[float]
+
+class GuardrailChecksMessageTypeDef(TypedDict):
+    role: GuardrailChecksRoleType
+    content: Sequence[GuardrailChecksContentBlockTypeDef]
+
+class GuardrailChecksContentFilterConfigTypeDef(TypedDict):
+    categories: Sequence[GuardrailChecksContentFilterCategoryConfigTypeDef]
+
+class GuardrailChecksContentFilterResultTypeDef(TypedDict):
+    results: list[GuardrailChecksContentFilterResultEntryTypeDef]
+
+class GuardrailChecksPromptAttackConfigTypeDef(TypedDict):
+    categories: Sequence[GuardrailChecksPromptAttackCategoryConfigTypeDef]
+
+class GuardrailChecksPromptAttackResultTypeDef(TypedDict):
+    results: list[GuardrailChecksPromptAttackResultEntryTypeDef]
+
+class GuardrailChecksSensitiveInformationConfigTypeDef(TypedDict):
+    entities: Sequence[GuardrailChecksSensitiveInformationEntityConfigTypeDef]
+
+class GuardrailChecksSensitiveInformationResultTypeDef(TypedDict):
+    results: list[GuardrailChecksSensitiveInformationResultEntryTypeDef]
+    truncated: NotRequired[bool]
+
+class GuardrailChecksUsageResultsTypeDef(TypedDict):
+    contentFilter: NotRequired[GuardrailChecksContentFilterUsageTypeDef]
+    promptAttack: NotRequired[GuardrailChecksPromptAttackUsageTypeDef]
+    sensitiveInformation: NotRequired[GuardrailChecksSensitiveInformationUsageTypeDef]
 
 class GuardrailContentPolicyAssessmentTypeDef(TypedDict):
     filters: list[GuardrailContentFilterTypeDef]
@@ -1046,6 +1146,16 @@ class GuardrailAutomatedReasoningValidFindingTypeDef(TypedDict):
     supportingRules: NotRequired[list[GuardrailAutomatedReasoningRuleTypeDef]]
     logicWarning: NotRequired[GuardrailAutomatedReasoningLogicWarningTypeDef]
 
+class GuardrailChecksConfigTypeDef(TypedDict):
+    contentFilter: NotRequired[GuardrailChecksContentFilterConfigTypeDef]
+    promptAttack: NotRequired[GuardrailChecksPromptAttackConfigTypeDef]
+    sensitiveInformation: NotRequired[GuardrailChecksSensitiveInformationConfigTypeDef]
+
+class GuardrailChecksResultsTypeDef(TypedDict):
+    contentFilter: NotRequired[GuardrailChecksContentFilterResultTypeDef]
+    promptAttack: NotRequired[GuardrailChecksPromptAttackResultTypeDef]
+    sensitiveInformation: NotRequired[GuardrailChecksSensitiveInformationResultTypeDef]
+
 class GuardrailConverseContentBlockOutputTypeDef(TypedDict):
     text: NotRequired[GuardrailConverseTextBlockOutputTypeDef]
     image: NotRequired[GuardrailConverseImageBlockOutputTypeDef]
@@ -1166,6 +1276,15 @@ DocumentBlockTypeDef = TypedDict(
 class GuardrailAutomatedReasoningTranslationAmbiguousFindingTypeDef(TypedDict):
     options: NotRequired[list[GuardrailAutomatedReasoningTranslationOptionTypeDef]]
     differenceScenarios: NotRequired[list[GuardrailAutomatedReasoningScenarioTypeDef]]
+
+class InvokeGuardrailChecksRequestTypeDef(TypedDict):
+    messages: Sequence[GuardrailChecksMessageTypeDef]
+    checks: GuardrailChecksConfigTypeDef
+
+class InvokeGuardrailChecksResponseTypeDef(TypedDict):
+    results: GuardrailChecksResultsTypeDef
+    usage: GuardrailChecksUsageResultsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class OutputConfigTypeDef(TypedDict):
     textFormat: NotRequired[OutputFormatTypeDef]

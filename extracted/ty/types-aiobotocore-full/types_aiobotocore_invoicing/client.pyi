@@ -145,8 +145,7 @@ class InvoicingClient(AioBaseClient):
         self, **kwargs: Unpack[CreateProcurementPortalPreferenceRequestTypeDef]
     ) -> CreateProcurementPortalPreferenceResponseTypeDef:
         """
-        Creates a procurement portal preference configuration for e-invoice delivery
-        and purchase order retrieval.
+        <i> <b>This feature API is subject to changing at any time.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/create_procurement_portal_preference.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#create_procurement_portal_preference)
@@ -166,7 +165,7 @@ class InvoicingClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteProcurementPortalPreferenceRequestTypeDef]
     ) -> DeleteProcurementPortalPreferenceResponseTypeDef:
         """
-        Deletes an existing procurement portal preference.
+        <i> <b>This feature API is subject to changing at any time.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/delete_procurement_portal_preference.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#delete_procurement_portal_preference)
@@ -197,7 +196,7 @@ class InvoicingClient(AioBaseClient):
         self, **kwargs: Unpack[GetProcurementPortalPreferenceRequestTypeDef]
     ) -> GetProcurementPortalPreferenceResponseTypeDef:
         """
-        Retrieves the details of a specific procurement portal preference configuration.
+        <i> <b>This feature API is subject to changing at any time.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/get_procurement_portal_preference.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#get_procurement_portal_preference)
@@ -228,8 +227,7 @@ class InvoicingClient(AioBaseClient):
         self, **kwargs: Unpack[ListProcurementPortalPreferencesRequestTypeDef]
     ) -> ListProcurementPortalPreferencesResponseTypeDef:
         """
-        Retrieves a list of procurement portal preferences associated with the Amazon
-        Web Services account.
+        <i> <b>This feature API is subject to changing at any time.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/list_procurement_portal_preferences.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#list_procurement_portal_preferences)
@@ -249,7 +247,7 @@ class InvoicingClient(AioBaseClient):
         self, **kwargs: Unpack[PutProcurementPortalPreferenceRequestTypeDef]
     ) -> PutProcurementPortalPreferenceResponseTypeDef:
         """
-        Updates an existing procurement portal preference configuration.
+        <i> <b>This feature API is subject to changing at any time.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/put_procurement_portal_preference.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#put_procurement_portal_preference)
@@ -286,8 +284,7 @@ class InvoicingClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateProcurementPortalPreferenceStatusRequestTypeDef]
     ) -> UpdateProcurementPortalPreferenceStatusResponseTypeDef:
         """
-        Updates the status of a procurement portal preference, including the activation
-        state of e-invoice delivery and purchase order retrieval features.
+        <i> <b>This feature API is subject to changing at any time.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/update_procurement_portal_preference_status.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#update_procurement_portal_preference_status)

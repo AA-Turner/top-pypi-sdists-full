@@ -15,7 +15,7 @@ TYPE_CHECKING = False
 if TYPE_CHECKING:
     from starlette.types import ASGIApp, Receive, Scope, Send
 
-__version__ = '1.7.1'
+__version__ = '1.8.0'
 
 
 class CompressMiddleware:
@@ -49,6 +49,7 @@ class CompressMiddleware:
 
         :param app: ASGI application to wrap.
         :param minimum_size: Minimum response size in bytes to apply compression.
+            Streaming content types (e.g. ``text/event-stream``) bypass this threshold.
         :param zstd: Enable Zstandard compression.
         :param zstd_level: Zstandard compression level. Valid values are all negative integers (faster) to 22 (best).
         :param brotli: Enable Brotli compression.
@@ -89,10 +90,19 @@ class CompressMiddleware:
         if scope['type'] != 'http':
             return await self.app(scope, receive, send)
 
-        headers = MutableHeaders(scope=scope)
-        accept_encoding = headers.getlist('Accept-Encoding')
+        raw_headers = scope['headers']
+        if not isinstance(raw_headers, list):
+            raw_headers = scope['headers'] = list(raw_headers)
+
+        accept_encoding = [
+            value.decode('latin-1')
+            for name, value in raw_headers
+            if name == b'accept-encoding'
+        ]
+
         if accept_encoding:
             if self._remove_accept_encoding:
+                headers = MutableHeaders(scope=scope)
                 del headers['Accept-Encoding']
 
             accept_encodings = parse_accept_encoding(
@@ -100,11 +110,11 @@ class CompressMiddleware:
                 if len(accept_encoding) > 1
                 else accept_encoding[0]
             )
-            if (self._zstd is not None) and 'zstd' in accept_encodings:
+            if self._zstd is not None and 'zstd' in accept_encodings:
                 return await self._zstd(scope, receive, send)
-            if (self._brotli is not None) and 'br' in accept_encodings:
+            if self._brotli is not None and 'br' in accept_encodings:
                 return await self._brotli(scope, receive, send)
-            if (self._gzip is not None) and 'gzip' in accept_encodings:
+            if self._gzip is not None and 'gzip' in accept_encodings:
                 return await self._gzip(scope, receive, send)
 
         return await self._identity(scope, receive, send)

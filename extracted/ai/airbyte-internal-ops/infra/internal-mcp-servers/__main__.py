@@ -68,10 +68,13 @@ CLOUD_MCP_PREVIEW_PATH_PREFIX = "/cloud-mcp-preview"
 CLOUD_MCP_PUBLIC_URL = f"https://{MCP_DOMAIN}{CLOUD_MCP_PATH_PREFIX}"
 CLOUD_MCP_PREVIEW_PUBLIC_URL = f"https://{MCP_DOMAIN}{CLOUD_MCP_PREVIEW_PATH_PREFIX}"
 
-# Agent MCP is the PyAirbyte-based hosted MCP served publicly at
-# `mcp.airbyte.ai` for the Agents product. This internal deployment pair lets
-# us offer alternative auth methods and stage updates internally before they
-# reach end users.
+# Agent MCP is the Airbyte Agents MCP served publicly at `mcp.airbyte.ai`.
+# Its source is the `agent-engine-mcp` app in `airbytehq/sonar` (a distinct
+# FastMCP server, not PyAirbyte). Its internal-mirror image build + deploy is
+# currently paused pending a Porter-based cross-repo image bridge; until then
+# the deploy workflow no-ops `agent-mcp` (see `pause-agent-mcp`). This internal
+# deployment pair lets us offer alternative auth methods and stage updates
+# internally before they reach end users.
 AGENT_MCP_SERVICE_NAME = "agent-mcp"
 AGENT_MCP_PREVIEW_SERVICE_NAME = "agent-mcp-preview"
 AGENT_MCP_PATH_PREFIX = "/agent-mcp"
@@ -80,6 +83,37 @@ AGENT_MCP_PUBLIC_URL = f"https://{MCP_DOMAIN}{AGENT_MCP_PATH_PREFIX}"
 AGENT_MCP_PREVIEW_PUBLIC_URL = f"https://{MCP_DOMAIN}{AGENT_MCP_PREVIEW_PATH_PREFIX}"
 
 OPS_MCP_OAUTH_CLIENT_SECRET_ID = "ops-mcp-oauth-client-secret"
+
+# Backend credential secrets consumed by the Ops MCP server (prod + preview).
+# Created during bootstrap (see `BOOTSTRAP.md`) and looked up read-only here;
+# Pulumi never creates secret containers or values -- see `CONTRIBUTING.md`.
+GITHUB_TOKEN_SECRET_ID = "internal-ops-github-pat"
+"""Fine-grained GitHub PAT used for workflow dispatch and PR/issue reads/comments.
+
+Shared container (`internal-ops-` prefix) so the Ops Webapp runtime SA can adopt
+it too; see `BOOTSTRAP.md`."""
+
+ORB_API_KEY_SECRET_ID = "internal-ops-orb-api-key"
+"""Orb billing API key. Shared container so the Ops Webapp can adopt it too."""
+
+MOTHERDUCK_ADMIN_TOKEN_SECRET_ID = "internal-ops-motherduck-api-key"
+"""MotherDuck admin service-account token for the query-diagnostics tools.
+
+Shared container so the Ops Webapp can adopt it too; consumed as env
+`MOTHERDUCK_ADMIN_TOKEN`."""
+
+SLACK_BOT_TOKEN_HITL_SECRET_ID = "slack-bot-token-hitl"
+"""Shared Slack bot token created by the `agent-message-bus` bootstrap."""
+
+# Secrets wired into the Ops MCP prod + preview services (beyond the OIDC
+# client secret every MCP service receives). Kept in one place so the runtime
+# `secretAccessor` grants and the Cloud Run env wiring stay in sync.
+OPS_MCP_BACKEND_SECRET_IDS = [
+    GITHUB_TOKEN_SECRET_ID,
+    ORB_API_KEY_SECRET_ID,
+    MOTHERDUCK_ADMIN_TOKEN_SECRET_ID,
+    SLACK_BOT_TOKEN_HITL_SECRET_ID,
+]
 
 OPS_MCP_CONTAINER_IMAGE = (
     f"{REGION}-docker.pkg.dev/{PROJECT}/{OPS_MCP_SERVICE_NAME}"
@@ -136,11 +170,13 @@ def define_secrets() -> dict[str, SecretRef]:
     looked up here as read-only data sources. Pulumi never creates secrets --
     see `CONTRIBUTING.md` for the ownership rule.
     """
+    secret_ids = [OPS_MCP_OAUTH_CLIENT_SECRET_ID, *OPS_MCP_BACKEND_SECRET_IDS]
     return {
-        OPS_MCP_OAUTH_CLIENT_SECRET_ID: gcp.secretmanager.get_secret(
-            secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
+        secret_id: gcp.secretmanager.get_secret(
+            secret_id=secret_id,
             project=PROJECT,
-        ),
+        )
+        for secret_id in secret_ids
     }
 
 
@@ -190,6 +226,7 @@ def define_mcp_cloud_run_service(
     api_services: list[gcp.projects.Service],
     min_instances: int = 0,
     extra_envs: list[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs] | None = None,
+    extra_depends: list[pulumi.Resource] | None = None,
 ) -> gcp.cloudrunv2.Service:
     """Define a hosted MCP Cloud Run service with OIDC auth.
 
@@ -211,6 +248,8 @@ def define_mcp_cloud_run_service(
         envs.extend(extra_envs)
 
     depends: list[pulumi.Resource] = [*api_services]
+    if extra_depends:
+        depends.extend(extra_depends)
 
     service = gcp.cloudrunv2.Service(
         service_name,
@@ -691,6 +730,17 @@ def main() -> None:
     api_services = define_apis()
     secrets = define_secrets()
     service_account = define_service_account(api_services)
+    # The runtime-SA `secretAccessor` grants for the Ops MCP backend secrets
+    # (GitHub PAT, Orb key, MotherDuck token, shared Slack token) are manual
+    # bootstrap steps -- same as the OAuth client secret and the ops-webapp
+    # secrets -- because the deployer identity holds `roles/editor` and cannot
+    # `setIamPolicy` on secret containers it did not create. See `BOOTSTRAP.md`.
+    ops_mcp_backend_envs = [
+        _secret_env("GITHUB_TOKEN", GITHUB_TOKEN_SECRET_ID),
+        _secret_env("ORB_API_KEY", ORB_API_KEY_SECRET_ID),
+        _secret_env("MOTHERDUCK_ADMIN_TOKEN", MOTHERDUCK_ADMIN_TOKEN_SECRET_ID),
+        _secret_env("SLACK_BOT_TOKEN_HITL", SLACK_BOT_TOKEN_HITL_SECRET_ID),
+    ]
     # MCP services
     mcp_common = {
         "service_account": service_account,
@@ -704,6 +754,7 @@ def main() -> None:
         oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
         min_instances=MIN_INSTANCES,
+        extra_envs=ops_mcp_backend_envs,
         **mcp_common,
     )
     ops_mcp_preview = define_mcp_cloud_run_service(
@@ -713,6 +764,7 @@ def main() -> None:
         public_url=OPS_MCP_PREVIEW_PUBLIC_URL,
         oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
+        extra_envs=ops_mcp_backend_envs,
         **mcp_common,
     )
     cloud_mcp = define_mcp_cloud_run_service(

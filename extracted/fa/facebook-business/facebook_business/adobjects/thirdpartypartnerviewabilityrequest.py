@@ -48,6 +48,7 @@ class ThirdPartyPartnerViewabilityRequest(
         audience_network = 'AUDIENCE_NETWORK'
         facebook = 'FACEBOOK'
         instagram = 'INSTAGRAM'
+        threads = 'THREADS'
 
     class Status:
         created = 'CREATED'

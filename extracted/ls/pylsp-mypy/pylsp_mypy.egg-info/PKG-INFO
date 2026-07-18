@@ -1,19 +1,21 @@
 Metadata-Version: 2.4
 Name: pylsp-mypy
-Version: 0.7.3
+Version: 0.8.0
 Summary: Mypy linter for the Python LSP Server
-Home-page: https://github.com/Richardk2n/pylsp-mypy
-Author: Richard Kellnberger, Tom van Ommeren
-License: 'MIT'
+Author: Dr. Richard Kellnberger, Tom van Ommeren
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/Richardk2n/pylsp-mypy
+Project-URL: Repository, https://github.com/Richardk2n/pylsp-mypy.git
+Keywords: mypy,typing
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -25,7 +27,6 @@ Requires-Dist: tox; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: coverage; extra == "test"
-Dynamic: description-content-type
 Dynamic: license-file
 
 # Mypy plugin for PYLSP
@@ -60,6 +61,7 @@ The configuration keys are listed in the following.
 | -------------------- | ---- | ----------- | ------- |
 | `strict` | `bool` | **Refers to the `strict` option of `mypy`**. This option often is too strict to be useful. | false |
 | `live_mode` | `bool` | **Provides type checking as you type**. This writes to a tempfile every time a check is done. Turning off `live_mode` means you must save your changes for mypy diagnostics to update correctly. | `true` |
+| `hover` | `bool` | **Displays types as inferred by `mypy` on hover**. This requires `dmypy` to work. | false |
 | `dmypy` | `bool` | **Executes via** `dmypy run` **rather than** `mypy`. This uses the `dmypy` daemon and may dramatically improve the responsiveness of the `pylsp` server, however this currently does not work in `live_mode`. Enabling this disables `live_mode`, even for conflicting configs. | `false` |
 | `report_progress` | `bool` | **Report basic progress to the LSP client**. With this option, pylsp-mypy will report when mypy is running, given your editor supports LSP progress reporting. For small files this might produce annoying flashing in your editor, especially in `live_mode`. For large projects, enabling this can be helpful to assure yourself whether mypy is still running. | `false` |
 | `exclude` | `list` of `str` items | **A list of regular expressions which should be ignored**. The `mypy` runner wil not be invoked when a document path is matched by one of the expressions. Note that this differs from the `exclude` directive of a `mypy` config which is only used for recursively discovering files when mypy is invoked on a whole directory. For both windows or unixoid platforms you should use forward slashes (`/`) to indicate paths. | `[]` |

@@ -37,6 +37,7 @@ class TestNonCompliantAlertRuleStatus(unittest.TestCase):
             return NonCompliantAlertRuleStatus(
                 id = '',
                 name = '',
+                policy_alert_rule_id = '',
                 alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
                     description = '', 
                     id = '', ),

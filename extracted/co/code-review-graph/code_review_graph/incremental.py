@@ -24,15 +24,22 @@ from .parser import CodeParser
 
 _MAX_PARSE_WORKERS = int(os.environ.get("CRG_PARSE_WORKERS", str(min(os.cpu_count() or 4, 8))))
 
+# Set only while the in-process FastMCP server is using stdio transport.
+# This is deliberately separate from ``sys.stdin.isatty()``: CI, cron, and
+# redirected CLI builds also have non-TTY stdin, but do not share the MCP
+# transport's file-descriptor lifetime problem.
+_MCP_STDIO_ACTIVE = False
+
 
 def _select_executor_kind() -> str:
     """Return 'process' or 'thread' for parallel parsing.
 
     Defaults to ``process`` (the original behavior, fastest on Linux/macOS).
-    Auto-switches to ``thread`` when running on Windows with stdin not
-    attached to a TTY — that combination indicates an MCP/stdio host, where
-    ``ProcessPoolExecutor`` workers inherit the parent's pipe handles and
-    leak as zombies after the pool closes (issues #46, #136).
+    Auto-switches to ``thread`` for an active MCP stdio server on every
+    platform, where ``ProcessPoolExecutor`` workers can inherit the transport
+    pipe/socket and prevent EOF shutdown. The older Windows non-TTY fallback
+    remains for direct integrations that predate the explicit transport flag
+    (issues #46, #136, PR #615).
 
     Override explicitly with ``CRG_PARSE_EXECUTOR={process,thread}``.
 
@@ -44,6 +51,8 @@ def _select_executor_kind() -> str:
     explicit = os.environ.get("CRG_PARSE_EXECUTOR", "").strip().lower()
     if explicit in ("process", "thread"):
         return explicit
+    if _MCP_STDIO_ACTIVE:
+        return "thread"
     if sys.platform == "win32" and not sys.stdin.isatty():
         return "thread"
     return "process"
@@ -82,6 +91,16 @@ def _run_spring_resolver(store: GraphStore) -> Optional[dict]:
         return None
 
 
+def _run_spring_event_resolver(store: GraphStore) -> Optional[dict]:
+    """Run the Spring application-event resolver without failing a build."""
+    try:
+        from .event_resolver import resolve_spring_events
+        return resolve_spring_events(store)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Spring event resolver failed: %s", exc)
+        return None
+
+
 def _run_temporal_resolver(store: GraphStore) -> Optional[dict]:
     """Run the Temporal workflow/activity call resolver, swallowing any failure so
     build never fails because of it. Returns stats or None on error.
@@ -93,39 +112,58 @@ def _run_temporal_resolver(store: GraphStore) -> Optional[dict]:
         logger.warning("Temporal resolver failed: %s", exc)
         return None
 
+
+def _run_hcl_resolver(store: GraphStore) -> Optional[dict]:
+    """Run Terraform module-scope resolution without failing a build."""
+    try:
+        from .hcl_resolver import resolve_hcl_module_references
+        return resolve_hcl_module_references(store)
+    except Exception as exc:  # noqa: BLE001 - best-effort post-pass
+        logger.warning("Terraform/HCL resolver failed: %s", exc)
+        return None
+
 # Default ignore patterns (in addition to .gitignore).
 #
-# `<dir>/**` patterns are matched at any depth by _should_ignore, so
-# `node_modules/**` also excludes `packages/app/node_modules/react/index.js`
-# inside monorepos. See: #91
+# ``**/<dir>/**`` patterns are safe-anywhere directory exclusions.  A leading
+# slash anchors a pattern to the repository root, which prevents ambiguous
+# output names such as ``build`` and ``dist`` from hiding nested source
+# directories.  See: #91 and PR #92.
 DEFAULT_IGNORE_PATTERNS = [
-    ".code-review-graph/**",
-    "node_modules/**",
-    ".git/**",
-    ".svn/**",
-    "__pycache__/**",
+    "**/.code-review-graph/**",
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/.svn/**",
+    "**/__pycache__/**",
     "*.pyc",
-    ".venv/**",
-    "venv/**",
-    "dist/**",
-    "build/**",
-    ".next/**",
-    "target/**",
+    "**/.venv/**",
+    "**/venv/**",
+    "/dist/**",
+    "/build/**",
+    "/.next/**",
+    "/.nuxt/**",
+    "/target/**",
+    "/bin/**",
+    "/obj/**",
     # PHP / Laravel / Composer
-    "vendor/**",
-    "bootstrap/cache/**",
-    "public/build/**",
+    "**/vendor/**",
+    "/storage/**",
+    "/bootstrap/cache/**",
+    "/public/build/**",
     # Ruby / Bundler
-    ".bundle/**",
+    "**/.bundle/**",
     # Java / Kotlin / Gradle
-    ".gradle/**",
+    "**/.gradle/**",
     "*.jar",
     # Dart / Flutter
-    ".dart_tool/**",
-    ".pub-cache/**",
+    "**/.dart_tool/**",
+    "**/.pub-cache/**",
+    # AWS CDK
+    "**/cdk.out/**",
     # General
-    "coverage/**",
-    ".cache/**",
+    "/coverage/**",
+    "**/.cache/**",
+    "/.tmp/**",
+    "/tmp/**",  # nosec B108 -- repo-relative ignore glob, not a temp-file path
     "*.min.js",
     "*.min.css",
     "*.map",
@@ -359,34 +397,55 @@ def _load_ignore_patterns(repo_root: Path) -> list[str]:
         for line in ignore_file.read_text(encoding="utf-8", errors="replace").splitlines():
             line = line.strip()
             if line and not line.startswith("#"):
-                patterns.append(line)
+                # Directory names without a slash match at any depth, as in
+                # .gitignore. A leading slash remains an explicit root anchor.
+                if line.endswith("/"):
+                    prefix = line[:-1]
+                    if prefix.startswith("/") or "/" in prefix:
+                        line = f"{prefix}/**"
+                    else:
+                        line = f"**/{prefix}/**"
+                elif line.endswith("/**") and not line.startswith(("/", "**/")):
+                    prefix = line[:-3]
+                    if "/" in prefix:
+                        line = f"/{line}"
+                    else:
+                        line = f"**/{line}"
+                if line:
+                    patterns.append(line)
     return patterns
 
 
 def _should_ignore(path: str, patterns: list[str]) -> bool:
     """Check if a path matches any ignore pattern.
 
-    Handles nested occurrences of ``<dir>/**`` patterns: for example,
-    ``node_modules/**`` also matches ``packages/app/node_modules/foo.js``
-    inside monorepos. ``fnmatch`` alone treats ``*`` as not crossing ``/``
-    and only matches the prefix, so we additionally test each path segment
-    against the bare prefix of ``<dir>/**`` patterns. See: #91
+    ``**/<dir>/**`` and unanchored single-directory patterns match at any
+    depth. A leading slash anchors a pattern to the repository root.
     """
-    # Direct fnmatch first (cheap)
-    if any(fnmatch.fnmatch(path, p) for p in patterns):
-        return True
-    # Then: treat simple single-segment "dir/**" patterns as
-    # "this directory at any depth".
-    parts = PurePosixPath(path).parts
-    for p in patterns:
-        if not p.endswith("/**"):
+    normalized = path.replace("\\", "/").lstrip("/")
+    parts = PurePosixPath(normalized).parts
+    for pattern in patterns:
+        anchored = pattern.startswith("/")
+        candidate = pattern[1:] if anchored else pattern
+
+        if candidate.startswith("**/") and candidate.endswith("/**"):
+            segment = candidate[3:-3]
+            if segment and segment in parts:
+                return True
             continue
-        prefix = p[:-3]
-        # Only single-segment dir patterns (no "/" inside the prefix)
-        # qualify for nested matching.
-        if "/" in prefix or not prefix:
+
+        if candidate.endswith("/**"):
+            prefix = tuple(part for part in candidate[:-3].split("/") if part)
+            if not prefix:
+                continue
+            if anchored or len(prefix) > 1:
+                if parts[: len(prefix)] == prefix:
+                    return True
+            elif prefix[0] in parts:
+                return True
             continue
-        if prefix in parts:
+
+        if fnmatch.fnmatch(normalized, candidate):
             return True
     return False
 
@@ -416,25 +475,27 @@ def _git_branch_info(repo_root: Path) -> tuple[str, str]:
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             capture_output=True,
-            text=True, encoding='utf-8',            cwd=str(repo_root),
+            text=True, encoding='utf-8', errors='replace',
+            cwd=str(repo_root),
             timeout=_GIT_TIMEOUT,
             stdin=subprocess.DEVNULL,
         )
         if result.returncode == 0:
             branch = result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+    except (subprocess.TimeoutExpired, FileNotFoundError, UnicodeDecodeError):
         pass
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
             capture_output=True,
-            text=True, encoding='utf-8',            cwd=str(repo_root),
+            text=True, encoding='utf-8', errors='replace',
+            cwd=str(repo_root),
             timeout=_GIT_TIMEOUT,
             stdin=subprocess.DEVNULL,
         )
         if result.returncode == 0:
             sha = result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+    except (subprocess.TimeoutExpired, FileNotFoundError, UnicodeDecodeError):
         pass
     return branch, sha
 
@@ -473,6 +534,11 @@ _SAFE_GIT_REF = re.compile(r"^[A-Za-z0-9_.~^/@{}\-]+$")
 _SAFE_SVN_REV = re.compile(r"^r?\d+(:r?\d+|:HEAD|:BASE|:COMMITTED)?$", re.IGNORECASE)
 
 
+def _decode_nul_paths(output: bytes) -> list[str]:
+    """Decode Git's NUL-delimited path output without quote mangling."""
+    return [os.fsdecode(path) for path in output.split(b"\0") if path]
+
+
 def _store_vcs_metadata(repo_root: Path, store: "GraphStore") -> None:
     """Persist VCS branch/revision info into the graph metadata table."""
     vcs = detect_vcs(repo_root)
@@ -501,31 +567,32 @@ def get_changed_files(repo_root: Path, base: str = "HEAD~1") -> list[str]:
     if detect_vcs(repo_root) == "svn":
         return _get_svn_changed_files(repo_root, base if _SAFE_SVN_REV.match(base) else None)
     # Git path
-    if not _SAFE_GIT_REF.match(base):
+    if base.startswith("-") or not _SAFE_GIT_REF.fullmatch(base):
         logger.warning("Invalid git ref rejected: %s", base)
         return []
     try:
         result = subprocess.run(
-            ["git", "diff", "--name-only", base, "--"],
+            ["git", "diff", "--name-only", "-z", base, "--"],
             capture_output=True,
-            text=True, encoding='utf-8',            cwd=str(repo_root),
+            cwd=str(repo_root),
             timeout=_GIT_TIMEOUT,
             stdin=subprocess.DEVNULL,
         )
         if result.returncode != 0:
             # Fallback: try diff against empty tree (initial commit)
             result = subprocess.run(
-                ["git", "diff", "--name-only", "--cached"],
+                ["git", "diff", "--name-only", "-z", "--cached"],
                 capture_output=True,
-                text=True, encoding='utf-8',                cwd=str(repo_root),
+                cwd=str(repo_root),
                 timeout=_GIT_TIMEOUT,
                 stdin=subprocess.DEVNULL,
             )
-        files = [f.strip() for f in result.stdout.splitlines() if f.strip()]
-        return files
+        if result.returncode != 0:
+            logger.warning("git diff failed while discovering changed files")
+            return []
+        return _decode_nul_paths(result.stdout)
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return []
-
 
 def _get_svn_changed_files(repo_root: Path, rev_range: str | None = None) -> list[str]:
     """Return changed files in an SVN working copy.
@@ -570,9 +637,8 @@ def _get_svn_changed_files(repo_root: Path, rev_range: str | None = None) -> lis
                     path = line[8:].strip() if len(line) > 8 else line[1:].strip()
                     files.append(path)
             return files
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except (FileNotFoundError, subprocess.TimeoutExpired, UnicodeDecodeError):
         return []
-
 
 def get_staged_and_unstaged(repo_root: Path) -> list[str]:
     """Get all modified files (staged + unstaged + untracked)."""
@@ -580,24 +646,37 @@ def get_staged_and_unstaged(repo_root: Path) -> list[str]:
         return _get_svn_changed_files(repo_root)
     try:
         result = subprocess.run(
-            ["git", "status", "--porcelain"],
+            [
+                "git",
+                "status",
+                "--porcelain=v1",
+                "-z",
+                "--untracked-files=all",
+            ],
             capture_output=True,
-            text=True, encoding='utf-8',            cwd=str(repo_root),
+            cwd=str(repo_root),
             timeout=_GIT_TIMEOUT,
             stdin=subprocess.DEVNULL,
         )
-        files = []
-        for line in result.stdout.splitlines():
-            if len(line) > 3:
-                entry = line[3:].strip()
-                # Handle renamed files: "R  old -> new"
-                if " -> " in entry:
-                    entry = entry.split(" -> ", 1)[1]
-                files.append(entry)
+        if result.returncode != 0:
+            logger.warning("git status failed while discovering working-tree files")
+            return []
+        files: list[str] = []
+        records = result.stdout.split(b"\0")
+        index = 0
+        while index < len(records):
+            record = records[index]
+            if len(record) > 3:
+                status = record[:2]
+                files.append(os.fsdecode(record[3:]))
+                # With porcelain -z, a rename/copy record stores the
+                # destination first and its source in the following record.
+                if b"R" in status or b"C" in status:
+                    index += 1
+            index += 1
         return files
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return []
-
 
 def get_all_tracked_files(
     repo_root: Path,
@@ -627,14 +706,14 @@ def get_all_tracked_files(
         result = subprocess.run(
             cmd,
             capture_output=True,
-            text=True, encoding='utf-8',            cwd=str(repo_root),
+            text=True, encoding='utf-8', errors='replace',
+            cwd=str(repo_root),
             timeout=_GIT_TIMEOUT,
             stdin=subprocess.DEVNULL,
         )
         return [f.strip() for f in result.stdout.splitlines() if f.strip()]
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except (FileNotFoundError, subprocess.TimeoutExpired, UnicodeDecodeError):
         return []
-
 
 def _get_svn_all_tracked_files(repo_root: Path) -> list[str]:
     """Return SVN-versioned files by walking the working copy.
@@ -871,9 +950,10 @@ def full_build(
                 logger.info("Progress: %d/%d files parsed", i, file_count)
     else:
         # Parallel parsing — store calls remain serial (SQLite single-writer).
-        # Executor kind auto-selected: process on Linux/macOS/Windows-TTY,
-        # thread on Windows-MCP-stdio to avoid pipe-handle inheritance
-        # deadlock (issues #46, #136). Override via CRG_PARSE_EXECUTOR env.
+        # Executor kind auto-selected: process for normal CLI/automation;
+        # thread for MCP stdio to avoid pipe-handle inheritance deadlocks and
+        # orphan workers (issues #46, #136, PR #615). Override via
+        # CRG_PARSE_EXECUTOR env.
         args_list = [(rel_path, str(repo_root)) for rel_path in files]
         with _make_executor(_MAX_PARSE_WORKERS) as executor:
             for i, (rel_path, nodes, edges, error, fhash) in enumerate(
@@ -903,7 +983,9 @@ def full_build(
 
     rescript_stats = _run_rescript_resolver(store)
     spring_stats = _run_spring_resolver(store)
+    spring_event_stats = _run_spring_event_resolver(store)
     temporal_stats = _run_temporal_resolver(store)
+    hcl_stats = _run_hcl_resolver(store)
 
     return {
         "files_parsed": len(files),
@@ -912,7 +994,9 @@ def full_build(
         "errors": errors,
         "rescript_resolution": rescript_stats,
         "spring_resolution": spring_stats,
+        "event_resolution": spring_event_stats,
         "temporal_resolution": temporal_stats,
+        "hcl_resolution": hcl_stats,
     }
 
 
@@ -1041,7 +1125,12 @@ def incremental_update(
 
     spring_changed = any(rp.endswith(".java") for rp in all_files)
     spring_stats = _run_spring_resolver(store) if spring_changed else None
+    spring_event_stats = (
+        _run_spring_event_resolver(store) if spring_changed else None
+    )
     temporal_stats = _run_temporal_resolver(store) if spring_changed else None
+    hcl_changed = any(rp.endswith((".tf", ".hcl")) for rp in all_files)
+    hcl_stats = _run_hcl_resolver(store) if hcl_changed else None
 
     return {
         "files_updated": len(all_files),
@@ -1052,7 +1141,9 @@ def incremental_update(
         "errors": errors,
         "rescript_resolution": rescript_stats,
         "spring_resolution": spring_stats,
+        "event_resolution": spring_event_stats,
         "temporal_resolution": temporal_stats,
+        "hcl_resolution": hcl_stats,
     }
 
 

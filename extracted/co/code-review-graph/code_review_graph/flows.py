@@ -49,6 +49,9 @@ _FRAMEWORK_DECORATOR_PATTERNS: list[re.Pattern[str]] = [
     # Java Spring
     re.compile(r"(Get|Post|Put|Delete|Patch|RequestMapping)Mapping", re.IGNORECASE),
     re.compile(r"(Scheduled|EventListener|Bean|Configuration)", re.IGNORECASE),
+    re.compile(r"KafkaListener", re.IGNORECASE),
+    # Temporal Java callbacks are invoked by the workflow runtime.
+    re.compile(r"(WorkflowMethod|ActivityMethod)", re.IGNORECASE),
     # JS/TS frameworks
     re.compile(r"(Component|Injectable|Controller|Module|Guard|Pipe)", re.IGNORECASE),
     re.compile(r"(Subscribe|Mutation|Query|Resolver)", re.IGNORECASE),
@@ -109,6 +112,14 @@ _ENTRY_NAME_PATTERNS: list[re.Pattern[str]] = [
     ),
 ]
 
+# Framework and language conventions that must not pollute other parsers.
+_LANGUAGE_ENTRY_NAME_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    "php": (
+        re.compile(r"^(boot|register)$"),
+        re.compile(r"^__invoke$"),
+    ),
+}
+
 
 # ---------------------------------------------------------------------------
 # Entry-point detection
@@ -132,6 +143,9 @@ def _has_framework_decorator(node: GraphNode) -> bool:
 def _matches_entry_name(node: GraphNode) -> bool:
     """Return True if *node*'s name matches a conventional entry-point pattern."""
     for pat in _ENTRY_NAME_PATTERNS:
+        if pat.search(node.name):
+            return True
+    for pat in _LANGUAGE_ENTRY_NAME_PATTERNS.get(node.language, ()):
         if pat.search(node.name):
             return True
     return False
@@ -175,6 +189,8 @@ def detect_entry_points(
 
     for node in candidate_nodes:
         if not include_tests and (node.is_test or _is_test_file(node.file_path)):
+            continue
+        if node.extra.get("verilog_kind"):
             continue
 
         is_entry = False

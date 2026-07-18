@@ -33,6 +33,7 @@ __all__ = (
     "EcsCapacityMonitoringApproachType",
     "EksCapacityMonitoringApproachType",
     "EvaluationStatusType",
+    "EventSourceMappingActionType",
     "ExecutionActionType",
     "ExecutionBlockTypeType",
     "ExecutionEventTypeType",
@@ -43,6 +44,7 @@ __all__ = (
     "GetPlanExecutionPaginatorName",
     "GlobalAuroraDefaultBehaviorType",
     "GlobalAuroraUngracefulBehaviorType",
+    "LambdaEventSourceMappingUngracefulBehaviorType",
     "LambdaUngracefulBehaviorType",
     "ListPlanExecutionEventsPaginatorName",
     "ListPlanExecutionsPaginatorName",
@@ -50,6 +52,8 @@ __all__ = (
     "ListPlansPaginatorName",
     "ListRoute53HealthChecksInRegionPaginatorName",
     "ListRoute53HealthChecksPaginatorName",
+    "NeptuneDefaultBehaviorType",
+    "NeptuneUngracefulBehaviorType",
     "PaginatorName",
     "PlanEvaluationStatusPassedWaiterName",
     "PlanExecutionCompletedWaiterName",
@@ -81,17 +85,22 @@ EcsCapacityMonitoringApproachType = Literal[
 ]
 EksCapacityMonitoringApproachType = Literal["sampledMaxInLast24Hours"]
 EvaluationStatusType = Literal["actionRequired", "passed", "pendingEvaluation", "unknown"]
+EventSourceMappingActionType = Literal["disable", "enable"]
 ExecutionActionType = Literal["activate", "deactivate", "postRecovery"]
 ExecutionBlockTypeType = Literal[
     "ARCRegionSwitchPlan",
     "ARCRoutingControl",
     "AuroraGlobalDatabase",
+    "AuroraProvisionedScaling",
+    "AuroraServerlessScaling",
     "CustomActionLambda",
     "DocumentDb",
     "EC2AutoScaling",
     "ECSServiceScaling",
     "EKSResourceScaling",
+    "LambdaEventSourceMapping",
     "ManualApproval",
+    "NeptuneGlobalDatabase",
     "Parallel",
     "RdsCreateCrossRegionReplica",
     "RdsPromoteReadReplica",
@@ -146,6 +155,7 @@ GetPlanEvaluationStatusPaginatorName = Literal["get_plan_evaluation_status"]
 GetPlanExecutionPaginatorName = Literal["get_plan_execution"]
 GlobalAuroraDefaultBehaviorType = Literal["failover", "switchoverOnly"]
 GlobalAuroraUngracefulBehaviorType = Literal["failover"]
+LambdaEventSourceMappingUngracefulBehaviorType = Literal["skip"]
 LambdaUngracefulBehaviorType = Literal["skip"]
 ListPlanExecutionEventsPaginatorName = Literal["list_plan_execution_events"]
 ListPlanExecutionsPaginatorName = Literal["list_plan_executions"]
@@ -153,6 +163,8 @@ ListPlansInRegionPaginatorName = Literal["list_plans_in_region"]
 ListPlansPaginatorName = Literal["list_plans"]
 ListRoute53HealthChecksInRegionPaginatorName = Literal["list_route53_health_checks_in_region"]
 ListRoute53HealthChecksPaginatorName = Literal["list_route53_health_checks"]
+NeptuneDefaultBehaviorType = Literal["failover", "switchoverOnly"]
+NeptuneUngracefulBehaviorType = Literal["failover"]
 PlanEvaluationStatusPassedWaiterName = Literal["plan_evaluation_status_passed"]
 PlanExecutionCompletedWaiterName = Literal["plan_execution_completed"]
 RecoveryApproachType = Literal["activeActive", "activePassive"]
@@ -362,8 +374,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -390,6 +400,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -457,10 +469,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -493,6 +505,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -520,6 +533,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -541,7 +555,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -562,6 +575,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

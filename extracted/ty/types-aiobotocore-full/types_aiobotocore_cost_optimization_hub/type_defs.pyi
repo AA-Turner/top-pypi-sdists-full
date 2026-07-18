@@ -50,8 +50,10 @@ __all__ = (
     "ComputeSavingsPlansConfigurationTypeDef",
     "ComputeSavingsPlansTypeDef",
     "DbInstanceConfigurationTypeDef",
+    "DocumentDbClusterTypeDef",
     "DynamoDbReservedCapacityConfigurationTypeDef",
     "DynamoDbReservedCapacityTypeDef",
+    "DynamoDbTableTypeDef",
     "EbsVolumeConfigurationTypeDef",
     "EbsVolumeTypeDef",
     "Ec2AutoScalingGroupConfigurationTypeDef",
@@ -65,6 +67,7 @@ __all__ = (
     "EcsServiceConfigurationTypeDef",
     "EcsServiceTypeDef",
     "EfficiencyMetricsByGroupTypeDef",
+    "ElastiCacheClusterTypeDef",
     "ElastiCacheReservedInstancesConfigurationTypeDef",
     "ElastiCacheReservedInstancesTypeDef",
     "EstimatedDiscountsTypeDef",
@@ -87,6 +90,7 @@ __all__ = (
     "ListRecommendationsRequestPaginateTypeDef",
     "ListRecommendationsRequestTypeDef",
     "ListRecommendationsResponseTypeDef",
+    "MemoryDbClusterTypeDef",
     "MemoryDbReservedInstancesConfigurationTypeDef",
     "MemoryDbReservedInstancesTypeDef",
     "MetricsByTimeTypeDef",
@@ -114,6 +118,7 @@ __all__ = (
     "ResourceDetailsTypeDef",
     "ResourcePricingTypeDef",
     "ResponseMetadataTypeDef",
+    "SageMakerEndpointTypeDef",
     "SageMakerSavingsPlansConfigurationTypeDef",
     "SageMakerSavingsPlansTypeDef",
     "SavingsPlansCostCalculationTypeDef",
@@ -127,6 +132,7 @@ __all__ = (
     "UpdatePreferencesRequestTypeDef",
     "UpdatePreferencesResponseTypeDef",
     "UsageTypeDef",
+    "WorkSpacesTypeDef",
 )
 
 class AccountEnrollmentStatusTypeDef(TypedDict):
@@ -621,6 +627,12 @@ class AuroraDbClusterStorageTypeDef(TypedDict):
     configuration: NotRequired[AuroraDbClusterStorageConfigurationTypeDef]
     costCalculation: NotRequired[ResourceCostCalculationTypeDef]
 
+class DocumentDbClusterTypeDef(TypedDict):
+    costCalculation: NotRequired[ResourceCostCalculationTypeDef]
+
+class DynamoDbTableTypeDef(TypedDict):
+    costCalculation: NotRequired[ResourceCostCalculationTypeDef]
+
 class EbsVolumeTypeDef(TypedDict):
     configuration: NotRequired[EbsVolumeConfigurationTypeDef]
     costCalculation: NotRequired[ResourceCostCalculationTypeDef]
@@ -637,8 +649,14 @@ class EcsServiceTypeDef(TypedDict):
     configuration: NotRequired[EcsServiceConfigurationTypeDef]
     costCalculation: NotRequired[ResourceCostCalculationTypeDef]
 
+class ElastiCacheClusterTypeDef(TypedDict):
+    costCalculation: NotRequired[ResourceCostCalculationTypeDef]
+
 class LambdaFunctionTypeDef(TypedDict):
     configuration: NotRequired[LambdaFunctionConfigurationTypeDef]
+    costCalculation: NotRequired[ResourceCostCalculationTypeDef]
+
+class MemoryDbClusterTypeDef(TypedDict):
     costCalculation: NotRequired[ResourceCostCalculationTypeDef]
 
 class NatGatewayTypeDef(TypedDict):
@@ -651,6 +669,12 @@ class RdsDbInstanceStorageTypeDef(TypedDict):
 
 class RdsDbInstanceTypeDef(TypedDict):
     configuration: NotRequired[RdsDbInstanceConfigurationTypeDef]
+    costCalculation: NotRequired[ResourceCostCalculationTypeDef]
+
+class SageMakerEndpointTypeDef(TypedDict):
+    costCalculation: NotRequired[ResourceCostCalculationTypeDef]
+
+class WorkSpacesTypeDef(TypedDict):
     costCalculation: NotRequired[ResourceCostCalculationTypeDef]
 
 class ResourceDetailsTypeDef(TypedDict):
@@ -673,6 +697,12 @@ class ResourceDetailsTypeDef(TypedDict):
     dynamoDbReservedCapacity: NotRequired[DynamoDbReservedCapacityTypeDef]
     memoryDbReservedInstances: NotRequired[MemoryDbReservedInstancesTypeDef]
     natGateway: NotRequired[NatGatewayTypeDef]
+    dynamoDbTable: NotRequired[DynamoDbTableTypeDef]
+    elastiCacheCluster: NotRequired[ElastiCacheClusterTypeDef]
+    memoryDbCluster: NotRequired[MemoryDbClusterTypeDef]
+    documentDbCluster: NotRequired[DocumentDbClusterTypeDef]
+    workSpaces: NotRequired[WorkSpacesTypeDef]
+    sageMakerEndpoint: NotRequired[SageMakerEndpointTypeDef]
 
 class GetRecommendationResponseTypeDef(TypedDict):
     recommendationId: str

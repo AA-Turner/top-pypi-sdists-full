@@ -41,6 +41,7 @@ __all__ = (
     "ListTelemetryRulesForOrganizationPaginatorName",
     "ListTelemetryRulesPaginatorName",
     "LogTypeType",
+    "MskEnhancedMonitoringLevelType",
     "OutputFormatType",
     "PaginatorName",
     "RecordFormatType",
@@ -49,6 +50,7 @@ __all__ = (
     "RuleHealthType",
     "SSEAlgorithmType",
     "ServiceName",
+    "SignalTypeType",
     "StatusType",
     "TelemetryEnrichmentStatusType",
     "TelemetryPipelineStatusType",
@@ -82,7 +84,15 @@ ListTelemetryPipelinesPaginatorName = Literal["list_telemetry_pipelines"]
 ListTelemetryRulesForOrganizationPaginatorName = Literal["list_telemetry_rules_for_organization"]
 ListTelemetryRulesPaginatorName = Literal["list_telemetry_rules"]
 LogTypeType = Literal[
-    "ACCESS_LOGS", "APPLICATION_LOGS", "CONNECTION_LOGS", "SECURITY_FINDING_LOGS", "USAGE_LOGS"
+    "ACCESS_LOGS",
+    "APPLICATION_LOGS",
+    "CONNECTION_LOGS",
+    "S3_SERVER_ACCESS_LOGS",
+    "SECURITY_FINDING_LOGS",
+    "USAGE_LOGS",
+]
+MskEnhancedMonitoringLevelType = Literal[
+    "DEFAULT", "PER_BROKER", "PER_TOPIC_PER_BROKER", "PER_TOPIC_PER_PARTITION"
 ]
 OutputFormatType = Literal["json", "plain"]
 RecordFormatType = Literal["JSON", "STRING"]
@@ -92,20 +102,25 @@ ResourceTypeType = Literal[
     "AWS::BedrockAgentCore::Gateway",
     "AWS::BedrockAgentCore::Memory",
     "AWS::BedrockAgentCore::Runtime",
+    "AWS::BedrockAgentCore::WorkloadIdentity",
     "AWS::CloudFront::Distribution",
     "AWS::CloudTrail",
+    "AWS::CloudWatch::OTelEnrichment",
     "AWS::EC2::Instance",
     "AWS::EC2::VPC",
     "AWS::EKS::Cluster",
     "AWS::ElasticLoadBalancingV2::LoadBalancer",
     "AWS::Lambda::Function",
+    "AWS::MSK::Cluster",
     "AWS::Route53Resolver::ResolverEndpoint",
+    "AWS::S3::Bucket",
     "AWS::SecurityHub::Hub",
     "AWS::SecurityHub::HubV2",
     "AWS::WAFv2::WebACL",
 ]
 RuleHealthType = Literal["Healthy", "Provisioning", "Unhealthy"]
 SSEAlgorithmType = Literal["AES256", "aws:kms"]
+SignalTypeType = Literal["LOG", "METRIC"]
 StatusType = Literal[
     "FAILED_START", "FAILED_STOP", "NOT_STARTED", "RUNNING", "STARTING", "STOPPED", "STOPPING"
 ]
@@ -319,8 +334,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -347,6 +360,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -414,10 +429,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -450,6 +465,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -477,6 +493,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -498,7 +515,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -519,6 +535,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

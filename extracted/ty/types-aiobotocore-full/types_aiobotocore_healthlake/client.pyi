@@ -54,6 +54,8 @@ from .type_defs import (
     StartFHIRImportJobResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateFHIRDatastoreRequestTypeDef,
+    UpdateFHIRDatastoreResponseTypeDef,
 )
 from .waiter import (
     FHIRDatastoreActiveWaiter,
@@ -238,6 +240,16 @@ class HealthLakeClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/untag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#untag_resource)
+        """
+
+    async def update_fhir_datastore(
+        self, **kwargs: Unpack[UpdateFHIRDatastoreRequestTypeDef]
+    ) -> UpdateFHIRDatastoreResponseTypeDef:
+        """
+        Update the properties of a FHIR-enabled data store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/update_fhir_datastore.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#update_fhir_datastore)
         """
 
     @overload  # type: ignore[override]

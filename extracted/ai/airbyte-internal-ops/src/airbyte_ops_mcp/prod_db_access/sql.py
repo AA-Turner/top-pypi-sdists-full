@@ -936,6 +936,134 @@ SELECT_DESTINATION_SUCCESSFUL_SYNCS_FOR_VERSION = sqlalchemy.text(
     """
 )
 
+# =============================================================================
+# Version Health Summary Queries (per-actor aggregate)
+# =============================================================================
+
+# Aggregate sync health per actor for jobs run with a specific SOURCE version.
+# Groups by actor and returns succeeded/failed/total job counts plus the most
+# recent job status, all within the lookback window. Filters on the version
+# stamped into `jobs.config` at job-creation time (same primitive as
+# `SELECT_SOURCE_SYNC_RESULTS_FOR_VERSION`), so the population reflects actors
+# that actually ran this version rather than the current pin state.
+#
+# Unlike the row-level sync-results queries, this aggregates in SQL so the
+# caller gets one row per actor (bounded by the actor count) instead of a
+# LIMIT-capped dump of individual jobs — keeping the tri-state health rollup
+# cheap for a summary view.
+SELECT_SOURCE_VERSION_ACTOR_HEALTH = sqlalchemy.text(
+    """
+    WITH version_jobs AS (
+        SELECT
+             actor.id AS actor_id,
+             workspace.organization_id,
+             dataplane_group.name AS dataplane_name,
+             jobs.id AS job_id,
+             jobs.status AS job_status,
+             jobs.updated_at AS job_updated_at
+        FROM jobs
+        JOIN connection
+          ON jobs.scope = connection.id::text
+         AND connection.status != 'deprecated'
+        JOIN actor
+          ON connection.source_id = actor.id
+         AND actor.tombstone = false
+        JOIN workspace
+          ON actor.workspace_id = workspace.id
+         AND workspace.tombstone = false
+        LEFT JOIN dataplane_group
+          ON workspace.dataplane_group_id = dataplane_group.id
+        WHERE
+             jobs.config_type = 'sync'
+         AND jobs.config->'sync'->>'sourceDefinitionVersionId' = :actor_definition_version_id
+         AND jobs.updated_at >= :cutoff_date
+    ),
+    latest AS (
+        SELECT DISTINCT ON (actor_id)
+             actor_id,
+             job_status AS latest_status
+        FROM version_jobs
+        -- `job_id DESC` is a deterministic tiebreaker so that when an actor has
+        -- multiple jobs sharing the same `updated_at`, the latest status is
+        -- stable across runs.
+        ORDER BY actor_id, job_updated_at DESC, job_id DESC
+    )
+    SELECT
+         vj.actor_id,
+         vj.organization_id,
+         vj.dataplane_name,
+         COUNT(*) AS total_jobs,
+         COUNT(*) FILTER (WHERE vj.job_status = 'succeeded') AS succeeded_jobs,
+         COUNT(*) FILTER (WHERE vj.job_status = 'failed') AS failed_jobs,
+         latest.latest_status
+    FROM version_jobs vj
+    JOIN latest
+      ON latest.actor_id = vj.actor_id
+    GROUP BY
+         vj.actor_id,
+         vj.organization_id,
+         vj.dataplane_name,
+         latest.latest_status
+    """
+)
+
+# Same as above but for jobs run with a specific DESTINATION version.
+SELECT_DESTINATION_VERSION_ACTOR_HEALTH = sqlalchemy.text(
+    """
+    WITH version_jobs AS (
+        SELECT
+             actor.id AS actor_id,
+             workspace.organization_id,
+             dataplane_group.name AS dataplane_name,
+             jobs.id AS job_id,
+             jobs.status AS job_status,
+             jobs.updated_at AS job_updated_at
+        FROM jobs
+        JOIN connection
+          ON jobs.scope = connection.id::text
+         AND connection.status != 'deprecated'
+        JOIN actor
+          ON connection.destination_id = actor.id
+         AND actor.tombstone = false
+        JOIN workspace
+          ON actor.workspace_id = workspace.id
+         AND workspace.tombstone = false
+        LEFT JOIN dataplane_group
+          ON workspace.dataplane_group_id = dataplane_group.id
+        WHERE
+             jobs.config_type = 'sync'
+         AND jobs.config->'sync'->>'destinationDefinitionVersionId' = :actor_definition_version_id
+         AND jobs.updated_at >= :cutoff_date
+    ),
+    latest AS (
+        SELECT DISTINCT ON (actor_id)
+             actor_id,
+             job_status AS latest_status
+        FROM version_jobs
+        -- `job_id DESC` is a deterministic tiebreaker so that when an actor has
+        -- multiple jobs sharing the same `updated_at`, the latest status is
+        -- stable across runs.
+        ORDER BY actor_id, job_updated_at DESC, job_id DESC
+    )
+    SELECT
+         vj.actor_id,
+         vj.organization_id,
+         vj.dataplane_name,
+         COUNT(*) AS total_jobs,
+         COUNT(*) FILTER (WHERE vj.job_status = 'succeeded') AS succeeded_jobs,
+         COUNT(*) FILTER (WHERE vj.job_status = 'failed') AS failed_jobs,
+         latest.latest_status
+    FROM version_jobs vj
+    JOIN latest
+      ON latest.actor_id = vj.actor_id
+    GROUP BY
+         vj.actor_id,
+         vj.organization_id,
+         vj.dataplane_name,
+         latest.latest_status
+    """
+)
+
 # Get recent sync results for ALL actors using a SOURCE connector definition.
 # Finds all actors with the given actor_definition_id and returns their sync attempts,
 # regardless of whether they have explicit version pins.
@@ -2102,6 +2230,7 @@ SELECT_ACTIVE_CONNECTOR_ROLLOUTS_BY_DEFINITION = sqlalchemy.text(
     SELECT
          cr.id AS rollout_id,
          cr.actor_definition_id,
+         cr.release_candidate_version_id,
          cr.state,
          cr.initial_rollout_pct,
          cr.current_target_rollout_pct,
@@ -2314,5 +2443,295 @@ SELECT_ACTORS_PINNED_TO_ROLLOUT = sqlalchemy.text(
      AND scoped_configuration.origin = :rollout_id
     ORDER BY
          scoped_configuration.created_at DESC
+    """
+)
+
+
+# =============================================================================
+# Actor Population Summary Queries (per-org aggregate)
+# =============================================================================
+
+# Aggregate the active-actor population for a SOURCE connector definition,
+# grouped by organization so tiers can be resolved per-org in Python.
+#
+# `active_actors` are non-tombstoned actors of the definition that have at
+# least one *active* connection (`connection.status = 'active'`) — i.e. actors
+# on an enabled sync, excluding actors whose connections are all inactive
+# (disabled/paused) or deprecated. These are the actors a rollout can actually
+# touch and are therefore the enabled candidates for pinning. `pinned_actor_count` counts
+# those actors that already have an effective `connector_version` pin at any
+# scope (actor > workspace > organization). The caller derives the eligible
+# (unpinned) population as `actor_count - pinned_actor_count`.
+#
+# `effective_pins` resolves each pinned actor to the single highest-precedence
+# pin (actor > workspace > organization) via `DISTINCT ON`, so its `value` is
+# the version the actor is *effectively* pinned to. `pinned_to_version_count`
+# then counts actors whose effective pin is the `:target_version_id` (the
+# rollout's release-candidate version). Actors pinned to a *different* version
+# are `pinned_actor_count - pinned_to_version_count`; the caller excludes them
+# from a specific-version rollout's addressable audience
+# (`actor_count - (pinned_actor_count - pinned_to_version_count)`). Passing
+# `NULL` for `:target_version_id` yields `pinned_to_version_count = 0`.
+#
+# The job-status factors reproduce the platform's `filterByJobStatus`
+# eligibility gate (`RolloutActorFinder`), partitioning the *unpinned* active
+# actors by their most-recent `sync` job since `:rollout_created_at` (the
+# rollout's `created_at`) over non-manual active connections. The three factors
+# are mutually exclusive and sum to the unpinned population:
+#   - `eligible_gated_count`: succeeded on >=1 connection and failed on none
+#     (the backend's `nFailed == 0 && nSucceeded > 0` gate) — these pass.
+#   - `gate_excluded_failed_count`: >=1 recent failed sync.
+#   - `gate_excluded_no_recent_sync_count`: no qualifying sync in the window.
+# Keeping the exclusion reasons distinct lets the caller show every factor
+# rather than collapsing them. The caller adds the rollout-version-pinned
+# actors back to `eligible_gated_count` to form the backend's
+# `nActorsEligibleOrAlreadyPinned`.
+#
+# When `:rollout_created_at` is `NULL` (no active rollout window) every actor
+# lacks a qualifying sync, so every unpinned actor falls into
+# `gate_excluded_no_recent_sync_count` (and the caller falls back to the ungated
+# addressable count).
+#
+# Grouping by organization keeps the result set small (one row per org rather
+# than one row per actor), so the tier rollup stays cheap even for connectors
+# with a large installed base.
+SELECT_SOURCE_ACTOR_POPULATION_BY_ORG = sqlalchemy.text(
+    """
+    WITH active_actors AS (
+        SELECT DISTINCT
+             actor.id AS actor_id,
+             actor.workspace_id,
+             workspace.organization_id,
+             dataplane_group.name AS dataplane_name
+        FROM actor
+        JOIN workspace
+          ON actor.workspace_id = workspace.id
+         AND workspace.tombstone = false
+        LEFT JOIN dataplane_group
+          ON workspace.dataplane_group_id = dataplane_group.id
+        JOIN connection
+          ON connection.source_id = actor.id
+         AND connection.status = 'active'
+        WHERE
+             actor.actor_definition_id = :actor_definition_id
+         AND actor.tombstone = false
+    ),
+    effective_pins AS (
+        SELECT DISTINCT ON (aa.actor_id)
+             aa.actor_id,
+             sc.value AS pinned_version_id
+        FROM active_actors aa
+        JOIN scoped_configuration sc
+          ON sc.key = 'connector_version'
+         AND sc.resource_id = :actor_definition_id
+         AND (
+              (sc.scope_type = 'actor' AND sc.scope_id = aa.actor_id)
+           OR (sc.scope_type = 'workspace' AND sc.scope_id = aa.workspace_id)
+           OR (sc.scope_type = 'organization' AND sc.scope_id = aa.organization_id)
+         )
+        ORDER BY
+             aa.actor_id,
+             CASE sc.scope_type
+                  WHEN 'actor' THEN 0
+                  WHEN 'workspace' THEN 1
+                  ELSE 2
+             END,
+             -- Deterministic tiebreaker: if duplicate pins exist at the same
+             -- scope precedence, pick the most recently created one.
+             sc.created_at DESC
+    ),
+    gate_connections AS (
+        SELECT
+             actor.id AS actor_id,
+             connection.id AS connection_id
+        FROM actor
+        JOIN connection
+          ON connection.source_id = actor.id
+         AND connection.status = 'active'
+         AND connection.manual = false
+        WHERE
+             actor.actor_definition_id = :actor_definition_id
+         AND actor.tombstone = false
+    ),
+    latest_job AS (
+        SELECT DISTINCT ON (jobs.scope)
+             jobs.scope AS connection_id,
+             jobs.status AS job_status
+        FROM jobs
+        JOIN gate_connections gc
+          ON jobs.scope = gc.connection_id::text
+        WHERE
+             jobs.config_type = 'sync'
+         -- Short-circuit the whole job scan when no rollout window is supplied:
+         -- with a NULL bound `created_at >= NULL` matches nothing anyway, and
+         -- gating on `IS NOT NULL` up front lets the planner skip the scan
+         -- (a one-time filter) instead of walking `jobs` only to discard rows.
+         AND :rollout_created_at IS NOT NULL
+         AND jobs.created_at >= CAST(:rollout_created_at AS timestamptz)
+        -- `jobs.id DESC` is a deterministic tiebreaker so the gate status is
+        -- stable when a connection has multiple jobs sharing `created_at`.
+        ORDER BY jobs.scope, jobs.created_at DESC, jobs.id DESC
+    ),
+    actor_job_status AS (
+        SELECT
+             gc.actor_id,
+             COUNT(*) FILTER (WHERE lj.job_status = 'succeeded') AS n_succeeded,
+             COUNT(*) FILTER (WHERE lj.job_status = 'failed') AS n_failed
+        FROM gate_connections gc
+        LEFT JOIN latest_job lj
+          ON lj.connection_id = gc.connection_id::text
+        GROUP BY gc.actor_id
+    )
+    SELECT
+         aa.organization_id,
+         aa.dataplane_name,
+         COUNT(*) AS actor_count,
+         COUNT(ep.actor_id) AS pinned_actor_count,
+         COUNT(ep.actor_id) FILTER (
+             WHERE ep.pinned_version_id = :target_version_id
+         ) AS pinned_to_version_count,
+         COUNT(*) FILTER (
+             WHERE ep.actor_id IS NULL
+               AND COALESCE(ajs.n_failed, 0) = 0
+               AND COALESCE(ajs.n_succeeded, 0) > 0
+         ) AS eligible_gated_count,
+         COUNT(*) FILTER (
+             WHERE ep.actor_id IS NULL
+               AND COALESCE(ajs.n_failed, 0) > 0
+         ) AS gate_excluded_failed_count,
+         COUNT(*) FILTER (
+             WHERE ep.actor_id IS NULL
+               AND COALESCE(ajs.n_failed, 0) = 0
+               AND COALESCE(ajs.n_succeeded, 0) = 0
+         ) AS gate_excluded_no_recent_sync_count
+    FROM active_actors aa
+    LEFT JOIN effective_pins ep
+      ON ep.actor_id = aa.actor_id
+    LEFT JOIN actor_job_status ajs
+      ON ajs.actor_id = aa.actor_id
+    GROUP BY
+         aa.organization_id,
+         aa.dataplane_name
+    """
+)
+
+# Same as above but for a DESTINATION connector definition.
+SELECT_DESTINATION_ACTOR_POPULATION_BY_ORG = sqlalchemy.text(
+    """
+    WITH active_actors AS (
+        SELECT DISTINCT
+             actor.id AS actor_id,
+             actor.workspace_id,
+             workspace.organization_id,
+             dataplane_group.name AS dataplane_name
+        FROM actor
+        JOIN workspace
+          ON actor.workspace_id = workspace.id
+         AND workspace.tombstone = false
+        LEFT JOIN dataplane_group
+          ON workspace.dataplane_group_id = dataplane_group.id
+        JOIN connection
+          ON connection.destination_id = actor.id
+         AND connection.status = 'active'
+        WHERE
+             actor.actor_definition_id = :actor_definition_id
+         AND actor.tombstone = false
+    ),
+    effective_pins AS (
+        SELECT DISTINCT ON (aa.actor_id)
+             aa.actor_id,
+             sc.value AS pinned_version_id
+        FROM active_actors aa
+        JOIN scoped_configuration sc
+          ON sc.key = 'connector_version'
+         AND sc.resource_id = :actor_definition_id
+         AND (
+              (sc.scope_type = 'actor' AND sc.scope_id = aa.actor_id)
+           OR (sc.scope_type = 'workspace' AND sc.scope_id = aa.workspace_id)
+           OR (sc.scope_type = 'organization' AND sc.scope_id = aa.organization_id)
+         )
+        ORDER BY
+             aa.actor_id,
+             CASE sc.scope_type
+                  WHEN 'actor' THEN 0
+                  WHEN 'workspace' THEN 1
+                  ELSE 2
+             END,
+             -- Deterministic tiebreaker: if duplicate pins exist at the same
+             -- scope precedence, pick the most recently created one.
+             sc.created_at DESC
+    ),
+    gate_connections AS (
+        SELECT
+             actor.id AS actor_id,
+             connection.id AS connection_id
+        FROM actor
+        JOIN connection
+          ON connection.destination_id = actor.id
+         AND connection.status = 'active'
+         AND connection.manual = false
+        WHERE
+             actor.actor_definition_id = :actor_definition_id
+         AND actor.tombstone = false
+    ),
+    latest_job AS (
+        SELECT DISTINCT ON (jobs.scope)
+             jobs.scope AS connection_id,
+             jobs.status AS job_status
+        FROM jobs
+        JOIN gate_connections gc
+          ON jobs.scope = gc.connection_id::text
+        WHERE
+             jobs.config_type = 'sync'
+         -- Short-circuit the whole job scan when no rollout window is supplied:
+         -- with a NULL bound `created_at >= NULL` matches nothing anyway, and
+         -- gating on `IS NOT NULL` up front lets the planner skip the scan
+         -- (a one-time filter) instead of walking `jobs` only to discard rows.
+         AND :rollout_created_at IS NOT NULL
+         AND jobs.created_at >= CAST(:rollout_created_at AS timestamptz)
+        -- `jobs.id DESC` is a deterministic tiebreaker so the gate status is
+        -- stable when a connection has multiple jobs sharing `created_at`.
+        ORDER BY jobs.scope, jobs.created_at DESC, jobs.id DESC
+    ),
+    actor_job_status AS (
+        SELECT
+             gc.actor_id,
+             COUNT(*) FILTER (WHERE lj.job_status = 'succeeded') AS n_succeeded,
+             COUNT(*) FILTER (WHERE lj.job_status = 'failed') AS n_failed
+        FROM gate_connections gc
+        LEFT JOIN latest_job lj
+          ON lj.connection_id = gc.connection_id::text
+        GROUP BY gc.actor_id
+    )
+    SELECT
+         aa.organization_id,
+         aa.dataplane_name,
+         COUNT(*) AS actor_count,
+         COUNT(ep.actor_id) AS pinned_actor_count,
+         COUNT(ep.actor_id) FILTER (
+             WHERE ep.pinned_version_id = :target_version_id
+         ) AS pinned_to_version_count,
+         COUNT(*) FILTER (
+             WHERE ep.actor_id IS NULL
+               AND COALESCE(ajs.n_failed, 0) = 0
+               AND COALESCE(ajs.n_succeeded, 0) > 0
+         ) AS eligible_gated_count,
+         COUNT(*) FILTER (
+             WHERE ep.actor_id IS NULL
+               AND COALESCE(ajs.n_failed, 0) > 0
+         ) AS gate_excluded_failed_count,
+         COUNT(*) FILTER (
+             WHERE ep.actor_id IS NULL
+               AND COALESCE(ajs.n_failed, 0) = 0
+               AND COALESCE(ajs.n_succeeded, 0) = 0
+         ) AS gate_excluded_no_recent_sync_count
+    FROM active_actors aa
+    LEFT JOIN effective_pins ep
+      ON ep.actor_id = aa.actor_id
+    LEFT JOIN actor_job_status ajs
+      ON ajs.actor_id = aa.actor_id
+    GROUP BY
+         aa.organization_id,
+         aa.dataplane_name
     """
 )

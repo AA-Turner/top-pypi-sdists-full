@@ -1976,6 +1976,144 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Flexible live insights query (Meta)",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ads_query_ad_insights(
+        account_id: str,
+        object_id: str,
+        level: str | None = None,
+        fields: str | None = None,
+        breakdowns: str | None = None,
+        filtering: str | None = None,
+        date_preset: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        time_increment: str | None = None,
+        limit: int = 25,
+        after: str | None = None,
+    ) -> str:
+        """Flexible live insights query (Meta)
+
+        Args:
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
+            object_id: Meta insights node: act_<n>, campaign id, ad set id or ad id. (required)
+            level: Row granularity
+            fields: Comma-separated Graph insights fields (e.g. spend,impressions,frequency,website_purchase_roas). Omitted = Meta's default set.
+            breakdowns: Comma-separated Graph breakdowns (e.g. age,gender or publisher_platform).
+            filtering: JSON array of Meta filter objects: [{"field", "operator", "value"}]. Applied server-side by Meta.
+            date_preset: Meta date_preset (e.g. last_7d, last_30d, this_month). Mutually exclusive with fromDate/toDate.
+            from_date: Start of range (YYYY-MM-DD); requires toDate.
+            to_date: End of range (YYYY-MM-DD); requires fromDate.
+            time_increment: Days per row (1-90), monthly, or all_days.
+            limit: Rows per page
+            after: Cursor from paging.after of the previous page."""
+        client = _get_client()
+        try:
+            response = client.ads.query_ad_insights(
+                account_id=account_id,
+                object_id=object_id,
+                level=level,
+                fields=fields,
+                breakdowns=breakdowns,
+                filtering=filtering,
+                date_preset=date_preset,
+                from_date=from_date,
+                to_date=to_date,
+                time_increment=time_increment,
+                limit=limit,
+                after=after,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Submit an async insights report run (Meta)",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ads_create_ad_insights_report(
+        account_id: str,
+        object_id: str,
+        level: str | None = None,
+        fields: str | None = None,
+        breakdowns: str | None = None,
+        filtering: list[dict[str, Any]] | None = None,
+        date_preset: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        time_increment: str | None = None,
+    ) -> str:
+        """Submit an async insights report run (Meta)
+
+        Args:
+            account_id: Zernio SocialAccount id (posting or ads variant). (required)
+            object_id: Meta insights node: act_<n>, campaign id, ad set id or ad id. (required)
+            level
+            fields: Comma-separated Graph insights fields.
+            breakdowns: Comma-separated Graph breakdowns.
+            filtering: Meta filter objects, applied server-side.
+            date_preset: Mutually exclusive with fromDate/toDate.
+            from_date
+            to_date
+            time_increment"""
+        client = _get_client()
+        try:
+            response = client.ads.create_ad_insights_report(
+                account_id=account_id,
+                object_id=object_id,
+                level=level,
+                fields=fields,
+                breakdowns=breakdowns,
+                filtering=filtering,
+                date_preset=date_preset,
+                from_date=from_date,
+                to_date=to_date,
+                time_increment=time_increment,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Poll an async insights report run (Meta)",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ads_get_ad_insights_report(
+        report_run_id: str, account_id: str, limit: int = 25, after: str | None = None
+    ) -> str:
+        """Poll an async insights report run (Meta)
+
+        Args:
+            report_run_id: (required)
+            account_id: Zernio SocialAccount id used to resolve the Meta token (must be the same connection that created the run). (required)
+            limit
+            after"""
+        client = _get_client()
+        try:
+            response = client.ads.get_ad_insights_report(
+                report_run_id=report_run_id,
+                account_id=account_id,
+                limit=limit,
+                after=after,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get ad analytics",
             readOnlyHint=True,
             destructiveHint=False,
@@ -6767,6 +6905,39 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Assign GBP location to another profile",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_assign_google_business_location(
+        account_id: str,
+        profile_id: str,
+        selected_location_id: str,
+        google_account_id: str | None = None,
+    ) -> str:
+        """Assign GBP location to another profile
+
+        Args:
+            account_id: A source connected GBP account whose OAuth grant is reused. (required)
+            profile_id: Target profile to connect the location onto. (required)
+            selected_location_id: The Google Business location ID to assign (e.g. "locations/123"). (required)
+            google_account_id: Optional but recommended. The Google Business Account resource name ("accounts/123") that owns the location (from GET gmb-locations). When provided the location is resolved directly instead of by enumerating the account, required for accounts with many locations."""
+        client = _get_client()
+        try:
+            response = client.connect.assign_google_business_location(
+                account_id=account_id,
+                profile_id=profile_id,
+                selected_location_id=selected_location_id,
+                google_account_id=google_account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List Reddit subreddits",
             readOnlyHint=True,
             destructiveHint=False,
@@ -9355,6 +9526,7 @@ def register_generated_tools(mcp, _get_client):
     def phone_numbers_purchase_phone_number(
         profile_id: str,
         country: str = "US",
+        number_type: str | None = None,
         connect_whatsapp: bool = True,
         wants_sms: bool = False,
         purchase_intent_id: str | None = None,
@@ -9365,6 +9537,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             profile_id: Profile to associate the number with (required)
             country: ISO 3166-1 alpha-2 country for the number (default US). International numbers require usage-based billing. Tier 3/4 countries return 202 { status: "kyc_required", kycUrl } — the customer must complete KYC at that URL before the number is ordered. See GET /v1/phone-numbers/countries.
+            number_type: Which of the country's offered number types to order (see `types[]` on GET /v1/phone-numbers/countries). Omitted = the country's default type, which is always the WhatsApp-safe choice. Capabilities, price, and KYC requirements are per (country, type): toll_free can never connect WhatsApp (400 when combined with connectWhatsapp:true), and wantsSms:true requires an SMS-capable type.
             connect_whatsapp: A phone number is the unit; WhatsApp is one optional feature. Pass false to buy a STANDALONE number (Calls/SMS only): provisioning skips the Meta pre-verify/OTP steps and the number activates immediately. Omitted defaults to the WhatsApp provisioning path. WhatsApp can be connected to a standalone number later from the connect flow.
             wants_sms: SMS capability is per-number, not per-country. Pass true to provision from the SMS-capable inventory pool so the number can actually text (see also GET /v1/phone-numbers/available with sms=true, and smsAvailable on GET /v1/phone-numbers/countries).
             purchase_intent_id: Optional idempotency key. Send the same value when retrying a purchase: if a number was already bought under this key, the API returns { status: "already_purchased", numberId, phoneNumber } instead of provisioning a second number. Generate a fresh key for each genuinely new purchase.
@@ -9374,6 +9547,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.phone_numbers.purchase_phone_number(
                 profile_id=profile_id,
                 country=country,
+                number_type=number_type,
                 connect_whatsapp=connect_whatsapp,
                 wants_sms=wants_sms,
                 purchase_intent_id=purchase_intent_id,
@@ -9450,15 +9624,18 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def phone_numbers_check_phone_number_availability(country: str) -> str:
+    def phone_numbers_check_phone_number_availability(
+        country: str, number_type: str | None = None
+    ) -> str:
         """Check country availability
 
         Args:
-            country: ISO-2 country code. (required)"""
+            country: ISO-2 country code. (required)
+            number_type: Check a specific offered type (stock and address constraints are per type). Omitted = the country's default type."""
         client = _get_client()
         try:
             response = client.phone_numbers.check_phone_number_availability(
-                country=country
+                country=country, number_type=number_type
             )
             return _format_response(response)
         except Exception as e:
@@ -9472,14 +9649,19 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def phone_numbers_get_phone_number_kyc_form(country: str) -> str:
+    def phone_numbers_get_phone_number_kyc_form(
+        country: str, number_type: str | None = None
+    ) -> str:
         """Get KYC form spec
 
         Args:
-            country: (required)"""
+            country: (required)
+            number_type: Requirements and reuse eligibility are per (country, type). Omitted = the country's default type. Pass the same value on the POST."""
         client = _get_client()
         try:
-            response = client.phone_numbers.get_phone_number_kyc_form(country=country)
+            response = client.phone_numbers.get_phone_number_kyc_form(
+                country=country, number_type=number_type
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -14438,16 +14620,19 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def whatsapp_phone_numbers_check_whats_app_number_availability(country: str) -> str:
+    def whatsapp_phone_numbers_check_whats_app_number_availability(
+        country: str, number_type: str | None = None
+    ) -> str:
         """Check country availability
 
         Args:
-            country: ISO-2 country code. (required)"""
+            country: ISO-2 country code. (required)
+            number_type: Check a specific offered type (stock and address constraints are per type). Omitted = the country's default type."""
         client = _get_client()
         try:
             response = (
                 client.whatsapp_phone_numbers.check_whats_app_number_availability(
-                    country=country
+                    country=country, number_type=number_type
                 )
             )
             return _format_response(response)

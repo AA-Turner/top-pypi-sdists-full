@@ -1655,7 +1655,6 @@ class ChalkClient:
 
     def get_all_offline_store_table_names(
         self,
-        branch_id: str | None = None,
         deployment_id: str | None = None,
     ) -> "list[OfflineStoreTable]":
         """Get the offline store table name for every feature and internal version in a deployment.
@@ -1664,8 +1663,6 @@ class ChalkClient:
 
         Parameters
         ----------
-        branch_id
-            If set, return table names for the given branch deployment.
         deployment_id
             The deployment to look up. If ``None``, uses the environment's active deployment.
 
@@ -1684,7 +1681,6 @@ class ChalkClient:
     def get_feature_from_offline_store_table_name(
         self,
         table_name: str,
-        branch_id: str | None = None,
         deployment_id: str | None = None,
     ) -> "OfflineStoreTable | None":
         """Find the feature for a given offline store table name (reverse lookup).
@@ -1693,8 +1689,6 @@ class ChalkClient:
         ----------
         table_name
             The ``feat_<hash>`` offline store table name to look up.
-        branch_id
-            If set, search the given branch deployment's tables.
         deployment_id
             The deployment to search. If ``None``, uses the environment's active deployment.
 

@@ -14,7 +14,6 @@ from prefab_ui.app import PrefabApp
 from prefab_ui.components import (
     CardContent,
     Column,
-    Div,
     Grid,
     Markdown,
     Text,
@@ -25,12 +24,11 @@ from prefab_ui.rx import STATE
 from airbyte_ops_webapp.app_shell import build_ops_app
 from airbyte_ops_webapp.auth.google_oauth import hydrate_google_oauth_action
 from airbyte_ops_webapp.auth.oauth import hydrate_oauth_action, oauth_config
-from airbyte_ops_webapp.pages.customer_billing._helpers import (
-    empty_org_state,
-    empty_payment_config,
-)
 from airbyte_ops_webapp.pages.customer_billing._mcp_tools import (
     customer_billing_app,
+)
+from airbyte_ops_webapp.pages.customer_billing._state import (
+    CustomerBillingPageState,
 )
 from airbyte_ops_webapp.pages.customer_billing.billing_actions import (
     render_billing_actions,
@@ -55,25 +53,12 @@ from airbyte_ops_webapp.pages.shared_components.layout import (
     render_page_hero,
     render_version_footer,
 )
-from airbyte_ops_webapp.pages.shared_components.org_lookup_modal import (
-    org_lookup_modal_state,
-)
-from airbyte_ops_webapp.state import (
-    deploy_sha,
-    deploy_sha_url,
-    mock_only_enabled,
-    ops_package_version,
-    preview_deploy_enabled,
-    preview_pr_number,
-    preview_pr_url,
-)
+from airbyte_ops_webapp.state import OAuthConfigState
 from airbyte_ops_webapp.theme import (
-    AIRBYTE_PRIMARY,
-    ERROR_CARD_CLASS,
     PAGE_CLASS,
-    PREVIEW_CARD_CLASS,
-    _card_style,
-    _page_style,
+    AbErrorCard,
+    AbPage,
+    AbPreviewCard,
 )
 
 # ---------------------------------------------------------------------------
@@ -95,10 +80,9 @@ def customer_billing() -> PrefabApp:
     with build_ops_app(
         title=f"{CUSTOMER_BILLING_EMOJI} Customer Billing",
         state=state,
-        oauth_issuer=str(current_oauth_config["issuer"]),
+        oauth_issuer=current_oauth_config.issuer,
     ) as app:
-        with Div(
-            style=_page_style(),
+        with AbPage(
             onMount=[hydrate_oauth_action(), hydrate_google_oauth_action()],
         ):
             with Column(gap=5, css_class=PAGE_CLASS):
@@ -138,10 +122,7 @@ def customer_billing() -> PrefabApp:
 
 def _render_loading_banner() -> None:
     with If(STATE.loading_message):
-        with Div(
-            css_class=PREVIEW_CARD_CLASS,
-            style=_card_style(accent=AIRBYTE_PRIMARY),
-        ):
+        with AbPreviewCard():
             with CardContent(), Column(gap=1):
                 Markdown("**Loading**")
                 Text(STATE.loading_message)
@@ -149,10 +130,7 @@ def _render_loading_banner() -> None:
 
 def _render_error_banner() -> None:
     with If(STATE.tool_error):
-        with Div(
-            css_class=ERROR_CARD_CLASS,
-            style=_card_style(accent="#ff6b6b"),
-        ):
+        with AbErrorCard():
             with CardContent(), Column(gap=1):
                 Markdown("**Tool call failed**")
                 Text(STATE.tool_error)
@@ -165,55 +143,11 @@ def _render_error_banner() -> None:
 
 def _build_initial_state(
     *,
-    current_oauth_config: dict[str, object],
+    current_oauth_config: OAuthConfigState,
 ) -> dict[str, object]:
-    return {
-        **org_lookup_modal_state(),
-        # Organization lookup
-        "org_query": "",
-        "org_info": empty_org_state(),
-        "payment_config": empty_payment_config(),
-        "resolved_org_label": "",
-        "org_loaded": False,
-        "lookup_error": "",
-        # Grace period form
-        "grace_period_value": "",
-        "grace_period_reason": "",
-        # Permanent waiver form
-        "waiver_type": "free",
-        "waiver_reason": "",
-        # Billing action tab
-        "billing_action_tab": "grace_period",
-        # Confirmation dialogs
-        "grace_period_confirm_open": False,
-        "waiver_confirm_open": False,
-        # Result modal
-        "apply_result": {"success": False, "message": ""},
-        "result_modal_open": False,
-        # Loading / error
-        "is_loading": False,
-        "loading_message": "",
-        "tool_error": "",
-        # Auth (Airbyte)
-        "auth_bearer_token": "",
-        "is_mock_only": mock_only_enabled(),
-        "is_preview_deploy": preview_deploy_enabled(),
-        "preview_pr_number": preview_pr_number(),
-        "preview_pr_url": preview_pr_url(),
-        "deploy_sha": deploy_sha(),
-        "deploy_sha_url": deploy_sha_url(),
-        "ops_package_version": ops_package_version(),
-        "oauth_config": current_oauth_config,
-        "oauth_enabled": current_oauth_config["enabled"],
-        "oauth_authenticated": False,
-        "oauth_status": "",
-        "oauth_user_email": "",
-        # Auth (Google)
-        "google_authenticated": False,
-        "google_user_email": "",
-        "google_access_token": "",
-        "google_status": "",
-    }
+    return CustomerBillingPageState.from_env(
+        oauth_config=current_oauth_config
+    ).to_prefab_state()
 
 
 def register_customer_billing_app(mcp: FastMCP) -> None:

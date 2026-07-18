@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-gladia
-Version: 1.6.5
+Version: 1.6.6
 Summary: Agent Framework plugin for services using Gladia's API.
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -18,7 +18,7 @@ Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
 Requires-Dist: aiohttp>=3.8.0
-Requires-Dist: livekit-agents[codecs]>=1.6.5
+Requires-Dist: livekit-agents[codecs]>=1.6.6
 Requires-Dist: numpy>=1.26
 Description-Content-Type: text/markdown
 

@@ -5,25 +5,27 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
-#include "allocators/defaults.hpp"
 #include "primitives/allocation.hpp"
 
 namespace omnimalloc {
 
-// Cooling schedule and iteration budget for `SimulatedAnnealingAllocator`.
+// Cooling schedule and iteration budget for `simulated_annealing_place`.
+// Policy defaults live on the Python `SimulatedAnnealingAllocator`; every
+// field crosses the boundary explicitly.
 struct SimulatedAnnealingConfig {
-  uint64_t seed = 42;
-  int max_iterations = 3000;
+  uint64_t seed{};
+  int max_iterations{};
   // Percent memory worsening accepted with probability 1/e at iteration 0;
   // decays geometrically by `cooling_rate` every iteration.
-  double initial_temperature = 3.0;
-  double cooling_rate = 0.998;
-  // Wall-clock budget checked once per iteration; 0 disables it. Each
+  double initial_temperature{};
+  double cooling_rate{};
+  // Wall-clock budget checked once per iteration; nullopt disables it. Each
   // iteration re-evaluates a full O(n) placement, so `max_iterations` alone
   // does not bound runtime as `allocations` grows - this does.
-  double timeout = kDefaultTimeout;
+  std::optional<double> timeout;
 };
 
 // Simulated annealing over first-fit placement orders. Each iteration swaps a
@@ -33,16 +35,8 @@ struct SimulatedAnnealingConfig {
 // entire search runs natively (no Python round trip per candidate), so it can
 // evaluate far more candidate placements per second than an
 // equivalent Python-orchestrated local search.
-class SimulatedAnnealingAllocator {
- public:
-  explicit SimulatedAnnealingAllocator(
-      SimulatedAnnealingConfig config = SimulatedAnnealingConfig{});
-
-  [[nodiscard]] std::vector<Allocation> allocate(
-      const std::vector<Allocation>& allocations) const;
-
- private:
-  SimulatedAnnealingConfig config_;
-};
+[[nodiscard]] std::vector<Allocation> simulated_annealing_place(
+    const std::vector<Allocation>& allocations,
+    const SimulatedAnnealingConfig& config);
 
 }  // namespace omnimalloc

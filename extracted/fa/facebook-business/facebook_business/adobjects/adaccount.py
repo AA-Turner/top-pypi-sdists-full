@@ -1411,6 +1411,7 @@ class AdAccount(
           api_utils.warning('`success` and `failure` callback only work for batch call.')
         from facebook_business.adobjects.adset import AdSet
         param_types = {
+            'ad_set_goal': 'map',
             'adlabels': 'list<Object>',
             'adset_schedule': 'list<Object>',
             'attribution_count_type': 'attribution_count_type_enum',
@@ -1421,6 +1422,7 @@ class AdAccount(
             'bid_constraints': 'map<string, Object>',
             'bid_strategy': 'bid_strategy_enum',
             'billing_event': 'billing_event_enum',
+            'brand_safety_config': 'map',
             'budget_schedule_specs': 'list<Object>',
             'budget_source': 'budget_source_enum',
             'budget_split_set_id': 'string',
@@ -1449,6 +1451,7 @@ class AdAccount(
             'is_dynamic_creative': 'bool',
             'is_incremental_attribution_enabled': 'bool',
             'is_sac_cfca_terms_certified': 'bool',
+            'is_sequenced_conversion_creation': 'bool',
             'lifetime_budget': 'unsigned int',
             'lifetime_imps': 'unsigned int',
             'lifetime_min_spend_target': 'unsigned int',
@@ -3458,12 +3461,12 @@ class AdAccount(
         param_types = {
             'bid_amount': 'unsigned int',
             'daily_budget': 'unsigned int',
-            'end_time': 'unsigned int',
+            'end_time': 'datetime',
             'lifetime_budget': 'unsigned int',
             'name': 'string',
             'page_id': 'string',
             'pixel_id': 'unsigned int',
-            'start_time': 'unsigned int',
+            'start_time': 'datetime',
         }
         enums = {
         }

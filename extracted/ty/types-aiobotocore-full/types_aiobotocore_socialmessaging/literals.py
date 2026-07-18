@@ -25,8 +25,11 @@ else:
 __all__ = (
     "EndUserMessagingSocialServiceName",
     "ListLinkedWhatsAppBusinessAccountsPaginatorName",
+    "ListWhatsAppFlowAssetsPaginatorName",
+    "ListWhatsAppFlowsPaginatorName",
     "ListWhatsAppMessageTemplatesPaginatorName",
     "ListWhatsAppTemplateLibraryPaginatorName",
+    "MetaFlowCategoryType",
     "PaginatorName",
     "RegistrationStatusType",
     "ResourceServiceName",
@@ -35,8 +38,21 @@ __all__ = (
 
 
 ListLinkedWhatsAppBusinessAccountsPaginatorName = Literal["list_linked_whatsapp_business_accounts"]
+ListWhatsAppFlowAssetsPaginatorName = Literal["list_whatsapp_flow_assets"]
+ListWhatsAppFlowsPaginatorName = Literal["list_whatsapp_flows"]
 ListWhatsAppMessageTemplatesPaginatorName = Literal["list_whatsapp_message_templates"]
 ListWhatsAppTemplateLibraryPaginatorName = Literal["list_whatsapp_template_library"]
+MetaFlowCategoryType = Literal[
+    "APPOINTMENT_BOOKING",
+    "CONTACT_US",
+    "CUSTOMER_SUPPORT",
+    "LEAD_GENERATION",
+    "OTHER",
+    "SHOPPING",
+    "SIGN_IN",
+    "SIGN_UP",
+    "SURVEY",
+]
 RegistrationStatusType = Literal["COMPLETE", "INCOMPLETE"]
 EndUserMessagingSocialServiceName = Literal["socialmessaging"]
 ServiceName = Literal[
@@ -232,8 +248,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -260,6 +274,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -327,10 +343,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -363,6 +379,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -390,6 +407,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -411,7 +429,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -432,6 +449,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -469,6 +487,8 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "list_linked_whatsapp_business_accounts",
+    "list_whatsapp_flow_assets",
+    "list_whatsapp_flows",
     "list_whatsapp_message_templates",
     "list_whatsapp_template_library",
 ]

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "python-snap7"
-version = "3.0.0"
+version = "3.1.0"
 description = "Pure Python S7 communication library for Siemens PLCs"
 readme = "README.rst"
 authors = [
@@ -32,9 +32,11 @@ Homepage = "https://github.com/gijzelaerr/python-snap7"
 Documentation = "https://python-snap7.readthedocs.io/en/latest/"
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov", "pytest-html", "mypy", "types-setuptools", "ruff", "tox", "tox-uv", "types-click", "uv"]
+test = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-html", "hypothesis", "mypy", "types-setuptools", "ruff", "tox", "tox-uv", "types-click", "uv"]
 cli = ["rich", "click" ]
+demo = ["psutil", "rich", "click"]
 doc = ["sphinx", "sphinx_rtd_theme"]
+discovery = ["pnio-dcp"]
 
 [tool.setuptools.package-data]
 snap7 = ["py.typed"]
@@ -44,6 +46,7 @@ include = ["snap7*"]
 
 [project.scripts]
 snap7-server = "snap7.server:mainloop"
+s7 = "snap7.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -51,9 +54,11 @@ markers =[
     "client",
     "common",
     "e2e: end-to-end tests requiring a real PLC connection",
+    "hypothesis: property-based tests using Hypothesis",
     "logo",
     "mainloop",
     "partner",
+    "routing",
     "server",
     "util"
     ]

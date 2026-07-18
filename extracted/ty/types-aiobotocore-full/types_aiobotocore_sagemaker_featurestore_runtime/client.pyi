@@ -29,20 +29,25 @@ from botocore.client import ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
+from .paginator import ListRecordsPaginator
 from .type_defs import (
     BatchGetRecordRequestTypeDef,
     BatchGetRecordResponseTypeDef,
+    BatchWriteRecordRequestTypeDef,
+    BatchWriteRecordResponseTypeDef,
     DeleteRecordRequestTypeDef,
     EmptyResponseMetadataTypeDef,
     GetRecordRequestTypeDef,
     GetRecordResponseTypeDef,
+    ListRecordsRequestTypeDef,
+    ListRecordsResponseTypeDef,
     PutRecordRequestTypeDef,
 )
 
 if sys.version_info >= (3, 12):
-    from typing import Self, Unpack
+    from typing import Literal, Self, Unpack
 else:
-    from typing_extensions import Self, Unpack
+    from typing_extensions import Literal, Self, Unpack
 
 __all__ = ("SageMakerFeatureStoreRuntimeClient",)
 
@@ -99,6 +104,17 @@ class SageMakerFeatureStoreRuntimeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_featurestore_runtime/client/#batch_get_record)
         """
 
+    async def batch_write_record(
+        self, **kwargs: Unpack[BatchWriteRecordRequestTypeDef]
+    ) -> BatchWriteRecordResponseTypeDef:
+        """
+        Writes a batch of <code>Records</code> to one or more
+        <code>FeatureGroup</code>s.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker-featurestore-runtime/client/batch_write_record.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_featurestore_runtime/client/#batch_write_record)
+        """
+
     async def delete_record(
         self, **kwargs: Unpack[DeleteRecordRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -120,6 +136,17 @@ class SageMakerFeatureStoreRuntimeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_featurestore_runtime/client/#get_record)
         """
 
+    async def list_records(
+        self, **kwargs: Unpack[ListRecordsRequestTypeDef]
+    ) -> ListRecordsResponseTypeDef:
+        """
+        Lists the <code>RecordIdentifier</code> values of all records stored in a
+        <code>FeatureGroup</code>'s <code>OnlineStore</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker-featurestore-runtime/client/list_records.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_featurestore_runtime/client/#list_records)
+        """
+
     async def put_record(
         self, **kwargs: Unpack[PutRecordRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -129,6 +156,16 @@ class SageMakerFeatureStoreRuntimeClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker-featurestore-runtime/client/put_record.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_featurestore_runtime/client/#put_record)
+        """
+
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_records"]
+    ) -> ListRecordsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker-featurestore-runtime/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_featurestore_runtime/client/#get_paginator)
         """
 
     async def __aenter__(self) -> Self:

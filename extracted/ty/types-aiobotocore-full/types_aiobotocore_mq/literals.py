@@ -30,6 +30,7 @@ __all__ = (
     "DataReplicationModeType",
     "DayOfWeekType",
     "DeploymentModeType",
+    "DescribeSharedResourcesPaginatorName",
     "EngineTypeType",
     "ListBrokersPaginatorName",
     "MQServiceName",
@@ -39,6 +40,9 @@ __all__ = (
     "ResourceServiceName",
     "SanitizationWarningReasonType",
     "ServiceName",
+    "SharedResourceErrorCodeType",
+    "SharedResourceStatusType",
+    "SharedResourceTypeType",
 )
 
 
@@ -59,12 +63,31 @@ DayOfWeekType = Literal[
     "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]
 DeploymentModeType = Literal["ACTIVE_STANDBY_MULTI_AZ", "CLUSTER_MULTI_AZ", "SINGLE_INSTANCE"]
+DescribeSharedResourcesPaginatorName = Literal["describe_shared_resources"]
 EngineTypeType = Literal["ACTIVEMQ", "RABBITMQ"]
 ListBrokersPaginatorName = Literal["list_brokers"]
 PromoteModeType = Literal["FAILOVER", "SWITCHOVER"]
 SanitizationWarningReasonType = Literal[
     "DISALLOWED_ATTRIBUTE_REMOVED", "DISALLOWED_ELEMENT_REMOVED", "INVALID_ATTRIBUTE_VALUE_REMOVED"
 ]
+SharedResourceErrorCodeType = Literal[
+    "AZ_MISMATCH",
+    "INTERNAL_ERROR",
+    "INVITE_FAILED",
+    "QUOTA_EXCEEDED",
+    "RESOURCE_CONFIGURATION_NOT_FOUND",
+    "SETUP_INCOMPLETE",
+    "SHARE_NOT_FOUND",
+]
+SharedResourceStatusType = Literal[
+    "AVAILABLE",
+    "DELETION_IN_PROGRESS",
+    "ERROR",
+    "PENDING_CREATE",
+    "PENDING_DELETE",
+    "SETUP_IN_PROGRESS",
+]
+SharedResourceTypeType = Literal["RESOURCE", "RESOURCE_SHARE"]
 MQServiceName = Literal["mq"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -259,8 +282,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -287,6 +308,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -354,10 +377,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -390,6 +413,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -417,6 +441,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -438,7 +463,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -459,6 +483,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -494,7 +519,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_brokers"]
+PaginatorName = Literal["describe_shared_resources", "list_brokers"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

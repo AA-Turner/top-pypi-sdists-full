@@ -3165,6 +3165,7 @@ class Business(
         from facebook_business.adobjects.openbridgeconfiguration import OpenBridgeConfiguration
         param_types = {
             'active': 'bool',
+            'associated_sgw_data_source_id': 'unsigned int',
             'blocked_event_types': 'list<string>',
             'blocked_websites': 'list<string>',
             'capi_publishing_state': 'capi_publishing_state_enum',

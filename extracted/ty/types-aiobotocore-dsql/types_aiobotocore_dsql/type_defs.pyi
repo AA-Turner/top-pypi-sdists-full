@@ -21,21 +21,31 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
-from .literals import ClusterStatusType, EncryptionStatusType, EncryptionTypeType
+from .literals import (
+    ClusterStatusType,
+    EncryptionStatusType,
+    EncryptionTypeType,
+    StreamFailureErrorCodeType,
+    StreamStatusType,
+)
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "ClusterSummaryTypeDef",
     "CreateClusterInputTypeDef",
     "CreateClusterOutputTypeDef",
+    "CreateStreamInputTypeDef",
+    "CreateStreamOutputTypeDef",
     "DeleteClusterInputTypeDef",
     "DeleteClusterOutputTypeDef",
     "DeleteClusterPolicyInputTypeDef",
     "DeleteClusterPolicyOutputTypeDef",
+    "DeleteStreamInputTypeDef",
+    "DeleteStreamOutputTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EncryptionDetailsTypeDef",
     "GetClusterInputTypeDef",
@@ -44,11 +54,19 @@ __all__ = (
     "GetClusterOutputTypeDef",
     "GetClusterPolicyInputTypeDef",
     "GetClusterPolicyOutputTypeDef",
+    "GetStreamInputTypeDef",
+    "GetStreamInputWaitExtraTypeDef",
+    "GetStreamInputWaitTypeDef",
+    "GetStreamOutputTypeDef",
     "GetVpcEndpointServiceNameInputTypeDef",
     "GetVpcEndpointServiceNameOutputTypeDef",
+    "KinesisTargetDefinitionTypeDef",
     "ListClustersInputPaginateTypeDef",
     "ListClustersInputTypeDef",
     "ListClustersOutputTypeDef",
+    "ListStreamsInputPaginateTypeDef",
+    "ListStreamsInputTypeDef",
+    "ListStreamsOutputTypeDef",
     "ListTagsForResourceInputTypeDef",
     "ListTagsForResourceOutputTypeDef",
     "MultiRegionPropertiesOutputTypeDef",
@@ -58,7 +76,10 @@ __all__ = (
     "PutClusterPolicyInputTypeDef",
     "PutClusterPolicyOutputTypeDef",
     "ResponseMetadataTypeDef",
+    "StatusReasonTypeDef",
+    "StreamSummaryTypeDef",
     "TagResourceInputTypeDef",
+    "TargetDefinitionTypeDef",
     "UntagResourceInputTypeDef",
     "UpdateClusterInputTypeDef",
     "UpdateClusterOutputTypeDef",
@@ -94,6 +115,11 @@ class DeleteClusterPolicyInputTypeDef(TypedDict):
     expectedPolicyVersion: NotRequired[str]
     clientToken: NotRequired[str]
 
+class DeleteStreamInputTypeDef(TypedDict):
+    clusterIdentifier: str
+    streamIdentifier: str
+    clientToken: NotRequired[str]
+
 class GetClusterInputTypeDef(TypedDict):
     identifier: str
 
@@ -104,8 +130,20 @@ class WaiterConfigTypeDef(TypedDict):
 class GetClusterPolicyInputTypeDef(TypedDict):
     identifier: str
 
+class GetStreamInputTypeDef(TypedDict):
+    clusterIdentifier: str
+    streamIdentifier: str
+
+class StatusReasonTypeDef(TypedDict):
+    error: StreamFailureErrorCodeType
+    updatedAt: datetime
+
 class GetVpcEndpointServiceNameInputTypeDef(TypedDict):
     identifier: str
+
+class KinesisTargetDefinitionTypeDef(TypedDict):
+    streamArn: str
+    roleArn: str
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -115,6 +153,18 @@ class PaginatorConfigTypeDef(TypedDict):
 class ListClustersInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+
+class ListStreamsInputTypeDef(TypedDict):
+    clusterIdentifier: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class StreamSummaryTypeDef(TypedDict):
+    clusterIdentifier: str
+    streamIdentifier: str
+    arn: str
+    creationTime: datetime
+    status: StreamStatusType
 
 class ListTagsForResourceInputTypeDef(TypedDict):
     resourceArn: str
@@ -149,6 +199,20 @@ class CreateClusterOutputTypeDef(TypedDict):
     endpoint: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+CreateStreamOutputTypeDef = TypedDict(
+    "CreateStreamOutputTypeDef",
+    {
+        "clusterIdentifier": str,
+        "streamIdentifier": str,
+        "arn": str,
+        "status": StreamStatusType,
+        "creationTime": datetime,
+        "ordering": Literal["UNORDERED"],
+        "format": Literal["JSON"],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
 class DeleteClusterOutputTypeDef(TypedDict):
     identifier: str
     arn: str
@@ -158,6 +222,14 @@ class DeleteClusterOutputTypeDef(TypedDict):
 
 class DeleteClusterPolicyOutputTypeDef(TypedDict):
     policyVersion: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteStreamOutputTypeDef(TypedDict):
+    clusterIdentifier: str
+    streamIdentifier: str
+    arn: str
+    status: StreamStatusType
+    creationTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -213,12 +285,61 @@ class GetClusterInputWaitTypeDef(TypedDict):
     identifier: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
+class GetStreamInputWaitExtraTypeDef(TypedDict):
+    clusterIdentifier: str
+    streamIdentifier: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetStreamInputWaitTypeDef(TypedDict):
+    clusterIdentifier: str
+    streamIdentifier: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class TargetDefinitionTypeDef(TypedDict):
+    kinesis: NotRequired[KinesisTargetDefinitionTypeDef]
+
 class ListClustersInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListStreamsInputPaginateTypeDef(TypedDict):
+    clusterIdentifier: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListStreamsOutputTypeDef(TypedDict):
+    streams: list[StreamSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 MultiRegionPropertiesUnionTypeDef = Union[
     MultiRegionPropertiesTypeDef, MultiRegionPropertiesOutputTypeDef
 ]
+CreateStreamInputTypeDef = TypedDict(
+    "CreateStreamInputTypeDef",
+    {
+        "clusterIdentifier": str,
+        "targetDefinition": TargetDefinitionTypeDef,
+        "ordering": Literal["UNORDERED"],
+        "format": Literal["JSON"],
+        "tags": NotRequired[Mapping[str, str]],
+        "clientToken": NotRequired[str],
+    },
+)
+GetStreamOutputTypeDef = TypedDict(
+    "GetStreamOutputTypeDef",
+    {
+        "clusterIdentifier": str,
+        "streamIdentifier": str,
+        "arn": str,
+        "status": StreamStatusType,
+        "creationTime": datetime,
+        "ordering": Literal["UNORDERED"],
+        "format": Literal["JSON"],
+        "targetDefinition": TargetDefinitionTypeDef,
+        "statusReason": StatusReasonTypeDef,
+        "tags": dict[str, str],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 class CreateClusterInputTypeDef(TypedDict):
     deletionProtectionEnabled: NotRequired[bool]

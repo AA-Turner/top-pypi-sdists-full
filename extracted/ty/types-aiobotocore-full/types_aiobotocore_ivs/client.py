@@ -104,6 +104,8 @@ from .type_defs import (
     StopStreamRequestTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateAdConfigurationRequestTypeDef,
+    UpdateAdConfigurationResponseTypeDef,
     UpdateChannelRequestTypeDef,
     UpdateChannelResponseTypeDef,
     UpdatePlaybackRestrictionPolicyRequestTypeDef,
@@ -554,6 +556,16 @@ class IVSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/untag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#untag_resource)
+        """
+
+    async def update_ad_configuration(
+        self, **kwargs: Unpack[UpdateAdConfigurationRequestTypeDef]
+    ) -> UpdateAdConfigurationResponseTypeDef:
+        """
+        Updates a specified ad configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/update_ad_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#update_ad_configuration)
         """
 
     async def update_channel(

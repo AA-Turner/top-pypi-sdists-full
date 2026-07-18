@@ -39,6 +39,7 @@ from .paginator import (
     ListMetricsPaginator,
 )
 from .type_defs import (
+    AssociateDatasetKmsKeyInputTypeDef,
     DeleteAlarmMuteRuleInputTypeDef,
     DeleteAlarmsInputTypeDef,
     DeleteAnomalyDetectorInputTypeDef,
@@ -61,6 +62,7 @@ from .type_defs import (
     DisableAlarmActionsInputTypeDef,
     DisableInsightRulesInputTypeDef,
     DisableInsightRulesOutputTypeDef,
+    DisassociateDatasetKmsKeyInputTypeDef,
     EmptyResponseMetadataTypeDef,
     EnableAlarmActionsInputTypeDef,
     EnableInsightRulesInputTypeDef,
@@ -69,6 +71,8 @@ from .type_defs import (
     GetAlarmMuteRuleOutputTypeDef,
     GetDashboardInputTypeDef,
     GetDashboardOutputTypeDef,
+    GetDatasetInputTypeDef,
+    GetDatasetOutputTypeDef,
     GetInsightRuleReportInputTypeDef,
     GetInsightRuleReportOutputTypeDef,
     GetMetricDataInputTypeDef,
@@ -94,10 +98,12 @@ from .type_defs import (
     ListTagsForResourceOutputTypeDef,
     PutAlarmMuteRuleInputTypeDef,
     PutAnomalyDetectorInputTypeDef,
+    PutAnomalyDetectorOutputTypeDef,
     PutCompositeAlarmInputTypeDef,
     PutDashboardInputTypeDef,
     PutDashboardOutputTypeDef,
     PutInsightRuleInputTypeDef,
+    PutLogAlarmInputTypeDef,
     PutManagedInsightRulesInputTypeDef,
     PutManagedInsightRulesOutputTypeDef,
     PutMetricAlarmInputTypeDef,
@@ -110,7 +116,12 @@ from .type_defs import (
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
 )
-from .waiter import AlarmExistsWaiter, AlarmMuteRuleExistsWaiter, CompositeAlarmExistsWaiter
+from .waiter import (
+    AlarmExistsWaiter,
+    AlarmMuteRuleExistsWaiter,
+    CompositeAlarmExistsWaiter,
+    LogAlarmExistsWaiter,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
@@ -130,9 +141,13 @@ class Exceptions(BaseClientExceptions):
     InvalidNextToken: type[BotocoreClientError]
     InvalidParameterCombinationException: type[BotocoreClientError]
     InvalidParameterValueException: type[BotocoreClientError]
+    KmsAccessDeniedException: type[BotocoreClientError]
+    KmsKeyDisabledException: type[BotocoreClientError]
+    KmsKeyNotFoundException: type[BotocoreClientError]
     LimitExceededException: type[BotocoreClientError]
     LimitExceededFault: type[BotocoreClientError]
     MissingRequiredParameterException: type[BotocoreClientError]
+    ResourceConflict: type[BotocoreClientError]
     ResourceNotFound: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
 
@@ -169,6 +184,17 @@ class CloudWatchClient(AioBaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/generate_presigned_url.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#generate_presigned_url)
+        """
+
+    async def associate_dataset_kms_key(
+        self, **kwargs: Unpack[AssociateDatasetKmsKeyInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates an Amazon Web Services Key Management Service (Amazon Web Services
+        KMS) customer managed key with the specified dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/associate_dataset_kms_key.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#associate_dataset_kms_key)
         """
 
     async def delete_alarm_mute_rule(
@@ -312,6 +338,17 @@ class CloudWatchClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#disable_insight_rules)
         """
 
+    async def disassociate_dataset_kms_key(
+        self, **kwargs: Unpack[DisassociateDatasetKmsKeyInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes the customer managed Amazon Web Services Key Management Service (Amazon
+        Web Services KMS) key association from the specified dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/disassociate_dataset_kms_key.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#disassociate_dataset_kms_key)
+        """
+
     async def enable_alarm_actions(
         self, **kwargs: Unpack[EnableAlarmActionsInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -350,6 +387,16 @@ class CloudWatchClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_dashboard.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#get_dashboard)
+        """
+
+    async def get_dataset(
+        self, **kwargs: Unpack[GetDatasetInputTypeDef]
+    ) -> GetDatasetOutputTypeDef:
+        """
+        Returns information about the specified dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_dataset.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#get_dataset)
         """
 
     async def get_insight_rule_report(
@@ -488,7 +535,7 @@ class CloudWatchClient(AioBaseClient):
 
     async def put_anomaly_detector(
         self, **kwargs: Unpack[PutAnomalyDetectorInputTypeDef]
-    ) -> dict[str, Any]:
+    ) -> PutAnomalyDetectorOutputTypeDef:
         """
         Creates an anomaly detection model for a CloudWatch metric.
 
@@ -525,6 +572,16 @@ class CloudWatchClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_insight_rule.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#put_insight_rule)
+        """
+
+    async def put_log_alarm(
+        self, **kwargs: Unpack[PutLogAlarmInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Creates or updates a log alarm.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_log_alarm.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#put_log_alarm)
         """
 
     async def put_managed_insight_rules(
@@ -594,7 +651,7 @@ class CloudWatchClient(AioBaseClient):
         """
         Enables enrichment and PromQL access for CloudWatch vended metrics for <a
         href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/UsingResourceTagsForTelemetry.html">supported
-        AWS resources</a> in the account.
+        Amazon Web Services resources</a> in the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/start_otel_enrichment.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#start_otel_enrichment)
@@ -614,7 +671,7 @@ class CloudWatchClient(AioBaseClient):
         """
         Disables enrichment and PromQL access for CloudWatch vended metrics for <a
         href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/UsingResourceTagsForTelemetry.html">supported
-        AWS resources</a> in the account.
+        Amazon Web Services resources</a> in the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/stop_otel_enrichment.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#stop_otel_enrichment)
@@ -739,6 +796,17 @@ class CloudWatchClient(AioBaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["composite_alarm_exists"]
     ) -> CompositeAlarmExistsWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_waiter.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["log_alarm_exists"]
+    ) -> LogAlarmExistsWaiter:
         """
         Returns an object that can wait for some condition.
 

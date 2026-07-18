@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyaedt
-Version: 1.2.0
+Version: 1.3.0
 Summary: High-level Python API for Ansys Electronics Desktop Framework
 Author-email: "Synopsys, Inc. and ANSYS, Inc." <pyansys-core@synopsys.com>
 Maintainer-email: "Synopsys, Inc. and ANSYS, Inc." <pyansys-core@synopsys.com>

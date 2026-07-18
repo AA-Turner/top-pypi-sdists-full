@@ -121,7 +121,10 @@ class ExposureNode(Protocol):
     """A dbt exposure resource."""
 
     depends_on: DependsOn
+    description: str
+    meta: dict[str, Any]
     name: str
+    owner: dict[str, str]
     package_name: str
     unique_id: str
 
@@ -133,6 +136,7 @@ class MacroNode(Protocol):
     arguments: list[MacroArgument]
     description: str
     macro_sql: str
+    meta: dict[str, Any]
     name: str
     original_file_path: str
     patch_path: str | None
@@ -159,6 +163,7 @@ class ModelNode(Protocol):
     contract: Contract
     depends_on: DependsOn
     description: str
+    language: str | None
     latest_version: int | None
     meta: dict[str, Any]
     name: str
@@ -189,6 +194,7 @@ class SeedNode(Protocol):
 
     columns: dict[str, ColumnInfo]
     description: str
+    meta: dict[str, Any]
     name: str
     unique_id: str
 
@@ -207,6 +213,9 @@ class SemanticModelNode(Protocol):
 class SnapshotNode(Protocol):
     """A dbt snapshot resource."""
 
+    config: NodeConfig
+    description: str
+    meta: dict[str, Any]
     name: str
     tags: list[str]
     unique_id: str

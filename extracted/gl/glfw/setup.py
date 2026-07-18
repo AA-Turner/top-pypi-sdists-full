@@ -8,7 +8,7 @@ with open(os.path.join(setup_directory, 'README.rst')) as readme_file:
 
 setup(
     name='glfw',
-    version='2.10.0',
+    version='2.10.1',
     description='A ctypes-based wrapper for GLFW3.',
     long_description=long_description,
     url='https://github.com/FlorianRhiem/pyGLFW',
@@ -35,7 +35,9 @@ setup(
             'wayland/libglfw.so',
             'x11/libglfw.so',
             'libglfw.so',
-            'msvcr120.dll',
+            'msvcr120.dll',            
+            '__init__.pyi',
+            'py.typed',
         ]
     },
     extras_require={

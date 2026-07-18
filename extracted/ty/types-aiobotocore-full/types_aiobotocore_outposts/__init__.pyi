@@ -19,8 +19,10 @@ Usage::
         ListBlockingInstancesForCapacityTaskPaginator,
         ListCapacityTasksPaginator,
         ListCatalogItemsPaginator,
+        ListOrderableInstanceTypesPaginator,
         ListOrdersPaginator,
         ListOutpostsPaginator,
+        ListQuotesPaginator,
         ListSitesPaginator,
         OutpostsClient,
     )
@@ -39,8 +41,10 @@ Usage::
     list_blocking_instances_for_capacity_task_paginator: ListBlockingInstancesForCapacityTaskPaginator = client.get_paginator("list_blocking_instances_for_capacity_task")
     list_capacity_tasks_paginator: ListCapacityTasksPaginator = client.get_paginator("list_capacity_tasks")
     list_catalog_items_paginator: ListCatalogItemsPaginator = client.get_paginator("list_catalog_items")
+    list_orderable_instance_types_paginator: ListOrderableInstanceTypesPaginator = client.get_paginator("list_orderable_instance_types")
     list_orders_paginator: ListOrdersPaginator = client.get_paginator("list_orders")
     list_outposts_paginator: ListOutpostsPaginator = client.get_paginator("list_outposts")
+    list_quotes_paginator: ListQuotesPaginator = client.get_paginator("list_quotes")
     list_sites_paginator: ListSitesPaginator = client.get_paginator("list_sites")
     ```
 """
@@ -55,8 +59,10 @@ from .paginator import (
     ListBlockingInstancesForCapacityTaskPaginator,
     ListCapacityTasksPaginator,
     ListCatalogItemsPaginator,
+    ListOrderableInstanceTypesPaginator,
     ListOrdersPaginator,
     ListOutpostsPaginator,
+    ListQuotesPaginator,
     ListSitesPaginator,
 )
 
@@ -72,8 +78,10 @@ __all__ = (
     "ListBlockingInstancesForCapacityTaskPaginator",
     "ListCapacityTasksPaginator",
     "ListCatalogItemsPaginator",
+    "ListOrderableInstanceTypesPaginator",
     "ListOrdersPaginator",
     "ListOutpostsPaginator",
+    "ListQuotesPaginator",
     "ListSitesPaginator",
     "OutpostsClient",
 )

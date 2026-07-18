@@ -13,6 +13,21 @@ impl std::fmt::Display for RestoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, "{}", self.0) }
 }
 
+/// Fail closed on a key containing an empty-string surrogate. argus never
+/// produces one (the redact side refuses to), so such a key is corrupted or
+/// hand-built; an empty surrogate would otherwise become a zero-width regex
+/// alternative matching between every character and splicing the original in
+/// everywhere. Single source for the check + message, called on both the raw
+/// key and the merged flat map so both are guarded.
+fn reject_empty_key_entry(key: &HashMap<String, String>) -> Result<(), RestoreError> {
+    if key.keys().any(|k| k.is_empty()) {
+        return Err(RestoreError(
+            "restore key contains an empty-string entry — corrupted or hand-built key".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 /// Restore redacted text by replacing pseudonyms with originals.
 /// Keys sorted by length descending to prevent partial matches.
 /// Single-pass replacement prevents re-scanning of replaced content.
@@ -37,6 +52,13 @@ fn restore_tracking_self_ref(
     if key.is_empty() || text.is_empty() {
         return Ok((text.to_string(), Vec::new()));
     }
+
+    // An empty-string surrogate can never come from argus — the producer
+    // (`replace.rs`) refuses to register one, because it would match between
+    // every character below and explode the original throughout the text.
+    // A key that has one is corrupted or hand-built: fail closed rather than
+    // execute the explosion.
+    reject_empty_key_entry(key)?;
 
     // Sort keys by length descending (longest first)
     let mut keys: Vec<&String> = key.keys().collect();
@@ -169,12 +191,18 @@ fn advance_chars(s: &str, from: usize, n_chars: usize) -> usize {
 /// Decoration markers (`ⓕ`, `(假)`, `ˢ`, `*`) need no dedicated pass: a marker
 /// trailing a key is ordinary non-key text, so the single `restore` pass leaves
 /// it verbatim right after the restored value (e.g. `"P-1ⓕ"` → `"<value>ⓕ"`).
+///
+/// Returns `(restored_text, alias_collisions)`. `alias_collisions` has one
+/// entry per alias string that two distinct fakes both claimed (mapping to two
+/// different originals) — empty when `aliases` is `None` or no collision
+/// occurred. See the alias-merge step above: the sorted-first fake wins
+/// deterministically and every collision is recorded, never silently dropped.
 pub fn restore_full(
     text: &str,
     key: &HashMap<String, String>,
     aliases: Option<&HashMap<String, Vec<String>>>,
     display_marker: Option<&str>,
-) -> Result<String, RestoreError> {
+) -> Result<(String, Vec<String>), RestoreError> {
     // Step 1: strip explicit display marker — scoped to this key's fakes
     // only. A global strip would remove the marker character everywhere in
     // `text`, destroying unrelated content that happens to contain it (e.g.
@@ -192,16 +220,44 @@ pub fn restore_full(
 
     // Step 2: empty key fast-path.
     if key.is_empty() {
-        return Ok(text.to_string());
+        return Ok((text.to_string(), Vec::new()));
     }
 
-    // Step 3: alias merge — build flat lookup.
+    // `restore_tracking_self_ref` (called below at Step 4) rejects an
+    // empty-string key entry too; this is defense in depth so `restore_full`
+    // fails closed on its own before doing any alias-merge work, independent
+    // of whether the lower-level fn is reached unchanged.
+    reject_empty_key_entry(key)?;
+
+    // Step 3: alias merge — build flat lookup. Iterates `alias_map` in SORTED
+    // key order so the merge winner is deterministic across process runs (a
+    // plain `for (fake, alias_list) in alias_map` walk order is randomized
+    // per-process by HashMap's hasher, so an unsorted walk would let the
+    // process hash seed decide the output). When two distinct fakes alias to the SAME string with
+    // two DIFFERENT originals, the sorted-first fake wins and the collision is
+    // recorded so the caller can be warned the loser's identity may come back
+    // wrong on restore.
+    let mut alias_collisions: Vec<String> = Vec::new();
     let flat: HashMap<String, String> = if let Some(alias_map) = aliases {
         let mut m: HashMap<String, String> = key.clone();
-        for (fake, alias_list) in alias_map {
+        let mut fakes: Vec<&String> = alias_map.keys().collect();
+        fakes.sort();
+        for fake in fakes {
             if let Some(original) = key.get(fake) {
-                for alias in alias_list {
-                    m.entry(alias.clone()).or_insert_with(|| original.clone());
+                for alias in &alias_map[fake] {
+                    match m.get(alias) {
+                        Some(existing) if existing != original => {
+                            // Two fakes map one alias to different originals —
+                            // the deterministic (sorted-first) winner stays;
+                            // record the collision so the caller can be warned
+                            // it may be the wrong identity for the other fake.
+                            alias_collisions.push(alias.clone());
+                        }
+                        None => {
+                            m.insert(alias.clone(), original.clone());
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
@@ -230,7 +286,7 @@ pub fn restore_full(
     // self-ref pronoun OR none of them actually got substituted into `text`.
     let result = apply_grammar_scoped(&result, &self_ref_spans);
 
-    Ok(result)
+    Ok((result, alias_collisions))
 }
 
 // ── Danger patterns for check_restore_safety ────────────────────────────────
@@ -273,7 +329,13 @@ pub fn check_restore_safety(
     // window the context in char space so CJK-dense output matches Python exactly.
     let llm_chars: Vec<char> = llm_output.chars().collect();
 
-    for code in key.keys() {
+    // Sorted iteration: a plain `key.keys()` walk order is randomized
+    // per-process by HashMap's hasher, so the warnings vector's element order
+    // (and, for pseudonyms sharing a danger-pattern window, which one is
+    // reported first) would vary across runs for identical input.
+    let mut codes: Vec<&String> = key.keys().collect();
+    codes.sort();
+    for code in codes {
         let count_original = count_occurrences(redacted, code);
         let count_llm = count_occurrences(llm_output, code);
 
@@ -368,13 +430,33 @@ mod tests {
         assert_eq!(restore("hello", &k).unwrap(), "hello");
     }
 
+    #[test]
+    fn empty_string_key_entry_rejected_not_explosive() {
+        // argus never produces a `"" -> original` entry (the producer in
+        // replace.rs refuses to register one). A key that has one is
+        // corrupted or hand-built; it must fail closed rather than match
+        // between every char and explode the original throughout the text.
+        let mut k = HashMap::new();
+        k.insert(String::new(), "SECRET".to_string());
+        let err = restore("abc", &k).unwrap_err();
+        assert!(err.0.contains("empty"), "unexpected error message: {}", err.0);
+    }
+
+    #[test]
+    fn full_empty_string_key_entry_rejected() {
+        let mut k = HashMap::new();
+        k.insert(String::new(), "SECRET".to_string());
+        let err = restore_full("abc", &k, None, None).unwrap_err();
+        assert!(err.0.contains("empty"), "unexpected error message: {}", err.0);
+    }
+
     // ── restore_full tests ──────────────────────────────────────────────
 
     #[test]
     fn full_basic_round_trip() {
         let mut k = HashMap::new();
         k.insert("P-1".to_string(), "张三".to_string());
-        let result = restore_full("P-1 ok", &k, None, None).unwrap();
+        let (result, _collisions) = restore_full("P-1 ok", &k, None, None).unwrap();
         assert_eq!(result, "张三 ok");
     }
 
@@ -384,8 +466,38 @@ mod tests {
         k.insert("P-1".to_string(), "张三".to_string());
         let mut aliases: HashMap<String, Vec<String>> = HashMap::new();
         aliases.insert("P-1".to_string(), vec!["Zhang San".to_string()]);
-        let result = restore_full("Zhang San came home", &k, Some(&aliases), None).unwrap();
+        let (result, _collisions) =
+            restore_full("Zhang San came home", &k, Some(&aliases), None).unwrap();
         assert_eq!(result, "张三 came home");
+    }
+
+    #[test]
+    fn full_alias_collision_deterministic_winner_and_recorded() {
+        // Two distinct fakes (-> two distinct originals) alias to the SAME
+        // string. The sorted-first fake ("P-1" < "P-2") must always win,
+        // regardless of the HashMap's per-process iteration order, and the
+        // collision must be recorded so the caller can be warned.
+        let mut k = HashMap::new();
+        k.insert("P-1".to_string(), "Alice".to_string());
+        k.insert("P-2".to_string(), "Bob".to_string());
+        let mut aliases: HashMap<String, Vec<String>> = HashMap::new();
+        aliases.insert("P-1".to_string(), vec!["Shared".to_string()]);
+        aliases.insert("P-2".to_string(), vec!["Shared".to_string()]);
+        let (result, collisions) = restore_full("hello Shared", &k, Some(&aliases), None).unwrap();
+        assert_eq!(result, "hello Alice", "sorted-first fake must win deterministically");
+        assert_eq!(collisions, vec!["Shared".to_string()]);
+    }
+
+    #[test]
+    fn full_alias_no_collision_when_aliases_agree_or_differ() {
+        // No collision when a single fake's alias has no competing claim.
+        let mut k = HashMap::new();
+        k.insert("P-1".to_string(), "Alice".to_string());
+        let mut aliases: HashMap<String, Vec<String>> = HashMap::new();
+        aliases.insert("P-1".to_string(), vec!["Al".to_string()]);
+        let (result, collisions) = restore_full("hello Al", &k, Some(&aliases), None).unwrap();
+        assert_eq!(result, "hello Alice");
+        assert!(collisions.is_empty());
     }
 
     #[test]
@@ -393,7 +505,7 @@ mod tests {
         // "P-1ⓕ" → "张三ⓕ" (marker stays attached to restored value)
         let mut k = HashMap::new();
         k.insert("P-1".to_string(), "张三".to_string());
-        let result = restore_full("call P-1ⓕ now", &k, None, None).unwrap();
+        let (result, _collisions) = restore_full("call P-1ⓕ now", &k, None, None).unwrap();
         assert_eq!(result, "call 张三ⓕ now");
     }
 
@@ -402,7 +514,7 @@ mod tests {
         // When display_marker is passed explicitly, it is stripped rather than preserved.
         let mut k = HashMap::new();
         k.insert("P-1".to_string(), "张三".to_string());
-        let result = restore_full("call P-1ⓕ now", &k, None, Some("ⓕ")).unwrap();
+        let (result, _collisions) = restore_full("call P-1ⓕ now", &k, None, Some("ⓕ")).unwrap();
         assert_eq!(result, "call 张三 now");
     }
 
@@ -413,7 +525,7 @@ mod tests {
         // so restoring "P-1 is ok" → "I is ok" → grammar-fixed to "I am ok".
         let mut k = HashMap::new();
         k.insert("P-1".to_string(), "I".to_string());
-        let result = restore_full("P-1 is ok", &k, None, None).unwrap();
+        let (result, _collisions) = restore_full("P-1 is ok", &k, None, None).unwrap();
         assert_eq!(result, "I am ok");
     }
 
@@ -425,7 +537,7 @@ mod tests {
         // letter I is silent." is untouched text and must survive verbatim.
         let mut k = HashMap::new();
         k.insert("P-1".to_string(), "I".to_string());
-        let result =
+        let (result, _collisions) =
             restore_full("P-1 is here. The letter I is silent.", &k, None, None).unwrap();
         assert_eq!(result, "I am here. The letter I is silent.");
     }
@@ -444,7 +556,7 @@ mod tests {
         k.insert("P-1".to_string(), "I".to_string());
         k.insert("P-2".to_string(), "I".to_string());
         let text = format!("P-1 is{}P-2 is right", " ".repeat(8));
-        let result = restore_full(&text, &k, None, None).unwrap();
+        let (result, _collisions) = restore_full(&text, &k, None, None).unwrap();
         let expected = format!("I am{}I am right", " ".repeat(8));
         assert_eq!(result, expected);
     }
@@ -456,7 +568,7 @@ mod tests {
         // grammar fix must not fire either (nothing was actually restored).
         let mut k = HashMap::new();
         k.insert("P-1".to_string(), "I".to_string());
-        let result = restore_full("I is ok", &k, None, None).unwrap();
+        let (result, _collisions) = restore_full("I is ok", &k, None, None).unwrap();
         assert_eq!(result, "I is ok");
     }
 
@@ -466,14 +578,14 @@ mod tests {
         let mut k = HashMap::new();
         k.insert("张".to_string(), "Alice".to_string());
         k.insert("张明".to_string(), "Bob".to_string());
-        let result = restore_full("张明 and 张", &k, None, None).unwrap();
+        let (result, _collisions) = restore_full("张明 and 张", &k, None, None).unwrap();
         assert_eq!(result, "Bob and Alice");
     }
 
     #[test]
     fn full_empty_key_returns_text_unchanged() {
         let k = HashMap::new();
-        let result = restore_full("hello world", &k, None, None).unwrap();
+        let (result, _collisions) = restore_full("hello world", &k, None, None).unwrap();
         assert_eq!(result, "hello world");
     }
 
@@ -484,7 +596,7 @@ mod tests {
         // alias for a fake NOT in key
         let mut aliases: HashMap<String, Vec<String>> = HashMap::new();
         aliases.insert("P-99".to_string(), vec!["Stranger".to_string()]);
-        let result = restore_full("Stranger came by", &k, Some(&aliases), None).unwrap();
+        let (result, _collisions) = restore_full("Stranger came by", &k, Some(&aliases), None).unwrap();
         assert_eq!(result, "Stranger came by");
     }
 
@@ -499,7 +611,7 @@ mod tests {
         let mut k = HashMap::new();
         k.insert("张三".to_string(), "李明".to_string());
         k.insert("李明".to_string(), "王芳".to_string());
-        let result = restore_full("张三(经理)", &k, None, None).unwrap();
+        let (result, _collisions) = restore_full("张三(经理)", &k, None, None).unwrap();
         assert_eq!(result, "李明(经理)");
     }
 
@@ -513,7 +625,7 @@ mod tests {
         let mut k = HashMap::new();
         k.insert("张三".to_string(), "李明".to_string());
         k.insert("李明".to_string(), "王芳".to_string());
-        let result = restore_full("张三(假)", &k, None, None).unwrap();
+        let (result, _collisions) = restore_full("张三(假)", &k, None, None).unwrap();
         assert_eq!(result, "李明(假)");
     }
 
@@ -525,7 +637,7 @@ mod tests {
         let mut k = HashMap::new();
         k.insert("P-1".to_string(), "P-2".to_string());
         k.insert("P-2".to_string(), "SECRET".to_string());
-        let result = restore_full("P-1ⓕ", &k, None, None).unwrap();
+        let (result, _collisions) = restore_full("P-1ⓕ", &k, None, None).unwrap();
         assert_eq!(result, "P-2ⓕ");
     }
 
@@ -536,7 +648,7 @@ mod tests {
         // that it disables marker handling).
         let mut k = HashMap::new();
         k.insert("P-1".to_string(), "张三".to_string());
-        let result = restore_full("call P-1(假) now", &k, None, None).unwrap();
+        let (result, _collisions) = restore_full("call P-1(假) now", &k, None, None).unwrap();
         assert_eq!(result, "call 张三(假) now");
     }
 

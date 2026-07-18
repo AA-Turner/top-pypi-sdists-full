@@ -28,6 +28,7 @@ class IGMedia(
 
     class Field(AbstractObject.Field):
         alt_text = 'alt_text'
+        audio_id = 'audio_id'
         boost_eligibility_info = 'boost_eligibility_info'
         caption = 'caption'
         comments_count = 'comments_count'
@@ -37,6 +38,7 @@ class IGMedia(
         has_slider = 'has_slider'
         id = 'id'
         ig_id = 'ig_id'
+        is_ai_generated = 'is_ai_generated'
         is_comment_enabled = 'is_comment_enabled'
         is_shared_to_feed = 'is_shared_to_feed'
         legacy_instagram_media_id = 'legacy_instagram_media_id'
@@ -548,6 +550,7 @@ class IGMedia(
 
     _field_types = {
         'alt_text': 'string',
+        'audio_id': 'string',
         'boost_eligibility_info': 'IGMediaBoostEligibilityInfo',
         'caption': 'string',
         'comments_count': 'int',
@@ -557,6 +560,7 @@ class IGMedia(
         'has_slider': 'bool',
         'id': 'string',
         'ig_id': 'string',
+        'is_ai_generated': 'bool',
         'is_comment_enabled': 'bool',
         'is_shared_to_feed': 'bool',
         'legacy_instagram_media_id': 'string',

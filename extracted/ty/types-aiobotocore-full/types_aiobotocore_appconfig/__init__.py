@@ -19,6 +19,9 @@ Usage::
         ListDeploymentStrategiesPaginator,
         ListDeploymentsPaginator,
         ListEnvironmentsPaginator,
+        ListExperimentDefinitionsPaginator,
+        ListExperimentRunEventsPaginator,
+        ListExperimentRunsPaginator,
         ListExtensionAssociationsPaginator,
         ListExtensionsPaginator,
         ListHostedConfigurationVersionsPaginator,
@@ -38,6 +41,9 @@ Usage::
     list_deployment_strategies_paginator: ListDeploymentStrategiesPaginator = client.get_paginator("list_deployment_strategies")
     list_deployments_paginator: ListDeploymentsPaginator = client.get_paginator("list_deployments")
     list_environments_paginator: ListEnvironmentsPaginator = client.get_paginator("list_environments")
+    list_experiment_definitions_paginator: ListExperimentDefinitionsPaginator = client.get_paginator("list_experiment_definitions")
+    list_experiment_run_events_paginator: ListExperimentRunEventsPaginator = client.get_paginator("list_experiment_run_events")
+    list_experiment_runs_paginator: ListExperimentRunsPaginator = client.get_paginator("list_experiment_runs")
     list_extension_associations_paginator: ListExtensionAssociationsPaginator = client.get_paginator("list_extension_associations")
     list_extensions_paginator: ListExtensionsPaginator = client.get_paginator("list_extensions")
     list_hosted_configuration_versions_paginator: ListHostedConfigurationVersionsPaginator = client.get_paginator("list_hosted_configuration_versions")
@@ -51,6 +57,9 @@ from .paginator import (
     ListDeploymentsPaginator,
     ListDeploymentStrategiesPaginator,
     ListEnvironmentsPaginator,
+    ListExperimentDefinitionsPaginator,
+    ListExperimentRunEventsPaginator,
+    ListExperimentRunsPaginator,
     ListExtensionAssociationsPaginator,
     ListExtensionsPaginator,
     ListHostedConfigurationVersionsPaginator,
@@ -70,6 +79,9 @@ __all__ = (
     "ListDeploymentStrategiesPaginator",
     "ListDeploymentsPaginator",
     "ListEnvironmentsPaginator",
+    "ListExperimentDefinitionsPaginator",
+    "ListExperimentRunEventsPaginator",
+    "ListExperimentRunsPaginator",
     "ListExtensionAssociationsPaginator",
     "ListExtensionsPaginator",
     "ListHostedConfigurationVersionsPaginator",

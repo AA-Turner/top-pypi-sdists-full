@@ -56,30 +56,6 @@ def json_text(value: Any) -> str:
     return json.dumps(value, indent=2, sort_keys=True)
 
 
-def empty_org_state() -> dict[str, str]:
-    """Empty org placeholder for state initialization."""
-    return {
-        "organization_id": "",
-        "organization_name": "",
-        "email": "",
-    }
-
-
-def empty_payment_config() -> dict[str, Any]:
-    """Empty payment config placeholder for state initialization."""
-    return {
-        "organization_id": "",
-        "payment_status": "",
-        "subscription_status": "",
-        "payment_provider_id": "",
-        "grace_period_end_at": "",
-        "usage_category_overwrite": "",
-        "customer_tier": "",
-        "tier_warning": "",
-        "orb_subscription": None,
-    }
-
-
 # ---------------------------------------------------------------------------
 # UI option renderers
 # ---------------------------------------------------------------------------

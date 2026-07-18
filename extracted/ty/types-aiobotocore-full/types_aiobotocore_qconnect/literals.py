@@ -39,15 +39,19 @@ __all__ = (
     "ContentStatusType",
     "ConversationStatusReasonType",
     "ConversationStatusType",
+    "CrossRegionStatusType",
     "ExternalSourceType",
     "FilterFieldType",
     "FilterOperatorType",
+    "GuardrailActionType",
     "GuardrailContentFilterTypeType",
     "GuardrailContextualGroundingFilterTypeType",
     "GuardrailFilterStrengthType",
     "GuardrailManagedWordsTypeType",
     "GuardrailPiiEntityTypeType",
+    "GuardrailPolicyTypeType",
     "GuardrailSensitiveInformationActionType",
+    "GuardrailSourceType",
     "GuardrailTopicTypeType",
     "ImportJobStatusType",
     "ImportJobTypeType",
@@ -69,6 +73,7 @@ __all__ = (
     "ListMessageTemplateVersionsPaginatorName",
     "ListMessageTemplatesPaginatorName",
     "ListMessagesPaginatorName",
+    "ListModelsPaginatorName",
     "ListQuickResponsesPaginatorName",
     "ListSpansPaginatorName",
     "MessageFilterTypeType",
@@ -76,6 +81,7 @@ __all__ = (
     "MessageTemplateFilterOperatorType",
     "MessageTemplateQueryOperatorType",
     "MessageTypeType",
+    "ModelLifecycleType",
     "OrderType",
     "OriginType",
     "PaginatorName",
@@ -175,9 +181,11 @@ ContentStatusType = Literal[
 ]
 ConversationStatusReasonType = Literal["FAILED", "REJECTED", "SUCCESS"]
 ConversationStatusType = Literal["CLOSED", "PROCESSING", "READY"]
+CrossRegionStatusType = Literal["GLOBAL", "NONE", "REGIONAL"]
 ExternalSourceType = Literal["AMAZON_CONNECT"]
 FilterFieldType = Literal["NAME"]
 FilterOperatorType = Literal["EQUALS"]
+GuardrailActionType = Literal["BLOCKED", "MASKED", "NONE"]
 GuardrailContentFilterTypeType = Literal[
     "HATE", "INSULTS", "MISCONDUCT", "PROMPT_ATTACK", "SEXUAL", "VIOLENCE"
 ]
@@ -217,7 +225,16 @@ GuardrailPiiEntityTypeType = Literal[
     "US_SOCIAL_SECURITY_NUMBER",
     "VEHICLE_IDENTIFICATION_NUMBER",
 ]
+GuardrailPolicyTypeType = Literal[
+    "CONTENT_FILTER",
+    "CONTEXTUAL_GROUNDING",
+    "SENSITIVE_INFORMATION_PII",
+    "SENSITIVE_INFORMATION_REGEX",
+    "TOPIC",
+    "WORD",
+]
 GuardrailSensitiveInformationActionType = Literal["ANONYMIZE", "BLOCK"]
+GuardrailSourceType = Literal["INPUT", "OUTPUT"]
 GuardrailTopicTypeType = Literal["DENY"]
 ImportJobStatusType = Literal[
     "COMPLETE", "DELETED", "DELETE_FAILED", "DELETE_IN_PROGRESS", "FAILED", "START_IN_PROGRESS"
@@ -250,6 +267,7 @@ ListKnowledgeBasesPaginatorName = Literal["list_knowledge_bases"]
 ListMessageTemplateVersionsPaginatorName = Literal["list_message_template_versions"]
 ListMessageTemplatesPaginatorName = Literal["list_message_templates"]
 ListMessagesPaginatorName = Literal["list_messages"]
+ListModelsPaginatorName = Literal["list_models"]
 ListQuickResponsesPaginatorName = Literal["list_quick_responses"]
 ListSpansPaginatorName = Literal["list_spans"]
 MessageFilterTypeType = Literal["ALL", "TEXT_ONLY"]
@@ -257,6 +275,7 @@ MessageTemplateAttributeTypeType = Literal["AGENT", "CUSTOM", "CUSTOMER_PROFILE"
 MessageTemplateFilterOperatorType = Literal["EQUALS", "PREFIX"]
 MessageTemplateQueryOperatorType = Literal["CONTAINS", "CONTAINS_AND_PREFIX"]
 MessageTypeType = Literal["TEXT", "TOOL_USE_RESULT"]
+ModelLifecycleType = Literal["ACTIVE", "LEGACY"]
 OrderType = Literal["ASC", "DESC"]
 OriginType = Literal["CUSTOMER", "SYSTEM"]
 ParsingStrategyType = Literal["BEDROCK_FOUNDATION_MODEL"]
@@ -546,8 +565,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -574,6 +591,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -641,10 +660,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -677,6 +696,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -704,6 +724,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -725,7 +746,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -746,6 +766,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -797,6 +818,7 @@ PaginatorName = Literal[
     "list_message_template_versions",
     "list_message_templates",
     "list_messages",
+    "list_models",
     "list_quick_responses",
     "list_spans",
     "query_assistant",

@@ -25,10 +25,15 @@ from aiobotocore.response import StreamingBody
 
 from .literals import (
     ActionPointType,
+    DeleteTypeType,
     DeletionProtectionCheckType,
     DeploymentEventTypeType,
     DeploymentStateType,
+    DeploymentTypeType,
     EnvironmentStateType,
+    ExperimentDefinitionStatusType,
+    ExperimentRunEventTypeType,
+    ExperimentRunStatusType,
     GrowthTypeType,
     ReplicateToType,
     TriggeredByType,
@@ -48,6 +53,9 @@ __all__ = (
     "ApplicationTypeDef",
     "ApplicationsTypeDef",
     "AppliedExtensionTypeDef",
+    "AttributeValueOutputTypeDef",
+    "AttributeValueTypeDef",
+    "AttributeValueUnionTypeDef",
     "BlobTypeDef",
     "ConfigurationProfileSummaryTypeDef",
     "ConfigurationProfileTypeDef",
@@ -57,6 +65,7 @@ __all__ = (
     "CreateConfigurationProfileRequestTypeDef",
     "CreateDeploymentStrategyRequestTypeDef",
     "CreateEnvironmentRequestTypeDef",
+    "CreateExperimentDefinitionRequestTypeDef",
     "CreateExtensionAssociationRequestTypeDef",
     "CreateExtensionRequestTypeDef",
     "CreateHostedConfigurationVersionRequestTypeDef",
@@ -64,11 +73,13 @@ __all__ = (
     "DeleteConfigurationProfileRequestTypeDef",
     "DeleteDeploymentStrategyRequestTypeDef",
     "DeleteEnvironmentRequestTypeDef",
+    "DeleteExperimentDefinitionRequestTypeDef",
     "DeleteExtensionAssociationRequestTypeDef",
     "DeleteExtensionRequestTypeDef",
     "DeleteHostedConfigurationVersionRequestTypeDef",
     "DeletionProtectionSettingsTypeDef",
     "DeploymentEventTypeDef",
+    "DeploymentParametersTypeDef",
     "DeploymentStrategiesTypeDef",
     "DeploymentStrategyResponseTypeDef",
     "DeploymentStrategyTypeDef",
@@ -79,12 +90,25 @@ __all__ = (
     "EnvironmentResponseTypeDef",
     "EnvironmentTypeDef",
     "EnvironmentsTypeDef",
+    "ExperimentDefinitionSnapshotTypeDef",
+    "ExperimentDefinitionSummaryTypeDef",
+    "ExperimentDefinitionTypeDef",
+    "ExperimentDefinitionsTypeDef",
+    "ExperimentRunEventTypeDef",
+    "ExperimentRunEventsTypeDef",
+    "ExperimentRunResultTypeDef",
+    "ExperimentRunSummaryTypeDef",
+    "ExperimentRunTypeDef",
+    "ExperimentRunsTypeDef",
     "ExtensionAssociationSummaryTypeDef",
     "ExtensionAssociationTypeDef",
     "ExtensionAssociationsTypeDef",
     "ExtensionSummaryTypeDef",
     "ExtensionTypeDef",
     "ExtensionsTypeDef",
+    "FlagValueOutputTypeDef",
+    "FlagValueTypeDef",
+    "FlagValueUnionTypeDef",
     "GetApplicationRequestTypeDef",
     "GetConfigurationProfileRequestTypeDef",
     "GetConfigurationRequestTypeDef",
@@ -93,6 +117,8 @@ __all__ = (
     "GetDeploymentStrategyRequestTypeDef",
     "GetEnvironmentRequestTypeDef",
     "GetEnvironmentRequestWaitTypeDef",
+    "GetExperimentDefinitionRequestTypeDef",
+    "GetExperimentRunRequestTypeDef",
     "GetExtensionAssociationRequestTypeDef",
     "GetExtensionRequestTypeDef",
     "GetHostedConfigurationVersionRequestTypeDef",
@@ -109,6 +135,12 @@ __all__ = (
     "ListDeploymentsRequestTypeDef",
     "ListEnvironmentsRequestPaginateTypeDef",
     "ListEnvironmentsRequestTypeDef",
+    "ListExperimentDefinitionsRequestPaginateTypeDef",
+    "ListExperimentDefinitionsRequestTypeDef",
+    "ListExperimentRunEventsRequestPaginateTypeDef",
+    "ListExperimentRunEventsRequestTypeDef",
+    "ListExperimentRunsRequestPaginateTypeDef",
+    "ListExperimentRunsRequestTypeDef",
     "ListExtensionAssociationsRequestPaginateTypeDef",
     "ListExtensionAssociationsRequestTypeDef",
     "ListExtensionsRequestPaginateTypeDef",
@@ -122,18 +154,28 @@ __all__ = (
     "ResourceTagsTypeDef",
     "ResponseMetadataTypeDef",
     "StartDeploymentRequestTypeDef",
+    "StartExperimentRunRequestTypeDef",
     "StopDeploymentRequestTypeDef",
+    "StopExperimentRunRequestTypeDef",
     "TagResourceRequestTypeDef",
+    "TreatmentInputTypeDef",
+    "TreatmentOverridesOutputTypeDef",
+    "TreatmentOverridesTypeDef",
+    "TreatmentOverridesUnionTypeDef",
+    "TreatmentTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAccountSettingsRequestTypeDef",
     "UpdateApplicationRequestTypeDef",
     "UpdateConfigurationProfileRequestTypeDef",
     "UpdateDeploymentStrategyRequestTypeDef",
     "UpdateEnvironmentRequestTypeDef",
+    "UpdateExperimentDefinitionRequestTypeDef",
+    "UpdateExperimentRunRequestTypeDef",
     "UpdateExtensionAssociationRequestTypeDef",
     "UpdateExtensionRequestTypeDef",
     "ValidateConfigurationRequestTypeDef",
     "ValidatorTypeDef",
+    "VendedMetricsSettingsTypeDef",
     "WaiterConfigTypeDef",
 )
 
@@ -147,6 +189,9 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class VendedMetricsSettingsTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
 
 class ActionInvocationTypeDef(TypedDict):
     ExtensionIdentifier: NotRequired[str]
@@ -173,6 +218,20 @@ class AppliedExtensionTypeDef(TypedDict):
     ExtensionAssociationId: NotRequired[str]
     VersionNumber: NotRequired[int]
     Parameters: NotRequired[dict[str, str]]
+
+class AttributeValueOutputTypeDef(TypedDict):
+    StringValue: NotRequired[str]
+    NumberValue: NotRequired[float]
+    BooleanValue: NotRequired[bool]
+    StringArray: NotRequired[list[str]]
+    NumberArray: NotRequired[list[float]]
+
+class AttributeValueTypeDef(TypedDict):
+    StringValue: NotRequired[str]
+    NumberValue: NotRequired[float]
+    BooleanValue: NotRequired[bool]
+    StringArray: NotRequired[Sequence[str]]
+    NumberArray: NotRequired[Sequence[float]]
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 ConfigurationProfileSummaryTypeDef = TypedDict(
@@ -245,6 +304,11 @@ class DeleteEnvironmentRequestTypeDef(TypedDict):
     ApplicationId: str
     DeletionProtectionCheck: NotRequired[DeletionProtectionCheckType]
 
+class DeleteExperimentDefinitionRequestTypeDef(TypedDict):
+    ApplicationIdentifier: str
+    ExperimentDefinitionIdentifier: str
+    DeleteType: NotRequired[DeleteTypeType]
+
 class DeleteExtensionAssociationRequestTypeDef(TypedDict):
     ExtensionAssociationId: str
 
@@ -257,6 +321,10 @@ class DeleteHostedConfigurationVersionRequestTypeDef(TypedDict):
     ConfigurationProfileId: str
     VersionNumber: int
 
+class DeploymentParametersTypeDef(TypedDict):
+    DynamicExtensionParameters: NotRequired[Mapping[str, str]]
+    Tags: NotRequired[Mapping[str, str]]
+
 class DeploymentStrategyTypeDef(TypedDict):
     Id: NotRequired[str]
     Name: NotRequired[str]
@@ -267,19 +335,54 @@ class DeploymentStrategyTypeDef(TypedDict):
     FinalBakeTimeInMinutes: NotRequired[int]
     ReplicateTo: NotRequired[ReplicateToType]
 
-class DeploymentSummaryTypeDef(TypedDict):
-    DeploymentNumber: NotRequired[int]
-    ConfigurationName: NotRequired[str]
-    ConfigurationVersion: NotRequired[str]
-    DeploymentDurationInMinutes: NotRequired[int]
-    GrowthType: NotRequired[GrowthTypeType]
-    GrowthFactor: NotRequired[float]
-    FinalBakeTimeInMinutes: NotRequired[int]
-    State: NotRequired[DeploymentStateType]
-    PercentageComplete: NotRequired[float]
+DeploymentSummaryTypeDef = TypedDict(
+    "DeploymentSummaryTypeDef",
+    {
+        "DeploymentNumber": NotRequired[int],
+        "ConfigurationProfileId": NotRequired[str],
+        "ConfigurationName": NotRequired[str],
+        "ConfigurationVersion": NotRequired[str],
+        "DeploymentDurationInMinutes": NotRequired[int],
+        "GrowthType": NotRequired[GrowthTypeType],
+        "GrowthFactor": NotRequired[float],
+        "FinalBakeTimeInMinutes": NotRequired[int],
+        "State": NotRequired[DeploymentStateType],
+        "PercentageComplete": NotRequired[float],
+        "StartedAt": NotRequired[datetime],
+        "CompletedAt": NotRequired[datetime],
+        "VersionLabel": NotRequired[str],
+        "Type": NotRequired[DeploymentTypeType],
+    },
+)
+
+class ExperimentDefinitionSummaryTypeDef(TypedDict):
+    ApplicationId: NotRequired[str]
+    Id: NotRequired[str]
+    Name: NotRequired[str]
+    Hypothesis: NotRequired[str]
+    Status: NotRequired[ExperimentDefinitionStatusType]
+    ConfigurationProfileId: NotRequired[str]
+    EnvironmentId: NotRequired[str]
+    FlagKey: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+
+class TreatmentOverridesOutputTypeDef(TypedDict):
+    Inline: NotRequired[dict[str, str]]
+
+class ExperimentRunResultTypeDef(TypedDict):
+    ExecutiveSummary: NotRequired[str]
+    ReasonsToLaunch: NotRequired[str]
+    ReasonsNotToLaunch: NotRequired[str]
+
+class ExperimentRunSummaryTypeDef(TypedDict):
+    ExperimentDefinitionId: NotRequired[str]
+    Run: NotRequired[int]
+    Description: NotRequired[str]
+    Status: NotRequired[ExperimentRunStatusType]
     StartedAt: NotRequired[datetime]
-    CompletedAt: NotRequired[datetime]
-    VersionLabel: NotRequired[str]
+    UpdatedAt: NotRequired[datetime]
+    EndedAt: NotRequired[datetime]
 
 class ExtensionAssociationSummaryTypeDef(TypedDict):
     Id: NotRequired[str]
@@ -322,6 +425,15 @@ class GetDeploymentStrategyRequestTypeDef(TypedDict):
 class GetEnvironmentRequestTypeDef(TypedDict):
     ApplicationId: str
     EnvironmentId: str
+
+class GetExperimentDefinitionRequestTypeDef(TypedDict):
+    ApplicationIdentifier: str
+    ExperimentDefinitionIdentifier: str
+
+class GetExperimentRunRequestTypeDef(TypedDict):
+    ApplicationIdentifier: str
+    ExperimentDefinitionIdentifier: str
+    Run: int
 
 class GetExtensionAssociationRequestTypeDef(TypedDict):
     ExtensionAssociationId: str
@@ -378,6 +490,28 @@ class ListEnvironmentsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class ListExperimentDefinitionsRequestTypeDef(TypedDict):
+    ApplicationIdentifier: NotRequired[str]
+    ConfigurationProfileIdentifier: NotRequired[str]
+    EnvironmentIdentifier: NotRequired[str]
+    Status: NotRequired[ExperimentDefinitionStatusType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ListExperimentRunEventsRequestTypeDef(TypedDict):
+    ApplicationIdentifier: str
+    ExperimentDefinitionIdentifier: str
+    Run: int
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ListExperimentRunsRequestTypeDef(TypedDict):
+    ApplicationIdentifier: str
+    ExperimentDefinitionIdentifier: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Status: NotRequired[ExperimentRunStatusType]
+
 class ListExtensionAssociationsRequestTypeDef(TypedDict):
     ResourceIdentifier: NotRequired[str]
     ExtensionIdentifier: NotRequired[str]
@@ -410,6 +544,7 @@ class StartDeploymentRequestTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
     KmsKeyIdentifier: NotRequired[str]
     DynamicExtensionParameters: NotRequired[Mapping[str, str]]
+    LatestDeploymentNumber: NotRequired[int]
 
 class StopDeploymentRequestTypeDef(TypedDict):
     ApplicationId: str
@@ -420,6 +555,9 @@ class StopDeploymentRequestTypeDef(TypedDict):
 class TagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     Tags: Mapping[str, str]
+
+class TreatmentOverridesTypeDef(TypedDict):
+    Inline: NotRequired[Mapping[str, str]]
 
 class UntagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -446,13 +584,6 @@ class ValidateConfigurationRequestTypeDef(TypedDict):
     ApplicationId: str
     ConfigurationProfileId: str
     ConfigurationVersion: str
-
-class UpdateAccountSettingsRequestTypeDef(TypedDict):
-    DeletionProtection: NotRequired[DeletionProtectionSettingsTypeDef]
-
-class AccountSettingsTypeDef(TypedDict):
-    DeletionProtection: DeletionProtectionSettingsTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class ApplicationResponseTypeDef(TypedDict):
     Id: str
@@ -504,6 +635,15 @@ class ResourceTagsTypeDef(TypedDict):
     Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class AccountSettingsTypeDef(TypedDict):
+    DeletionProtection: DeletionProtectionSettingsTypeDef
+    VendedMetrics: VendedMetricsSettingsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAccountSettingsRequestTypeDef(TypedDict):
+    DeletionProtection: NotRequired[DeletionProtectionSettingsTypeDef]
+    VendedMetrics: NotRequired[VendedMetricsSettingsTypeDef]
+
 class DeploymentEventTypeDef(TypedDict):
     EventType: NotRequired[DeploymentEventTypeType]
     TriggeredBy: NotRequired[TriggeredByType]
@@ -515,6 +655,12 @@ class ApplicationsTypeDef(TypedDict):
     Items: list[ApplicationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class FlagValueOutputTypeDef(TypedDict):
+    Enabled: bool
+    AttributeValues: NotRequired[dict[str, AttributeValueOutputTypeDef]]
+
+AttributeValueUnionTypeDef = Union[AttributeValueTypeDef, AttributeValueOutputTypeDef]
 
 class CreateHostedConfigurationVersionRequestTypeDef(TypedDict):
     ApplicationId: str
@@ -636,6 +782,32 @@ class DeploymentsTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ExperimentDefinitionsTypeDef(TypedDict):
+    Items: list[ExperimentDefinitionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ExperimentRunEventTypeDef(TypedDict):
+    Description: NotRequired[str]
+    AssociatedDeployment: NotRequired[str]
+    EventType: NotRequired[ExperimentRunEventTypeType]
+    OccurredAt: NotRequired[datetime]
+    TriggeredBy: NotRequired[TriggeredByType]
+    ExposurePercentage: NotRequired[float]
+    TreatmentOverrides: NotRequired[TreatmentOverridesOutputTypeDef]
+
+class StopExperimentRunRequestTypeDef(TypedDict):
+    ApplicationIdentifier: str
+    ExperimentDefinitionIdentifier: str
+    Run: int
+    Result: NotRequired[ExperimentRunResultTypeDef]
+    DeploymentParameters: NotRequired[DeploymentParametersTypeDef]
+
+class ExperimentRunsTypeDef(TypedDict):
+    Items: list[ExperimentRunSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ExtensionAssociationsTypeDef(TypedDict):
     Items: list[ExtensionAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -686,6 +858,25 @@ class ListEnvironmentsRequestPaginateTypeDef(TypedDict):
     ApplicationId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListExperimentDefinitionsRequestPaginateTypeDef(TypedDict):
+    ApplicationIdentifier: NotRequired[str]
+    ConfigurationProfileIdentifier: NotRequired[str]
+    EnvironmentIdentifier: NotRequired[str]
+    Status: NotRequired[ExperimentDefinitionStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListExperimentRunEventsRequestPaginateTypeDef(TypedDict):
+    ApplicationIdentifier: str
+    ExperimentDefinitionIdentifier: str
+    Run: int
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListExperimentRunsRequestPaginateTypeDef(TypedDict):
+    ApplicationIdentifier: str
+    ExperimentDefinitionIdentifier: str
+    Status: NotRequired[ExperimentRunStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListExtensionAssociationsRequestPaginateTypeDef(TypedDict):
     ResourceIdentifier: NotRequired[str]
     ExtensionIdentifier: NotRequired[str]
@@ -701,6 +892,8 @@ class ListHostedConfigurationVersionsRequestPaginateTypeDef(TypedDict):
     ConfigurationProfileId: str
     VersionLabel: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+TreatmentOverridesUnionTypeDef = Union[TreatmentOverridesTypeDef, TreatmentOverridesOutputTypeDef]
 
 class DeploymentTypeDef(TypedDict):
     ApplicationId: str
@@ -727,7 +920,119 @@ class DeploymentTypeDef(TypedDict):
     VersionLabel: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class TreatmentTypeDef(TypedDict):
+    Weight: float
+    FlagValue: FlagValueOutputTypeDef
+    Key: NotRequired[str]
+    Description: NotRequired[str]
+
+class FlagValueTypeDef(TypedDict):
+    Enabled: bool
+    AttributeValues: NotRequired[Mapping[str, AttributeValueUnionTypeDef]]
+
 class EnvironmentsTypeDef(TypedDict):
     Items: list[EnvironmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class ExperimentRunEventsTypeDef(TypedDict):
+    Items: list[ExperimentRunEventTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class StartExperimentRunRequestTypeDef(TypedDict):
+    ApplicationIdentifier: str
+    ExperimentDefinitionIdentifier: str
+    Description: NotRequired[str]
+    ExposurePercentage: NotRequired[float]
+    TreatmentOverrides: NotRequired[TreatmentOverridesUnionTypeDef]
+    Tags: NotRequired[Mapping[str, str]]
+    DeploymentParameters: NotRequired[DeploymentParametersTypeDef]
+
+class UpdateExperimentRunRequestTypeDef(TypedDict):
+    ApplicationIdentifier: str
+    ExperimentDefinitionIdentifier: str
+    Run: int
+    Description: NotRequired[str]
+    ExposurePercentage: NotRequired[float]
+    TreatmentOverrides: NotRequired[TreatmentOverridesUnionTypeDef]
+    DeploymentParameters: NotRequired[DeploymentParametersTypeDef]
+
+class ExperimentDefinitionSnapshotTypeDef(TypedDict):
+    ApplicationId: NotRequired[str]
+    Id: NotRequired[str]
+    Name: NotRequired[str]
+    Hypothesis: NotRequired[str]
+    ConfigurationProfileId: NotRequired[str]
+    EnvironmentId: NotRequired[str]
+    FlagKey: NotRequired[str]
+    AudienceRule: NotRequired[str]
+    AudienceDescription: NotRequired[str]
+    LaunchCriteria: NotRequired[str]
+    Treatments: NotRequired[list[TreatmentTypeDef]]
+    Control: NotRequired[TreatmentTypeDef]
+
+class ExperimentDefinitionTypeDef(TypedDict):
+    ApplicationId: str
+    Id: str
+    Name: str
+    Hypothesis: str
+    Status: ExperimentDefinitionStatusType
+    ConfigurationProfileId: str
+    EnvironmentId: str
+    FlagKey: str
+    AudienceRule: str
+    AudienceDescription: str
+    LaunchCriteria: str
+    Treatments: list[TreatmentTypeDef]
+    Control: TreatmentTypeDef
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    KmsKeyIdentifier: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+FlagValueUnionTypeDef = Union[FlagValueTypeDef, FlagValueOutputTypeDef]
+
+class ExperimentRunTypeDef(TypedDict):
+    ApplicationId: str
+    ExperimentDefinitionId: str
+    Run: int
+    Description: str
+    Status: ExperimentRunStatusType
+    ExposurePercentage: float
+    TreatmentOverrides: TreatmentOverridesOutputTypeDef
+    Result: ExperimentRunResultTypeDef
+    StartedAt: datetime
+    UpdatedAt: datetime
+    EndedAt: datetime
+    ExperimentDefinitionSnapshot: ExperimentDefinitionSnapshotTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class TreatmentInputTypeDef(TypedDict):
+    Weight: float
+    FlagValue: FlagValueUnionTypeDef
+    Description: NotRequired[str]
+
+class CreateExperimentDefinitionRequestTypeDef(TypedDict):
+    ApplicationIdentifier: str
+    Name: str
+    ConfigurationProfileIdentifier: str
+    EnvironmentIdentifier: str
+    FlagKey: str
+    Treatments: Sequence[TreatmentInputTypeDef]
+    Control: TreatmentInputTypeDef
+    AudienceRule: str
+    Hypothesis: NotRequired[str]
+    AudienceDescription: NotRequired[str]
+    LaunchCriteria: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+
+class UpdateExperimentDefinitionRequestTypeDef(TypedDict):
+    ApplicationIdentifier: str
+    ExperimentDefinitionIdentifier: str
+    Treatments: NotRequired[Sequence[TreatmentInputTypeDef]]
+    Control: NotRequired[TreatmentInputTypeDef]
+    Hypothesis: NotRequired[str]
+    AudienceRule: NotRequired[str]
+    AudienceDescription: NotRequired[str]
+    LaunchCriteria: NotRequired[str]

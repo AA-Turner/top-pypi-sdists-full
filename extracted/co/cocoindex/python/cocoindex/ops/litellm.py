@@ -16,13 +16,15 @@ __all__ = [
 import asyncio as _asyncio
 import io as _io
 import logging as _logging
-import time as _time
+from datetime import timedelta as _timedelta
 from collections.abc import Awaitable as _Awaitable
 from collections.abc import Callable as _Callable
 from typing import Any as _Any
 from typing import TypeVar as _TypeVar
 
 import litellm as litellm
+
+from cocoindex._internal import deadline as _deadline
 import numpy as _np
 from numpy.typing import NDArray as _NDArray
 
@@ -91,6 +93,22 @@ _RETRYABLE_LITELLM_EXCEPTION_CLASSES = _litellm_exception_classes(
     "Timeout",
 )
 
+# Errors about who we are or what we asked for (credentials, permissions,
+# unknown model, exhausted budget) — batch composition can't affect them, so
+# splitting the batch can't help.
+_GLOBAL_LITELLM_EXCEPTION_CLASSES = _litellm_exception_classes(
+    "AuthenticationError",
+    "PermissionDeniedError",
+    "NotFoundError",
+    "BudgetExceededError",
+)
+
+
+def _is_global_litellm_error(error: BaseException) -> bool:
+    return isinstance(
+        error, _GLOBAL_LITELLM_EXCEPTION_CLASSES
+    ) or _message_indicates_non_retryable_credentials_error(str(error))
+
 
 def _http_status_code(error: BaseException) -> int | None:
     for attr in ("status_code", "exception_status_code"):
@@ -130,32 +148,23 @@ async def _retry_litellm_call(
     operation: _Callable[[], _Awaitable[_T]],
     operation_name: str,
 ) -> _T:
-    deadline = _time.monotonic() + _EMBEDDING_RETRY_TIMEOUT_SECONDS
-    backoff = _EMBEDDING_RETRY_INITIAL_BACKOFF_SECONDS
-    attempt = 1
-    while True:
-        remaining = deadline - _time.monotonic()
-        if remaining <= 0:
-            raise TimeoutError(f"{operation_name} did not succeed within 10 minutes")
-        try:
-            return await _asyncio.wait_for(operation(), timeout=remaining)
-        except Exception as e:
-            if not _is_retryable_litellm_error(e):
-                raise
-            remaining = deadline - _time.monotonic()
-            if remaining <= 0:
-                raise
-            delay = min(backoff, remaining)
-            _logger.warning(
-                "%s failed with transient error on attempt %d; retrying in %.1fs: %s",
-                operation_name,
-                attempt,
-                delay,
-                e,
-            )
-            await _asyncio.sleep(delay)
-            backoff = min(backoff * 2, _EMBEDDING_RETRY_MAX_BACKOFF_SECONDS)
-            attempt += 1
+    # Time is the brake here (no attempt cap): retry transient failures
+    # inside a 10-minute deadline scope, with each in-flight attempt
+    # bounded to the remaining time. An ambient coco.timeout() merges by
+    # min-nesting and can only stop retries sooner. Exhaustion raises
+    # DeadlineExceededError (one time concept: the deadline system).
+    return await _deadline.retry_transient(
+        operation,
+        retry_on=_is_retryable_litellm_error,
+        timeout=_timedelta(seconds=_EMBEDDING_RETRY_TIMEOUT_SECONDS),
+        backoff=_deadline.exponential_backoff(
+            initial=_EMBEDDING_RETRY_INITIAL_BACKOFF_SECONDS,
+            multiplier=2.0,
+            max_delay=_EMBEDDING_RETRY_MAX_BACKOFF_SECONDS,
+        ),
+        bound_attempt=True,
+        operation_name=operation_name,
+    )
 
 
 class LiteLLMEmbedder(_schema.VectorSchemaProvider):
@@ -257,7 +266,22 @@ class LiteLLMEmbedder(_schema.VectorSchemaProvider):
         extra: dict[str, _Any] = {}
         if input_type is not None:
             extra["input_type"] = input_type
-        response = await self._aembedding_with_retry(texts, **extra)
+        try:
+            response = await self._aembedding_with_retry(texts, **extra)
+        except Exception as e:
+            # Anything reaching here is either global (credentials/model —
+            # splitting can't help) or has already exhausted its same-size
+            # retry budget above. For the latter, ask the engine to halve the
+            # batch and retry: smaller requests may pass where the big one
+            # couldn't (a provider's token/payload cap, one rejected input,
+            # or a timeout on an oversized payload). If the error is actually
+            # global after all, splitting still terminates: every item fails
+            # with it at size 1, at the cost of the sub-batches' retries.
+            # (No batch-size check needed — at size 1 the engine unwraps the
+            # signal and raises the original error.)
+            if not _is_global_litellm_error(e):
+                raise coco.RetryWithSmallerBatch() from e
+            raise
         return [
             _np.array(item["embedding"], dtype=_np.float32) for item in response.data
         ]

@@ -39,9 +39,14 @@ from airbyte_ops_webapp.theme import (
     BUTTON_DESTRUCTIVE_CLASS,
     BUTTON_INFO_CLASS,
     BUTTON_OUTLINE_CLASS,
-    PANEL_CARD_CLASS,
-    _card_style,
+    AbCard,
+    AbDetailBox,
+    AbDetailValue,
+    AbFieldCaption,
+    AbScopeBadge,
 )
+
+_PIN_LINK_CLASS = "block text-[0.85rem] break-all text-[#818cf8] no-underline"
 
 # ---------------------------------------------------------------------------
 # Pin-load success actions
@@ -52,8 +57,6 @@ _PIN_LOAD_SUCCESS = [
     SetState("version_pins", RESULT.version_pins),
     SetState("version_pins_total", RESULT.version_pins_total),
     SetState("version_pins_offset", RESULT.version_pins_offset),
-    SetState("show_load_more_pins", RESULT.show_load_more_pins),
-    SetState("all_pins_loaded", RESULT.all_pins_loaded),
     SetState("selected_version_id", RESULT.selected_version_id),
     SetState("selected_version_tag", RESULT.selected_version_tag),
     SetState("selected_pin_index", -1),
@@ -72,8 +75,6 @@ _PIN_REMOVAL_SUCCESS = [
     SetState("version_pins", RESULT.version_pins),
     SetState("version_pins_total", RESULT.version_pins_total),
     SetState("version_pins_offset", RESULT.version_pins_offset),
-    SetState("show_load_more_pins", RESULT.show_load_more_pins),
-    SetState("all_pins_loaded", RESULT.all_pins_loaded),
     SetState("selected_version_id", RESULT.selected_version_id),
     SetState("selected_version_tag", RESULT.selected_version_tag),
     SetState("selected_pin_index", -1),
@@ -98,7 +99,7 @@ def render_pin_detail() -> None:
     """Separate card section showing pin detail for the selected version."""
     with (
         If(STATE.selected_version_tag),
-        Div(css_class=PANEL_CARD_CLASS, style=_card_style()),
+        AbCard(),
     ):
         with CardHeader():
             H2("Version Pins", css_class="text-lg")
@@ -128,7 +129,7 @@ def render_pin_detail() -> None:
 def _render_pin_table_with_checkboxes() -> None:
     """Pin list table with row-click selection."""
     with If(STATE.version_pins_total):
-        with Div(style={"maxHeight": "280px", "overflow": "auto"}):
+        with Div(css_class="max-h-[280px] overflow-auto"):
             DataTable(
                 columns=[
                     DataTableColumn(key="scope_type", header="Scope"),
@@ -175,97 +176,38 @@ def _render_pin_table_with_checkboxes() -> None:
         Muted("No pins for this version.")
 
 
-# ---------------------------------------------------------------------------
-# Pin detail styles
-# ---------------------------------------------------------------------------
-
-_DETAIL_BOX_STYLE: dict[str, str] = {
-    "marginTop": "0.75rem",
-    "padding": "16px",
-    "backgroundColor": "#1a1545",
-    "border": "1px solid rgba(206, 203, 242, 0.2)",
-    "borderRadius": "6px",
-    "fontSize": "0.85rem",
-}
-_DETAIL_LABEL_STYLE: dict[str, str] = {
-    "display": "block",
-    "fontSize": "0.7rem",
-    "fontWeight": "600",
-    "color": "#9ca3af",
-    "textTransform": "uppercase",
-    "letterSpacing": "0.03em",
-    "marginBottom": "2px",
-}
-_DETAIL_VALUE_STYLE: dict[str, str] = {
-    "display": "block",
-    "fontSize": "0.85rem",
-    "color": "#e5e7eb",
-    "wordBreak": "break-all",
-}
-_SCOPE_BADGE_STYLE: dict[str, str] = {
-    "display": "inline-block",
-    "padding": "1px 8px",
-    "borderRadius": "9999px",
-    "fontSize": "0.75rem",
-    "fontWeight": "500",
-    "backgroundColor": "rgba(93, 81, 213, 0.3)",
-    "color": "#CECBF2",
-}
-_MONO_VALUE_STYLE: dict[str, str] = {
-    **_DETAIL_VALUE_STYLE,
-    "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-    "fontSize": "0.8rem",
-}
-
-
 def _render_selected_pin_detail() -> None:
     """Structured detail panel for the selected pin row."""
-    with If(STATE.selected_pin.scope_id), Div(style=_DETAIL_BOX_STYLE):
+    with If(STATE.selected_pin.scope_id), AbDetailBox():
         Span(
             "Pin Details",
-            style={
-                "display": "block",
-                "fontWeight": "600",
-                "fontSize": "0.9rem",
-                "marginBottom": "12px",
-                "color": "#e5e7eb",
-            },
+            css_class="block font-semibold text-[0.9rem] mb-3 text-[#e5e7eb]",
         )
         # Row 1: Scope badge, Scope Name (link), Scope ID
         with Grid(columns=3, gap=4):
             with Column(gap=0):
-                Span("SCOPE", style=_DETAIL_LABEL_STYLE)
-                Span(
-                    content=STATE.selected_pin.scope_type,
-                    style=_SCOPE_BADGE_STYLE,
-                )
+                AbFieldCaption("SCOPE", css_class="mb-[2px]")
+                AbScopeBadge(content=STATE.selected_pin.scope_type)
             with Column(gap=0):
-                Span("SCOPE NAME", style=_DETAIL_LABEL_STYLE)
+                AbFieldCaption("SCOPE NAME", css_class="mb-[2px]")
                 # Resolved name with link; falls back to scope_name from row
                 with If(STATE.resolved_pin_scope_name.__ne__("")):
                     Link(
                         content=STATE.resolved_pin_scope_name,
                         href=STATE.resolved_pin_scope_url,
                         target="_blank",
-                        style={
-                            **_DETAIL_VALUE_STYLE,
-                            "color": "#818cf8",
-                            "textDecoration": "none",
-                        },
+                        css_class=_PIN_LINK_CLASS,
                     )
                 with If(STATE.resolved_pin_scope_name.__eq__("")):
                     with If(STATE.selected_pin.scope_name):
-                        Span(
-                            content=STATE.selected_pin.scope_name,
-                            style=_DETAIL_VALUE_STYLE,
-                        )
+                        AbDetailValue(content=STATE.selected_pin.scope_name)
                     with If(STATE.selected_pin.scope_name.__eq__("")):
                         Muted("Resolving…")
             with Column(gap=0):
-                Span("SCOPE ID", style=_DETAIL_LABEL_STYLE)
-                Span(
+                AbFieldCaption("SCOPE ID", css_class="mb-[2px]")
+                AbDetailValue(
                     content=STATE.selected_pin.scope_id,
-                    style=_MONO_VALUE_STYLE,
+                    css_class="font-mono text-[0.8rem]",
                 )
 
         # Row 2: Parent scopes (organization, workspace) — only for non-org scopes
@@ -274,26 +216,17 @@ def _render_selected_pin_detail() -> None:
         # Row 3: Origin, Created, Expires
         with Grid(columns=3, gap=4, css_class="mt-3"):
             with Column(gap=0):
-                Span("ORIGIN", style=_DETAIL_LABEL_STYLE)
-                Span(
-                    content=STATE.selected_pin.origin_name,
-                    style=_DETAIL_VALUE_STYLE,
-                )
+                AbFieldCaption("ORIGIN", css_class="mb-[2px]")
+                AbDetailValue(content=STATE.selected_pin.origin_name)
             with Column(gap=0):
-                Span("CREATED", style=_DETAIL_LABEL_STYLE)
-                Span(
-                    content=STATE.selected_pin.created_at_display,
-                    style=_DETAIL_VALUE_STYLE,
-                )
+                AbFieldCaption("CREATED", css_class="mb-[2px]")
+                AbDetailValue(content=STATE.selected_pin.created_at_display)
             with Column(gap=0):
-                Span("EXPIRES", style=_DETAIL_LABEL_STYLE)
+                AbFieldCaption("EXPIRES", css_class="mb-[2px]")
                 with If(STATE.selected_pin.expires_at_display):
-                    Span(
-                        content=STATE.selected_pin.expires_at_display,
-                        style=_DETAIL_VALUE_STYLE,
-                    )
+                    AbDetailValue(content=STATE.selected_pin.expires_at_display)
                 with If(STATE.selected_pin.expires_at_display.__eq__("")):
-                    Span("—", style={**_DETAIL_VALUE_STYLE, "color": "#6b7280"})
+                    AbDetailValue("—", css_class="text-[#6b7280]")
 
         # Row 4: Reason (full width) — uses description_display which
         # contains synthesized labels for breaking change / rollout pins.
@@ -304,11 +237,8 @@ def _render_selected_pin_detail() -> None:
                 css_class="mt-3",
             ),
         ):
-            Span("REASON", style=_DETAIL_LABEL_STYLE)
-            Span(
-                content=STATE.selected_pin.description_display,
-                style=_DETAIL_VALUE_STYLE,
-            )
+            AbFieldCaption("REASON", css_class="mb-[2px]")
+            AbDetailValue(content=STATE.selected_pin.description_display)
 
         # Row 5: Reference URL (full width, if present)
         with (
@@ -318,16 +248,12 @@ def _render_selected_pin_detail() -> None:
                 css_class="mt-3",
             ),
         ):
-            Span("REFERENCE", style=_DETAIL_LABEL_STYLE)
+            AbFieldCaption("REFERENCE", css_class="mb-[2px]")
             Link(
                 content=STATE.selected_pin.reference_url,
                 href=STATE.selected_pin.reference_url,
                 target="_blank",
-                style={
-                    **_DETAIL_VALUE_STYLE,
-                    "color": "#818cf8",
-                    "textDecoration": "none",
-                },
+                css_class=_PIN_LINK_CLASS,
             )
 
         # Row 6: Remove This Pin action
@@ -341,32 +267,27 @@ def _render_parent_scopes() -> None:
     - Workspace scope: ORGANIZATION only (workspace is the scope itself)
     - Organization scope: nothing (org is the scope itself)
     """
-    _link_style: dict[str, str] = {
-        **_DETAIL_VALUE_STYLE,
-        "color": "#818cf8",
-        "textDecoration": "none",
-    }
     # Show org when resolved (for actor and workspace scopes)
     with (
         If(STATE.resolved_pin_org_name.__ne__("")),
         Grid(columns=3, gap=4, css_class="mt-3"),
     ):
         with Column(gap=0):
-            Span("ORGANIZATION", style=_DETAIL_LABEL_STYLE)
+            AbFieldCaption("ORGANIZATION", css_class="mb-[2px]")
             Link(
                 content=STATE.resolved_pin_org_name,
                 href=STATE.resolved_pin_org_url,
                 target="_blank",
-                style=_link_style,
+                css_class=_PIN_LINK_CLASS,
             )
         # Show workspace column only for actor scopes
         with If(STATE.resolved_pin_workspace_name.__ne__("")), Column(gap=0):
-            Span("WORKSPACE", style=_DETAIL_LABEL_STYLE)
+            AbFieldCaption("WORKSPACE", css_class="mb-[2px]")
             Link(
                 content=STATE.resolved_pin_workspace_name,
                 href=STATE.resolved_pin_workspace_url,
                 target="_blank",
-                style=_link_style,
+                css_class=_PIN_LINK_CLASS,
             )
 
 
@@ -388,9 +309,9 @@ def _render_pin_action_buttons() -> None:
             )
 
         # Right-aligned: "N of M pins loaded" indicator + Load More button.
-        # Hidden when total fits in one batch; disabled when all rows loaded.
+        # Derived: shown only while more pins remain to load (loaded < total).
         with (
-            If(STATE.show_load_more_pins.__eq__(True)),
+            If(STATE.version_pins_total.__gt__(STATE.version_pins.length())),
             Row(gap=2, align="center"),
         ):
             Muted(
@@ -404,7 +325,6 @@ def _render_pin_action_buttons() -> None:
                 variant="outline",
                 size="sm",
                 css_class=BUTTON_OUTLINE_CLASS,
-                disabled=STATE.all_pins_loaded.__eq__(True),
                 on_click=[
                     *start_tool_call("Loading more pins…"),
                     CallTool(

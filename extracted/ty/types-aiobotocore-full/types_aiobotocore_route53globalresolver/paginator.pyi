@@ -21,6 +21,7 @@ Usage::
         ListGlobalResolversPaginator,
         ListHostedZoneAssociationsPaginator,
         ListManagedFirewallDomainListsPaginator,
+        ListSharedDNSViewsPaginator,
     )
 
     session = get_session()
@@ -36,6 +37,7 @@ Usage::
         list_global_resolvers_paginator: ListGlobalResolversPaginator = client.get_paginator("list_global_resolvers")
         list_hosted_zone_associations_paginator: ListHostedZoneAssociationsPaginator = client.get_paginator("list_hosted_zone_associations")
         list_managed_firewall_domain_lists_paginator: ListManagedFirewallDomainListsPaginator = client.get_paginator("list_managed_firewall_domain_lists")
+        list_shared_dns_views_paginator: ListSharedDNSViewsPaginator = client.get_paginator("list_shared_dns_views")
     ```
 """
 
@@ -65,6 +67,8 @@ from .type_defs import (
     ListHostedZoneAssociationsOutputTypeDef,
     ListManagedFirewallDomainListsInputPaginateTypeDef,
     ListManagedFirewallDomainListsOutputTypeDef,
+    ListSharedDNSViewsInputPaginateTypeDef,
+    ListSharedDNSViewsOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -82,6 +86,7 @@ __all__ = (
     "ListGlobalResolversPaginator",
     "ListHostedZoneAssociationsPaginator",
     "ListManagedFirewallDomainListsPaginator",
+    "ListSharedDNSViewsPaginator",
 )
 
 if TYPE_CHECKING:
@@ -246,4 +251,22 @@ class ListManagedFirewallDomainListsPaginator(_ListManagedFirewallDomainListsPag
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/paginator/ListManagedFirewallDomainLists.html#Route53GlobalResolver.Paginator.ListManagedFirewallDomainLists.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53globalresolver/paginators/#listmanagedfirewalldomainlistspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListSharedDNSViewsPaginatorBase = AioPaginator[ListSharedDNSViewsOutputTypeDef]
+else:
+    _ListSharedDNSViewsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListSharedDNSViewsPaginator(_ListSharedDNSViewsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/paginator/ListSharedDNSViews.html#Route53GlobalResolver.Paginator.ListSharedDNSViews)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53globalresolver/paginators/#listshareddnsviewspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSharedDNSViewsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListSharedDNSViewsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/paginator/ListSharedDNSViews.html#Route53GlobalResolver.Paginator.ListSharedDNSViews.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53globalresolver/paginators/#listshareddnsviewspaginator)
         """

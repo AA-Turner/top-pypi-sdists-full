@@ -116,6 +116,7 @@ __all__ = (
     "UpdateQueueRequestTypeDef",
     "UpdateQueueResponseTypeDef",
     "UpdateQueueSlurmConfigurationRequestTypeDef",
+    "UpdateSchedulerRequestTypeDef",
     "UpdateSlurmRestRequestTypeDef",
 )
 
@@ -364,15 +365,21 @@ class UpdateAccountingRequestTypeDef(TypedDict):
     mode: NotRequired[AccountingModeType]
 
 
+class UpdateSchedulerRequestTypeDef(TypedDict):
+    version: str
+
+
 class UpdateSlurmRestRequestTypeDef(TypedDict):
     mode: NotRequired[SlurmRestModeType]
 
 
 class ComputeNodeGroupSlurmConfigurationRequestTypeDef(TypedDict):
+    scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
 
 
 class ComputeNodeGroupSlurmConfigurationTypeDef(TypedDict):
+    scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[list[SlurmCustomSettingTypeDef]]
 
 
@@ -385,6 +392,7 @@ class QueueSlurmConfigurationTypeDef(TypedDict):
 
 
 class UpdateComputeNodeGroupSlurmConfigurationRequestTypeDef(TypedDict):
+    scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
 
 
@@ -571,6 +579,7 @@ class UpdateClusterRequestTypeDef(TypedDict):
     clusterIdentifier: str
     clientToken: NotRequired[str]
     slurmConfiguration: NotRequired[UpdateClusterSlurmConfigurationRequestTypeDef]
+    scheduler: NotRequired[UpdateSchedulerRequestTypeDef]
 
 
 class CreateComputeNodeGroupResponseTypeDef(TypedDict):

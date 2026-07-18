@@ -22,14 +22,14 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping
 from types import TracebackType
-from typing import Any
+from typing import Any, overload
 
 from aiobotocore.client import AioBaseClient
 from botocore.client import ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListBrokersPaginator
+from .paginator import DescribeSharedResourcesPaginator, ListBrokersPaginator
 from .type_defs import (
     CreateBrokerRequestTypeDef,
     CreateBrokerResponseTypeDef,
@@ -53,6 +53,8 @@ from .type_defs import (
     DescribeConfigurationResponseTypeDef,
     DescribeConfigurationRevisionRequestTypeDef,
     DescribeConfigurationRevisionResponseTypeDef,
+    DescribeSharedResourcesRequestTypeDef,
+    DescribeSharedResourcesResponseTypeDef,
     DescribeUserRequestTypeDef,
     DescribeUserResponseTypeDef,
     EmptyResponseMetadataTypeDef,
@@ -256,6 +258,16 @@ class MQClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mq/client/#describe_configuration_revision)
         """
 
+    async def describe_shared_resources(
+        self, **kwargs: Unpack[DescribeSharedResourcesRequestTypeDef]
+    ) -> DescribeSharedResourcesResponseTypeDef:
+        """
+        Returns the resources shared to a broker.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mq/client/describe_shared_resources.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mq/client/#describe_shared_resources)
+        """
+
     async def describe_user(
         self, **kwargs: Unpack[DescribeUserRequestTypeDef]
     ) -> DescribeUserResponseTypeDef:
@@ -358,6 +370,18 @@ class MQClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mq/client/#update_user)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_shared_resources"]
+    ) -> DescribeSharedResourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mq/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mq/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_brokers"]
     ) -> ListBrokersPaginator:

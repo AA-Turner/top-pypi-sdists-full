@@ -363,6 +363,7 @@ class TestParseIso:
             # separator, but incomplete time
             "2020-08-15T",
             "2020-08-15T1",
+            "20200815XXT12:30",  # junk after a basic-format date
             # invalid component values
             "0000-12-15T12:08:30",
             "2020-18-15T12:08:30",
@@ -378,6 +379,10 @@ class TestParseIso:
             # invalid leap second cases
             "2020-08-15T12:34:61",
             "2020-08-15T12:34:99",
+            # basic-format time is HH/HHMM/HHMMSS, not a separatorless fraction
+            "20200815T12083000",
+            "2020-08-15T120830123",
+            "2020-08-15T120830.",
         ],
     )
     def test_invalid(self, s):
@@ -1099,7 +1104,7 @@ class TestParseStrptime:
         with pytest.raises(TypeError, match="format|argument"):
             OffsetDateTime.parse_strptime(
                 "2020-08-15 23:12:09",
-                "%Y-%m-%d %H:%M:%S",  # type: ignore[misc]
+                "%Y-%m-%d %H:%M:%S",  # type: ignore[call-arg]
             )
 
 

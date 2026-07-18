@@ -44,6 +44,11 @@ class SQLStub(object):
                 request_serializer=query__cache__protobuf_dot_query__cache_dot_services_dot_sql__service__pb2.SubmitValuesRequest.SerializeToString,
                 response_deserializer=query__cache__protobuf_dot_query__cache_dot_services_dot_sql__service__pb2.SubmitSQLResponse.FromString,
                 _registered_method=True)
+        self.SubmitEnrichedSQLSpeculative = channel.unary_unary(
+                '/com.fivetran.query_cache.SQL/SubmitEnrichedSQLSpeculative',
+                request_serializer=query__cache__protobuf_dot_query__cache_dot_services_dot_sql__service__pb2.SubmitEnrichedSQLRequest.SerializeToString,
+                response_deserializer=query__cache__protobuf_dot_query__cache_dot_services_dot_sql__service__pb2.SubmitSQLSpeculativeResponse.FromString,
+                _registered_method=True)
 
 
 class SQLServicer(object):
@@ -61,6 +66,12 @@ class SQLServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SubmitEnrichedSQLSpeculative(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_SQLServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -73,6 +84,11 @@ def add_SQLServicer_to_server(servicer, server):
                     servicer.SubmitValues,
                     request_deserializer=query__cache__protobuf_dot_query__cache_dot_services_dot_sql__service__pb2.SubmitValuesRequest.FromString,
                     response_serializer=query__cache__protobuf_dot_query__cache_dot_services_dot_sql__service__pb2.SubmitSQLResponse.SerializeToString,
+            ),
+            'SubmitEnrichedSQLSpeculative': grpc.unary_unary_rpc_method_handler(
+                    servicer.SubmitEnrichedSQLSpeculative,
+                    request_deserializer=query__cache__protobuf_dot_query__cache_dot_services_dot_sql__service__pb2.SubmitEnrichedSQLRequest.FromString,
+                    response_serializer=query__cache__protobuf_dot_query__cache_dot_services_dot_sql__service__pb2.SubmitSQLSpeculativeResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -129,6 +145,33 @@ class SQL(object):
             '/com.fivetran.query_cache.SQL/SubmitValues',
             query__cache__protobuf_dot_query__cache_dot_services_dot_sql__service__pb2.SubmitValuesRequest.SerializeToString,
             query__cache__protobuf_dot_query__cache_dot_services_dot_sql__service__pb2.SubmitSQLResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubmitEnrichedSQLSpeculative(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/com.fivetran.query_cache.SQL/SubmitEnrichedSQLSpeculative',
+            query__cache__protobuf_dot_query__cache_dot_services_dot_sql__service__pb2.SubmitEnrichedSQLRequest.SerializeToString,
+            query__cache__protobuf_dot_query__cache_dot_services_dot_sql__service__pb2.SubmitSQLSpeculativeResponse.FromString,
             options,
             channel_credentials,
             insecure,

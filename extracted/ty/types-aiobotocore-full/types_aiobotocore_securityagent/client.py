@@ -33,6 +33,9 @@ from .paginator import (
     ListAgentSpacesPaginator,
     ListApplicationsPaginator,
     ListArtifactsPaginator,
+    ListCodeReviewJobsForCodeReviewPaginator,
+    ListCodeReviewJobTasksPaginator,
+    ListCodeReviewsPaginator,
     ListDiscoveredEndpointsPaginator,
     ListFindingsPaginator,
     ListIntegratedResourcesPaginator,
@@ -41,17 +44,38 @@ from .paginator import (
     ListPentestJobsForPentestPaginator,
     ListPentestJobTasksPaginator,
     ListPentestsPaginator,
+    ListPrivateConnectionsPaginator,
+    ListSecurityRequirementPacksPaginator,
+    ListSecurityRequirementsPaginator,
     ListTargetDomainsPaginator,
+    ListThreatModelJobsPaginator,
+    ListThreatModelJobTasksPaginator,
+    ListThreatModelsPaginator,
+    ListThreatsPaginator,
 )
 from .type_defs import (
     AddArtifactInputTypeDef,
     AddArtifactOutputTypeDef,
+    BatchCreateSecurityRequirementsInputTypeDef,
+    BatchCreateSecurityRequirementsOutputTypeDef,
+    BatchDeleteCodeReviewsInputTypeDef,
+    BatchDeleteCodeReviewsOutputTypeDef,
     BatchDeletePentestsInputTypeDef,
     BatchDeletePentestsOutputTypeDef,
+    BatchDeleteSecurityRequirementsInputTypeDef,
+    BatchDeleteSecurityRequirementsOutputTypeDef,
+    BatchDeleteThreatModelsInputTypeDef,
+    BatchDeleteThreatModelsOutputTypeDef,
     BatchGetAgentSpacesInputTypeDef,
     BatchGetAgentSpacesOutputTypeDef,
     BatchGetArtifactMetadataInputTypeDef,
     BatchGetArtifactMetadataOutputTypeDef,
+    BatchGetCodeReviewJobsInputTypeDef,
+    BatchGetCodeReviewJobsOutputTypeDef,
+    BatchGetCodeReviewJobTasksInputTypeDef,
+    BatchGetCodeReviewJobTasksOutputTypeDef,
+    BatchGetCodeReviewsInputTypeDef,
+    BatchGetCodeReviewsOutputTypeDef,
     BatchGetFindingsInputTypeDef,
     BatchGetFindingsOutputTypeDef,
     BatchGetPentestJobsInputTypeDef,
@@ -60,27 +84,54 @@ from .type_defs import (
     BatchGetPentestJobTasksOutputTypeDef,
     BatchGetPentestsInputTypeDef,
     BatchGetPentestsOutputTypeDef,
+    BatchGetSecurityRequirementsInputTypeDef,
+    BatchGetSecurityRequirementsOutputTypeDef,
     BatchGetTargetDomainsInputTypeDef,
     BatchGetTargetDomainsOutputTypeDef,
+    BatchGetThreatModelJobsInputTypeDef,
+    BatchGetThreatModelJobsOutputTypeDef,
+    BatchGetThreatModelJobTasksInputTypeDef,
+    BatchGetThreatModelJobTasksOutputTypeDef,
+    BatchGetThreatModelsInputTypeDef,
+    BatchGetThreatModelsOutputTypeDef,
+    BatchGetThreatsInputTypeDef,
+    BatchGetThreatsOutputTypeDef,
+    BatchUpdateSecurityRequirementsInputTypeDef,
+    BatchUpdateSecurityRequirementsOutputTypeDef,
     CreateAgentSpaceInputTypeDef,
     CreateAgentSpaceOutputTypeDef,
     CreateApplicationRequestTypeDef,
     CreateApplicationResponseTypeDef,
+    CreateCodeReviewInputTypeDef,
+    CreateCodeReviewOutputTypeDef,
     CreateIntegrationInputTypeDef,
     CreateIntegrationOutputTypeDef,
     CreateMembershipRequestTypeDef,
     CreatePentestInputTypeDef,
     CreatePentestOutputTypeDef,
+    CreatePrivateConnectionInputTypeDef,
+    CreatePrivateConnectionOutputTypeDef,
+    CreateSecurityRequirementPackInputTypeDef,
+    CreateSecurityRequirementPackOutputTypeDef,
     CreateTargetDomainInputTypeDef,
     CreateTargetDomainOutputTypeDef,
+    CreateThreatInputTypeDef,
+    CreateThreatModelInputTypeDef,
+    CreateThreatModelOutputTypeDef,
+    CreateThreatOutputTypeDef,
     DeleteAgentSpaceInputTypeDef,
     DeleteAgentSpaceOutputTypeDef,
     DeleteApplicationRequestTypeDef,
     DeleteArtifactInputTypeDef,
     DeleteIntegrationInputTypeDef,
     DeleteMembershipRequestTypeDef,
+    DeletePrivateConnectionInputTypeDef,
+    DeletePrivateConnectionOutputTypeDef,
+    DeleteSecurityRequirementPackInputTypeDef,
     DeleteTargetDomainInputTypeDef,
     DeleteTargetDomainOutputTypeDef,
+    DescribePrivateConnectionInputTypeDef,
+    DescribePrivateConnectionOutputTypeDef,
     EmptyResponseMetadataTypeDef,
     GetApplicationRequestTypeDef,
     GetApplicationResponseTypeDef,
@@ -88,6 +139,10 @@ from .type_defs import (
     GetArtifactOutputTypeDef,
     GetIntegrationInputTypeDef,
     GetIntegrationOutputTypeDef,
+    GetSecurityRequirementPackInputTypeDef,
+    GetSecurityRequirementPackOutputTypeDef,
+    ImportSecurityRequirementsInputTypeDef,
+    ImportSecurityRequirementsOutputTypeDef,
     InitiateProviderRegistrationInputTypeDef,
     InitiateProviderRegistrationOutputTypeDef,
     ListAgentSpacesInputTypeDef,
@@ -96,6 +151,12 @@ from .type_defs import (
     ListApplicationsResponseTypeDef,
     ListArtifactsInputTypeDef,
     ListArtifactsOutputTypeDef,
+    ListCodeReviewJobsForCodeReviewInputTypeDef,
+    ListCodeReviewJobsForCodeReviewOutputTypeDef,
+    ListCodeReviewJobTasksInputTypeDef,
+    ListCodeReviewJobTasksOutputTypeDef,
+    ListCodeReviewsInputTypeDef,
+    ListCodeReviewsOutputTypeDef,
     ListDiscoveredEndpointsInputTypeDef,
     ListDiscoveredEndpointsOutputTypeDef,
     ListFindingsInputTypeDef,
@@ -112,26 +173,56 @@ from .type_defs import (
     ListPentestJobTasksOutputTypeDef,
     ListPentestsInputTypeDef,
     ListPentestsOutputTypeDef,
+    ListPrivateConnectionsInputTypeDef,
+    ListPrivateConnectionsOutputTypeDef,
+    ListSecurityRequirementPacksInputTypeDef,
+    ListSecurityRequirementPacksOutputTypeDef,
+    ListSecurityRequirementsInputTypeDef,
+    ListSecurityRequirementsOutputTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
     ListTargetDomainsInputTypeDef,
     ListTargetDomainsOutputTypeDef,
+    ListThreatModelJobsInputTypeDef,
+    ListThreatModelJobsOutputTypeDef,
+    ListThreatModelJobTasksInputTypeDef,
+    ListThreatModelJobTasksOutputTypeDef,
+    ListThreatModelsInputTypeDef,
+    ListThreatModelsOutputTypeDef,
+    ListThreatsInputTypeDef,
+    ListThreatsOutputTypeDef,
     StartCodeRemediationInputTypeDef,
+    StartCodeReviewJobInputTypeDef,
+    StartCodeReviewJobOutputTypeDef,
     StartPentestJobInputTypeDef,
     StartPentestJobOutputTypeDef,
+    StartThreatModelJobInputTypeDef,
+    StartThreatModelJobOutputTypeDef,
+    StopCodeReviewJobInputTypeDef,
     StopPentestJobInputTypeDef,
+    StopThreatModelJobInputTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
     UpdateAgentSpaceInputTypeDef,
     UpdateAgentSpaceOutputTypeDef,
     UpdateApplicationRequestTypeDef,
     UpdateApplicationResponseTypeDef,
+    UpdateCodeReviewInputTypeDef,
+    UpdateCodeReviewOutputTypeDef,
     UpdateFindingInputTypeDef,
     UpdateIntegratedResourcesInputTypeDef,
     UpdatePentestInputTypeDef,
     UpdatePentestOutputTypeDef,
+    UpdatePrivateConnectionCertificateInputTypeDef,
+    UpdatePrivateConnectionCertificateOutputTypeDef,
+    UpdateSecurityRequirementPackInputTypeDef,
+    UpdateSecurityRequirementPackOutputTypeDef,
     UpdateTargetDomainInputTypeDef,
     UpdateTargetDomainOutputTypeDef,
+    UpdateThreatInputTypeDef,
+    UpdateThreatModelInputTypeDef,
+    UpdateThreatModelOutputTypeDef,
+    UpdateThreatOutputTypeDef,
     VerifyTargetDomainInputTypeDef,
     VerifyTargetDomainOutputTypeDef,
 )
@@ -151,6 +242,7 @@ class Exceptions(BaseClientExceptions):
     ConflictException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
 
@@ -194,27 +286,67 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[AddArtifactInputTypeDef]
     ) -> AddArtifactOutputTypeDef:
         """
-        Adds an Artifact for the given agent space.
+        Uploads an artifact to an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/add_artifact.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#add_artifact)
+        """
+
+    async def batch_create_security_requirements(
+        self, **kwargs: Unpack[BatchCreateSecurityRequirementsInputTypeDef]
+    ) -> BatchCreateSecurityRequirementsOutputTypeDef:
+        """
+        Batch creates security requirements in a customer managed pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_create_security_requirements.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_create_security_requirements)
+        """
+
+    async def batch_delete_code_reviews(
+        self, **kwargs: Unpack[BatchDeleteCodeReviewsInputTypeDef]
+    ) -> BatchDeleteCodeReviewsOutputTypeDef:
+        """
+        Deletes one or more code reviews from an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_delete_code_reviews.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_delete_code_reviews)
         """
 
     async def batch_delete_pentests(
         self, **kwargs: Unpack[BatchDeletePentestsInputTypeDef]
     ) -> BatchDeletePentestsOutputTypeDef:
         """
-        Deletes multiple pentests in a single request.
+        Deletes one or more pentests from an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_delete_pentests.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_delete_pentests)
+        """
+
+    async def batch_delete_security_requirements(
+        self, **kwargs: Unpack[BatchDeleteSecurityRequirementsInputTypeDef]
+    ) -> BatchDeleteSecurityRequirementsOutputTypeDef:
+        """
+        Batch deletes security requirements from a customer managed pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_delete_security_requirements.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_delete_security_requirements)
+        """
+
+    async def batch_delete_threat_models(
+        self, **kwargs: Unpack[BatchDeleteThreatModelsInputTypeDef]
+    ) -> BatchDeleteThreatModelsOutputTypeDef:
+        """
+        Deletes one or more threat models from an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_delete_threat_models.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_delete_threat_models)
         """
 
     async def batch_get_agent_spaces(
         self, **kwargs: Unpack[BatchGetAgentSpacesInputTypeDef]
     ) -> BatchGetAgentSpacesOutputTypeDef:
         """
-        Retrieves multiple agent spaces in a single request.
+        Retrieves information about one or more agent spaces.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_agent_spaces.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_agent_spaces)
@@ -224,17 +356,47 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[BatchGetArtifactMetadataInputTypeDef]
     ) -> BatchGetArtifactMetadataOutputTypeDef:
         """
-        Retrieve the list of artifact metadata for the given agent space.
+        Retrieves metadata for one or more artifacts in an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_artifact_metadata.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_artifact_metadata)
+        """
+
+    async def batch_get_code_review_job_tasks(
+        self, **kwargs: Unpack[BatchGetCodeReviewJobTasksInputTypeDef]
+    ) -> BatchGetCodeReviewJobTasksOutputTypeDef:
+        """
+        Retrieves information about one or more tasks within a code review job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_code_review_job_tasks.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_code_review_job_tasks)
+        """
+
+    async def batch_get_code_review_jobs(
+        self, **kwargs: Unpack[BatchGetCodeReviewJobsInputTypeDef]
+    ) -> BatchGetCodeReviewJobsOutputTypeDef:
+        """
+        Retrieves information about one or more code review jobs in an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_code_review_jobs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_code_review_jobs)
+        """
+
+    async def batch_get_code_reviews(
+        self, **kwargs: Unpack[BatchGetCodeReviewsInputTypeDef]
+    ) -> BatchGetCodeReviewsOutputTypeDef:
+        """
+        Retrieves information about one or more code reviews in an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_code_reviews.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_code_reviews)
         """
 
     async def batch_get_findings(
         self, **kwargs: Unpack[BatchGetFindingsInputTypeDef]
     ) -> BatchGetFindingsOutputTypeDef:
         """
-        Retrieves multiple findings in a single request.
+        Retrieves information about one or more security findings in an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_findings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_findings)
@@ -244,7 +406,7 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[BatchGetPentestJobTasksInputTypeDef]
     ) -> BatchGetPentestJobTasksOutputTypeDef:
         """
-        Retrieves multiple tasks for a pentest job in a single request.
+        Retrieves information about one or more tasks within a pentest job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_pentest_job_tasks.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_pentest_job_tasks)
@@ -254,7 +416,7 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[BatchGetPentestJobsInputTypeDef]
     ) -> BatchGetPentestJobsOutputTypeDef:
         """
-        Retrieves multiple pentest jobs in a single request.
+        Retrieves information about one or more pentest jobs in an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_pentest_jobs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_pentest_jobs)
@@ -264,27 +426,87 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[BatchGetPentestsInputTypeDef]
     ) -> BatchGetPentestsOutputTypeDef:
         """
-        Retrieves multiple pentests in a single request.
+        Retrieves information about one or more pentests in an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_pentests.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_pentests)
+        """
+
+    async def batch_get_security_requirements(
+        self, **kwargs: Unpack[BatchGetSecurityRequirementsInputTypeDef]
+    ) -> BatchGetSecurityRequirementsOutputTypeDef:
+        """
+        Batch retrieves security requirements from a pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_security_requirements.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_security_requirements)
         """
 
     async def batch_get_target_domains(
         self, **kwargs: Unpack[BatchGetTargetDomainsInputTypeDef]
     ) -> BatchGetTargetDomainsOutputTypeDef:
         """
-        Retrieves multiple target domains in a single request.
+        Retrieves information about one or more target domains.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_target_domains.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_target_domains)
+        """
+
+    async def batch_get_threat_model_job_tasks(
+        self, **kwargs: Unpack[BatchGetThreatModelJobTasksInputTypeDef]
+    ) -> BatchGetThreatModelJobTasksOutputTypeDef:
+        """
+        Retrieves information about one or more tasks within a threat model job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_threat_model_job_tasks.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_threat_model_job_tasks)
+        """
+
+    async def batch_get_threat_model_jobs(
+        self, **kwargs: Unpack[BatchGetThreatModelJobsInputTypeDef]
+    ) -> BatchGetThreatModelJobsOutputTypeDef:
+        """
+        Retrieves information about one or more threat model jobs in an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_threat_model_jobs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_threat_model_jobs)
+        """
+
+    async def batch_get_threat_models(
+        self, **kwargs: Unpack[BatchGetThreatModelsInputTypeDef]
+    ) -> BatchGetThreatModelsOutputTypeDef:
+        """
+        Retrieves information about one or more threat models in an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_threat_models.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_threat_models)
+        """
+
+    async def batch_get_threats(
+        self, **kwargs: Unpack[BatchGetThreatsInputTypeDef]
+    ) -> BatchGetThreatsOutputTypeDef:
+        """
+        Retrieves information about one or more threats.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_threats.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_get_threats)
+        """
+
+    async def batch_update_security_requirements(
+        self, **kwargs: Unpack[BatchUpdateSecurityRequirementsInputTypeDef]
+    ) -> BatchUpdateSecurityRequirementsOutputTypeDef:
+        """
+        Batch updates security requirements within a customer managed pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_update_security_requirements.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#batch_update_security_requirements)
         """
 
     async def create_agent_space(
         self, **kwargs: Unpack[CreateAgentSpaceInputTypeDef]
     ) -> CreateAgentSpaceOutputTypeDef:
         """
-        Creates an agent space record.
+        Creates a new agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_agent_space.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#create_agent_space)
@@ -300,11 +522,22 @@ class SecurityAgentClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#create_application)
         """
 
+    async def create_code_review(
+        self, **kwargs: Unpack[CreateCodeReviewInputTypeDef]
+    ) -> CreateCodeReviewOutputTypeDef:
+        """
+        Creates a new code review configuration in an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_code_review.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#create_code_review)
+        """
+
     async def create_integration(
         self, **kwargs: Unpack[CreateIntegrationInputTypeDef]
     ) -> CreateIntegrationOutputTypeDef:
         """
-        Creates the Integration of the Security Agent App with an external Provider.
+        Creates a new integration with a third-party provider, such as GitHub, for code
+        review and remediation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_integration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#create_integration)
@@ -314,7 +547,8 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[CreateMembershipRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Adds a single member to an agent space with specified role.
+        Creates a new membership, granting a user access to an agent space within an
+        application.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_membership.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#create_membership)
@@ -324,27 +558,69 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[CreatePentestInputTypeDef]
     ) -> CreatePentestOutputTypeDef:
         """
-        Creates a new pentest configuration.
+        Creates a new pentest configuration in an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_pentest.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#create_pentest)
+        """
+
+    async def create_private_connection(
+        self, **kwargs: Unpack[CreatePrivateConnectionInputTypeDef]
+    ) -> CreatePrivateConnectionOutputTypeDef:
+        """
+        Creates a private connection for reaching a self-hosted provider instance over
+        private networking using Amazon VPC Lattice.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_private_connection.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#create_private_connection)
+        """
+
+    async def create_security_requirement_pack(
+        self, **kwargs: Unpack[CreateSecurityRequirementPackInputTypeDef]
+    ) -> CreateSecurityRequirementPackOutputTypeDef:
+        """
+        Creates a customer managed security requirement pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_security_requirement_pack.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#create_security_requirement_pack)
         """
 
     async def create_target_domain(
         self, **kwargs: Unpack[CreateTargetDomainInputTypeDef]
     ) -> CreateTargetDomainOutputTypeDef:
         """
-        Creates a target domain record.
+        Creates a new target domain for penetration testing.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_target_domain.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#create_target_domain)
+        """
+
+    async def create_threat(
+        self, **kwargs: Unpack[CreateThreatInputTypeDef]
+    ) -> CreateThreatOutputTypeDef:
+        """
+        Creates a new threat under a threat model job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_threat.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#create_threat)
+        """
+
+    async def create_threat_model(
+        self, **kwargs: Unpack[CreateThreatModelInputTypeDef]
+    ) -> CreateThreatModelOutputTypeDef:
+        """
+        Creates a new threat model configuration in an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_threat_model.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#create_threat_model)
         """
 
     async def delete_agent_space(
         self, **kwargs: Unpack[DeleteAgentSpaceInputTypeDef]
     ) -> DeleteAgentSpaceOutputTypeDef:
         """
-        Deletes an agent space record.
+        Deletes an agent space and all of its associated resources, including pentests,
+        findings, and artifacts.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_agent_space.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#delete_agent_space)
@@ -354,7 +630,8 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes an application.
+        Deletes an application and its associated configuration, including IAM Identity
+        Center settings.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_application.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#delete_application)
@@ -362,7 +639,7 @@ class SecurityAgentClient(AioBaseClient):
 
     async def delete_artifact(self, **kwargs: Unpack[DeleteArtifactInputTypeDef]) -> dict[str, Any]:
         """
-        Delete an Artifact from the given agent space.
+        Deletes an artifact from an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_artifact.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#delete_artifact)
@@ -372,7 +649,7 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteIntegrationInputTypeDef]
     ) -> dict[str, Any]:
         """
-        Deletes the Integration of the Security Agent App with an external Provider.
+        Deletes an integration with a third-party provider.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_integration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#delete_integration)
@@ -382,27 +659,58 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteMembershipRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Removes a single member associated to an agent space.
+        Deletes a membership, revoking a user's access to an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_membership.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#delete_membership)
+        """
+
+    async def delete_private_connection(
+        self, **kwargs: Unpack[DeletePrivateConnectionInputTypeDef]
+    ) -> DeletePrivateConnectionOutputTypeDef:
+        """
+        Deletes a private connection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_private_connection.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#delete_private_connection)
+        """
+
+    async def delete_security_requirement_pack(
+        self, **kwargs: Unpack[DeleteSecurityRequirementPackInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a customer managed security requirement pack and all its associated
+        security requirements.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_security_requirement_pack.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#delete_security_requirement_pack)
         """
 
     async def delete_target_domain(
         self, **kwargs: Unpack[DeleteTargetDomainInputTypeDef]
     ) -> DeleteTargetDomainOutputTypeDef:
         """
-        Deletes a target domain record.
+        Deletes a target domain registration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_target_domain.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#delete_target_domain)
+        """
+
+    async def describe_private_connection(
+        self, **kwargs: Unpack[DescribePrivateConnectionInputTypeDef]
+    ) -> DescribePrivateConnectionOutputTypeDef:
+        """
+        Retrieves the details of a private connection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/describe_private_connection.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#describe_private_connection)
         """
 
     async def get_application(
         self, **kwargs: Unpack[GetApplicationRequestTypeDef]
     ) -> GetApplicationResponseTypeDef:
         """
-        Retrieves application details by application ID.
+        Retrieves information about an application.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_application.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_application)
@@ -412,7 +720,7 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[GetArtifactInputTypeDef]
     ) -> GetArtifactOutputTypeDef:
         """
-        Retrieve an Artifact for the given agent space.
+        Retrieves an artifact from an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_artifact.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_artifact)
@@ -422,17 +730,38 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[GetIntegrationInputTypeDef]
     ) -> GetIntegrationOutputTypeDef:
         """
-        Gets Integration metadata from the provided id.
+        Retrieves information about an integration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_integration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_integration)
+        """
+
+    async def get_security_requirement_pack(
+        self, **kwargs: Unpack[GetSecurityRequirementPackInputTypeDef]
+    ) -> GetSecurityRequirementPackOutputTypeDef:
+        """
+        Retrieves information about a security requirement pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_security_requirement_pack.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_security_requirement_pack)
+        """
+
+    async def import_security_requirements(
+        self, **kwargs: Unpack[ImportSecurityRequirementsInputTypeDef]
+    ) -> ImportSecurityRequirementsOutputTypeDef:
+        """
+        Imports security requirements from uploaded documents into a customer managed
+        security requirement pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/import_security_requirements.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#import_security_requirements)
         """
 
     async def initiate_provider_registration(
         self, **kwargs: Unpack[InitiateProviderRegistrationInputTypeDef]
     ) -> InitiateProviderRegistrationOutputTypeDef:
         """
-        Initiates the registration of Security Agent App for an external Provider.
+        Initiates the OAuth registration flow with a third-party provider.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/initiate_provider_registration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#initiate_provider_registration)
@@ -442,7 +771,7 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[ListAgentSpacesInputTypeDef]
     ) -> ListAgentSpacesOutputTypeDef:
         """
-        Lists agent spaces.
+        Returns a paginated list of agent space summaries in your account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_agent_spaces.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_agent_spaces)
@@ -452,7 +781,7 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[ListApplicationsRequestTypeDef]
     ) -> ListApplicationsResponseTypeDef:
         """
-        Lists all applications in the account.
+        Returns a paginated list of application summaries in your account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_applications.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_applications)
@@ -462,18 +791,49 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[ListArtifactsInputTypeDef]
     ) -> ListArtifactsOutputTypeDef:
         """
-        Lists the artifacts for the associated agent space.
+        Returns a paginated list of artifact summaries for the specified agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_artifacts.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_artifacts)
+        """
+
+    async def list_code_review_job_tasks(
+        self, **kwargs: Unpack[ListCodeReviewJobTasksInputTypeDef]
+    ) -> ListCodeReviewJobTasksOutputTypeDef:
+        """
+        Returns a paginated list of task summaries for the specified code review job,
+        optionally filtered by step name or category.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_code_review_job_tasks.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_code_review_job_tasks)
+        """
+
+    async def list_code_review_jobs_for_code_review(
+        self, **kwargs: Unpack[ListCodeReviewJobsForCodeReviewInputTypeDef]
+    ) -> ListCodeReviewJobsForCodeReviewOutputTypeDef:
+        """
+        Returns a paginated list of code review job summaries for the specified code
+        review configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_code_review_jobs_for_code_review.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_code_review_jobs_for_code_review)
+        """
+
+    async def list_code_reviews(
+        self, **kwargs: Unpack[ListCodeReviewsInputTypeDef]
+    ) -> ListCodeReviewsOutputTypeDef:
+        """
+        Returns a paginated list of code review summaries for the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_code_reviews.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_code_reviews)
         """
 
     async def list_discovered_endpoints(
         self, **kwargs: Unpack[ListDiscoveredEndpointsInputTypeDef]
     ) -> ListDiscoveredEndpointsOutputTypeDef:
         """
-        Lists discovered endpoints associated with a pentest job with optional URI
-        prefix filtering.
+        Returns a paginated list of endpoints discovered during a pentest job execution.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_discovered_endpoints.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_discovered_endpoints)
@@ -483,7 +843,7 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[ListFindingsInputTypeDef]
     ) -> ListFindingsOutputTypeDef:
         """
-        Lists findings with filtering and pagination support.
+        Lists the security findings for a pentest job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_findings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_findings)
@@ -493,7 +853,8 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[ListIntegratedResourcesInputTypeDef]
     ) -> ListIntegratedResourcesOutputTypeDef:
         """
-        Lists the integrated resources for an agent space.
+        Lists the integrated resources for an agent space, optionally filtered by
+        integration or resource type.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_integrated_resources.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_integrated_resources)
@@ -503,7 +864,8 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[ListIntegrationsInputTypeDef]
     ) -> ListIntegrationsOutputTypeDef:
         """
-        Retrieves the Integrations associated with the user's account.
+        Lists the integrations in your account, optionally filtered by provider or
+        provider type.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_integrations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_integrations)
@@ -513,7 +875,8 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[ListMembershipsRequestTypeDef]
     ) -> ListMembershipsResponseTypeDef:
         """
-        Lists all members associated to an agent space with pagination support.
+        Returns a paginated list of membership summaries for the specified agent space
+        within an application.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_memberships.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_memberships)
@@ -523,7 +886,8 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[ListPentestJobTasksInputTypeDef]
     ) -> ListPentestJobTasksOutputTypeDef:
         """
-        Lists tasks associated with a specific pentest job.
+        Returns a paginated list of task summaries for the specified pentest job,
+        optionally filtered by step name or category.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_pentest_job_tasks.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_pentest_job_tasks)
@@ -533,7 +897,8 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[ListPentestJobsForPentestInputTypeDef]
     ) -> ListPentestJobsForPentestOutputTypeDef:
         """
-        Lists pentest jobs associated with a pentest.
+        Returns a paginated list of pentest job summaries for the specified pentest
+        configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_pentest_jobs_for_pentest.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_pentest_jobs_for_pentest)
@@ -543,17 +908,47 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[ListPentestsInputTypeDef]
     ) -> ListPentestsOutputTypeDef:
         """
-        Lists pentests with optional filtering by status.
+        Returns a paginated list of pentest summaries for the specified agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_pentests.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_pentests)
+        """
+
+    async def list_private_connections(
+        self, **kwargs: Unpack[ListPrivateConnectionsInputTypeDef]
+    ) -> ListPrivateConnectionsOutputTypeDef:
+        """
+        Lists the private connections in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_private_connections.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_private_connections)
+        """
+
+    async def list_security_requirement_packs(
+        self, **kwargs: Unpack[ListSecurityRequirementPacksInputTypeDef]
+    ) -> ListSecurityRequirementPacksOutputTypeDef:
+        """
+        Lists all security requirement packs in the caller's account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_security_requirement_packs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_security_requirement_packs)
+        """
+
+    async def list_security_requirements(
+        self, **kwargs: Unpack[ListSecurityRequirementsInputTypeDef]
+    ) -> ListSecurityRequirementsOutputTypeDef:
+        """
+        Lists security requirements within a pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_security_requirements.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_security_requirements)
         """
 
     async def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceInputTypeDef]
     ) -> ListTagsForResourceOutputTypeDef:
         """
-        Lists tags for a Security Agent resource.
+        Returns the tags associated with the specified resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_tags_for_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_tags_for_resource)
@@ -563,45 +958,127 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[ListTargetDomainsInputTypeDef]
     ) -> ListTargetDomainsOutputTypeDef:
         """
-        Lists target domains.
+        Returns a paginated list of target domain summaries in your account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_target_domains.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_target_domains)
+        """
+
+    async def list_threat_model_job_tasks(
+        self, **kwargs: Unpack[ListThreatModelJobTasksInputTypeDef]
+    ) -> ListThreatModelJobTasksOutputTypeDef:
+        """
+        Returns a paginated list of task summaries for the specified threat model job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_threat_model_job_tasks.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_threat_model_job_tasks)
+        """
+
+    async def list_threat_model_jobs(
+        self, **kwargs: Unpack[ListThreatModelJobsInputTypeDef]
+    ) -> ListThreatModelJobsOutputTypeDef:
+        """
+        Returns a paginated list of threat model job summaries for the specified threat
+        model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_threat_model_jobs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_threat_model_jobs)
+        """
+
+    async def list_threat_models(
+        self, **kwargs: Unpack[ListThreatModelsInputTypeDef]
+    ) -> ListThreatModelsOutputTypeDef:
+        """
+        Returns a paginated list of threat model summaries for the specified agent
+        space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_threat_models.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_threat_models)
+        """
+
+    async def list_threats(
+        self, **kwargs: Unpack[ListThreatsInputTypeDef]
+    ) -> ListThreatsOutputTypeDef:
+        """
+        Returns a paginated list of threats for a threat model job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_threats.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_threats)
         """
 
     async def start_code_remediation(
         self, **kwargs: Unpack[StartCodeRemediationInputTypeDef]
     ) -> dict[str, Any]:
         """
-        Starts code remediation for the specified findings.
+        Initiates code remediation for one or more security findings.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/start_code_remediation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#start_code_remediation)
+        """
+
+    async def start_code_review_job(
+        self, **kwargs: Unpack[StartCodeReviewJobInputTypeDef]
+    ) -> StartCodeReviewJobOutputTypeDef:
+        """
+        Starts a new code review job for a code review configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/start_code_review_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#start_code_review_job)
         """
 
     async def start_pentest_job(
         self, **kwargs: Unpack[StartPentestJobInputTypeDef]
     ) -> StartPentestJobOutputTypeDef:
         """
-        Initiates the execution of a pentest.
+        Starts a new pentest job for a pentest configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/start_pentest_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#start_pentest_job)
+        """
+
+    async def start_threat_model_job(
+        self, **kwargs: Unpack[StartThreatModelJobInputTypeDef]
+    ) -> StartThreatModelJobOutputTypeDef:
+        """
+        Starts a new threat model job for a threat model configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/start_threat_model_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#start_threat_model_job)
+        """
+
+    async def stop_code_review_job(
+        self, **kwargs: Unpack[StopCodeReviewJobInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stops a running code review job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/stop_code_review_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#stop_code_review_job)
         """
 
     async def stop_pentest_job(
         self, **kwargs: Unpack[StopPentestJobInputTypeDef]
     ) -> dict[str, Any]:
         """
-        Stops the execution of a running pentest.
+        Stops a running pentest job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/stop_pentest_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#stop_pentest_job)
         """
 
+    async def stop_threat_model_job(
+        self, **kwargs: Unpack[StopThreatModelJobInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stops a running threat model job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/stop_threat_model_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#stop_threat_model_job)
+        """
+
     async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
-        Adds tags to a Security Agent resource.
+        Adds tags to a resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/tag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#tag_resource)
@@ -609,7 +1086,7 @@ class SecurityAgentClient(AioBaseClient):
 
     async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
-        Removes tags from a Security Agent resource.
+        Removes tags from a resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/untag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#untag_resource)
@@ -619,7 +1096,8 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateAgentSpaceInputTypeDef]
     ) -> UpdateAgentSpaceOutputTypeDef:
         """
-        Updates an agent space record.
+        Updates the configuration of an existing agent space, including its name,
+        description, AWS resources, target domains, and code review settings.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_agent_space.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_agent_space)
@@ -629,15 +1107,26 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateApplicationRequestTypeDef]
     ) -> UpdateApplicationResponseTypeDef:
         """
-        Updates application configuration.
+        Updates the configuration of an existing application, including the IAM role
+        and default KMS key.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_application.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_application)
         """
 
+    async def update_code_review(
+        self, **kwargs: Unpack[UpdateCodeReviewInputTypeDef]
+    ) -> UpdateCodeReviewOutputTypeDef:
+        """
+        Updates an existing code review configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_code_review.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_code_review)
+        """
+
     async def update_finding(self, **kwargs: Unpack[UpdateFindingInputTypeDef]) -> dict[str, Any]:
         """
-        Updates an existing security finding with new details or status.
+        Updates the status or risk level of a security finding.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_finding.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_finding)
@@ -647,7 +1136,8 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateIntegratedResourcesInputTypeDef]
     ) -> dict[str, Any]:
         """
-        Updates the integrated resources for an agent space.
+        Updates the integrated resources for an agent space, including their
+        capabilities.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_integrated_resources.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_integrated_resources)
@@ -657,27 +1147,67 @@ class SecurityAgentClient(AioBaseClient):
         self, **kwargs: Unpack[UpdatePentestInputTypeDef]
     ) -> UpdatePentestOutputTypeDef:
         """
-        Updates an existing pentest with new configuration or settings.
+        Updates an existing pentest configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_pentest.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_pentest)
+        """
+
+    async def update_private_connection_certificate(
+        self, **kwargs: Unpack[UpdatePrivateConnectionCertificateInputTypeDef]
+    ) -> UpdatePrivateConnectionCertificateOutputTypeDef:
+        """
+        Updates the certificate associated with a private connection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_private_connection_certificate.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_private_connection_certificate)
+        """
+
+    async def update_security_requirement_pack(
+        self, **kwargs: Unpack[UpdateSecurityRequirementPackInputTypeDef]
+    ) -> UpdateSecurityRequirementPackOutputTypeDef:
+        """
+        Updates a security requirement pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_security_requirement_pack.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_security_requirement_pack)
         """
 
     async def update_target_domain(
         self, **kwargs: Unpack[UpdateTargetDomainInputTypeDef]
     ) -> UpdateTargetDomainOutputTypeDef:
         """
-        Updates a target domain record.
+        Updates the verification method for a target domain.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_target_domain.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_target_domain)
+        """
+
+    async def update_threat(
+        self, **kwargs: Unpack[UpdateThreatInputTypeDef]
+    ) -> UpdateThreatOutputTypeDef:
+        """
+        Updates a threat.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_threat.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_threat)
+        """
+
+    async def update_threat_model(
+        self, **kwargs: Unpack[UpdateThreatModelInputTypeDef]
+    ) -> UpdateThreatModelOutputTypeDef:
+        """
+        Updates an existing threat model configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_threat_model.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_threat_model)
         """
 
     async def verify_target_domain(
         self, **kwargs: Unpack[VerifyTargetDomainInputTypeDef]
     ) -> VerifyTargetDomainOutputTypeDef:
         """
-        Verifies ownership for a registered target domain.
+        Initiates verification of a target domain.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/verify_target_domain.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#verify_target_domain)
@@ -709,6 +1239,39 @@ class SecurityAgentClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_artifacts"]
     ) -> ListArtifactsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_code_review_job_tasks"]
+    ) -> ListCodeReviewJobTasksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_code_review_jobs_for_code_review"]
+    ) -> ListCodeReviewJobsForCodeReviewPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_code_reviews"]
+    ) -> ListCodeReviewsPaginator:
         """
         Create a paginator for an operation.
 
@@ -806,8 +1369,85 @@ class SecurityAgentClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_private_connections"]
+    ) -> ListPrivateConnectionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_security_requirement_packs"]
+    ) -> ListSecurityRequirementPacksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_security_requirements"]
+    ) -> ListSecurityRequirementsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_target_domains"]
     ) -> ListTargetDomainsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_threat_model_job_tasks"]
+    ) -> ListThreatModelJobTasksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_threat_model_jobs"]
+    ) -> ListThreatModelJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_threat_models"]
+    ) -> ListThreatModelsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_threats"]
+    ) -> ListThreatsPaginator:
         """
         Create a paginator for an operation.
 

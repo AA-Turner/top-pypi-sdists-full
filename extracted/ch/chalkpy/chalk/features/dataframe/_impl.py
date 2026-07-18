@@ -230,9 +230,9 @@ class DataFrameMeta(type):
     @property
     def namespace(cls) -> str:
         cls = cast(Type[DataFrame], cls)
-        namespaces = (x.path[0].parent.namespace if len(x.path) > 0 else x.namespace for x in cls.columns)
+        namespaces = list(x.path[0].parent.namespace if len(x.path) > 0 else x.namespace for x in cls.columns)
         # Remove the pseudo-columns
-        namespaces = (x for x in namespaces if not x.startswith("__chalk__"))
+        namespaces = list(x for x in namespaces if not x.startswith("__chalk__"))
         return get_unique_item(namespaces, f"dataframe {cls.__name__} column namespaces")
 
     def _parse_underscore(self, exp: Underscore, pydantic_model: "Optional[BaseModel]" = None) -> Any:

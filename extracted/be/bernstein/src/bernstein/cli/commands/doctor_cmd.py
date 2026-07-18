@@ -10,6 +10,7 @@ space and git availability.
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import socket
@@ -21,6 +22,8 @@ from typing import Any
 import click
 
 from bernstein.cli.helpers import SERVER_URL
+
+logger = logging.getLogger(__name__)
 
 _TASK_SERVER_LABEL = "Task server"
 
@@ -104,51 +107,98 @@ def _probe_adapter_version(name: str) -> str | None:
     return match.group(0) if match else None
 
 
-def check_adapter_advisories() -> list[dict[str, Any]]:
-    """Report a supply-chain version-floor status for each tracked adapter.
+#: Posture verdict labels (kept distinct from the spawn-preflight verdict
+#: vocabulary: the doctor snapshots the environment, it does not decide a
+#: spawn).
+_POSTURE_SATISFIED = "satisfied"
+_POSTURE_BELOW_FLOOR = "below_floor"
+_POSTURE_UNKNOWN = "unknown_version"
 
-    For every adapter with a curated minimum-safe-version floor, reports:
+#: Schema version stamped into the version-posture receipt preimage.
+_VERSION_POSTURE_SCHEMA_VERSION = 1
 
-    - OK (PASS) when the discovered version meets or exceeds the floor,
-    - below-floor (WARN) when it is strictly below the floor,
-    - unknown (WARN) when the binary is present but the version cannot be
-      determined,
-    - not installed (PASS/skip) is omitted so the surface stays quiet for
-      adapters the operator does not run.
 
-    Couples to the adapter conformance contract: a below-floor binary is a
-    conformance signal an operator can act on before a worker records a run
-    against a version we already know is unsafe.
+def collect_version_posture() -> list[dict[str, Any]]:
+    """Structured version posture for each installed tracked adapter (#2515).
+
+    For every adapter with a curated minimum-safe floor that is installed on
+    PATH, returns a row binding the installed version, the floor, the advisory
+    id, and a floor verdict (``satisfied`` / ``below_floor`` /
+    ``unknown_version``). This is the single source the console rows *and* the
+    signed posture receipt both project from, so the printed report is a
+    faithful projection of the sealed record. Uninstalled adapters are omitted
+    so the surface stays quiet.
     """
     from bernstein.adapters.advisories import (
         ADAPTER_MIN_SAFE_VERSIONS,
         check_adapter_version,
     )
 
-    results: list[dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     for name, advisory in sorted(ADAPTER_MIN_SAFE_VERSIONS.items()):
         if shutil.which(name) is None:
-            continue  # adapter not installed: nothing to warn about
+            continue  # adapter not installed: nothing to report
         version = _probe_adapter_version(name)
-        label = f"Adapter version: {name}"
         if version is None:
+            verdict = _POSTURE_UNKNOWN
+        elif check_adapter_version(name, version) is not None:
+            verdict = _POSTURE_BELOW_FLOOR
+        else:
+            verdict = _POSTURE_SATISFIED
+        entries.append(
+            {
+                "adapter": name,
+                "installed_version": version,
+                "floor": advisory.min_safe_version,
+                "advisory_id": advisory.advisory_id,
+                "verdict": verdict,
+            }
+        )
+    return entries
+
+
+def check_adapter_advisories() -> list[dict[str, Any]]:
+    """Report a supply-chain version-floor status for each tracked adapter.
+
+    A projection of :func:`collect_version_posture` (the same rows the signed
+    posture receipt seals):
+
+    - OK (PASS) when the discovered version meets or exceeds the floor,
+    - below-floor (WARN) when it is strictly below the floor,
+    - unknown (WARN) when the binary is present but the version cannot be
+      determined,
+    - not installed is omitted so the surface stays quiet for adapters the
+      operator does not run.
+
+    Couples to the adapter conformance contract: a below-floor binary is a
+    conformance signal an operator can act on before a worker records a run
+    against a version we already know is unsafe.
+    """
+    from bernstein.adapters.advisories import ADAPTER_MIN_SAFE_VERSIONS
+
+    results: list[dict[str, Any]] = []
+    for entry in collect_version_posture():
+        name = entry["adapter"]
+        version = entry["installed_version"]
+        floor = entry["floor"]
+        label = f"Adapter version: {name}"
+        if entry["verdict"] == _POSTURE_UNKNOWN:
             results.append(
                 {
                     "name": label,
                     "status": _CHECK_WARN,
-                    "detail": f"installed, version unknown (safe floor {advisory.min_safe_version})",
-                    "fix": f"Verify {name} version is >= {advisory.min_safe_version}",
+                    "detail": f"installed, version unknown (safe floor {floor})",
+                    "fix": f"Verify {name} version is >= {floor}",
                 }
             )
-            continue
-        hit = check_adapter_version(name, version)
-        if hit is not None:
+        elif entry["verdict"] == _POSTURE_BELOW_FLOOR:
+            advisory = ADAPTER_MIN_SAFE_VERSIONS[name]
             results.append(
                 {
                     "name": label,
                     "status": _CHECK_WARN,
-                    "detail": (f"{version} below safe floor {hit.min_safe_version} [{hit.advisory_id}]: {hit.note}"),
-                    "fix": f"Upgrade {name} to >= {hit.min_safe_version}",
+                    "detail": (f"{version} below safe floor {floor} [{advisory.advisory_id}]: {advisory.note}"),
+                    "fix": f"Upgrade {name} to >= {floor}",
                 }
             )
         else:
@@ -156,11 +206,70 @@ def check_adapter_advisories() -> list[dict[str, Any]]:
                 {
                     "name": label,
                     "status": _CHECK_PASS,
-                    "detail": f"{version} >= safe floor {advisory.min_safe_version}",
+                    "detail": f"{version} >= safe floor {floor}",
                     "fix": "",
                 }
             )
     return results
+
+
+def build_version_posture_receipt(entries: list[dict[str, Any]], *, generated_at: str) -> dict[str, Any]:
+    """Bind a version-posture snapshot into a canonical receipt mapping (#2515).
+
+    Determinism: a pure function of the posture entries and the timestamp, so
+    an identical installed set and floor map produce a byte-identical receipt
+    payload modulo ``generated_at``. The floor map's content hash is pinned so
+    a map mutated after the fact is caught at verification.
+    """
+    from bernstein.adapters.security_floor import floor_map_content_hash
+
+    return {
+        "schema_version": _VERSION_POSTURE_SCHEMA_VERSION,
+        "kind": "adapter.version_posture",
+        "entries": [entry.copy() for entry in entries],
+        "floor_map_hash": floor_map_content_hash(),
+        "generated_at": generated_at,
+    }
+
+
+def emit_version_posture_receipt(workdir: Path) -> dict[str, Any]:
+    """Seal the version posture into a receipt and anchor it in the chain (#2515).
+
+    The console version-posture rows become a projection of this receipt:
+    "only floor-satisfying binaries were spawnable in this environment during
+    window X" is provable offline from a contiguous chain slice, not merely a
+    console print an operator may never run. Best-effort anchoring: a doctor
+    run must never fail because the audit chain could not be written.
+
+    Returns:
+        ``{"receipt": <dict>, "receipt_sha256": <hex>, "entries": [...],
+        "anchored": <bool>}``.
+    """
+    from datetime import UTC, datetime
+
+    from bernstein.adapters.security_floor import receipt_sha256
+
+    entries = collect_version_posture()
+    receipt = build_version_posture_receipt(entries, generated_at=datetime.now(UTC).isoformat())
+    sha = receipt_sha256(receipt)
+    anchored = False
+    try:
+        from bernstein.core.security.audit_chain import (
+            AuditChainStore,
+            record_adapter_version_posture_receipt,
+        )
+
+        chain = AuditChainStore(workdir / ".sdd" / "audit")
+        record_adapter_version_posture_receipt(
+            chain=chain,
+            receipt_sha256=sha,
+            floor_map_hash=receipt["floor_map_hash"],
+            entries=entries,
+        )
+        anchored = True
+    except Exception as exc:  # audit write must never break the doctor run
+        logger.warning("Could not anchor adapter.version_posture receipt: %s", type(exc).__name__)
+    return {"receipt": receipt, "receipt_sha256": sha, "entries": entries, "anchored": anchored}
 
 
 def check_canary_last_green() -> list[dict[str, Any]]:
@@ -386,6 +495,90 @@ def check_port_available() -> dict[str, Any]:
     }
 
 
+def _spiffe_extra_available() -> bool:
+    """Return True when the optional ``spiffe`` extra (py-spiffe SDK) is importable.
+
+    Wrapped as a module-level indirection so tests can stub the extra presence
+    without installing the SDK.
+    """
+    from bernstein.core.identity.spiffe.workload_api import spiffe_extra_available
+
+    return spiffe_extra_available()
+
+
+def _spiffe_socket_reachable(endpoint: str) -> bool:
+    """Return True when the SPIRE Workload API socket at ``endpoint`` accepts a connect.
+
+    Accepts a ``unix://`` endpoint or a bare filesystem path. A missing path or
+    a non-socket file is treated as unreachable; the probe never blocks longer
+    than half a second and never sends credential material.
+    """
+    import stat as _stat
+
+    path = endpoint.removeprefix("unix://")
+    if not path:
+        return False
+    try:
+        mode = Path(path).stat().st_mode
+    except OSError:
+        return False
+    if not _stat.S_ISSOCK(mode):
+        return False
+    probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        probe.settimeout(0.5)
+        probe.connect(path)
+    except OSError:
+        return False
+    finally:
+        probe.close()
+    return True
+
+
+def check_spiffe_workload_api() -> dict[str, Any]:
+    """Preflight the packaged SPIFFE credential path (issue #2516, Phase 4).
+
+    The default Ed25519 identity path needs no extra. This check reports:
+
+    * PASS (informational) when the ``spiffe`` extra is absent -- the default
+      path is active and nothing is broken;
+    * WARN when the extra is present but ``SPIFFE_ENDPOINT_SOCKET`` is unset or
+      the socket is not reachable -- workload-attested grants cannot be issued
+      until a SPIRE agent is wired up;
+    * PASS when the extra is present and the Workload API socket is reachable --
+      the SVID path is ready and new grants can carry the SPIFFE ID issuer.
+    """
+    name = "SPIFFE workload API"
+    if not _spiffe_extra_available():
+        return {
+            "name": name,
+            "status": _CHECK_PASS,
+            "detail": "spiffe extra not installed; default Ed25519 identity path active",
+            "fix": "",
+        }
+    endpoint = os.environ.get("SPIFFE_ENDPOINT_SOCKET", "").strip()
+    if not endpoint:
+        return {
+            "name": name,
+            "status": _CHECK_WARN,
+            "detail": "spiffe extra present but SPIFFE_ENDPOINT_SOCKET is unset",
+            "fix": "Point SPIFFE_ENDPOINT_SOCKET at the SPIRE agent's Workload API socket",
+        }
+    if not _spiffe_socket_reachable(endpoint):
+        return {
+            "name": name,
+            "status": _CHECK_WARN,
+            "detail": f"Workload API socket not reachable at {endpoint}",
+            "fix": "Start the SPIRE agent or correct SPIFFE_ENDPOINT_SOCKET",
+        }
+    return {
+        "name": name,
+        "status": _CHECK_PASS,
+        "detail": f"SVID path ready; Workload API socket reachable at {endpoint}",
+        "fix": "",
+    }
+
+
 def check_sdd_workspace() -> dict[str, Any]:
     """Check for .sdd/ workspace structure."""
     workdir = Path.cwd()
@@ -491,6 +684,113 @@ def check_price_table_advisory() -> dict[str, Any]:
     }
 
 
+def check_knob_matrix_advisory() -> dict[str, Any]:
+    """Warn when the shipped dispatch knob matrix is stale (issue #2519).
+
+    The knob matrix pins the effort, lane, and cache economics every dispatch
+    fingerprint seals; its lane / cache multipliers drift with provider pricing,
+    so a matrix older than the staleness window is a signal to refresh
+    ``cost_policy.knobs`` (or the shipped defaults). Advisory only -- non-blocking.
+    """
+    from datetime import UTC, datetime
+
+    from bernstein.core.cost.scheduling.knob_matrix import DEFAULT_KNOB_MATRIX, knob_matrix_staleness
+
+    advisory = knob_matrix_staleness(DEFAULT_KNOB_MATRIX, now_iso=datetime.now(tz=UTC).strftime("%Y-%m-%d"))
+    return {
+        "name": "Cost knob matrix",
+        "status": _CHECK_WARN if advisory.stale else _CHECK_PASS,
+        "detail": advisory.message,
+        "fix": "Refresh cost_policy.knobs in bernstein.yaml or update the shipped knob matrix"
+        if advisory.stale
+        else "",
+    }
+
+
+def check_skill_revocations() -> list[dict[str, Any]]:
+    """Flag catalog-installed skills covered by a signed revocation (issue #2527).
+
+    Reads the project's cached catalog and ``skills.lock`` and reports every
+    installed version a *signed* revocation covers, so an operator sees the
+    fleet-wide kill switch's effect within one poll interval. Advisory: it
+    never fails the process, and any error degrades to a single WARN row rather
+    than masking other checks.
+    """
+    try:
+        from bernstein.core.skills.catalog.enforcement import revoked_install_report
+
+        refused = revoked_install_report(Path.cwd())
+    except Exception as exc:  # pragma: no cover - defensive; advisory surface
+        return [
+            {
+                "name": "Skill revocations",
+                "status": _CHECK_WARN,
+                "detail": f"could not evaluate revocations: {exc}",
+                "fix": "",
+            }
+        ]
+
+    if not refused:
+        return [
+            {
+                "name": "Skill revocations",
+                "status": _CHECK_PASS,
+                "detail": "no installed skill is under a signed revocation",
+                "fix": "",
+            }
+        ]
+
+    return [
+        {
+            "name": f"Skill revocation: {item.skill_id} {item.version}",
+            "status": _CHECK_FAIL,
+            "detail": f"revoked ({item.reason}); range {item.version_range}",
+            "fix": f"Uninstall or upgrade {item.skill_id} out of {item.version_range}",
+        }
+        for item in refused
+    ]
+
+
+def check_eval_gate_min_n_advisory(workdir: Path | None = None) -> dict[str, Any]:
+    """Warn when a stored eval gate decision was taken below the minimum n (#2520).
+
+    A verdict receipt records whether the minimum n per arm was met. A gate
+    decision taken below that floor is statistically underpowered, so any such
+    receipt in ``.sdd/eval/gate`` is surfaced here as an advisory (never
+    blocking): it flags promotions that may have stood on too few tasks to
+    survive a re-run.
+    """
+    import json as _json
+
+    root = workdir if workdir is not None else Path()
+    gate_dir = root / ".sdd" / "eval" / "gate"
+    underpowered = 0
+    scanned = 0
+    if gate_dir.is_dir():
+        for path in gate_dir.glob("sha256:*.json"):
+            try:
+                raw = _json.loads(path.read_text(encoding="utf-8"))
+                evidence = raw["evidence"]
+            except (OSError, ValueError, KeyError, TypeError):
+                continue
+            scanned += 1
+            if evidence.get("min_n_satisfied") is False:
+                underpowered += 1
+    if underpowered:
+        return {
+            "name": "Eval gate power",
+            "status": _CHECK_WARN,
+            "detail": f"{underpowered}/{scanned} verdict receipt(s) decided below the minimum n per arm",
+            "fix": "Re-run the gate with a larger suite (raise n per arm) before promoting on those verdicts",
+        }
+    return {
+        "name": "Eval gate power",
+        "status": _CHECK_PASS,
+        "detail": f"{scanned} verdict receipt(s) met the minimum n per arm" if scanned else "no verdict receipts",
+        "fix": "",
+    }
+
+
 def run_all_checks() -> list[dict[str, Any]]:
     """Run all health checks and return results."""
     checks: list[dict[str, Any]] = []
@@ -498,7 +798,9 @@ def run_all_checks() -> list[dict[str, Any]]:
     checks.extend(check_adapters_installed())
     checks.extend(check_adapter_advisories())
     checks.extend(check_canary_last_green())
-    checks.append(check_price_table_advisory())
+    checks.extend((check_price_table_advisory(), check_knob_matrix_advisory()))
+    checks.extend(check_skill_revocations())
+    checks.append(check_eval_gate_min_n_advisory())
     checks.extend(check_api_keys())
     checks.extend(
         (
@@ -509,6 +811,7 @@ def run_all_checks() -> list[dict[str, Any]]:
             check_port_available(),
             check_sdd_workspace(),
             check_schedule_supervisor(),
+            check_spiffe_workload_api(),
         )
     )
     return checks

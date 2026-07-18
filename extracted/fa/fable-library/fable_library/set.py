@@ -1837,7 +1837,7 @@ def SetTreeModule_ofSeq[T](comparer: IComparer_1[T], c: IEnumerable_1[T]) -> Set
             return erase(SetTreeModule_mkFromEnumerator(comparer, SetTreeModule_empty(), ie))
 
 
-def _expr216(gen0: TypeInfo) -> TypeInfo:
+def _expr207(gen0: TypeInfo) -> TypeInfo:
     return class_type("Set.FSharpSet", Array([gen0]), FSharpSet)
 
 
@@ -1871,12 +1871,12 @@ class FSharpSet[T](Set[Any], StringableBase, ComparableBase, EquatableBase, Enum
             while enumerator.System_Collections_IEnumerator_MoveNext():
                 x_1: Any = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
 
-                def _arrow207(__unit: Unit = UNIT) -> str:
+                def _arrow206(__unit: Unit = UNIT) -> str:
                     x: Any = x_1
                     match_value: Any = x
                     return (('"' + match_value) + '"') if (str(type(match_value)) == "<class 'str'>") else to_string(x)
 
-                result = (result if first else (result + "; ")) + _arrow207()
+                result = (result if first else (result + "; ")) + _arrow206()
                 first = False
         return result + "]"
 
@@ -1945,7 +1945,7 @@ class FSharpSet[T](Set[Any], StringableBase, ComparableBase, EquatableBase, Enum
         return to_iterator(self.GetEnumerator())
 
 
-FSharpSet_reflection = _expr216
+FSharpSet_reflection = _expr207
 
 
 def FSharpSet__ctor[T](comparer: IComparer_1[T], tree: SetTreeLeaf_1[T] | None = None) -> FSharpSet[T]:
@@ -1991,10 +1991,10 @@ def FSharpSet__Iterate[T](s: FSharpSet[T], x: Callable[[T], None]) -> None:
 def FSharpSet__Fold[_A, T](s: FSharpSet[T], f: Callable[[T, _A], _A], z: _A) -> _A:
     f_1: Any = f
 
-    def _arrow219(x: _A, z_1: T) -> _A:
+    def _arrow208(x: _A, z_1: T) -> _A:
         return f_1(z_1, x)
 
-    return SetTreeModule_fold(_arrow219, z, FSharpSet__get_Tree(s))
+    return SetTreeModule_fold(_arrow208, z, FSharpSet__get_Tree(s))
 
 
 def FSharpSet__get_IsEmpty[T](s: FSharpSet[T]) -> bool:
@@ -2026,10 +2026,10 @@ def FSharpSet__Filter[T](s: FSharpSet[T], f: Callable[[T], bool]) -> FSharpSet[T
 
 
 def FSharpSet__Map[U, T](s: FSharpSet[T], f: Callable[[T], U], comparer: IComparer_1[U]) -> FSharpSet[U]:
-    def _arrow224(acc: SetTreeLeaf_1[U] | None, k: T, f: Any = f, comparer: Any = comparer) -> SetTreeLeaf_1[U] | None:
+    def _arrow209(acc: SetTreeLeaf_1[U] | None, k: T, f: Any = f, comparer: Any = comparer) -> SetTreeLeaf_1[U] | None:
         return erase(SetTreeModule_add(comparer, f(k), acc))
 
-    return FSharpSet__ctor(comparer, SetTreeModule_fold(_arrow224, SetTreeModule_empty(), FSharpSet__get_Tree(s)))
+    return FSharpSet__ctor(comparer, SetTreeModule_fold(_arrow209, SetTreeModule_empty(), FSharpSet__get_Tree(s)))
 
 
 def FSharpSet__Exists[T](s: FSharpSet[T], f: Callable[[T], bool]) -> bool:

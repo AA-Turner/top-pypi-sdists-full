@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_acm.literals import CertificateExportType
+    from types_aiobotocore_acm.literals import AcmeAccountStatusType
 
-    data: CertificateExportType = "DISABLED"
+    data: AcmeAccountStatusType = "DEACTIVATED"
     ```
 """
 
@@ -24,20 +24,38 @@ else:
 
 __all__ = (
     "ACMServiceName",
+    "AcmeAccountStatusType",
+    "AcmeAuthorizationBehaviorType",
+    "AcmeContactType",
+    "AcmeDomainValidationDeletedWaiterName",
+    "AcmeDomainValidationFailureReasonType",
+    "AcmeDomainValidationStatusType",
+    "AcmeDomainValidationValidatedWaiterName",
+    "AcmeEndpointActiveWaiterName",
+    "AcmeEndpointDeletedWaiterName",
+    "AcmeEndpointStatusType",
     "CertificateExportType",
+    "CertificateKeyPairOriginType",
     "CertificateManagedByType",
     "CertificateStatusType",
     "CertificateTransparencyLoggingPreferenceType",
     "CertificateTypeType",
     "CertificateValidatedWaiterName",
     "ComparisonOperatorType",
+    "DomainScopeOptionType",
     "DomainStatusType",
     "ExtendedKeyUsageNameType",
     "FailureReasonType",
     "KeyAlgorithmType",
     "KeyUsageNameType",
+    "ListAcmeAccountsPaginatorName",
+    "ListAcmeDomainValidationsPaginatorName",
+    "ListAcmeEndpointsPaginatorName",
+    "ListAcmeExternalAccountBindingsPaginatorName",
     "ListCertificatesPaginatorName",
     "PaginatorName",
+    "PrevalidationTypeType",
+    "PublicKeyAlgorithmType",
     "RecordTypeType",
     "RegionName",
     "RenewalEligibilityType",
@@ -50,12 +68,34 @@ __all__ = (
     "ServiceName",
     "SortByType",
     "SortOrderType",
+    "TimeTypeType",
     "ValidationMethodType",
     "WaiterName",
 )
 
 
+AcmeAccountStatusType = Literal["DEACTIVATED", "REVOKED", "VALID"]
+AcmeAuthorizationBehaviorType = Literal["PRE_APPROVED"]
+AcmeContactType = Literal["NOT_REQUIRED", "REQUIRED"]
+AcmeDomainValidationDeletedWaiterName = Literal["acme_domain_validation_deleted"]
+AcmeDomainValidationFailureReasonType = Literal[
+    "ACCESS_DENIED",
+    "DOMAIN_MISMATCH",
+    "DOMAIN_NOT_ALLOWED",
+    "ENDPOINT_NOT_ACTIVE",
+    "HOSTED_ZONE_NOT_FOUND",
+    "INTERNAL_FAILURE",
+    "INVALID_CHANGE_BATCH",
+    "INVALID_PUBLIC_DOMAIN",
+    "TIMED_OUT",
+]
+AcmeDomainValidationStatusType = Literal["DELETING", "INVALID", "VALID", "VALIDATING"]
+AcmeDomainValidationValidatedWaiterName = Literal["acme_domain_validation_validated"]
+AcmeEndpointActiveWaiterName = Literal["acme_endpoint_active"]
+AcmeEndpointDeletedWaiterName = Literal["acme_endpoint_deleted"]
+AcmeEndpointStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
 CertificateExportType = Literal["DISABLED", "ENABLED"]
+CertificateKeyPairOriginType = Literal["ACME", "AWS_MANAGED", "CUSTOMER_PROVIDED"]
 CertificateManagedByType = Literal["CLOUDFRONT"]
 CertificateStatusType = Literal[
     "EXPIRED",
@@ -70,6 +110,7 @@ CertificateTransparencyLoggingPreferenceType = Literal["DISABLED", "ENABLED"]
 CertificateTypeType = Literal["AMAZON_ISSUED", "IMPORTED", "PRIVATE"]
 CertificateValidatedWaiterName = Literal["certificate_validated"]
 ComparisonOperatorType = Literal["CONTAINS", "EQUALS"]
+DomainScopeOptionType = Literal["DISABLED", "ENABLED"]
 DomainStatusType = Literal["FAILED", "PENDING_VALIDATION", "SUCCESS"]
 ExtendedKeyUsageNameType = Literal[
     "ANY",
@@ -120,7 +161,13 @@ KeyUsageNameType = Literal[
     "KEY_ENCIPHERMENT",
     "NON_REPUDIATION",
 ]
+ListAcmeAccountsPaginatorName = Literal["list_acme_accounts"]
+ListAcmeDomainValidationsPaginatorName = Literal["list_acme_domain_validations"]
+ListAcmeEndpointsPaginatorName = Literal["list_acme_endpoints"]
+ListAcmeExternalAccountBindingsPaginatorName = Literal["list_acme_external_account_bindings"]
 ListCertificatesPaginatorName = Literal["list_certificates"]
+PrevalidationTypeType = Literal["DNS_PREVALIDATION"]
+PublicKeyAlgorithmType = Literal["EC_prime256v1", "EC_secp384r1", "RSA_2048"]
 RecordTypeType = Literal["CNAME"]
 RenewalEligibilityType = Literal["ELIGIBLE", "INELIGIBLE"]
 RenewalStatusType = Literal["FAILED", "PENDING_AUTO_RENEWAL", "PENDING_VALIDATION", "SUCCESS"]
@@ -139,7 +186,10 @@ RevocationReasonType = Literal[
 ]
 SearchCertificatesPaginatorName = Literal["search_certificates"]
 SearchCertificatesSortByType = Literal[
+    "ACME_ACCOUNT_ID",
+    "ACME_ENDPOINT_ARN",
     "CERTIFICATE_ARN",
+    "CERTIFICATE_KEY_PAIR_ORIGIN",
     "COMMON_NAME",
     "CREATED_AT",
     "EXPORTED",
@@ -161,6 +211,7 @@ SearchCertificatesSortByType = Literal[
 SearchCertificatesSortOrderType = Literal["ASCENDING", "DESCENDING"]
 SortByType = Literal["CREATED_AT"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
+TimeTypeType = Literal["DAYS", "HOURS", "MINUTES"]
 ValidationMethodType = Literal["DNS", "EMAIL", "HTTP"]
 ACMServiceName = Literal["acm"]
 ServiceName = Literal[
@@ -356,8 +407,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -384,6 +433,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -451,10 +502,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -487,6 +538,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -514,6 +566,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -535,7 +588,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -556,6 +608,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -591,8 +644,21 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_certificates", "search_certificates"]
-WaiterName = Literal["certificate_validated"]
+PaginatorName = Literal[
+    "list_acme_accounts",
+    "list_acme_domain_validations",
+    "list_acme_endpoints",
+    "list_acme_external_account_bindings",
+    "list_certificates",
+    "search_certificates",
+]
+WaiterName = Literal[
+    "acme_domain_validation_deleted",
+    "acme_domain_validation_validated",
+    "acme_endpoint_active",
+    "acme_endpoint_deleted",
+    "certificate_validated",
+]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

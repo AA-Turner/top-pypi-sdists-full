@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lean-lsp-mcp
-Version: 0.28.0
+Version: 0.28.1
 Summary: Lean Theorem Prover MCP
 Author-email: Oliver Dressler <hey@oli.show>
 License-Expression: MIT
@@ -8,7 +8,7 @@ Project-URL: Repository, https://github.com/oOo0oOo/lean-lsp-mcp
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: leanclient>=0.12.0
+Requires-Dist: leanclient>=0.12.1
 Requires-Dist: mcp[cli]==1.28.1
 Requires-Dist: orjson>=3.11.9
 Requires-Dist: certifi>=2026.6.17

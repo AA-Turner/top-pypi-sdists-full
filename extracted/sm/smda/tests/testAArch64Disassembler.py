@@ -28,7 +28,12 @@ import lief
 from smda.aarch64.AArch64Backend import AArch64Backend
 from smda.aarch64.AArch64CapstoneVerification import is_control_flow_mnemonic
 from smda.aarch64.AArch64InstructionEscaper import AArch64InstructionEscaper
-from smda.aarch64.definitions import EXCEPTION_RETURN_INS, adrp_page_value, is_conditional_branch
+from smda.aarch64.definitions import (
+    EXCEPTION_RETURN_INS,
+    adrp_page_value,
+    is_conditional_branch,
+    is_trap,
+)
 from smda.aarch64.FunctionCandidateManager import FunctionCandidateManager
 from smda.common.BinaryInfo import BinaryInfo
 from smda.common.SmdaReport import SmdaReport
@@ -1005,6 +1010,30 @@ class TestAArch64FunctionBoundaries(unittest.TestCase):
             [second, second + 4, second + 8],
         )
 
+    def test_call_fallthrough_alignment_cut_is_format_scoped_not_prologue_scoped(self):
+        # Control case for the PE-only prologue/BTI gate in _callFallthroughFunctionStart:
+        # a plain mapped buffer (not a PE image) keeps the old unconditional alignment cut
+        # even when the aligned word is definitely NOT a function entry (a mid-body ldr).
+        second = BASE + 0x10
+        report = self._disassemble_words(
+            [
+                0xA9BF7BFD,  # stp x29, x30, [sp, #-16]!
+                _encode_bl(BASE + 4, BASE),  # bl 0x401000
+                0xD503201F,  # nop
+                0xD503201F,  # nop
+                0xF94013A0,  # ldr x0, [x29, #0x20]  -- NOT a recognized function prologue
+                0xD2800020,  # mov x0, #1
+                0xD65F03C0,  # ret
+            ]
+        )
+        self.assertEqual(report.status, "ok")
+        self.assertEqual({f.offset for f in report.getFunctions()}, {BASE, second})
+        self.assertEqual([ins.offset for ins in report.getFunction(BASE).getInstructions()], [BASE, BASE + 4])
+        self.assertEqual(
+            [ins.offset for ins in report.getFunction(second).getInstructions()],
+            [second, second + 4, second + 8],
+        )
+
     def test_call_fallthrough_directly_before_prologue_terminates_function(self):
         second = BASE + 0x8
         report = self._disassemble_words(
@@ -1300,6 +1329,55 @@ class TestAArch64GapScan(unittest.TestCase):
         self.assertEqual(report.status, "ok")
         self.assertEqual({f.offset for f in report.getFunctions()}, {BASE, BASE + 0x14})
 
+    def _gap_scan_skips_leading_trap_word(self, trap_word):
+        # A gap that opens with a trap encoding (udf/brk/hlt) must never be promoted
+        # to a function: such words are embedded data or filler, not code entries.
+        # The real function f3 immediately after the trap word is still recovered by
+        # the gap scan, proving the sweep continues past the trap rather than stalling.
+        config = SmdaConfig()
+        config.WITH_STRINGS = False
+        code = b"".join(
+            w.to_bytes(4, "little")
+            for w in [
+                0xA9BF7BFD,  # 0x401000 f1: stp x29, x30, [sp, #-16]!  (prologue -> found)
+                0x52800000,  # 0x401004     mov w0, #0
+                0xA8C17BFD,  # 0x401008     ldp x29, x30, [sp], #16
+                0xD65F03C0,  # 0x40100c     ret
+                0xD503201F,  # 0x401010     nop  (inter-function padding)
+                trap_word,  # 0x401014     trap / data word (must NOT become a function)
+                0xA9BF7BFD,  # 0x401018 f3: stp x29, x30, [sp, #-16]!  (prologue -> found)
+                0x52800020,  # 0x40101c     mov w0, #1
+                0xA8C17BFD,  # 0x401020     ldp x29, x30, [sp], #16
+                0xD65F03C0,  # 0x401024     ret
+            ]
+        )
+        report = Disassembler(config, backend="aarch64").disassembleBuffer(
+            code,
+            base_addr=BASE,
+            bitness=64,
+            code_areas=[[BASE, BASE + len(code)]],
+            architecture="aarch64",
+        )
+        self.assertEqual(report.status, "ok")
+        offsets = {f.offset for f in report.getFunctions()}
+        self.assertNotIn(BASE + 0x14, offsets)
+        self.assertEqual(offsets, {BASE, BASE + 0x18})
+
+    def test_gap_scan_skips_leading_udf_trap_word(self):
+        self._gap_scan_skips_leading_trap_word(0x00000036)  # udf #0x36
+
+    def test_gap_scan_skips_leading_brk_trap_word(self):
+        self._gap_scan_skips_leading_trap_word(0xD4200020)  # brk #1
+
+    def test_is_trap_recognizes_udf_brk_hlt_and_rejects_ordinary_code(self):
+        self.assertTrue(is_trap(0x00000036))  # udf #0x36
+        self.assertTrue(is_trap(0x00000000))  # udf #0 (also the all-zero encoding)
+        self.assertTrue(is_trap(0xD4200020))  # brk #1
+        self.assertTrue(is_trap(0xD4400020))  # hlt #1
+        self.assertFalse(is_trap(0xD503201F))  # nop
+        self.assertFalse(is_trap(0xD65F03C0))  # ret
+        self.assertFalse(is_trap(0xA9BF7BFD))  # stp x29, x30, [sp, #-16]!  (prologue)
+
     def test_bti_after_authenticated_return_is_not_suppressed_as_interior(self):
         binary = b"".join(
             word.to_bytes(4, "little")
@@ -1315,6 +1393,25 @@ class TestAArch64GapScan(unittest.TestCase):
         manager._candidate_offsets = set()
 
         self.assertFalse(manager._isLikelyInteriorBtiCandidate(BASE + 4))
+
+    def test_bti_after_trap_is_not_suppressed_as_interior(self):
+        # a trap (brk/udf/hlt) ends control flow like ret/b, so a BTI right after a
+        # trap-terminated body (or trap filler) is a legitimate entry landing pad.
+        for trap_word in (0xD4200020, 0x00000036, 0xD4400020):  # brk #1, udf #0x36, hlt #1
+            binary = b"".join(
+                word.to_bytes(4, "little")
+                for word in [
+                    trap_word,
+                    0xD503245F,  # bti c
+                ]
+            )
+            binary_info = BinaryInfo(binary)
+            binary_info.base_addr = BASE
+            manager = FunctionCandidateManager(SmdaConfig())
+            manager.disassembly = SimpleNamespace(binary_info=binary_info, code_map={})
+            manager._candidate_offsets = set()
+
+            self.assertFalse(manager._isLikelyInteriorBtiCandidate(BASE + 4))
 
     def test_bti_after_drps_is_not_suppressed_as_interior(self):
         # drps (Debug Restore PState) transfers control to ELR_ELx like eret*, so a BTI

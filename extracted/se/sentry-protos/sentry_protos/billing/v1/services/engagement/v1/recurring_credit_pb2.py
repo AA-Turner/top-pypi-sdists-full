@@ -24,15 +24,19 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nFsentry_protos/billing/v1/services/engagement/v1/recurring_credit.proto\x12/sentry_protos.billing.v1.services.engagement.v1\"\xa3\x01\n\x0fRecurringCredit\x12\x1a\n\rline_item_uid\x18\x01 \x01(\tH\x00\x88\x01\x01\x12R\n\x04type\x18\x02 \x01(\x0e\x32\x44.sentry_protos.billing.v1.services.engagement.v1.RecurringCreditType\x12\x0e\n\x06\x61mount\x18\x03 \x01(\x04\x42\x10\n\x0e_line_item_uid*\xaa\x01\n\x13RecurringCreditType\x12%\n!RECURRING_CREDIT_TYPE_UNSPECIFIED\x10\x00\x12\x1f\n\x1bRECURRING_CREDIT_TYPE_UNITS\x10\x01\x12\x1f\n\x1bRECURRING_CREDIT_TYPE_CENTS\x10\x02\x12*\n&RECURRING_CREDIT_TYPE_DISCOUNT_PERCENT\x10\x03\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nFsentry_protos/billing/v1/services/engagement/v1/recurring_credit.proto\x12/sentry_protos.billing.v1.services.engagement.v1\"\x89\x01\n\x12\x43reditSourceConfig\x12M\n\x06source\x18\x01 \x01(\x0e\x32=.sentry_protos.billing.v1.services.engagement.v1.CreditSource\x12\x16\n\tsource_id\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x0c\n\n_source_id\"\xa3\x01\n\x0fRecurringCredit\x12\x1a\n\rline_item_uid\x18\x01 \x01(\tH\x00\x88\x01\x01\x12R\n\x04type\x18\x02 \x01(\x0e\x32\x44.sentry_protos.billing.v1.services.engagement.v1.RecurringCreditType\x12\x0e\n\x06\x61mount\x18\x03 \x01(\x04\x42\x10\n\x0e_line_item_uid*\xaa\x01\n\x13RecurringCreditType\x12%\n!RECURRING_CREDIT_TYPE_UNSPECIFIED\x10\x00\x12\x1f\n\x1bRECURRING_CREDIT_TYPE_UNITS\x10\x01\x12\x1f\n\x1bRECURRING_CREDIT_TYPE_CENTS\x10\x02\x12*\n&RECURRING_CREDIT_TYPE_DISCOUNT_PERCENT\x10\x03*d\n\x0c\x43reditSource\x12\x1d\n\x19\x43REDIT_SOURCE_UNSPECIFIED\x10\x00\x12\x1c\n\x18\x43REDIT_SOURCE_PROMO_CODE\x10\x01\x12\x17\n\x13\x43REDIT_SOURCE_ADMIN\x10\x02\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.engagement.v1.recurring_credit_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_RECURRINGCREDITTYPE']._serialized_start=290
-  _globals['_RECURRINGCREDITTYPE']._serialized_end=460
-  _globals['_RECURRINGCREDIT']._serialized_start=124
-  _globals['_RECURRINGCREDIT']._serialized_end=287
+  _globals['_RECURRINGCREDITTYPE']._serialized_start=430
+  _globals['_RECURRINGCREDITTYPE']._serialized_end=600
+  _globals['_CREDITSOURCE']._serialized_start=602
+  _globals['_CREDITSOURCE']._serialized_end=702
+  _globals['_CREDITSOURCECONFIG']._serialized_start=124
+  _globals['_CREDITSOURCECONFIG']._serialized_end=261
+  _globals['_RECURRINGCREDIT']._serialized_start=264
+  _globals['_RECURRINGCREDIT']._serialized_end=427
 # @@protoc_insertion_point(module_scope)

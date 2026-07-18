@@ -23,8 +23,10 @@ else:
 
 __all__ = (
     "AccessPolicyTypeType",
+    "AutoscalingStatusType",
     "CollectionStatusType",
     "CollectionTypeType",
+    "DeletionProtectionType",
     "IamIdentityCenterGroupAttributeType",
     "IamIdentityCenterUserAttributeType",
     "LifecyclePolicyTypeType",
@@ -34,6 +36,7 @@ __all__ = (
     "ResourceTypeType",
     "SecurityConfigTypeType",
     "SecurityPolicyTypeType",
+    "ServerlessGenerationType",
     "ServerlessVectorAccelerationStatusType",
     "ServiceName",
     "StandbyReplicasType",
@@ -41,16 +44,19 @@ __all__ = (
 )
 
 AccessPolicyTypeType = Literal["data"]
+AutoscalingStatusType = Literal["ACTION_SCALING_DOWN", "ACTION_SCALING_UP", "NO_ACTION"]
 CollectionStatusType = Literal[
     "ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATE_FAILED", "UPDATING"
 ]
 CollectionTypeType = Literal["SEARCH", "TIMESERIES", "VECTORSEARCH"]
+DeletionProtectionType = Literal["DISABLED", "ENABLED"]
 IamIdentityCenterGroupAttributeType = Literal["GroupId", "GroupName"]
 IamIdentityCenterUserAttributeType = Literal["Email", "UserId", "UserName"]
 LifecyclePolicyTypeType = Literal["retention"]
 ResourceTypeType = Literal["index"]
 SecurityConfigTypeType = Literal["iamfederation", "iamidentitycenter", "saml"]
 SecurityPolicyTypeType = Literal["encryption", "network"]
+ServerlessGenerationType = Literal["CLASSIC", "NEXTGEN"]
 ServerlessVectorAccelerationStatusType = Literal["ALLOWED", "DISABLED", "ENABLED"]
 StandbyReplicasType = Literal["DISABLED", "ENABLED"]
 VpcEndpointStatusType = Literal["ACTIVE", "DELETING", "FAILED", "PENDING"]
@@ -248,8 +254,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -276,6 +280,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -343,10 +349,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -379,6 +385,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -406,6 +413,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -427,7 +435,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -448,6 +455,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

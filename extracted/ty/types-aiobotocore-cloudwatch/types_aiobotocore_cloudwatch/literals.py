@@ -42,6 +42,7 @@ __all__ = (
     "ListAlarmMuteRulesPaginatorName",
     "ListDashboardsPaginatorName",
     "ListMetricsPaginatorName",
+    "LogAlarmExistsWaiterName",
     "MetricStreamOutputFormatType",
     "OTelEnrichmentStatusType",
     "PaginatorName",
@@ -62,7 +63,7 @@ ActionsSuppressedByType = Literal["Alarm", "ExtensionPeriod", "WaitPeriod"]
 AlarmExistsWaiterName = Literal["alarm_exists"]
 AlarmMuteRuleExistsWaiterName = Literal["alarm_mute_rule_exists"]
 AlarmMuteRuleStatusType = Literal["ACTIVE", "EXPIRED", "SCHEDULED"]
-AlarmTypeType = Literal["CompositeAlarm", "MetricAlarm"]
+AlarmTypeType = Literal["CompositeAlarm", "LogAlarm", "MetricAlarm"]
 AnomalyDetectorStateValueType = Literal["PENDING_TRAINING", "TRAINED", "TRAINED_INSUFFICIENT_DATA"]
 AnomalyDetectorTypeType = Literal["METRIC_MATH", "SINGLE_METRIC"]
 ComparisonOperatorType = Literal[
@@ -90,6 +91,7 @@ HistoryItemTypeType = Literal[
 ListAlarmMuteRulesPaginatorName = Literal["list_alarm_mute_rules"]
 ListDashboardsPaginatorName = Literal["list_dashboards"]
 ListMetricsPaginatorName = Literal["list_metrics"]
+LogAlarmExistsWaiterName = Literal["log_alarm_exists"]
 MetricStreamOutputFormatType = Literal["json", "opentelemetry0.7", "opentelemetry1.0"]
 OTelEnrichmentStatusType = Literal["Running", "Stopped"]
 RecentlyActiveType = Literal["PT3H"]
@@ -320,8 +322,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -348,6 +348,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -415,10 +417,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -451,6 +453,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -478,6 +481,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -499,7 +503,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -520,6 +523,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -564,7 +568,9 @@ PaginatorName = Literal[
     "list_dashboards",
     "list_metrics",
 ]
-WaiterName = Literal["alarm_exists", "alarm_mute_rule_exists", "composite_alarm_exists"]
+WaiterName = Literal[
+    "alarm_exists", "alarm_mute_rule_exists", "composite_alarm_exists", "log_alarm_exists"
+]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

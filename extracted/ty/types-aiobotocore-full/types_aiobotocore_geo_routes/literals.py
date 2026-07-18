@@ -38,6 +38,9 @@ __all__ = (
     "RoadSnapHazardousCargoTypeType",
     "RoadSnapNoticeCodeType",
     "RoadSnapTravelModeType",
+    "RouteAccessibilityAttributeType",
+    "RouteAccessibilityAvailabilityType",
+    "RouteAttributionTypeType",
     "RouteDirectionType",
     "RouteEngineTypeType",
     "RouteFerryAfterTravelStepTypeType",
@@ -45,6 +48,7 @@ __all__ = (
     "RouteFerryNoticeCodeType",
     "RouteFerryTravelStepTypeType",
     "RouteHazardousCargoTypeType",
+    "RouteIntermodalEnabledLegsType",
     "RouteLegAdditionalFeatureType",
     "RouteLegTravelModeType",
     "RouteLegTypeType",
@@ -54,8 +58,15 @@ __all__ = (
     "RouteMatrixTruckTypeType",
     "RouteMatrixZoneCategoryType",
     "RouteNoticeImpactType",
+    "RoutePedestrianAfterTravelStepTypeType",
     "RoutePedestrianNoticeCodeType",
+    "RoutePedestrianPlaceTypeType",
     "RoutePedestrianTravelStepTypeType",
+    "RouteRentalAfterTravelStepTypeType",
+    "RouteRentalBeforeTravelStepTypeType",
+    "RouteRentalModeType",
+    "RouteRentalPlaceTypeType",
+    "RouteRentalTravelStepTypeType",
     "RouteResponseNoticeCodeType",
     "RouteRoadTypeType",
     "RouteSideOfStreetType",
@@ -68,17 +79,37 @@ __all__ = (
     "RouteSpanScooterAccessAttributeType",
     "RouteSpanTruckAccessAttributeType",
     "RouteSteeringDirectionType",
+    "RouteTaxiAfterTravelStepTypeType",
+    "RouteTaxiBeforeTravelStepTypeType",
+    "RouteTaxiModeType",
+    "RouteTaxiNoticeCodeType",
+    "RouteTaxiPlaceTypeType",
+    "RouteTaxiTravelStepTypeType",
     "RouteTollPassValidityPeriodTypeType",
     "RouteTollPaymentMethodType",
     "RouteTollVehicleCategoryType",
+    "RouteTransitAfterTravelStepTypeType",
+    "RouteTransitBeforeTravelStepTypeType",
+    "RouteTransitIncidentEffectType",
+    "RouteTransitIncidentTypeType",
+    "RouteTransitIntermediateStopAttributeType",
+    "RouteTransitModeType",
+    "RouteTransitNoticeCodeType",
+    "RouteTransitPlaceTypeType",
+    "RouteTransitTravelStepTypeType",
+    "RouteTransitTripStatusType",
     "RouteTravelModeType",
     "RouteTravelStepTypeType",
     "RouteTruckTypeType",
     "RouteTurnIntensityType",
+    "RouteVehicleAfterTravelStepTypeType",
     "RouteVehicleIncidentSeverityType",
     "RouteVehicleIncidentTypeType",
+    "RouteVehicleModeType",
     "RouteVehicleNoticeCodeType",
+    "RouteVehiclePlaceTypeType",
     "RouteVehicleTravelStepTypeType",
+    "RouteWebLinkDeviceTypeType",
     "RouteWeightConstraintTypeType",
     "RouteZoneCategoryType",
     "RoutingObjectiveType",
@@ -144,6 +175,9 @@ RoadSnapNoticeCodeType = Literal[
     "TracePointsSpeedIgnored",
 ]
 RoadSnapTravelModeType = Literal["Car", "Pedestrian", "Scooter", "Truck"]
+RouteAccessibilityAttributeType = Literal["Wheelchair"]
+RouteAccessibilityAvailabilityType = Literal["Available", "Limited", "Unavailable", "Unknown"]
+RouteAttributionTypeType = Literal["Disclaimer", "Tariff"]
 RouteDirectionType = Literal["East", "North", "South", "West"]
 RouteEngineTypeType = Literal["Electric", "InternalCombustion", "PluginHybrid"]
 RouteFerryAfterTravelStepTypeType = Literal["Deboard"]
@@ -154,8 +188,10 @@ RouteFerryNoticeCodeType = Literal[
     "Other",
     "PotentialViolatedVehicleRestrictionUsage",
     "SeasonalClosure",
+    "ViolatedAvoidAreas",
     "ViolatedAvoidFerry",
     "ViolatedAvoidRailFerry",
+    "ViolatedVehicleRestriction",
 ]
 RouteFerryTravelStepTypeType = Literal["Arrive", "Continue", "Depart"]
 RouteHazardousCargoTypeType = Literal[
@@ -171,9 +207,13 @@ RouteHazardousCargoTypeType = Literal[
     "PoisonousInhalation",
     "Radioactive",
 ]
+RouteIntermodalEnabledLegsType = Literal["EntireRoute", "FirstLeg", "LastLeg", "None"]
 RouteLegAdditionalFeatureType = Literal[
+    "Bookings",
     "Elevation",
     "Incidents",
+    "IntermediateStops",
+    "NextDepartures",
     "PassThroughWaypoints",
     "Summary",
     "Tolls",
@@ -183,9 +223,28 @@ RouteLegAdditionalFeatureType = Literal[
     "Zones",
 ]
 RouteLegTravelModeType = Literal[
-    "Car", "CarShuttleTrain", "Ferry", "Pedestrian", "Scooter", "Truck"
+    "AerialTramway",
+    "Airplane",
+    "Bus",
+    "BusRapidTransit",
+    "Car",
+    "CarShuttleTrain",
+    "CityTrain",
+    "Ferry",
+    "FunicularRailway",
+    "HighSpeedTrain",
+    "IntercityTrain",
+    "InterregionalTrain",
+    "LightRail",
+    "Monorail",
+    "Pedestrian",
+    "PrivateBus",
+    "RegionalTrain",
+    "Scooter",
+    "Subway",
+    "Truck",
 ]
-RouteLegTypeType = Literal["Ferry", "Pedestrian", "Vehicle"]
+RouteLegTypeType = Literal["Ferry", "Pedestrian", "Rental", "Taxi", "Transit", "Vehicle"]
 RouteMatrixErrorCodeType = Literal[
     "NoMatch",
     "NoMatchDestination",
@@ -214,13 +273,16 @@ RouteMatrixTravelModeType = Literal["Car", "Pedestrian", "Scooter", "Truck"]
 RouteMatrixTruckTypeType = Literal["LightTruck", "StraightTruck", "Tractor"]
 RouteMatrixZoneCategoryType = Literal["CongestionPricing", "Environmental", "Vignette"]
 RouteNoticeImpactType = Literal["High", "Low"]
+RoutePedestrianAfterTravelStepTypeType = Literal["Wait"]
 RoutePedestrianNoticeCodeType = Literal[
     "AccuratePolylineUnavailable",
     "Other",
+    "ViolatedAvoidAreas",
     "ViolatedAvoidDirtRoad",
     "ViolatedAvoidTunnel",
     "ViolatedPedestrianOption",
 ]
+RoutePedestrianPlaceTypeType = Literal["AccessPoint", "DockingStation", "ParkingLot", "Station"]
 RoutePedestrianTravelStepTypeType = Literal[
     "Arrive",
     "Continue",
@@ -231,8 +293,30 @@ RoutePedestrianTravelStepTypeType = Literal[
     "RoundaboutPass",
     "Turn",
 ]
+RouteRentalAfterTravelStepTypeType = Literal["Park"]
+RouteRentalBeforeTravelStepTypeType = Literal["Setup"]
+RouteRentalModeType = Literal["All", "Car"]
+RouteRentalPlaceTypeType = Literal["AccessPoint", "DockingStation", "ParkingLot", "Station"]
+RouteRentalTravelStepTypeType = Literal[
+    "Arrive",
+    "Continue",
+    "Depart",
+    "Exit",
+    "Keep",
+    "Ramp",
+    "RoundaboutEnter",
+    "RoundaboutExit",
+    "RoundaboutPass",
+    "Turn",
+    "UTurn",
+]
 RouteResponseNoticeCodeType = Literal[
-    "MainLanguageNotFound", "Other", "TravelTimeExceedsDriverWorkHours"
+    "MainLanguageNotFound",
+    "NoTransitStationsFound",
+    "Other",
+    "TransitDataUnavailable",
+    "TransitRouteUnavailable",
+    "TravelTimeExceedsDriverWorkHours",
 ]
 RouteRoadTypeType = Literal["Highway", "Rural", "Urban"]
 RouteSideOfStreetType = Literal["Left", "Right"]
@@ -285,6 +369,24 @@ RouteSpanRoadAttributeType = Literal[
 RouteSpanScooterAccessAttributeType = Literal["Allowed", "NoThroughTraffic", "TollRoad"]
 RouteSpanTruckAccessAttributeType = Literal["Allowed", "NoThroughTraffic", "TollRoad"]
 RouteSteeringDirectionType = Literal["Left", "Right", "Straight"]
+RouteTaxiAfterTravelStepTypeType = Literal["Park"]
+RouteTaxiBeforeTravelStepTypeType = Literal["Wait"]
+RouteTaxiModeType = Literal["All", "Car"]
+RouteTaxiNoticeCodeType = Literal["AccuratePolylineUnavailable", "Other"]
+RouteTaxiPlaceTypeType = Literal["AccessPoint", "Station"]
+RouteTaxiTravelStepTypeType = Literal[
+    "Arrive",
+    "Continue",
+    "Depart",
+    "Exit",
+    "Keep",
+    "Ramp",
+    "RoundaboutEnter",
+    "RoundaboutExit",
+    "RoundaboutPass",
+    "Turn",
+    "UTurn",
+]
 RouteTollPassValidityPeriodTypeType = Literal[
     "Annual", "Days", "ExtendedAnnual", "Minutes", "Months"
 ]
@@ -299,10 +401,72 @@ RouteTollPaymentMethodType = Literal[
     "VideoToll",
 ]
 RouteTollVehicleCategoryType = Literal["Minibus"]
-RouteTravelModeType = Literal["Car", "Pedestrian", "Scooter", "Truck"]
+RouteTransitAfterTravelStepTypeType = Literal["Deboard"]
+RouteTransitBeforeTravelStepTypeType = Literal["Board"]
+RouteTransitIncidentEffectType = Literal[
+    "Delayed",
+    "Detoured",
+    "Other",
+    "ServiceAdded",
+    "ServiceCancelled",
+    "ServiceModified",
+    "ServiceReduced",
+    "StopMoved",
+]
+RouteTransitIncidentTypeType = Literal[
+    "Accident",
+    "Construction",
+    "Demonstration",
+    "Holiday",
+    "Maintenance",
+    "MedicalEmergency",
+    "Other",
+    "PoliceActivity",
+    "Strike",
+    "TechnicalProblem",
+    "Weather",
+]
+RouteTransitIntermediateStopAttributeType = Literal["NoEntry", "NoExit"]
+RouteTransitModeType = Literal[
+    "AerialTramway",
+    "Airplane",
+    "All",
+    "Bus",
+    "BusRapidTransit",
+    "CityTrain",
+    "Ferry",
+    "FunicularRailway",
+    "HighSpeedTrain",
+    "IntercityTrain",
+    "InterregionalTrain",
+    "LightRail",
+    "Monorail",
+    "PrivateBus",
+    "RegionalTrain",
+    "Subway",
+]
+RouteTransitNoticeCodeType = Literal[
+    "AccuratePolylineUnavailable",
+    "IntermediateStopsUnavailable",
+    "NoSchedule",
+    "Other",
+    "PotentialViolatedVehicleRestrictionUsage",
+    "ScheduledTimes",
+    "SeasonalClosure",
+    "ViolatedAvoidAreas",
+    "ViolatedAvoidFerry",
+    "ViolatedAvoidRailFerry",
+    "ViolatedExcludedTransitMode",
+    "ViolatedVehicleRestriction",
+]
+RouteTransitPlaceTypeType = Literal["Station"]
+RouteTransitTravelStepTypeType = Literal["Depart"]
+RouteTransitTripStatusType = Literal["Added", "Cancelled", "Replaced", "Scheduled"]
+RouteTravelModeType = Literal["Car", "Intermodal", "Pedestrian", "Scooter", "Transit", "Truck"]
 RouteTravelStepTypeType = Literal["Default", "TurnByTurn"]
 RouteTruckTypeType = Literal["LightTruck", "StraightTruck", "Tractor"]
 RouteTurnIntensityType = Literal["Sharp", "Slight", "Typical"]
+RouteVehicleAfterTravelStepTypeType = Literal["Park"]
 RouteVehicleIncidentSeverityType = Literal["Critical", "High", "Low", "Medium"]
 RouteVehicleIncidentTypeType = Literal[
     "Accident",
@@ -317,6 +481,7 @@ RouteVehicleIncidentTypeType = Literal[
     "RoadHazard",
     "Weather",
 ]
+RouteVehicleModeType = Literal["All", "Car"]
 RouteVehicleNoticeCodeType = Literal[
     "AccuratePolylineUnavailable",
     "Other",
@@ -329,6 +494,7 @@ RouteVehicleNoticeCodeType = Literal[
     "TollTransponder",
     "TollsDataTemporarilyUnavailable",
     "TollsDataUnavailable",
+    "TravelTimeExceedsDriverWorkHours",
     "ViolatedAvoidControlledAccessHighway",
     "ViolatedAvoidDifficultTurns",
     "ViolatedAvoidDirtRoad",
@@ -346,6 +512,7 @@ RouteVehicleNoticeCodeType = Literal[
     "ViolatedVehicleRestriction",
     "ViolatedZoneRestriction",
 ]
+RouteVehiclePlaceTypeType = Literal["AccessPoint", "DockingStation", "ParkingLot", "Station"]
 RouteVehicleTravelStepTypeType = Literal[
     "Arrive",
     "Continue",
@@ -361,6 +528,7 @@ RouteVehicleTravelStepTypeType = Literal[
     "Turn",
     "UTurn",
 ]
+RouteWebLinkDeviceTypeType = Literal["Android", "Ios", "Web"]
 RouteWeightConstraintTypeType = Literal["Current", "Gross", "Unknown"]
 RouteZoneCategoryType = Literal["CongestionPricing", "Environmental", "Vignette"]
 RoutingObjectiveType = Literal["FastestRoute", "ShortestRoute"]
@@ -581,8 +749,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -609,6 +775,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -676,10 +844,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -712,6 +880,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -739,6 +908,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -760,7 +930,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -781,6 +950,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

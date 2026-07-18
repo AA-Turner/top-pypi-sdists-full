@@ -47,6 +47,7 @@ from .type_defs import (
     DimensionFilterTypeDef,
     DimensionTypeDef,
     EvaluationCriteriaTypeDef,
+    EvaluationWindowOutputTypeDef,
     GetMetricStatisticsInputMetricGetStatisticsTypeDef,
     GetMetricStatisticsOutputTypeDef,
     MetricDataQueryAlarmTypeDef,
@@ -394,6 +395,7 @@ class Alarm(AIOBoto3ServiceResource):
     threshold_metric_id: Awaitable[str]
     evaluation_state: Awaitable[EvaluationStateType]
     state_transitioned_timestamp: Awaitable[datetime]
+    evaluation_window: Awaitable[EvaluationWindowOutputTypeDef]
     evaluation_criteria: Awaitable[EvaluationCriteriaTypeDef]
     evaluation_interval: Awaitable[int]
     meta: CloudWatchResourceMeta  # type: ignore[override]

@@ -39,6 +39,7 @@ import httpx
 from pydantic import BaseModel
 
 from smplkit._config import _service_url, resolve_client_config
+from smplkit._transport import with_default_user_agent
 from smplkit.errors import (
     ConflictError,
     ConnectionError,
@@ -160,23 +161,28 @@ def _config_transport(
     profile: str | None,
     base_domain: str | None,
     scheme: str | None,
+    environment: str | None,
+    service: str | None,
     debug: bool | None,
     extra_headers: dict[str, str] | None,
-) -> tuple[_ConfigAuthClient, str]:
-    """Build a standalone config transport and resolve the app base URL.
+) -> tuple[_ConfigAuthClient, str, str | None, str | None]:
+    """Build a standalone config transport; resolve app URL, environment, service.
 
     ``base_url``/``api_key`` are used directly when both are supplied (the
     path a top-level client takes after it has already resolved them);
     otherwise the config resolver fills in whatever is missing
-    (``~/.smplkit`` / env vars / defaults). The app base URL is returned
-    alongside so a standalone client can open its own WebSocket against the
-    event gateway.
+    (``~/.smplkit`` / env vars / defaults). ``environment`` and ``service``
+    resolve through the same chain (constructor kwarg wins). The app base
+    URL is returned alongside so a standalone client can open its own
+    WebSocket against the event gateway.
     """
     cfg = resolve_client_config(
         profile=profile,
         api_key=api_key,
         base_domain=base_domain,
         scheme=scheme,
+        environment=environment,
+        service=service,
         debug=debug,
     )
     resolved_key = api_key if api_key is not None else cfg.api_key
@@ -185,8 +191,9 @@ def _config_transport(
     headers: dict[str, str] = {}
     headers.update(cfg.extra_headers or {})
     headers.update(extra_headers or {})
+    headers = with_default_user_agent(headers)
     transport = _ConfigAuthClient(base_url=config_url.rstrip("/"), token=resolved_key, headers=headers)
-    return transport, app_url
+    return transport, app_url, cfg.environment, cfg.service
 
 
 def _check_response_status(status_code: HTTPStatus, content: bytes) -> None:
@@ -581,7 +588,11 @@ class ConfigClient:
         api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
             ``~/.smplkit``.
         environment: Deployment environment used to resolve runtime config
-            values and to scope discovery declarations. Optional.
+            values and to scope discovery declarations. When omitted,
+            resolved from ``SMPLKIT_ENVIRONMENT`` or ``~/.smplkit``. Optional.
+        service: Service name used to scope discovery declarations (which
+            service declared each config). When omitted, resolved from
+            ``SMPLKIT_SERVICE`` or ``~/.smplkit``. Optional.
         base_url: Full config-service base URL. Usually resolved from
             ``base_domain``/``scheme``; supplied directly by the top-level
             clients which have already computed it.
@@ -590,6 +601,12 @@ class ConfigClient:
         scheme: URL scheme (default ``"https"``).
         debug: Enable SDK debug logging.
         extra_headers: Extra headers attached to every request.
+        streaming: When ``True`` (the default), the first live call opens a
+            WebSocket so config changes arrive live. Pass ``False`` for
+            stateless mode: the first live call still fetches and resolves
+            every config once, but no WebSocket and no background threads are
+            ever created — call :meth:`refresh` to re-fetch on demand. The
+            right shape for serverless environments.
         parent: Internal — the owning :class:`smplkit.SmplClient`. Not for
             direct use.
         transport: Internal — a pre-built config transport supplied by a
@@ -603,32 +620,38 @@ class ConfigClient:
         api_key: str | None = None,
         *,
         environment: str | None = None,
+        service: str | None = None,
         base_url: str | None = None,
         profile: str | None = None,
         base_domain: str | None = None,
         scheme: str | None = None,
         debug: bool | None = None,
         extra_headers: dict[str, str] | None = None,
+        streaming: bool = True,
         parent: SmplClient | None = None,
         transport: _ConfigAuthClient | None = None,
         metrics: _MetricsReporter | None = None,
     ) -> None:
         self._parent = parent
         self._metrics = metrics
-        self._environment = parent._environment if parent is not None else environment
-        self._service = parent._service if parent is not None else None
+        self._streaming = streaming
         self._standalone_api_key: str | None = None
         if transport is not None:
+            # Parent-wired: the parent's resolved environment/service win.
+            self._environment = parent._environment if parent is not None else environment
+            self._service = parent._service if parent is not None else service
             self._http = transport
             self._app_base_url: str | None = None
             self._owns_transport = False
         else:
-            self._http, self._app_base_url = _config_transport(
+            self._http, self._app_base_url, self._environment, self._service = _config_transport(
                 api_key=api_key,
                 base_url=base_url,
                 profile=profile,
                 base_domain=base_domain,
                 scheme=scheme,
+                environment=environment,
+                service=service,
                 debug=debug,
                 extra_headers=extra_headers,
             )
@@ -829,7 +852,7 @@ class ConfigClient:
             description=description,
         )
         if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
-            threading.Thread(target=self._threshold_flush, daemon=True).start()
+            self._schedule_threshold_flush()
 
     def register_config_item(
         self,
@@ -854,7 +877,14 @@ class ConfigClient:
         """
         self._buffer.add_item(config_id, item_key, item_type, default, description)
         if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
+            self._schedule_threshold_flush()
+
+    def _schedule_threshold_flush(self) -> None:
+        """Flush past the batch threshold — on a daemon thread in streaming mode, inline otherwise."""
+        if self._streaming:
             threading.Thread(target=self._threshold_flush, daemon=True).start()
+        else:
+            self._threshold_flush()
 
     def _threshold_flush(self) -> None:
         try:
@@ -919,6 +949,12 @@ class ConfigClient:
         if self._connected:
             return
 
+        # Acquire the socket up front (streaming mode) so a failure to open
+        # the live channel surfaces before any fetch or state mutation. In
+        # stateless mode (streaming=False) no socket is ever created and
+        # refresh() re-fetches on demand.
+        ws = self._ensure_ws() if self._streaming else None
+
         # Flush any buffered discovery declarations BEFORE the initial fetch,
         # so newly-discovered configs appear in the cache on first read.
         try:
@@ -931,10 +967,11 @@ class ConfigClient:
         self._do_refresh("initial")
         self._connected = True
 
-        self._ws_manager = self._ensure_ws()
-        self._ws_manager.on("config_changed", self._handle_config_changed)
-        self._ws_manager.on("config_deleted", self._handle_config_deleted)
-        self._ws_manager.on("configs_changed", self._handle_configs_changed)
+        if ws is not None:
+            self._ws_manager = ws
+            ws.on("config_changed", self._handle_config_changed)
+            ws.on("config_deleted", self._handle_config_deleted)
+            ws.on("configs_changed", self._handle_configs_changed)
 
     def _fetch_all_configs(self) -> list[Config]:
         """List configs directly from the API for the runtime cache."""
@@ -1523,32 +1560,38 @@ class AsyncConfigClient:
         api_key: str | None = None,
         *,
         environment: str | None = None,
+        service: str | None = None,
         base_url: str | None = None,
         profile: str | None = None,
         base_domain: str | None = None,
         scheme: str | None = None,
         debug: bool | None = None,
         extra_headers: dict[str, str] | None = None,
+        streaming: bool = True,
         parent: AsyncSmplClient | None = None,
         transport: _ConfigAuthClient | None = None,
         metrics: _AsyncMetricsReporter | None = None,
     ) -> None:
         self._parent = parent
         self._metrics = metrics
-        self._environment = parent._environment if parent is not None else environment
-        self._service = parent._service if parent is not None else None
+        self._streaming = streaming
         self._standalone_api_key: str | None = None
         if transport is not None:
+            # Parent-wired: the parent's resolved environment/service win.
+            self._environment = parent._environment if parent is not None else environment
+            self._service = parent._service if parent is not None else service
             self._http = transport
             self._app_base_url: str | None = None
             self._owns_transport = False
         else:
-            self._http, self._app_base_url = _config_transport(
+            self._http, self._app_base_url, self._environment, self._service = _config_transport(
                 api_key=api_key,
                 base_url=base_url,
                 profile=profile,
                 base_domain=base_domain,
                 scheme=scheme,
+                environment=environment,
+                service=service,
                 debug=debug,
                 extra_headers=extra_headers,
             )
@@ -1751,7 +1794,7 @@ class AsyncConfigClient:
             description=description,
         )
         if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
-            threading.Thread(target=self._threshold_flush_sync, daemon=True).start()
+            self._schedule_threshold_flush()
 
     def register_config_item(
         self,
@@ -1776,7 +1819,14 @@ class AsyncConfigClient:
         """
         self._buffer.add_item(config_id, item_key, item_type, default, description)
         if self._buffer.pending_count >= _CONFIG_BATCH_FLUSH_SIZE:
+            self._schedule_threshold_flush()
+
+    def _schedule_threshold_flush(self) -> None:
+        """Flush past the batch threshold — on a daemon thread in streaming mode, inline otherwise."""
+        if self._streaming:
             threading.Thread(target=self._threshold_flush_sync, daemon=True).start()
+        else:
+            self._threshold_flush_sync()
 
     def _threshold_flush_sync(self) -> None:
         try:
@@ -1845,6 +1895,12 @@ class AsyncConfigClient:
         if self._connected:
             return
 
+        # Acquire the socket up front (streaming mode) so a failure to open
+        # the live channel surfaces before any fetch or state mutation. In
+        # stateless mode (streaming=False) no socket is ever created and
+        # refresh() re-fetches on demand.
+        ws = self._ensure_ws() if self._streaming else None
+
         try:
             await self.flush()
         except Exception as exc:
@@ -1853,10 +1909,11 @@ class AsyncConfigClient:
         await self._do_refresh("initial")
         self._connected = True
 
-        self._ws_manager = self._ensure_ws()
-        self._ws_manager.on("config_changed", self._handle_config_changed)
-        self._ws_manager.on("config_deleted", self._handle_config_deleted)
-        self._ws_manager.on("configs_changed", self._handle_configs_changed)
+        if ws is not None:
+            self._ws_manager = ws
+            ws.on("config_changed", self._handle_config_changed)
+            ws.on("config_deleted", self._handle_config_deleted)
+            ws.on("configs_changed", self._handle_configs_changed)
 
     async def _fetch_all_configs_async(self) -> list[AsyncConfig]:
         async def fetch_page(page_number: int, page_size: int) -> list[AsyncConfig]:

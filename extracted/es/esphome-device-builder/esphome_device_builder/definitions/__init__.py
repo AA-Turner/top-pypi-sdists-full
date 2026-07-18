@@ -28,7 +28,7 @@ from typing import Any, NamedTuple
 import orjson
 import yaml
 
-from ..constants import DEVICE_IMPORT_SOURCE_TYPE
+from ..constants import IMPORT_SOURCE_TYPES
 from ..helpers.lazy_catalog import (
     is_external_image_url,
     is_unsafe_catalog_id,
@@ -316,14 +316,18 @@ def _resolve_full_config(data: dict[str, Any]) -> bool:
     Whether a board's featured components are a complete onboard config.
 
     The manifest's optional ``full_config`` overrides; absent it, defaults to
-    "is a devices.esphome.io import" (so imports opt in, hand-curated boards
-    opt out, and either can be hand-curated the other way).
+    "is an import" (so imports opt in, hand-curated boards opt out, and
+    either can be hand-curated the other way).
     """
     override = data.get("full_config")
     if isinstance(override, bool):
         return override
+    # A remote-package board's completeness lives in the upstream package,
+    # not in its featured components — never derive True for it.
+    if data.get("package_import_url"):
+        return False
     source = data.get("source")
-    return isinstance(source, dict) and source.get("type") == DEVICE_IMPORT_SOURCE_TYPE
+    return isinstance(source, dict) and source.get("type") in IMPORT_SOURCE_TYPES
 
 
 def build_board_catalog_from_manifests(*, strict: bool = False) -> BoardCatalogResponse:
@@ -379,6 +383,8 @@ def build_board_catalog_from_manifests(*, strict: bool = False) -> BoardCatalogR
                     featured=data.get("featured", False),
                     is_generic=data.get("is_generic", False),
                     full_config=full_config,
+                    package_import_url=data.get("package_import_url", ""),
+                    package_name=data.get("package_name", ""),
                     featured_components=[
                         _load_featured_component(fc, board_dir, multi_conf_by_id)
                         for fc in data.get("featured_components", [])

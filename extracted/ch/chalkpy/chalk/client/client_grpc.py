@@ -729,6 +729,18 @@ class StubProvider:
                 *interceptors,
             )
 
+        # Retained to mint Bearer tokens for direct (non-proxied) calls; None when skipping auth.
+        self._token_refresher: TokenRefresher | None = token_refresher
+
+    def get_remote_call_metadata(self) -> List[tuple[str, str]]:
+        """Bearer token + env id for a direct scaling-group call."""
+        metadata: List[tuple[str, str]] = []
+        if self._token_refresher is not None:
+            metadata.append(("authorization", f"Bearer {self._token_refresher.get_token().access_token}"))
+        if self.environment_id:
+            metadata.append(("x-chalk-env-id", self.environment_id))
+        return metadata
+
 
 class StubRefresher:
     def __init__(
@@ -864,6 +876,9 @@ class StubRefresher:
     @property
     def environment_id(self) -> str | None:
         return self._stub.environment_id
+
+    def get_remote_call_metadata(self) -> List[tuple[str, str]]:
+        return self._stub.get_remote_call_metadata()
 
 
 class ChalkGRPCClient:
@@ -2327,9 +2342,32 @@ class ChalkGRPCClient:
             return table_names
         return table_names[-1]
 
+    def _iter_offline_store_tables(self, deployment_id: "str | None" = None):
+        if self._environment is None:
+            chalk_logger.error(
+                "No environment set on ChalkGRPCClient. Please specify an environment when initializing the client."
+            )
+            raise ValueError("environment is required to look up offline store table names")
+        page_token = ""
+        while True:
+            resp = self._stub_refresher.call_graph_stub(
+                lambda x: x.GetAllOfflineStoreTables(
+                    GetAllOfflineStoreTablesRequest(deployment_id=deployment_id or "", page_token=page_token)
+                )
+            )
+
+            for table in resp.tables:
+                yield OfflineStoreTable(
+                    fqn=table.fqn,
+                    internal_version=table.internal_version,
+                    table_name=table.table_name,
+                )
+            page_token = resp.next_page_token
+            if page_token == "":
+                break
+
     def get_all_offline_store_table_names(
         self,
-        branch_id: "str | None" = None,
         deployment_id: "str | None" = None,
     ) -> "list[OfflineStoreTable]":
         """Get the offline store table name for every feature and internal version in a deployment.
@@ -2338,8 +2376,6 @@ class ChalkGRPCClient:
 
         Parameters
         ----------
-        branch_id
-            If set, return table names for the given branch deployment.
         deployment_id
             The deployment to look up. If ``None``, uses the environment's active deployment.
 
@@ -2348,30 +2384,11 @@ class ChalkGRPCClient:
         list[OfflineStoreTable]
             One entry per feature and internal version, each with ``fqn``, ``internal_version``, and ``table_name``.
         """
-        if self._environment is None:
-            chalk_logger.error(
-                "No environment set on ChalkGRPCClient. Please specify an environment when initializing the client."
-            )
-            raise ValueError("environment is required to look up offline store table names")
-
-        resp = self._stub_refresher.call_graph_stub(
-            lambda x: x.GetAllOfflineStoreTables(
-                GetAllOfflineStoreTablesRequest(deployment_id=deployment_id or "", branch_id=branch_id)
-            )
-        )
-        return [
-            OfflineStoreTable(
-                fqn=table.fqn,
-                internal_version=table.internal_version,
-                table_name=table.table_name,
-            )
-            for table in resp.tables
-        ]
+        return list(self._iter_offline_store_tables(deployment_id))
 
     def get_feature_from_offline_store_table_name(
         self,
         table_name: str,
-        branch_id: "str | None" = None,
         deployment_id: "str | None" = None,
     ) -> "OfflineStoreTable | None":
         """Find the feature for a given offline store table name (reverse lookup).
@@ -2380,8 +2397,6 @@ class ChalkGRPCClient:
         ----------
         table_name
             The ``feat_<hash>`` offline store table name to look up.
-        branch_id
-            If set, search the given branch deployment's tables.
         deployment_id
             The deployment to search. If ``None``, uses the environment's active deployment.
 
@@ -2390,7 +2405,7 @@ class ChalkGRPCClient:
         OfflineStoreTable | None
             The matching table (with ``fqn`` and ``internal_version``), or ``None`` if no feature maps to that table name.
         """
-        for table in self.get_all_offline_store_table_names(branch_id=branch_id, deployment_id=deployment_id):
+        for table in self._iter_offline_store_tables(deployment_id):
             if table.table_name == table_name:
                 return table
         return None
@@ -4580,8 +4595,11 @@ class ChalkGRPCClient:
                     }
                 ]
             except (VolumeError, Exception):
-                artifact_result = self.download_model_artifact(model_name, model_version)
-                model_files = artifact_result.downloaded_model_files
+                # Only artifact-backed models have files to mount; image-only models deploy as-is.
+                if spec.model_files:
+                    model_files = self.download_model_artifact(model_name, model_version).downloaded_model_files
+                else:
+                    model_files = []
                 if model_files:
                     try:
                         upload_chalk_handler_artifacts(
@@ -4849,3 +4867,20 @@ class ChalkGRPCClient:
         resp = self._stub_refresher.call_scaling_group_stub(do_call)
         scaling_group = proto_to_scaling_group(resp.scaling_group) if resp.scaling_group else None
         return DeleteScalingGroupResponse(scalingGroup=scaling_group)
+
+    def _get_remote_call_metadata(self) -> List[tuple[str, str]]:
+        """gRPC metadata (Bearer token + env id) for a direct scaling-group call."""
+        return self._stub_refresher.get_remote_call_metadata()
+
+    def call_model_scaling_group(
+        self,
+        model_name: str,
+        inputs: "Mapping[str, Sequence[Any]] | RecordBatch | Table",
+        *,
+        version: Optional[int] = None,
+        handler: str = "handler",
+    ) -> "RecordBatch":
+        """Invoke a model deployed to a scaling group by calling its ingress directly."""
+        from chalk.client._model_remote import call_model_scaling_group
+
+        return call_model_scaling_group(self, model_name, inputs, version=version, handler=handler)

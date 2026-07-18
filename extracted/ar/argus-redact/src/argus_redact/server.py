@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import json
 import os
 import secrets
 import warnings
@@ -33,12 +34,44 @@ except ImportError:
         from starlette.requests import Request
         from starlette.responses import JSONResponse
 
+# Configurable server-side body cap — a DoS guard against memory amplification
+# from unbounded request bodies buffered before any size check.
+MAX_HTTP_BODY_BYTES = 10 * 1024 * 1024
+
+
+class _BodyTooLarge(Exception):
+    """Request body exceeded MAX_HTTP_BODY_BYTES (mapped to 413)."""
+
+
+async def _read_capped_body(request: Request) -> bytes:
+    """Read the request body, aborting as soon as it exceeds MAX_HTTP_BODY_BYTES.
+
+    Streams via request.stream() so memory stays bounded to ~cap even for a
+    chunked body with no Content-Length header. Raises _BodyTooLarge.
+    """
+    clen = request.headers.get("content-length")
+    if clen is not None and clen.isdigit() and int(clen) > MAX_HTTP_BODY_BYTES:
+        raise _BodyTooLarge
+    size = 0
+    chunks: list[bytes] = []
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > MAX_HTTP_BODY_BYTES:
+            raise _BodyTooLarge
+        chunks.append(chunk)
+    return b"".join(chunks)
+
 
 async def handle_redact(request: Request) -> JSONResponse:
+    try:
+        raw = await _read_capped_body(request)
+    except _BodyTooLarge:
+        return JSONResponse({"error": "request body too large"}, status_code=413)
+
     # C4: a malformed/empty body raises JSONDecodeError (a ValueError). Parsing
     # inside the try turns that into a 400, not an unhandled 500.
     try:
-        body = await request.json()
+        body = json.loads(raw)
     except ValueError:
         return JSONResponse({"error": "request body must be valid JSON"}, status_code=400)
 
@@ -114,10 +147,15 @@ async def handle_redact(request: Request) -> JSONResponse:
 
 
 async def handle_restore(request: Request) -> JSONResponse:
+    try:
+        raw = await _read_capped_body(request)
+    except _BodyTooLarge:
+        return JSONResponse({"error": "request body too large"}, status_code=413)
+
     # C4: a malformed body raises JSONDecodeError (a ValueError). Parsing inside
     # the try turns that into a 400, not an unhandled 500.
     try:
-        body = await request.json()
+        body = json.loads(raw)
     except ValueError:
         return JSONResponse({"error": "request body must be valid JSON"}, status_code=400)
 

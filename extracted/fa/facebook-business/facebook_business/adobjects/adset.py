@@ -32,6 +32,7 @@ class AdSet(
 
     class Field(AbstractObject.Field):
         account_id = 'account_id'
+        ad_set_goal = 'ad_set_goal'
         adlabels = 'adlabels'
         adset_schedule = 'adset_schedule'
         asset_feed_id = 'asset_feed_id'
@@ -76,6 +77,7 @@ class AdSet(
         is_dynamic_creative = 'is_dynamic_creative'
         is_incremental_attribution_enabled = 'is_incremental_attribution_enabled'
         is_organic_ad_joint_optimized = 'is_organic_ad_joint_optimized'
+        is_sequenced_conversion_creation = 'is_sequenced_conversion_creation'
         issues_info = 'issues_info'
         learning_stage_info = 'learning_stage_info'
         lifetime_budget = 'lifetime_budget'
@@ -324,6 +326,9 @@ class AdSet(
         value_17 = '17'
         value_18 = '18'
         value_19 = '19'
+        value_20 = '20'
+        value_21 = '21'
+        value_22 = '22'
 
     class TuneForCategory:
         credit = 'CREDIT'
@@ -445,6 +450,7 @@ class AdSet(
           api_utils.warning('`success` and `failure` callback only work for batch call.')
         param_types = {
             'account_id': 'string',
+            'ad_set_goal': 'map',
             'adlabels': 'list<Object>',
             'adset_schedule': 'list<Object>',
             'attribution_spec': 'list<map>',
@@ -454,6 +460,7 @@ class AdSet(
             'bid_constraints': 'map<string, Object>',
             'bid_strategy': 'bid_strategy_enum',
             'billing_event': 'billing_event_enum',
+            'brand_safety_config': 'map',
             'budget_schedule_specs': 'list<Object>',
             'campaign_attribution': 'Object',
             'campaign_spec': 'Object',
@@ -478,6 +485,7 @@ class AdSet(
             'is_dc_follow_optimized': 'bool',
             'is_incremental_attribution_enabled': 'bool',
             'is_sac_cfca_terms_certified': 'bool',
+            'is_sequenced_conversion_creation': 'bool',
             'lifetime_budget': 'unsigned int',
             'lifetime_imps': 'unsigned int',
             'lifetime_min_spend_target': 'unsigned int',
@@ -1201,6 +1209,7 @@ class AdSet(
 
     _field_types = {
         'account_id': 'string',
+        'ad_set_goal': 'AdCampaignGoal',
         'adlabels': 'list<AdLabel>',
         'adset_schedule': 'list<DayPart>',
         'asset_feed_id': 'string',
@@ -1245,6 +1254,7 @@ class AdSet(
         'is_dynamic_creative': 'bool',
         'is_incremental_attribution_enabled': 'bool',
         'is_organic_ad_joint_optimized': 'bool',
+        'is_sequenced_conversion_creation': 'bool',
         'issues_info': 'list<AdCampaignIssuesInfo>',
         'learning_stage_info': 'AdCampaignLearningStageInfo',
         'lifetime_budget': 'string',

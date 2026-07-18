@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-hana
-Version: 4.6.0
+Version: 4.6.1
 Summary: SQLAlchemy dialect for SAP HANA
 Author-email: Christoph Heer <christoph.heer@sap.com>
 Maintainer-email: Christoph Heer <christoph.heer@sap.com>, Kai Harder <kai.harder@sap.com>

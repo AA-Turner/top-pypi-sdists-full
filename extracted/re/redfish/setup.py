@@ -12,7 +12,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='redfish',
-      version='3.3.5',
+      version='3.3.6',
       description='Redfish Python Library',
       long_description=long_description,
       long_description_content_type='text/x-rst',
@@ -41,5 +41,8 @@ setup(name='redfish',
           ],
           ':python_version >= "3.5"': [
               'jsonpatch'
+          ],
+          ':python_version >= "3.9"': [
+              'urllib3[zstd]>=2.6.0'
           ]
       })

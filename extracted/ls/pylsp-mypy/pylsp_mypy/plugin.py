@@ -9,26 +9,34 @@ Created on Fri Jul 10 09:53:57 2020
 
 import ast
 import collections
-import logging
 import os
 import os.path
 import re
-import shutil
-import subprocess
 import tempfile
 from configparser import ConfigParser
 from pathlib import Path
-from typing import IO, Any, Optional, TypedDict
+from typing import IO, Any, Optional
+
+from pylsp_mypy.hover import hover
+from pylsp_mypy.util import get_cmd
 
 try:
     import tomllib
 except ModuleNotFoundError:
     import tomli as tomllib
 
-from mypy import api as mypy_api
 from pylsp import hookimpl
 from pylsp.config.config import Config
 from pylsp.workspace import Document, Workspace
+
+from pylsp_mypy import log
+from pylsp_mypy.backend import (
+    Backend,
+    DmypyAPIBackend,
+    DmypyCommandBackend,
+    MypyAPIBackend,
+    MypyCommandBackend,
+)
 
 line_pattern = re.compile(
     (
@@ -44,7 +52,6 @@ whole_line_pattern = re.compile(  # certain mypy warnings do not report start-en
     )
 )
 
-log = logging.getLogger(__name__)
 
 # A mapping from workspace path to config file path
 mypyConfigFileMap: dict[str, Optional[str]] = {}
@@ -59,21 +66,6 @@ tmpFile: Optional[IO[bytes]] = None
 # so we can return some potentially-stale diagnostics.
 # https://github.com/python-lsp/python-lsp-server/blob/v1.0.1/pylsp/plugins/pylint_lint.py#L55-L62
 last_diagnostics: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
-
-
-# Windows started opening opening a cmd-like window for every subprocess call
-# This flag prevents that.
-# This flag is new in python 3.7
-# This flag only exists on Windows, hence the 'type: ignore[attr-defined]' below.
-class WindowsFlag(TypedDict, total=False):
-    creationflags: int
-
-
-windows_flag: WindowsFlag = (
-    {"creationflags": subprocess.CREATE_NO_WINDOW}  # type: ignore[attr-defined]
-    if os.name == "nt"
-    else {}
-)
 
 
 def parse_line(line: str, document: Optional[Document] = None) -> Optional[dict[str, Any]]:
@@ -149,6 +141,7 @@ def apply_overrides(args: list[str], overrides: list[Any]) -> list[str]:
 
 def didSettingsChange(workspace: str, settings: dict[str, Any]) -> None:
     """Handle relevant changes to the settings between runs."""
+    # TODO potentially clean up dmypy
     configSubPaths = settings.get("config_sub_paths", [])
     if settingsCache[workspace].get("config_sub_paths", []) != configSubPaths:
         mypyConfigFile = findConfigFile(
@@ -174,30 +167,6 @@ def match_exclude_patterns(document_path: str, exclude_patterns: list[str]) -> b
             log.error(f"pattern {pattern} is not a valid regular expression: {e}")
 
     return False
-
-
-def get_cmd(settings: dict[str, Any], cmd: str) -> list[str]:
-    """
-    Get the command to run from settings, falling back to searching the PATH.
-    If the command is not found in the settings and is not available on the PATH, an
-    empty list is returned.
-    """
-    command_key = f"{cmd}_command"
-    command: list[str] = settings.get(command_key, [])
-
-    if not (command and os.getenv("PYLSP_MYPY_ALLOW_DANGEROUS_CODE_EXECUTION")):
-        # env var is required to allow command from settings
-        if shutil.which(cmd):  # Fallback to PATH
-            log.debug(
-                f"'{command_key}' not found in settings or not allowed, using '{cmd}' from PATH"
-            )
-            command = [cmd]
-        else:  # Fallback to API
-            command = []
-
-    log.debug(f"Using {cmd} command: {command}")
-
-    return command
 
 
 @hookimpl
@@ -263,7 +232,7 @@ def get_diagnostics(
     document : Document
         The document to be linted.
     is_saved : bool
-        Weather the document is saved.
+        Whether the document is saved.
 
     Returns
     -------
@@ -324,96 +293,48 @@ def get_diagnostics(
     overrides = settings.get("overrides", [True])
     exit_status = 0
 
+    backend: Backend
+
     if not dmypy:
         args.extend(["--incremental", "--follow-imports", settings.get("follow-imports", "silent")])
         args = apply_overrides(args, overrides)
 
-        mypy_command: list[str] = get_cmd(settings, "mypy")
+        command = get_cmd(settings, "mypy")
 
-        if mypy_command:
+        if command:
             # mypy exists on PATH or was provided by settings
             # -> use this mypy
-            log.info("executing mypy args = %s on path", args)
-            completed_process = subprocess.run(
-                [*mypy_command, *args], capture_output=True, **windows_flag, encoding="utf-8"
-            )
-            report = completed_process.stdout
-            errors = completed_process.stderr
-            exit_status = completed_process.returncode
+            backend = MypyCommandBackend()
         else:
             # mypy does not exist on PATH and was not provided by settings,
             # but must exist in the env pylsp-mypy is installed in
             # -> use mypy via api
-            log.info("executing mypy args = %s via api", args)
-            report, errors, exit_status = mypy_api.run(args)
+            backend = MypyAPIBackend()
     else:
-        # If dmypy daemon is non-responsive calls to run will block.
-        # Check daemon status, if non-zero daemon is dead or hung.
-        # If daemon is hung, kill will reset
-        # If daemon is dead/absent, kill will no-op.
-        # In either case, reset to fresh state
+        command = get_cmd(settings, "dmypy")
 
-        dmypy_command: list[str] = get_cmd(settings, "dmypy")
+        args = [
+            "--status-file",
+            dmypy_status_file,
+            "run",
+            "--export-types",
+            "--",
+        ] + apply_overrides(args, overrides)
 
-        if dmypy_command:
+        if command:
             # dmypy exists on PATH or was provided by settings
             # -> use this dmypy
-            completed_process = subprocess.run(
-                [*dmypy_command, "--status-file", dmypy_status_file, "status"],
-                capture_output=True,
-                **windows_flag,
-                encoding="utf-8",
-            )
-            errors = completed_process.stderr
-            exit_status = completed_process.returncode
-            if exit_status != 0:
-                log.info(
-                    "restarting dmypy from status: %s message: %s via path",
-                    exit_status,
-                    errors.strip(),
-                )
-                subprocess.run(
-                    ["dmypy", "--status-file", dmypy_status_file, "restart"],
-                    capture_output=True,
-                    **windows_flag,
-                    encoding="utf-8",
-                )
+            backend = DmypyCommandBackend()
         else:
             # dmypy does not exist on PATH and was not provided by settings,
             # but must exist in the env pylsp-mypy is installed in
             # -> use dmypy via api
-            _, errors, exit_status = mypy_api.run_dmypy(
-                ["--status-file", dmypy_status_file, "status"]
-            )
-            if exit_status != 0:
-                log.info(
-                    "restarting dmypy from status: %s message: %s via api",
-                    exit_status,
-                    errors.strip(),
-                )
-                mypy_api.run_dmypy(["--status-file", dmypy_status_file, "restart"])
+            backend = DmypyAPIBackend()
 
-        # run to use existing daemon or restart if required
-        args = ["--status-file", dmypy_status_file, "run", "--"] + apply_overrides(args, overrides)
-        if dmypy_command:
-            # dmypy exists on PATH or was provided by settings
-            # -> use this dmypy
-            log.info("dmypy run args = %s via path", args)
-            completed_process = subprocess.run(
-                [*dmypy_command, *args], capture_output=True, **windows_flag, encoding="utf-8"
-            )
-            report = completed_process.stdout
-            errors = completed_process.stderr
-            exit_status = completed_process.returncode
-        else:
-            # dmypy does not exist on PATH and was not provided by settings,
-            # but must exist in the env pylsp-mypy is installed in
-            # -> use dmypy via api
-            log.info("dmypy run args = %s via api", args)
-            report, errors, exit_status = mypy_api.run_dmypy(args)
+    report, errors, exit_status = backend.run(command, args)
 
-    log.debug("report:\n%s", report)
-    log.debug("errors:\n%s", errors)
+    log.debug(f"report:\n{report}")
+    log.debug(f"errors:\n{errors}")
 
     diagnostics = []
 
@@ -568,6 +489,14 @@ def findConfigFile(
     return None
 
 
+@hookimpl(tryfirst=True)
+def pylsp_hover(
+    config: Config, workspace: Workspace, document: Document, position: dict[str, int]
+) -> dict[str, str]:
+    # TODO docstring
+    return hover(config, document, position)
+
+
 @hookimpl
 def pylsp_code_actions(
     config: Config,
@@ -669,50 +598,19 @@ def dmypy_stop(settings: dict[str, Any]) -> None:
     if not os.path.exists(status_file):
         return
 
-    dmypy_command: list[str] = get_cmd(settings, "dmypy")
+    command: list[str] = get_cmd(settings, "dmypy")
+    backend: Backend
 
-    if dmypy_command:
+    if command:
         # dmypy exists on PATH or was provided by settings
         # -> use this dmypy
-        completed_process = subprocess.run(
-            [*dmypy_command, "--status-file", status_file, "stop"],
-            capture_output=True,
-            **windows_flag,
-            encoding="utf-8",
-        )
-        output, errors = completed_process.stdout, completed_process.stderr
-        exit_status = completed_process.returncode
-        if exit_status != 0:
-            log.warning(
-                "failed to stop dmypy via path; exit code: %d, message: %s",
-                exit_status,
-                errors.strip(),
-            )
-            log.warning("killing dmypy via path")
-            subprocess.run(
-                [*dmypy_command, "--status-file", status_file, "kill"],
-                capture_output=True,
-                **windows_flag,
-                encoding="utf-8",
-                check=True,
-            )
-        else:
-            log.info("dmypy stopped via path: %s", output.strip())
+        backend = DmypyCommandBackend()
     else:
         # dmypy does not exist on PATH and was not provided by settings,
         # but must exist in the env pylsp-mypy is installed in
         # -> use dmypy via api
-        output, errors, exit_status = mypy_api.run_dmypy(["--status-file", status_file, "stop"])
-        if exit_status != 0:
-            log.warning(
-                "failed to stop dmypy; exit code: %d, message: %s",
-                exit_status,
-                errors.strip(),
-            )
-            log.warning("killing dmypy")
-            mypy_api.run_dmypy(["--status-file", status_file, "kill"])
-        else:
-            log.info("dmypy stopped: %s", output.strip())
+        backend = DmypyAPIBackend()
+    backend.stop(command, status_file)
 
 
 @hookimpl

@@ -103,6 +103,8 @@ from .type_defs import (
     CreateUserPoolClientResponseTypeDef,
     CreateUserPoolDomainRequestTypeDef,
     CreateUserPoolDomainResponseTypeDef,
+    CreateUserPoolReplicaRequestTypeDef,
+    CreateUserPoolReplicaResponseTypeDef,
     CreateUserPoolRequestTypeDef,
     CreateUserPoolResponseTypeDef,
     DeleteGroupRequestTypeDef,
@@ -114,6 +116,8 @@ from .type_defs import (
     DeleteUserPoolClientRequestTypeDef,
     DeleteUserPoolClientSecretRequestTypeDef,
     DeleteUserPoolDomainRequestTypeDef,
+    DeleteUserPoolReplicaRequestTypeDef,
+    DeleteUserPoolReplicaResponseTypeDef,
     DeleteUserPoolRequestTypeDef,
     DeleteUserRequestTypeDef,
     DeleteWebAuthnCredentialRequestTypeDef,
@@ -151,6 +155,8 @@ from .type_defs import (
     GetIdentityProviderByIdentifierResponseTypeDef,
     GetLogDeliveryConfigurationRequestTypeDef,
     GetLogDeliveryConfigurationResponseTypeDef,
+    GetProvisionedLimitRequestTypeDef,
+    GetProvisionedLimitResponseTypeDef,
     GetSigningCertificateRequestTypeDef,
     GetSigningCertificateResponseTypeDef,
     GetTokensFromRefreshTokenRequestTypeDef,
@@ -186,6 +192,8 @@ from .type_defs import (
     ListUserPoolClientSecretsResponseTypeDef,
     ListUserPoolClientsRequestTypeDef,
     ListUserPoolClientsResponseTypeDef,
+    ListUserPoolReplicasRequestTypeDef,
+    ListUserPoolReplicasResponseTypeDef,
     ListUserPoolsRequestTypeDef,
     ListUserPoolsResponseTypeDef,
     ListUsersInGroupRequestTypeDef,
@@ -227,6 +235,8 @@ from .type_defs import (
     UpdateIdentityProviderResponseTypeDef,
     UpdateManagedLoginBrandingRequestTypeDef,
     UpdateManagedLoginBrandingResponseTypeDef,
+    UpdateProvisionedLimitRequestTypeDef,
+    UpdateProvisionedLimitResponseTypeDef,
     UpdateResourceServerRequestTypeDef,
     UpdateResourceServerResponseTypeDef,
     UpdateTermsRequestTypeDef,
@@ -237,6 +247,8 @@ from .type_defs import (
     UpdateUserPoolClientResponseTypeDef,
     UpdateUserPoolDomainRequestTypeDef,
     UpdateUserPoolDomainResponseTypeDef,
+    UpdateUserPoolReplicaRequestTypeDef,
+    UpdateUserPoolReplicaResponseTypeDef,
     UpdateUserPoolRequestTypeDef,
     VerifySoftwareTokenRequestTypeDef,
     VerifySoftwareTokenResponseTypeDef,
@@ -280,12 +292,14 @@ class Exceptions(BaseClientExceptions):
     MFAMethodNotFoundException: type[BotocoreClientError]
     ManagedLoginBrandingExistsException: type[BotocoreClientError]
     NotAuthorizedException: type[BotocoreClientError]
+    OperationNotEnabledException: type[BotocoreClientError]
     PasswordHistoryPolicyViolationException: type[BotocoreClientError]
     PasswordResetRequiredException: type[BotocoreClientError]
     PreconditionNotMetException: type[BotocoreClientError]
     RefreshTokenReuseException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ScopeDoesNotExistException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
     SoftwareTokenMFANotFoundException: type[BotocoreClientError]
     TermsExistsException: type[BotocoreClientError]
     TierChangeNotAllowedException: type[BotocoreClientError]
@@ -798,6 +812,17 @@ class CognitoIdentityProviderClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#create_user_pool_domain)
         """
 
+    async def create_user_pool_replica(
+        self, **kwargs: Unpack[CreateUserPoolReplicaRequestTypeDef]
+    ) -> CreateUserPoolReplicaResponseTypeDef:
+        """
+        Creates a replica of an existing user pool in a specified Amazon Web Services
+        Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/create_user_pool_replica.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#create_user_pool_replica)
+        """
+
     async def delete_group(
         self, **kwargs: Unpack[DeleteGroupRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -906,6 +931,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/delete_user_pool_domain.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#delete_user_pool_domain)
+        """
+
+    async def delete_user_pool_replica(
+        self, **kwargs: Unpack[DeleteUserPoolReplicaRequestTypeDef]
+    ) -> DeleteUserPoolReplicaResponseTypeDef:
+        """
+        Deletes a secondary replica user pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/delete_user_pool_replica.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#delete_user_pool_replica)
         """
 
     async def delete_web_authn_credential(
@@ -1097,6 +1132,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#get_log_delivery_configuration)
         """
 
+    async def get_provisioned_limit(
+        self, **kwargs: Unpack[GetProvisionedLimitRequestTypeDef]
+    ) -> GetProvisionedLimitResponseTypeDef:
+        """
+        Returns the current provisioned limit for a specific API category.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_provisioned_limit.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#get_provisioned_limit)
+        """
+
     async def get_signing_certificate(
         self, **kwargs: Unpack[GetSigningCertificateRequestTypeDef]
     ) -> GetSigningCertificateResponseTypeDef:
@@ -1281,6 +1326,17 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/list_user_pool_clients.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#list_user_pool_clients)
+        """
+
+    async def list_user_pool_replicas(
+        self, **kwargs: Unpack[ListUserPoolReplicasRequestTypeDef]
+    ) -> ListUserPoolReplicasResponseTypeDef:
+        """
+        Lists all replicas for a user pool, including both primary and secondary
+        replicas.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/list_user_pool_replicas.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#list_user_pool_replicas)
         """
 
     async def list_user_pools(
@@ -1533,6 +1589,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#update_managed_login_branding)
         """
 
+    async def update_provisioned_limit(
+        self, **kwargs: Unpack[UpdateProvisionedLimitRequestTypeDef]
+    ) -> UpdateProvisionedLimitResponseTypeDef:
+        """
+        Sets the provisioned limit for a specific API category.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/update_provisioned_limit.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#update_provisioned_limit)
+        """
+
     async def update_resource_server(
         self, **kwargs: Unpack[UpdateResourceServerRequestTypeDef]
     ) -> UpdateResourceServerResponseTypeDef:
@@ -1592,6 +1658,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/update_user_pool_domain.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#update_user_pool_domain)
+        """
+
+    async def update_user_pool_replica(
+        self, **kwargs: Unpack[UpdateUserPoolReplicaRequestTypeDef]
+    ) -> UpdateUserPoolReplicaResponseTypeDef:
+        """
+        Updates replica-specific settings for a user pool replica.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/update_user_pool_replica.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#update_user_pool_replica)
         """
 
     async def verify_software_token(

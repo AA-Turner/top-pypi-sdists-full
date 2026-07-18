@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gcloud-rest-auth
-Version: 5.4.4
+Version: 5.5.0
 Summary: Python Client for Google Cloud Auth
 License: MIT
 License-File: LICENSE
@@ -18,11 +18,11 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
-Requires-Dist: backoff (>=1.0.0,<3.0.0)
-Requires-Dist: chardet (>=2.0,<7.0)
-Requires-Dist: cryptography (>=2.0.0,<49.0.0)
+Requires-Dist: chardet (>=2.0,<8.0)
+Requires-Dist: cryptography (>=2.0.0,<52.0.0)
 Requires-Dist: pyjwt (>=1.5.3,<3.0.0)
 Requires-Dist: requests (>=2.2.1,<3.0.0)
+Requires-Dist: tenacity (>=8.2.0,<10.0.0)
 Project-URL: Repository, https://github.com/talkiq/gcloud-aio
 Description-Content-Type: text/x-rst
 
@@ -46,6 +46,13 @@ against Google Cloud. The other ``gcloud-rest-*`` package components accept a
 ``Token`` instance as an argument; you can define a single token for all of
 these components or define one for each. Each component corresponds to a given
 Google Cloud service and each service requires various "`scopes`_".
+
+The library supports multiple authentication methods:
+- Service account credentials
+- Authorized user credentials
+- GCE metadata credentials
+- Impersonated service account credentials
+- External account credentials (for workload identity federation)
 
 |pypi| |pythons|
 

@@ -12,7 +12,7 @@ except ImportError:
 
 from ladybug_geometry.util import rounding_tolerance
 from ladybug_geometry.geometry3d import Vector3D, Plane, Face3D
-from honeybee.typing import clean_string
+from honeybee.typing import clean_xml_tag_string
 from honeybee.room import Room
 from honeybee.face import Face
 from honeybee.shade import Shade
@@ -1256,7 +1256,7 @@ def sub_face_to_gbxml_element(
             be used. (Default: None).
     """
     # establish the properties of the opening object
-    construction = clean_string(sub_face.properties.energy.construction.identifier)
+    construction = clean_xml_tag_string(sub_face.properties.energy.construction.identifier)
     opening_attr = {
         'id': sub_face.identifier,
         'openingType': sub_face.gbxml_type,
@@ -1380,7 +1380,7 @@ def room_to_gbxml_element(
             generated. (Default: None).
     """
     # establish the properties of the room object
-    story = clean_string(room.story) if room.story is not None else 'Unknown_Level'
+    story = clean_xml_tag_string(room.story) if room.story is not None else 'Unknown_Level'
     space_attr = {
         'id': room.identifier,
         'zoneIdRef': room.zone,
@@ -1605,7 +1605,7 @@ def model_to_gbxml_element(
             Apertures and Doors) should be triangulated if they have more
             than 4 sides (True) or whether they should be left as they are (False).
             This triangulation is necessary when exporting directly to EnergyPlus
-            since it cannot accept sub-faces with more than 4 vertices. (Default: True).
+            since it cannot accept sub-faces with more than 4 vertices. (Default: False).
         simple_rect_areas: Boolean to note whether the width and height of all
             RectangularGeometry is set based on the bounding rectangle around
             the geometry (False) or is set in a simplified manner with the
@@ -1681,10 +1681,28 @@ def model_to_gbxml_element(
     if reset_resource_ids:
         model.properties.energy.reset_resource_ids()
 
+    # ensure that all identifiers are legal IDs for XML tags
+    for room in model.rooms:
+        room.identifier = clean_xml_tag_string(room.identifier)
+        for face in room.faces:
+            face.identifier = clean_xml_tag_string(face.identifier)
+            fbc = face.boundary_condition
+            if isinstance(fbc, Surface):
+                sbc_objs = tuple(clean_xml_tag_string(obj) for obj in
+                                 fbc.boundary_condition_objects)
+                face.boundary_condition = Surface(sbc_objs)
+            for sf in face.sub_faces:
+                sf.identifier = clean_xml_tag_string(sf.identifier)
+                fbc = sf.boundary_condition
+                if isinstance(fbc, Surface):
+                    sbc_objs = tuple(clean_xml_tag_string(obj) for obj in
+                                     fbc.boundary_condition_objects)
+                    sf.boundary_condition = Surface(sbc_objs, True)
+
     # resolve the properties across zones
     zone_name_dict = {r.identifier: r.zone for r in model.rooms}
     for room in model.rooms:  # set all zone IDs to be acceptable in gbXML
-        room.zone = clean_string(room.zone)
+        room.zone = clean_xml_tag_string(room.zone)
     single_zones, zone_dict = model.properties.energy.resolve_zones()
 
     # depending on the unit system, set the units for the file
@@ -1695,8 +1713,23 @@ def model_to_gbxml_element(
         t_units, result_units = 'F', 'false'
         l_units, a_units, v_units = 'Feet', 'SquareFeet', 'CubicFeet'
 
+    # set the gbXML schema version in the header if specified
+    SCHEMA_VERSIONS = (
+        '0.35', '0.36', '0.37', '5.00', '5.01', '5.10', '5.11', '5.12',
+        '6.00', '6.01', '7.03', '8.01'
+    )
+    now_ver = SCHEMA_VERSIONS[-1]
+    if gbxml_schema_version is not None and gbxml_schema_version != now_ver:
+        if gbxml_schema_version not in SCHEMA_VERSIONS:
+            raise ValueError(
+                'The specified gbXML schema version "{}" is not recognized. '
+                'Please choose from the following: {}'.format(
+                    gbxml_schema_version, ', '.join(SCHEMA_VERSIONS)
+                )
+            )
+    gbxml_version = now_ver if gbxml_schema_version is None else gbxml_schema_version
+
     # create the ElementTree that holds everything
-    gbxml_version = '7.03' if gbxml_schema_version is None else gbxml_schema_version
     xsd_template = 'http://gbxml.org/schema/{}/GreenBuildingXML_Ver{}.xsd'
     xsd_url = xsd_template.format(gbxml_version.replace('.', '-'), gbxml_version)
     gbxml_attr = {
@@ -1767,7 +1800,9 @@ def model_to_gbxml_element(
     # get the stories of the model and write them into the gbXML
     for story_name, story_rooms in story_dict.items():
         elevation = min(r.min.z for r in story_rooms)
-        xml_story = ET.SubElement(xml_bldg, 'BuildingStorey', id=clean_string(story_name))
+        xml_story = ET.SubElement(
+            xml_bldg, 'BuildingStorey', id=clean_xml_tag_string(story_name)
+        )
         xml_story_name = ET.SubElement(xml_story, 'Name')
         xml_story_name.text = story_name
         xml_story_elev = ET.SubElement(xml_story, 'Level')
@@ -1807,8 +1842,10 @@ def model_to_gbxml_element(
 
     # add all of the shade geometries to the gbxml
     for shade in attached_shades + detached_shades:
+        shade.identifier = clean_xml_tag_string(shade.identifier)
         shade_to_gbxml_element(shade, tol, simple_rect_areas, explicit_holes, xml_campus)
     for sm in attached_sms + detached_sms:
+        sm.identifier = clean_xml_tag_string(sm.identifier)
         shade_mesh_to_gbxml_element(sm, tol, simple_rect_areas, explicit_holes, xml_campus)
 
     # get the default generic construction set
@@ -1930,7 +1967,7 @@ def model_to_gbxml_element(
         if program_name is None else program_name
     program_version = 'Unknown' if program_version is None else program_version
     xml_history = ET.SubElement(gbxml_root, 'DocumentHistory')
-    prog_id = clean_string(program_name).lower()
+    prog_id = clean_xml_tag_string(program_name).lower()
     created_info = {
         'programId': prog_id,
         'date': str(datetime.now().astimezone().isoformat(timespec='seconds')),
@@ -2032,7 +2069,7 @@ def model_to_gbxml(
             Apertures and Doors) should be triangulated if they have more
             than 4 sides (True) or whether they should be left as they are (False).
             This triangulation is necessary when exporting directly to EnergyPlus
-            since it cannot accept sub-faces with more than 4 vertices. (Default: True).
+            since it cannot accept sub-faces with more than 4 vertices. (Default: False).
         simple_rect_areas: Boolean to note whether the width and height of all
             RectangularGeometry is set based on the bounding rectangle around
             the geometry (False) or is set in a simplified manner with the

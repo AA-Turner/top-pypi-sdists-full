@@ -25,6 +25,7 @@ from .literals import (
     AccountAccessTypeType,
     AuthenticationProviderTypesType,
     DataSourceTypeType,
+    IPAddressTypeType,
     LicenseTypeType,
     PermissionTypeType,
     RoleType,
@@ -542,7 +543,9 @@ WorkspaceDescriptionTypeDef = TypedDict(
         "vpcConfiguration": NotRequired[VpcConfigurationOutputTypeDef],
         "networkAccessControl": NotRequired[NetworkAccessConfigurationOutputTypeDef],
         "grafanaToken": NotRequired[str],
+        "ipAddressType": NotRequired[IPAddressTypeType],
         "kmsKeyId": NotRequired[str],
+        "degradedWorkspaceReason": NotRequired[str],
     },
 )
 VpcConfigurationUnionTypeDef = Union[VpcConfigurationTypeDef, VpcConfigurationOutputTypeDef]
@@ -625,6 +628,7 @@ class CreateWorkspaceRequestTypeDef(TypedDict):
     configuration: NotRequired[str]
     networkAccessControl: NotRequired[NetworkAccessConfigurationUnionTypeDef]
     grafanaVersion: NotRequired[str]
+    ipAddressType: NotRequired[IPAddressTypeType]
     kmsKeyId: NotRequired[str]
 
 
@@ -644,6 +648,7 @@ class UpdateWorkspaceRequestTypeDef(TypedDict):
     removeVpcConfiguration: NotRequired[bool]
     networkAccessControl: NotRequired[NetworkAccessConfigurationUnionTypeDef]
     removeNetworkAccessConfiguration: NotRequired[bool]
+    ipAddressType: NotRequired[IPAddressTypeType]
 
 
 class UpdatePermissionsResponseTypeDef(TypedDict):

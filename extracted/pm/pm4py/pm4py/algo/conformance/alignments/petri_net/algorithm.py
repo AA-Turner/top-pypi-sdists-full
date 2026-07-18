@@ -28,12 +28,13 @@ from pm4py.util.xes_constants import DEFAULT_NAME_KEY, DEFAULT_TRACEID_KEY
 from pm4py.objects.log.obj import Trace, Event
 import time
 from pm4py.util.lp import solver
-from pm4py.util import exec_utils, thread_utils
+from pm4py.util import exec_utils, thread_utils, xes_constants
 from enum import Enum
 import sys
 from pm4py.util.constants import (
     PARAMETER_CONSTANT_ACTIVITY_KEY,
     PARAMETER_CONSTANT_CASEID_KEY,
+    PARAMETER_CONSTANT_TIMESTAMP_KEY,
     CASE_CONCEPT_NAME,
 )
 import importlib.util
@@ -69,6 +70,7 @@ class Parameters(Enum):
     PARAMETER_VARIANT_DELIMITER = "variant_delimiter"
     CASE_ID_KEY = PARAMETER_CONSTANT_CASEID_KEY
     ACTIVITY_KEY = PARAMETER_CONSTANT_ACTIVITY_KEY
+    TIMESTAMP_KEY = PARAMETER_CONSTANT_TIMESTAMP_KEY
     VARIANTS_IDX = "variants_idx"
     SHOW_PROGRESS_BAR = "show_progress_bar"
     CORES = "cores"
@@ -77,6 +79,7 @@ class Parameters(Enum):
     SYNCHRONOUS = "synchronous_dijkstra"
     EXPONENT="theta"
     ENABLE_BEST_WORST_COST = "enable_best_worst_cost"
+    UNPACK_VARIANT_ALIGNMENTS = "unpack_alignments"
 
 
 def __variant_mapper(variant):
@@ -268,7 +271,13 @@ def apply_log(
         ``Variants.APPROX_SLIDING_WINDOW``, and
         ``Variants.APPROX_FIXED_HORIZON``.
     parameters
-        :class:`dict` parameters of the algorithm,
+        :class:`dict` parameters of the algorithm:
+
+        Parameters.UNPACK_VARIANT_ALIGNMENTS ->
+            If true, return an alignment for each individual trace in the log. If the log contains few variants with many traces each, unpacking the alignments
+            will worsen the performance of the algorithm, since a python data structure is created for each trace.
+            If false, for each variant a tuple of alignment and number of traces in the variant is returned.
+            Default is true.
 
     Returns
     -------
@@ -277,10 +286,27 @@ def apply_log(
         **traversed_arcs**
         The alignment is a sequence of labels of the form (a,t), (a,>>), or (>>,t)
         representing synchronous/log/model-moves.
+        If the parameter UNPACK_VARIANT_ALIGNMENTS is False, a list of tuples is returned instead.
+        Each tuple represents a variant, with the first entry being the alignment as described above and
+        the second one being the number of occurrences of the variant.
 
     """
     if parameters is None:
         parameters = dict()
+
+    unpack_alignments = exec_utils.get_param_value(
+        Parameters.UNPACK_VARIANT_ALIGNMENTS, parameters, True
+    )
+
+    case_id_glue = exec_utils.get_param_value(
+        Parameters.CASE_ID_KEY, parameters, constants.CASE_CONCEPT_NAME
+    )
+    activity_key = exec_utils.get_param_value(
+        Parameters.ACTIVITY_KEY, parameters, xes_constants.DEFAULT_NAME_KEY
+    )
+    timestamp_key = exec_utils.get_param_value(
+        Parameters.TIMESTAMP_KEY, parameters, xes_constants.DEFAULT_TIMESTAMP_KEY
+    )
 
     if solver.DEFAULT_LP_SOLVER_VARIANT is not None:
         if not check_soundness.check_easy_soundness_net_in_fin_marking(
@@ -304,8 +330,19 @@ def apply_log(
         Parameters.PARAM_MAX_ALIGN_TIME_TRACE, parameters, sys.maxsize
     )
 
-    variants_idxs, one_tr_per_var = __get_variants_structure(log, parameters)
-    progress = __get_progress_bar(len(one_tr_per_var), parameters)
+    if unpack_alignments:
+        variants_idxs, one_tr_per_var = __get_variants_structure(log, parameters)
+        number_of_variants = len(one_tr_per_var)
+    else:
+        from pm4py import get_variants
+        all_variants = list(get_variants(log,
+                                         activity_key=activity_key,
+                                         timestamp_key=timestamp_key,
+                                         case_id_key=case_id_glue).items())
+        number_of_variants = len(all_variants)
+
+    progress = __get_progress_bar(number_of_variants, parameters)
+
 
     if enable_best_worst_cost:
         best_worst_cost = __get_best_worst_cost(
@@ -313,10 +350,9 @@ def apply_log(
         )
         parameters[Parameters.BEST_WORST_COST_INTERNAL] = best_worst_cost
 
-    is_dijkstra = str(variant) in {"Variants.VERSION_DIJKSTRA_LESS_MEMORY", "Variants.VERSION_DIJKSTRA_NO_HEURISTICS"}
     thm = thread_utils.Pm4pyThreadManager()
 
-    all_alignments = [None] * len(one_tr_per_var)
+    all_alignments = [None] * number_of_variants
 
     def _compute(idx, trace, params, results):
         results[idx] = apply_trace(
@@ -330,23 +366,41 @@ def apply_log(
         if progress is not None:
             progress.update()
 
-    for idx, trace in enumerate(one_tr_per_var):
-        this_max_align_time = min(
-            max_align_time_case,
-            (max_align_time - (time.time() - start_time)) * 0.5,
-        )
-        parameters[Parameters.PARAM_MAX_ALIGN_TIME_TRACE] = this_max_align_time
-        thm.submit(
-            _compute,
-            idx,
-            trace,
-            copy(parameters),
-            all_alignments,
-        )
-
+    if unpack_alignments:
+        for idx, trace in enumerate(one_tr_per_var):
+            this_max_align_time = min(
+                max_align_time_case,
+                (max_align_time - (time.time() - start_time)) * 0.5,
+            )
+            parameters[Parameters.PARAM_MAX_ALIGN_TIME_TRACE] = this_max_align_time
+            thm.submit(
+                _compute,
+                idx,
+                trace,
+                copy(parameters),
+                all_alignments,
+            )
+    else:
+        for idx, (trace, _) in enumerate(all_variants):
+            this_max_align_time = min(
+                max_align_time_case,
+                (max_align_time - (time.time() - start_time)) * 0.5,
+            )
+            parameters[Parameters.PARAM_MAX_ALIGN_TIME_TRACE] = this_max_align_time
+            thm.submit(
+                _compute,
+                idx,
+                Trace([Event({activity_key: a}) for a in trace]),
+                copy(parameters),
+                all_alignments,
+            )
     thm.join()
 
-    alignments = __form_alignments(variants_idxs, all_alignments)
+    if unpack_alignments:
+        alignments = __form_alignments(variants_idxs, all_alignments)
+    else:
+        alignments = __form_variant_alignments(all_variants, all_alignments)
+
     __close_progress_bar(progress)
 
     return alignments
@@ -374,12 +428,24 @@ def apply_multiprocessing(
     final_marking
         Final marking
     parameters
-        Parameters of the algorithm
+        :class:`dict` parameters of the algorithm:
+
+        Parameters.UNPACK_VARIANT_ALIGNMENTS ->
+            If true, return an alignment for each individual trace in the log. If the log contains few variants with many traces each, unpacking the alignments
+            will worsen the performance of the algorithm, since a python data structure is created for each trace.
+            If false, for each variant a tuple of alignment and number of traces in the variant is returned.
+            Default is true.
 
     Returns
-    ----------------
-    aligned_traces
-        Alignments
+    -------
+    alignment
+        :class:`list` of :class:`dict` with keys **alignment**, **cost**, **visited_states**, **queued_states** and
+        **traversed_arcs**
+        The alignment is a sequence of labels of the form (a,t), (a,>>), or (>>,t)
+        representing synchronous/log/model-moves.
+        If the parameter UNPACK_VARIANT_ALIGNMENTS is False, a list of tuples is returned instead.
+        Each tuple represents a variant, with the first entry being the alignment as described above and
+        the second one being the number of occurrences of the variant.
     """
     if parameters is None:
         parameters = {}
@@ -396,7 +462,30 @@ def apply_multiprocessing(
         Parameters.ENABLE_BEST_WORST_COST, parameters, True
     )
 
-    variants_idxs, one_tr_per_var = __get_variants_structure(log, parameters)
+    unpack_alignments = exec_utils.get_param_value(
+        Parameters.UNPACK_VARIANT_ALIGNMENTS, parameters, True
+    )
+    case_id_glue = exec_utils.get_param_value(
+        Parameters.CASE_ID_KEY, parameters, constants.CASE_CONCEPT_NAME
+    )
+    activity_key = exec_utils.get_param_value(
+        Parameters.ACTIVITY_KEY, parameters, xes_constants.DEFAULT_NAME_KEY
+    )
+    timestamp_key = exec_utils.get_param_value(
+        Parameters.TIMESTAMP_KEY, parameters, constants.DEFAULT_TIMESTAMP_KEY
+    )
+
+
+    if unpack_alignments:
+        variants_idxs, one_tr_per_var = __get_variants_structure(log, parameters)
+        number_of_variants = len(one_tr_per_var)
+    else:
+        from pm4py import get_variants
+        all_variants = list(get_variants(log,
+                                         activity_key=activity_key,
+                                         timestamp_key=timestamp_key,
+                                         case_id_key=case_id_glue).items())
+        number_of_variants = len(all_variants)
 
     if enable_best_worst_cost:
         best_worst_cost = __get_best_worst_cost(
@@ -410,19 +499,34 @@ def apply_multiprocessing(
 
     with ProcessPoolExecutor(max_workers=num_cores) as executor:
         futures = []
-        for trace in one_tr_per_var:
-            futures.append(
-                executor.submit(
-                    apply_trace,
-                    trace,
-                    petri_net,
-                    initial_marking,
-                    final_marking,
-                    parameters,
-                    str(variant),
+        if unpack_alignments:
+            for trace in one_tr_per_var:
+                futures.append(
+                    executor.submit(
+                        apply_trace,
+                        trace,
+                        petri_net,
+                        initial_marking,
+                        final_marking,
+                        parameters,
+                        str(variant),
+                    )
                 )
-            )
-        progress = __get_progress_bar(len(one_tr_per_var), parameters)
+        else:
+            for idx, (trace, _) in enumerate(all_variants):
+                futures.append(
+                    executor.submit(
+                        apply_trace,
+                        Trace([Event({activity_key: a}) for a in trace]),
+                        petri_net,
+                        initial_marking,
+                        final_marking,
+                        parameters,
+                        str(variant),
+                    )
+                )
+
+        progress = __get_progress_bar(number_of_variants, parameters)
         if progress is not None:
             alignments_ready = 0
             while alignments_ready != len(futures):
@@ -437,7 +541,10 @@ def apply_multiprocessing(
             all_alignments.append(futures[index].result())
         __close_progress_bar(progress)
 
-    alignments = __form_alignments(variants_idxs, all_alignments)
+    if unpack_alignments:
+        alignments = __form_alignments(variants_idxs, all_alignments)
+    else:
+        alignments = __form_variant_alignments(all_variants, all_alignments)
 
     return alignments
 
@@ -515,6 +622,9 @@ def __get_progress_bar(num_variants, parameters):
             total=num_variants, desc="aligning log, completed variants :: "
         )
     return progress
+
+def __form_variant_alignments(all_variants, all_alignments):
+    return [(all_alignments[i], all_variants[i][1]) for i in range(len(all_alignments))]
 
 
 def __form_alignments(variants_idxs, all_alignments):

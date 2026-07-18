@@ -30,9 +30,16 @@ __all__ = (
     "EncryptionStatusType",
     "EncryptionTypeType",
     "ListClustersPaginatorName",
+    "ListStreamsPaginatorName",
     "PaginatorName",
     "ResourceServiceName",
     "ServiceName",
+    "StreamActiveWaiterName",
+    "StreamFailureErrorCodeType",
+    "StreamFormatType",
+    "StreamNotExistsWaiterName",
+    "StreamOrderingType",
+    "StreamStatusType",
     "WaiterName",
 )
 
@@ -54,6 +61,22 @@ ClusterStatusType = Literal[
 EncryptionStatusType = Literal["ENABLED", "ENABLING", "KMS_KEY_INACCESSIBLE", "UPDATING"]
 EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS_KEY"]
 ListClustersPaginatorName = Literal["list_clusters"]
+ListStreamsPaginatorName = Literal["list_streams"]
+StreamActiveWaiterName = Literal["stream_active"]
+StreamFailureErrorCodeType = Literal[
+    "CLUSTER_CMK_INACCESSIBLE",
+    "INTERNAL_ERROR",
+    "KINESIS_ACCESS_DENIED",
+    "KINESIS_KMS_ACCESS_DENIED",
+    "KINESIS_OVERSIZE_RECORD",
+    "KINESIS_STREAM_NOT_FOUND",
+    "KINESIS_THROUGHPUT_EXCEEDED",
+    "ROLE_ACCESS_DENIED",
+]
+StreamFormatType = Literal["JSON"]
+StreamNotExistsWaiterName = Literal["stream_not_exists"]
+StreamOrderingType = Literal["UNORDERED"]
+StreamStatusType = Literal["ACTIVE", "CREATING", "DELETED", "DELETING", "FAILED", "IMPAIRED"]
 AuroraDSQLServiceName = Literal["dsql"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -248,8 +271,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -276,6 +297,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -343,10 +366,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -379,6 +402,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -406,6 +430,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -427,7 +452,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -448,6 +472,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -483,5 +508,5 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_clusters"]
-WaiterName = Literal["cluster_active", "cluster_not_exists"]
+PaginatorName = Literal["list_clusters", "list_streams"]
+WaiterName = Literal["cluster_active", "cluster_not_exists", "stream_active", "stream_not_exists"]

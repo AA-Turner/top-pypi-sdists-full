@@ -30,9 +30,14 @@ Usage::
         GetUserDefinedFunctionsPaginator,
         GetWorkflowRunsPaginator,
         GlueClient,
+        ListAssetTypesPaginator,
         ListBlueprintsPaginator,
         ListConnectionTypesPaginator,
         ListEntitiesPaginator,
+        ListFormTypesPaginator,
+        ListGlossariesPaginator,
+        ListGlossaryTermsPaginator,
+        ListIterableFormsPaginator,
         ListJobsPaginator,
         ListMaterializedViewRefreshTaskRunsPaginator,
         ListRegistriesPaginator,
@@ -42,6 +47,7 @@ Usage::
         ListTriggersPaginator,
         ListUsageProfilesPaginator,
         ListWorkflowsPaginator,
+        SearchAssetsPaginator,
     )
 
     session = get_session()
@@ -68,9 +74,14 @@ Usage::
     get_triggers_paginator: GetTriggersPaginator = client.get_paginator("get_triggers")
     get_user_defined_functions_paginator: GetUserDefinedFunctionsPaginator = client.get_paginator("get_user_defined_functions")
     get_workflow_runs_paginator: GetWorkflowRunsPaginator = client.get_paginator("get_workflow_runs")
+    list_asset_types_paginator: ListAssetTypesPaginator = client.get_paginator("list_asset_types")
     list_blueprints_paginator: ListBlueprintsPaginator = client.get_paginator("list_blueprints")
     list_connection_types_paginator: ListConnectionTypesPaginator = client.get_paginator("list_connection_types")
     list_entities_paginator: ListEntitiesPaginator = client.get_paginator("list_entities")
+    list_form_types_paginator: ListFormTypesPaginator = client.get_paginator("list_form_types")
+    list_glossaries_paginator: ListGlossariesPaginator = client.get_paginator("list_glossaries")
+    list_glossary_terms_paginator: ListGlossaryTermsPaginator = client.get_paginator("list_glossary_terms")
+    list_iterable_forms_paginator: ListIterableFormsPaginator = client.get_paginator("list_iterable_forms")
     list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
     list_materialized_view_refresh_task_runs_paginator: ListMaterializedViewRefreshTaskRunsPaginator = client.get_paginator("list_materialized_view_refresh_task_runs")
     list_registries_paginator: ListRegistriesPaginator = client.get_paginator("list_registries")
@@ -80,6 +91,7 @@ Usage::
     list_triggers_paginator: ListTriggersPaginator = client.get_paginator("list_triggers")
     list_usage_profiles_paginator: ListUsageProfilesPaginator = client.get_paginator("list_usage_profiles")
     list_workflows_paginator: ListWorkflowsPaginator = client.get_paginator("list_workflows")
+    search_assets_paginator: SearchAssetsPaginator = client.get_paginator("search_assets")
     ```
 """
 
@@ -103,9 +115,14 @@ from .paginator import (
     GetTriggersPaginator,
     GetUserDefinedFunctionsPaginator,
     GetWorkflowRunsPaginator,
+    ListAssetTypesPaginator,
     ListBlueprintsPaginator,
     ListConnectionTypesPaginator,
     ListEntitiesPaginator,
+    ListFormTypesPaginator,
+    ListGlossariesPaginator,
+    ListGlossaryTermsPaginator,
+    ListIterableFormsPaginator,
     ListJobsPaginator,
     ListMaterializedViewRefreshTaskRunsPaginator,
     ListRegistriesPaginator,
@@ -115,6 +132,7 @@ from .paginator import (
     ListTriggersPaginator,
     ListUsageProfilesPaginator,
     ListWorkflowsPaginator,
+    SearchAssetsPaginator,
 )
 
 Client = GlueClient
@@ -141,9 +159,14 @@ __all__ = (
     "GetUserDefinedFunctionsPaginator",
     "GetWorkflowRunsPaginator",
     "GlueClient",
+    "ListAssetTypesPaginator",
     "ListBlueprintsPaginator",
     "ListConnectionTypesPaginator",
     "ListEntitiesPaginator",
+    "ListFormTypesPaginator",
+    "ListGlossariesPaginator",
+    "ListGlossaryTermsPaginator",
+    "ListIterableFormsPaginator",
     "ListJobsPaginator",
     "ListMaterializedViewRefreshTaskRunsPaginator",
     "ListRegistriesPaginator",
@@ -153,4 +176,5 @@ __all__ = (
     "ListTriggersPaginator",
     "ListUsageProfilesPaginator",
     "ListWorkflowsPaginator",
+    "SearchAssetsPaginator",
 )

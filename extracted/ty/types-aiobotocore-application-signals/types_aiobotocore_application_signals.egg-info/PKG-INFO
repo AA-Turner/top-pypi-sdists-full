@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-application-signals
-Version: 3.7.0
-Summary: Type annotations for aiobotocore CloudWatchApplicationSignals 3.7.0 service generated with mypy-boto3-builder 8.12.0
+Version: 3.8.0
+Summary: Type annotations for aiobotocore CloudWatchApplicationSignals 3.8.0 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore CloudWatchApplicationSignals 3.7.0](https://pypi.org/project/aiobotocore/)
+[aiobotocore CloudWatchApplicationSignals 3.8.0](https://pypi.org/project/aiobotocore/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==3.7.0' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==3.8.0' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Add `CloudWatchApplicationSignals` service.
 4. Use provided commands to install generated packages.
@@ -333,7 +333,9 @@ from aiobotocore.session import get_session
 
 from types_aiobotocore_application_signals import CloudWatchApplicationSignalsClient
 from types_aiobotocore_application_signals.paginator import (
+    GetInstrumentationConfigurationStatusPaginator,
     ListEntityEventsPaginator,
+    ListInstrumentationConfigurationsPaginator,
     ListServiceDependenciesPaginator,
     ListServiceDependentsPaginator,
     ListServiceLevelObjectiveExclusionWindowsPaginator,
@@ -349,8 +351,14 @@ async with session.create_client("application-signals") as client:
 
     # Explicit type annotations are optional here
     # Types should be correctly discovered by mypy and IDEs
+    get_instrumentation_configuration_status_paginator: GetInstrumentationConfigurationStatusPaginator = client.get_paginator(
+        "get_instrumentation_configuration_status"
+    )
     list_entity_events_paginator: ListEntityEventsPaginator = client.get_paginator(
         "list_entity_events"
+    )
+    list_instrumentation_configurations_paginator: ListInstrumentationConfigurationsPaginator = (
+        client.get_paginator("list_instrumentation_configurations")
     )
     list_service_dependencies_paginator: ListServiceDependenciesPaginator = client.get_paginator(
         "list_service_dependencies"
@@ -384,10 +392,10 @@ Full list of `CloudWatchApplicationSignals` Literals can be found in
 [docs](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/literals/).
 
 ```python
-from types_aiobotocore_application_signals.literals import ChangeEventTypeType
+from types_aiobotocore_application_signals.literals import BatchDeleteErrorCodeType
 
 
-def check_value(value: ChangeEventTypeType) -> bool: ...
+def check_value(value: BatchDeleteErrorCodeType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>

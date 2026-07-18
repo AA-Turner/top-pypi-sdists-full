@@ -44,6 +44,7 @@ from .literals import (
     AudioDescriptionLanguageCodeControlType,
     AudioLanguageSelectionPolicyType,
     AudioNormalizationAlgorithmType,
+    AudioNormalizationPeakCalculationType,
     AudioOnlyHlsSegmentTypeType,
     AudioOnlyHlsTrackTypeType,
     AudioTypeType,
@@ -69,6 +70,7 @@ from .literals import (
     BurnInOutlineColorType,
     BurnInShadowColorType,
     BurnInTeletextGridControlType,
+    CaptionSynchronizationModeType,
     CdiInputResolutionType,
     ChannelAlertStateType,
     ChannelClassType,
@@ -381,16 +383,26 @@ __all__ = (
     "ArchiveS3SettingsTypeDef",
     "AudioChannelMappingOutputTypeDef",
     "AudioChannelMappingTypeDef",
+    "AudioChannelMappingUnionTypeDef",
     "AudioCodecSettingsOutputTypeDef",
     "AudioCodecSettingsTypeDef",
     "AudioDescriptionOutputTypeDef",
     "AudioDescriptionTypeDef",
     "AudioDolbyEDecodeTypeDef",
+    "AudioFeedInputTypeDef",
     "AudioHlsRenditionSelectionTypeDef",
     "AudioLanguageSelectionTypeDef",
     "AudioNormalizationSettingsTypeDef",
     "AudioOnlyHlsSettingsTypeDef",
+    "AudioPidOutputTypeDef",
+    "AudioPidSelectionOutputTypeDef",
     "AudioPidSelectionTypeDef",
+    "AudioPidSelectionUnionTypeDef",
+    "AudioPidTypeDef",
+    "AudioPidUnionTypeDef",
+    "AudioPreMixerSettingsOutputTypeDef",
+    "AudioPreMixerSettingsTypeDef",
+    "AudioPreMixerSettingsUnionTypeDef",
     "AudioSelectorOutputTypeDef",
     "AudioSelectorSettingsOutputTypeDef",
     "AudioSelectorSettingsTypeDef",
@@ -398,10 +410,12 @@ __all__ = (
     "AudioSelectorTypeDef",
     "AudioSelectorUnionTypeDef",
     "AudioSilenceFailoverSettingsTypeDef",
+    "AudioTrackOutputTypeDef",
     "AudioTrackSelectionOutputTypeDef",
     "AudioTrackSelectionTypeDef",
     "AudioTrackSelectionUnionTypeDef",
     "AudioTrackTypeDef",
+    "AudioTrackUnionTypeDef",
     "AudioWatermarkSettingsTypeDef",
     "AutomaticInputFailoverSettingsOutputTypeDef",
     "AutomaticInputFailoverSettingsTypeDef",
@@ -793,6 +807,7 @@ __all__ = (
     "MediaConnectRouterGroupSettingsOutputTypeDef",
     "MediaConnectRouterGroupSettingsTypeDef",
     "MediaConnectRouterOutputConnectionMapTypeDef",
+    "MediaConnectRouterOutputConnectionTypeDef",
     "MediaConnectRouterOutputDestinationSettingsTypeDef",
     "MediaConnectRouterOutputSettingsTypeDef",
     "MediaPackageAdditionalDestinationsTypeDef",
@@ -881,6 +896,7 @@ __all__ = (
     "RejectInputDeviceTransferRequestTypeDef",
     "RemixSettingsOutputTypeDef",
     "RemixSettingsTypeDef",
+    "RemixSettingsUnionTypeDef",
     "RenewalSettingsTypeDef",
     "ReservationResourceSpecificationTypeDef",
     "ReservationTypeDef",
@@ -925,6 +941,7 @@ __all__ = (
     "SdiSourceSummaryTypeDef",
     "SdiSourceTypeDef",
     "SignalMapSummaryTypeDef",
+    "SmartSubtitleSourceSettingsTypeDef",
     "Smpte2110ReceiverGroupOutputTypeDef",
     "Smpte2110ReceiverGroupSdpSettingsOutputTypeDef",
     "Smpte2110ReceiverGroupSdpSettingsTypeDef",
@@ -1148,10 +1165,17 @@ class AudioNormalizationSettingsTypeDef(TypedDict):
     Algorithm: NotRequired[AudioNormalizationAlgorithmType]
     AlgorithmControl: NotRequired[Literal["CORRECT_AUDIO"]]
     TargetLkfs: NotRequired[float]
+    PeakCalculation: NotRequired[AudioNormalizationPeakCalculationType]
+    PeakLimiterThreshold: NotRequired[float]
 
 
 class AudioDolbyEDecodeTypeDef(TypedDict):
     ProgramSelection: DolbyEProgramSelectionType
+
+
+class AudioFeedInputTypeDef(TypedDict):
+    AudioSelectorName: NotRequired[str]
+    FeedInput: NotRequired[str]
 
 
 class AudioHlsRenditionSelectionTypeDef(TypedDict):
@@ -1170,17 +1194,9 @@ class InputLocationTypeDef(TypedDict):
     Username: NotRequired[str]
 
 
-class AudioPidSelectionTypeDef(TypedDict):
-    Pid: int
-
-
 class AudioSilenceFailoverSettingsTypeDef(TypedDict):
     AudioSelectorName: str
     AudioSilenceThresholdMsec: NotRequired[int]
-
-
-class AudioTrackTypeDef(TypedDict):
-    Track: int
 
 
 class Hdr10SettingsTypeDef(TypedDict):
@@ -1318,6 +1334,11 @@ class Scte27SourceSettingsTypeDef(TypedDict):
     Pid: NotRequired[int]
 
 
+class SmartSubtitleSourceSettingsTypeDef(TypedDict):
+    CaptionSynchronizationMode: NotRequired[CaptionSynchronizationModeType]
+    InferenceFeedOutput: NotRequired[str]
+
+
 class CdiInputSpecificationTypeDef(TypedDict):
     Resolution: NotRequired[CdiInputResolutionType]
 
@@ -1348,10 +1369,6 @@ class ChannelEngineVersionResponseTypeDef(TypedDict):
 class DescribeAnywhereSettingsTypeDef(TypedDict):
     ChannelPlacementGroupId: NotRequired[str]
     ClusterId: NotRequired[str]
-
-
-class DescribeInferenceSettingsTypeDef(TypedDict):
-    FeedArn: NotRequired[str]
 
 
 class InputSpecificationTypeDef(TypedDict):
@@ -1456,10 +1473,6 @@ class CreateChannelPlacementGroupRequestTypeDef(TypedDict):
     Nodes: NotRequired[Sequence[str]]
     RequestId: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
-
-
-class InferenceSettingsTypeDef(TypedDict):
-    FeedArn: NotRequired[str]
 
 
 class MaintenanceCreateSettingsTypeDef(TypedDict):
@@ -2405,6 +2418,10 @@ class MediaConnectRouterOutputConnectionMapTypeDef(TypedDict):
     Pipeline1: NotRequired[str]
 
 
+class MediaConnectRouterOutputConnectionTypeDef(TypedDict):
+    RouterInputArn: NotRequired[str]
+
+
 class MediaConnectRouterOutputDestinationSettingsTypeDef(TypedDict):
     EncryptionType: NotRequired[MediaConnectRouterOutputEncryptionTypeType]
     SecretArn: NotRequired[str]
@@ -2903,6 +2920,16 @@ class AudioCodecSettingsTypeDef(TypedDict):
     WavSettings: NotRequired[WavSettingsTypeDef]
 
 
+class DescribeInferenceSettingsTypeDef(TypedDict):
+    FeedArn: NotRequired[str]
+    AudioFeedInputs: NotRequired[list[AudioFeedInputTypeDef]]
+
+
+class InferenceSettingsTypeDef(TypedDict):
+    FeedArn: NotRequired[str]
+    AudioFeedInputs: NotRequired[Sequence[AudioFeedInputTypeDef]]
+
+
 class AudioOnlyHlsSettingsTypeDef(TypedDict):
     AudioGroupId: NotRequired[str]
     AudioOnlyImage: NotRequired[InputLocationTypeDef]
@@ -3017,16 +3044,6 @@ class StaticImageOutputActivateScheduleActionSettingsTypeDef(TypedDict):
 class StaticKeySettingsTypeDef(TypedDict):
     StaticKeyValue: str
     KeyProviderServer: NotRequired[InputLocationTypeDef]
-
-
-class AudioTrackSelectionOutputTypeDef(TypedDict):
-    Tracks: list[AudioTrackTypeDef]
-    DolbyEDecode: NotRequired[AudioDolbyEDecodeTypeDef]
-
-
-class AudioTrackSelectionTypeDef(TypedDict):
-    Tracks: Sequence[AudioTrackTypeDef]
-    DolbyEDecode: NotRequired[AudioDolbyEDecodeTypeDef]
 
 
 class Av1ColorSpaceSettingsOutputTypeDef(TypedDict):
@@ -3317,15 +3334,6 @@ class ListAlertsResponseTypeDef(TypedDict):
 class ListVersionsResponseTypeDef(TypedDict):
     Versions: list[ChannelEngineVersionResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class PipelineDetailTypeDef(TypedDict):
-    ActiveInputAttachmentName: NotRequired[str]
-    ActiveInputSwitchActionName: NotRequired[str]
-    ActiveMotionGraphicsActionName: NotRequired[str]
-    ActiveMotionGraphicsUri: NotRequired[str]
-    PipelineId: NotRequired[str]
-    ChannelEngineVersion: NotRequired[ChannelEngineVersionResponseTypeDef]
 
 
 class ListCloudWatchAlarmTemplateGroupsResponseTypeDef(TypedDict):
@@ -4228,6 +4236,18 @@ class StandardHlsSettingsTypeDef(TypedDict):
     AudioRenditionSets: NotRequired[str]
 
 
+class PipelineDetailTypeDef(TypedDict):
+    ActiveInputAttachmentName: NotRequired[str]
+    ActiveInputSwitchActionName: NotRequired[str]
+    ActiveMotionGraphicsActionName: NotRequired[str]
+    ActiveMotionGraphicsUri: NotRequired[str]
+    PipelineId: NotRequired[str]
+    ChannelEngineVersion: NotRequired[ChannelEngineVersionResponseTypeDef]
+    MediaConnectRouterOutputConnectionMap: NotRequired[
+        dict[str, MediaConnectRouterOutputConnectionTypeDef]
+    ]
+
+
 class MediaPackageOutputSettingsTypeDef(TypedDict):
     MediaPackageV2DestinationSettings: NotRequired[MediaPackageV2DestinationSettingsTypeDef]
 
@@ -4510,10 +4530,9 @@ class RemixSettingsOutputTypeDef(TypedDict):
     ChannelsOut: NotRequired[int]
 
 
-class RemixSettingsTypeDef(TypedDict):
-    ChannelMappings: Sequence[AudioChannelMappingTypeDef]
-    ChannelsIn: NotRequired[int]
-    ChannelsOut: NotRequired[int]
+AudioChannelMappingUnionTypeDef = Union[
+    AudioChannelMappingTypeDef, AudioChannelMappingOutputTypeDef
+]
 
 
 class CaptionDestinationSettingsOutputTypeDef(TypedDict):
@@ -4556,18 +4575,6 @@ StaticImageOutputActivateScheduleActionSettingsUnionTypeDef = Union[
 
 class KeyProviderSettingsTypeDef(TypedDict):
     StaticKeySettings: NotRequired[StaticKeySettingsTypeDef]
-
-
-class AudioSelectorSettingsOutputTypeDef(TypedDict):
-    AudioHlsRenditionSelection: NotRequired[AudioHlsRenditionSelectionTypeDef]
-    AudioLanguageSelection: NotRequired[AudioLanguageSelectionTypeDef]
-    AudioPidSelection: NotRequired[AudioPidSelectionTypeDef]
-    AudioTrackSelection: NotRequired[AudioTrackSelectionOutputTypeDef]
-
-
-AudioTrackSelectionUnionTypeDef = Union[
-    AudioTrackSelectionTypeDef, AudioTrackSelectionOutputTypeDef
-]
 
 
 class Av1SettingsOutputTypeDef(TypedDict):
@@ -4637,6 +4644,7 @@ class CaptionSelectorSettingsOutputTypeDef(TypedDict):
     Scte20SourceSettings: NotRequired[Scte20SourceSettingsTypeDef]
     Scte27SourceSettings: NotRequired[Scte27SourceSettingsTypeDef]
     TeletextSourceSettings: NotRequired[TeletextSourceSettingsTypeDef]
+    SmartSubtitleSourceSettings: NotRequired[SmartSubtitleSourceSettingsTypeDef]
 
 
 class CaptionSelectorSettingsTypeDef(TypedDict):
@@ -4647,6 +4655,7 @@ class CaptionSelectorSettingsTypeDef(TypedDict):
     Scte20SourceSettings: NotRequired[Scte20SourceSettingsTypeDef]
     Scte27SourceSettings: NotRequired[Scte27SourceSettingsTypeDef]
     TeletextSourceSettings: NotRequired[TeletextSourceSettingsTypeDef]
+    SmartSubtitleSourceSettings: NotRequired[SmartSubtitleSourceSettingsTypeDef]
 
 
 class CreateClusterRequestTypeDef(TypedDict):
@@ -5402,6 +5411,19 @@ class MediaPackageGroupSettingsTypeDef(TypedDict):
     MediapackageV2GroupSettings: NotRequired[MediaPackageV2GroupSettingsTypeDef]
 
 
+class AudioPreMixerSettingsOutputTypeDef(TypedDict):
+    AudioNormalizationSettings: NotRequired[AudioNormalizationSettingsTypeDef]
+    Channels: NotRequired[int]
+    GainDb: NotRequired[float]
+    RemixSettings: NotRequired[RemixSettingsOutputTypeDef]
+
+
+class RemixSettingsTypeDef(TypedDict):
+    ChannelMappings: Sequence[AudioChannelMappingUnionTypeDef]
+    ChannelsIn: NotRequired[int]
+    ChannelsOut: NotRequired[int]
+
+
 class CaptionDescriptionOutputTypeDef(TypedDict):
     CaptionSelectorName: str
     Name: str
@@ -5514,18 +5536,6 @@ class HlsGroupSettingsTypeDef(TypedDict):
     TimedMetadataId3Period: NotRequired[int]
     TimestampDeltaMilliseconds: NotRequired[int]
     TsFileMode: NotRequired[HlsTsFileModeType]
-
-
-class AudioSelectorOutputTypeDef(TypedDict):
-    Name: str
-    SelectorSettings: NotRequired[AudioSelectorSettingsOutputTypeDef]
-
-
-class AudioSelectorSettingsTypeDef(TypedDict):
-    AudioHlsRenditionSelection: NotRequired[AudioHlsRenditionSelectionTypeDef]
-    AudioLanguageSelection: NotRequired[AudioLanguageSelectionTypeDef]
-    AudioPidSelection: NotRequired[AudioPidSelectionTypeDef]
-    AudioTrackSelection: NotRequired[AudioTrackSelectionUnionTypeDef]
 
 
 class CaptionSelectorOutputTypeDef(TypedDict):
@@ -5709,6 +5719,27 @@ class AudioDescriptionOutputTypeDef(TypedDict):
     DvbDashAccessibility: NotRequired[DvbDashAccessibilityType]
 
 
+class UpdateChannelClassRequestTypeDef(TypedDict):
+    ChannelClass: ChannelClassType
+    ChannelId: str
+    Destinations: NotRequired[Sequence[OutputDestinationUnionTypeDef]]
+
+
+class Scte35DescriptorTypeDef(TypedDict):
+    Scte35DescriptorSettings: Scte35DescriptorSettingsTypeDef
+
+
+class AudioPidOutputTypeDef(TypedDict):
+    Pid: int
+    DolbyEDecode: NotRequired[AudioDolbyEDecodeTypeDef]
+    PremixSettings: NotRequired[AudioPreMixerSettingsOutputTypeDef]
+
+
+class AudioTrackOutputTypeDef(TypedDict):
+    Track: int
+    PremixSettings: NotRequired[AudioPreMixerSettingsOutputTypeDef]
+
+
 class AudioDescriptionTypeDef(TypedDict):
     AudioSelectorName: str
     Name: str
@@ -5725,14 +5756,7 @@ class AudioDescriptionTypeDef(TypedDict):
     DvbDashAccessibility: NotRequired[DvbDashAccessibilityType]
 
 
-class UpdateChannelClassRequestTypeDef(TypedDict):
-    ChannelClass: ChannelClassType
-    ChannelId: str
-    Destinations: NotRequired[Sequence[OutputDestinationUnionTypeDef]]
-
-
-class Scte35DescriptorTypeDef(TypedDict):
-    Scte35DescriptorSettings: Scte35DescriptorSettingsTypeDef
+RemixSettingsUnionTypeDef = Union[RemixSettingsTypeDef, RemixSettingsOutputTypeDef]
 
 
 class OutputGroupSettingsOutputTypeDef(TypedDict):
@@ -5761,25 +5785,6 @@ class OutputGroupSettingsTypeDef(TypedDict):
     CmafIngestGroupSettings: NotRequired[CmafIngestGroupSettingsTypeDef]
     SrtGroupSettings: NotRequired[SrtGroupSettingsTypeDef]
     MediaConnectRouterGroupSettings: NotRequired[MediaConnectRouterGroupSettingsTypeDef]
-
-
-AudioSelectorSettingsUnionTypeDef = Union[
-    AudioSelectorSettingsTypeDef, AudioSelectorSettingsOutputTypeDef
-]
-
-
-class InputSettingsOutputTypeDef(TypedDict):
-    AudioSelectors: NotRequired[list[AudioSelectorOutputTypeDef]]
-    CaptionSelectors: NotRequired[list[CaptionSelectorOutputTypeDef]]
-    DeblockFilter: NotRequired[InputDeblockFilterType]
-    DenoiseFilter: NotRequired[InputDenoiseFilterType]
-    FilterStrength: NotRequired[int]
-    InputFilter: NotRequired[InputFilterType]
-    NetworkInputSettings: NotRequired[NetworkInputSettingsTypeDef]
-    Scte35Pid: NotRequired[int]
-    Smpte2038DataPreference: NotRequired[Smpte2038DataPreferenceType]
-    SourceEndBehavior: NotRequired[InputSourceEndBehaviorType]
-    VideoSelector: NotRequired[VideoSelectorTypeDef]
 
 
 class CaptionSelectorTypeDef(TypedDict):
@@ -5919,17 +5924,21 @@ class Scte35TimeSignalScheduleActionSettingsTypeDef(TypedDict):
     Scte35Descriptors: Sequence[Scte35DescriptorTypeDef]
 
 
-class AudioSelectorTypeDef(TypedDict):
-    Name: str
-    SelectorSettings: NotRequired[AudioSelectorSettingsUnionTypeDef]
+class AudioPidSelectionOutputTypeDef(TypedDict):
+    Pid: int
+    Pids: NotRequired[list[AudioPidOutputTypeDef]]
 
 
-class InputAttachmentOutputTypeDef(TypedDict):
-    AutomaticInputFailoverSettings: NotRequired[AutomaticInputFailoverSettingsOutputTypeDef]
-    InputAttachmentName: NotRequired[str]
-    InputId: NotRequired[str]
-    InputSettings: NotRequired[InputSettingsOutputTypeDef]
-    LogicalInterfaceNames: NotRequired[list[str]]
+class AudioTrackSelectionOutputTypeDef(TypedDict):
+    Tracks: list[AudioTrackOutputTypeDef]
+    DolbyEDecode: NotRequired[AudioDolbyEDecodeTypeDef]
+
+
+class AudioPreMixerSettingsTypeDef(TypedDict):
+    AudioNormalizationSettings: NotRequired[AudioNormalizationSettingsTypeDef]
+    Channels: NotRequired[int]
+    GainDb: NotRequired[float]
+    RemixSettings: NotRequired[RemixSettingsUnionTypeDef]
 
 
 CaptionSelectorUnionTypeDef = Union[CaptionSelectorTypeDef, CaptionSelectorOutputTypeDef]
@@ -6042,32 +6051,18 @@ Scte35TimeSignalScheduleActionSettingsUnionTypeDef = Union[
     Scte35TimeSignalScheduleActionSettingsTypeDef,
     Scte35TimeSignalScheduleActionSettingsOutputTypeDef,
 ]
-AudioSelectorUnionTypeDef = Union[AudioSelectorTypeDef, AudioSelectorOutputTypeDef]
 
 
-class ChannelSummaryTypeDef(TypedDict):
-    Arn: NotRequired[str]
-    CdiInputSpecification: NotRequired[CdiInputSpecificationTypeDef]
-    ChannelClass: NotRequired[ChannelClassType]
-    Destinations: NotRequired[list[OutputDestinationOutputTypeDef]]
-    EgressEndpoints: NotRequired[list[ChannelEgressEndpointTypeDef]]
-    Id: NotRequired[str]
-    InputAttachments: NotRequired[list[InputAttachmentOutputTypeDef]]
-    InputSpecification: NotRequired[InputSpecificationTypeDef]
-    LogLevel: NotRequired[LogLevelType]
-    Maintenance: NotRequired[MaintenanceStatusTypeDef]
-    Name: NotRequired[str]
-    PipelinesRunningCount: NotRequired[int]
-    RoleArn: NotRequired[str]
-    State: NotRequired[ChannelStateType]
-    Tags: NotRequired[dict[str, str]]
-    Vpc: NotRequired[VpcOutputSettingsDescriptionTypeDef]
-    AnywhereSettings: NotRequired[DescribeAnywhereSettingsTypeDef]
-    ChannelEngineVersion: NotRequired[ChannelEngineVersionResponseTypeDef]
-    UsedChannelEngineVersions: NotRequired[list[ChannelEngineVersionResponseTypeDef]]
-    LinkedChannelSettings: NotRequired[DescribeLinkedChannelSettingsTypeDef]
-    ChannelSecurityGroups: NotRequired[list[str]]
-    InferenceSettings: NotRequired[DescribeInferenceSettingsTypeDef]
+class AudioSelectorSettingsOutputTypeDef(TypedDict):
+    AudioHlsRenditionSelection: NotRequired[AudioHlsRenditionSelectionTypeDef]
+    AudioLanguageSelection: NotRequired[AudioLanguageSelectionTypeDef]
+    AudioPidSelection: NotRequired[AudioPidSelectionOutputTypeDef]
+    AudioTrackSelection: NotRequired[AudioTrackSelectionOutputTypeDef]
+
+
+AudioPreMixerSettingsUnionTypeDef = Union[
+    AudioPreMixerSettingsTypeDef, AudioPreMixerSettingsOutputTypeDef
+]
 
 
 class OutputGroupOutputTypeDef(TypedDict):
@@ -6114,24 +6109,20 @@ class ScheduleActionSettingsTypeDef(TypedDict):
     TimedMetadataSettings: NotRequired[TimedMetadataScheduleActionSettingsTypeDef]
 
 
-class InputSettingsTypeDef(TypedDict):
-    AudioSelectors: NotRequired[Sequence[AudioSelectorUnionTypeDef]]
-    CaptionSelectors: NotRequired[Sequence[CaptionSelectorUnionTypeDef]]
-    DeblockFilter: NotRequired[InputDeblockFilterType]
-    DenoiseFilter: NotRequired[InputDenoiseFilterType]
-    FilterStrength: NotRequired[int]
-    InputFilter: NotRequired[InputFilterType]
-    NetworkInputSettings: NotRequired[NetworkInputSettingsTypeDef]
-    Scte35Pid: NotRequired[int]
-    Smpte2038DataPreference: NotRequired[Smpte2038DataPreferenceType]
-    SourceEndBehavior: NotRequired[InputSourceEndBehaviorType]
-    VideoSelector: NotRequired[VideoSelectorTypeDef]
+class AudioSelectorOutputTypeDef(TypedDict):
+    Name: str
+    SelectorSettings: NotRequired[AudioSelectorSettingsOutputTypeDef]
 
 
-class ListChannelsResponseTypeDef(TypedDict):
-    Channels: list[ChannelSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+class AudioPidTypeDef(TypedDict):
+    Pid: int
+    DolbyEDecode: NotRequired[AudioDolbyEDecodeTypeDef]
+    PremixSettings: NotRequired[AudioPreMixerSettingsUnionTypeDef]
+
+
+class AudioTrackTypeDef(TypedDict):
+    Track: int
+    PremixSettings: NotRequired[AudioPreMixerSettingsUnionTypeDef]
 
 
 class EncoderSettingsOutputTypeDef(TypedDict):
@@ -6185,7 +6176,83 @@ class DescribeScheduleResponseTypeDef(TypedDict):
 ScheduleActionSettingsUnionTypeDef = Union[
     ScheduleActionSettingsTypeDef, ScheduleActionSettingsOutputTypeDef
 ]
-InputSettingsUnionTypeDef = Union[InputSettingsTypeDef, InputSettingsOutputTypeDef]
+
+
+class InputSettingsOutputTypeDef(TypedDict):
+    AudioSelectors: NotRequired[list[AudioSelectorOutputTypeDef]]
+    CaptionSelectors: NotRequired[list[CaptionSelectorOutputTypeDef]]
+    DeblockFilter: NotRequired[InputDeblockFilterType]
+    DenoiseFilter: NotRequired[InputDenoiseFilterType]
+    FilterStrength: NotRequired[int]
+    InputFilter: NotRequired[InputFilterType]
+    NetworkInputSettings: NotRequired[NetworkInputSettingsTypeDef]
+    Scte35Pid: NotRequired[int]
+    Smpte2038DataPreference: NotRequired[Smpte2038DataPreferenceType]
+    SourceEndBehavior: NotRequired[InputSourceEndBehaviorType]
+    VideoSelector: NotRequired[VideoSelectorTypeDef]
+
+
+AudioPidUnionTypeDef = Union[AudioPidTypeDef, AudioPidOutputTypeDef]
+AudioTrackUnionTypeDef = Union[AudioTrackTypeDef, AudioTrackOutputTypeDef]
+EncoderSettingsUnionTypeDef = Union[EncoderSettingsTypeDef, EncoderSettingsOutputTypeDef]
+
+
+class BatchUpdateScheduleResponseTypeDef(TypedDict):
+    Creates: BatchScheduleActionCreateResultTypeDef
+    Deletes: BatchScheduleActionDeleteResultTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ScheduleActionTypeDef(TypedDict):
+    ActionName: str
+    ScheduleActionSettings: ScheduleActionSettingsUnionTypeDef
+    ScheduleActionStartSettings: ScheduleActionStartSettingsUnionTypeDef
+
+
+class InputAttachmentOutputTypeDef(TypedDict):
+    AutomaticInputFailoverSettings: NotRequired[AutomaticInputFailoverSettingsOutputTypeDef]
+    InputAttachmentName: NotRequired[str]
+    InputId: NotRequired[str]
+    InputSettings: NotRequired[InputSettingsOutputTypeDef]
+    LogicalInterfaceNames: NotRequired[list[str]]
+
+
+class AudioPidSelectionTypeDef(TypedDict):
+    Pid: int
+    Pids: NotRequired[Sequence[AudioPidUnionTypeDef]]
+
+
+class AudioTrackSelectionTypeDef(TypedDict):
+    Tracks: Sequence[AudioTrackUnionTypeDef]
+    DolbyEDecode: NotRequired[AudioDolbyEDecodeTypeDef]
+
+
+ScheduleActionUnionTypeDef = Union[ScheduleActionTypeDef, ScheduleActionOutputTypeDef]
+
+
+class ChannelSummaryTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    CdiInputSpecification: NotRequired[CdiInputSpecificationTypeDef]
+    ChannelClass: NotRequired[ChannelClassType]
+    Destinations: NotRequired[list[OutputDestinationOutputTypeDef]]
+    EgressEndpoints: NotRequired[list[ChannelEgressEndpointTypeDef]]
+    Id: NotRequired[str]
+    InputAttachments: NotRequired[list[InputAttachmentOutputTypeDef]]
+    InputSpecification: NotRequired[InputSpecificationTypeDef]
+    LogLevel: NotRequired[LogLevelType]
+    Maintenance: NotRequired[MaintenanceStatusTypeDef]
+    Name: NotRequired[str]
+    PipelinesRunningCount: NotRequired[int]
+    RoleArn: NotRequired[str]
+    State: NotRequired[ChannelStateType]
+    Tags: NotRequired[dict[str, str]]
+    Vpc: NotRequired[VpcOutputSettingsDescriptionTypeDef]
+    AnywhereSettings: NotRequired[DescribeAnywhereSettingsTypeDef]
+    ChannelEngineVersion: NotRequired[ChannelEngineVersionResponseTypeDef]
+    UsedChannelEngineVersions: NotRequired[list[ChannelEngineVersionResponseTypeDef]]
+    LinkedChannelSettings: NotRequired[DescribeLinkedChannelSettingsTypeDef]
+    ChannelSecurityGroups: NotRequired[list[str]]
+    InferenceSettings: NotRequired[DescribeInferenceSettingsTypeDef]
 
 
 class ChannelTypeDef(TypedDict):
@@ -6350,27 +6417,20 @@ class StopChannelResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-EncoderSettingsUnionTypeDef = Union[EncoderSettingsTypeDef, EncoderSettingsOutputTypeDef]
+AudioPidSelectionUnionTypeDef = Union[AudioPidSelectionTypeDef, AudioPidSelectionOutputTypeDef]
+AudioTrackSelectionUnionTypeDef = Union[
+    AudioTrackSelectionTypeDef, AudioTrackSelectionOutputTypeDef
+]
 
 
-class BatchUpdateScheduleResponseTypeDef(TypedDict):
-    Creates: BatchScheduleActionCreateResultTypeDef
-    Deletes: BatchScheduleActionDeleteResultTypeDef
+class BatchScheduleActionCreateRequestTypeDef(TypedDict):
+    ScheduleActions: Sequence[ScheduleActionUnionTypeDef]
+
+
+class ListChannelsResponseTypeDef(TypedDict):
+    Channels: list[ChannelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ScheduleActionTypeDef(TypedDict):
-    ActionName: str
-    ScheduleActionSettings: ScheduleActionSettingsUnionTypeDef
-    ScheduleActionStartSettings: ScheduleActionStartSettingsUnionTypeDef
-
-
-class InputAttachmentTypeDef(TypedDict):
-    AutomaticInputFailoverSettings: NotRequired[AutomaticInputFailoverSettingsUnionTypeDef]
-    InputAttachmentName: NotRequired[str]
-    InputId: NotRequired[str]
-    InputSettings: NotRequired[InputSettingsUnionTypeDef]
-    LogicalInterfaceNames: NotRequired[Sequence[str]]
+    NextToken: NotRequired[str]
 
 
 class CreateChannelResponseTypeDef(TypedDict):
@@ -6388,12 +6448,58 @@ class UpdateChannelResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-ScheduleActionUnionTypeDef = Union[ScheduleActionTypeDef, ScheduleActionOutputTypeDef]
+class AudioSelectorSettingsTypeDef(TypedDict):
+    AudioHlsRenditionSelection: NotRequired[AudioHlsRenditionSelectionTypeDef]
+    AudioLanguageSelection: NotRequired[AudioLanguageSelectionTypeDef]
+    AudioPidSelection: NotRequired[AudioPidSelectionUnionTypeDef]
+    AudioTrackSelection: NotRequired[AudioTrackSelectionUnionTypeDef]
+
+
+class BatchUpdateScheduleRequestTypeDef(TypedDict):
+    ChannelId: str
+    Creates: NotRequired[BatchScheduleActionCreateRequestTypeDef]
+    Deletes: NotRequired[BatchScheduleActionDeleteRequestTypeDef]
+
+
+AudioSelectorSettingsUnionTypeDef = Union[
+    AudioSelectorSettingsTypeDef, AudioSelectorSettingsOutputTypeDef
+]
+
+
+class AudioSelectorTypeDef(TypedDict):
+    Name: str
+    SelectorSettings: NotRequired[AudioSelectorSettingsUnionTypeDef]
+
+
+AudioSelectorUnionTypeDef = Union[AudioSelectorTypeDef, AudioSelectorOutputTypeDef]
+
+
+class InputSettingsTypeDef(TypedDict):
+    AudioSelectors: NotRequired[Sequence[AudioSelectorUnionTypeDef]]
+    CaptionSelectors: NotRequired[Sequence[CaptionSelectorUnionTypeDef]]
+    DeblockFilter: NotRequired[InputDeblockFilterType]
+    DenoiseFilter: NotRequired[InputDenoiseFilterType]
+    FilterStrength: NotRequired[int]
+    InputFilter: NotRequired[InputFilterType]
+    NetworkInputSettings: NotRequired[NetworkInputSettingsTypeDef]
+    Scte35Pid: NotRequired[int]
+    Smpte2038DataPreference: NotRequired[Smpte2038DataPreferenceType]
+    SourceEndBehavior: NotRequired[InputSourceEndBehaviorType]
+    VideoSelector: NotRequired[VideoSelectorTypeDef]
+
+
+InputSettingsUnionTypeDef = Union[InputSettingsTypeDef, InputSettingsOutputTypeDef]
+
+
+class InputAttachmentTypeDef(TypedDict):
+    AutomaticInputFailoverSettings: NotRequired[AutomaticInputFailoverSettingsUnionTypeDef]
+    InputAttachmentName: NotRequired[str]
+    InputId: NotRequired[str]
+    InputSettings: NotRequired[InputSettingsUnionTypeDef]
+    LogicalInterfaceNames: NotRequired[Sequence[str]]
+
+
 InputAttachmentUnionTypeDef = Union[InputAttachmentTypeDef, InputAttachmentOutputTypeDef]
-
-
-class BatchScheduleActionCreateRequestTypeDef(TypedDict):
-    ScheduleActions: Sequence[ScheduleActionUnionTypeDef]
 
 
 class CreateChannelRequestTypeDef(TypedDict):
@@ -6437,9 +6543,3 @@ class UpdateChannelRequestTypeDef(TypedDict):
     ChannelSecurityGroups: NotRequired[Sequence[str]]
     InferenceSettings: NotRequired[InferenceSettingsTypeDef]
     SpecialRouterSettings: NotRequired[SpecialRouterSettingsTypeDef]
-
-
-class BatchUpdateScheduleRequestTypeDef(TypedDict):
-    ChannelId: str
-    Creates: NotRequired[BatchScheduleActionCreateRequestTypeDef]
-    Deletes: NotRequired[BatchScheduleActionDeleteRequestTypeDef]

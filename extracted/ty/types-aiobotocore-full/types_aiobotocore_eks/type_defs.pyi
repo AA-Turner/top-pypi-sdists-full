@@ -28,6 +28,7 @@ from .literals import (
     AMITypesType,
     ArgoCdRoleType,
     AuthenticationModeType,
+    CancellationStatusType,
     CapabilityIssueCodeType,
     CapabilityStatusType,
     CapabilityTypeType,
@@ -38,6 +39,7 @@ from .literals import (
     ClusterVersionStatusType,
     ConfigStatusType,
     ConnectorConfigProviderType,
+    ControlPlaneEgressModeTypeType,
     EksAnywhereSubscriptionStatusType,
     ErrorCodeType,
     FargateProfileIssueCodeType,
@@ -52,6 +54,7 @@ from .literals import (
     ProvisionedControlPlaneTierType,
     RepairActionType,
     ResolveConflictsType,
+    SpreadLevelType,
     SsoIdentityTypeType,
     SupportTypeType,
     TaintEffectType,
@@ -102,6 +105,9 @@ __all__ = (
     "AssociatedAccessPolicyTypeDef",
     "AutoScalingGroupTypeDef",
     "BlockStorageTypeDef",
+    "CancelUpdateRequestTypeDef",
+    "CancelUpdateResponseTypeDef",
+    "CancellationTypeDef",
     "CapabilityConfigurationRequestTypeDef",
     "CapabilityConfigurationResponseTypeDef",
     "CapabilityHealthTypeDef",
@@ -207,6 +213,8 @@ __all__ = (
     "EncryptionConfigTypeDef",
     "EncryptionConfigUnionTypeDef",
     "ErrorDetailTypeDef",
+    "EtcdPlacementRequestTypeDef",
+    "EtcdPlacementResponseTypeDef",
     "FargateProfileHealthTypeDef",
     "FargateProfileIssueTypeDef",
     "FargateProfileSelectorOutputTypeDef",
@@ -306,6 +314,7 @@ __all__ = (
     "RemotePodNetworkTypeDef",
     "RemotePodNetworkUnionTypeDef",
     "ResponseMetadataTypeDef",
+    "RollbackConfigTypeDef",
     "SsoIdentityTypeDef",
     "StartInsightsRefreshRequestTypeDef",
     "StartInsightsRefreshResponseTypeDef",
@@ -466,6 +475,15 @@ class AutoScalingGroupTypeDef(TypedDict):
 class BlockStorageTypeDef(TypedDict):
     enabled: NotRequired[bool]
 
+class CancelUpdateRequestTypeDef(TypedDict):
+    name: str
+    updateId: str
+    clientRequestToken: NotRequired[str]
+
+class CancellationTypeDef(TypedDict):
+    status: NotRequired[CancellationStatusType]
+    reason: NotRequired[str]
+
 class CapabilityIssueTypeDef(TypedDict):
     code: NotRequired[CapabilityIssueCodeType]
     message: NotRequired[str]
@@ -522,6 +540,7 @@ class VpcConfigResponseTypeDef(TypedDict):
     endpointPublicAccess: NotRequired[bool]
     endpointPrivateAccess: NotRequired[bool]
     publicAccessCidrs: NotRequired[list[str]]
+    controlPlaneEgressMode: NotRequired[ControlPlaneEgressModeTypeType]
 
 class ZonalShiftConfigResponseTypeDef(TypedDict):
     enabled: NotRequired[bool]
@@ -549,9 +568,11 @@ class ConnectorConfigRequestTypeDef(TypedDict):
 
 class ControlPlanePlacementRequestTypeDef(TypedDict):
     groupName: NotRequired[str]
+    spreadLevel: NotRequired[SpreadLevelType]
 
 class ControlPlanePlacementResponseTypeDef(TypedDict):
     groupName: NotRequired[str]
+    spreadLevel: NotRequired[SpreadLevelType]
 
 class CreateAccessConfigRequestTypeDef(TypedDict):
     bootstrapClusterCreatorAdminPermissions: NotRequired[bool]
@@ -579,6 +600,7 @@ class VpcConfigRequestTypeDef(TypedDict):
     endpointPublicAccess: NotRequired[bool]
     endpointPrivateAccess: NotRequired[bool]
     publicAccessCidrs: NotRequired[Sequence[str]]
+    controlPlaneEgressMode: NotRequired[ControlPlaneEgressModeTypeType]
 
 class ZonalShiftConfigRequestTypeDef(TypedDict):
     enabled: NotRequired[bool]
@@ -802,6 +824,12 @@ class ErrorDetailTypeDef(TypedDict):
     errorMessage: NotRequired[str]
     resourceIds: NotRequired[list[str]]
 
+class EtcdPlacementRequestTypeDef(TypedDict):
+    spreadLevel: NotRequired[SpreadLevelType]
+
+class EtcdPlacementResponseTypeDef(TypedDict):
+    spreadLevel: NotRequired[SpreadLevelType]
+
 class FargateProfileIssueTypeDef(TypedDict):
     code: NotRequired[FargateProfileIssueCodeType]
     message: NotRequired[str]
@@ -964,6 +992,9 @@ class RemoteNodeNetworkTypeDef(TypedDict):
 class RemotePodNetworkTypeDef(TypedDict):
     cidrs: NotRequired[Sequence[str]]
 
+class RollbackConfigTypeDef(TypedDict):
+    timeoutMinutes: NotRequired[int]
+
 class StartInsightsRefreshRequestTypeDef(TypedDict):
     clusterName: str
 
@@ -984,12 +1015,6 @@ class UpdateAccessEntryRequestTypeDef(TypedDict):
     kubernetesGroups: NotRequired[Sequence[str]]
     clientRequestToken: NotRequired[str]
     username: NotRequired[str]
-
-class UpdateClusterVersionRequestTypeDef(TypedDict):
-    name: str
-    version: str
-    clientRequestToken: NotRequired[str]
-    force: NotRequired[bool]
 
 UpdateEksAnywhereSubscriptionRequestTypeDef = TypedDict(
     "UpdateEksAnywhereSubscriptionRequestTypeDef",
@@ -1184,16 +1209,6 @@ class RegisterClusterRequestTypeDef(TypedDict):
     connectorConfig: ConnectorConfigRequestTypeDef
     clientRequestToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
-
-class OutpostConfigRequestTypeDef(TypedDict):
-    outpostArns: Sequence[str]
-    controlPlaneInstanceType: str
-    controlPlanePlacement: NotRequired[ControlPlanePlacementRequestTypeDef]
-
-class OutpostConfigResponseTypeDef(TypedDict):
-    outpostArns: list[str]
-    controlPlaneInstanceType: str
-    controlPlanePlacement: NotRequired[ControlPlanePlacementResponseTypeDef]
 
 class CreateEksAnywhereSubscriptionRequestTypeDef(TypedDict):
     name: str
@@ -1398,6 +1413,20 @@ class EncryptionConfigTypeDef(TypedDict):
     resources: NotRequired[Sequence[str]]
     provider: NotRequired[ProviderTypeDef]
 
+class OutpostConfigRequestTypeDef(TypedDict):
+    outpostArns: Sequence[str]
+    controlPlaneInstanceType: str
+    controlPlanePlacement: NotRequired[ControlPlanePlacementRequestTypeDef]
+    etcdInstanceType: NotRequired[str]
+    etcdPlacement: NotRequired[EtcdPlacementRequestTypeDef]
+
+class OutpostConfigResponseTypeDef(TypedDict):
+    outpostArns: list[str]
+    controlPlaneInstanceType: str
+    controlPlanePlacement: NotRequired[ControlPlanePlacementResponseTypeDef]
+    etcdInstanceType: NotRequired[str]
+    etcdPlacement: NotRequired[EtcdPlacementResponseTypeDef]
+
 class FargateProfileHealthTypeDef(TypedDict):
     issues: NotRequired[list[FargateProfileIssueTypeDef]]
 
@@ -1485,6 +1514,14 @@ class RemoteNetworkConfigResponseTypeDef(TypedDict):
 
 RemoteNodeNetworkUnionTypeDef = Union[RemoteNodeNetworkTypeDef, RemoteNodeNetworkOutputTypeDef]
 RemotePodNetworkUnionTypeDef = Union[RemotePodNetworkTypeDef, RemotePodNetworkOutputTypeDef]
+
+class UpdateClusterVersionRequestTypeDef(TypedDict):
+    name: str
+    version: str
+    clientRequestToken: NotRequired[str]
+    force: NotRequired[bool]
+    rollbackConfig: NotRequired[RollbackConfigTypeDef]
+
 UpdateTypeDef = TypedDict(
     "UpdateTypeDef",
     {
@@ -1494,6 +1531,7 @@ UpdateTypeDef = TypedDict(
         "params": NotRequired[list[UpdateParamTypeDef]],
         "createdAt": NotRequired[datetime],
         "errors": NotRequired[list[ErrorDetailTypeDef]],
+        "cancellation": NotRequired[CancellationTypeDef],
     },
 )
 
@@ -1688,6 +1726,10 @@ class AssociateEncryptionConfigResponseTypeDef(TypedDict):
 class AssociateIdentityProviderConfigResponseTypeDef(TypedDict):
     update: UpdateTypeDef
     tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CancelUpdateResponseTypeDef(TypedDict):
+    update: UpdateTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeUpdateResponseTypeDef(TypedDict):

@@ -37,6 +37,20 @@ class RelatedDisplayMode(StrEnum):
     FILE_LIST = "file_list"
 
 
+class OpenViaTarget(BaseModel):
+    """One hop in a list-row open-via chain (#1603 / #1600 polymorphic P2).
+
+    Attributes:
+        via: FK field name on the list entity
+        entity: Target entity for the hop (inferred from the field's ref when None)
+    """
+
+    via: str
+    entity: str | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+
 class RelatedGroup(BaseModel):
     """A named group of related entities with a shared display mode.
 
@@ -45,12 +59,15 @@ class RelatedGroup(BaseModel):
         title: Human-readable label (e.g. "Compliance")
         display: How to render the group's entities
         show: Entity names to include (validated at link time)
+        columns: Optional field projection for related tabs (scannable
+            3–5 columns). Empty means all non-FK entity fields (legacy).
     """
 
     name: str
     title: str | None = None
     display: RelatedDisplayMode
     show: list[str]
+    columns: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(frozen=True)
 
@@ -189,6 +206,9 @@ class SurfaceSection(BaseModel):
     # v0.61.88 (#918): section-level explanatory copy. Renders as a muted
     # paragraph below the section heading. None = no note.
     note: str | None = None
+    # #1600 Wedge B: VIEW overview section chrome. ``strip`` = horizontal
+    # RAG/status badges (compliance strip); None/default = stacked field grid.
+    layout: str | None = None
     # v0.71.184 (#1217 Phase 3e.v): polymorphic per-subtype dispatch panel.
     # When set, the renderer inspects `row.kind` and includes the matching
     # subtype surface inline. Valid only on surfaces whose entity is a
@@ -378,6 +398,16 @@ class SurfaceSpec(BaseModel):
     # directly — and is stripped from `model_dump()`, so unset surfaces don't
     # churn the corpus snapshot.) Default-by-role resolution is `resolve_peek_mode`.
     peek: PeekMode | None = None
+    # #1603 Wedge A — list row opens a *context* entity via an FK hop, not
+    # the list row itself. Example: task list `open: User via assigned_to`
+    # drills to `/app/user/{assigned_to}` instead of task detail.
+    # ``open_via`` is the FK field name on the list entity; ``open_entity``
+    # is the target entity (must match the field's ref target when set).
+    # Polymorphic (#1600 P2): ``open_via_targets`` is an ordered first-non-null
+    # chain (single-target still fills open_via/open_entity for back-compat).
+    open_via: str | None = None
+    open_entity: str | None = None
+    open_via_targets: list[OpenViaTarget] = Field(default_factory=list)
     # v0.31.0: Source location for error reporting
     source: SourceLocation | None = None
     related_groups: list[RelatedGroup] = Field(default_factory=list)

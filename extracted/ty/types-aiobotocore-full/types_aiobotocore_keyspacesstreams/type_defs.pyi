@@ -20,7 +20,13 @@ import sys
 from datetime import datetime
 from typing import Any
 
-from .literals import OriginTypeType, ShardIteratorTypeType, StreamStatusType, StreamViewTypeType
+from .literals import (
+    IteratorPositionType,
+    OriginTypeType,
+    ShardIteratorTypeType,
+    StreamStatusType,
+    StreamViewTypeType,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
@@ -35,6 +41,7 @@ __all__ = (
     "GetStreamInputPaginateTypeDef",
     "GetStreamInputTypeDef",
     "GetStreamOutputTypeDef",
+    "IteratorDescriptionTypeDef",
     "KeyspacesCellMapDefinitionTypeDef",
     "KeyspacesCellTypeDef",
     "KeyspacesCellValueTypeDef",
@@ -55,6 +62,9 @@ __all__ = (
 class GetRecordsInputTypeDef(TypedDict):
     shardIterator: str
     maxResults: NotRequired[int]
+
+class IteratorDescriptionTypeDef(TypedDict):
+    iteratorPosition: NotRequired[IteratorPositionType]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -199,4 +209,5 @@ class RecordTypeDef(TypedDict):
 class GetRecordsOutputTypeDef(TypedDict):
     changeRecords: list[RecordTypeDef]
     nextShardIterator: str
+    iteratorDescription: IteratorDescriptionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef

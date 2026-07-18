@@ -21,12 +21,15 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .literals import (
+    AutoscalingStatusType,
     CollectionStatusType,
     CollectionTypeType,
+    DeletionProtectionType,
     IamIdentityCenterGroupAttributeType,
     IamIdentityCenterUserAttributeType,
     SecurityConfigTypeType,
     SecurityPolicyTypeType,
+    ServerlessGenerationType,
     ServerlessVectorAccelerationStatusType,
     StandbyReplicasType,
     VpcEndpointStatusType,
@@ -53,6 +56,7 @@ __all__ = (
     "BatchGetLifecyclePolicyResponseTypeDef",
     "BatchGetVpcEndpointRequestTypeDef",
     "BatchGetVpcEndpointResponseTypeDef",
+    "CapacityDetailsTypeDef",
     "CapacityLimitsTypeDef",
     "CollectionDetailTypeDef",
     "CollectionErrorDetailTypeDef",
@@ -81,6 +85,7 @@ __all__ = (
     "CreateVpcEndpointDetailTypeDef",
     "CreateVpcEndpointRequestTypeDef",
     "CreateVpcEndpointResponseTypeDef",
+    "CurrentCapacityTypeDef",
     "DeleteAccessPolicyRequestTypeDef",
     "DeleteCollectionDetailTypeDef",
     "DeleteCollectionGroupRequestTypeDef",
@@ -329,6 +334,11 @@ VpcEndpointErrorDetailTypeDef = TypedDict(
 )
 
 
+class CapacityDetailsTypeDef(TypedDict):
+    capacityInOcu: NotRequired[float]
+    autoscalingStatus: NotRequired[AutoscalingStatusType]
+
+
 class FipsEndpointsTypeDef(TypedDict):
     collectionEndpoint: NotRequired[str]
     dashboardEndpoint: NotRequired[str]
@@ -477,6 +487,7 @@ DeleteCollectionDetailTypeDef = TypedDict(
         "id": NotRequired[str],
         "name": NotRequired[str],
         "status": NotRequired[CollectionStatusType],
+        "deletionProtection": NotRequired[DeletionProtectionType],
     },
 )
 DeleteCollectionGroupRequestTypeDef = TypedDict(
@@ -833,6 +844,11 @@ class BatchGetVpcEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CurrentCapacityTypeDef(TypedDict):
+    search: NotRequired[CapacityDetailsTypeDef]
+    indexing: NotRequired[CapacityDetailsTypeDef]
+
+
 CollectionDetailTypeDef = TypedDict(
     "CollectionDetailTypeDef",
     {
@@ -844,6 +860,7 @@ CollectionDetailTypeDef = TypedDict(
         "arn": NotRequired[str],
         "kmsKeyArn": NotRequired[str],
         "standbyReplicas": NotRequired[StandbyReplicasType],
+        "deletionProtection": NotRequired[DeletionProtectionType],
         "vectorOptions": NotRequired[VectorOptionsTypeDef],
         "createdDate": NotRequired[int],
         "lastModifiedDate": NotRequired[int],
@@ -866,6 +883,7 @@ CreateCollectionDetailTypeDef = TypedDict(
         "arn": NotRequired[str],
         "kmsKeyArn": NotRequired[str],
         "standbyReplicas": NotRequired[StandbyReplicasType],
+        "deletionProtection": NotRequired[DeletionProtectionType],
         "vectorOptions": NotRequired[VectorOptionsTypeDef],
         "createdDate": NotRequired[int],
         "lastModifiedDate": NotRequired[int],
@@ -884,6 +902,7 @@ UpdateCollectionDetailTypeDef = TypedDict(
         "arn": NotRequired[str],
         "createdDate": NotRequired[int],
         "lastModifiedDate": NotRequired[int],
+        "deletionProtection": NotRequired[DeletionProtectionType],
     },
 )
 UpdateCollectionRequestTypeDef = TypedDict(
@@ -892,6 +911,7 @@ UpdateCollectionRequestTypeDef = TypedDict(
         "id": str,
         "description": NotRequired[str],
         "vectorOptions": NotRequired[VectorOptionsTypeDef],
+        "deletionProtection": NotRequired[DeletionProtectionType],
         "clientToken": NotRequired[str],
     },
 )
@@ -912,6 +932,7 @@ CollectionGroupSummaryTypeDef = TypedDict(
         "numberOfCollections": NotRequired[int],
         "createdDate": NotRequired[int],
         "capacityLimits": NotRequired[CollectionGroupCapacityLimitsTypeDef],
+        "generation": NotRequired[ServerlessGenerationType],
     },
 )
 UpdateCollectionGroupDetailTypeDef = TypedDict(
@@ -924,6 +945,7 @@ UpdateCollectionGroupDetailTypeDef = TypedDict(
         "capacityLimits": NotRequired[CollectionGroupCapacityLimitsTypeDef],
         "createdDate": NotRequired[int],
         "lastModifiedDate": NotRequired[int],
+        "generation": NotRequired[ServerlessGenerationType],
     },
 )
 UpdateCollectionGroupRequestTypeDef = TypedDict(
@@ -933,20 +955,6 @@ UpdateCollectionGroupRequestTypeDef = TypedDict(
         "description": NotRequired[str],
         "capacityLimits": NotRequired[CollectionGroupCapacityLimitsTypeDef],
         "clientToken": NotRequired[str],
-    },
-)
-CollectionGroupDetailTypeDef = TypedDict(
-    "CollectionGroupDetailTypeDef",
-    {
-        "id": NotRequired[str],
-        "arn": NotRequired[str],
-        "name": NotRequired[str],
-        "standbyReplicas": NotRequired[StandbyReplicasType],
-        "description": NotRequired[str],
-        "tags": NotRequired[list[TagTypeDef]],
-        "createdDate": NotRequired[int],
-        "capacityLimits": NotRequired[CollectionGroupCapacityLimitsTypeDef],
-        "numberOfCollections": NotRequired[int],
     },
 )
 CreateCollectionGroupDetailTypeDef = TypedDict(
@@ -960,6 +968,7 @@ CreateCollectionGroupDetailTypeDef = TypedDict(
         "tags": NotRequired[list[TagTypeDef]],
         "createdDate": NotRequired[int],
         "capacityLimits": NotRequired[CollectionGroupCapacityLimitsTypeDef],
+        "generation": NotRequired[ServerlessGenerationType],
     },
 )
 
@@ -970,6 +979,7 @@ class CreateCollectionGroupRequestTypeDef(TypedDict):
     description: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
     capacityLimits: NotRequired[CollectionGroupCapacityLimitsTypeDef]
+    generation: NotRequired[ServerlessGenerationType]
     clientToken: NotRequired[str]
 
 
@@ -1000,6 +1010,7 @@ CreateCollectionRequestTypeDef = TypedDict(
         "vectorOptions": NotRequired[VectorOptionsTypeDef],
         "collectionGroupName": NotRequired[str],
         "encryptionConfig": NotRequired[EncryptionConfigTypeDef],
+        "deletionProtection": NotRequired[DeletionProtectionType],
         "clientToken": NotRequired[str],
     },
 )
@@ -1131,6 +1142,24 @@ class UpdateAccountSettingsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+CollectionGroupDetailTypeDef = TypedDict(
+    "CollectionGroupDetailTypeDef",
+    {
+        "id": NotRequired[str],
+        "arn": NotRequired[str],
+        "name": NotRequired[str],
+        "standbyReplicas": NotRequired[StandbyReplicasType],
+        "description": NotRequired[str],
+        "tags": NotRequired[list[TagTypeDef]],
+        "createdDate": NotRequired[int],
+        "capacityLimits": NotRequired[CollectionGroupCapacityLimitsTypeDef],
+        "currentCapacity": NotRequired[CurrentCapacityTypeDef],
+        "numberOfCollections": NotRequired[int],
+        "generation": NotRequired[ServerlessGenerationType],
+    },
+)
+
+
 class BatchGetCollectionResponseTypeDef(TypedDict):
     collectionDetails: list[CollectionDetailTypeDef]
     collectionErrorDetails: list[CollectionErrorDetailTypeDef]
@@ -1158,12 +1187,6 @@ class UpdateCollectionGroupResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class BatchGetCollectionGroupResponseTypeDef(TypedDict):
-    collectionGroupDetails: list[CollectionGroupDetailTypeDef]
-    collectionGroupErrorDetails: list[CollectionGroupErrorDetailTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class CreateCollectionGroupResponseTypeDef(TypedDict):
     createCollectionGroupDetail: CreateCollectionGroupDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1181,4 +1204,10 @@ class GetSecurityConfigResponseTypeDef(TypedDict):
 
 class UpdateSecurityConfigResponseTypeDef(TypedDict):
     securityConfigDetail: SecurityConfigDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BatchGetCollectionGroupResponseTypeDef(TypedDict):
+    collectionGroupDetails: list[CollectionGroupDetailTypeDef]
+    collectionGroupErrorDetails: list[CollectionGroupErrorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

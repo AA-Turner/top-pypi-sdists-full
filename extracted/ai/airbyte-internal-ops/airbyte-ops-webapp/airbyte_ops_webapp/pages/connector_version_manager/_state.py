@@ -1,0 +1,205 @@
+"""Typed Prefab state model for the Connector Version Manager page.
+
+`ConnectorVersionManagerPageState` is the single source of truth for the page's
+initial state. It extends the shared `OpsPageState` (env / deploy / auth) and the
+shared `OrgLookupModalState`, then adds the page-specific fields. Building initial
+state through this model means a mistyped, missing, or extra initial-state key
+fails at page-build / test time instead of silently in the browser.
+
+Runtime tool results (`RESULT.*`) replace the nested placeholders
+(`selected_connector`, `rollout_summary`, `selected_rollout`, `selected_pin`) and
+the DataTable row lists wholesale with richer shapes; the models here describe the
+*initial* placeholder shape only, mirroring the `EMPTY_*` constants and
+`empty_connector()` in `_helpers.py`.
+"""
+
+from __future__ import annotations
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from airbyte_ops_webapp.pages.shared_components.org_lookup_modal import (
+    OrgLookupModalState,
+)
+from airbyte_ops_webapp.state import OpsPageState
+
+
+class ConnectorSummary(BaseModel):
+    """Selected-connector placeholder, mirroring `empty_connector()`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str = ""
+    name: str = ""
+    connector_type: str = "source"
+    latest_version: str = ""
+    docker_repository: str = ""
+
+
+class RolloutSelection(BaseModel):
+    """Selected-rollout placeholder, mirroring `EMPTY_ROLLOUT_STATE`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rollout_id: str = ""
+    connector_id: str = ""
+    connector_name: str = ""
+    connector_type: str = "source"
+    docker_repository: str = ""
+    state: str = ""
+    rc_docker_image_tag: str = ""
+    initial_docker_image_tag: str = ""
+    current_target_rollout_pct: str = ""
+    final_target_rollout_pct: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class RolloutSummary(BaseModel):
+    """Rollout-summary placeholder, mirroring `EMPTY_ROLLOUT_SUMMARY`.
+
+    The context tool result replaces this with a populated summary (including the
+    per-tier `tier_cards`), so the tabular `tier_cards` field is typed loosely as
+    the tool-owned row shape.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    rc_version: str = ""
+    tier_summary: str = ""
+    highest_tier: str = ""
+    next_tier: str = ""
+    has_next_stage: bool = False
+    autopilot: str = ""
+    updated_at: str = ""
+    total_rc_pins: str = "0"
+    total_actors_display: str = ""
+    tier_cards: list[dict[str, object]] = Field(default_factory=list)
+    connector_id: str = ""
+    connector_name: str = ""
+    docker_repository: str = ""
+    rc_docker_image_tag: str = ""
+    advance_rollout_id: str = ""
+    advance_tier: str = ""
+    advance_pct: str = ""
+    promote_rollout_id: str = ""
+
+
+class PinSelection(BaseModel):
+    """Selected-pin placeholder, mirroring `EMPTY_PIN_STATE`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    scope_type: str = ""
+    scope_id: str = ""
+    scope_url: str = ""
+    origin_type: str = ""
+    origin_name: str = ""
+    description: str = ""
+    description_display: str = ""
+    created_at: str = ""
+    created_at_display: str = ""
+    expires_at: str = ""
+    expires_at_display: str = ""
+    reference_url: str = ""
+    scope_name: str = ""
+
+
+class ConnectorVersionManagerPageState(OpsPageState, OrgLookupModalState):
+    """Complete initial Prefab state for the Connector Version Manager page."""
+
+    # Connector selector
+    accepts_default_connector: bool = True
+    query: str = ""
+    connectors: list[dict[str, object]] = Field(default_factory=list)
+    connector_options: list[dict[str, object]] = Field(default_factory=list)
+    latest_version_rows: list[dict[str, object]] = Field(default_factory=list)
+    recent_release_rows: list[dict[str, object]] = Field(default_factory=list)
+    recent_release_value: str = ""
+    recent_release_options: list[dict[str, object]] = Field(default_factory=list)
+    progressive_rollout_value: str = ""
+    progressive_rollout_options: list[dict[str, object]] = Field(default_factory=list)
+    progressive_rollout_rows: list[dict[str, object]] = Field(default_factory=list)
+    pinned_version_rows: list[dict[str, object]] = Field(default_factory=list)
+    pin_origin_filter: str = "all"
+    recent_release_rows_loaded: bool = False
+    progressive_rollout_rows_loaded: bool = False
+    pinned_version_rows_loaded: bool = False
+    selector_tab: str = "active-rollouts"
+
+    # Selected connector + resolved scope context
+    selected_connector_id: str = ""
+    selected_connector: ConnectorSummary = Field(default_factory=ConnectorSummary)
+    scope_type: str = "workspace"
+    scope_id: str = ""
+    context_guid: str = ""
+    resolved_context_label: str = ""
+    scope_url: str = ""
+    actor_workspace_id: str = ""
+
+    # Version override form
+    action: str = "set"
+    target_version: str = ""
+    override_reason: str = ""
+    reference_url: str = ""
+    customer_tier_filter: str = "TIER_2"
+
+    # Loaded connector context
+    versions: list[dict[str, object]] = Field(default_factory=list)
+    active_rollouts: list[dict[str, object]] = Field(default_factory=list)
+    rollout_summary: RolloutSummary = Field(default_factory=RolloutSummary)
+    current_state: dict[str, object] = Field(default_factory=dict)
+    current_state_markdown: str = ""
+    ancestor_configs: list[dict[str, object]] = Field(default_factory=list)
+    descendant_configs: list[dict[str, object]] = Field(default_factory=list)
+    context_error: str = ""
+    rollout_error: str = ""
+
+    # Notifications
+    notifications: list[str] = Field(default_factory=list)
+    has_unviewed_notifications: bool = False
+
+    # Preview / apply result
+    preview_json: str = ""
+    preview_warnings: str = ""
+    apply_result_json: str = ""
+    apply_message: str = ""
+    apply_success: bool = False
+
+    # Pin modal
+    pin_modal_open: bool = False
+    locate_pin_modal_open: bool = False
+
+    # Rollout action state
+    rollout_modal_open: bool = False
+    rollout_action: str = ""
+    rollout_action_result: str = ""
+    rollout_action_success: bool = False
+    rollout_target_percentage: str = ""
+    selected_rollout: RolloutSelection = Field(default_factory=RolloutSelection)
+
+    # Yank version state
+    yank_modal_open: bool = False
+    yank_reason: str = ""
+    yank_reference_url: str = ""
+
+    # Version pin detail state
+    context_loading: bool = False
+    selected_version_tag: str = ""
+    selected_version_id: str = ""
+    selected_version_release_date: str = ""
+    latest_version_release_date: str = ""
+    selected_version_display: str = ""
+    default_version_display: str = ""
+    version_pins: list[dict[str, object]] = Field(default_factory=list)
+    version_pins_total: int = 0
+    version_pins_offset: int = 0
+    selected_pin_index: int = -1
+    selected_pin_checks: list[dict[str, object]] = Field(default_factory=list)
+    remove_pins_modal_open: bool = False
+    selected_pin: PinSelection = Field(default_factory=PinSelection)
+    resolved_pin_scope_name: str = ""
+    resolved_pin_scope_url: str = ""
+    resolved_pin_workspace_name: str = ""
+    resolved_pin_workspace_url: str = ""
+    resolved_pin_org_name: str = ""
+    resolved_pin_org_url: str = ""

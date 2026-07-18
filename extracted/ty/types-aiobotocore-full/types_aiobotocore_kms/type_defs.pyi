@@ -306,10 +306,12 @@ class GetPublicKeyRequestTypeDef(TypedDict):
 class GrantConstraintsOutputTypeDef(TypedDict):
     EncryptionContextSubset: NotRequired[dict[str, str]]
     EncryptionContextEquals: NotRequired[dict[str, str]]
+    SourceArn: NotRequired[str]
 
 class GrantConstraintsTypeDef(TypedDict):
     EncryptionContextSubset: NotRequired[Mapping[str, str]]
     EncryptionContextEquals: NotRequired[Mapping[str, str]]
+    SourceArn: NotRequired[str]
 
 TimestampTypeDef = Union[datetime, str]
 
@@ -331,6 +333,7 @@ class ListGrantsRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
     GrantId: NotRequired[str]
     GranteePrincipal: NotRequired[str]
+    GranteeServicePrincipal: NotRequired[str]
 
 class ListKeyPoliciesRequestTypeDef(TypedDict):
     KeyId: str
@@ -364,9 +367,10 @@ class ListResourceTagsRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
 
 class ListRetirableGrantsRequestTypeDef(TypedDict):
-    RetiringPrincipal: str
     Limit: NotRequired[int]
     Marker: NotRequired[str]
+    RetiringPrincipal: NotRequired[str]
+    RetiringServicePrincipal: NotRequired[str]
 
 class MultiRegionKeyTypeDef(TypedDict):
     Arn: NotRequired[str]
@@ -721,6 +725,7 @@ class ListGrantsRequestPaginateTypeDef(TypedDict):
     KeyId: str
     GrantId: NotRequired[str]
     GranteePrincipal: NotRequired[str]
+    GranteeServicePrincipal: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListKeyPoliciesRequestPaginateTypeDef(TypedDict):
@@ -740,7 +745,8 @@ class ListResourceTagsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRetirableGrantsRequestPaginateTypeDef(TypedDict):
-    RetiringPrincipal: str
+    RetiringPrincipal: NotRequired[str]
+    RetiringServicePrincipal: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class GetKeyLastUsageResponseTypeDef(TypedDict):
@@ -760,6 +766,8 @@ class GrantListEntryTypeDef(TypedDict):
     IssuingAccount: NotRequired[str]
     Operations: NotRequired[list[GrantOperationType]]
     Constraints: NotRequired[GrantConstraintsOutputTypeDef]
+    GranteeServicePrincipal: NotRequired[str]
+    RetiringServicePrincipal: NotRequired[str]
 
 GrantConstraintsUnionTypeDef = Union[GrantConstraintsTypeDef, GrantConstraintsOutputTypeDef]
 
@@ -844,13 +852,15 @@ class ListGrantsResponseTypeDef(TypedDict):
 
 class CreateGrantRequestTypeDef(TypedDict):
     KeyId: str
-    GranteePrincipal: str
     Operations: Sequence[GrantOperationType]
+    GranteePrincipal: NotRequired[str]
     RetiringPrincipal: NotRequired[str]
     Constraints: NotRequired[GrantConstraintsUnionTypeDef]
     GrantTokens: NotRequired[Sequence[str]]
     Name: NotRequired[str]
     DryRun: NotRequired[bool]
+    GranteeServicePrincipal: NotRequired[str]
+    RetiringServicePrincipal: NotRequired[str]
 
 class KeyMetadataTypeDef(TypedDict):
     KeyId: str

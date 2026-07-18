@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: redfish
-Version: 3.3.5
+Version: 3.3.6
 Summary: Redfish Python Library
 Home-page: https://github.com/DMTF/python-redfish-library
 Author: DMTF, https://www.dmtf.org/standards/feedback
@@ -20,6 +20,7 @@ Requires-Dist: requests_toolbelt
 Requires-Dist: requests-unixsocket
 Requires-Dist: jsonpatch<=1.24; python_version == "3.4"
 Requires-Dist: jsonpatch; python_version >= "3.5"
+Requires-Dist: urllib3[zstd]>=2.6.0; python_version >= "3.9"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

@@ -45,6 +45,7 @@ __all__ = (
     "AudioLanguageSelectionPolicyType",
     "AudioNormalizationAlgorithmControlType",
     "AudioNormalizationAlgorithmType",
+    "AudioNormalizationPeakCalculationType",
     "AudioOnlyHlsSegmentTypeType",
     "AudioOnlyHlsTrackTypeType",
     "AudioTypeType",
@@ -70,6 +71,7 @@ __all__ = (
     "BurnInOutlineColorType",
     "BurnInShadowColorType",
     "BurnInTeletextGridControlType",
+    "CaptionSynchronizationModeType",
     "CdiInputResolutionType",
     "ChannelAlertStateType",
     "ChannelClassType",
@@ -453,7 +455,8 @@ AudioDescriptionAudioTypeControlType = Literal["FOLLOW_INPUT", "USE_CONFIGURED"]
 AudioDescriptionLanguageCodeControlType = Literal["FOLLOW_INPUT", "USE_CONFIGURED"]
 AudioLanguageSelectionPolicyType = Literal["LOOSE", "STRICT"]
 AudioNormalizationAlgorithmControlType = Literal["CORRECT_AUDIO"]
-AudioNormalizationAlgorithmType = Literal["ITU_1770_1", "ITU_1770_2"]
+AudioNormalizationAlgorithmType = Literal["ITU_1770_1", "ITU_1770_2", "ITU_1770_3", "ITU_1770_4"]
+AudioNormalizationPeakCalculationType = Literal["NONE", "TRUE_PEAK"]
 AudioOnlyHlsSegmentTypeType = Literal["AAC", "FMP4"]
 AudioOnlyHlsTrackTypeType = Literal[
     "ALTERNATE_AUDIO_AUTO_SELECT",
@@ -506,6 +509,7 @@ BurnInFontColorType = Literal["BLACK", "BLUE", "GREEN", "RED", "WHITE", "YELLOW"
 BurnInOutlineColorType = Literal["BLACK", "BLUE", "GREEN", "RED", "WHITE", "YELLOW"]
 BurnInShadowColorType = Literal["BLACK", "NONE", "WHITE"]
 BurnInTeletextGridControlType = Literal["FIXED", "SCALED"]
+CaptionSynchronizationModeType = Literal["NO_VIDEO_DELAY", "VIDEO_ALIGNED_CAPTIONS"]
 CdiInputResolutionType = Literal["FHD", "HD", "SD", "UHD"]
 ChannelAlertStateType = Literal["CLEARED", "SET"]
 ChannelClassType = Literal["SINGLE_PIPELINE", "STANDARD"]
@@ -1328,8 +1332,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1356,6 +1358,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -1423,10 +1427,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1459,6 +1463,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -1486,6 +1491,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -1507,7 +1513,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -1528,6 +1533,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

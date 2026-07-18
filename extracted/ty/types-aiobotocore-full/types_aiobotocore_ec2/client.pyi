@@ -79,6 +79,7 @@ from .paginator import (
     DescribeInstanceTypeOfferingsPaginator,
     DescribeInstanceTypesPaginator,
     DescribeInternetGatewaysPaginator,
+    DescribeIpamPoolAllocationsPaginator,
     DescribeIpamPoolsPaginator,
     DescribeIpamPrefixListResolversPaginator,
     DescribeIpamPrefixListResolverTargetsPaginator,
@@ -275,6 +276,8 @@ from .type_defs import (
     AssociateVpcCidrBlockResultTypeDef,
     AttachClassicLinkVpcRequestTypeDef,
     AttachClassicLinkVpcResultTypeDef,
+    AttachImageWatermarkRequestTypeDef,
+    AttachImageWatermarkResultTypeDef,
     AttachInternetGatewayRequestTypeDef,
     AttachNetworkInterfaceRequestTypeDef,
     AttachNetworkInterfaceResultTypeDef,
@@ -327,6 +330,8 @@ from .type_defs import (
     CreateCapacityManagerDataExportResultTypeDef,
     CreateCapacityReservationBySplittingRequestTypeDef,
     CreateCapacityReservationBySplittingResultTypeDef,
+    CreateCapacityReservationCancellationQuoteRequestTypeDef,
+    CreateCapacityReservationCancellationQuoteResultTypeDef,
     CreateCapacityReservationFleetRequestTypeDef,
     CreateCapacityReservationFleetResultTypeDef,
     CreateCapacityReservationRequestTypeDef,
@@ -709,6 +714,8 @@ from .type_defs import (
     DeregisterTransitGatewayMulticastGroupSourcesResultTypeDef,
     DescribeAccountAttributesRequestTypeDef,
     DescribeAccountAttributesResultTypeDef,
+    DescribeAccountVpcEncryptionControlRequestTypeDef,
+    DescribeAccountVpcEncryptionControlResultTypeDef,
     DescribeAddressesAttributeRequestTypeDef,
     DescribeAddressesAttributeResultTypeDef,
     DescribeAddressesRequestTypeDef,
@@ -739,6 +746,8 @@ from .type_defs import (
     DescribeCapacityManagerDataExportsResultTypeDef,
     DescribeCapacityReservationBillingRequestsRequestTypeDef,
     DescribeCapacityReservationBillingRequestsResultTypeDef,
+    DescribeCapacityReservationCancellationQuotesRequestTypeDef,
+    DescribeCapacityReservationCancellationQuotesResultTypeDef,
     DescribeCapacityReservationFleetsRequestTypeDef,
     DescribeCapacityReservationFleetsResultTypeDef,
     DescribeCapacityReservationsRequestTypeDef,
@@ -851,6 +860,8 @@ from .type_defs import (
     DescribeIpamExternalResourceVerificationTokensResultTypeDef,
     DescribeIpamPoliciesRequestTypeDef,
     DescribeIpamPoliciesResultTypeDef,
+    DescribeIpamPoolAllocationsRequestTypeDef,
+    DescribeIpamPoolAllocationsResultTypeDef,
     DescribeIpamPoolsRequestTypeDef,
     DescribeIpamPoolsResultTypeDef,
     DescribeIpamPrefixListResolversRequestTypeDef,
@@ -1077,6 +1088,8 @@ from .type_defs import (
     DescribeVpnGatewaysResultTypeDef,
     DetachClassicLinkVpcRequestTypeDef,
     DetachClassicLinkVpcResultTypeDef,
+    DetachImageWatermarkRequestTypeDef,
+    DetachImageWatermarkResultTypeDef,
     DetachInternetGatewayRequestTypeDef,
     DetachNetworkInterfaceRequestTypeDef,
     DetachVerifiedAccessTrustProviderRequestTypeDef,
@@ -1376,6 +1389,8 @@ from .type_defs import (
     ListVolumesInRecycleBinResultTypeDef,
     LockSnapshotRequestTypeDef,
     LockSnapshotResultTypeDef,
+    ModifyAccountVpcEncryptionControlRequestTypeDef,
+    ModifyAccountVpcEncryptionControlResultTypeDef,
     ModifyAddressAttributeRequestTypeDef,
     ModifyAddressAttributeResultTypeDef,
     ModifyAvailabilityZoneGroupRequestTypeDef,
@@ -1424,6 +1439,8 @@ from .type_defs import (
     ModifyInstancePlacementResultTypeDef,
     ModifyIpamPolicyAllocationRulesRequestTypeDef,
     ModifyIpamPolicyAllocationRulesResultTypeDef,
+    ModifyIpamPoolAllocationRequestTypeDef,
+    ModifyIpamPoolAllocationResultTypeDef,
     ModifyIpamPoolRequestTypeDef,
     ModifyIpamPoolResultTypeDef,
     ModifyIpamPrefixListResolverRequestTypeDef,
@@ -1503,6 +1520,8 @@ from .type_defs import (
     ModifyVpcEncryptionControlResultTypeDef,
     ModifyVpcEndpointConnectionNotificationRequestTypeDef,
     ModifyVpcEndpointConnectionNotificationResultTypeDef,
+    ModifyVpcEndpointPayerResponsibilityRequestTypeDef,
+    ModifyVpcEndpointPayerResponsibilityResultTypeDef,
     ModifyVpcEndpointRequestTypeDef,
     ModifyVpcEndpointResultTypeDef,
     ModifyVpcEndpointServiceConfigurationRequestTypeDef,
@@ -2153,6 +2172,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#attach_classic_link_vpc)
         """
 
+    async def attach_image_watermark(
+        self, **kwargs: Unpack[AttachImageWatermarkRequestTypeDef]
+    ) -> AttachImageWatermarkResultTypeDef:
+        """
+        Attaches a watermark to a non-public AMI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/attach_image_watermark.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#attach_image_watermark)
+        """
+
     async def attach_internet_gateway(
         self, **kwargs: Unpack[AttachInternetGatewayRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -2437,6 +2466,17 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_capacity_reservation_by_splitting.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_capacity_reservation_by_splitting)
+        """
+
+    async def create_capacity_reservation_cancellation_quote(
+        self, **kwargs: Unpack[CreateCapacityReservationCancellationQuoteRequestTypeDef]
+    ) -> CreateCapacityReservationCancellationQuoteResultTypeDef:
+        """
+        Generates a cancellation quote for a future-dated Capacity Reservation that is
+        within its commitment duration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_capacity_reservation_cancellation_quote.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_capacity_reservation_cancellation_quote)
         """
 
     async def create_capacity_reservation_fleet(
@@ -2960,8 +3000,8 @@ class EC2Client(AioBaseClient):
         """
         Replaces the EBS-backed root volume for a <code>running</code> instance with a
         new volume that is restored to the original root volume's launch state, that is
-        restored to a specific snapshot taken from the original root volume, or that is
-        restored from an AMI that has the same key characteristics...
+        restored to a specific snapshot taken from the original root volume, that is
+        restored from an AMI that has the same key characteristics as...
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_replace_root_volume_task.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_replace_root_volume_task)
@@ -4517,6 +4557,17 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_account_attributes)
         """
 
+    async def describe_account_vpc_encryption_control(
+        self, **kwargs: Unpack[DescribeAccountVpcEncryptionControlRequestTypeDef]
+    ) -> DescribeAccountVpcEncryptionControlResultTypeDef:
+        """
+        Describes the account-level VPC Encryption Control configuration for your
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_account_vpc_encryption_control.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_account_vpc_encryption_control)
+        """
+
     async def describe_address_transfers(
         self, **kwargs: Unpack[DescribeAddressTransfersRequestTypeDef]
     ) -> DescribeAddressTransfersResultTypeDef:
@@ -4675,6 +4726,16 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_reservation_billing_requests.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_capacity_reservation_billing_requests)
+        """
+
+    async def describe_capacity_reservation_cancellation_quotes(
+        self, **kwargs: Unpack[DescribeCapacityReservationCancellationQuotesRequestTypeDef]
+    ) -> DescribeCapacityReservationCancellationQuotesResultTypeDef:
+        """
+        Describes one or more Capacity Reservation cancellation quotes.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_reservation_cancellation_quotes.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_capacity_reservation_cancellation_quotes)
         """
 
     async def describe_capacity_reservation_fleets(
@@ -5268,6 +5329,16 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_ipam_policies.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_ipam_policies)
+        """
+
+    async def describe_ipam_pool_allocations(
+        self, **kwargs: Unpack[DescribeIpamPoolAllocationsRequestTypeDef]
+    ) -> DescribeIpamPoolAllocationsResultTypeDef:
+        """
+        Describes IPAM pool allocations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_ipam_pool_allocations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_ipam_pool_allocations)
         """
 
     async def describe_ipam_pools(
@@ -6423,6 +6494,16 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/detach_classic_link_vpc.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#detach_classic_link_vpc)
+        """
+
+    async def detach_image_watermark(
+        self, **kwargs: Unpack[DetachImageWatermarkRequestTypeDef]
+    ) -> DetachImageWatermarkResultTypeDef:
+        """
+        Removes a watermark from the specified AMI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/detach_image_watermark.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#detach_image_watermark)
         """
 
     async def detach_internet_gateway(
@@ -8019,6 +8100,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#lock_snapshot)
         """
 
+    async def modify_account_vpc_encryption_control(
+        self, **kwargs: Unpack[ModifyAccountVpcEncryptionControlRequestTypeDef]
+    ) -> ModifyAccountVpcEncryptionControlResultTypeDef:
+        """
+        Modifies the account-level VPC Encryption Control configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_account_vpc_encryption_control.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_account_vpc_encryption_control)
+        """
+
     async def modify_address_attribute(
         self, **kwargs: Unpack[ModifyAddressAttributeRequestTypeDef]
     ) -> ModifyAddressAttributeResultTypeDef:
@@ -8307,6 +8398,16 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_ipam_pool.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_ipam_pool)
+        """
+
+    async def modify_ipam_pool_allocation(
+        self, **kwargs: Unpack[ModifyIpamPoolAllocationRequestTypeDef]
+    ) -> ModifyIpamPoolAllocationResultTypeDef:
+        """
+        Modifies the description of an IPAM pool allocation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_ipam_pool_allocation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_ipam_pool_allocation)
         """
 
     async def modify_ipam_prefix_list_resolver(
@@ -8724,6 +8825,16 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_vpc_endpoint_connection_notification.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_vpc_endpoint_connection_notification)
+        """
+
+    async def modify_vpc_endpoint_payer_responsibility(
+        self, **kwargs: Unpack[ModifyVpcEndpointPayerResponsibilityRequestTypeDef]
+    ) -> ModifyVpcEndpointPayerResponsibilityResultTypeDef:
+        """
+        Modifies the billing account for VPC endpoint usage/charges.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_vpc_endpoint_payer_responsibility.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_vpc_endpoint_payer_responsibility)
         """
 
     async def modify_vpc_endpoint_service_configuration(
@@ -10176,6 +10287,17 @@ class EC2Client(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_internet_gateways"]
     ) -> DescribeInternetGatewaysPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_ipam_pool_allocations"]
+    ) -> DescribeIpamPoolAllocationsPaginator:
         """
         Create a paginator for an operation.
 

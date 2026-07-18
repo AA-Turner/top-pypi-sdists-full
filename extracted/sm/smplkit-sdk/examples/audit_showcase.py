@@ -48,7 +48,7 @@ SIEM_TRANSFORM = """
 async def main() -> None:
 
     # or SmplClient for synchronous use
-    async with AsyncSmplClient() as client:
+    async with AsyncSmplClient(environment="production") as client:
         await setup_showcase(client)
         some_resource_id = f"showcase-{uuid.uuid4().hex[:8]}"
 

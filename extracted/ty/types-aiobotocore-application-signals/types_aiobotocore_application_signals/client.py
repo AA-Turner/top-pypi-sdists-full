@@ -30,7 +30,9 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    GetInstrumentationConfigurationStatusPaginator,
     ListEntityEventsPaginator,
+    ListInstrumentationConfigurationsPaginator,
     ListServiceDependenciesPaginator,
     ListServiceDependentsPaginator,
     ListServiceLevelObjectiveExclusionWindowsPaginator,
@@ -40,23 +42,35 @@ from .paginator import (
     ListServiceStatesPaginator,
 )
 from .type_defs import (
+    BatchDeleteInstrumentationConfigurationsRequestTypeDef,
+    BatchDeleteInstrumentationConfigurationsResponseTypeDef,
     BatchGetServiceLevelObjectiveBudgetReportInputTypeDef,
     BatchGetServiceLevelObjectiveBudgetReportOutputTypeDef,
     BatchUpdateExclusionWindowsInputTypeDef,
     BatchUpdateExclusionWindowsOutputTypeDef,
+    CreateInstrumentationConfigurationRequestTypeDef,
+    CreateInstrumentationConfigurationResponseTypeDef,
     CreateServiceLevelObjectiveInputTypeDef,
     CreateServiceLevelObjectiveOutputTypeDef,
+    DeleteInstrumentationConfigurationRequestTypeDef,
+    DeleteInstrumentationConfigurationResponseTypeDef,
     DeleteServiceLevelObjectiveInputTypeDef,
+    GetInstrumentationConfigurationRequestTypeDef,
+    GetInstrumentationConfigurationResponseTypeDef,
+    GetInstrumentationConfigurationStatusRequestTypeDef,
+    GetInstrumentationConfigurationStatusResponseTypeDef,
     GetServiceInputTypeDef,
     GetServiceLevelObjectiveInputTypeDef,
     GetServiceLevelObjectiveOutputTypeDef,
     GetServiceOutputTypeDef,
+    InstrumentationConfigurationsPageTypeDef,
     ListAuditFindingsInputTypeDef,
     ListAuditFindingsOutputTypeDef,
     ListEntityEventsInputTypeDef,
     ListEntityEventsOutputTypeDef,
     ListGroupingAttributeDefinitionsInputTypeDef,
     ListGroupingAttributeDefinitionsOutputTypeDef,
+    ListInstrumentationConfigurationsRequestTypeDef,
     ListServiceDependenciesInputTypeDef,
     ListServiceDependenciesOutputTypeDef,
     ListServiceDependentsInputTypeDef,
@@ -75,6 +89,8 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     PutGroupingConfigurationInputTypeDef,
     PutGroupingConfigurationOutputTypeDef,
+    ReportInstrumentationConfigurationStatusRequestTypeDef,
+    ReportInstrumentationConfigurationStatusResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateServiceLevelObjectiveInputTypeDef,
@@ -135,6 +151,16 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#generate_presigned_url)
         """
 
+    async def batch_delete_instrumentation_configurations(
+        self, **kwargs: Unpack[BatchDeleteInstrumentationConfigurationsRequestTypeDef]
+    ) -> BatchDeleteInstrumentationConfigurationsResponseTypeDef:
+        """
+        Deletes multiple instrumentation configurations in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/batch_delete_instrumentation_configurations.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#batch_delete_instrumentation_configurations)
+        """
+
     async def batch_get_service_level_objective_budget_report(
         self, **kwargs: Unpack[BatchGetServiceLevelObjectiveBudgetReportInputTypeDef]
     ) -> BatchGetServiceLevelObjectiveBudgetReportOutputTypeDef:
@@ -157,6 +183,17 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#batch_update_exclusion_windows)
         """
 
+    async def create_instrumentation_configuration(
+        self, **kwargs: Unpack[CreateInstrumentationConfigurationRequestTypeDef]
+    ) -> CreateInstrumentationConfigurationResponseTypeDef:
+        """
+        Creates a dynamic instrumentation configuration for a specific code or endpoint
+        location within a service and environment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/create_instrumentation_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#create_instrumentation_configuration)
+        """
+
     async def create_service_level_objective(
         self, **kwargs: Unpack[CreateServiceLevelObjectiveInputTypeDef]
     ) -> CreateServiceLevelObjectiveOutputTypeDef:
@@ -176,6 +213,16 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#delete_grouping_configuration)
         """
 
+    async def delete_instrumentation_configuration(
+        self, **kwargs: Unpack[DeleteInstrumentationConfigurationRequestTypeDef]
+    ) -> DeleteInstrumentationConfigurationResponseTypeDef:
+        """
+        Deletes the specified instrumentation configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/delete_instrumentation_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#delete_instrumentation_configuration)
+        """
+
     async def delete_service_level_objective(
         self, **kwargs: Unpack[DeleteServiceLevelObjectiveInputTypeDef]
     ) -> dict[str, Any]:
@@ -184,6 +231,28 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/delete_service_level_objective.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#delete_service_level_objective)
+        """
+
+    async def get_instrumentation_configuration(
+        self, **kwargs: Unpack[GetInstrumentationConfigurationRequestTypeDef]
+    ) -> GetInstrumentationConfigurationResponseTypeDef:
+        """
+        Returns the details of a single instrumentation configuration identified by
+        service, environment, signal type, and location.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/get_instrumentation_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#get_instrumentation_configuration)
+        """
+
+    async def get_instrumentation_configuration_status(
+        self, **kwargs: Unpack[GetInstrumentationConfigurationStatusRequestTypeDef]
+    ) -> GetInstrumentationConfigurationStatusResponseTypeDef:
+        """
+        Retrieves the status history for a single instrumentation configuration during
+        a specified time range.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/get_instrumentation_configuration_status.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#get_instrumentation_configuration_status)
         """
 
     async def get_service(
@@ -237,6 +306,16 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/list_grouping_attribute_definitions.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#list_grouping_attribute_definitions)
+        """
+
+    async def list_instrumentation_configurations(
+        self, **kwargs: Unpack[ListInstrumentationConfigurationsRequestTypeDef]
+    ) -> InstrumentationConfigurationsPageTypeDef:
+        """
+        Returns all active instrumentation configurations for a service and environment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/list_instrumentation_configurations.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#list_instrumentation_configurations)
         """
 
     async def list_service_dependencies(
@@ -332,6 +411,17 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#put_grouping_configuration)
         """
 
+    async def report_instrumentation_configuration_status(
+        self, **kwargs: Unpack[ReportInstrumentationConfigurationStatusRequestTypeDef]
+    ) -> ReportInstrumentationConfigurationStatusResponseTypeDef:
+        """
+        Reports the status of one or more instrumentation configurations from SDK
+        instances.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/report_instrumentation_configuration_status.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#report_instrumentation_configuration_status)
+        """
+
     async def start_discovery(self) -> dict[str, Any]:
         """
         Enables this Amazon Web Services account to be able to use CloudWatch
@@ -371,8 +461,30 @@ class CloudWatchApplicationSignalsClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_instrumentation_configuration_status"]
+    ) -> GetInstrumentationConfigurationStatusPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_entity_events"]
     ) -> ListEntityEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_instrumentation_configurations"]
+    ) -> ListInstrumentationConfigurationsPaginator:
         """
         Create a paginator for an operation.
 

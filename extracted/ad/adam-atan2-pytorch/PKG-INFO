@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: adam-atan2-pytorch
-Version: 0.3.6
+Version: 0.4.0
 Summary: Adam-atan2 for Pytorch
 Project-URL: Homepage, https://pypi.org/project/adam_atan2_pytorch/
 Project-URL: Repository, https://github.com/lucidrains/adam_atan2_pytorch
@@ -34,6 +34,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9
+Requires-Dist: einops>=0.8.0
 Requires-Dist: torch>=2.0
 Provides-Extra: examples
 Provides-Extra: test

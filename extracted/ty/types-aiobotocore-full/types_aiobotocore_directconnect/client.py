@@ -156,6 +156,7 @@ class Exceptions(BaseClientExceptions):
     DirectConnectClientException: type[BotocoreClientError]
     DirectConnectServerException: type[BotocoreClientError]
     DuplicateTagKeysException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
     TooManyTagsException: type[BotocoreClientError]
 
 

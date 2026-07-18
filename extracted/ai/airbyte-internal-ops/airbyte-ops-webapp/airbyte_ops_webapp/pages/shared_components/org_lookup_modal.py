@@ -26,6 +26,38 @@ from prefab_ui.components import (
 )
 from prefab_ui.components.control_flow import If
 from prefab_ui.rx import EVENT, RESULT, STATE
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class OrgSearchResult(BaseModel):
+    """A single organization/workspace search hit shown in the lookup modal."""
+
+    model_config = ConfigDict(frozen=True)
+
+    entity_type: str = ""
+    entity_id: str = ""
+    entity_name: str = ""
+    entity_email: str = ""
+    organization_id: str = ""
+    workspace_id: str = ""
+    display_label: str = ""
+
+
+class OrgLookupModalState(BaseModel):
+    """Prefab state fields owned by the shared org lookup modal.
+
+    Page state models mix these fields in so every page that embeds the modal
+    declares the same keys once, via a typed model.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    org_search_modal_open: bool = False
+    org_search_query: str = ""
+    org_search_results: list[OrgSearchResult] = Field(default_factory=list)
+    org_search_error: str = ""
+    org_search_selected_id: str = ""
+    org_search_selected_label: str = ""
 
 
 def render_org_lookup_modal(
@@ -211,13 +243,8 @@ def _render_cancel_button(
 def org_lookup_modal_state() -> dict[str, object]:
     """Return the initial state entries required by the org lookup modal.
 
-    Merge these into the page's initial state dict.
+    Merge these into the page's initial state dict. Backed by
+    `OrgLookupModalState` so the keys stay in sync with the typed model that
+    page state models mix in.
     """
-    return {
-        "org_search_modal_open": False,
-        "org_search_query": "",
-        "org_search_results": [],
-        "org_search_error": "",
-        "org_search_selected_id": "",
-        "org_search_selected_label": "",
-    }
+    return OrgLookupModalState().model_dump(mode="json")

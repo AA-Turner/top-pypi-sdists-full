@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import contextlib
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import asdict
 from datetime import datetime
 
+import google.auth.exceptions
+import sqlalchemy.exc
 from airbyte import constants
 from airbyte.exceptions import PyAirbyteInputError
 from airbyte_ops_mcp.cloud_admin import api_client
@@ -27,19 +29,25 @@ from airbyte_ops_mcp.cloud_admin.version_overrides import (
 )
 from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_bigquery_ro
 from airbyte_ops_mcp.prod_db_access.queries import (
+    query_actor_population_by_org,
     query_connector_rollouts,
     query_connector_rollouts_for_connector,
     query_connector_versions,
-    query_destination_connection_stats,
     query_new_connector_releases,
     query_raw_pins_for_version,
-    query_source_connection_stats,
     query_versions_with_pins,
 )
 from airbyte_ops_mcp.tier_cache import resolve_workspace
+from airbyte_ops_mcp.version_summaries import (
+    PopulationSummary,
+    TierSummary,
+    summarize_population,
+    summarize_sync_info,
+)
 
 from airbyte_ops_webapp.models import (
     ConnectorOption,
+    ConnectorPopulation,
     ConnectorRelease,
     ConnectorRollout,
     ConnectorType,
@@ -49,8 +57,10 @@ from airbyte_ops_webapp.models import (
     OperationPreview,
     OperationResult,
     OverridePlan,
+    RolloutSyncSummary,
     ScopedConfiguration,
     ScopeType,
+    TierPopulationFactors,
     VersionPinRow,
     build_version_override_payload,
     version_override_tool_name,
@@ -117,6 +127,62 @@ def _cloud_scope_url(
             )
         return f"{CLOUD_UI_BASE_URL}/workspaces/{workspace_id}/{actor_type}/{scope_id}"
     raise ValueError(f"Unknown scope_type {scope_type!r}.")
+
+
+def _select_tier_2(tier_summary: TierSummary | None) -> int:
+    """Read a `TierSummary`'s TIER_2 count (`0` when the summary is absent)."""
+    return tier_summary.tier_2_count if tier_summary is not None else 0
+
+
+def _select_tier_1(tier_summary: TierSummary | None) -> int:
+    """Read a `TierSummary`'s TIER_1 count (`0` when the summary is absent)."""
+    return tier_summary.tier_1_count if tier_summary is not None else 0
+
+
+def _select_tier_0(tier_summary: TierSummary | None) -> int:
+    """Read a `TierSummary`'s TIER_0 count (`0` when the summary is absent)."""
+    return tier_summary.tier_0_count if tier_summary is not None else 0
+
+
+def _tier_population_factors(
+    summary: PopulationSummary,
+    select: Callable[[TierSummary | None], int],
+) -> TierPopulationFactors | None:
+    """Assemble one tier's distinct population factors from a `PopulationSummary`.
+
+    `select` picks the relevant tier count from each by-tier summary. Every
+    factor is surfaced (nothing collapsed) so the UI can show how both the
+    addressable and the backend-eligible denominators are built.
+
+    Returns `None` when no rollout window enabled the job-status gate
+    (`addressable_gated_by_tier is None`). In that case the `gate_*` counts are
+    all `0`, so a factor-driven card would compute `eligible = pinned` and bury
+    the unpinned audience under `no recent sync` — inconsistent with the
+    headline eligible, which falls back to `addressable` (active minus
+    off-version). Returning `None` makes the card fall back to that same
+    headline count instead of inventing a gate breakdown the data can't
+    support.
+    """
+    gated = summary.addressable_gated_by_tier
+    if gated is None:
+        return None
+    active = select(summary.active_by_tier)
+    pinned = select(summary.pinned_to_version_active_by_tier)
+    off_version = select(summary.off_version_pinned_by_tier)
+    addressable_gated = select(gated)
+    return TierPopulationFactors(
+        active=active,
+        pinned_to_rollout=pinned,
+        off_version_pinned=off_version,
+        unpinned=max(active - pinned - off_version, 0),
+        gate_pass=select(summary.gate_pass_by_tier),
+        gate_excluded_failed=select(summary.gate_excluded_failed_by_tier),
+        gate_excluded_no_recent_sync=select(
+            summary.gate_excluded_no_recent_sync_by_tier
+        ),
+        addressable=select(summary.addressable_by_tier),
+        addressable_gated=addressable_gated,
+    )
 
 
 class OpsMcpAdapter:
@@ -274,81 +340,160 @@ class OpsMcpAdapter:
         pins = [self._pin_row_from_db(row) for row in page]
         return pins, total
 
-    def get_connection_health_summary(
-        self,
-        connector_id: str,
-        connector_type: str,
-        version_tag: str = "",
-    ) -> str:
-        """Build a one-line connection health summary for a connector.
+    def get_rollout_sync_summary(self, rollout_id: str) -> RolloutSyncSummary:
+        """Build health + population summaries for an active rollout.
 
-        Queries prod DB for connection stats grouped by pinned version,
-        then formats a human-readable summary string.
+        Calls the platform `get_actor_sync_info` endpoint — the cheapest correct
+        path for an active rollout, since it filters syncs to the RC version and
+        returns per-actor success/failure counts plus selection totals — and
+        rolls the response up with `summarize_sync_info`. Returns empty strings
+        when `rollout_id` is missing or the call fails, so the caller can render
+        the rollout card without the summaries.
         """
-        if connector_type == "source":
-            rows = query_source_connection_stats(connector_id)
+        if not rollout_id:
+            return RolloutSyncSummary()
+        try:
+            sync_info = api_client.get_actor_sync_info(
+                rollout_id=rollout_id,
+                config_api_root=self.config_api_root,
+                client_id=self.client_id,
+                client_secret=self.client_secret,
+                bearer_token=self.bearer_token,
+            )
+        except (PyAirbyteInputError, api_client.requests.RequestException):
+            return RolloutSyncSummary()
+
+        summary = summarize_sync_info(sync_info)
+        health = (
+            f"{summary.healthy} healthy | "
+            f"{summary.unhealthy} unhealthy | "
+            f"{summary.awaiting} awaiting | "
+            f"{summary.disabled} disabled"
+        )
+        return RolloutSyncSummary(
+            health=health,
+            num_pinned=summary.num_pinned,
+            num_eligible=summary.num_eligible,
+            num_actors=summary.num_actors,
+            num_healthy=summary.healthy,
+            num_unhealthy=summary.unhealthy,
+        )
+
+    def get_connector_population(
+        self,
+        connector_definition_id: str,
+        *,
+        is_destination: bool,
+        target_version_id: str = "",
+        rollout_created_at: str = "",
+        google_access_token: str = "",
+    ) -> ConnectorPopulation:
+        """Return the enabled (active-connection) actor population, by rollout tier.
+
+        Backed by the DB `query_actor_population_by_org` + `summarize_population`
+        path (cheap: aggregated per-org over `scoped_configuration` + actor /
+        connection tables), counting only actors with at least one active
+        connection. Provides the connector-wide `total_active` count for the
+        single "Eligible Actors" line and the per-tier addressable (eligible)
+        counts used to fill in tiers whose rollout has not started.
+
+        The connector-wide `total_active` is a tier-independent aggregate summed
+        directly from the population rows, so it renders even when the
+        BigQuery-backed tier cache is unavailable. The per-tier eligible split
+        needs tier resolution; `google_access_token` (the signed-in user's
+        BigQuery-scoped OAuth token) is used to reach BigQuery under the user's
+        own IAM rather than the service account. If tier resolution still fails
+        the split degrades to zero rather than failing the whole context load.
+        Returns an empty `ConnectorPopulation` on a DB error so the card still
+        renders.
+
+        Uses `tier_filter="ALL"` because the rollout card shows every tier; the
+        result is aggregate counts only (no customer identities).
+        """
+        if not connector_definition_id:
+            return ConnectorPopulation()
+        # A rollout window enables the platform's job-status eligibility gate in
+        # the query, so the webapp's denominator tracks the backend's rollout
+        # audience rather than counting active actors the platform excludes.
+        job_gated = bool(rollout_created_at)
+        try:
+            population_rows = query_actor_population_by_org(
+                actor_definition_id=connector_definition_id,
+                is_destination=is_destination,
+                target_version_id=target_version_id or None,
+                rollout_created_at=rollout_created_at or None,
+            )
+        except sqlalchemy.exc.SQLAlchemyError:
+            return ConnectorPopulation()
+
+        total_active = sum(int(row.get("actor_count", 0)) for row in population_rows)
+
+        try:
+            bq_credentials = get_gcp_credentials_for_bigquery_ro(
+                access_token_override=google_access_token or None,
+            )
+            summary = summarize_population(
+                population_rows,
+                tier_filter="ALL",
+                job_gated=job_gated,
+                has_target_version=bool(target_version_id),
+                credentials=bq_credentials,
+            )
+        except (RuntimeError, google.auth.exceptions.GoogleAuthError):
+            # Tier resolution needs BigQuery: resolving the read-only BigQuery
+            # credentials raises `GoogleAuthError` (e.g. `DefaultCredentialsError`
+            # when ADC/SA credentials are unavailable), and the tier lookup itself
+            # raises `RuntimeError` when no tier data is available. Either way,
+            # keep the connector-wide active total and drop the per-tier breakdown
+            # instead of breaking the page. Without the tier split there is no
+            # gated-eligible total, so the headline falls back to `total_active`
+            # at the display layer.
+            return ConnectorPopulation(total_active=total_active)
+
+        # The `eligible` denominator is the tier's job-status-gated audience
+        # (`addressable_gated_by_tier`, the backend's
+        # `nActorsEligibleOrAlreadyPinned`): unpinned actors that pass the gate
+        # plus actors already pinned to the rollout version. This matches the
+        # platform's realized rollout denominator. Fall back to `addressable`
+        # (active minus off-version pins) when no rollout window enabled the gate,
+        # then to `active` when no target version is available. `pinned` is active
+        # actors whose effective pin is *the rollout version*
+        # (`pinned_to_version_active_by_tier`), so `pinned <= eligible` per tier.
+        # Select on `is not None` rather than truthiness: a `TierSummary` is
+        # always truthy (a Pydantic model with no `__bool__`), so a legitimately
+        # zeroed summary must not fall through to the next fallback. The
+        # version-aware fields are `None` exactly when no `target_version_id`
+        # (and, for the gated field, no rollout window) was supplied.
+        if summary.addressable_gated_by_tier is not None:
+            eligible = summary.addressable_gated_by_tier
+        elif summary.addressable_by_tier is not None:
+            eligible = summary.addressable_by_tier
         else:
-            rows = query_destination_connection_stats(connector_id)
-
-        if not rows:
-            return ""
-
-        total = 0
-        active = 0
-        succeeded = 0
-        failed = 0
-        running = 0
-        pinned = 0
-        version_active = 0
-        version_succeeded = 0
-        version_failed = 0
-
-        for row in rows:
-            row_total = int(row.get("total_connections", 0))
-            row_active = int(row.get("active_connections", 0))
-            row_succeeded = int(row.get("latest_succeeded", 0))
-            row_failed = int(row.get("latest_failed", 0))
-            row_running = int(row.get("latest_running", 0))
-            row_pinned_version = row.get("docker_image_tag", "")
-
-            total += row_total
-            active += row_active
-            succeeded += row_succeeded
-            failed += row_failed
-            running += row_running
-            if row.get("pinned_version_id"):
-                pinned += row_total
-
-            if version_tag and row_pinned_version == version_tag:
-                version_active = row_active
-                version_succeeded = row_succeeded
-                version_failed = row_failed
-
-        parts = [f"{active} active ({total} total) connections"]
-        if succeeded or failed or running:
-            status_parts = []
-            if succeeded:
-                status_parts.append(f"{succeeded} succeeded")
-            if failed:
-                status_parts.append(f"{failed} failed")
-            if running:
-                status_parts.append(f"{running} running")
-            parts[0] += f" ({', '.join(status_parts)})"
-
-        if pinned:
-            parts.append(f"{pinned} pinned")
-
-        summary = " | ".join(parts)
-
-        if version_tag and (version_active or version_succeeded or version_failed):
-            v_parts = [f"{version_active} active"]
-            if version_succeeded:
-                v_parts.append(f"{version_succeeded} ok")
-            if version_failed:
-                v_parts.append(f"{version_failed} failing")
-            summary += f" | v{version_tag}: {', '.join(v_parts)}"
-
-        return summary
+            eligible = summary.active_by_tier
+        if summary.pinned_to_version_active_by_tier is not None:
+            pinned = summary.pinned_to_version_active_by_tier
+        else:
+            pinned = summary.pinned_any_by_tier
+        # Connector-wide gated-eligible total for the headline == sum of the
+        # per-tier eligibles, so the "Eligible Actors" number reconciles with the
+        # tier cards below it.
+        total_eligible = (
+            eligible.tier_2_count + eligible.tier_1_count + eligible.tier_0_count
+        )
+        return ConnectorPopulation(
+            total_active=total_active,
+            total_eligible=total_eligible,
+            eligible_tier_2=eligible.tier_2_count,
+            eligible_tier_1=eligible.tier_1_count,
+            eligible_tier_0=eligible.tier_0_count,
+            pinned_tier_2=pinned.tier_2_count,
+            pinned_tier_1=pinned.tier_1_count,
+            pinned_tier_0=pinned.tier_0_count,
+            tier_resolution_available=True,
+            factors_tier_2=_tier_population_factors(summary, _select_tier_2),
+            factors_tier_1=_tier_population_factors(summary, _select_tier_1),
+            factors_tier_0=_tier_population_factors(summary, _select_tier_0),
+        )
 
     def list_versions_with_pins(self) -> list[dict[str, object]]:
         """Return connector versions that have at least one pin.
@@ -818,6 +963,10 @@ class OpsMcpAdapter:
             rollout_strategy=OpsMcpAdapter._string_field(row, "rollout_strategy"),
             rc_pin_count=int(rc_pin_count_raw) if rc_pin_count_raw else 0,
             tier=OpsMcpAdapter._tier_from_filters(row.get("filters")),
+            release_candidate_version_id=OpsMcpAdapter._string_field(
+                row,
+                "release_candidate_version_id",
+            ),
         )
 
     @staticmethod

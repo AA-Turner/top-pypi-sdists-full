@@ -268,6 +268,9 @@ INVALID_ISO_STRINGS = [
     "2020-08-15T12:08:30+09:80",
     "2020-08-15T12:08:30-09:30:60",
     "2020-08-15T12:08:30-99:00",
+    "2020-08-15T12:08:30+ 1:23",
+    "2020-08-15T12:08:30+01:+3",
+    "2020-08-15T12:08:30+-1:23",
     # other
     "2020-08-15T12:08:30+05:00stuff",  # trailing stuff
     "2020-08-15T12:𝟘8:30+00:00",  # non-ASCII
@@ -279,6 +282,7 @@ INVALID_ISO_STRINGS = [
     "2020",
     "2020-08-15",
     "2020-08-15T",
+    "20200815XXT12:30+01:00",  # junk after a basic-format date
     "garbage",
     # out-of-bounds
     "9999-12-31T22:08:30-05:00",
@@ -296,6 +300,10 @@ INVALID_ISO_STRINGS = [
     # invalid seconds (61 and above should be rejected)
     "2020-08-15T12:34:61+00:00",
     "2020-08-15T12:34:99+00:00",
+    # basic-format time is HH/HHMM/HHMMSS, not a separatorless fraction
+    "2020-08-15T12083000+05:00",
+    "2020-08-15T120830123+05:00",
+    "2020-08-15T120830.+05:00",
 ]
 
 VALID_ISO_STRINGS = [
@@ -1518,7 +1526,7 @@ class TestParseStrptime:
         with pytest.raises(TypeError, match="format|argument"):
             OffsetDateTime.parse_strptime(
                 "2020-08-15 23:12:09 +0400",
-                "%Y-%m-%d %H:%M:%S %z",  # type: ignore[misc]
+                "%Y-%m-%d %H:%M:%S %z",  # type: ignore[call-arg]
             )
 
         # out of range

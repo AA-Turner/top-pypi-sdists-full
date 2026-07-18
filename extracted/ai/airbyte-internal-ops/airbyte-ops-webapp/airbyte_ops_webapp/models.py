@@ -28,6 +28,7 @@ __all__ = [
     "OperationResult",
     "OverrideAction",
     "OverridePlan",
+    "RolloutSyncSummary",
     "ScopeType",
     "ScopedConfiguration",
     "VersionOverridePayload",
@@ -148,6 +149,117 @@ class ConnectorVersion:
 
 
 @dataclass(frozen=True)
+class RolloutSyncSummary:
+    """Health one-liner plus structured population counts for an active rollout.
+
+    Built from `get_actor_sync_info` via `summarize_sync_info`. `health` is a
+    pre-formatted `healthy | unhealthy | awaiting | disabled` string (over the
+    scan's full pinned set) used as a fallback when the active-only population is
+    unavailable; `num_healthy` / `num_unhealthy` are the raw terminal-signal
+    counts the UI recomposes against the active-only pinned count so the health
+    line reconciles with the rollout line's `pinned`. `num_pinned`,
+    `num_eligible`, and `num_actors` are raw counts the UI composes into the
+    per-tier rollout line and the single connector-level total. `health` is an
+    empty string and the counts are `0` when no summary is available (missing
+    rollout ID or a failed API call), so the UI can render the card without them.
+    """
+
+    health: str = ""
+    num_pinned: int = 0
+    num_eligible: int = 0
+    num_actors: int = 0
+    num_healthy: int = 0
+    num_unhealthy: int = 0
+
+
+@dataclass(frozen=True)
+class TierPopulationFactors:
+    """Distinct population factors for one rollout tier (nothing collapsed).
+
+    Surfaced so the UI can show every factor and how each denominator is built,
+    with traceable arithmetic. The identities that hold by construction:
+
+    - `active = pinned_to_rollout + off_version_pinned + unpinned`
+    - `unpinned = gate_pass + gate_excluded_failed + gate_excluded_no_recent_sync`
+    - `addressable = active - off_version_pinned` (the honest active-fleet
+      denominator)
+    - `addressable_gated = gate_pass + pinned_to_rollout` (reproduces the
+      platform's `nActorsEligibleOrAlreadyPinned` — its job-status-gated
+      denominator)
+
+    `pinned_to_rollout` is the numerator for both denominators. The `gate_*`
+    fields reproduce the platform's `filterByJobStatus` gate over the rollout
+    window; they are `0` (and `addressable_gated` collapses to
+    `pinned_to_rollout`) when no rollout window is available.
+    """
+
+    active: int = 0
+    pinned_to_rollout: int = 0
+    off_version_pinned: int = 0
+    unpinned: int = 0
+    gate_pass: int = 0
+    gate_excluded_failed: int = 0
+    gate_excluded_no_recent_sync: int = 0
+    addressable: int = 0
+    addressable_gated: int = 0
+
+
+@dataclass(frozen=True)
+class ConnectorPopulation:
+    """Enabled (active-connection) actor population for a connector, by rollout tier.
+
+    Sourced from the DB-backed `query_actor_population_by_org` +
+    `summarize_population` path, counting only actors with at least one active
+    connection (`connection.status = 'active'`). Used to (a) show a single
+    connector-wide `total_eligible` count (the backend's gated eligibility) on
+    the "Eligible Actors" line, and (b) supply each tier's eligible count on the
+    rollout cards — for both started and not-yet-started tiers.
+
+    The per-tier `eligible_*` fields are each tier's job-status-*gated* audience
+    for the rollout version (`addressable_gated_by_tier`, the backend's
+    `nActorsEligibleOrAlreadyPinned`): unpinned actors that pass the gate plus
+    actors already pinned to the rollout version. Actors pinned to a different
+    version, with a recent failure, or with no recent sync are excluded because
+    they are not part of the rollout's realized denominator. `total_active`
+    remains the connector-wide active count across every tier (retained for
+    fallback), while `total_eligible` is the connector-wide gated-eligible count
+    used for the headline. The final `ALL` rollout stage (GA to everyone) is
+    surfaced under the `TIER_0` cohort it ultimately brings in.
+
+    The per-tier `pinned_*` fields are each tier's active actors whose effective
+    pin is *the rollout version* (`pinned_to_version_active_by_tier`), not merely
+    a pin to any version. They come from the same active-only population as
+    `eligible_*`, so `pinned_<tier> <= eligible_<tier>` holds by construction —
+    unlike the rollout scan's `numPinnedToConnectorRollout`, which counts
+    tombstoned/inactive pinned actors and can exceed the active audience.
+
+    The per-tier `factors_*` fields carry every distinct population factor for
+    that tier (see `TierPopulationFactors`), so the UI can over-communicate the
+    full breakdown and show how both the addressable and the backend-eligible
+    denominators are built. They are `None` when tier resolution was unavailable.
+
+    `tier_resolution_available` records whether the BigQuery-backed tier split
+    actually resolved. It is `False` when tier resolution was unavailable (so
+    the per-tier `eligible_*` / `pinned_*` counts are unknown rather than a
+    genuine zero), letting the UI distinguish "not started, 0 eligible" from
+    "not started, eligible unknown".
+    """
+
+    total_active: int = 0
+    total_eligible: int = 0
+    eligible_tier_2: int = 0
+    eligible_tier_1: int = 0
+    eligible_tier_0: int = 0
+    pinned_tier_2: int = 0
+    pinned_tier_1: int = 0
+    pinned_tier_0: int = 0
+    tier_resolution_available: bool = False
+    factors_tier_2: TierPopulationFactors | None = None
+    factors_tier_1: TierPopulationFactors | None = None
+    factors_tier_0: TierPopulationFactors | None = None
+
+
+@dataclass(frozen=True)
 class ConnectorRollout:
     """Active progressive rollout row."""
 
@@ -166,6 +278,7 @@ class ConnectorRollout:
     rollout_strategy: str = ""
     rc_pin_count: int = 0
     tier: str = "TIER_2"
+    release_candidate_version_id: str = ""
 
 
 @dataclass(frozen=True)

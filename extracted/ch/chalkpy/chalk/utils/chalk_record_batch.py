@@ -188,6 +188,16 @@ class ChalkRecordBatch:
         except KeyError:
             raise ValueError(f"Column '{name}' not in the table") from None
 
+    def column_to_pylist(self, name: str) -> list:
+        """Convert a single column to a Python list. Provided alongside the C++-backed
+        ``CppBackedRecordBatch.column_to_pylist`` so both implementations share an
+        accessor name; ``FastScalarInvoker`` calls this on whichever variant arrives
+        in ``LocalResolverInputs.scalarish_features``."""
+        try:
+            return self._data[name].to_pylist()
+        except KeyError:
+            raise ValueError(f"Column '{name}' not in the table") from None
+
     def append_column(self, field: str, column: pa.Array | pa.ChunkedArray):
         """Create a new table with this additional column at the end of the table
 

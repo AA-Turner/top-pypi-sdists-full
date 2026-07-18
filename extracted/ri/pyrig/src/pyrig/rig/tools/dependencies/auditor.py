@@ -5,6 +5,7 @@ from typing import Any
 from pyrig.core.subprocesses import Args
 from pyrig.rig.tools.base.hooks import CheckHookTool
 from pyrig.rig.tools.base.tool import Group
+from pyrig.rig.tools.packages.manager import PackageManager
 from pyrig.rig.tools.typing.checker import TypeChecker
 from pyrig.rig.tools.version_control.hooks.manager import VersionControlHookManager
 
@@ -50,7 +51,7 @@ class DependencyAuditor(CheckHookTool):
         Runs on the transition stages rather than pre-commit, since
         `pip-audit` scans installed distributions, not changed files. Ties
         its priority to `TypeChecker.check_hook`: it's a read-only
-        check like the rest of that tier, so a full `--group all` sweep can
+        check like the rest of that tier, so a full `--group=all` sweep can
         run it alongside them even though it triggers on different stages.
 
         Returns:
@@ -70,6 +71,6 @@ class DependencyAuditor(CheckHookTool):
         """Return the `Args` this hook's entry runs.
 
         Returns:
-            Args for `pip-audit`.
+            Args for `uv run pip-audit`.
         """
-        return self.check_args()
+        return PackageManager.I.run_args(*self.check_args())

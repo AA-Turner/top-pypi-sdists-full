@@ -2,10 +2,29 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 import smplkit._metrics as _metrics_module
 from smplkit._ws import SharedWebSocket
+
+
+@pytest.fixture(autouse=True)
+def _scrub_smplkit_env(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    """Scrub ambient SMPLKIT_* env vars and the developer's real ~/.smplkit.
+
+    Standalone sub-clients resolve api_key / base_domain / scheme /
+    environment / service through the full chain (defaults → ~/.smplkit →
+    SMPLKIT_* env vars → kwargs), so a developer's shell exports or
+    credentials file would otherwise leak into resolution-sensitive
+    assertions. Tests that need a config file monkeypatch
+    ``smplkit._config.Path.home`` themselves (same mechanism), which
+    overrides this isolation.
+    """
+    for var in [v for v in os.environ if v.startswith("SMPLKIT_")]:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr("smplkit._config.Path.home", lambda: tmp_path)
 
 
 class _NoOpMetricsReporter:
@@ -81,12 +100,12 @@ def _no_real_websocket(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _set_smplkit_service(monkeypatch: pytest.MonkeyPatch) -> None:
+def _set_smplkit_service(_scrub_smplkit_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure SMPLKIT_SERVICE is set for every test.
 
-    ``service`` is now required by SmplClient / AsyncSmplClient.  This
-    autouse fixture keeps existing tests green without individual changes.
-    Tests that need to exercise the service-missing error path should
-    explicitly ``monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)``.
+    Depends on ``_scrub_smplkit_env`` so the scrub runs first and this value
+    survives it. Keeps existing tests green without individual changes;
+    tests that need to exercise the service-missing path should explicitly
+    ``monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)``.
     """
     monkeypatch.setenv("SMPLKIT_SERVICE", "test-service")

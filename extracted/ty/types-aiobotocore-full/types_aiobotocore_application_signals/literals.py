@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_application_signals.literals import ChangeEventTypeType
+    from types_aiobotocore_application_signals.literals import BatchDeleteErrorCodeType
 
-    data: ChangeEventTypeType = "CONFIGURATION"
+    data: BatchDeleteErrorCodeType = "AccessDeniedException"
     ```
 """
 
@@ -23,13 +23,21 @@ else:
 
 
 __all__ = (
+    "BatchDeleteErrorCodeType",
     "ChangeEventTypeType",
     "CloudWatchApplicationSignalsServiceName",
     "ConnectionTypeType",
     "DetailLevelType",
     "DurationUnitType",
+    "DynamicInstrumentationDeletionStatusType",
+    "DynamicInstrumentationSignalTypeType",
     "EvaluationTypeType",
+    "GetInstrumentationConfigurationStatusPaginatorName",
+    "InstrumentationConfigurationStatusType",
+    "InstrumentationErrorCauseType",
+    "InstrumentationTypeType",
     "ListEntityEventsPaginatorName",
+    "ListInstrumentationConfigurationsPaginatorName",
     "ListServiceDependenciesPaginatorName",
     "ListServiceDependentsPaginatorName",
     "ListServiceLevelObjectiveExclusionWindowsPaginatorName",
@@ -39,6 +47,7 @@ __all__ = (
     "ListServicesPaginatorName",
     "MetricSourceTypeType",
     "PaginatorName",
+    "ProgrammingLanguageType",
     "ResourceServiceName",
     "SelectionTypeType",
     "ServiceLevelIndicatorComparisonOperatorType",
@@ -47,15 +56,35 @@ __all__ = (
     "ServiceName",
     "SeverityType",
     "StandardUnitType",
+    "UnprocessedStatusEventFailureReasonType",
 )
 
 
+BatchDeleteErrorCodeType = Literal[
+    "AccessDeniedException", "InternalServiceException", "ResourceNotFoundException"
+]
 ChangeEventTypeType = Literal["CONFIGURATION", "DEPLOYMENT"]
 ConnectionTypeType = Literal["DIRECT", "INDIRECT"]
 DetailLevelType = Literal["BRIEF", "DETAILED"]
 DurationUnitType = Literal["DAY", "HOUR", "MINUTE", "MONTH"]
+DynamicInstrumentationDeletionStatusType = Literal["DELETED"]
+DynamicInstrumentationSignalTypeType = Literal["SNAPSHOT"]
 EvaluationTypeType = Literal["PeriodBased", "RequestBased"]
+GetInstrumentationConfigurationStatusPaginatorName = Literal[
+    "get_instrumentation_configuration_status"
+]
+InstrumentationConfigurationStatusType = Literal["ACTIVE", "DISABLED", "ERROR", "READY"]
+InstrumentationErrorCauseType = Literal[
+    "FILE_NOT_FOUND",
+    "LANGUAGE_MISMATCH",
+    "LINE_NOT_EXECUTABLE",
+    "METHOD_NOT_FOUND",
+    "OVERLOADED_METHODS",
+    "RUNTIME_ERROR",
+]
+InstrumentationTypeType = Literal["BREAKPOINT", "PROBE"]
 ListEntityEventsPaginatorName = Literal["list_entity_events"]
+ListInstrumentationConfigurationsPaginatorName = Literal["list_instrumentation_configurations"]
 ListServiceDependenciesPaginatorName = Literal["list_service_dependencies"]
 ListServiceDependentsPaginatorName = Literal["list_service_dependents"]
 ListServiceLevelObjectiveExclusionWindowsPaginatorName = Literal[
@@ -68,6 +97,7 @@ ListServicesPaginatorName = Literal["list_services"]
 MetricSourceTypeType = Literal[
     "AppMonitor", "Canary", "CloudWatchMetric", "Service", "ServiceDependency", "ServiceOperation"
 ]
+ProgrammingLanguageType = Literal["Java", "Javascript", "Python"]
 SelectionTypeType = Literal["EXPLICIT", "PREFIX", "REGEX"]
 ServiceLevelIndicatorComparisonOperatorType = Literal[
     "GreaterThan", "GreaterThanOrEqualTo", "LessThan", "LessThanOrEqualTo"
@@ -104,6 +134,7 @@ StandardUnitType = Literal[
     "Terabytes",
     "Terabytes/Second",
 ]
+UnprocessedStatusEventFailureReasonType = Literal["INTERNAL_ERROR", "THROTTLED", "VALIDATION_ERROR"]
 CloudWatchApplicationSignalsServiceName = Literal["application-signals"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -298,8 +329,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -326,6 +355,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -393,10 +424,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -429,6 +460,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -456,6 +488,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -477,7 +510,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -498,6 +530,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -534,7 +567,9 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "get_instrumentation_configuration_status",
     "list_entity_events",
+    "list_instrumentation_configurations",
     "list_service_dependencies",
     "list_service_dependents",
     "list_service_level_objective_exclusion_windows",

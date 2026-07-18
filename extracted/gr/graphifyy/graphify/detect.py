@@ -93,11 +93,21 @@ def _zip_within_caps(path: Path) -> bool:
         return False
     return True
 
-# Parent directories whose contents are always sensitive.
-# Checked against path.parts[:-1] (parents only) so a root-level file named
-# "credentials" or "secrets" is not falsely flagged by this stage.
-_SENSITIVE_DIRS = frozenset({
-    ".ssh", ".gnupg", ".aws", ".gcloud", "secrets", ".secrets", "credentials",
+# Dedicated credential-store directories: everything beneath them is sensitive,
+# with no carve-out — a .py inside ~/.ssh or ~/.aws is tooling for key material,
+# not a source package, and keys there are routinely extensionless.
+# Both sets are checked against path.parts[:-1] (parents only) so a root-level
+# file named "credentials" or "secrets" is not falsely flagged by this stage.
+_CREDENTIAL_STORE_DIRS = frozenset({
+    ".ssh", ".gnupg", ".aws", ".gcloud",
+})
+
+# Bare-name directories that are as often legitimate source packages (Go
+# internal/secrets, a credentials/ service module) as credential stores. Their
+# contents are sensitive EXCEPT genuine programming-language source, mirroring
+# the Stage 3 keyword carve-out (#1666) at the directory level (#1943).
+_AMBIGUOUS_SENSITIVE_DIRS = frozenset({
+    "secrets", ".secrets", "credentials",
 })
 
 # Files that may contain secrets - skip silently. These patterns are specific
@@ -126,12 +136,18 @@ _GENERIC_KEYWORD_PATTERNS = [
 ]
 
 # Data/serialization extensions that commonly ARE secret stores when their name
-# hits a generic keyword (credentials.json, secrets.yaml, token.toml). These stay
-# subject to the Stage 3 keyword drop even though some route through the CODE path
-# for manifest parsing — only real programming-language source is exempt (#1666).
+# hits a generic keyword (credentials.json, secrets.yaml, token.toml) or they sit
+# in an ambiguous sensitive dir (secrets/db.json). These stay subject to the
+# Stage 1 ambiguous-dir drop and the Stage 3 keyword drop even though some route
+# through the CODE path for manifest parsing — only real programming-language
+# source is exempt (#1666, #1943).
 _SECRET_PRONE_DATA_EXTS = frozenset({
     ".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".config",
     ".xml", ".properties", ".env", ".txt",
+    # .tfvars is Terraform's canonical VALUES store (routinely holds real
+    # secrets), not source — keep it out of the graph even though it sits in
+    # CODE_EXTENSIONS. .tf/.hcl are genuine infra source and stay graphable.
+    ".tfvars",
 })
 
 # Word separators for the load-bearing check (underscore intentionally included;
@@ -182,12 +198,28 @@ _PAPER_SIGNALS = [
 _PAPER_SIGNAL_THRESHOLD = 3  # need at least this many signals to call it a paper
 
 
+def _is_graphable_source(path: Path) -> bool:
+    """True for genuine programming-language source — the only category exempt
+    from the ambiguous-dir (Stage 1, #1943) and generic-keyword (Stage 3, #1666)
+    drops. Data/serialization formats are NOT exempt even though some route
+    through the CODE path for manifest parsing: credentials.json / secrets.yaml
+    are exactly the stores those stages must keep catching.
+    """
+    return classify_file(path) == FileType.CODE and path.suffix.lower() not in _SECRET_PRONE_DATA_EXTS
+
+
 def _is_sensitive(path: Path) -> bool:
     """Return True if this file likely contains secrets and should be skipped."""
     # Stage 1: any PARENT directory is a known secrets dir (parts[:-1] excludes
     # the filename itself so a root-level file named "credentials" is not falsely
-    # skipped — the name patterns in Stage 2 handle the filename).
-    if any(part in _SENSITIVE_DIRS for part in path.parts[:-1]):
+    # skipped — the name patterns in Stage 2 handle the filename). Dedicated
+    # credential stores drop everything unconditionally; ambiguous bare-name dirs
+    # (secrets/, credentials/) spare genuine source (#1943), which still falls
+    # through so Stages 2-3 screen its filename like anywhere else.
+    parents = path.parts[:-1]
+    if any(part in _CREDENTIAL_STORE_DIRS for part in parents):
+        return True
+    if any(part in _AMBIGUOUS_SENSITIVE_DIRS for part in parents) and not _is_graphable_source(path):
         return True
     # Stage 2: filename pattern match
     name = path.name
@@ -202,9 +234,7 @@ def _is_sensitive(path: Path) -> bool:
     # secret stores this stage must catch. The specific Stage 2 patterns (.env, .pem,
     # id_rsa, ...) still apply to everything regardless of extension.
     if _generic_keyword_hit(name):
-        ext = path.suffix.lower()
-        is_source_code = classify_file(path) == FileType.CODE and ext not in _SECRET_PRONE_DATA_EXTS
-        return not is_source_code
+        return not _is_graphable_source(path)
     return False
 
 
@@ -1478,6 +1508,7 @@ def save_manifest(
     kind: str = "both",
     root: Path | None = None,
     scan_corpus: set[str] | list[str] | None = None,
+    clear_semantic: set[str] | list[str] | None = None,
 ) -> None:
     """Save current file mtimes + content hashes for change detection.
 
@@ -1504,10 +1535,19 @@ def save_manifest(
     --code-only doc rows). Out-of-root entries are never pruned. Callers
     saving a SUBSET of files (changed_paths hooks, skill runbooks, #917)
     must leave this None so their untouched rows are preserved.
+
+    ``clear_semantic`` (#1948): files that were dispatched this run but
+    produced no stamped output (e.g. the LLM omitted their chunk on a
+    --force re-run) are absent from ``files``, so the seed loop below would
+    otherwise copy their prior semantic_hash verbatim — masking the omission
+    and making detect_incremental(kind="semantic") report them unchanged.
+    Pass the set of such files (any path form ``scan_corpus`` accepts) to
+    force their seeded semantic_hash to "" instead of inheriting it.
     """
     existing = load_manifest(manifest_path, root=root)
 
     scan_set: set[str] | None = set(scan_corpus) if scan_corpus is not None else None
+    clear_set: set[str] | None = set(clear_semantic) if clear_semantic is not None else None
     try:
         root_res: Path | None = Path(root).resolve() if root is not None else None
     except (OSError, RuntimeError):
@@ -1518,6 +1558,14 @@ def save_manifest(
             return True
         try:
             return str(Path(path_str).resolve()) in scan_set
+        except (OSError, RuntimeError):
+            return False
+
+    def _in_clear(path_str: str) -> bool:
+        if path_str in clear_set:
+            return True
+        try:
+            return str(Path(path_str).resolve()) in clear_set
         except (OSError, RuntimeError):
             return False
 
@@ -1566,6 +1614,10 @@ def save_manifest(
             continue
         if scan_set is not None and not _in_scan(f) and _in_root(f):
             continue  # excluded-but-alive: drop the stale row (#1908)
+        if clear_set is not None and _in_clear(f):
+            # Dispatched-but-omitted this run: don't inherit the stale
+            # semantic_hash, or detect_incremental would call it unchanged (#1948).
+            normalised = {**normalised, "semantic_hash": ""}
         manifest[f] = normalised
 
     all_files = [f for file_list in files.values() for f in file_list]
@@ -1597,8 +1649,10 @@ def save_manifest(
         # their absolute form so the manifest round-trips on the saving
         # machine even when not every entry can be portably encoded.
         manifest = {_to_relative_for_storage(k, root): v for k, v in manifest.items()}
-    Path(manifest_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(manifest_path).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    from graphify.paths import write_json_atomic
+    # Atomic write: a crash mid-write must not leave a truncated manifest that
+    # detect_incremental then fails to parse.
+    write_json_atomic(manifest_path, manifest, indent=2)
 
 
 def detect_incremental(

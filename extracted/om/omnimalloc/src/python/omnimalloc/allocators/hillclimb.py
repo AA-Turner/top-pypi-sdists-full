@@ -4,14 +4,19 @@
 
 import math
 import random
-import time
 
 from omnimalloc._cpp import FirstFitPlacer
+from omnimalloc.analysis import placement_pressure
+from omnimalloc.common.constants import DEFAULT_SEED, DEFAULT_TIMEOUT
+from omnimalloc.common.deadline import (
+    deadline_expired,
+    ensure_valid_timeout,
+    make_deadline,
+)
+from omnimalloc.common.validation import ensure_non_negative, ensure_positive
 from omnimalloc.primitives import Allocation
 
-from .base import DEFAULT_TIMEOUT
 from .greedy import GreedyAllocator
-from .greedy_base import compute_conflicts, peak_memory
 
 
 class HillClimbAllocator(GreedyAllocator):
@@ -23,25 +28,20 @@ class HillClimbAllocator(GreedyAllocator):
     schedule). `acceptance_temperature` is the percent worsening accepted
     with probability 1/e at the start; it cools linearly to zero.
     `timeout` (default 3s) bounds wall-clock time as the input grows,
-    independent of `max_iterations`; set it to 0 to disable the deadline.
+    independent of `max_iterations`; set it to None to disable the deadline.
     """
 
     def __init__(
         self,
+        *,
         max_iterations: int = 100,
-        seed: int = 42,
+        seed: int = DEFAULT_SEED,
         acceptance_temperature: float = 2.0,
-        timeout: float = DEFAULT_TIMEOUT,
+        timeout: float | None = DEFAULT_TIMEOUT,
     ) -> None:
-        if max_iterations <= 0:
-            raise ValueError(f"max_iterations must be positive, got {max_iterations}")
-        if acceptance_temperature < 0:
-            raise ValueError(
-                f"acceptance_temperature must be non-negative, "
-                f"got {acceptance_temperature}"
-            )
-        if timeout < 0:
-            raise ValueError(f"timeout must be non-negative, got {timeout}")
+        ensure_positive(max_iterations, "max_iterations")
+        ensure_non_negative(acceptance_temperature, "acceptance_temperature")
+        ensure_valid_timeout(timeout)
 
         self._max_iterations = max_iterations
         self._seed = seed
@@ -119,17 +119,19 @@ class HillClimbAllocator(GreedyAllocator):
         return rng.random() < math.exp(-worsening_percent / temperature)
 
     def _allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
-        deadline = time.monotonic() + self._timeout if self._timeout else None
+        deadline = make_deadline(self._timeout)
         rng = random.Random(self._seed)
-        conflicts = compute_conflicts(allocations)
-        placer = FirstFitPlacer(list(allocations))
-        adjacency = placer.overlaps
+        placer = FirstFitPlacer(allocations)
+        adjacency = placer.conflicts
+        # Ids are unique (enforced by allocate()), so the placer's resident
+        # conflict map doubles as the degree source for the starting order.
+        degrees = [len(adjacency[alloc.id]) for alloc in allocations]
 
         # Start from size * conflicts^2, size, then id for deterministic ordering
         order = sorted(
             range(len(allocations)),
             key=lambda i: (
-                allocations[i].size * conflicts[allocations[i]] ** 2,
+                allocations[i].size * degrees[i] ** 2,
                 allocations[i].size,
                 str(allocations[i].id),
             ),
@@ -138,11 +140,11 @@ class HillClimbAllocator(GreedyAllocator):
 
         # Greedy placement preserves order, so placed[i] corresponds to order[i]
         current = tuple(placer.place(order))
-        current_peak = peak_memory(current)
+        current_peak = placement_pressure(current)
         best, best_peak = current, current_peak
 
         for iteration in range(self._max_iterations):
-            if deadline is not None and time.monotonic() >= deadline:
+            if deadline_expired(deadline):
                 break
             swap = self._propose_swap(
                 order, current, current_peak, rng, allocations, adjacency
@@ -153,7 +155,7 @@ class HillClimbAllocator(GreedyAllocator):
             idx1, idx2 = swap
             order[idx1], order[idx2] = order[idx2], order[idx1]
             candidate = tuple(placer.place(order))
-            candidate_peak = peak_memory(candidate)
+            candidate_peak = placement_pressure(candidate)
 
             if self._should_accept(candidate_peak, current_peak, iteration, rng):
                 current, current_peak = candidate, candidate_peak

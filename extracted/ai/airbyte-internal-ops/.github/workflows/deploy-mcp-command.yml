@@ -25,13 +25,22 @@ on:
           - agent-mcp
         default: ops-mcp
       pr:
-        description: "PR number. When provided, deploys to the preview service instead of production."
+        description: "PR number. When provided (and preview is not set to false), deploys to the preview service instead of production."
         required: false
         type: string
       comment-id:
-        description: "Slash-command comment ID. Presence of either pr or comment-id triggers a preview deploy."
+        description: "Slash-command comment ID. Presence of either pr or comment-id triggers a preview deploy unless preview is set to false."
         required: false
         type: string
+      preview:
+        description: "Preview override. 'auto' (default) infers preview from pr/comment-id presence; 'true' forces a preview deploy (even from main, no PR needed); 'false' forces a production deploy."
+        required: false
+        type: choice
+        options:
+          - auto
+          - "true"
+          - "false"
+        default: auto
 
 permissions:
   contents: read
@@ -46,6 +55,7 @@ env:
   MCP_PR: ${{ github.event.inputs.pr || '' }}
   MCP_COMMENT_ID: ${{ github.event.inputs.comment-id || '' }}
   MCP_PREVIEW: ${{ github.event.client_payload.preview || '' }}
+  MCP_PREVIEW_INPUT: ${{ github.event.inputs.preview || '' }}
 
 jobs:
   resolve-vars:
@@ -68,6 +78,8 @@ jobs:
           GCP_REGION: ${{ env.GCP_REGION }}
           GCP_PROJECT: ${{ env.GCP_PROJECT }}
           MCP_SERVER: ${{ env.MCP_SERVER }}
+          MCP_PREVIEW: ${{ env.MCP_PREVIEW }}
+          MCP_PREVIEW_INPUT: ${{ env.MCP_PREVIEW_INPUT }}
         run: |
           ref="$GITHUB_SHA"
           short_sha="${GITHUB_SHA:0:7}"
@@ -85,7 +97,21 @@ jobs:
             exit 1
           fi
 
-          if [ -n "$MCP_PR" ] || [ -n "$MCP_COMMENT_ID" ] || [ "$MCP_PREVIEW" = "true" ]; then
+          # Resolve an explicit preview override from either the workflow_dispatch
+          # `preview` input or the repository_dispatch `client_payload.preview`.
+          # 'auto' / empty means "infer from pr/comment-id presence".
+          preview_override=""
+          if [ "$MCP_PREVIEW_INPUT" = "true" ] || [ "$MCP_PREVIEW" = "true" ]; then
+            preview_override="true"
+          elif [ "$MCP_PREVIEW_INPUT" = "false" ] || [ "$MCP_PREVIEW" = "false" ]; then
+            preview_override="false"
+          fi
+
+          if [ "$preview_override" = "true" ]; then
+            is_preview="true"
+          elif [ "$preview_override" = "false" ]; then
+            is_preview="false"
+          elif [ -n "$MCP_PR" ] || [ -n "$MCP_COMMENT_ID" ]; then
             is_preview="true"
           fi
 
@@ -123,9 +149,33 @@ jobs:
             printf "is_preview=%s\n" "$is_preview"
           } | tee -a "$GITHUB_OUTPUT"
 
+  # agent-mcp (the Airbyte Agents MCP behind mcp.airbyte.ai) is built from
+  # airbytehq/sonar's `agent-engine-mcp` app, not from this repo and not from
+  # the published PyAirbyte `airbyte` package. Its internal-mirror image build
+  # + deploy is paused while a Porter-based cross-repo image bridge is set up,
+  # so agent-mcp requests short-circuit here instead of building anything.
+  pause-agent-mcp:
+    name: "agent-mcp deploy paused"
+    needs: resolve-vars
+    if: ${{ startsWith(needs.resolve-vars.outputs.service, 'agent-mcp') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notice
+        run: |
+          {
+            printf "## agent-mcp deploy is paused\n\n"
+            printf "The Agents MCP (mcp.airbyte.ai) is built from "
+            printf "\`airbytehq/sonar\` (\`agent-engine-mcp\`), not from this repo "
+            printf "or the published PyAirbyte package.\n\n"
+            printf "This deploy path is a no-op until the Porter-based cross-repo "
+            printf "image bridge is in place. Requested service: \`%s\`.\n" \
+              "${{ needs.resolve-vars.outputs.service }}"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
   deploy-mcp:
     name: "Deploy ${{ needs.resolve-vars.outputs.service }}"
     needs: resolve-vars
+    if: ${{ !startsWith(needs.resolve-vars.outputs.service, 'agent-mcp') }}
     runs-on: ubuntu-latest
     environment:
       name: "Cloud Run (${{ needs.resolve-vars.outputs.service }})"

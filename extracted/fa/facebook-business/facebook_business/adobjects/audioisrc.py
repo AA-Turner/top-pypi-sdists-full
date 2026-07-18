@@ -30,6 +30,7 @@ class AudioIsrc(
         all_kg_featured_artists = 'all_kg_featured_artists'
         all_kg_main_artists = 'all_kg_main_artists'
         artist_profile_picture_url = 'artist_profile_picture_url'
+        canonical_audio_asset = 'canonical_audio_asset'
         id = 'id'
         isrc = 'isrc'
         publishing_rights_data = 'publishing_rights_data'
@@ -71,6 +72,7 @@ class AudioIsrc(
         'all_kg_featured_artists': 'string',
         'all_kg_main_artists': 'string',
         'artist_profile_picture_url': 'string',
+        'canonical_audio_asset': 'AudioAsset',
         'id': 'string',
         'isrc': 'string',
         'publishing_rights_data': 'Object',

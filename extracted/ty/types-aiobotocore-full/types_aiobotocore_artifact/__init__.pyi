@@ -12,6 +12,8 @@ Usage::
     from types_aiobotocore_artifact import (
         ArtifactClient,
         Client,
+        ListComplianceInquiriesPaginator,
+        ListComplianceInquiryQueriesPaginator,
         ListCustomerAgreementsPaginator,
         ListReportVersionsPaginator,
         ListReportsPaginator,
@@ -23,6 +25,8 @@ Usage::
         ...
 
 
+    list_compliance_inquiries_paginator: ListComplianceInquiriesPaginator = client.get_paginator("list_compliance_inquiries")
+    list_compliance_inquiry_queries_paginator: ListComplianceInquiryQueriesPaginator = client.get_paginator("list_compliance_inquiry_queries")
     list_customer_agreements_paginator: ListCustomerAgreementsPaginator = client.get_paginator("list_customer_agreements")
     list_report_versions_paginator: ListReportVersionsPaginator = client.get_paginator("list_report_versions")
     list_reports_paginator: ListReportsPaginator = client.get_paginator("list_reports")
@@ -31,6 +35,8 @@ Usage::
 
 from .client import ArtifactClient
 from .paginator import (
+    ListComplianceInquiriesPaginator,
+    ListComplianceInquiryQueriesPaginator,
     ListCustomerAgreementsPaginator,
     ListReportsPaginator,
     ListReportVersionsPaginator,
@@ -41,6 +47,8 @@ Client = ArtifactClient
 __all__ = (
     "ArtifactClient",
     "Client",
+    "ListComplianceInquiriesPaginator",
+    "ListComplianceInquiryQueriesPaginator",
     "ListCustomerAgreementsPaginator",
     "ListReportVersionsPaginator",
     "ListReportsPaginator",

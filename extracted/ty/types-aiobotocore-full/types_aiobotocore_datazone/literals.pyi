@@ -52,6 +52,7 @@ __all__ = (
     "EnableSettingType",
     "EntityTypeType",
     "EnvironmentStatusType",
+    "FileFormatType",
     "FilterExpressionTypeType",
     "FilterOperatorType",
     "FilterStatusType",
@@ -93,6 +94,8 @@ __all__ = (
     "ListLineageEventsPaginatorName",
     "ListLineageNodeHistoryPaginatorName",
     "ListMetadataGenerationRunsPaginatorName",
+    "ListNotebookRunsPaginatorName",
+    "ListNotebooksPaginatorName",
     "ListNotificationsPaginatorName",
     "ListPolicyGrantsPaginatorName",
     "ListProjectMembershipsPaginatorName",
@@ -109,12 +112,17 @@ __all__ = (
     "MetadataGenerationRunStatusType",
     "MetadataGenerationRunTypeType",
     "MetadataGenerationTargetTypeType",
+    "NetworkAccessTypeType",
+    "NotebookExportStatusType",
+    "NotebookRunStatusType",
+    "NotebookStatusType",
     "NotificationResourceTypeType",
     "NotificationRoleType",
     "NotificationTypeType",
     "OAuth2GrantTypeType",
     "OpenLineageRunStateType",
     "OverallDeploymentStatusType",
+    "PackageManagerType",
     "PaginatorName",
     "ProjectDesignationType",
     "ProjectStatusType",
@@ -155,6 +163,7 @@ __all__ = (
     "TaskStatusType",
     "TimeSeriesEntityTypeType",
     "TimezoneType",
+    "TriggerSourceTypeType",
     "TypesSearchScopeType",
     "UserAssignmentType",
     "UserDesignationType",
@@ -205,6 +214,7 @@ ConnectionTypeType = Literal[
     "SQLSERVER",
     "TERADATA",
     "VERTICA",
+    "VPC",
     "WORKFLOWS_MWAA",
 ]
 DataAssetActivityStatusType = Literal[
@@ -269,6 +279,7 @@ EnvironmentStatusType = Literal[
     "UPDATING",
     "VALIDATION_FAILED",
 ]
+FileFormatType = Literal["IPYNB", "PDF"]
 FilterExpressionTypeType = Literal["EXCLUDE", "INCLUDE"]
 FilterOperatorType = Literal["EQ", "GE", "GT", "LE", "LT", "TEXT_SEARCH"]
 FilterStatusType = Literal["INVALID", "VALID"]
@@ -335,6 +346,8 @@ ListJobRunsPaginatorName = Literal["list_job_runs"]
 ListLineageEventsPaginatorName = Literal["list_lineage_events"]
 ListLineageNodeHistoryPaginatorName = Literal["list_lineage_node_history"]
 ListMetadataGenerationRunsPaginatorName = Literal["list_metadata_generation_runs"]
+ListNotebookRunsPaginatorName = Literal["list_notebook_runs"]
+ListNotebooksPaginatorName = Literal["list_notebooks"]
 ListNotificationsPaginatorName = Literal["list_notifications"]
 ListPolicyGrantsPaginatorName = Literal["list_policy_grants"]
 ListProjectMembershipsPaginatorName = Literal["list_project_memberships"]
@@ -370,6 +383,12 @@ MetadataGenerationRunTypeType = Literal[
     "BUSINESS_DESCRIPTIONS", "BUSINESS_GLOSSARY_ASSOCIATIONS", "BUSINESS_NAMES"
 ]
 MetadataGenerationTargetTypeType = Literal["ASSET"]
+NetworkAccessTypeType = Literal["PUBLIC_INTERNET_ONLY", "VPC_ONLY"]
+NotebookExportStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
+NotebookRunStatusType = Literal[
+    "FAILED", "QUEUED", "RUNNING", "STARTING", "STOPPED", "STOPPING", "SUCCEEDED"
+]
+NotebookStatusType = Literal["ACTIVE", "ARCHIVED"]
 NotificationResourceTypeType = Literal["PROJECT"]
 NotificationRoleType = Literal[
     "DOMAIN_OWNER", "PROJECT_CONTRIBUTOR", "PROJECT_OWNER", "PROJECT_SUBSCRIBER", "PROJECT_VIEWER"
@@ -380,6 +399,7 @@ OpenLineageRunStateType = Literal["ABORT", "COMPLETE", "FAIL", "OTHER", "RUNNING
 OverallDeploymentStatusType = Literal[
     "FAILED_DEPLOYMENT", "FAILED_VALIDATION", "IN_PROGRESS", "PENDING_DEPLOYMENT", "SUCCESSFUL"
 ]
+PackageManagerType = Literal["UV"]
 ProjectDesignationType = Literal["CONTRIBUTOR", "OWNER", "PROJECT_CATALOG_STEWARD"]
 ProjectStatusType = Literal[
     "ACTIVE", "DELETE_FAILED", "DELETING", "MOVING", "UPDATE_FAILED", "UPDATING"
@@ -514,6 +534,7 @@ TimezoneType = Literal[
     "US_PACIFIC",
     "UTC",
 ]
+TriggerSourceTypeType = Literal["MANUAL", "SCHEDULED", "WORKFLOW"]
 TypesSearchScopeType = Literal["ASSET_TYPE", "FORM_TYPE", "LINEAGE_NODE_TYPE"]
 UserAssignmentType = Literal["AUTOMATIC", "MANUAL"]
 UserDesignationType = Literal[
@@ -721,8 +742,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -749,6 +768,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -816,10 +837,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -852,6 +873,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -879,6 +901,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -900,7 +923,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -921,6 +943,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -978,6 +1001,8 @@ PaginatorName = Literal[
     "list_lineage_events",
     "list_lineage_node_history",
     "list_metadata_generation_runs",
+    "list_notebook_runs",
+    "list_notebooks",
     "list_notifications",
     "list_policy_grants",
     "list_project_memberships",

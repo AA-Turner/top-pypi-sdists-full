@@ -15,7 +15,6 @@ from fastmcp import FastMCP
 from prefab_ui.app import PrefabApp
 from prefab_ui.components import (
     Column,
-    Div,
     Grid,
 )
 from prefab_ui.components.control_flow import If
@@ -25,8 +24,6 @@ from airbyte_ops_webapp.app_shell import build_ops_app
 from airbyte_ops_webapp.auth.google_oauth import hydrate_google_oauth_action
 from airbyte_ops_webapp.auth.oauth import hydrate_oauth_action, oauth_config
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
-    EMPTY_PIN_STATE,
-    EMPTY_ROLLOUT_STATE,
     EMPTY_ROLLOUT_SUMMARY,
     connector_options,
     connector_rows,
@@ -37,6 +34,9 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
 from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
     connector_version_manager_app,
     load_connector_context,
+)
+from airbyte_ops_webapp.pages.connector_version_manager._state import (
+    ConnectorVersionManagerPageState,
 )
 from airbyte_ops_webapp.pages.connector_version_manager.connector_overview import (
     render_rollout_status_section,
@@ -61,21 +61,13 @@ from airbyte_ops_webapp.pages.shared_components.layout import (
     render_page_hero,
     render_version_footer,
 )
-from airbyte_ops_webapp.pages.shared_components.org_lookup_modal import (
-    org_lookup_modal_state,
-)
 from airbyte_ops_webapp.state import (
-    deploy_sha,
-    deploy_sha_url,
+    OAuthConfigState,
     mock_only_enabled,
-    ops_package_version,
-    preview_deploy_enabled,
-    preview_pr_number,
-    preview_pr_url,
 )
 from airbyte_ops_webapp.theme import (
     PAGE_CLASS,
-    _page_style,
+    AbPage,
 )
 
 # ---------------------------------------------------------------------------
@@ -142,10 +134,9 @@ def connector_version_manager(
     with build_ops_app(
         title="Connector Version Manager",
         state=state,
-        oauth_issuer=str(current_oauth_config["issuer"]),
+        oauth_issuer=current_oauth_config.issuer,
     ) as app:
-        with Div(
-            style=_page_style(),
+        with AbPage(
             onMount=[hydrate_oauth_action(), hydrate_google_oauth_action()],
         ):
             with Column(gap=5, css_class=PAGE_CLASS):
@@ -164,7 +155,7 @@ def connector_version_manager(
                 render_connector_selector(state)
 
                 with If(STATE.selected_connector.id):
-                    with Grid(columns=[1, 2], gap=4):
+                    with Grid(columns=[2, 1], gap=4):
                         render_rollout_status_section()
                         render_pin_detail()
                     render_pin_modal(state)
@@ -185,42 +176,35 @@ def _build_initial_state(
     context: dict[str, object],
     connector_query: str,
     default_connector_from_args: bool,
-    current_oauth_config: dict[str, object],
+    current_oauth_config: OAuthConfigState,
 ) -> dict[str, object]:
+    """Build the page's initial Prefab state through its typed model.
+
+    `ConnectorVersionManagerPageState` supplies the typed defaults for every
+    key (see `_state`); the overrides below inject the values resolved at page
+    build (the connector search results, the selected connector, and the loaded
+    connector context) over those defaults. Building through the model keeps the
+    initial-state keys in lockstep with the page's `SetState` keys — the
+    `tests/test_page_state.py` guardrail fails the build if they drift.
+    """
+    base = ConnectorVersionManagerPageState.from_env(
+        oauth_config=current_oauth_config,
+        default_connector_from_args=default_connector_from_args,
+    ).to_prefab_state()
     return {
-        **org_lookup_modal_state(),
-        "accepts_default_connector": True,
-        "default_connector_from_args": default_connector_from_args,
+        **base,
         "query": connector_query,
         "connectors": connectors,
         "connector_options": connector_options(""),
         "latest_version_rows": latest_version_rows(),
-        "recent_release_rows": [],
-        "recent_release_value": "",
-        "recent_release_options": [],
-        "progressive_rollout_value": "",
-        "progressive_rollout_options": [],
-        "progressive_rollout_rows": [],
-        "pinned_version_rows": [],
-        "pin_origin_filter": "all",
-        "recent_release_rows_loaded": False,
-        "progressive_rollout_rows_loaded": False,
-        "pinned_version_rows_loaded": False,
-        "selector_tab": "active-rollouts",
         "selected_connector_id": selected_connector["id"],
         "selected_connector": selected_connector,
         "scope_type": context["scope_type"],
         "scope_id": context["scope_id"],
         "context_guid": context["context_guid"],
         "resolved_context_label": context["resolved_context_label"],
-        "scope_url": "",
         "actor_workspace_id": context["actor_workspace_id"],
-        "action": "set",
         "target_version": selected_connector["latest_version"],
-        "override_reason": "",
-        "reference_url": "",
-        "customer_tier_filter": "TIER_2",
-        "auth_bearer_token": "",
         "versions": context["versions"],
         "active_rollouts": context["active_rollouts"],
         "rollout_summary": context.get("rollout_summary", EMPTY_ROLLOUT_SUMMARY),
@@ -228,64 +212,7 @@ def _build_initial_state(
         "current_state_markdown": context["current_state_markdown"],
         "ancestor_configs": context["ancestor_configs"],
         "descendant_configs": context["descendant_configs"],
-        "context_error": "",
-        "notifications": [],
-        "has_unviewed_notifications": False,
         "rollout_error": context["rollout_error"],
-        "preview_json": "",
-        "preview_warnings": "",
-        "apply_result_json": "",
-        "apply_message": "",
-        "apply_success": False,
-        "is_loading": False,
-        "loading_message": "",
-        "tool_error": "",
-        "is_mock_only": mock_only_enabled(),
-        "is_preview_deploy": preview_deploy_enabled(),
-        "preview_pr_number": preview_pr_number(),
-        "preview_pr_url": preview_pr_url(),
-        "deploy_sha": deploy_sha(),
-        "deploy_sha_url": deploy_sha_url(),
-        "ops_package_version": ops_package_version(),
-        "oauth_config": current_oauth_config,
-        "oauth_enabled": current_oauth_config["enabled"],
-        "oauth_authenticated": False,
-        "oauth_status": "",
-        "oauth_user_email": "",
-        "google_authenticated": False,
-        "google_user_email": "",
-        "google_access_token": "",
-        "google_status": "",
-        "pin_modal_open": False,
-        "locate_pin_modal_open": False,
-        # --- Rollout action state ---
-        "rollout_modal_open": False,
-        "rollout_action": "",
-        "rollout_action_result": "",
-        "rollout_action_success": False,
-        "rollout_target_percentage": "",
-        "selected_rollout": EMPTY_ROLLOUT_STATE,
-        # --- Version pin detail state ---
-        "context_loading": False,
-        "selected_version_tag": "",
-        "selected_version_id": "",
-        "selected_version_release_date": "",
-        "latest_version_release_date": "",
-        "version_pins": [],
-        "version_pins_total": 0,
-        "version_pins_offset": 0,
-        "show_load_more_pins": False,
-        "all_pins_loaded": True,
-        "selected_pin_index": -1,
-        "selected_pin_checks": [],
-        "remove_pins_modal_open": False,
-        "selected_pin": EMPTY_PIN_STATE,
-        "resolved_pin_scope_name": "",
-        "resolved_pin_scope_url": "",
-        "resolved_pin_workspace_name": "",
-        "resolved_pin_workspace_url": "",
-        "resolved_pin_org_name": "",
-        "resolved_pin_org_url": "",
     }
 
 

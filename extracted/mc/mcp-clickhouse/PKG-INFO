@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-clickhouse
-Version: 0.4.0
+Version: 0.4.1
 Summary: An MCP server for ClickHouse.
 Project-URL: Home, https://github.com/ClickHouse/mcp-clickhouse
 License-Expression: Apache-2.0
@@ -20,6 +20,8 @@ Requires-Dist: ruff; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # ClickHouse MCP Server
+
+<!-- mcp-name: io.github.ClickHouse/mcp-clickhouse -->
 
 [![PyPI - Version](https://img.shields.io/pypi/v/mcp-clickhouse)](https://pypi.org/project/mcp-clickhouse)
 

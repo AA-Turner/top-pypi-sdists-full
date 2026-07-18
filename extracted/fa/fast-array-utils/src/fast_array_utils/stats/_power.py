@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from functools import singledispatch
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -10,12 +10,13 @@ from .. import types
 
 
 if TYPE_CHECKING:
+    from array_api.latest import Array as AArray
     from numpy.typing import DTypeLike
 
     from fast_array_utils.typing import CpuArray, GpuArray
 
     # All supported array types except for disk ones and CSDataset
-    type Array = CpuArray | GpuArray | types.DaskArray
+    type Array = CpuArray | GpuArray | types.DaskArray | types.HasArrayNamespace
 
 
 def power[Arr: Array](x: Arr, n: int, /, dtype: DTypeLike | None = None) -> Arr:
@@ -26,18 +27,30 @@ def power[Arr: Array](x: Arr, n: int, /, dtype: DTypeLike | None = None) -> Arr:
 
 @singledispatch
 def _power(x: Array, n: int, /, dtype: DTypeLike | None = None) -> Array:
-    if TYPE_CHECKING:
-        assert not isinstance(x, types.DaskArray | types.CSBase | types.CupyCSMatrix)
-    return x**n if dtype is None else np.power(x, n, dtype=dtype)  # type: ignore[operator]
+    raise NotImplementedError  # pragma: no cover
+
+
+@_power.register(np.ndarray | types.CupyArray)
+def _power_numpy_cupy(x: np.ndarray, n: int, /, dtype: DTypeLike | None = None) -> np.ndarray:
+    # avoids slower xp.pow(xp.astype(...)) path
+    return x**n if dtype is None else np.power(x, n, dtype=dtype)
+
+
+@_power.register(types.HasArrayNamespace)
+def _power_array_api[A: AArray[object, object]](x: A, n: int, /, dtype: DTypeLike | None = None) -> A:
+    import array_api_compat
+
+    xp = array_api_compat.array_namespace(x)
+    return xp.pow(x, n) if dtype is None else xp.pow(xp.astype(x, dtype), n)
 
 
 @_power.register(types.CSBase | types.CupyCSMatrix)
 def _power_cs[Mat: types.CSBase | types.CupyCSMatrix](x: Mat, n: int, /, dtype: DTypeLike | None = None) -> Mat:
     new_data = power(x.data, n, dtype=dtype)
-    return type(x)((new_data, x.indices, x.indptr), shape=x.shape, dtype=new_data.dtype)  # type: ignore[call-overload,return-value]
+    return type(x)((new_data, x.indices, x.indptr), shape=x.shape, dtype=new_data.dtype)  # type: ignore[call-overload]
 
 
 @_power.register(types.DaskArray)
 def _power_dask(x: types.DaskArray, n: int, /, dtype: DTypeLike | None = None) -> types.DaskArray:
-    meta = x._meta.astype(dtype or x.dtype)  # noqa: SLF001
-    return x.map_blocks(lambda c: power(c, n, dtype=dtype), dtype=dtype, meta=meta)  # type: ignore[type-var,arg-type]
+    meta = cast("CpuArray | GpuArray", x._meta.astype(dtype or x.dtype))  # noqa: SLF001  # https://github.com/python/mypy/issues/16826
+    return x.map_blocks(lambda c: power(c, n, dtype=dtype), dtype=dtype, meta=meta)

@@ -21,7 +21,19 @@ from braintrust.integrations.utils import (
     _timing_metrics,
     _try_to_dict,
 )
-from braintrust.logger import start_span
+from braintrust.logger import start_span as _bt_start_span
+
+
+_INSTRUMENTATION = "cohere-auto"
+
+
+def start_span(*args, **kwargs):
+    internal = dict(kwargs.get("internal") or {})
+    internal.setdefault("instrumentation", _INSTRUMENTATION)
+    kwargs["internal"] = internal
+    return _bt_start_span(*args, **kwargs)
+
+
 from braintrust.span_types import SpanTypeAttribute
 from braintrust.util import is_numeric
 
@@ -620,10 +632,7 @@ def _tool_call_metadata(tool_call: Any) -> dict[str, Any] | None:
 def _iter_tool_calls(output: Any):
     if output is None:
         return
-    output_dict = output if isinstance(output, dict) else _try_to_dict(output)
-    if not isinstance(output_dict, dict):
-        return
-    tool_calls = output_dict.get("tool_calls")
+    tool_calls = _get_field(output, "tool_calls")
     if not isinstance(tool_calls, list):
         return
     for tool_call in tool_calls:

@@ -39,6 +39,7 @@ from .paginator import (
     ListGlobalResolversPaginator,
     ListHostedZoneAssociationsPaginator,
     ListManagedFirewallDomainListsPaginator,
+    ListSharedDNSViewsPaginator,
 )
 from .type_defs import (
     AssociateHostedZoneInputTypeDef,
@@ -115,6 +116,8 @@ from .type_defs import (
     ListHostedZoneAssociationsOutputTypeDef,
     ListManagedFirewallDomainListsInputTypeDef,
     ListManagedFirewallDomainListsOutputTypeDef,
+    ListSharedDNSViewsInputTypeDef,
+    ListSharedDNSViewsOutputTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     TagResourceRequestTypeDef,
@@ -548,8 +551,7 @@ class Route53GlobalResolverClient(AioBaseClient):
         self, **kwargs: Unpack[ListHostedZoneAssociationsInputTypeDef]
     ) -> ListHostedZoneAssociationsOutputTypeDef:
         """
-        Lists all hosted zone associations for a Route 53 Global Resolver resource with
-        pagination support.
+        Lists hosted zone associations with pagination support.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/list_hosted_zone_associations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53globalresolver/client/#list_hosted_zone_associations)
@@ -564,6 +566,18 @@ class Route53GlobalResolverClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/list_managed_firewall_domain_lists.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53globalresolver/client/#list_managed_firewall_domain_lists)
+        """
+
+    async def list_shared_dns_views(
+        self, **kwargs: Unpack[ListSharedDNSViewsInputTypeDef]
+    ) -> ListSharedDNSViewsOutputTypeDef:
+        """
+        Lists the DNS views that have been shared with your Amazon Web Services account
+        through Amazon Web Services Resource Access Manager (Amazon Web Services RAM),
+        with pagination support.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/list_shared_dns_views.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53globalresolver/client/#list_shared_dns_views)
         """
 
     async def list_tags_for_resource(
@@ -754,6 +768,17 @@ class Route53GlobalResolverClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_managed_firewall_domain_lists"]
     ) -> ListManagedFirewallDomainListsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53globalresolver/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_shared_dns_views"]
+    ) -> ListSharedDNSViewsPaginator:
         """
         Create a paginator for an operation.
 

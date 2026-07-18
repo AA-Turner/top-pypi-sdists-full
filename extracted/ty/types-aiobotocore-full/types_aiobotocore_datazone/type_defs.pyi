@@ -50,6 +50,7 @@ from .literals import (
     EnableSettingType,
     EntityTypeType,
     EnvironmentStatusType,
+    FileFormatType,
     FilterExpressionTypeType,
     FilterOperatorType,
     FilterStatusType,
@@ -70,6 +71,10 @@ from .literals import (
     ManagedPolicyTypeType,
     MetadataGenerationRunStatusType,
     MetadataGenerationRunTypeType,
+    NetworkAccessTypeType,
+    NotebookExportStatusType,
+    NotebookRunStatusType,
+    NotebookStatusType,
     NotificationRoleType,
     NotificationTypeType,
     OAuth2GrantTypeType,
@@ -99,6 +104,7 @@ from .literals import (
     TaskStatusType,
     TimeSeriesEntityTypeType,
     TimezoneType,
+    TriggerSourceTypeType,
     TypesSearchScopeType,
     UserAssignmentType,
     UserDesignationType,
@@ -186,6 +192,7 @@ __all__ = (
     "CloudFormationPropertiesTypeDef",
     "ColumnFilterConfigurationOutputTypeDef",
     "ColumnFilterConfigurationTypeDef",
+    "ComputeConfigTypeDef",
     "ConfigurableActionParameterTypeDef",
     "ConfigurableEnvironmentActionTypeDef",
     "ConfigurationOutputTypeDef",
@@ -196,6 +203,8 @@ __all__ = (
     "ConnectionPropertiesOutputTypeDef",
     "ConnectionPropertiesPatchTypeDef",
     "ConnectionSummaryTypeDef",
+    "ConnectivityPropertiesPatchTypeDef",
+    "ConnectivityPropertiesTypeDef",
     "CreateAccountPoolInputTypeDef",
     "CreateAccountPoolOutputTypeDef",
     "CreateAssetFilterInputTypeDef",
@@ -241,6 +250,8 @@ __all__ = (
     "CreateGroupProfileOutputTypeDef",
     "CreateListingChangeSetInputTypeDef",
     "CreateListingChangeSetOutputTypeDef",
+    "CreateNotebookInputTypeDef",
+    "CreateNotebookOutputTypeDef",
     "CreateProjectFromProjectProfilePolicyGrantDetailOutputTypeDef",
     "CreateProjectFromProjectProfilePolicyGrantDetailTypeDef",
     "CreateProjectInputTypeDef",
@@ -298,7 +309,10 @@ __all__ = (
     "DeleteFormTypeInputTypeDef",
     "DeleteGlossaryInputTypeDef",
     "DeleteGlossaryTermInputTypeDef",
+    "DeleteLineageEventInputTypeDef",
+    "DeleteLineageEventOutputTypeDef",
     "DeleteListingInputTypeDef",
+    "DeleteNotebookInputTypeDef",
     "DeleteProjectInputTypeDef",
     "DeleteProjectMembershipInputTypeDef",
     "DeleteProjectProfileInputTypeDef",
@@ -331,6 +345,7 @@ __all__ = (
     "EnvironmentActionSummaryTypeDef",
     "EnvironmentBlueprintConfigurationItemTypeDef",
     "EnvironmentBlueprintSummaryTypeDef",
+    "EnvironmentConfigTypeDef",
     "EnvironmentConfigurationOutputTypeDef",
     "EnvironmentConfigurationParameterTypeDef",
     "EnvironmentConfigurationParametersDetailsOutputTypeDef",
@@ -415,6 +430,12 @@ __all__ = (
     "GetListingOutputTypeDef",
     "GetMetadataGenerationRunInputTypeDef",
     "GetMetadataGenerationRunOutputTypeDef",
+    "GetNotebookExportInputTypeDef",
+    "GetNotebookExportOutputTypeDef",
+    "GetNotebookInputTypeDef",
+    "GetNotebookOutputTypeDef",
+    "GetNotebookRunInputTypeDef",
+    "GetNotebookRunOutputTypeDef",
     "GetProjectInputTypeDef",
     "GetProjectOutputTypeDef",
     "GetProjectProfileInputTypeDef",
@@ -462,6 +483,7 @@ __all__ = (
     "IamPropertiesOutputTypeDef",
     "IamPropertiesPatchTypeDef",
     "IamUserProfileDetailsTypeDef",
+    "IdentityMappingTypeDef",
     "ImportTypeDef",
     "InExpressionOutputTypeDef",
     "InExpressionTypeDef",
@@ -487,6 +509,8 @@ __all__ = (
     "LineageNodeTypeItemTypeDef",
     "LineageRunDetailsTypeDef",
     "LineageSqlQueryRunDetailsTypeDef",
+    "LineageSyncInputTypeDef",
+    "LineageSyncOutputTypeDef",
     "LineageSyncScheduleTypeDef",
     "ListAccountPoolsInputPaginateTypeDef",
     "ListAccountPoolsInputTypeDef",
@@ -551,6 +575,12 @@ __all__ = (
     "ListMetadataGenerationRunsInputPaginateTypeDef",
     "ListMetadataGenerationRunsInputTypeDef",
     "ListMetadataGenerationRunsOutputTypeDef",
+    "ListNotebookRunsInputPaginateTypeDef",
+    "ListNotebookRunsInputTypeDef",
+    "ListNotebookRunsOutputTypeDef",
+    "ListNotebooksInputPaginateTypeDef",
+    "ListNotebooksInputTypeDef",
+    "ListNotebooksOutputTypeDef",
     "ListNotificationsInputPaginateTypeDef",
     "ListNotificationsInputTypeDef",
     "ListNotificationsOutputTypeDef",
@@ -610,10 +640,18 @@ __all__ = (
     "MlflowPropertiesPatchTypeDef",
     "ModelTypeDef",
     "NameIdentifierTypeDef",
+    "NetworkConfigOutputTypeDef",
+    "NetworkConfigTypeDef",
+    "NetworkConfigUnionTypeDef",
     "NotEqualToExpressionTypeDef",
     "NotInExpressionOutputTypeDef",
     "NotInExpressionTypeDef",
     "NotLikeExpressionTypeDef",
+    "NotebookErrorTypeDef",
+    "NotebookExportErrorTypeDef",
+    "NotebookRunErrorTypeDef",
+    "NotebookRunSummaryTypeDef",
+    "NotebookSummaryTypeDef",
     "NotificationOutputTypeDef",
     "NotificationResourceTypeDef",
     "OAuth2ClientApplicationTypeDef",
@@ -621,6 +659,7 @@ __all__ = (
     "OAuth2PropertiesTypeDef",
     "OAuth2PropertiesUnionTypeDef",
     "OpenLineageRunEventSummaryTypeDef",
+    "OutputLocationTypeDef",
     "OverrideDomainUnitOwnersPolicyGrantDetailTypeDef",
     "OverrideProjectOwnersPolicyGrantDetailTypeDef",
     "OwnerGroupPropertiesOutputTypeDef",
@@ -629,6 +668,7 @@ __all__ = (
     "OwnerPropertiesTypeDef",
     "OwnerUserPropertiesOutputTypeDef",
     "OwnerUserPropertiesTypeDef",
+    "PackageConfigTypeDef",
     "PaginatorConfigTypeDef",
     "PermissionsOutputTypeDef",
     "PermissionsTypeDef",
@@ -665,6 +705,7 @@ __all__ = (
     "PutDataExportConfigurationInputTypeDef",
     "PutEnvironmentBlueprintConfigurationInputTypeDef",
     "PutEnvironmentBlueprintConfigurationOutputTypeDef",
+    "PutResourceConfigurationTypeDef",
     "QueryGraphInputPaginateTypeDef",
     "QueryGraphInputTypeDef",
     "QueryGraphOutputTypeDef",
@@ -696,6 +737,7 @@ __all__ = (
     "RelationalFilterConfigurationUnionTypeDef",
     "RemoveEntityOwnerInputTypeDef",
     "RemovePolicyGrantInputTypeDef",
+    "ResourceConfigurationTypeDef",
     "ResourceTagParameterTypeDef",
     "ResourceTagTypeDef",
     "ResourceTypeDef",
@@ -718,6 +760,7 @@ __all__ = (
     "RuleSummaryTypeDef",
     "RuleTargetTypeDef",
     "RunStatisticsForAssetsTypeDef",
+    "S3DestinationTypeDef",
     "S3PropertiesInputTypeDef",
     "S3PropertiesOutputTypeDef",
     "S3PropertiesPatchTypeDef",
@@ -747,6 +790,10 @@ __all__ = (
     "SelfGrantStatusDetailTypeDef",
     "SelfGrantStatusOutputTypeDef",
     "SingleSignOnTypeDef",
+    "SnowflakePropertiesInputTypeDef",
+    "SnowflakePropertiesOutputTypeDef",
+    "SnowflakePropertiesPatchTypeDef",
+    "SourceLocationTypeDef",
     "SparkEmrPropertiesInputTypeDef",
     "SparkEmrPropertiesOutputTypeDef",
     "SparkEmrPropertiesPatchTypeDef",
@@ -758,6 +805,15 @@ __all__ = (
     "StartDataSourceRunOutputTypeDef",
     "StartMetadataGenerationRunInputTypeDef",
     "StartMetadataGenerationRunOutputTypeDef",
+    "StartNotebookExportInputTypeDef",
+    "StartNotebookExportOutputTypeDef",
+    "StartNotebookImportInputTypeDef",
+    "StartNotebookImportOutputTypeDef",
+    "StartNotebookRunInputTypeDef",
+    "StartNotebookRunOutputTypeDef",
+    "StopNotebookRunInputTypeDef",
+    "StopNotebookRunOutputTypeDef",
+    "StorageConfigTypeDef",
     "SubscribedAssetListingTypeDef",
     "SubscribedAssetTypeDef",
     "SubscribedGroupInputTypeDef",
@@ -787,8 +843,10 @@ __all__ = (
     "TimeSeriesDataPointFormInputTypeDef",
     "TimeSeriesDataPointFormOutputTypeDef",
     "TimeSeriesDataPointSummaryFormOutputTypeDef",
+    "TimeoutConfigTypeDef",
     "TimestampTypeDef",
     "TopicTypeDef",
+    "TriggerSourceTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAccountPoolInputTypeDef",
     "UpdateAccountPoolOutputTypeDef",
@@ -816,6 +874,8 @@ __all__ = (
     "UpdateGlossaryTermOutputTypeDef",
     "UpdateGroupProfileInputTypeDef",
     "UpdateGroupProfileOutputTypeDef",
+    "UpdateNotebookInputTypeDef",
+    "UpdateNotebookOutputTypeDef",
     "UpdateProjectInputTypeDef",
     "UpdateProjectOutputTypeDef",
     "UpdateProjectProfileInputTypeDef",
@@ -838,6 +898,9 @@ __all__ = (
     "UserProfileDetailsTypeDef",
     "UserProfileSummaryTypeDef",
     "UsernamePasswordTypeDef",
+    "VpcPropertiesInputTypeDef",
+    "VpcPropertiesOutputTypeDef",
+    "VpcPropertiesPatchTypeDef",
     "WorkflowsMwaaPropertiesInputTypeDef",
     "WorkflowsMwaaPropertiesOutputTypeDef",
 )
@@ -1084,6 +1147,10 @@ class CancelSubscriptionInputTypeDef(TypedDict):
 class CloudFormationPropertiesTypeDef(TypedDict):
     templateUrl: str
 
+class ComputeConfigTypeDef(TypedDict):
+    instanceType: NotRequired[str]
+    environmentVersion: NotRequired[str]
+
 class ConfigurableActionParameterTypeDef(TypedDict):
     key: NotRequired[str]
     value: NotRequired[str]
@@ -1129,6 +1196,11 @@ class SparkEmrPropertiesInputTypeDef(TypedDict):
     trustedCertificatesS3Uri: NotRequired[str]
     managedEndpointArn: NotRequired[str]
 
+class VpcPropertiesInputTypeDef(TypedDict):
+    vpcId: str
+    subnetIds: Sequence[str]
+    securityGroupId: NotRequired[str]
+
 class WorkflowsMwaaPropertiesInputTypeDef(TypedDict):
     mwaaEnvironmentName: NotRequired[str]
 
@@ -1158,6 +1230,13 @@ class S3PropertiesOutputTypeDef(TypedDict):
     status: NotRequired[ConnectionStatusType]
     errorMessage: NotRequired[str]
 
+class VpcPropertiesOutputTypeDef(TypedDict):
+    vpcId: str
+    subnetIds: list[str]
+    status: ConnectionStatusType
+    securityGroupId: NotRequired[str]
+    glueConnectionNames: NotRequired[list[str]]
+
 class WorkflowsMwaaPropertiesOutputTypeDef(TypedDict):
     mwaaEnvironmentName: NotRequired[str]
 
@@ -1184,6 +1263,11 @@ class SparkEmrPropertiesPatchTypeDef(TypedDict):
     runtimeRole: NotRequired[str]
     trustedCertificatesS3Uri: NotRequired[str]
     managedEndpointArn: NotRequired[str]
+
+class VpcPropertiesPatchTypeDef(TypedDict):
+    vpcId: NotRequired[str]
+    subnetIds: NotRequired[Sequence[str]]
+    securityGroupId: NotRequired[str]
 
 class FormEntryInputTypeDef(TypedDict):
     typeIdentifier: str
@@ -1294,6 +1378,18 @@ class CreateListingChangeSetInputTypeDef(TypedDict):
     action: ChangeActionType
     entityRevision: NotRequired[str]
     clientToken: NotRequired[str]
+
+class CreateNotebookInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    name: str
+    description: NotRequired[str]
+    metadata: NotRequired[Mapping[str, str]]
+    parameters: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
+
+class NotebookErrorTypeDef(TypedDict):
+    message: str
 
 class CreateProjectFromProjectProfilePolicyGrantDetailOutputTypeDef(TypedDict):
     includeChildDomainUnits: NotRequired[bool]
@@ -1454,7 +1550,15 @@ class DeleteGlossaryTermInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
 
+class DeleteLineageEventInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+
 class DeleteListingInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+
+class DeleteNotebookInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
 
@@ -1553,6 +1657,17 @@ class DomainUnitTargetTypeDef(TypedDict):
 class EncryptionConfigurationTypeDef(TypedDict):
     kmsKeyArn: NotRequired[str]
     sseAlgorithm: NotRequired[str]
+
+class ResourceConfigurationTypeDef(TypedDict):
+    identifier: str
+    name: str
+    region: str
+    parameters: dict[str, str]
+    description: NotRequired[str]
+
+class PackageConfigTypeDef(TypedDict):
+    packageManager: Literal["UV"]
+    packageSpecification: NotRequired[str]
 
 class RegionTypeDef(TypedDict):
     regionName: NotRequired[str]
@@ -1775,6 +1890,45 @@ MetadataGenerationRunTypeStatTypeDef = TypedDict(
     },
 )
 
+class GetNotebookExportInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+
+class NotebookExportErrorTypeDef(TypedDict):
+    message: str
+
+class GetNotebookInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+
+class GetNotebookRunInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+
+class NetworkConfigOutputTypeDef(TypedDict):
+    networkAccessType: NetworkAccessTypeType
+    vpcId: NotRequired[str]
+    subnetIds: NotRequired[list[str]]
+    securityGroupIds: NotRequired[list[str]]
+
+class NotebookRunErrorTypeDef(TypedDict):
+    message: str
+
+class StorageConfigTypeDef(TypedDict):
+    projectS3Path: NotRequired[str]
+    kmsKeyArn: NotRequired[str]
+
+class TimeoutConfigTypeDef(TypedDict):
+    runTimeoutInMinutes: NotRequired[int]
+
+TriggerSourceTypeDef = TypedDict(
+    "TriggerSourceTypeDef",
+    {
+        "type": NotRequired[TriggerSourceTypeType],
+        "name": NotRequired[str],
+    },
+)
+
 class GetProjectInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
@@ -1901,6 +2055,10 @@ class IamUserProfileDetailsTypeDef(TypedDict):
     sessionName: NotRequired[str]
     groupProfileId: NotRequired[str]
 
+class IdentityMappingTypeDef(TypedDict):
+    usernameAttribute: str
+    prefix: NotRequired[str]
+
 class InExpressionOutputTypeDef(TypedDict):
     columnName: str
     values: list[str]
@@ -1959,6 +2117,17 @@ class LineageSqlQueryRunDetailsTypeDef(TypedDict):
     totalQueriesProcessed: NotRequired[int]
     numQueriesFailed: NotRequired[int]
     errorMessages: NotRequired[list[str]]
+
+class LineageSyncInputTypeDef(TypedDict):
+    enabled: bool
+    timezone: NotRequired[TimezoneType]
+    schedule: NotRequired[str]
+
+class LineageSyncOutputTypeDef(TypedDict):
+    lineageJobId: NotRequired[str]
+    timezone: NotRequired[TimezoneType]
+    enabled: NotRequired[bool]
+    schedule: NotRequired[str]
 
 class LineageSyncScheduleTypeDef(TypedDict):
     schedule: NotRequired[str]
@@ -2125,6 +2294,41 @@ ListMetadataGenerationRunsInputTypeDef = TypedDict(
     },
 )
 
+class ListNotebookRunsInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    notebookIdentifier: NotRequired[str]
+    status: NotRequired[NotebookRunStatusType]
+    scheduleIdentifier: NotRequired[str]
+    maxResults: NotRequired[int]
+    sortOrder: NotRequired[SortOrderType]
+    nextToken: NotRequired[str]
+
+class ListNotebooksInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    maxResults: NotRequired[int]
+    sortOrder: NotRequired[SortOrderType]
+    sortBy: NotRequired[SortKeyType]
+    status: NotRequired[NotebookStatusType]
+    nextToken: NotRequired[str]
+
+NotebookSummaryTypeDef = TypedDict(
+    "NotebookSummaryTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "owningProjectId": str,
+        "domainId": str,
+        "status": NotebookStatusType,
+        "description": NotRequired[str],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[str],
+        "updatedAt": NotRequired[datetime],
+        "updatedBy": NotRequired[str],
+    },
+)
+
 class ListPolicyGrantsInputTypeDef(TypedDict):
     domainIdentifier: str
     entityType: TargetEntityTypeType
@@ -2274,6 +2478,12 @@ class NameIdentifierTypeDef(TypedDict):
     name: NotRequired[str]
     namespace: NotRequired[str]
 
+class NetworkConfigTypeDef(TypedDict):
+    networkAccessType: NetworkAccessTypeType
+    vpcId: NotRequired[str]
+    subnetIds: NotRequired[Sequence[str]]
+    securityGroupIds: NotRequired[Sequence[str]]
+
 class NotEqualToExpressionTypeDef(TypedDict):
     columnName: str
     value: str
@@ -2302,6 +2512,9 @@ NotificationResourceTypeDef = TypedDict(
 class OAuth2ClientApplicationTypeDef(TypedDict):
     userManagedClientApplicationClientId: NotRequired[str]
     aWSManagedClientApplicationReference: NotRequired[str]
+
+class S3DestinationTypeDef(TypedDict):
+    uri: NotRequired[str]
 
 class OverrideDomainUnitOwnersPolicyGrantDetailTypeDef(TypedDict):
     includeChildDomainUnits: NotRequired[bool]
@@ -2351,6 +2564,12 @@ class ProjectsForRuleOutputTypeDef(TypedDict):
 class ProjectsForRuleTypeDef(TypedDict):
     selectionMode: RuleScopeSelectionModeType
     specificProjects: NotRequired[Sequence[str]]
+
+class PutResourceConfigurationTypeDef(TypedDict):
+    name: str
+    region: str
+    parameters: Mapping[str, str]
+    description: NotRequired[str]
 
 class RedshiftClusterStorageTypeDef(TypedDict):
     clusterName: str
@@ -2408,6 +2627,9 @@ class SearchUserProfilesInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
+class SourceLocationTypeDef(TypedDict):
+    s3: NotRequired[str]
+
 class SparkGlueArgsTypeDef(TypedDict):
     connection: NotRequired[str]
 
@@ -2419,6 +2641,18 @@ class SsoUserProfileDetailsTypeDef(TypedDict):
 class StartDataSourceRunInputTypeDef(TypedDict):
     domainIdentifier: str
     dataSourceIdentifier: str
+    clientToken: NotRequired[str]
+
+class StartNotebookExportInputTypeDef(TypedDict):
+    domainIdentifier: str
+    notebookIdentifier: str
+    owningProjectIdentifier: str
+    fileFormat: FileFormatType
+    clientToken: NotRequired[str]
+
+class StopNotebookRunInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
     clientToken: NotRequired[str]
 
 class SubscribedGroupInputTypeDef(TypedDict):
@@ -2573,6 +2807,16 @@ class DeleteDomainOutputTypeDef(TypedDict):
     status: DomainStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
+DeleteLineageEventOutputTypeDef = TypedDict(
+    "DeleteLineageEventOutputTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "processingStatus": LineageEventProcessingStatusType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2662,6 +2906,30 @@ StartMetadataGenerationRunOutputTypeDef = TypedDict(
         "createdAt": datetime,
         "createdBy": str,
         "owningProjectId": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+StartNotebookExportOutputTypeDef = TypedDict(
+    "StartNotebookExportOutputTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "owningProjectId": str,
+        "notebookId": str,
+        "fileFormat": FileFormatType,
+        "status": NotebookExportStatusType,
+        "createdAt": datetime,
+        "createdBy": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+StopNotebookRunOutputTypeDef = TypedDict(
+    "StopNotebookRunOutputTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "owningProjectId": str,
+        "status": NotebookRunStatusType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -3507,6 +3775,10 @@ class PutDataExportConfigurationInputTypeDef(TypedDict):
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
     clientToken: NotRequired[str]
 
+class EnvironmentConfigTypeDef(TypedDict):
+    imageVersion: NotRequired[str]
+    packageConfig: NotRequired[PackageConfigTypeDef]
+
 class EnvironmentConfigurationParametersDetailsOutputTypeDef(TypedDict):
     ssmPath: NotRequired[str]
     parameterOverrides: NotRequired[list[EnvironmentConfigurationParameterTypeDef]]
@@ -3733,6 +4005,24 @@ GetMetadataGenerationRunOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+NotebookRunSummaryTypeDef = TypedDict(
+    "NotebookRunSummaryTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "owningProjectId": str,
+        "notebookId": str,
+        "status": NotebookRunStatusType,
+        "scheduleId": NotRequired[str],
+        "triggerSource": NotRequired[TriggerSourceTypeDef],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[str],
+        "updatedAt": NotRequired[datetime],
+        "updatedBy": NotRequired[str],
+        "startedAt": NotRequired[datetime],
+        "completedAt": NotRequired[datetime],
+    },
+)
 
 class GetTimeSeriesDataPointOutputTypeDef(TypedDict):
     domainId: str
@@ -3780,6 +4070,13 @@ class ListLineageNodeHistoryOutputTypeDef(TypedDict):
 
 class LineageRunDetailsTypeDef(TypedDict):
     sqlQueryRunDetails: NotRequired[LineageSqlQueryRunDetailsTypeDef]
+
+class SnowflakePropertiesOutputTypeDef(TypedDict):
+    snowflakeRole: str
+    identityMapping: IdentityMappingTypeDef
+    lineageSync: LineageSyncOutputTypeDef
+    status: ConnectionStatusType
+    errorMessage: NotRequired[str]
 
 class RedshiftLineageSyncConfigurationInputTypeDef(TypedDict):
     enabled: NotRequired[bool]
@@ -3944,6 +4241,24 @@ ListMetadataGenerationRunsInputPaginateTypeDef = TypedDict(
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
     },
 )
+
+class ListNotebookRunsInputPaginateTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    notebookIdentifier: NotRequired[str]
+    status: NotRequired[NotebookRunStatusType]
+    scheduleIdentifier: NotRequired[str]
+    sortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListNotebooksInputPaginateTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    sortOrder: NotRequired[SortOrderType]
+    sortBy: NotRequired[SortKeyType]
+    status: NotRequired[NotebookStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 ListNotificationsInputPaginateTypeDef = TypedDict(
     "ListNotificationsInputPaginateTypeDef",
     {
@@ -4067,6 +4382,11 @@ class SearchUserProfilesInputPaginateTypeDef(TypedDict):
     searchText: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListNotebooksOutputTypeDef(TypedDict):
+    items: list[NotebookSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListProjectProfilesOutputTypeDef(TypedDict):
     items: list[ProjectProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4094,6 +4414,7 @@ class OpenLineageRunEventSummaryTypeDef(TypedDict):
     inputs: NotRequired[list[NameIdentifierTypeDef]]
     outputs: NotRequired[list[NameIdentifierTypeDef]]
 
+NetworkConfigUnionTypeDef = Union[NetworkConfigTypeDef, NetworkConfigOutputTypeDef]
 RowFilterExpressionOutputTypeDef = TypedDict(
     "RowFilterExpressionOutputTypeDef",
     {
@@ -4149,6 +4470,9 @@ class OAuth2PropertiesTypeDef(TypedDict):
     tokenUrlParametersMap: NotRequired[Mapping[str, str]]
     authorizationCodeProperties: NotRequired[AuthorizationCodePropertiesTypeDef]
     oAuth2Credentials: NotRequired[GlueOAuth2CredentialsTypeDef]
+
+class OutputLocationTypeDef(TypedDict):
+    s3: NotRequired[S3DestinationTypeDef]
 
 class OwnerPropertiesOutputTypeDef(TypedDict):
     user: NotRequired[OwnerUserPropertiesOutputTypeDef]
@@ -4260,6 +4584,26 @@ class RejectPredictionsInputTypeDef(TypedDict):
     rejectRule: NotRequired[RejectRuleTypeDef]
     rejectChoices: NotRequired[Sequence[RejectChoiceTypeDef]]
     clientToken: NotRequired[str]
+
+class StartNotebookImportInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    sourceLocation: SourceLocationTypeDef
+    name: str
+    description: NotRequired[str]
+    clientToken: NotRequired[str]
+
+class StartNotebookImportOutputTypeDef(TypedDict):
+    notebookId: str
+    status: NotebookStatusType
+    domainId: str
+    owningProjectId: str
+    name: str
+    description: str
+    sourceLocation: SourceLocationTypeDef
+    createdAt: datetime
+    createdBy: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class SparkGluePropertiesInputTypeDef(TypedDict):
     additionalArgs: NotRequired[SparkGlueArgsTypeDef]
@@ -4435,6 +4779,11 @@ class BatchPutAttributesMetadataInputTypeDef(TypedDict):
     entityIdentifier: str
     attributes: Sequence[AttributeInputTypeDef]
     clientToken: NotRequired[str]
+
+class ConnectivityPropertiesPatchTypeDef(TypedDict):
+    description: NotRequired[str]
+    connectionProperties: NotRequired[Mapping[str, str]]
+    authenticationConfiguration: NotRequired[AuthenticationConfigurationPatchTypeDef]
 
 class GlueConnectionPatchTypeDef(TypedDict):
     description: NotRequired[str]
@@ -4783,6 +5132,150 @@ UpdateDomainUnitOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+CreateNotebookOutputTypeDef = TypedDict(
+    "CreateNotebookOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "owningProjectId": str,
+        "domainId": str,
+        "cellOrder": list[dict[str, Any]],
+        "status": NotebookStatusType,
+        "description": str,
+        "createdAt": datetime,
+        "createdBy": str,
+        "updatedAt": datetime,
+        "updatedBy": str,
+        "lockedBy": str,
+        "lockedAt": datetime,
+        "lockExpiresAt": datetime,
+        "computeId": str,
+        "metadata": dict[str, str],
+        "parameters": dict[str, str],
+        "environmentConfiguration": EnvironmentConfigTypeDef,
+        "error": NotebookErrorTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetNotebookOutputTypeDef = TypedDict(
+    "GetNotebookOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "owningProjectId": str,
+        "domainId": str,
+        "cellOrder": list[dict[str, Any]],
+        "status": NotebookStatusType,
+        "description": str,
+        "createdAt": datetime,
+        "createdBy": str,
+        "updatedAt": datetime,
+        "updatedBy": str,
+        "lockedBy": str,
+        "lockedAt": datetime,
+        "lockExpiresAt": datetime,
+        "computeId": str,
+        "metadata": dict[str, str],
+        "parameters": dict[str, str],
+        "environmentConfiguration": EnvironmentConfigTypeDef,
+        "error": NotebookErrorTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetNotebookRunOutputTypeDef = TypedDict(
+    "GetNotebookRunOutputTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "owningProjectId": str,
+        "notebookId": str,
+        "scheduleId": str,
+        "status": NotebookRunStatusType,
+        "cellOrder": list[dict[str, Any]],
+        "metadata": dict[str, str],
+        "parameters": dict[str, str],
+        "computeConfiguration": ComputeConfigTypeDef,
+        "networkConfiguration": NetworkConfigOutputTypeDef,
+        "timeoutConfiguration": TimeoutConfigTypeDef,
+        "environmentConfiguration": EnvironmentConfigTypeDef,
+        "storageConfiguration": StorageConfigTypeDef,
+        "triggerSource": TriggerSourceTypeDef,
+        "error": NotebookRunErrorTypeDef,
+        "createdAt": datetime,
+        "createdBy": str,
+        "updatedAt": datetime,
+        "updatedBy": str,
+        "startedAt": datetime,
+        "completedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+StartNotebookRunOutputTypeDef = TypedDict(
+    "StartNotebookRunOutputTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "owningProjectId": str,
+        "notebookId": str,
+        "scheduleId": str,
+        "status": NotebookRunStatusType,
+        "cellOrder": list[dict[str, Any]],
+        "metadata": dict[str, str],
+        "parameters": dict[str, str],
+        "computeConfiguration": ComputeConfigTypeDef,
+        "networkConfiguration": NetworkConfigOutputTypeDef,
+        "timeoutConfiguration": TimeoutConfigTypeDef,
+        "environmentConfiguration": EnvironmentConfigTypeDef,
+        "storageConfiguration": StorageConfigTypeDef,
+        "triggerSource": TriggerSourceTypeDef,
+        "error": NotebookRunErrorTypeDef,
+        "createdAt": datetime,
+        "createdBy": str,
+        "updatedAt": datetime,
+        "updatedBy": str,
+        "startedAt": datetime,
+        "completedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+class UpdateNotebookInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    description: NotRequired[str]
+    status: NotRequired[NotebookStatusType]
+    name: NotRequired[str]
+    cellOrder: NotRequired[Sequence[Mapping[str, Any]]]
+    metadata: NotRequired[Mapping[str, str]]
+    parameters: NotRequired[Mapping[str, str]]
+    environmentConfiguration: NotRequired[EnvironmentConfigTypeDef]
+    clientToken: NotRequired[str]
+
+UpdateNotebookOutputTypeDef = TypedDict(
+    "UpdateNotebookOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "owningProjectId": str,
+        "domainId": str,
+        "cellOrder": list[dict[str, Any]],
+        "status": NotebookStatusType,
+        "description": str,
+        "createdAt": datetime,
+        "createdBy": str,
+        "updatedAt": datetime,
+        "updatedBy": str,
+        "lockedBy": str,
+        "lockedAt": datetime,
+        "lockExpiresAt": datetime,
+        "computeId": str,
+        "metadata": dict[str, str],
+        "parameters": dict[str, str],
+        "environmentConfiguration": EnvironmentConfigTypeDef,
+        "error": NotebookErrorTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 EnvironmentConfigurationOutputTypeDef = TypedDict(
     "EnvironmentConfigurationOutputTypeDef",
     {
@@ -4983,6 +5476,11 @@ class ListMetadataGenerationRunsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class ListNotebookRunsOutputTypeDef(TypedDict):
+    items: list[NotebookRunSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class SelfGrantStatusOutputTypeDef(TypedDict):
     glueSelfGrantStatus: NotRequired[GlueSelfGrantStatusOutputTypeDef]
     redshiftSelfGrantStatus: NotRequired[RedshiftSelfGrantStatusOutputTypeDef]
@@ -5003,8 +5501,10 @@ class EnvironmentBlueprintConfigurationItemTypeDef(TypedDict):
     manageAccessRoleArn: NotRequired[str]
     enabledRegions: NotRequired[list[str]]
     regionalParameters: NotRequired[dict[str, dict[str, str]]]
+    allowUserProvidedConfigurations: NotRequired[bool]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
+    resourceConfigurations: NotRequired[list[ResourceConfigurationTypeDef]]
     provisioningConfigurations: NotRequired[list[ProvisioningConfigurationOutputTypeDef]]
 
 class GetEnvironmentBlueprintConfigurationOutputTypeDef(TypedDict):
@@ -5015,8 +5515,10 @@ class GetEnvironmentBlueprintConfigurationOutputTypeDef(TypedDict):
     manageAccessRoleArn: str
     enabledRegions: list[str]
     regionalParameters: dict[str, dict[str, str]]
+    allowUserProvidedConfigurations: bool
     createdAt: datetime
     updatedAt: datetime
+    resourceConfigurations: list[ResourceConfigurationTypeDef]
     provisioningConfigurations: list[ProvisioningConfigurationOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -5028,8 +5530,10 @@ class PutEnvironmentBlueprintConfigurationOutputTypeDef(TypedDict):
     manageAccessRoleArn: str
     enabledRegions: list[str]
     regionalParameters: dict[str, dict[str, str]]
+    allowUserProvidedConfigurations: bool
     createdAt: datetime
     updatedAt: datetime
+    resourceConfigurations: list[ResourceConfigurationTypeDef]
     provisioningConfigurations: list[ProvisioningConfigurationOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -5056,6 +5560,19 @@ class RuleDetailTypeDef(TypedDict):
 
 class EventSummaryTypeDef(TypedDict):
     openLineageRunEventSummary: NotRequired[OpenLineageRunEventSummaryTypeDef]
+
+class StartNotebookRunInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    notebookIdentifier: str
+    scheduleIdentifier: NotRequired[str]
+    computeConfiguration: NotRequired[ComputeConfigTypeDef]
+    networkConfiguration: NotRequired[NetworkConfigUnionTypeDef]
+    timeoutConfiguration: NotRequired[TimeoutConfigTypeDef]
+    triggerSource: NotRequired[TriggerSourceTypeDef]
+    metadata: NotRequired[Mapping[str, str]]
+    parameters: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
 
 RowFilterOutputTypeDef = TypedDict(
     "RowFilterOutputTypeDef",
@@ -5096,6 +5613,23 @@ class AuthenticationConfigurationTypeDef(TypedDict):
     oAuth2Properties: NotRequired[OAuth2PropertiesOutputTypeDef]
 
 OAuth2PropertiesUnionTypeDef = Union[OAuth2PropertiesTypeDef, OAuth2PropertiesOutputTypeDef]
+GetNotebookExportOutputTypeDef = TypedDict(
+    "GetNotebookExportOutputTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "owningProjectId": str,
+        "notebookId": str,
+        "fileFormat": FileFormatType,
+        "status": NotebookExportStatusType,
+        "outputLocation": OutputLocationTypeDef,
+        "error": NotebookExportErrorTypeDef,
+        "completedAt": datetime,
+        "createdAt": datetime,
+        "createdBy": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 class ListEntityOwnersOutputTypeDef(TypedDict):
     owners: list[OwnerPropertiesOutputTypeDef]
@@ -5364,6 +5898,11 @@ class ListEnvironmentActionsOutputTypeDef(TypedDict):
 class ListingItemTypeDef(TypedDict):
     assetListing: NotRequired[AssetListingTypeDef]
     dataProductListing: NotRequired[DataProductListingTypeDef]
+
+class SnowflakePropertiesPatchTypeDef(TypedDict):
+    connectivityPropertiesPatch: NotRequired[ConnectivityPropertiesPatchTypeDef]
+    snowflakeRole: NotRequired[str]
+    lineageSync: NotRequired[LineageSyncInputTypeDef]
 
 class GluePropertiesPatchTypeDef(TypedDict):
     glueConnectionInput: NotRequired[GlueConnectionPatchTypeDef]
@@ -5720,11 +6259,13 @@ class ConnectionPropertiesOutputTypeDef(TypedDict):
     sparkEmrProperties: NotRequired[SparkEmrPropertiesOutputTypeDef]
     sparkGlueProperties: NotRequired[SparkGluePropertiesOutputTypeDef]
     s3Properties: NotRequired[S3PropertiesOutputTypeDef]
+    snowflakeProperties: NotRequired[SnowflakePropertiesOutputTypeDef]
     amazonQProperties: NotRequired[AmazonQPropertiesOutputTypeDef]
     mlflowProperties: NotRequired[MlflowPropertiesOutputTypeDef]
     workflowsMwaaProperties: NotRequired[WorkflowsMwaaPropertiesOutputTypeDef]
     workflowsServerlessProperties: NotRequired[dict[str, Any]]
     lakehouseProperties: NotRequired[LakehousePropertiesOutputTypeDef]
+    vpcProperties: NotRequired[VpcPropertiesOutputTypeDef]
 
 class DataSourceConfigurationOutputTypeDef(TypedDict):
     glueRunConfiguration: NotRequired[GlueRunConfigurationOutputTypeDef]
@@ -5767,9 +6308,11 @@ class ConnectionPropertiesPatchTypeDef(TypedDict):
     redshiftProperties: NotRequired[RedshiftPropertiesPatchTypeDef]
     sparkEmrProperties: NotRequired[SparkEmrPropertiesPatchTypeDef]
     s3Properties: NotRequired[S3PropertiesPatchTypeDef]
+    snowflakeProperties: NotRequired[SnowflakePropertiesPatchTypeDef]
     amazonQProperties: NotRequired[AmazonQPropertiesPatchTypeDef]
     mlflowProperties: NotRequired[MlflowPropertiesPatchTypeDef]
     lakehouseProperties: NotRequired[LakehousePropertiesPatchTypeDef]
+    vpcProperties: NotRequired[VpcPropertiesPatchTypeDef]
 
 class PolicyGrantMemberTypeDef(TypedDict):
     principal: NotRequired[PolicyGrantPrincipalOutputTypeDef]
@@ -5811,6 +6354,8 @@ class PutEnvironmentBlueprintConfigurationInputTypeDef(TypedDict):
     manageAccessRoleArn: NotRequired[str]
     environmentRolePermissionBoundary: NotRequired[str]
     regionalParameters: NotRequired[Mapping[str, Mapping[str, str]]]
+    resourceConfigurations: NotRequired[Sequence[PutResourceConfigurationTypeDef]]
+    allowUserProvidedConfigurations: NotRequired[bool]
     globalParameters: NotRequired[Mapping[str, str]]
     provisioningConfigurations: NotRequired[Sequence[ProvisioningConfigurationUnionTypeDef]]
 
@@ -5958,6 +6503,18 @@ class PhysicalEndpointTypeDef(TypedDict):
     port: NotRequired[int]
     protocol: NotRequired[ProtocolType]
     stage: NotRequired[str]
+
+class ConnectivityPropertiesTypeDef(TypedDict):
+    connectionProperties: NotRequired[Mapping[str, str]]
+    physicalConnectionRequirements: NotRequired[PhysicalConnectionRequirementsUnionTypeDef]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    validateCredentials: NotRequired[bool]
+    validateForComputeEnvironments: NotRequired[Sequence[ComputeEnvironmentsType]]
+    sparkProperties: NotRequired[Mapping[str, str]]
+    athenaProperties: NotRequired[Mapping[str, str]]
+    pythonProperties: NotRequired[Mapping[str, str]]
+    authenticationConfiguration: NotRequired[AuthenticationConfigurationInputTypeDef]
 
 class GlueConnectionInputTypeDef(TypedDict):
     connectionProperties: NotRequired[Mapping[str, str]]
@@ -6497,6 +7054,12 @@ UpdateConnectionOutputTypeDef = TypedDict(
     },
 )
 
+class SnowflakePropertiesInputTypeDef(TypedDict):
+    snowflakeRole: str
+    identityMapping: IdentityMappingTypeDef
+    connectivityProperties: NotRequired[ConnectivityPropertiesTypeDef]
+    lineageSync: NotRequired[LineageSyncInputTypeDef]
+
 class GluePropertiesInputTypeDef(TypedDict):
     glueConnectionInput: NotRequired[GlueConnectionInputTypeDef]
 
@@ -6553,11 +7116,13 @@ class ConnectionPropertiesInputTypeDef(TypedDict):
     sparkEmrProperties: NotRequired[SparkEmrPropertiesInputTypeDef]
     sparkGlueProperties: NotRequired[SparkGluePropertiesInputTypeDef]
     s3Properties: NotRequired[S3PropertiesInputTypeDef]
+    snowflakeProperties: NotRequired[SnowflakePropertiesInputTypeDef]
     amazonQProperties: NotRequired[AmazonQPropertiesInputTypeDef]
     mlflowProperties: NotRequired[MlflowPropertiesInputTypeDef]
     workflowsMwaaProperties: NotRequired[WorkflowsMwaaPropertiesInputTypeDef]
     workflowsServerlessProperties: NotRequired[Mapping[str, Any]]
     lakehouseProperties: NotRequired[LakehousePropertiesInputTypeDef]
+    vpcProperties: NotRequired[VpcPropertiesInputTypeDef]
 
 class CreateConnectionInputTypeDef(TypedDict):
     domainIdentifier: str

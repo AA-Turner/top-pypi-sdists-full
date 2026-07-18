@@ -477,8 +477,8 @@ class ImagebuilderClient(AioBaseClient):
         self, **kwargs: Unpack[DistributeImageRequestTypeDef]
     ) -> DistributeImageResponseTypeDef:
         """
-        DistributeImage distributes existing AMIs to additional regions and accounts
-        without rebuilding the image.
+        Distributes an existing AMI to target Regions and accounts without running the
+        full image build process.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/distribute_image.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_imagebuilder/client/#distribute_image)

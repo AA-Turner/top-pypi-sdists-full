@@ -79,6 +79,7 @@ from .literals import (
     NetworkProtocolType,
     OperationStatusType,
     OperationTypeType,
+    OriginIpAddressTypeEnumType,
     OriginProtocolPolicyEnumType,
     PortAccessTypeType,
     PortInfoSourceTypeType,
@@ -916,6 +917,7 @@ class InputOriginTypeDef(TypedDict):
     regionName: NotRequired[RegionNameType]
     protocolPolicy: NotRequired[OriginProtocolPolicyEnumType]
     responseTimeout: NotRequired[int]
+    ipAddressType: NotRequired[OriginIpAddressTypeEnumType]
 
 
 class CreateGUISessionAccessDetailsRequestTypeDef(TypedDict):
@@ -1493,6 +1495,7 @@ class OriginTypeDef(TypedDict):
     regionName: NotRequired[RegionNameType]
     protocolPolicy: NotRequired[OriginProtocolPolicyEnumType]
     responseTimeout: NotRequired[int]
+    ipAddressType: NotRequired[OriginIpAddressTypeEnumType]
 
 
 class LoadBalancerTlsCertificateDnsRecordCreationStateTypeDef(TypedDict):

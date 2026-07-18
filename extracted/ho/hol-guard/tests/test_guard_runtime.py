@@ -12763,6 +12763,56 @@ def test_guard_invalid_default_action_falls_back_to_reapproval(tmp_path):
     assert action == "require-reapproval"
 
 
+def test_guard_run_never_launches_for_unknown_stored_policy_action(tmp_path, monkeypatch):
+    home_dir = tmp_path / "home"
+    workspace_dir = tmp_path / "workspace"
+    home_dir.mkdir()
+    workspace_dir.mkdir()
+    artifact = GuardArtifact(
+        artifact_id="codex:project:mcp:future-policy",
+        name="future-policy",
+        harness="codex",
+        artifact_type="mcp_server",
+        source_scope="project",
+        config_path=str(workspace_dir / ".codex" / "config.toml"),
+        command="node",
+        args=("server.js",),
+        transport="stdio",
+    )
+    detection = HarnessDetection(
+        harness="codex",
+        installed=True,
+        command_available=True,
+        config_paths=(artifact.config_path,),
+        artifacts=(artifact,),
+    )
+    store = GuardStore(home_dir)
+    launch_calls: list[object] = []
+    monkeypatch.setattr(store, "resolve_policy", lambda *_args, **_kwargs: "future-action")
+    monkeypatch.setattr(guard_runner_module, "detect_harness", lambda _harness, _context: detection)
+    monkeypatch.setattr(
+        guard_runner_module.subprocess,
+        "run",
+        lambda *args, **kwargs: launch_calls.append((args, kwargs)),
+    )
+
+    result = guard_runner_module.guard_run(
+        "codex",
+        HarnessContext(home_dir=home_dir, workspace_dir=workspace_dir, guard_home=home_dir),
+        store,
+        GuardConfig(guard_home=home_dir, workspace=workspace_dir, default_action="allow"),
+        dry_run=False,
+        passthrough_args=[],
+        default_action="allow",
+        interactive_resolver=None,
+        blocked_resolver=lambda _detection, evaluation: evaluation,
+    )
+
+    assert result["blocked"] is True
+    assert result["artifacts"][0]["policy_action"] == "require-reapproval"
+    assert launch_calls == []
+
+
 def test_decide_action_with_v2_preserves_legacy_action_and_adds_decision(tmp_path):
     config = GuardConfig(
         guard_home=tmp_path / "guard-home",
@@ -14297,7 +14347,7 @@ def test_guard_runtime_allows_lean_ctx_wrapped_gh_graphql_pipeline(tmp_path):
     assert match is None
 
 
-def test_guard_hook_blocks_github_remote_mutation_before_execution(tmp_path, capsys, monkeypatch):
+def test_guard_hook_allows_routine_github_repository_update(tmp_path, capsys, monkeypatch):
     home_dir = tmp_path / "home"
     workspace_dir = tmp_path / "workspace"
     _build_guard_fixture(home_dir, workspace_dir)
@@ -14326,8 +14376,7 @@ def test_guard_hook_blocks_github_remote_mutation_before_execution(tmp_path, cap
     output = json.loads(capsys.readouterr().out)
 
     assert rc == 0
-    assert output["permissionDecision"] == "deny"
-    assert "approve it in hol guard, then retry." in output["permissionDecisionReason"].lower()
+    assert output == {"permissionDecision": "allow"}
 
 
 def test_guard_runtime_blocks_unsafe_cd_before_pytest_module_invocation(tmp_path):

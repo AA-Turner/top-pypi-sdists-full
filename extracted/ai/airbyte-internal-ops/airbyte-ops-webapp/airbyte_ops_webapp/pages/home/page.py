@@ -7,9 +7,7 @@ from prefab_ui.components import (
     Badge,
     CardContent,
     Column,
-    Div,
     Grid,
-    Link,
     Svg,
     Text,
 )
@@ -35,27 +33,17 @@ from airbyte_ops_webapp.pages.shared_components.layout import (
     render_page_hero,
     render_version_footer,
 )
-from airbyte_ops_webapp.state import (
-    OpsPageState,
-    deploy_sha,
-    deploy_sha_url,
-    mock_only_enabled,
-    ops_package_version,
-    preview_deploy_enabled,
-    preview_pr_number,
-    preview_pr_url,
-)
+from airbyte_ops_webapp.state import OpsPageState
 from airbyte_ops_webapp.theme import (
     AIRBYTE_LAVENDER,
     AIRBYTE_PRIMARY,
     AIRBYTE_SECONDARY,
     PAGE_CLASS,
-    PANEL_CARD_CLASS,
+    AbPage,
+    AbPrimaryLink,
+    AbToolCard,
+    AbToolIcon,
     _more_tools_icon_svg,
-    _page_style,
-    _primary_link_style,
-    _tool_card_style,
-    _tool_icon_style,
 )
 
 OPS_HOME_TOOL_NAME = "ops_home"
@@ -64,25 +52,19 @@ home_app = FastMCPApp("Airbyte Ops Home")
 
 
 def _render_tool_icon(icon_svg: str, *, accent: str = AIRBYTE_PRIMARY) -> None:
-    with Div(style=_tool_icon_style(accent=accent)):
+    with AbToolIcon(accent=accent):
         Svg(icon_svg, width="1.5rem", height="1.5rem")
 
 
 def _render_emoji_icon(emoji: str, *, accent: str = AIRBYTE_PRIMARY) -> None:
     """Render an emoji inside the same styled container as SVG tool icons."""
-    Text(
-        emoji,
-        style={
-            **_tool_icon_style(accent=accent),
-            "fontSize": "1.5rem",
-            "lineHeight": "1",
-        },
-    )
+    with AbToolIcon(accent=accent):
+        Text(emoji, css_class="text-2xl leading-none")
 
 
 def _render_connector_version_manager_card(connector_query: str) -> None:
     with (
-        Div(css_class=PANEL_CARD_CLASS, style=_tool_card_style(accent=AIRBYTE_PRIMARY)),
+        AbToolCard(),
         CardContent(),
         Column(gap=3),
     ):
@@ -97,25 +79,23 @@ def _render_connector_version_manager_card(connector_query: str) -> None:
                 "Sign-in required",
                 css_class="w-fit bg-[#CECBF2] text-[#140F43]",
             )
-            Link(
+            AbPrimaryLink(
                 "Log in with Airbyte",
                 href=OPS_AUTHORIZATION_PATH,
                 target="_top",
-                style=_primary_link_style(),
             )
         with If(STATE.oauth_authenticated):
             Badge("Ready", variant="success")
-            Link(
+            AbPrimaryLink(
                 "Open tool",
                 href=connector_version_manager_path(connector_query),
                 target="_top",
-                style=_primary_link_style(),
             )
 
 
 def _render_customer_billing_card() -> None:
     with (
-        Div(css_class=PANEL_CARD_CLASS, style=_tool_card_style(accent=AIRBYTE_PRIMARY)),
+        AbToolCard(),
         CardContent(),
         Column(gap=3),
     ):
@@ -130,27 +110,23 @@ def _render_customer_billing_card() -> None:
                 "Sign-in required",
                 css_class="w-fit bg-[#CECBF2] text-[#140F43]",
             )
-            Link(
+            AbPrimaryLink(
                 "Log in with Airbyte",
                 href=OPS_AUTHORIZATION_PATH,
                 target="_top",
-                style=_primary_link_style(),
             )
         with If(STATE.oauth_authenticated):
             Badge("Ready", variant="success")
-            Link(
+            AbPrimaryLink(
                 "Open tool",
                 href=CUSTOMER_BILLING_PATH,
                 target="_top",
-                style=_primary_link_style(),
             )
 
 
 def _render_more_tools_card() -> None:
     with (
-        Div(
-            css_class=PANEL_CARD_CLASS, style=_tool_card_style(accent=AIRBYTE_LAVENDER)
-        ),
+        AbToolCard(accent=AIRBYTE_LAVENDER),
         CardContent(),
         Column(gap=3),
     ):
@@ -183,26 +159,18 @@ def open_ops_home(
         if explicit_default_connector
         else ""
     )
-    state = OpsPageState(
-        default_connector_from_args=explicit_default_connector,
-        is_mock_only=mock_only_enabled(),
-        is_preview_deploy=preview_deploy_enabled(),
-        preview_pr_number=preview_pr_number(),
-        preview_pr_url=preview_pr_url(),
-        deploy_sha=deploy_sha(),
-        deploy_sha_url=deploy_sha_url(),
-        ops_package_version=ops_package_version(),
+    state = OpsPageState.from_env(
         oauth_config=current_oauth_config,
-        oauth_enabled=bool(current_oauth_config["enabled"]),
+        default_connector_from_args=explicit_default_connector,
     ).to_prefab_state()
 
     with (
         build_ops_app(
             title="Airbyte Ops",
             state=state,
-            oauth_issuer=str(current_oauth_config["issuer"]),
+            oauth_issuer=current_oauth_config.issuer,
         ) as app,
-        Div(style=_page_style(), onMount=hydrate_oauth_action()),
+        AbPage(onMount=hydrate_oauth_action()),
         Column(gap=5, css_class=PAGE_CLASS),
     ):
         render_environment_banners()

@@ -29,6 +29,15 @@ Usage::
         DescribeSchemasPaginator,
         DescribeTableStatisticsPaginator,
         EndpointDeletedWaiter,
+        ExtensionPackAssociatedWaiter,
+        MetadataModelAssessedWaiter,
+        MetadataModelConversionCancelledWaiter,
+        MetadataModelConvertedWaiter,
+        MetadataModelCreatedWaiter,
+        MetadataModelCreationCancelledWaiter,
+        MetadataModelExportedAsScriptWaiter,
+        MetadataModelExportedToTargetWaiter,
+        MetadataModelImportedWaiter,
         ReplicationInstanceAvailableWaiter,
         ReplicationInstanceDeletedWaiter,
         ReplicationTaskDeletedWaiter,
@@ -45,6 +54,15 @@ Usage::
 
 
     endpoint_deleted_waiter: EndpointDeletedWaiter = client.get_waiter("endpoint_deleted")
+    extension_pack_associated_waiter: ExtensionPackAssociatedWaiter = client.get_waiter("extension_pack_associated")
+    metadata_model_assessed_waiter: MetadataModelAssessedWaiter = client.get_waiter("metadata_model_assessed")
+    metadata_model_conversion_cancelled_waiter: MetadataModelConversionCancelledWaiter = client.get_waiter("metadata_model_conversion_cancelled")
+    metadata_model_converted_waiter: MetadataModelConvertedWaiter = client.get_waiter("metadata_model_converted")
+    metadata_model_created_waiter: MetadataModelCreatedWaiter = client.get_waiter("metadata_model_created")
+    metadata_model_creation_cancelled_waiter: MetadataModelCreationCancelledWaiter = client.get_waiter("metadata_model_creation_cancelled")
+    metadata_model_exported_as_script_waiter: MetadataModelExportedAsScriptWaiter = client.get_waiter("metadata_model_exported_as_script")
+    metadata_model_exported_to_target_waiter: MetadataModelExportedToTargetWaiter = client.get_waiter("metadata_model_exported_to_target")
+    metadata_model_imported_waiter: MetadataModelImportedWaiter = client.get_waiter("metadata_model_imported")
     replication_instance_available_waiter: ReplicationInstanceAvailableWaiter = client.get_waiter("replication_instance_available")
     replication_instance_deleted_waiter: ReplicationInstanceDeletedWaiter = client.get_waiter("replication_instance_deleted")
     replication_task_deleted_waiter: ReplicationTaskDeletedWaiter = client.get_waiter("replication_task_deleted")
@@ -93,6 +111,15 @@ from .paginator import (
 )
 from .waiter import (
     EndpointDeletedWaiter,
+    ExtensionPackAssociatedWaiter,
+    MetadataModelAssessedWaiter,
+    MetadataModelConversionCancelledWaiter,
+    MetadataModelConvertedWaiter,
+    MetadataModelCreatedWaiter,
+    MetadataModelCreationCancelledWaiter,
+    MetadataModelExportedAsScriptWaiter,
+    MetadataModelExportedToTargetWaiter,
+    MetadataModelImportedWaiter,
     ReplicationInstanceAvailableWaiter,
     ReplicationInstanceDeletedWaiter,
     ReplicationTaskDeletedWaiter,
@@ -124,6 +151,15 @@ __all__ = (
     "DescribeSchemasPaginator",
     "DescribeTableStatisticsPaginator",
     "EndpointDeletedWaiter",
+    "ExtensionPackAssociatedWaiter",
+    "MetadataModelAssessedWaiter",
+    "MetadataModelConversionCancelledWaiter",
+    "MetadataModelConvertedWaiter",
+    "MetadataModelCreatedWaiter",
+    "MetadataModelCreationCancelledWaiter",
+    "MetadataModelExportedAsScriptWaiter",
+    "MetadataModelExportedToTargetWaiter",
+    "MetadataModelImportedWaiter",
     "ReplicationInstanceAvailableWaiter",
     "ReplicationInstanceDeletedWaiter",
     "ReplicationTaskDeletedWaiter",

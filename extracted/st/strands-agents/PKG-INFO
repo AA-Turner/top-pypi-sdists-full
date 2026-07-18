@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.47.0
+Version: 1.48.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/harness-sdk
 Project-URL: Bug Tracker, https://github.com/strands-agents/harness-sdk/issues
@@ -52,7 +52,7 @@ Requires-Dist: cedarpy==4.8.6; extra == 'all'
 Requires-Dist: fastapi<1.0.0,>=0.133.0; extra == 'all'
 Requires-Dist: google-genai<3.0.0,>=1.32.0; extra == 'all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'all'
-Requires-Dist: litellm<2.0.0,>=1.75.9; extra == 'all'
+Requires-Dist: litellm<=1.91.1,>=1.75.9; extra == 'all'
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'all'
 Requires-Dist: mistralai<3.0.0,>=2.0.0; extra == 'all'
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'all'
@@ -116,7 +116,7 @@ Requires-Dist: sphinx<10.0.0,>=5.0.0; extra == 'docs'
 Provides-Extra: gemini
 Requires-Dist: google-genai<3.0.0,>=1.32.0; extra == 'gemini'
 Provides-Extra: litellm
-Requires-Dist: litellm<2.0.0,>=1.75.9; extra == 'litellm'
+Requires-Dist: litellm<=1.91.1,>=1.75.9; extra == 'litellm'
 Requires-Dist: openai<3.0.0,>=1.68.0; extra == 'litellm'
 Provides-Extra: llamaapi
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'llamaapi'
@@ -357,6 +357,8 @@ pip install strands-agents[bidi]
 pip install strands-agents[bidi,bidi-io]
 ```
 
+> **Note**: Amazon Nova Sonic requires Python 3.12+ due to its experimental AWS SDK dependency.
+
 **Quick Example:**
 
 ```python
@@ -364,20 +366,19 @@ import asyncio
 from strands.experimental.bidi import BidiAgent
 from strands.experimental.bidi.models import BidiNovaSonicModel
 from strands.experimental.bidi.io import BidiAudioIO, BidiTextIO
-from strands.experimental.bidi.tools import stop_conversation
-from strands_tools import calculator
+from strands_tools import calculator, stop
 
 async def main():
     # Create bidirectional agent with Nova Sonic v2
     model = BidiNovaSonicModel()
-    agent = BidiAgent(model=model, tools=[calculator, stop_conversation])
+    agent = BidiAgent(model=model, tools=[calculator, stop])
 
     # Setup audio and text I/O (requires bidi-io extra)
     audio_io = BidiAudioIO()
     text_io = BidiTextIO()
 
     # Run with real-time audio streaming
-    # Say "stop conversation" to gracefully end the conversation
+    # stop tool allows user to verbally stop agent execution
     await agent.run(
         inputs=[audio_io.input()],
         outputs=[audio_io.output(), text_io.output()]

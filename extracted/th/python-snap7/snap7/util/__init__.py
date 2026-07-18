@@ -22,6 +22,11 @@ from .setters import (
     set_tod,
     set_dtl,
     set_dt,
+    set_lint,
+    set_ulint,
+    set_ltime,
+    set_ltod,
+    set_ldt,
 )
 
 from .getters import (
@@ -52,6 +57,9 @@ from .getters import (
     get_char,
     get_wchar,
     get_dtl,
+    get_lint,
+    get_ulint,
+    get_date_time_object,
 )
 
 __all__ = [
@@ -82,6 +90,9 @@ __all__ = [
     "get_fstring",
     "get_string",
     "get_wstring",
+    "get_lint",
+    "get_ulint",
+    "get_date_time_object",
     "set_real",
     "set_dword",
     "set_date",
@@ -105,4 +116,9 @@ __all__ = [
     "set_tod",
     "set_dtl",
     "set_dt",
+    "set_lint",
+    "set_ulint",
+    "set_ltime",
+    "set_ltod",
+    "set_ldt",
 ]

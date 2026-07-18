@@ -13,6 +13,7 @@ Usage::
         Client,
         IoTDataPlaneClient,
         ListRetainedMessagesPaginator,
+        ListSubscriptionsPaginator,
     )
 
     session = get_session()
@@ -22,12 +23,18 @@ Usage::
 
 
     list_retained_messages_paginator: ListRetainedMessagesPaginator = client.get_paginator("list_retained_messages")
+    list_subscriptions_paginator: ListSubscriptionsPaginator = client.get_paginator("list_subscriptions")
     ```
 """
 
 from .client import IoTDataPlaneClient
-from .paginator import ListRetainedMessagesPaginator
+from .paginator import ListRetainedMessagesPaginator, ListSubscriptionsPaginator
 
 Client = IoTDataPlaneClient
 
-__all__ = ("Client", "IoTDataPlaneClient", "ListRetainedMessagesPaginator")
+__all__ = (
+    "Client",
+    "IoTDataPlaneClient",
+    "ListRetainedMessagesPaginator",
+    "ListSubscriptionsPaginator",
+)

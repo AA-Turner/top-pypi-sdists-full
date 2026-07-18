@@ -4,10 +4,10 @@ import logging
 import re
 from typing import TYPE_CHECKING, TypeVar
 
-import requests
 from requests.exceptions import HTTPError
 from unidecode import unidecode
 
+from mcp_atlassian.exceptions import MCPAtlassianAuthenticationError
 from mcp_atlassian.models.jira.common import JiraUser
 from mcp_atlassian.utils.decorators import handle_auth_errors
 
@@ -91,6 +91,17 @@ class UsersMixin(JiraClient):
             self._current_user_account_id = account_id
             return account_id
         except HTTPError as http_err:
+            if http_err.response is not None and http_err.response.status_code == 429:
+                logger.warning(
+                    "Jira token validation was rate-limited (429) while "
+                    "calling myself()."
+                )
+                raise MCPAtlassianAuthenticationError(
+                    "Jira token validation was rate-limited (429) while "
+                    "validating credentials. Retry after backing off, or "
+                    "increase MCP_ATLASSIAN_VALIDATION_CACHE_TTL to reduce "
+                    "validation call frequency."
+                ) from http_err
             response_content = ""
             if http_err.response is not None:
                 try:
@@ -121,16 +132,16 @@ class UsersMixin(JiraClient):
             ValueError: If the account ID could not be found.
         """
         # If it looks like an account ID already, return it.
-        # Cloud account IDs come in two shapes: the legacy 24-char hex format
-        # (e.g. "5b10ac8d82e05b22cc7d4ef5") and the current "<digits>:<uuid>"
-        # format (e.g. "712020:f653aab5-cc61-4c57-8fa8-f7d73b94499d").
+        # Known unprefixed Cloud account IDs use a legacy 24-char hex format
+        # (e.g. "5b10ac8d82e05b22cc7d4ef5") or a "<digits>:<uuid>" format
+        # (e.g. "712020:f653aab5-cc61-4c57-8fa8-f7d73b94499d").
         # An explicit "accountid:" prefix is also accepted, matching the
-        # format documented in the create_issue/update_issue tool schemas.
+        # create_issue/update_issue tool schemas and supporting opaque IDs.
         if assignee.startswith("accountid:"):
             return assignee[len("accountid:") :]
-        if assignee.startswith("5") and len(assignee) >= 10:
+        if re.fullmatch(r"[0-9a-fA-F]{24}", assignee):
             return assignee
-        if re.match(r"^\d+:[0-9a-fA-F][0-9a-fA-F-]{7,}$", assignee):
+        if re.fullmatch(r"\d+:[0-9a-fA-F][0-9a-fA-F-]{7,}", assignee):
             return assignee
 
         account_id = self._lookup_user_directly(assignee)
@@ -243,20 +254,10 @@ class UsersMixin(JiraClient):
             url = f"{self.config.url}/rest/api/2/user/permission/search"
             params = {"query": username, "permissions": "BROWSE"}
 
-            auth = None
-            headers = {}
-            if self.config.auth_type == "pat":
-                headers["Authorization"] = f"Bearer {self.config.personal_token}"
-            else:
-                auth = (self.config.username or "", self.config.api_token or "")
-
-            response = requests.get(
-                url,
-                params=params,
-                auth=auth,
-                headers=headers,
-                verify=self.config.ssl_verify,
-            )
+            # Use the configured Jira session so that cert, proxy, and all
+            # other session-level settings (mTLS, custom headers, SSL adapters)
+            # are applied consistently regardless of auth type.
+            response = self.jira._session.get(url, params=params)
 
             if response.status_code == 200:
                 data = response.json()

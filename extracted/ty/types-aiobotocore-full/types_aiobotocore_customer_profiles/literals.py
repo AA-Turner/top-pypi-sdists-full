@@ -34,6 +34,7 @@ __all__ = (
     "DataFormatType",
     "DataPullModeType",
     "DateDimensionTypeType",
+    "DiversityCapTypeType",
     "EstimateStatusType",
     "EventStreamDestinationStatusType",
     "EventStreamStateType",
@@ -167,6 +168,7 @@ ContentTypeType = Literal["NUMBER", "STRING"]
 DataFormatType = Literal["CSV", "JSONL", "ORC"]
 DataPullModeType = Literal["Complete", "Incremental"]
 DateDimensionTypeType = Literal["AFTER", "BEFORE", "BETWEEN", "NOT_BETWEEN", "ON"]
+DiversityCapTypeType = Literal["PERCENTAGE", "VALUE"]
 EstimateStatusType = Literal["FAILED", "RUNNING", "SUCCEEDED"]
 EventStreamDestinationStatusType = Literal["HEALTHY", "UNHEALTHY"]
 EventStreamStateType = Literal["RUNNING", "STOPPED"]
@@ -251,7 +253,7 @@ OperatorPropertiesKeysType = Literal[
 ]
 OperatorType = Literal["EQUAL_TO", "GREATER_THAN", "LESS_THAN", "NOT_EQUAL_TO"]
 PartyTypeType = Literal["BUSINESS", "INDIVIDUAL", "OTHER"]
-PeriodUnitType = Literal["DAYS", "HOURS", "MONTHS", "WEEKS"]
+PeriodUnitType = Literal["DAYS", "HOURS", "MINUTES", "MONTHS", "WEEKS"]
 ProfileTypeDimensionTypeType = Literal["EXCLUSIVE", "INCLUSIVE"]
 ProfileTypeType = Literal["ACCOUNT_PROFILE", "PROFILE"]
 QueryResultType = Literal["ABSENT", "PRESENT"]
@@ -616,8 +618,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -644,6 +644,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -711,10 +713,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -747,6 +749,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -774,6 +777,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -795,7 +799,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -816,6 +819,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

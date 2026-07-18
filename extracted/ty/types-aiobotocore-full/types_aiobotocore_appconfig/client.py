@@ -35,6 +35,9 @@ from .paginator import (
     ListDeploymentsPaginator,
     ListDeploymentStrategiesPaginator,
     ListEnvironmentsPaginator,
+    ListExperimentDefinitionsPaginator,
+    ListExperimentRunEventsPaginator,
+    ListExperimentRunsPaginator,
     ListExtensionAssociationsPaginator,
     ListExtensionsPaginator,
     ListHostedConfigurationVersionsPaginator,
@@ -50,6 +53,7 @@ from .type_defs import (
     CreateConfigurationProfileRequestTypeDef,
     CreateDeploymentStrategyRequestTypeDef,
     CreateEnvironmentRequestTypeDef,
+    CreateExperimentDefinitionRequestTypeDef,
     CreateExtensionAssociationRequestTypeDef,
     CreateExtensionRequestTypeDef,
     CreateHostedConfigurationVersionRequestTypeDef,
@@ -57,6 +61,7 @@ from .type_defs import (
     DeleteConfigurationProfileRequestTypeDef,
     DeleteDeploymentStrategyRequestTypeDef,
     DeleteEnvironmentRequestTypeDef,
+    DeleteExperimentDefinitionRequestTypeDef,
     DeleteExtensionAssociationRequestTypeDef,
     DeleteExtensionRequestTypeDef,
     DeleteHostedConfigurationVersionRequestTypeDef,
@@ -67,6 +72,11 @@ from .type_defs import (
     EmptyResponseMetadataTypeDef,
     EnvironmentResponseTypeDef,
     EnvironmentsTypeDef,
+    ExperimentDefinitionsTypeDef,
+    ExperimentDefinitionTypeDef,
+    ExperimentRunEventsTypeDef,
+    ExperimentRunsTypeDef,
+    ExperimentRunTypeDef,
     ExtensionAssociationsTypeDef,
     ExtensionAssociationTypeDef,
     ExtensionsTypeDef,
@@ -77,6 +87,8 @@ from .type_defs import (
     GetDeploymentRequestTypeDef,
     GetDeploymentStrategyRequestTypeDef,
     GetEnvironmentRequestTypeDef,
+    GetExperimentDefinitionRequestTypeDef,
+    GetExperimentRunRequestTypeDef,
     GetExtensionAssociationRequestTypeDef,
     GetExtensionRequestTypeDef,
     GetHostedConfigurationVersionRequestTypeDef,
@@ -87,13 +99,18 @@ from .type_defs import (
     ListDeploymentsRequestTypeDef,
     ListDeploymentStrategiesRequestTypeDef,
     ListEnvironmentsRequestTypeDef,
+    ListExperimentDefinitionsRequestTypeDef,
+    ListExperimentRunEventsRequestTypeDef,
+    ListExperimentRunsRequestTypeDef,
     ListExtensionAssociationsRequestTypeDef,
     ListExtensionsRequestTypeDef,
     ListHostedConfigurationVersionsRequestTypeDef,
     ListTagsForResourceRequestTypeDef,
     ResourceTagsTypeDef,
     StartDeploymentRequestTypeDef,
+    StartExperimentRunRequestTypeDef,
     StopDeploymentRequestTypeDef,
+    StopExperimentRunRequestTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateAccountSettingsRequestTypeDef,
@@ -101,6 +118,8 @@ from .type_defs import (
     UpdateConfigurationProfileRequestTypeDef,
     UpdateDeploymentStrategyRequestTypeDef,
     UpdateEnvironmentRequestTypeDef,
+    UpdateExperimentDefinitionRequestTypeDef,
+    UpdateExperimentRunRequestTypeDef,
     UpdateExtensionAssociationRequestTypeDef,
     UpdateExtensionRequestTypeDef,
     ValidateConfigurationRequestTypeDef,
@@ -203,6 +222,16 @@ class AppConfigClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#create_environment)
         """
 
+    async def create_experiment_definition(
+        self, **kwargs: Unpack[CreateExperimentDefinitionRequestTypeDef]
+    ) -> ExperimentDefinitionTypeDef:
+        """
+        Creates an experiment definition in AppConfig.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/create_experiment_definition.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#create_experiment_definition)
+        """
+
     async def create_extension(
         self, **kwargs: Unpack[CreateExtensionRequestTypeDef]
     ) -> ExtensionTypeDef:
@@ -273,6 +302,16 @@ class AppConfigClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/delete_environment.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#delete_environment)
+        """
+
+    async def delete_experiment_definition(
+        self, **kwargs: Unpack[DeleteExperimentDefinitionRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes an experiment definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/delete_experiment_definition.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#delete_experiment_definition)
         """
 
     async def delete_extension(
@@ -375,6 +414,27 @@ class AppConfigClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#get_environment)
         """
 
+    async def get_experiment_definition(
+        self, **kwargs: Unpack[GetExperimentDefinitionRequestTypeDef]
+    ) -> ExperimentDefinitionTypeDef:
+        """
+        Retrieves information about an experiment definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/get_experiment_definition.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#get_experiment_definition)
+        """
+
+    async def get_experiment_run(
+        self, **kwargs: Unpack[GetExperimentRunRequestTypeDef]
+    ) -> ExperimentRunTypeDef:
+        """
+        Retrieves information about an experiment run, including its status, start
+        time, and exposure settings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/get_experiment_run.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#get_experiment_run)
+        """
+
     async def get_extension(self, **kwargs: Unpack[GetExtensionRequestTypeDef]) -> ExtensionTypeDef:
         """
         Returns information about an AppConfig extension.
@@ -453,6 +513,36 @@ class AppConfigClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#list_environments)
         """
 
+    async def list_experiment_definitions(
+        self, **kwargs: Unpack[ListExperimentDefinitionsRequestTypeDef]
+    ) -> ExperimentDefinitionsTypeDef:
+        """
+        Lists the experiment definitions for an account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/list_experiment_definitions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#list_experiment_definitions)
+        """
+
+    async def list_experiment_run_events(
+        self, **kwargs: Unpack[ListExperimentRunEventsRequestTypeDef]
+    ) -> ExperimentRunEventsTypeDef:
+        """
+        Lists the events for a specified experiment run.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/list_experiment_run_events.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#list_experiment_run_events)
+        """
+
+    async def list_experiment_runs(
+        self, **kwargs: Unpack[ListExperimentRunsRequestTypeDef]
+    ) -> ExperimentRunsTypeDef:
+        """
+        Lists the experiment runs for a specified experiment definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/list_experiment_runs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#list_experiment_runs)
+        """
+
     async def list_extension_associations(
         self, **kwargs: Unpack[ListExtensionAssociationsRequestTypeDef]
     ) -> ExtensionAssociationsTypeDef:
@@ -505,6 +595,16 @@ class AppConfigClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#start_deployment)
         """
 
+    async def start_experiment_run(
+        self, **kwargs: Unpack[StartExperimentRunRequestTypeDef]
+    ) -> ExperimentRunTypeDef:
+        """
+        Starts an experiment run for the specified experiment definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/start_experiment_run.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#start_experiment_run)
+        """
+
     async def stop_deployment(
         self, **kwargs: Unpack[StopDeploymentRequestTypeDef]
     ) -> DeploymentTypeDef:
@@ -513,6 +613,16 @@ class AppConfigClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/stop_deployment.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#stop_deployment)
+        """
+
+    async def stop_experiment_run(
+        self, **kwargs: Unpack[StopExperimentRunRequestTypeDef]
+    ) -> ExperimentRunTypeDef:
+        """
+        Stops a running experiment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/stop_experiment_run.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#stop_experiment_run)
         """
 
     async def tag_resource(
@@ -583,6 +693,26 @@ class AppConfigClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/update_environment.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#update_environment)
+        """
+
+    async def update_experiment_definition(
+        self, **kwargs: Unpack[UpdateExperimentDefinitionRequestTypeDef]
+    ) -> ExperimentDefinitionTypeDef:
+        """
+        Updates an experiment definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/update_experiment_definition.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#update_experiment_definition)
+        """
+
+    async def update_experiment_run(
+        self, **kwargs: Unpack[UpdateExperimentRunRequestTypeDef]
+    ) -> ExperimentRunTypeDef:
+        """
+        Updates a running experiment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/update_experiment_run.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#update_experiment_run)
         """
 
     async def update_extension(
@@ -663,6 +793,39 @@ class AppConfigClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_environments"]
     ) -> ListEnvironmentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_experiment_definitions"]
+    ) -> ListExperimentDefinitionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_experiment_run_events"]
+    ) -> ListExperimentRunEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appconfig/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_experiment_runs"]
+    ) -> ListExperimentRunsPaginator:
         """
         Create a paginator for an operation.
 

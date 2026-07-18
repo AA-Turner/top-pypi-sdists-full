@@ -17,9 +17,12 @@ from urllib.parse import parse_qs
 from urllib.parse import urlencode
 from urllib.parse import urlparse
 
-import backoff
 import cryptography  # pylint: disable=unused-import
 import jwt
+from tenacity import retry
+from tenacity import retry_if_exception_type
+from tenacity import stop_after_attempt
+from tenacity import wait_random_exponential
 
 from .build_constants import BUILD_GCLOUD_REST
 from .session import SyncSession
@@ -78,9 +81,10 @@ REFRESH_HEADERS = {'Content-Type': 'application/x-www-form-urlencoded'}
 
 class Type(enum.Enum):
     AUTHORIZED_USER = 'authorized_user'
+    EXTERNAL_ACCOUNT = 'external_account'
     GCE_METADATA = 'gce_metadata'
-    SERVICE_ACCOUNT = 'service_account'
     IMPERSONATED_SERVICE_ACCOUNT = 'impersonated_service_account'
+    SERVICE_ACCOUNT = 'service_account'
 
 
 def get_service_data(
@@ -94,7 +98,7 @@ def get_service_data(
     precedence order of various approaches MUST be maintained. It was last
     updated to match the following commit:
 
-    https://github.com/googleapis/google-auth-library-python/blob/6c1297c4d69ba40a8b9392775c17411253fcd73b/google/auth/_default.py#L504
+    https://github.com/googleapis/google-auth-library-python/blob/v2.48.0/google/auth/_default.py#L597
     """
     # pylint: disable=too-complex
     # _get_explicit_environ_credentials()
@@ -184,6 +188,18 @@ class BaseToken:
         self.service_data = get_service_data(service_file)
         if self.service_data:
             self.token_type = Type(self.service_data['type'])
+            if self.token_type == Type.EXTERNAL_ACCOUNT:
+                required_fields = {
+                    'audience',
+                    'credential_source',
+                    'subject_token_type',
+                    'token_url',
+                }
+                if required_fields - self.service_data.keys():
+                    raise ValueError(
+                        'external_account credentials missing required '
+                        f"fields: {', '.join(required_fields)}"
+                    )
             self.token_uri = self.service_data.get(
                 'token_uri', 'https://oauth2.googleapis.com/token',
             )
@@ -263,7 +279,12 @@ class BaseToken:
     def refresh(self, *, timeout: int) -> TokenResponse:
         pass
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=5)
+    @retry(
+        retry=retry_if_exception_type(Exception),
+        stop=stop_after_attempt(5),
+        wait=wait_random_exponential(multiplier=1, max=60),
+        reraise=True,
+    )
     def acquire_access_token(self, timeout: int = 10) -> None:
         resp = self.refresh(timeout=timeout)
 
@@ -366,6 +387,103 @@ class Token(BaseToken):
         return TokenResponse(value=str(content['access_token']),
                              expires_in=int(content['expires_in']))
 
+    def _refresh_external_account(self, timeout: int) -> TokenResponse:
+        if not self.service_data:
+            raise ValueError('external_account auth requires service_data')
+
+        credential_source = self.service_data['credential_source']
+        subject_token = self._get_subject_token(
+            credential_source, timeout,
+        )
+
+        # exchange the subject token for a Google access token
+        data = {
+            'audience': self.service_data['audience'],
+            'grant_type': 'urn:ietf:params:oauth:grant-type:token-exchange',
+            'requested_token_type': (
+                'urn:ietf:params:oauth:token-type:access_token'
+            ),
+            'subject_token': subject_token,
+            'subject_token_type': self.service_data['subject_token_type'],
+        }
+        # add optional service account impersonation if configured
+        if self.service_data.get('service_account_impersonation_url'):
+            data['service_account_impersonation_url'] = self.service_data[
+                'service_account_impersonation_url'
+            ]
+        # add optional client ID and secret if configured
+        if self.service_data.get('client_id'):
+            data['client_id'] = self.service_data['client_id']
+        if self.service_data.get('client_secret'):
+            data['client_secret'] = self.service_data['client_secret']
+        # add scopes if configured
+        if self.scopes:
+            data['scope'] = ' '.join(self.scopes)
+
+        resp = self.session.post(
+            self.service_data['token_url'],
+            data=urlencode(data),
+            headers=REFRESH_HEADERS,
+            timeout=timeout,
+        )
+        try:
+            data = resp.json()
+        except (AttributeError, TypeError):
+            data = json.loads(resp.text())
+
+        return TokenResponse(
+            value=data['access_token'],
+            expires_in=data.get('expires_in', self.default_token_ttl),
+        )
+
+    def _get_subject_token(
+        self, credential_source: dict[str, Any], timeout: int
+    ) -> str:
+        # pylint: disable=too-complex
+        source_type = credential_source.get('type')
+        if not source_type:
+            # TODO: looks like sometimes the type can be found elsewhere or
+            # needs to be infered.
+            # https://github.com/talkiq/gcloud-rest/pull/906/changes#r2206959538
+            raise ValueError('credential_source is missing type field')
+
+        if source_type == 'url':
+            url = credential_source['url']
+            format_ = credential_source.get('format', {})
+            format_type = format_.get('type', 'text')
+
+            resp = self.session.get(
+                url,
+                headers=credential_source.get('headers', {}),
+                timeout=timeout,
+            )
+
+            if format_type == 'json':
+                try:
+                    data = resp.json()
+                except (AttributeError, TypeError):
+                    data = json.loads(resp.text())
+
+                token: str = data[format_['subject_token_field_name']]
+                return token
+
+            try:
+                return resp.text()
+            except (AttributeError, TypeError):
+                return str(resp.text)
+
+        if source_type == 'file':
+            try:
+                with open(credential_source['file'], encoding='utf-8') as f:
+                    return f.read().strip()
+            except Exception as e:
+                raise ValueError('failed to read subject token file') from e
+
+        if source_type == 'environment':
+            return os.environ[credential_source['environment_id']]
+
+        raise ValueError(f'unsupported credential_source type: {source_type}')
+
     def _refresh_gce_metadata(self, timeout: int) -> TokenResponse:
         resp = self.session.get(
             url=self.token_uri, headers=GCE_METADATA_HEADERS, timeout=timeout,
@@ -433,13 +551,15 @@ class Token(BaseToken):
     def refresh(self, *, timeout: int) -> TokenResponse:
         if self.token_type == Type.AUTHORIZED_USER:
             resp = self._refresh_authorized_user(timeout=timeout)
+        elif self.token_type == Type.EXTERNAL_ACCOUNT:
+            resp = self._refresh_external_account(timeout=timeout)
         elif self.token_type == Type.GCE_METADATA:
             resp = self._refresh_gce_metadata(timeout=timeout)
-        elif self.token_type == Type.SERVICE_ACCOUNT:
-            resp = self._refresh_service_account(timeout=timeout)
         elif self.token_type == Type.IMPERSONATED_SERVICE_ACCOUNT:
             # impersonation requires a source authorized user
             resp = self._refresh_source_authorized_user(timeout=timeout)
+        elif self.token_type == Type.SERVICE_ACCOUNT:
+            resp = self._refresh_service_account(timeout=timeout)
         else:
             raise Exception(f'unsupported token type {self.token_type}')
 

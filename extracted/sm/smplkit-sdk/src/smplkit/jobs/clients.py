@@ -24,6 +24,7 @@ from typing import Any, Optional
 from uuid import UUID
 
 from smplkit._config import _service_url, resolve_client_config
+from smplkit._transport import with_default_user_agent
 from smplkit._generated.jobs.types import UNSET
 from smplkit.errors import _raise_for_status
 from smplkit._generated.jobs.api.jobs import (
@@ -163,29 +164,33 @@ def _jobs_transport(
     profile: str | None,
     base_domain: str | None,
     scheme: str | None,
+    environment: str | None,
     debug: bool | None,
     extra_headers: dict[str, str] | None,
-) -> _JobsAuthClient:
-    """Build a standalone Smpl Jobs transport from resolved config.
+) -> "tuple[_JobsAuthClient, str | None]":
+    """Build a standalone Smpl Jobs transport and resolve the environment.
 
-    Reuses the config resolver (jobs is account-global and never
-    environment-scoped) and the shared per-service URL helper, so a
-    standalone jobs client resolves credentials/base-domain from
+    Reuses the config resolver and the shared per-service URL helper, so a
+    standalone jobs client resolves credentials/base-domain/environment from
     ``~/.smplkit`` / env vars / constructor args exactly like the top-level
-    clients do.
+    clients do. The resolved environment (constructor kwarg wins) is
+    returned so it can scope one-off job placement, manual runs, and run
+    listings.
     """
     cfg = resolve_client_config(
         profile=profile,
         api_key=api_key,
         base_domain=base_domain,
         scheme=scheme,
+        environment=environment,
         debug=debug,
     )
     jobs_url = _service_url(cfg.scheme, "jobs", cfg.base_domain)
     headers = {"Accept": "application/vnd.api+json"}
     headers.update(cfg.extra_headers or {})
     headers.update(extra_headers or {})
-    return _JobsAuthClient(base_url=jobs_url, token=cfg.api_key, headers=headers)
+    headers = with_default_user_agent(headers)
+    return _JobsAuthClient(base_url=jobs_url, token=cfg.api_key, headers=headers), cfg.environment
 
 
 class HttpConfig:
@@ -1593,8 +1598,10 @@ class JobsClient:
         environment: Default environment for environment-scoped operations —
             the environment a one-off job created through this client is born
             in, the default a manual run executes in, and the default scope for
-            ``jobs.runs.list()``. ``None`` leaves these unset (the credential's
-            permitted environment is implied where unambiguous).
+            ``jobs.runs.list()``. When omitted, resolved from
+            ``SMPLKIT_ENVIRONMENT`` or ``~/.smplkit``. ``None`` everywhere
+            leaves these unset (the credential's permitted environment is
+            implied where unambiguous).
         auth_client: Internal — a pre-built transport supplied by a top-level
             client so the jobs surface shares one connection pool. Not for
             direct use.
@@ -1613,14 +1620,16 @@ class JobsClient:
         auth_client: _JobsAuthClient | None = None,
     ) -> None:
         if auth_client is not None:
+            # Parent-wired: the supplied environment wins over resolution.
             self._auth = auth_client
             self._owns_transport = False
         else:
-            self._auth = _jobs_transport(
+            self._auth, environment = _jobs_transport(
                 api_key=api_key,
                 profile=profile,
                 base_domain=base_domain,
                 scheme=scheme,
+                environment=environment,
                 debug=debug,
                 extra_headers=extra_headers,
             )
@@ -1963,14 +1972,16 @@ class AsyncJobsClient:
         auth_client: _JobsAuthClient | None = None,
     ) -> None:
         if auth_client is not None:
+            # Parent-wired: the supplied environment wins over resolution.
             self._auth = auth_client
             self._owns_transport = False
         else:
-            self._auth = _jobs_transport(
+            self._auth, environment = _jobs_transport(
                 api_key=api_key,
                 profile=profile,
                 base_domain=base_domain,
                 scheme=scheme,
+                environment=environment,
                 debug=debug,
                 extra_headers=extra_headers,
             )

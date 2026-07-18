@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_bedrock_agentcore_control.literals import AgentManagedRuntimeTypeType
+    from types_aiobotocore_bedrock_agentcore_control.literals import ActorTokenContentTypeType
 
-    data: AgentManagedRuntimeTypeType = "NODE_22"
+    data: ActorTokenContentTypeType = "AWS_IAM_ID_TOKEN_JWT"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "ActorTokenContentTypeType",
     "AgentManagedRuntimeTypeType",
     "AgentRuntimeEndpointStatusType",
     "AgentRuntimeStatusType",
@@ -33,6 +34,8 @@ __all__ = (
     "BrowserProfileStatusType",
     "BrowserStatusType",
     "ClaimMatchOperatorTypeType",
+    "ClientAuthenticationMethodTypeType",
+    "ClusteringFrequencyType",
     "CodeInterpreterNetworkModeType",
     "CodeInterpreterStatusType",
     "ConfigurationBundleStatusType",
@@ -40,12 +43,17 @@ __all__ = (
     "ContentTypeType",
     "CredentialProviderTypeType",
     "CredentialProviderVendorTypeType",
+    "DatasetSchemaTypeType",
+    "DatasetStatusType",
     "DescriptorTypeType",
+    "DraftStatusType",
     "EndpointIpAddressTypeType",
+    "EnforcementModeType",
     "EvaluatorLevelType",
     "EvaluatorStatusType",
     "EvaluatorTypeType",
     "ExceptionLevelType",
+    "ExtractionTypeType",
     "FilterOperatorType",
     "FindingTypeType",
     "GatewayInterceptionPointType",
@@ -53,11 +61,16 @@ __all__ = (
     "GatewayProtocolTypeType",
     "GatewayRuleStatusType",
     "GatewayStatusType",
+    "HarnessBedrockApiFormatType",
+    "HarnessEndpointStatusType",
+    "HarnessManagedMemoryStrategyTypeType",
+    "HarnessOpenAiApiFormatType",
     "HarnessStatusType",
     "HarnessToolTypeType",
     "HarnessTruncationStrategyType",
     "InboundTokenClaimValueTypeType",
     "IncludedDataType",
+    "InterceptorPayloadExclusionType",
     "KeyTypeType",
     "ListAgentRuntimeEndpointsPaginatorName",
     "ListAgentRuntimeVersionsPaginatorName",
@@ -68,18 +81,29 @@ __all__ = (
     "ListCodeInterpretersPaginatorName",
     "ListConfigurationBundleVersionsPaginatorName",
     "ListConfigurationBundlesPaginatorName",
+    "ListDatasetExamplesPaginatorName",
+    "ListDatasetVersionsPaginatorName",
+    "ListDatasetsPaginatorName",
     "ListEvaluatorsPaginatorName",
     "ListGatewayRulesPaginatorName",
     "ListGatewayTargetsPaginatorName",
     "ListGatewaysPaginatorName",
+    "ListHarnessEndpointsPaginatorName",
+    "ListHarnessVersionsPaginatorName",
     "ListHarnessesPaginatorName",
     "ListMemoriesPaginatorName",
     "ListOauth2CredentialProvidersPaginatorName",
     "ListOnlineEvaluationConfigsPaginatorName",
+    "ListPaymentConnectorsPaginatorName",
+    "ListPaymentCredentialProvidersPaginatorName",
+    "ListPaymentManagersPaginatorName",
     "ListPoliciesPaginatorName",
+    "ListPolicyEngineSummariesPaginatorName",
     "ListPolicyEnginesPaginatorName",
     "ListPolicyGenerationAssetsPaginatorName",
+    "ListPolicyGenerationSummariesPaginatorName",
     "ListPolicyGenerationsPaginatorName",
+    "ListPolicySummariesPaginatorName",
     "ListRegistriesPaginatorName",
     "ListRegistryRecordsPaginatorName",
     "ListWorkloadIdentitiesPaginatorName",
@@ -89,12 +113,20 @@ __all__ = (
     "MemoryStrategyStatusType",
     "MemoryStrategyTypeType",
     "MemoryViewType",
+    "MetadataValueTypeType",
     "NetworkModeType",
     "OAuthGrantTypeType",
+    "OnBehalfOfTokenExchangeGrantTypeTypeType",
     "OnlineEvaluationConfigStatusType",
     "OnlineEvaluationExecutionStatusType",
     "OverrideTypeType",
     "PaginatorName",
+    "PassthroughProtocolTypeType",
+    "PaymentConnectorStatusType",
+    "PaymentConnectorTypeType",
+    "PaymentCredentialProviderVendorTypeType",
+    "PaymentManagerStatusType",
+    "PaymentsAuthorizerTypeType",
     "PolicyActiveWaiterName",
     "PolicyDeletedWaiterName",
     "PolicyEngineActiveWaiterName",
@@ -115,15 +147,19 @@ __all__ = (
     "RestApiMethodType",
     "SchemaTypeType",
     "SearchTypeType",
+    "SecretSourceTypeType",
     "ServerProtocolType",
     "ServiceName",
     "StatusType",
     "SynchronizationTypeType",
     "TargetProtocolTypeType",
     "TargetStatusType",
+    "TargetTypeType",
+    "WafFailureModeType",
     "WaiterName",
 )
 
+ActorTokenContentTypeType = Literal["AWS_IAM_ID_TOKEN_JWT", "M2M", "NONE"]
 AgentManagedRuntimeTypeType = Literal[
     "NODE_22", "PYTHON_3_10", "PYTHON_3_11", "PYTHON_3_12", "PYTHON_3_13", "PYTHON_3_14"
 ]
@@ -142,6 +178,10 @@ BrowserStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
 ]
 ClaimMatchOperatorTypeType = Literal["CONTAINS", "CONTAINS_ANY", "EQUALS"]
+ClientAuthenticationMethodTypeType = Literal[
+    "AWS_IAM_ID_TOKEN_JWT", "CLIENT_SECRET_BASIC", "CLIENT_SECRET_POST"
+]
+ClusteringFrequencyType = Literal["DAILY", "MONTHLY", "WEEKLY"]
 CodeInterpreterNetworkModeType = Literal["PUBLIC", "SANDBOX", "VPC"]
 CodeInterpreterStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
@@ -181,14 +221,23 @@ CredentialProviderVendorTypeType = Literal[
     "YandexOauth2",
     "ZoomOauth2",
 ]
+DatasetSchemaTypeType = Literal[
+    "AGENTCORE_EVALUATION_PREDEFINED_V1", "AGENTCORE_EVALUATION_SIMULATED_V1"
+]
+DatasetStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
 DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
+DraftStatusType = Literal["MODIFIED", "UNMODIFIED"]
 EndpointIpAddressTypeType = Literal["IPV4", "IPV6"]
+EnforcementModeType = Literal["ACTIVE", "LOG_ONLY"]
 EvaluatorLevelType = Literal["SESSION", "TOOL_CALL", "TRACE"]
 EvaluatorStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
 EvaluatorTypeType = Literal["Builtin", "Custom", "CustomCode"]
 ExceptionLevelType = Literal["DEBUG"]
+ExtractionTypeType = Literal["LLM_INFERRED", "STRICTLY_CONSISTENT"]
 FilterOperatorType = Literal[
     "Contains",
     "Equals",
@@ -209,6 +258,14 @@ GatewayRuleStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 GatewayStatusType = Literal[
     "CREATING", "DELETING", "FAILED", "READY", "UPDATE_UNSUCCESSFUL", "UPDATING"
 ]
+HarnessBedrockApiFormatType = Literal["chat_completions", "converse_stream", "responses"]
+HarnessEndpointStatusType = Literal[
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+]
+HarnessManagedMemoryStrategyTypeType = Literal[
+    "EPISODIC", "SEMANTIC", "SUMMARIZATION", "USER_PREFERENCE"
+]
+HarnessOpenAiApiFormatType = Literal["chat_completions", "responses"]
 HarnessStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
@@ -222,6 +279,7 @@ HarnessToolTypeType = Literal[
 HarnessTruncationStrategyType = Literal["none", "sliding_window", "summarization"]
 InboundTokenClaimValueTypeType = Literal["STRING", "STRING_ARRAY"]
 IncludedDataType = Literal["ALL_DATA", "METADATA_ONLY"]
+InterceptorPayloadExclusionType = Literal["RESPONSE_BODY"]
 KeyTypeType = Literal["CustomerManagedKey", "ServiceManagedKey"]
 ListAgentRuntimeEndpointsPaginatorName = Literal["list_agent_runtime_endpoints"]
 ListAgentRuntimeVersionsPaginatorName = Literal["list_agent_runtime_versions"]
@@ -232,31 +290,44 @@ ListBrowsersPaginatorName = Literal["list_browsers"]
 ListCodeInterpretersPaginatorName = Literal["list_code_interpreters"]
 ListConfigurationBundleVersionsPaginatorName = Literal["list_configuration_bundle_versions"]
 ListConfigurationBundlesPaginatorName = Literal["list_configuration_bundles"]
+ListDatasetExamplesPaginatorName = Literal["list_dataset_examples"]
+ListDatasetVersionsPaginatorName = Literal["list_dataset_versions"]
+ListDatasetsPaginatorName = Literal["list_datasets"]
 ListEvaluatorsPaginatorName = Literal["list_evaluators"]
 ListGatewayRulesPaginatorName = Literal["list_gateway_rules"]
 ListGatewayTargetsPaginatorName = Literal["list_gateway_targets"]
 ListGatewaysPaginatorName = Literal["list_gateways"]
+ListHarnessEndpointsPaginatorName = Literal["list_harness_endpoints"]
+ListHarnessVersionsPaginatorName = Literal["list_harness_versions"]
 ListHarnessesPaginatorName = Literal["list_harnesses"]
 ListMemoriesPaginatorName = Literal["list_memories"]
 ListOauth2CredentialProvidersPaginatorName = Literal["list_oauth2_credential_providers"]
 ListOnlineEvaluationConfigsPaginatorName = Literal["list_online_evaluation_configs"]
+ListPaymentConnectorsPaginatorName = Literal["list_payment_connectors"]
+ListPaymentCredentialProvidersPaginatorName = Literal["list_payment_credential_providers"]
+ListPaymentManagersPaginatorName = Literal["list_payment_managers"]
 ListPoliciesPaginatorName = Literal["list_policies"]
+ListPolicyEngineSummariesPaginatorName = Literal["list_policy_engine_summaries"]
 ListPolicyEnginesPaginatorName = Literal["list_policy_engines"]
 ListPolicyGenerationAssetsPaginatorName = Literal["list_policy_generation_assets"]
+ListPolicyGenerationSummariesPaginatorName = Literal["list_policy_generation_summaries"]
 ListPolicyGenerationsPaginatorName = Literal["list_policy_generations"]
+ListPolicySummariesPaginatorName = Literal["list_policy_summaries"]
 ListRegistriesPaginatorName = Literal["list_registries"]
 ListRegistryRecordsPaginatorName = Literal["list_registry_records"]
 ListWorkloadIdentitiesPaginatorName = Literal["list_workload_identities"]
 ListingModeType = Literal["DEFAULT", "DYNAMIC"]
 MemoryCreatedWaiterName = Literal["memory_created"]
-MemoryStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
+MemoryStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 MemoryStrategyStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
 MemoryStrategyTypeType = Literal[
     "CUSTOM", "EPISODIC", "SEMANTIC", "SUMMARIZATION", "USER_PREFERENCE"
 ]
 MemoryViewType = Literal["full", "without_decryption"]
+MetadataValueTypeType = Literal["NUMBER", "STRING", "STRINGLIST"]
 NetworkModeType = Literal["PUBLIC", "VPC"]
-OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS"]
+OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "TOKEN_EXCHANGE"]
+OnBehalfOfTokenExchangeGrantTypeTypeType = Literal["JWT_AUTHORIZATION_GRANT", "TOKEN_EXCHANGE"]
 OnlineEvaluationConfigStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "ERROR", "UPDATE_FAILED", "UPDATING"
 ]
@@ -268,6 +339,16 @@ OverrideTypeType = Literal[
     "SUMMARY_OVERRIDE",
     "USER_PREFERENCE_OVERRIDE",
 ]
+PassthroughProtocolTypeType = Literal["A2A", "CUSTOM", "INFERENCE", "MCP"]
+PaymentConnectorStatusType = Literal[
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+]
+PaymentConnectorTypeType = Literal["CoinbaseCDP", "StripePrivy"]
+PaymentCredentialProviderVendorTypeType = Literal["CoinbaseCDP", "StripePrivy"]
+PaymentManagerStatusType = Literal[
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+]
+PaymentsAuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT"]
 PolicyActiveWaiterName = Literal["policy_active"]
 PolicyDeletedWaiterName = Literal["policy_deleted"]
 PolicyEngineActiveWaiterName = Literal["policy_engine_active"]
@@ -303,6 +384,7 @@ ResourceTypeType = Literal["CUSTOM", "SYSTEM"]
 RestApiMethodType = Literal["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
 SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "string"]
 SearchTypeType = Literal["SEMANTIC"]
+SecretSourceTypeType = Literal["EXTERNAL", "MANAGED"]
 ServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
 StatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
@@ -322,6 +404,18 @@ TargetStatusType = Literal[
     "UPDATE_UNSUCCESSFUL",
     "UPDATING",
 ]
+TargetTypeType = Literal[
+    "AGENTCORE_RUNTIME",
+    "API_GATEWAY",
+    "CONNECTOR",
+    "LAMBDA",
+    "MCP_SERVER",
+    "OPEN_API_SCHEMA",
+    "PASSTHROUGH",
+    "PROVIDER",
+    "SMITHY_MODEL",
+]
+WafFailureModeType = Literal["FAIL_CLOSE", "FAIL_OPEN"]
 BedrockAgentCoreControlServiceName = Literal["bedrock-agentcore-control"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -516,8 +610,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -544,6 +636,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -611,10 +705,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -647,6 +741,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -674,6 +769,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -695,7 +791,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -716,6 +811,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -761,18 +857,29 @@ PaginatorName = Literal[
     "list_code_interpreters",
     "list_configuration_bundle_versions",
     "list_configuration_bundles",
+    "list_dataset_examples",
+    "list_dataset_versions",
+    "list_datasets",
     "list_evaluators",
     "list_gateway_rules",
     "list_gateway_targets",
     "list_gateways",
+    "list_harness_endpoints",
+    "list_harness_versions",
     "list_harnesses",
     "list_memories",
     "list_oauth2_credential_providers",
     "list_online_evaluation_configs",
+    "list_payment_connectors",
+    "list_payment_credential_providers",
+    "list_payment_managers",
     "list_policies",
+    "list_policy_engine_summaries",
     "list_policy_engines",
     "list_policy_generation_assets",
+    "list_policy_generation_summaries",
     "list_policy_generations",
+    "list_policy_summaries",
     "list_registries",
     "list_registry_records",
     "list_workload_identities",

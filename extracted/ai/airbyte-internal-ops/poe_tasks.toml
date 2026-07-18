@@ -38,8 +38,8 @@ clean = "rm -rf .pytest_cache .coverage htmlcov dist .ruff_cache"
 version = { "shell" = "echo 'airbyte-internal-ops version:' && python -c 'import airbyte_ops_mcp; print(airbyte_ops_mcp.__version__)'" }
 
 [tool.poe.tasks.typecheck]
-help = "Run type checking with pyrefly"
-cmd = "pyrefly check"
+help = "Run type checking with ty"
+cmd = "ty check"
 
 [tool.poe.tasks.security]
 help = "Run security checks with bandit"  

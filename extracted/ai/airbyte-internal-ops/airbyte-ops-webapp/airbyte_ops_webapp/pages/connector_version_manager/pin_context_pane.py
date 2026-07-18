@@ -37,7 +37,7 @@ from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
 from airbyte_ops_webapp.pages.shared_components.org_lookup_modal import (
     render_org_lookup_modal,
 )
-from airbyte_ops_webapp.theme import BUTTON_INFO_CLASS
+from airbyte_ops_webapp.theme import BUTTON_INFO_CLASS, AbStatValue
 
 # ---------------------------------------------------------------------------
 # Shared context-refresh actions (used by both inline and modal)
@@ -92,7 +92,7 @@ def _render_context_input() -> None:
             name="context_guid",
             value=STATE.context_guid,
             placeholder="Context GUID: accepts Organization, Workspace, or Actor IDs",
-            style={"flex": "1"},
+            css_class="flex-1",
         )
         render_org_lookup_modal(
             search_tool=search_orgs_workspaces,
@@ -118,22 +118,13 @@ def _render_resolved_context() -> None:
     with Grid(columns=3, gap=3):
         with Column(gap=1):
             Small("Active")
-            Text(
-                content=STATE.current_state.active_version,
-                css_class="airbyte-stat-value",
-            )
+            AbStatValue(content=STATE.current_state.active_version)
         with Column(gap=1):
             Small("Latest")
-            Text(
-                content=STATE.current_state.latest_version,
-                css_class="airbyte-stat-value",
-            )
+            AbStatValue(content=STATE.current_state.latest_version)
         with Column(gap=1):
             Small("Pinned scope")
-            Text(
-                content=STATE.current_state.active_scope,
-                css_class="airbyte-stat-value",
-            )
+            AbStatValue(content=STATE.current_state.active_scope)
 
 
 def _render_pin_tables() -> None:

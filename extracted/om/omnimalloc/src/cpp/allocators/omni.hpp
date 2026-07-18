@@ -4,32 +4,22 @@
 
 #pragma once
 
+#include <cstdint>
+#include <optional>
 #include <vector>
 
 #include "primitives/allocation.hpp"
 
 namespace omnimalloc {
 
-// Generalized greedy-portfolio allocator for scalar and vector-clock
+// Generalized greedy-portfolio placement for scalar and vector-clock
 // lifetimes: linearizes vector time to surrogate scalars when the
-// happens-before order allows (budgeted), otherwise places truthfully on the
-// vector conflict graph. Either way the winning first-fit order of the
-// 7-order portfolio decides the offsets.
-class OmniAllocator {
- public:
-  OmniAllocator() = default;
-
-  std::vector<Allocation> allocate(
-      const std::vector<Allocation>& allocations) const;
-
-  bool operator==(const OmniAllocator&) const noexcept = default;
-};
+// happens-before order allows (bounded by `linearize_budget`; nullopt means
+// unbounded), otherwise places truthfully on the vector conflict graph.
+// Either way the winning first-fit order of the 7-order portfolio decides
+// the offsets.
+[[nodiscard]] std::vector<Allocation> omni_place(
+    const std::vector<Allocation>& allocations,
+    std::optional<uint64_t> linearize_budget);
 
 }  // namespace omnimalloc
-
-namespace std {
-template <>
-struct hash<omnimalloc::OmniAllocator> {
-  size_t operator()(const omnimalloc::OmniAllocator&) const noexcept;
-};
-}  // namespace std

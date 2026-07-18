@@ -1,0 +1,15 @@
+# ty Type Checker Configuration
+# https://ty.dev/configuration
+
+[environment]
+python-version = "3.11"
+
+[src]
+include = ["src/airbyte_ops_mcp/mcp"]
+exclude = [
+    "tests/**",
+    "docs/**",
+]
+
+[rules]
+unused-ignore-comment = "error"

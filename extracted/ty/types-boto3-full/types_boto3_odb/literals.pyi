@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "AccessType",
+    "AdminPasswordSourceType",
     "AutonomousDatabaseBackupStatusType",
     "AutonomousDatabaseBackupTypeType",
     "AutonomousDatabaseResourceStatusType",
@@ -71,6 +72,7 @@ __all__ = (
     "NetServicesArchitectureType",
     "ObjectiveType",
     "OciAwsIntegrationType",
+    "OciIamRoleStatusType",
     "OciOnboardingStatusType",
     "OdbServiceName",
     "OpenModeType",
@@ -90,10 +92,12 @@ __all__ = (
     "StandbyAllowlistedIpsSourceType",
     "SupportedAwsIntegrationType",
     "VpcEndpointTypeType",
+    "WalletPasswordSourceType",
     "WalletTypeType",
 )
 
 AccessType = Literal["DISABLED", "ENABLED"]
+AdminPasswordSourceType = Literal["API_REQUEST_PARAMETER", "CUSTOMER_MANAGED_AWS_SECRET"]
 AutonomousDatabaseBackupStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 AutonomousDatabaseBackupTypeType = Literal[
     "CUMULATIVE_INCREMENTAL",
@@ -212,7 +216,10 @@ MonthNameType = Literal[
 ]
 NetServicesArchitectureType = Literal["DEDICATED", "SHARED"]
 ObjectiveType = Literal["AUTO", "BALANCED", "BASIC", "HIGH_THROUGHPUT", "LOW_LATENCY"]
-OciAwsIntegrationType = Literal["KmsTde"]
+OciAwsIntegrationType = Literal["KmsTde", "SecretsManager"]
+OciIamRoleStatusType = Literal[
+    "AVAILABLE", "PROVISIONING", "PROVISION_FAILED", "TERMINATE_FAILED", "TERMINATING"
+]
 OciOnboardingStatusType = Literal[
     "ACTIVATING",
     "ACTIVE",
@@ -259,6 +266,7 @@ SourceTypeType = Literal[
 StandbyAllowlistedIpsSourceType = Literal["NOT_APPLICABLE", "PRIMARY", "SEPARATE"]
 SupportedAwsIntegrationType = Literal["KmsTde"]
 VpcEndpointTypeType = Literal["SERVICENETWORK"]
+WalletPasswordSourceType = Literal["API_REQUEST_PARAMETER", "CUSTOMER_MANAGED_AWS_SECRET"]
 WalletTypeType = Literal["INSTANCE", "REGIONAL"]
 OdbServiceName = Literal["odb"]
 ServiceName = Literal[

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-config
-Version: 3.7.0
-Summary: Type annotations for aiobotocore ConfigService 3.7.0 service generated with mypy-boto3-builder 8.12.0
+Version: 3.8.0
+Summary: Type annotations for aiobotocore ConfigService 3.8.0 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore ConfigService 3.7.0](https://pypi.org/project/aiobotocore/)
+[aiobotocore ConfigService 3.8.0](https://pypi.org/project/aiobotocore/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==3.7.0' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==3.8.0' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Add `ConfigService` service.
 4. Use provided commands to install generated packages.
@@ -361,6 +361,7 @@ from types_aiobotocore_config.paginator import (
     GetResourceConfigHistoryPaginator,
     ListAggregateDiscoveredResourcesPaginator,
     ListConfigurationRecordersPaginator,
+    ListConnectorsPaginator,
     ListDiscoveredResourcesPaginator,
     ListResourceEvaluationsPaginator,
     ListTagsForResourcePaginator,
@@ -458,6 +459,7 @@ async with session.create_client("config") as client:
     list_configuration_recorders_paginator: ListConfigurationRecordersPaginator = (
         client.get_paginator("list_configuration_recorders")
     )
+    list_connectors_paginator: ListConnectorsPaginator = client.get_paginator("list_connectors")
     list_discovered_resources_paginator: ListDiscoveredResourcesPaginator = client.get_paginator(
         "list_discovered_resources"
     )

@@ -26,6 +26,7 @@ from typing import Any
 import httpx
 
 from smplkit._config import _service_url, resolve_client_config
+from smplkit._transport import with_default_user_agent
 from smplkit.errors import _raise_for_status
 from smplkit.account.models import AccountSettings, AsyncAccountSettings
 
@@ -74,11 +75,13 @@ class SettingsClient:
 
     def __init__(self, app_base_url: str, api_key: str, extra_headers: dict[str, str] | None = None) -> None:
         self._base_url = app_base_url
-        self._headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            **(extra_headers or {}),
-        }
+        self._headers = with_default_user_agent(
+            {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                **(extra_headers or {}),
+            }
+        )
 
     def get(self) -> AccountSettings:
         """Fetch the authenticated account's current settings.
@@ -108,11 +111,13 @@ class AsyncSettingsClient:
 
     def __init__(self, app_base_url: str, api_key: str, extra_headers: dict[str, str] | None = None) -> None:
         self._base_url = app_base_url
-        self._headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            **(extra_headers or {}),
-        }
+        self._headers = with_default_user_agent(
+            {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                **(extra_headers or {}),
+            }
+        )
 
     async def get(self) -> AsyncAccountSettings:
         """Fetch the authenticated account's current settings.

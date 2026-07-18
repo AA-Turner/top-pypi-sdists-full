@@ -115,6 +115,7 @@ class Exceptions(BaseClientExceptions):
     DuplicateRequest: type[BotocoreClientError]
     InvalidInput: type[BotocoreClientError]
     OperationLimitExceeded: type[BotocoreClientError]
+    TLDInMaintenance: type[BotocoreClientError]
     TLDRulesViolation: type[BotocoreClientError]
     UnsupportedTLD: type[BotocoreClientError]
 

@@ -33,11 +33,15 @@ from .literals import (
     ContentStatusType,
     ConversationStatusReasonType,
     ConversationStatusType,
+    CrossRegionStatusType,
+    GuardrailActionType,
     GuardrailContentFilterTypeType,
     GuardrailContextualGroundingFilterTypeType,
     GuardrailFilterStrengthType,
     GuardrailPiiEntityTypeType,
+    GuardrailPolicyTypeType,
     GuardrailSensitiveInformationActionType,
+    GuardrailSourceType,
     ImportJobStatusType,
     KnowledgeBaseSearchTypeType,
     KnowledgeBaseStatusType,
@@ -47,6 +51,7 @@ from .literals import (
     MessageTemplateFilterOperatorType,
     MessageTemplateQueryOperatorType,
     MessageTypeType,
+    ModelLifecycleType,
     OrderType,
     OriginType,
     ParticipantType,
@@ -273,6 +278,7 @@ __all__ = (
     "GuardrailContextualGroundingFilterConfigTypeDef",
     "GuardrailManagedWordsConfigTypeDef",
     "GuardrailPiiEntityConfigTypeDef",
+    "GuardrailPolicyResultTypeDef",
     "GuardrailRegexConfigTypeDef",
     "GuardrailTopicConfigOutputTypeDef",
     "GuardrailTopicConfigTypeDef",
@@ -336,6 +342,9 @@ __all__ = (
     "ListMessagesRequestPaginateTypeDef",
     "ListMessagesRequestTypeDef",
     "ListMessagesResponseTypeDef",
+    "ListModelsRequestPaginateTypeDef",
+    "ListModelsRequestTypeDef",
+    "ListModelsResponseTypeDef",
     "ListQuickResponsesRequestPaginateTypeDef",
     "ListQuickResponsesRequestTypeDef",
     "ListQuickResponsesResponseTypeDef",
@@ -375,6 +384,7 @@ __all__ = (
     "MessageTemplateSourceConfigurationUnionTypeDef",
     "MessageTemplateSummaryTypeDef",
     "MessageTemplateVersionSummaryTypeDef",
+    "ModelSummaryTypeDef",
     "NoteTakingAIAgentConfigurationTypeDef",
     "NotesChunkDataDetailsTypeDef",
     "NotesDataDetailsTypeDef",
@@ -467,11 +477,13 @@ __all__ = (
     "SpanAttributesPaginatorTypeDef",
     "SpanAttributesTypeDef",
     "SpanCitationTypeDef",
+    "SpanGuardrailAssessmentTypeDef",
     "SpanMessagePaginatorTypeDef",
     "SpanMessageTypeDef",
     "SpanMessageValuePaginatorTypeDef",
     "SpanMessageValueTypeDef",
     "SpanPaginatorTypeDef",
+    "SpanReasoningValueTypeDef",
     "SpanTextValueTypeDef",
     "SpanToolResultValuePaginatorTypeDef",
     "SpanToolResultValueTypeDef",
@@ -1268,6 +1280,12 @@ class GroupingConfigurationTypeDef(TypedDict):
     values: NotRequired[Sequence[str]]
 
 
+class GuardrailPolicyResultTypeDef(TypedDict):
+    policyType: GuardrailPolicyTypeType
+    action: GuardrailActionType
+    details: NotRequired[str]
+
+
 class HierarchicalChunkingLevelConfigurationTypeDef(TypedDict):
     maxTokens: int
 
@@ -1399,6 +1417,25 @@ ListMessagesRequestTypeDef = TypedDict(
         "filter": NotRequired[MessageFilterTypeType],
     },
 )
+
+
+class ListModelsRequestTypeDef(TypedDict):
+    assistantId: str
+    aiPromptType: NotRequired[AIPromptTypeType]
+    modelLifecycle: NotRequired[ModelLifecycleType]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
+class ModelSummaryTypeDef(TypedDict):
+    modelId: str
+    displayName: str
+    crossRegionStatus: NotRequired[CrossRegionStatusType]
+    supportsPromptCaching: NotRequired[bool]
+    supportedAIPromptTypes: NotRequired[list[AIPromptTypeType]]
+    modelLifecycle: NotRequired[ModelLifecycleType]
+    legacyTimestamp: NotRequired[datetime]
+    endOfLifeTimestamp: NotRequired[datetime]
 
 
 class ListQuickResponsesRequestTypeDef(TypedDict):
@@ -1604,6 +1641,10 @@ class SpanCitationTypeDef(TypedDict):
     title: NotRequired[str]
     knowledgeBaseId: NotRequired[str]
     knowledgeBaseArn: NotRequired[str]
+
+
+class SpanReasoningValueTypeDef(TypedDict):
+    value: str
 
 
 class SpanToolResultValuePaginatorTypeDef(TypedDict):
@@ -2060,6 +2101,14 @@ GroupingConfigurationUnionTypeDef = Union[
 ]
 
 
+class SpanGuardrailAssessmentTypeDef(TypedDict):
+    guardrailId: str
+    guardrailName: str
+    source: GuardrailSourceType
+    action: GuardrailActionType
+    policies: NotRequired[list[GuardrailPolicyResultTypeDef]]
+
+
 class HierarchicalChunkingConfigurationOutputTypeDef(TypedDict):
     levelConfigurations: list[HierarchicalChunkingLevelConfigurationTypeDef]
     overlapTokens: int
@@ -2158,6 +2207,13 @@ ListMessagesRequestPaginateTypeDef = TypedDict(
 )
 
 
+class ListModelsRequestPaginateTypeDef(TypedDict):
+    assistantId: str
+    aiPromptType: NotRequired[AIPromptTypeType]
+    modelLifecycle: NotRequired[ModelLifecycleType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListQuickResponsesRequestPaginateTypeDef(TypedDict):
     knowledgeBaseId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -2171,6 +2227,12 @@ class ListSpansRequestPaginateTypeDef(TypedDict):
 
 class ListMessageTemplateVersionsResponseTypeDef(TypedDict):
     messageTemplateVersionSummaries: list[MessageTemplateVersionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListModelsResponseTypeDef(TypedDict):
+    modelSummaries: list[ModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2849,12 +2911,14 @@ class SpanMessageValuePaginatorTypeDef(TypedDict):
     text: NotRequired[SpanTextValueTypeDef]
     toolUse: NotRequired[SpanToolUseValueTypeDef]
     toolResult: NotRequired[SpanToolResultValuePaginatorTypeDef]
+    reasoning: NotRequired[SpanReasoningValueTypeDef]
 
 
 class SpanMessageValueTypeDef(TypedDict):
     text: NotRequired[SpanTextValueTypeDef]
     toolUse: NotRequired[SpanToolUseValueTypeDef]
     toolResult: NotRequired[SpanToolResultValueTypeDef]
+    reasoning: NotRequired[SpanReasoningValueTypeDef]
 
 
 class MessageTemplateAttributesOutputTypeDef(TypedDict):
@@ -3420,6 +3484,8 @@ class SpanAttributesPaginatorTypeDef(TypedDict):
     promptType: NotRequired[AIPromptTypeType]
     promptName: NotRequired[str]
     promptVersion: NotRequired[int]
+    timeToFirstTokenMs: NotRequired[int]
+    guardrailAssessments: NotRequired[list[SpanGuardrailAssessmentTypeDef]]
 
 
 class SpanAttributesTypeDef(TypedDict):
@@ -3457,6 +3523,8 @@ class SpanAttributesTypeDef(TypedDict):
     promptType: NotRequired[AIPromptTypeType]
     promptName: NotRequired[str]
     promptVersion: NotRequired[int]
+    timeToFirstTokenMs: NotRequired[int]
+    guardrailAssessments: NotRequired[list[SpanGuardrailAssessmentTypeDef]]
 
 
 class RenderMessageTemplateRequestTypeDef(TypedDict):
@@ -3623,6 +3691,7 @@ class SpanPaginatorTypeDef(TypedDict):
     requestId: str
     attributes: SpanAttributesPaginatorTypeDef
     parentSpanId: NotRequired[str]
+    statusDescription: NotRequired[str]
     originRequestId: NotRequired[str]
 
 
@@ -3638,6 +3707,7 @@ class SpanTypeDef(TypedDict):
     requestId: str
     attributes: SpanAttributesTypeDef
     parentSpanId: NotRequired[str]
+    statusDescription: NotRequired[str]
     originRequestId: NotRequired[str]
 
 

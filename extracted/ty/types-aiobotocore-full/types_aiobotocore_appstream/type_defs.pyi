@@ -23,6 +23,7 @@ from typing import Union
 
 from .literals import (
     ActionType,
+    AgentActionType,
     AgentSoftwareVersionType,
     AppBlockBuilderAttributeType,
     AppBlockBuilderStateType,
@@ -50,6 +51,7 @@ from .literals import (
     PermissionType,
     PlatformTypeType,
     PreferredProtocolType,
+    ScreenImageFormatType,
     SessionConnectionStateType,
     SessionStateType,
     SoftwareDeploymentStatusType,
@@ -60,6 +62,7 @@ from .literals import (
     ThemeStateType,
     ThemeStylingType,
     UsageReportExecutionErrorCodeType,
+    UserControlModeType,
     UserStackAssociationErrorCodeType,
     VisibilityTypeType,
 )
@@ -72,6 +75,11 @@ else:
 __all__ = (
     "AccessEndpointTypeDef",
     "AdminAppLicenseUsageRecordTypeDef",
+    "AgentAccessConfigForUpdateTypeDef",
+    "AgentAccessConfigOutputTypeDef",
+    "AgentAccessConfigTypeDef",
+    "AgentAccessConfigUnionTypeDef",
+    "AgentAccessSettingTypeDef",
     "AppBlockBuilderAppBlockAssociationTypeDef",
     "AppBlockBuilderStateChangeReasonTypeDef",
     "AppBlockBuilderTypeDef",
@@ -306,6 +314,10 @@ class AdminAppLicenseUsageRecordTypeDef(TypedDict):
     SubscriptionLastUsedDate: datetime
     LicenseType: str
     UserId: str
+
+class AgentAccessSettingTypeDef(TypedDict):
+    AgentAction: AgentActionType
+    Permission: PermissionType
 
 class AppBlockBuilderAppBlockAssociationTypeDef(TypedDict):
     AppBlockArn: str
@@ -795,6 +807,30 @@ class VpcConfigTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
     SecurityGroupIds: NotRequired[Sequence[str]]
 
+class AgentAccessConfigForUpdateTypeDef(TypedDict):
+    Settings: NotRequired[Sequence[AgentAccessSettingTypeDef]]
+    S3BucketArn: NotRequired[str]
+    ScreenshotsUploadEnabled: NotRequired[bool]
+    ScreenResolution: NotRequired[Literal["W_1280xH_720"]]
+    ScreenImageFormat: NotRequired[ScreenImageFormatType]
+    UserControlMode: NotRequired[UserControlModeType]
+
+class AgentAccessConfigOutputTypeDef(TypedDict):
+    Settings: list[AgentAccessSettingTypeDef]
+    ScreenResolution: Literal["W_1280xH_720"]
+    ScreenImageFormat: ScreenImageFormatType
+    S3BucketArn: NotRequired[str]
+    ScreenshotsUploadEnabled: NotRequired[bool]
+    UserControlMode: NotRequired[UserControlModeType]
+
+class AgentAccessConfigTypeDef(TypedDict):
+    Settings: Sequence[AgentAccessSettingTypeDef]
+    ScreenResolution: Literal["W_1280xH_720"]
+    ScreenImageFormat: ScreenImageFormatType
+    S3BucketArn: NotRequired[str]
+    ScreenshotsUploadEnabled: NotRequired[bool]
+    UserControlMode: NotRequired[UserControlModeType]
+
 class AppBlockBuilderTypeDef(TypedDict):
     Arn: str
     Name: str
@@ -1002,8 +1038,9 @@ class UpdateEntitlementRequestTypeDef(TypedDict):
 
 class CreateImportedImageRequestTypeDef(TypedDict):
     Name: str
-    SourceAmiId: str
-    IamRoleArn: str
+    SourceAmiId: NotRequired[str]
+    WorkspaceImageId: NotRequired[str]
+    IamRoleArn: NotRequired[str]
     Description: NotRequired[str]
     DisplayName: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
@@ -1200,6 +1237,7 @@ class UsageReportSubscriptionTypeDef(TypedDict):
 
 StorageConnectorUnionTypeDef = Union[StorageConnectorTypeDef, StorageConnectorOutputTypeDef]
 VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
+AgentAccessConfigUnionTypeDef = Union[AgentAccessConfigTypeDef, AgentAccessConfigOutputTypeDef]
 
 class CreateAppBlockBuilderResultTypeDef(TypedDict):
     AppBlockBuilder: AppBlockBuilderTypeDef
@@ -1326,6 +1364,7 @@ class StackTypeDef(TypedDict):
     EmbedHostDomains: NotRequired[list[str]]
     StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
     ContentRedirection: NotRequired[ContentRedirectionOutputTypeDef]
+    AgentAccessConfig: NotRequired[AgentAccessConfigOutputTypeDef]
 
 ContentRedirectionUnionTypeDef = Union[ContentRedirectionTypeDef, ContentRedirectionOutputTypeDef]
 
@@ -1568,6 +1607,7 @@ class CreateStackRequestTypeDef(TypedDict):
     EmbedHostDomains: NotRequired[Sequence[str]]
     StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
     ContentRedirection: NotRequired[ContentRedirectionUnionTypeDef]
+    AgentAccessConfig: NotRequired[AgentAccessConfigUnionTypeDef]
 
 class UpdateStackRequestTypeDef(TypedDict):
     Name: str
@@ -1584,3 +1624,4 @@ class UpdateStackRequestTypeDef(TypedDict):
     EmbedHostDomains: NotRequired[Sequence[str]]
     StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
     ContentRedirection: NotRequired[ContentRedirectionUnionTypeDef]
+    AgentAccessConfig: NotRequired[AgentAccessConfigForUpdateTypeDef]

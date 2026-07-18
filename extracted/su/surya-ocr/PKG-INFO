@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: surya-ocr
-Version: 0.21.2
+Version: 0.22.0
 Summary: OCR, layout, reading order, and table recognition in 90+ languages.
 Project-URL: Repository, https://github.com/datalab-to/surya
 Author-email: Vik Paruchuri <vik@datalab.to>

@@ -81,8 +81,10 @@ class CheckToRun(TypedDict):
     check: Any
     check_run_id: str
     failure_message: NotRequired[str]
+    file_path: NotRequired[str | None]
     outcome: NotRequired[str]
     severity: str
+    unique_id: NotRequired[str | None]
 
 
 def _should_run_check(
@@ -115,13 +117,17 @@ def _should_run_check(
     return not (meta_config and check.name in meta_config)
 
 
-def runner(
-    ctx: "BouncerContext",
-) -> tuple[int, list[Any]]:
-    """Run dbt-bouncer checks.
+# Underscore-prefixed as an internal helper, but imported by the benchmark suite
+# (``tests/benchmark``) to time the match phase in isolation — keep it importable.
+def _assemble_checks_to_run(ctx: "BouncerContext") -> list[CheckToRun]:
+    """Match checks to resources, deep-copy, and build the run list.
+
+    Builds the check context and per-resource skip-checks lookups, then iterates
+    every configured check, matching it against the relevant resources and
+    deep-copying a runnable instance per match.
 
     Returns:
-        tuple[int, list[Any]]: A tuple containing the exit code and a list of failed checks.
+        list[CheckToRun]: The assembled checks, ready for execution.
 
     Raises:
         RuntimeError: If more than one "iterate_over" argument is found.
@@ -235,7 +241,9 @@ def runner(
                     {
                         "check": check_i,
                         "check_run_id": check_run_id,
+                        "file_path": getattr(i, "original_file_path", None),
                         "severity": check_i.severity,
+                        "unique_id": getattr(i, "unique_id", None),
                     },
                 )
         elif len(iterate_over_value) > 1:
@@ -249,9 +257,25 @@ def runner(
                 {
                     "check": check,
                     "check_run_id": check_run_id,
+                    "file_path": None,
                     "severity": check.severity,
+                    "unique_id": None,
                 },
             )
+
+    return checks_to_run
+
+
+def runner(
+    ctx: "BouncerContext",
+) -> tuple[int, list[Any]]:
+    """Run dbt-bouncer checks.
+
+    Returns:
+        tuple[int, list[Any]]: A tuple containing the exit code and a list of failed checks.
+
+    """
+    checks_to_run = _assemble_checks_to_run(ctx)
 
     del (
         ctx.models,

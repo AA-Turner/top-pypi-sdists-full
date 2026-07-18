@@ -5,7 +5,6 @@
 #include "first_fit.hpp"
 
 #include <algorithm>
-#include <atomic>
 #include <cstring>
 #include <future>
 #include <limits>
@@ -13,7 +12,6 @@
 #include <span>
 #include <stdexcept>
 #include <string>
-#include <tuple>
 #include <utility>
 
 #include "common/parallel.hpp"
@@ -23,115 +21,12 @@ namespace omnimalloc {
 void require_scalar_time(const std::vector<Allocation>& allocations,
                          const char* who) {
   if (!std::ranges::all_of(allocations, &Allocation::is_scalar_time)) {
-    throw std::invalid_argument(
-        std::string(who) +
-        " requires scalar time lifetimes; linearize vector clocks first");
+    const size_t max_dim =
+        std::ranges::max_element(allocations, {}, &Allocation::dim)->dim();
+    throw std::invalid_argument(std::string(who) +
+                                " requires scalar (interval) lifetimes, got " +
+                                std::to_string(max_dim) + "-dim vector clocks");
   }
-}
-
-namespace {
-
-// Sweep line over the single timeline; valid only for all-scalar input.
-OverlapIndices scalar_overlap_indices(
-    const std::vector<Allocation>& allocations) {
-  std::vector<std::tuple<int64_t, bool, size_t>> events;
-  events.reserve(allocations.size() * 2);
-  for (size_t i = 0; i < allocations.size(); ++i) {
-    events.emplace_back(allocations[i].start(), true, i);
-    events.emplace_back(allocations[i].end(), false, i);
-  }
-
-  // Sort events by time; ends sort before starts at equal times, matching the
-  // half-open interval semantics of Allocation::overlaps_temporally
-  std::sort(events.begin(), events.end());
-
-  OverlapIndices indices(allocations.size());
-  std::vector<size_t> active;
-  for (const auto& [time, is_start, idx] : events) {
-    if (is_start) {
-      // Current allocation overlaps with all currently active allocations
-      for (size_t active_idx : active) {
-        indices[idx].push_back(active_idx);
-        indices[active_idx].push_back(idx);
-      }
-      active.push_back(idx);
-    } else {
-      active.erase(std::find(active.begin(), active.end(), idx));
-    }
-  }
-
-  return indices;
-}
-
-// The pruned pairwise sweep itself lives in primitives/clock_rows.hpp
-// (ConflictSweep), shared with the exact per-allocation pressure kernels.
-ConflictSweep build_conflict_sweep(const std::vector<Allocation>& allocations) {
-  const ClockSpans spans = gather_clock_spans(allocations);
-  return {spans.starts, spans.ends, spans.dim};
-}
-
-}  // namespace
-
-CsrAdjacency build_conflict_adjacency(
-    const std::vector<Allocation>& allocations) {
-  const ConflictSweep sweep = build_conflict_sweep(allocations);
-  return sweep.adjacency(parallel_threads(sweep.count()));
-}
-
-namespace {
-
-// Pairwise happens-before adjacency; the only option for vector clocks
-OverlapIndices vector_overlap_indices(
-    const std::vector<Allocation>& allocations) {
-  const CsrAdjacency adj = build_conflict_adjacency(allocations);
-  OverlapIndices indices(allocations.size());
-  for (size_t i = 0; i < allocations.size(); ++i) {
-    indices[i].assign(adj.neighbors.begin() + adj.offsets[i],
-                      adj.neighbors.begin() + adj.offsets[i + 1]);
-  }
-  return indices;
-}
-
-TemporalOverlaps overlaps_from_indices(
-    const std::vector<Allocation>& allocations, const OverlapIndices& indices) {
-  TemporalOverlaps overlaps;
-  for (size_t i = 0; i < allocations.size(); ++i) {
-    for (size_t j : indices[i]) {
-      overlaps[allocations[i].id()].insert(allocations[j].id());
-    }
-  }
-  return overlaps;
-}
-
-}  // namespace
-
-OverlapIndices compute_overlap_indices(
-    const std::vector<Allocation>& allocations) {
-  const bool all_scalar =
-      std::ranges::all_of(allocations, &Allocation::is_scalar_time);
-  return all_scalar ? scalar_overlap_indices(allocations)
-                    : vector_overlap_indices(allocations);
-}
-
-TemporalOverlaps compute_temporal_overlaps(
-    const std::vector<Allocation>& allocations) {
-  return overlaps_from_indices(allocations,
-                               compute_overlap_indices(allocations));
-}
-
-std::vector<int64_t> compute_conflict_degrees(
-    const std::vector<Allocation>& allocations) {
-  const ConflictSweep sweep = build_conflict_sweep(allocations);
-  std::vector<std::atomic<int64_t>> degree(sweep.count());
-  sweep.for_each_pair(parallel_threads(sweep.count()), [&](size_t i, size_t j) {
-    degree[i].fetch_add(1, std::memory_order_relaxed);
-    degree[j].fetch_add(1, std::memory_order_relaxed);
-  });
-  std::vector<int64_t> degrees(sweep.count());
-  for (size_t i = 0; i < sweep.count(); ++i) {
-    degrees[i] = degree[i].load(std::memory_order_relaxed);
-  }
-  return degrees;
 }
 
 namespace {
@@ -351,7 +246,8 @@ int64_t first_fit_offset(
 }
 
 std::vector<Allocation> first_fit_place_indexed(
-    const std::vector<Allocation>& allocations, const OverlapIndices& indices) {
+    const std::vector<Allocation>& allocations,
+    const ConflictIndices& indices) {
   // Lambda rather than the function pointer so the placement loop inlines
   // the offset scan instead of an indirect call per allocation
   return place_indexed(allocations, indices,
@@ -361,42 +257,32 @@ std::vector<Allocation> first_fit_place_indexed(
 }
 
 std::vector<Allocation> first_fit_place(
-    const std::vector<Allocation>& allocations,
-    const TemporalOverlaps& overlaps) {
-  // Translate the id-keyed map into index adjacency once, so placement only
-  // visits each allocation's neighbors instead of everything placed so far
-  std::unordered_map<IdType, std::vector<size_t>, IdTypeHash> by_id;
-  for (size_t i = 0; i < allocations.size(); ++i) {
-    by_id[allocations[i].id()].push_back(i);
-  }
-
-  OverlapIndices indices(allocations.size());
-  for (size_t i = 0; i < allocations.size(); ++i) {
-    auto it = overlaps.find(allocations[i].id());
-    if (it == overlaps.end()) {
-      continue;
-    }
-    for (const IdType& other_id : it->second) {
-      auto jt = by_id.find(other_id);
-      if (jt == by_id.end()) {
-        continue;
-      }
-      for (size_t j : jt->second) {
-        if (j != i) {
-          indices[i].push_back(j);
-        }
-      }
-    }
-  }
-
-  return first_fit_place_indexed(allocations, indices);
+    const std::vector<Allocation>& allocations) {
+  return first_fit_place_indexed(allocations,
+                                 compute_conflict_indices(allocations));
 }
 
 FirstFitPlacer::FirstFitPlacer(std::vector<Allocation> allocations)
     : allocations_(std::move(allocations)),
-      indices_(compute_overlap_indices(allocations_)),
-      overlaps_(overlaps_from_indices(allocations_, indices_)) {
+      indices_(compute_conflict_indices(allocations_)),
+      conflicts_(conflict_map_from_indices(allocations_, indices_)) {
   check_total_size(allocations_);
+}
+
+void FirstFitPlacer::check_order(const std::vector<size_t>& order) const {
+  std::vector<bool> seen(allocations_.size());
+  for (size_t idx : order) {
+    if (idx >= allocations_.size()) {
+      throw std::invalid_argument(
+          "order index " + std::to_string(idx) + " out of range for " +
+          std::to_string(allocations_.size()) + " allocations");
+    }
+    if (seen[idx]) {
+      throw std::invalid_argument("order index " + std::to_string(idx) +
+                                  " appears more than once");
+    }
+    seen[idx] = true;
+  }
 }
 
 std::vector<std::optional<int64_t>> FirstFitPlacer::place_offsets(
@@ -404,7 +290,7 @@ std::vector<std::optional<int64_t>> FirstFitPlacer::place_offsets(
   std::vector<std::optional<int64_t>> offsets(allocations_.size());
   std::vector<std::pair<int64_t, int64_t>> spans;
   for (size_t idx : order) {
-    const Allocation& alloc = allocations_.at(idx);
+    const Allocation& alloc = allocations_[idx];
     gather_spans(indices_[idx], offsets, allocations_, spans);
     offsets[idx] = first_fit_offset(alloc.size(), spans);
   }
@@ -413,6 +299,7 @@ std::vector<std::optional<int64_t>> FirstFitPlacer::place_offsets(
 
 std::vector<Allocation> FirstFitPlacer::place(
     const std::vector<size_t>& order) const {
+  check_order(order);
   const auto offsets = place_offsets(order);
   std::vector<Allocation> placed;
   placed.reserve(order.size());
@@ -422,7 +309,8 @@ std::vector<Allocation> FirstFitPlacer::place(
   return placed;
 }
 
-int64_t FirstFitPlacer::evaluate(const std::vector<size_t>& order) const {
+int64_t FirstFitPlacer::peak(const std::vector<size_t>& order) const {
+  check_order(order);
   const auto offsets = place_offsets(order);
   int64_t peak = 0;
   for (size_t idx : order) {

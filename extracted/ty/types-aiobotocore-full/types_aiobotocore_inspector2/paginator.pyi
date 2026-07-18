@@ -19,6 +19,8 @@ Usage::
         ListCisScanResultsAggregatedByChecksPaginator,
         ListCisScanResultsAggregatedByTargetResourcePaginator,
         ListCisScansPaginator,
+        ListConnectorScanConfigurationsPaginator,
+        ListConnectorsPaginator,
         ListCoveragePaginator,
         ListCoverageStatisticsPaginator,
         ListDelegatedAdminAccountsPaginator,
@@ -41,6 +43,8 @@ Usage::
         list_cis_scan_results_aggregated_by_checks_paginator: ListCisScanResultsAggregatedByChecksPaginator = client.get_paginator("list_cis_scan_results_aggregated_by_checks")
         list_cis_scan_results_aggregated_by_target_resource_paginator: ListCisScanResultsAggregatedByTargetResourcePaginator = client.get_paginator("list_cis_scan_results_aggregated_by_target_resource")
         list_cis_scans_paginator: ListCisScansPaginator = client.get_paginator("list_cis_scans")
+        list_connector_scan_configurations_paginator: ListConnectorScanConfigurationsPaginator = client.get_paginator("list_connector_scan_configurations")
+        list_connectors_paginator: ListConnectorsPaginator = client.get_paginator("list_connectors")
         list_coverage_paginator: ListCoveragePaginator = client.get_paginator("list_coverage")
         list_coverage_statistics_paginator: ListCoverageStatisticsPaginator = client.get_paginator("list_coverage_statistics")
         list_delegated_admin_accounts_paginator: ListDelegatedAdminAccountsPaginator = client.get_paginator("list_delegated_admin_accounts")
@@ -75,6 +79,10 @@ from .type_defs import (
     ListCisScanResultsAggregatedByTargetResourceResponseTypeDef,
     ListCisScansRequestPaginateTypeDef,
     ListCisScansResponseTypeDef,
+    ListConnectorScanConfigurationsRequestPaginateTypeDef,
+    ListConnectorScanConfigurationsResponseTypeDef,
+    ListConnectorsRequestPaginateTypeDef,
+    ListConnectorsResponseTypeDef,
     ListCoverageRequestPaginateTypeDef,
     ListCoverageResponseTypeDef,
     ListCoverageStatisticsRequestPaginateTypeDef,
@@ -108,6 +116,8 @@ __all__ = (
     "ListCisScanResultsAggregatedByChecksPaginator",
     "ListCisScanResultsAggregatedByTargetResourcePaginator",
     "ListCisScansPaginator",
+    "ListConnectorScanConfigurationsPaginator",
+    "ListConnectorsPaginator",
     "ListCoveragePaginator",
     "ListCoverageStatisticsPaginator",
     "ListDelegatedAdminAccountsPaginator",
@@ -251,6 +261,44 @@ class ListCisScansPaginator(_ListCisScansPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/paginator/ListCisScans.html#Inspector2.Paginator.ListCisScans.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/paginators/#listcisscanspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListConnectorScanConfigurationsPaginatorBase = AioPaginator[
+        ListConnectorScanConfigurationsResponseTypeDef
+    ]
+else:
+    _ListConnectorScanConfigurationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListConnectorScanConfigurationsPaginator(_ListConnectorScanConfigurationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/paginator/ListConnectorScanConfigurations.html#Inspector2.Paginator.ListConnectorScanConfigurations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/paginators/#listconnectorscanconfigurationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListConnectorScanConfigurationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListConnectorScanConfigurationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/paginator/ListConnectorScanConfigurations.html#Inspector2.Paginator.ListConnectorScanConfigurations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/paginators/#listconnectorscanconfigurationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListConnectorsPaginatorBase = AioPaginator[ListConnectorsResponseTypeDef]
+else:
+    _ListConnectorsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListConnectorsPaginator(_ListConnectorsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/paginator/ListConnectors.html#Inspector2.Paginator.ListConnectors)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/paginators/#listconnectorspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListConnectorsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListConnectorsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/paginator/ListConnectors.html#Inspector2.Paginator.ListConnectors.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_inspector2/paginators/#listconnectorspaginator)
         """
 
 if TYPE_CHECKING:

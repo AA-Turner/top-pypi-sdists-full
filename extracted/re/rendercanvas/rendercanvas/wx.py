@@ -240,17 +240,25 @@ class WxRenderWidget(BaseRenderCanvas, wx.Window):
 
     def _on_resize_done(self, *args):
         self._draw_lock = False
-        self.Refresh()
+        self.request_draw()
 
     def on_paint(self, event):
         dc = wx.PaintDC(self)
         if not self._draw_lock:
             self._time_to_paint()
         if self._last_image is not None:
-            dc.DrawBitmap(self._last_image, 0, 0, False)
+            # Paint the image using nearest neighbor interpolation.
+            gc = wx.GraphicsContext.Create(dc)
+            gc.SetInterpolationQuality(wx.INTERPOLATION_NONE)
+            lw, lh = self._size_info["logical_size"]
+            gc.DrawBitmap(self._last_image, 0, 0, lw, lh)
         else:
             event.Skip()
         del dc
+
+    def Refresh(self):  # noqa: N802
+        # Bypass wx mechanics and request a draw, which will eventually call the native Refresh()
+        self.request_draw()
 
     def _get_surface_ids(self):
         if sys.platform.startswith("win") or sys.platform.startswith("darwin"):
@@ -322,12 +330,12 @@ class WxRenderWidget(BaseRenderCanvas, wx.Window):
         if self._draw_lock:
             return
         try:
-            self.Refresh()
+            wx.Window.Refresh(self)
         except Exception:
             pass  # avoid errors when window no longer lives
 
     def _rc_force_paint(self):
-        self.Refresh()
+        wx.Window.Refresh(self)
         self.Update()
         if sys.platform == "darwin":
             wx.Yield()
@@ -337,7 +345,6 @@ class WxRenderWidget(BaseRenderCanvas, wx.Window):
         assert format == "rgba-u8"
         width, height = data.shape[1], data.shape[0]
         self._last_image = wx.Bitmap.FromBufferRGBA(width, height, data)
-        self._last_image.SetScaleFactor(self.get_pixel_ratio())
 
     def _rc_set_logical_size(self, width, height):
         width, height = int(width), int(height)
@@ -358,10 +365,11 @@ class WxRenderWidget(BaseRenderCanvas, wx.Window):
             parent = self.Parent
         except RuntimeError:
             return  # native C++ object is already deleted
+        self._resize_timer.Stop()
         if isinstance(parent, WxRenderCanvas):
-            parent.Hide()
+            parent.Destroy()
         else:
-            self.Hide()
+            self.Destroy()
 
     def _rc_get_closed(self):
         return self._is_closed
@@ -580,6 +588,10 @@ class WxRenderCanvas(WrapperRenderCanvas, wx.Frame):
 
         self.Show()
         self._final_canvas_init()
+
+    def Refresh(self):  # noqa: N802
+        self._subwidget.request_draw()
+        super().Refresh()
 
 
 # Make available under a name that is the same for all gui backends

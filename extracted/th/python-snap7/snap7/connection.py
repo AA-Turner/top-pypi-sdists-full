@@ -5,6 +5,7 @@ Implements TPKT (Transport Service on top of TCP) and COTP (Connection Oriented
 Transport Protocol) layers for S7 communication.
 """
 
+import select
 import socket
 import struct
 import logging
@@ -61,6 +62,10 @@ class ISOTCPConnection:
     COTP_PARAM_CALLING_TSAP = 0xC1
     COTP_PARAM_CALLED_TSAP = 0xC2
 
+    # S7 routing parameter codes
+    COTP_PARAM_SUBNET_ID = 0xC6
+    COTP_PARAM_ROUTING_TSAP = 0xC7
+
     def __init__(
         self,
         host: str,
@@ -92,6 +97,31 @@ class ISOTCPConnection:
         # Connection parameters
         self.src_ref = 0x0001  # Source reference
         self.dst_ref = 0x0000  # Destination reference (assigned by peer)
+
+        # Routing parameters (set via connect_routed)
+        self._routing: bool = False
+        self._subnet_id: int = 0
+        self._routing_tsap: int = 0
+
+    def set_routing(self, subnet_id: int, dest_rack: int, dest_slot: int) -> None:
+        """Configure S7 routing parameters for multi-subnet access.
+
+        When routing is enabled, the COTP Connection Request includes
+        additional parameters that instruct the gateway PLC to forward
+        the connection to a target PLC on another subnet.
+
+        .. warning:: This method is experimental and may change in future versions.
+
+        Args:
+            subnet_id: Subnet ID of the target network (2 bytes)
+            dest_rack: Rack number of the destination PLC
+            dest_slot: Slot number of the destination PLC
+        """
+        self._routing = True
+        self._subnet_id = subnet_id & 0xFFFF
+        # Routing TSAP encodes the final target rack/slot the same way
+        # as a normal remote TSAP.
+        self._routing_tsap = 0x0100 | (dest_rack << 5) | dest_slot
 
     def connect(self, timeout: float = 5.0) -> None:
         """
@@ -198,6 +228,20 @@ class ISOTCPConnection:
     def _tcp_connect(self) -> None:
         """Establish TCP connection."""
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Disable Nagle's algorithm: S7 is request/response with complete PDUs,
+        # so buffering only adds latency (confirmed 100-150ms savings on S7-1500).
+        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        # Enable TCP keepalive to detect dead connections during idle periods.
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        # Configure keepalive timing so failures are detected in ~90s of idle
+        # rather than the OS default of ~2 hours (Linux: 7200s idle + 9x75s probes).
+        # TCP_KEEPIDLE/TCP_KEEPINTVL are available on Linux and macOS 10.15+.
+        if hasattr(socket, "TCP_KEEPIDLE"):
+            self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
+        if hasattr(socket, "TCP_KEEPINTVL"):
+            self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+        if hasattr(socket, "TCP_KEEPCNT"):
+            self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
         self.socket.settimeout(self.timeout)
 
         try:
@@ -274,6 +318,13 @@ class ISOTCPConnection:
         pdu_size_param = struct.pack(">BBB", self.COTP_PARAM_PDU_SIZE, 1, self.tpdu_size)
 
         parameters = calling_tsap + called_tsap + pdu_size_param
+
+        # Append routing parameters when routing is enabled
+        if self._routing:
+            subnet_param = struct.pack(">BBH", self.COTP_PARAM_SUBNET_ID, 2, self._subnet_id)
+            routing_tsap_param = struct.pack(">BBH", self.COTP_PARAM_ROUTING_TSAP, 2, self._routing_tsap)
+            parameters += subnet_param + routing_tsap_param
+            logger.debug(f"COTP CR with routing: subnet={self._subnet_id:#06x}, routing_tsap={self._routing_tsap:#06x}")
 
         # Update PDU length to include parameters
         total_length = 6 + len(parameters)
@@ -413,6 +464,22 @@ class ISOTCPConnection:
                 raise S7ConnectionError(f"Receive error: {e}")
 
         return bytes(data)
+
+    def data_available(self, timeout: float = 0.0) -> bool:
+        """Check if data is available to read without blocking.
+
+        Uses ``select()`` to poll the socket for readable data.
+
+        Args:
+            timeout: How long to wait in seconds (0.0 = immediate poll).
+
+        Returns:
+            True if data is available on the socket.
+        """
+        if not self.connected or self.socket is None:
+            return False
+        readable, _, _ = select.select([self.socket], [], [], timeout)
+        return bool(readable)
 
     def check_connection(self) -> bool:
         """Check if the TCP connection is still alive.

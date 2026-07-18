@@ -93,25 +93,40 @@ def _parse_os_release() -> dict[str, str]:
     return {}
 
 
-# Normalization table for distro IDs that differ between os-release and distro library.
-_OS_RELEASE_ID_NORMALIZATION: dict[str, str] = {
-    "ol": "oracle",
-    "opensuse-leap": "opensuse",
-}
-
-
 @cache
 def os_release_id() -> str:
-    """Return the normalized distribution ID from os-release.
+    """Return the sanitized distribution ID from os-release.
 
-    Lowercases the `ID` field, replaces spaces with underscores, and applies
-    a normalization table for known ID differences.
+    Lowercases the `ID` field and replaces spaces with underscores. No other
+    transformation is applied: sub-variant IDs (like ``ol`` for Oracle Linux,
+    or ``opensuse-slowroll`` for the openSUSE Slowroll channel) are preserved
+    verbatim, so {func}`linux_info` and ``Platform.info()`` expose the exact
+    distribution flavor. Mapping these IDs to their canonical platform is the
+    job of the detection functions (see ``is_oracle()`` and ``is_opensuse()``
+    in ``detection.py``).
 
-    :return: Normalized distribution ID, or empty string if absent.
+    :return: Sanitized distribution ID, or empty string if absent.
     """
     raw_id = _parse_os_release().get("id", "")
-    normalized = raw_id.lower().replace(" ", "_")
-    return _OS_RELEASE_ID_NORMALIZATION.get(normalized, normalized)
+    return raw_id.lower().replace(" ", "_")
+
+
+def _version_parts(release: str) -> dict[str, str | None]:
+    """Split a dotted release string into `major`, `minor` and `build_number`.
+
+    Missing components are set to `None`: a bare ``"14"`` release has no minor
+    version nor build number, and an empty release string has no parts at all.
+    """
+    parts = dict(
+        zip(
+            ("major", "minor", "build_number"), release.split(".", 2) if release else ()
+        )
+    )
+    return {
+        "major": parts.get("major"),
+        "minor": parts.get("minor"),
+        "build_number": parts.get("build_number"),
+    }
 
 
 @cache
@@ -127,22 +142,19 @@ def linux_info() -> dict[str, Any]:
     - `like`: Space-separated list of related distributions
     - `codename`: Distribution codename (e.g., "jammy")
 
+    Missing fields are set to `None`, like in {func}`macos_info` and
+    {func}`windows_info`.
+
     :return: Dictionary containing Linux distribution details.
     """
     data = _parse_os_release()
-    dist_id = os_release_id()
     version = data.get("version_id", "")
-    parts = version.split(".", 2) if version else []
     return {
-        "id": dist_id,
-        "version": version,
-        "version_parts": {
-            "major": parts[0] if len(parts) > 0 else "",
-            "minor": parts[1] if len(parts) > 1 else "",
-            "build_number": parts[2] if len(parts) > 2 else "",
-        },
-        "like": data.get("id_like", ""),
-        "codename": data.get("version_codename", ""),
+        "id": os_release_id() or None,
+        "version": version or None,
+        "version_parts": _version_parts(version),
+        "like": data.get("id_like") or None,
+        "codename": data.get("version_codename") or None,
     }
 
 
@@ -236,18 +248,11 @@ def macos_info() -> dict[str, Any]:
         codename.
     """
     release, _versioninfo, _machine = platform.mac_ver()
-    parts = dict(zip(("major", "minor", "build_number"), release.split(".", 2)))
-    major = parts.get("major")
-    minor = parts.get("minor")
-    build_number = parts.get("build_number")
+    version_parts = _version_parts(release)
     return {
         "version": release,
-        "version_parts": {
-            "major": major,
-            "minor": minor,
-            "build_number": build_number,
-        },
-        "codename": get_macos_codename(major, minor),
+        "version_parts": version_parts,
+        "codename": get_macos_codename(version_parts["major"], version_parts["minor"]),
     }
 
 
@@ -269,16 +274,8 @@ def windows_info() -> dict[str, Any]:
     ```
     """
     release, _version, _csd, _ptype = platform.win32_ver()
-    parts = dict(zip(("major", "minor", "build_number"), release.split(".", 2)))
-    major = parts.get("major")
-    minor = parts.get("minor")
-    build_number = parts.get("build_number")
     return {
         "version": release,
-        "version_parts": {
-            "major": major,
-            "minor": minor,
-            "build_number": build_number,
-        },
+        "version_parts": _version_parts(release),
         "codename": f"{release} {platform.win32_edition()}",
     }

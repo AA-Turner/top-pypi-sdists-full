@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: omnimalloc
-Version: 0.5.0
+Version: 0.6.0
 Summary: Your one-stop shop for static memory allocation.
 Keywords: memory,allocation,allocator,static-allocation
 Author-Email: Fabian Peddinghaus <fabianpedd@gmail.com>
@@ -274,15 +274,15 @@ pip install git+https://github.com/fpedd/omnimalloc.git
 ## Usage
 
 ```python
-from omnimalloc import Allocation, Pool, run_allocation
+import omnimalloc as om
 
-pool = Pool(id="pool", allocations=(
-    Allocation(id=0, size=64, start=0, end=10),
-    Allocation(id=1, size=64, start=12, end=20),
-    Allocation(id=2, size=32, start=5, end=15),
+pool = om.Pool(id="pool", allocations=(
+    om.Allocation(id=0, size=64, start=0, end=10),
+    om.Allocation(id=1, size=64, start=12, end=20),
+    om.Allocation(id=2, size=32, start=5, end=15),
 ))
 
-pool = run_allocation(pool, allocator="supermalloc_allocator", validate=True)
+pool = om.allocate(pool, allocator="supermalloc", validate=True)
 
 print(pool.size)                                     # 96
 print([alloc.offset for alloc in pool.allocations])  # [0, 0, 64]
@@ -335,4 +335,4 @@ uv run pre-commit run --all-files
 
 ## License
 
-Copyright 2025 Fabian Peddinghaus. Licensed under Apache 2.0 License. See [LICENSE](LICENSE) for details.
+Copyright 2025-2026 Fabian Peddinghaus. Licensed under Apache 2.0 License. See [LICENSE](LICENSE) for details.

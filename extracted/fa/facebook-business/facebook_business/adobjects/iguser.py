@@ -40,6 +40,7 @@ class IGUser(
         media_count = 'media_count'
         mentioned_comment = 'mentioned_comment'
         mentioned_media = 'mentioned_media'
+        mini_shop_storefront = 'mini_shop_storefront'
         name = 'name'
         owner_business = 'owner_business'
         profile_picture_url = 'profile_picture_url'
@@ -651,6 +652,7 @@ class IGUser(
             'major_audience_device_type': 'list<Object>',
             'major_audience_gender': 'list<major_audience_gender_enum>',
             'major_audience_states': 'list<string>',
+            'platform': 'list<platform_enum>',
             'query': 'string',
             'recommendation_type': 'recommendation_type_enum',
             'reels_interaction_rate': 'Object',
@@ -664,6 +666,7 @@ class IGUser(
             'creator_gender_enum': IGUserExportForCAM.CreatorGender.__dict__.values(),
             'major_audience_countries_enum': IGUserExportForCAM.MajorAudienceCountries.__dict__.values(),
             'major_audience_gender_enum': IGUserExportForCAM.MajorAudienceGender.__dict__.values(),
+            'platform_enum': IGUserExportForCAM.Platform.__dict__.values(),
             'recommendation_type_enum': IGUserExportForCAM.RecommendationType.__dict__.values(),
         }
         request = FacebookRequest(
@@ -940,6 +943,7 @@ class IGUser(
             'collaborators': 'list<string>',
             'cover_url': 'string',
             'image_url': 'string',
+            'is_ai_generated': 'bool',
             'is_carousel_item': 'bool',
             'is_paid_partnership': 'bool',
             'location_id': 'string',
@@ -1273,6 +1277,9 @@ class IGUser(
           api_utils.warning('`success` and `failure` callback only work for batch call.')
         from facebook_business.adobjects.igmedia import IGMedia
         param_types = {
+            'media_type': 'string',
+            'posted_after': 'string',
+            'posted_before': 'string',
         }
         enums = {
         }
@@ -1425,6 +1432,7 @@ class IGUser(
         'media_count': 'int',
         'mentioned_comment': 'IGComment',
         'mentioned_media': 'IGMedia',
+        'mini_shop_storefront': 'Shop',
         'name': 'string',
         'owner_business': 'Business',
         'profile_picture_url': 'string',

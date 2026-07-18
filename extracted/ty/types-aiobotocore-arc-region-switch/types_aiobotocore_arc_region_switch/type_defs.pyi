@@ -29,6 +29,7 @@ from .literals import (
     Ec2AsgCapacityMonitoringApproachType,
     EcsCapacityMonitoringApproachType,
     EvaluationStatusType,
+    EventSourceMappingActionType,
     ExecutionActionType,
     ExecutionBlockTypeType,
     ExecutionEventTypeType,
@@ -36,6 +37,7 @@ from .literals import (
     ExecutionStateType,
     FailedReportErrorCodeType,
     GlobalAuroraDefaultBehaviorType,
+    NeptuneDefaultBehaviorType,
     RecoveryApproachType,
     RegionToRunInType,
     ResourceWarningStatusType,
@@ -62,6 +64,12 @@ __all__ = (
     "ArcRoutingControlStateTypeDef",
     "AsgTypeDef",
     "AssociatedAlarmTypeDef",
+    "AuroraProvisionedScalingConfigurationOutputTypeDef",
+    "AuroraProvisionedScalingConfigurationTypeDef",
+    "AuroraProvisionedScalingConfigurationUnionTypeDef",
+    "AuroraServerlessScalingConfigurationOutputTypeDef",
+    "AuroraServerlessScalingConfigurationTypeDef",
+    "AuroraServerlessScalingConfigurationUnionTypeDef",
     "CancelPlanExecutionRequestTypeDef",
     "CreatePlanRequestTypeDef",
     "CreatePlanResponseTypeDef",
@@ -86,6 +94,7 @@ __all__ = (
     "EksResourceScalingConfigurationTypeDef",
     "EksResourceScalingConfigurationUnionTypeDef",
     "EksResourceScalingUngracefulTypeDef",
+    "EventSourceMappingTypeDef",
     "ExecutionApprovalConfigurationTypeDef",
     "ExecutionBlockConfigurationOutputTypeDef",
     "ExecutionBlockConfigurationPaginatorTypeDef",
@@ -113,6 +122,10 @@ __all__ = (
     "GlobalAuroraUngracefulTypeDef",
     "KubernetesResourceTypeTypeDef",
     "KubernetesScalingResourceTypeDef",
+    "LambdaEventSourceMappingConfigurationOutputTypeDef",
+    "LambdaEventSourceMappingConfigurationTypeDef",
+    "LambdaEventSourceMappingConfigurationUnionTypeDef",
+    "LambdaEventSourceMappingUngracefulTypeDef",
     "LambdaUngracefulTypeDef",
     "LambdasTypeDef",
     "ListPlanExecutionEventsRequestPaginateTypeDef",
@@ -136,6 +149,10 @@ __all__ = (
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "MinimalWorkflowTypeDef",
+    "NeptuneGlobalDatabaseConfigurationOutputTypeDef",
+    "NeptuneGlobalDatabaseConfigurationTypeDef",
+    "NeptuneGlobalDatabaseConfigurationUnionTypeDef",
+    "NeptuneUngracefulTypeDef",
     "PaginatorConfigTypeDef",
     "ParallelExecutionBlockConfigurationOutputTypeDef",
     "ParallelExecutionBlockConfigurationPaginatorTypeDef",
@@ -240,6 +257,38 @@ class AssociatedAlarmTypeDef(TypedDict):
     crossAccountRole: NotRequired[str]
     externalId: NotRequired[str]
 
+class AuroraProvisionedScalingConfigurationOutputTypeDef(TypedDict):
+    globalClusterIdentifier: str
+    regionDatabaseClusterArns: dict[str, str]
+    instanceArns: dict[str, str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+
+class AuroraProvisionedScalingConfigurationTypeDef(TypedDict):
+    globalClusterIdentifier: str
+    regionDatabaseClusterArns: Mapping[str, str]
+    instanceArns: Mapping[str, str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+
+class AuroraServerlessScalingConfigurationOutputTypeDef(TypedDict):
+    globalClusterIdentifier: str
+    regionDatabaseClusterArns: dict[str, str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+    targetPercent: NotRequired[int]
+
+class AuroraServerlessScalingConfigurationTypeDef(TypedDict):
+    globalClusterIdentifier: str
+    regionDatabaseClusterArns: Mapping[str, str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+    targetPercent: NotRequired[int]
+
 class CancelPlanExecutionRequestTypeDef(TypedDict):
     planArn: str
     executionId: str
@@ -294,6 +343,11 @@ class KubernetesScalingResourceTypeDef(TypedDict):
     namespace: str
     name: str
     hpaName: NotRequired[str]
+
+class EventSourceMappingTypeDef(TypedDict):
+    arn: str
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
 
 class ExecutionApprovalConfigurationTypeDef(TypedDict):
     approvalRole: str
@@ -377,6 +431,9 @@ class GetPlanRequestTypeDef(TypedDict):
 class GlobalAuroraUngracefulTypeDef(TypedDict):
     ungraceful: NotRequired[Literal["failover"]]
 
+class LambdaEventSourceMappingUngracefulTypeDef(TypedDict):
+    behavior: NotRequired[Literal["skip"]]
+
 class ListPlanExecutionEventsRequestTypeDef(TypedDict):
     planArn: str
     executionId: str
@@ -425,6 +482,9 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 class MinimalWorkflowTypeDef(TypedDict):
     action: NotRequired[ExecutionActionType]
     name: NotRequired[str]
+
+class NeptuneUngracefulTypeDef(TypedDict):
+    ungraceful: NotRequired[Literal["failover"]]
 
 class ParallelExecutionBlockConfigurationTypeDef(TypedDict):
     steps: Sequence[Mapping[str, Any]]
@@ -497,6 +557,13 @@ class ArcRoutingControlConfigurationTypeDef(TypedDict):
     timeoutMinutes: NotRequired[int]
     crossAccountRole: NotRequired[str]
     externalId: NotRequired[str]
+
+AuroraProvisionedScalingConfigurationUnionTypeDef = Union[
+    AuroraProvisionedScalingConfigurationTypeDef, AuroraProvisionedScalingConfigurationOutputTypeDef
+]
+AuroraServerlessScalingConfigurationUnionTypeDef = Union[
+    AuroraServerlessScalingConfigurationTypeDef, AuroraServerlessScalingConfigurationOutputTypeDef
+]
 
 class ListPlanExecutionsResponseTypeDef(TypedDict):
     items: list[AbbreviatedExecutionTypeDef]
@@ -679,6 +746,18 @@ class GlobalAuroraConfigurationTypeDef(TypedDict):
     externalId: NotRequired[str]
     ungraceful: NotRequired[GlobalAuroraUngracefulTypeDef]
 
+class LambdaEventSourceMappingConfigurationOutputTypeDef(TypedDict):
+    action: EventSourceMappingActionType
+    regionEventSourceMappings: dict[str, EventSourceMappingTypeDef]
+    timeoutMinutes: NotRequired[int]
+    ungraceful: NotRequired[LambdaEventSourceMappingUngracefulTypeDef]
+
+class LambdaEventSourceMappingConfigurationTypeDef(TypedDict):
+    action: EventSourceMappingActionType
+    regionEventSourceMappings: Mapping[str, EventSourceMappingTypeDef]
+    timeoutMinutes: NotRequired[int]
+    ungraceful: NotRequired[LambdaEventSourceMappingUngracefulTypeDef]
+
 class ListRoute53HealthChecksInRegionResponseTypeDef(TypedDict):
     healthChecks: list[Route53HealthCheckTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -697,6 +776,24 @@ class ResourceWarningTypeDef(TypedDict):
     workflow: NotRequired[MinimalWorkflowTypeDef]
     stepName: NotRequired[str]
     resourceArn: NotRequired[str]
+
+class NeptuneGlobalDatabaseConfigurationOutputTypeDef(TypedDict):
+    behavior: NeptuneDefaultBehaviorType
+    globalClusterIdentifier: str
+    regionDatabaseClusterArns: dict[str, str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+    ungraceful: NotRequired[NeptuneUngracefulTypeDef]
+
+class NeptuneGlobalDatabaseConfigurationTypeDef(TypedDict):
+    behavior: NeptuneDefaultBehaviorType
+    globalClusterIdentifier: str
+    regionDatabaseClusterArns: Mapping[str, str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+    ungraceful: NotRequired[NeptuneUngracefulTypeDef]
 
 ParallelExecutionBlockConfigurationUnionTypeDef = Union[
     ParallelExecutionBlockConfigurationTypeDef, ParallelExecutionBlockConfigurationOutputTypeDef
@@ -767,6 +864,9 @@ EksResourceScalingConfigurationUnionTypeDef = Union[
 GlobalAuroraConfigurationUnionTypeDef = Union[
     GlobalAuroraConfigurationTypeDef, GlobalAuroraConfigurationOutputTypeDef
 ]
+LambdaEventSourceMappingConfigurationUnionTypeDef = Union[
+    LambdaEventSourceMappingConfigurationTypeDef, LambdaEventSourceMappingConfigurationOutputTypeDef
+]
 
 class GetPlanEvaluationStatusResponseTypeDef(TypedDict):
     planArn: str
@@ -777,6 +877,10 @@ class GetPlanEvaluationStatusResponseTypeDef(TypedDict):
     warnings: list[ResourceWarningTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+NeptuneGlobalDatabaseConfigurationUnionTypeDef = Union[
+    NeptuneGlobalDatabaseConfigurationTypeDef, NeptuneGlobalDatabaseConfigurationOutputTypeDef
+]
 
 class ReportConfigurationOutputTypeDef(TypedDict):
     reportOutput: NotRequired[list[ReportOutputConfigurationTypeDef]]
@@ -804,6 +908,10 @@ class ExecutionBlockConfigurationOutputTypeDef(TypedDict):
     rdsCreateCrossRegionReadReplicaConfig: NotRequired[
         RdsCreateCrossRegionReplicaConfigurationOutputTypeDef
     ]
+    lambdaEventSourceMappingConfig: NotRequired[LambdaEventSourceMappingConfigurationOutputTypeDef]
+    auroraServerlessScalingConfig: NotRequired[AuroraServerlessScalingConfigurationOutputTypeDef]
+    auroraProvisionedScalingConfig: NotRequired[AuroraProvisionedScalingConfigurationOutputTypeDef]
+    neptuneGlobalDatabaseConfig: NotRequired[NeptuneGlobalDatabaseConfigurationOutputTypeDef]
 
 class ExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
     customActionLambdaConfig: NotRequired[CustomActionLambdaConfigurationOutputTypeDef]
@@ -821,6 +929,10 @@ class ExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
     rdsCreateCrossRegionReadReplicaConfig: NotRequired[
         RdsCreateCrossRegionReplicaConfigurationOutputTypeDef
     ]
+    lambdaEventSourceMappingConfig: NotRequired[LambdaEventSourceMappingConfigurationOutputTypeDef]
+    auroraServerlessScalingConfig: NotRequired[AuroraServerlessScalingConfigurationOutputTypeDef]
+    auroraProvisionedScalingConfig: NotRequired[AuroraProvisionedScalingConfigurationOutputTypeDef]
+    neptuneGlobalDatabaseConfig: NotRequired[NeptuneGlobalDatabaseConfigurationOutputTypeDef]
 
 Route53HealthCheckConfigurationUnionTypeDef = Union[
     Route53HealthCheckConfigurationTypeDef, Route53HealthCheckConfigurationOutputTypeDef
@@ -858,6 +970,10 @@ class ExecutionBlockConfigurationTypeDef(TypedDict):
     rdsCreateCrossRegionReadReplicaConfig: NotRequired[
         RdsCreateCrossRegionReplicaConfigurationUnionTypeDef
     ]
+    lambdaEventSourceMappingConfig: NotRequired[LambdaEventSourceMappingConfigurationUnionTypeDef]
+    auroraServerlessScalingConfig: NotRequired[AuroraServerlessScalingConfigurationUnionTypeDef]
+    auroraProvisionedScalingConfig: NotRequired[AuroraProvisionedScalingConfigurationUnionTypeDef]
+    neptuneGlobalDatabaseConfig: NotRequired[NeptuneGlobalDatabaseConfigurationUnionTypeDef]
 
 class WorkflowOutputTypeDef(TypedDict):
     workflowTargetAction: WorkflowTargetActionType

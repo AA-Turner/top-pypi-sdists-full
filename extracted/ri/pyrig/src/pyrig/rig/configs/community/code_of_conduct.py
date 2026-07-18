@@ -9,6 +9,7 @@ from pathlib import Path
 from pyrig.core.resources import (
     resource_content,
 )
+from pyrig.core.strings import file_has_content
 from pyrig.rig import resources
 from pyrig.rig.configs.base.markdown import MarkdownConfigFile
 from pyrig.rig.tools.version_control.controller import VersionController
@@ -40,8 +41,7 @@ class CodeOfConductConfigFile(MarkdownConfigFile):
         Raises:
             FileNotFoundError: If the file does not exist.
         """
-        content = self.read_content().strip()
-        return bool(content) and self.contact_method_placeholder() not in content
+        return file_has_content(self.path())
 
     def parent_path(self) -> Path:
         """Return the project root as the parent directory."""

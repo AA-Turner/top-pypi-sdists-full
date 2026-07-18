@@ -130,10 +130,11 @@ setup(
         'lz4': [
             'lz4<=3.0.1; implementation_name=="pypy"',
             'lz4; implementation_name!="pypy"',
-            'clickhouse-cityhash>=1.0.2.1'
+            'clickhouse-cityhash>=1.0.2.6'
         ],
-        'zstd': ['zstd', 'clickhouse-cityhash>=1.0.2.1'],
-        'numpy': ['numpy>=1.12.0', 'pandas>=0.24.0']
+        'zstd': ['zstd', 'clickhouse-cityhash>=1.0.2.6'],
+        'numpy': ['numpy>=1.12.0', 'pandas>=0.24.0'],
+        'arrow': ['pyarrow>=8.0.0']
     },
     test_suite='pytest'
 )

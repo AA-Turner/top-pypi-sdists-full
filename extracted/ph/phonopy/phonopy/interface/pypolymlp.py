@@ -37,8 +37,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, TypeVar
 
 import numpy as np
 from numpy.typing import NDArray
@@ -46,12 +47,15 @@ from numpy.typing import NDArray
 from phonopy.exception import PypolymlpDevelopmentError, PypolymlpRelaxationError
 from phonopy.file_IO import get_io_module_to_decompress
 from phonopy.harmonic.displacement import Type2DisplacementDataset
+from phonopy.physical_units import get_physical_units
 from phonopy.structure.atoms import PhonopyAtoms
 
 try:
     from pypolymlp.mlp_dev.pypolymlp import Pypolymlp  # type: ignore[import-untyped]
 except ImportError:
     Pypolymlp = Any
+
+_DatasetT = TypeVar("_DatasetT", "PypolymlpData", "PypolymlpStructureData")
 
 
 @dataclass
@@ -101,7 +105,11 @@ class PypolymlpParams:
 
 @dataclass
 class PypolymlpData:
-    """Dataset for pypolymlp input.
+    """Displacement dataset for pypolymlp input.
+
+    All the snapshots are displacements of one reference supercell, so the
+    lattice is shared and stress is not carried. See
+    PypolymlpStructureData for the dataset of independent structures.
 
     displacements : np.ndarray
         Displacements of atoms. shape=(n, natoms, 3)
@@ -109,33 +117,86 @@ class PypolymlpData:
         Displacements of atoms. shape=(n, natoms, 3)
     supercell_energies : np.ndarray, optional
         Energies of supercells. shape=(n,)
+    supercell : PhonopyAtoms
+        Reference supercell the displacements are relative to.
 
     """
 
     displacements: NDArray[np.double]
     forces: NDArray[np.double]
     supercell_energies: NDArray[np.double]
+    supercell: PhonopyAtoms
+
+    @classmethod
+    def from_displacement_dataset(
+        cls, dataset: Type2DisplacementDataset, supercell: PhonopyAtoms
+    ) -> PypolymlpData:
+        """Return the dataset built from a phonopy type-2 dataset.
+
+        Parameters
+        ----------
+        dataset : Type2DisplacementDataset
+            Displacements with their forces and supercell energies.
+        supercell : PhonopyAtoms
+            Supercell the displacements are relative to.
+
+        """
+        return cls(
+            displacements=dataset["displacements"],
+            forces=dataset["forces"],  # type: ignore[typeddict-item]
+            supercell_energies=dataset["supercell_energies"],  # type: ignore[typeddict-item]
+            supercell=supercell,
+        )
+
+    def __len__(self) -> int:
+        """Return number of snapshots."""
+        return len(self.displacements)
+
+    def __getitem__(self, index: slice) -> PypolymlpData:
+        """Return the sliced snapshots, sharing the reference supercell."""
+        if not isinstance(index, slice):
+            raise TypeError("Only slices are supported.")
+        return PypolymlpData(
+            displacements=self.displacements[index],
+            forces=self.forces[index],
+            supercell_energies=self.supercell_energies[index],
+            supercell=self.supercell,
+        )
 
 
 def develop_pypolymlp(
-    supercell: PhonopyAtoms,
-    train_data: PypolymlpData,
-    test_data: PypolymlpData,
+    train_data: PypolymlpData | PypolymlpStructureData,
+    test_data: PypolymlpData | PypolymlpStructureData | None = None,
     params: PypolymlpParams | None = None,
+    test_size: float = 0.1,
     verbose: bool = False,
 ) -> Pypolymlp:  # type: ignore
     """Develop polynomial MLPs of pypolymlp.
 
+    The training mode follows the dataset type. PypolymlpData holds
+    displacements of one reference supercell and trains on energies and
+    forces. PypolymlpStructureData holds independent structures, so the
+    lattices may differ (e.g. strained cells) and stress is used as well.
+    Both datasets must be of the same type.
+
     Parameters
     ----------
-    supercell : PhonopyAtoms
-        Supercell structure.
-    train_data : PyPolymlpData
-        Training dataset.
-    test_data : PyPolymlpData
-        Test dataset.
+    train_data : PypolymlpData or PypolymlpStructureData
+        Training dataset. With `test_data` None, this is the whole dataset
+        and it is split by `test_size`.
+    test_data : PypolymlpData or PypolymlpStructureData, optional
+        Test dataset. Default is None, i.e. split `train_data` instead.
+        Pass it explicitly to keep the test dataset fixed while the
+        training dataset varies, e.g. when measuring how many structures
+        the MLP needs.
     params : PypolymlpParams, optional
-        Parameters for pypolymlp. Default is None.
+        Parameters for pypolymlp. Default is None. When `test_data` is None
+        and both `params.ntrain` and `params.ntest` are given, they select
+        that many entries from the head and the tail, respectively, and
+        `test_size` is unused.
+    test_size : float, optional
+        Fraction of `train_data` used as the test dataset when `test_data`
+        is None; see split_pypolymlp_dataset. Default is 0.1.
     verbose : bool, optional
         Verbosity. Default is False.
 
@@ -155,15 +216,35 @@ def develop_pypolymlp(
     except ImportError as exc:
         raise ModuleNotFoundError("Pypolymlp python module was not found.") from exc
 
-    if params is None:
-        _params = PypolymlpParams()
-    else:
-        _params = params
+    if test_data is None:
+        if (
+            params is not None
+            and params.ntrain is not None
+            and params.ntest is not None
+        ):
+            train_data, test_data = (
+                train_data[: params.ntrain],
+                train_data[-params.ntest :],
+            )
+        else:
+            n = _split_index(len(train_data), test_size)
+            train_data, test_data = train_data[:n], train_data[n:]
+    if type(train_data) is not type(test_data):
+        raise TypeError(
+            "train_data and test_data must be of the same type, but they are "
+            f"{type(train_data).__name__} and {type(test_data).__name__}."
+        )
 
-    if _params.atom_energies is None:
-        elements_energies = {s: 0.0 for s in supercell.symbols}
+    _params = PypolymlpParams() if params is None else params
+
+    if isinstance(train_data, PypolymlpData):
+        symbols = train_data.supercell.symbols
     else:
-        elements_energies = {s: _params.atom_energies[s] for s in supercell.symbols}
+        symbols = train_data.structures[0].symbols
+    if _params.atom_energies is None:
+        elements_energies = {s: 0.0 for s in symbols}
+    else:
+        elements_energies = {s: _params.atom_energies[s] for s in symbols}
     polymlp = Pypolymlp()
     polymlp.set_params(
         elements=tuple(elements_energies.keys()),
@@ -175,15 +256,33 @@ def develop_pypolymlp(
         gaussian_params2=_params.gaussian_params2,
         atomic_energy=tuple(elements_energies.values()),
     )
-    polymlp.set_datasets_displacements(
-        train_data.displacements.transpose(0, 2, 1),
-        train_data.forces.transpose(0, 2, 1),
-        train_data.supercell_energies,
-        test_data.displacements.transpose(0, 2, 1),
-        test_data.forces.transpose(0, 2, 1),
-        test_data.supercell_energies,
-        phonopy_cell_to_structure(supercell),
-    )
+    if isinstance(train_data, PypolymlpData):
+        assert isinstance(test_data, PypolymlpData)
+        polymlp.set_datasets_displacements(
+            train_data.displacements.transpose(0, 2, 1),
+            train_data.forces.transpose(0, 2, 1),
+            train_data.supercell_energies,
+            test_data.displacements.transpose(0, 2, 1),
+            test_data.forces.transpose(0, 2, 1),
+            test_data.supercell_energies,
+            phonopy_cell_to_structure(train_data.supercell),
+        )
+    else:
+        assert isinstance(test_data, PypolymlpStructureData)
+        polymlp.set_datasets_structures(
+            train_structures=[
+                phonopy_cell_to_structure(cell) for cell in train_data.structures
+            ],
+            test_structures=[
+                phonopy_cell_to_structure(cell) for cell in test_data.structures
+            ],
+            train_energies=train_data.energies,
+            test_energies=test_data.energies,
+            train_forces=[force.T for force in train_data.forces],
+            test_forces=[force.T for force in test_data.forces],
+            train_stresses=_structures_virial(train_data),
+            test_stresses=_structures_virial(test_data),
+        )
     try:
         polymlp.run(verbose=verbose)
     except RuntimeError as e:
@@ -195,6 +294,243 @@ def develop_pypolymlp(
         else:
             raise RuntimeError(str(e)) from e
     return polymlp
+
+
+@dataclass
+class PypolymlpStructureData:
+    """Structure dataset for pypolymlp training with energies, forces, stresses.
+
+    Unlike PypolymlpData, which stores displacements relative to a single
+    reference supercell, this stores full structures and can therefore mix
+    cells with different lattices (e.g. strained cells) and carry stress.
+
+    structures : list of PhonopyAtoms
+        Structures, possibly with different lattices. Length n.
+    energies : ndarray
+        Total energies in eV. shape=(n,)
+    forces : list of ndarray
+        Atomic forces in eV/angstrom, one (natoms, 3) array per structure.
+    stresses : ndarray or None
+        Stress tensors in GPa. shape=(n, 3, 3), or None when stresses are
+        not available for all structures.
+
+    """
+
+    structures: list[PhonopyAtoms]
+    energies: NDArray[np.double]
+    forces: list[NDArray[np.double]]
+    stresses: NDArray[np.double] | None
+
+    def __len__(self) -> int:
+        """Return number of structures."""
+        return len(self.structures)
+
+    def __getitem__(self, index: slice) -> PypolymlpStructureData:
+        """Return the sliced structures and their properties."""
+        if not isinstance(index, slice):
+            raise TypeError("Only slices are supported.")
+        return PypolymlpStructureData(
+            structures=self.structures[index],
+            energies=self.energies[index],
+            forces=self.forces[index],
+            stresses=None if self.stresses is None else self.stresses[index],
+        )
+
+
+def _split_index(n_total: int, test_size: float) -> int:
+    """Return the index that splits n_total entries by test_size."""
+    n = int(n_total * (1 - test_size))
+    if n < 1 or n >= n_total:
+        raise ValueError(
+            f"test_size={test_size} leaves {n} training entries out of "
+            f"{n_total}; both datasets must be non-empty."
+        )
+    return n
+
+
+def split_pypolymlp_dataset(
+    data: _DatasetT, test_size: float = 0.1
+) -> tuple[_DatasetT, _DatasetT]:
+    """Split a dataset into training and test datasets.
+
+    The dataset is not shuffled: the first `1 - test_size` fraction becomes
+    the training dataset and the rest becomes the test dataset. Datasets
+    also slice directly, e.g. `data[:20]`, which is what a series over
+    training-set sizes needs.
+
+    Parameters
+    ----------
+    data : PypolymlpData or PypolymlpStructureData
+        Dataset to split.
+    test_size : float, optional
+        Fraction of the dataset used as the test dataset. Default is 0.1.
+
+    Returns
+    -------
+    train_data : PypolymlpData or PypolymlpStructureData
+    test_data : PypolymlpData or PypolymlpStructureData
+
+    """
+    n = _split_index(len(data), test_size)
+    return data[:n], data[n:]
+
+
+def read_vasprun_dataset(
+    filenames: Sequence[str | os.PathLike],
+) -> PypolymlpStructureData:
+    """Assemble a pypolymlp structure dataset from vasprun.xml files.
+
+    Each file contributes its final ionic step. Stresses are included only
+    when every file provides them.
+
+    Parameters
+    ----------
+    filenames : sequence of str or os.PathLike
+        vasprun.xml file names (optionally compressed).
+
+    Returns
+    -------
+    PypolymlpStructureData
+
+    """
+    from phonopy.interface.vasp import read_vasprun_calculation
+
+    structures: list[PhonopyAtoms] = []
+    energies: list[float] = []
+    forces: list[NDArray[np.double]] = []
+    stresses: list[NDArray[np.double]] = []
+    have_stress = True
+    for filename in filenames:
+        cell, energy, force, stress = read_vasprun_calculation(filename)
+        structures.append(cell)
+        energies.append(energy)
+        forces.append(force)
+        if stress is None:
+            have_stress = False
+        else:
+            stresses.append(stress)
+    return PypolymlpStructureData(
+        structures=structures,
+        energies=np.array(energies, dtype="double"),
+        forces=forces,
+        stresses=np.array(stresses, dtype="double")
+        if have_stress and stresses
+        else None,
+    )
+
+
+def write_pypolymlp_structure_dataset(
+    data: PypolymlpStructureData,
+    filename: str | os.PathLike = "polymlp_dataset.hdf5",
+) -> None:
+    """Write a structure dataset to an HDF5 file.
+
+    Per-atom quantities (numbers, scaled positions, forces) are stored
+    concatenated over structures with an ``n_atoms`` index, so structures
+    with different numbers of atoms are supported.
+
+    All datasets are gzip compressed and stored in their full precision;
+    floating-point quantities stay double so that the training data keeps
+    the precision of the calculation it was read from.
+
+    Parameters
+    ----------
+    data : PypolymlpStructureData
+        Dataset to write.
+    filename : str or os.PathLike, optional
+        Output HDF5 file name.
+
+    """
+    try:
+        import h5py  # type: ignore[import-untyped]
+    except ImportError as exc:
+        raise ModuleNotFoundError("You need to install python-h5py.") from exc
+
+    n_atoms = np.array([len(cell) for cell in data.structures], dtype="int64")
+    lattices = np.array([cell.cell for cell in data.structures], dtype="double")
+    numbers = np.concatenate([cell.numbers for cell in data.structures])
+    positions = np.concatenate([cell.scaled_positions for cell in data.structures])
+    forces = np.concatenate(data.forces)
+    with h5py.File(filename, "w") as w:
+        w.create_dataset("n_atoms", data=n_atoms, compression="gzip")
+        w.create_dataset("lattices", data=lattices, compression="gzip")
+        w.create_dataset("numbers", data=numbers, compression="gzip")
+        w.create_dataset("scaled_positions", data=positions, compression="gzip")
+        w.create_dataset("energies", data=data.energies, compression="gzip")
+        w.create_dataset("forces", data=forces, compression="gzip")
+        if data.stresses is not None:
+            w.create_dataset("stresses", data=data.stresses, compression="gzip")
+
+
+def read_pypolymlp_structure_dataset(
+    filename: str | os.PathLike = "polymlp_dataset.hdf5",
+) -> PypolymlpStructureData:
+    """Read a structure dataset written by write_pypolymlp_structure_dataset.
+
+    Parameters
+    ----------
+    filename : str or os.PathLike, optional
+        Input HDF5 file name.
+
+    Returns
+    -------
+    PypolymlpStructureData
+
+    """
+    try:
+        import h5py  # type: ignore[import-untyped]
+    except ImportError as exc:
+        raise ModuleNotFoundError("You need to install python-h5py.") from exc
+
+    with h5py.File(filename, "r") as f:
+        n_atoms = f["n_atoms"][:]
+        lattices = f["lattices"][:]
+        numbers = f["numbers"][:]
+        positions = f["scaled_positions"][:]
+        energies = np.array(f["energies"][:], dtype="double")
+        forces_flat = f["forces"][:]
+        stresses = (
+            np.array(f["stresses"][:], dtype="double") if "stresses" in f else None
+        )
+
+    offsets = np.concatenate([[0], np.cumsum(n_atoms)])
+    structures: list[PhonopyAtoms] = []
+    forces: list[NDArray[np.double]] = []
+    for i in range(len(n_atoms)):
+        start, end = int(offsets[i]), int(offsets[i + 1])
+        structures.append(
+            PhonopyAtoms(
+                numbers=numbers[start:end],
+                cell=lattices[i],
+                scaled_positions=positions[start:end],
+            )
+        )
+        forces.append(np.array(forces_flat[start:end], dtype="double"))
+    return PypolymlpStructureData(
+        structures=structures,
+        energies=energies,
+        forces=forces,
+        stresses=stresses,
+    )
+
+
+def _structures_virial(data: PypolymlpStructureData) -> NDArray[np.double] | None:
+    """Convert stored stresses (GPa) to pypolymlp virials (eV, 3x3 each).
+
+    The pypolymlp virial is stress times cell volume; here the stress in
+    GPa is converted with the eV/angstrom^3-to-GPa factor.
+
+    """
+    if data.stresses is None:
+        return None
+    ev_angstrom_to_gpa = get_physical_units().EVAngstromToGPa
+    return np.array(
+        [
+            stress * structure.volume / ev_angstrom_to_gpa
+            for stress, structure in zip(data.stresses, data.structures, strict=True)
+        ],
+        dtype="double",
+    )
 
 
 def evalulate_pypolymlp(
@@ -316,61 +652,6 @@ def load_pypolymlp(filename: str | os.PathLike | None) -> Pypolymlp:  # type: ig
     myio = get_io_module_to_decompress(filename)
     with myio.open(filename, "rt") as fp:
         mlp.load_mlp(fp)
-    return mlp
-
-
-def develop_mlp_by_pypolymlp(
-    mlp_dataset: Type2DisplacementDataset,
-    supercell: PhonopyAtoms,
-    params: PypolymlpParams | dict | str | None = None,
-    test_size: float = 0.1,
-    log_level: int = 0,
-) -> Pypolymlp:  # type: ignore
-    """Develop MLPs by pypolymlp."""
-    _params: PypolymlpParams | None
-    if params is not None:
-        _params = parse_mlp_params(params)
-    else:
-        _params = None
-
-    if _params is not None and _params.ntrain is not None and _params.ntest is not None:
-        ntrain = _params.ntrain
-        ntest = _params.ntest
-        disps = mlp_dataset["displacements"]
-        forces = mlp_dataset["forces"]  # type: ignore[typeddict-item]
-        energies = mlp_dataset["supercell_energies"]  # type: ignore[typeddict-item]
-        train_data = PypolymlpData(
-            displacements=disps[:ntrain],
-            forces=forces[:ntrain],
-            supercell_energies=energies[:ntrain],
-        )
-        test_data = PypolymlpData(
-            displacements=disps[-ntest:],
-            forces=forces[-ntest:],
-            supercell_energies=energies[-ntest:],
-        )
-    else:
-        disps = mlp_dataset["displacements"]
-        forces = mlp_dataset["forces"]  # type: ignore[typeddict-item]
-        energies = mlp_dataset["supercell_energies"]  # type: ignore[typeddict-item]
-        n = int(len(disps) * (1 - test_size))
-        train_data = PypolymlpData(
-            displacements=disps[:n],
-            forces=forces[:n],
-            supercell_energies=energies[:n],
-        )
-        test_data = PypolymlpData(
-            displacements=disps[n:],
-            forces=forces[n:],
-            supercell_energies=energies[n:],
-        )
-    mlp = develop_pypolymlp(
-        supercell,
-        train_data,
-        test_data,
-        params=_params,
-        verbose=log_level - 1 > 0,
-    )
     return mlp
 
 

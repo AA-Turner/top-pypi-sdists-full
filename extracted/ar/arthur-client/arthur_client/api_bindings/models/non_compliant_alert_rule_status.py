@@ -29,9 +29,10 @@ class NonCompliantAlertRuleStatus(BaseModel):
     """ # noqa: E501
     id: StrictStr = Field(description="The ID of the alert rule.")
     name: StrictStr = Field(description="The name of the alert rule.")
+    policy_alert_rule_id: Optional[StrictStr] = None
     alert: Optional[ComplianceAlertSummary] = None
     error_message: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["id", "name", "alert", "error_message"]
+    __properties: ClassVar[List[str]] = ["id", "name", "policy_alert_rule_id", "alert", "error_message"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -75,6 +76,11 @@ class NonCompliantAlertRuleStatus(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of alert
         if self.alert:
             _dict['alert'] = self.alert.to_dict()
+        # set to None if policy_alert_rule_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.policy_alert_rule_id is None and "policy_alert_rule_id" in self.model_fields_set:
+            _dict['policy_alert_rule_id'] = None
+
         # set to None if alert (nullable) is None
         # and model_fields_set contains the field
         if self.alert is None and "alert" in self.model_fields_set:
@@ -99,6 +105,7 @@ class NonCompliantAlertRuleStatus(BaseModel):
         _obj = cls.model_validate({
             "id": obj.get("id"),
             "name": obj.get("name"),
+            "policy_alert_rule_id": obj.get("policy_alert_rule_id"),
             "alert": ComplianceAlertSummary.from_dict(obj["alert"]) if obj.get("alert") is not None else None,
             "error_message": obj.get("error_message")
         })

@@ -884,6 +884,7 @@ class Config:
                 | for
                 | asyncEach
                 | asyncAll
+                | embed
                 | block(?!trans|translate)
                 | spaceless
                 | compress
@@ -988,12 +989,16 @@ class Config:
             (?:
                 (
                     (?:
-                        (?:\w|-|\.|\:|@|/(?!>)) # a name character
+                        (?:\w|-|\.|\:|@|\*|/(?!>)) # a name character
                        | (?>{{{{[\s\S]*?}}}})
-                         (?=(?:\w|-|\.|\:|@|/(?!>))|[ ]*=) # a leading template variable
+                         (?=(?:\w|-|\.|\:|@|\*|/(?!>))|[ ]*=) # a leading template variable
+                       | (?!{{%-?\s*(?:for|asyncAll|asyncEach)\b)
+                         (?!{{%-?\s*if\b[^}}]*?%}}(?:required|checked){{%-?\s*endif\b[^}}]*?%}})
+                         (?>{self.template_if_for_pattern})
+                         (?=(?:\w|-|\.|\:|@|\*|/(?!>))|[ ]*=) # a leading template block
                     )
                     (?:
-                        (?:\w|-|\.|\:|@|/(?!>)) # more name characters
+                        (?:\w|-|\.|\:|@|\*|/(?!>)) # more name characters
                        | (?>{{{{[\s\S]*?}}}}|{{%[\s\S]*?%}}) # or an embedded template tag
                     )*
                     | required | checked

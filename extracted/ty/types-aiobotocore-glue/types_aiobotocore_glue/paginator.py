@@ -30,9 +30,14 @@ Usage::
         GetTriggersPaginator,
         GetUserDefinedFunctionsPaginator,
         GetWorkflowRunsPaginator,
+        ListAssetTypesPaginator,
         ListBlueprintsPaginator,
         ListConnectionTypesPaginator,
         ListEntitiesPaginator,
+        ListFormTypesPaginator,
+        ListGlossariesPaginator,
+        ListGlossaryTermsPaginator,
+        ListIterableFormsPaginator,
         ListJobsPaginator,
         ListMaterializedViewRefreshTaskRunsPaginator,
         ListRegistriesPaginator,
@@ -42,6 +47,7 @@ Usage::
         ListTriggersPaginator,
         ListUsageProfilesPaginator,
         ListWorkflowsPaginator,
+        SearchAssetsPaginator,
     )
 
     session = get_session()
@@ -66,9 +72,14 @@ Usage::
         get_triggers_paginator: GetTriggersPaginator = client.get_paginator("get_triggers")
         get_user_defined_functions_paginator: GetUserDefinedFunctionsPaginator = client.get_paginator("get_user_defined_functions")
         get_workflow_runs_paginator: GetWorkflowRunsPaginator = client.get_paginator("get_workflow_runs")
+        list_asset_types_paginator: ListAssetTypesPaginator = client.get_paginator("list_asset_types")
         list_blueprints_paginator: ListBlueprintsPaginator = client.get_paginator("list_blueprints")
         list_connection_types_paginator: ListConnectionTypesPaginator = client.get_paginator("list_connection_types")
         list_entities_paginator: ListEntitiesPaginator = client.get_paginator("list_entities")
+        list_form_types_paginator: ListFormTypesPaginator = client.get_paginator("list_form_types")
+        list_glossaries_paginator: ListGlossariesPaginator = client.get_paginator("list_glossaries")
+        list_glossary_terms_paginator: ListGlossaryTermsPaginator = client.get_paginator("list_glossary_terms")
+        list_iterable_forms_paginator: ListIterableFormsPaginator = client.get_paginator("list_iterable_forms")
         list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
         list_materialized_view_refresh_task_runs_paginator: ListMaterializedViewRefreshTaskRunsPaginator = client.get_paginator("list_materialized_view_refresh_task_runs")
         list_registries_paginator: ListRegistriesPaginator = client.get_paginator("list_registries")
@@ -78,6 +89,7 @@ Usage::
         list_triggers_paginator: ListTriggersPaginator = client.get_paginator("list_triggers")
         list_usage_profiles_paginator: ListUsageProfilesPaginator = client.get_paginator("list_usage_profiles")
         list_workflows_paginator: ListWorkflowsPaginator = client.get_paginator("list_workflows")
+        search_assets_paginator: SearchAssetsPaginator = client.get_paginator("search_assets")
     ```
 """
 
@@ -125,12 +137,22 @@ from .type_defs import (
     GetUserDefinedFunctionsResponseTypeDef,
     GetWorkflowRunsRequestPaginateTypeDef,
     GetWorkflowRunsResponseTypeDef,
+    ListAssetTypesRequestPaginateTypeDef,
+    ListAssetTypesResponseTypeDef,
     ListBlueprintsRequestPaginateTypeDef,
     ListBlueprintsResponseTypeDef,
     ListConnectionTypesRequestPaginateTypeDef,
     ListConnectionTypesResponseTypeDef,
     ListEntitiesRequestPaginateTypeDef,
     ListEntitiesResponseTypeDef,
+    ListFormTypesRequestPaginateTypeDef,
+    ListFormTypesResponseTypeDef,
+    ListGlossariesRequestPaginateTypeDef,
+    ListGlossariesResponseTypeDef,
+    ListGlossaryTermsRequestPaginateTypeDef,
+    ListGlossaryTermsResponseTypeDef,
+    ListIterableFormsRequestPaginateTypeDef,
+    ListIterableFormsResponseTypeDef,
     ListJobsRequestPaginateTypeDef,
     ListJobsResponseTypeDef,
     ListMaterializedViewRefreshTaskRunsRequestPaginateTypeDef,
@@ -149,6 +171,8 @@ from .type_defs import (
     ListUsageProfilesResponseTypeDef,
     ListWorkflowsRequestPaginateTypeDef,
     ListWorkflowsResponseTypeDef,
+    SearchAssetsInputPaginateTypeDef,
+    SearchAssetsOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -176,9 +200,14 @@ __all__ = (
     "GetTriggersPaginator",
     "GetUserDefinedFunctionsPaginator",
     "GetWorkflowRunsPaginator",
+    "ListAssetTypesPaginator",
     "ListBlueprintsPaginator",
     "ListConnectionTypesPaginator",
     "ListEntitiesPaginator",
+    "ListFormTypesPaginator",
+    "ListGlossariesPaginator",
+    "ListGlossaryTermsPaginator",
+    "ListIterableFormsPaginator",
     "ListJobsPaginator",
     "ListMaterializedViewRefreshTaskRunsPaginator",
     "ListRegistriesPaginator",
@@ -188,6 +217,7 @@ __all__ = (
     "ListTriggersPaginator",
     "ListUsageProfilesPaginator",
     "ListWorkflowsPaginator",
+    "SearchAssetsPaginator",
 )
 
 
@@ -570,6 +600,27 @@ class GetWorkflowRunsPaginator(_GetWorkflowRunsPaginatorBase):
 
 
 if TYPE_CHECKING:
+    _ListAssetTypesPaginatorBase = AioPaginator[ListAssetTypesResponseTypeDef]
+else:
+    _ListAssetTypesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListAssetTypesPaginator(_ListAssetTypesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListAssetTypes.html#Glue.Paginator.ListAssetTypes)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#listassettypespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAssetTypesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListAssetTypesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListAssetTypes.html#Glue.Paginator.ListAssetTypes.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#listassettypespaginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListBlueprintsPaginatorBase = AioPaginator[ListBlueprintsResponseTypeDef]
 else:
     _ListBlueprintsPaginatorBase = AioPaginator  # type: ignore[assignment]
@@ -629,6 +680,90 @@ class ListEntitiesPaginator(_ListEntitiesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListEntities.html#Glue.Paginator.ListEntities.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#listentitiespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListFormTypesPaginatorBase = AioPaginator[ListFormTypesResponseTypeDef]
+else:
+    _ListFormTypesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListFormTypesPaginator(_ListFormTypesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListFormTypes.html#Glue.Paginator.ListFormTypes)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#listformtypespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListFormTypesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListFormTypesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListFormTypes.html#Glue.Paginator.ListFormTypes.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#listformtypespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListGlossariesPaginatorBase = AioPaginator[ListGlossariesResponseTypeDef]
+else:
+    _ListGlossariesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListGlossariesPaginator(_ListGlossariesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListGlossaries.html#Glue.Paginator.ListGlossaries)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#listglossariespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListGlossariesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListGlossariesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListGlossaries.html#Glue.Paginator.ListGlossaries.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#listglossariespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListGlossaryTermsPaginatorBase = AioPaginator[ListGlossaryTermsResponseTypeDef]
+else:
+    _ListGlossaryTermsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListGlossaryTermsPaginator(_ListGlossaryTermsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListGlossaryTerms.html#Glue.Paginator.ListGlossaryTerms)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#listglossarytermspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListGlossaryTermsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListGlossaryTermsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListGlossaryTerms.html#Glue.Paginator.ListGlossaryTerms.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#listglossarytermspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListIterableFormsPaginatorBase = AioPaginator[ListIterableFormsResponseTypeDef]
+else:
+    _ListIterableFormsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListIterableFormsPaginator(_ListIterableFormsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListIterableForms.html#Glue.Paginator.ListIterableForms)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#listiterableformspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListIterableFormsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListIterableFormsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListIterableForms.html#Glue.Paginator.ListIterableForms.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#listiterableformspaginator)
         """
 
 
@@ -822,4 +957,25 @@ class ListWorkflowsPaginator(_ListWorkflowsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListWorkflows.html#Glue.Paginator.ListWorkflows.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#listworkflowspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _SearchAssetsPaginatorBase = AioPaginator[SearchAssetsOutputTypeDef]
+else:
+    _SearchAssetsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class SearchAssetsPaginator(_SearchAssetsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/SearchAssets.html#Glue.Paginator.SearchAssets)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#searchassetspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchAssetsInputPaginateTypeDef]
+    ) -> AioPageIterator[SearchAssetsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/SearchAssets.html#Glue.Paginator.SearchAssets.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/paginators/#searchassetspaginator)
         """

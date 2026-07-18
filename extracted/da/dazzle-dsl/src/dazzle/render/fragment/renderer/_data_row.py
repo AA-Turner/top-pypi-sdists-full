@@ -13,24 +13,31 @@ byte-for-byte by `tests/unit/test_data_row_characterization_1505.py`.
 """
 
 import html as _html_mod
+import re
 from dataclasses import dataclass
+from datetime import date, datetime
 from typing import Any
 
 from dazzle.render.filters import (
     _basename_or_url_filter,
     _bool_icon_filter,
     _currency_filter,
-    _date_filter,
     _metric_number_filter,
     _ref_display_name,
     _truncate_filter,
     badge_icon_html,
     resolve_status_tone,
 )
+from dazzle.render.fragment.format_cell import ResolvedFormat, format_cell
 from dazzle.render.fragment.icon_html import lucide_svg_html
 from dazzle.render.fragment.ingest import GridEditCell, edit_span_attrs
 from dazzle.render.fragment.primitives import DataTable, RowCapabilities
+from dazzle.render.fragment.region._row_links import _resolve_row_links
 from dazzle.render.fragment.state_affordance import gated_row_transitions
+
+# Raw ISO / Postgres timestamptz leak detector for the text fallback path.
+_ISO_DT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$")
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,8 +74,11 @@ def drill_row_attrs(
     bare-click `hx-get` to the detail surface. `url_attr` is the
     already-escaped detail URL — empty means the row is not clickable.
 
-    Default: full-page swap into ``body`` (standalone list / non-paired
-    workspace regions).
+    Default: swap into ``#main-content`` (the AppShell main slot). That
+    matches sidebar/nav HTMX targeting so the server can return a
+    content-only fragment (``HtmxDetails.wants_fragment``) without
+    destroying the SaaS chrome. Targeting ``body`` + content-only
+    fragments was wiping ``dz-app-shell`` on every list→detail drill.
 
     ``pane=True`` (dual_pane_flow master-detail): swap into the detail pane
     identified by ``pane_target`` (CSS id selector, already escaped); no
@@ -100,9 +110,11 @@ def drill_row_attrs(
     # hover (the vendored htmx-4 `preload` extension), so the click serves the
     # cached prefetch — perceived-instant drill. The extension dedups per row
     # (one prefetch / 5s), so a mouse-sweep doesn't storm the server.
+    # Target #main-content (not body) so AppShell sidebar/topbar survive the swap.
     return (
         f'hx-get="{url_attr}" hx-push-url="true" hx-trigger="click" '
-        f'hx-preload="mouseover" hx-target="body" hx-swap="innerHTML" tabindex="0"'
+        f'hx-preload="mouseover" hx-target="#main-content" hx-swap="innerHTML" '
+        f'tabindex="0"'
     )
 
 
@@ -218,13 +230,26 @@ def _render_cell_display(
     """
 
     col_type = str(col.get("type", "") or "")
+    # Explicit `format:` override from the surface field wins over inference
+    # (#1470 Phase 2). List rows previously ignored format_kind and only the
+    # related-group path called format_cell.
+    format_kind = str(col.get("format_kind", "") or "")
+    if format_kind:
+        raw = format_cell(
+            value,
+            col_type or "text",
+            currency_code=str(col.get("currency_code", "") or ""),
+            override=ResolvedFormat(format_kind, col.get("format_arg") or None),
+        )
+        return _html_mod.escape(raw, quote=False)
     # #1491 1d: an empty value renders the em-dash placeholder for the humanised
     # types — a null `number` must NOT fabricate "0" and a null `json` must NOT
     # leak "None" (the detail seam guards upstream; list rows reach here directly).
     if col_type in ("datetime", "number", "json") and value in (None, "", "—"):
         return "—"
     if col_type == "datetime":
-        return _html_mod.escape(_date_filter(value, "%d %b %Y %H:%M"), quote=False)
+        # #1597: DisplayLocaleProfile (tenant TZ + date_format), not hard UK
+        return _html_mod.escape(format_cell(value, "datetime"), quote=False)
     if col_type == "number":
         return _html_mod.escape(_metric_number_filter(value), quote=False)
     if col_type == "json":
@@ -248,7 +273,7 @@ def _render_cell_display(
         # `_bool_icon_filter` returns Markup with raw HTML — safe to emit.
         return str(_bool_icon_filter(value))
     if col_type == "date":
-        return _html_mod.escape(_date_filter(value), quote=False)
+        return _html_mod.escape(format_cell(value, "date"), quote=False)
     if col_type in ("currency", "money"):
         currency_code = col.get("currency_code") or "GBP"
         return _html_mod.escape(_currency_filter(value, currency_code), quote=False)
@@ -296,6 +321,21 @@ def _render_cell_display(
     # rather than routed through `_truncate_filter` → `_ref_display_name`, which
     # mangles a dict down to one arbitrary value. A float is rounded rather than
     # leaking full binary precision.
+    #
+    # Defensive temporal humanisation: when a column is mistyped as `text`
+    # (e.g. list-projection views that declare every field as text) but the
+    # value is clearly an ISO date/datetime (incl. Postgres timestamptz with
+    # microseconds), format via DisplayLocaleProfile instead of leaking raw ISO.
+    if isinstance(value, datetime):
+        return _html_mod.escape(format_cell(value, "datetime"), quote=False)
+    if isinstance(value, date):
+        return _html_mod.escape(format_cell(value, "date"), quote=False)
+    if isinstance(value, str):
+        s = value.strip()
+        if _ISO_DT_RE.match(s):
+            return _html_mod.escape(format_cell(s, "datetime"), quote=False)
+        if _ISO_DATE_RE.match(s):
+            return _html_mod.escape(format_cell(s, "date"), quote=False)
     if isinstance(value, (dict, list, tuple)):
         inner = _json_summary(value)
     elif isinstance(value, float):
@@ -356,8 +396,30 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
     drill_attrs = ""
     detail_link_html = ""
     edit_link_html = ""
-    if detail_url_template:
-        detail_url = detail_url_template.replace("{id}", item_id)
+    # #1603: substitute all placeholders ({id}, {contact}, {assigned_to}, …)
+    # via the shared format_map helper. #1614: null open-via FK falls back to
+    # same-entity detail so the row keeps hx-trigger=click (shields #1613).
+    fallback_tmpl = str(table.get("detail_url_fallback_template") or "")
+    candidates = table.get("detail_url_candidates") or ()
+    if isinstance(candidates, str):
+        candidates = (candidates,) if candidates else ()
+    if detail_url_template or candidates:
+        _links = _resolve_row_links(
+            [item],
+            str(detail_url_template or ""),
+            fallback_template=fallback_tmpl,
+            candidate_templates=tuple(candidates) if candidates else (),
+        )
+        detail_url = _links[0] if _links else None
+    else:
+        detail_url = None
+    # Last-resort: row id → same-entity path if fallback template given alone
+    if not detail_url and fallback_tmpl and item_id:
+        try:
+            detail_url = fallback_tmpl.format_map({"id": item_id})
+        except (KeyError, IndexError, ValueError):
+            detail_url = None
+    if detail_url:
         detail_url_attr = _html_mod.escape(detail_url, quote=True)
         if peek_expand:
             peek_url_attr = _html_mod.escape(f"{detail_url}?peek=1", quote=True)
@@ -370,6 +432,7 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
                 f'aria-label="Toggle detail for {row_label_attr}" '
                 f'aria-expanded="false" '
                 f'hx-get="{peek_url_attr}" '
+                f'hx-trigger="click" '
                 f'hx-target="#{content_id}" '
                 f'hx-swap="innerHTML" '
                 f"hx-on:click=\"const p=document.getElementById('{panel_id}'); "
@@ -397,6 +460,7 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
                 f'data-dazzle-action="{entity_name_attr}.peek" '
                 f'aria-label="Open detail for {row_label_attr}" '
                 f'hx-get="{slide_url_attr}" '
+                f'hx-trigger="click" '
                 f'hx-target="#{content_target}" '
                 f'hx-swap="innerHTML" '
                 f'data-dz-dialog-open="{panel_attr}">'
@@ -472,7 +536,9 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
             # Alpine templates; the editor input is built by the controller
             # and the typed buffer lives on the grid root, out of the morph
             # path.
-            kind = {"bool": "bool", "badge": "select", "date": "date"}.get(col_type, "text")
+            kind = {"bool": "bool", "badge": "select", "date": "date", "datetime": "date"}.get(
+                col_type, "text"
+            )
             # A select editor with zero options was never usable — degrade to
             # text before the model (which forbids optionless selects) sees it.
             if kind == "select" and not col.get("filter_options"):
@@ -504,18 +570,26 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
 
         # C2.1: no per-cell visibility binding — dz-grid-cols.js projects the
         # hidden set onto [data-dz-col] cells after every swap.
+        # #1592 / #1598: data cells must NOT stopPropagation. C2.3 marks nearly
+        # every text|bool|badge|date|datetime column inline-editable, but grid
+        # edit opens on **dblclick** (dz-grid-edit.js) — a single click must
+        # bubble to the row's hx-get drill. stopPropagation stays on checkbox +
+        # actions cells only (and on the active editor element when open).
         cell_parts.append(
             f'<td data-dz-col="{col_key_attr}" '  # nosemgrep
-            f'class="{cell_classes}" onclick="event.stopPropagation()">'
+            f'class="{cell_classes}">'
             f"{cell_inner}</td>"
         )
 
     # Delete action.
+    # #1613: hard-pin hx-trigger="click" so tbody hx-trigger=load cannot
+    # inherit onto destructive controls (implicitInheritance=true).
     delete_button = (
         f'<button type="button" '  # nosemgrep
         f'data-dazzle-action="{entity_name_attr}.delete" '
         f'aria-label="Delete {row_label_attr}" '
         f'hx-delete="{api_endpoint}/{item_id_attr}" '
+        f'hx-trigger="click" '
         f'hx-confirm="Delete this {_html_mod.escape(entity_name_lower, quote=False)}?" '
         f'hx-target="closest tr" '
         f'hx-swap="outerHTML swap:300ms" '
@@ -538,14 +612,17 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
             transition_buttons = "".join(
                 f'<button type="button" class="dz-tr-action dz-tr-transition" '
                 f'hx-put="{endpoint_attr}/{item_id_attr}" '
+                f'hx-trigger="click" '
                 f'hx-vals=\'{{"{status_field_attr}": '
                 f'"{_html_mod.escape(t.to_state, quote=True)}"}}\' '
                 f'aria-label="{_html_mod.escape(t.label, quote=True)}">'
                 f"{_html_mod.escape(t.label, quote=False)}</button>"
                 for t in valid
             )
+    # #1613: disinherit hx-trigger from tbody load onto action chrome.
     actions_cell = (
-        '<td class="dz-tr-actions-cell" onclick="event.stopPropagation()">'
+        '<td class="dz-tr-actions-cell" onclick="event.stopPropagation()" '
+        'hx-disinherit="hx-trigger">'
         f'<div class="dz-tr-actions">{transition_buttons}{peek_toggle_html}'
         f"{detail_link_html}{edit_link_html}{delete_button}</div>"
         "</td>"
@@ -598,6 +675,8 @@ def render_data_row(
     entity_name: str = "Item",
     api_endpoint: str = "",
     detail_url_template: str = "",
+    detail_url_candidates: tuple[str, ...] | list[str] = (),
+    detail_url_fallback_template: str = "",
     table_id: str = "dt-table",
     state_transitions: tuple[Any, ...] = (),
     status_field: str = "",
@@ -617,6 +696,12 @@ def render_data_row(
         # `drill` is the authoritative gate for the whole-row hx-get + view/edit
         # links — the template only flows through when the capability is on.
         "detail_url_template": detail_url_template if caps.drill else "",
+        # #1600 P2: polymorphic open-via hop chain
+        "detail_url_candidates": (
+            tuple(detail_url_candidates) if caps.drill and detail_url_candidates else ()
+        ),
+        # #1614: same-entity detail when open-via FK is null
+        "detail_url_fallback_template": (detail_url_fallback_template if caps.drill else ""),
         "bulk_actions": caps.bulk_select,
         "inline_editable": list(caps.inline_editable),
         "table_id": table_id,
@@ -649,6 +734,8 @@ def render_data_table_rows(dt: DataTable) -> str:
             entity_name=dt.entity_name,
             api_endpoint=dt.api_endpoint,
             detail_url_template=dt.detail_url_template,
+            detail_url_candidates=getattr(dt, "detail_url_candidates", ()) or (),
+            detail_url_fallback_template=getattr(dt, "detail_url_fallback_template", "") or "",
             table_id=dt.table_id,
             state_transitions=dt.state_transitions,
             status_field=dt.status_field,

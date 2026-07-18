@@ -36,6 +36,7 @@ __all__ = (
     "ConfigurationRecorderFilterNameType",
     "ConformancePackComplianceTypeType",
     "ConformancePackStateType",
+    "ConnectorFilterNameType",
     "DeliveryStatusType",
     "DescribeAggregateComplianceByConfigRulesPaginatorName",
     "DescribeAggregateComplianceByConformancePacksPaginatorName",
@@ -67,6 +68,7 @@ __all__ = (
     "GetResourceConfigHistoryPaginatorName",
     "ListAggregateDiscoveredResourcesPaginatorName",
     "ListConfigurationRecordersPaginatorName",
+    "ListConnectorsPaginatorName",
     "ListDiscoveredResourcesPaginatorName",
     "ListResourceEvaluationsPaginatorName",
     "ListTagsForResourcePaginatorName",
@@ -80,6 +82,7 @@ __all__ = (
     "OrganizationRuleStatusType",
     "OwnerType",
     "PaginatorName",
+    "ProviderType",
     "RecorderStatusType",
     "RecordingFrequencyType",
     "RecordingScopeType",
@@ -94,6 +97,7 @@ __all__ = (
     "ResourceServiceName",
     "ResourceTypeType",
     "ResourceValueTypeType",
+    "RuleEvaluationVisibilityType",
     "SelectAggregateResourceConfigPaginatorName",
     "SelectResourceConfigPaginatorName",
     "ServiceName",
@@ -122,6 +126,7 @@ ConformancePackComplianceTypeType = Literal["COMPLIANT", "INSUFFICIENT_DATA", "N
 ConformancePackStateType = Literal[
     "CREATE_COMPLETE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "DELETE_FAILED", "DELETE_IN_PROGRESS"
 ]
+ConnectorFilterNameType = Literal["provider"]
 DeliveryStatusType = Literal["Failure", "Not_Applicable", "Success"]
 DescribeAggregateComplianceByConfigRulesPaginatorName = Literal[
     "describe_aggregate_compliance_by_config_rules"
@@ -173,6 +178,7 @@ GetOrganizationConformancePackDetailedStatusPaginatorName = Literal[
 GetResourceConfigHistoryPaginatorName = Literal["get_resource_config_history"]
 ListAggregateDiscoveredResourcesPaginatorName = Literal["list_aggregate_discovered_resources"]
 ListConfigurationRecordersPaginatorName = Literal["list_configuration_recorders"]
+ListConnectorsPaginatorName = Literal["list_connectors"]
 ListDiscoveredResourcesPaginatorName = Literal["list_discovered_resources"]
 ListResourceEvaluationsPaginatorName = Literal["list_resource_evaluations"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
@@ -238,6 +244,7 @@ OrganizationRuleStatusType = Literal[
     "UPDATE_SUCCESSFUL",
 ]
 OwnerType = Literal["AWS", "CUSTOM_LAMBDA", "CUSTOM_POLICY"]
+ProviderType = Literal["AZURE"]
 RecorderStatusType = Literal["Failure", "NotApplicable", "Pending", "Success"]
 RecordingFrequencyType = Literal["CONTINUOUS", "DAILY"]
 RecordingScopeType = Literal["INTERNAL", "PAID"]
@@ -788,6 +795,7 @@ ResourceTypeType = Literal[
     "AWS::XRay::EncryptionConfig",
 ]
 ResourceValueTypeType = Literal["RESOURCE_ID"]
+RuleEvaluationVisibilityType = Literal["EXTERNAL", "INTERNAL"]
 SelectAggregateResourceConfigPaginatorName = Literal["select_aggregate_resource_config"]
 SelectResourceConfigPaginatorName = Literal["select_resource_config"]
 SortByType = Literal["SCORE"]
@@ -986,8 +994,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1014,6 +1020,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -1081,10 +1089,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1117,6 +1125,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -1144,6 +1153,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -1165,7 +1175,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -1186,6 +1195,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -1250,6 +1260,7 @@ PaginatorName = Literal[
     "get_resource_config_history",
     "list_aggregate_discovered_resources",
     "list_configuration_recorders",
+    "list_connectors",
     "list_discovered_resources",
     "list_resource_evaluations",
     "list_tags_for_resource",

@@ -38,6 +38,7 @@ from .literals import (
     OfferStateStringType,
     OfferTargetingStringType,
     OwnershipTypeType,
+    ResaleAuthorizationResellerRoleStringType,
     ResaleAuthorizationSortByType,
     ResaleAuthorizationStatusStringType,
     SaaSProductSortByType,
@@ -162,6 +163,7 @@ __all__ = (
     "ResaleAuthorizationProductNameFilterTypeDef",
     "ResaleAuthorizationResellerAccountIDFilterTypeDef",
     "ResaleAuthorizationResellerLegalNameFilterTypeDef",
+    "ResaleAuthorizationResellerRoleFilterTypeDef",
     "ResaleAuthorizationSortTypeDef",
     "ResaleAuthorizationStatusFilterTypeDef",
     "ResaleAuthorizationSummaryTypeDef",
@@ -379,6 +381,7 @@ class ResaleAuthorizationSummaryTypeDef(TypedDict):
     OfferExtendedStatus: NotRequired[str]
     CreatedDate: NotRequired[str]
     AvailabilityEndDate: NotRequired[str]
+    ResellerRole: NotRequired[ResaleAuthorizationResellerRoleStringType]
 
 
 class SaaSProductSummaryTypeDef(TypedDict):
@@ -587,6 +590,10 @@ class ResaleAuthorizationResellerAccountIDFilterTypeDef(TypedDict):
 class ResaleAuthorizationResellerLegalNameFilterTypeDef(TypedDict):
     ValueList: NotRequired[Sequence[str]]
     WildCardValue: NotRequired[str]
+
+
+class ResaleAuthorizationResellerRoleFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[ResaleAuthorizationResellerRoleStringType]]
 
 
 class ResaleAuthorizationStatusFilterTypeDef(TypedDict):
@@ -885,6 +892,7 @@ class ResaleAuthorizationFiltersTypeDef(TypedDict):
     Status: NotRequired[ResaleAuthorizationStatusFilterTypeDef]
     OfferExtendedStatus: NotRequired[ResaleAuthorizationOfferExtendedStatusFilterTypeDef]
     LastModifiedDate: NotRequired[ResaleAuthorizationLastModifiedDateFilterTypeDef]
+    ResellerRole: NotRequired[ResaleAuthorizationResellerRoleFilterTypeDef]
 
 
 class SaaSProductFiltersTypeDef(TypedDict):

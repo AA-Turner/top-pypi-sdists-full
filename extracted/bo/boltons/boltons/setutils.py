@@ -158,6 +158,8 @@ class IndexedSet(MutableSet):
     def _get_real_index(self, index):
         if index < 0:
             index += len(self)
+        if index < 0 or index >= len(self):
+            raise IndexError('IndexedSet index out of range')
         if not self.dead_indices:
             return index
         real_index = index
@@ -392,10 +394,16 @@ class IndexedSet(MutableSet):
     def iter_slice(self, start, stop, step=None):
         "iterate over a slice of the set"
         iterable = self
-        if start is not None:
-            start = self._get_real_index(start)
-        if stop is not None:
-            stop = self._get_real_index(stop)
+        # start/stop are apparent (dead-slot-free) indices, the same space
+        # islice consumes; mapping them through _get_real_index() (item_list
+        # space) over-counted by the dead slots before each bound. Only
+        # negatives need normalizing, as islice rejects them.
+        # NB: a negative step slices the reversed stream with forward bounds
+        # (x[2:4:-1] == reversed(x)[2:4]), behavior since 2013.
+        if start is not None and start < 0:
+            start = max(len(self) + start, 0)
+        if stop is not None and stop < 0:
+            stop = max(len(self) + stop, 0)
         if step is not None and step < 0:
             step = -step
             iterable = reversed(self)
@@ -410,14 +418,8 @@ class IndexedSet(MutableSet):
         else:
             iter_slice = self.iter_slice(start, stop, step)
             return self.from_iterable(iter_slice)
-        if index < 0:
-            index += len(self)
         real_index = self._get_real_index(index)
-        try:
-            ret = self.item_list[real_index]
-        except IndexError:
-            raise IndexError('IndexedSet index out of range')
-        return ret
+        return self.item_list[real_index]
 
     def pop(self, index=None):
         "pop(index) -> remove the item at a given index (-1 by default)"

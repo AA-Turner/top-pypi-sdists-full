@@ -142,8 +142,18 @@ class AArch64Backend(ArchBackend):
             return cursor
         if skipped_nop and cursor % 16 == 0:
             word = cls._wordAt(d, cursor)
-            if word not in (None, 0, NOP):
-                return cursor
+            if word in (None, 0, NOP):
+                return None
+            # MSVC ARM64 nop-aligns loop heads MID-function, so on PE images an
+            # aligned word after call-fallthrough padding is only a boundary when
+            # it actually looks like a function entry (real starts are seeded by
+            # .pdata/candidates anyway). clang/Go pad between functions and emit
+            # prologue-less entries, so other formats keep the plain alignment cut.
+            if d.disassembly.binary_info._getLiefType() == "PE" and not (
+                is_function_prologue(word) or is_bti_landing_pad(word)
+            ):
+                return None
+            return cursor
         return None
 
     def _analyzeCondBranch(self, d, instruction, state):
@@ -154,8 +164,11 @@ class AArch64Backend(ArchBackend):
         target = self._branchTarget(i_op_str)
         d.tailcall_analyzer.addJump(i_address, target if target is not None else 0)
         if target is not None:
-            if target in d.disassembly.functions:
-                # taken edge into an already-recovered function: a conditional tailcall edge
+            if target in d.disassembly.functions or self._isExceptionRecordStart(d, target):
+                # taken edge into an already-recovered function, or into a start named
+                # by the image's exception records (PE .pdata — authoritative
+                # boundaries): a conditional tailcall edge, leave the target for its
+                # own analysis instead of absorbing it.
                 state.setSanelyEnding(True)
             else:
                 # AArch64 conditional branches are ordinary intra-function CFG edges.
@@ -164,6 +177,18 @@ class AArch64Backend(ArchBackend):
                 state.addBlockToQueue(target)
             state.addCodeRef(i_address, target, by_jump=True)
         state.setBlockEndingInstruction(True)
+
+    @classmethod
+    def _isExceptionRecordStart(cls, d, addr):
+        # An exception-record-seeded candidate (PE .pdata) is only treated as an
+        # authoritative boundary when it also opens like a function entry: exception
+        # records name funclets and function fragments too, and those continue the
+        # enclosing function (their record start is a mid-body word, not a prologue).
+        candidate = d.fc_manager.candidates.get(addr)
+        if candidate is None or not candidate.is_exception_handler:
+            return False
+        word = cls._wordAt(d, addr)
+        return word is not None and (is_function_prologue(word) or is_bti_landing_pad(word))
 
     @staticmethod
     def _isBackwardTailcallTarget(target, state):

@@ -12,6 +12,7 @@ Usage::
 
     from types_aiobotocore_billing.client import BillingClient
     from types_aiobotocore_billing.paginator import (
+        GetCreditAllocationHistoryPaginator,
         ListBillingViewsPaginator,
         ListSourceViewsForBillingViewPaginator,
     )
@@ -20,6 +21,7 @@ Usage::
     with session.create_client("billing") as client:
         client: BillingClient
 
+        get_credit_allocation_history_paginator: GetCreditAllocationHistoryPaginator = client.get_paginator("get_credit_allocation_history")
         list_billing_views_paginator: ListBillingViewsPaginator = client.get_paginator("list_billing_views")
         list_source_views_for_billing_view_paginator: ListSourceViewsForBillingViewPaginator = client.get_paginator("list_source_views_for_billing_view")
     ```
@@ -33,6 +35,8 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    GetCreditAllocationHistoryRequestPaginateTypeDef,
+    GetCreditAllocationHistoryResponseTypeDef,
     ListBillingViewsRequestPaginateTypeDef,
     ListBillingViewsResponseTypeDef,
     ListSourceViewsForBillingViewRequestPaginateTypeDef,
@@ -44,7 +48,31 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("ListBillingViewsPaginator", "ListSourceViewsForBillingViewPaginator")
+__all__ = (
+    "GetCreditAllocationHistoryPaginator",
+    "ListBillingViewsPaginator",
+    "ListSourceViewsForBillingViewPaginator",
+)
+
+if TYPE_CHECKING:
+    _GetCreditAllocationHistoryPaginatorBase = AioPaginator[
+        GetCreditAllocationHistoryResponseTypeDef
+    ]
+else:
+    _GetCreditAllocationHistoryPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class GetCreditAllocationHistoryPaginator(_GetCreditAllocationHistoryPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/GetCreditAllocationHistory.html#Billing.Paginator.GetCreditAllocationHistory)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/paginators/#getcreditallocationhistorypaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetCreditAllocationHistoryRequestPaginateTypeDef]
+    ) -> AioPageIterator[GetCreditAllocationHistoryResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/GetCreditAllocationHistory.html#Billing.Paginator.GetCreditAllocationHistory.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/paginators/#getcreditallocationhistorypaginator)
+        """
 
 if TYPE_CHECKING:
     _ListBillingViewsPaginatorBase = AioPaginator[ListBillingViewsResponseTypeDef]

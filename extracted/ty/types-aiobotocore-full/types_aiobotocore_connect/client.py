@@ -162,6 +162,10 @@ from .type_defs import (
     CompleteAttachedFileUploadRequestTypeDef,
     CreateAgentStatusRequestTypeDef,
     CreateAgentStatusResponseTypeDef,
+    CreateAttachedFileRequestTypeDef,
+    CreateAttachedFileResponseTypeDef,
+    CreateAuthCodeRequestTypeDef,
+    CreateAuthCodeResponseTypeDef,
     CreateContactFlowModuleAliasRequestTypeDef,
     CreateContactFlowModuleAliasResponseTypeDef,
     CreateContactFlowModuleRequestTypeDef,
@@ -235,6 +239,7 @@ from .type_defs import (
     DeactivateEvaluationFormRequestTypeDef,
     DeactivateEvaluationFormResponseTypeDef,
     DeleteAttachedFileRequestTypeDef,
+    DeleteContactDataRequestTypeDef,
     DeleteContactEvaluationRequestTypeDef,
     DeleteContactFlowModuleAliasRequestTypeDef,
     DeleteContactFlowModuleRequestTypeDef,
@@ -259,6 +264,7 @@ from .type_defs import (
     DeleteRoutingProfileRequestTypeDef,
     DeleteRuleRequestTypeDef,
     DeleteSecurityProfileRequestTypeDef,
+    DeleteSessionRequestTypeDef,
     DeleteTaskTemplateRequestTypeDef,
     DeleteTestCaseRequestTypeDef,
     DeleteTrafficDistributionGroupRequestTypeDef,
@@ -375,6 +381,8 @@ from .type_defs import (
     GetCurrentUserDataResponseTypeDef,
     GetEffectiveHoursOfOperationsRequestTypeDef,
     GetEffectiveHoursOfOperationsResponseTypeDef,
+    GetEvaluationFormValidationRequestTypeDef,
+    GetEvaluationFormValidationResponseTypeDef,
     GetFederationTokenRequestTypeDef,
     GetFederationTokenResponseTypeDef,
     GetFlowAssociationRequestTypeDef,
@@ -596,10 +604,13 @@ from .type_defs import (
     SendChatIntegrationEventRequestTypeDef,
     SendChatIntegrationEventResponseTypeDef,
     SendOutboundEmailRequestTypeDef,
+    SendOutboundWebNotificationRequestTypeDef,
     StartAttachedFileUploadRequestTypeDef,
     StartAttachedFileUploadResponseTypeDef,
     StartChatContactRequestTypeDef,
     StartChatContactResponseTypeDef,
+    StartContactConversationalAnalyticsJobRequestTypeDef,
+    StartContactConversationalAnalyticsJobResponseTypeDef,
     StartContactEvaluationRequestTypeDef,
     StartContactEvaluationResponseTypeDef,
     StartContactMediaProcessingRequestTypeDef,
@@ -608,6 +619,8 @@ from .type_defs import (
     StartContactStreamingResponseTypeDef,
     StartEmailContactRequestTypeDef,
     StartEmailContactResponseTypeDef,
+    StartEvaluationFormValidationRequestTypeDef,
+    StartEvaluationFormValidationResponseTypeDef,
     StartOutboundChatContactRequestTypeDef,
     StartOutboundChatContactResponseTypeDef,
     StartOutboundEmailContactRequestTypeDef,
@@ -728,6 +741,7 @@ class Exceptions(BaseClientExceptions):
     ConflictException: type[BotocoreClientError]
     ContactFlowNotPublishedException: type[BotocoreClientError]
     ContactNotFoundException: type[BotocoreClientError]
+    ContactNotTerminatedException: type[BotocoreClientError]
     DestinationNotAllowedException: type[BotocoreClientError]
     DuplicateResourceException: type[BotocoreClientError]
     IdempotencyException: type[BotocoreClientError]
@@ -792,7 +806,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ActivateEvaluationFormRequestTypeDef]
     ) -> ActivateEvaluationFormResponseTypeDef:
         """
-        Activates an evaluation form in the specified Amazon Connect instance.
+        Activates an evaluation form in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/activate_evaluation_form.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#activate_evaluation_form)
@@ -802,8 +816,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[AssociateAnalyticsDataSetRequestTypeDef]
     ) -> AssociateAnalyticsDataSetResponseTypeDef:
         """
-        Associates the specified dataset for a Amazon Connect instance with the target
-        account.
+        Associates the specified dataset for a Connect Customer instance with the
+        target account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_analytics_data_set.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_analytics_data_set)
@@ -813,7 +827,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[AssociateApprovedOriginRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_approved_origin.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_approved_origin)
@@ -823,7 +837,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[AssociateBotRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_bot.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_bot)
@@ -853,8 +867,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[AssociateEmailAddressAliasRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Associates an email address alias with an existing email address in an Amazon
-        Connect instance.
+        Associates an email address alias with an existing email address in an Connect
+        Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_email_address_alias.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_email_address_alias)
@@ -882,7 +896,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[AssociateInstanceStorageConfigRequestTypeDef]
     ) -> AssociateInstanceStorageConfigResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_instance_storage_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_instance_storage_config)
@@ -892,7 +906,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[AssociateLambdaFunctionRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_lambda_function.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_lambda_function)
@@ -902,7 +916,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[AssociateLexBotRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_lex_bot.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_lex_bot)
@@ -912,7 +926,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[AssociatePhoneNumberContactFlowRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Associates a flow with a phone number claimed to your Amazon Connect instance.
+        Associates a flow with a phone number claimed to your Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_phone_number_contact_flow.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_phone_number_contact_flow)
@@ -954,7 +968,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[AssociateSecurityKeyRequestTypeDef]
     ) -> AssociateSecurityKeyResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_security_key.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_security_key)
@@ -1005,8 +1019,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[BatchAssociateAnalyticsDataSetRequestTypeDef]
     ) -> BatchAssociateAnalyticsDataSetResponseTypeDef:
         """
-        Associates a list of analytics datasets for a given Amazon Connect instance to
-        a target account.
+        Associates a list of analytics datasets for a given Connect Customer instance
+        to a target account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_associate_analytics_data_set.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#batch_associate_analytics_data_set)
@@ -1046,7 +1060,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[BatchDisassociateAnalyticsDataSetRequestTypeDef]
     ) -> BatchDisassociateAnalyticsDataSetResponseTypeDef:
         """
-        Removes a list of analytics datasets associated with a given Amazon Connect
+        Removes a list of analytics datasets associated with a given Connect Customer
         instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_disassociate_analytics_data_set.html)
@@ -1078,7 +1092,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[BatchPutContactRequestTypeDef]
     ) -> BatchPutContactResponseTypeDef:
         """
-        Only the Amazon Connect outbound campaigns service principal is allowed to
+        Only the Connect Customer outbound campaigns service principal is allowed to
         assume a role in your account and call this API.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_put_contact.html)
@@ -1100,7 +1114,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ClaimPhoneNumberRequestTypeDef]
     ) -> ClaimPhoneNumberResponseTypeDef:
         """
-        Claims an available phone number to your Amazon Connect instance or traffic
+        Claims an available phone number to your Connect Customer instance or traffic
         distribution group.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/claim_phone_number.html)
@@ -1122,10 +1136,31 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateAgentStatusRequestTypeDef]
     ) -> CreateAgentStatusResponseTypeDef:
         """
-        Creates an agent status for the specified Amazon Connect instance.
+        Creates an agent status for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_agent_status.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_agent_status)
+        """
+
+    async def create_attached_file(
+        self, **kwargs: Unpack[CreateAttachedFileRequestTypeDef]
+    ) -> CreateAttachedFileResponseTypeDef:
+        """
+        Creates an attached file for a completed voice contact by copying a recording
+        from a source S3 URI into Connect Customer managed storage.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_attached_file.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_attached_file)
+        """
+
+    async def create_auth_code(
+        self, **kwargs: Unpack[CreateAuthCodeRequestTypeDef]
+    ) -> CreateAuthCodeResponseTypeDef:
+        """
+        Creates an authorization code for the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_auth_code.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_auth_code)
         """
 
     async def create_contact(
@@ -1142,7 +1177,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateContactFlowRequestTypeDef]
     ) -> CreateContactFlowResponseTypeDef:
         """
-        Creates a flow for the specified Amazon Connect instance.
+        Creates a flow for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_contact_flow.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_contact_flow)
@@ -1152,7 +1187,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateContactFlowModuleRequestTypeDef]
     ) -> CreateContactFlowModuleResponseTypeDef:
         """
-        Creates a flow module for the specified Amazon Connect instance.
+        Creates a flow module for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_contact_flow_module.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_contact_flow_module)
@@ -1215,7 +1250,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateEmailAddressRequestTypeDef]
     ) -> CreateEmailAddressResponseTypeDef:
         """
-        Create new email address in the specified Amazon Connect instance.
+        Create new email address in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_email_address.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_email_address)
@@ -1225,7 +1260,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateEvaluationFormRequestTypeDef]
     ) -> CreateEvaluationFormResponseTypeDef:
         """
-        Creates an evaluation form in the specified Amazon Connect instance.
+        Creates an evaluation form in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_evaluation_form.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_evaluation_form)
@@ -1245,8 +1280,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateHoursOfOperationOverrideRequestTypeDef]
     ) -> CreateHoursOfOperationOverrideResponseTypeDef:
         """
-        Creates an hours of operation override in an Amazon Connect hours of operation
-        resource.
+        Creates an hours of operation override in an Connect Customer hours of
+        operation resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_hours_of_operation_override.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_hours_of_operation_override)
@@ -1256,7 +1291,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateInstanceRequestTypeDef]
     ) -> CreateInstanceResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_instance.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_instance)
@@ -1266,7 +1301,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateIntegrationAssociationRequestTypeDef]
     ) -> CreateIntegrationAssociationResponseTypeDef:
         """
-        Creates an Amazon Web Services resource association with an Amazon Connect
+        Creates an Amazon Web Services resource association with an Connect Customer
         instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_integration_association.html)
@@ -1307,7 +1342,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreatePredefinedAttributeRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Creates a new predefined attribute for the specified Amazon Connect instance.
+        Creates a new predefined attribute for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_predefined_attribute.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_predefined_attribute)
@@ -1338,7 +1373,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateQueueRequestTypeDef]
     ) -> CreateQueueResponseTypeDef:
         """
-        Creates a new queue for the specified Amazon Connect instance.
+        Creates a new queue for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_queue.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_queue)
@@ -1348,7 +1383,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateQuickConnectRequestTypeDef]
     ) -> CreateQuickConnectResponseTypeDef:
         """
-        Creates a quick connect for the specified Amazon Connect instance.
+        Creates a quick connect for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_quick_connect.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_quick_connect)
@@ -1368,7 +1403,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateRuleRequestTypeDef]
     ) -> CreateRuleResponseTypeDef:
         """
-        Creates a rule for the specified Amazon Connect instance.
+        Creates a rule for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_rule.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_rule)
@@ -1388,7 +1423,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateTaskTemplateRequestTypeDef]
     ) -> CreateTaskTemplateResponseTypeDef:
         """
-        Creates a new task template in the specified Amazon Connect instance.
+        Creates a new task template in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_task_template.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_task_template)
@@ -1409,8 +1444,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateTrafficDistributionGroupRequestTypeDef]
     ) -> CreateTrafficDistributionGroupResponseTypeDef:
         """
-        Creates a traffic distribution group given an Amazon Connect instance that has
-        been replicated.
+        Creates a traffic distribution group given an Connect Customer instance that
+        has been replicated.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_traffic_distribution_group.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_traffic_distribution_group)
@@ -1430,7 +1465,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateUserRequestTypeDef]
     ) -> CreateUserResponseTypeDef:
         """
-        Creates a user account for the specified Amazon Connect instance.
+        Creates a user account for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_user.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_user)
@@ -1471,7 +1506,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[CreateVocabularyRequestTypeDef]
     ) -> CreateVocabularyResponseTypeDef:
         """
-        Creates a custom vocabulary associated with your Amazon Connect instance.
+        Creates a custom vocabulary associated with your Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_vocabulary.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_vocabulary)
@@ -1502,7 +1537,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DeactivateEvaluationFormRequestTypeDef]
     ) -> DeactivateEvaluationFormResponseTypeDef:
         """
-        Deactivates an evaluation form in the specified Amazon Connect instance.
+        Deactivates an evaluation form in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/deactivate_evaluation_form.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#deactivate_evaluation_form)
@@ -1518,11 +1553,22 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_attached_file)
         """
 
+    async def delete_contact_data(
+        self, **kwargs: Unpack[DeleteContactDataRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the specified fields containing personally identifiable information
+        (PII) from a contact in the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_contact_data.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_contact_data)
+        """
+
     async def delete_contact_evaluation(
         self, **kwargs: Unpack[DeleteContactEvaluationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes a contact evaluation in the specified Amazon Connect instance.
+        Deletes a contact evaluation in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_contact_evaluation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_contact_evaluation)
@@ -1532,7 +1578,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteContactFlowRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Deletes a flow for the specified Amazon Connect instance.
+        Deletes a flow for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_contact_flow.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_contact_flow)
@@ -1604,7 +1650,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteEmailAddressRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Deletes email address from the specified Amazon Connect instance.
+        Deletes email address from the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_email_address.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_email_address)
@@ -1614,7 +1660,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteEvaluationFormRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes an evaluation form in the specified Amazon Connect instance.
+        Deletes an evaluation form in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_evaluation_form.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_evaluation_form)
@@ -1634,8 +1680,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteHoursOfOperationOverrideRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes an hours of operation override in an Amazon Connect hours of operation
-        resource.
+        Deletes an hours of operation override in an Connect Customer hours of
+        operation resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_hours_of_operation_override.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_hours_of_operation_override)
@@ -1645,7 +1691,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteInstanceRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_instance.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_instance)
@@ -1655,7 +1701,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteIntegrationAssociationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes an Amazon Web Services resource association from an Amazon Connect
+        Deletes an Amazon Web Services resource association from an Connect Customer
         instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_integration_association.html)
@@ -1676,7 +1722,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DeletePredefinedAttributeRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes a predefined attribute from the specified Amazon Connect instance.
+        Deletes a predefined attribute from the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_predefined_attribute.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_predefined_attribute)
@@ -1736,7 +1782,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteRuleRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes a rule for the specified Amazon Connect instance.
+        Deletes a rule for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_rule.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_rule)
@@ -1750,6 +1796,14 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_security_profile.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_security_profile)
+        """
+
+    async def delete_session(self, **kwargs: Unpack[DeleteSessionRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a session for the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_session.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_session)
         """
 
     async def delete_task_template(
@@ -1797,7 +1851,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteUserRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes a user account from the specified Amazon Connect instance.
+        Deletes a user account from the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_user.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_user)
@@ -1885,7 +1939,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeAttachedFilesConfigurationRequestTypeDef]
     ) -> DescribeAttachedFilesConfigurationResponseTypeDef:
         """
-        Describes the attached files configuration for the specified Amazon Connect
+        Describes the attached files configuration for the specified Connect Customer
         instance and attachment scope.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_attached_files_configuration.html)
@@ -1896,7 +1950,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeAuthenticationProfileRequestTypeDef]
     ) -> DescribeAuthenticationProfileResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_authentication_profile.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_authentication_profile)
@@ -1906,7 +1960,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeContactRequestTypeDef]
     ) -> DescribeContactResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_contact.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_contact)
@@ -1916,7 +1970,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeContactEvaluationRequestTypeDef]
     ) -> DescribeContactEvaluationResponseTypeDef:
         """
-        Describes a contact evaluation in the specified Amazon Connect instance.
+        Describes a contact evaluation in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_contact_evaluation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_contact_evaluation)
@@ -1978,7 +2032,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeEmailAddressRequestTypeDef]
     ) -> DescribeEmailAddressResponseTypeDef:
         """
-        Describe email address form the specified Amazon Connect instance.
+        Describe email address form the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_email_address.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_email_address)
@@ -1988,7 +2042,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeEvaluationFormRequestTypeDef]
     ) -> DescribeEvaluationFormResponseTypeDef:
         """
-        Describes an evaluation form in the specified Amazon Connect instance.
+        Describes an evaluation form in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_evaluation_form.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_evaluation_form)
@@ -2018,7 +2072,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeInstanceRequestTypeDef]
     ) -> DescribeInstanceResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_instance.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_instance)
@@ -2028,7 +2082,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeInstanceAttributeRequestTypeDef]
     ) -> DescribeInstanceAttributeResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_instance_attribute.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_instance_attribute)
@@ -2038,7 +2092,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeInstanceStorageConfigRequestTypeDef]
     ) -> DescribeInstanceStorageConfigResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_instance_storage_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_instance_storage_config)
@@ -2059,8 +2113,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribePhoneNumberRequestTypeDef]
     ) -> DescribePhoneNumberResponseTypeDef:
         """
-        Gets details and status of a phone number that's claimed to your Amazon Connect
-        instance or traffic distribution group.
+        Gets details and status of a phone number that's claimed to your Connect
+        Customer instance or traffic distribution group.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_phone_number.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_phone_number)
@@ -2070,7 +2124,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribePredefinedAttributeRequestTypeDef]
     ) -> DescribePredefinedAttributeResponseTypeDef:
         """
-        Describes a predefined attribute for the specified Amazon Connect instance.
+        Describes a predefined attribute for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_predefined_attribute.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_predefined_attribute)
@@ -2120,7 +2174,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeRuleRequestTypeDef]
     ) -> DescribeRuleResponseTypeDef:
         """
-        Describes a rule for the specified Amazon Connect instance.
+        Describes a rule for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_rule.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_rule)
@@ -2181,7 +2235,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeUserHierarchyStructureRequestTypeDef]
     ) -> DescribeUserHierarchyStructureResponseTypeDef:
         """
-        Describes the hierarchy structure of the specified Amazon Connect instance.
+        Describes the hierarchy structure of the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_user_hierarchy_structure.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_user_hierarchy_structure)
@@ -2191,7 +2245,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeViewRequestTypeDef]
     ) -> DescribeViewResponseTypeDef:
         """
-        Retrieves the view for the specified Amazon Connect instance and view
+        Retrieves the view for the specified Connect Customer instance and view
         identifier.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_view.html)
@@ -2222,7 +2276,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DisassociateAnalyticsDataSetRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Removes the dataset ID associated with a given Amazon Connect instance.
+        Removes the dataset ID associated with a given Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_analytics_data_set.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_analytics_data_set)
@@ -2232,7 +2286,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DisassociateApprovedOriginRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_approved_origin.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_approved_origin)
@@ -2242,7 +2296,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DisassociateBotRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_bot.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_bot)
@@ -2252,8 +2306,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DisassociateEmailAddressAliasRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Removes the alias association between two email addresses in an Amazon Connect
-        instance.
+        Removes the alias association between two email addresses in an Connect
+        Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_email_address_alias.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_email_address_alias)
@@ -2283,7 +2337,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DisassociateInstanceStorageConfigRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_instance_storage_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_instance_storage_config)
@@ -2293,7 +2347,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DisassociateLambdaFunctionRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_lambda_function.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_lambda_function)
@@ -2303,7 +2357,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DisassociateLexBotRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_lex_bot.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_lex_bot)
@@ -2313,8 +2367,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DisassociatePhoneNumberContactFlowRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Removes the flow association from a phone number claimed to your Amazon Connect
-        instance.
+        Removes the flow association from a phone number claimed to your Connect
+        Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_phone_number_contact_flow.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_phone_number_contact_flow)
@@ -2354,7 +2408,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[DisassociateSecurityKeyRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_security_key.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_security_key)
@@ -2457,7 +2511,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[GetCurrentMetricDataRequestTypeDef]
     ) -> GetCurrentMetricDataResponseTypeDef:
         """
-        Gets the real-time metric data from the specified Amazon Connect instance.
+        Gets the real-time metric data from the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_current_metric_data.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_current_metric_data)
@@ -2467,7 +2521,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[GetCurrentUserDataRequestTypeDef]
     ) -> GetCurrentUserDataResponseTypeDef:
         """
-        Gets the real-time active user data from the specified Amazon Connect instance.
+        Gets the real-time active user data from the specified Connect Customer
+        instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_current_user_data.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_current_user_data)
@@ -2483,11 +2538,22 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_effective_hours_of_operations)
         """
 
+    async def get_evaluation_form_validation(
+        self, **kwargs: Unpack[GetEvaluationFormValidationRequestTypeDef]
+    ) -> GetEvaluationFormValidationResponseTypeDef:
+        """
+        Retrieves the status and results of a validation process started by <a
+        href="https://docs.aws.amazon.com/connect/latest/APIReference/API_StartEvaluationFormValidation.html">StartEvaluationFormValidation</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_evaluation_form_validation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_evaluation_form_validation)
+        """
+
     async def get_federation_token(
         self, **kwargs: Unpack[GetFederationTokenRequestTypeDef]
     ) -> GetFederationTokenResponseTypeDef:
         """
-        Supports SAML sign-in for Amazon Connect.
+        Supports SAML sign-in for Connect Customer.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_federation_token.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_federation_token)
@@ -2507,7 +2573,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[GetMetricDataRequestTypeDef]
     ) -> GetMetricDataResponseTypeDef:
         """
-        Gets historical metric data from the specified Amazon Connect instance.
+        Gets historical metric data from the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_metric_data.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_metric_data)
@@ -2517,7 +2583,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[GetMetricDataV2RequestTypeDef]
     ) -> GetMetricDataV2ResponseTypeDef:
         """
-        Gets metric data from the specified Amazon Connect instance.
+        Gets metric data from the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_metric_data_v2.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_metric_data_v2)
@@ -2537,7 +2603,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[GetTaskTemplateRequestTypeDef]
     ) -> GetTaskTemplateResponseTypeDef:
         """
-        Gets details about a specific task template in the specified Amazon Connect
+        Gets details about a specific task template in the specified Connect Customer
         instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_task_template.html)
@@ -2571,7 +2637,7 @@ class ConnectClient(AioBaseClient):
     ) -> ImportPhoneNumberResponseTypeDef:
         """
         Imports a claimed phone number from an external service, such as Amazon Web
-        Services End User Messaging, into an Amazon Connect instance.
+        Services End User Messaging, into an Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/import_phone_number.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#import_phone_number)
@@ -2601,8 +2667,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListAnalyticsDataAssociationsRequestTypeDef]
     ) -> ListAnalyticsDataAssociationsResponseTypeDef:
         """
-        Lists the association status of requested dataset ID for a given Amazon Connect
-        instance.
+        Lists the association status of requested dataset ID for a given Connect
+        Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_analytics_data_associations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_analytics_data_associations)
@@ -2612,8 +2678,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListAnalyticsDataLakeDataSetsRequestTypeDef]
     ) -> ListAnalyticsDataLakeDataSetsResponseTypeDef:
         """
-        Lists the data lake datasets available to associate with for a given Amazon
-        Connect instance.
+        Lists the data lake datasets available to associate with for a given Connect
+        Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_analytics_data_lake_data_sets.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_analytics_data_lake_data_sets)
@@ -2623,7 +2689,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListApprovedOriginsRequestTypeDef]
     ) -> ListApprovedOriginsResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_approved_origins.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_approved_origins)
@@ -2645,7 +2711,7 @@ class ConnectClient(AioBaseClient):
     ) -> ListAttachedFilesConfigurationsResponseTypeDef:
         """
         Provides summary information about the attached files configurations for the
-        specified Amazon Connect instance.
+        specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_attached_files_configurations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_attached_files_configurations)
@@ -2655,7 +2721,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListAuthenticationProfilesRequestTypeDef]
     ) -> ListAuthenticationProfilesResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_authentication_profiles.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_authentication_profiles)
@@ -2663,7 +2729,7 @@ class ConnectClient(AioBaseClient):
 
     async def list_bots(self, **kwargs: Unpack[ListBotsRequestTypeDef]) -> ListBotsResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_bots.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_bots)
@@ -2684,7 +2750,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListContactEvaluationsRequestTypeDef]
     ) -> ListContactEvaluationsResponseTypeDef:
         """
-        Lists contact evaluations in the specified Amazon Connect instance.
+        Lists contact evaluations in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_evaluations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_contact_evaluations)
@@ -2715,7 +2781,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListContactFlowModulesRequestTypeDef]
     ) -> ListContactFlowModulesResponseTypeDef:
         """
-        Provides information about the flow modules for the specified Amazon Connect
+        Provides information about the flow modules for the specified Connect Customer
         instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_flow_modules.html)
@@ -2726,7 +2792,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListContactFlowVersionsRequestTypeDef]
     ) -> ListContactFlowVersionsResponseTypeDef:
         """
-        Returns all the available versions for the specified Amazon Connect instance
+        Returns all the available versions for the specified Connect Customer instance
         and flow identifier.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_flow_versions.html)
@@ -2737,7 +2803,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListContactFlowsRequestTypeDef]
     ) -> ListContactFlowsResponseTypeDef:
         """
-        Provides information about the flows for the specified Amazon Connect instance.
+        Provides information about the flows for the specified Connect Customer
+        instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_flows.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_contact_flows)
@@ -2747,7 +2814,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListContactReferencesRequestTypeDef]
     ) -> ListContactReferencesResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_references.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_contact_references)
@@ -2798,7 +2865,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListDefaultVocabulariesRequestTypeDef]
     ) -> ListDefaultVocabulariesResponseTypeDef:
         """
-        Lists the default vocabularies for the specified Amazon Connect instance.
+        Lists the default vocabularies for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_default_vocabularies.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_default_vocabularies)
@@ -2819,7 +2886,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListEvaluationFormVersionsRequestTypeDef]
     ) -> ListEvaluationFormVersionsResponseTypeDef:
         """
-        Lists versions of an evaluation form in the specified Amazon Connect instance.
+        Lists versions of an evaluation form in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_evaluation_form_versions.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_evaluation_form_versions)
@@ -2829,7 +2896,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListEvaluationFormsRequestTypeDef]
     ) -> ListEvaluationFormsResponseTypeDef:
         """
-        Lists evaluation forms in the specified Amazon Connect instance.
+        Lists evaluation forms in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_evaluation_forms.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_evaluation_forms)
@@ -2859,8 +2926,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListHoursOfOperationsRequestTypeDef]
     ) -> ListHoursOfOperationsResponseTypeDef:
         """
-        Provides information about the hours of operation for the specified Amazon
-        Connect instance.
+        Provides information about the hours of operation for the specified Connect
+        Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_hours_of_operations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_hours_of_operations)
@@ -2870,7 +2937,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListInstanceAttributesRequestTypeDef]
     ) -> ListInstanceAttributesResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_instance_attributes.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_instance_attributes)
@@ -2880,7 +2947,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListInstanceStorageConfigsRequestTypeDef]
     ) -> ListInstanceStorageConfigsResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_instance_storage_configs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_instance_storage_configs)
@@ -2890,7 +2957,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListInstancesRequestTypeDef]
     ) -> ListInstancesResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_instances.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_instances)
@@ -2901,7 +2968,7 @@ class ConnectClient(AioBaseClient):
     ) -> ListIntegrationAssociationsResponseTypeDef:
         """
         Provides summary information about the Amazon Web Services resource
-        associations for the specified Amazon Connect instance.
+        associations for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_integration_associations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_integration_associations)
@@ -2911,7 +2978,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListLambdaFunctionsRequestTypeDef]
     ) -> ListLambdaFunctionsResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_lambda_functions.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_lambda_functions)
@@ -2921,7 +2988,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListLexBotsRequestTypeDef]
     ) -> ListLexBotsResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_lex_bots.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_lex_bots)
@@ -2941,7 +3008,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListPhoneNumbersRequestTypeDef]
     ) -> ListPhoneNumbersResponseTypeDef:
         """
-        Provides information about the phone numbers for the specified Amazon Connect
+        Provides information about the phone numbers for the specified Connect Customer
         instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_phone_numbers.html)
@@ -2952,7 +3019,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListPhoneNumbersV2RequestTypeDef]
     ) -> ListPhoneNumbersV2ResponseTypeDef:
         """
-        Lists phone numbers claimed to your Amazon Connect instance or traffic
+        Lists phone numbers claimed to your Connect Customer instance or traffic
         distribution group.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_phone_numbers_v2.html)
@@ -2963,7 +3030,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListPredefinedAttributesRequestTypeDef]
     ) -> ListPredefinedAttributesResponseTypeDef:
         """
-        Lists predefined attributes for the specified Amazon Connect instance.
+        Lists predefined attributes for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_predefined_attributes.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_predefined_attributes)
@@ -2973,7 +3040,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListPromptsRequestTypeDef]
     ) -> ListPromptsResponseTypeDef:
         """
-        Provides information about the prompts for the specified Amazon Connect
+        Provides information about the prompts for the specified Connect Customer
         instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_prompts.html)
@@ -3006,7 +3073,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListQueuesRequestTypeDef]
     ) -> ListQueuesResponseTypeDef:
         """
-        Provides information about the queues for the specified Amazon Connect instance.
+        Provides information about the queues for the specified Connect Customer
+        instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_queues.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_queues)
@@ -3016,8 +3084,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListQuickConnectsRequestTypeDef]
     ) -> ListQuickConnectsResponseTypeDef:
         """
-        Provides information about the quick connects for the specified Amazon Connect
-        instance.
+        Provides information about the quick connects for the specified Connect
+        Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_quick_connects.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_quick_connects)
@@ -3058,7 +3126,7 @@ class ConnectClient(AioBaseClient):
     ) -> ListRoutingProfilesResponseTypeDef:
         """
         Provides summary information about the routing profiles for the specified
-        Amazon Connect instance.
+        Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_routing_profiles.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_routing_profiles)
@@ -3068,7 +3136,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListRulesRequestTypeDef]
     ) -> ListRulesResponseTypeDef:
         """
-        List all rules for the specified Amazon Connect instance.
+        List all rules for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_rules.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_rules)
@@ -3078,7 +3146,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListSecurityKeysRequestTypeDef]
     ) -> ListSecurityKeysResponseTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_security_keys.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_security_keys)
@@ -3120,7 +3188,7 @@ class ConnectClient(AioBaseClient):
     ) -> ListSecurityProfilesResponseTypeDef:
         """
         Provides summary information about the security profiles for the specified
-        Amazon Connect instance.
+        Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_security_profiles.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_security_profiles)
@@ -3140,7 +3208,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListTaskTemplatesRequestTypeDef]
     ) -> ListTaskTemplatesResponseTypeDef:
         """
-        Lists task templates for the specified Amazon Connect instance.
+        Lists task templates for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_task_templates.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_task_templates)
@@ -3215,7 +3283,7 @@ class ConnectClient(AioBaseClient):
     ) -> ListUserHierarchyGroupsResponseTypeDef:
         """
         Provides summary information about the hierarchy groups for the specified
-        Amazon Connect instance.
+        Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_user_hierarchy_groups.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_user_hierarchy_groups)
@@ -3246,7 +3314,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListUsersRequestTypeDef]
     ) -> ListUsersResponseTypeDef:
         """
-        Provides summary information about the users for the specified Amazon Connect
+        Provides summary information about the users for the specified Connect Customer
         instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_users.html)
@@ -3257,7 +3325,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListViewVersionsRequestTypeDef]
     ) -> ListViewVersionsResponseTypeDef:
         """
-        Returns all the available versions for the specified Amazon Connect instance
+        Returns all the available versions for the specified Connect Customer instance
         and view identifier.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_view_versions.html)
@@ -3327,7 +3395,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[PutUserStatusRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Changes the current status of a user or agent in Amazon Connect.
+        Changes the current status of a user or agent in Connect Customer.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/put_user_status.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#put_user_status)
@@ -3337,7 +3405,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ReleasePhoneNumberRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Releases a phone number previously claimed to an Amazon Connect instance or
+        Releases a phone number previously claimed to an Connect Customer instance or
         traffic distribution group.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/release_phone_number.html)
@@ -3348,9 +3416,9 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ReplicateInstanceRequestTypeDef]
     ) -> ReplicateInstanceResponseTypeDef:
         """
-        Replicates an Amazon Connect instance in the specified Amazon Web Services
-        Region and copies configuration information for Amazon Connect resources across
-        Amazon Web Services Regions.
+        Replicates an Connect Customer instance in the specified Amazon Web Services
+        Region and copies configuration information for Connect Customer resources
+        across Amazon Web Services Regions.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/replicate_instance.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#replicate_instance)
@@ -3380,7 +3448,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchAgentStatusesRequestTypeDef]
     ) -> SearchAgentStatusesResponseTypeDef:
         """
-        Searches AgentStatuses in an Amazon Connect instance, with optional filtering.
+        Searches AgentStatuses in an Connect Customer instance, with optional filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_agent_statuses.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_agent_statuses)
@@ -3390,8 +3458,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchAvailablePhoneNumbersRequestTypeDef]
     ) -> SearchAvailablePhoneNumbersResponseTypeDef:
         """
-        Searches for available phone numbers that you can claim to your Amazon Connect
-        instance or traffic distribution group.
+        Searches for available phone numbers that you can claim to your Connect
+        Customer instance or traffic distribution group.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_available_phone_numbers.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_available_phone_numbers)
@@ -3401,7 +3469,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchContactEvaluationsRequestTypeDef]
     ) -> SearchContactEvaluationsResponseTypeDef:
         """
-        Searches contact evaluations in an Amazon Connect instance, with optional
+        Searches contact evaluations in an Connect Customer instance, with optional
         filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_contact_evaluations.html)
@@ -3412,7 +3480,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchContactFlowModulesRequestTypeDef]
     ) -> SearchContactFlowModulesResponseTypeDef:
         """
-        Searches the flow modules in an Amazon Connect instance, with optional
+        Searches the flow modules in an Connect Customer instance, with optional
         filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_contact_flow_modules.html)
@@ -3423,7 +3491,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchContactFlowsRequestTypeDef]
     ) -> SearchContactFlowsResponseTypeDef:
         """
-        Searches the flows in an Amazon Connect instance, with optional filtering.
+        Searches the flows in an Connect Customer instance, with optional filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_contact_flows.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_contact_flows)
@@ -3433,7 +3501,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchContactsRequestTypeDef]
     ) -> SearchContactsResponseTypeDef:
         """
-        Searches contacts in an Amazon Connect instance.
+        Searches contacts in an Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_contacts.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_contacts)
@@ -3463,7 +3531,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchEvaluationFormsRequestTypeDef]
     ) -> SearchEvaluationFormsResponseTypeDef:
         """
-        Searches evaluation forms in an Amazon Connect instance, with optional
+        Searches evaluation forms in an Connect Customer instance, with optional
         filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_evaluation_forms.html)
@@ -3484,7 +3552,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchHoursOfOperationsRequestTypeDef]
     ) -> SearchHoursOfOperationsResponseTypeDef:
         """
-        Searches the hours of operation in an Amazon Connect instance, with optional
+        Searches the hours of operation in an Connect Customer instance, with optional
         filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_hours_of_operations.html)
@@ -3515,7 +3583,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchPromptsRequestTypeDef]
     ) -> SearchPromptsResponseTypeDef:
         """
-        Searches prompts in an Amazon Connect instance, with optional filtering.
+        Searches prompts in an Connect Customer instance, with optional filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_prompts.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_prompts)
@@ -3525,7 +3593,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchQueuesRequestTypeDef]
     ) -> SearchQueuesResponseTypeDef:
         """
-        Searches queues in an Amazon Connect instance, with optional filtering.
+        Searches queues in an Connect Customer instance, with optional filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_queues.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_queues)
@@ -3535,7 +3603,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchQuickConnectsRequestTypeDef]
     ) -> SearchQuickConnectsResponseTypeDef:
         """
-        Searches quick connects in an Amazon Connect instance, with optional filtering.
+        Searches quick connects in an Connect Customer instance, with optional
+        filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_quick_connects.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_quick_connects)
@@ -3545,7 +3614,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchResourceTagsRequestTypeDef]
     ) -> SearchResourceTagsResponseTypeDef:
         """
-        Searches tags used in an Amazon Connect instance using optional search criteria.
+        Searches tags used in an Connect Customer instance using optional search
+        criteria.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_resource_tags.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_resource_tags)
@@ -3555,7 +3625,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchRoutingProfilesRequestTypeDef]
     ) -> SearchRoutingProfilesResponseTypeDef:
         """
-        Searches routing profiles in an Amazon Connect instance, with optional
+        Searches routing profiles in an Connect Customer instance, with optional
         filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_routing_profiles.html)
@@ -3566,7 +3636,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchSecurityProfilesRequestTypeDef]
     ) -> SearchSecurityProfilesResponseTypeDef:
         """
-        Searches security profiles in an Amazon Connect instance, with optional
+        Searches security profiles in an Connect Customer instance, with optional
         filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_security_profiles.html)
@@ -3588,7 +3658,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchUserHierarchyGroupsRequestTypeDef]
     ) -> SearchUserHierarchyGroupsResponseTypeDef:
         """
-        Searches UserHierarchyGroups in an Amazon Connect instance, with optional
+        Searches UserHierarchyGroups in an Connect Customer instance, with optional
         filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_user_hierarchy_groups.html)
@@ -3599,7 +3669,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchUsersRequestTypeDef]
     ) -> SearchUsersResponseTypeDef:
         """
-        Searches users in an Amazon Connect instance, with optional filtering.
+        Searches users in an Connect Customer instance, with optional filtering.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_users.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_users)
@@ -3619,7 +3689,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SearchVocabulariesRequestTypeDef]
     ) -> SearchVocabulariesResponseTypeDef:
         """
-        Searches for vocabularies within a specific Amazon Connect instance using
+        Searches for vocabularies within a specific Connect Customer instance using
         <code>State</code>, <code>NameStartsWith</code>, and <code>LanguageCode</code>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_vocabularies.html)
@@ -3652,7 +3722,7 @@ class ConnectClient(AioBaseClient):
     ) -> SendChatIntegrationEventResponseTypeDef:
         """
         Processes chat integration events from Amazon Web Services or external
-        integrations to Amazon Connect.
+        integrations to Connect Customer.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/send_chat_integration_event.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#send_chat_integration_event)
@@ -3666,6 +3736,17 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/send_outbound_email.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#send_outbound_email)
+        """
+
+    async def send_outbound_web_notification(
+        self, **kwargs: Unpack[SendOutboundWebNotificationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Sends an outbound web notification to a customer's web browser for outbound
+        campaigns.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/send_outbound_web_notification.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#send_outbound_web_notification)
         """
 
     async def start_attached_file_upload(
@@ -3688,12 +3769,22 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#start_chat_contact)
         """
 
+    async def start_contact_conversational_analytics_job(
+        self, **kwargs: Unpack[StartContactConversationalAnalyticsJobRequestTypeDef]
+    ) -> StartContactConversationalAnalyticsJobResponseTypeDef:
+        """
+        Starts a Contact Lens post-call analytics job for the specified contact.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_contact_conversational_analytics_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#start_contact_conversational_analytics_job)
+        """
+
     async def start_contact_evaluation(
         self, **kwargs: Unpack[StartContactEvaluationRequestTypeDef]
     ) -> StartContactEvaluationResponseTypeDef:
         """
-        Starts an empty evaluation in the specified Amazon Connect instance, using the
-        given evaluation form for the particular contact.
+        Starts an empty evaluation in the specified Connect Customer instance, using
+        the given evaluation form for the particular contact.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_contact_evaluation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#start_contact_evaluation)
@@ -3738,6 +3829,17 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_email_contact.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#start_email_contact)
+        """
+
+    async def start_evaluation_form_validation(
+        self, **kwargs: Unpack[StartEvaluationFormValidationRequestTypeDef]
+    ) -> StartEvaluationFormValidationResponseTypeDef:
+        """
+        Starts an asynchronous validation process for an evaluation form version in the
+        specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_evaluation_form_validation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#start_evaluation_form_validation)
         """
 
     async def start_outbound_chat_contact(
@@ -3864,7 +3966,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[SubmitContactEvaluationRequestTypeDef]
     ) -> SubmitContactEvaluationResponseTypeDef:
         """
-        Submits a contact evaluation in the specified Amazon Connect instance.
+        Submits a contact evaluation in the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/submit_contact_evaluation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#submit_contact_evaluation)
@@ -3942,7 +4044,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateAttachedFilesConfigurationRequestTypeDef]
     ) -> UpdateAttachedFilesConfigurationResponseTypeDef:
         """
-        Updates the attached files configuration for the specified Amazon Connect
+        Updates the attached files configuration for the specified Connect Customer
         instance and attachment scope.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_attached_files_configuration.html)
@@ -3953,7 +4055,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateAuthenticationProfileRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_authentication_profile.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_authentication_profile)
@@ -3961,7 +4063,7 @@ class ConnectClient(AioBaseClient):
 
     async def update_contact(self, **kwargs: Unpack[UpdateContactRequestTypeDef]) -> dict[str, Any]:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_contact.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_contact)
@@ -3982,7 +4084,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateContactEvaluationRequestTypeDef]
     ) -> UpdateContactEvaluationResponseTypeDef:
         """
-        Updates details about a contact evaluation in the specified Amazon Connect
+        Updates details about a contact evaluation in the specified Connect Customer
         instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_contact_evaluation.html)
@@ -4024,7 +4126,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateContactFlowModuleContentRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Updates specified flow module for the specified Amazon Connect instance.
+        Updates specified flow module for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_contact_flow_module_content.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_contact_flow_module_content)
@@ -4117,7 +4219,7 @@ class ConnectClient(AioBaseClient):
     ) -> UpdateEvaluationFormResponseTypeDef:
         """
         Updates details about a specific evaluation form version in the specified
-        Amazon Connect instance.
+        Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_evaluation_form.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_evaluation_form)
@@ -4147,7 +4249,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateInstanceAttributeRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_instance_attribute.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_instance_attribute)
@@ -4157,7 +4259,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateInstanceStorageConfigRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This API is in preview release for Amazon Connect and is subject to change.
+        This API is in preview release for Connect Customer and is subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_instance_storage_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_instance_storage_config)
@@ -4177,7 +4279,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateParticipantAuthenticationRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Instructs Amazon Connect to resume the authentication process.
+        Instructs Connect Customer to resume the authentication process.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_participant_authentication.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_participant_authentication)
@@ -4198,8 +4300,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdatePhoneNumberRequestTypeDef]
     ) -> UpdatePhoneNumberResponseTypeDef:
         """
-        Updates your claimed phone number from its current Amazon Connect instance or
-        traffic distribution group to another Amazon Connect instance or traffic
+        Updates your claimed phone number from its current Connect Customer instance or
+        traffic distribution group to another Connect Customer instance or traffic
         distribution group in the same Amazon Web Services Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_phone_number.html)
@@ -4220,7 +4322,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdatePredefinedAttributeRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Updates a predefined attribute for the specified Amazon Connect instance.
+        Updates a predefined attribute for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_predefined_attribute.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_predefined_attribute)
@@ -4375,7 +4477,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateRuleRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Updates a rule for the specified Amazon Connect instance.
+        Updates a rule for the specified Connect Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_rule.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_rule)
@@ -4395,8 +4497,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateTaskTemplateRequestTypeDef]
     ) -> UpdateTaskTemplateResponseTypeDef:
         """
-        Updates details about a specific task template in the specified Amazon Connect
-        instance.
+        Updates details about a specific task template in the specified Connect
+        Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_task_template.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_task_template)
@@ -4530,8 +4632,8 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateViewContentRequestTypeDef]
     ) -> UpdateViewContentResponseTypeDef:
         """
-        Updates the view content of the given view identifier in the specified Amazon
-        Connect instance.
+        Updates the view content of the given view identifier in the specified Connect
+        Customer instance.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_view_content.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_view_content)

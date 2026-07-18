@@ -125,6 +125,7 @@ if TYPE_CHECKING:
     from bernstein.core.knowledge.task_graph import TaskGraph
     from bernstein.core.mcp_manager import MCPManager
     from bernstein.core.mcp_registry import MCPRegistry
+    from bernstein.core.memory.trust_policy import MemoryTrustPolicy
     from bernstein.core.resource_limits import ResourceLimits
     from bernstein.core.routing.provider_availability import ChainElement, ProbeResult
     from bernstein.core.sandbox.backend import SandboxBackend, SandboxSession
@@ -748,16 +749,40 @@ def _render_batch_prompt(task: Task) -> str:
     return "\n".join(lines)
 
 
-def _load_persistent_memory(sdd_dir: Path, lesson_tags: list[str]) -> str:
-    """Load persistent memory from SQLite store."""
+_PERSISTENT_MEMORY_LIMIT = 10
+# Over-fetch candidates before applying the trust policy so filtering out
+# untrusted rows doesn't starve the final result below the intended limit.
+_PERSISTENT_MEMORY_CANDIDATE_LIMIT = 40
+
+
+def _load_persistent_memory(
+    sdd_dir: Path,
+    lesson_tags: list[str],
+    *,
+    trust_policy: MemoryTrustPolicy | None = None,
+) -> str:
+    """Load persistent memory from SQLite store, replaying only trusted rows.
+
+    Enforces :class:`~bernstein.core.memory.trust_policy.MemoryTrustPolicy`
+    (default: :func:`~bernstein.core.memory.trust_policy.active_trust_policy`)
+    before any row reaches the prompt. This is the enforcement point for the
+    cross-adapter memory-poisoning invariant documented in
+    ``docs/operations/memory.md``: a row written under one adapter's (or no)
+    provenance must not steer a different adapter's spawned agent by
+    default. ``trust_policy`` lets callers (and tests) override the
+    env-derived default explicitly.
+    """
     db_path = sdd_dir / "memory" / "memory.db"
     if not db_path.exists():
         return ""
     try:
         from bernstein.core.memory.sqlite_store import SQLiteMemoryStore
+        from bernstein.core.memory.trust_policy import active_trust_policy
 
         store = SQLiteMemoryStore(db_path)
-        memories = store.get_relevant(lesson_tags, limit=10)
+        policy = trust_policy if trust_policy is not None else active_trust_policy()
+        candidates = store.get_relevant(lesson_tags, limit=_PERSISTENT_MEMORY_CANDIDATE_LIMIT)
+        memories = policy.filter_entries(candidates)[:_PERSISTENT_MEMORY_LIMIT]
         if not memories:
             return ""
         lines = ["## Persistent Memory\nRelevant conventions and architectural decisions:"]
@@ -2695,6 +2720,125 @@ class AgentSpawner:
                 type(exc).__name__,
             )
 
+    def _preflight_adapter_security_floor(self, adapter_name: str) -> None:
+        """Enforce the adapter security floor before a spawn (#2515).
+
+        The spawn boundary is the most privileged hand-off in the system: the
+        binary we exec receives the task context, the workspace, and the
+        worker's credential scope. For a tracked adapter this probes the
+        installed version, seals a chain-anchored preflight receipt for the
+        verdict (permit / refusal / warn-override), and refuses a below-floor
+        spawn by default so a known-unsafe upstream CLI can no longer receive
+        full task context. The receipt -- not the version check -- is the proof
+        artefact: a contiguous chain slice proves offline that no below-floor
+        adapter was spawned during a window.
+
+        Untracked adapters (no curated floor) are a no-op, so the common
+        claude / codex / gemini path pays nothing. The operator opt-out is
+        ``BERNSTEIN_ADAPTER_FLOOR_POLICY=warn`` (records a warn-override rather
+        than refusing).
+
+        Raises:
+            AdapterSecurityFloorRefusal: On a below-floor binary under the
+                default block policy. Deliberately not a ``SpawnError``, so the
+                per-provider failover loop never swallows it into an
+                alternate-provider retry -- a floor refusal is a hard stop.
+        """
+        from bernstein.adapters.security_floor import security_floor_for
+
+        if security_floor_for(adapter_name) is None:
+            return  # untracked adapter: no floor to enforce
+
+        from datetime import UTC, datetime
+
+        from bernstein.adapters.security_floor import (
+            VERDICT_WARN_OVERRIDE,
+            policy_from_env,
+            preflight_spawn_floor,
+        )
+        from bernstein.core.security.audit_chain import AuditChainStore
+
+        chain = AuditChainStore(self._workdir / ".sdd" / "audit")
+        verdict = preflight_spawn_floor(
+            adapter=adapter_name,
+            chain=chain,
+            generated_at=datetime.now(UTC).isoformat(),
+            policy=policy_from_env(),
+        )
+        if verdict.verdict == VERDICT_WARN_OVERRIDE:
+            logger.warning(
+                "Adapter %s %s is below its security floor %s [%s]; "
+                "BERNSTEIN_ADAPTER_FLOOR_POLICY=warn permitted the spawn (receipt anchored)",
+                adapter_name,
+                verdict.installed_version,
+                verdict.floor,
+                verdict.advisory_id,
+            )
+
+    def _preflight_posture_drift(self) -> None:
+        """Refuse a spawn when the sovereign posture drifted or is non-compliant (#2518).
+
+        No-op unless the run activated ``--profile sovereign``. When active,
+        recomputes the effective residency posture from the live workspace
+        config and compares its canonical hash to the attested hash, and
+        re-checks live compliance -- storage locality, offline catalog, strict
+        EU residency, and endpoint certification against the on-disk receipts.
+        A spawn is refused on hash drift (a cloud storage sink added, a catalog
+        re-enabled, a role repointed) *or* a live violation (an endpoint whose
+        certification receipt was revoked without a config change, which leaves
+        the posture hash unchanged). The signed refusal record re-verifies under
+        ``bernstein audit verify``, so the divergence is caught at spawn time and
+        evidenced on the chain rather than surfacing at audit time.
+
+        Raises:
+            PostureDriftRefusal: On drift, a live violation, or a missing
+                attestation. Deliberately not a ``SpawnError`` so the
+                per-provider failover loop never retries it -- a hard stop.
+        """
+        from bernstein.core.security.network_policy import is_sovereign_profile
+
+        if not is_sovereign_profile():
+            return
+
+        import time as _time
+
+        from bernstein.core.security.audit_chain import AuditChainStore
+        from bernstein.core.security.deployment_profile import (
+            PostureDriftRefusal,
+            evaluate_posture_drift,
+            load_config_snapshot,
+            record_and_sign_drift,
+        )
+
+        snapshot = load_config_snapshot(self._workdir)
+        evaluation = evaluate_posture_drift(workdir=self._workdir, config_snapshot=snapshot)
+        if not evaluation.should_refuse:
+            return
+
+        chain = AuditChainStore(self._workdir / ".sdd" / "audit")
+        record, record_sha256 = record_and_sign_drift(
+            workdir=self._workdir,
+            evaluation=evaluation,
+            timestamp=int(_time.time()),
+            chain=chain,
+        )
+        diverging = ", ".join(evaluation.diverging_keys) or "(none)"
+        violations = "; ".join(evaluation.violations) or "(none)"
+        logger.error(
+            "spawn refused: sovereign posture - diverging_keys=[%s] violations=[%s] attested=%s observed=%s",
+            diverging,
+            violations,
+            evaluation.attested_hash or "<none>",
+            evaluation.observed_hash,
+        )
+        raise PostureDriftRefusal(
+            f"sovereign posture refusal: {evaluation.reason}. Diverging keys: {diverging}. "
+            f"Violations: {violations}. Re-activate the profile (bernstein run --profile sovereign) "
+            "after restoring the intended posture, or inspect it with 'bernstein doctor sovereign'.",
+            record=record,
+            record_sha256=record_sha256,
+        )
+
     def _resolve_routing(
         self,
         tasks: list[Task],
@@ -2771,6 +2915,13 @@ class AgentSpawner:
                 [t.id for t in tasks],
             )
             raise ShutdownInProgress("Orchestrator shutting down - refusing new spawn")
+
+        # Sovereign posture drift gate (issue #2518): when the run activated
+        # --profile sovereign, recompute the residency posture from the live
+        # config and refuse the spawn if it diverges from the attested hash.
+        # A hard stop -- ``PostureDriftRefusal`` is not a ``SpawnError`` so the
+        # provider-failover loop never retries it.
+        self._preflight_posture_drift()
 
         # Disk space check: refuse to spawn if less than 1 GB free.
         # Worktree creation + agent output can consume significant disk.
@@ -3566,6 +3717,14 @@ class AgentSpawner:
                     # falling through to provider failover.
                     ensure_sampling_params_supported(target_adapter, effective_mcp)
 
+                    # Security-floor spawn preflight (#2515): refuse a
+                    # below-floor adapter binary before it receives task
+                    # context, sealing a chain-anchored receipt for the
+                    # verdict. Placed outside the inner spawn try/except so a
+                    # refusal raises out of the spawn (hard stop) instead of
+                    # falling through to alternate-provider failover.
+                    self._preflight_adapter_security_floor(adapter_name)
+
                     # Per-attempt config so a failover to a different
                     # adapter never inherits another adapter's extras.
                     attempt_mcp = self._mcp_config_for_adapter(target_adapter, effective_mcp)
@@ -3938,6 +4097,12 @@ class AgentSpawner:
         """
         if not tasks:
             raise ValueError("Cannot resume with empty task list")
+
+        # Sovereign posture drift gate (#2518): the resume path goes straight to
+        # the adapter without ``_spawn_for_tasks_internal``, so it must apply the
+        # same gate or a sovereign run could resume an agent after the posture
+        # drifted. A hard stop (``PostureDriftRefusal``), same as the main path.
+        self._preflight_posture_drift()
 
         # Build resume context prefix
         files_list = "\n".join(f"  - {f}" for f in changed_files) if changed_files else "  (none)"

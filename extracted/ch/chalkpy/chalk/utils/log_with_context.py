@@ -164,14 +164,22 @@ IS_LAST_OPERATION_CTX = {_OPERATION_IS_LAST: True}
 
 
 @functools.lru_cache(None)
-def get_json_logging_formatter() -> logging.Formatter:
+def get_json_logging_formatter(structured_exceptions: bool = False) -> logging.Formatter:
+    """Returns a JSON log formatter.
+
+    With ``structured_exceptions=False``, a record's formatted exception is appended
+    to the ``message`` field, as ``logging.Formatter`` would. With
+    ``structured_exceptions=True``, ``message`` stays the one-line summary and the
+    exception instead ships as dedicated ``stacktrace``, ``exception_type``, and
+    ``exception_message`` fields.
+    """
     try:
         from pythonjsonlogger import json
     except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
 
     class ChalkJsonFormatter(json.JsonFormatter):
-        def __init__(self):
+        def __init__(self, structured_exceptions: bool):
             super().__init__(
                 reserved_attrs=[
                     "args",
@@ -185,6 +193,7 @@ def get_json_logging_formatter() -> logging.Formatter:
                     "stack_info",
                 ],
             )
+            self._structured_exceptions = structured_exceptions
             try:
                 import google.cloud.client
 
@@ -194,6 +203,22 @@ def get_json_logging_formatter() -> logging.Formatter:
                 self._gcp_project_name = None
             else:
                 self._gcp_project_name = client.project
+
+        def add_fields(self, log_record: Dict[str, Any], record: logging.LogRecord, message_dict: Dict[str, Any]):
+            if self._structured_exceptions and "exc_info" in message_dict:
+                # Renaming the key here keeps process_log_record's append-to-message
+                # branch from ever seeing "exc_info", without mutating the record
+                # (which other handlers may still format with inline tracebacks).
+                message_dict = dict(message_dict)
+                message_dict["stacktrace"] = message_dict.pop("exc_info")
+                exc = record.exc_info[1] if isinstance(record.exc_info, tuple) else None
+                if exc is not None:
+                    cls = type(exc)
+                    message_dict["exception_type"] = (
+                        cls.__qualname__ if cls.__module__ == "builtins" else f"{cls.__module__}.{cls.__qualname__}"
+                    )
+                    message_dict["exception_message"] = str(exc)
+            super().add_fields(log_record, record, message_dict)
 
         def process_log_record(self, log_record: Dict[str, Any]):
             # We want to duplicate some fields, so it will show up nicely for google structured logging
@@ -230,7 +255,7 @@ def get_json_logging_formatter() -> logging.Formatter:
             log_record = {k: v for (k, v) in log_record.items() if v is not None}
             return log_record
 
-    return ChalkJsonFormatter()
+    return ChalkJsonFormatter(structured_exceptions)
 
 
 def _threading_excepthook(args: threading.ExceptHookArgs):

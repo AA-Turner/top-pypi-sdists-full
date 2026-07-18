@@ -37,6 +37,7 @@ from .literals import (
     PinBlockFormatForPinDataType,
     PinBlockLengthPositionType,
     PinBlockPaddingTypeType,
+    RandomKeyMaxLengthType,
     RandomKeySendVariantMaskType,
     SessionKeyDerivationModeType,
     SymmetricKeyAlgorithmType,
@@ -84,6 +85,8 @@ __all__ = (
     "EncryptionDecryptionAttributesTypeDef",
     "GenerateAs2805KekValidationInputTypeDef",
     "GenerateAs2805KekValidationOutputTypeDef",
+    "GenerateAuthRequestCryptogramInputTypeDef",
+    "GenerateAuthRequestCryptogramOutputTypeDef",
     "GenerateCardValidationDataInputTypeDef",
     "GenerateCardValidationDataOutputTypeDef",
     "GenerateMacEmvPinChangeInputTypeDef",
@@ -164,6 +167,7 @@ class AmexCardSecurityCodeVersion2TypeDef(TypedDict):
 
 class KekValidationRequestTypeDef(TypedDict):
     DeriveKeyAlgorithm: SymmetricKeyAlgorithmType
+    RandomKeyMaxLength: NotRequired[RandomKeyMaxLengthType]
 
 
 class KekValidationResponseTypeDef(TypedDict):
@@ -490,6 +494,13 @@ class GenerateAs2805KekValidationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GenerateAuthRequestCryptogramOutputTypeDef(TypedDict):
+    KeyArn: str
+    KeyCheckValue: str
+    AuthRequestCryptogram: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GenerateCardValidationDataOutputTypeDef(TypedDict):
     KeyArn: str
     KeyCheckValue: str
@@ -686,6 +697,13 @@ class MacAttributesTypeDef(TypedDict):
     DukptIso9797Algorithm1: NotRequired[MacAlgorithmDukptTypeDef]
     DukptIso9797Algorithm3: NotRequired[MacAlgorithmDukptTypeDef]
     DukptCmac: NotRequired[MacAlgorithmDukptTypeDef]
+
+
+class GenerateAuthRequestCryptogramInputTypeDef(TypedDict):
+    KeyIdentifier: str
+    TransactionData: str
+    MajorKeyDerivationMode: MajorKeyDerivationModeType
+    SessionKeyDerivationAttributes: SessionKeyDerivationTypeDef
 
 
 class VerifyAuthRequestCryptogramInputTypeDef(TypedDict):

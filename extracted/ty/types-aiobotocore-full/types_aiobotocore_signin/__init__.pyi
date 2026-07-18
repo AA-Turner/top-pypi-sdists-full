@@ -11,6 +11,7 @@ Usage::
     from aiobotocore.session import get_session
     from types_aiobotocore_signin import (
         Client,
+        ListResourcePermissionStatementsPaginator,
         SignInServiceClient,
     )
 
@@ -19,11 +20,14 @@ Usage::
         client: SignInServiceClient
         ...
 
+
+    list_resource_permission_statements_paginator: ListResourcePermissionStatementsPaginator = client.get_paginator("list_resource_permission_statements")
     ```
 """
 
 from .client import SignInServiceClient
+from .paginator import ListResourcePermissionStatementsPaginator
 
 Client = SignInServiceClient
 
-__all__ = ("Client", "SignInServiceClient")
+__all__ = ("Client", "ListResourcePermissionStatementsPaginator", "SignInServiceClient")

@@ -70,6 +70,7 @@ class SurfaceParserMixin:
             related name "Title":
               display: table|status_cards|file_list
               show: EntityA, EntityB
+              columns: title, status, due_date   # optional projection
         """
         self.advance()  # consume 'related'
         name = self.expect(TokenType.IDENTIFIER).value
@@ -82,6 +83,7 @@ class SurfaceParserMixin:
 
         display = None
         show: list[str] = []
+        columns: list[str] = []
 
         while not self.match(TokenType.DEDENT):
             self.skip_newlines()
@@ -103,6 +105,16 @@ class SurfaceParserMixin:
                     self.advance()
                     show.append(self.expect(TokenType.IDENTIFIER).value)
                 self.skip_newlines()
+            elif token.type == TokenType.COLUMNS or token.value == "columns":
+                # Optional field projection for related tabs (#1600 P1).
+                # Field names may be reserved words (status, type, …).
+                self.advance()
+                self.expect(TokenType.COLON)
+                columns.append(self.expect_identifier_or_keyword().value)
+                while self.match(TokenType.COMMA):
+                    self.advance()
+                    columns.append(self.expect_identifier_or_keyword().value)
+                self.skip_newlines()
             else:
                 break
 
@@ -119,6 +131,7 @@ class SurfaceParserMixin:
             title=title,
             display=display,
             show=show,
+            columns=columns,
         )
 
     def _parse_surface_access(self) -> ir.SurfaceAccessSpec:
@@ -372,6 +385,19 @@ class SurfaceParserMixin:
             note = self.expect(TokenType.STRING).value
             self.skip_newlines()
 
+        # #1600: optional section layout (e.g. layout: strip for RAG/status row).
+        # Allow mixed order with note/visible by scanning once more for layout.
+        layout: str | None = None
+        if self.match(TokenType.LAYOUT):
+            self.advance()
+            self.expect(TokenType.COLON)
+            layout = self.expect_identifier_or_keyword().value
+            if layout not in ("strip", "grid"):
+                self.error(f"section layout must be 'strip' or 'grid', got {layout!r} (#1600)")
+            if layout == "grid":
+                layout = None  # default field grid
+            self.skip_newlines()
+
         elements: list[ir.SurfaceElement] = []
         subtype_panel: ir.SubtypePanelSpec | None = None
         while not self.match(TokenType.DEDENT):
@@ -385,11 +411,21 @@ class SurfaceParserMixin:
                 # v0.71.184 (#1217 Phase 3e.v): polymorphic per-subtype dispatch.
                 subtype_panel = self._parse_subtype_panel()
                 self.skip_newlines()
+            elif self.match(TokenType.LAYOUT):
+                # Trailing layout: after fields is unusual; allow for author order.
+                self.advance()
+                self.expect(TokenType.COLON)
+                layout = self.expect_identifier_or_keyword().value
+                if layout not in ("strip", "grid"):
+                    self.error(f"section layout must be 'strip' or 'grid', got {layout!r} (#1600)")
+                if layout == "grid":
+                    layout = None
+                self.skip_newlines()
             else:
                 token = self.current_token()
                 self.error(
                     f"Unexpected '{token.value}' in surface section — "
-                    f"only 'field' and 'subtype_panel' declarations are supported here"
+                    f"only 'field', 'subtype_panel', and 'layout' are supported here"
                 )
 
         self.expect(TokenType.DEDENT)
@@ -399,6 +435,7 @@ class SurfaceParserMixin:
             elements=elements,
             visible=visible_condition,
             note=note,
+            layout=layout,
             subtype_panel=subtype_panel,
         )
 
@@ -688,6 +725,11 @@ class _SurfaceState:
     # #1494 (UX-maturity 2c): action-proximate detail mode. `None` = unset
     # (author wrote no `peek:`); `_kw_peek` sets the explicit value.
     peek: ir.PeekMode | None = None
+    # #1603 — open: TargetEntity via fk_field
+    # #1600 P2 — open: first_non_null(...) or pipe-chained hops
+    open_entity: str | None = None
+    open_via: str | None = None
+    open_via_targets: list[ir.OpenViaTarget] = field(default_factory=list)
 
 
 # ---------- Token-keyed keyword parsers ---------- #
@@ -740,6 +782,63 @@ def _kw_peek(parser: Any, state: _SurfaceState) -> None:
     parser.advance()  # consume `peek`
     parser.expect(TokenType.COLON)
     state.peek = parser.enum_from_token(ir.PeekMode, parser.expect_identifier_or_keyword())
+    parser.skip_newlines()
+
+
+def _kw_open(parser: Any, state: _SurfaceState) -> None:
+    """List row FK hop(s) — single, pipe-chained, or first_non_null (#1603 / #1600 P2).
+
+    Forms::
+
+        open: Company via company
+        open: Company via company | SoleTrader via sole_trader
+        open: first_non_null(company, sole_trader, partnership)
+        open: first_non_null(Company via company, SoleTrader via sole_trader)
+
+    First non-null FK on the row wins at drill time; null chain falls back to
+    same-entity detail (#1614).
+    """
+    parser.advance()  # consume `open`
+    parser.expect(TokenType.COLON)
+    targets: list[ir.OpenViaTarget] = []
+    tok = parser.current_token()
+    if tok is not None and tok.value == "first_non_null":
+        parser.advance()
+        parser.expect(TokenType.LPAREN)
+        while not parser.match(TokenType.RPAREN):
+            parser.skip_newlines()
+            if parser.match(TokenType.RPAREN):
+                break
+            first = parser.expect_identifier_or_keyword().value
+            if parser.match(TokenType.VIA):
+                parser.advance()
+                via = parser.expect_identifier_or_keyword().value
+                targets.append(ir.OpenViaTarget(via=via, entity=first))
+            else:
+                # Bare field — entity inferred from ref target at link/compile.
+                targets.append(ir.OpenViaTarget(via=first, entity=None))
+            if parser.match(TokenType.COMMA):
+                parser.advance()
+                continue
+            break
+        parser.expect(TokenType.RPAREN)
+    else:
+        # Entity via field (| Entity via field)*
+        while True:
+            entity = parser.expect_identifier_or_keyword().value
+            parser.expect(TokenType.VIA)
+            via = parser.expect_identifier_or_keyword().value
+            targets.append(ir.OpenViaTarget(via=via, entity=entity))
+            if parser.match(TokenType.PIPE):
+                parser.advance()
+                continue
+            break
+    if not targets:
+        parser.error("open: requires at least one hop (Entity via field or first_non_null(...))")
+    state.open_via_targets = targets
+    # Back-compat single-field views (validation, simple templates)
+    state.open_entity = targets[0].entity
+    state.open_via = targets[0].via
     parser.skip_newlines()
 
 
@@ -911,6 +1010,7 @@ _SURFACE_IDENT_KEYWORDS: dict[str, KeywordParser[_SurfaceState]] = {
     "show_history": _kw_show_history,
     "refresh": _kw_refresh,  # #1399 slice 3 — live-refresh poll interval
     "peek": _kw_peek,  # #1494 (2c) — action-proximate detail mode
+    "open": _kw_open,  # #1603 — list row open via FK hop
 }
 
 
@@ -972,6 +1072,9 @@ def _build_surface(
         refresh_interval=state.refresh_interval,
         emits=tuple(state.emits),
         peek=state.peek,
+        open_via=state.open_via,
+        open_entity=state.open_entity,
+        open_via_targets=list(state.open_via_targets),
     )
 
 

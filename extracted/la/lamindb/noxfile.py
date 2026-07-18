@@ -29,11 +29,14 @@ GROUPS = {}
 GROUPS["tutorial"] = [
     "README.ipynb",
     "transfer.ipynb",
+    "tables.ipynb",
     "arrays.ipynb",
     "query-search.ipynb",
 ]
 GROUPS["guide"] = [
     "track.ipynb",
+    "acid.ipynb",
+    "idempotency.ipynb",
 ]
 GROUPS["tiledbsoma"] = [
     "curate.ipynb",
@@ -112,7 +115,10 @@ def install_ci(session, group):
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
         # anndata here to prevent installing older version on release
-        run(session, "uv pip install --system huggingface_hub polars anndata==0.12.2")
+        run(
+            session,
+            "uv pip install --system huggingface_hub polars anndata==0.12.2 duckdb 'pyiceberg[sql]==0.11.1' lancedb==0.34.0 sqlalchemy",
+        )
     elif group == "guide":
         # spatialdata needs zarr with FsspecStore/LocalStore (zarr>=3)
         # so do not force the zarr_v2 compatibility extra in this group.

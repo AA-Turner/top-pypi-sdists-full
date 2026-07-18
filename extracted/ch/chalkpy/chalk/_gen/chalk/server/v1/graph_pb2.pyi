@@ -559,19 +559,35 @@ class GetOfflineStoreTableResponse(_message.Message):
     tables: _containers.RepeatedCompositeFieldContainer[OfflineTable]
     def __init__(self, tables: _Optional[_Iterable[_Union[OfflineTable, _Mapping]]] = ...) -> None: ...
 
+class GetAllOfflineStoreTablesPageToken(_message.Message):
+    __slots__ = ("fqn", "internal_version")
+    FQN_FIELD_NUMBER: _ClassVar[int]
+    INTERNAL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    fqn: str
+    internal_version: int
+    def __init__(self, fqn: _Optional[str] = ..., internal_version: _Optional[int] = ...) -> None: ...
+
 class GetAllOfflineStoreTablesRequest(_message.Message):
-    __slots__ = ("deployment_id", "branch_id")
+    __slots__ = ("deployment_id", "limit", "page_token")
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
-    BRANCH_ID_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
-    branch_id: str
-    def __init__(self, deployment_id: _Optional[str] = ..., branch_id: _Optional[str] = ...) -> None: ...
+    limit: int
+    page_token: str
+    def __init__(
+        self, deployment_id: _Optional[str] = ..., limit: _Optional[int] = ..., page_token: _Optional[str] = ...
+    ) -> None: ...
 
 class GetAllOfflineStoreTablesResponse(_message.Message):
-    __slots__ = ("tables",)
+    __slots__ = ("tables", "next_page_token")
     TABLES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     tables: _containers.RepeatedCompositeFieldContainer[OfflineTable]
-    def __init__(self, tables: _Optional[_Iterable[_Union[OfflineTable, _Mapping]]] = ...) -> None: ...
+    next_page_token: str
+    def __init__(
+        self, tables: _Optional[_Iterable[_Union[OfflineTable, _Mapping]]] = ..., next_page_token: _Optional[str] = ...
+    ) -> None: ...
 
 class DiffDeploymentsRequest(_message.Message):
     __slots__ = ("deployment_id_before", "deployment_id_after", "diff_mode")

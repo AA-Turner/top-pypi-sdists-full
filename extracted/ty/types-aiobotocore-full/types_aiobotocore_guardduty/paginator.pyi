@@ -18,6 +18,7 @@ Usage::
         ListFiltersPaginator,
         ListFindingsPaginator,
         ListIPSetsPaginator,
+        ListInvestigationsPaginator,
         ListInvitationsPaginator,
         ListMalwareScansPaginator,
         ListMembersPaginator,
@@ -37,6 +38,7 @@ Usage::
         list_filters_paginator: ListFiltersPaginator = client.get_paginator("list_filters")
         list_findings_paginator: ListFindingsPaginator = client.get_paginator("list_findings")
         list_ip_sets_paginator: ListIPSetsPaginator = client.get_paginator("list_ip_sets")
+        list_investigations_paginator: ListInvestigationsPaginator = client.get_paginator("list_investigations")
         list_invitations_paginator: ListInvitationsPaginator = client.get_paginator("list_invitations")
         list_malware_scans_paginator: ListMalwareScansPaginator = client.get_paginator("list_malware_scans")
         list_members_paginator: ListMembersPaginator = client.get_paginator("list_members")
@@ -65,6 +67,8 @@ from .type_defs import (
     ListFiltersResponseTypeDef,
     ListFindingsRequestPaginateTypeDef,
     ListFindingsResponseTypeDef,
+    ListInvestigationsRequestPaginateTypeDef,
+    ListInvestigationsResponseTypeDef,
     ListInvitationsRequestPaginateTypeDef,
     ListInvitationsResponseTypeDef,
     ListIPSetsRequestPaginateTypeDef,
@@ -95,6 +99,7 @@ __all__ = (
     "ListFiltersPaginator",
     "ListFindingsPaginator",
     "ListIPSetsPaginator",
+    "ListInvestigationsPaginator",
     "ListInvitationsPaginator",
     "ListMalwareScansPaginator",
     "ListMembersPaginator",
@@ -210,6 +215,24 @@ class ListIPSetsPaginator(_ListIPSetsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListIPSets.html#GuardDuty.Paginator.ListIPSets.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listipsetspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListInvestigationsPaginatorBase = AioPaginator[ListInvestigationsResponseTypeDef]
+else:
+    _ListInvestigationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListInvestigationsPaginator(_ListInvestigationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListInvestigations.html#GuardDuty.Paginator.ListInvestigations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listinvestigationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListInvestigationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListInvestigationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListInvestigations.html#GuardDuty.Paginator.ListInvestigations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listinvestigationspaginator)
         """
 
 if TYPE_CHECKING:

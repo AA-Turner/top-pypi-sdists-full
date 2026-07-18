@@ -33,7 +33,8 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
 use std::{fs, io};
-use zrx::id::{id, Id, Matcher};
+use zrx::id::matcher::Matcher;
+use zrx::id::{id, Id};
 use zrx::module::{self, Context, Module};
 use zrx::scheduler::Key;
 use zrx::stream::{Barrier, Stream, Workflow};
@@ -347,7 +348,7 @@ pub fn generate_nav(
 ) -> Stream<Id, Navigation> {
     let config = config.clone();
     pages.map(move |pages: Vec<(Key<Id>, Page)>| {
-        Navigation::new(config.project.nav.clone(), pages)
+        Navigation::new(config.get_cache_dir(), config.project.nav.clone(), pages)
     })
 }
 
@@ -358,17 +359,27 @@ pub fn generate_object_inventory(
     // Retrieve inventory from Python interpreter using pyo3
     let config = config.clone();
     pages.map(move |_| {
+        let cache_dir = config.get_cache_dir();
+        let cache_path = cache_dir.join("objects.inv");
+
+        // Load previously cached inventory, if any
+        let cached = fs::read(&cache_path).ok();
+
         let data = Python::attach(|py| {
             let module = py.import("zensical.compat.mkdocstrings")?;
-            module.call_method0("get_inventory")?.extract::<Vec<u8>>()
+            module
+                .call_method1("get_inventory", (cached,))?
+                .extract::<Vec<u8>>()
         });
 
-        // Write object inventory to disk
-        let site_dir = config.get_site_dir();
+        // Write object inventory to disk and update cache
         if let Ok(data) = data {
+            let site_dir = config.get_site_dir();
             let path = site_dir.join("objects.inv");
             let _ = fs::create_dir_all(path.parent().expect("invariant"));
             let _ = fs::write(path, &data);
+            let _ = fs::create_dir_all(&cache_dir);
+            let _ = fs::write(&cache_path, &data);
         }
     });
 }

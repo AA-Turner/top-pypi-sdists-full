@@ -32,6 +32,7 @@ class AdCreativeObjectStorySpec(
         template_data = 'template_data'
         text_data = 'text_data'
         video_data = 'video_data'
+        whats_app_business_phone_number = 'whats_app_business_phone_number'
 
     _field_types = {
         'instagram_user_id': 'string',
@@ -42,6 +43,7 @@ class AdCreativeObjectStorySpec(
         'template_data': 'AdCreativeLinkData',
         'text_data': 'AdCreativeTextData',
         'video_data': 'AdCreativeVideoData',
+        'whats_app_business_phone_number': 'string',
     }
     @classmethod
     def _get_field_enum_info(cls):

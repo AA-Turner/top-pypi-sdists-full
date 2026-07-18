@@ -29,6 +29,22 @@ def register_pack_ops_provider(provider: Callable[[], dict[str, set[str]]]) -> N
     _PACK_OPS_REGISTRY["provider"] = provider
 
 
+# Field ``key=value`` options the form emitter actually honours
+# (template_compiler). Parser stores any key; unknown keys are silent no-ops at
+# render — #1599 (search_trigger=) is the canonical footgun. Warn so authors
+# are pointed at the real search-select path (``source=<pack>.<op>``).
+_RENDERED_FIELD_OPTIONS = frozenset(
+    {
+        "source",
+        "search_trigger",  # #1599 — alias → source=<pack>.<search_op> at render
+        "widget",
+        "accept",
+        "capture",
+        "rich_text_toolbar",
+        "rich_text_max_length",
+    }
+)
+
 # #1470 Phase 2: explicit field `format:` override validation. Inference handles
 # unannotated fields; an explicit kind must be known and type-compatible.
 _FORMAT_KINDS = frozenset(
@@ -133,6 +149,9 @@ def validate_surfaces(appspec: ir.AppSpec) -> tuple[list[str], list[str]]:
       `companies_house_lookup.search_companies` with no pack declared;
       runtime silently swallowed the resolution failure and the
       autocomplete just rendered as a plain text input)
+    - Unsupported field ``key=value`` options are warned (#1599 —
+      e.g. ``search_trigger=`` is parsed but never rendered; use
+      ``source=<pack>.<op>`` for search-select typeahead)
     - Actions have valid outcomes
     - Modes are appropriate for the surface structure
 
@@ -186,15 +205,116 @@ def validate_surfaces(appspec: ir.AppSpec) -> tuple[list[str], list[str]]:
                                     f"'{element.field_name}': {fmt_err}"
                                 )
 
-        # Validate field source= references resolve to a known API pack
-        # AND a known operation on that pack. #996 — typos and dropped
-        # packs would fail silently at runtime; the autocomplete just
-        # rendered as a plain text input.
+        # #1603 / #1600 P2 — open: Entity via field | first_non_null(...) hops
+        open_targets = list(getattr(surface, "open_via_targets", None) or [])
+        if not open_targets and (
+            getattr(surface, "open_via", None) or getattr(surface, "open_entity", None)
+        ):
+            open_targets = [
+                type(
+                    "T",
+                    (),
+                    {
+                        "via": surface.open_via,
+                        "entity": surface.open_entity,
+                    },
+                )()
+            ]
+        if (
+            open_targets
+            or getattr(surface, "open_via", None)
+            or getattr(surface, "open_entity", None)
+        ):
+            if surface.mode != ir.SurfaceMode.LIST:
+                errors.append(
+                    f"Surface '{surface.name}' declares open: via but mode is not list "
+                    f"(#1603 open-via is list-only)"
+                )
+            elif not surface.entity_ref:
+                errors.append(
+                    f"Surface '{surface.name}' declares open: via but has no entity (#1603)"
+                )
+            else:
+                entity = appspec.get_entity(surface.entity_ref)
+                if not open_targets:
+                    errors.append(
+                        f"Surface '{surface.name}' open: missing 'via' field name (#1603)"
+                    )
+                elif entity:
+                    for hop in open_targets:
+                        via = getattr(hop, "via", None)
+                        open_entity = getattr(hop, "entity", None)
+                        if not via:
+                            errors.append(
+                                f"Surface '{surface.name}' open: missing 'via' field name (#1603)"
+                            )
+                            continue
+                        fld = entity.get_field(via)
+                        if not fld:
+                            errors.append(
+                                f"Surface '{surface.name}' open via '{via}' — field not on "
+                                f"entity '{entity.name}' (#1603)"
+                            )
+                        else:
+                            ref_ent = getattr(fld.type, "ref_entity", None) if fld.type else None
+                            if open_entity and ref_ent and open_entity != ref_ent:
+                                errors.append(
+                                    f"Surface '{surface.name}' open: {open_entity} via "
+                                    f"{via} but field refs '{ref_ent}' (#1603)"
+                                )
+
+        # Validate field options: unsupported keys + source=/search_trigger resolution.
+        # #996 — typos and dropped packs fail silently at runtime (plain text).
+        # #1599 — search_trigger aliases to source=<pack>.<search_op>; unknown keys warn.
         for section in surface.sections:
             for element in section.elements:
-                source_ref = element.options.get("source") if element.options else None
-                if not source_ref or "." not in source_ref:
+                options = element.options or {}
+                for opt_key in options:
+                    if opt_key in _RENDERED_FIELD_OPTIONS:
+                        continue
+                    warnings.append(
+                        f"Surface '{surface.name}' field '{element.field_name}' "
+                        f"has unsupported option '{opt_key}' (ignored at render). "
+                        f"Supported field options: "
+                        f"{', '.join(sorted(_RENDERED_FIELD_OPTIONS))}"
+                    )
+
+                source_ref = options.get("source")
+                trigger = options.get("search_trigger")
+                if not source_ref and trigger:
+                    # #1599: bare pack → first search_* op via pack-ops registry
+                    # (core must not import page/api_kb — #1438 contracts).
+                    trigger_s = str(trigger).strip()
+                    if "." in trigger_s:
+                        source_ref = trigger_s
+                    else:
+                        packs = _resolve_pack_ops()
+                        if packs:
+                            ops = packs.get(trigger_s) or set()
+                            if "search_companies" in ops:
+                                source_ref = f"{trigger_s}.search_companies"
+                            else:
+                                search_ops = sorted(o for o in ops if str(o).startswith("search_"))
+                                if search_ops:
+                                    source_ref = f"{trigger_s}.{search_ops[0]}"
+                                else:
+                                    errors.append(
+                                        f"Surface '{surface.name}' field "
+                                        f"'{element.field_name}' "
+                                        f"search_trigger='{trigger}' could not be "
+                                        f"resolved to a search operation on a known "
+                                        f"API pack (#1599). Use "
+                                        f"source=<pack>.<operation> "
+                                        f"(e.g. source=companies_house_lookup"
+                                        f".search_companies)"
+                                    )
+                                    continue
+                        # packs empty (api_kb unavailable) → skip resolve; render
+                        # still aliases when packs load.
+
+                if not source_ref or "." not in str(source_ref):
                     continue
+                source_ref = str(source_ref)
                 pack_name, op_name = source_ref.rsplit(".", 1)
                 packs = _resolve_pack_ops()
                 if not packs:
@@ -224,6 +344,47 @@ def validate_surfaces(appspec: ir.AppSpec) -> tuple[list[str], list[str]]:
                             f"Surface '{surface.name}' search field '{sf}' "
                             f"does not exist on entity '{entity.name}'"
                         )
+
+        # #1597 E: list projection format vs entity type — `format: raw` on
+        # temporal/money fields reintroduces the ISO/type-leak class of bugs.
+        if surface.mode == ir.SurfaceMode.LIST and surface.entity_ref:
+            entity = appspec.get_entity(surface.entity_ref)
+            if entity:
+                for section in surface.sections:
+                    for element in section.elements:
+                        fn = element.field_name
+                        if not fn:
+                            continue
+                        fld = entity.get_field(fn)
+                        if not fld or not fld.type:
+                            continue
+                        fmt = getattr(element, "format", None)
+                        if fmt is None:
+                            continue
+                        kind = getattr(fmt, "kind", None) or ""
+                        ent_kind = fld.type.kind
+                        if kind == "raw" and ent_kind in (
+                            ir.FieldTypeKind.DATE,
+                            ir.FieldTypeKind.DATETIME,
+                            ir.FieldTypeKind.MONEY,
+                        ):
+                            warnings.append(
+                                f"Surface '{surface.name}' field '{fn}' has "
+                                f"format: raw on a {ent_kind.value} entity field "
+                                f"(#1597). List cells will leak ISO/raw storage "
+                                f"shape — drop format: raw or use format: date/"
+                                f"datetime/currency so DisplayLocaleProfile applies."
+                            )
+                        if kind in ("date", "datetime", "relative") and ent_kind not in (
+                            ir.FieldTypeKind.DATE,
+                            ir.FieldTypeKind.DATETIME,
+                        ):
+                            # format: validation may already error; keep soft warn if missed
+                            warnings.append(
+                                f"Surface '{surface.name}' field '{fn}' uses "
+                                f"format: {kind} but entity field is "
+                                f"{ent_kind.value} (#1597 projection type mismatch)"
+                            )
 
         # Warn if no sections — unless the surface is intentionally headless
         # (e.g. a framework-generated API-only surface whose UI lives in a
@@ -276,6 +437,27 @@ def validate_surfaces(appspec: ir.AppSpec) -> tuple[list[str], list[str]]:
                 f"distinct entity/mode (e.g. a workspace region for a secondary "
                 f"view)."
             )
+
+    # #1597 E: view field_type projection vs source entity field type
+    for view in getattr(appspec, "views", None) or []:
+        src = getattr(view, "source_entity", "") or ""
+        entity = appspec.get_entity(src) if src else None
+        if not entity:
+            continue
+        for vf in getattr(view, "fields", None) or []:
+            vft = getattr(vf, "field_type", None)
+            if vft is None or not getattr(vft, "kind", None):
+                continue
+            ent_f = entity.get_field(vf.name)
+            if not ent_f or not ent_f.type:
+                continue
+            if ent_f.type.kind != vft.kind:
+                warnings.append(
+                    f"View '{view.name}' field '{vf.name}' declares type "
+                    f"{vft.kind.value} but source entity '{entity.name}' has "
+                    f"{ent_f.type.kind.value} (#1597 projection type mismatch). "
+                    f"List/report cells may render as the wrong kind."
+                )
 
     return errors, warnings
 

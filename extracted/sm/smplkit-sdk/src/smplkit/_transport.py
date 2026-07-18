@@ -21,6 +21,30 @@ from smplkit._generated.flags.client import AuthenticatedClient as _FlagsAuthCli
 from smplkit._generated.jobs.client import AuthenticatedClient as _JobsAuthClient
 from smplkit._generated.logging.client import AuthenticatedClient as _LoggingAuthClient
 
+try:
+    from smplkit._version import __version__ as _sdk_version
+except ImportError:
+    _sdk_version = "0.0.0"  # Fallback for source-tree runs before any build
+
+# Default User-Agent for every outbound request — HTTP and the WebSocket
+# handshake. The platform sits behind a WAF that rejects requests carrying
+# no User-Agent, and an SDK-identifying value surfaces SDK + version in
+# access logs. Computed once at import.
+SDK_USER_AGENT = f"smplkit-sdk-python/{_sdk_version}"
+
+
+def with_default_user_agent(headers: dict[str, str] | None) -> dict[str, str]:
+    """Return a copy of *headers* that carries a User-Agent.
+
+    The SDK default is added only when the caller has not already supplied
+    a User-Agent (matched case-insensitively) through one of the SDK's
+    header surfaces — a caller-set User-Agent always wins.
+    """
+    merged = dict(headers or {})
+    if not any(name.lower() == "user-agent" for name in merged):
+        merged["User-Agent"] = SDK_USER_AGENT
+    return merged
+
 
 def _to_transport_config(cfg: ResolvedConfig, extra_headers: dict[str, str] | None = None) -> ResolvedClientConfig:
     """Project the runtime :class:`ResolvedConfig` down to the transport subset.
@@ -94,7 +118,7 @@ def build_service_transports(cfg: ResolvedClientConfig) -> _ServiceTransports:
     logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
     jobs_url = _service_url(cfg.scheme, "jobs", cfg.base_domain)
 
-    extra = {**(cfg.extra_headers or {})}
+    extra = with_default_user_agent(cfg.extra_headers)
     return _ServiceTransports(
         app_url=app_url,
         api_key=cfg.api_key,

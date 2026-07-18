@@ -124,6 +124,8 @@ class AdsInsights(
         creative_diversity_data = 'creative_diversity_data'
         creative_diversity_label = 'creative_diversity_label'
         creative_diversity_score = 'creative_diversity_score'
+        creative_fatigue_summary = 'creative_fatigue_summary'
+        creative_fatigued_ads = 'creative_fatigued_ads'
         creative_media_type = 'creative_media_type'
         ctr = 'ctr'
         date_start = 'date_start'
@@ -204,7 +206,6 @@ class AdsInsights(
         result_rate = 'result_rate'
         result_values_performance_indicator = 'result_values_performance_indicator'
         results = 'results'
-        shop_clicks = 'shop_clicks'
         shops_assisted_purchases = 'shops_assisted_purchases'
         social_spend = 'social_spend'
         spend = 'spend'
@@ -249,17 +250,24 @@ class AdsInsights(
     class ActionAttributionWindows:
         value_1d_click = '1d_click'
         value_1d_ev = '1d_ev'
+        value_1d_sequenced = '1d_sequenced'
         value_1d_view = '1d_view'
         value_28d_click = '28d_click'
+        value_28d_sequenced = '28d_sequenced'
         value_28d_view = '28d_view'
         value_28d_view_all_conversions = '28d_view_all_conversions'
         value_28d_view_first_conversion = '28d_view_first_conversion'
         value_7d_click = '7d_click'
+        value_7d_sequenced = '7d_sequenced'
         value_7d_view = '7d_view'
         value_7d_view_all_conversions = '7d_view_all_conversions'
         value_7d_view_first_conversion = '7d_view_first_conversion'
+        custom = 'custom'
         dda = 'dda'
         value_default = 'default'
+        incrementality = 'incrementality'
+        incrementality_all_conversions = 'incrementality_all_conversions'
+        incrementality_first_conversion = 'incrementality_first_conversion'
         skan_click = 'skan_click'
         skan_click_second_postback = 'skan_click_second_postback'
         skan_click_third_postback = 'skan_click_third_postback'
@@ -532,6 +540,8 @@ class AdsInsights(
         'creative_diversity_data': 'list<Object>',
         'creative_diversity_label': 'string',
         'creative_diversity_score': 'string',
+        'creative_fatigue_summary': 'list<Object>',
+        'creative_fatigued_ads': 'list<Object>',
         'creative_media_type': 'string',
         'ctr': 'string',
         'date_start': 'string',
@@ -612,7 +622,6 @@ class AdsInsights(
         'result_rate': 'list<Object>',
         'result_values_performance_indicator': 'string',
         'results': 'list<Object>',
-        'shop_clicks': 'string',
         'shops_assisted_purchases': 'string',
         'social_spend': 'string',
         'spend': 'string',

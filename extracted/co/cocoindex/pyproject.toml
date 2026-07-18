@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "cocoindex"
-version = "1.0.16"
+version = "1.0.17"
 description = "With CocoIndex, users declare the transformation, CocoIndex creates & maintains an index, and keeps the derived index up to date based on source update, with minimal computation and changes."
 authors = [{ name = "CocoIndex", email = "cocoindex.io@gmail.com" }]
 readme = "README.md"

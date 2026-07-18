@@ -25,6 +25,7 @@ else:
 __all__ = (
     "AccessEndpointTypeType",
     "ActionType",
+    "AgentActionType",
     "AgentSoftwareVersionType",
     "AppBlockBuilderAttributeType",
     "AppBlockBuilderPlatformTypeType",
@@ -70,6 +71,8 @@ __all__ = (
     "PreferredProtocolType",
     "RegionName",
     "ResourceServiceName",
+    "ScreenImageFormatType",
+    "ScreenResolutionType",
     "ServiceName",
     "SessionConnectionStateType",
     "SessionStateType",
@@ -83,6 +86,7 @@ __all__ = (
     "ThemeStylingType",
     "UsageReportExecutionErrorCodeType",
     "UsageReportScheduleType",
+    "UserControlModeType",
     "UserStackAssociationErrorCodeType",
     "VisibilityTypeType",
     "WaiterName",
@@ -100,6 +104,7 @@ ActionType = Literal[
     "FILE_UPLOAD",
     "PRINTING_TO_LOCAL_DEVICE",
 ]
+AgentActionType = Literal["COMPUTER_INPUT", "COMPUTER_VISION", "FORWARD_MCP_TOOLS"]
 AgentSoftwareVersionType = Literal["ALWAYS_LATEST", "CURRENT_LATEST"]
 AppBlockBuilderAttributeType = Literal[
     "ACCESS_ENDPOINTS", "IAM_ROLE_ARN", "VPC_CONFIGURATION_SECURITY_GROUP_IDS"
@@ -123,7 +128,7 @@ DescribeStacksPaginatorName = Literal["describe_stacks"]
 DescribeUserStackAssociationsPaginatorName = Literal["describe_user_stack_associations"]
 DescribeUsersPaginatorName = Literal["describe_users"]
 DynamicAppProvidersEnabledType = Literal["DISABLED", "ENABLED"]
-ExportImageTaskStateType = Literal["COMPLETED", "EXPORTING", "FAILED"]
+ExportImageTaskStateType = Literal["COMPLETED", "EXPORTING", "FAILED", "TIMED_OUT"]
 FleetAttributeType = Literal[
     "DOMAIN_JOIN_INFO",
     "IAM_ROLE_ARN",
@@ -199,7 +204,7 @@ ImageStateChangeReasonCodeType = Literal[
 ImageStateType = Literal[
     "AVAILABLE", "COPYING", "CREATING", "DELETING", "FAILED", "IMPORTING", "PENDING", "VALIDATING"
 ]
-ImageTypeType = Literal["CUSTOM", "NATIVE"]
+ImageTypeType = Literal["BYOL", "CUSTOM", "NATIVE"]
 InstanceDrainStatusType = Literal["ACTIVE", "DRAINING", "NOT_APPLICABLE"]
 LatestAppstreamAgentVersionType = Literal["FALSE", "TRUE"]
 ListAssociatedFleetsPaginatorName = Literal["list_associated_fleets"]
@@ -219,6 +224,8 @@ PlatformTypeType = Literal[
     "WINDOWS_SERVER_2025",
 ]
 PreferredProtocolType = Literal["TCP", "UDP"]
+ScreenImageFormatType = Literal["JPEG", "PNG"]
+ScreenResolutionType = Literal["W_1280xH_720"]
 SessionConnectionStateType = Literal["CONNECTED", "NOT_CONNECTED"]
 SessionStateType = Literal["ACTIVE", "EXPIRED", "PENDING"]
 SoftwareDeploymentStatusType = Literal[
@@ -232,6 +239,7 @@ SoftwareDeploymentStatusType = Literal[
 ]
 StackAttributeType = Literal[
     "ACCESS_ENDPOINTS",
+    "AGENT_ACCESS_CONFIG",
     "CONTENT_REDIRECTION",
     "EMBED_HOST_DOMAINS",
     "FEEDBACK_URL",
@@ -255,6 +263,7 @@ UsageReportExecutionErrorCodeType = Literal[
     "ACCESS_DENIED", "INTERNAL_SERVICE_ERROR", "RESOURCE_NOT_FOUND"
 ]
 UsageReportScheduleType = Literal["DAILY"]
+UserControlModeType = Literal["DISABLED", "VIEW_ONLY", "VIEW_STOP"]
 UserStackAssociationErrorCodeType = Literal[
     "DIRECTORY_NOT_FOUND", "INTERNAL_ERROR", "STACK_NOT_FOUND", "USER_NAME_NOT_FOUND"
 ]
@@ -453,8 +462,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -481,6 +488,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -548,10 +557,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -584,6 +593,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -611,6 +621,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -632,7 +643,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -653,6 +663,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

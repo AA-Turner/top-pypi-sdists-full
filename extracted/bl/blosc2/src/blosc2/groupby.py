@@ -17,11 +17,12 @@ from __future__ import annotations
 import copy
 import dataclasses
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
+from blosc2.dsl_kernel import DSLKernel
 from blosc2.schema import DictionarySpec, NDArraySpec, SchemaSpec, float64, int64
 from blosc2.schema import bool as b2_bool
 from blosc2.schema import field as b2_field
@@ -31,7 +32,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from blosc2.ctable import CTable
 
 
-AggName = Literal["size", "count", "sum", "mean", "min", "max", "argmin", "argmax"]
+AggName = Literal["size", "count", "sum", "mean", "min", "max", "argmin", "argmax", "udf"]
 
 _NAN_KEY = ("__blosc2_groupby_nan__",)
 
@@ -41,6 +42,8 @@ class _AggSpec:
     input_col: str | None
     op: AggName
     output_col: str
+    udf: Callable | None = None
+    explicit_dtype: SchemaSpec | None = None
 
 
 @dataclasses.dataclass
@@ -48,6 +51,34 @@ class _AggState:
     op: AggName
     value: Any = None
     count: int = 0
+
+
+@dataclasses.dataclass
+class _Utf8KeyChunk:
+    """A utf8 key-column chunk, factorized to chunk-local integer codes.
+
+    ``codes[i]`` indexes ``uniques`` (a ``StringDType`` array sorted
+    ascending), so null detection, live-row masking, and per-chunk
+    ``np.unique`` all run on int64 codes; only the (few) distinct strings are
+    ever decoded.  Produced by :meth:`CTableGroupBy._read_key_chunk` via
+    ``Utf8Array.factorizer``.
+    """
+
+    codes: np.ndarray
+    uniques: np.ndarray
+
+    def __len__(self) -> int:
+        return len(self.codes)
+
+    def take(self, mask: np.ndarray) -> _Utf8KeyChunk:
+        return _Utf8KeyChunk(self.codes[mask], self.uniques)
+
+    def code_of(self, value: str) -> int:
+        """Code of *value* in this chunk, or -1 when absent (uniques are sorted)."""
+        i = int(np.searchsorted(self.uniques, value))
+        if i < len(self.uniques) and self.uniques[i] == value:
+            return i
+        return -1
 
 
 def _is_column_like(value: Any) -> bool:
@@ -120,6 +151,10 @@ class CTableGroupBy:
         self.dropna = bool(dropna)
         self.engine = engine
         self.chunk_size = chunk_size
+        # Per-key incremental Utf8Factorizer instances, shared across the
+        # chunk loop so the string vocabulary is built once (see
+        # _read_key_chunk).
+        self._utf8_factorizers: dict[str, Any] = {}
 
         for name in self.keys:
             if name in table._computed_cols:
@@ -133,7 +168,9 @@ class CTableGroupBy:
                     f"Cannot group by ndarray column {name!r} with per-row shape {col_info.spec.item_shape}. "
                     "Materialize a scalar generated column first, e.g. embedding_norm or embedding_max."
                 )
-            if table._is_list_column(col_info) or table._is_varlen_scalar_column(col_info):
+            if table._is_list_column(col_info) or (
+                table._is_varlen_scalar_column(col_info) and not table._is_utf8_column(col_info)
+            ):
                 raise TypeError(f"Cannot group by variable-length/list column {name!r} in Phase 1")
 
     def size(self, *, urlpath: str | None = None):
@@ -222,7 +259,11 @@ class CTableGroupBy:
           objects (e.g. ``t.price``), which cannot be dict keys.
         * **Explicitly named** -- pass ``output_name=(column, op)`` keyword
           arguments (pandas-style named aggregation), giving the result column
-          exactly the name you want.
+          exactly the name you want.  This is also the only form that accepts a
+          **custom UDF aggregation**: ``output_name=(column, callable)``, or
+          ``output_name=(column, callable, dtype)`` to give the output column's
+          schema spec explicitly instead of inferring it from the callable's
+          results.
 
         Parameters
         ----------
@@ -235,13 +276,24 @@ class CTableGroupBy:
             row-count spelling ``"*": "size"``.  An op may also be given as the
             corresponding blosc2 reduction *function* (``blosc2.sum``, ``mean``,
             ``min``, ``max``, ``argmin``, ``argmax``), matched by identity; this
-            is a naming shorthand, not a UDF mechanism (custom functions are
-            rejected).  Result columns are named ``"<column>_<op>"``.
+            is a naming shorthand, not a UDF mechanism.  Result columns are
+            named ``"<column>_<op>"``.  Custom callables are only accepted via
+            the named-aggregation form (see below).
         urlpath:
             If given, write the result as a persistent CTable at that path.
         **named:
-            Named aggregations as ``output_name=(column, op)`` pairs.  Use
-            ``("*", "size")`` for a row count.
+            Named aggregations as ``output_name=(column, op)`` pairs, or
+            ``output_name=(column, callable[, dtype])`` for a custom UDF
+            aggregation.  Use ``("*", "size")`` for a row count.
+
+            A UDF callable receives a 1-D NumPy array of the group's live,
+            non-null values (nulls are pre-filtered, same as the built-in
+            aggregations) and returns a scalar.  It is called once per group
+            with a plain Python loop -- there is no acceleration yet, this is
+            the "slow but correct" baseline and semantics oracle for any
+            future JIT path.  The output dtype is inferred from the results
+            across *every* group (raising a clear error if they disagree) unless
+            *dtype* is given explicitly as a blosc2 schema spec.
 
         Examples
         --------
@@ -255,6 +307,8 @@ class CTableGroupBy:
         >>> g.agg(revenue=("sales", "sum"), avg_sale=("sales", "mean"))  # doctest: +SKIP
         >>> # Forms combine, e.g. a list of pairs plus a named row count.
         >>> g.agg([(t.sales, "sum")], n=("*", "size"))  # doctest: +SKIP
+        >>> # Custom UDF aggregation (named form only).
+        >>> g.agg(sales_range=("sales", lambda a: a.max() - a.min()))  # doctest: +SKIP
         """
         specs = self._normalize_aggs(aggregations, named)
         return self._execute(specs, urlpath=urlpath)
@@ -265,8 +319,11 @@ class CTableGroupBy:
         Accepts a name string, or one of blosc2's own reduction *functions*
         (:func:`blosc2.sum`, ``mean``, ``min``, ``max``, ``argmin``, ``argmax``)
         matched **by identity** -- so a user function that merely shares a name
-        (e.g. a UDF called ``sum``) is *not* silently accepted, and custom UDF
-        aggregations are rejected rather than misinterpreted.
+        (e.g. a UDF called ``sum``) is *not* silently accepted here.  Custom UDF
+        aggregations are only accepted via the named form (``output_name=(col,
+        callable)``, see :meth:`agg`); this method only ever sees a callable
+        when it fell through that path (auto-named mapping/list forms, which
+        cannot derive an output column name for an arbitrary callable).
         """
         if isinstance(op, str):
             return op
@@ -278,19 +335,33 @@ class CTableGroupBy:
                 f"Unsupported aggregation function {getattr(op, '__name__', op)!r}.  Pass a "
                 f"string op name (e.g. 'sum') or a blosc2 reduction function "
                 f"(blosc2.sum/mean/min/max/argmin/argmax).  Custom UDF aggregations are "
-                f"not supported."
+                f"supported only via the named form, e.g. "
+                f"g.agg(my_range=(col, {getattr(op, '__name__', 'my_func')}))."
             )
         raise ValueError(f"Aggregation op must be a string or a blosc2 reduction function, got {op!r}")
 
-    def _build_agg_spec(self, col_name, op, output_col: str | None = None) -> _AggSpec:
+    def _build_agg_spec(
+        self, col_name, op, output_col: str | None = None, *, dtype: SchemaSpec | None = None
+    ) -> _AggSpec:
         """Validate a single (column, op) pair and build its :class:`_AggSpec`.
 
         ``output_col`` overrides the default ``"<column>_<op>"`` name; ``"*"`` as
         *col_name* (only with ``op="size"``) yields a row count.  *col_name* may
         be a column name string or a :class:`~blosc2.ctable.Column` object; *op*
-        may be an op name string or a blosc2 reduction function (see
-        :meth:`_resolve_op`).
+        may be an op name string, a blosc2 reduction function (see
+        :meth:`_resolve_op`), or an arbitrary callable UDF aggregation (see
+        :meth:`agg`), in which case *dtype* optionally gives the output
+        column's schema spec (e.g. ``blosc2.float64()``) instead of inferring
+        it from the UDF's first result.
         """
+        if output_col is not None and callable(op) and op not in _op_alias_map():
+            # Only the named form (output_col given) may carry a custom UDF;
+            # the auto-named mapping/list forms cannot derive a column name
+            # for an arbitrary callable, so they fall through to _resolve_op()
+            # below and get its "unsupported aggregation function" error.
+            physical = self.table._logical_to_physical_name(_column_name(col_name))
+            self._validate_value_column(physical)
+            return _AggSpec(physical, "udf", output_col, udf=op, explicit_dtype=dtype)
         op = self._resolve_op(op)
         # Guard the "*" check with isinstance: a Column object overloads __eq__
         # to build an expression, so a bare ``col_name == "*"`` would not return
@@ -343,11 +414,18 @@ class CTableGroupBy:
             for col_name, ops in entries:
                 specs.extend(self._expand_ops(col_name, ops))
         for out_name, value in (named or {}).items():
-            if not (isinstance(value, (tuple, list)) and len(value) == 2):
+            if not (isinstance(value, (tuple, list)) and len(value) in (2, 3)):
                 raise ValueError(
-                    f"Named aggregation {out_name!r} must be a (column, op) pair, got {value!r}"
+                    f"Named aggregation {out_name!r} must be a (column, op) or "
+                    f"(column, op, dtype) tuple, got {value!r}"
                 )
-            col_name, op = value
+            col_name, op, *rest = value
+            dtype = rest[0] if rest else None
+            if dtype is not None and not (callable(op) and op not in _op_alias_map()):
+                raise ValueError(
+                    f"Named aggregation {out_name!r}: an explicit dtype is only supported "
+                    "for callable UDF aggregations"
+                )
             if isinstance(op, (tuple, list, set)):
                 raise ValueError(
                     f"Named aggregation {out_name!r} takes a single op, got {op!r}.  "
@@ -355,7 +433,7 @@ class CTableGroupBy:
                     f"form agg({{column: [...]}}) for several ops, or give each its "
                     f"own name (e.g. {out_name}_sum=(col, 'sum'))."
                 )
-            specs.append(self._build_agg_spec(col_name, op, output_col=out_name))
+            specs.append(self._build_agg_spec(col_name, op, output_col=out_name, dtype=dtype))
         output_names = [s.output_col for s in specs]
         if len(output_names) != len(set(output_names)):
             raise ValueError("Aggregation output column names must be unique")
@@ -399,7 +477,12 @@ class CTableGroupBy:
 
         argmin/argmax can only use the dense single-key path (it tracks row
         positions); the Cython kernels do not, so they are skipped for them.
+        UDF aggregations always fall through to the generic
+        chunked path below, which is the only one that accumulates raw
+        per-group values instead of a mergeable scalar state.
         """
+        if any(s.op == "udf" for s in specs):
+            return None
         if not use_arg_positions:
             for attempt in (
                 self._try_execute_cython_dense_int_key,
@@ -452,7 +535,12 @@ class CTableGroupBy:
             if not np.any(live_mask):
                 continue
 
-            keys_live = [np.asarray(values)[live_mask] for values in raw_keys]
+            keys_live = [
+                values.take(live_mask)
+                if isinstance(values, _Utf8KeyChunk)
+                else np.asarray(values)[live_mask]
+                for values in raw_keys
+            ]
             n_live = len(keys_live[0])
             if n_live == 0:
                 continue
@@ -1454,30 +1542,137 @@ class CTableGroupBy:
             if self.chunk_size <= 0:
                 raise ValueError("chunk_size must be positive")
             return int(self.chunk_size)
+        target = 1 << 20
         chunks = getattr(self.table._valid_rows, "chunks", None)
-        if chunks:
-            return max(int(chunks[0]), 1)
-        return 65536
+        if not chunks:
+            return target
+        base = max(int(chunks[0]), 1)
+        if base >= target:
+            return base
+        # Batching the loop at the raw validity chunk shape can be pathological
+        # (in-memory tables created small and grown by resize keep their tiny
+        # initial chunk shape, e.g. 64 rows), and even 64 Ki-row batches leave
+        # the per-batch Python bookkeeping (group display/merge) visible for
+        # multi-key groupbys.  Scale up to ~1 Mi rows while staying
+        # chunk-aligned; per-column batch memory stays modest (8 MB per int64
+        # column).
+        return base * -(-target // base)
 
     def _read_key_chunk(self, name: str, start: int, stop: int) -> np.ndarray:
         col_info = self.table._schema.columns_by_name[name]
         if self.table._is_dictionary_column(col_info):
             return np.asarray(self.table._cols[name].codes[start:stop], dtype=np.int32)
+        if self.table._is_utf8_column(col_info):
+            # Factorize the chunk from its raw offsets/bytes buffers: no row
+            # is decoded, only the distinct values (codes flow through the
+            # rest of the pipeline).  The factorizer is shared across chunks
+            # so values seen before are hash-matched instead of re-sorted.
+            # Utf8Array is sized to the logical row count, not the physical
+            # valid_rows capacity, so a chunk boundary can run past its end;
+            # rows beyond it are never live (the row can't have been written
+            # without this column), so the padding code is never read live.
+            col = self.table._cols[name]
+            fact = self._utf8_factorizers.get(name)
+            if fact is None:
+                fact = self._utf8_factorizers[name] = col.factorizer()
+            n = len(col)
+            codes = fact.codes_for_span(start, min(stop, n)) if start < n else np.empty(0, dtype=np.int64)
+            uniques = fact.uniques()
+            # Rank-normalize so this chunk keeps the np.unique contract the
+            # pipeline expects (uniques ascending, codes = string ranks).
+            order = np.argsort(uniques, kind="stable")
+            rank = np.empty(len(order), dtype=np.int64)
+            rank[order] = np.arange(len(order))
+            codes = rank[codes] if len(order) else codes
+            if stop > n:
+                codes = np.concatenate([codes, np.zeros(stop - max(start, n), dtype=np.int64)])
+            return _Utf8KeyChunk(codes, uniques[order])
         return np.asarray(self.table._cols[name][start:stop])
 
     def _factorize_keys(
         self, keys_live: list[np.ndarray]
     ) -> tuple[np.ndarray | list[np.ndarray], np.ndarray]:
         if len(keys_live) == 1:
-            unique, inverse = np.unique(keys_live[0], return_inverse=True)
+            arr = keys_live[0]
+            if isinstance(arr, _Utf8KeyChunk):
+                # The chunk is already factorized to dense string-rank codes;
+                # dedupe them with an O(n) bincount instead of a sort.  The
+                # np.unique contract — uniques ascending by string — holds
+                # because the codes are ranks into the sorted uniques.
+                present = np.bincount(arr.codes, minlength=len(arr.uniques)) > 0
+                remap = np.cumsum(present) - 1
+                return arr.uniques[present], remap[arr.codes]
+            if arr.dtype.kind in ("U", "S") and arr.dtype.itemsize % 4 == 0 and arr.dtype.itemsize:
+                return _factorize_fixed_width_str(arr)
+            unique, inverse = np.unique(arr, return_inverse=True)
             return unique, inverse
 
-        dtype = [(f"k{i}", arr.dtype) for i, arr in enumerate(keys_live)]
-        packed = np.empty(len(keys_live[0]), dtype=dtype)
+        # utf8 key chunks pack as their int64 codes (codes are string-rank
+        # within the chunk, so the packed sort order matches the string sort
+        # order); the codes in the deduped rows are mapped back to strings
+        # below, into object fields (StringDType cannot be a structured-array
+        # field).
+        pack_arrs = [arr.codes if isinstance(arr, _Utf8KeyChunk) else arr for arr in keys_live]
+        composite = self._composite_int_factorize(pack_arrs)
+        if composite is not None:
+            unique_fields, inverse = composite
+        else:
+            dtype = [(f"k{i}", arr.dtype) for i, arr in enumerate(pack_arrs)]
+            packed = np.empty(len(pack_arrs[0]), dtype=dtype)
+            for i, arr in enumerate(pack_arrs):
+                packed[f"k{i}"] = arr
+            packed_unique, inverse = np.unique(packed, return_inverse=True)
+            unique_fields = [packed_unique[f"k{i}"] for i in range(len(pack_arrs))]
+        out_dtype = [
+            (f"k{i}", object if isinstance(arr, _Utf8KeyChunk) else pack_arrs[i].dtype)
+            for i, arr in enumerate(keys_live)
+        ]
+        unique = np.empty(len(unique_fields[0]), dtype=out_dtype)
         for i, arr in enumerate(keys_live):
-            packed[f"k{i}"] = arr
-        unique, inverse = np.unique(packed, return_inverse=True)
+            field = unique_fields[i]
+            unique[f"k{i}"] = arr.uniques[field] if isinstance(arr, _Utf8KeyChunk) else field
         return unique, inverse
+
+    @staticmethod
+    def _composite_int_factorize(
+        pack_arrs: list[np.ndarray],
+    ) -> tuple[list[np.ndarray], np.ndarray] | None:
+        """Dedup rows of all-integer key columns via one combined int64 key.
+
+        ``np.unique`` over a structured dtype compares rows field-by-field
+        through void comparisons and is ~an order of magnitude slower than
+        over a plain int64 array, so when every key column is integral and
+        the product of the per-column value ranges fits int64, combine the
+        columns into a single integer (Horner over the zero-based fields —
+        the combined sort order equals the structured lexicographic order)
+        and dedup that.  Returns ``(per-field unique values, inverse)``, or
+        ``None`` when the keys don't fit this scheme.
+        """
+        if not all(arr.dtype.kind in "biu" for arr in pack_arrs):
+            return None
+        if len(pack_arrs[0]) == 0:
+            return None
+        mins = [int(arr.min()) for arr in pack_arrs]
+        spans = [int(arr.max()) - mn + 1 for arr, mn in zip(pack_arrs, mins, strict=True)]
+        if math.prod(spans) >= 1 << 62:
+            return None
+        combined = np.zeros(len(pack_arrs[0]), dtype=np.int64)
+        for arr, mn, span in zip(pack_arrs, mins, spans, strict=True):
+            if arr.dtype.kind == "u":
+                # Zero-base within the unsigned dtype first: the raw values may
+                # not fit int64, but value - min always fits (span is checked).
+                zero_based = (arr - arr.dtype.type(mn)).astype(np.int64, copy=False)
+            else:
+                zero_based = arr.astype(np.int64, copy=False) - mn
+            combined *= span
+            combined += zero_based
+        unique_c, inverse = np.unique(combined, return_inverse=True)
+        unique_fields: list[np.ndarray] = [None] * len(pack_arrs)  # type: ignore[list-item]
+        rem = unique_c
+        for i in range(len(pack_arrs) - 1, -1, -1):
+            unique_fields[i] = (rem % spans[i] + mins[i]).astype(pack_arrs[i].dtype)
+            rem = rem // spans[i]
+        return unique_fields, inverse
 
     def _resolve_sort(self, *, cheap: bool) -> bool:
         """Resolve the tri-state ``self.sort`` request for the current path.
@@ -1584,7 +1779,28 @@ class CTableGroupBy:
                 partials[spec.output_col] = self._argminmax_partials(
                     spec.op, inverse, values, non_null, row_positions, n_groups
                 )
+            elif spec.op == "udf":
+                partials[spec.output_col] = self._udf_value_partials(inverse, values, non_null, n_groups)
         return partials
+
+    def _udf_value_partials(
+        self, inverse: np.ndarray, values: np.ndarray, non_null: np.ndarray, n_groups: int
+    ) -> list[np.ndarray]:
+        """Split this chunk's non-null values by group, for UDF aggregations.
+
+        Unlike the built-in ops, an arbitrary Python callable cannot be
+        incrementally merged across chunks, so each chunk instead contributes
+        its raw per-group values; :meth:`_merge_partials` collects these into
+        a growing list per group, and :meth:`_final_rows` concatenates and
+        calls the UDF once, after all chunks have been read.
+        """
+        groups = inverse[non_null]
+        vals = values[non_null]
+        order = np.argsort(groups, kind="stable")
+        sorted_groups = groups[order]
+        sorted_vals = vals[order]
+        boundaries = np.searchsorted(sorted_groups, np.arange(n_groups + 1))
+        return [sorted_vals[boundaries[g] : boundaries[g + 1]] for g in range(n_groups)]
 
     def _minmax_partials(
         self, op: AggName, inverse: np.ndarray, values: np.ndarray, non_null: np.ndarray, n_groups: int
@@ -1636,7 +1852,7 @@ class CTableGroupBy:
             best_positions = np.where(pos_best != int_max, pos_best, -1)
         return best_values, best_positions, has_value
 
-    def _merge_partials(
+    def _merge_partials(  # noqa: C901
         self,
         acc: dict[Any, dict[str, _AggState]],
         key_values: dict[Any, tuple[Any, ...]],
@@ -1685,8 +1901,14 @@ class CTableGroupBy:
                         ):
                             state.value = (value, int(positions[i]))
                         state.count += 1
+                elif spec.op == "udf":
+                    chunk_values = partial[i]
+                    if state.value is None:
+                        state.value = []
+                    if len(chunk_values):
+                        state.value.append(chunk_values)
 
-    def _final_rows(
+    def _final_rows(  # noqa: C901
         self,
         acc: dict[Any, dict[str, _AggState]],
         key_values: dict[Any, tuple[Any, ...]],
@@ -1701,6 +1923,14 @@ class CTableGroupBy:
         if self._resolve_sort(cheap=False):
             keys.sort(key=lambda k: tuple(_sortable_key_part(v) for v in key_values[k]))
 
+        # Sentinel marking a UDF aggregation group with no real result yet --
+        # either it had zero non-null input values (the UDF was never
+        # called), or the UDF itself returned None to signal a null result.
+        # Both cases are excluded from dtype inference and patched to the
+        # output dtype's null value once it is known, below.
+        _empty_udf_group = object()
+
+        udf_results: dict[str, list] = {spec.output_col: [] for spec in specs if spec.op == "udf"}
         rows = []
         for norm_key in keys:
             row = dict(zip(self.keys, key_values[norm_key], strict=True))
@@ -1709,6 +1939,37 @@ class CTableGroupBy:
                 state = states[spec.output_col]
                 if spec.op == "mean":
                     row[spec.output_col] = math.nan if state.count == 0 else state.value / state.count
+                elif spec.op == "udf":
+                    chunks = state.value
+                    if not chunks:
+                        # No non-null values for this group/column; matches
+                        # the sum/min/max convention of a null result rather
+                        # than calling the UDF with an empty array.
+                        row[spec.output_col] = _empty_udf_group
+                    else:
+                        group_values = np.concatenate(chunks)
+                        # A @blosc2.dsl_kernel-decorated UDF is a DSLKernel
+                        # instance whose __call__ expects the array-kernel
+                        # calling convention (inputs_tuple, output, offset),
+                        # not this "one array in, one scalar out" aggregation
+                        # convention -- call the wrapped plain function instead.
+                        udf_callable = spec.udf.func if isinstance(spec.udf, DSLKernel) else spec.udf
+                        try:
+                            result = _python_scalar(udf_callable(group_values))
+                        except Exception as exc:
+                            raise RuntimeError(
+                                f"UDF aggregation {spec.output_col!r} raised for group "
+                                f"{key_values[norm_key]!r}: {exc}"
+                            ) from exc
+                        if result is None:
+                            # The UDF itself signaled a null result; treat it
+                            # like an empty group rather than feeding None
+                            # into dtype inference (which would otherwise see
+                            # it as a genuinely inconsistent result type).
+                            row[spec.output_col] = _empty_udf_group
+                        else:
+                            row[spec.output_col] = result
+                            udf_results[spec.output_col].append(result)
                 elif spec.op in {"sum", "min", "max", "argmin", "argmax"} and state.count == 0:
                     row[spec.output_col] = _null_output_value(self._result_spec_for_agg(spec))
                 elif spec.op in {"argmin", "argmax"}:
@@ -1716,7 +1977,64 @@ class CTableGroupBy:
                 else:
                     row[spec.output_col] = 0 if state.value is None else state.value
             rows.append(row)
+        for spec in specs:
+            if spec.op != "udf":
+                continue
+            if spec.explicit_dtype is None:
+                spec.explicit_dtype = self._infer_udf_spec(udf_results[spec.output_col], spec.output_col)
+            null_value = _null_output_value(spec.explicit_dtype)
+            for row in rows:
+                if row[spec.output_col] is _empty_udf_group:
+                    row[spec.output_col] = null_value
         return rows
+
+    @staticmethod
+    def _infer_udf_spec(results: list, name: str) -> SchemaSpec:
+        """Infer a CTable schema spec from a UDF aggregation's collected results.
+
+        Probing every group's result (not just the first) means a UDF that
+        returns inconsistent types (e.g. int for one group, a string for
+        another) is caught here with a clear error, rather than surfacing as
+        an opaque failure while building the result table.
+        """
+        if not results:
+            # No group ever produced a value (e.g. an empty table, or every
+            # group is all-null so the UDF was never called) -- there is
+            # nothing to infer a dtype from.
+            raise ValueError(
+                f"Cannot infer a CTable dtype for UDF aggregation {name!r}: it was never "
+                f"called (empty table, or every group had no non-null values). Pass an "
+                f"explicit dtype in the named-agg tuple, e.g. "
+                f"g.agg({name}=(col, fn, blosc2.float64()))."
+            )
+        try:
+            arr = np.asarray(results)
+        except ValueError as exc:
+            # Ragged/inhomogeneous results (e.g. a UDF returning a list for
+            # one group and a scalar for another) raise here rather than
+            # producing an object array.
+            raise ValueError(
+                f"UDF aggregation {name!r} produced inconsistent or unsupported types "
+                f"across groups: {results!r} ({exc}). Pass an explicit dtype in the "
+                f"named-agg tuple, e.g. g.agg({name}=(col, fn, blosc2.float64()))."
+            ) from exc
+        if arr.dtype == object:
+            raise ValueError(
+                f"UDF aggregation {name!r} produced inconsistent or unsupported types "
+                f"across groups: {results!r}. Pass an explicit dtype in the named-agg "
+                f"tuple, e.g. g.agg({name}=(col, fn, blosc2.float64()))."
+            )
+        if arr.dtype.kind == "b":
+            return b2_bool()
+        if arr.dtype.kind in "iu":
+            return int64()
+        if arr.dtype.kind == "f":
+            return float64()
+        raise ValueError(
+            f"Cannot infer a CTable dtype for UDF aggregation {name!r} result dtype "
+            f"{arr.dtype!r}. Pass an explicit dtype in the named-agg tuple, e.g. "
+            f"g.agg({name}=(col, fn, blosc2.string(max_length=32)))."
+        )
 
     def _build_result(self, rows: list[dict[str, Any]], specs: list[_AggSpec]):
         from blosc2.ctable import CTable
@@ -1778,6 +2096,11 @@ class CTableGroupBy:
             return int64(null_value=-1)
         if spec.op == "mean":
             return float64()
+        if spec.op == "udf":
+            # _final_rows() always sets this (inferred, unless the user gave
+            # an explicit dtype) before _build_result() reads it.
+            assert spec.explicit_dtype is not None
+            return spec.explicit_dtype
         assert spec.input_col is not None
         input_spec = self.table._schema.columns_by_name[spec.input_col].spec
         dtype = getattr(input_spec, "dtype", None)
@@ -1793,6 +2116,11 @@ class CTableGroupBy:
     def _null_mask(self, name: str, values: np.ndarray, *, is_key: bool) -> np.ndarray:
         col_info = self.table._schema.columns_by_name[name]
         spec = col_info.spec
+        if isinstance(values, _Utf8KeyChunk):
+            null_value = getattr(spec, "null_value", None)
+            if null_value is None:
+                return np.zeros(len(values), dtype=bool)
+            return values.codes == values.code_of(null_value)
         if isinstance(spec, DictionarySpec):
             mask = values == np.int32(spec.null_code)
             return mask if is_key or getattr(spec, "nullable", False) else np.zeros(len(values), dtype=bool)
@@ -1807,6 +2135,43 @@ class CTableGroupBy:
         if null_value is not None and not (isinstance(null_value, float) and math.isnan(null_value)):
             mask |= values == null_value
         return mask
+
+
+_HASH_MIX = np.uint64(0x9E3779B97F4A7C15)
+
+
+def _factorize_fixed_width_str(arr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Exact ``np.unique(arr, return_inverse=True)`` for fixed-width string
+    keys, ~2x faster.
+
+    Argsorting N strings is the string-key groupby bottleneck (a ``U8`` key
+    compares 32 bytes of UTF-32 per element), so instead: hash each row's raw
+    bytes into one uint64, factorize the *integers*, and recover the string
+    for each group from one representative row.  A vectorized verify pass
+    keeps it exact — on a hash collision (different strings, same hash) fall
+    back to plain ``np.unique``.  Output contract (uniques sorted ascending,
+    inverse indices into them) is identical to ``np.unique``, so callers
+    cannot tell the difference.
+
+    ponytail: per-chunk cost is now the int64 unique-argsort; a cross-chunk
+    vocabulary cache (searchsorted against known hashes) could roughly halve
+    it again if string-key groupby speed ever matters more.
+    """
+    words = arr.view(np.uint32).reshape(len(arr), arr.dtype.itemsize // 4)
+    h = words[:, 0].astype(np.uint64)
+    for i in range(1, words.shape[1]):
+        h = (h * _HASH_MIX) ^ words[:, i]
+    hash_uniques, inverse = np.unique(h, return_inverse=True)
+    representative = np.empty(len(hash_uniques), dtype=np.int64)
+    representative[inverse] = np.arange(len(arr))  # any row of the group will do
+    reps = arr[representative]
+    if not (arr == reps[inverse]).all():
+        return np.unique(arr, return_inverse=True)  # collision: exact fallback
+    # np.unique contract: uniques ascending by *string*, not by hash.
+    order = np.argsort(reps, kind="stable")
+    rank = np.empty(len(order), dtype=inverse.dtype)
+    rank[order] = np.arange(len(order), dtype=inverse.dtype)
+    return reps[order], rank[inverse]
 
 
 def _normalize_key_part(value: Any) -> Any:

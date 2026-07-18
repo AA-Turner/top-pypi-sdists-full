@@ -219,6 +219,8 @@ class TestParseIso:
             "22:12:23.-23",
             "12:02:03.1234567890",
             "12:02:03;123456789",
+            "12:34:56.",
+            "123456,",
             # offset
             "01:02:03+00:00",
             "010203Z",
@@ -231,6 +233,18 @@ class TestParseIso:
             "01023",
             "011",
             "2",
+            # basic format is HH/HHMM/HHMMSS only; trailing digits that CPython
+            # reads as a separatorless fraction must be rejected
+            "20103000",
+            "20200101",
+            "2010300",
+            "123045678",
+            "1230456789",
+            # 24:00 can't be represented as a time without a date rollover
+            "24",
+            "2400",
+            "24:00:00",
+            "240000.0",
             # other
             "garbage",
             "",

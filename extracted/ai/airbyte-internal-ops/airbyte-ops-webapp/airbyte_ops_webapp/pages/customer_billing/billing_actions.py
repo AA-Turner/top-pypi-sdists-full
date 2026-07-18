@@ -9,7 +9,6 @@ from prefab_ui.components import (
     CardContent,
     Column,
     Dialog,
-    Div,
     Grid,
     Input,
     Row,
@@ -34,22 +33,21 @@ from airbyte_ops_webapp.pages.customer_billing._mcp_tools import (
 )
 from airbyte_ops_webapp.theme import (
     BUTTON_DESTRUCTIVE_CLASS,
-    PANEL_CARD_CLASS,
-    _card_style,
+    AbCard,
+    AbFieldLabel,
+    AbFieldValue,
+    AbSectionTitle,
 )
 
 
 def render_billing_actions() -> None:
     """Render the right-panel tabbed billing actions."""
     with (
-        Div(css_class=PANEL_CARD_CLASS, style=_card_style()),
+        AbCard(),
         CardContent(),
         Column(gap=3),
     ):
-        Text(
-            "Billing Actions",
-            style={"fontWeight": "700", "fontSize": "1.125rem"},
-        )
+        AbSectionTitle("Billing Actions")
         with Tabs(name="billing_action_tab", value="grace_period"):
             with Tab("Grace Period", value="grace_period"):
                 _render_grace_period_form()
@@ -61,16 +59,14 @@ def _render_grace_period_form() -> None:
     """Grace period set/extend/cancel form."""
     with Column(gap=3):
         with Column(gap=1):
-            Text(
-                "End date or days", style={"fontSize": "0.875rem", "fontWeight": "500"}
-            )
+            AbFieldValue("End date or days")
             Input(
                 name="grace_period_value",
                 value=STATE.grace_period_value,
                 placeholder="YYYY-MM-DD, number of days (1-90), or 'cancel'",
             )
         with Column(gap=1):
-            Text("Reason", style={"fontSize": "0.875rem", "fontWeight": "500"})
+            AbFieldValue("Reason")
             Textarea(
                 name="grace_period_reason",
                 value=STATE.grace_period_reason,
@@ -85,7 +81,7 @@ def _render_permanent_waiver_form() -> None:
     """Permanent waiver set/remove form."""
     with Column(gap=3):
         with Column(gap=1):
-            Text("Waiver Type", style={"fontSize": "0.875rem", "fontWeight": "500"})
+            AbFieldValue("Waiver Type")
             with Select(
                 name="waiver_type",
                 value="free",
@@ -99,7 +95,7 @@ def _render_permanent_waiver_form() -> None:
                     ]
                 )
         with Column(gap=1):
-            Text("Reason", style={"fontSize": "0.875rem", "fontWeight": "500"})
+            AbFieldValue("Reason")
             Textarea(
                 name="waiver_reason",
                 value=STATE.waiver_reason,
@@ -109,11 +105,7 @@ def _render_permanent_waiver_form() -> None:
         with If(STATE.waiver_type), If(STATE.waiver_type != "none"):
             Text(
                 "Also changes Orb plan + Stigg entitlement automatically.",
-                style={
-                    "fontSize": "0.8125rem",
-                    "opacity": "0.6",
-                    "fontStyle": "italic",
-                },
+                css_class="text-[0.8125rem] opacity-60 italic",
             )
 
         with Row(justify="end", gap=2):
@@ -128,11 +120,8 @@ def _render_permanent_waiver_form() -> None:
 def _render_confirm_field(label: str, value: object) -> None:
     """Render a single label-value row in the confirmation summary."""
     with Grid(columns=2, gap=2):
-        Text(label, style={"fontSize": "0.875rem", "opacity": "0.7"})
-        Text(
-            content=value,
-            style={"fontSize": "0.875rem", "fontWeight": "500"},
-        )
+        AbFieldLabel(label)
+        AbFieldValue(content=value)
 
 
 def _render_grace_period_confirm_dialog() -> None:
@@ -154,7 +143,7 @@ def _render_grace_period_confirm_dialog() -> None:
         with Column(gap=4):
             Text(
                 "You are about to apply a billing change to a production organization.",
-                style={"fontSize": "0.875rem", "opacity": "0.8"},
+                css_class="text-sm opacity-80",
             )
             with Column(gap=2):
                 _render_confirm_field("Organization", STATE.org_info.organization_name)
@@ -208,7 +197,7 @@ def _render_waiver_confirm_dialog() -> None:
         with Column(gap=4):
             Text(
                 "You are about to apply a billing change to a production organization.",
-                style={"fontSize": "0.875rem", "opacity": "0.8"},
+                css_class="text-sm opacity-80",
             )
             with Column(gap=2):
                 _render_confirm_field("Organization", STATE.org_info.organization_name)

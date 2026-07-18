@@ -29,11 +29,14 @@ __all__ = (
     "AlertCategoryType",
     "ChannelStateType",
     "CompressionMethodType",
+    "EventNameType",
     "FillPolicyType",
+    "FunctionTypeType",
     "GetChannelSchedulePaginatorName",
     "InsertionModeType",
     "ListAlertsPaginatorName",
     "ListChannelsPaginatorName",
+    "ListFunctionsPaginatorName",
     "ListLiveSourcesPaginatorName",
     "ListPlaybackConfigurationsPaginatorName",
     "ListPrefetchScheduleTypeType",
@@ -43,9 +46,11 @@ __all__ = (
     "LogTypeType",
     "LoggingStrategyType",
     "ManifestServiceExcludeEventTypeType",
+    "ManifestServicePublishOptInEventTypeType",
     "MediaTailorServiceName",
     "MessageTypeType",
     "MethodType",
+    "MethodTypeType",
     "ModeType",
     "OperatorType",
     "OriginManifestTypeType",
@@ -55,6 +60,7 @@ __all__ = (
     "RegionName",
     "RelativePositionType",
     "ResourceServiceName",
+    "RuntimeTypeType",
     "ScheduleEntryTypeType",
     "ServiceName",
     "StreamingMediaFileConditioningType",
@@ -98,6 +104,8 @@ AdsInteractionExcludeEventTypeType = Literal[
     "MAKING_ADS_REQUEST",
     "MODIFIED_TARGET_URL",
     "NON_AD_MARKER_FOUND",
+    "PRE_ADS_REQUEST_FUNCTION_ERROR",
+    "PRE_ADS_REQUEST_HOOK_ERROR",
     "REDIRECTED_VAST_RESPONSE",
     "VAST_REDIRECT",
     "VAST_RESPONSE",
@@ -108,15 +116,23 @@ AdsInteractionExcludeEventTypeType = Literal[
     "WARNING_URL_VARIABLE_SUBSTITUTION_FAILED",
     "WARNING_VPAID_AD_DROPPED",
 ]
-AdsInteractionPublishOptInEventTypeType = Literal["RAW_ADS_REQUEST", "RAW_ADS_RESPONSE"]
+AdsInteractionPublishOptInEventTypeType = Literal[
+    "PRE_ADS_REQUEST_FUNCTION_COMPLETED",
+    "PRE_ADS_REQUEST_HOOK_SUMMARY",
+    "RAW_ADS_REQUEST",
+    "RAW_ADS_RESPONSE",
+]
 AlertCategoryType = Literal["INFO", "PLAYBACK_WARNING", "SCHEDULING_ERROR"]
 ChannelStateType = Literal["RUNNING", "STOPPED"]
 CompressionMethodType = Literal["GZIP", "NONE"]
+EventNameType = Literal["PRE_ADS_REQUEST", "PRE_SESSION_INITIALIZATION"]
 FillPolicyType = Literal["FULL_AVAIL_ONLY", "PARTIAL_AVAIL"]
+FunctionTypeType = Literal["CUSTOM_OUTPUT", "HTTP_REQUEST", "SEQUENTIAL_EXECUTOR"]
 GetChannelSchedulePaginatorName = Literal["get_channel_schedule"]
 InsertionModeType = Literal["PLAYER_SELECT", "STITCHED_ONLY"]
 ListAlertsPaginatorName = Literal["list_alerts"]
 ListChannelsPaginatorName = Literal["list_channels"]
+ListFunctionsPaginatorName = Literal["list_functions"]
 ListLiveSourcesPaginatorName = Literal["list_live_sources"]
 ListPlaybackConfigurationsPaginatorName = Literal["list_playback_configurations"]
 ListPrefetchScheduleTypeType = Literal["ALL", "RECURRING", "SINGLE"]
@@ -151,6 +167,8 @@ ManifestServiceExcludeEventTypeType = Literal[
     "NO_MEDIA_PLAYLIST",
     "ORIGIN_MANIFEST",
     "PARSING_ERROR",
+    "PRE_SESSION_INIT_FUNCTION_ERROR",
+    "PRE_SESSION_INIT_HOOK_ERROR",
     "SCTE35_PARSING_ERROR",
     "SESSION_INITIALIZED",
     "TIMEOUT_ERROR",
@@ -159,14 +177,19 @@ ManifestServiceExcludeEventTypeType = Literal[
     "UNKNOWN_HOST",
     "UNSUPPORTED_SINGLE_PERIOD_DASH_MANIFEST",
 ]
+ManifestServicePublishOptInEventTypeType = Literal[
+    "PRE_SESSION_INIT_FUNCTION_COMPLETED", "PRE_SESSION_INIT_HOOK_SUMMARY"
+]
 MessageTypeType = Literal["SPLICE_INSERT", "TIME_SIGNAL"]
 MethodType = Literal["GET", "POST"]
+MethodTypeType = Literal["GET", "POST"]
 ModeType = Literal["AFTER_LIVE_EDGE", "BEHIND_LIVE_EDGE", "OFF"]
 OperatorType = Literal["EQUALS"]
 OriginManifestTypeType = Literal["MULTI_PERIOD", "SINGLE_PERIOD"]
 PlaybackModeType = Literal["LINEAR", "LOOP"]
 PrefetchScheduleTypeType = Literal["RECURRING", "SINGLE"]
 RelativePositionType = Literal["AFTER_PROGRAM", "BEFORE_PROGRAM"]
+RuntimeTypeType = Literal["JSONATA"]
 ScheduleEntryTypeType = Literal["ALTERNATE_MEDIA", "FILLER_SLATE", "PROGRAM"]
 StreamingMediaFileConditioningType = Literal["NONE", "TRANSCODE"]
 TierType = Literal["BASIC", "STANDARD"]
@@ -366,8 +389,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -394,6 +415,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -461,10 +484,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -497,6 +520,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -524,6 +548,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -545,7 +570,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -566,6 +590,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -605,6 +630,7 @@ PaginatorName = Literal[
     "get_channel_schedule",
     "list_alerts",
     "list_channels",
+    "list_functions",
     "list_live_sources",
     "list_playback_configurations",
     "list_prefetch_schedules",

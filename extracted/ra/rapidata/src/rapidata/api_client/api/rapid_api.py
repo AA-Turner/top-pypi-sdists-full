@@ -19,7 +19,7 @@ from pydantic import Field, StrictBool, StrictInt, StrictStr
 from typing import List, Optional
 from typing_extensions import Annotated
 from rapidata.api_client.models.get_rapid_navigation_endpoint_output import GetRapidNavigationEndpointOutput
-from rapidata.api_client.models.rapid_state_model import RapidStateModel
+from rapidata.api_client.models.rapid_state import RapidState
 
 from rapidata.api_client.api_client import ApiClient, RequestSerialized
 from rapidata.api_client.api_response import ApiResponse
@@ -314,7 +314,7 @@ class RapidApi:
         self,
         rapid_id: Annotated[StrictStr, Field(description="The rapid to anchor navigation on.")],
         correlation_id: Annotated[StrictStr, Field(description="The correlation id whose result slice to navigate.")],
-        states: Annotated[Optional[List[RapidStateModel]], Field(description="Optional rapid states to filter by; all states are included when omitted.")] = None,
+        states: Annotated[Optional[List[RapidState]], Field(description="Optional rapid states to filter by; all states are included when omitted.")] = None,
         window: Annotated[Optional[StrictInt], Field(description="The maximum number of neighbours to return on each side.")] = None,
         include_not_accepted: Annotated[Optional[StrictBool], Field(description="When true, not-accepted responses count toward the anchor's sample and aggregation.")] = None,
         include_overflow: Annotated[Optional[StrictBool], Field(description="When true, overflow responses count toward the anchor's sample and aggregation.")] = None,
@@ -340,7 +340,7 @@ class RapidApi:
         :param correlation_id: The correlation id whose result slice to navigate. (required)
         :type correlation_id: str
         :param states: Optional rapid states to filter by; all states are included when omitted.
-        :type states: List[RapidStateModel]
+        :type states: List[RapidState]
         :param window: The maximum number of neighbours to return on each side.
         :type window: int
         :param include_not_accepted: When true, not-accepted responses count toward the anchor's sample and aggregation.
@@ -404,7 +404,7 @@ class RapidApi:
         self,
         rapid_id: Annotated[StrictStr, Field(description="The rapid to anchor navigation on.")],
         correlation_id: Annotated[StrictStr, Field(description="The correlation id whose result slice to navigate.")],
-        states: Annotated[Optional[List[RapidStateModel]], Field(description="Optional rapid states to filter by; all states are included when omitted.")] = None,
+        states: Annotated[Optional[List[RapidState]], Field(description="Optional rapid states to filter by; all states are included when omitted.")] = None,
         window: Annotated[Optional[StrictInt], Field(description="The maximum number of neighbours to return on each side.")] = None,
         include_not_accepted: Annotated[Optional[StrictBool], Field(description="When true, not-accepted responses count toward the anchor's sample and aggregation.")] = None,
         include_overflow: Annotated[Optional[StrictBool], Field(description="When true, overflow responses count toward the anchor's sample and aggregation.")] = None,
@@ -430,7 +430,7 @@ class RapidApi:
         :param correlation_id: The correlation id whose result slice to navigate. (required)
         :type correlation_id: str
         :param states: Optional rapid states to filter by; all states are included when omitted.
-        :type states: List[RapidStateModel]
+        :type states: List[RapidState]
         :param window: The maximum number of neighbours to return on each side.
         :type window: int
         :param include_not_accepted: When true, not-accepted responses count toward the anchor's sample and aggregation.
@@ -494,7 +494,7 @@ class RapidApi:
         self,
         rapid_id: Annotated[StrictStr, Field(description="The rapid to anchor navigation on.")],
         correlation_id: Annotated[StrictStr, Field(description="The correlation id whose result slice to navigate.")],
-        states: Annotated[Optional[List[RapidStateModel]], Field(description="Optional rapid states to filter by; all states are included when omitted.")] = None,
+        states: Annotated[Optional[List[RapidState]], Field(description="Optional rapid states to filter by; all states are included when omitted.")] = None,
         window: Annotated[Optional[StrictInt], Field(description="The maximum number of neighbours to return on each side.")] = None,
         include_not_accepted: Annotated[Optional[StrictBool], Field(description="When true, not-accepted responses count toward the anchor's sample and aggregation.")] = None,
         include_overflow: Annotated[Optional[StrictBool], Field(description="When true, overflow responses count toward the anchor's sample and aggregation.")] = None,
@@ -520,7 +520,7 @@ class RapidApi:
         :param correlation_id: The correlation id whose result slice to navigate. (required)
         :type correlation_id: str
         :param states: Optional rapid states to filter by; all states are included when omitted.
-        :type states: List[RapidStateModel]
+        :type states: List[RapidState]
         :param window: The maximum number of neighbours to return on each side.
         :type window: int
         :param include_not_accepted: When true, not-accepted responses count toward the anchor's sample and aggregation.
@@ -684,7 +684,7 @@ class RapidApi:
     ) -> None:
         """Rejects a completed rapid, marking its results as invalid.
 
-        The rapid must be in the Done state. Rejection propagates staleness to dependent entities.
+        Valid from the Done, Labeling, Paused or Flagged state. Rejection propagates staleness to  dependent entities.
 
         :param rapid_id: The identifier of the rapid to reject. (required)
         :type rapid_id: str
@@ -754,7 +754,7 @@ class RapidApi:
     ) -> ApiResponse[None]:
         """Rejects a completed rapid, marking its results as invalid.
 
-        The rapid must be in the Done state. Rejection propagates staleness to dependent entities.
+        Valid from the Done, Labeling, Paused or Flagged state. Rejection propagates staleness to  dependent entities.
 
         :param rapid_id: The identifier of the rapid to reject. (required)
         :type rapid_id: str
@@ -824,7 +824,7 @@ class RapidApi:
     ) -> RESTResponseType:
         """Rejects a completed rapid, marking its results as invalid.
 
-        The rapid must be in the Done state. Rejection propagates staleness to dependent entities.
+        Valid from the Done, Labeling, Paused or Flagged state. Rejection propagates staleness to  dependent entities.
 
         :param rapid_id: The identifier of the rapid to reject. (required)
         :type rapid_id: str

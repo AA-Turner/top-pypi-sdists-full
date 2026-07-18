@@ -20,6 +20,19 @@ from airbyte_ops_webapp.serve import add_oauth_routes
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def _sample_oauth_config() -> state_module.OAuthConfigState:
+    return state_module.OAuthConfigState(
+        enabled=True,
+        issuer="https://cloud.airbyte.com/auth/realms/airbyte",
+        client_id="airbyte-ops-webapp-client",
+        redirect_uri="http://localhost:3000/oauth/callback",
+        authorization_endpoint="https://cloud.airbyte.com/auth/realms/airbyte/protocol/openid-connect/auth",
+        token_endpoint="https://cloud.airbyte.com/auth/realms/airbyte/protocol/openid-connect/token",
+        session_endpoint="/oauth/session",
+        token_exchange_endpoint="/oauth/token",
+    )
+
+
 def test_oauth_config_defaults_to_airbyte_realm_client(
     monkeypatch,
 ) -> None:
@@ -31,16 +44,16 @@ def test_oauth_config_defaults_to_airbyte_realm_client(
 
     config = oauth_module.oauth_config()
 
-    assert config["enabled"] is True
-    assert config["issuer"] == "https://cloud.airbyte.com/auth/realms/airbyte"
-    assert config["client_id"] == "airbyte-ops-webapp-client"
-    assert config["redirect_uri"] == "http://localhost:3000/oauth/callback"
+    assert config.enabled is True
+    assert config.issuer == "https://cloud.airbyte.com/auth/realms/airbyte"
+    assert config.client_id == "airbyte-ops-webapp-client"
+    assert config.redirect_uri == "http://localhost:3000/oauth/callback"
     assert (
-        config["authorization_endpoint"]
+        config.authorization_endpoint
         == "https://cloud.airbyte.com/auth/realms/airbyte/protocol/openid-connect/auth"
     )
-    assert config["session_endpoint"] == "/oauth/session"
-    assert config["token_exchange_endpoint"] == "/oauth/token"
+    assert config.session_endpoint == "/oauth/session"
+    assert config.token_exchange_endpoint == "/oauth/token"
 
 
 def test_oauth_redirect_uri_uses_public_url(
@@ -74,15 +87,7 @@ def test_oauth_redirect_uri_override_wins(
 
 
 def test_oauth_callback_html_exchanges_code_with_configured_client() -> None:
-    config = {
-        "enabled": True,
-        "issuer": "https://cloud.airbyte.com/auth/realms/airbyte",
-        "client_id": "airbyte-ops-webapp-client",
-        "redirect_uri": "http://localhost:3000/oauth/callback",
-        "authorization_endpoint": "https://cloud.airbyte.com/auth/realms/airbyte/protocol/openid-connect/auth",
-        "token_endpoint": "https://cloud.airbyte.com/auth/realms/airbyte/protocol/openid-connect/token",
-        "token_exchange_endpoint": "/oauth/token",
-    }
+    config = _sample_oauth_config()
 
     html = oauth_module._oauth_callback_html(config)
 
@@ -96,18 +101,8 @@ def test_oauth_callback_html_exchanges_code_with_configured_client() -> None:
     assert "OAuth session setup failed." in html
 
 
-def test_oauth_callback_csp_allows_only_self_and_configured_token_origin() -> None:
-    config = {
-        "enabled": True,
-        "issuer": "https://cloud.airbyte.com/auth/realms/airbyte",
-        "client_id": "airbyte-ops-webapp-client",
-        "redirect_uri": "http://localhost:3000/oauth/callback",
-        "authorization_endpoint": "https://cloud.airbyte.com/auth/realms/airbyte/protocol/openid-connect/auth",
-        "token_endpoint": "https://cloud.airbyte.com/auth/realms/airbyte/protocol/openid-connect/token",
-        "token_exchange_endpoint": "/oauth/token",
-    }
-
-    csp = oauth_module._oauth_callback_csp(config)
+def test_oauth_callback_csp_restricts_connections_to_self() -> None:
+    csp = oauth_module._oauth_callback_csp()
 
     assert "default-src 'none'" in csp
     assert "connect-src 'self'" in csp

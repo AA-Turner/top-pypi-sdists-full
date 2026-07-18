@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from rich import box
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -145,6 +146,8 @@ class Reporter:
                     "check_run_id": r["check_run_id"],
                     "severity": r["severity"],
                     "failure_message": r["failure_message"],
+                    "file_path": r.get("file_path"),
+                    "unique_id": r.get("unique_id"),
                 }
                 for r in results
                 if r["outcome"] == CheckOutcome.FAILED
@@ -168,6 +171,7 @@ class Reporter:
                 header_style=f"bold {border_color}",
             )
             table.add_column("Check name", justify="left", style="cyan", no_wrap=True)
+            table.add_column("File", justify="left", style="magenta")
             table.add_column("Severity", justify="center", width=10)
             table.add_column("Failure message", justify="left")
 
@@ -180,10 +184,15 @@ class Reporter:
                 sev = str(check.get("severity", "")).lower()
                 sev_color = "red" if CheckSeverity.ERROR in sev else "yellow"
 
+                # Escape user-derived content so text that looks like rich
+                # markup (e.g. regex character classes such as `[a-z0-9]`) is
+                # not interpreted as a style tag and stripped. The severity
+                # cell is intentional markup and is left as-is. See issue #974.
                 table.add_row(
-                    str(check.get("check_run_id", "")),
+                    escape(str(check.get("check_run_id", ""))),
+                    escape(str(check.get("file_path") or "")),
                     f"[bold {sev_color}]{sev.upper()}[/bold {sev_color}]",
-                    str(check.get("failure_message", "")),
+                    escape(str(check.get("failure_message", ""))),
                 )
 
             console.print(table)
@@ -191,7 +200,11 @@ class Reporter:
             if self.create_pr_comment_file:
                 create_github_comment_file(
                     failed_checks=[
-                        [str(f["check_run_id"]), str(f.get("failure_message", ""))]
+                        [
+                            str(f["check_run_id"]),
+                            str(f.get("file_path") or ""),
+                            str(f.get("failure_message", "")),
+                        ]
                         for f in failed_checks
                     ],
                     show_all_failures=self.show_all_failures,

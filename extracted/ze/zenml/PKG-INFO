@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zenml
-Version: 0.96.1
+Version: 0.96.2
 Summary: ZenML: MLOps for Reliable AI: from Classical AI to Agents.
 Keywords: machine learning,production,pipeline,mlops,devops,ai,agents,agentic workflows
 Author: ZenML GmbH
@@ -27,8 +27,8 @@ Requires-Dist: distro>=1.6.0,<2.0.0
 Requires-Dist: docker~=7.1.0
 Requires-Dist: gitpython>=3.1.18,<4.0.0
 Requires-Dist: jsonref
-Requires-Dist: opentelemetry-instrumentation-logging==0.61b0
-Requires-Dist: opentelemetry-sdk==1.40.0
+Requires-Dist: opentelemetry-instrumentation-logging==0.64b0
+Requires-Dist: opentelemetry-sdk==1.43.0
 Requires-Dist: packaging>=24.1
 Requires-Dist: psutil>=5.0.0
 Requires-Dist: pydantic>=2.0,<=2.12.5
@@ -62,6 +62,8 @@ Requires-Dist: yamlfix>=1.16.0 ; extra == 'dev'
 Requires-Dist: zizmor>=1.0.0 ; extra == 'dev'
 Requires-Dist: coverage[toml]>=7.6.1,<8.0.0 ; extra == 'dev'
 Requires-Dist: pytest>=9.0.3,<10.0.0 ; extra == 'dev'
+Requires-Dist: httpx>=0.23.0,<1.0.0 ; extra == 'dev'
+Requires-Dist: httpx2>=2.5.0,<3.0.0 ; extra == 'dev'
 Requires-Dist: beautifulsoup4>=4.12.0,<5.0.0 ; extra == 'dev'
 Requires-Dist: mypy==1.18.1 ; extra == 'dev'
 Requires-Dist: pre-commit ; extra == 'dev'
@@ -115,10 +117,10 @@ Requires-Dist: sqlalchemy>=2.0.0,<3.0.0 ; extra == 'local'
 Requires-Dist: sqlalchemy-utils ; extra == 'local'
 Requires-Dist: sqlmodel==0.0.38 ; extra == 'local'
 Requires-Dist: jsonschema>=4.0.0 ; extra == 'local'
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.40.0,<1.41.0 ; extra == 'otel'
-Requires-Dist: opentelemetry-instrumentation-fastapi>=0.61b0,<0.62b0 ; extra == 'otel'
-Requires-Dist: opentelemetry-instrumentation-requests>=0.61b0,<0.62b0 ; extra == 'otel'
-Requires-Dist: opentelemetry-instrumentation-sqlalchemy>=0.61b0,<0.62b0 ; extra == 'otel'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.43.0,<1.44.0 ; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-fastapi>=0.64b0,<0.65b0 ; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-requests>=0.64b0,<0.65b0 ; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-sqlalchemy>=0.64b0,<0.65b0 ; extra == 'otel'
 Requires-Dist: s3fs>=2022.11.0,!=2025.3.1 ; extra == 's3fs'
 Requires-Dist: sagemaker>=2.237.3,<3.0.0 ; extra == 'sagemaker'
 Requires-Dist: boto3>=1.16.0 ; extra == 'secrets-aws'
@@ -127,12 +129,10 @@ Requires-Dist: azure-keyvault-secrets>=4.0.0 ; extra == 'secrets-azure'
 Requires-Dist: google-cloud-secret-manager>=2.12.5 ; extra == 'secrets-gcp'
 Requires-Dist: hvac>=0.11.2 ; extra == 'secrets-hashicorp'
 Requires-Dist: zenml[local,native-schedules] ; extra == 'server'
-Requires-Dist: fastapi>=0.120.1,<0.121.0 ; extra == 'server'
+Requires-Dist: fastapi>=0.138.0,<0.139.0 ; extra == 'server'
 Requires-Dist: uvicorn[standard]>=0.17.5 ; extra == 'server'
 Requires-Dist: python-multipart~=0.0.9 ; extra == 'server'
 Requires-Dist: pyjwt[crypto]>=2.13.0,<2.14.0 ; extra == 'server'
-Requires-Dist: fastapi-utils ; extra == 'server'
-Requires-Dist: orjson>=3.11.6,<3.12.0 ; extra == 'server'
 Requires-Dist: jinja2 ; extra == 'server'
 Requires-Dist: ipinfo>=4.4.3 ; extra == 'server'
 Requires-Dist: secure~=1.0.1 ; extra == 'server'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema_rs
-Version: 0.48.0
+Version: 0.48.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -105,6 +105,10 @@ The following drafts are supported:
 - [![Draft 4](https://img.shields.io/endpoint?url=https%3A%2F%2Fbowtie.report%2Fbadges%2Frust-jsonschema%2Fcompliance%2Fdraft4.json)](https://bowtie.report/#/implementations/rust-jsonschema)
 
 You can check the current status on the [Bowtie Report](https://bowtie.report/#/implementations/rust-jsonschema).
+
+## Playground
+
+If you'd like to try `jsonschema`, you can check the WebAssembly-powered [playground](https://jsonschema.dygalo.dev/) to see the results instantly.
 
 ## Installation
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bernstein"
-version = "3.5.0"
+version = "3.7.0"
 description = "Audit-grade multi-agent orchestration for CLI coding agents (Claude Code, Codex, Gemini CLI, and 40 more): HMAC-chained audit log, signed agent cards, per-artefact lineage, air-gap deploy. The orchestrator your compliance team will sign off on."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -60,7 +60,7 @@ dependencies = [
     "setproctitle>=1.3",
     "prometheus-client>=0.21",
     "pluggy>=1.5",
-    "mcp>=1.23.3,<2",
+    "mcp>=1.28.1,<2",
     "watchdog>=4.0",
     "opentelemetry-api>=1.41.1",
     "opentelemetry-sdk>=1.41.1",
@@ -93,6 +93,11 @@ dependencies = [
     # hand-rolling a DER parser. Used exclusively by
     # ``bernstein.core.security.rfc3161_verifier``.
     "asn1crypto>=1.5",
+    # Canonical CBOR encoding for the COSE_Sign1 (RFC 9052) audit receipt.
+    # MIT-licensed; deterministic-encoding mode gives byte-identical receipt
+    # replay. Used by ``bernstein.core.security.audit_receipt`` and the
+    # standalone ``tools/verify_audit_receipt.py`` verifier.
+    "cbor2>=5.6",
     # Pure-Python PDF generation for the EU AI Act Article 12 evidence pack
     # rendered by `bernstein compliance pack`. MIT-licensed, no native deps.
     # Used exclusively by ``bernstein.core.compliance.article12``.
@@ -215,6 +220,12 @@ slack = ["slack-sdk>=3.27", "aiohttp>=3.9"]
 # bot token, and set ``BERNSTEIN_DISCORD_TOKEN`` before invoking
 # ``bernstein chat serve --platform=discord``.
 discord = ["discord.py>=2.4"]
+# Microsoft Teams bidirectional driver over the Bot Framework. Enable with:
+#   pip install 'bernstein[teams]'
+# Register a bot in the Azure Bot Service, copy the app id and password, and
+# set ``BERNSTEIN_TEAMS_TOKEN`` (app id) plus ``BERNSTEIN_TEAMS_APP_PASSWORD``
+# (client secret) before invoking ``bernstein chat serve --platform=teams``.
+teams = ["botbuilder-core>=4.15", "aiohttp>=3.9"]
 # Contamination-resistant eval harness (SWE-bench Pro / Terminal-Bench 2.0 /
 # SWE-rebench). Kept optional so production installs don't pull HuggingFace
 # datasets unless the operator opts into the nightly leaderboard path.
@@ -383,6 +394,9 @@ artifacts = [
 # Lethal-trifecta capability matrix declarations.  Bundled so the
 # default-deny check can find tags right after pip install.
 "templates/capabilities" = "bernstein/_default_templates/capabilities"
+# Provenance trust-class source map (issue #2513). Bundled so tool-result
+# taint classification resolves right after pip install.
+"templates/provenance" = "bernstein/_default_templates/provenance"
 # Stock YAML workflow manifests (#1108) shipped with the wheel so
 # `bernstein workflow list` / `... run <name>` resolve immediately
 # without requiring a source checkout.

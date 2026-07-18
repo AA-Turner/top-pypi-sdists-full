@@ -271,9 +271,6 @@ try:
     with spinner("Importing beartype..."):
         from beartype import beartype
 
-    with spinner("Importing rendering stuff..."):
-        from ax.plot.base import AxPlotConfig
-
     with spinner("Importing statistics..."):
         import statistics
 
@@ -1510,8 +1507,8 @@ try:
     with spinner("Trying ax.generation_strategy.generation_node..."):
         import ax.generation_strategy.generation_node
 
-    with spinner("Importing GenerationStep, GenerationStrategy from generation_strategy..."):
-        from ax.generation_strategy.generation_strategy import GenerationStep, GenerationStrategy
+    with spinner("Importing GenerationStrategy from generation_strategy..."):
+        from ax.generation_strategy.generation_strategy import GenerationStrategy
 
     with spinner("Importing GenerationNode from generation_node..."):
         from ax.generation_strategy.generation_node import GenerationNode
@@ -1635,7 +1632,11 @@ class RandomForestGenerationNode(ExternalGenerationNode):
         if experiment.optimization_config is None:
             print_red("Error: update_generator_state is None")
             return
-        metric_names = list(experiment.optimization_config.metrics.keys())
+        try:
+            metric_names = list(experiment.optimization_config.metric_names)
+        except AttributeError as e:
+            print_red(f"Error trying to get experiment.optimization_config.metric_names: {e}")
+            sys.exit(94)
 
         completed_trials = [
             trial for trial in experiment.trials.values() if trial.status == TrialStatus.COMPLETED
@@ -1646,7 +1647,7 @@ class RandomForestGenerationNode(ExternalGenerationNode):
         y = np.zeros([num_completed_trials, 1])
 
         for t_idx, trial in enumerate(completed_trials):
-            trial_parameters = trial.arms[t_idx].parameters
+            trial_parameters = trial.arms[0].parameters
             x[t_idx, :] = np.array([trial_parameters[p] for p in parameter_names])
             trial_df = data.df[data.df["trial_index"] == trial.index]
             y[t_idx, 0] = trial_df[trial_df["metric_name"] == metric_names[0]]["mean"].item()
@@ -1655,7 +1656,7 @@ class RandomForestGenerationNode(ExternalGenerationNode):
         self.parameters = search_space.parameters
 
         if isinstance(experiment.optimization_config.objective, MultiObjective):
-            for moo in experiment.optimization_config.objective.objectives:
+            for moo in experiment.optimization_config.objective.objectives: # type: ignore[attr-defined]
                 self.minimize.append(moo.minimize)
         else:
             self.minimize = experiment.optimization_config.objective.minimize
@@ -2811,7 +2812,10 @@ def append_to_nvidia_smi_logs(_file: str, _host: str, result: str, _lvl: int = 0
 def _debug_progressbar(msg: str, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> None:
     log_message_to_file(logfile_progressbar, msg, _lvl, str(eee))
 
-def decode_if_base64(input_str: str) -> str:
+def decode_if_base64(input_str: Union[None, str]) -> str:
+    if input_str is None:
+        return ""
+
     try:
         decoded_bytes = base64.b64decode(input_str)
         decoded_str = decoded_bytes.decode('utf-8')
@@ -5053,6 +5057,8 @@ def disable_logging() -> None:
 
         warnings.showwarning = custom_warning_handler
 
+        warnings.filterwarnings("ignore", category=UserWarning, module="plyer.*")
+
         fool_linter(f"warnings.showwarning set to {warnings.showwarning}")
 
 def display_failed_jobs_table() -> None:
@@ -5628,119 +5634,12 @@ def abandon_all_jobs() -> None:
         if not abandoned:
             print_debug(f"Job {job} could not be abandoned.")
 
-def write_result_to_trace_file(res: str) -> bool:
-    if res is None:
-        sys.stderr.write("Provided result is None, nothing to write\n")
-        return False
-
-    target_folder = get_current_run_folder()
-    target_file = os.path.join(target_folder, "optimization_trace.html")
-
-    try:
-        file_handle = open(target_file, "w", encoding="utf-8")
-    except OSError as error:
-        sys.stderr.write("Unable to open target file for writing\n")
-        sys.stderr.write(str(error) + "\n")
-        return False
-
-    try:
-        written = file_handle.write(str(res))
-        file_handle.flush()
-
-        if written == 0:
-            sys.stderr.write("No data was written to the file\n")
-            file_handle.close()
-            return False
-    except Exception as error:
-        sys.stderr.write("Error occurred while writing to file\n")
-        sys.stderr.write(str(error) + "\n")
-        file_handle.close()
-        return False
-
-    try:
-        file_handle.close()
-    except Exception as error:
-        sys.stderr.write("Failed to properly close file\n")
-        sys.stderr.write(str(error) + "\n")
-        return False
-
-    return True
-
-def render_ax_client_trace(plot_config: AxPlotConfig) -> None:
-    if plot_config is None or "data" not in plot_config:
-        return None
-
-    res: str = plot_config.data # type: ignore
-
-    repair_funcs = """
-function decodeBData(obj) {
-        if (!obj || typeof obj !== "object") {
-            return obj;
-        }
-
-        if (obj.bdata && obj.dtype) {
-            var binary_string = atob(obj.bdata);
-            var len = binary_string.length;
-            var bytes = new Uint8Array(len);
-
-            for (var i = 0; i < len; i++) {
-                bytes[i] = binary_string.charCodeAt(i);
-            }
-
-            switch (obj.dtype) {
-                case "i1": return Array.from(new Int8Array(bytes.buffer));
-                case "i2": return Array.from(new Int16Array(bytes.buffer));
-                case "i4": return Array.from(new Int32Array(bytes.buffer));
-                case "f4": return Array.from(new Float32Array(bytes.buffer));
-                case "f8": return Array.from(new Float64Array(bytes.buffer));
-                default:
-                    console.error("Unknown dtype:", obj.dtype);
-                    return [];
-            }
-        }
-
-        return obj;
-}
-
-function repairTraces(traces) {
-        var fixed = [];
-
-        for (var i = 0; i < traces.length; i++) {
-            var t = traces[i];
-
-            if (t.x) {
-                t.x = decodeBData(t.x);
-            }
-
-            if (t.y) {
-                t.y = decodeBData(t.y);
-            }
-
-            fixed.push(t);
-        }
-
-        return fixed;
-}
-    """
-
-    res = str(res)
-
-    res = f"<div id='plot' style='width:100%;height:600px;'></div>\n<script type='text/javascript' src='https://cdn.plot.ly/plotly-latest.min.js'></script><script>{repair_funcs}\nconst True = true;\nconst False = false;\nconst data = {res};\ndata.data = repairTraces(data.data);\nPlotly.newPlot(document.getElementById('plot'), data.data, data.layout);</script>"
-
-    write_result_to_trace_file(res)
-
-    return None
-
 def end_program(_force: Optional[bool] = False, exit_code: Optional[int] = None) -> None:
     global END_PROGRAM_RAN
 
     #dier(global_gs.current_node.generator_specs[0]._fitted_adapter.generator._surrogate.training_data[0].X)
     #dier(global_gs.current_node.generator_specs[0]._fitted_adapter.generator._surrogate.training_data[0].Y)
     #dier(global_gs.current_node.generator_specs[0]._fitted_adapter.generator._surrogate.outcomes)
-
-    if ax_client is not None:
-        if len(arg_result_names) == 1:
-            render_ax_client_trace(ax_client.get_optimization_trace())
 
     wait_for_jobs_to_complete()
 
@@ -6495,7 +6394,7 @@ def get_global_gs_string() -> str:
     return f"""from ax.generation_strategy.generation_strategy import GenerationStep, GenerationStrategy
 
 global_gs = GenerationStrategy(
-    steps=[
+    nodes=[
         GenerationStep(
             generator=Generators.SOBOL,
             num_trials={args.num_random_steps},
@@ -8151,7 +8050,6 @@ def _finish_job_core_helper_mark_success(_trial: ax.core.trial.Trial, result: di
     succeeded_jobs(1)
 
     progressbar_description(f"new result: {format_result_for_display(result)}")
-    notify_trial_result(_trial.index, result)
     update_progress_bar(1)
 
     save_results_csv()
@@ -8942,6 +8840,9 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
                 #pending_observations=pending_observations
             )
             print_debug(f"got global_gs.gen(): {batched_generator_run}")
+        except ImportError as e:
+            print_red(f"Error at global_gs.gen: {e}")
+            sys.exit(97)
         except Exception as e:
             print_debug(f"global_gs.gen failed: {e}")
             traceback.print_exception(type(e), e, e.__traceback__, file=sys.stderr)
@@ -9532,16 +9433,9 @@ def print_generation_strategy(generation_strategy_array: list[dict[str, int]]) -
 
     console.print(table)
 
-def get_model_from_name(name: str) -> Any:
-    name = name.lower()
-    for gen in ax.adapter.registry.Generators:
-        if gen.name.lower() == name:
-            return gen
-    raise ValueError(f"Unknown or unsupported model: {name}")
-
 def get_name_from_model(model: Any) -> str:
     if not isinstance(SUPPORTED_MODELS, (list, set, tuple)):
-        raise RuntimeError("get_model_from_name: SUPPORTED_MODELS was not a list, set or tuple. Cannot continue")
+        raise RuntimeError("get_name_from_model: SUPPORTED_MODELS was not a list, set or tuple. Cannot continue")
 
     model_str = model.value if hasattr(model, "value") else str(model)
 
@@ -9692,7 +9586,19 @@ def get_torch_device_str() -> str:
         print_debug(f"Error detecting device: {e}")
         return "cpu"
 
-def create_node(model_name: str, threshold: int, next_model_name: Optional[str]) -> Union[RandomForestGenerationNode, GenerationNode]:
+def create_node(
+    model_name: str,
+    threshold: int,
+    next_model_name: Optional[str] = None,
+    *,
+    num_trials: Optional[int] = None,
+    index: Optional[int] = None,
+    is_last: bool = False,
+    max_parallelism: Optional[int] = None,
+    enforce_num_trials: Optional[bool] = None
+) -> Union[RandomForestGenerationNode, GenerationNode]:
+    print_debug(f"create_node: num_trials = {num_trials}, index = {index}, max_parallelism = {max_parallelism}, enforce_num_trials = {enforce_num_trials}")
+
     if model_name == "RANDOMFOREST":
         if len(arg_result_names) != 1:
             _fatal_error("Currently, RANDOMFOREST does not support Multi-Objective-Optimization", 251)
@@ -9723,13 +9629,17 @@ def create_node(model_name: str, threshold: int, next_model_name: Optional[str])
             _fatal_error("--external_generator is missing. Cannot create points for EXTERNAL_GENERATOR without it.", 204)
         return ExternalProgramGenerationNode(external_generator=cmd, name="EXTERNAL_GENERATOR")
 
-    trans_crit = [
-        MinTrials(
-            threshold=threshold,
-            transition_to=target_model,
-            count_only_trials_with_data=True
-        )
-    ]
+    # Determine transition criteria
+    # If is_last is True, no transition is needed
+    trans_crit = []
+    if not is_last and target_model:
+        trans_crit = [
+            MinTrials(
+                threshold=threshold,
+                transition_to=target_model,
+                count_only_trials_with_data=True
+            )
+        ]
 
     selected_model = select_model(model_name)
 
@@ -9739,35 +9649,26 @@ def create_node(model_name: str, threshold: int, next_model_name: Optional[str])
     if model_name.lower() != "sobol":
         kwargs["model_kwargs"] = get_model_kwargs()
 
-    model_spec = [GeneratorSpec(selected_model, **kwargs)] # type: ignore[arg-type]
+    model_spec = [GeneratorSpec(selected_model, **kwargs)]  # type: ignore[arg-type]
 
-    res = GenerationNode(
-        name=model_name,
-        generator_specs=model_spec,
-        should_deduplicate=True,
-        transition_criteria=trans_crit
-    )
+    node_kwargs: dict = {
+        "name": model_name,
+        "generator_specs": model_spec,
+        "should_deduplicate": True,
+    }
+
+    if trans_crit:
+        node_kwargs["transition_criteria"] = trans_crit
+
+    res = GenerationNode(**node_kwargs)
 
     return res
+
 
 def get_optimizer_kwargs() -> dict:
     return {
         "sequential": False
     }
-
-def create_step(model_name: str, _num_trials: int, index: int) -> Any:
-    model_enum = get_model_from_name(model_name)
-
-    return GenerationStep(
-        generator=model_enum,
-        num_trials=_num_trials,
-        max_parallelism=1000 * max_eval + 1000,
-        model_kwargs=get_model_kwargs(),
-        model_gen_kwargs=get_model_gen_kwargs(),
-        should_deduplicate=True,
-        enforce_num_trials=True,
-        index=index
-    )
 
 def set_global_generation_strategy() -> None:
     continue_not_supported_on_custom_generation_strategy()
@@ -9851,28 +9752,46 @@ def setup_custom_generation_strategy() -> None:
         set_max_eval(new_max_eval_plus_jobs)
 
     print_generation_strategy(generation_strategy_array)
-    start_index = int(len(generation_strategy_array) / 2)
-    steps: list = []
+    nodes: list = []
+
+    idx = 0
 
     for gs_element in generation_strategy_array:
         try:
             model_name = list(gs_element.keys())[0]
             num_trials = int(gs_element[model_name])
-            step_node = create_step(model_name, num_trials, start_index)
+
+            is_last = idx == len(generation_strategy_array) - 1
+
+            # Determine the next model name for transition criteria
+            next_model_name = None
+            if not is_last and idx + 1 < len(generation_strategy_array):
+                next_model_name = list(generation_strategy_array[idx + 1].keys())[0]
+
+            step_node = create_node(
+                model_name,
+                threshold=num_trials,
+                next_model_name=next_model_name,
+                num_trials=-1 if is_last else num_trials,
+                index=idx,
+                is_last=is_last
+            )
+
             step_name = get_step_name(model_name, num_trials)
-            steps.append(step_node)
+
+            nodes.append(step_node)
             generation_strategy_names.append(step_name)
-            print_debug(f"Added custom step: {step_name}")
-            start_index += 1
+            print_debug(f"Added custom node: {step_name}")
+            idx += 1
         except Exception as e:
-            print_red(f"Error creating step for {gs_element}: {e}")
+            print_red(f"Error creating node for {gs_element}: {e}")
             my_exit(111)
 
     write_state_file("custom_generation_strategy", args.generation_strategy)
 
     global global_gs, generation_strategy_human_readable
     try:
-        global_gs = GenerationStrategy(steps=steps)
+        global_gs = GenerationStrategy(nodes=nodes)
         generation_strategy_human_readable = join_with_comma_and_then(generation_strategy_names)
     except Exception as e:
         print_red(f"Failed to create custom GenerationStrategy: {e}")
@@ -10195,7 +10114,7 @@ def send_notification(title: str, message: str, timeout: int = 5) -> None:
     """Send a desktop notification if plyer is available and notifications are not disabled."""
     if not _NOTIFICATIONS_AVAILABLE:
         return
-    if hasattr(args, 'disable_notifications') and args.disable_notifications:
+    if (hasattr(args, 'disable_notifications') and args.disable_notifications):
         return
     try:
         _plyer_notification.notify(
@@ -10206,19 +10125,6 @@ def send_notification(title: str, message: str, timeout: int = 5) -> None:
         )
     except Exception as e:
         print_debug(f"Desktop notification failed: {e}")
-
-
-def notify_trial_result(trial_index: int, result: dict) -> None:
-    """Send a notification for a completed trial result."""
-    if not result:
-        return
-    result_str = format_result_for_display(result)
-    send_notification(
-        title=f"OmniOpt2 - Trial {trial_index} Complete",
-        message=f"Result: {result_str}",
-        timeout=3
-    )
-
 
 def notify_run_complete() -> None:
     """Send a final notification when the entire optimization run is done."""
@@ -11427,7 +11333,7 @@ def print_exit_summary() -> None:
 
     # Model info
     model_name = get_current_model_name()
-    lines.append(f"  🧠 Model: {model_name}")
+    lines.append(f"  🤖 Model: {model_name}")
 
     summary_text = "\n".join(lines)
 

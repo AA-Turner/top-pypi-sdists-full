@@ -29,6 +29,10 @@ class Backend(Generic[T]):
     RawTensorType: Type[T]
     is_tensorflow: bool = False  # whether this framework uses TensorFlow
     is_backend_raw_tensor_dim_tag_independent: bool = True  # whether raw tensors of backend are independent of Dim
+    # For mixed-backend args (see get_backend_from_tensors): higher priority wins.
+    # Wrapper backends (e.g. packed tensors) set this higher,
+    # as they can handle plain tensors of their inner backend, but not vice versa.
+    dispatch_priority: int = 0
 
     def __init__(self):
         raise Exception("do not instantiate this class")
@@ -1464,6 +1468,142 @@ class Backend(Generic[T]):
         from returnn.frontend.attention import _apply_rope_real
 
         return _apply_rope_real(x, pos_enc, feat_dim)
+
+    @classmethod
+    def scaled_dot_product_attention(
+        cls,
+        query: Tensor,
+        key: Tensor,
+        value: Tensor,
+        *,
+        attention_mask: Optional[Tensor] = None,
+        att_dropout: float = 0.0,
+        att_dropout_broadcast: bool,
+        v_feat_dim: Dim,
+        qk_feat_dim: Dim,
+        kv_spatial_dim: Dim,
+        query_spatial_dim: Dim,
+        is_causal: bool = False,
+        scale: Optional[float] = None,
+    ):
+        """
+        Scaled dot-product attention.
+
+        :param query:
+        :param key:
+        :param value:
+        :param attention_mask:
+        :param att_dropout: dropout for attention weights
+        :param att_dropout_broadcast: whether to broadcast over all but ``axis``.
+            normally not wanted. disabled by default since behavior version 19.
+        :param v_feat_dim: Embedding dimension of value
+        :param qk_feat_dim: Embedding dimension of key and query
+        :param kv_spatial_dim: Spatial axis of key/value to attend over
+        :param query_spatial_dim: Spatial axis of query
+        :param is_causal: Special case when the attention mask should be causal (e.g. for auto-regressive decoding).
+            Allows for more efficient implementation in some backends.
+        :param scale: Scaling factor applied prior to softmax
+        :return: attention output
+        """
+        query *= qk_feat_dim.dimension**-0.5 if scale is None else scale
+
+        if is_causal:
+            if attention_mask is not None:
+                raise NotImplementedError("causal attention with attention_mask is not supported")
+            if kv_spatial_dim not in query.dims_set:
+                raise ValueError("query and key/value must share the same spatial axis for causal attention")
+            hist_dim = Dim(rf.range_over_dim(kv_spatial_dim, device="cpu") + 1, name=f"{kv_spatial_dim.description}:kv")
+            key, _ = rf.replace_dim(key, in_dim=kv_spatial_dim, out_dim=hist_dim)
+            value, _ = rf.replace_dim(value, in_dim=kv_spatial_dim, out_dim=hist_dim)
+            kv_spatial_dim = hist_dim
+
+        attn_bias = None
+        if attention_mask is not None:
+            if attention_mask.dtype == "bool":
+                attn_bias = rf.where(attention_mask, 0.0, float("-inf"))
+            else:
+                attn_bias = attention_mask  # assume float-like
+
+        energy = rf.matmul(query, key, reduce=qk_feat_dim)  # [.., Q_spatial, K_spatial]
+        if attn_bias is not None:
+            energy = energy + attn_bias
+        att_weights = rf.softmax(energy, axis=kv_spatial_dim)  # [.., Q_spatial, K_spatial]
+        att_weights = rf.dropout(att_weights, att_dropout, axis=att_dropout_broadcast and kv_spatial_dim)
+        # no need for mask because softmax already sets those weights to zero
+        att = rf.matmul(att_weights, value, reduce=kv_spatial_dim, use_mask=False)
+        if value.feature_dim in att.dims:
+            att.feature_dim = value.feature_dim
+        return att
+
+    @classmethod
+    def rel_pos_self_attention(
+        cls,
+        query: Tensor,
+        key: Tensor,
+        value: Tensor,
+        pos_emb: Tensor,
+        *,
+        pos_bias_u: Optional[Tensor],
+        pos_bias_v: Optional[Tensor],
+        att_dropout: float = 0.0,
+        att_dropout_broadcast: bool,
+        v_feat_dim: Dim,
+        qk_feat_dim: Dim,
+        kv_spatial_dim: Dim,
+        query_spatial_dim: Dim,
+        pos_emb_spatial_dim: Dim,
+    ):
+        """
+        Self-attention with relative positional encoding (Transformer-XL style),
+        as used by :class:`returnn.frontend.RelPosSelfAttention`.
+        In this generic implementation, the scores are computed as matrix (a+c) + matrix (b+d)
+        as described in https://arxiv.org/abs/1901.02860 Section 3.3.
+        Backends can override this with more efficient implementations.
+
+        :param query: {..., query_spatial_dim, qk_feat_dim}. not yet scaled.
+        :param key: {..., kv_spatial_dim, qk_feat_dim}
+        :param value: {..., kv_spatial_dim, v_feat_dim}
+        :param pos_emb: {..., pos_emb_spatial_dim, qk_feat_dim}, relative positional encoding
+        :param pos_bias_u: {..., qk_feat_dim}, added to query for the content-based term (matrix a+c)
+        :param pos_bias_v: {..., qk_feat_dim}, added to query for the position-based term (matrix b+d)
+        :param att_dropout: dropout for attention weights
+        :param att_dropout_broadcast: whether to broadcast over all but ``kv_spatial_dim``.
+            normally not wanted. disabled by default since behavior version 19.
+        :param v_feat_dim: Embedding dimension of value
+        :param qk_feat_dim: Embedding dimension of key and query
+        :param kv_spatial_dim: Spatial axis of key/value to attend over
+        :param query_spatial_dim: Spatial axis of query
+        :param pos_emb_spatial_dim: Relative-position axis of pos_emb (usually 2*time1-1)
+        :return: attention output
+        """
+        # noinspection PyProtectedMember
+        from returnn.frontend.attention import _rel_pos_enc_shift
+
+        q_with_bias_u = (query + pos_bias_u) if pos_bias_u is not None else query  # (batch, head, time1, d_k)
+        q_with_bias_v = (query + pos_bias_v) if pos_bias_v is not None else query  # (batch, head, time1, d_k)
+
+        # compute attention score
+        # first compute matrix a and matrix c
+        # as described in https://arxiv.org/abs/1901.02860 Section 3.3
+        # (batch, head, time1, time2)
+        matrix_ac = rf.matmul(q_with_bias_u, key, reduce=qk_feat_dim)
+
+        # compute matrix b and matrix d
+        # (batch, head, time1, 2*time1-1)
+        matrix_bd = rf.matmul(q_with_bias_v, pos_emb, reduce=qk_feat_dim)
+        matrix_bd = _rel_pos_enc_shift(matrix_bd, query_spatial_dim, pos_emb_spatial_dim, kv_spatial_dim)
+
+        scores = matrix_ac + matrix_bd  # (batch, head, time1, time2)
+        del matrix_ac, matrix_bd
+        scores *= qk_feat_dim.dimension**-0.5
+        att_weights = rf.softmax(scores, axis=kv_spatial_dim)
+        att_weights = rf.dropout(att_weights, att_dropout, axis=att_dropout_broadcast and kv_spatial_dim)
+        # Masking not needed because softmax should already have masked,
+        # so we have 0.0 att weights for padded frames.
+        att = rf.matmul(att_weights, value, reduce=kv_spatial_dim, use_mask=False)
+        if v_feat_dim in att.dims:
+            att.feature_dim = v_feat_dim
+        return att
 
     # For eager-based backends, this is a reasonable default implementation and type.
     TensorArrayType = List[Tensor]

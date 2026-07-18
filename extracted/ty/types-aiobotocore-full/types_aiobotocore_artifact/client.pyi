@@ -30,26 +30,42 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListComplianceInquiriesPaginator,
+    ListComplianceInquiryQueriesPaginator,
     ListCustomerAgreementsPaginator,
     ListReportsPaginator,
     ListReportVersionsPaginator,
 )
 from .type_defs import (
+    CreateComplianceInquiryRequestTypeDef,
+    CreateComplianceInquiryResponseTypeDef,
+    ExportComplianceInquiryRequestTypeDef,
+    ExportComplianceInquiryResponseTypeDef,
     GetAccountSettingsResponseTypeDef,
+    GetComplianceInquiryMetadataRequestTypeDef,
+    GetComplianceInquiryMetadataResponseTypeDef,
     GetReportMetadataRequestTypeDef,
     GetReportMetadataResponseTypeDef,
     GetReportRequestTypeDef,
     GetReportResponseTypeDef,
     GetTermForReportRequestTypeDef,
     GetTermForReportResponseTypeDef,
+    ListComplianceInquiriesRequestTypeDef,
+    ListComplianceInquiriesResponseTypeDef,
+    ListComplianceInquiryQueriesRequestTypeDef,
+    ListComplianceInquiryQueriesResponseTypeDef,
     ListCustomerAgreementsRequestTypeDef,
     ListCustomerAgreementsResponseTypeDef,
     ListReportsRequestTypeDef,
     ListReportsResponseTypeDef,
     ListReportVersionsRequestTypeDef,
     ListReportVersionsResponseTypeDef,
+    ListTagsForResourceRequestTypeDef,
+    ListTagsForResourceResponseTypeDef,
     PutAccountSettingsRequestTypeDef,
     PutAccountSettingsResponseTypeDef,
+    TagResourceRequestTypeDef,
+    UntagResourceRequestTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -104,12 +120,42 @@ class ArtifactClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#generate_presigned_url)
         """
 
+    async def create_compliance_inquiry(
+        self, **kwargs: Unpack[CreateComplianceInquiryRequestTypeDef]
+    ) -> CreateComplianceInquiryResponseTypeDef:
+        """
+        Create a new compliance inquiry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/create_compliance_inquiry.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#create_compliance_inquiry)
+        """
+
+    async def export_compliance_inquiry(
+        self, **kwargs: Unpack[ExportComplianceInquiryRequestTypeDef]
+    ) -> ExportComplianceInquiryResponseTypeDef:
+        """
+        Export a compliance inquiry report.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/export_compliance_inquiry.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#export_compliance_inquiry)
+        """
+
     async def get_account_settings(self) -> GetAccountSettingsResponseTypeDef:
         """
         Get the account settings for Artifact.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/get_account_settings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#get_account_settings)
+        """
+
+    async def get_compliance_inquiry_metadata(
+        self, **kwargs: Unpack[GetComplianceInquiryMetadataRequestTypeDef]
+    ) -> GetComplianceInquiryMetadataResponseTypeDef:
+        """
+        Get the metadata for a single compliance inquiry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/get_compliance_inquiry_metadata.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#get_compliance_inquiry_metadata)
         """
 
     async def get_report(
@@ -142,6 +188,26 @@ class ArtifactClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#get_term_for_report)
         """
 
+    async def list_compliance_inquiries(
+        self, **kwargs: Unpack[ListComplianceInquiriesRequestTypeDef]
+    ) -> ListComplianceInquiriesResponseTypeDef:
+        """
+        List available compliance inquiries.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/list_compliance_inquiries.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#list_compliance_inquiries)
+        """
+
+    async def list_compliance_inquiry_queries(
+        self, **kwargs: Unpack[ListComplianceInquiryQueriesRequestTypeDef]
+    ) -> ListComplianceInquiryQueriesResponseTypeDef:
+        """
+        List queries within a compliance inquiry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/list_compliance_inquiry_queries.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#list_compliance_inquiry_queries)
+        """
+
     async def list_customer_agreements(
         self, **kwargs: Unpack[ListCustomerAgreementsRequestTypeDef]
     ) -> ListCustomerAgreementsResponseTypeDef:
@@ -172,6 +238,16 @@ class ArtifactClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#list_reports)
         """
 
+    async def list_tags_for_resource(
+        self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
+    ) -> ListTagsForResourceResponseTypeDef:
+        """
+        List tags for a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/list_tags_for_resource.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#list_tags_for_resource)
+        """
+
     async def put_account_settings(
         self, **kwargs: Unpack[PutAccountSettingsRequestTypeDef]
     ) -> PutAccountSettingsResponseTypeDef:
@@ -180,6 +256,44 @@ class ArtifactClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/put_account_settings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#put_account_settings)
+        """
+
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
+        """
+        Add tags to a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/tag_resource.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#tag_resource)
+        """
+
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
+        """
+        Remove tags from a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/untag_resource.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#untag_resource)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_compliance_inquiries"]
+    ) -> ListComplianceInquiriesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_compliance_inquiry_queries"]
+    ) -> ListComplianceInquiryQueriesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

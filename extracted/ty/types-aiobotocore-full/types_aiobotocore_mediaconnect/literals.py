@@ -68,6 +68,7 @@ __all__ = (
     "MediaLiveInputPipelineIdType",
     "MediaLiveTransitEncryptionKeyTypeType",
     "MediaStreamTypeType",
+    "NdiOutputTimecodeSourceType",
     "NdiStateType",
     "NetworkInterfaceTypeType",
     "OutputActiveWaiterName",
@@ -84,6 +85,7 @@ __all__ = (
     "ReservationStateType",
     "ResourceServiceName",
     "ResourceTypeType",
+    "RouterContentQualityAnalysisTypeType",
     "RouterInputProtocolType",
     "RouterInputStateType",
     "RouterInputTierType",
@@ -174,6 +176,7 @@ MediaLiveChannelPipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
 MediaLiveInputPipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
 MediaLiveTransitEncryptionKeyTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
 MediaStreamTypeType = Literal["ancillary-data", "audio", "video"]
+NdiOutputTimecodeSourceType = Literal["EMBEDDED_TIMECODE", "UTC_SYSTEM_TIME"]
 NdiStateType = Literal["DISABLED", "ENABLED"]
 NetworkInterfaceTypeType = Literal["efa", "ena"]
 OutputActiveWaiterName = Literal["output_active"]
@@ -200,6 +203,7 @@ ProtocolType = Literal[
 RangeType = Literal["FULL", "FULLPROTECT", "NARROW"]
 ReservationStateType = Literal["ACTIVE", "CANCELED", "EXPIRED", "PROCESSING"]
 ResourceTypeType = Literal["Mbps_Outbound_Bandwidth"]
+RouterContentQualityAnalysisTypeType = Literal["CONTENT_LEVEL"]
 RouterInputProtocolType = Literal["RIST", "RTP", "SRT_CALLER", "SRT_LISTENER"]
 RouterInputStateType = Literal[
     "ACTIVE",
@@ -441,8 +445,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -469,6 +471,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -536,10 +540,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -572,6 +576,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -599,6 +604,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -620,7 +626,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -641,6 +646,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

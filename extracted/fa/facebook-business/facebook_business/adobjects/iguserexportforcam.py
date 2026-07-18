@@ -40,7 +40,10 @@ class IGUserExportForCAM(
         is_paid_partnership_messages_enabled = 'is_paid_partnership_messages_enabled'
         messaging_id = 'messaging_id'
         onboarded_status = 'onboarded_status'
+        page_id = 'page_id'
+        page_name = 'page_name'
         past_brand_partnership_partners = 'past_brand_partnership_partners'
+        platforms = 'platforms'
         portfolio_url = 'portfolio_url'
         profile_picture_url = 'profile_picture_url'
         username = 'username'
@@ -565,6 +568,10 @@ class IGUserExportForCAM(
         male = 'male'
         unknown = 'unknown'
 
+    class Platform:
+        facebook = 'facebook'
+        instagram = 'instagram'
+
     class RecommendationType:
         high_ad_performance = 'high_ad_performance'
         most_ads_experience = 'most_ads_experience'
@@ -612,6 +619,7 @@ class IGUserExportForCAM(
             'breakdown': 'breakdown_enum',
             'metrics': 'list<metrics_enum>',
             'period': 'period_enum',
+            'platform': 'list<platform_enum>',
             'time_range': 'time_range_enum',
         }
         enums = {
@@ -633,6 +641,10 @@ class IGUserExportForCAM(
             'period_enum': [
                 'DAY',
                 'OVERALL',
+            ],
+            'platform_enum': [
+                'FACEBOOK',
+                'INSTAGRAM',
             ],
             'time_range_enum': [
                 'LAST_14_DAYS',
@@ -739,7 +751,10 @@ class IGUserExportForCAM(
         'is_paid_partnership_messages_enabled': 'bool',
         'messaging_id': 'string',
         'onboarded_status': 'bool',
+        'page_id': 'string',
+        'page_name': 'string',
         'past_brand_partnership_partners': 'list<string>',
+        'platforms': 'list<string>',
         'portfolio_url': 'string',
         'profile_picture_url': 'string',
         'username': 'string',
@@ -751,6 +766,7 @@ class IGUserExportForCAM(
         field_enum_info['CreatorGender'] = IGUserExportForCAM.CreatorGender.__dict__.values()
         field_enum_info['MajorAudienceCountries'] = IGUserExportForCAM.MajorAudienceCountries.__dict__.values()
         field_enum_info['MajorAudienceGender'] = IGUserExportForCAM.MajorAudienceGender.__dict__.values()
+        field_enum_info['Platform'] = IGUserExportForCAM.Platform.__dict__.values()
         field_enum_info['RecommendationType'] = IGUserExportForCAM.RecommendationType.__dict__.values()
         return field_enum_info
 

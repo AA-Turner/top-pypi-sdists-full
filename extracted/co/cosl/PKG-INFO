@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cosl
-Version: 1.10.1
+Version: 1.10.2
 Summary: Utils for COS Lite charms
 Project-URL: Homepage, https://github.com/canonical/cos-lib
 Project-URL: Bug Tracker, https://github.com/canonical/cos-lib/issues
@@ -216,6 +216,7 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: >=3.8
+Requires-Dist: diskcache
 Requires-Dist: ops
 Requires-Dist: pydantic
 Requires-Dist: pyyaml

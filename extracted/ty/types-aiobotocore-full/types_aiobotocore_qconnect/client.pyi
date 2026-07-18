@@ -45,6 +45,7 @@ from .paginator import (
     ListMessagesPaginator,
     ListMessageTemplatesPaginator,
     ListMessageTemplateVersionsPaginator,
+    ListModelsPaginator,
     ListQuickResponsesPaginator,
     ListSpansPaginator,
     QueryAssistantPaginator,
@@ -165,6 +166,8 @@ from .type_defs import (
     ListMessageTemplatesResponseTypeDef,
     ListMessageTemplateVersionsRequestTypeDef,
     ListMessageTemplateVersionsResponseTypeDef,
+    ListModelsRequestTypeDef,
+    ListModelsResponseTypeDef,
     ListQuickResponsesRequestTypeDef,
     ListQuickResponsesResponseTypeDef,
     ListSpansRequestTypeDef,
@@ -917,6 +920,17 @@ class QConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qconnect/client/#list_messages)
         """
 
+    async def list_models(
+        self, **kwargs: Unpack[ListModelsRequestTypeDef]
+    ) -> ListModelsResponseTypeDef:
+        """
+        Lists the models available to an Amazon Q in Connect assistant in the
+        assistant's Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/list_models.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qconnect/client/#list_models)
+        """
+
     async def list_quick_responses(
         self, **kwargs: Unpack[ListQuickResponsesRequestTypeDef]
     ) -> ListQuickResponsesResponseTypeDef:
@@ -1378,6 +1392,17 @@ class QConnectClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_messages"]
     ) -> ListMessagesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qconnect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_models"]
+    ) -> ListModelsPaginator:
         """
         Create a paginator for an operation.
 

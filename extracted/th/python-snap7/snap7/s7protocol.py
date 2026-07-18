@@ -7,11 +7,12 @@ Handles S7 PDU encoding/decoding and protocol operations.
 import struct
 import logging
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from enum import IntEnum
 
 from .datatypes import S7Area, S7WordLen, S7DataTypes
 from .error import S7ProtocolError, S7StalePacketError, S7PacketLostError, get_protocol_error_message
+from .type import BlocksList, TS7BlockInfo
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,15 @@ def get_return_code_description(return_code: int) -> str:
     return "Unknown error"
 
 
+# PLC control PI service parameter byte sequences (from snap7 C library).
+# Stop: function(0x29) + 5 reserved + PI length(9) + "P_PROGRAM"
+_STOP_PARAMS = bytes.fromhex("29000000000009") + b"P_PROGRAM"
+# Hot start: function(0x28) + 7 reserved + block count(0) + pad(0) + PI length(9) + "P_PROGRAM"
+_HOT_START_PARAMS = bytes.fromhex("28000000000000fd000009") + b"P_PROGRAM"
+# Cold start: same as hot start but with block "C " before PI service
+_COLD_START_PARAMS = bytes.fromhex("28000000000000fd0002432009") + b"P_PROGRAM"
+
+
 class S7Protocol:
     """
     S7 protocol implementation.
@@ -126,8 +136,8 @@ class S7Protocol:
             response_sequence: Sequence number from the response PDU.
 
         Raises:
-            S7StalePacketError: If response is older than expected (stale).
-            S7PacketLostError: If response is ahead of expected (packet loss).
+            ~snap7.error.S7StalePacketError: If response is older than expected (stale).
+            ~snap7.error.S7PacketLostError: If response is ahead of expected (packet loss).
         """
         if response_sequence < self.sequence:
             raise S7StalePacketError(f"Stale packet: expected sequence {self.sequence}, got {response_sequence}")
@@ -172,6 +182,102 @@ class S7Protocol:
         parameters += address_spec[1:]  # Skip first byte (already included as 0x12)
 
         return header + parameters
+
+    def build_multi_read_request(self, items: List[Tuple[int, int, int, int]]) -> bytes:
+        """Build S7 multi-variable read request PDU.
+
+        Encodes multiple address specifications into a single READ_AREA request
+        so the PLC can return all data in one response.
+
+        Args:
+            items: List of (area, db_number, start_offset, byte_length) tuples.
+
+        Returns:
+            Complete S7 PDU.
+        """
+        item_count = len(items)
+
+        # Build N * 12-byte address specifications
+        addr_spec_parts: list[bytes] = []
+        for area_code, db_number, start_offset, byte_length in items:
+            addr_spec_parts.append(
+                S7DataTypes.encode_address(S7Area(area_code), db_number, start_offset, S7WordLen.BYTE, byte_length)
+            )
+
+        # Parameter: function_code(1) + item_count(1) + N * address_spec(12)
+        param_data = struct.pack(">BB", S7Function.READ_AREA, item_count) + b"".join(addr_spec_parts)
+        param_len = len(param_data)
+
+        # S7 Header (12 bytes)
+        header = struct.pack(
+            ">BBHHHH",
+            0x32,  # Protocol ID
+            S7PDUType.REQUEST,  # PDU type
+            0x0000,  # Reserved
+            self._next_sequence(),  # Sequence
+            param_len,  # Parameter length
+            0x0000,  # Data length (no data for read)
+        )
+
+        return header + param_data
+
+    def extract_multi_read_data(self, response: Dict[str, Any], block_count: int) -> List[bytearray]:
+        """Extract per-block data from a multi-variable read response.
+
+        Parses the raw data section which contains N items, each with:
+          - return_code (1 byte)
+          - transport_size (1 byte)
+          - bit_length (2 bytes, big-endian)
+          - data (bit_length / 8 bytes)
+          - fill byte (1 byte if byte_length is odd and not the last item)
+
+        Args:
+            response: Parsed S7 response from :meth:`parse_response`.
+            block_count: Expected number of data items.
+
+        Returns:
+            List of bytearrays, one per block.
+
+        Raises:
+            ~snap7.error.S7ProtocolError: If any item has a non-success return code.
+        """
+        raw = response.get("raw_data", b"")
+        if not raw:
+            raise S7ProtocolError("No raw data in multi-read response")
+
+        results: List[bytearray] = []
+        offset = 0
+
+        for i in range(block_count):
+            if offset + 4 > len(raw):
+                raise S7ProtocolError(f"Multi-read response truncated at item {i}")
+
+            return_code = raw[offset]
+            transport_size = raw[offset + 1]
+            bit_length = struct.unpack(">H", raw[offset + 2 : offset + 4])[0]
+            offset += 4
+
+            if return_code != 0xFF:
+                desc = get_return_code_description(return_code)
+                raise S7ProtocolError(f"Multi-read item {i} failed: {desc} (0x{return_code:02x})")
+
+            # Transport size 0x04 means bit length, others mean byte length
+            if transport_size == 0x04:
+                byte_length = bit_length // 8
+            else:
+                byte_length = bit_length
+
+            if offset + byte_length > len(raw):
+                raise S7ProtocolError(f"Multi-read data truncated at item {i}")
+
+            results.append(bytearray(raw[offset : offset + byte_length]))
+            offset += byte_length
+
+            # Fill byte for even alignment (not after the last item)
+            if i < block_count - 1 and byte_length % 2 != 0:
+                offset += 1
+
+        return results
 
     def build_write_request(self, area: S7Area, db_number: int, start: int, word_len: S7WordLen, data: bytes) -> bytes:
         """
@@ -284,7 +390,7 @@ class S7Protocol:
 
     def build_plc_control_request(self, operation: str) -> bytes:
         """
-        Build PLC control request.
+        Build PLC control request using the S7 PI service PDU format.
 
         Args:
             operation: Control operation ('stop', 'hot_start', 'cold_start')
@@ -292,26 +398,16 @@ class S7Protocol:
         Returns:
             Complete S7 PDU for PLC control
         """
-        # Map operations to S7 control codes
-        control_codes = {
-            "stop": 0x29,  # PLC_STOP
-            "hot_start": 0x28,  # PLC_CONTROL (warm restart)
-            "cold_start": 0x28,  # PLC_CONTROL (cold restart)
+        params: dict[str, bytes] = {
+            "stop": _STOP_PARAMS,
+            "hot_start": _HOT_START_PARAMS,
+            "cold_start": _COLD_START_PARAMS,
         }
 
-        if operation not in control_codes:
+        if operation not in params:
             raise ValueError(f"Unknown PLC control operation: {operation}")
 
-        function_code = control_codes[operation]
-
-        # Build control-specific parameters
-        if operation == "stop":
-            # Simple stop command
-            param_data = struct.pack(">B", function_code)
-        else:
-            # Start commands with restart type
-            restart_type = 1 if operation == "hot_start" else 2  # 1=warm, 2=cold
-            param_data = struct.pack(">BB", function_code, restart_type)
+        param_data = params[operation]
 
         header = struct.pack(
             ">BBHHHH",
@@ -333,7 +429,7 @@ class S7Protocol:
             response: Parsed S7 response
 
         Raises:
-            S7ProtocolError: If control operation failed
+            ~snap7.error.S7ProtocolError: If control operation failed
         """
         # For now, just check that we got a response
         # In a full implementation, we would check specific error codes
@@ -951,6 +1047,22 @@ class S7Protocol:
 
         return result
 
+    def parse_list_blocks(self, response: Dict[str, Any]) -> BlocksList:
+        """Parse list blocks response directly into a :class:`~snap7.type.BlocksList`.
+
+        Consolidates the dict→struct conversion that used to live in both
+        the sync and async clients so the field mapping is declared once.
+        """
+        return build_blocks_list_from_dict(self.parse_list_blocks_response(response))
+
+    def parse_get_block_info(self, response: Dict[str, Any]) -> TS7BlockInfo:
+        """Parse block info response directly into a :class:`~snap7.type.TS7BlockInfo`.
+
+        Consolidates the dict→struct conversion that used to live in both
+        the sync and async clients.
+        """
+        return build_block_info_from_dict(self.parse_get_block_info_response(response))
+
     def build_read_szl_request(self, szl_id: int, szl_index: int) -> bytes:
         """
         Build USER_DATA request for reading SZL (System Status List).
@@ -1335,6 +1447,7 @@ class S7Protocol:
 
             data_section = pdu[offset : offset + data_len]
             response["data"] = self._parse_data_section(data_section)
+            response["raw_data"] = data_section
 
         return response
 
@@ -1489,7 +1602,7 @@ class S7Protocol:
             response: Parsed S7 response
 
         Raises:
-            S7ProtocolError: If write operation failed
+            ~snap7.error.S7ProtocolError: If write operation failed
         """
         # First check for errors in the response header
         # S7-1200/1500 returns error codes in the header for write failures
@@ -1507,3 +1620,52 @@ class S7Protocol:
                 desc = get_return_code_description(return_code)
                 raise S7ProtocolError(f"Write operation failed: {desc} (0x{return_code:02x})")
         # If no data and no header error, the write was successful (ACK without data)
+
+
+# ---------------------------------------------------------------------------
+# Dict-to-struct converters shared by sync and async clients.
+# Kept at module level so both :class:`snap7.client.Client` and
+# :class:`snap7.async_client.AsyncClient` produce identical structs from
+# the same protocol parse output (see discussion #700).
+# ---------------------------------------------------------------------------
+
+
+def build_blocks_list_from_dict(counts: Dict[str, int]) -> BlocksList:
+    """Populate a :class:`~snap7.type.BlocksList` from the dict returned by ``parse_list_blocks_response``."""
+    block_list = BlocksList()
+    block_list.OBCount = counts.get("OBCount", 0)
+    block_list.FBCount = counts.get("FBCount", 0)
+    block_list.FCCount = counts.get("FCCount", 0)
+    block_list.SFBCount = counts.get("SFBCount", 0)
+    block_list.SFCCount = counts.get("SFCCount", 0)
+    block_list.DBCount = counts.get("DBCount", 0)
+    block_list.SDBCount = counts.get("SDBCount", 0)
+    return block_list
+
+
+def build_block_info_from_dict(info: Dict[str, Any]) -> TS7BlockInfo:
+    """Populate a :class:`~snap7.type.TS7BlockInfo` from the dict returned by ``parse_get_block_info_response``."""
+    block_info = TS7BlockInfo()
+    block_info.BlkType = info["block_type"]
+    block_info.BlkNumber = info["block_number"]
+    block_info.BlkLang = info["block_lang"]
+    block_info.BlkFlags = info["block_flags"]
+    block_info.MC7Size = info["mc7_size"]
+    block_info.LoadSize = info["load_size"]
+    block_info.LocalData = info["local_data"]
+    block_info.SBBLength = info["sbb_length"]
+    block_info.CheckSum = info["checksum"]
+    block_info.Version = info["version"]
+
+    if info["code_date"]:
+        block_info.CodeDate = info["code_date"][:10]
+    if info["intf_date"]:
+        block_info.IntfDate = info["intf_date"][:10]
+    if info["author"]:
+        block_info.Author = info["author"][:8]
+    if info["family"]:
+        block_info.Family = info["family"][:8]
+    if info["header"]:
+        block_info.Header = info["header"][:8]
+
+    return block_info

@@ -2,7 +2,7 @@
 
 from fastmcp import FastMCP, FastMCPApp
 from prefab_ui.app import PrefabApp
-from prefab_ui.components import Column, Div, Link, Row
+from prefab_ui.components import Column, Div, Row
 from prefab_ui.components.control_flow import If
 from prefab_ui.rx import STATE
 
@@ -16,16 +16,8 @@ from airbyte_ops_webapp.pages.shared_components.layout import (
     render_page_hero,
     render_version_footer,
 )
-from airbyte_ops_webapp.state import (
-    deploy_sha,
-    deploy_sha_url,
-    mock_only_enabled,
-    ops_package_version,
-    preview_deploy_enabled,
-    preview_pr_number,
-    preview_pr_url,
-)
-from airbyte_ops_webapp.theme import PAGE_CLASS, _page_style, _primary_link_style
+from airbyte_ops_webapp.state import OpsPageState
+from airbyte_ops_webapp.theme import PAGE_CLASS, AbPage, AbPrimaryLink
 
 OPS_LOGIN_PATH = "/login"
 OPS_LOGIN_TOOL_NAME = "ops_login"
@@ -33,42 +25,19 @@ OPS_LOGIN_TOOL_NAME = "ops_login"
 login_app = FastMCPApp("Airbyte Ops Login")
 
 
-def _login_card_container_style() -> dict[str, str]:
-    return {
-        "display": "flex",
-        "justifyContent": "center",
-        "width": "100%",
-    }
-
-
 @login_app.ui(name=OPS_LOGIN_TOOL_NAME, title="Airbyte Ops Login")
 def open_ops_login() -> PrefabApp:
     """Open the Airbyte Ops login page."""
     current_oauth_config = oauth_config()
-    state = {
-        "auth_bearer_token": "",
-        "admin_user_email": "",
-        "is_mock_only": mock_only_enabled(),
-        "is_preview_deploy": preview_deploy_enabled(),
-        "preview_pr_number": preview_pr_number(),
-        "preview_pr_url": preview_pr_url(),
-        "deploy_sha": deploy_sha(),
-        "deploy_sha_url": deploy_sha_url(),
-        "ops_package_version": ops_package_version(),
-        "oauth_config": current_oauth_config,
-        "oauth_enabled": current_oauth_config["enabled"],
-        "oauth_authenticated": False,
-        "oauth_status": "",
-        "oauth_user_email": "",
-    }
+    state = OpsPageState.from_env(oauth_config=current_oauth_config).to_prefab_state()
 
     with (
         build_ops_app(
             title="Airbyte Ops Login",
             state=state,
-            oauth_issuer=str(current_oauth_config["issuer"]),
+            oauth_issuer=current_oauth_config.issuer,
         ) as app,
-        Div(style=_page_style(), onMount=hydrate_oauth_action()),
+        AbPage(onMount=hydrate_oauth_action()),
         Column(gap=5, css_class=PAGE_CLASS),
     ):
         render_environment_banners()
@@ -78,14 +47,13 @@ def open_ops_login() -> PrefabApp:
             description="Sign in once to use internal operations tools.",
             show_auth_controls=True,
         )
-        with Div(style=_login_card_container_style()):
+        with Div(css_class="flex justify-center w-full"):
             render_login_card()
         with If(STATE.oauth_authenticated), Row(justify="center"):
-            Link(
+            AbPrimaryLink(
                 "⚙️ Go Home",
                 href=OPS_HOME_PATH,
                 target="_top",
-                style=_primary_link_style(),
             )
         render_version_footer()
     return app

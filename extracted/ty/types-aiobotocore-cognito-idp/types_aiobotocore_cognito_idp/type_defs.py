@@ -44,6 +44,7 @@ from .literals import (
     DeviceRememberedStatusTypeType,
     DomainStatusTypeType,
     EmailSendingAccountTypeType,
+    EncryptionKeyTypeType,
     EventFilterTypeType,
     EventResponseTypeType,
     EventSourceNameType,
@@ -52,16 +53,21 @@ from .literals import (
     FeatureTypeType,
     FeedbackValueTypeType,
     IdentityProviderTypeTypeType,
+    IssuerTypeType,
     LogLevelType,
     MessageActionTypeType,
     OAuthFlowTypeType,
     PreTokenGenerationLambdaVersionTypeType,
     PreventUserExistenceErrorTypesType,
     RecoveryOptionNameTypeType,
+    ReplicaRoleTypeType,
+    ReplicaStatusTypeType,
     RiskDecisionTypeType,
     RiskLevelTypeType,
+    SecurityPolicyTypeType,
     StatusTypeType,
     TimeUnitsTypeType,
+    UpdateReplicaStatusTypeType,
     UserImportJobStatusTypeType,
     UsernameAttributeTypeType,
     UserPoolMfaTypeType,
@@ -170,6 +176,8 @@ __all__ = (
     "CreateUserPoolClientResponseTypeDef",
     "CreateUserPoolDomainRequestTypeDef",
     "CreateUserPoolDomainResponseTypeDef",
+    "CreateUserPoolReplicaRequestTypeDef",
+    "CreateUserPoolReplicaResponseTypeDef",
     "CreateUserPoolRequestTypeDef",
     "CreateUserPoolResponseTypeDef",
     "CustomDomainConfigTypeTypeDef",
@@ -184,6 +192,8 @@ __all__ = (
     "DeleteUserPoolClientRequestTypeDef",
     "DeleteUserPoolClientSecretRequestTypeDef",
     "DeleteUserPoolDomainRequestTypeDef",
+    "DeleteUserPoolReplicaRequestTypeDef",
+    "DeleteUserPoolReplicaResponseTypeDef",
     "DeleteUserPoolRequestTypeDef",
     "DeleteUserRequestTypeDef",
     "DeleteWebAuthnCredentialRequestTypeDef",
@@ -218,6 +228,7 @@ __all__ = (
     "EventContextDataTypeTypeDef",
     "EventFeedbackTypeTypeDef",
     "EventRiskTypeTypeDef",
+    "FailoverTypeTypeDef",
     "FirehoseConfigurationTypeTypeDef",
     "ForgetDeviceRequestTypeDef",
     "ForgotPasswordRequestTypeDef",
@@ -232,6 +243,8 @@ __all__ = (
     "GetIdentityProviderByIdentifierResponseTypeDef",
     "GetLogDeliveryConfigurationRequestTypeDef",
     "GetLogDeliveryConfigurationResponseTypeDef",
+    "GetProvisionedLimitRequestTypeDef",
+    "GetProvisionedLimitResponseTypeDef",
     "GetSigningCertificateRequestTypeDef",
     "GetSigningCertificateResponseTypeDef",
     "GetTokensFromRefreshTokenRequestTypeDef",
@@ -253,7 +266,13 @@ __all__ = (
     "InboundFederationLambdaTypeTypeDef",
     "InitiateAuthRequestTypeDef",
     "InitiateAuthResponseTypeDef",
+    "IssuerConfigurationTypeTypeDef",
+    "KeyConfigurationTypeTypeDef",
     "LambdaConfigTypeTypeDef",
+    "LimitDefinitionTypeOutputTypeDef",
+    "LimitDefinitionTypeTypeDef",
+    "LimitDefinitionTypeUnionTypeDef",
+    "LimitTypeTypeDef",
     "ListDevicesRequestTypeDef",
     "ListDevicesResponseTypeDef",
     "ListGroupsRequestPaginateTypeDef",
@@ -276,6 +295,8 @@ __all__ = (
     "ListUserPoolClientsRequestPaginateTypeDef",
     "ListUserPoolClientsRequestTypeDef",
     "ListUserPoolClientsResponseTypeDef",
+    "ListUserPoolReplicasRequestTypeDef",
+    "ListUserPoolReplicasResponseTypeDef",
     "ListUserPoolsRequestPaginateTypeDef",
     "ListUserPoolsRequestTypeDef",
     "ListUserPoolsResponseTypeDef",
@@ -315,6 +336,7 @@ __all__ = (
     "RiskExceptionConfigurationTypeOutputTypeDef",
     "RiskExceptionConfigurationTypeTypeDef",
     "RiskExceptionConfigurationTypeUnionTypeDef",
+    "RoutingTypeTypeDef",
     "S3ConfigurationTypeTypeDef",
     "SMSMfaSettingsTypeTypeDef",
     "SchemaAttributeTypeTypeDef",
@@ -357,6 +379,8 @@ __all__ = (
     "UpdateIdentityProviderResponseTypeDef",
     "UpdateManagedLoginBrandingRequestTypeDef",
     "UpdateManagedLoginBrandingResponseTypeDef",
+    "UpdateProvisionedLimitRequestTypeDef",
+    "UpdateProvisionedLimitResponseTypeDef",
     "UpdateResourceServerRequestTypeDef",
     "UpdateResourceServerResponseTypeDef",
     "UpdateTermsRequestTypeDef",
@@ -367,6 +391,8 @@ __all__ = (
     "UpdateUserPoolClientResponseTypeDef",
     "UpdateUserPoolDomainRequestTypeDef",
     "UpdateUserPoolDomainResponseTypeDef",
+    "UpdateUserPoolReplicaRequestTypeDef",
+    "UpdateUserPoolReplicaResponseTypeDef",
     "UpdateUserPoolRequestTypeDef",
     "UserAttributeUpdateSettingsTypeOutputTypeDef",
     "UserAttributeUpdateSettingsTypeTypeDef",
@@ -380,6 +406,7 @@ __all__ = (
     "UserPoolPolicyTypeOutputTypeDef",
     "UserPoolPolicyTypeTypeDef",
     "UserPoolPolicyTypeUnionTypeDef",
+    "UserPoolReplicaTypeTypeDef",
     "UserPoolTypeTypeDef",
     "UserTypeTypeDef",
     "UsernameConfigurationTypeTypeDef",
@@ -780,6 +807,26 @@ class TokenValidityUnitsTypeTypeDef(TypedDict):
 
 class CustomDomainConfigTypeTypeDef(TypedDict):
     CertificateArn: str
+    SecurityPolicy: NotRequired[SecurityPolicyTypeType]
+
+
+CreateUserPoolReplicaRequestTypeDef = TypedDict(
+    "CreateUserPoolReplicaRequestTypeDef",
+    {
+        "UserPoolId": str,
+        "RegionName": str,
+        "UserPoolTags": NotRequired[Mapping[str, str]],
+    },
+)
+UserPoolReplicaTypeTypeDef = TypedDict(
+    "UserPoolReplicaTypeTypeDef",
+    {
+        "RegionName": NotRequired[str],
+        "Status": NotRequired[ReplicaStatusTypeType],
+        "Role": NotRequired[ReplicaRoleTypeType],
+        "UserPoolArn": NotRequired[str],
+    },
+)
 
 
 class DeviceConfigurationTypeTypeDef(TypedDict):
@@ -793,6 +840,19 @@ class EmailConfigurationTypeTypeDef(TypedDict):
     EmailSendingAccount: NotRequired[EmailSendingAccountTypeType]
     From: NotRequired[str]
     ConfigurationSet: NotRequired[str]
+
+
+IssuerConfigurationTypeTypeDef = TypedDict(
+    "IssuerConfigurationTypeTypeDef",
+    {
+        "Type": NotRequired[IssuerTypeType],
+    },
+)
+
+
+class KeyConfigurationTypeTypeDef(TypedDict):
+    KeyType: NotRequired[EncryptionKeyTypeType]
+    KmsKeyArn: NotRequired[str]
 
 
 class SmsConfigurationTypeTypeDef(TypedDict):
@@ -870,6 +930,15 @@ class DeleteUserPoolDomainRequestTypeDef(TypedDict):
     UserPoolId: str
 
 
+DeleteUserPoolReplicaRequestTypeDef = TypedDict(
+    "DeleteUserPoolReplicaRequestTypeDef",
+    {
+        "UserPoolId": str,
+        "RegionName": str,
+    },
+)
+
+
 class DeleteUserPoolRequestTypeDef(TypedDict):
     UserPoolId: str
 
@@ -936,6 +1005,11 @@ class DescribeUserPoolRequestTypeDef(TypedDict):
 class EmailMfaConfigTypeTypeDef(TypedDict):
     Message: NotRequired[str]
     Subject: NotRequired[str]
+
+
+class FailoverTypeTypeDef(TypedDict):
+    SecondaryRegion: str
+    PrimaryRoute53HealthCheckId: str
 
 
 class FirehoseConfigurationTypeTypeDef(TypedDict):
@@ -1039,6 +1113,16 @@ class PreTokenGenerationVersionConfigTypeTypeDef(TypedDict):
     LambdaArn: str
 
 
+class LimitDefinitionTypeOutputTypeDef(TypedDict):
+    LimitClass: Literal["API_CATEGORY"]
+    Attributes: dict[str, str]
+
+
+class LimitDefinitionTypeTypeDef(TypedDict):
+    LimitClass: Literal["API_CATEGORY"]
+    Attributes: Mapping[str, str]
+
+
 class ListDevicesRequestTypeDef(TypedDict):
     AccessToken: str
     Limit: NotRequired[int]
@@ -1110,6 +1194,11 @@ class UserPoolClientDescriptionTypeDef(TypedDict):
     ClientId: NotRequired[str]
     UserPoolId: NotRequired[str]
     ClientName: NotRequired[str]
+
+
+class ListUserPoolReplicasRequestTypeDef(TypedDict):
+    UserPoolId: str
+    NextToken: NotRequired[str]
 
 
 class ListUserPoolsRequestTypeDef(TypedDict):
@@ -1264,6 +1353,16 @@ class UpdateTermsRequestTypeDef(TypedDict):
     Links: NotRequired[Mapping[str, str]]
 
 
+UpdateUserPoolReplicaRequestTypeDef = TypedDict(
+    "UpdateUserPoolReplicaRequestTypeDef",
+    {
+        "UserPoolId": str,
+        "RegionName": str,
+        "Status": UpdateReplicaStatusTypeType,
+    },
+)
+
+
 class UserAttributeUpdateSettingsTypeOutputTypeDef(TypedDict):
     AttributesRequireVerificationBeforeUpdate: NotRequired[list[VerifiedAttributeTypeType]]
 
@@ -1320,12 +1419,6 @@ class ConfirmSignUpResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class CreateUserPoolDomainResponseTypeDef(TypedDict):
-    ManagedLoginVersion: int
-    CloudFrontDomain: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1362,12 +1455,6 @@ class ListUserPoolClientSecretsResponseTypeDef(TypedDict):
 
 class StartWebAuthnRegistrationResponseTypeDef(TypedDict):
     CredentialCreationOptions: dict[str, Any]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateUserPoolDomainResponseTypeDef(TypedDict):
-    ManagedLoginVersion: int
-    CloudFrontDomain: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1903,35 +1990,34 @@ class UserPoolClientTypeTypeDef(TypedDict):
     RefreshTokenRotation: NotRequired[RefreshTokenRotationTypeTypeDef]
 
 
-class CreateUserPoolDomainRequestTypeDef(TypedDict):
-    Domain: str
-    UserPoolId: str
-    ManagedLoginVersion: NotRequired[int]
-    CustomDomainConfig: NotRequired[CustomDomainConfigTypeTypeDef]
+class CreateUserPoolReplicaResponseTypeDef(TypedDict):
+    UserPoolReplica: UserPoolReplicaTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
-class DomainDescriptionTypeTypeDef(TypedDict):
-    UserPoolId: NotRequired[str]
-    AWSAccountId: NotRequired[str]
-    Domain: NotRequired[str]
-    S3Bucket: NotRequired[str]
-    CloudFrontDistribution: NotRequired[str]
-    Version: NotRequired[str]
-    Status: NotRequired[DomainStatusTypeType]
-    CustomDomainConfig: NotRequired[CustomDomainConfigTypeTypeDef]
-    ManagedLoginVersion: NotRequired[int]
+class DeleteUserPoolReplicaResponseTypeDef(TypedDict):
+    UserPoolReplica: UserPoolReplicaTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
-class UpdateUserPoolDomainRequestTypeDef(TypedDict):
-    Domain: str
-    UserPoolId: str
-    ManagedLoginVersion: NotRequired[int]
-    CustomDomainConfig: NotRequired[CustomDomainConfigTypeTypeDef]
+class ListUserPoolReplicasResponseTypeDef(TypedDict):
+    UserPoolReplicas: list[UserPoolReplicaTypeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateUserPoolReplicaResponseTypeDef(TypedDict):
+    UserPoolReplica: UserPoolReplicaTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SmsMfaConfigTypeTypeDef(TypedDict):
     SmsAuthenticationMessage: NotRequired[str]
     SmsConfiguration: NotRequired[SmsConfigurationTypeTypeDef]
+
+
+class RoutingTypeTypeDef(TypedDict):
+    Failover: NotRequired[FailoverTypeTypeDef]
 
 
 class GetUICustomizationResponseTypeDef(TypedDict):
@@ -1960,6 +2046,17 @@ class LambdaConfigTypeTypeDef(TypedDict):
     CustomEmailSender: NotRequired[CustomEmailLambdaVersionConfigTypeTypeDef]
     KMSKeyID: NotRequired[str]
     InboundFederation: NotRequired[InboundFederationLambdaTypeTypeDef]
+
+
+class LimitTypeTypeDef(TypedDict):
+    LimitDefinition: LimitDefinitionTypeOutputTypeDef
+    ProvisionedLimitValue: int
+    FreeLimitValue: int
+
+
+LimitDefinitionTypeUnionTypeDef = Union[
+    LimitDefinitionTypeTypeDef, LimitDefinitionTypeOutputTypeDef
+]
 
 
 class ListIdentityProvidersResponseTypeDef(TypedDict):
@@ -2209,11 +2306,6 @@ class UpdateUserPoolClientResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class DescribeUserPoolDomainResponseTypeDef(TypedDict):
-    DomainDescription: DomainDescriptionTypeTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class GetUserPoolMfaConfigResponseTypeDef(TypedDict):
     SmsMfaConfiguration: SmsMfaConfigTypeTypeDef
     SoftwareTokenMfaConfiguration: SoftwareTokenMfaConfigTypeTypeDef
@@ -2241,6 +2333,49 @@ class SetUserPoolMfaConfigResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateUserPoolDomainRequestTypeDef(TypedDict):
+    Domain: str
+    UserPoolId: str
+    ManagedLoginVersion: NotRequired[int]
+    CustomDomainConfig: NotRequired[CustomDomainConfigTypeTypeDef]
+    Routing: NotRequired[RoutingTypeTypeDef]
+
+
+class CreateUserPoolDomainResponseTypeDef(TypedDict):
+    ManagedLoginVersion: int
+    CloudFrontDomain: str
+    Routing: RoutingTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DomainDescriptionTypeTypeDef(TypedDict):
+    UserPoolId: NotRequired[str]
+    AWSAccountId: NotRequired[str]
+    Domain: NotRequired[str]
+    S3Bucket: NotRequired[str]
+    CloudFrontDistribution: NotRequired[str]
+    Version: NotRequired[str]
+    Status: NotRequired[DomainStatusTypeType]
+    CustomDomainConfig: NotRequired[CustomDomainConfigTypeTypeDef]
+    ManagedLoginVersion: NotRequired[int]
+    Routing: NotRequired[RoutingTypeTypeDef]
+
+
+class UpdateUserPoolDomainRequestTypeDef(TypedDict):
+    Domain: str
+    UserPoolId: str
+    ManagedLoginVersion: NotRequired[int]
+    CustomDomainConfig: NotRequired[CustomDomainConfigTypeTypeDef]
+    Routing: NotRequired[RoutingTypeTypeDef]
+
+
+class UpdateUserPoolDomainResponseTypeDef(TypedDict):
+    ManagedLoginVersion: int
+    CloudFrontDomain: str
+    Routing: RoutingTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UserPoolDescriptionTypeTypeDef(TypedDict):
     Id: NotRequired[str]
     Name: NotRequired[str]
@@ -2248,6 +2383,26 @@ class UserPoolDescriptionTypeTypeDef(TypedDict):
     Status: NotRequired[StatusTypeType]
     LastModifiedDate: NotRequired[datetime]
     CreationDate: NotRequired[datetime]
+    ReplicaRegions: NotRequired[list[str]]
+
+
+class GetProvisionedLimitResponseTypeDef(TypedDict):
+    Limit: LimitTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateProvisionedLimitResponseTypeDef(TypedDict):
+    Limit: LimitTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetProvisionedLimitRequestTypeDef(TypedDict):
+    LimitDefinition: LimitDefinitionTypeUnionTypeDef
+
+
+class UpdateProvisionedLimitRequestTypeDef(TypedDict):
+    LimitDefinition: LimitDefinitionTypeUnionTypeDef
+    RequestedLimitValue: int
 
 
 class LogDeliveryConfigurationTypeTypeDef(TypedDict):
@@ -2305,6 +2460,8 @@ class UserPoolTypeTypeDef(TypedDict):
     Arn: NotRequired[str]
     AccountRecoverySetting: NotRequired[AccountRecoverySettingTypeOutputTypeDef]
     UserPoolTier: NotRequired[UserPoolTierTypeType]
+    KeyConfiguration: NotRequired[KeyConfigurationTypeTypeDef]
+    IssuerConfiguration: NotRequired[IssuerConfigurationTypeTypeDef]
 
 
 UserPoolPolicyTypeUnionTypeDef = Union[UserPoolPolicyTypeTypeDef, UserPoolPolicyTypeOutputTypeDef]
@@ -2324,6 +2481,11 @@ class UpdateManagedLoginBrandingRequestTypeDef(TypedDict):
     UseCognitoProvidedValues: NotRequired[bool]
     Settings: NotRequired[Mapping[str, Any]]
     Assets: NotRequired[Sequence[AssetTypeUnionTypeDef]]
+
+
+class DescribeUserPoolDomainResponseTypeDef(TypedDict):
+    DomainDescription: DomainDescriptionTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListUserPoolsResponseTypeDef(TypedDict):
@@ -2398,6 +2560,8 @@ class CreateUserPoolRequestTypeDef(TypedDict):
     UsernameConfiguration: NotRequired[UsernameConfigurationTypeTypeDef]
     AccountRecoverySetting: NotRequired[AccountRecoverySettingTypeUnionTypeDef]
     UserPoolTier: NotRequired[UserPoolTierTypeType]
+    KeyConfiguration: NotRequired[KeyConfigurationTypeTypeDef]
+    IssuerConfiguration: NotRequired[IssuerConfigurationTypeTypeDef]
 
 
 class UpdateUserPoolRequestTypeDef(TypedDict):
@@ -2422,6 +2586,8 @@ class UpdateUserPoolRequestTypeDef(TypedDict):
     AccountRecoverySetting: NotRequired[AccountRecoverySettingTypeUnionTypeDef]
     PoolName: NotRequired[str]
     UserPoolTier: NotRequired[UserPoolTierTypeType]
+    KeyConfiguration: NotRequired[KeyConfigurationTypeTypeDef]
+    IssuerConfiguration: NotRequired[IssuerConfigurationTypeTypeDef]
 
 
 class DescribeRiskConfigurationResponseTypeDef(TypedDict):

@@ -3,7 +3,7 @@ Attention
 """
 
 from __future__ import annotations
-from typing import Tuple, Union, Optional, Sequence
+from typing import Union, Optional, Sequence, Tuple, List
 import logging
 from returnn.tensor import Tensor, Dim, single_step_dim
 import returnn.frontend as rf
@@ -11,6 +11,8 @@ from returnn.frontend._cache import Cache
 
 
 __all__ = [
+    "scaled_dot_product_attention",
+    "rel_pos_self_attention",
     "dot_attention",
     "SelfAttentionBase",
     "SelfAttention",
@@ -26,6 +28,170 @@ __all__ = [
     "sinusoidal_positional_encoding",
     "sinusoidal_encoding",
 ]
+
+
+def scaled_dot_product_attention(
+    query: Tensor,
+    key: Tensor,
+    value: Tensor,
+    *,
+    attention_mask: Optional[Tensor] = None,
+    att_dropout: float = 0.0,
+    att_dropout_broadcast: Optional[bool] = None,
+    v_feat_dim: Dim,
+    qk_feat_dim: Dim,
+    kv_spatial_dim: Dim,
+    query_spatial_dim: Dim,
+    is_causal: bool = False,
+    scale: Optional[float] = None,
+):
+    """
+    Scaled dot-product attention. Dispatches to the backend implementation
+    (see :func:`Backend.scaled_dot_product_attention` for the generic one;
+    backends can specialize, e.g. fused / variable-length kernels).
+
+    :param query:
+    :param key:
+    :param value:
+    :param attention_mask:
+    :param att_dropout: dropout for attention weights
+    :param att_dropout_broadcast: whether to broadcast over all but ``axis``.
+        normally not wanted. disabled by default since behavior version 19.
+    :param v_feat_dim: Embedding dimension of value
+    :param qk_feat_dim: Embedding dimension of key (and query)
+    :param kv_spatial_dim: Spatial axis of key/value to attend over
+    :param query_spatial_dim: Spatial axis of query
+    :param is_causal: Special case when the attention mask should be causal (e.g. for auto-regressive decoding).
+        Allows for more efficient implementation in some backends.
+    :param scale: Scaling factor applied prior to softmax
+    :return: attention output
+    """
+    from . import _utils
+
+    if att_dropout_broadcast is None:
+        att_dropout_broadcast = _att_dropout_broadcast_default()
+    # Dispatch over all args (not just query), so that e.g. a packed key/value also selects
+    # the specialized backend (deviation from PR #1798 which uses query._raw_backend).
+    backend = _utils.get_backend_from_tensors(query, key, value)
+    att = backend.scaled_dot_product_attention(
+        query,
+        key,
+        value,
+        attention_mask=attention_mask,
+        att_dropout=att_dropout,
+        att_dropout_broadcast=att_dropout_broadcast,
+        v_feat_dim=v_feat_dim,
+        qk_feat_dim=qk_feat_dim,
+        kv_spatial_dim=kv_spatial_dim,
+        query_spatial_dim=query_spatial_dim,
+        is_causal=is_causal,
+        scale=scale,
+    )
+    return att
+
+
+def rel_pos_self_attention(
+    query: Tensor,
+    key: Tensor,
+    value: Tensor,
+    pos_emb: Tensor,
+    *,
+    pos_bias_u: Optional[Tensor],
+    pos_bias_v: Optional[Tensor],
+    att_dropout: float = 0.0,
+    att_dropout_broadcast: Optional[bool] = None,
+    v_feat_dim: Dim,
+    qk_feat_dim: Dim,
+    kv_spatial_dim: Dim,
+    query_spatial_dim: Dim,
+    pos_emb_spatial_dim: Dim,
+):
+    """
+    Self-attention with relative positional encoding (Transformer-XL style),
+    as used by :class:`RelPosSelfAttention`. Dispatches to the backend implementation
+    (see :func:`Backend.rel_pos_self_attention` for the generic one;
+    backends can specialize, e.g. fused / variable-length kernels).
+
+    :param query: {..., query_spatial_dim, qk_feat_dim}. not yet scaled.
+    :param key: {..., kv_spatial_dim, qk_feat_dim}
+    :param value: {..., kv_spatial_dim, v_feat_dim}
+    :param pos_emb: {..., pos_emb_spatial_dim, qk_feat_dim}, relative positional encoding
+    :param pos_bias_u: {..., qk_feat_dim}, added to query for the content-based term (matrix a+c)
+    :param pos_bias_v: {..., qk_feat_dim}, added to query for the position-based term (matrix b+d)
+    :param att_dropout: dropout for attention weights
+    :param att_dropout_broadcast: whether to broadcast over all but ``kv_spatial_dim``.
+        normally not wanted. disabled by default since behavior version 19.
+    :param v_feat_dim: Embedding dimension of value
+    :param qk_feat_dim: Embedding dimension of key and query
+    :param kv_spatial_dim: Spatial axis of key/value to attend over
+    :param query_spatial_dim: Spatial axis of query
+    :param pos_emb_spatial_dim: Relative-position axis of pos_emb (usually 2*time1-1)
+    :return: attention output
+    """
+    from . import _utils
+
+    if att_dropout_broadcast is None:
+        att_dropout_broadcast = _att_dropout_broadcast_default()
+    # Dispatch over all args (not just query), see :func:`scaled_dot_product_attention`.
+    backend = _utils.get_backend_from_tensors(query, key, value, pos_emb)
+    return backend.rel_pos_self_attention(
+        query,
+        key,
+        value,
+        pos_emb,
+        pos_bias_u=pos_bias_u,
+        pos_bias_v=pos_bias_v,
+        att_dropout=att_dropout,
+        att_dropout_broadcast=att_dropout_broadcast,
+        v_feat_dim=v_feat_dim,
+        qk_feat_dim=qk_feat_dim,
+        kv_spatial_dim=kv_spatial_dim,
+        query_spatial_dim=query_spatial_dim,
+        pos_emb_spatial_dim=pos_emb_spatial_dim,
+    )
+
+
+def _infer_att_dims(
+    query: Tensor, keys: Tensor, values: Tensor, *, qk_feat_dim: Dim, kv_spatial_dim: Dim
+) -> Tuple[Tensor, Dim, Dim, Tuple[bool, Optional[List[Dim]]]]:
+    if kv_spatial_dim not in keys.dims_set:
+        raise ValueError(f"kv_spat_dim {kv_spatial_dim} not in keys.dims {keys.dims}")
+
+    # infer query spatial dim, necessary for pytorch backend
+    query_non_batch_dims = query.remaining_dims(keys.dims_set - {kv_spatial_dim})
+    merged_query_dims = None
+    if len(query_non_batch_dims) == 0:
+        query_spatial = Dim(1, name="dot_att_query_spatial_dummy")
+        query = rf.expand_dim(query, dim=query_spatial)
+    elif len(query_non_batch_dims) == 1:
+        query_spatial = query_non_batch_dims[0]
+    else:
+        # Multiple extra query dims (e.g. rescoring: [batch, beam, targets_spatial, ...]).
+        query, query_spatial = rf.merge_dims(query, dims=query_non_batch_dims)
+        merged_query_dims = query_non_batch_dims
+    return (
+        query,
+        _infer_v_feat_dim(values, keys, qk_feat_dim),
+        query_spatial,
+        (
+            len(query_non_batch_dims) == 0,
+            merged_query_dims,
+        ),
+    )
+
+
+def _infer_v_feat_dim(values: Tensor, keys: Tensor, qk_feat_dim: Dim) -> Dim:
+    v_feat_dim = values.feature_dim
+    if v_feat_dim is None:
+        if qk_feat_dim in values.dims_set:
+            v_feat_dim = qk_feat_dim
+        else:
+            possible_feat_dims = values.dims_set - keys.dims_set
+            if len(possible_feat_dims) == 1:
+                v_feat_dim = list(possible_feat_dims)[0]
+            else:
+                raise ValueError(f"Cannot infer v_feat_dim from values.dims={values.dims}, keys.dims={keys.dims}")
+    return v_feat_dim
 
 
 def dot_attention(
@@ -55,17 +221,27 @@ def dot_attention(
         normally not wanted. disabled by default since behavior version 19.
     :return: like values but with axis removed, and maybe any additional axes from query
     """
-    query *= key_dim.dimension**-0.5
-    energy = rf.matmul(query, keys, reduce=key_dim)
-    att_weights = rf.softmax(energy, axis=axis)
-    if att_dropout_broadcast is None:
-        att_dropout_broadcast = _att_dropout_broadcast_default()
-    att_weights = rf.dropout(att_weights, att_dropout, axis=att_dropout_broadcast and axis)
-    # Masking not needed because softmax should already have masked,
-    # so we have 0.0 att weights for padded frames.
-    att = rf.matmul(att_weights, values, reduce=axis, use_mask=False)
-    if values.feature_dim in att.dims:
-        att.feature_dim = values.feature_dim
+    query, v_feat_dim, query_spatial, (added_dummy_spat_dim_to_query, merged_query_dims) = _infer_att_dims(
+        query, keys, values, qk_feat_dim=key_dim, kv_spatial_dim=axis
+    )
+
+    att = scaled_dot_product_attention(
+        query,
+        keys,
+        values,
+        att_dropout=att_dropout,
+        att_dropout_broadcast=att_dropout_broadcast,
+        v_feat_dim=v_feat_dim,
+        qk_feat_dim=key_dim,
+        kv_spatial_dim=axis,
+        query_spatial_dim=query_spatial,
+        is_causal=False,
+    )
+    if added_dummy_spat_dim_to_query:
+        att = rf.squeeze(att, axis=query_spatial)
+    if merged_query_dims is not None:
+        att = rf.split_dims(att, axis=query_spatial, dims=merged_query_dims)
+
     return att
 
 
@@ -199,6 +375,38 @@ class CausalSelfAttention(SelfAttentionBase):
     ) -> Tuple[Tensor, CausalSelfAttentionState]:
         """forward"""
         q, k, v = self.forward_qkv(source)
+        if axis != single_step_dim and (not state or state.accum_axis.dimension == 0):
+            # Full sequence from scratch.
+            # The generic path below expresses the causality via the masked hist_dim
+            # (dyn sizes arange+1), which is mathematically equivalent,
+            # but backends cannot cheaply recognize that as causal
+            # (it would require inspecting the dyn size values),
+            # so they cannot use fused implementations
+            # (torch SDPA is_causal / flash attention / packed varlen SDPA).
+            # Thus pass the explicit is_causal flag to scaled_dot_product_attention here,
+            # which lets backends select those fused implementations.
+            # On generic backends this computes exactly the same as the path below.
+            # The state keeps the original axis, see _causal_self_att_step (no-state case).
+            new_state = CausalSelfAttentionState()
+            new_state.k_accum = k
+            new_state.v_accum = v
+            new_state.accum_axis = axis
+            att = scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                att_dropout=self.att_dropout,
+                att_dropout_broadcast=self.att_dropout_broadcast,
+                v_feat_dim=self.value_dim_per_head,
+                qk_feat_dim=self.key_dim_per_head,
+                kv_spatial_dim=axis,
+                query_spatial_dim=axis,
+                is_causal=True,
+            )
+            output, _ = rf.merge_dims(att, dims=(self.num_heads, self.value_dim_per_head), out_dim=self.value_dim_total)
+            if self.proj:
+                output = self.proj(output)
+            return output, new_state
         k, v, hist_dim, new_state = _causal_self_att_step(k, v, axis=axis, state=state, self=self)
         output = self.attention(q, k, v, kv_axis=hist_dim)
         return output, new_state
@@ -322,6 +530,39 @@ class RotaryPosCausalSelfAttention(CausalSelfAttention):
     ) -> Tuple[Tensor, CausalSelfAttentionState]:
         """forward"""
         q, k, v = self.forward_qkv(source)
+        if axis != single_step_dim and (not state or state.accum_axis.dimension == 0):
+            # Full sequence from scratch: use the explicit is_causal flag,
+            # so that backends can use fused implementations --
+            # see the same branch in CausalSelfAttention.__call__ for the full reasoning.
+            # The state keeps the original axis and the pre-RoPE k/v,
+            # see _causal_self_att_step (no-state case).
+            new_state = CausalSelfAttentionState()
+            new_state.k_accum = k
+            new_state.v_accum = v
+            new_state.accum_axis = axis
+            pos_enc = rf.sinusoidal_positional_encoding(
+                spatial_dim=axis,
+                feat_dim=self.key_dim_per_head,
+                base=10_000 ** (1 - 2 / self.key_dim_per_head.dimension),
+            )  # [T,D]
+            q = _apply_rope(q, pos_enc, self.key_dim_per_head)
+            k = _apply_rope(k, pos_enc, self.key_dim_per_head)
+            att = scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                att_dropout=self.att_dropout,
+                att_dropout_broadcast=self.att_dropout_broadcast,
+                v_feat_dim=self.value_dim_per_head,
+                qk_feat_dim=self.key_dim_per_head,
+                kv_spatial_dim=axis,
+                query_spatial_dim=axis,
+                is_causal=True,
+            )
+            output, _ = rf.merge_dims(att, dims=(self.num_heads, self.value_dim_per_head), out_dim=self.value_dim_total)
+            if self.proj:
+                output = self.proj(output)
+            return output, new_state
         k, v, hist_dim, new_state = _causal_self_att_step(k, v, axis=axis, state=state, self=self)
 
         # Apply RoPE using sinusoidal positional encoding.
@@ -498,28 +739,21 @@ class RelPosSelfAttention(SelfAttentionBase):
         hist_dim = Dim(None, name=f"{axis.description}:kv")
         k, _ = rf.replace_dim(k, in_dim=axis, out_dim=hist_dim)
         v, _ = rf.replace_dim(v, in_dim=axis, out_dim=hist_dim)
-        q_with_bias_u = (q + self.pos_bias_u) if self.pos_bias_u is not None else q  # (batch, head, time1, d_k)
-        q_with_bias_v = (q + self.pos_bias_v) if self.pos_bias_v is not None else q  # (batch, head, time1, d_k)
-
-        # compute attention score
-        # first compute matrix a and matrix c
-        # as described in https://arxiv.org/abs/1901.02860 Section 3.3
-        # (batch, head, time1, time2)
-        matrix_ac = rf.matmul(q_with_bias_u, k, reduce=self.key_dim_per_head)
-
-        # compute matrix b and matrix d
-        # (batch, head, time1, 2*time1-1)
-        matrix_bd = rf.matmul(q_with_bias_v, pos_emb, reduce=self.key_dim_per_head)
-        matrix_bd = _rel_pos_enc_shift(matrix_bd, axis, pos_emb_spatial_dim, hist_dim)
-
-        scores = matrix_ac + matrix_bd  # (batch, head, time1, time2)
-        del matrix_ac, matrix_bd
-        scores *= self.key_dim_per_head.dimension**-0.5
-        att_weights = rf.softmax(scores, axis=hist_dim)
-        att_weights = rf.dropout(att_weights, self.att_dropout, axis=self.att_dropout_broadcast and hist_dim)
-        # Masking not needed because softmax should already have masked,
-        # so we have 0.0 att weights for padded frames.
-        att = rf.matmul(att_weights, v, reduce=hist_dim, use_mask=False)
+        att = rel_pos_self_attention(
+            q,
+            k,
+            v,
+            pos_emb,
+            pos_bias_u=self.pos_bias_u,
+            pos_bias_v=self.pos_bias_v,
+            att_dropout=self.att_dropout,
+            att_dropout_broadcast=self.att_dropout_broadcast,
+            v_feat_dim=self.value_dim_per_head,
+            qk_feat_dim=self.key_dim_per_head,
+            kv_spatial_dim=hist_dim,
+            query_spatial_dim=axis,
+            pos_emb_spatial_dim=pos_emb_spatial_dim,
+        )
         output, _ = rf.merge_dims(att, dims=(self.num_heads, self.value_dim_per_head), out_dim=self.value_dim_total)
         if self.proj:
             output = self.proj(output)
@@ -654,27 +888,21 @@ class RelPosCausalSelfAttention(CausalSelfAttention):
             pos_emb = rf.split_dims(pos_emb, axis=self.key_dim_total, dims=(self.num_heads, self.key_dim_per_head))
         # pos_emb: (head, 2*time1-1, d_k)
 
-        q_with_bias_u = (q + self.pos_bias_u) if self.pos_bias_u is not None else q  # (batch, head, time1, d_k)
-        q_with_bias_v = (q + self.pos_bias_v) if self.pos_bias_v is not None else q  # (batch, head, time1, d_k)
-
-        # compute attention score
-        # first compute matrix a and matrix c
-        # as described in https://arxiv.org/abs/1901.02860 Section 3.3
-        # (batch, head, time1, time2)
-        matrix_ac = rf.matmul(q_with_bias_u, k, reduce=self.key_dim_per_head)
-
-        # compute matrix b and matrix d
-        # (batch, head, time1, 2*time1-1)
-        matrix_bd = rf.matmul(q_with_bias_v, pos_emb, reduce=self.key_dim_per_head)
-        matrix_bd = _rel_pos_enc_shift(matrix_bd, axis, pos_emb_spatial_dim, hist_dim)
-
-        scores = matrix_ac + matrix_bd  # (batch, head, time1, time2)
-        scores *= self.key_dim_per_head.dimension**-0.5
-        att_weights = rf.softmax(scores, axis=hist_dim)
-        att_weights = rf.dropout(att_weights, self.att_dropout, axis=self.att_dropout_broadcast and hist_dim)
-        # Masking not needed because softmax should already have masked,
-        # so we have 0.0 att weights for padded frames.
-        att = rf.matmul(att_weights, v, reduce=hist_dim, use_mask=False)
+        att = rel_pos_self_attention(
+            q,
+            k,
+            v,
+            pos_emb,
+            pos_bias_u=self.pos_bias_u,
+            pos_bias_v=self.pos_bias_v,
+            att_dropout=self.att_dropout,
+            att_dropout_broadcast=self.att_dropout_broadcast,
+            v_feat_dim=self.value_dim_per_head,
+            qk_feat_dim=self.key_dim_per_head,
+            kv_spatial_dim=hist_dim,
+            query_spatial_dim=axis,
+            pos_emb_spatial_dim=pos_emb_spatial_dim,
+        )
         output, _ = rf.merge_dims(att, dims=(self.num_heads, self.value_dim_per_head), out_dim=self.value_dim_total)
         if self.proj:
             output = self.proj(output)

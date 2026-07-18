@@ -16,6 +16,7 @@ from .intcolumn import (
 )
 from .lowcardinalitycolumn import create_low_cardinality_column
 from .jsoncolumn import create_json_column
+from .newjsoncolumn import create_newjson_column
 from .mapcolumn import create_map_column
 from .nothingcolumn import NothingColumn
 from .nullcolumn import NullColumn
@@ -66,9 +67,19 @@ def get_column_by_spec(spec, column_options, use_numpy=None):
         use_numpy = context.client_settings['use_numpy'] if context else False
 
     if use_numpy:
-        from .numpy.service import get_numpy_column_by_spec
+        # Arrow queries use NumPy-derived columns tuned for zero-copy
+        # Arrow assembly (see columns/arrow/).
+        use_arrow = context.client_settings.get('use_arrow', False) \
+            if context else False
 
         try:
+            if use_arrow:
+                from .arrow.service import get_arrow_column_by_spec
+
+                return get_arrow_column_by_spec(spec, column_options)
+
+            from .numpy.service import get_numpy_column_by_spec
+
             return get_numpy_column_by_spec(spec, column_options)
         except errors.UnknownTypeError:
             use_numpy = False
@@ -128,6 +139,11 @@ def get_column_by_spec(spec, column_options, use_numpy=None):
             spec, create_column_with_options, column_options
         )
 
+    elif spec.startswith("JSON"):
+        return create_newjson_column(
+            spec, create_column_with_options, column_options
+        )
+
     else:
         for alias, primitive in aliases:
             if spec.startswith(alias):
@@ -163,7 +179,7 @@ def write_column(context, column_name, column_spec, items, buf,
     column = get_column_by_spec(column_spec, column_options)
 
     try:
-        column.write_state_prefix(buf)
+        column.write_state_prefix(buf, items)
         column.write_data(items, buf)
 
     except column_exceptions.ColumnTypeMismatchException as e:

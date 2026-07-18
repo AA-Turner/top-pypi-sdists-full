@@ -4,8 +4,12 @@ Pure Python S7 client implementation.
 Drop-in replacement for the ctypes-based client with native Python implementation.
 """
 
+import copy
 import logging
+import random
 import struct
+import sys
+import threading
 import time
 from typing import List, Any, Optional, Tuple, Union, Callable, cast
 from datetime import datetime
@@ -17,9 +21,15 @@ from ctypes import (
 
 from .connection import ISOTCPConnection
 from .s7protocol import S7Protocol, get_return_code_description
-from .datatypes import S7Area, S7WordLen
-from .error import S7Error, S7ConnectionError, S7ProtocolError, S7StalePacketError
+from .datatypes import S7WordLen
+from .error import S7Error, S7ConnectionError, S7ProtocolError, S7StalePacketError, S7TimeoutError
+from .client_base import ClientMixin
+from .log import PLCLoggerAdapter, OperationLogger
+from .optimizer import ReadItem, ReadPacket, sort_items, merge_items, packetize, extract_results
+from .tags import Tag, _STRING_RE
+from . import util
 
+from .szl import parse_cp_info_szl, parse_cpu_info_szl, parse_order_code_szl, parse_protection_szl
 from .type import (
     Area,
     Block,
@@ -37,10 +47,200 @@ from .type import (
     CDataArrayType,
 )
 
+_VALID_AREA_VALUES: frozenset[int] = frozenset(a.value for a in Area)
+
 logger = logging.getLogger(__name__)
 
 
-class Client:
+def _decode_tag(tag: Tag, data: bytearray) -> Any:
+    """Decode a Tag's raw bytes into a typed Python value."""
+    upper = tag.datatype.upper()
+    # Variable-length string types
+    match = _STRING_RE.match(upper)
+    if match:
+        kind, length = match.group(1), int(match.group(2))
+        if kind == "FSTRING":
+            return util.get_fstring(data, 0, length)
+        if kind == "STRING":
+            return util.get_string(data, 0)
+        if kind == "WSTRING":
+            return util.get_wstring(data, 0)
+
+    # Arrays
+    if tag.count > 1:
+        per = tag.size // tag.count
+        return [_decode_scalar(upper, data[i * per : (i + 1) * per], tag.bit) for i in range(tag.count)]
+
+    return _decode_scalar(upper, data, tag.bit)
+
+
+def _decode_scalar(datatype: str, data: bytearray, bit: int) -> Any:
+    """Decode a single scalar value of the given type."""
+    if datatype == "BOOL":
+        return util.get_bool(data, 0, bit)
+    if datatype == "BYTE":
+        return util.get_byte(data, 0)
+    if datatype == "SINT":
+        return util.get_sint(data, 0)
+    if datatype == "USINT":
+        return util.get_usint(data, 0)
+    if datatype == "CHAR":
+        return util.get_char(data, 0)
+    if datatype == "INT":
+        return util.get_int(data, 0)
+    if datatype == "UINT":
+        return util.get_uint(data, 0)
+    if datatype == "WORD":
+        return util.get_word(data, 0)
+    if datatype == "WCHAR":
+        return util.get_wchar(data, 0)
+    if datatype == "DATE":
+        return util.get_date(data, 0)
+    if datatype == "DINT":
+        return util.get_dint(data, 0)
+    if datatype == "UDINT":
+        return util.get_udint(data, 0)
+    if datatype == "DWORD":
+        return util.get_dword(data, 0)
+    if datatype == "REAL":
+        return util.get_real(data, 0)
+    if datatype == "TIME":
+        return util.get_time(data, 0)
+    if datatype == "TOD":
+        return util.get_tod(data, 0)
+    if datatype == "LINT":
+        return util.get_lint(data, 0)
+    if datatype == "ULINT":
+        return util.get_ulint(data, 0)
+    if datatype == "LWORD":
+        return util.get_lword(data, 0)
+    if datatype == "LREAL":
+        return util.get_lreal(data, 0)
+    if datatype == "LTIME":
+        return util.get_ltime(data, 0)
+    if datatype == "LTOD":
+        return util.get_ltod(data, 0)
+    if datatype == "LDT":
+        return util.get_ldt(data, 0)
+    if datatype == "DT":
+        return util.get_dt(data, 0)
+    if datatype == "DTL":
+        return util.get_dtl(data, 0)
+    raise ValueError(f"Unsupported tag datatype: {datatype}")
+
+
+def _encode_tag(tag: Tag, buf: bytearray, value: Any) -> None:
+    """Encode a typed Python value into a Tag's byte buffer."""
+    upper = tag.datatype.upper()
+    match = _STRING_RE.match(upper)
+    if match:
+        kind, length = match.group(1), int(match.group(2))
+        if kind == "FSTRING":
+            util.set_fstring(buf, 0, value, length)
+            return
+        if kind == "STRING":
+            util.set_string(buf, 0, value, length)
+            return
+        if kind == "WSTRING":
+            util.set_wstring(buf, 0, value, length)
+            return
+
+    if tag.count > 1:
+        per = tag.size // tag.count
+        for i, v in enumerate(value):
+            _encode_scalar(upper, buf, i * per, v, tag.bit)
+        return
+
+    _encode_scalar(upper, buf, 0, value, tag.bit)
+
+
+def _encode_scalar(datatype: str, buf: bytearray, offset: int, value: Any, bit: int) -> None:
+    """Encode a single scalar value at the given offset."""
+    if datatype == "BOOL":
+        util.set_bool(buf, offset, bit, value)
+        return
+    if datatype in ("BYTE", "USINT"):
+        util.set_byte(buf, offset, value) if datatype == "BYTE" else util.set_usint(buf, offset, value)
+        return
+    if datatype == "SINT":
+        util.set_sint(buf, offset, value)
+        return
+    if datatype == "CHAR":
+        util.set_char(buf, offset, value)
+        return
+    if datatype == "INT":
+        util.set_int(buf, offset, value)
+        return
+    if datatype == "UINT":
+        util.set_uint(buf, offset, value)
+        return
+    if datatype == "WORD":
+        util.set_word(buf, offset, value)
+        return
+    if datatype == "WCHAR":
+        util.set_wchar(buf, offset, value)
+        return
+    if datatype == "DATE":
+        util.set_date(buf, offset, value)
+        return
+    if datatype == "DINT":
+        util.set_dint(buf, offset, value)
+        return
+    if datatype == "UDINT":
+        util.set_udint(buf, offset, value)
+        return
+    if datatype == "DWORD":
+        util.set_dword(buf, offset, value)
+        return
+    if datatype == "REAL":
+        util.set_real(buf, offset, value)
+        return
+    if datatype == "TIME":
+        util.set_time(buf, offset, value)
+        return
+    if datatype == "TOD":
+        util.set_tod(buf, offset, value)
+        return
+    if datatype == "LINT":
+        util.set_lint(buf, offset, value)
+        return
+    if datatype == "ULINT":
+        util.set_ulint(buf, offset, value)
+        return
+    if datatype == "LWORD":
+        util.set_lword(buf, offset, value)
+        return
+    if datatype == "LREAL":
+        util.set_lreal(buf, offset, value)
+        return
+    if datatype == "LTIME":
+        util.set_ltime(buf, offset, value)
+        return
+    if datatype == "LTOD":
+        util.set_ltod(buf, offset, value)
+        return
+    if datatype == "LDT":
+        util.set_ldt(buf, offset, value)
+        return
+    if datatype == "DT":
+        util.set_dt(buf, offset, value)
+        return
+    if datatype == "DTL":
+        util.set_dtl(buf, offset, value)
+        return
+    raise ValueError(f"Unsupported tag datatype: {datatype}")
+
+
+class _OptimizationPlan:
+    """Cached optimization plan for repeated read_multi_vars calls with the same layout."""
+
+    def __init__(self, cache_key: tuple[int, ...], packets: list[ReadPacket], read_items: list[ReadItem]):
+        self.cache_key = cache_key
+        self.packets = packets
+        self.read_items = read_items
+
+
+class Client(ClientMixin):
     """
     Pure Python S7 client implementation.
 
@@ -57,12 +257,33 @@ class Client:
 
     MAX_VARS = 20  # Max variables per multi-read/multi-write request
 
-    def __init__(self, lib_location: Optional[str] = None, **kwargs: Any):
+    def __init__(
+        self,
+        lib_location: Optional[str] = None,
+        *,
+        auto_reconnect: bool = False,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
+        backoff_factor: float = 2.0,
+        max_delay: float = 30.0,
+        heartbeat_interval: float = 0,
+        on_disconnect: Optional[Callable[[], None]] = None,
+        on_reconnect: Optional[Callable[[], None]] = None,
+        **kwargs: Any,
+    ):
         """
         Initialize S7 client.
 
         Args:
             lib_location: Ignored. Kept for backwards compatibility.
+            auto_reconnect: Enable automatic reconnection on connection loss.
+            max_retries: Maximum number of reconnection attempts.
+            retry_delay: Initial delay between reconnection attempts in seconds.
+            backoff_factor: Multiplier for exponential backoff between retries.
+            max_delay: Maximum delay between reconnection attempts in seconds.
+            heartbeat_interval: Interval in seconds for heartbeat probes (0=disabled).
+            on_disconnect: Optional callback invoked when connection is lost.
+            on_reconnect: Optional callback invoked after successful reconnection.
             **kwargs: Ignored. Kept for backwards compatibility.
         """
         self.connection: Optional[ISOTCPConnection] = None
@@ -99,6 +320,12 @@ class Client:
             Parameter.PDURequest: 480,
         }
 
+        # Multi-read optimizer state
+        self._opt_plan: Optional[_OptimizationPlan] = None
+        self.multi_read_max_gap: int = 5
+        self.use_optimizer: bool = True
+        self.max_parallel: int = 1
+
         # Async operation state
         self._async_pending = False
         self._async_result: Optional[bytearray] = None
@@ -106,7 +333,39 @@ class Client:
         self._last_error = 0
         self._exec_time = 0
 
-        logger.info("S7Client initialized (pure Python implementation)")
+        # Auto-reconnection settings
+        self._auto_reconnect = auto_reconnect
+        self._max_retries = max_retries
+        self._retry_delay = retry_delay
+        self._backoff_factor = backoff_factor
+        self._max_delay = max_delay
+        self._on_disconnect = on_disconnect
+        self._on_reconnect = on_reconnect
+
+        # Heartbeat settings
+        self._heartbeat_interval = heartbeat_interval
+        self._heartbeat_thread: Optional[threading.Thread] = None
+        self._heartbeat_stop_event = threading.Event()
+        self._is_alive = False
+
+        # Lock for thread safety during reconnection and heartbeat
+        self._reconnect_lock = threading.RLock()
+
+        # Structured logger with PLC context (updated on connect)
+        self.logger: PLCLoggerAdapter = PLCLoggerAdapter(logger)
+
+        self.logger.info("S7Client initialized (pure Python implementation)")
+
+    @property
+    def is_alive(self) -> bool:
+        """Whether the connection is alive according to the last heartbeat probe.
+
+        Returns True if heartbeat is disabled but the client is connected,
+        or if the last heartbeat probe succeeded.
+        """
+        if self._heartbeat_interval <= 0:
+            return self.connected
+        return self._is_alive
 
     def _get_connection(self) -> ISOTCPConnection:
         """Get connection, raising if not connected."""
@@ -119,6 +378,8 @@ class Client:
 
         Wraps the repeated send_data -> receive_data -> parse_response pattern
         with PDU reference validation and automatic retry on stale packets.
+        Acquires ``_reconnect_lock`` to prevent conflicts with the heartbeat
+        thread.
 
         Args:
             request: Complete S7 PDU to send.
@@ -132,22 +393,170 @@ class Client:
             S7ProtocolError: If all retries are exhausted or other protocol error.
         """
         conn = self._get_connection()
-        conn.send_data(request)
 
-        for attempt in range(max_stale_retries + 1):
-            response_data = conn.receive_data()
-            response = self.protocol.parse_response(response_data)
+        with self._reconnect_lock:
+            conn.send_data(request)
 
-            try:
-                self.protocol.validate_pdu_reference(response["sequence"])
-                return response
-            except S7StalePacketError:
-                if attempt < max_stale_retries:
-                    logger.warning(f"Stale packet (attempt {attempt + 1}/{max_stale_retries}), retrying receive")
-                    continue
-                raise S7ProtocolError(f"Max stale packet retries ({max_stale_retries}) exceeded")
+            for attempt in range(max_stale_retries + 1):
+                response_data = conn.receive_data()
+                response = self.protocol.parse_response(response_data)
+
+                try:
+                    self.protocol.validate_pdu_reference(response["sequence"])
+                    return response
+                except S7StalePacketError:
+                    if attempt < max_stale_retries:
+                        logger.warning(f"Stale packet (attempt {attempt + 1}/{max_stale_retries}), retrying receive")
+                        continue
+                    raise S7ProtocolError(f"Max stale packet retries ({max_stale_retries}) exceeded")
 
         raise S7ProtocolError("Failed to receive valid response")  # Should not reach here
+
+    def _send_receive_with_reconnect(self, request_builder: Callable[[], bytes], max_stale_retries: int = 3) -> dict[str, Any]:
+        """Send a request with automatic reconnection on connection loss.
+
+        If auto_reconnect is disabled, behaves identically to _send_receive.
+        When enabled, catches connection errors, reconnects, rebuilds the request
+        (since the protocol sequence counter may have changed), and retries.
+
+        Args:
+            request_builder: Callable that builds the request bytes. Called again
+                after reconnection to get a fresh request with updated sequence.
+            max_stale_retries: Max times to retry receive on stale packets.
+
+        Returns:
+            Parsed S7 response dict.
+        """
+        try:
+            return self._send_receive(request_builder(), max_stale_retries)
+        except (S7ConnectionError, OSError) as e:
+            if not self._auto_reconnect:
+                raise
+            logger.warning(f"Connection lost during operation: {e}")
+            self._do_reconnect()
+            return self._send_receive(request_builder(), max_stale_retries)
+
+    def _do_reconnect(self) -> None:
+        """Perform reconnection with exponential backoff and jitter.
+
+        Raises:
+            S7ConnectionError: If all reconnection attempts fail.
+        """
+        with self._reconnect_lock:
+            # Check if another thread already reconnected
+            if self.connected and self.connection is not None:
+                try:
+                    if self.connection.check_connection():
+                        return
+                except Exception:
+                    pass
+
+            self._is_alive = False
+            if self._on_disconnect is not None:
+                try:
+                    self._on_disconnect()
+                except Exception:
+                    logger.debug("on_disconnect callback raised an exception", exc_info=True)
+
+            delay = self._retry_delay
+            last_error: Optional[Exception] = None
+
+            for attempt in range(1, self._max_retries + 1):
+                logger.info(f"Reconnection attempt {attempt}/{self._max_retries}")
+
+                # Clean up old connection
+                try:
+                    if self.connection is not None:
+                        self.connection.disconnect()
+                        self.connection = None
+                except Exception:
+                    pass
+                self.connected = False
+
+                try:
+                    # Re-establish connection using stored parameters
+                    self.connection = ISOTCPConnection(
+                        host=self.host, port=self.port, local_tsap=self.local_tsap, remote_tsap=self.remote_tsap
+                    )
+                    self.connection.connect()
+
+                    # Re-create protocol to reset sequence counters
+                    self.protocol = S7Protocol()
+                    self._setup_communication()
+
+                    self.connected = True
+                    self._is_alive = True
+                    logger.info(f"Reconnected to {self.host}:{self.port}")
+
+                    if self._on_reconnect is not None:
+                        try:
+                            self._on_reconnect()
+                        except Exception:
+                            logger.debug("on_reconnect callback raised an exception", exc_info=True)
+                    return
+                except Exception as e:
+                    last_error = e
+                    logger.warning(f"Reconnection attempt {attempt} failed: {e}")
+
+                    if attempt < self._max_retries:
+                        # Exponential backoff with jitter
+                        jitter = random.uniform(0, delay * 0.1)
+                        sleep_time = min(delay + jitter, self._max_delay)
+                        logger.debug(f"Waiting {sleep_time:.2f}s before next attempt")
+                        time.sleep(sleep_time)
+                        delay = min(delay * self._backoff_factor, self._max_delay)
+
+            raise S7ConnectionError(f"Reconnection failed after {self._max_retries} attempts: {last_error}")
+
+    def _start_heartbeat(self) -> None:
+        """Start the heartbeat background thread."""
+        if self._heartbeat_interval <= 0:
+            return
+
+        self._heartbeat_stop_event.clear()
+        self._is_alive = True
+        self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True, name="s7-heartbeat")
+        self._heartbeat_thread.start()
+        logger.debug(f"Heartbeat started with interval {self._heartbeat_interval}s")
+
+    def _stop_heartbeat(self) -> None:
+        """Stop the heartbeat background thread."""
+        self._heartbeat_stop_event.set()
+        if self._heartbeat_thread is not None:
+            self._heartbeat_thread.join(timeout=self._heartbeat_interval + 2)
+            self._heartbeat_thread = None
+        logger.debug("Heartbeat stopped")
+
+    def _heartbeat_loop(self) -> None:
+        """Background loop that periodically probes the PLC connection."""
+        while not self._heartbeat_stop_event.is_set():
+            if self._heartbeat_stop_event.wait(timeout=self._heartbeat_interval):
+                break  # Stop event was set
+
+            if not self.connected:
+                self._is_alive = False
+                if self._auto_reconnect:
+                    try:
+                        self._do_reconnect()
+                    except S7ConnectionError:
+                        logger.warning("Heartbeat reconnection failed")
+                continue
+
+            try:
+                with self._reconnect_lock:
+                    if self.connected and self.connection is not None:
+                        self.get_cpu_state()
+                        self._is_alive = True
+            except Exception as e:
+                logger.warning(f"Heartbeat probe failed: {e}")
+                self._is_alive = False
+                self.connected = False
+
+                if self._auto_reconnect:
+                    try:
+                        self._do_reconnect()
+                    except S7ConnectionError:
+                        logger.warning("Heartbeat reconnection failed")
 
     def connect(self, address: str, rack: int, slot: int, tcp_port: int = 102) -> "Client":
         """
@@ -170,7 +579,7 @@ class Client:
 
         # Calculate TSAP values from rack/slot
         # Remote TSAP: rack and slot encoded as per S7 specification
-        self.remote_tsap = 0x0100 | (rack << 5) | slot
+        self.remote_tsap = (self.connection_type << 8) | (rack << 5) | slot
 
         try:
             start_time = time.time()
@@ -186,8 +595,17 @@ class Client:
             self._setup_communication()
 
             self.connected = True
+            self._is_alive = True
             self._exec_time = int((time.time() - start_time) * 1000)
-            logger.info(f"Connected to {address}:{tcp_port} rack {rack} slot {slot}")
+            self.logger.update_context(plc_host=address, rack=rack, slot=slot, protocol="legacy")
+            self.logger.info(f"Connected to {address}:{tcp_port} rack {rack} slot {slot}")
+
+            # Start heartbeat if configured
+            self._start_heartbeat()
+
+            # Auto-tune parallel dispatch based on PDU size
+            if self.use_optimizer:
+                self._auto_tune_parallel()
 
         except Exception as e:
             self.disconnect()
@@ -198,17 +616,94 @@ class Client:
 
         return self
 
+    def connect_routed(
+        self,
+        host: str,
+        router_rack: int,
+        router_slot: int,
+        subnet: int,
+        dest_rack: int,
+        dest_slot: int,
+        port: int = 102,
+        timeout: float = 5.0,
+    ) -> "Client":
+        """Connect to an S7 PLC via a routing gateway on another subnet.
+
+        The gateway PLC (identified by *host*, *router_rack*, *router_slot*)
+        forwards the connection to the target PLC (identified by *subnet*,
+        *dest_rack*, *dest_slot*) through S7 routing parameters embedded in
+        the COTP Connection Request.
+
+        .. warning:: This method is experimental and may change in future versions.
+
+        Args:
+            host: IP address of the routing gateway PLC
+            router_rack: Rack number of the gateway PLC
+            router_slot: Slot number of the gateway PLC
+            subnet: Subnet ID of the target network (0x0000-0xFFFF)
+            dest_rack: Rack number of the destination PLC
+            dest_slot: Slot number of the destination PLC
+            port: TCP port (default 102)
+            timeout: Connection timeout in seconds
+
+        Returns:
+            Self for method chaining
+        """
+        self.host = host
+        self.port = port
+        self.rack = router_rack
+        self.slot = router_slot
+        self._params[Parameter.RemotePort] = port
+
+        # Remote TSAP targets the gateway rack/slot
+        self.remote_tsap = 0x0100 | (router_rack << 5) | router_slot
+
+        try:
+            start_time = time.time()
+
+            self.connection = ISOTCPConnection(
+                host=host,
+                port=port,
+                local_tsap=self.local_tsap,
+                remote_tsap=self.remote_tsap,
+            )
+            self.connection.set_routing(subnet, dest_rack, dest_slot)
+            self.connection.connect(timeout=timeout)
+
+            # Setup communication and negotiate PDU length
+            self._setup_communication()
+
+            self.connected = True
+            self._exec_time = int((time.time() - start_time) * 1000)
+            logger.info(
+                f"Connected (routed) to {host}:{port} via rack {router_rack} slot {router_slot}, "
+                f"subnet {subnet:#06x} -> rack {dest_rack} slot {dest_slot}"
+            )
+        except Exception as e:
+            self.disconnect()
+            if isinstance(e, S7Error):
+                raise
+            else:
+                raise S7ConnectionError(f"Routed connection failed: {e}")
+
+        return self
+
     def disconnect(self) -> int:
         """Disconnect from S7 PLC.
 
         Returns:
             0 on success
         """
+        # Stop heartbeat first
+        self._stop_heartbeat()
+
         if self.connection:
             self.connection.disconnect()
             self.connection = None
 
         self.connected = False
+        self._is_alive = False
+        self._opt_plan = None
         logger.info(f"Disconnected from {self.host}:{self.port}")
         return 0
 
@@ -230,6 +725,129 @@ class Client:
             return False
         return self.connection.check_connection()
 
+    def db_read_array(self, db_number: int, start: int, count: int, fmt: str = ">f") -> list[Any]:
+        """Read an array of typed values from a DB.
+
+        Reads *count* consecutive values of the given struct format starting
+        at *start* byte offset in DB *db_number*.
+
+        Args:
+            db_number: DB number to read from.
+            start: Start byte offset.
+            count: Number of values to read.
+            fmt: :mod:`struct` format for a single value (default ``">f"`` = REAL).
+
+        Returns:
+            List of unpacked values.
+
+        Examples:
+            Read 10 REAL values starting at DB1.0::
+
+                values = client.db_read_array(1, 0, 10, ">f")
+
+            Read 20 INT values starting at DB1.100::
+
+                values = client.db_read_array(1, 100, 20, ">h")
+        """
+        item_size = struct.calcsize(fmt)
+        total_size = item_size * count
+        data = self.db_read(db_number, start, total_size)
+        return [struct.unpack_from(fmt, data, i * item_size)[0] for i in range(count)]
+
+    def db_write_array(self, db_number: int, start: int, values: list[Any], fmt: str = ">f") -> int:
+        """Write an array of typed values to a DB.
+
+        Packs *values* using the given struct format and writes them
+        starting at *start* byte offset in DB *db_number*.
+
+        Args:
+            db_number: DB number to write to.
+            start: Start byte offset.
+            values: List of values to write.
+            fmt: :mod:`struct` format for a single value (default ``">f"`` = REAL).
+
+        Returns:
+            0 on success.
+
+        Examples:
+            Write 10 REAL values starting at DB1.0::
+
+                client.db_write_array(1, 0, [1.0, 2.0, 3.0], ">f")
+        """
+        item_size = struct.calcsize(fmt)
+        data = bytearray(item_size * len(values))
+        for i, v in enumerate(values):
+            struct.pack_into(fmt, data, i * item_size, v)
+        return self.db_write(db_number, start, data)
+
+    def read_tag(self, tag: "Union[Tag, str]") -> Any:
+        """Read a typed value by :class:`~snap7.tags.Tag` or address string.
+
+        Accepts a :class:`~snap7.tags.Tag` or a PLC4X-style address string
+        (e.g. ``"DB1.DBX0.0:BOOL"``, ``"DB1:10:INT"``, ``"M10.5:BOOL"``).
+
+        Args:
+            tag: A :class:`~snap7.tags.Tag` instance or a parseable address string.
+
+        Returns:
+            The typed value (bool/int/float/datetime/str depending on type).
+
+        Example::
+
+            client.read_tag("DB1.DBX0.0:BOOL")            # bit
+            client.read_tag("DB1.DBD4:REAL")              # float
+            client.read_tag("DB1:20:STRING[30]")          # variable-length string
+            client.read_tag(Tag(Area.DB, 1, 0, "REAL"))   # from Tag instance
+        """
+        resolved = Tag.from_string(tag) if isinstance(tag, str) else tag
+        if resolved.is_symbolic:
+            raise NotImplementedError(
+                "Symbolic (LID-based) tag access requires S7CommPlus. Use s7.Client instead of snap7.Client."
+            )
+        data = self.read_area(Area(resolved.area), resolved.db_number, resolved.byte_offset, resolved.size)
+        return _decode_tag(resolved, bytearray(data))
+
+    def write_tag(self, tag: "Union[Tag, str]", value: Any) -> int:
+        """Write a typed value by :class:`~snap7.tags.Tag` or address string.
+
+        Args:
+            tag: A :class:`~snap7.tags.Tag` instance or a parseable address string.
+            value: The value to write (type must match the tag's datatype).
+
+        Returns:
+            0 on success.
+        """
+        resolved = Tag.from_string(tag) if isinstance(tag, str) else tag
+        if resolved.is_symbolic:
+            raise NotImplementedError(
+                "Symbolic (LID-based) tag access requires S7CommPlus. Use s7.Client instead of snap7.Client."
+            )
+        size = resolved.size
+        buf = bytearray(size)
+        # For BOOL writes, we need the current byte to preserve other bits
+        if resolved.datatype.upper() == "BOOL":
+            current = self.read_area(Area(resolved.area), resolved.db_number, resolved.byte_offset, 1)
+            buf[0] = current[0]
+        _encode_tag(resolved, buf, value)
+        return self.write_area(Area(resolved.area), resolved.db_number, resolved.byte_offset, buf)
+
+    def read_tags(self, tags: "list[Union[Tag, str]]") -> list[Any]:
+        """Read multiple tags in a single optimized request.
+
+        Uses the multi-variable read optimizer when available to batch
+        reads into minimal PDU exchanges.
+
+        Args:
+            tags: List of :class:`~snap7.tags.Tag` instances or address strings.
+
+        Returns:
+            List of decoded values in the same order as input.
+        """
+        resolved = [Tag.from_string(t) if isinstance(t, str) else t for t in tags]
+        items = [{"area": Area(t.area), "db_number": t.db_number, "start": t.byte_offset, "size": t.size} for t in resolved]
+        _code, data_list = self.read_multi_vars(items)
+        return [_decode_tag(t, bytearray(d)) for t, d in zip(resolved, data_list)]
+
     def db_read(self, db_number: int, start: int, size: int) -> bytearray:
         """
         Read data from DB.
@@ -242,9 +860,8 @@ class Client:
         Returns:
             Data read from DB
         """
-        logger.debug(f"db_read: DB{db_number}, start={start}, size={size}")
-
-        data = self.read_area(Area.DB, db_number, start, size)
+        with OperationLogger(self.logger, "db_read", db=db_number, start=start, size=size):
+            data = self.read_area(Area.DB, db_number, start, size)
         return data
 
     def db_write(self, db_number: int, start: int, data: bytearray) -> int:
@@ -358,11 +975,13 @@ class Client:
 
         max_chunk = self._max_read_size()
         if size <= max_chunk:
-            # Single request
-            request = self.protocol.build_read_request(
-                area=s7_area, db_number=db_number, start=start, word_len=s7_word_len, count=size
-            )
-            response = self._send_receive(request)
+            # Single request - use reconnect-aware send/receive
+            def build_request() -> bytes:
+                return self.protocol.build_read_request(
+                    area=s7_area, db_number=db_number, start=start, word_len=s7_word_len, count=size
+                )
+
+            response = self._send_receive_with_reconnect(build_request)
             values = self.protocol.extract_read_data(response, s7_word_len, size)
             self._exec_time = int((time.time() - start_time) * 1000)
             return bytearray(values)
@@ -373,10 +992,14 @@ class Client:
         remaining = size
         while remaining > 0:
             chunk_size = min(remaining, max_chunk)
-            request = self.protocol.build_read_request(
-                area=s7_area, db_number=db_number, start=start + offset, word_len=s7_word_len, count=chunk_size
-            )
-            response = self._send_receive(request)
+            chunk_offset = offset
+
+            def build_chunk_request(o: int = chunk_offset, cs: int = chunk_size) -> bytes:
+                return self.protocol.build_read_request(
+                    area=s7_area, db_number=db_number, start=start + o, word_len=s7_word_len, count=cs
+                )
+
+            response = self._send_receive_with_reconnect(build_chunk_request)
             values = self.protocol.extract_read_data(response, s7_word_len, chunk_size)
             result.extend(values)
             offset += chunk_size
@@ -420,10 +1043,12 @@ class Client:
         max_chunk = self._max_write_size()
         if len(data) <= max_chunk:
             # Single request
-            request = self.protocol.build_write_request(
-                area=s7_area, db_number=db_number, start=start, word_len=s7_word_len, data=bytes(data)
-            )
-            response = self._send_receive(request)
+            def build_request() -> bytes:
+                return self.protocol.build_write_request(
+                    area=s7_area, db_number=db_number, start=start, word_len=s7_word_len, data=bytes(data)
+                )
+
+            response = self._send_receive_with_reconnect(build_request)
             self.protocol.check_write_response(response)
             self._exec_time = int((time.time() - start_time) * 1000)
             return 0
@@ -434,10 +1059,14 @@ class Client:
         while remaining > 0:
             chunk_size = min(remaining, max_chunk)
             chunk_data = data[offset : offset + chunk_size]
-            request = self.protocol.build_write_request(
-                area=s7_area, db_number=db_number, start=start + offset, word_len=s7_word_len, data=bytes(chunk_data)
-            )
-            response = self._send_receive(request)
+            chunk_offset = offset
+
+            def build_chunk_request(o: int = chunk_offset, cd: bytes = bytes(chunk_data)) -> bytes:
+                return self.protocol.build_write_request(
+                    area=s7_area, db_number=db_number, start=start + o, word_len=s7_word_len, data=cd
+                )
+
+            response = self._send_receive_with_reconnect(build_chunk_request)
             self.protocol.check_write_response(response)
             offset += chunk_size
             remaining -= chunk_size
@@ -446,17 +1075,30 @@ class Client:
         return 0
 
     def read_multi_vars(self, items: Union[List[dict[str, Any]], "Array[S7DataItem]"]) -> Tuple[int, Any]:
-        """
-        Read multiple variables in a single request.
+        """Read multiple variables in a single request.
+
+        When given a list of dicts with two or more items, uses the multi-variable
+        read optimizer to merge adjacent reads and pack them into minimal PDU
+        exchanges.  This significantly reduces the number of round-trips compared
+        to reading each variable individually.
+
+        .. warning::
+
+           The read optimizer is **experimental** and may change in future
+           versions. Disable it with ``client.use_optimizer = False`` if you
+           encounter issues.
 
         Args:
-            items: List of item specifications or S7DataItem array
+            items: List of item specifications (dicts with ``area``, ``start``,
+                ``size``, and optionally ``db_number``) **or** a ctypes
+                ``Array[S7DataItem]``.
 
         Returns:
-            Tuple of (result, items with data)
+            Tuple of (result_code, data) where *data* is either the updated
+            ctypes array or a list of bytearrays in the original item order.
 
         Raises:
-            ValueError: If more than MAX_VARS items are requested
+            ValueError: If more than MAX_VARS items are requested.
         """
         if not items:
             return (0, items)
@@ -464,9 +1106,8 @@ class Client:
         if len(items) > self.MAX_VARS:
             raise ValueError(f"Too many items: {len(items)} exceeds MAX_VARS ({self.MAX_VARS})")
 
-        # Handle S7DataItem array (ctypes)
+        # Handle S7DataItem array (ctypes) -- unchanged legacy path
         if hasattr(items, "_type_") and hasattr(items[0], "Area"):
-            # This is a ctypes array of S7DataItem - use cast for type safety
             s7_items = cast("Array[S7DataItem]", items)
             for s7_item in s7_items:
                 area = Area(s7_item.Area)
@@ -474,26 +1115,203 @@ class Client:
                 start = s7_item.Start
                 size = s7_item.Amount
                 data = self.read_area(area, db_number, start, size)
-
-                # Copy data to pData buffer
                 if s7_item.pData:
                     for i, b in enumerate(data):
                         s7_item.pData[i] = b
-
             return (0, items)
 
-        # Handle dict list
+        # Dict list path -- use optimizer for 2+ items
         dict_items = cast(List[dict[str, Any]], items)
-        results = []
-        for dict_item in dict_items:
-            area = dict_item["area"]
-            db_number = dict_item.get("db_number", 0)
-            start = dict_item["start"]
-            size = dict_item["size"]
-            data = self.read_area(area, db_number, start, size)
-            results.append(data)
 
+        if len(dict_items) <= 1 or not self.use_optimizer:
+            # Single item or optimizer disabled: no optimization needed
+            results: list[bytearray] = []
+            for dict_item in dict_items:
+                area = dict_item["area"]
+                db_number = dict_item.get("db_number", 0)
+                start = dict_item["start"]
+                size = dict_item["size"]
+                data = self.read_area(area, db_number, start, size)
+                results.append(data)
+            return (0, results)
+
+        return self._read_multi_vars_optimized(dict_items)
+
+    # PDU size → max_parallel mapping.  Smaller PDUs indicate older/smaller
+    # PLCs with fewer resources, so we stay sequential for safety.
+    _PARALLEL_THRESHOLDS: list[Tuple[int, int]] = [
+        (960, 8),
+        (480, 4),
+        (240, 2),
+    ]
+
+    def _auto_tune_parallel(self) -> None:
+        """Set *max_parallel* based on negotiated PDU size.
+
+        Called automatically after :meth:`connect` when the optimizer is
+        enabled.  Larger PDU sizes indicate more capable PLCs that can
+        handle multiple in-flight requests.
+        """
+        for threshold, parallel in self._PARALLEL_THRESHOLDS:
+            if self.pdu_length >= threshold:
+                self.max_parallel = parallel
+                break
+        else:
+            self.max_parallel = 1
+        logger.info(f"Auto-tuned max_parallel={self.max_parallel} (PDU={self.pdu_length})")
+
+    def _send_receive_parallel(self, requests: list[Tuple[int, bytes]]) -> dict[int, dict[str, Any]]:
+        """Fire multiple S7 requests back-to-back and collect responses by sequence number.
+
+        All PDUs are sent on the single TCP connection before reading any
+        responses.  Responses are matched to requests via the S7 sequence
+        number in the header (bytes 4-5).
+
+        .. warning::
+
+           This method is **experimental** and part of the read optimizer.
+
+        Args:
+            requests: ``(packet_index, pdu_bytes)`` pairs.
+
+        Returns:
+            Dict mapping *packet_index* to the parsed response dict.
+        """
+        conn = self._get_connection()
+
+        with self._reconnect_lock:
+            # Build seq_num → packet_index lookup
+            pending: dict[int, int] = {}
+            for packet_index, pdu in requests:
+                seq = struct.unpack(">H", pdu[4:6])[0]
+                pending[seq] = packet_index
+
+            # Send all requests back-to-back
+            for _, pdu in requests:
+                conn.send_data(pdu)
+
+            # Receive responses, matching by sequence number
+            results: dict[int, dict[str, Any]] = {}
+            remaining = len(requests)
+            deadline = time.monotonic() + conn.timeout
+
+            while remaining > 0:
+                wait_time = deadline - time.monotonic()
+                if wait_time <= 0:
+                    raise S7TimeoutError(f"Timeout waiting for {remaining} parallel response(s)")
+
+                if not conn.data_available(timeout=wait_time):
+                    raise S7TimeoutError(f"Timeout waiting for {remaining} parallel response(s)")
+
+                response_data = conn.receive_data()
+                response = self.protocol.parse_response(response_data)
+                resp_seq = response["sequence"]
+
+                if resp_seq in pending:
+                    packet_index = pending.pop(resp_seq)
+                    results[packet_index] = response
+                    remaining -= 1
+                else:
+                    logger.warning(f"Discarding unexpected response with sequence {resp_seq}")
+
+        return results
+
+    def _read_multi_vars_optimized(self, dict_items: List[dict[str, Any]]) -> Tuple[int, List[bytearray]]:
+        """Optimized multi-variable read using merge + packetize strategy.
+
+        Args:
+            dict_items: List of item dicts (area, db_number, start, size).
+
+        Returns:
+            Tuple of (0, list of bytearrays in original order).
+        """
+        # Build ReadItem list
+        read_items: list[ReadItem] = []
+        for idx, d in enumerate(dict_items):
+            area_val = int(d["area"])
+            db_number = d.get("db_number", 0)
+            read_items.append(
+                ReadItem(
+                    area=area_val,
+                    db_number=db_number,
+                    byte_offset=d["start"],
+                    bit_offset=0,
+                    byte_length=d["size"],
+                    index=idx,
+                )
+            )
+
+        # Build cache key from the item layout
+        cache_key = tuple(val for ri in read_items for val in (ri.area, ri.db_number, ri.byte_offset, ri.byte_length))
+
+        # Reuse cached plan if layout matches
+        if self._opt_plan is not None and self._opt_plan.cache_key == cache_key:
+            packets = self._opt_plan.packets
+        else:
+            sorted_ri = sort_items(read_items)
+            max_block = self._max_read_size()
+            blocks = merge_items(sorted_ri, max_gap=self.multi_read_max_gap, max_block_size=max_block)
+            packets = packetize(blocks, self.pdu_length)
+            self._opt_plan = _OptimizationPlan(cache_key, packets, read_items)
+
+        # Deep-copy blocks from cached packets so we don't mutate cached state
+        working_packets = copy.deepcopy(packets)
+
+        # Build PDU requests for each packet
+        packet_requests: list[Tuple[int, bytes, ReadPacket]] = []
+        for pkt_idx, packet in enumerate(working_packets):
+            block_specs = [(blk.area, blk.db_number, blk.start_offset, blk.byte_length) for blk in packet.blocks]
+
+            if len(block_specs) == 1:
+                # Single block: use regular read to avoid multi-read overhead
+                blk = packet.blocks[0]
+                data = self.read_area(
+                    Area(blk.area) if blk.area in _VALID_AREA_VALUES else Area.DB,
+                    blk.db_number,
+                    blk.start_offset,
+                    blk.byte_length,
+                )
+                blk.buffer = data
+            else:
+                request = self.protocol.build_multi_read_request(block_specs)
+                packet_requests.append((pkt_idx, request, packet))
+
+        # Execute multi-block packets
+        if packet_requests:
+            if self.max_parallel > 1 and len(packet_requests) > 1:
+                self._execute_packets_parallel(packet_requests)
+            else:
+                self._execute_packets_sequential(packet_requests)
+
+        # Extract per-item results in original order
+        results = extract_results(working_packets, len(dict_items))
         return (0, results)
+
+    def _execute_packets_sequential(self, packet_requests: list[Tuple[int, bytes, ReadPacket]]) -> None:
+        """Execute multi-block packets one at a time."""
+        for _, request, packet in packet_requests:
+            response = self._send_receive(request)
+            block_data_list = self.protocol.extract_multi_read_data(response, len(packet.blocks))
+            for blk, buf in zip(packet.blocks, block_data_list):
+                blk.buffer = buf
+
+    def _execute_packets_parallel(self, packet_requests: list[Tuple[int, bytes, ReadPacket]]) -> None:
+        """Execute multi-block packets using parallel dispatch.
+
+        Sends up to *max_parallel* PDUs back-to-back before reading
+        responses, reducing round-trip overhead.
+        """
+        # Process in chunks of max_parallel
+        for chunk_start in range(0, len(packet_requests), self.max_parallel):
+            chunk = packet_requests[chunk_start : chunk_start + self.max_parallel]
+            requests = [(pkt_idx, pdu) for pkt_idx, pdu, _ in chunk]
+            responses = self._send_receive_parallel(requests)
+
+            for pkt_idx, _, packet in chunk:
+                response = responses[pkt_idx]
+                block_data_list = self.protocol.extract_multi_read_data(response, len(packet.blocks))
+                for blk, buf in zip(packet.blocks, block_data_list):
+                    blk.buffer = buf
 
     def write_multi_vars(self, items: Union[List[dict[str, Any]], List[S7DataItem]]) -> int:
         """
@@ -566,20 +1384,7 @@ class Client:
             desc = get_return_code_description(return_code)
             raise S7ProtocolError(f"List blocks failed: {desc} (0x{return_code:02x})")
 
-        # Parse block counts from response
-        counts = self.protocol.parse_list_blocks_response(response)
-
-        # Build BlocksList structure
-        block_list = BlocksList()
-        block_list.OBCount = counts.get("OBCount", 0)
-        block_list.FBCount = counts.get("FBCount", 0)
-        block_list.FCCount = counts.get("FCCount", 0)
-        block_list.SFBCount = counts.get("SFBCount", 0)
-        block_list.SFCCount = counts.get("SFCCount", 0)
-        block_list.DBCount = counts.get("DBCount", 0)
-        block_list.SDBCount = counts.get("SDBCount", 0)
-
-        return block_list
+        return self.protocol.parse_list_blocks(response)
 
     def list_blocks_of_type(self, block_type: Block, max_count: int) -> List[int]:
         """
@@ -666,42 +1471,10 @@ class Client:
         return block_numbers[:max_count]
 
     def get_cpu_info(self) -> S7CpuInfo:
-        """
-        Get CPU information.
-
-        Uses read_szl(0x001C) to get component identification data.
-
-        Returns:
-            CPU information structure
-        """
+        """Get CPU component identification (SZL 0x001C)."""
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
-
-        # Read SZL 0x001C for component identification
-        szl = self.read_szl(0x001C, 0)
-
-        # Parse SZL data into S7CpuInfo structure
-        cpu_info = S7CpuInfo()
-        data = bytes(szl.Data[: szl.Header.LengthDR])
-
-        # S7CpuInfo field sizes (from C structure):
-        # ModuleTypeName: 32 bytes
-        # SerialNumber: 24 bytes
-        # ASName: 24 bytes
-        # Copyright: 26 bytes
-        # ModuleName: 24 bytes
-        if len(data) >= 32:
-            cpu_info.ModuleTypeName = data[0:32].rstrip(b"\x00")
-        if len(data) >= 56:
-            cpu_info.SerialNumber = data[32:56].rstrip(b"\x00")
-        if len(data) >= 80:
-            cpu_info.ASName = data[56:80].rstrip(b"\x00")
-        if len(data) >= 106:
-            cpu_info.Copyright = data[80:106].rstrip(b"\x00")
-        if len(data) >= 130:
-            cpu_info.ModuleName = data[106:130].rstrip(b"\x00")
-
-        return cpu_info
+        return parse_cpu_info_szl(self.read_szl(0x001C, 0))
 
     def get_cpu_state(self) -> str:
         """
@@ -754,65 +1527,7 @@ class Client:
             desc = get_return_code_description(return_code)
             raise S7ProtocolError(f"Get block info failed: {desc} (0x{return_code:02x})")
 
-        # Parse block info response
-        info = self.protocol.parse_get_block_info_response(response)
-
-        # Build TS7BlockInfo structure
-        block_info = TS7BlockInfo()
-        block_info.BlkType = info["block_type"]
-        block_info.BlkNumber = info["block_number"]
-        block_info.BlkLang = info["block_lang"]
-        block_info.BlkFlags = info["block_flags"]
-        block_info.MC7Size = info["mc7_size"]
-        block_info.LoadSize = info["load_size"]
-        block_info.LocalData = info["local_data"]
-        block_info.SBBLength = info["sbb_length"]
-        block_info.CheckSum = info["checksum"]
-        block_info.Version = info["version"]
-
-        # Copy date and string fields
-        if info["code_date"]:
-            block_info.CodeDate = info["code_date"][:10]
-        if info["intf_date"]:
-            block_info.IntfDate = info["intf_date"][:10]
-        if info["author"]:
-            block_info.Author = info["author"][:8]
-        if info["family"]:
-            block_info.Family = info["family"][:8]
-        if info["header"]:
-            block_info.Header = info["header"][:8]
-
-        return block_info
-
-    def get_pg_block_info(self, data: bytearray) -> TS7BlockInfo:
-        """
-        Get block info from raw block data.
-
-        Args:
-            data: Raw block data
-
-        Returns:
-            Block information structure
-        """
-        block_info = TS7BlockInfo()
-
-        if len(data) >= 36:
-            # Parse block header from raw data - S7 block format
-            block_info.BlkType = data[5]
-            block_info.BlkNumber = struct.unpack(">H", data[6:8])[0]
-            block_info.BlkLang = data[4]
-            block_info.MC7Size = struct.unpack(">I", data[8:12])[0]
-            block_info.LoadSize = struct.unpack(">I", data[12:16])[0]
-            # SBBLength is at offset 28-31
-            block_info.SBBLength = struct.unpack(">I", data[28:32])[0]
-            block_info.CheckSum = struct.unpack(">H", data[32:34])[0]
-            block_info.Version = data[34]
-
-            # Parse dates from block header - fixed dates that match test expectations
-            block_info.CodeDate = b"2019/06/27"
-            block_info.IntfDate = b"2019/06/27"
-
-        return block_info
+        return self.protocol.parse_get_block_info(response)
 
     def upload(self, block_num: int) -> bytearray:
         """
@@ -1073,15 +1788,6 @@ class Client:
         self.protocol.check_control_response(response)
         return 0
 
-    def get_pdu_length(self) -> int:
-        """
-        Get negotiated PDU length.
-
-        Returns:
-            PDU length in bytes
-        """
-        return self.pdu_length
-
     def get_plc_datetime(self) -> datetime:
         """
         Get PLC date/time.
@@ -1184,118 +1890,22 @@ class Client:
         return 0
 
     def get_cp_info(self) -> S7CpInfo:
-        """
-        Get CP (Communication Processor) information.
-
-        Uses read_szl(0x0131) to get communication parameters.
-
-        Returns:
-            CP information structure
-        """
+        """Get communication processor info (SZL 0x0131)."""
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
-
-        # Read SZL 0x0131 for communication parameters
-        szl = self.read_szl(0x0131, 0)
-
-        # Parse SZL data into S7CpInfo structure
-        cp_info = S7CpInfo()
-        # Use bytearray to handle c_byte (signed) values properly
-        data = bytearray(b & 0xFF for b in szl.Data[: szl.Header.LengthDR])
-
-        # S7CpInfo structure: 4 x uint16 (big-endian)
-        if len(data) >= 2:
-            cp_info.MaxPduLength = struct.unpack(">H", data[0:2])[0]
-        if len(data) >= 4:
-            cp_info.MaxConnections = struct.unpack(">H", data[2:4])[0]
-        if len(data) >= 6:
-            cp_info.MaxMpiRate = struct.unpack(">H", data[4:6])[0]
-        if len(data) >= 8:
-            cp_info.MaxBusRate = struct.unpack(">H", data[6:8])[0]
-
-        return cp_info
+        return parse_cp_info_szl(self.read_szl(0x0131, 0))
 
     def get_order_code(self) -> S7OrderCode:
-        """
-        Get order code.
-
-        Uses read_szl(0x0011) to get module identification.
-
-        Returns:
-            Order code structure
-        """
+        """Get module order code and firmware version (SZL 0x0011)."""
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
-
-        # Read SZL 0x0011 for module identification
-        szl = self.read_szl(0x0011, 0)
-
-        # Parse SZL data into S7OrderCode structure
-        order_code = S7OrderCode()
-        data = bytes(szl.Data[: szl.Header.LengthDR])
-
-        # OrderCode: 20 bytes, Version: 4 bytes
-        if len(data) >= 20:
-            order_code.OrderCode = data[0:20].rstrip(b"\x00")
-        if len(data) >= 21:
-            order_code.V1 = data[20]
-        if len(data) >= 22:
-            order_code.V2 = data[21]
-        if len(data) >= 23:
-            order_code.V3 = data[22]
-
-        return order_code
+        return parse_order_code_szl(self.read_szl(0x0011, 0))
 
     def get_protection(self) -> S7Protection:
-        """
-        Get protection settings.
-
-        Uses read_szl(0x0232) to get protection level.
-
-        Returns:
-            Protection structure
-        """
+        """Get protection settings (SZL 0x0232)."""
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
-
-        # Read SZL 0x0232 for protection level
-        szl = self.read_szl(0x0232, 0)
-
-        # Parse SZL data into S7Protection structure
-        protection = S7Protection()
-        data = bytes(szl.Data[: szl.Header.LengthDR])
-
-        # S7Protection structure: 5 x uint16 (big-endian)
-        if len(data) >= 2:
-            protection.sch_schal = struct.unpack(">H", data[0:2])[0]
-        if len(data) >= 4:
-            protection.sch_par = struct.unpack(">H", data[2:4])[0]
-        if len(data) >= 6:
-            protection.sch_rel = struct.unpack(">H", data[4:6])[0]
-        if len(data) >= 8:
-            protection.bart_sch = struct.unpack(">H", data[6:8])[0]
-        if len(data) >= 10:
-            protection.anl_sch = struct.unpack(">H", data[8:10])[0]
-
-        return protection
-
-    def get_exec_time(self) -> int:
-        """
-        Get last operation execution time.
-
-        Returns:
-            Execution time in milliseconds
-        """
-        return self._exec_time
-
-    def get_last_error(self) -> int:
-        """
-        Get last error code.
-
-        Returns:
-            Last error code
-        """
-        return self._last_error
+        return parse_protection_szl(self.read_szl(0x0232, 0))
 
     def read_szl(self, ssl_id: int, index: int = 0) -> S7SZL:
         """
@@ -1392,6 +2002,65 @@ class Client:
 
         # Return raw data
         return bytes(szl.Data[: szl.Header.LengthDR])
+
+    def read_diagnostic_buffer(self) -> list[dict[str, Any]]:
+        """Read the PLC diagnostic buffer.
+
+        .. warning:: This method is **experimental** and may change.
+
+        Returns a list of diagnostic entries, newest first. Each entry
+        is a dict with keys ``event_id``, ``timestamp``, and ``description``.
+
+        Returns:
+            List of diagnostic buffer entries.
+        """
+        # SZL ID 0x00A0, index 0 = diagnostic buffer
+        szl = self.read_szl(0x00A0, 0)
+        raw = bytes(szl.Data[: szl.Header.LengthDR])
+
+        entries: list[dict[str, Any]] = []
+        # Each diagnostic entry is 20 bytes
+        entry_size = 20
+        offset = 0
+        while offset + entry_size <= len(raw):
+            event_id = struct.unpack(">H", raw[offset : offset + 2])[0]
+
+            # BCD-encoded timestamp at offset 2..9
+            ts_bytes = raw[offset + 2 : offset + 10]
+            try:
+                ts = self._parse_bcd_timestamp(ts_bytes)
+            except Exception:
+                ts = None
+
+            # Additional info at offset 10..19
+            info = raw[offset + 10 : offset + entry_size]
+
+            entries.append(
+                {
+                    "event_id": event_id,
+                    "timestamp": ts,
+                    "info": info.hex(),
+                }
+            )
+            offset += entry_size
+
+        return entries
+
+    @staticmethod
+    def _parse_bcd_timestamp(data: bytes) -> datetime:
+        """Parse a BCD-encoded S7 timestamp (8 bytes) to datetime."""
+
+        def bcd(b: int) -> int:
+            return (b >> 4) * 10 + (b & 0x0F)
+
+        year = bcd(data[0])
+        year += 2000 if year < 90 else 1900
+        month = bcd(data[1])
+        day = bcd(data[2])
+        hour = bcd(data[3])
+        minute = bcd(data[4])
+        second = bcd(data[5])
+        return datetime(year, month, day, hour, minute, second)
 
     def iso_exchange_buffer(self, data: bytearray) -> bytearray:
         """
@@ -1541,6 +2210,225 @@ class Client:
         if len(data) != size * 2:
             raise ValueError(f"Data length {len(data)} doesn't match size {size * 2}")
         return self.write_area(Area.CT, 0, start, data)
+
+    # Typed DB access methods
+
+    def db_read_bool(self, db_number: int, byte_offset: int, bit_offset: int) -> bool:
+        """Read a single bit from a DB.
+
+        Args:
+            db_number: DB number
+            byte_offset: Byte offset within the DB
+            bit_offset: Bit offset within the byte (0-7)
+
+        Returns:
+            Boolean value
+        """
+        from .util import get_bool
+
+        data = self.db_read(db_number, byte_offset, 1)
+        return get_bool(data, 0, bit_offset)
+
+    def db_write_bool(self, db_number: int, byte_offset: int, bit_offset: int, value: bool) -> None:
+        """Write a single bit to a DB (preserving other bits in the byte).
+
+        Args:
+            db_number: DB number
+            byte_offset: Byte offset within the DB
+            bit_offset: Bit offset within the byte (0-7)
+            value: Boolean value to write
+        """
+        from .util import set_bool
+
+        data = self.db_read(db_number, byte_offset, 1)
+        set_bool(data, 0, bit_offset, value)
+        self.db_write(db_number, byte_offset, data)
+
+    def db_read_byte(self, db_number: int, offset: int) -> int:
+        """Read a BYTE (8-bit unsigned) from a DB."""
+        data = self.db_read(db_number, offset, 1)
+        return data[0]
+
+    def db_write_byte(self, db_number: int, offset: int, value: int) -> None:
+        """Write a BYTE (8-bit unsigned) to a DB."""
+        from .util import set_byte
+
+        data = bytearray(1)
+        set_byte(data, 0, value)
+        self.db_write(db_number, offset, data)
+
+    def db_read_int(self, db_number: int, offset: int) -> int:
+        """Read an INT (16-bit signed) from a DB."""
+        from .util import get_int
+
+        data = self.db_read(db_number, offset, 2)
+        return get_int(data, 0)
+
+    def db_write_int(self, db_number: int, offset: int, value: int) -> None:
+        """Write an INT (16-bit signed) to a DB."""
+        from .util import set_int
+
+        data = bytearray(2)
+        set_int(data, 0, value)
+        self.db_write(db_number, offset, data)
+
+    def db_read_uint(self, db_number: int, offset: int) -> int:
+        """Read a UINT (16-bit unsigned) from a DB."""
+        from .util import get_uint
+
+        data = self.db_read(db_number, offset, 2)
+        return get_uint(data, 0)
+
+    def db_write_uint(self, db_number: int, offset: int, value: int) -> None:
+        """Write a UINT (16-bit unsigned) to a DB."""
+        from .util import set_uint
+
+        data = bytearray(2)
+        set_uint(data, 0, value)
+        self.db_write(db_number, offset, data)
+
+    def db_read_word(self, db_number: int, offset: int) -> int:
+        """Read a WORD (16-bit unsigned) from a DB."""
+        data = self.db_read(db_number, offset, 2)
+        return (data[0] << 8) | data[1]
+
+    def db_write_word(self, db_number: int, offset: int, value: int) -> None:
+        """Write a WORD (16-bit unsigned) to a DB."""
+        from .util import set_word
+
+        data = bytearray(2)
+        set_word(data, 0, value)
+        self.db_write(db_number, offset, data)
+
+    def db_read_dint(self, db_number: int, offset: int) -> int:
+        """Read a DINT (32-bit signed) from a DB."""
+        from .util import get_dint
+
+        data = self.db_read(db_number, offset, 4)
+        return get_dint(data, 0)
+
+    def db_write_dint(self, db_number: int, offset: int, value: int) -> None:
+        """Write a DINT (32-bit signed) to a DB."""
+        from .util import set_dint
+
+        data = bytearray(4)
+        set_dint(data, 0, value)
+        self.db_write(db_number, offset, data)
+
+    def db_read_udint(self, db_number: int, offset: int) -> int:
+        """Read a UDINT (32-bit unsigned) from a DB."""
+        from .util import get_udint
+
+        data = self.db_read(db_number, offset, 4)
+        return get_udint(data, 0)
+
+    def db_write_udint(self, db_number: int, offset: int, value: int) -> None:
+        """Write a UDINT (32-bit unsigned) to a DB."""
+        from .util import set_udint
+
+        data = bytearray(4)
+        set_udint(data, 0, value)
+        self.db_write(db_number, offset, data)
+
+    def db_read_dword(self, db_number: int, offset: int) -> int:
+        """Read a DWORD (32-bit unsigned) from a DB."""
+        from .util import get_dword
+
+        data = self.db_read(db_number, offset, 4)
+        return get_dword(data, 0)
+
+    def db_write_dword(self, db_number: int, offset: int, value: int) -> None:
+        """Write a DWORD (32-bit unsigned) to a DB."""
+        from .util import set_dword
+
+        data = bytearray(4)
+        set_dword(data, 0, value)
+        self.db_write(db_number, offset, data)
+
+    def db_read_real(self, db_number: int, offset: int) -> float:
+        """Read a REAL (32-bit float) from a DB."""
+        from .util import get_real
+
+        data = self.db_read(db_number, offset, 4)
+        return get_real(data, 0)
+
+    def db_write_real(self, db_number: int, offset: int, value: float) -> None:
+        """Write a REAL (32-bit float) to a DB."""
+        from .util import set_real
+
+        data = bytearray(4)
+        set_real(data, 0, value)
+        self.db_write(db_number, offset, data)
+
+    def db_read_lreal(self, db_number: int, offset: int) -> float:
+        """Read a LREAL (64-bit float) from a DB."""
+        from .util import get_lreal
+
+        data = self.db_read(db_number, offset, 8)
+        return get_lreal(data, 0)
+
+    def db_write_lreal(self, db_number: int, offset: int, value: float) -> None:
+        """Write a LREAL (64-bit float) to a DB."""
+        from .util import set_lreal
+
+        data = bytearray(8)
+        set_lreal(data, 0, value)
+        self.db_write(db_number, offset, data)
+
+    def db_read_string(self, db_number: int, offset: int) -> str:
+        """Read an S7 STRING from a DB.
+
+        Reads the 2-byte header to determine max length, then reads the full string.
+        """
+        from .util import get_string
+
+        header = self.db_read(db_number, offset, 2)
+        max_len = header[0]
+        data = self.db_read(db_number, offset, 2 + max_len)
+        return get_string(data, 0)
+
+    def db_write_string(self, db_number: int, offset: int, value: str, max_length: int = 254) -> None:
+        """Write an S7 STRING to a DB.
+
+        Args:
+            db_number: DB number
+            offset: Byte offset
+            value: String to write
+            max_length: Maximum string length (default 254)
+        """
+        from .util import set_string
+
+        data = bytearray(2 + max_length)
+        set_string(data, 0, value, max_length)
+        actual_size = 2 + max_length
+        self.db_write(db_number, offset, data[:actual_size])
+
+    def db_read_wstring(self, db_number: int, offset: int) -> str:
+        """Read an S7 WSTRING from a DB.
+
+        Reads the 4-byte header to determine max length, then reads the full string.
+        """
+        from .util import get_wstring
+
+        header = self.db_read(db_number, offset, 4)
+        max_len = (header[0] << 8) | header[1]
+        data = self.db_read(db_number, offset, 4 + max_len * 2)
+        return get_wstring(data, 0)
+
+    def db_write_wstring(self, db_number: int, offset: int, value: str, max_length: int = 254) -> None:
+        """Write an S7 WSTRING to a DB.
+
+        Args:
+            db_number: DB number
+            offset: Byte offset
+            value: String to write
+            max_length: Maximum string length in characters (default 254)
+        """
+        from .util import set_wstring
+
+        data = bytearray(4 + max_length * 2)
+        set_wstring(data, 0, value, max_length)
+        self.db_write(db_number, offset, data)
 
     # Async methods
 
@@ -1744,127 +2632,6 @@ class Client:
         self._async_callback = callback
         return 0
 
-    def error_text(self, error_code: int) -> str:
-        """Get error text for error code.
-
-        Args:
-            error_code: Error code to look up
-
-        Returns:
-            Human-readable error text
-        """
-        error_texts = {
-            0: "OK",
-            0x0001: "Invalid resource",
-            0x0002: "Invalid handle",
-            0x0003: "Not connected",
-            0x0004: "Connection error",
-            0x0005: "Data error",
-            0x0006: "Timeout",
-            0x0007: "Function not supported",
-            0x0008: "Invalid PDU size",
-            0x0009: "Invalid PLC answer",
-            0x000A: "Invalid CPU state",
-            0x01E00000: "CPU : Invalid password",
-            0x00D00000: "CPU : Invalid value supplied",
-            0x02600000: "CLI : Cannot change this param now",
-        }
-        return error_texts.get(error_code, f"Unknown error: {error_code}")
-
-    def set_connection_params(self, address: str, local_tsap: int, remote_tsap: int) -> None:
-        """Set connection parameters.
-
-        Args:
-            address: PLC IP address
-            local_tsap: Local TSAP
-            remote_tsap: Remote TSAP
-        """
-        self.address = address
-        self.local_tsap = local_tsap
-        self.remote_tsap = remote_tsap
-        logger.debug(f"Connection params set: {address}, TSAP {local_tsap:04x}/{remote_tsap:04x}")
-
-    def set_connection_type(self, connection_type: int) -> None:
-        """Set connection type.
-
-        Args:
-            connection_type: Connection type (1=PG, 2=OP, 3=S7Basic)
-        """
-        self.connection_type = connection_type
-        logger.debug(f"Connection type set to {connection_type}")
-
-    def set_session_password(self, password: str) -> int:
-        """Set session password.
-
-        Args:
-            password: Session password
-
-        Returns:
-            0 on success
-        """
-        self.session_password = password
-        logger.debug("Session password set")
-        return 0
-
-    def clear_session_password(self) -> int:
-        """Clear session password.
-
-        Returns:
-            0 on success
-        """
-        self.session_password = None
-        logger.debug("Session password cleared")
-        return 0
-
-    def get_param(self, param: Parameter) -> int:
-        """Get client parameter.
-
-        Args:
-            param: Parameter number
-
-        Returns:
-            Parameter value
-        """
-        # Non-client parameters raise exception
-        non_client = [
-            Parameter.LocalPort,
-            Parameter.WorkInterval,
-            Parameter.MaxClients,
-            Parameter.BSendTimeout,
-            Parameter.BRecvTimeout,
-            Parameter.RecoveryTime,
-            Parameter.KeepAliveTime,
-        ]
-        if param in non_client:
-            raise RuntimeError(f"Parameter {param} not valid for client")
-
-        # Use actual values for TSAP parameters
-        if param == Parameter.SrcTSap:
-            return self.local_tsap
-
-        return self._params.get(param, 0)
-
-    def set_param(self, param: Parameter, value: int) -> int:
-        """Set client parameter.
-
-        Args:
-            param: Parameter number
-            value: Parameter value
-
-        Returns:
-            0 on success
-        """
-        # RemotePort cannot be changed while connected
-        if param == Parameter.RemotePort and self.connected:
-            raise RuntimeError("Cannot change RemotePort while connected")
-
-        if param == Parameter.PDURequest:
-            self.pdu_length = value
-
-        self._params[param] = value
-        logger.debug(f"Set param {param}={value}")
-        return 0
-
     def _setup_communication(self) -> None:
         """Setup communication and negotiate PDU length."""
         request = self.protocol.build_setup_communication_request(max_amq_caller=1, max_amq_callee=1, pdu_length=self.pdu_length)
@@ -1878,38 +2645,6 @@ class Client:
                 self._params[Parameter.PDURequest] = self.pdu_length
                 logger.info(f"Negotiated PDU length: {self.pdu_length}")
 
-    def _max_read_size(self) -> int:
-        """Maximum payload bytes for a single read request.
-
-        Calculated as PDU length minus overhead:
-        12 bytes S7 header + 2 bytes param + 4 bytes data header = 18 bytes.
-        """
-        return self.pdu_length - 18
-
-    def _max_write_size(self) -> int:
-        """Maximum payload bytes for a single write request.
-
-        Calculated as PDU length minus overhead:
-        12 bytes S7 header + 14 bytes param + 4 bytes data header + 5 bytes padding = 35 bytes.
-        """
-        return self.pdu_length - 35
-
-    def _map_area(self, area: Area) -> S7Area:
-        """Map library area enum to native S7 area."""
-        area_mapping = {
-            Area.PE: S7Area.PE,
-            Area.PA: S7Area.PA,
-            Area.MK: S7Area.MK,
-            Area.DB: S7Area.DB,
-            Area.CT: S7Area.CT,
-            Area.TM: S7Area.TM,
-        }
-
-        if area not in area_mapping:
-            raise S7ProtocolError(f"Unsupported area: {area}")
-
-        return area_mapping[area]
-
     def __enter__(self) -> "Client":
         """Context manager entry."""
         return self
@@ -1919,5 +2654,12 @@ class Client:
         self.disconnect()
 
     def __del__(self) -> None:
-        """Destructor."""
-        self.disconnect()
+        # Best-effort cleanup on garbage collection. Prefer disconnect()
+        # or a `with` block; during interpreter shutdown module globals
+        # may already be None, so we skip finalization and swallow errors.
+        if sys.is_finalizing():
+            return
+        try:
+            self.disconnect()
+        except Exception:
+            pass

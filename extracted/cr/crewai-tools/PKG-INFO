@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 1.15.3
+Version: 1.15.4
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI
@@ -8,7 +8,7 @@ Project-URL: Documentation, https://docs.crewai.com
 Author-email: João Moura <joaomdmoura@gmail.com>
 Requires-Python: <3.14,>=3.10
 Requires-Dist: beautifulsoup4~=4.13.4
-Requires-Dist: crewai==1.15.3
+Requires-Dist: crewai==1.15.4
 Requires-Dist: pymupdf~=1.26.6
 Requires-Dist: python-docx~=1.2.0
 Requires-Dist: pytube~=15.0.0
@@ -32,7 +32,7 @@ Provides-Extra: contextual
 Requires-Dist: contextual-client>=0.1.0; extra == 'contextual'
 Requires-Dist: nest-asyncio>=1.6.0; extra == 'contextual'
 Provides-Extra: couchbase
-Requires-Dist: couchbase>=4.3.5; extra == 'couchbase'
+Requires-Dist: couchbase>=4.6.0; extra == 'couchbase'
 Provides-Extra: databricks-sdk
 Requires-Dist: databricks-sdk>=0.46.0; extra == 'databricks-sdk'
 Provides-Extra: daytona
@@ -52,7 +52,7 @@ Requires-Dist: hyperbrowser>=0.18.0; extra == 'hyperbrowser'
 Provides-Extra: linkup-sdk
 Requires-Dist: linkup-sdk>=0.2.2; extra == 'linkup-sdk'
 Provides-Extra: mcp
-Requires-Dist: mcp>=1.6.0; extra == 'mcp'
+Requires-Dist: mcp<2,>=1.28.1; extra == 'mcp'
 Requires-Dist: mcpadapt>=0.1.9; extra == 'mcp'
 Provides-Extra: mongodb
 Requires-Dist: pymongo>=4.13; extra == 'mongodb'

@@ -15,6 +15,7 @@ Usage::
         AlarmExistsWaiter,
         AlarmMuteRuleExistsWaiter,
         CompositeAlarmExistsWaiter,
+        LogAlarmExistsWaiter,
     )
 
     session = get_session()
@@ -24,6 +25,7 @@ Usage::
         alarm_exists_waiter: AlarmExistsWaiter = client.get_waiter("alarm_exists")
         alarm_mute_rule_exists_waiter: AlarmMuteRuleExistsWaiter = client.get_waiter("alarm_mute_rule_exists")
         composite_alarm_exists_waiter: CompositeAlarmExistsWaiter = client.get_waiter("composite_alarm_exists")
+        log_alarm_exists_waiter: LogAlarmExistsWaiter = client.get_waiter("log_alarm_exists")
     ```
 """
 
@@ -34,6 +36,7 @@ import sys
 from aiobotocore.waiter import AIOWaiter
 
 from .type_defs import (
+    DescribeAlarmsInputWaitExtraExtraTypeDef,
     DescribeAlarmsInputWaitExtraTypeDef,
     DescribeAlarmsInputWaitTypeDef,
     GetAlarmMuteRuleInputWaitTypeDef,
@@ -44,7 +47,12 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("AlarmExistsWaiter", "AlarmMuteRuleExistsWaiter", "CompositeAlarmExistsWaiter")
+__all__ = (
+    "AlarmExistsWaiter",
+    "AlarmMuteRuleExistsWaiter",
+    "CompositeAlarmExistsWaiter",
+    "LogAlarmExistsWaiter",
+)
 
 class AlarmExistsWaiter(AIOWaiter):
     """
@@ -83,4 +91,17 @@ class CompositeAlarmExistsWaiter(AIOWaiter):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/waiter/CompositeAlarmExists.html#CloudWatch.Waiter.CompositeAlarmExists.wait)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/waiters/#compositealarmexistswaiter)
+        """
+
+class LogAlarmExistsWaiter(AIOWaiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/waiter/LogAlarmExists.html#CloudWatch.Waiter.LogAlarmExists)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/waiters/#logalarmexistswaiter)
+    """
+    async def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeAlarmsInputWaitExtraExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/waiter/LogAlarmExists.html#CloudWatch.Waiter.LogAlarmExists.wait)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/waiters/#logalarmexistswaiter)
         """

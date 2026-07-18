@@ -828,6 +828,59 @@ _STRINGS = {
 
     # ── 보고서 ───────────────────────────────────────────────────
     "report_generating":   {"ko": "보고서 생성 중",      "zh": "正在生成报告",     "en": "Generating report"},
+    "report_fallback_used": {"ko": "⚠ 보고서 모델 응답 없음 — 로컬 증거 기반 fallback 보고서를 저장합니다",
+                               "zh": "⚠ 报告模型无响应 — 正在保存基于本地证据的 fallback 报告",
+                               "en": "⚠ Report model unavailable — saving a local-evidence fallback report"},
+    "report_ground_truth_autocorrected": {
+        "ko": "🔍 [자동 교정] 보고서 내용이 실제 Finding ID와 불일치 — 증거 기반 보고서로 교체",
+        "zh": "🔍 [自动校正] 报告内容与实际 Finding ID 不一致 — 已替换为证据报告",
+        "en": "🔍 [Auto-correct] Report claims did not match Finding IDs — replaced with evidence report",
+    },
+    "doom_progress_autocorrected": {
+        "ko": "🔄 [자동 교정] 새 엔드포인트/파라미터 발견 — 무진전 카운터 초기화",
+        "zh": "🔄 [自动校正] 发现新端点/参数 — 已重置无进展计数器",
+        "en": "🔄 [Auto-correct] New endpoint/parameter found — no-progress counter reset",
+    },
+    "fe_pattern_fp_autocorrected": {
+        "ko": "🔍 [자동 교정] 일반 페이지 스크립트 패턴 — XSS 발견에서 제외",
+        "zh": "🔍 [自动校正] 普通页面脚本模式 — 已从 XSS 发现中排除",
+        "en": "🔍 [Auto-correct] Generic page script pattern — excluded from XSS findings",
+    },
+    "fe_inactive_pattern_autocorrected": {
+        "ko": "🔍 [자동 교정] 실제 테스트 증거 없는 {vtype} 패턴 — 발견에서 제외",
+        "zh": "🔍 [自动校正] {vtype} 模式缺少实际测试证据 — 已从发现中排除",
+        "en": "🔍 [Auto-correct] {vtype} pattern has no active-test evidence — excluded from findings",
+    },
+    "fe_inactive_pattern_quarantined": {
+        "ko": "🧪 [격리] 활성 테스트 여부가 불명확한 {vtype} 패턴 — 재검증 목록에 보존",
+        "zh": "🧪 [隔离] 无法确认 {vtype} 模式是否来自主动测试 — 已保留供重新验证",
+        "en": "🧪 [Quarantine] {vtype} pattern has uncertain active-test context — retained for revalidation",
+    },
+    "fe_verification_queued": {
+        "ko": "🔁 후보를 보존하고 독립 검증 대기열에 추가했습니다",
+        "zh": "🔁 已保留候选项并加入独立验证队列",
+        "en": "🔁 Candidate retained and queued for independent verification",
+    },
+    "preexecution_claim_downgraded": {
+        "ko": "🔍 실행 전 확정 문구를 미확정 후보로 교정했습니다 — 공격 코드는 그대로 실행합니다",
+        "zh": "🔍 已将执行前的确认声明降级为待验证候选 — 攻击代码仍会执行",
+        "en": "🔍 Pre-execution claim downgraded to an unverified candidate — attack code will still run",
+    },
+    "fe_xss_negative_autocorrected": {
+        "ko": "🔍 [자동 교정] 브라우저 음성 검증 — XSS 후보를 발견 목록에서 제거",
+        "zh": "🔍 [自动校正] 浏览器验证为阴性 — 已从发现列表移除 XSS 候选",
+        "en": "🔍 [Auto-correct] Negative browser verification — XSS candidate removed from findings",
+    },
+    "fe_xss_verify_error": {
+        "ko": "브라우저 검증 오류 {n}건 — 후보를 제거하지 않고 보존",
+        "zh": "浏览器验证发生 {n} 个错误 — 候选项已保留，未删除",
+        "en": "{n} browser verification error(s) — candidate retained, not removed",
+    },
+    "fe_candidate_detected": {
+        "ko": "검증 필요 후보",
+        "zh": "待验证候选",
+        "en": "Candidate Requires Verification",
+    },
     "severity_critical":   {"ko": "위험 (Critical)",     "zh": "严重 (Critical)",  "en": "Critical"},
     "severity_high":       {"ko": "높음 (High)",         "zh": "高危 (High)",      "en": "High"},
     "severity_medium":     {"ko": "중간 (Medium)",       "zh": "中危 (Medium)",    "en": "Medium"},
@@ -977,6 +1030,92 @@ _SLASH_DESC = {
 
 # ── v3.6.0: CVE/KB 메시지 (_STRINGS 에 추가 — get_strings() 반환 대상) ──────
 _STRINGS.update({
+    # ── v6.2.193: Vshell native tool adapter ────────────────────────────────
+    "vshell_not_configured": {
+        "ko": "Vshell이 설정되지 않았습니다. VSHELL_URL, VSHELL_TOKEN, VSHELL_BASICAUTH를 설정하세요.",
+        "zh": "Vshell 尚未配置。请设置 VSHELL_URL、VSHELL_TOKEN 和 VSHELL_BASICAUTH。",
+        "en": "Vshell is not configured. Set VSHELL_URL, VSHELL_TOKEN, and VSHELL_BASICAUTH.",
+    },
+    "vshell_invalid_url": {
+        "ko": "잘못된 VSHELL_URL: {url}",
+        "zh": "无效的 VSHELL_URL：{url}",
+        "en": "Invalid VSHELL_URL: {url}",
+    },
+    "vshell_timeout": {
+        "ko": "Vshell 요청 시간 초과: {path}",
+        "zh": "Vshell 请求超时：{path}",
+        "en": "Vshell request timed out: {path}",
+    },
+    "vshell_http_error": {
+        "ko": "Vshell HTTP 오류 {status}: {path}",
+        "zh": "Vshell HTTP 错误 {status}：{path}",
+        "en": "Vshell HTTP error {status}: {path}",
+    },
+    "vshell_connection_error": {
+        "ko": "Vshell 연결 실패: {error}",
+        "zh": "Vshell 连接失败：{error}",
+        "en": "Vshell connection failed: {error}",
+    },
+    "vshell_invalid_response": {
+        "ko": "Vshell이 객체가 아닌 응답을 반환했습니다.",
+        "zh": "Vshell 返回了非对象响应。",
+        "en": "Vshell returned a non-object response.",
+    },
+    "vshell_file_missing": {
+        "ko": "로컬 파일이 없습니다: {path}",
+        "zh": "本地文件不存在：{path}",
+        "en": "Local file does not exist: {path}",
+    },
+    "vshell_full_path_required": {
+        "ko": "완전한 파일 경로가 필요합니다: {path}",
+        "zh": "需要完整文件路径：{path}",
+        "en": "A complete file path is required: {path}",
+    },
+    "vshell_download_timeout": {
+        "ko": "Vshell 다운로드가 {progress}%에서 시간 초과되었습니다.",
+        "zh": "Vshell 下载在 {progress}% 时超时。",
+        "en": "Vshell download timed out at {progress}%.",
+    },
+    "vshell_no_tunnel_port": {
+        "ko": "10800-10900 범위에 사용 가능한 Vshell 터널 포트가 없습니다.",
+        "zh": "10800-10900 范围内没有可用的 Vshell 隧道端口。",
+        "en": "No free Vshell tunnel port in range 10800-10900.",
+    },
+    "vshell_port_in_use": {
+        "ko": "Vshell 터널 포트가 이미 사용 중입니다: {port}",
+        "zh": "Vshell 隧道端口已被占用：{port}",
+        "en": "Vshell tunnel port is already in use: {port}",
+    },
+    "vshell_tunnel_id_missing": {
+        "ko": "터널이 생성됐지만 Vshell에서 ID를 반환하지 않았습니다.",
+        "zh": "隧道已创建，但 Vshell 未返回其 ID。",
+        "en": "Tunnel was created but its ID was not returned by Vshell.",
+    },
+    "vshell_tunnel_missing": {
+        "ko": "포트 {port}를 사용하는 Vshell 터널이 없습니다.",
+        "zh": "没有 Vshell 隧道使用端口 {port}。",
+        "en": "No Vshell tunnel uses port {port}.",
+    },
+    "vshell_tunnel_inactive": {
+        "ko": "포트 {port}의 Vshell 터널이 활성 상태가 아닙니다.",
+        "zh": "端口 {port} 上的 Vshell 隧道未激活。",
+        "en": "Vshell tunnel is not active on port {port}.",
+    },
+    "vshell_curl_missing": {
+        "ko": "Vshell 터널 HTTP 요청에는 curl이 필요합니다.",
+        "zh": "Vshell 隧道 HTTP 请求需要 curl。",
+        "en": "curl is required for Vshell tunnel HTTP requests.",
+    },
+    "vshell_missing_settings": {
+        "ko": "누락된 Vshell 설정: {settings}",
+        "zh": "缺少 Vshell 设置：{settings}",
+        "en": "Missing Vshell settings: {settings}",
+    },
+    "vshell_deploy_path_required": {
+        "ko": "local_path 또는 remote_path가 필요합니다.",
+        "zh": "需要 local_path 或 remote_path。",
+        "en": "local_path or remote_path is required.",
+    },
 })
 
 # ── 스킬 시스템 / WAF / 자동 분석 추가 문자열 ──────────────────────────────
@@ -2216,6 +2355,18 @@ _STRINGS.update({
                                   "zh": "(直接回车或再按Ctrl+C → 完全停止)",
                                   "en": "(press Enter or Ctrl+C again → stop completely)"},
 
+    "hint_waiting_tool":        {"ko": "⏳ 실행 중인 도구가 정리되기를 잠시 기다리는 중...",
+                                  "zh": "⏳ 正在等待运行中的工具结束...",
+                                  "en": "⏳ Waiting briefly for the active tool to stop..."},
+
+    "hint_tool_detached":       {"ko": "⚠ 도구가 백그라운드에서 마무리 중입니다 — 출력은 힌트 보호를 위해 숨김 처리됨",
+                                  "zh": "⚠ 工具仍在后台结束中 — 为保护提示输入，其输出已静音",
+                                  "en": "⚠ Tool is still finishing in the background — output muted to protect hint input"},
+
+    "hint_input_timeout":       {"ko": "⚠ 힌트 입력 시간이 초과되어 에이전트 루프를 중단합니다",
+                                  "zh": "⚠ 提示输入超时，正在停止代理循环",
+                                  "en": "⚠ Hint input timed out — stopping the agent loop"},
+
     "stream_interrupted":       {"ko": "⏸ 응답 중단됨",
                                   "zh": "⏸ 已中断",
                                   "en": "⏸ Interrupted"},
@@ -2270,6 +2421,11 @@ _STRINGS.update({
     "syntax_precheck_warn":      {"ko": "⚠ [SYNTAX PRECHECK #{n}] 문법 오류 감지 — 자동 수정 실패. f-string 백슬래시 또는 dict 키 따옴표 충돌 확인 필요.",
                                    "zh": "⚠ [SYNTAX PRECHECK #{n}] 检测到语法错误 — 自动修复失败。请检查f-string反斜杠或dict下标引号冲突。",
                                    "en": "⚠ [SYNTAX PRECHECK #{n}] SyntaxError detected — auto-fix failed. Check f-string backslash or dict subscript issues."},
+    "bash_syntax_preflight_blocked": {
+        "ko": "⚠ Bash 문법 사전 검사 실패 — 실행을 차단하고 run_python 재작성을 요청합니다",
+        "zh": "⚠ Bash 语法预检失败 — 已阻止执行并请求改写为 run_python",
+        "en": "⚠ Bash syntax preflight failed — execution blocked; rewrite requested with run_python",
+    },
 
     # ── 인코딩 자동 감지 ──────────────────────────────────────────────
     "encoding_auto_detected":    {"ko": "🔤 인코딩 자동 감지: {enc} (EUC-KR/UTF-8/등 구형 사이트 대응)",
@@ -8531,6 +8687,11 @@ _STRINGS.update({
             "   Or switch to a completely different attack vector (Actuator/JS/IDOR)."
         ),
     },
+    "loop_limit_report_start": {
+        "ko": "📋 루프 중단 완료 — 지금 최종 보고서를 생성합니다.",
+        "zh": "📋 循环已停止 — 现在生成最终报告。",
+        "en": "📋 Loop stopped — generating the final report now.",
+    },
     # ── v6.2.139: 취약점 강화 스캐너 ──────────────────────────────────────────
     "full_scan_start": {
         "ko": "🔍 [FULL_SCAN] {url} 전체 취약점 자동 스캔 시작...",
@@ -9266,16 +9427,538 @@ _STRINGS.update({
     },
 })
 
+# ── v6.2.173: zh UI Korean leak fixes ───────────────────────────────────────
+_STRINGS.update({
+    # terminal.py — Ctrl+C / context / whitebox / agent / session / snapshots
+    "ctrl_c_stream_stopping": {
+        "ko": "⚠  Ctrl+C — 스트림 중단 중...",
+        "zh": "⚠  Ctrl+C — 正在中断流...",
+        "en": "⚠  Ctrl+C — stopping stream...",
+    },
+    "context_clip_omitted": {
+        "ko": "\n...[컨텍스트 압축: 초과분 생략]...",
+        "zh": "\n...[上下文压缩: 已省略超出部分]...",
+        "en": "\n...[context compressed: excess omitted]...",
+    },
+    "wb_col_type": {
+        "ko": "유형",
+        "zh": "类型",
+        "en": "Type",
+    },
+    "wb_col_confidence": {
+        "ko": "신뢰도",
+        "zh": "置信度",
+        "en": "Conf",
+    },
+    "wb_col_endpoint": {
+        "ko": "엔드포인트",
+        "zh": "端点",
+        "en": "Endpoint",
+    },
+    "wb_col_param": {
+        "ko": "파라미터",
+        "zh": "参数",
+        "en": "Param",
+    },
+    "wb_col_evidence": {
+        "ko": "증거",
+        "zh": "证据",
+        "en": "Evidence",
+    },
+    "wb_stack_label": {
+        "ko": "스택: {stack}",
+        "zh": "技术栈: {stack}",
+        "en": "Stack: {stack}",
+    },
+    "agent_col_type": {
+        "ko": "유형",
+        "zh": "类型",
+        "en": "Type",
+    },
+    "agent_col_priority": {
+        "ko": "우선순위",
+        "zh": "优先级",
+        "en": "Priority",
+    },
+    "agent_exec_order": {
+        "ko": "실행 순서: {order}",
+        "zh": "执行顺序: {order}",
+        "en": "Execution order: {order}",
+    },
+    "session_cookies_saved": {
+        "ko": "세션 쿠키 저장:",
+        "zh": "会话 Cookie 已保存:",
+        "en": "Session cookies saved:",
+    },
+    "snap_col_time": {
+        "ko": "시각",
+        "zh": "时间",
+        "en": "Time",
+    },
+    "snap_col_label": {
+        "ko": "레이블",
+        "zh": "标签",
+        "en": "Label",
+    },
+    "wrong_tool_format_autofix": {
+        "ko": "⚠ [WRONG_TOOL_FORMAT→AUTO_FIX] dict 형식 tool call {n}개 자동 변환 후 실행",
+        "zh": "⚠ [WRONG_TOOL_FORMAT→AUTO_FIX] 已自动转换 {n} 个 dict 格式 tool call 并执行",
+        "en": "⚠ [WRONG_TOOL_FORMAT→AUTO_FIX] auto-converted {n} dict-format tool call(s) and executing",
+    },
+    "wrong_tool_format_unknown": {
+        "ko": "⚠ [WRONG_TOOL_FORMAT] dict 형식 tool call 감지 (알 수 없는 도구명 — 무시됨)",
+        "zh": "⚠ [WRONG_TOOL_FORMAT] 检测到 dict 格式 tool call（未知工具名 — 已忽略）",
+        "en": "⚠ [WRONG_TOOL_FORMAT] dict-format tool call detected (unknown tool — ignored)",
+    },
+    "silent_code_autorepair": {
+        "ko": "혼합 코드와 도구 호출 형식을 실행 전에 자동 정규화합니다.",
+        "zh": "在执行前自动规范化混合代码和工具调用格式。",
+        "en": "Normalize mixed code and tool-call formats before execution.",
+    },
+    "wall_clock_timeout_kill": {
+        "ko": "⚠ WALL-CLOCK TIMEOUT ({elapsed}s) — 프로세스 그룹 강제 종료",
+        "zh": "⚠ WALL-CLOCK TIMEOUT ({elapsed}s) — 强制终止进程组",
+        "en": "⚠ WALL-CLOCK TIMEOUT ({elapsed}s) — force-killing process group",
+    },
+    "vpn_virtual_ip_title": {
+        "ko": "VPN_VIRTUAL_IP — 오판 경고",
+        "zh": "VPN_VIRTUAL_IP — 误判警告",
+        "en": "VPN_VIRTUAL_IP — false-positive warning",
+    },
+    "recon_passive_start": {
+        "ko": "🔍 Passive Recon 시작: {target}",
+        "zh": "🔍 被动侦察开始: {target}",
+        "en": "🔍 Passive Recon starting: {target}",
+    },
+    "recon_full_start": {
+        "ko": "🚀 Full Recon 시작: {target}",
+        "zh": "🚀 完整侦察开始: {target}",
+        "en": "🚀 Full Recon starting: {target}",
+    },
+    "recon_js_start": {
+        "ko": "📜 JS Mining 시작: {target}",
+        "zh": "📜 JS 挖掘开始: {target}",
+        "en": "📜 JS Mining starting: {target}",
+    },
+    "recon_step2_active": {
+        "ko": "  Step 2/3  Active 수집 중 (서브도메인 {n}개)...",
+        "zh": "  Step 2/3  主动收集中（子域名 {n} 个）...",
+        "en": "  Step 2/3  Active collection ({n} subdomains)...",
+    },
+    "recon_api_endpoints_label": {
+        "ko": "API Endpoints ({n}개):",
+        "zh": "API Endpoints ({n} 个):",
+        "en": "API Endpoints ({n}):",
+    },
+    "recon_secrets_label": {
+        "ko": "🔑 Potential Secrets ({n}개):",
+        "zh": "🔑 潜在密钥 ({n} 个):",
+        "en": "🔑 Potential Secrets ({n}):",
+    },
+    # advanced_scanners / vuln_scanner_plus
+    "need_requests": {
+        "ko": "requests 필요",
+        "zh": "需要 requests",
+        "en": "requests required",
+    },
+    "need_requests_install": {
+        "ko": "requests 설치 필요",
+        "zh": "需要安装 requests",
+        "en": "requests install required",
+    },
+    "cve_log4shell_possible": {
+        "ko": "  🔴 Log4Shell 가능성: {hdr}",
+        "zh": "  🔴 可能存在 Log4Shell: {hdr}",
+        "en": "  🔴 Log4Shell possible: {hdr}",
+    },
+    "cve_path_traversal_step": {
+        "ko": "  [5/5] Path Traversal (급속 탐지)...",
+        "zh": "  [5/5] Path Traversal（快速检测）...",
+        "en": "  [5/5] Path Traversal (rapid detect)...",
+    },
+    "cve_findings_summary": {
+        "ko": "[CVE_SCAN] {url} — {n}개 CVE 발견",
+        "zh": "[CVE_SCAN] {url} — 发现 {n} 个 CVE",
+        "en": "[CVE_SCAN] {url} — {n} CVE(s) found",
+    },
+    "param_fuzz_baseline": {
+        "ko": "  베이스라인: {status} {size}B",
+        "zh": "  基线: {status} {size}B",
+        "en": "  Baseline: {status} {size}B",
+    },
+    "param_fuzz_found": {
+        "ko": "  🟡 파라미터 발견: {param} (status={status} diff={diff}B)",
+        "zh": "  🟡 发现参数: {param} (status={status} diff={diff}B)",
+        "en": "  🟡 Param found: {param} (status={status} diff={diff}B)",
+    },
+    "param_fuzz_tested": {
+        "ko": "  테스트: {n}개 파라미터\n",
+        "zh": "  测试: {n} 个参数\n",
+        "en": "  Tested: {n} params\n",
+    },
+    "param_fuzz_discovered": {
+        "ko": "  발견: {n}개\n",
+        "zh": "  发现: {n} 个\n",
+        "en": "  Found: {n}\n",
+    },
+    "param_fuzz_ssrf_cand": {
+        "ko": "  SSRF 후보: {params}\n",
+        "zh": "  SSRF 候选: {params}\n",
+        "en": "  SSRF candidates: {params}\n",
+    },
+    "param_fuzz_lfi_cand": {
+        "ko": "  LFI 후보: {params}\n",
+        "zh": "  LFI 候选: {params}\n",
+        "en": "  LFI candidates: {params}\n",
+    },
+    "param_fuzz_sqli_cand": {
+        "ko": "  SQLi 후보: {params}\n",
+        "zh": "  SQLi 候选: {params}\n",
+        "en": "  SQLi candidates: {params}\n",
+    },
+    "fds_step8_dom": {
+        "ko": "\n[8/10] DOM XSS 스캔 (Playwright)...",
+        "zh": "\n[8/10] DOM XSS 扫描 (Playwright)...",
+        "en": "\n[8/10] DOM XSS scan (Playwright)...",
+    },
+    "fds_step8_skip": {
+        "ko": "\n[8/10] DOM XSS 스캔 스킵 (playwright 없음)",
+        "zh": "\n[8/10] 跳过 DOM XSS 扫描（无 playwright）",
+        "en": "\n[8/10] DOM XSS scan skipped (no playwright)",
+    },
+    "fds_step9_header": {
+        "ko": "\n[9/10] 헤더 주입 스캔...",
+        "zh": "\n[9/10] 头部注入扫描...",
+        "en": "\n[9/10] Header injection scan...",
+    },
+    "fds_step10_fp": {
+        "ko": "\n[10/10] False Positive 재검증 ({n}개)...",
+        "zh": "\n[10/10] 误报复验 ({n} 个)...",
+        "en": "\n[10/10] False Positive re-verify ({n})...",
+    },
+    "fds_summary_tech": {
+        "ko": "  감지 기술: {tech}",
+        "zh": "  检测到的技术: {tech}",
+        "en": "  Detected tech: {tech}",
+    },
+    "fds_summary_vulns": {
+        "ko": "  총 취약점: {n}개 (FP {fp}개 제거)",
+        "zh": "  总漏洞: {n} 个（已去除 FP {fp} 个）",
+        "en": "  Total vulns: {n} (removed {fp} FPs)",
+    },
+    "fds_summary_severity": {
+        "ko": "  심각도: CRITICAL={c} HIGH={h} MEDIUM={m}",
+        "zh": "  严重度: CRITICAL={c} HIGH={h} MEDIUM={m}",
+        "en": "  Severity: CRITICAL={c} HIGH={h} MEDIUM={m}",
+    },
+    "fds_summary_cat_count": {
+        "ko": "  ⚠️  [{cat}] {n}개",
+        "zh": "  ⚠️  [{cat}] {n} 个",
+        "en": "  ⚠️  [{cat}] {n}",
+    },
+    "fds_summary_scan_errors": {
+        "ko": "\n  ⚠️ 스캔 오류: {n}개",
+        "zh": "\n  ⚠️ 扫描错误: {n} 个",
+        "en": "\n  ⚠️ Scan errors: {n}",
+    },
+    "full_scan_no_params": {
+        "ko": "[FULL_SCAN] 파라미터 없음 — URL에 ?param=value 형식이 없습니다: {url}",
+        "zh": "[FULL_SCAN] 无参数 — URL 中没有 ?param=value 格式: {url}",
+        "en": "[FULL_SCAN] no params — URL has no ?param=value form: {url}",
+    },
+    "full_scan_params_tested": {
+        "ko": "  파라미터 테스트: {n}개",
+        "zh": "  参数测试: {n} 个",
+        "en": "  Params tested: {n}",
+    },
+    "full_scan_tasks": {
+        "ko": "  스캔 작업: {n}개 ({mode})",
+        "zh": "  扫描任务: {n} 个（{mode}）",
+        "en": "  Scan tasks: {n} ({mode})",
+    },
+    "full_scan_mode_parallel": {
+        "ko": "병렬",
+        "zh": "并行",
+        "en": "parallel",
+    },
+    "full_scan_mode_serial": {
+        "ko": "순차",
+        "zh": "串行",
+        "en": "serial",
+    },
+    "full_scan_vulns_found": {
+        "ko": "  발견된 취약점: {n}개",
+        "zh": "  发现的漏洞: {n} 个",
+        "en": "  Vulnerabilities found: {n}",
+    },
+    "full_scan_type_count": {
+        "ko": "  ⚠️  [{vtype}] {n}개 발견:",
+        "zh": "  ⚠️  [{vtype}] 发现 {n} 个:",
+        "en": "  ⚠️  [{vtype}] {n} found:",
+    },
+    "full_scan_none_found": {
+        "ko": "  ✅ 주요 취약점 미탐지 (일부 취약점은 수동 검증 필요)",
+        "zh": "  ✅ 未检测到主要漏洞（部分漏洞需手动验证）",
+        "en": "  ✅ No major vulns detected (some may need manual verification)",
+    },
+    "js_crawl_error": {
+        "ko": "[JS_CRAWL] ❌ 오류: {e}",
+        "zh": "[JS_CRAWL] ❌ 错误: {e}",
+        "en": "[JS_CRAWL] ❌ error: {e}",
+    },
+    "js_crawl_title": {
+        "ko": "  타이틀: {title}",
+        "zh": "  标题: {title}",
+        "en": "  Title: {title}",
+    },
+    "js_crawl_forms": {
+        "ko": "  폼: {n}개",
+        "zh": "  表单: {n} 个",
+        "en": "  Forms: {n}",
+    },
+    "js_crawl_param_urls": {
+        "ko": "  파라미터 URL: {n}개",
+        "zh": "  参数 URL: {n} 个",
+        "en": "  Param URLs: {n}",
+    },
+    "js_crawl_xhr": {
+        "ko": "  XHR 인터셉트: {n}개",
+        "zh": "  XHR 拦截: {n} 个",
+        "en": "  XHR intercepted: {n}",
+    },
+    "js_crawl_targets": {
+        "ko": "  총 테스트 타겟: {n}개",
+        "zh": "  总测试目标: {n} 个",
+        "en": "  Total test targets: {n}",
+    },
+    "auth_scan_login_fail": {
+        "ko": "[AUTH_SCAN] ❌ 로그인 실패 — 세션 쿠키 없음",
+        "zh": "[AUTH_SCAN] ❌ 登录失败 — 无会话 Cookie",
+        "en": "[AUTH_SCAN] ❌ login failed — no session cookies",
+    },
+    "auth_scan_cookies": {
+        "ko": "  세션 쿠키: {cookies}",
+        "zh": "  会话 Cookie: {cookies}",
+        "en": "  Session cookies: {cookies}",
+    },
+    "auth_scan_login_cookies": {
+        "ko": "  requests 로그인 쿠키: {cookies}",
+        "zh": "  requests 登录 Cookie: {cookies}",
+        "en": "  requests login cookies: {cookies}",
+    },
+    "auth_scan_login_fail_err": {
+        "ko": "  ❌ 로그인 실패: {e}",
+        "zh": "  ❌ 登录失败: {e}",
+        "en": "  ❌ login failed: {e}",
+    },
+    "auth_scan_login_error": {
+        "ko": "  ❌ 로그인 오류: {e}",
+        "zh": "  ❌ 登录错误: {e}",
+        "en": "  ❌ login error: {e}",
+    },
+    "dom_sink_detected": {
+        "ko": "  🟡 DOM sink 감지: {sinks}",
+        "zh": "  🟡 检测到 DOM sink: {sinks}",
+        "en": "  🟡 DOM sink detected: {sinks}",
+    },
+    "allow_header_label": {
+        "ko": "  Allow 헤더: {allow}",
+        "zh": "  Allow 头: {allow}",
+        "en": "  Allow header: {allow}",
+    },
+    "rate_limit_test": {
+        "ko": "  ⏱ Rate Limiting 테스트...",
+        "zh": "  ⏱ Rate Limiting 测试...",
+        "en": "  ⏱ Rate Limiting test...",
+    },
+    "rate_limit_none": {
+        "ko": "  🟡 Rate Limiting 없음",
+        "zh": "  🟡 无 Rate Limiting",
+        "en": "  🟡 No Rate Limiting",
+    },
+    "xmlrpc_default_creds": {
+        "ko": "  🔴 [CRITICAL] XML-RPC 기본 크레덴셜!",
+        "zh": "  🔴 [CRITICAL] XML-RPC 默认凭据!",
+        "en": "  🔴 [CRITICAL] XML-RPC default credentials!",
+    },
+    "auth_scan_login_ok": {
+        "ko": "  ✅ 로그인 성공 — 쿠키: {cookies}",
+        "zh": "  ✅ 登录成功 — Cookie: {cookies}",
+        "en": "  ✅ Login success — cookies: {cookies}",
+    },
+    "auth_scan_no_playwright": {
+        "ko": "  ⚠️ playwright 미설치 — requests 폼 방식으로 로그인 시도",
+        "zh": "  ⚠️ 未安装 playwright — 尝试用 requests 表单登录",
+        "en": "  ⚠️ playwright not installed — trying requests form login",
+    },
+    "fp_verify_payload": {
+        "ko": "  페이로드: {p}\n",
+        "zh": "  载荷: {p}\n",
+        "en": "  Payload: {p}\n",
+    },
+    "fp_verify_hit_rate": {
+        "ko": "  히트율: {hits}/{repeat}\n",
+        "zh": "  命中率: {hits}/{repeat}\n",
+        "en": "  Hit rate: {hits}/{repeat}\n",
+    },
+    "fp_verify_confidence": {
+        "ko": "  확신도: {c}%\n",
+        "zh": "  置信度: {c}%\n",
+        "en": "  Confidence: {c}%\n",
+    },
+    "fp_verify_verdict": {
+        "ko": "  판정: {v}\n",
+        "zh": "  判定: {v}\n",
+        "en": "  Verdict: {v}\n",
+    },
+    "fp_verify_baseline_sig": {
+        "ko": "  ⚠️ 베이스라인에서도 시그니처 감지 — False Positive 가능성 높음!\n",
+        "zh": "  ⚠️ 基线中也检测到签名 — False Positive 可能性高!\n",
+        "en": "  ⚠️ Signature also in baseline — high FP chance!\n",
+    },
+    "batch_fp_confirmed": {
+        "ko": "  ✅ 확인됨: [{vtype}] {param} @ {url}",
+        "zh": "  ✅ 已确认: [{vtype}] {param} @ {url}",
+        "en": "  ✅ Confirmed: [{vtype}] {param} @ {url}",
+    },
+    "batch_fp_removed": {
+        "ko": "  ❌ FP 제거: [{vtype}] {param} @ {url} (확신도 {c}%)",
+        "zh": "  ❌ 已移除 FP: [{vtype}] {param} @ {url}（置信度 {c}%）",
+        "en": "  ❌ FP removed: [{vtype}] {param} @ {url} (confidence {c}%)",
+    },
+    "batch_fp_summary_total": {
+        "ko": "[BATCH_FP_VERIFY] 총 {n}개 검증\n",
+        "zh": "[BATCH_FP_VERIFY] 共验证 {n} 个\n",
+        "en": "[BATCH_FP_VERIFY] Verified {n} total\n",
+    },
+    "batch_fp_summary_ok": {
+        "ko": "  ✅ 확인된 취약점: {n}개\n",
+        "zh": "  ✅ 已确认漏洞: {n} 个\n",
+        "en": "  ✅ Confirmed vulns: {n}\n",
+    },
+    "batch_fp_summary_rm": {
+        "ko": "  ❌ False Positive 제거: {n}개\n",
+        "zh": "  ❌ 已移除 False Positive: {n} 个\n",
+        "en": "  ❌ False Positives removed: {n}\n",
+    },
+    "v2_pw_crawl_start": {
+        "ko": "  🎭 Playwright JS 렌더링 크롤 실행...",
+        "zh": "  🎭 正在运行 Playwright JS 渲染爬取...",
+        "en": "  🎭 Running Playwright JS render crawl...",
+    },
+    "v2_pw_extra_targets": {
+        "ko": "  Playwright 추가 타겟: {n}개",
+        "zh": "  Playwright 额外目标: {n} 个",
+        "en": "  Playwright extra targets: {n}",
+    },
+    "v2_total_params": {
+        "ko": "\n  📋 총 {params}개 파라미터 ({urls}개 URL)",
+        "zh": "\n  📋 共 {params} 个参数（{urls} 个 URL）",
+        "en": "\n  📋 Total {params} params ({urls} URLs)",
+    },
+    "v2_fp_start": {
+        "ko": "  🔬 FP 재검증 시작 ({n}개)...",
+        "zh": "  🔬 开始 FP 复验 ({n} 个)...",
+        "en": "  🔬 Starting FP re-verify ({n})...",
+    },
+    "v2_fp_after": {
+        "ko": "  FP 제거 후: {n}개 (제거: {rm}개)",
+        "zh": "  FP 移除后: {n} 个（移除: {rm} 个）",
+        "en": "  After FP removal: {n} (removed: {rm})",
+    },
+    "v2_params_found": {
+        "ko": "  파라미터 발견: {n}개",
+        "zh": "  发现参数: {n} 个",
+        "en": "  Params found: {n}",
+    },
+    "v2_raw_vulns": {
+        "ko": "  원본 취약점: {n}개",
+        "zh": "  原始漏洞: {n} 个",
+        "en": "  Raw vulns: {n}",
+    },
+    "v2_after_fp": {
+        "ko": "  FP 제거 후: {n}개",
+        "zh": "  FP 移除后: {n} 个",
+        "en": "  After FP removal: {n}",
+    },
+    "v2_none_found": {
+        "ko": "  ✅ 주요 취약점 미탐지",
+        "zh": "  ✅ 未检测到主要漏洞",
+        "en": "  ✅ No major vulns detected",
+    },
+    "fp_verify_attempt": {
+        "ko": "시도",
+        "zh": "尝试",
+        "en": "Attempt",
+    },
+})
+
+
+def get_text(key: str, default: str = "") -> str:
+    """현재 i18n 언어로 문자열 반환. advanced_scanners / vuln_scanner_plus _t()용.
+
+    v6.2.178: zh에서 Hangul 누출 시 en 폴백.
+    """
+    try:
+        from bingo.i18n import get_lang, has_hangul
+        lang = get_lang()
+    except Exception:
+        lang = "en"
+        has_hangul = lambda s: False  # type: ignore
+    entry = _STRINGS.get(key)
+    if entry is None:
+        if lang != "ko" and has_hangul(default):
+            return key
+        return default
+    primary = entry.get(lang) or ""
+    en = entry.get("en") or ""
+    if lang == "zh" and has_hangul(primary):
+        primary = en
+    if not primary:
+        primary = en or default
+    if lang == "zh" and has_hangul(primary):
+        primary = en or key
+    return primary
+
 
 def get_strings(lang: str = "en") -> dict:
-    """특정 언어의 모든 문자열 반환"""
+    """특정 언어의 모든 문자열 반환.
+
+    v6.2.178: zh 값에 Hangul이 있으면 해당 키만 en으로 교체 (UI 한국어 누출 방지).
+    """
     if lang not in SUPPORTED_LANGS:
         lang = "en"
-    return {k: v.get(lang, v.get("en", "")) for k, v in _STRINGS.items()}
+    try:
+        from bingo.i18n import has_hangul
+    except Exception:
+        def has_hangul(s: str) -> bool:  # type: ignore
+            return False
+    out = {}
+    for k, v in _STRINGS.items():
+        val = v.get(lang, "") or ""
+        if lang == "zh" and has_hangul(val):
+            val = v.get("en", "") or val
+        if not val:
+            val = v.get("en", "") or ""
+        out[k] = val
+    return out
 
 
 def get_slash_commands(lang: str = "en") -> list:
     """슬래시 자동완성 명령어 목록 (현재 언어 기준)"""
     if lang not in SUPPORTED_LANGS:
         lang = "en"
-    return [(cmd, desc.get(lang, desc.get("en", ""))) for cmd, desc in _SLASH_DESC.items()]
+    try:
+        from bingo.i18n import has_hangul
+    except Exception:
+        def has_hangul(s: str) -> bool:  # type: ignore
+            return False
+    result = []
+    for cmd, desc in _SLASH_DESC.items():
+        val = desc.get(lang, "") or ""
+        if lang == "zh" and has_hangul(val):
+            val = desc.get("en", "") or val
+        if not val:
+            val = desc.get("en", "") or ""
+        result.append((cmd, val))
+    return result

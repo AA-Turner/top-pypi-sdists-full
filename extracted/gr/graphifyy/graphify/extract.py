@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -4293,6 +4294,7 @@ def extract(
     paths: list[Path],
     cache_root: Path | None = None,
     *,
+    root: Path | None = None,
     parallel: bool = True,
     max_workers: int | None = None,
 ) -> dict:
@@ -4305,15 +4307,21 @@ def extract(
 
     Args:
         paths: files to extract from
+        root: explicit anchor for source_file relativization, node ids, and
+            symbol resolution. Pass the SCAN root whenever the cache lives
+            somewhere else (`--out`); without it the anchor falls back to
+            cache_root and every scanned file reads as out-of-root (#1941).
         cache_root: explicit root for graphify-out/cache/ (overrides the
             inferred common path prefix). Pass Path('.') when running on a
             subdirectory so the cache stays at ./graphify-out/cache/.
+            Anchors ids/source_file only as a fallback when `root` is unset.
         parallel: if True and there are >= _PARALLEL_THRESHOLD uncached files,
             use ProcessPoolExecutor for multi-core extraction.
         max_workers: max subprocess count. Defaults to cpu_count (or the
             value of GRAPHIFY_MAX_WORKERS if set), bounded by len(uncached_work).
     """
     paths = [Path(p) for p in paths]
+    anchor_root = Path(root) if root is not None else None
     _check_tree_sitter_version()
     _raise_recursion_limit()
     # Workspace package manifests/globs can change during watch or repeated extraction.
@@ -4337,7 +4345,13 @@ def extract(
             root = Path(*paths[0].parts[:common_len]) if common_len else Path(".")
     except Exception:
         root = Path(".")
-    if cache_root is not None:
+    # An explicit anchor wins. cache_root is only a fallback anchor: it happens to
+    # equal the scan root for the no---out CLI path and for watch, but with --out it
+    # is the OUTPUT dir, and letting it anchor made every scanned file "out-of-root"
+    # -> _portable_out_of_root_sf() -> bare basename for the whole corpus (#1941).
+    if anchor_root is not None:
+        root = anchor_root
+    elif cache_root is not None:
         root = cache_root
     root = root.resolve()
 
@@ -4536,6 +4550,7 @@ def extract(
                 e["target"] = id_remap[e["target"]]
     if prefix_remap:
         sym_remap: dict[str, str] = {}
+        edge_alias_candidates: dict[str, set[str]] = {}
         for n in all_nodes:
             sf = n.get("source_file")
             if not sf:
@@ -4556,12 +4571,28 @@ def extract(
             # Try both the input-form and absolute-form prefixes for this file
             # (#1529). source_file gating above already prevents cross-file
             # contamination, so the first matching prefix wins.
+            canonical_nid: str | None = None
             for old_pref, new_pref in entry:
                 if nid.startswith(old_pref + "_"):
-                    new_nid = new_pref + nid[len(old_pref):]
-                    if new_nid != nid:
-                        sym_remap[nid] = new_nid
+                    canonical_nid = new_pref + nid[len(old_pref):]
+                    if canonical_nid != nid:
+                        sym_remap[nid] = canonical_nid
                     break
+                if nid.startswith(new_pref + "_"):
+                    canonical_nid = nid
+                    break
+            if canonical_nid is None:
+                continue
+            # Named alias imports can retain an absolute-prefixed target even
+            # when the symbol node is already canonical. Record every old form
+            # so a redundant edge can be recognized without globally
+            # reinterpreting an id that another real node may own.
+            for old_pref, new_pref in entry:
+                if not canonical_nid.startswith(new_pref + "_"):
+                    continue
+                old_nid = old_pref + canonical_nid[len(new_pref):]
+                if old_nid != canonical_nid:
+                    edge_alias_candidates.setdefault(old_nid, set()).add(canonical_nid)
         if sym_remap:
             for n in all_nodes:
                 if n.get("id") in sym_remap:
@@ -4578,6 +4609,34 @@ def extract(
                 cn = rc.get("caller_nid")
                 if cn in sym_remap:
                     rc["caller_nid"] = sym_remap[cn]
+        if edge_alias_candidates:
+            edge_key_counts = Counter(
+                json.dumps(edge, sort_keys=True, separators=(",", ":"), default=str)
+                for edge in all_edges
+            )
+            owned_node_ids = {node.get("id") for node in all_nodes}
+            deduped_edges: list[dict] = []
+            for edge in all_edges:
+                candidates = (
+                    edge_alias_candidates.get(edge.get("target", ""), set())
+                    if edge.get("relation") == "imports"
+                    else set()
+                )
+                if len(candidates) == 1:
+                    candidate = next(iter(candidates))
+                    twin = {**edge, "target": candidate}
+                    twin_key = json.dumps(
+                        twin, sort_keys=True, separators=(",", ":"), default=str
+                    )
+                    # Drop only when the shared resolver emitted the exact
+                    # canonical twin. Otherwise the target may be a legitimate
+                    # owned node id.
+                    if edge_key_counts[twin_key]:
+                        if edge.get("target") in owned_node_ids:
+                            edge_key_counts[twin_key] -= 1
+                        continue
+                deduped_edges.append(edge)
+            all_edges[:] = deduped_edges
 
     _merge_swift_extensions(per_file, all_nodes, all_edges)
     _disambiguate_colliding_node_ids(all_nodes, all_edges, all_raw_calls, root)

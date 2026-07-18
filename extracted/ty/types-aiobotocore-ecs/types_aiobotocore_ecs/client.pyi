@@ -41,6 +41,8 @@ from .paginator import (
     ListTasksPaginator,
 )
 from .type_defs import (
+    ContinueServiceDeploymentRequestTypeDef,
+    ContinueServiceDeploymentResponseTypeDef,
     CreateCapacityProviderRequestTypeDef,
     CreateCapacityProviderResponseTypeDef,
     CreateClusterRequestTypeDef,
@@ -277,6 +279,17 @@ class ECSClient(AioBaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/generate_presigned_url.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecs/client/#generate_presigned_url)
+        """
+
+    async def continue_service_deployment(
+        self, **kwargs: Unpack[ContinueServiceDeploymentRequestTypeDef]
+    ) -> ContinueServiceDeploymentResponseTypeDef:
+        """
+        Continues or rolls back an Amazon ECS service deployment that is paused at a
+        lifecycle hook.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/continue_service_deployment.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecs/client/#continue_service_deployment)
         """
 
     async def create_capacity_provider(

@@ -63,6 +63,10 @@ class Credential(BaseModel):
     last_rotated_at: Optional[StrictStr] = Field(
         default=None, description="When the credential was last rotated."
     )
+    last_activity: Optional[StrictStr] = Field(
+        default=None,
+        description="ISO 8601 timestamp of the credential's last observed activity, when the listing endpoint returns it. Lets connectors report activity inline and avoid a separate get_credential_last_activity call.",
+    )
     custom_attributes: Optional[Dict[str, StrictStr]] = Field(
         default=None,
         description="Custom attributes associated with the credential. See the list_custom_attributes_schema capability.",
@@ -83,6 +87,7 @@ class Credential(BaseModel):
         "last_used_at",
         "expires_at",
         "last_rotated_at",
+        "last_activity",
         "custom_attributes",
         "extra_data",
     ]
@@ -142,6 +147,7 @@ class Credential(BaseModel):
                 "last_used_at": obj.get("last_used_at"),
                 "expires_at": obj.get("expires_at"),
                 "last_rotated_at": obj.get("last_rotated_at"),
+                "last_activity": obj.get("last_activity"),
                 "custom_attributes": obj.get("custom_attributes"),
                 "extra_data": obj.get("extra_data"),
             }

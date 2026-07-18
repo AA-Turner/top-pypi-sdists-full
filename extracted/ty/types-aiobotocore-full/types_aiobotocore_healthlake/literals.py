@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_healthlake.literals import AuthorizationStrategyType
+    from types_aiobotocore_healthlake.literals import AnalyticsStatusType
 
-    data: AuthorizationStrategyType = "AWS_AUTH"
+    data: AnalyticsStatusType = "DISABLED"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 
 __all__ = (
+    "AnalyticsStatusType",
     "AuthorizationStrategyType",
     "CmkTypeType",
     "DatastoreStatusType",
@@ -34,6 +35,7 @@ __all__ = (
     "FHIRVersionType",
     "HealthLakeServiceName",
     "JobStatusType",
+    "NlpStatusType",
     "PreloadDataTypeType",
     "RegionName",
     "ResourceServiceName",
@@ -43,9 +45,12 @@ __all__ = (
 )
 
 
+AnalyticsStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "PAUSED", "PAUSING"]
 AuthorizationStrategyType = Literal["AWS_AUTH", "SMART_ON_FHIR", "SMART_ON_FHIR_V1"]
 CmkTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS_KEY"]
-DatastoreStatusType = Literal["ACTIVE", "CREATE_FAILED", "CREATING", "DELETED", "DELETING"]
+DatastoreStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETED", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
 ErrorCategoryType = Literal["NON_RETRYABLE_ERROR", "RETRYABLE_ERROR"]
 FHIRDatastoreActiveWaiterName = Literal["fhir_datastore_active"]
 FHIRDatastoreDeletedWaiterName = Literal["fhir_datastore_deleted"]
@@ -64,6 +69,7 @@ JobStatusType = Literal[
     "QUEUED",
     "SUBMITTED",
 ]
+NlpStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING"]
 PreloadDataTypeType = Literal["SYNTHEA"]
 ValidationLevelType = Literal["minimal", "strict", "structure-only"]
 HealthLakeServiceName = Literal["healthlake"]
@@ -260,8 +266,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -288,6 +292,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -355,10 +361,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -391,6 +397,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -418,6 +425,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -439,7 +447,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -460,6 +467,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

@@ -14,6 +14,7 @@ from phonopy.structure.atoms import (
     PhonopyAtoms,
     _Species,
     build_species_table_from_mixtures,
+    build_species_table_from_symbols,
     parse_cell_dict,
 )
 
@@ -413,22 +414,44 @@ def test_build_species_table_from_mixtures_weight_sum_error():
 
 
 def test_build_species_table_from_mixtures_sort_constituents_default():
-    """By default, constituents are sorted so input order does not matter."""
-    species_a, ids_a = build_species_table_from_mixtures([[("Ge", 0.5), ("Sn", 0.5)]])
-    species_b, ids_b = build_species_table_from_mixtures([[("Sn", 0.5), ("Ge", 0.5)]])
-    assert species_a == species_b
-    np.testing.assert_array_equal(ids_a, ids_b)
-    assert species_a[0].symbol == "GeSn"
-    assert species_a[0].mixture == (("Ge", 0.5), ("Sn", 0.5))
+    """Sites listing the same constituents in any order become one species."""
+    species, ids = build_species_table_from_mixtures(
+        [[("Ge", 0.5), ("Sn", 0.5)], [("Sn", 0.5), ("Ge", 0.5)]]
+    )
+    assert len(species) == 1
+    np.testing.assert_array_equal(ids, [0, 0])
+    assert species[0].symbol == "GeSn"
+    assert species[0].mixture == (("Ge", 0.5), ("Sn", 0.5))
+
+
+def test_build_species_table_from_mixtures_canonical_order_is_first_appearance():
+    """The canonical order follows first appearance, not the alphabet."""
+    species, ids = build_species_table_from_mixtures(
+        [[("Sn", 0.5), ("Ge", 0.5)], [("Ge", 0.5), ("Sn", 0.5)]]
+    )
+    assert len(species) == 1
+    np.testing.assert_array_equal(ids, [0, 0])
+    assert species[0].symbol == "SnGe"
+    assert species[0].mixture == (("Sn", 0.5), ("Ge", 0.5))
+
+
+def test_build_species_table_from_mixtures_canonicalization_is_idempotent():
+    """Re-canonicalizing an already canonical set of mixtures changes nothing."""
+    species, _ = build_species_table_from_mixtures([[("Sn", 0.5), ("Ge", 0.5)]])
+    assert species[0].mixture is not None
+    again, _ = build_species_table_from_mixtures([list(species[0].mixture)])
+    assert again[0].symbol == species[0].symbol
+    assert again[0].mixture == species[0].mixture
 
 
 def test_build_species_table_from_mixtures_sort_constituents_off():
-    """Passing sort_constituents=False preserves caller order."""
-    species, _ = build_species_table_from_mixtures(
-        [[("Sn", 0.5), ("Ge", 0.5)]], sort_constituents=False
+    """Passing sort_constituents=False preserves each caller order verbatim."""
+    species, ids = build_species_table_from_mixtures(
+        [[("Sn", 0.5), ("Ge", 0.5)], [("Ge", 0.5), ("Sn", 0.5)]],
+        sort_constituents=False,
     )
-    assert species[0].symbol == "SnGe"
-    assert species[0].mixture == (("Sn", 0.5), ("Ge", 0.5))
+    assert [sp.symbol for sp in species] == ["SnGe", "GeSn"]
+    np.testing.assert_array_equal(ids, [0, 1])
 
 
 def test_build_species_table_from_mixtures_distinct_weights_get_suffixes():
@@ -441,6 +464,35 @@ def test_build_species_table_from_mixtures_distinct_weights_get_suffixes():
     )
     assert [sp.symbol for sp in species] == ["GeSn1", "GeSn2"]
     np.testing.assert_array_equal(ids, [0, 1])
+
+
+def test_build_species_table_from_symbols_first_appearance_default():
+    """Without order, the table keeps first-appearance order."""
+    table, ids = build_species_table_from_symbols(["Au", "S", "Mo", "S", "Au"])
+    assert [sp.symbol for sp in table] == ["Au", "S", "Mo"]
+    np.testing.assert_array_equal(ids, [0, 1, 2, 1, 0])
+
+
+def test_build_species_table_from_symbols_order_reorders_table():
+    """A given order reorders the table while keeping per-atom identity."""
+    symbols = ["Au", "S", "Mo", "S", "Au"]
+    table, ids = build_species_table_from_symbols(symbols, order=["Au", "Mo", "S"])
+    assert [sp.symbol for sp in table] == ["Au", "Mo", "S"]
+    # Per-atom symbols are unchanged by the reordering.
+    assert [table[i].symbol for i in ids] == symbols
+
+
+def test_build_species_table_from_symbols_order_drops_unused():
+    """Symbols listed in order but absent from symbols are dropped."""
+    table, ids = build_species_table_from_symbols(["Au", "S"], order=["Au", "Mo", "S"])
+    assert [sp.symbol for sp in table] == ["Au", "S"]
+    np.testing.assert_array_equal(ids, [0, 1])
+
+
+def test_build_species_table_from_symbols_order_missing_symbol_raises():
+    """A symbol present in symbols but missing from order is an error."""
+    with pytest.raises(ValueError):
+        build_species_table_from_symbols(["Au", "S", "Mo"], order=["Au", "Mo"])
 
 
 def test_PhonopyAtoms_input_mutual_exclusion():

@@ -41,6 +41,7 @@ from .paginator import (
     GetFindingsTrendsV2Paginator,
     GetFindingsV2Paginator,
     GetInsightsPaginator,
+    GetRecommendedPolicyV2Paginator,
     GetResourcesTrendsV2Paginator,
     GetResourcesV2Paginator,
     ListAggregatorsV2Paginator,
@@ -91,6 +92,8 @@ from .type_defs import (
     CreateAutomationRuleV2ResponseTypeDef,
     CreateConfigurationPolicyRequestTypeDef,
     CreateConfigurationPolicyResponseTypeDef,
+    CreateConnectorRequestTypeDef,
+    CreateConnectorResponseTypeDef,
     CreateConnectorV2RequestTypeDef,
     CreateConnectorV2ResponseTypeDef,
     CreateFindingAggregatorRequestTypeDef,
@@ -108,7 +111,10 @@ from .type_defs import (
     DeleteAggregatorV2RequestTypeDef,
     DeleteAutomationRuleV2RequestTypeDef,
     DeleteConfigurationPolicyRequestTypeDef,
+    DeleteConnectorRequestTypeDef,
+    DeleteConnectorResponseTypeDef,
     DeleteConnectorV2RequestTypeDef,
+    DeleteConnectorV2ResponseTypeDef,
     DeleteFindingAggregatorRequestTypeDef,
     DeleteInsightRequestTypeDef,
     DeleteInsightResponseTypeDef,
@@ -132,14 +138,17 @@ from .type_defs import (
     DescribeStandardsResponseTypeDef,
     DisableImportFindingsForProductRequestTypeDef,
     DisableOrganizationAdminAccountRequestTypeDef,
+    DisableSecurityHubFeatureV2RequestTypeDef,
     DisassociateMembersRequestTypeDef,
     EnableImportFindingsForProductRequestTypeDef,
     EnableImportFindingsForProductResponseTypeDef,
     EnableOrganizationAdminAccountRequestTypeDef,
     EnableOrganizationAdminAccountResponseTypeDef,
+    EnableSecurityHubFeatureV2RequestTypeDef,
     EnableSecurityHubRequestTypeDef,
     EnableSecurityHubV2RequestTypeDef,
     EnableSecurityHubV2ResponseTypeDef,
+    GenerateRecommendedPolicyV2RequestTypeDef,
     GetAdministratorAccountResponseTypeDef,
     GetAggregatorV2RequestTypeDef,
     GetAggregatorV2ResponseTypeDef,
@@ -149,6 +158,8 @@ from .type_defs import (
     GetConfigurationPolicyAssociationResponseTypeDef,
     GetConfigurationPolicyRequestTypeDef,
     GetConfigurationPolicyResponseTypeDef,
+    GetConnectorRequestTypeDef,
+    GetConnectorResponseTypeDef,
     GetConnectorV2RequestTypeDef,
     GetConnectorV2ResponseTypeDef,
     GetEnabledStandardsRequestTypeDef,
@@ -173,6 +184,8 @@ from .type_defs import (
     GetMasterAccountResponseTypeDef,
     GetMembersRequestTypeDef,
     GetMembersResponseTypeDef,
+    GetRecommendedPolicyV2RequestTypeDef,
+    GetRecommendedPolicyV2ResponseTypeDef,
     GetResourcesStatisticsV2RequestTypeDef,
     GetResourcesStatisticsV2ResponseTypeDef,
     GetResourcesTrendsV2RequestTypeDef,
@@ -193,6 +206,8 @@ from .type_defs import (
     ListConfigurationPoliciesResponseTypeDef,
     ListConfigurationPolicyAssociationsRequestTypeDef,
     ListConfigurationPolicyAssociationsResponseTypeDef,
+    ListConnectorsRequestTypeDef,
+    ListConnectorsResponseTypeDef,
     ListConnectorsV2RequestTypeDef,
     ListConnectorsV2ResponseTypeDef,
     ListEnabledProductsForImportRequestTypeDef,
@@ -224,7 +239,10 @@ from .type_defs import (
     UpdateAutomationRuleV2RequestTypeDef,
     UpdateConfigurationPolicyRequestTypeDef,
     UpdateConfigurationPolicyResponseTypeDef,
+    UpdateConnectorRequestTypeDef,
+    UpdateConnectorResponseTypeDef,
     UpdateConnectorV2RequestTypeDef,
+    UpdateConnectorV2ResponseTypeDef,
     UpdateFindingAggregatorRequestTypeDef,
     UpdateFindingAggregatorResponseTypeDef,
     UpdateFindingsRequestTypeDef,
@@ -495,6 +513,17 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#create_configuration_policy)
         """
 
+    async def create_connector(
+        self, **kwargs: Unpack[CreateConnectorRequestTypeDef]
+    ) -> CreateConnectorResponseTypeDef:
+        """
+        Creates a cloud service provider management (CSPM) connector in Security Hub
+        CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#create_connector)
+        """
+
     async def create_connector_v2(
         self, **kwargs: Unpack[CreateConnectorV2RequestTypeDef]
     ) -> CreateConnectorV2ResponseTypeDef:
@@ -599,9 +628,19 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#delete_configuration_policy)
         """
 
+    async def delete_connector(
+        self, **kwargs: Unpack[DeleteConnectorRequestTypeDef]
+    ) -> DeleteConnectorResponseTypeDef:
+        """
+        Deletes a CSPM connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#delete_connector)
+        """
+
     async def delete_connector_v2(
         self, **kwargs: Unpack[DeleteConnectorV2RequestTypeDef]
-    ) -> dict[str, Any]:
+    ) -> DeleteConnectorV2ResponseTypeDef:
         """
         Grants permission to delete a connectorV2.
 
@@ -760,6 +799,17 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#disable_security_hub)
         """
 
+    async def disable_security_hub_feature_v2(
+        self, **kwargs: Unpack[DisableSecurityHubFeatureV2RequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Disables an opt-in feature for the calling account in the current Amazon Web
+        Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/disable_security_hub_feature_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#disable_security_hub_feature_v2)
+        """
+
     async def disable_security_hub_v2(self) -> dict[str, Any]:
         """
         Disable the service for the current Amazon Web Services Region or specified
@@ -828,6 +878,17 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#enable_security_hub)
         """
 
+    async def enable_security_hub_feature_v2(
+        self, **kwargs: Unpack[EnableSecurityHubFeatureV2RequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Enables an opt-in feature for the calling account in the current Amazon Web
+        Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/enable_security_hub_feature_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#enable_security_hub_feature_v2)
+        """
+
     async def enable_security_hub_v2(
         self, **kwargs: Unpack[EnableSecurityHubV2RequestTypeDef]
     ) -> EnableSecurityHubV2ResponseTypeDef:
@@ -837,6 +898,16 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/enable_security_hub_v2.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#enable_security_hub_v2)
+        """
+
+    async def generate_recommended_policy_v2(
+        self, **kwargs: Unpack[GenerateRecommendedPolicyV2RequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Begins the recommended policy generation to remediate a Security Hub finding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/generate_recommended_policy_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#generate_recommended_policy_v2)
         """
 
     async def get_administrator_account(self) -> GetAdministratorAccountResponseTypeDef:
@@ -887,6 +958,16 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_configuration_policy_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_configuration_policy_association)
+        """
+
+    async def get_connector(
+        self, **kwargs: Unpack[GetConnectorRequestTypeDef]
+    ) -> GetConnectorResponseTypeDef:
+        """
+        Retrieves details for a CSPM connector based on the connector ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_connector)
         """
 
     async def get_connector_v2(
@@ -1017,6 +1098,16 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_members)
         """
 
+    async def get_recommended_policy_v2(
+        self, **kwargs: Unpack[GetRecommendedPolicyV2RequestTypeDef]
+    ) -> GetRecommendedPolicyV2ResponseTypeDef:
+        """
+        Retrieves the recommended policy to remediate a Security Hub finding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_recommended_policy_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_recommended_policy_v2)
+        """
+
     async def get_resources_statistics_v2(
         self, **kwargs: Unpack[GetResourcesStatisticsV2RequestTypeDef]
     ) -> GetResourcesStatisticsV2ResponseTypeDef:
@@ -1119,6 +1210,16 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_configuration_policy_associations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#list_configuration_policy_associations)
+        """
+
+    async def list_connectors(
+        self, **kwargs: Unpack[ListConnectorsRequestTypeDef]
+    ) -> ListConnectorsResponseTypeDef:
+        """
+        Lists the CSPM connectors and their metadata for the calling account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_connectors.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#list_connectors)
         """
 
     async def list_connectors_v2(
@@ -1306,9 +1407,20 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#update_configuration_policy)
         """
 
+    async def update_connector(
+        self, **kwargs: Unpack[UpdateConnectorRequestTypeDef]
+    ) -> UpdateConnectorResponseTypeDef:
+        """
+        Updates a CSPM connector's configuration, such as the scope or regions for the
+        connected cloud provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#update_connector)
+        """
+
     async def update_connector_v2(
         self, **kwargs: Unpack[UpdateConnectorV2RequestTypeDef]
-    ) -> dict[str, Any]:
+    ) -> UpdateConnectorV2ResponseTypeDef:
         """
         Grants permission to update a connectorV2 based on its id and input parameters.
 
@@ -1499,6 +1611,17 @@ class SecurityHubClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_insights"]
     ) -> GetInsightsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_recommended_policy_v2"]
+    ) -> GetRecommendedPolicyV2Paginator:
         """
         Create a paginator for an operation.
 

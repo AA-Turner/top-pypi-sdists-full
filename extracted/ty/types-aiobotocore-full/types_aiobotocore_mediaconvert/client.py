@@ -433,7 +433,7 @@ class MediaConvertClient(AioBaseClient):
 
     async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Add tags to a MediaConvert queue, preset, or job template.
+        Add tags to a MediaConvert queue, preset, job, or job template.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconvert/client/tag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconvert/client/#tag_resource)
@@ -441,7 +441,7 @@ class MediaConvertClient(AioBaseClient):
 
     async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Remove tags from a MediaConvert queue, preset, or job template.
+        Remove tags from a MediaConvert queue, preset, job, or job template.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconvert/client/untag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconvert/client/#untag_resource)

@@ -92,12 +92,15 @@ def test_operator_configured_target_keeps_proxy(monkeypatch):
 
 
 @pytest.mark.security_regression
-def test_cloud_oauth_gateway_keeps_proxy(monkeypatch):
-    """The fixed Cloud OAuth transport remains proxyable after SSRF pinning."""
+def test_cloud_oauth_gateway_keeps_proxy_through_no_proxy_adapter(monkeypatch):
+    """The fixed Cloud OAuth transport remains proxyable after NO_PROXY handling."""
+    from mcp_atlassian.utils.ssl import NoProxyAdapter
+
     for key in ("JIRA_URL", "CONFLUENCE_URL", "MCP_ALLOWED_URL_DOMAINS"):
         monkeypatch.delenv(key, raising=False)
     url = "https://api.atlassian.com/ex/jira/cloud-id/rest/api/3/myself"
     session = requests.Session()
+    session.mount("https://api.atlassian.com", NoProxyAdapter(no_proxy="localhost"))
     mount_ssrf_pinning(session, url)
     adapter = session.get_adapter(url)
     request = requests.Request("GET", url).prepare()

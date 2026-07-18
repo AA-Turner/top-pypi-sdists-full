@@ -51,6 +51,8 @@ from .type_defs import (
     BatchGetCalculatedAttributeForProfileResponseTypeDef,
     BatchGetProfileRequestTypeDef,
     BatchGetProfileResponseTypeDef,
+    BatchPutProfileObjectRequestTypeDef,
+    BatchPutProfileObjectResponseTypeDef,
     CreateCalculatedAttributeDefinitionRequestTypeDef,
     CreateCalculatedAttributeDefinitionResponseTypeDef,
     CreateDomainLayoutRequestTypeDef,
@@ -328,6 +330,17 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#batch_get_profile)
         """
 
+    async def batch_put_profile_object(
+        self, **kwargs: Unpack[BatchPutProfileObjectRequestTypeDef]
+    ) -> BatchPutProfileObjectResponseTypeDef:
+        """
+        Adds multiple profile objects to a domain of a given ObjectType in a single API
+        call.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/batch_put_profile_object.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#batch_put_profile_object)
+        """
+
     async def create_calculated_attribute_definition(
         self, **kwargs: Unpack[CreateCalculatedAttributeDefinitionRequestTypeDef]
     ) -> CreateCalculatedAttributeDefinitionResponseTypeDef:
@@ -364,7 +377,8 @@ class CustomerProfilesClient(AioBaseClient):
     ) -> CreateEventStreamResponseTypeDef:
         """
         Creates an event stream, which is a subscription to real-time events, such as
-        when profiles are created and updated through Amazon Connect Customer Profiles.
+        when profiles are created and updated through Connect Customer Customer
+        Profiles.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/create_event_stream.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#create_event_stream)

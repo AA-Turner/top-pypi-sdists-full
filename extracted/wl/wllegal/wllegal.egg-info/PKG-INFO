@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wllegal
-Version: 2026.4
+Version: 2026.5
 Summary: Hosted Weblate legal stuff
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: GPL-3.0-or-later
@@ -34,14 +34,14 @@ Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: Django<6.1,>=5.2
-Requires-Dist: weblate-language-data>=2026.7
+Requires-Dist: weblate-language-data>=2026.8
 Provides-Extra: dev
 Requires-Dist: wllegal[lint,test]; extra == "dev"
 Provides-Extra: lint
-Requires-Dist: prek==0.4.0; extra == "lint"
+Requires-Dist: prek==0.4.10; extra == "lint"
 Provides-Extra: test
 Requires-Dist: wllegal[weblate]; extra == "test"
-Requires-Dist: coverage==7.14.0; extra == "test"
+Requires-Dist: coverage==7.15.2; extra == "test"
 Requires-Dist: translate-toolkit; extra == "test"
 Provides-Extra: weblate
 Requires-Dist: Weblate[postgres]>=5.0; extra == "weblate"
@@ -56,13 +56,13 @@ Dynamic: license-file
 **Weblate is libre software web-based continuous localization system,
 used by over 2500 libre projects and companies in more than 165 countries.**
 
+This is the legal module used on services operated by Weblate s.r.o., including
+the `Hosted Weblate service <https://weblate.org/hosting/>`_.
 
-This is legal module used on the `Hosted Weblate service
-<https://weblate.org/hosting/>`_.
-
-You can use them as an example how to customize `Weblate
-<https://weblate.org/>`_, but there are probably not generally usable.  If you
-think something should be part of Weblate, please open an issue.
+It can serve as an implementation example for customizing `Weblate
+<https://weblate.org/>`_, but its legal documents are specific to those
+services and should not be used as a basis for other services. If you think
+something should be part of Weblate, please open an issue.
 
 .. image:: https://img.shields.io/badge/website-weblate.org-blue.svg
     :alt: Website
@@ -91,15 +91,15 @@ Install using pip:
 
 .. code-block:: sh
 
-    pip3 install wllegal
+    uv pip install wllegal
 
 Sources are available at <https://github.com/WeblateOrg/wllegal>.
 
 Usage
 -----
 
-Include the module in the `INSTALLED_APPS`, it has to be placed prior to other
-Weblate modules to override it's templates:
+Include the module in the `INSTALLED_APPS`; it has to be placed prior to other
+Weblate modules to override their templates:
 
 .. code-block:: python
 

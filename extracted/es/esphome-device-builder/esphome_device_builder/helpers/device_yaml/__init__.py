@@ -23,6 +23,7 @@ from ._generation import (
     _infer_native_wifi,
     board_provides_network,
     board_requires_wifi,
+    generate_adoption_yaml,
     generate_device_yaml,
     generate_minimal_stub_yaml,
 )
@@ -81,6 +82,7 @@ __all__ = [
     "device_uses_mqtt",
     "extract_directly_referenced_integrations",
     "extract_esphome_meta_from_config",
+    "generate_adoption_yaml",
     "generate_device_yaml",
     "generate_minimal_stub_yaml",
     "get_api_encryption_block",

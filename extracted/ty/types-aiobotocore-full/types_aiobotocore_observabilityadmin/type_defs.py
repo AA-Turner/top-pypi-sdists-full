@@ -30,10 +30,12 @@ from .literals import (
     FilterRequirementType,
     IntegrationStatusType,
     LogTypeType,
+    MskEnhancedMonitoringLevelType,
     OutputFormatType,
     RecordFormatType,
     ResourceTypeType,
     RuleHealthType,
+    SignalTypeType,
     SSEAlgorithmType,
     StatusType,
     TelemetryEnrichmentStatusType,
@@ -83,6 +85,7 @@ __all__ = (
     "DeleteTelemetryRuleForOrganizationInputTypeDef",
     "DeleteTelemetryRuleInputTypeDef",
     "DestinationLogsConfigurationTypeDef",
+    "DestinationMetricsConfigurationTypeDef",
     "ELBLoadBalancerLoggingParametersTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EncryptionTypeDef",
@@ -134,6 +137,8 @@ __all__ = (
     "LoggingFilterTypeDef",
     "LogsBackupConfigurationTypeDef",
     "LogsEncryptionConfigurationTypeDef",
+    "MetricsBackupConfigurationTypeDef",
+    "MskMonitoringParametersTypeDef",
     "PaginatorConfigTypeDef",
     "PipelineOutputErrorTypeDef",
     "PipelineOutputTypeDef",
@@ -142,6 +147,7 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "SingleHeaderTypeDef",
     "SourceLogsConfigurationTypeDef",
+    "SourceMetricsConfigurationTypeDef",
     "SourceTypeDef",
     "StartTelemetryEnrichmentOutputTypeDef",
     "StartTelemetryEvaluationForOrganizationInputTypeDef",
@@ -206,6 +212,10 @@ class SourceLogsConfigurationTypeDef(TypedDict):
     EncryptedLogGroupStrategy: EncryptedLogGroupStrategyType
     LogGroupSelectionCriteria: NotRequired[str]
     DataSourceSelectionCriteria: NotRequired[str]
+
+
+class SourceMetricsConfigurationTypeDef(TypedDict):
+    MetricsSelectionCriteria: NotRequired[str]
 
 
 class CentralizationRuleSummaryTypeDef(TypedDict):
@@ -290,6 +300,10 @@ class LogsEncryptionConfigurationTypeDef(TypedDict):
     EncryptionStrategy: EncryptionStrategyType
     KmsKeyArn: NotRequired[str]
     EncryptionConflictResolutionStrategy: NotRequired[EncryptionConflictResolutionStrategyType]
+
+
+class MetricsBackupConfigurationTypeDef(TypedDict):
+    Region: str
 
 
 class ELBLoadBalancerLoggingParametersTypeDef(TypedDict):
@@ -421,6 +435,10 @@ class LogDeliveryParametersTypeDef(TypedDict):
     LogTypes: NotRequired[Sequence[LogTypeType]]
 
 
+class MskMonitoringParametersTypeDef(TypedDict):
+    EnhancedMonitoring: NotRequired[MskEnhancedMonitoringLevelType]
+
+
 class PipelineOutputErrorTypeDef(TypedDict):
     Message: NotRequired[str]
 
@@ -484,12 +502,14 @@ class CentralizationRuleSourceOutputTypeDef(TypedDict):
     Regions: list[str]
     Scope: NotRequired[str]
     SourceLogsConfiguration: NotRequired[SourceLogsConfigurationTypeDef]
+    SourceMetricsConfiguration: NotRequired[SourceMetricsConfigurationTypeDef]
 
 
 class CentralizationRuleSourceTypeDef(TypedDict):
     Regions: Sequence[str]
     Scope: NotRequired[str]
     SourceLogsConfiguration: NotRequired[SourceLogsConfigurationTypeDef]
+    SourceMetricsConfiguration: NotRequired[SourceMetricsConfigurationTypeDef]
 
 
 class ConditionTypeDef(TypedDict):
@@ -614,6 +634,10 @@ class DestinationLogsConfigurationTypeDef(TypedDict):
     LogGroupNameConfiguration: NotRequired[LogGroupNameConfigurationTypeDef]
 
 
+class DestinationMetricsConfigurationTypeDef(TypedDict):
+    BackupConfiguration: NotRequired[MetricsBackupConfigurationTypeDef]
+
+
 class FieldToMatchTypeDef(TypedDict):
     SingleHeader: NotRequired[SingleHeaderTypeDef]
     UriPath: NotRequired[str]
@@ -718,6 +742,7 @@ class PipelineOutputTypeDef(TypedDict):
 class TestTelemetryPipelineInputTypeDef(TypedDict):
     Records: Sequence[RecordTypeDef]
     Configuration: TelemetryPipelineConfigurationTypeDef
+    SignalType: NotRequired[SignalTypeType]
 
 
 class TelemetryPipelineTypeDef(TypedDict):
@@ -770,6 +795,7 @@ class CentralizationRuleDestinationTypeDef(TypedDict):
     Region: str
     Account: NotRequired[str]
     DestinationLogsConfiguration: NotRequired[DestinationLogsConfigurationTypeDef]
+    DestinationMetricsConfiguration: NotRequired[DestinationMetricsConfigurationTypeDef]
 
 
 class TestTelemetryPipelineOutputTypeDef(TypedDict):
@@ -845,6 +871,7 @@ class TelemetryDestinationConfigurationOutputTypeDef(TypedDict):
     ELBLoadBalancerLoggingParameters: NotRequired[ELBLoadBalancerLoggingParametersTypeDef]
     WAFLoggingParameters: NotRequired[WAFLoggingParametersOutputTypeDef]
     LogDeliveryParameters: NotRequired[LogDeliveryParametersOutputTypeDef]
+    MskMonitoringParameters: NotRequired[MskMonitoringParametersTypeDef]
 
 
 class TelemetryDestinationConfigurationTypeDef(TypedDict):
@@ -856,6 +883,7 @@ class TelemetryDestinationConfigurationTypeDef(TypedDict):
     ELBLoadBalancerLoggingParameters: NotRequired[ELBLoadBalancerLoggingParametersTypeDef]
     WAFLoggingParameters: NotRequired[WAFLoggingParametersTypeDef]
     LogDeliveryParameters: NotRequired[LogDeliveryParametersTypeDef]
+    MskMonitoringParameters: NotRequired[MskMonitoringParametersTypeDef]
 
 
 class CreateCentralizationRuleForOrganizationInputTypeDef(TypedDict):

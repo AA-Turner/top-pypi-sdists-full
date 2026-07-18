@@ -3119,23 +3119,19 @@ https://docs.chalk.ai/cli/apply
 
     def get_all_offline_store_table_names(
         self,
-        branch_id: "str | None" = None,
         deployment_id: "str | None" = None,
     ) -> "list[OfflineStoreTable]":
         return self._grpc_client.get_all_offline_store_table_names(
-            branch_id=branch_id,
             deployment_id=deployment_id,
         )
 
     def get_feature_from_offline_store_table_name(
         self,
         table_name: str,
-        branch_id: "str | None" = None,
         deployment_id: "str | None" = None,
     ) -> "OfflineStoreTable | None":
         return self._grpc_client.get_feature_from_offline_store_table_name(
             table_name=table_name,
-            branch_id=branch_id,
             deployment_id=deployment_id,
         )
 

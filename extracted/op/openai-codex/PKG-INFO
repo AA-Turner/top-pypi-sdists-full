@@ -1,27 +1,23 @@
 Metadata-Version: 2.4
 Name: openai-codex
-Version: 0.1.0b3
+Version: 0.144.4
 Summary: Python SDK for Codex
+Keywords: codex,sdk,llm,ai,agents
+Author: OpenAI
+License-Expression: Apache-2.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: pydantic>=2.12
+Requires-Dist: openai-codex-cli-bin==0.144.4
+Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/openai/codex
 Project-URL: Repository, https://github.com/openai/codex
 Project-URL: Issues, https://github.com/openai/codex/issues
 Project-URL: Documentation, https://github.com/openai/codex/tree/main/sdk/python/docs
-Author: OpenAI
-License-Expression: Apache-2.0
-Keywords: agents,ai,codex,llm,sdk
-Classifier: Development Status :: 4 - Beta
-Classifier: Intended Audience :: Developers
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
-Requires-Dist: openai-codex-cli-bin==0.137.0a4
-Requires-Dist: pydantic>=2.12
-Provides-Extra: dev
-Requires-Dist: datamodel-code-generator==0.31.2; extra == 'dev'
-Requires-Dist: pytest>=8.0; extra == 'dev'
-Requires-Dist: ruff>=0.15.8; extra == 'dev'
 Description-Content-Type: text/markdown
 
-# OpenAI Codex Python SDK (Beta)
+# OpenAI Codex Python SDK
 
 Build Python applications that start Codex threads, run turns, stream progress,
 and control workspace access.

@@ -21,6 +21,7 @@ class CreateRecurringCreditRequest(google.protobuf.message.Message):
     AMOUNT_FIELD_NUMBER: builtins.int
     NUMBER_OF_PERIODS_FIELD_NUMBER: builtins.int
     CONTRACT_ID_FIELD_NUMBER: builtins.int
+    SOURCE_CONFIG_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     line_item_uid: builtins.str
     """Required for UNITS; must be absent for monetary types."""
@@ -28,6 +29,8 @@ class CreateRecurringCreditRequest(google.protobuf.message.Message):
     amount: builtins.int
     number_of_periods: builtins.int
     contract_id: builtins.int
+    @property
+    def source_config(self) -> sentry_protos.billing.v1.services.engagement.v1.recurring_credit_pb2.CreditSourceConfig: ...
     def __init__(
         self,
         *,
@@ -37,10 +40,14 @@ class CreateRecurringCreditRequest(google.protobuf.message.Message):
         amount: builtins.int = ...,
         number_of_periods: builtins.int = ...,
         contract_id: builtins.int = ...,
+        source_config: sentry_protos.billing.v1.services.engagement.v1.recurring_credit_pb2.CreditSourceConfig | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_line_item_uid", b"_line_item_uid", "line_item_uid", b"line_item_uid"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_line_item_uid", b"_line_item_uid", "amount", b"amount", "contract_id", b"contract_id", "line_item_uid", b"line_item_uid", "number_of_periods", b"number_of_periods", "organization_id", b"organization_id", "type", b"type"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_line_item_uid", b"_line_item_uid", "_source_config", b"_source_config", "line_item_uid", b"line_item_uid", "source_config", b"source_config"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_line_item_uid", b"_line_item_uid", "_source_config", b"_source_config", "amount", b"amount", "contract_id", b"contract_id", "line_item_uid", b"line_item_uid", "number_of_periods", b"number_of_periods", "organization_id", b"organization_id", "source_config", b"source_config", "type", b"type"]) -> None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_line_item_uid", b"_line_item_uid"]) -> typing.Literal["line_item_uid"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_source_config", b"_source_config"]) -> typing.Literal["source_config"] | None: ...
 
 global___CreateRecurringCreditRequest = CreateRecurringCreditRequest
 

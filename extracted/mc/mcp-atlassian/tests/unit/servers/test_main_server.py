@@ -84,9 +84,52 @@ async def test_run_server_invalid_transport():
 @pytest.mark.anyio
 async def test_tool_registration_issue_dates_name():
     """Ensure issue dates tool is registered with a single Jira prefix."""
-    tools = await main_mcp.get_tools()
-    assert "jira_get_issue_dates" in tools
-    assert "jira_jira_get_issue_dates" not in tools
+    tools = await main_mcp.list_tools()
+    tool_names = {tool.name for tool in tools}
+    assert "jira_get_issue_dates" in tool_names
+    assert "jira_jira_get_issue_dates" not in tool_names
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "tool_name",
+    [
+        "confluence_add_label",
+        "confluence_create_page",
+        "confluence_add_comment",
+        "confluence_reply_to_comment",
+        "jira_add_watcher",
+        "jira_create_issue",
+        "jira_batch_create_issues",
+        "jira_add_comment",
+        "jira_create_issue_link",
+        "jira_create_remote_issue_link",
+        "jira_create_sprint",
+        "jira_create_version",
+        "jira_batch_create_versions",
+    ],
+)
+async def test_additive_write_tools_are_non_destructive(tool_name: str) -> None:
+    """Ensure additive write tools advertise that they preserve existing state."""
+    tools = {tool.name: tool for tool in await main_mcp.list_tools()}
+
+    assert tools[tool_name].annotations.destructiveHint is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "tool_name",
+    [
+        "jira_remove_watcher",
+        "jira_add_issues_to_sprint",
+        "jira_add_worklog",
+    ],
+)
+async def test_state_changing_write_tools_are_destructive(tool_name: str) -> None:
+    """Ensure tools that remove or reassign state advertise destructive behavior."""
+    tools = {tool.name: tool for tool in await main_mcp.list_tools()}
+
+    assert tools[tool_name].annotations.destructiveHint is True
 
 
 @pytest.mark.anyio

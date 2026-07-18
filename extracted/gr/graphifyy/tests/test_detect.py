@@ -1072,6 +1072,52 @@ def test_sensitive_token_config_yaml():
     assert _is_sensitive(Path("token_config.yaml"))
 
 
+# ── #1943: Stage 1 dir check gets the same source carve-out as Stage 3 ──
+# secrets/ and credentials/ are as often real source packages (Go
+# internal/secrets, a credentials/ service module) as credential stores.
+# Genuine programming-language source beneath them must be graphed; data and
+# config formats — the formats credentials actually ship in — stay dropped,
+# and dedicated credential-store dirs (.ssh, .gnupg, .aws, .gcloud) keep
+# dropping everything with no carve-out.
+
+def test_sensitive_does_not_flag_source_under_secrets_dir():
+    # #1943 exact cases: real source under ambiguous dir names survives.
+    assert not _is_sensitive(Path("internal/secrets/vault.go"))
+    assert not _is_sensitive(Path("app/services/credentials/manager.py"))
+
+def test_sensitive_still_flags_data_under_secrets_dir():
+    # #1943 guard: the carve-out is ONLY for real source — data/config files
+    # under ambiguous dirs remain flagged, whatever their nesting depth.
+    assert _is_sensitive(Path("secrets/db.json"))
+    assert _is_sensitive(Path(".secrets/token.yaml"))
+    assert _is_sensitive(Path("deploy/credentials/prod.env"))
+    assert _is_sensitive(Path("internal/secrets/README.md"))  # docs are not source
+
+def test_sensitive_flags_everything_under_credential_store_dirs():
+    # #1943: dedicated stores get no carve-out — even source-classified files
+    # inside .ssh/.gnupg/.aws/.gcloud stay dropped.
+    assert _is_sensitive(Path("/home/user/.ssh/config"))
+    assert _is_sensitive(Path(".aws/credentials"))
+    assert _is_sensitive(Path(".gnupg/helper.py"))
+    assert _is_sensitive(Path("backup/.gcloud/sync.sh"))
+
+def test_sensitive_dir_carveout_does_not_bypass_name_screens():
+    # #1943: rescued source still falls through to Stages 2-3, so a file whose
+    # NAME is sensitive stays dropped even though its dir carve-out applied.
+    assert _is_sensitive(Path("secrets/service_account.py"))   # Stage 2 pattern
+    assert _is_sensitive(Path("credentials/id_rsa"))           # extensionless key
+
+
+def test_sensitive_dir_carveout_still_drops_tfvars_values_store():
+    # #1943 follow-up: genuine source under secrets/ is rescued, but .tfvars is
+    # Terraform's canonical values store (real secrets), not source — it stays
+    # dropped, while the real code file beside it is kept.
+    assert _is_sensitive(Path("secrets/prod.tfvars"))
+    assert not _is_sensitive(Path("secrets/loader.py"))
+    # .tf / .hcl are genuine infra source and remain graphable under secrets/.
+    assert not _is_sensitive(Path("secrets/main.tf"))
+
+
 # ── Generic keywords must be load-bearing: topic slugs are not secret stores ──
 # A keyword buried mid-phrase in a >=3-word descriptive name is a note ABOUT
 # the topic, not a credential file. It must not be silently dropped.
@@ -1134,6 +1180,42 @@ def test_save_manifest_skips_semantic_hash_for_files_without_cache(tmp_path):
     assert manifest[str(doc1)]["semantic_hash"] != "", "successful file must have semantic_hash"
     assert str(doc2) not in manifest, "failed-chunk file must be absent from manifest"
 
+
+def test_save_manifest_clear_semantic_erases_stale_hash_for_omitted_file(tmp_path):
+    """#1948: a file stamped in an earlier run, then omitted from ``files`` on
+    a later run (LLM dropped its chunk / #1890 retry), must not keep surviving
+    with its stale semantic_hash from the prior run — the seed loop copies
+    the on-disk row verbatim otherwise, and detect_incremental(kind='semantic')
+    reports it unchanged, silently defeating the #1890 retry promise."""
+    import json
+
+    doc = tmp_path / "docs" / "doc.md"
+    doc.parent.mkdir()
+    doc.write_text("# Doc\n\ncontent")
+    manifest_path = str(tmp_path / "graphify-out" / "manifest.json")
+
+    # Run 1: doc.md is dispatched and stamped.
+    corpus = {str(doc)}
+    save_manifest({"document": [str(doc)]}, manifest_path, root=tmp_path, scan_corpus=corpus)
+    manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    assert manifest["docs/doc.md"]["semantic_hash"] != ""
+
+    # Run 2 (--force re-run): the model omits doc.md this time, so cli.py's
+    # _stamped_manifest_files() drops it from the files dict passed here —
+    # but it was still dispatched, so the caller passes it via clear_semantic.
+    save_manifest(
+        {"document": []}, manifest_path, root=tmp_path,
+        scan_corpus=corpus, clear_semantic={str(doc)},
+    )
+    manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    assert manifest["docs/doc.md"]["semantic_hash"] == "", (
+        "omitted file must have its stale semantic_hash cleared, not inherited"
+    )
+
+    inc = detect_incremental(tmp_path, manifest_path, kind="semantic")
+    assert [Path(f).name for f in inc["new_files"]["document"]] == ["doc.md"], (
+        "cleared file must be re-queued for semantic extraction"
+    )
 
 
 def test_save_manifest_without_filter_unchanged_for_code(tmp_path):

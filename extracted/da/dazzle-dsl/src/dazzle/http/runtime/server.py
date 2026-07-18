@@ -1127,6 +1127,9 @@ class DazzleBackendApp:
 
         param_specs = {p.key: p for p in self._appspec.params} if self._appspec.params else {}
         self._param_resolver = ParamResolver(specs=param_specs)
+        # #1597: LocaleMiddleware / display profile resolve DSL locale.* defaults
+        if self._app is not None:
+            self._app.state.param_resolver = self._param_resolver
 
         # Migrate tenant schemas when using schema-per-tenant isolation (#561)
         if self._tenant_config and self._tenant_config.isolation == "schema":
@@ -1715,36 +1718,54 @@ class DazzleBackendApp:
             self._app.state.db_manager = self._db_manager
 
         # Project route overrides — registered first for priority (v0.29.0)
+        # #1601: never swallow registration failures at debug — one bad
+        # override used to drop every host route with no production log.
         if self._project_root:
+            from dazzle.http.runtime.route_overrides import (
+                RouteOverrideRegistrationError,
+                build_override_router,
+                discover_route_overrides,
+                find_unbound_shadowing_overrides,
+            )
+
+            # #1392 item 2 — page-context builder for `# dazzle:returns fragment`
+            # overrides: chrome the handler's inner HTML in the app shell. deps=None
+            # ⇒ appspec from app.state + shell frame (the item-2 guarantee).
+            async def _ov_page_ctx(request: Any, current_route: str) -> Any:
+                return await build_app_page_context(request, current_route=current_route)
+
             try:
-                from dazzle.http.runtime.route_overrides import build_override_router
-
-                # #1392 item 2 — page-context builder for `# dazzle:returns fragment`
-                # overrides: chrome the handler's inner HTML in the app shell. deps=None
-                # ⇒ appspec from app.state + shell frame (the item-2 guarantee).
-                async def _ov_page_ctx(request: Any, current_route: str) -> Any:
-                    return await build_app_page_context(request, current_route=current_route)
-
                 override_router = build_override_router(
                     self._project_root / "routes", page_ctx_builder=_ov_page_ctx
                 )
-                if override_router is not None:
-                    self._app.include_router(override_router)
-
-                # #1420 Slice 3 / ADR-0040 D2 — conformance: a route-override that
-                # shadows a generated entity route without a `# dazzle:implements`
-                # binding bypasses permit/scope. Surface it loudly at boot.
-                from dazzle.http.runtime.route_overrides import (
-                    discover_route_overrides,
-                    find_unbound_shadowing_overrides,
+            except RouteOverrideRegistrationError:
+                # Fail boot loudly (default). Soft mode is handled inside
+                # build_override_router and does not raise.
+                raise
+            except Exception:
+                logger.error(
+                    "Route override discovery/build failed — host custom routes "
+                    "will not be mounted",
+                    exc_info=True,
                 )
+                raise
 
+            if override_router is not None:
+                self._app.include_router(override_router)
+
+            # #1420 Slice 3 / ADR-0040 D2 — conformance: a route-override that
+            # shadows a generated entity route without a `# dazzle:implements`
+            # binding bypasses permit/scope. Surface it loudly at boot.
+            try:
                 _overrides = discover_route_overrides(self._project_root / "routes")
                 _generated = {(ep.method.value, ep.path) for ep in self._endpoint_specs}
                 for _violation in find_unbound_shadowing_overrides(_overrides, _generated):
                     logger.warning("[dazzle] %s", _violation)
             except Exception:
-                logger.debug("Route override discovery skipped", exc_info=True)
+                logger.warning(
+                    "Route override shadowing conformance check skipped",
+                    exc_info=True,
+                )
 
             # Extension routers registered in dazzle.toml (#786).
             # Registered after single-file overrides but before generated routes
@@ -1805,10 +1826,49 @@ class DazzleBackendApp:
                 _s.name: resolve_peek_mode(_s, entity).value
                 for _s in _entity_all_list_surfaces.get(entity.name, [])
             }
+            # #1603: per-surface open-via detail templates (key both surface.name
+            # and dt-{name} — HTMX table_id is `dt-{surface.name}`).
+            from dazzle.page.open_via import (
+                resolve_list_detail_url_candidates,
+                resolve_list_detail_url_template,
+                resolve_list_same_entity_detail_template,
+            )
+
+            detail_url_by_table_id: dict[str, str] = {}
+            detail_url_candidates_by_table_id: dict[str, list[str]] = {}
+            detail_url_fallback_by_table_id: dict[str, str] = {}
+            _same_entity = resolve_list_same_entity_detail_template(
+                entity, _ls, app_prefix=app_prefix
+            )
+            for _s in _entity_all_list_surfaces.get(entity.name, []):
+                _tmpl = resolve_list_detail_url_template(_s, entity, app_prefix=app_prefix)
+                _cands = resolve_list_detail_url_candidates(_s, entity, app_prefix=app_prefix)
+                detail_url_by_table_id[_s.name] = _tmpl
+                detail_url_by_table_id[f"dt-{_s.name}"] = _tmpl
+                detail_url_candidates_by_table_id[_s.name] = list(_cands)
+                detail_url_candidates_by_table_id[f"dt-{_s.name}"] = list(_cands)
+                # #1614: always offer same-entity fallback for null open-via FK
+                detail_url_fallback_by_table_id[_s.name] = _same_entity
+                detail_url_fallback_by_table_id[f"dt-{_s.name}"] = _same_entity
+            _default_detail = (
+                resolve_list_detail_url_template(_ls, entity, app_prefix=app_prefix)
+                if _ls is not None
+                else f"{app_prefix}/{slug}/{{id}}"
+            )
+            _default_cands = (
+                resolve_list_detail_url_candidates(_ls, entity, app_prefix=app_prefix)
+                if _ls is not None
+                else []
+            )
             entity_htmx_meta[entity.name] = {
                 "columns": cols,
                 "columns_full": cols_full,  # ADR-0050 2d: untruncated (entity-fallback only)
-                "detail_url": f"{app_prefix}/{slug}/{{id}}",
+                "detail_url": _default_detail,
+                "detail_url_by_table_id": detail_url_by_table_id,
+                "detail_url_candidates": list(_default_cands),
+                "detail_url_candidates_by_table_id": detail_url_candidates_by_table_id,
+                "detail_url_fallback": _same_entity,
+                "detail_url_fallback_by_table_id": detail_url_fallback_by_table_id,
                 "entity_name": entity.name,
                 # #1494 (2c): resolved `peek:` mode for the (first) list surface.
                 # Unset → "off" (Slice-1 default, byte-stable); `peek: expand` opts
@@ -1828,7 +1888,7 @@ class DazzleBackendApp:
                 "inline_editable": [
                     str(c.get("key", ""))
                     for c in cols
-                    if str(c.get("type", "")) in ("text", "bool", "badge", "date")
+                    if str(c.get("type", "")) in ("text", "bool", "badge", "date", "datetime")
                     and str(c.get("key", "")) not in ("id", "created_at", "updated_at")
                     and not str(c.get("key", "")).endswith("_id")
                     # A badge cell edits via a <select> built from the column's

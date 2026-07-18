@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: matplotlib
-Version: 3.11.0
+Version: 3.11.1
 Summary: Python plotting package
 Author: John D. Hunter, Michael Droettboom
 Author-Email: Unknown <matplotlib-users@python.org>
@@ -125,7 +125,7 @@ Project-URL: Donate, https://numfocus.org/donate-to-matplotlib
 Requires-Python: >=3.11
 Requires-Dist: contourpy>=1.0.1
 Requires-Dist: cycler>=0.10
-Requires-Dist: fonttools>=4.22.0
+Requires-Dist: fonttools>=4.28.2
 Requires-Dist: kiwisolver>=1.3.1
 Requires-Dist: numpy>=1.25
 Requires-Dist: packaging>=20.0

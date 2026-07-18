@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_bedrock_agent.literals import ActionGroupSignatureType
+    from types_aiobotocore_bedrock_agent.literals import AccessControlAccessType
 
-    data: ActionGroupSignatureType = "AMAZON.CodeInterpreter"
+    data: AccessControlAccessType = "ALLOW"
     ```
 """
 
@@ -22,6 +22,8 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AccessControlAccessType",
+    "AccessControlPrincipalTypeType",
     "ActionGroupSignatureType",
     "ActionGroupStateType",
     "AgentAliasStatusType",
@@ -46,6 +48,8 @@ __all__ = (
     "DataSourceTypeType",
     "DocumentStatusType",
     "EmbeddingDataTypeType",
+    "EmbeddingModelTypeType",
+    "EnabledOrDisabledStateType",
     "EnrichmentStrategyMethodType",
     "FlowConnectionTypeType",
     "FlowNodeIODataTypeType",
@@ -55,6 +59,7 @@ __all__ = (
     "FlowValidationSeverityType",
     "FlowValidationTypeType",
     "IncludeExcludeType",
+    "IncludedDataType",
     "IncompatibleLoopNodeTypeType",
     "IngestionJobFilterAttributeType",
     "IngestionJobFilterOperatorType",
@@ -112,6 +117,8 @@ __all__ = (
     "WebScopeTypeType",
 )
 
+AccessControlAccessType = Literal["ALLOW", "DENY"]
+AccessControlPrincipalTypeType = Literal["USER"]
 ActionGroupSignatureType = Literal[
     "AMAZON.CodeInterpreter",
     "AMAZON.UserInput",
@@ -148,9 +155,18 @@ CreationModeType = Literal["DEFAULT", "OVERRIDDEN"]
 CustomControlMethodType = Literal["RETURN_CONTROL"]
 CustomSourceTypeType = Literal["IN_LINE", "S3_LOCATION"]
 DataDeletionPolicyType = Literal["DELETE", "RETAIN"]
-DataSourceStatusType = Literal["AVAILABLE", "DELETE_UNSUCCESSFUL", "DELETING"]
+DataSourceStatusType = Literal[
+    "AVAILABLE", "CREATING", "DELETE_UNSUCCESSFUL", "DELETING", "FAILED", "UPDATING"
+]
 DataSourceTypeType = Literal[
-    "CONFLUENCE", "CUSTOM", "REDSHIFT_METADATA", "S3", "SALESFORCE", "SHAREPOINT", "WEB"
+    "CONFLUENCE",
+    "CUSTOM",
+    "MANAGED_KNOWLEDGE_BASE_CONNECTOR",
+    "REDSHIFT_METADATA",
+    "S3",
+    "SALESFORCE",
+    "SHAREPOINT",
+    "WEB",
 ]
 DocumentStatusType = Literal[
     "DELETE_IN_PROGRESS",
@@ -167,6 +183,8 @@ DocumentStatusType = Literal[
     "STARTING",
 ]
 EmbeddingDataTypeType = Literal["BINARY", "FLOAT32"]
+EmbeddingModelTypeType = Literal["CUSTOM", "MANAGED"]
+EnabledOrDisabledStateType = Literal["DISABLED", "ENABLED"]
 EnrichmentStrategyMethodType = Literal["CHUNK_ENTITY_EXTRACTION"]
 FlowConnectionTypeType = Literal["Conditional", "Data"]
 FlowNodeIODataTypeType = Literal["Array", "Boolean", "Number", "Object", "String"]
@@ -227,6 +245,7 @@ FlowValidationTypeType = Literal[
     "Unspecified",
 ]
 IncludeExcludeType = Literal["EXCLUDE", "INCLUDE"]
+IncludedDataType = Literal["ALL_DATA", "METADATA_ONLY"]
 IncompatibleLoopNodeTypeType = Literal["Collector", "Condition", "Input", "Iterator"]
 IngestionJobFilterAttributeType = Literal["STATUS"]
 IngestionJobFilterOperatorType = Literal["EQ"]
@@ -237,7 +256,13 @@ IngestionJobStatusType = Literal[
 InlineContentTypeType = Literal["BYTE", "TEXT"]
 KnowledgeBaseStateType = Literal["DISABLED", "ENABLED"]
 KnowledgeBaseStatusType = Literal[
-    "ACTIVE", "CREATING", "DELETE_UNSUCCESSFUL", "DELETING", "FAILED", "UPDATING"
+    "ACTIVE",
+    "CREATING",
+    "DELETE_UNSUCCESSFUL",
+    "DELETING",
+    "FAILED",
+    "UPDATE_UNSUCCESSFUL",
+    "UPDATING",
 ]
 KnowledgeBaseStorageTypeType = Literal[
     "MONGO_DB_ATLAS",
@@ -249,7 +274,7 @@ KnowledgeBaseStorageTypeType = Literal[
     "REDIS_ENTERPRISE_CLOUD",
     "S3_VECTORS",
 ]
-KnowledgeBaseTypeType = Literal["KENDRA", "SQL", "VECTOR"]
+KnowledgeBaseTypeType = Literal["KENDRA", "MANAGED", "SQL", "VECTOR"]
 ListAgentActionGroupsPaginatorName = Literal["list_agent_action_groups"]
 ListAgentAliasesPaginatorName = Literal["list_agent_aliases"]
 ListAgentCollaboratorsPaginatorName = Literal["list_agent_collaborators"]
@@ -269,7 +294,9 @@ MetadataSourceTypeType = Literal["IN_LINE_ATTRIBUTE", "S3_LOCATION"]
 MetadataValueTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
 OrchestrationTypeType = Literal["CUSTOM_ORCHESTRATION", "DEFAULT"]
 ParsingModalityType = Literal["MULTIMODAL"]
-ParsingStrategyType = Literal["BEDROCK_DATA_AUTOMATION", "BEDROCK_FOUNDATION_MODEL"]
+ParsingStrategyType = Literal[
+    "BEDROCK_DATA_AUTOMATION", "BEDROCK_FOUNDATION_MODEL", "SMART_PARSING"
+]
 PerformanceConfigLatencyType = Literal["optimized", "standard"]
 PromptStateType = Literal["DISABLED", "ENABLED"]
 PromptTemplateTypeType = Literal["CHAT", "TEXT"]
@@ -494,8 +521,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -522,6 +547,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -589,10 +616,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -625,6 +652,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -652,6 +680,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -673,7 +702,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -694,6 +722,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

@@ -22,19 +22,21 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping
 from types import TracebackType
-from typing import Any
+from typing import Any, overload
 
 from aiobotocore.client import AioBaseClient
 from botocore.client import ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListRetainedMessagesPaginator
+from .paginator import ListRetainedMessagesPaginator, ListSubscriptionsPaginator
 from .type_defs import (
     DeleteConnectionRequestTypeDef,
     DeleteThingShadowRequestTypeDef,
     DeleteThingShadowResponseTypeDef,
     EmptyResponseMetadataTypeDef,
+    GetConnectionRequestTypeDef,
+    GetConnectionResponseTypeDef,
     GetRetainedMessageRequestTypeDef,
     GetRetainedMessageResponseTypeDef,
     GetThingShadowRequestTypeDef,
@@ -43,7 +45,11 @@ from .type_defs import (
     ListNamedShadowsForThingResponseTypeDef,
     ListRetainedMessagesRequestTypeDef,
     ListRetainedMessagesResponseTypeDef,
+    ListSubscriptionsRequestTypeDef,
+    ListSubscriptionsResponseTypeDef,
     PublishRequestTypeDef,
+    SendDirectMessageRequestTypeDef,
+    SendDirectMessageResponseTypeDef,
     UpdateThingShadowRequestTypeDef,
     UpdateThingShadowResponseTypeDef,
 )
@@ -59,6 +65,7 @@ class Exceptions(BaseClientExceptions):
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
     ForbiddenException: type[BotocoreClientError]
+    GatewayTimeoutException: type[BotocoreClientError]
     InternalFailureException: type[BotocoreClientError]
     InvalidRequestException: type[BotocoreClientError]
     MethodNotAllowedException: type[BotocoreClientError]
@@ -124,6 +131,16 @@ class IoTDataPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_data/client/#delete_thing_shadow)
         """
 
+    async def get_connection(
+        self, **kwargs: Unpack[GetConnectionRequestTypeDef]
+    ) -> GetConnectionResponseTypeDef:
+        """
+        Retrieves connection information for the specified MQTT client.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-data/client/get_connection.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_data/client/#get_connection)
+        """
+
     async def get_retained_message(
         self, **kwargs: Unpack[GetRetainedMessageRequestTypeDef]
     ) -> GetRetainedMessageResponseTypeDef:
@@ -164,6 +181,17 @@ class IoTDataPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_data/client/#list_retained_messages)
         """
 
+    async def list_subscriptions(
+        self, **kwargs: Unpack[ListSubscriptionsRequestTypeDef]
+    ) -> ListSubscriptionsResponseTypeDef:
+        """
+        Returns a list of all subscriptions for MQTT clients with active sessions,
+        including offline clients with persistent sessions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-data/client/list_subscriptions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_data/client/#list_subscriptions)
+        """
+
     async def publish(
         self, **kwargs: Unpack[PublishRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -172,6 +200,16 @@ class IoTDataPlaneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-data/client/publish.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_data/client/#publish)
+        """
+
+    async def send_direct_message(
+        self, **kwargs: Unpack[SendDirectMessageRequestTypeDef]
+    ) -> SendDirectMessageResponseTypeDef:
+        """
+        Sends an MQTT message directly to a specific client identified by its client ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-data/client/send_direct_message.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_data/client/#send_direct_message)
         """
 
     async def update_thing_shadow(
@@ -184,9 +222,21 @@ class IoTDataPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_data/client/#update_thing_shadow)
         """
 
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_retained_messages"]
     ) -> ListRetainedMessagesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-data/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_data/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_subscriptions"]
+    ) -> ListSubscriptionsPaginator:
         """
         Create a paginator for an operation.
 

@@ -1223,6 +1223,14 @@ def create_app(
         identity_dir=sdd_dir / "identity",
     )
 
+    # Verifiable claim-receipt loop (#2555). The MCP claim path atomically
+    # claims from a shared JSON backlog and signs the returned receipt with a
+    # dedicated install identity alongside the mailbox identity. The backlog
+    # path aligns with the ``bernstein backlog`` CLI default so both surfaces
+    # claim from one file.
+    application.state.claim_backlog_path = jsonl_path.parent / "task-backlog.json"  # type: ignore[attr-defined]
+    application.state.claim_identity_dir = sdd_dir / "identity"  # type: ignore[attr-defined]
+
     # Real-time behavior anomaly monitor - checks file access and output-size on
     # every progress update and writes kill signals for compromised sessions.
     from bernstein.core.behavior_anomaly import RealtimeBehaviorMonitor
@@ -1286,6 +1294,7 @@ def create_app(
     from bernstein.core.routes.hooks import router as hooks_router
     from bernstein.core.routes.identities import router as identities_router
     from bernstein.core.routes.mcp_bot_tools import router as mcp_bot_tools_router
+    from bernstein.core.routes.missions import router as missions_router
     from bernstein.core.routes.orchestrator_holds import router as orchestrator_holds_router
     from bernstein.core.routes.paginated_tasks import router as paginated_tasks_router
     from bernstein.core.routes.plans import router as plans_router
@@ -1294,6 +1303,7 @@ def create_app(
     from bernstein.core.routes.review_board import router as review_board_router
     from bernstein.core.routes.sbom import router as sbom_router
     from bernstein.core.routes.session_peek import router as session_peek_router
+    from bernstein.core.routes.sla import router as sla_router
     from bernstein.core.routes.slo import router as slo_router
     from bernstein.core.routes.task_detail import router as task_detail_router
     from bernstein.core.routes.task_trace import router as task_trace_router
@@ -1338,6 +1348,7 @@ def create_app(
         plans_router,
         gateway_router,
         slo_router,
+        sla_router,
         custom_metrics_router,
         sbom_router,
         hooks_router,
@@ -1361,6 +1372,7 @@ def create_app(
         session_peek_router,
         orchestrator_holds_router,
         review_board_router,
+        missions_router,
     ]
 
     # Fresh per-app router: including route groups mutates the target router,

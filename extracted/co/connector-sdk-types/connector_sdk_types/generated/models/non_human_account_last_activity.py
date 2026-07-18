@@ -25,15 +25,15 @@ class NonHumanAccountLastActivity(BaseModel):
     Last known activity for a single non-human account.
     """
 
-    resource_id: StrictStr = Field(
-        description="The resource_id of the non-human account this activity belongs to.",
-        json_schema_extra={"x-semantic": "resource-id"},
+    non_human_account_id: StrictStr = Field(
+        description="The id of the non-human account this activity belongs to.",
+        json_schema_extra={"x-semantic": "non-human-account-id"},
     )
     event_type: ActivityEventType = Field(
         description="The type of activity event (last_login / last_activity)."
     )
     happened_at: StrictStr = Field(description="ISO 8601 timestamp when the activity occurred.")
-    __properties: ClassVar[List[str]] = ["resource_id", "event_type", "happened_at"]
+    __properties: ClassVar[List[str]] = ["non_human_account_id", "event_type", "happened_at"]
     model_config = ConfigDict(
         populate_by_name=True, validate_assignment=True, protected_namespaces=()
     )
@@ -74,7 +74,7 @@ class NonHumanAccountLastActivity(BaseModel):
             return cls.model_validate(obj)
         _obj = cls.model_validate(
             {
-                "resource_id": obj.get("resource_id"),
+                "non_human_account_id": obj.get("non_human_account_id"),
                 "event_type": obj.get("event_type"),
                 "happened_at": obj.get("happened_at"),
             }

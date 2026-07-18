@@ -72,6 +72,26 @@ GOOGLE_OAUTH_CLIENT_SECRET_ID = "ops-webapp-google-oauth-client-secret"
 SLACK_BOT_TOKEN_SECRET_ID = "slack-bot-token-hitl"
 """Slack bot token created by the message-bus service."""
 
+ORB_API_KEY_SECRET_ID = "internal-ops-orb-api-key"
+"""Shared Orb billing key. Created by the internal-mcp-servers bootstrap
+(`internal-ops-` prefix) and consumed by the webapp customer-billing pages.
+The `ops-webapp-sa` grant is manual — see `BOOTSTRAP.md`."""
+
+MOTHERDUCK_ADMIN_TOKEN_SECRET_ID = "internal-ops-motherduck-api-key"
+"""Shared MotherDuck admin token. Created by the internal-mcp-servers bootstrap
+(`internal-ops-` prefix) and consumed as env `MOTHERDUCK_ADMIN_TOKEN`.
+The `ops-webapp-sa` grant is manual — see `BOOTSTRAP.md`."""
+
+GITHUB_PAT_SECRET_ID = "internal-ops-github-pat"
+"""Shared fine-grained GitHub PAT used for workflow dispatch. Created by the
+internal-mcp-servers bootstrap (`internal-ops-` prefix) and already consumed by
+the hosted Ops MCP as `GITHUB_TOKEN`.
+
+Consumed here as `GITHUB_CI_WORKFLOW_TRIGGER_PAT`, which
+`resolve_ci_trigger_github_token()` reads before dispatching the connector
+version yank workflow in `airbytehq/airbyte`. The `ops-webapp-sa` grant is
+manual — see `BOOTSTRAP.md`."""
+
 CONTAINER_IMAGE = (
     f"{REGION}-docker.pkg.dev/{PROJECT}/{SERVICE_NAME}/{SERVICE_NAME}:latest"
 )
@@ -121,6 +141,18 @@ def define_secrets() -> dict[str, SecretRef]:
         ),
         SLACK_BOT_TOKEN_SECRET_ID: gcp.secretmanager.get_secret(
             secret_id=SLACK_BOT_TOKEN_SECRET_ID,
+            project=PROJECT,
+        ),
+        ORB_API_KEY_SECRET_ID: gcp.secretmanager.get_secret(
+            secret_id=ORB_API_KEY_SECRET_ID,
+            project=PROJECT,
+        ),
+        MOTHERDUCK_ADMIN_TOKEN_SECRET_ID: gcp.secretmanager.get_secret(
+            secret_id=MOTHERDUCK_ADMIN_TOKEN_SECRET_ID,
+            project=PROJECT,
+        ),
+        GITHUB_PAT_SECRET_ID: gcp.secretmanager.get_secret(
+            secret_id=GITHUB_PAT_SECRET_ID,
             project=PROJECT,
         ),
     }
@@ -240,6 +272,18 @@ def define_cloud_run_service(
                             "SLACK_BOT_TOKEN_HITL",
                             SLACK_BOT_TOKEN_SECRET_ID,
                         ),
+                        _secret_env(
+                            "ORB_API_KEY",
+                            ORB_API_KEY_SECRET_ID,
+                        ),
+                        _secret_env(
+                            "MOTHERDUCK_ADMIN_TOKEN",
+                            MOTHERDUCK_ADMIN_TOKEN_SECRET_ID,
+                        ),
+                        _secret_env(
+                            "GITHUB_CI_WORKFLOW_TRIGGER_PAT",
+                            GITHUB_PAT_SECRET_ID,
+                        ),
                     ],
                 )
             ],
@@ -323,6 +367,18 @@ def define_preview_cloud_run_service(
                         _secret_env(
                             "SLACK_BOT_TOKEN_HITL",
                             SLACK_BOT_TOKEN_SECRET_ID,
+                        ),
+                        _secret_env(
+                            "ORB_API_KEY",
+                            ORB_API_KEY_SECRET_ID,
+                        ),
+                        _secret_env(
+                            "MOTHERDUCK_ADMIN_TOKEN",
+                            MOTHERDUCK_ADMIN_TOKEN_SECRET_ID,
+                        ),
+                        _secret_env(
+                            "GITHUB_CI_WORKFLOW_TRIGGER_PAT",
+                            GITHUB_PAT_SECRET_ID,
                         ),
                     ],
                 )

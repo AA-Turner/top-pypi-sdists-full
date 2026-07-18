@@ -71,6 +71,8 @@ from .paginator import (
     ListInferenceExperimentsPaginator,
     ListInferenceRecommendationsJobsPaginator,
     ListInferenceRecommendationsJobStepsPaginator,
+    ListJobSchemaVersionsPaginator,
+    ListJobsPaginator,
     ListLabelingJobsForWorkteamPaginator,
     ListLabelingJobsPaginator,
     ListLineageGroupsPaginator,
@@ -208,6 +210,8 @@ from .type_defs import (
     CreateInferenceExperimentResponseTypeDef,
     CreateInferenceRecommendationsJobRequestTypeDef,
     CreateInferenceRecommendationsJobResponseTypeDef,
+    CreateJobRequestTypeDef,
+    CreateJobResponseTypeDef,
     CreateLabelingJobRequestTypeDef,
     CreateLabelingJobResponseTypeDef,
     CreateMlflowAppRequestTypeDef,
@@ -320,6 +324,7 @@ from .type_defs import (
     DeleteInferenceComponentInputTypeDef,
     DeleteInferenceExperimentRequestTypeDef,
     DeleteInferenceExperimentResponseTypeDef,
+    DeleteJobRequestTypeDef,
     DeleteMlflowAppRequestTypeDef,
     DeleteMlflowAppResponseTypeDef,
     DeleteMlflowTrackingServerRequestTypeDef,
@@ -433,6 +438,10 @@ from .type_defs import (
     DescribeInferenceExperimentResponseTypeDef,
     DescribeInferenceRecommendationsJobRequestTypeDef,
     DescribeInferenceRecommendationsJobResponseTypeDef,
+    DescribeJobRequestTypeDef,
+    DescribeJobResponseTypeDef,
+    DescribeJobSchemaVersionRequestTypeDef,
+    DescribeJobSchemaVersionResponseTypeDef,
     DescribeLabelingJobRequestTypeDef,
     DescribeLabelingJobResponseTypeDef,
     DescribeLineageGroupRequestTypeDef,
@@ -607,6 +616,10 @@ from .type_defs import (
     ListInferenceRecommendationsJobsResponseTypeDef,
     ListInferenceRecommendationsJobStepsRequestTypeDef,
     ListInferenceRecommendationsJobStepsResponseTypeDef,
+    ListJobSchemaVersionsRequestTypeDef,
+    ListJobSchemaVersionsResponseTypeDef,
+    ListJobsRequestTypeDef,
+    ListJobsResponseTypeDef,
     ListLabelingJobsForWorkteamRequestTypeDef,
     ListLabelingJobsForWorkteamResponseTypeDef,
     ListLabelingJobsRequestTypeDef,
@@ -741,6 +754,7 @@ from .type_defs import (
     StopInferenceExperimentRequestTypeDef,
     StopInferenceExperimentResponseTypeDef,
     StopInferenceRecommendationsJobRequestTypeDef,
+    StopJobRequestTypeDef,
     StopLabelingJobRequestTypeDef,
     StopMlflowTrackingServerRequestTypeDef,
     StopMlflowTrackingServerResponseTypeDef,
@@ -1372,6 +1386,16 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_inference_recommendations_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_inference_recommendations_job)
+        """
+
+    async def create_job(
+        self, **kwargs: Unpack[CreateJobRequestTypeDef]
+    ) -> CreateJobResponseTypeDef:
+        """
+        Creates a model customization job in Amazon SageMaker.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_job)
         """
 
     async def create_labeling_job(
@@ -2066,6 +2090,14 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_inference_experiment)
         """
 
+    async def delete_job(self, **kwargs: Unpack[DeleteJobRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_job)
+        """
+
     async def delete_mlflow_app(
         self, **kwargs: Unpack[DeleteMlflowAppRequestTypeDef]
     ) -> DeleteMlflowAppResponseTypeDef:
@@ -2745,6 +2777,27 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_inference_recommendations_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_inference_recommendations_job)
+        """
+
+    async def describe_job(
+        self, **kwargs: Unpack[DescribeJobRequestTypeDef]
+    ) -> DescribeJobResponseTypeDef:
+        """
+        Returns detailed information about a job, including its current status,
+        secondary status, configuration, and timestamps.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_job)
+        """
+
+    async def describe_job_schema_version(
+        self, **kwargs: Unpack[DescribeJobSchemaVersionRequestTypeDef]
+    ) -> DescribeJobSchemaVersionResponseTypeDef:
+        """
+        Returns the JSON schema for a specified job category and schema version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_job_schema_version.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_job_schema_version)
         """
 
     async def describe_labeling_job(
@@ -3637,6 +3690,24 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_inference_recommendations_jobs)
         """
 
+    async def list_job_schema_versions(
+        self, **kwargs: Unpack[ListJobSchemaVersionsRequestTypeDef]
+    ) -> ListJobSchemaVersionsResponseTypeDef:
+        """
+        Lists available configuration schema versions for a specified job category.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_job_schema_versions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_job_schema_versions)
+        """
+
+    async def list_jobs(self, **kwargs: Unpack[ListJobsRequestTypeDef]) -> ListJobsResponseTypeDef:
+        """
+        Lists jobs in a specified category.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_jobs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_jobs)
+        """
+
     async def list_labeling_jobs(
         self, **kwargs: Unpack[ListLabelingJobsRequestTypeDef]
     ) -> ListLabelingJobsResponseTypeDef:
@@ -4368,6 +4439,14 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/stop_inference_recommendations_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#stop_inference_recommendations_job)
+        """
+
+    async def stop_job(self, **kwargs: Unpack[StopJobRequestTypeDef]) -> dict[str, Any]:
+        """
+        Stops a running job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/stop_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#stop_job)
         """
 
     async def stop_labeling_job(
@@ -5364,6 +5443,28 @@ class SageMakerClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_inference_recommendations_jobs"]
     ) -> ListInferenceRecommendationsJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_job_schema_versions"]
+    ) -> ListJobSchemaVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_jobs"]
+    ) -> ListJobsPaginator:
         """
         Create a paginator for an operation.
 

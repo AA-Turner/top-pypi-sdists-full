@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: query-cache-common
-Version: 1.11.0
+Version: 1.12.0
 Summary: Common code for Query Cache shared across client and server
 License: 
                                          Apache License

@@ -25,6 +25,7 @@ else:
 __all__ = (
     "IoTDataPlaneServiceName",
     "ListRetainedMessagesPaginatorName",
+    "ListSubscriptionsPaginatorName",
     "PaginatorName",
     "PayloadFormatIndicatorType",
     "RegionName",
@@ -34,6 +35,7 @@ __all__ = (
 
 
 ListRetainedMessagesPaginatorName = Literal["list_retained_messages"]
+ListSubscriptionsPaginatorName = Literal["list_subscriptions"]
 PayloadFormatIndicatorType = Literal["UNSPECIFIED_BYTES", "UTF8_DATA"]
 IoTDataPlaneServiceName = Literal["iot-data"]
 ServiceName = Literal[
@@ -229,8 +231,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -257,6 +257,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -324,10 +326,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -360,6 +362,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -387,6 +390,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -408,7 +412,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -429,6 +432,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -464,7 +468,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_retained_messages"]
+PaginatorName = Literal["list_retained_messages", "list_subscriptions"]
 RegionName = Literal[
     "ap-east-1",
     "ap-northeast-1",

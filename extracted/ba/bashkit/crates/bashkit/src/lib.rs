@@ -9,7 +9,7 @@
 //!
 //! - **POSIX compliant** - Substantial IEEE 1003.1-2024 Shell Command Language compliance
 //! - **Sandboxed, in-process execution** - No real filesystem access by default
-//! - **Virtual filesystem** - [`InMemoryFs`], [`OverlayFs`], [`MountableFs`]
+//! - **Virtual filesystem** - [`InMemoryFs`], [`OverlayFs`], [`MountableFs`], [`NamespaceFs`]
 //! - **Resource limits** - Command count, loop iterations, function depth
 //! - **Network allowlist** - Control HTTP access per-domain
 //! - **Custom builtins** - Extend with domain-specific commands
@@ -237,11 +237,12 @@
 //!
 //! # Virtual Filesystem
 //!
-//! Bashkit provides three filesystem implementations:
+//! Bashkit provides several filesystem implementations:
 //!
 //! - [`InMemoryFs`]: Simple in-memory filesystem (default)
 //! - [`OverlayFs`]: Copy-on-write overlay for layered storage
 //! - [`MountableFs`]: Mount multiple filesystems at different paths
+//! - [`NamespaceFs`]: Compose a static tree from rebased filesystem mounts
 //!
 //! See the `fs` module documentation for details and examples.
 //!
@@ -391,12 +392,15 @@
 //! - `git_workflow.rs` - Git operations on the virtual filesystem
 //! - `python_scripts.rs` - Embedded Python with VFS bridging
 //! - `python_external_functions.rs` - Python callbacks into host functions
+//! - `namespace_sandbox.rs` - Static read-only/read-write build namespace
+//! - `namespace_rebase.rs` - Source-root rebasing with a nested writable override
 //!
 //! # Guides
 //!
 //! - [`custom_builtins_guide`] - Creating custom builtins
 //! - [`compatibility_scorecard`] - Feature parity tracking
 //! - [`live_mounts_guide`] - Live mount/unmount on running instances
+//! - [`namespace_filesystems_guide`] - Static namespaces with rebasing and per-mount access
 //! - `python_guide` - Embedded Python (Monty) guide (requires `python` feature)
 //! - `logging_guide` - Structured logging with security (requires `logging` feature)
 //!
@@ -463,9 +467,10 @@ pub use credential::Credential;
 pub use error::{Error, Result};
 pub use fs::{
     DirEntry, FileSystem, FileSystemExt, FileType, FsBackend, FsLimitExceeded, FsLimits, FsUsage,
-    InMemoryFs, LazyLoader, Metadata, MountableFs, OverlayFs, PosixFs, ReadOnlyFs,
-    SearchCapabilities, SearchCapable, SearchMatch, SearchProvider, SearchQuery, SearchResults,
-    VfsSnapshot, normalize_path, verify_filesystem_requirements,
+    InMemoryFs, LazyLoader, Metadata, MountableFs, NamespaceAccess, NamespaceFs,
+    NamespaceFsBuilder, OverlayFs, PosixFs, ReadOnlyFs, SearchCapabilities, SearchCapable,
+    SearchMatch, SearchProvider, SearchQuery, SearchResults, VfsSnapshot, normalize_path,
+    verify_filesystem_requirements,
 };
 #[cfg(feature = "realfs")]
 pub use fs::{RealFs, RealFsMode};
@@ -697,15 +702,20 @@ impl Default for Bash {
     }
 }
 
+/// Build a fresh `InMemoryFs` with `username`'s home directory provisioned so
+/// `$HOME` / `~` is a real, writable directory. HOME defaults to
+/// `/home/<username>` (see Interpreter), which `InMemoryFs::new` does not create
+/// on its own. See issue #2128.
+fn inmem_fs_with_home(username: &str) -> InMemoryFs {
+    let fs = InMemoryFs::new();
+    fs.add_dir(format!("/home/{username}"), 0o755);
+    fs
+}
+
 impl Bash {
     /// Create a new Bash instance with default settings.
     pub fn new() -> Self {
-        // Provision the default user's home directory so `$HOME` / `~` is a
-        // real, writable directory. HOME defaults to `/home/<DEFAULT_USERNAME>`
-        // (see Interpreter), which InMemoryFs::new does not create on its own.
-        // See issue #2128. (BashBuilder::build does the same for custom users.)
-        let base_inmem = InMemoryFs::new();
-        base_inmem.add_dir(format!("/home/{}", builtins::DEFAULT_USERNAME), 0o755);
+        let base_inmem = inmem_fs_with_home(builtins::DEFAULT_USERNAME);
         let base_fs: Arc<dyn FileSystem> = Arc::new(base_inmem);
         let mountable = Arc::new(MountableFs::new(base_fs));
         let fs: Arc<dyn FileSystem> = Arc::clone(&mountable) as Arc<dyn FileSystem>;
@@ -1455,7 +1465,6 @@ pub struct BashBuilder {
     /// Network allowlist for curl/wget builtins
     #[cfg(feature = "http_client")]
     network_allowlist: Option<NetworkAllowlist>,
-    /// Custom HTTP handler for request interception
     /// Custom HTTP transport for curl/wget.
     #[cfg(feature = "http_client")]
     http_transport: Option<Arc<dyn network::HttpTransport>>,
@@ -2709,19 +2718,15 @@ impl BashBuilder {
         } else {
             // No custom filesystem was supplied: provision the default
             // in-memory VFS with a home directory for the configured user so
-            // that `$HOME` / `~` is a real, writable directory. HOME defaults
-            // to `/home/<username>` (see Interpreter::with_config), and
-            // InMemoryFs::new only ever creates `/home/user` — so a non-default
-            // `username("eval")` would leave HOME=/home/eval pointing at a
-            // nonexistent directory and writes to `~` fail with "parent
+            // that `$HOME` / `~` is a real, writable directory. A non-default
+            // `username("eval")` would otherwise leave HOME=/home/eval pointing
+            // at a nonexistent directory and writes to `~` fail with "parent
             // directory not found". See issue #2128.
-            let fs = InMemoryFs::new();
             let username = self
                 .username
                 .as_deref()
                 .unwrap_or(builtins::DEFAULT_USERNAME);
-            fs.add_dir(format!("/home/{username}"), 0o755);
-            Arc::new(fs)
+            Arc::new(inmem_fs_with_home(username))
         };
 
         // Layer 1: Apply real filesystem mounts (if any)
@@ -3290,6 +3295,10 @@ pub mod ssh_guide {}
 /// **Related:** [`Bash::mount`], [`Bash::unmount`], [`MountableFs`], [`BashBuilder::mount_text`]
 #[doc = include_str!("../docs/live_mounts.md")]
 pub mod live_mounts_guide {}
+
+/// Guide to composing static filesystem namespaces.
+#[doc = include_str!("../docs/namespace_filesystems.md")]
+pub mod namespace_filesystems_guide {}
 
 /// Logging guide for Bashkit.
 ///

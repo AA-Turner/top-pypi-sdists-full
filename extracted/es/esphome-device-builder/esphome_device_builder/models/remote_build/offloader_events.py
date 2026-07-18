@@ -53,6 +53,10 @@ class OffloaderPairingAddedData(TypedDict):
     esphome_version: str
     enabled: bool
     auto_provision_supported: bool
+    friendly_name: str
+    ha_addon: bool
+    reset_build_env_supported: bool
+    receiver_label_auto: bool
 
 
 class OffloaderPairEndpointReboundData(TypedDict):
@@ -227,10 +231,12 @@ class OffloaderPeerLinkOpenedData(TypedDict):
     :data:`esphome.const.__version__` lifted off the response;
     empty if the receiver didn't carry the field.
     ``auto_provision_supported`` is the receiver's capability flag
-    (``False`` for an older receiver that never sent it). The
-    controller subscribes to refresh both onto the
+    (``False`` for an older receiver that never sent it).
+    ``friendly_name`` / ``ha_addon`` are the receiver's display
+    identity (empty / ``False`` from an older receiver). The
+    controller subscribes to refresh all four onto the
     :class:`StoredPairing` so pick_build_path's version-compat
-    gate sees fresh values.
+    gate and the UI see fresh values.
     """
 
     receiver_hostname: str
@@ -238,6 +244,9 @@ class OffloaderPeerLinkOpenedData(TypedDict):
     pin_sha256: str
     esphome_version: str
     auto_provision_supported: bool
+    friendly_name: str
+    ha_addon: bool
+    reset_build_env_supported: bool
 
 
 class OffloaderPeerLinkClosedData(TypedDict):

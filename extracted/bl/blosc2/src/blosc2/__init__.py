@@ -639,6 +639,7 @@ from .ctable import (
     NestedColumn,
     NullPolicy,
     RowTransformer,
+    col,
     ctable_from_cframe,
     get_null_policy,
     get_printoptions,
@@ -773,6 +774,7 @@ from .schema import (
     uint16,
     uint32,
     uint64,
+    utf8,
     vlbytes,
     vlstring,
 )
@@ -828,6 +830,7 @@ __all__ = [  # noqa : RUF022
     "uint16",
     "uint32",
     "uint64",
+    "utf8",
     "vlbytes",
     "vlstring",
     # Grouped reductions
@@ -840,6 +843,7 @@ __all__ = [  # noqa : RUF022
     "CTableGroupBy",
     "NestedColumn",
     "RowTransformer",
+    "col",
     "ctable_from_cframe",
     "Batch",
     "BatchArray",

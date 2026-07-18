@@ -48,10 +48,16 @@ __all__ = (
 
 CheckResultType = Literal["FAILED", "PASSED", "UNKNOWN"]
 CheckTypeType = Literal[
+    "CONNECTOR_HEALTH",
     "HOST_COUNT",
     "KEY_COVERAGE",
     "KEY_REUSE",
+    "OPERATIONS_MANAGER_REACHABILITY",
     "REACHABILITY",
+    "SDDC_MANAGER_HOST_COUNT",
+    "SDDC_MANAGER_KEY_COVERAGE",
+    "SDDC_MANAGER_KEY_REUSE",
+    "SDDC_MANAGER_REACHABILITY",
     "VCENTER_REACHABILITY",
     "VCENTER_VM_EVENT",
     "VCENTER_VM_SYNC",
@@ -59,7 +65,7 @@ CheckTypeType = Literal[
 ConnectorStateType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
-ConnectorTypeType = Literal["VCENTER"]
+ConnectorTypeType = Literal["OPERATIONS_MANAGER", "SDDC_MANAGER", "VCENTER"]
 EntitlementStatusType = Literal[
     "AT_RISK", "CREATED", "CREATE_FAILED", "CREATING", "DELETED", "ENTITLEMENT_REMOVED"
 ]
@@ -74,7 +80,7 @@ ListEnvironmentHostsPaginatorName = Literal["list_environment_hosts"]
 ListEnvironmentVlansPaginatorName = Literal["list_environment_vlans"]
 ListEnvironmentsPaginatorName = Literal["list_environments"]
 ListVmEntitlementsPaginatorName = Literal["list_vm_entitlements"]
-VcfVersionType = Literal["VCF-5.2.1", "VCF-5.2.2"]
+VcfVersionType = Literal["SELF_DEPLOYED", "VCF-5.2.1", "VCF-5.2.2"]
 VlanStateType = Literal["CREATED", "CREATE_FAILED", "CREATING", "DELETED", "DELETING"]
 EVSServiceName = Literal["evs"]
 ServiceName = Literal[
@@ -270,8 +276,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -298,6 +302,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -365,10 +371,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -401,6 +407,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -428,6 +435,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -449,7 +457,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -470,6 +477,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

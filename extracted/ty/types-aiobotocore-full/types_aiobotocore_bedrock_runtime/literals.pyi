@@ -31,6 +31,10 @@ __all__ = (
     "DocumentFormatType",
     "GuardrailActionType",
     "GuardrailAutomatedReasoningLogicWarningTypeType",
+    "GuardrailChecksContentFilterCategoryType",
+    "GuardrailChecksPromptAttackCategoryType",
+    "GuardrailChecksRoleType",
+    "GuardrailChecksSensitiveInformationEntityTypeType",
     "GuardrailContentFilterConfidenceType",
     "GuardrailContentFilterStrengthType",
     "GuardrailContentFilterTypeType",
@@ -90,10 +94,48 @@ AudioFormatType = Literal[
 ]
 CachePointTypeType = Literal["default"]
 CacheTTLType = Literal["1h", "5m"]
-ConversationRoleType = Literal["assistant", "user"]
+ConversationRoleType = Literal["assistant", "system", "user"]
 DocumentFormatType = Literal["csv", "doc", "docx", "html", "md", "pdf", "txt", "xls", "xlsx"]
 GuardrailActionType = Literal["GUARDRAIL_INTERVENED", "NONE"]
 GuardrailAutomatedReasoningLogicWarningTypeType = Literal["ALWAYS_FALSE", "ALWAYS_TRUE"]
+GuardrailChecksContentFilterCategoryType = Literal[
+    "HATE", "INSULTS", "MISCONDUCT", "SEXUAL", "VIOLENCE"
+]
+GuardrailChecksPromptAttackCategoryType = Literal["JAILBREAK", "PROMPT_INJECTION", "PROMPT_LEAKAGE"]
+GuardrailChecksRoleType = Literal["assistant", "system", "user"]
+GuardrailChecksSensitiveInformationEntityTypeType = Literal[
+    "ADDRESS",
+    "AGE",
+    "AWS_ACCESS_KEY",
+    "AWS_SECRET_KEY",
+    "CA_HEALTH_NUMBER",
+    "CA_SOCIAL_INSURANCE_NUMBER",
+    "CREDIT_DEBIT_CARD_CVV",
+    "CREDIT_DEBIT_CARD_EXPIRY",
+    "CREDIT_DEBIT_CARD_NUMBER",
+    "DRIVER_ID",
+    "EMAIL",
+    "INTERNATIONAL_BANK_ACCOUNT_NUMBER",
+    "IP_ADDRESS",
+    "LICENSE_PLATE",
+    "MAC_ADDRESS",
+    "NAME",
+    "PASSWORD",
+    "PHONE",
+    "PIN",
+    "SWIFT_CODE",
+    "UK_NATIONAL_HEALTH_SERVICE_NUMBER",
+    "UK_NATIONAL_INSURANCE_NUMBER",
+    "UK_UNIQUE_TAXPAYER_REFERENCE_NUMBER",
+    "URL",
+    "USERNAME",
+    "US_BANK_ACCOUNT_NUMBER",
+    "US_BANK_ROUTING_NUMBER",
+    "US_INDIVIDUAL_TAX_IDENTIFICATION_NUMBER",
+    "US_PASSPORT_NUMBER",
+    "US_SOCIAL_SECURITY_NUMBER",
+    "VEHICLE_IDENTIFICATION_NUMBER",
+]
 GuardrailContentFilterConfidenceType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
 GuardrailContentFilterStrengthType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
 GuardrailContentFilterTypeType = Literal[
@@ -366,8 +408,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -394,6 +434,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -461,10 +503,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -497,6 +539,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -524,6 +567,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -545,7 +589,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -566,6 +609,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

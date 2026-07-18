@@ -3,20 +3,19 @@
 #
 
 import logging
-import os
-import sys
-import time
 from dataclasses import dataclass
 from enum import Enum
 
-from omnimalloc._cpp import (
-    Partition,
-    SearchOptions,
-    Solution,
-    greedy_many,
-    solve_many,
+from omnimalloc._cpp import Partition, Solution, greedy_pack_portfolio, try_solve_many
+from omnimalloc.allocators.base import BaseAllocator
+from omnimalloc.common.constants import DEFAULT_TIMEOUT
+from omnimalloc.common.deadline import (
+    deadline_expired,
+    deadline_remaining,
+    ensure_valid_timeout,
+    make_deadline,
 )
-from omnimalloc.allocators.base import DEFAULT_TIMEOUT, BaseAllocator
+from omnimalloc.common.parallel import ensure_valid_num_threads, resolve_num_threads
 from omnimalloc.primitives.allocation import Allocation
 
 logger = logging.getLogger(__name__)
@@ -27,65 +26,33 @@ class SortKey(str, Enum):
 
     AREA = "A"
     SECTIONS = "C"
-    LOWER = "L"
-    OVERLAPS = "O"
+    START = "L"
+    CONFLICTS = "O"
     SECTION_TOTAL = "T"
-    UPPER = "U"
-    WIDTH = "W"
+    END = "U"
+    DURATION = "W"
     SIZE = "Z"
 
 
 Heuristic = tuple[SortKey, ...]
 
 DEFAULT_HEURISTICS: tuple[Heuristic, ...] = (
-    (SortKey.WIDTH, SortKey.AREA, SortKey.SECTION_TOTAL),
-    (SortKey.SECTION_TOTAL, SortKey.AREA, SortKey.WIDTH),
-    (SortKey.SECTION_TOTAL, SortKey.WIDTH, SortKey.AREA),
+    (SortKey.DURATION, SortKey.AREA, SortKey.SECTION_TOTAL),
+    (SortKey.SECTION_TOTAL, SortKey.AREA, SortKey.DURATION),
+    (SortKey.SECTION_TOTAL, SortKey.DURATION, SortKey.AREA),
 )
 
 GREEDY_HEURISTICS: tuple[Heuristic, ...] = (
-    (SortKey.AREA, SortKey.WIDTH, SortKey.SECTION_TOTAL),
-    (SortKey.AREA, SortKey.SECTION_TOTAL, SortKey.WIDTH),
-    (SortKey.WIDTH, SortKey.SECTION_TOTAL, SortKey.AREA),
+    (SortKey.AREA, SortKey.DURATION, SortKey.SECTION_TOTAL),
+    (SortKey.AREA, SortKey.SECTION_TOTAL, SortKey.DURATION),
+    (SortKey.DURATION, SortKey.SECTION_TOTAL, SortKey.AREA),
     (SortKey.SIZE, SortKey.AREA, SortKey.SECTION_TOTAL),
     (SortKey.SIZE, SortKey.SECTION_TOTAL, SortKey.AREA),
-    (SortKey.OVERLAPS, SortKey.AREA, SortKey.SECTION_TOTAL),
-    (SortKey.OVERLAPS, SortKey.SECTION_TOTAL, SortKey.AREA),
-    (SortKey.LOWER, SortKey.AREA, SortKey.SECTION_TOTAL),
-    (SortKey.UPPER, SortKey.AREA, SortKey.SECTION_TOTAL),
+    (SortKey.CONFLICTS, SortKey.AREA, SortKey.SECTION_TOTAL),
+    (SortKey.CONFLICTS, SortKey.SECTION_TOTAL, SortKey.AREA),
+    (SortKey.START, SortKey.AREA, SortKey.SECTION_TOTAL),
+    (SortKey.END, SortKey.AREA, SortKey.SECTION_TOTAL),
 )
-
-
-@dataclass(frozen=True)
-class SupermallocConfig:
-    """Configuration for the SupermallocAllocator."""
-
-    timeout: float = DEFAULT_TIMEOUT
-    heuristics: tuple[Heuristic, ...] = DEFAULT_HEURISTICS
-    cores: int | None = None
-    canonical: bool = True
-    dominance: bool = True
-    floor_inference: bool = True
-    monotonic_floor: bool = True
-    decompose: bool = True
-
-    def __post_init__(self) -> None:
-        if not self.heuristics:
-            raise ValueError("SupermallocConfig requires at least one heuristic")
-
-    def num_threads(self) -> int:
-        if self.cores is None:
-            return os.cpu_count() or 1
-        return max(1, self.cores)
-
-    def search_options(self) -> SearchOptions:
-        return SearchOptions(
-            canonical=self.canonical,
-            dominance=self.dominance,
-            floor_inference=self.floor_inference,
-            monotonic_floor=self.monotonic_floor,
-            decompose=self.decompose,
-        )
 
 
 @dataclass(frozen=True)
@@ -93,20 +60,39 @@ class _Portfolio:
     """Search invariants for one allocate() run."""
 
     partitions: list[Partition]
-    options: SearchOptions
     threads: int
-    deadline: float
+    # Absolute time.monotonic() deadline; None means the search is unbounded.
+    deadline: float | None
 
-    def solve(self, bounds: tuple[int, ...], timeout: float) -> Solution | None:
-        """Run one portfolio round: each heuristic searches below each bound."""
+    def remaining(self) -> float | None:
+        """Seconds left on the budget (0.0 once expired), or None when unbounded."""
+        return deadline_remaining(self.deadline)
+
+    def expired(self) -> bool:
+        return deadline_expired(self.deadline)
+
+    def solve(self, bounds: tuple[int, ...]) -> Solution | None:
+        """Run one portfolio round, or None once the budget has expired.
+
+        The budget is read once per round so the expiry check and the round's
+        timeout always agree. The five search switches are developer flags
+        that stay enabled here; ablations call `_cpp.try_solve_many` directly.
+        """
+        remaining = self.remaining()
+        if remaining is not None and remaining <= 0:
+            return None
         members = [p.with_bound(b) for b in bounds for p in self.partitions]
-        return solve_many(
+        return try_solve_many(
             members,
-            sys.maxsize,
-            timeout,
             max(bounds),
-            self.options,
-            self.threads,
+            None,
+            canonical=True,
+            dominance=True,
+            floor_inference=True,
+            monotonic_floor=True,
+            decompose=True,
+            timeout=remaining,
+            num_threads=self.threads,
         )
 
 
@@ -118,58 +104,68 @@ def _bound_ladder(low: int, high: int, rungs: int) -> tuple[int, ...]:
     return tuple(b for b in unique if low < b <= high)
 
 
-def _search(portfolio: _Portfolio, low: int, height: int) -> Solution | None:
-    """Run the concurrent bound-ladder search below the incumbent `height`."""
+def _search(portfolio: _Portfolio, low: int, peak: int) -> Solution | None:
+    """Run the concurrent bound-ladder search below the incumbent `peak`."""
     best: Solution | None = None
     rungs = max(1, portfolio.threads // len(portfolio.partitions))
-    while height > low:
-        remaining = portfolio.deadline - time.monotonic()
-        if remaining <= 0:
-            break
-        result = portfolio.solve(_bound_ladder(low, height, rungs), remaining)
+    while peak > low:
+        result = portfolio.solve(_bound_ladder(low, peak, rungs))
         if result is None:
             break
-        best, height = result, result.height
+        best, peak = result, result.peak
 
-    if height > low and time.monotonic() >= portfolio.deadline:
-        logger.debug("Supermalloc timed out above lower bound: %d > %d", height, low)
+    if peak > low and portfolio.expired():
+        logger.debug("Supermalloc timed out above lower bound: %d > %d", peak, low)
 
     return best
 
 
 class SupermallocAllocator(BaseAllocator):
-    """Portfolio branch-and-bound allocator built on a C++ partition solver."""
+    """Portfolio branch-and-bound allocator built on a C++ partition solver.
+
+    `timeout` (default 3s) is the wall-clock budget for greedy + search
+    (problem setup is not counted against it); `None` lets the search run to
+    optimality. `num_threads=None` uses all cores.
+    """
 
     # The partition solver's section grid needs a linear timeline
     supports_vector_time = False
 
-    def __init__(self, config: SupermallocConfig | None = None) -> None:
-        super().__init__()
-        self._config = config or SupermallocConfig()
+    def __init__(
+        self,
+        *,
+        timeout: float | None = DEFAULT_TIMEOUT,
+        heuristics: tuple[Heuristic, ...] = DEFAULT_HEURISTICS,
+        num_threads: int | None = None,
+    ) -> None:
+        ensure_valid_timeout(timeout)
+        ensure_valid_num_threads(num_threads)
+        if not heuristics:
+            raise ValueError("SupermallocAllocator requires at least one heuristic")
+        self._timeout = timeout
+        self._heuristics = heuristics
+        self._num_threads = num_threads
 
     def _allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
-        deadline = time.monotonic() + self._config.timeout
-        threads = self._config.num_threads()
+        threads = resolve_num_threads(self._num_threads)
         base = Partition.from_allocations(allocations)
-        heuristics = self._config.heuristics
-        heuristic_codes = ["".join(h) for h in heuristics]
+        heuristic_codes = ["".join(h) for h in self._heuristics]
         greedy_codes = [*heuristic_codes, ""] + [
-            "".join(h) for h in GREEDY_HEURISTICS if h not in heuristics
+            "".join(h) for h in GREEDY_HEURISTICS if h not in self._heuristics
         ]
 
-        budget = max(0.0, deadline - time.monotonic())
-        incumbent = greedy_many(base, greedy_codes, budget, threads)
         portfolio = _Portfolio(
             partitions=[base.reorder(code) for code in heuristic_codes],
-            options=self._config.search_options(),
             threads=threads,
-            deadline=deadline,
+            # Deliberately started after partition construction and the
+            # reorders above: the budget covers greedy + search only.
+            deadline=make_deadline(self._timeout),
         )
 
-        best = _search(portfolio, base.lower_bound, incumbent.height)
+        incumbent = greedy_pack_portfolio(
+            base, greedy_codes, portfolio.remaining(), threads
+        )
+        best = _search(portfolio, base.lower_bound, incumbent.peak)
         if best is None:
             best = incumbent
-        return tuple(
-            a.with_offset(offset)
-            for a, offset in zip(best.allocations, best.offsets, strict=True)
-        )
+        return tuple(best.allocations)

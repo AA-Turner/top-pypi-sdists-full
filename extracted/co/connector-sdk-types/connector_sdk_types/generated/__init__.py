@@ -75,6 +75,7 @@ from .models.create_account_response import CreateAccountResponse
 from .models.created_account import CreatedAccount
 from .models.created_effect import CreatedEffect
 from .models.credential import Credential
+from .models.credential_last_activity import CredentialLastActivity
 from .models.credential_status import CredentialStatus
 from .models.credential_type import CredentialType
 from .models.custom_attribute import CustomAttribute
@@ -158,6 +159,10 @@ from .models.get_connected_info import GetConnectedInfo
 from .models.get_connected_info200_response import GetConnectedInfo200Response
 from .models.get_connected_info_request import GetConnectedInfoRequest
 from .models.get_connected_info_response import GetConnectedInfoResponse
+from .models.get_credential_last_activity import GetCredentialLastActivity
+from .models.get_credential_last_activity200_response import GetCredentialLastActivity200Response
+from .models.get_credential_last_activity_request import GetCredentialLastActivityRequest
+from .models.get_credential_last_activity_response import GetCredentialLastActivityResponse
 from .models.get_data_recency import GetDataRecency
 from .models.get_data_recency200_response import GetDataRecency200Response
 from .models.get_data_recency_request import GetDataRecencyRequest
@@ -404,6 +409,7 @@ __all__ = [
     "CreatedAccount",
     "CreatedEffect",
     "Credential",
+    "CredentialLastActivity",
     "CredentialStatus",
     "CredentialType",
     "CustomAttribute",
@@ -487,6 +493,10 @@ __all__ = [
     "GetConnectedInfo200Response",
     "GetConnectedInfoRequest",
     "GetConnectedInfoResponse",
+    "GetCredentialLastActivity",
+    "GetCredentialLastActivity200Response",
+    "GetCredentialLastActivityRequest",
+    "GetCredentialLastActivityResponse",
     "GetDataRecency",
     "GetDataRecency200Response",
     "GetDataRecencyRequest",
