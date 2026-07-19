@@ -168,13 +168,16 @@ class CargoProvider(BinProvider):
         )
 
     def _cargo_executes(self, abspath) -> bool:
-        """Return True iff ``<abspath> --version`` exits cleanly with parseable output.
+        """Return True iff Cargo and its Rust compiler are fully initialized.
 
         Guards against partially broken cargo installs where the binary exists
         on PATH but won't actually run (e.g. brew's cargo dynamically linked
         to a libllhttp that's been removed). The base BinProvider load() does
         a version probe, but providers can persist cache entries that bypass
-        it; this is a final, no-cache executable check.
+        it; this is a final, no-cache executable check. Probe rustc too: rustup
+        can defer a stable-toolchain update until the first compiler process,
+        and letting a parallel ``cargo install`` trigger that update races
+        sibling rustc processes against a temporarily incomplete sysroot.
         """
         if abspath is None:
             return False
@@ -189,7 +192,42 @@ class CargoProvider(BinProvider):
             return False
         if proc.returncode != 0:
             return False
-        return bool(SemVer.parse(proc.stdout.strip() or proc.stderr.strip()))
+        if not SemVer.parse(proc.stdout.strip() or proc.stderr.strip()):
+            return False
+
+        rustc_abspath = self._rustc_for_cargo(abspath)
+        if rustc_abspath is None:
+            return False
+        try:
+            rustc_proc = subprocess.run(
+                [str(rustc_abspath), "--version"],
+                capture_output=True,
+                text=True,
+                timeout=max(self.version_timeout, 120),
+            )
+        except (OSError, subprocess.SubprocessError):
+            return False
+        return rustc_proc.returncode == 0 and bool(
+            SemVer.parse(rustc_proc.stdout.strip() or rustc_proc.stderr.strip()),
+        )
+
+    @staticmethod
+    def _rustc_for_cargo(cargo_abspath: str | Path) -> Path | None:
+        """Return the compiler shipped beside the selected Cargo executable."""
+        try:
+            rustc_abspath = Path(cargo_abspath).resolve(strict=True).with_name("rustc")
+        except OSError:
+            return None
+        return rustc_abspath if rustc_abspath.is_file() else None
+
+    def _cargo_build_env(self, cargo_abspath: str | Path) -> dict[str, str]:
+        """Keep Cargo on its matching compiler instead of another PATH toolchain."""
+        env = os.environ.copy()
+        if "RUSTC" not in env:
+            rustc_abspath = self._rustc_for_cargo(cargo_abspath)
+            if rustc_abspath is not None:
+                env["RUSTC"] = str(rustc_abspath)
+        return env
 
     @log_method_call()
     def setup(
@@ -330,6 +368,7 @@ class CargoProvider(BinProvider):
             bin_name=installer_bin,
             cmd=["install", *cargo_install_args, *install_args],
             timeout=timeout,
+            env=self._cargo_build_env(installer_bin),
         )
         proc_output = format_subprocess_output(proc.stdout, proc.stderr)
         if (
@@ -341,6 +380,7 @@ class CargoProvider(BinProvider):
                 bin_name=installer_bin,
                 cmd=["install", *cargo_install_args[1:], *install_args],
                 timeout=timeout,
+                env=self._cargo_build_env(installer_bin),
             )
         if proc.returncode != 0:
             self._raise_proc_error("install", install_args, proc)
@@ -376,6 +416,7 @@ class CargoProvider(BinProvider):
                 *install_args,
             ],
             timeout=timeout,
+            env=self._cargo_build_env(installer_bin),
         )
         proc_output = format_subprocess_output(proc.stdout, proc.stderr)
         if (
@@ -392,6 +433,7 @@ class CargoProvider(BinProvider):
                     *install_args,
                 ],
                 timeout=timeout,
+                env=self._cargo_build_env(installer_bin),
             )
         if proc.returncode != 0:
             self._raise_proc_error("update", install_args, proc)

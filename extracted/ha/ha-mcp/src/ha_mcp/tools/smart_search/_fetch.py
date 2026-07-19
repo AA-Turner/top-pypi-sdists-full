@@ -1,17 +1,128 @@
-"""Shared 3-tier config fetching and entry scoring for deep search."""
+"""Shared two-tier config fetching (bulk REST, then budgeted per-id) for deep search."""
 
 import asyncio
 import logging
+import re
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 import httpx
 
-from ._config import BULK_WEBSOCKET_TIMEOUT, INDIVIDUAL_FETCH_BATCH_SIZE
+from ...client.rest_client import HomeAssistantAPIError
+from ._config import INDIVIDUAL_FETCH_BATCH_SIZE
 from ._scoring import ScoringMixin
 
 logger = logging.getLogger(__name__)
+
+# The REST client's own message prefix ("API error: <code> - "); stripped by
+# ``summarize_fetch_error`` so the summary doesn't state the status twice.
+_API_ERROR_PREFIX = re.compile(r"^API error:\s*\d+\s*-\s*")
+
+# Hard cap on a ``summarize_fetch_error`` summary. partial_reason fragments
+# are read inline by agents; one representative error needs a first line,
+# not a body dump.
+_ERROR_SAMPLE_MAX_LEN = 160
+
+
+def summarize_fetch_error(exc: BaseException) -> str:
+    """One-line, length-capped summary of a per-id config-fetch failure.
+
+    The generic ``failed`` bucket collapses every non-404, non-timeout
+    exception into one opaque partial_reason fragment ("per-id fetch raised
+    a non-404 error"), with the real exception visible only at debug-level
+    logging. The follow-up report on issue #1784 showed what that hides: a
+    box where every per-id script fetch returns a fast HTTP 500 because
+    ``scripts.yaml`` contains a ``!secret`` reference (HA core's config view
+    file-loads the YAML per request and rejects secrets before the id
+    lookup) — a five-minute diagnosis if the response named the error, a
+    log dive otherwise. This summary rides the fragment as an ``e.g.``.
+
+    HTTP errors render as ``HTTP <code>: <first line of the message>`` (the
+    client's own ``API error: <code> - `` prefix is stripped rather than
+    duplicated); everything else as ``<ExceptionType>: <first line>``. An
+    empty message renders the bare prefix (``HTTP <code>`` / ``<Type>``).
+    """
+    lines = str(exc).strip().splitlines()
+    text = lines[0].strip() if lines else ""
+    if isinstance(exc, HomeAssistantAPIError) and exc.status_code is not None:
+        text = _API_ERROR_PREFIX.sub("", text)
+        prefix = f"HTTP {exc.status_code}"
+    else:
+        prefix = type(exc).__name__
+    summary = f"{prefix}: {text}" if text else prefix
+    if len(summary) > _ERROR_SAMPLE_MAX_LEN:
+        summary = summary[: _ERROR_SAMPLE_MAX_LEN - 1] + "…"
+    return summary
+
+
+# Matches a rendered ``summarize_fetch_error`` HTTP-500 summary — ``HTTP
+# 500: <text>``, or bare ``HTTP 500`` when the error body was empty. An HTTP
+# 500 is the one sample whose cause the summary cannot name (the body is
+# aiohttp's generic "500 Internal Server Error" placeholder; the real error —
+# most often a ``!secret`` reference the per-id config view rejects — lives
+# only in the HA log). Shared by the sample upgrade in
+# ``record_first_failure`` and by ``http_500_diagnosis_hint`` so the two can
+# never disagree on what counts as a 500.
+_HTTP_500_SAMPLE = re.compile(r"HTTP 500(?::|$)")
+
+
+def _is_http_500_sample(sample: str) -> bool:
+    """True when ``sample`` is a rendered HTTP-500 summary (``_HTTP_500_SAMPLE``)."""
+    return _HTTP_500_SAMPLE.match(sample) is not None
+
+
+# Static diagnosis appended to an HTTP-500 failed fragment. The sample names
+# the status but not the cause (see ``_HTTP_500_SAMPLE``); this points the
+# reader at the HA log and the single most common cause, delivering the
+# five-minute diagnosis the #1784 follow-up asked for without claiming a
+# cause the response can't actually confirm. Kept endpoint-agnostic — this
+# same string rides the automation, script, AND scene fragments, so it names
+# no specific YAML file (a scene 500 has nothing to do with scripts.yaml);
+# "the config file HA loads for this entity" covers all three.
+_HTTP_500_DIAGNOSIS = (
+    " A per-id config fetch returning HTTP 500 is most often a `!secret` "
+    "reference in the config file HA loads for this entity, which the per-id "
+    "config endpoint rejects; the specific cause is in the Home Assistant log "
+    "(the 500 body is a generic placeholder), not in this response."
+)
+
+
+def http_500_diagnosis_hint(failed_sample: str | None) -> str:
+    """Static HA-log hint to append when ``failed_sample`` is an HTTP 500.
+
+    Returns ``""`` for any other sample (or ``None``), so non-500 fragments
+    are byte-identical to before. See ``_HTTP_500_DIAGNOSIS``.
+    """
+    if failed_sample and _is_http_500_sample(failed_sample):
+        return _HTTP_500_DIAGNOSIS
+    return ""
+
+
+def record_first_failure(failed_errors: list[str], exc: BaseException) -> None:
+    """Capture ``exc``'s summary as the representative ``failed`` sample.
+
+    The first generic-``failed`` exception per fetch pass is summarized
+    (subsequent ones are counted but not summarized) — in the motivating
+    "every per-id fetch 500s" case that is N-1 fewer ``summarize_fetch_error``
+    calls. One exception: the first HTTP 500 upgrades a non-500 sample, once —
+    failure order tracks latency under ``asyncio.gather``, so a fast-failing
+    outlier (e.g. a connection blip losing the race against slower 500
+    round-trips) must not claim the slot and suppress the
+    ``http_500_diagnosis_hint`` diagnosis this sample exists to deliver. At
+    most two summaries are rendered per pass. Called from the per-id fetch
+    closures, which run under ``asyncio.gather`` but never suspend between
+    the check and the write, so no lock is needed.
+    """
+    if not failed_errors:
+        failed_errors.append(summarize_fetch_error(exc))
+        return
+    if (
+        isinstance(exc, HomeAssistantAPIError)
+        and exc.status_code == 500
+        and not _is_http_500_sample(failed_errors[0])
+    ):
+        failed_errors[0] = summarize_fetch_error(exc)
 
 
 def is_timeout_error(exc: BaseException) -> bool:
@@ -35,7 +146,7 @@ def is_timeout_error(exc: BaseException) -> bool:
 
 
 class ConfigFetchMixin(ScoringMixin):
-    """REST/WebSocket bulk + budgeted individual config fetch, and scoring of fetched entries."""
+    """REST bulk + budgeted individual config fetch, and scoring of fetched entries."""
 
     @staticmethod
     def _index_configs(
@@ -53,17 +164,25 @@ class ConfigFetchMixin(ScoringMixin):
     async def _bulk_fetch_configs(
         self,
         rest_endpoint: str,
-        ws_types: list[str],
         id_of: Callable[[dict[str, Any]], str | None],
         rest_timeout: float,
         label: str,
     ) -> dict[str, dict[str, Any]] | None:
-        """Bulk-fetch all configs of one domain: REST endpoint, then WS list endpoints.
+        """Bulk-fetch all configs of one domain from its REST endpoint.
 
-        Returns ``{id: config}`` (possibly empty) on the first successful
-        attempt, or ``None`` when every attempt failed. An empty-but-successful
-        REST list returns ``{}`` (not ``None``) so the caller skips the
-        individual-fetch fallback exactly as it would for a populated response.
+        Returns ``{id: config}`` (possibly empty) on success, or ``None`` when
+        the fetch failed (the caller then falls back to budgeted individual
+        fetches). An empty-but-successful REST list returns ``{}`` (not
+        ``None``) so the caller skips the individual-fetch fallback exactly as
+        it would for a populated response.
+
+        There is deliberately NO WebSocket fallback here: the
+        ``config/<domain>/config/list`` and ``<domain>/config/list`` command
+        types this used to try have never existed in HA core, so every legacy
+        config search fired paired ``unknown_command`` rejections that
+        ``send_websocket_message`` logged as ERRORs — the recurring
+        "WebSocket message failed: Command failed: Unknown command." log spam
+        of issue #1889.
         """
         try:
             resp = await asyncio.wait_for(
@@ -74,17 +193,6 @@ class ConfigFetchMixin(ScoringMixin):
                 return self._index_configs(resp, id_of)
         except Exception as e:
             logger.debug(f"{label} REST bulk fetch failed: {e}")
-
-        for ws_type in ws_types:
-            try:
-                ws_resp = await asyncio.wait_for(
-                    self.client.send_websocket_message({"type": ws_type}),
-                    timeout=BULK_WEBSOCKET_TIMEOUT,
-                )
-                if isinstance(ws_resp, dict) and ws_resp.get("success"):
-                    return self._index_configs(ws_resp.get("result", []), id_of)
-            except Exception as e:
-                logger.debug(f"{label} WebSocket bulk fetch ({ws_type}) failed: {e}")
         return None
 
     async def _individual_fetch_budgeted(

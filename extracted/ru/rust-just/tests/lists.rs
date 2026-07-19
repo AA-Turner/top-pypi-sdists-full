@@ -181,6 +181,11 @@ fn split_keeps_empty_elements_with_explicit_separator() {
 }
 
 #[test]
+fn split_on_empty_separator_splits_into_characters() {
+  assert_list("split('abc', '')", r#"["a", "b", "c"]"#);
+}
+
+#[test]
 fn split_without_separator_splits_on_whitespace() {
   assert_list("split('  foo \t bar  baz ')", r#"["foo", "bar", "baz"]"#);
 }
@@ -1085,4 +1090,23 @@ fn list_in_setting_value_points_at_setting_name() {
       "#,
     )
     .failure();
+}
+
+#[test]
+fn len() {
+  #[track_caller]
+  fn case(expression: &str, expected: &str) {
+    Test::new()
+      .justfile(format!("set lists\nx := len({expression})"))
+      .unstable()
+      .args(["--evaluate", "x"])
+      .stdout(expected)
+      .success();
+  }
+
+  case("[]", "0");
+  case("''", "1");
+  case("'foo'", "1");
+  case("['foo']", "1");
+  case("['foo', 'bar']", "2");
 }

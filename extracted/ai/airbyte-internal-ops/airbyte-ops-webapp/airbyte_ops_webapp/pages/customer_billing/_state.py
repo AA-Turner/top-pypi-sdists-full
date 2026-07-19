@@ -60,6 +60,40 @@ class BillingApplyResult(BaseModel):
     message: str = ""
 
 
+class LookupOrganizationResult(BaseModel):
+    """Typed output of `lookup_organization`.
+
+    `org_info` and `payment_config` are the JSON-serialized forms of the
+    `OrganizationInfo` / `OrganizationPaymentConfigInfo` core models (or `None`
+    when the lookup fails), so they stay row-shaped `dict`s at this boundary.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    org_info: dict[str, object] | None = None
+    payment_config: dict[str, object] | None = None
+    resolved_org_label: str = ""
+    org_loaded: bool = False
+    lookup_error: str = ""
+
+
+class BillingActionResult(BaseModel):
+    """Typed output of the billing action tools (grace period, permanent waiver)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    success: bool = False
+    message: str = ""
+    organization_id: str = ""
+    payment_status: str | None = None
+    grace_period_end_at: str | None = None
+    permanent_waiver_type: str | None = None
+    customer_tier: str | None = None
+    tier_warning: str | None = None
+    orb_plan_change: str | None = None
+    entitlement_plan_change: str | None = None
+
+
 class CustomerBillingPageState(OpsPageState, OrgLookupModalState):
     """Complete initial Prefab state for the Customer Billing page."""
 

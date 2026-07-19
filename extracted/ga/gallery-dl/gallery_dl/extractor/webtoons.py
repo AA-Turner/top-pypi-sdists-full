@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright 2020 Leonardo Taccari
-# Copyright 2021-2025 Mike Fährmann
+# Copyright 2021-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,7 +20,8 @@ class WebtoonsBase():
     category = "webtoons"
     root = "https://www.webtoons.com"
     directory_fmt = ("{category}", "{comic}")
-    filename_fmt = "{episode_no}-{num:>02}{type:?-//}.{extension}"
+    filename_fmt = ("{episode_no}-{num:>02}{type:?-//}{sortOrder:?//}."
+                    "{extension}")
     archive_fmt = "{title_no}_{episode_no}_{num}"
     cookies_domain = ".webtoons.com"
     request_interval = (0.5, 1.5)

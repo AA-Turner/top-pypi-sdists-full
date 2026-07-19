@@ -89,8 +89,8 @@ def _draw_graphs(
         )
         for r in reports
     ]
-    times = [r.mean_seconds for r in reports]
-    efficiencies = [r.mean_allocation_efficiency * 100 for r in reports]
+    times = [r.average_seconds for r in reports]
+    efficiencies = [r.average_allocation_efficiency * 100 for r in reports]
 
     ax.plot(
         x_vals,
@@ -158,16 +158,13 @@ def _draw_subplot(
     ax: Axes,
     source_name: str,
     source_data: dict[str, dict[str, tuple[BenchmarkReport, ...]]],
-    allocator_names: tuple[str, ...],
 ) -> None:
     ax2 = ax.twinx()
 
     is_categorical = _is_categorical(source_data)
 
-    for allocator_name, allocator_data in source_data.items():
-        # Color by campaign-wide allocator index so colors match the legend
-        # even when a source lacks some allocators.
-        color = _get_allocator_color(allocator_names.index(allocator_name))
+    for i, (allocator_name, allocator_data) in enumerate(source_data.items()):
+        color = _get_allocator_color(i)
         reports = _get_sorted_reports(allocator_data)
 
         _draw_graphs(ax, ax2, allocator_name, color, is_categorical, reports)
@@ -177,12 +174,7 @@ def _draw_subplot(
         plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha="right")
     else:
         ax.set_xlabel("Number of Allocations", fontsize=10)
-        num_allocations = [
-            r.num_allocations
-            for allocator_data in source_data.values()
-            for reports in allocator_data.values()
-            for r in reports
-        ]
+        num_allocations = [r.num_allocations for r in reports]
         if num_allocations and max(num_allocations) / min(num_allocations) > 10:
             ax.set_xscale("log")
 
@@ -247,8 +239,9 @@ def _create_figure(num_sources: int) -> tuple[Figure, list[Axes]]:
 
 def _visualize_campaign(
     campaign: BenchmarkCampaign,
-    path: Path | str | None,
-) -> None:
+    file_path: Path | str | None,
+    show_inline: bool,
+) -> Path | None:
     source_names = campaign.source_names
     allocator_names = campaign.allocator_names
     reports_by_source = campaign.reports_by_source_allocator_variant
@@ -263,22 +256,25 @@ def _visualize_campaign(
     fig, axs = _create_figure(len(source_names))
 
     for ax, source_name in zip(axs, source_names, strict=True):
-        _draw_subplot(ax, source_name, reports_by_source[source_name], allocator_names)
+        _draw_subplot(ax, source_name, reports_by_source[source_name])
 
     fig.tight_layout(rect=(0.01, 0.05, 0.99, 0.92))  # l, b, r, t
 
     _add_footer(campaign, fig)
     _add_legend(fig, allocator_names)
 
-    if path is None:
+    if show_inline:
         plt.show()
-    else:
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(path, bbox_inches="tight", format="pdf")
-        logger.info(f"Visualization saved to {path}")
+
+    if file_path is not None:
+        file_path = Path(file_path)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(file_path, bbox_inches="tight", format="pdf")
+        logger.info(f"Visualization saved to {file_path}")
 
     plt.close(fig)
+
+    return file_path
 
 
 def _canonicalize_artifact(
@@ -293,13 +289,21 @@ def _canonicalize_artifact(
 
 def plot_benchmark(
     artifact: BenchmarkResult | BenchmarkReport | BenchmarkCampaign,
-    path: Path | str | None = None,
-) -> None:
-    """Plot a benchmark artifact: `path=None` displays the figure, `path=...` saves it.
+    file_path: Path | str | None = None,
+    show_inline: bool = False,
+) -> Path | None:
+    """Visualize benchmark results.
 
-    Raises `ImportError` without matplotlib.
+    Args:
+        artifact: The benchmark artifact to visualize.
+        file_path: Optional path to save the plot.
+        show_inline: Whether to display inline (for notebooks).
+
+    Returns:
+        Path to the saved file, or None if not saved.
     """
     if not HAS_MATPLOTLIB:
         require_optional("matplotlib", "benchmark visualization")
 
-    _visualize_campaign(_canonicalize_artifact(artifact), path)
+    campaign = _canonicalize_artifact(artifact)
+    return _visualize_campaign(campaign, file_path, show_inline)

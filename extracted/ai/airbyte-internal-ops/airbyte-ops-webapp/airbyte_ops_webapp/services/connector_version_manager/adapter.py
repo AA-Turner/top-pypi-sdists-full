@@ -8,7 +8,6 @@ from collections.abc import Callable, Mapping
 from dataclasses import asdict
 from datetime import datetime
 
-import google.auth.exceptions
 import sqlalchemy.exc
 from airbyte import constants
 from airbyte.exceptions import PyAirbyteInputError
@@ -27,7 +26,7 @@ from airbyte_ops_mcp.cloud_admin.version_overrides import (
     VersionOverrideTarget,
     set_version_override,
 )
-from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_bigquery_ro
+from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_tier_gcs_ro
 from airbyte_ops_mcp.prod_db_access.queries import (
     query_actor_population_by_org,
     query_connector_rollouts,
@@ -386,7 +385,6 @@ class OpsMcpAdapter:
         is_destination: bool,
         target_version_id: str = "",
         rollout_created_at: str = "",
-        google_access_token: str = "",
     ) -> ConnectorPopulation:
         """Return the enabled (active-connection) actor population, by rollout tier.
 
@@ -398,14 +396,12 @@ class OpsMcpAdapter:
         counts used to fill in tiers whose rollout has not started.
 
         The connector-wide `total_active` is a tier-independent aggregate summed
-        directly from the population rows, so it renders even when the
-        BigQuery-backed tier cache is unavailable. The per-tier eligible split
-        needs tier resolution; `google_access_token` (the signed-in user's
-        BigQuery-scoped OAuth token) is used to reach BigQuery under the user's
-        own IAM rather than the service account. If tier resolution still fails
-        the split degrades to zero rather than failing the whole context load.
-        Returns an empty `ConnectorPopulation` on a DB error so the card still
-        renders.
+        directly from the population rows. The per-tier eligible split needs tier
+        resolution, which reads the platform's GCS tier export under the webapp's
+        runtime service account (ADC). Tier resolution failures raise rather than
+        degrading to zero: silently returning `0 of 0` would misrepresent a real
+        population as empty, so a GCS/credential error propagates and the page
+        surfaces it instead of showing fabricated counts.
 
         Uses `tier_filter="ALL"` because the rollout card shows every tier; the
         result is aggregate counts only (no customer identities).
@@ -428,27 +424,18 @@ class OpsMcpAdapter:
 
         total_active = sum(int(row.get("actor_count", 0)) for row in population_rows)
 
-        try:
-            bq_credentials = get_gcp_credentials_for_bigquery_ro(
-                access_token_override=google_access_token or None,
-            )
-            summary = summarize_population(
-                population_rows,
-                tier_filter="ALL",
-                job_gated=job_gated,
-                has_target_version=bool(target_version_id),
-                credentials=bq_credentials,
-            )
-        except (RuntimeError, google.auth.exceptions.GoogleAuthError):
-            # Tier resolution needs BigQuery: resolving the read-only BigQuery
-            # credentials raises `GoogleAuthError` (e.g. `DefaultCredentialsError`
-            # when ADC/SA credentials are unavailable), and the tier lookup itself
-            # raises `RuntimeError` when no tier data is available. Either way,
-            # keep the connector-wide active total and drop the per-tier breakdown
-            # instead of breaking the page. Without the tier split there is no
-            # gated-eligible total, so the headline falls back to `total_active`
-            # at the display layer.
-            return ConnectorPopulation(total_active=total_active)
+        # Tier resolution reads the GCS tier export under the runtime service
+        # account (ADC). A credential or read failure raises `GoogleAuthError` /
+        # `RuntimeError`; we let it propagate rather than returning a zeroed
+        # breakdown, so a real population is never misrepresented as `0 of 0`.
+        gcs_credentials = get_gcp_credentials_for_tier_gcs_ro()
+        summary = summarize_population(
+            population_rows,
+            tier_filter="ALL",
+            job_gated=job_gated,
+            has_target_version=bool(target_version_id),
+            credentials=gcs_credentials,
+        )
 
         # The `eligible` denominator is the tier's job-status-gated audience
         # (`addressable_gated_by_tier`, the backend's
@@ -658,8 +645,6 @@ class OpsMcpAdapter:
     def apply_override(
         self,
         plan: OverridePlan,
-        *,
-        google_access_token: str = "",
     ) -> OperationResult:
         """Apply the matching version override operation."""
         auth = ResolvedCloudAuth(
@@ -669,9 +654,7 @@ class OpsMcpAdapter:
         )
         payload = build_version_override_payload(plan)
         target = self._target_from_plan(plan)
-        bq_credentials = get_gcp_credentials_for_bigquery_ro(
-            access_token_override=google_access_token or None,
-        )
+        gcs_credentials = get_gcp_credentials_for_tier_gcs_ro()
         result = set_version_override(
             auth=auth,
             target=target,
@@ -686,7 +669,7 @@ class OpsMcpAdapter:
             force=payload.force,
             config_api_root=self.config_api_root,
             user_email=plan.user_email,
-            bq_credentials=bq_credentials,
+            gcs_credentials=gcs_credentials,
         )
 
         return OperationResult(
@@ -816,21 +799,13 @@ class OpsMcpAdapter:
         self,
         scope_type: ScopeType,
         scope_id: str,
-        *,
-        google_access_token: str = "",
     ) -> str:
         """Return the organization ID for the selected target scope."""
         if scope_type == "organization":
             return scope_id
         if scope_type == "actor":
             return ""
-        credentials = (
-            get_gcp_credentials_for_bigquery_ro(
-                access_token_override=google_access_token
-            )
-            if google_access_token
-            else None
-        )
+        credentials = get_gcp_credentials_for_tier_gcs_ro()
         return (
             resolve_workspace(scope_id, credentials=credentials).organization_id or ""
         )

@@ -115,6 +115,15 @@ _configuration = [
     ErdConfigurationEntry(ErdCode.OVEN_MODE_MIN_MAX_TEMP, OvenRangesConverter(), ErdCodeClass.OVEN_SENSOR),
     ErdConfigurationEntry(ErdCode.WARMING_DRAWER_STATE, ErdOvenWarmingStateConverter(), ErdCodeClass.OVEN_SENSOR),
 
+    # Toaster Oven
+    ErdConfigurationEntry(ErdCode.TOASTER_OVEN_LIGHT, ErdReadOnlyBoolConverter(), ErdCodeClass.LIGHT, ErdDataType.BOOL),
+    ErdConfigurationEntry(ErdCode.TOASTER_OVEN_LIGHT_CONTROL, ErdBoolConverter(), ErdCodeClass.LIGHT, ErdDataType.BOOL),
+    ErdConfigurationEntry(ErdCode.TOASTER_OVEN_COOK_SETTING, ToasterOvenCookSettingConverter(), ErdCodeClass.TOASTER_OVEN_SENSOR),
+    ErdConfigurationEntry(ErdCode.TOASTER_OVEN_COOK_SETTING_CONTROL, ToasterOvenCookSettingConverter(), ErdCodeClass.TOASTER_OVEN_SENSOR),
+    ErdConfigurationEntry(ErdCode.TOASTER_OVEN_CURRENT_STATE, ErdToasterOvenStateConverter(), ErdCodeClass.TOASTER_OVEN_SENSOR),
+    ErdConfigurationEntry(ErdCode.TOASTER_OVEN_CONVECTION, ErdReadOnlyBoolConverter(), ErdCodeClass.TOASTER_OVEN_SENSOR, ErdDataType.BOOL),
+    ErdConfigurationEntry(ErdCode.TOASTER_OVEN_COOK_TIME_REMAINING, ErdReadOnlyTimeSpanConverter(uom="seconds"), ErdCodeClass.TIMER, ErdDataType.TIMESPAN),
+
     ErdConfigurationEntry(ErdCode.COOKTOP_CONFIG, ErdCooktopConfigConverter(), ErdCodeClass.GENERAL),
     ErdConfigurationEntry(ErdCode.COOKTOP_STATUS, CooktopStatusConverter(), ErdCodeClass.GENERAL),
     ErdConfigurationEntry(ErdCode.COOKTOP_STATUS_EXT, CooktopStatusExtConverter(), ErdCodeClass.GENERAL),
@@ -376,6 +385,7 @@ _configuration = [
     ErdConfigurationEntry(ErdCode.RESOURCE_DSM_POWER_USAGE, ErdDsmPowerUsageConverter(), ErdCodeClass.POWER),
     ErdConfigurationEntry(ErdCode.RESOURCE_DEMAND_RESPONSE_STATE, ErdDemandResponseStateConverter(), ErdCodeClass.GENERAL),
     ErdConfigurationEntry(ErdCode.RESOURCE_CUMULATIVE_ENERGY, ErdReadOnlyIntConverter(), ErdCodeClass.ENERGY, ErdDataType.INT),
+    ErdConfigurationEntry(ErdCode.RESOURCE_CUMULATIVE_ENERGY_WH, ErdReadOnlyIntConverter(), ErdCodeClass.ENERGY, ErdDataType.INT),
     ErdConfigurationEntry(ErdCode.RESOURCE_ENERGY_UPDATE_PERIOD_MINS, ErdReadOnlyIntConverter(), ErdCodeClass.GENERAL, ErdDataType.INT),
     ErdConfigurationEntry(ErdCode.RESOURCE_ENERGY_MEASUREMENT_TYPE, ErdResourceMeasurementTypeConverter(), ErdCodeClass.GENERAL),
     ErdConfigurationEntry(ErdCode.RESOURCE_CUMULATIVE_HOT_WATER_LITERS, ErdReadOnlyIntConverter(), ErdCodeClass.LIQUID_VOLUME, ErdDataType.INT),

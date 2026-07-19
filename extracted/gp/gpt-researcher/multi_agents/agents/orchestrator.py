@@ -6,6 +6,10 @@ from langgraph.graph import StateGraph, END
 from .utils.views import print_agent_output
 from ..memory.research import ResearchState
 from .utils.utils import sanitize_filename
+from .plan_review import (
+    DEFAULT_MAX_PLAN_REVISIONS,
+    route_human_feedback,
+)
 
 # Import agent classes
 from . import \
@@ -13,7 +17,9 @@ from . import \
     EditorAgent, \
     PublisherAgent, \
     ResearchAgent, \
-    HumanAgent
+    HumanAgent, \
+    FactCheckerAgent, \
+    VisualizerAgent
 
 
 class ChiefEditorAgent:
@@ -46,7 +52,9 @@ class ChiefEditorAgent:
             "editor": EditorAgent(self.websocket, self.stream_output, self.tone, self.headers),
             "research": ResearchAgent(self.websocket, self.stream_output, self.tone, self.headers),
             "publisher": PublisherAgent(self.output_dir, self.websocket, self.stream_output, self.headers),
-            "human": HumanAgent(self.websocket, self.stream_output, self.headers)
+            "human": HumanAgent(self.websocket, self.stream_output, self.headers),
+            "fact_checker": FactCheckerAgent(self.websocket, self.stream_output, self.headers),
+            "visualizer": VisualizerAgent(self.websocket, self.stream_output, self.headers)
         }
 
     def _create_workflow(self, agents):
@@ -57,6 +65,8 @@ class ChiefEditorAgent:
         workflow.add_node("planner", agents["editor"].plan_research)
         workflow.add_node("researcher", agents["editor"].run_parallel_research)
         workflow.add_node("writer", agents["writer"].run)
+        workflow.add_node("fact_checker", agents["fact_checker"].run)
+        workflow.add_node("visualizer", agents["visualizer"].run)
         workflow.add_node("publisher", agents["publisher"].run)
         workflow.add_node("human", agents["human"].review_plan)
 
@@ -69,16 +79,34 @@ class ChiefEditorAgent:
         workflow.add_edge('browser', 'planner')
         workflow.add_edge('planner', 'human')
         workflow.add_edge('researcher', 'writer')
-        workflow.add_edge('writer', 'publisher')
+        workflow.add_edge('writer', 'fact_checker')
+        workflow.add_edge('visualizer', 'publisher')
         workflow.set_entry_point("browser")
         workflow.add_edge('publisher', END)
 
         # Add human in the loop
+        MAX_REVISIONS = 5
         workflow.add_conditional_edges(
             'human',
-            lambda review: "accept" if review['human_feedback'] is None else "revise",
-            {"accept": "researcher", "revise": "planner"}
+            lambda state: (
+                "accept" if state['human_feedback'] is None
+                else "force_accept" if state.get('revisions_count', 0) >= MAX_REVISIONS
+                else "revise"
+            ),
+            {"accept": "researcher", "force_accept": "researcher", "revise": "planner"}
         )
+
+        # Fact-checker loop — bounded via task.max_fact_check_revisions
+        workflow.add_conditional_edges(
+            'fact_checker',
+            self._route_fact_check,
+            {"accept": "visualizer", "revise": "writer"}
+        )
+
+    def _route_human_feedback(self, review):
+        max_plan_revisions = self.task.get(
+            "max_plan_revisions", DEFAULT_MAX_PLAN_REVISIONS)
+        return route_human_feedback(review, max_plan_revisions)
 
     def init_research_team(self):
         """Initialize and create a workflow for the research team."""

@@ -16,6 +16,22 @@ updates:
       - dependencies
     open-pull-requests-limit: 8 # default is 5
 
+  # Prod runtime pins for the cloud-mcp Cloud Run image (built from the adjacent
+  # Dockerfile). Kept beside the infra deployment files so bumps land as isolated,
+  # clearly-labeled prod-promotion PRs (a version is validated on cloud-mcp-preview
+  # before the prod image ships it).
+  - package-ecosystem: pip
+    directory: "/infra/internal-mcp-servers/docker/cloud-mcp"
+    commit-message:
+      prefix: "chore(cloud-mcp-deps): "
+    schedule:
+      interval: daily
+    labels:
+      - chore
+      - dependencies
+      - cloud-mcp
+    open-pull-requests-limit: 4
+
   - package-ecosystem: github-actions
     open-pull-requests-limit: 5 # default is 5
     directory: "/"

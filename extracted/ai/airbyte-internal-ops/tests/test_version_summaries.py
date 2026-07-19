@@ -3,7 +3,7 @@
 
 Covers the pure roll-up logic for health, population, and `get_actor_sync_info`
 summaries. Tier resolution is exercised through a patched tier cache so no
-BigQuery or Prod DB calls are made.
+GCS or Prod DB calls are made.
 """
 
 from __future__ import annotations

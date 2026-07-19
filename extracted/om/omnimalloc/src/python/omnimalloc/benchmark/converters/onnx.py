@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 
 from omnimalloc.common.optional import require_optional
-from omnimalloc.primitives import AllocationKind
+from omnimalloc.primitives import BufferKind
 
 from .model import Buffer, Model, Op
 
@@ -53,23 +53,19 @@ def _from_onnx_model(onnx_model: onnx.ModelProto) -> Model:
         _add_buffer(_tensor_proto_to_buffer(init))
 
     for inp in graph.input:
-        # Legacy IR re-lists initializers under graph inputs; those are constants.
-        if inp.name in buffers:
-            continue
-        _add_buffer(_value_info_to_buffer(inp, AllocationKind.INPUT))
+        _add_buffer(_value_info_to_buffer(inp, BufferKind.INPUT))
 
     for out in graph.output:
-        _add_buffer(_value_info_to_buffer(out, AllocationKind.OUTPUT))
+        _add_buffer(_value_info_to_buffer(out, BufferKind.OUTPUT))
 
     for val in graph.value_info:
-        _add_buffer(_value_info_to_buffer(val, AllocationKind.WORKSPACE))
+        _add_buffer(_value_info_to_buffer(val, BufferKind.WORKSPACE))
 
     ops = {}
-    for idx, node in enumerate(graph.node):
-        # Node names are optional in ONNX; synthesize unique ids for unnamed nodes.
-        op = _node_to_op(node, buffers, node.name or f"{node.op_type}_{idx}")
-        if op.id in ops:
-            raise ValueError(f"Node {op.id} already exists in ops")
+    for node in graph.node:
+        if node.name in ops:
+            raise ValueError(f"Node {node.name} already exists in ops")
+        op = _node_to_op(node, buffers)
         ops[op.id] = op
 
     name = onnx_model.doc_string or graph.name or "unnamed_model"
@@ -88,13 +84,11 @@ def _tensor_proto_to_buffer(tensor: onnx.TensorProto) -> Buffer:
         id=tensor.name,
         shape=shape,
         dtype=onnx.helper.tensor_dtype_to_np_dtype(tensor.data_type),
-        kind=AllocationKind.CONSTANT,
+        kind=BufferKind.CONSTANT,
     )
 
 
-def _value_info_to_buffer(
-    value_info: onnx.ValueInfoProto, kind: AllocationKind
-) -> Buffer:
+def _value_info_to_buffer(value_info: onnx.ValueInfoProto, kind: BufferKind) -> Buffer:
     tt = value_info.type.tensor_type
     original_shape = tuple(int(dim.dim_value) for dim in tt.shape.dim)
     shape = tuple(dim for dim in original_shape if dim > 0)
@@ -111,25 +105,23 @@ def _value_info_to_buffer(
     )
 
 
-def _node_to_op(
-    node: onnx.NodeProto, buffers: dict[str | int, Buffer], op_id: str
-) -> Op:
+def _node_to_op(node: onnx.NodeProto, buffers: dict[str | int, Buffer]) -> Op:
     input_buffers = []
     for name in node.input:
         if name not in buffers:
-            logger.debug(f"Input buffer '{name}' not found for node '{op_id}'")
+            logger.debug(f"Input buffer '{name}' not found for node '{node.name}'")
             continue
         input_buffers.append(buffers[name])
 
     output_buffers = []
     for name in node.output:
         if name not in buffers:
-            logger.debug(f"Output buffer '{name}' not found for node '{op_id}'")
+            logger.debug(f"Output buffer '{name}' not found for node '{node.name}'")
             continue
         output_buffers.append(buffers[name])
 
     return Op(
-        id=op_id,
+        id=node.name,
         inputs=set(input_buffers),
         outputs=set(output_buffers),
         op_type=node.op_type,

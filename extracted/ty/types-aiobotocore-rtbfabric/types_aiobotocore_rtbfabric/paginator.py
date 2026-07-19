@@ -12,6 +12,8 @@ Usage::
 
     from types_aiobotocore_rtbfabric.client import RTBFabricClient
     from types_aiobotocore_rtbfabric.paginator import (
+        ListCertificateAssociationsPaginator,
+        ListLinkRoutingRulesPaginator,
         ListLinksPaginator,
         ListRequesterGatewaysPaginator,
         ListResponderGatewaysPaginator,
@@ -21,6 +23,8 @@ Usage::
     with session.create_client("rtbfabric") as client:
         client: RTBFabricClient
 
+        list_certificate_associations_paginator: ListCertificateAssociationsPaginator = client.get_paginator("list_certificate_associations")
+        list_link_routing_rules_paginator: ListLinkRoutingRulesPaginator = client.get_paginator("list_link_routing_rules")
         list_links_paginator: ListLinksPaginator = client.get_paginator("list_links")
         list_requester_gateways_paginator: ListRequesterGatewaysPaginator = client.get_paginator("list_requester_gateways")
         list_responder_gateways_paginator: ListResponderGatewaysPaginator = client.get_paginator("list_responder_gateways")
@@ -35,6 +39,10 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    ListCertificateAssociationsRequestPaginateTypeDef,
+    ListCertificateAssociationsResponseTypeDef,
+    ListLinkRoutingRulesRequestPaginateTypeDef,
+    ListLinkRoutingRulesResponseTypeDef,
     ListLinksRequestPaginateTypeDef,
     ListLinksResponseTypeDef,
     ListRequesterGatewaysRequestPaginateTypeDef,
@@ -49,7 +57,57 @@ else:
     from typing_extensions import Unpack
 
 
-__all__ = ("ListLinksPaginator", "ListRequesterGatewaysPaginator", "ListResponderGatewaysPaginator")
+__all__ = (
+    "ListCertificateAssociationsPaginator",
+    "ListLinkRoutingRulesPaginator",
+    "ListLinksPaginator",
+    "ListRequesterGatewaysPaginator",
+    "ListResponderGatewaysPaginator",
+)
+
+
+if TYPE_CHECKING:
+    _ListCertificateAssociationsPaginatorBase = AioPaginator[
+        ListCertificateAssociationsResponseTypeDef
+    ]
+else:
+    _ListCertificateAssociationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListCertificateAssociationsPaginator(_ListCertificateAssociationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/paginator/ListCertificateAssociations.html#RTBFabric.Paginator.ListCertificateAssociations)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/paginators/#listcertificateassociationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCertificateAssociationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListCertificateAssociationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/paginator/ListCertificateAssociations.html#RTBFabric.Paginator.ListCertificateAssociations.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/paginators/#listcertificateassociationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListLinkRoutingRulesPaginatorBase = AioPaginator[ListLinkRoutingRulesResponseTypeDef]
+else:
+    _ListLinkRoutingRulesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListLinkRoutingRulesPaginator(_ListLinkRoutingRulesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/paginator/ListLinkRoutingRules.html#RTBFabric.Paginator.ListLinkRoutingRules)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/paginators/#listlinkroutingrulespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListLinkRoutingRulesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListLinkRoutingRulesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/paginator/ListLinkRoutingRules.html#RTBFabric.Paginator.ListLinkRoutingRules.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/paginators/#listlinkroutingrulespaginator)
+        """
 
 
 if TYPE_CHECKING:

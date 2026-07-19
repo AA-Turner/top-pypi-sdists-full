@@ -38,7 +38,7 @@ def _write_bun_workspace(workspace_dir: Path) -> None:
     )
 
 
-def test_bun_install_approval_replays_when_local_policy_integrity_is_degraded(tmp_path: Path) -> None:
+def test_bun_install_approval_never_lowers_current_block_when_integrity_is_degraded(tmp_path: Path) -> None:
     store = GuardStore(tmp_path / "guard-home")
     workspace_dir = tmp_path / "workspace"
     workspace_dir.mkdir()
@@ -62,6 +62,7 @@ def test_bun_install_approval_replays_when_local_policy_integrity_is_degraded(tm
         timeout_seconds=30,
     )
     assert baseline_rc == 2
+    assert baseline_payload["verdict"]["action"] == "block"
     receipt = baseline_payload["receipt"]
     assert isinstance(receipt, dict)
     store.add_approval_request(
@@ -84,15 +85,20 @@ def test_bun_install_approval_replays_when_local_policy_integrity_is_degraded(tm
         ),
         "2026-06-14T00:00:30Z",
     )
-    apply_approval_resolution(
-        store=store,
-        request_id="req-bun-install",
-        action="allow",
-        scope="artifact",
-        workspace=None,
-        reason="same bun install",
-        now="2026-06-14T00:01:00Z",
-    )
+    with pytest.raises(ValueError, match="terminal_policy_action_not_resolvable"):
+        apply_approval_resolution(
+            store=store,
+            request_id="req-bun-install",
+            action="allow",
+            scope="artifact",
+            workspace=None,
+            reason="same bun install",
+            now="2026-06-14T00:01:00Z",
+        )
+    pending_request = store.get_approval_request("req-bun-install")
+    assert pending_request is not None
+    assert pending_request["status"] == "pending"
+    assert store.list_policy_decisions() == []
     store._policy_integrity_secret_store = None
 
     first_retry_payload, first_retry_rc = build_package_protect_payload(
@@ -116,16 +122,17 @@ def test_bun_install_approval_replays_when_local_policy_integrity_is_degraded(tm
         timeout_seconds=30,
     )
 
-    assert first_retry_rc == 0
-    assert second_retry_rc == 0
+    assert first_retry_rc == 2
+    assert second_retry_rc == 2
     for retry_payload in (first_retry_payload, second_retry_payload):
-        assert retry_payload["verdict"]["action"] == "allow"
+        assert retry_payload["verdict"]["action"] == "block"
         retry_receipt = retry_payload["receipt"]
         assert isinstance(retry_receipt, dict)
         assert retry_receipt["artifact_hash"] == receipt["artifact_hash"]
+        assert retry_receipt["policy_decision"] == "block"
         evaluation = retry_payload["supply_chain_evaluation"]
         assert isinstance(evaluation, dict)
-        assert any(
+        assert not any(
             isinstance(reason, dict) and reason.get("code") == "saved_package_approval"
             for reason in evaluation.get("reasons", [])
         )

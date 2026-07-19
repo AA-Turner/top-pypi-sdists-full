@@ -50,6 +50,56 @@ _CREATED_UPDATED_PAIRS: tuple[tuple[str, str], ...] = (
 )
 
 
+def _role_enum_values(entity: EntityBlueprint) -> list[str]:
+    """Extract allowed ``role`` enum values from entity field_patterns."""
+    for pattern in getattr(entity, "field_patterns", None) or []:
+        fname = str(getattr(pattern, "field_name", "") or "").lower()
+        if fname != "role":
+            continue
+        params = getattr(pattern, "params", None) or {}
+        vals = params.get("enum_values") or []
+        return [str(v) for v in vals if v]
+    return []
+
+
+def _resolve_persona_role(entity: EntityBlueprint, persona: Any) -> str:
+    """Map persona.default_role onto the entity's role enum when present.
+
+    Legacy blueprints and auto-scaffolded personas used ``role_staff`` /
+    ``role_<persona_id>`` while example apps declare business enums like
+    ``customer|agent|manager``. Invalid roles explode as 422 toasts on
+    user detail (admin User List click).
+    """
+    raw = str(getattr(persona, "default_role", "") or "").strip()
+    allowed = _role_enum_values(entity)
+    if not allowed:
+        return raw or "user"
+
+    if raw in allowed:
+        return raw
+    # Strip legacy role_ prefix: role_staff → staff, role_agent → agent
+    stripped = raw.removeprefix("role_") if raw.startswith("role_") else raw
+    if stripped in allowed:
+        return stripped
+
+    pname = str(getattr(persona, "persona_name", "") or "").strip().lower()
+    if pname in allowed:
+        return pname
+    # Common aliases
+    aliases = {
+        "staff": "agent",
+        "support": "agent",
+        "admin": "manager",
+        "user": allowed[0],
+    }
+    if stripped in aliases and aliases[stripped] in allowed:
+        return aliases[stripped]
+    if pname in aliases and aliases[pname] in allowed:
+        return aliases[pname]
+
+    return allowed[0]
+
+
 def _enforce_created_before_updated(row: dict[str, Any]) -> None:
     """Mutate *row* so each known created/updated pair has created ≤ updated.
 
@@ -222,6 +272,10 @@ class BlueprintDataGenerator:
             List of row dictionaries
         """
         rows: list[dict[str, Any]] = []
+        # Per-entity shuffle bags for STATIC_LIST random_pick so unique fields
+        # (e.g. Ticket.ticket_number) do not collide within a batch when the
+        # value list is long enough (#1624 / TR-48). Reset each entity pass.
+        self._static_list_bags: dict[str, list[Any]] = {}
 
         for row_index in range(entity.row_count_default):
             row = self._generate_row(entity, row_index)
@@ -276,10 +330,25 @@ class BlueprintDataGenerator:
             return str(uuid.uuid4())
 
         elif strategy == FieldStrategy.STATIC_LIST:
-            values = params.get("values", ["default"])
-            if params.get("random_pick", True):
+            values = list(params.get("values", ["default"]))
+            if not values:
+                return "default"
+            if not params.get("random_pick", True):
+                return values[0]
+            # Without-replacement within an entity batch (#1624). When the
+            # bag is empty (more rows than values) reshuffle and continue —
+            # dups are then unavoidable without suffixes. Standalone
+            # generate_field_value (no bag) keeps classic random.choice.
+            bags = getattr(self, "_static_list_bags", None)
+            if bags is None:
                 return random.choice(values)
-            return values[0] if values else "default"
+            bag_key = pattern.field_name
+            bag = bags.get(bag_key)
+            if not bag:
+                bag = values[:]
+                random.shuffle(bag)
+                bags[bag_key] = bag
+            return bags[bag_key].pop()
 
         elif strategy == FieldStrategy.SEQUENTIAL:
             # Deterministic cycle through `values` by row index. Unlike
@@ -572,7 +641,10 @@ class BlueprintDataGenerator:
                         "username": email_base.replace(".", "_"),
                         "password_hash": "PLAINTEXT:Demo1234!",
                         "persona": persona.persona_name,
-                        "role": persona.default_role,
+                        # Clamp to User.role (or similar) enum when blueprint
+                        # personas still carry legacy role_* defaults (#1625
+                        # field: detail toast on admin User List).
+                        "role": _resolve_persona_role(entity, persona),
                     }
 
                     # Add tenant_id if entity is tenant-scoped

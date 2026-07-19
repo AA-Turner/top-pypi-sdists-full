@@ -6,6 +6,7 @@ import logging
 import re
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 from omnimalloc.benchmark.converters.model import model_to_allocations
 from omnimalloc.benchmark.converters.onnx import from_onnx
@@ -35,7 +36,18 @@ except ImportError:
     HfApi = None  # type: ignore[assignment,misc]
     ModelInfo = None  # type: ignore[assignment,misc]
 
-from ..utils import tqdm  # noqa: TID252
+try:
+    from tqdm.auto import tqdm
+
+    HAS_TQDM = True
+except ImportError:
+    HAS_TQDM = False
+
+    # Fallback: tqdm without progress bars (just returns iterable)
+    def tqdm(iterable: Any, **kwargs: Any) -> Any:  # noqa: ARG001, ANN401
+        """No-op tqdm fallback when tqdm is not installed."""
+        return iterable
+
 
 logger = logging.getLogger(__name__)
 
@@ -190,18 +202,11 @@ class HuggingfaceSource(BaseSource):
 
         self._model_paths: list[Path] | None = None
         self._model_pools: dict[str, Pool] | None = None
-        self._downloaded_num_models: int | None = None
 
     def _ensure_downloaded(self) -> None:
-        # Re-download when num_models changed (e.g. grown via
-        # get_available_variants) since the cached download.
-        if (
-            self._model_pools is not None
-            and self._downloaded_num_models == self.num_models
-        ):
+        if self._model_paths is not None and self._model_pools is not None:
             return
 
-        self._downloaded_num_models = self.num_models
         self._model_paths = _download_onnx_models(self.num_models, self.output_dir)
         self._model_pools = {}
         for model_path in self._model_paths:

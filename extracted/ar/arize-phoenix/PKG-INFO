@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 18.1.0
+Version: 19.1.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -28,6 +28,7 @@ Requires-Dist: bashkit>=0.10.0
 Requires-Dist: cachetools
 Requires-Dist: email-validator
 Requires-Dist: fastapi>=0.137.0
+Requires-Dist: fastmcp-slim[code-mode,server]>=3.4.2
 Requires-Dist: grpc-interceptor
 Requires-Dist: grpcio
 Requires-Dist: httpx

@@ -37,7 +37,15 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from dazzle.qa.signing_verifier import SigningOutcome
 
-_CATEGORY_ORDER = ("bug", "missing", "confusion", "aesthetic", "praise", "other")
+_CATEGORY_ORDER = (
+    "bug",
+    "missing",
+    "confusion",
+    "story_gap",
+    "aesthetic",
+    "praise",
+    "other",
+)
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _CLUSTER_SIMILARITY_THRESHOLD = 0.65
 # TR-32: praise rephrases more freely than friction; lower SequenceMatcher
@@ -75,6 +83,10 @@ class TrialReport:
     tokens_used: int = 0
     outcome: str = ""
     signing_outcomes: dict[str, Any] | None = None
+    # Gen-2 structured decision fields (optional; empty when agent omitted).
+    recommend: str = ""
+    criteria_scores: list[dict[str, str]] = field(default_factory=list)
+    pilot_blockers_summary: str = ""
 
 
 def _first_line(text: str) -> str:
@@ -244,13 +256,33 @@ def render_trial_report(report: TrialReport) -> str:
     if report.verdict:
         lines.append("## Verdict")
         lines.append("")
+        if report.recommend:
+            lines.append(f"**Recommend:** `{report.recommend}`")
+            lines.append("")
         for para in report.verdict.strip().split("\n\n"):
             lines.append(f"> {para.strip()}")
         lines.append("")
+        if report.pilot_blockers_summary:
+            lines.append(f"**Pilot blockers:** {report.pilot_blockers_summary}")
+            lines.append("")
     else:
         lines.append("## Verdict")
         lines.append("")
         lines.append("*(no verdict recorded — run ended before `done`)*")
+        lines.append("")
+
+    # Gen-2 adoption criteria scores (when agent provided them).
+    if report.criteria_scores:
+        lines.append("## Adoption criteria")
+        lines.append("")
+        for row in report.criteria_scores:
+            crit = row.get("criterion", "?")
+            score = row.get("score", "untested")
+            note = (row.get("note") or "").strip()
+            if note:
+                lines.append(f"- **{crit}** — `{score}`: {note}")
+            else:
+                lines.append(f"- **{crit}** — `{score}`")
         lines.append("")
 
     # Run metadata — compact, one line.
@@ -263,6 +295,8 @@ def render_trial_report(report: TrialReport) -> str:
         meta_bits.append(f"{report.tokens_used:,} tokens")
     if report.outcome:
         meta_bits.append(f"outcome={report.outcome}")
+    if report.recommend:
+        meta_bits.append(f"recommend={report.recommend}")
     if meta_bits:
         lines.append(f"*Run: {' · '.join(meta_bits)}*")
         lines.append("")
@@ -307,6 +341,13 @@ def render_trial_report(report: TrialReport) -> str:
             meta: list[str] = [f"*severity:* {severity}"]
             if url:
                 meta.append(f"*where:* `{url}`")
+            if entry.get("blocks_pilot"):
+                meta.append("*blocks_pilot:* yes")
+            ownership = (entry.get("ownership") or "").strip()
+            if ownership and ownership != "unclear":
+                meta.append(f"*ownership:* {ownership}")
+            elif (entry.get("framework_vs_app") or "").strip() not in ("", "unclear"):
+                meta.append(f"*scope:* {entry.get('framework_vs_app')}")
             similar = entry.get("similar_count", 1)
             if similar > 1:
                 meta.append(f"*reported:* ×{similar}")
@@ -366,9 +407,14 @@ def build_trial_report(
     tokens_used: int = 0,
     outcome: str = "",
     signing_outcome: SigningOutcome | None = None,
+    recommend: str = "",
+    criteria_scores: list[dict[str, str]] | None = None,
+    pilot_blockers_summary: str = "",
 ) -> TrialReport:
     """Convenience builder — pulls the one-line identity headline
     from the multi-line user_identity block."""
+    from dazzle.qa.trial_friction import normalize_friction_entry
+
     signing_outcomes: dict[str, Any] | None = None
     if signing_outcome is not None:
         signing_outcomes = asdict(signing_outcome)
@@ -376,10 +422,72 @@ def build_trial_report(
         scenario_name=scenario_name,
         user_identity_headline=_first_line(user_identity),
         verdict=verdict,
-        friction=friction,
+        friction=[normalize_friction_entry(f) for f in friction],
         step_count=step_count,
         duration_seconds=duration_seconds,
         tokens_used=tokens_used,
         outcome=outcome,
         signing_outcomes=signing_outcomes,
+        recommend=recommend or "",
+        criteria_scores=list(criteria_scores or []),
+        pilot_blockers_summary=pilot_blockers_summary or "",
     )
+
+
+def trial_report_to_json(report: TrialReport) -> dict[str, Any]:
+    """Stable machine schema for consumer improve loops (#1625 T4)."""
+    from dazzle.qa.trial_friction import apply_ownership_heuristics, filter_auto_seed
+
+    friction = [apply_ownership_heuristics(f) for f in report.friction]
+    return {
+        "schema_version": 2,
+        "scenario": report.scenario_name,
+        "identity_headline": report.user_identity_headline,
+        "verdict": report.verdict,
+        "recommend": report.recommend or _infer_recommend(report.verdict),
+        "criteria_scores": list(report.criteria_scores),
+        "pilot_blockers_summary": report.pilot_blockers_summary,
+        "friction": friction,
+        "auto_seed": filter_auto_seed(friction, allow_framework=False),
+        "auto_seed_framework": filter_auto_seed(friction, allow_framework=True),
+        "step_count": report.step_count,
+        "duration_seconds": report.duration_seconds,
+        "tokens_used": report.tokens_used,
+        "outcome": report.outcome,
+        "generated_at": report.generated_at.isoformat(),
+        "signing_outcomes": report.signing_outcomes,
+        "ladder": {
+            "instrument": "deep_nested",
+            "auto_seed_count": len(filter_auto_seed(friction, allow_framework=False)),
+        },
+    }
+
+
+def _infer_recommend(verdict: str) -> str:
+    """Best-effort recommend when agent skipped submit_verdict fields."""
+    v = (verdict or "").lower()
+    v = (
+        v.replace("\u2019", "'")
+        .replace("\u2018", "'")
+        .replace("\u201c", '"')
+        .replace("\u201d", '"')
+    )
+    if not v:
+        return "unclear"
+    if any(
+        x in v
+        for x in (
+            "don't switch",
+            "do not switch",
+            "cannot recommend",
+            "can't recommend",
+            "would not switch",
+            "wouldn't switch",
+        )
+    ):
+        return "no"
+    if "conditional" in v or "with fixes" in v or "minor fix" in v:
+        return "conditional"
+    if any(x in v for x in ("would pilot", "would switch", "recommend this")):
+        return "yes"
+    return "unclear"

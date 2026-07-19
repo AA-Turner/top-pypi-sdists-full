@@ -26,6 +26,8 @@ from aiobotocore.eventstream import AioEventStream
 from aiobotocore.response import StreamingBody
 
 from .literals import (
+    AnnotationConfigurationStateType,
+    AnnotationDirectiveType,
     ArchiveStatusType,
     BucketAbacStatusType,
     BucketAccelerateStatusType,
@@ -116,6 +118,10 @@ __all__ = (
     "AnalyticsFilterOutputTypeDef",
     "AnalyticsFilterTypeDef",
     "AnalyticsS3BucketDestinationTypeDef",
+    "AnnotationEntryTypeDef",
+    "AnnotationTableConfigurationResultTypeDef",
+    "AnnotationTableConfigurationTypeDef",
+    "AnnotationTableConfigurationUpdatesTypeDef",
     "BlobTypeDef",
     "BlockedEncryptionTypesOutputTypeDef",
     "BlockedEncryptionTypesTypeDef",
@@ -197,6 +203,8 @@ __all__ = (
     "DeleteBucketWebsiteRequestTypeDef",
     "DeleteMarkerEntryTypeDef",
     "DeleteMarkerReplicationTypeDef",
+    "DeleteObjectAnnotationOutputTypeDef",
+    "DeleteObjectAnnotationRequestTypeDef",
     "DeleteObjectOutputTypeDef",
     "DeleteObjectRequestObjectDeleteTypeDef",
     "DeleteObjectRequestObjectSummaryDeleteTypeDef",
@@ -273,6 +281,8 @@ __all__ = (
     "GetBucketWebsiteRequestTypeDef",
     "GetObjectAclOutputTypeDef",
     "GetObjectAclRequestTypeDef",
+    "GetObjectAnnotationOutputTypeDef",
+    "GetObjectAnnotationRequestTypeDef",
     "GetObjectAttributesOutputTypeDef",
     "GetObjectAttributesPartsTypeDef",
     "GetObjectAttributesRequestTypeDef",
@@ -367,6 +377,9 @@ __all__ = (
     "ListMultipartUploadsOutputTypeDef",
     "ListMultipartUploadsRequestPaginateTypeDef",
     "ListMultipartUploadsRequestTypeDef",
+    "ListObjectAnnotationsOutputTypeDef",
+    "ListObjectAnnotationsRequestPaginateTypeDef",
+    "ListObjectAnnotationsRequestTypeDef",
     "ListObjectVersionsOutputTypeDef",
     "ListObjectVersionsRequestPaginateTypeDef",
     "ListObjectVersionsRequestTypeDef",
@@ -475,6 +488,8 @@ __all__ = (
     "PutObjectAclOutputTypeDef",
     "PutObjectAclRequestObjectAclPutTypeDef",
     "PutObjectAclRequestTypeDef",
+    "PutObjectAnnotationOutputTypeDef",
+    "PutObjectAnnotationRequestTypeDef",
     "PutObjectLegalHoldOutputTypeDef",
     "PutObjectLegalHoldRequestTypeDef",
     "PutObjectLockConfigurationOutputTypeDef",
@@ -568,6 +583,7 @@ __all__ = (
     "TransitionOutputTypeDef",
     "TransitionTypeDef",
     "TransitionUnionTypeDef",
+    "UpdateBucketMetadataAnnotationTableConfigurationRequestTypeDef",
     "UpdateBucketMetadataInventoryTableConfigurationRequestTypeDef",
     "UpdateBucketMetadataJournalTableConfigurationRequestTypeDef",
     "UpdateObjectEncryptionRequestTypeDef",
@@ -627,6 +643,25 @@ class AnalyticsS3BucketDestinationTypeDef(TypedDict):
     Bucket: str
     BucketAccountId: NotRequired[str]
     Prefix: NotRequired[str]
+
+
+class AnnotationEntryTypeDef(TypedDict):
+    AnnotationName: str
+    LastModified: datetime
+    Size: int
+    ETag: NotRequired[str]
+    ChecksumAlgorithm: NotRequired[list[ChecksumAlgorithmType]]
+    ReplicationStatus: NotRequired[ReplicationStatusType]
+
+
+class ErrorDetailsTypeDef(TypedDict):
+    ErrorCode: NotRequired[str]
+    ErrorMessage: NotRequired[str]
+
+
+class MetadataTableEncryptionConfigurationTypeDef(TypedDict):
+    SseAlgorithm: TableSseAlgorithmType
+    KmsKeyArn: NotRequired[str]
 
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
@@ -968,6 +1003,16 @@ class DeleteMarkerReplicationTypeDef(TypedDict):
     Status: NotRequired[DeleteMarkerReplicationStatusType]
 
 
+class DeleteObjectAnnotationRequestTypeDef(TypedDict):
+    Bucket: str
+    Key: str
+    AnnotationName: str
+    VersionId: NotRequired[str]
+    RequestPayer: NotRequired[Literal["requester"]]
+    ExpectedBucketOwner: NotRequired[str]
+    ObjectIfMatch: NotRequired[str]
+
+
 class DeleteObjectTaggingRequestTypeDef(TypedDict):
     Bucket: str
     Key: str
@@ -1008,11 +1053,6 @@ class EncryptionTypeDef(TypedDict):
     EncryptionType: ServerSideEncryptionType
     KMSKeyId: NotRequired[str]
     KMSContext: NotRequired[str]
-
-
-class ErrorDetailsTypeDef(TypedDict):
-    ErrorCode: NotRequired[str]
-    ErrorMessage: NotRequired[str]
 
 
 class ErrorDocumentTypeDef(TypedDict):
@@ -1183,6 +1223,16 @@ class GetObjectAclRequestTypeDef(TypedDict):
     ExpectedBucketOwner: NotRequired[str]
 
 
+class GetObjectAnnotationRequestTypeDef(TypedDict):
+    Bucket: str
+    Key: str
+    AnnotationName: str
+    VersionId: NotRequired[str]
+    RequestPayer: NotRequired[Literal["requester"]]
+    ExpectedBucketOwner: NotRequired[str]
+    ChecksumMode: NotRequired[Literal["ENABLED"]]
+
+
 class ObjectPartTypeDef(TypedDict):
     PartNumber: NotRequired[int]
     Size: NotRequired[int]
@@ -1324,11 +1374,6 @@ class SSEKMSTypeDef(TypedDict):
     KeyId: str
 
 
-class MetadataTableEncryptionConfigurationTypeDef(TypedDict):
-    SseAlgorithm: TableSseAlgorithmType
-    KmsKeyArn: NotRequired[str]
-
-
 class JSONOutputTypeDef(TypedDict):
     RecordDelimiter: NotRequired[str]
 
@@ -1413,6 +1458,17 @@ class ListMultipartUploadsRequestTypeDef(TypedDict):
     UploadIdMarker: NotRequired[str]
     ExpectedBucketOwner: NotRequired[str]
     RequestPayer: NotRequired[Literal["requester"]]
+
+
+class ListObjectAnnotationsRequestTypeDef(TypedDict):
+    Bucket: str
+    Key: str
+    VersionId: NotRequired[str]
+    MaxAnnotationResults: NotRequired[int]
+    AnnotationPrefix: NotRequired[str]
+    ContinuationToken: NotRequired[str]
+    RequestPayer: NotRequired[Literal["requester"]]
+    ExpectedBucketOwner: NotRequired[str]
 
 
 class ListObjectVersionsRequestTypeDef(TypedDict):
@@ -1712,6 +1768,12 @@ class CreateMultipartUploadOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteObjectAnnotationOutputTypeDef(TypedDict):
+    ObjectVersionId: str
+    RequestCharged: Literal["requester"]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteObjectOutputTypeDef(TypedDict):
     DeleteMarker: bool
     VersionId: str
@@ -1757,6 +1819,29 @@ class GetBucketRequestPaymentOutputTypeDef(TypedDict):
 class GetBucketVersioningOutputTypeDef(TypedDict):
     Status: BucketVersioningStatusType
     MFADelete: MFADeleteStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetObjectAnnotationOutputTypeDef(TypedDict):
+    AnnotationPayload: StreamingBody
+    ObjectVersionId: str
+    LastModified: datetime
+    ContentLength: int
+    ETag: str
+    ChecksumCRC32: str
+    ChecksumCRC32C: str
+    ChecksumCRC64NVME: str
+    ChecksumSHA1: str
+    ChecksumSHA256: str
+    ChecksumSHA512: str
+    ChecksumMD5: str
+    ChecksumXXHASH64: str
+    ChecksumXXHASH3: str
+    ChecksumXXHASH128: str
+    ChecksumType: ChecksumTypeType
+    ServerSideEncryption: ServerSideEncryptionType
+    RequestCharged: Literal["requester"]
+    ReplicationStatus: ReplicationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1875,6 +1960,27 @@ class PutBucketLifecycleConfigurationOutputTypeDef(TypedDict):
 
 
 class PutObjectAclOutputTypeDef(TypedDict):
+    RequestCharged: Literal["requester"]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutObjectAnnotationOutputTypeDef(TypedDict):
+    Key: str
+    AnnotationName: str
+    ObjectVersionId: str
+    ETag: str
+    ChecksumCRC32: str
+    ChecksumCRC32C: str
+    ChecksumCRC64NVME: str
+    ChecksumSHA1: str
+    ChecksumSHA256: str
+    ChecksumSHA512: str
+    ChecksumMD5: str
+    ChecksumXXHASH64: str
+    ChecksumXXHASH3: str
+    ChecksumXXHASH128: str
+    ChecksumType: ChecksumTypeType
+    ServerSideEncryption: ServerSideEncryptionType
     RequestCharged: Literal["requester"]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2370,6 +2476,82 @@ class AnalyticsExportDestinationTypeDef(TypedDict):
     S3BucketDestination: AnalyticsS3BucketDestinationTypeDef
 
 
+class ListObjectAnnotationsOutputTypeDef(TypedDict):
+    Annotations: list[AnnotationEntryTypeDef]
+    Bucket: str
+    Key: str
+    ObjectVersionId: str
+    AnnotationPrefix: str
+    MaxAnnotationResults: int
+    AnnotationCount: int
+    ContinuationToken: str
+    NextContinuationToken: str
+    RequestCharged: Literal["requester"]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AnnotationTableConfigurationResultTypeDef(TypedDict):
+    ConfigurationState: AnnotationConfigurationStateType
+    TableStatus: NotRequired[str]
+    Error: NotRequired[ErrorDetailsTypeDef]
+    TableName: NotRequired[str]
+    TableArn: NotRequired[str]
+    Role: NotRequired[str]
+
+
+class InventoryTableConfigurationResultTypeDef(TypedDict):
+    ConfigurationState: InventoryConfigurationStateType
+    TableStatus: NotRequired[str]
+    Error: NotRequired[ErrorDetailsTypeDef]
+    TableName: NotRequired[str]
+    TableArn: NotRequired[str]
+
+
+class AnnotationTableConfigurationTypeDef(TypedDict):
+    ConfigurationState: AnnotationConfigurationStateType
+    EncryptionConfiguration: NotRequired[MetadataTableEncryptionConfigurationTypeDef]
+    Role: NotRequired[str]
+
+
+class AnnotationTableConfigurationUpdatesTypeDef(TypedDict):
+    ConfigurationState: AnnotationConfigurationStateType
+    EncryptionConfiguration: NotRequired[MetadataTableEncryptionConfigurationTypeDef]
+    Role: NotRequired[str]
+
+
+class InventoryTableConfigurationTypeDef(TypedDict):
+    ConfigurationState: InventoryConfigurationStateType
+    EncryptionConfiguration: NotRequired[MetadataTableEncryptionConfigurationTypeDef]
+
+
+class InventoryTableConfigurationUpdatesTypeDef(TypedDict):
+    ConfigurationState: InventoryConfigurationStateType
+    EncryptionConfiguration: NotRequired[MetadataTableEncryptionConfigurationTypeDef]
+
+
+class PutObjectAnnotationRequestTypeDef(TypedDict):
+    Bucket: str
+    Key: str
+    AnnotationName: str
+    AnnotationPayload: BlobTypeDef
+    VersionId: NotRequired[str]
+    ObjectIfMatch: NotRequired[str]
+    ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
+    ChecksumCRC32: NotRequired[str]
+    ChecksumCRC32C: NotRequired[str]
+    ChecksumCRC64NVME: NotRequired[str]
+    ChecksumSHA1: NotRequired[str]
+    ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
+    ContentMD5: NotRequired[str]
+    RequestPayer: NotRequired[Literal["requester"]]
+    ExpectedBucketOwner: NotRequired[str]
+
+
 class PutObjectRequestBucketPutObjectTypeDef(TypedDict):
     Key: str
     ACL: NotRequired[ObjectCannedACLType]
@@ -2812,14 +2994,6 @@ class DeleteObjectsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class InventoryTableConfigurationResultTypeDef(TypedDict):
-    ConfigurationState: InventoryConfigurationStateType
-    TableStatus: NotRequired[str]
-    Error: NotRequired[ErrorDetailsTypeDef]
-    TableName: NotRequired[str]
-    TableArn: NotRequired[str]
-
-
 class S3KeyFilterOutputTypeDef(TypedDict):
     FilterRules: NotRequired[list[FilterRuleTypeDef]]
 
@@ -2974,16 +3148,6 @@ class InventoryEncryptionTypeDef(TypedDict):
     SSEKMS: NotRequired[SSEKMSTypeDef]
 
 
-class InventoryTableConfigurationTypeDef(TypedDict):
-    ConfigurationState: InventoryConfigurationStateType
-    EncryptionConfiguration: NotRequired[MetadataTableEncryptionConfigurationTypeDef]
-
-
-class InventoryTableConfigurationUpdatesTypeDef(TypedDict):
-    ConfigurationState: InventoryConfigurationStateType
-    EncryptionConfiguration: NotRequired[MetadataTableEncryptionConfigurationTypeDef]
-
-
 class OutputSerializationTypeDef(TypedDict):
     CSV: NotRequired[CSVOutputTypeDef]
     JSON: NotRequired[JSONOutputTypeDef]
@@ -3034,6 +3198,16 @@ class ListMultipartUploadsRequestPaginateTypeDef(TypedDict):
     Prefix: NotRequired[str]
     ExpectedBucketOwner: NotRequired[str]
     RequestPayer: NotRequired[Literal["requester"]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListObjectAnnotationsRequestPaginateTypeDef(TypedDict):
+    Bucket: str
+    Key: str
+    VersionId: NotRequired[str]
+    AnnotationPrefix: NotRequired[str]
+    RequestPayer: NotRequired[Literal["requester"]]
+    ExpectedBucketOwner: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -3350,6 +3524,22 @@ class StorageClassAnalysisDataExportTypeDef(TypedDict):
     Destination: AnalyticsExportDestinationTypeDef
 
 
+class UpdateBucketMetadataAnnotationTableConfigurationRequestTypeDef(TypedDict):
+    Bucket: str
+    AnnotationTableConfiguration: AnnotationTableConfigurationUpdatesTypeDef
+    ContentMD5: NotRequired[str]
+    ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
+    ExpectedBucketOwner: NotRequired[str]
+
+
+class UpdateBucketMetadataInventoryTableConfigurationRequestTypeDef(TypedDict):
+    Bucket: str
+    InventoryTableConfiguration: InventoryTableConfigurationUpdatesTypeDef
+    ContentMD5: NotRequired[str]
+    ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
+    ExpectedBucketOwner: NotRequired[str]
+
+
 class CopyObjectRequestObjectCopyFromTypeDef(TypedDict):
     CopySource: CopySourceOrStrTypeDef
     ACL: NotRequired[ObjectCannedACLType]
@@ -3373,6 +3563,7 @@ class CopyObjectRequestObjectCopyFromTypeDef(TypedDict):
     Metadata: NotRequired[Mapping[str, str]]
     MetadataDirective: NotRequired[MetadataDirectiveType]
     TaggingDirective: NotRequired[TaggingDirectiveType]
+    AnnotationDirective: NotRequired[AnnotationDirectiveType]
     ServerSideEncryption: NotRequired[ServerSideEncryptionType]
     StorageClass: NotRequired[StorageClassType]
     WebsiteRedirectLocation: NotRequired[str]
@@ -3415,6 +3606,7 @@ class CopyObjectRequestObjectSummaryCopyFromTypeDef(TypedDict):
     Metadata: NotRequired[Mapping[str, str]]
     MetadataDirective: NotRequired[MetadataDirectiveType]
     TaggingDirective: NotRequired[TaggingDirectiveType]
+    AnnotationDirective: NotRequired[AnnotationDirectiveType]
     ServerSideEncryption: NotRequired[ServerSideEncryptionType]
     StorageClass: NotRequired[StorageClassType]
     WebsiteRedirectLocation: NotRequired[str]
@@ -3459,6 +3651,7 @@ class CopyObjectRequestTypeDef(TypedDict):
     Metadata: NotRequired[Mapping[str, str]]
     MetadataDirective: NotRequired[MetadataDirectiveType]
     TaggingDirective: NotRequired[TaggingDirectiveType]
+    AnnotationDirective: NotRequired[AnnotationDirectiveType]
     ServerSideEncryption: NotRequired[ServerSideEncryptionType]
     StorageClass: NotRequired[StorageClassType]
     WebsiteRedirectLocation: NotRequired[str]
@@ -3693,14 +3886,6 @@ class InventoryS3BucketDestinationTypeDef(TypedDict):
     Encryption: NotRequired[InventoryEncryptionTypeDef]
 
 
-class UpdateBucketMetadataInventoryTableConfigurationRequestTypeDef(TypedDict):
-    Bucket: str
-    InventoryTableConfiguration: InventoryTableConfigurationUpdatesTypeDef
-    ContentMD5: NotRequired[str]
-    ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
-    ExpectedBucketOwner: NotRequired[str]
-
-
 class SelectObjectContentRequestTypeDef(TypedDict):
     Bucket: str
     Key: str
@@ -3726,11 +3911,13 @@ class MetadataConfigurationResultTypeDef(TypedDict):
     DestinationResult: DestinationResultTypeDef
     JournalTableConfigurationResult: NotRequired[JournalTableConfigurationResultTypeDef]
     InventoryTableConfigurationResult: NotRequired[InventoryTableConfigurationResultTypeDef]
+    AnnotationTableConfigurationResult: NotRequired[AnnotationTableConfigurationResultTypeDef]
 
 
 class MetadataConfigurationTypeDef(TypedDict):
     JournalTableConfiguration: JournalTableConfigurationTypeDef
     InventoryTableConfiguration: NotRequired[InventoryTableConfigurationTypeDef]
+    AnnotationTableConfiguration: NotRequired[AnnotationTableConfigurationTypeDef]
 
 
 class UpdateBucketMetadataJournalTableConfigurationRequestTypeDef(TypedDict):

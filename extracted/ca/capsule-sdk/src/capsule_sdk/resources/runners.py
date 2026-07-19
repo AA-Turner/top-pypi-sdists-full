@@ -633,6 +633,7 @@ class Runners:
         env: dict[str, str] | None = None,
         working_dir: str | None = None,
         timeout_seconds: int | None = None,
+        proxy_token: str | None = None,
     ) -> Iterator[ExecEvent]:
         """Execute a command and stream ndjson events. Retries on connection failure before first output."""
         body: dict[str, Any] = {"command": command}
@@ -642,6 +643,8 @@ class Runners:
             body["working_dir"] = working_dir
         if timeout_seconds:
             body["timeout_seconds"] = timeout_seconds
+        if proxy_token:
+            body["proxy_token"] = proxy_token
 
         return self._exec_with_host_retry(session_id, body)
 

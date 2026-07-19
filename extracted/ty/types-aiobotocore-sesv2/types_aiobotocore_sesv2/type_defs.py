@@ -68,6 +68,7 @@ from .literals import (
     SuppressionConfidenceVerdictThresholdType,
     SuppressionListImportActionType,
     SuppressionListReasonType,
+    SuppressionListScopeType,
     TlsPolicyType,
     VerificationErrorType,
     VerificationStatusType,
@@ -320,6 +321,7 @@ __all__ = (
     "PutEmailIdentityFeedbackAttributesRequestTypeDef",
     "PutEmailIdentityMailFromAttributesRequestTypeDef",
     "PutSuppressedDestinationRequestTypeDef",
+    "PutTenantSuppressionAttributesRequestTypeDef",
     "RawMessageTypeDef",
     "RecommendationTypeDef",
     "ReplacementEmailContentTypeDef",
@@ -361,6 +363,9 @@ __all__ = (
     "TemplateTypeDef",
     "TenantInfoTypeDef",
     "TenantResourceTypeDef",
+    "TenantSuppressionAttributesOutputTypeDef",
+    "TenantSuppressionAttributesTypeDef",
+    "TenantSuppressionAttributesUnionTypeDef",
     "TenantTypeDef",
     "TestRenderEmailTemplateRequestTypeDef",
     "TestRenderEmailTemplateResponseTypeDef",
@@ -563,6 +568,11 @@ class CreateTenantResourceAssociationRequestTypeDef(TypedDict):
     ResourceArn: str
 
 
+class TenantSuppressionAttributesOutputTypeDef(TypedDict):
+    SuppressedReasons: NotRequired[list[SuppressionListReasonType]]
+    SuppressionScope: NotRequired[SuppressionListScopeType]
+
+
 class CustomVerificationEmailTemplateMetadataTypeDef(TypedDict):
     TemplateName: NotRequired[str]
     FromEmailAddress: NotRequired[str]
@@ -651,6 +661,7 @@ class DeleteMultiRegionEndpointRequestTypeDef(TypedDict):
 
 class DeleteSuppressedDestinationRequestTypeDef(TypedDict):
     EmailAddress: str
+    TenantName: NotRequired[str]
 
 
 class DeleteTenantRequestTypeDef(TypedDict):
@@ -861,6 +872,7 @@ class GetReputationEntityRequestTypeDef(TypedDict):
 
 class GetSuppressedDestinationRequestTypeDef(TypedDict):
     EmailAddress: str
+    TenantName: NotRequired[str]
 
 
 class GetTenantRequestTypeDef(TypedDict):
@@ -1144,6 +1156,13 @@ class PutEmailIdentityMailFromAttributesRequestTypeDef(TypedDict):
 class PutSuppressedDestinationRequestTypeDef(TypedDict):
     EmailAddress: str
     Reason: SuppressionListReasonType
+    TenantName: NotRequired[str]
+
+
+class PutTenantSuppressionAttributesRequestTypeDef(TypedDict):
+    TenantName: str
+    SuppressedReasons: NotRequired[Sequence[SuppressionListReasonType]]
+    SuppressionScope: NotRequired[SuppressionListScopeType]
 
 
 class ReplacementTemplateTypeDef(TypedDict):
@@ -1175,6 +1194,11 @@ class SuppressedDestinationAttributesTypeDef(TypedDict):
 
 class SuppressionConfidenceThresholdTypeDef(TypedDict):
     ConfidenceVerdictThreshold: SuppressionConfidenceVerdictThresholdType
+
+
+class TenantSuppressionAttributesTypeDef(TypedDict):
+    SuppressedReasons: NotRequired[Sequence[SuppressionListReasonType]]
+    SuppressionScope: NotRequired[SuppressionListScopeType]
 
 
 class TestRenderEmailTemplateRequestTypeDef(TypedDict):
@@ -1261,6 +1285,7 @@ class ListDomainDeliverabilityCampaignsRequestTypeDef(TypedDict):
 
 
 class ListSuppressedDestinationsRequestTypeDef(TypedDict):
+    TenantName: NotRequired[str]
     Reasons: NotRequired[Sequence[SuppressionListReasonType]]
     StartDate: NotRequired[TimestampTypeDef]
     EndDate: NotRequired[TimestampTypeDef]
@@ -1435,21 +1460,6 @@ class CreateDedicatedIpPoolRequestTypeDef(TypedDict):
     ScalingMode: NotRequired[ScalingModeType]
 
 
-class CreateTenantRequestTypeDef(TypedDict):
-    TenantName: str
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class CreateTenantResponseTypeDef(TypedDict):
-    TenantName: str
-    TenantId: str
-    TenantArn: str
-    CreatedTimestamp: datetime
-    Tags: list[TagTypeDef]
-    SendingStatus: SendingStatusType
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class GetCustomVerificationEmailTemplateResponseTypeDef(TypedDict):
     TemplateName: str
     FromEmailAddress: str
@@ -1469,15 +1479,6 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 class TagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     Tags: Sequence[TagTypeDef]
-
-
-class TenantTypeDef(TypedDict):
-    TenantName: NotRequired[str]
-    TenantId: NotRequired[str]
-    TenantArn: NotRequired[str]
-    CreatedTimestamp: NotRequired[datetime]
-    Tags: NotRequired[list[TagTypeDef]]
-    SendingStatus: NotRequired[SendingStatusType]
 
 
 class CreateContactListRequestTypeDef(TypedDict):
@@ -1539,6 +1540,27 @@ class GetEmailTemplateResponseTypeDef(TypedDict):
 class UpdateEmailTemplateRequestTypeDef(TypedDict):
     TemplateName: str
     TemplateContent: EmailTemplateContentTypeDef
+
+
+class CreateTenantResponseTypeDef(TypedDict):
+    TenantName: str
+    TenantId: str
+    TenantArn: str
+    CreatedTimestamp: datetime
+    Tags: list[TagTypeDef]
+    SendingStatus: SendingStatusType
+    SuppressionAttributes: TenantSuppressionAttributesOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class TenantTypeDef(TypedDict):
+    TenantName: NotRequired[str]
+    TenantId: NotRequired[str]
+    TenantArn: NotRequired[str]
+    CreatedTimestamp: NotRequired[datetime]
+    Tags: NotRequired[list[TagTypeDef]]
+    SendingStatus: NotRequired[SendingStatusType]
+    SuppressionAttributes: NotRequired[TenantSuppressionAttributesOutputTypeDef]
 
 
 class ListCustomVerificationEmailTemplatesResponseTypeDef(TypedDict):
@@ -1788,11 +1810,17 @@ class SuppressedDestinationTypeDef(TypedDict):
     Reason: SuppressionListReasonType
     LastUpdateTime: datetime
     Attributes: NotRequired[SuppressedDestinationAttributesTypeDef]
+    TenantName: NotRequired[str]
 
 
 class SuppressionConditionThresholdTypeDef(TypedDict):
     ConditionThresholdEnabled: FeatureStatusType
     OverallConfidenceThreshold: NotRequired[SuppressionConfidenceThresholdTypeDef]
+
+
+TenantSuppressionAttributesUnionTypeDef = Union[
+    TenantSuppressionAttributesTypeDef, TenantSuppressionAttributesOutputTypeDef
+]
 
 
 class TemplateTypeDef(TypedDict):
@@ -1992,6 +2020,12 @@ class SuppressionValidationOptionsTypeDef(TypedDict):
     ConditionThreshold: SuppressionConditionThresholdTypeDef
 
 
+class CreateTenantRequestTypeDef(TypedDict):
+    TenantName: str
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    SuppressionAttributes: NotRequired[TenantSuppressionAttributesUnionTypeDef]
+
+
 class BulkEmailContentTypeDef(TypedDict):
     Template: NotRequired[TemplateTypeDef]
 
@@ -2067,17 +2101,20 @@ class SuppressionAttributesTypeDef(TypedDict):
 
 class PutConfigurationSetSuppressionOptionsRequestTypeDef(TypedDict):
     ConfigurationSetName: str
+    SuppressionScope: NotRequired[SuppressionListScopeType]
     SuppressedReasons: NotRequired[Sequence[SuppressionListReasonType]]
     ValidationOptions: NotRequired[SuppressionValidationOptionsTypeDef]
 
 
 class SuppressionOptionsOutputTypeDef(TypedDict):
     SuppressedReasons: NotRequired[list[SuppressionListReasonType]]
+    SuppressionScope: NotRequired[SuppressionListScopeType]
     ValidationOptions: NotRequired[SuppressionValidationOptionsTypeDef]
 
 
 class SuppressionOptionsTypeDef(TypedDict):
     SuppressedReasons: NotRequired[Sequence[SuppressionListReasonType]]
+    SuppressionScope: NotRequired[SuppressionListScopeType]
     ValidationOptions: NotRequired[SuppressionValidationOptionsTypeDef]
 
 

@@ -56,7 +56,7 @@ def pip_produces_absolute_paths():
 
 
 @dataclasses.dataclass
-class TestFilesCollection:
+class FileCollectionParam:
     """
     A small data-builder for setting up files in a tmp dir.
 
@@ -92,6 +92,28 @@ class TestFilesCollection:
             for stub_file_path in self.contents
             if (stub_file_path == filename) or stub_file_path.endswith(f"/{filename}")
         )
+
+
+@dataclasses.dataclass
+class PackageVersionParam:
+    """
+    An object for writing ergonomic test parameters.
+
+    This describes a published package with a version.
+    """
+
+    # package name
+    name: str
+    # (unparsed) version string
+    version: str
+    # a description of this version (for use in ids)
+    description: str
+
+    def __str__(self) -> str:
+        return f"{self.name}-{self.version}-{self.description}"
+
+    def as_req(self) -> str:
+        return f"{self.name}=={self.version}"
 
 
 @pytest.fixture(
@@ -505,6 +527,27 @@ def test_run_as_module_compile():
     assert b"Compile requirements.txt from source files" in result.stdout
 
 
+def test_compile_help_opt_supports_short_and_long_flag(runner):
+    shortflag_result = runner.invoke(cli, ["-h"])
+    longflag_result = runner.invoke(cli, ["--help"])
+    assert shortflag_result.exit_code == 0
+    assert longflag_result.exit_code == 0
+
+    assert shortflag_result.stdout.startswith("Usage:")
+    assert longflag_result.stdout.startswith("Usage:")
+    assert shortflag_result.stdout == longflag_result.stdout
+
+
+def test_compile_help_opt_shows_examples_section(runner):
+    result = runner.invoke(cli, ["-h"])
+    assert result.exit_code == 0
+    assert result.stdout.startswith("Usage:")
+
+    # not only should there be an `Examples` section in the output, but it should have
+    # no preceding whitespace where it is shown
+    assert "\nExamples:\n" in result.stdout
+
+
 def test_editable_package(pip_conf, runner):
     """piptools can compile an editable"""
     fake_package_dir = os.path.join(PACKAGES_PATH, "small_fake_with_deps")
@@ -597,7 +640,7 @@ def test_editable_package_in_constraints(pip_conf, runner, req_editable):
 def test_editable_package_vcs(runner):
     vcs_package = (
         "git+https://github.com/jazzband/pip-tools@"
-        "f97e62ecb0d9b70965c8eff952c001d8e2722e94"
+        "5f31d8a79b5fd16305372cf700b01cc7f16c2ccf"
         "#egg=pip-tools"
     )
     with open("requirements.in", "w") as req_in:
@@ -714,10 +757,10 @@ def test_locally_available_editable_package_is_not_archived_in_cache_dir(
         ),
         pytest.param(
             "pytest-django @ git+https://github.com/pytest-dev/pytest-django"
-            "@21492afc88a19d4ca01cd0ac392a5325b14f95c7"
+            "@5ada9c1596ee9e0624801d553995d98d2e3ccce8"
             "#egg=pytest-django",
             "pytest-django @ git+https://github.com/pytest-dev/pytest-django"
-            "@21492afc88a19d4ca01cd0ac392a5325b14f95c7",
+            "@5ada9c1596ee9e0624801d553995d98d2e3ccce8",
             id="VCS with direct reference and egg",
         ),
     ),
@@ -832,12 +875,12 @@ def test_relative_file_uri_package(pip_conf, runner):
 def test_direct_reference_with_extras(runner):
     with open("requirements.in", "w") as req_in:
         req_in.write(
-            "pip-tools[testing,coverage] @ git+https://github.com/jazzband/pip-tools@6.2.0"
+            "pip-tools[testing,coverage] @ git+https://github.com/jazzband/pip-tools@v7.5.3"
         )
     out = runner.invoke(cli, ["-n", "--rebuild", "--no-build-isolation"])
     assert out.exit_code == 0
     assert (
-        "pip-tools[coverage,testing] @ git+https://github.com/jazzband/pip-tools@6.2.0"
+        "pip-tools[coverage,testing] @ git+https://github.com/jazzband/pip-tools@v7.5.3"
         in out.stderr
     )
     assert "pytest==" in out.stderr
@@ -1820,6 +1863,40 @@ def test_build_project_metadata_isolation_option(
     # Ensure the options in build_project_metadata has the isolated kwarg
     _, kwargs = build_project_metadata.call_args
     assert kwargs["isolated"] is expected
+
+
+@mock.patch("piptools.scripts.compile.PyPIRepository")
+def test_uploaded_prior_to_option(PyPIRepository, runner):
+    """
+    The --uploaded-prior-to option must be passed to PyPIRepository when pip >= 26.0.
+    """
+    with open("requirements.in", "w"):
+        pass
+
+    with (
+        mock.patch.object(_pip_api, "PIP_VERSION_MAJOR_MINOR", (26, 0)),
+        mock.patch.object(_pip_api, "PIP_VERSION", Version("26.0")),
+    ):
+        runner.invoke(cli, ["--uploaded-prior-to", "2025-01-01T00:00:00Z"])
+
+    args, kwargs = PyPIRepository.call_args
+    assert "--uploaded-prior-to" in args[0]
+    assert "2025-01-01T00:00:00Z" in args[0]
+
+
+@mock.patch("piptools.scripts.compile.PyPIRepository")
+def test_uploaded_prior_to_requires_pip_26(PyPIRepository, runner):
+    """
+    The --uploaded-prior-to option must raise an error when pip < 26.0.
+    """
+    with open("requirements.in", "w"):
+        pass
+
+    with mock.patch.object(_pip_api, "PIP_VERSION_MAJOR_MINOR", (25, 3)):
+        result = runner.invoke(cli, ["--uploaded-prior-to", "2025-01-01T00:00:00Z"])
+
+    assert result.exit_code != 0
+    assert "requires pip >= 26.0" in result.stderr
 
 
 @mock.patch("piptools.scripts.compile.PyPIRepository")
@@ -3532,10 +3609,25 @@ small-fake-b==0.3
 
 
 @backtracking_resolver_only
+@pytest.mark.parametrize(
+    "setuptools_version_info",
+    (
+        PackageVersionParam("setuptools", "82.0.0", "published-2026-02-08"),
+        PackageVersionParam("setuptools", "75.3.0", "published-2024-10-29"),
+    ),
+    ids=str,
+)
 def test_compile_recursive_extras_build_targets(
-    runner, tmp_path, minimal_wheels_path, current_resolver
+    runner,
+    tmp_path,
+    minimal_wheels_path,
+    current_resolver,
+    setuptools_version_info,
 ):
-    (tmp_path / "pyproject.toml").write_text(dedent("""
+    (tmp_path / "pyproject.toml").write_text(dedent(f"""
+            [build-system]
+            requires = ["{setuptools_version_info.as_req()}"]
+            build-backend = "setuptools.build_meta"
             [project]
             name = "foo"
             version = "0.0.1"
@@ -3544,6 +3636,7 @@ def test_compile_recursive_extras_build_targets(
             footest = ["small-fake-b"]
             dev = ["foo[footest]"]
             """))
+
     out = runner.invoke(
         cli,
         [
@@ -3555,6 +3648,7 @@ def test_compile_recursive_extras_build_targets(
             "dev",
             "--build-deps-for",
             "wheel",
+            "--allow-unsafe",
             "--find-links",
             minimal_wheels_path.as_posix(),
             os.fspath(tmp_path / "pyproject.toml"),
@@ -3567,7 +3661,7 @@ small-fake-a==0.2
 small-fake-b==0.3
 
 # The following packages are considered to be unsafe in a requirements file:
-# setuptools
+{setuptools_version_info.as_req()}
 """
     try:
         assert out.exit_code == 0
@@ -3949,14 +4043,14 @@ def test_stdout_should_not_be_read_when_stdin_is_not_a_plain_file(
 @pytest.mark.parametrize(
     "test_files_collection",
     (
-        TestFilesCollection(
+        FileCollectionParam(
             "relative_include",
             {
                 "requirements2.in": "small-fake-a\n",
                 "requirements.in": "-r requirements2.in\n",
             },
         ),
-        TestFilesCollection(
+        FileCollectionParam(
             "absolute_include",
             {
                 "requirements2.in": "small-fake-a\n",
@@ -4016,21 +4110,21 @@ def test_second_order_requirements_path_handling(
 @pytest.mark.parametrize(
     "test_files_collection",
     (
-        TestFilesCollection(
+        FileCollectionParam(
             "parent_dir",
             {
                 "requirements2.in": "small-fake-a\n",
                 "subdir/requirements.in": "-r ../requirements2.in\n",
             },
         ),
-        TestFilesCollection(
+        FileCollectionParam(
             "subdir",
             {
                 "requirements.in": "-r ./subdir/requirements2.in",
                 "subdir/requirements2.in": "small-fake-a\n",
             },
         ),
-        TestFilesCollection(
+        FileCollectionParam(
             "sibling_dir",
             {
                 "subdir1/requirements.in": "-r ../subdir2/requirements2.in",
@@ -4103,7 +4197,7 @@ def test_second_order_requirements_can_be_in_parent_of_cwd(
     Test handling of ``-r`` includes when the included requirements file is in the
     parent of the current working directory.
     """
-    test_files_collection = TestFilesCollection(
+    test_files_collection = FileCollectionParam(
         contents={
             "subdir1/requirements.in": "-r ../requirements2.in\n",
             "requirements2.in": "small-fake-a\n",

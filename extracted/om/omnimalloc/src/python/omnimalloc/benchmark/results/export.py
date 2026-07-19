@@ -7,11 +7,10 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 
 from omnimalloc.common.directories import PROJECT_DIR
 
-from ..utils import tqdm  # noqa: TID252
 from .campaign import BenchmarkCampaign
 from .report import BenchmarkReport
 from .result import BenchmarkResult
@@ -24,6 +23,32 @@ class ProgressBar(Protocol):
     def update(self, n: int = 1) -> None:
         """Update the progress bar."""
         ...
+
+
+try:
+    from tqdm.auto import tqdm
+
+    HAS_TQDM = True
+except ImportError:
+    HAS_TQDM = False
+
+    # Fallback: tqdm without progress bars (just returns iterable)
+    def tqdm(iterable: Any = None, **kwargs: Any) -> Any:  # noqa: ARG001, ANN401
+        """No-op tqdm fallback when tqdm is not installed."""
+        if iterable is None:
+            # When called with total= instead of an iterable
+            class DummyProgressBar:
+                def __enter__(self) -> "DummyProgressBar":
+                    return self
+
+                def __exit__(self, *args: object) -> None:
+                    pass
+
+                def update(self, n: int = 1) -> None:
+                    pass
+
+            return DummyProgressBar()
+        return iterable
 
 
 logger = logging.getLogger(__name__)
@@ -45,7 +70,7 @@ def _write_metadata(base_dir: Path, campaign: BenchmarkCampaign) -> None:
 
 def _write_campaign_visualization(base_dir: Path, campaign: BenchmarkCampaign) -> None:
     campaign_viz_file = base_dir / "campaign_overview.pdf"
-    plot_benchmark(campaign, campaign_viz_file)
+    plot_benchmark(campaign, file_path=campaign_viz_file, show_inline=False)
 
 
 def _create_zip_archive(output_path: Path, base_dir: Path, final_path: Path) -> None:
@@ -69,7 +94,7 @@ def _write_iterations(
 
     for i, result in enumerate(report.results):
         iteration_file = iterations_dir / f"iteration_{i}.pdf"
-        result.visualize(iteration_file)
+        result.visualize(file_path=iteration_file, show_inline=False)
         pbar.update(1)
 
 

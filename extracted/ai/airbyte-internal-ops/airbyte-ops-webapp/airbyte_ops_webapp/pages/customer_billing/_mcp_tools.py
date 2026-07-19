@@ -36,7 +36,7 @@ from airbyte_ops_mcp.cloud_admin.payment_config import (
 from airbyte_ops_mcp.cloud_admin.payment_config import (
     update_organization_payment_config as _update_payment_config,
 )
-from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_bigquery_ro
+from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_tier_gcs_ro
 from airbyte_ops_mcp.tier_cache import get_org_tier, resolve_workspace
 from fastmcp import FastMCPApp
 
@@ -45,7 +45,12 @@ from airbyte_ops_webapp.pages.customer_billing._helpers import (
     resolved_bearer_token,
     resolved_config_api_root,
 )
+from airbyte_ops_webapp.pages.customer_billing._state import (
+    BillingActionResult,
+    LookupOrganizationResult,
+)
 from airbyte_ops_webapp.pages.shared_components.org_search import (
+    OrgSearchResult,
     search_organizations_and_workspaces,
 )
 from airbyte_ops_webapp.state import mock_only_enabled
@@ -293,16 +298,16 @@ def _resolve_org_id(
 _MOCK_ORG_ID = "00000000-aaaa-bbbb-cccc-111111111111"
 
 
-def _mock_lookup_result(query: str) -> dict[str, Any]:
+def _mock_lookup_result(query: str) -> LookupOrganizationResult:
     """Return mock lookup data for demo/mock mode."""
     org_id = query.strip() or _MOCK_ORG_ID
-    return {
-        "org_info": {
+    return LookupOrganizationResult(
+        org_info={
             "organization_id": org_id,
             "organization_name": "Acme Corp (Demo)",
             "email": "billing@acme-demo.io",
         },
-        "payment_config": {
+        payment_config={
             "organization_id": org_id,
             "payment_status": "grace_period",
             "subscription_status": "subscribed",
@@ -322,43 +327,32 @@ def _mock_lookup_result(query: str) -> dict[str, Any]:
                 "orb_customer_id": "orb_cust_mock_012",
             },
         },
-        "resolved_org_label": "",
-        "org_loaded": True,
-        "lookup_error": "",
-    }
+        org_loaded=True,
+    )
 
 
-def _mock_apply_result(organization_id: str, action: str) -> dict[str, Any]:
+def _mock_apply_result(organization_id: str, action: str) -> BillingActionResult:
     """Return mock apply result for demo/mock mode."""
-    return {
-        "success": True,
-        "message": f"[MOCK] {action} applied for org {organization_id}.",
-        "organization_id": organization_id,
-        "payment_status": "grace_period",
-        "grace_period_end_at": "2026-07-15T06:59:59.000+0000",
-        "permanent_waiver_type": None,
-        "customer_tier": "TIER_2",
-        "tier_warning": None,
-        "orb_plan_change": None,
-        "entitlement_plan_change": None,
-    }
+    return BillingActionResult(
+        success=True,
+        message=f"[MOCK] {action} applied for org {organization_id}.",
+        organization_id=organization_id,
+        payment_status="grace_period",
+        grace_period_end_at="2026-07-15T06:59:59.000+0000",
+        customer_tier="TIER_2",
+    )
 
 
 @customer_billing_app.tool()
 def lookup_organization(
     query: str = "",
     auth_bearer_token: str = "",
-    google_access_token: str = "",
-) -> dict[str, Any]:
+) -> LookupOrganizationResult:
     """Look up an organization's payment configuration by ID or workspace ID."""
     if not auth_available(auth_bearer_token or None):
-        return {
-            "org_info": None,
-            "payment_config": None,
-            "resolved_org_label": "",
-            "org_loaded": False,
-            "lookup_error": "Sign in with Airbyte to look up organizations.",
-        }
+        return LookupOrganizationResult(
+            lookup_error="Sign in with Airbyte to look up organizations.",
+        )
 
     if mock_only_enabled():
         return _mock_lookup_result(query)
@@ -371,13 +365,7 @@ def lookup_organization(
         query, bearer_token_override=auth_bearer_token or None
     )
     if resolve_error is not None:
-        return {
-            "org_info": None,
-            "payment_config": None,
-            "resolved_org_label": "",
-            "org_loaded": False,
-            "lookup_error": resolve_error,
-        }
+        return LookupOrganizationResult(lookup_error=resolve_error)
     assert org_id is not None
 
     # Fetch org info
@@ -388,22 +376,16 @@ def lookup_organization(
             bearer_token=bearer,
         )
     except PaymentConfigAPIError as e:
-        return {
-            "org_info": None,
-            "payment_config": None,
-            "resolved_org_label": resolved_label or "",
-            "org_loaded": False,
-            "lookup_error": f"Failed to fetch organization info: {e}",
-        }
+        return LookupOrganizationResult(
+            resolved_org_label=resolved_label or "",
+            lookup_error=f"Failed to fetch organization info: {e}",
+        )
 
     if org_info is None:
-        return {
-            "org_info": None,
-            "payment_config": None,
-            "resolved_org_label": resolved_label or "",
-            "org_loaded": False,
-            "lookup_error": f"Organization {org_id} not found.",
-        }
+        return LookupOrganizationResult(
+            resolved_org_label=resolved_label or "",
+            lookup_error=f"Organization {org_id} not found.",
+        )
 
     # Fetch payment config
     try:
@@ -413,19 +395,15 @@ def lookup_organization(
             bearer_token=bearer,
         )
     except PaymentConfigAPIError as e:
-        return {
-            "org_info": org_info.model_dump(mode="json", by_alias=False),
-            "payment_config": None,
-            "resolved_org_label": resolved_label or "",
-            "org_loaded": False,
-            "lookup_error": f"Failed to fetch payment config: {e}",
-        }
+        return LookupOrganizationResult(
+            org_info=org_info.model_dump(mode="json", by_alias=False),
+            resolved_org_label=resolved_label or "",
+            lookup_error=f"Failed to fetch payment config: {e}",
+        )
 
-    # Enrich with tier info (use Google token for BigQuery if available)
-    bq_credentials = get_gcp_credentials_for_bigquery_ro(
-        access_token_override=google_access_token
-    )
-    tier_result = get_org_tier(org_id, credentials=bq_credentials)
+    # Enrich with tier info (GCS tier export via the runtime service account)
+    gcs_credentials = get_gcp_credentials_for_tier_gcs_ro()
+    tier_result = get_org_tier(org_id, credentials=gcs_credentials)
     tier_warning = _build_tier_warning(tier_result.customer_tier)
 
     # Enrich with Orb subscription info (best-effort)
@@ -443,13 +421,12 @@ def lookup_organization(
         orb_subscription=orb_subscription,
     )
 
-    return {
-        "org_info": org_info.model_dump(mode="json", by_alias=False),
-        "payment_config": payment_config.model_dump(mode="json"),
-        "resolved_org_label": resolved_label or "",
-        "org_loaded": True,
-        "lookup_error": "",
-    }
+    return LookupOrganizationResult(
+        org_info=org_info.model_dump(mode="json", by_alias=False),
+        payment_config=payment_config.model_dump(mode="json"),
+        resolved_org_label=resolved_label or "",
+        org_loaded=True,
+    )
 
 
 @customer_billing_app.tool()
@@ -460,8 +437,7 @@ def apply_grace_period(
     approval_comment_url: str = "",
     organization_name: str = "",
     auth_bearer_token: str = "",
-    google_access_token: str = "",
-) -> dict[str, Any]:
+) -> BillingActionResult:
     """Set, extend, or cancel a grace period for an organization."""
     if not auth_available(auth_bearer_token or None):
         return _error_result(
@@ -504,11 +480,9 @@ def apply_grace_period(
             organization_id, name_error or "Organization name validation failed."
         )
 
-    # Enrich with tier info
-    bq_credentials = get_gcp_credentials_for_bigquery_ro(
-        access_token_override=google_access_token
-    )
-    tier_result = get_org_tier(organization_id, credentials=bq_credentials)
+    # Enrich with tier info (GCS tier export via the runtime service account)
+    gcs_credentials = get_gcp_credentials_for_tier_gcs_ro()
+    tier_result = get_org_tier(organization_id, credentials=gcs_credentials)
     customer_tier = tier_result.customer_tier
     tier_warning = _build_tier_warning(customer_tier)
 
@@ -600,8 +574,7 @@ def apply_permanent_waiver(
     approval_comment_url: str = "",
     organization_name: str = "",
     auth_bearer_token: str = "",
-    google_access_token: str = "",
-) -> dict[str, Any]:
+) -> BillingActionResult:
     """Set or remove a permanent billing waiver for an organization."""
     if not auth_available(auth_bearer_token or None):
         return _error_result(
@@ -653,11 +626,9 @@ def apply_permanent_waiver(
             organization_id, name_error or "Organization name validation failed."
         )
 
-    # Tier info
-    bq_credentials = get_gcp_credentials_for_bigquery_ro(
-        access_token_override=google_access_token
-    )
-    tier_result = get_org_tier(organization_id, credentials=bq_credentials)
+    # Tier info (GCS tier export via the runtime service account)
+    gcs_credentials = get_gcp_credentials_for_tier_gcs_ro()
+    tier_result = get_org_tier(organization_id, credentials=gcs_credentials)
     customer_tier = tier_result.customer_tier
     tier_warning = _build_tier_warning(customer_tier)
 
@@ -757,18 +728,18 @@ def apply_permanent_waiver(
             parts.append(f"Entitlement plan update failed: {e}")
             entitlement_change = f"Failed: {e}"
 
-    return {
-        "success": True,
-        "message": " ".join(parts),
-        "organization_id": organization_id,
-        "payment_status": data["paymentStatus"],
-        "grace_period_end_at": data.get("gracePeriodEndAt"),
-        "permanent_waiver_type": data.get("usageCategoryOverwrite"),
-        "customer_tier": customer_tier,
-        "tier_warning": tier_warning,
-        "orb_plan_change": orb_plan_change,
-        "entitlement_plan_change": entitlement_change,
-    }
+    return BillingActionResult(
+        success=True,
+        message=" ".join(parts),
+        organization_id=organization_id,
+        payment_status=data["paymentStatus"],
+        grace_period_end_at=data.get("gracePeriodEndAt"),
+        permanent_waiver_type=data.get("usageCategoryOverwrite"),
+        customer_tier=customer_tier,
+        tier_warning=tier_warning,
+        orb_plan_change=orb_plan_change,
+        entitlement_plan_change=entitlement_change,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -776,20 +747,13 @@ def apply_permanent_waiver(
 # ---------------------------------------------------------------------------
 
 
-def _error_result(organization_id: str, message: str) -> dict[str, Any]:
-    """Build a failure result dict."""
-    return {
-        "success": False,
-        "message": message,
-        "organization_id": organization_id,
-        "payment_status": None,
-        "grace_period_end_at": None,
-        "permanent_waiver_type": None,
-        "customer_tier": None,
-        "tier_warning": None,
-        "orb_plan_change": None,
-        "entitlement_plan_change": None,
-    }
+def _error_result(organization_id: str, message: str) -> BillingActionResult:
+    """Build a failure result."""
+    return BillingActionResult(
+        success=False,
+        message=message,
+        organization_id=organization_id,
+    )
 
 
 def _success_result(
@@ -799,25 +763,23 @@ def _success_result(
     data: dict[str, Any],
     customer_tier: str,
     tier_warning: str | None,
-) -> dict[str, Any]:
-    """Build a success result dict from raw Config API response data."""
-    return {
-        "success": True,
-        "message": message,
-        "organization_id": organization_id,
-        "payment_status": data["paymentStatus"],
-        "grace_period_end_at": data.get("gracePeriodEndAt"),
-        "permanent_waiver_type": data.get("usageCategoryOverwrite"),
-        "customer_tier": customer_tier,
-        "tier_warning": tier_warning,
-        "orb_plan_change": None,
-        "entitlement_plan_change": None,
-    }
+) -> BillingActionResult:
+    """Build a success result from raw Config API response data."""
+    return BillingActionResult(
+        success=True,
+        message=message,
+        organization_id=organization_id,
+        payment_status=data["paymentStatus"],
+        grace_period_end_at=data.get("gracePeriodEndAt"),
+        permanent_waiver_type=data.get("usageCategoryOverwrite"),
+        customer_tier=customer_tier,
+        tier_warning=tier_warning,
+    )
 
 
 @customer_billing_app.tool()
 def search_orgs_workspaces(
     query: str = "",
-) -> dict[str, Any]:
+) -> OrgSearchResult:
     """Search organizations and workspaces by name (case-insensitive substring)."""
     return search_organizations_and_workspaces(query=query)

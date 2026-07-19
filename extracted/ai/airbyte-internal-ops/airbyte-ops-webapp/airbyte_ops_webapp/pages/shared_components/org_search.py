@@ -7,16 +7,40 @@ and Customer Billing pages can register on their respective FastMCPApp instances
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from airbyte_ops_mcp.prod_db_access.queries import (
     search_organizations,
     search_workspaces,
 )
+from pydantic import BaseModel, Field
 
 from airbyte_ops_webapp.state import mock_only_enabled
 
 logger = logging.getLogger(__name__)
+
+
+class OrgSearchRow(BaseModel):
+    """A single DataTable-bound org/workspace search result row."""
+
+    entity_type: str
+    entity_id: str
+    entity_name: str
+    entity_email: str
+    organization_id: str
+    workspace_id: str
+    display_label: str
+
+
+class OrgSearchResult(BaseModel):
+    """Typed result of an org/workspace search.
+
+    `results` is the DataTable-bound row list (one row per matched org or
+    workspace).
+    """
+
+    results: list[OrgSearchRow] = Field(default_factory=list)
+    error: str = ""
+
 
 _MOCK_ORGANIZATIONS: list[dict[str, str]] = [
     {
@@ -88,10 +112,10 @@ _MOCK_WORKSPACES += [
 ]
 
 
-def _mock_search(query: str) -> dict[str, Any]:
+def _mock_search(query: str) -> OrgSearchResult:
     """Return mock results for org/workspace search in mock mode."""
     q = query.strip().lower()
-    results: list[dict[str, str]] = []
+    results: list[OrgSearchRow] = []
     for org in _MOCK_ORGANIZATIONS:
         name = org.get("organization_name", "")
         email = org.get("email", "")
@@ -101,15 +125,15 @@ def _mock_search(query: str) -> dict[str, Any]:
             if email:
                 label_parts.append(f"({email})")
             results.append(
-                {
-                    "entity_type": "organization",
-                    "entity_id": org_id,
-                    "entity_name": name,
-                    "entity_email": email,
-                    "organization_id": org_id,
-                    "workspace_id": "",
-                    "display_label": " ".join(label_parts),
-                }
+                OrgSearchRow(
+                    entity_type="organization",
+                    entity_id=org_id,
+                    entity_name=name,
+                    entity_email=email,
+                    organization_id=org_id,
+                    workspace_id="",
+                    display_label=" ".join(label_parts),
+                )
             )
     for ws in _MOCK_WORKSPACES:
         name = ws.get("workspace_name", "")
@@ -120,30 +144,30 @@ def _mock_search(query: str) -> dict[str, Any]:
             if email:
                 label_parts.append(f"({email})")
             results.append(
-                {
-                    "entity_type": "workspace",
-                    "entity_id": ws_id,
-                    "entity_name": name,
-                    "entity_email": email,
-                    "organization_id": ws["organization_id"],
-                    "workspace_id": ws_id,
-                    "display_label": " ".join(label_parts),
-                }
+                OrgSearchRow(
+                    entity_type="workspace",
+                    entity_id=ws_id,
+                    entity_name=name,
+                    entity_email=email,
+                    organization_id=ws["organization_id"],
+                    workspace_id=ws_id,
+                    display_label=" ".join(label_parts),
+                )
             )
-    return {"results": results, "error": ""}
+    return OrgSearchResult(results=results)
 
 
 def search_organizations_and_workspaces(
     query: str,
     limit: int = 20,
-) -> dict[str, Any]:
+) -> OrgSearchResult:
     """Search organizations and workspaces by name (case-insensitive substring match).
 
     Searches across organization name/email and workspace name/slug.
     Returns a list of matching results with entity type, ID, name, and org ID.
     """
     if not query.strip():
-        return {"results": [], "error": "Please enter a search term."}
+        return OrgSearchResult(error="Please enter a search term.")
 
     if mock_only_enabled():
         return _mock_search(query)
@@ -153,12 +177,9 @@ def search_organizations_and_workspaces(
         ws_rows = search_workspaces(name_contains=query, limit=limit)
     except Exception:
         logger.exception("Organization/workspace search failed for query: %s", query)
-        return {
-            "results": [],
-            "error": "Search failed. Prod DB may be unavailable.",
-        }
+        return OrgSearchResult(error="Search failed. Prod DB may be unavailable.")
 
-    results: list[dict[str, str]] = []
+    results: list[OrgSearchRow] = []
     for row in org_rows:
         org_id = str(row["organization_id"])
         name = row.get("organization_name") or ""
@@ -167,15 +188,15 @@ def search_organizations_and_workspaces(
         if email:
             label_parts.append(f"({email})")
         results.append(
-            {
-                "entity_type": "organization",
-                "entity_id": org_id,
-                "entity_name": name,
-                "entity_email": email,
-                "organization_id": org_id,
-                "workspace_id": "",
-                "display_label": " ".join(label_parts),
-            }
+            OrgSearchRow(
+                entity_type="organization",
+                entity_id=org_id,
+                entity_name=name,
+                entity_email=email,
+                organization_id=org_id,
+                workspace_id="",
+                display_label=" ".join(label_parts),
+            )
         )
     for row in ws_rows:
         ws_id = str(row["workspace_id"])
@@ -185,17 +206,17 @@ def search_organizations_and_workspaces(
         if email:
             label_parts.append(f"({email})")
         results.append(
-            {
-                "entity_type": "workspace",
-                "entity_id": ws_id,
-                "entity_name": name,
-                "entity_email": email,
-                "organization_id": str(row["organization_id"])
+            OrgSearchRow(
+                entity_type="workspace",
+                entity_id=ws_id,
+                entity_name=name,
+                entity_email=email,
+                organization_id=str(row["organization_id"])
                 if row.get("organization_id")
                 else "",
-                "workspace_id": ws_id,
-                "display_label": " ".join(label_parts),
-            }
+                workspace_id=ws_id,
+                display_label=" ".join(label_parts),
+            )
         )
 
-    return {"results": results, "error": ""}
+    return OrgSearchResult(results=results)

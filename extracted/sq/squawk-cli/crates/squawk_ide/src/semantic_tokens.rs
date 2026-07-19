@@ -196,20 +196,38 @@ impl TryFrom<LocationKind> for SemanticTokenType {
                 Ok(SemanticTokenType::Table)
             }
             LocationKind::Type => Ok(SemanticTokenType::Type),
-            LocationKind::CaseExpr
+            LocationKind::AccessMethod
+            | LocationKind::CaseExpr
             | LocationKind::Channel
+            | LocationKind::Collation
             | LocationKind::CommitBegin
             | LocationKind::CommitEnd
+            | LocationKind::Constraint
+            | LocationKind::Conversion
             | LocationKind::Cursor
             | LocationKind::Database
             | LocationKind::EventTrigger
             | LocationKind::Extension
+            | LocationKind::ForeignDataWrapper
             | LocationKind::Index
+            | LocationKind::Language
+            | LocationKind::Operator
+            | LocationKind::OperatorClass
+            | LocationKind::OperatorFamily
             | LocationKind::Policy
             | LocationKind::PreparedStatement
+            | LocationKind::Publication
             | LocationKind::Role
+            | LocationKind::Rule
+            | LocationKind::Savepoint
             | LocationKind::Server
+            | LocationKind::Statistics
+            | LocationKind::Subscription
             | LocationKind::Tablespace
+            | LocationKind::TextSearchConfiguration
+            | LocationKind::TextSearchDictionary
+            | LocationKind::TextSearchParser
+            | LocationKind::TextSearchTemplate
             | LocationKind::Trigger
             | LocationKind::Window => Err(kind),
         }

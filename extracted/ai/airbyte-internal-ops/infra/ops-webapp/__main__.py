@@ -66,9 +66,6 @@ AIRBYTE_DOMAIN = "airbyte.io"
 OAUTH_CLIENT_SECRET_ID = "ops-webapp-oauth-client-secret"
 """Used to authenticate users with their Airbyte Cloud identity."""
 
-GOOGLE_OAUTH_CLIENT_SECRET_ID = "ops-webapp-google-oauth-client-secret"
-"""Used to authenticate users with their Google identity."""
-
 SLACK_BOT_TOKEN_SECRET_ID = "slack-bot-token-hitl"
 """Slack bot token created by the message-bus service."""
 
@@ -133,10 +130,6 @@ def define_secrets() -> dict[str, SecretRef]:
     return {
         OAUTH_CLIENT_SECRET_ID: gcp.secretmanager.get_secret(
             secret_id=OAUTH_CLIENT_SECRET_ID,
-            project=PROJECT,
-        ),
-        GOOGLE_OAUTH_CLIENT_SECRET_ID: gcp.secretmanager.get_secret(
-            secret_id=GOOGLE_OAUTH_CLIENT_SECRET_ID,
             project=PROJECT,
         ),
         SLACK_BOT_TOKEN_SECRET_ID: gcp.secretmanager.get_secret(
@@ -265,10 +258,6 @@ def define_cloud_run_service(
                             OAUTH_CLIENT_SECRET_ID,
                         ),
                         _secret_env(
-                            "AIRBYTE_OPS_WEBAPP_GOOGLE_CLIENT_SECRET",
-                            GOOGLE_OAUTH_CLIENT_SECRET_ID,
-                        ),
-                        _secret_env(
                             "SLACK_BOT_TOKEN_HITL",
                             SLACK_BOT_TOKEN_SECRET_ID,
                         ),
@@ -359,10 +348,6 @@ def define_preview_cloud_run_service(
                         _secret_env(
                             "AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_SECRET",
                             OAUTH_CLIENT_SECRET_ID,
-                        ),
-                        _secret_env(
-                            "AIRBYTE_OPS_WEBAPP_GOOGLE_CLIENT_SECRET",
-                            GOOGLE_OAUTH_CLIENT_SECRET_ID,
                         ),
                         _secret_env(
                             "SLACK_BOT_TOKEN_HITL",

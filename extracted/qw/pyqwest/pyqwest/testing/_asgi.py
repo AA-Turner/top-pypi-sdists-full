@@ -142,7 +142,7 @@ class ASGITransport(Transport):
                 await receive_queue.put(e)
             finally:
                 try:
-                    aclose = request.content.aclose  # pyright: ignore[reportAttributeAccessIssue]
+                    aclose = request.content.aclose  # ty: ignore[unresolved-attribute]
                 except AttributeError:
                     pass
                 else:
@@ -188,7 +188,7 @@ class ASGITransport(Transport):
             with contextlib.suppress(BaseException):
                 await app_task
                 await request_task
-            if isinstance(message, TimeoutError):
+            if isinstance(message, (ConnectionError, TimeoutError)):
                 raise message
             return Response(
                 status=500,

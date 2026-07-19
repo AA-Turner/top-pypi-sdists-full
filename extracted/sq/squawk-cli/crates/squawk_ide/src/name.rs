@@ -44,12 +44,16 @@ impl fmt::Display for Name {
     }
 }
 
-pub(crate) fn schema_and_name_path(path: &ast::Path) -> Option<(Option<Schema>, Name)> {
+pub(crate) fn schema_and_name_path(path: &ast::PathRef) -> Option<(Option<Schema>, Name)> {
     Some((schema_name(path), table_name(path)?))
 }
 
+pub(crate) fn schema_and_name_definition(path: &ast::Path) -> Option<(Option<Schema>, Name)> {
+    Some((schema_definition_name(path), table_definition_name(path)?))
+}
+
 pub(crate) fn schema_and_table_name(name_ref: &ast::NameRef) -> Option<(Option<Schema>, Name)> {
-    if let Some(path) = name_ref.syntax().ancestors().find_map(ast::Path::cast) {
+    if let Some(path) = name_ref.syntax().ancestors().find_map(ast::PathRef::cast) {
         return schema_and_name_path(&path);
     }
 
@@ -85,19 +89,24 @@ pub(crate) fn schema_and_func_name(call_expr: &ast::CallExpr) -> Option<(Option<
     }
 }
 
-pub(crate) fn table_name(path: &ast::Path) -> Option<Name> {
-    let segment = path.segment()?;
-    if let Some(name_ref) = segment.name_ref() {
-        return Some(Name::from_node(&name_ref));
-    }
-    if let Some(name) = segment.name() {
-        return Some(Name::from_node(&name));
-    }
-    None
+pub(crate) fn table_name(path: &ast::PathRef) -> Option<Name> {
+    Some(Name::from_node(&path.segment()?.name_ref()?))
 }
 
-pub(crate) fn schema_name(path: &ast::Path) -> Option<Schema> {
-    path.qualifier()
+pub(crate) fn table_definition_name(path: &ast::Path) -> Option<Name> {
+    Some(Name::from_node(&path.segment()?.name()?))
+}
+
+pub(crate) fn schema_name(path: &ast::PathRef) -> Option<Schema> {
+    schema_name_from_qualifier(path.qualifier())
+}
+
+pub(crate) fn schema_definition_name(path: &ast::Path) -> Option<Schema> {
+    schema_name_from_qualifier(path.qualifier())
+}
+
+fn schema_name_from_qualifier(qualifier: Option<ast::PathRef>) -> Option<Schema> {
+    qualifier
         .and_then(|q| q.segment())
         .and_then(|s| s.name_ref())
         .map(|name_ref| Schema(Name::from_node(&name_ref)))
@@ -107,9 +116,12 @@ pub(crate) fn schema_name(path: &ast::Path) -> Option<Schema> {
 pub(crate) fn schema_and_table_from_from_item(
     from_item: &ast::FromItem,
 ) -> Option<(Option<Schema>, Name)> {
-    if let Some(name_ref_node) = from_item.name_ref() {
+    let ast::FromItem::RelationFromItem(relation) = from_item else {
+        return None;
+    };
+    if let Some(name_ref_node) = relation.name_ref() {
         Some((None, Name::from_node(&name_ref_node)))
-    } else if let Some(from_field_expr) = from_item.field_expr() {
+    } else if let Some(from_field_expr) = relation.field_expr() {
         let table_name = Name::from_node(&from_field_expr.field()?);
         let ast::Expr::NameRef(schema_name_ref) = from_field_expr.base()? else {
             return None;
@@ -156,7 +168,7 @@ pub(crate) fn schema_and_type_name(ty: &ast::Type) -> Option<(Option<Schema>, Na
         }
         ast::Type::IntervalType(_) => Some((None, Name::from_string("interval"))),
         ast::Type::PathType(path_type) => {
-            let path = path_type.path()?;
+            let path = path_type.path_ref()?;
             schema_and_name_path(&path)
         }
         ast::Type::ExprType(expr_type) => {

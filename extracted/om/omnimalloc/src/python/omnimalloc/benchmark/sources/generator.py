@@ -4,8 +4,7 @@
 
 import random
 
-from omnimalloc.common.constants import DEFAULT_SEED, KB, MB
-from omnimalloc.primitives import Allocation, AllocationKind
+from omnimalloc.primitives import Allocation, BufferKind
 
 from .base import BaseSource
 
@@ -16,15 +15,15 @@ class RandomSource(BaseSource):
     def __init__(
         self,
         num_allocations: int = 100,
-        size_min: int = KB,
-        size_max: int = MB,
+        size_min: int = 1024,
+        size_max: int = 1024 * 1024,
         time_min: int = 0,
         time_max: int = 10000,
         duration_min: int = 1,
         duration_max: int = 500,
-        kinds: tuple[AllocationKind, ...] | None = None,
+        kinds: tuple[BufferKind, ...] | None = None,
         kind_weights: tuple[float, ...] | None = None,
-        seed: int | None = DEFAULT_SEED,
+        seed: int | None = 42,
     ) -> None:
         super().__init__(num_allocations=num_allocations)
         if size_min <= 0:
@@ -90,10 +89,10 @@ class UniformSource(BaseSource):
     def __init__(
         self,
         num_allocations: int = 100,
-        size: int = 4 * KB,
+        size: int = 4096,
         duration: int = 10,
         time_max: int = 100,
-        seed: int | None = DEFAULT_SEED,
+        seed: int | None = 42,
     ) -> None:
         super().__init__(num_allocations=num_allocations)
         if size <= 0:
@@ -144,7 +143,7 @@ class PowerOf2Source(BaseSource):
         time_max: int = 100,
         duration_min: int = 1,
         duration_max: int = 50,
-        seed: int | None = DEFAULT_SEED,
+        seed: int | None = 42,
     ) -> None:
         super().__init__(num_allocations=num_allocations)
         if size_exponent_min < 0:
@@ -195,18 +194,18 @@ class HighContentionSource(BaseSource):
     def __init__(
         self,
         num_allocations: int = 100,
-        size_min: int = KB,
-        size_max: int = MB,
+        size_min: int = 1024,
+        size_max: int = 1024 * 1024,
         time_window: int = 20,
-        seed: int | None = DEFAULT_SEED,
+        seed: int | None = 42,
     ) -> None:
         super().__init__(num_allocations=num_allocations)
         if size_min <= 0:
             raise ValueError("size_min must be positive")
         if size_max < size_min:
             raise ValueError("size_max must be >= size_min")
-        if time_window < 2:
-            raise ValueError("time_window must be at least 2")
+        if time_window <= 0:
+            raise ValueError("time_window must be positive")
 
         self.size_min = size_min
         self.size_max = size_max
@@ -243,11 +242,11 @@ class SequentialSource(BaseSource):
     def __init__(
         self,
         num_allocations: int = 100,
-        size_min: int = KB,
-        size_max: int = MB,
+        size_min: int = 1024,
+        size_max: int = 1024 * 1024,
         duration_min: int = 5,
         duration_max: int = 15,
-        seed: int | None = DEFAULT_SEED,
+        seed: int | None = 42,
     ) -> None:
         super().__init__(num_allocations=num_allocations)
         if size_min <= 0:

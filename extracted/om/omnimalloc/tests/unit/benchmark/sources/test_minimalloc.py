@@ -4,6 +4,7 @@
 
 import pytest
 from omnimalloc.benchmark.sources.minimalloc import MinimallocSource, MinimallocSubset
+from omnimalloc.primitives import BufferKind
 
 
 def test_minimalloc_source_default_subset_is_challenging() -> None:
@@ -80,11 +81,11 @@ def test_minimalloc_source_get_pools_count_zero() -> None:
     assert len(pools) == 0
 
 
-def test_minimalloc_source_get_allocation_keeps_kind_none() -> None:
-    """The minimalloc format carries no kind, matching `load_allocation`."""
+def test_minimalloc_source_get_allocation_workspace_kind() -> None:
+    """All loaded allocations are tagged as WORKSPACE buffers."""
     source = MinimallocSource(subset="examples")
     allocation = source.get_allocation()
-    assert allocation.kind is None
+    assert allocation.kind == BufferKind.WORKSPACE
 
 
 def test_minimalloc_source_get_variant_by_id() -> None:

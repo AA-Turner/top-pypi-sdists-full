@@ -21,7 +21,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ...errors import ErrorCode, create_error_response
+from ..component_devices import fetch_device_entities_via_component
 from ..helpers import raise_tool_error
+from ..tools_integrations import _fetch_entries_via_component
 
 logger = logging.getLogger(__name__)
 
@@ -88,10 +90,18 @@ async def ws_call(
 async def resolve_entry_id(client: Any, domain: str) -> str | None:
     """Return the config entry_id for a single-instance integration ``domain``.
 
-    Uses ``config_entries/get`` (underscore form; the slash form is rejected as
-    "Unknown command"). Returns None when the integration is not configured.
+    Routes the domain-scoped config-entry read through the component's
+    ``config_entries`` capability when available (one in-process frame filtered
+    to ``domain``, instead of dumping every entry over ``config_entries/get``);
+    falls back to the legacy ``config_entries/get`` WS read (underscore form; the
+    slash form is rejected as "Unknown command") on capability miss / component
+    error. Returns None when the integration is not configured.
     """
-    entries = await ws_call(client, "config_entries/get", context={"domain": domain})
+    entries = await _fetch_entries_via_component(client, domain=domain)
+    if entries is None:
+        entries = await ws_call(
+            client, "config_entries/get", context={"domain": domain}
+        )
     for entry in entries or []:
         if entry.get("domain") == domain:
             entry_id = entry.get("entry_id")
@@ -107,10 +117,18 @@ async def resolve_update_entity(
     Filters the ``update.*`` entities tied to ``device_id``, preferring the given
     ``platform`` (e.g. "matter", "zha", "zwave_js") when a device exposes more
     than one. Raises ENTITY_NOT_FOUND when the device exposes no update entity.
+
+    Routes the per-device entity read through the component's
+    ``device_get(include_entities=True)`` when available (the device's rows in one
+    in-process frame, ``config/entity_registry/list`` shape) instead of dumping the
+    whole entity registry; falls back to ``config/entity_registry/list`` otherwise.
+    The ``update.*`` / platform filtering stays client-side exactly as before.
     """
-    entities = await ws_call(
-        client, "config/entity_registry/list", context={"device_id": device_id}
-    )
+    entities = await fetch_device_entities_via_component(client, device_id)
+    if entities is None:
+        entities = await ws_call(
+            client, "config/entity_registry/list", context={"device_id": device_id}
+        )
     candidates = [
         e
         for e in (entities or [])

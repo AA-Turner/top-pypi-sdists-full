@@ -42,7 +42,7 @@ pub mod hobbies;
 
 pub use types::PatternMatch;
 pub use merger::{merge_entities, merge_entities_with_text};
-pub use restore::{restore, restore_full, check_restore_safety, RestoreError};
+pub use restore::{restore, restore_full, restore_full_guarded, check_restore_safety, RestoreError, RestoreResult, RestoreSession};
 pub use patterns::{match_patterns, PatternConfig, PatternError};
 pub use pseudonym::{PseudonymGenerator, RandomSource};
 pub use mt19937::{Mt19937, MtRandomSource};
@@ -75,3 +75,4 @@ pub use streaming::{
     RestoreStrategy, StreamingRedactor, StreamingRestorer, CARRY_WINDOW, DEFAULT_MAX_BUFFER,
     EVIDENCE_CONTEXT_WINDOW,
 };
+pub use restore::{Anchor, GuardEvent, GuardEventKind, RestoreOutcome};

@@ -58,10 +58,10 @@ def query_motherduck_queries(
     limit: Annotated[
         int,
         Field(
-            default=100,
-            description="Max rows to return (1-1000).",
+            default=1000,
+            description="Number of rows to return.",
         ),
-    ] = 100,
+    ] = 1000,
     include_query_text: Annotated[
         bool | QueryTextTreatment,
         Field(

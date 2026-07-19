@@ -25,6 +25,8 @@ from aiobotocore.response import StreamingBody
 
 from .literals import (
     AddressRoleTypeType,
+    ChileDocumentTypeType,
+    CustomerTypeType,
     EntityExemptionAccountStatusType,
     HeritageStatusType,
     IndonesiaTaxRegistrationNumberTypeType,
@@ -33,6 +35,7 @@ from .literals import (
     IsraelDealerTypeType,
     MalaysiaServiceTaxCodeType,
     PersonTypeType,
+    PolandTaxRegistrationNumberTypeType,
     RegistrationTypeType,
     SaudiArabiaTaxRegistrationNumberTypeType,
     SectorType,
@@ -63,15 +66,18 @@ __all__ = (
     "BatchPutTaxRegistrationErrorTypeDef",
     "BatchPutTaxRegistrationRequestTypeDef",
     "BatchPutTaxRegistrationResponseTypeDef",
+    "BelgiumAdditionalInfoTypeDef",
     "BlobTypeDef",
     "BrazilAdditionalInfoTypeDef",
     "CanadaAdditionalInfoTypeDef",
+    "ChileAdditionalInfoTypeDef",
     "DeleteSupplementalTaxRegistrationRequestTypeDef",
     "DeleteTaxRegistrationRequestTypeDef",
     "DestinationS3LocationTypeDef",
     "EgyptAdditionalInfoTypeDef",
     "EstoniaAdditionalInfoTypeDef",
     "ExemptionCertificateTypeDef",
+    "FranceAdditionalInfoTypeDef",
     "GeorgiaAdditionalInfoTypeDef",
     "GetTaxExemptionTypesResponseTypeDef",
     "GetTaxInheritanceResponseTypeDef",
@@ -99,6 +105,7 @@ __all__ = (
     "MalaysiaAdditionalInfoTypeDef",
     "MalaysiaAdditionalInfoUnionTypeDef",
     "PaginatorConfigTypeDef",
+    "PhilippinesAdditionalInfoTypeDef",
     "PolandAdditionalInfoTypeDef",
     "PutSupplementalTaxRegistrationRequestTypeDef",
     "PutSupplementalTaxRegistrationResponseTypeDef",
@@ -133,28 +140,36 @@ __all__ = (
 )
 
 class TaxInheritanceDetailsTypeDef(TypedDict):
-    inheritanceObtainedReason: NotRequired[str]
     parentEntityId: NotRequired[str]
+    inheritanceObtainedReason: NotRequired[str]
 
 class AddressTypeDef(TypedDict):
-    addressLine1: str
-    city: str
-    countryCode: str
     postalCode: str
+    countryCode: str
+    addressLine1: NotRequired[str]
     addressLine2: NotRequired[str]
     addressLine3: NotRequired[str]
     districtOrCounty: NotRequired[str]
+    city: NotRequired[str]
     stateOrRegion: NotRequired[str]
 
 class JurisdictionTypeDef(TypedDict):
     countryCode: str
     stateOrRegion: NotRequired[str]
 
+class BelgiumAdditionalInfoTypeDef(TypedDict):
+    peppolId: NotRequired[str]
+    isMercuriusBoxEnabled: NotRequired[bool]
+
 class CanadaAdditionalInfoTypeDef(TypedDict):
+    provincialSalesTaxId: NotRequired[str]
     canadaQuebecSalesTaxNumber: NotRequired[str]
     canadaRetailSalesTaxNumber: NotRequired[str]
     isResellerAccount: NotRequired[bool]
-    provincialSalesTaxId: NotRequired[str]
+
+class ChileAdditionalInfoTypeDef(TypedDict):
+    documentType: NotRequired[ChileDocumentTypeType]
+    businessActivity: NotRequired[str]
 
 class EgyptAdditionalInfoTypeDef(TypedDict):
     uniqueIdentificationNumber: NotRequired[str]
@@ -163,6 +178,9 @@ class EgyptAdditionalInfoTypeDef(TypedDict):
 class EstoniaAdditionalInfoTypeDef(TypedDict):
     registryCommercialCode: str
 
+class FranceAdditionalInfoTypeDef(TypedDict):
+    sirenNumber: str
+
 class GeorgiaAdditionalInfoTypeDef(TypedDict):
     personType: PersonTypeType
 
@@ -170,26 +188,31 @@ class GreeceAdditionalInfoTypeDef(TypedDict):
     contractingAuthorityCode: NotRequired[str]
 
 class IndonesiaAdditionalInfoTypeDef(TypedDict):
-    decisionNumber: NotRequired[str]
-    ppnExceptionDesignationCode: NotRequired[str]
     taxRegistrationNumberType: NotRequired[IndonesiaTaxRegistrationNumberTypeType]
+    ppnExceptionDesignationCode: NotRequired[str]
+    decisionNumber: NotRequired[str]
 
 class IsraelAdditionalInfoTypeDef(TypedDict):
-    customerType: IsraelCustomerTypeType
     dealerType: IsraelDealerTypeType
+    customerType: IsraelCustomerTypeType
 
 class ItalyAdditionalInfoTypeDef(TypedDict):
+    sdiAccountId: NotRequired[str]
     cigNumber: NotRequired[str]
     cupNumber: NotRequired[str]
-    sdiAccountId: NotRequired[str]
     taxCode: NotRequired[str]
+    customerType: NotRequired[CustomerTypeType]
 
 class KenyaAdditionalInfoTypeDef(TypedDict):
     personType: PersonTypeType
 
+class PhilippinesAdditionalInfoTypeDef(TypedDict):
+    isVatRegistered: NotRequired[bool]
+
 class PolandAdditionalInfoTypeDef(TypedDict):
     individualRegistrationNumber: NotRequired[str]
     isGroupVatEnabled: NotRequired[bool]
+    taxRegistrationNumberType: NotRequired[PolandTaxRegistrationNumberTypeType]
 
 class RomaniaAdditionalInfoTypeDef(TypedDict):
     taxRegistrationNumberType: TaxRegistrationNumberTypeType
@@ -199,17 +222,17 @@ class SaudiArabiaAdditionalInfoTypeDef(TypedDict):
 
 class SouthKoreaAdditionalInfoTypeDef(TypedDict):
     businessRepresentativeName: str
-    itemOfBusiness: str
     lineOfBusiness: str
+    itemOfBusiness: str
 
 class SpainAdditionalInfoTypeDef(TypedDict):
     registrationType: RegistrationTypeType
 
 class TurkeyAdditionalInfoTypeDef(TypedDict):
-    industries: NotRequired[IndustriesType]
+    taxOffice: NotRequired[str]
     kepEmailId: NotRequired[str]
     secondaryTaxId: NotRequired[str]
-    taxOffice: NotRequired[str]
+    industries: NotRequired[IndustriesType]
 
 class UkraineAdditionalInfoTypeDef(TypedDict):
     ukraineTrnType: UkraineTrnTypeType
@@ -219,8 +242,8 @@ class UzbekistanAdditionalInfoTypeDef(TypedDict):
     vatRegistrationNumber: NotRequired[str]
 
 class VietnamAdditionalInfoTypeDef(TypedDict):
-    electronicTransactionCodeNumber: NotRequired[str]
     enterpriseIdentificationNumber: NotRequired[str]
+    electronicTransactionCodeNumber: NotRequired[str]
     paymentVoucherNumber: NotRequired[str]
     paymentVoucherNumberDate: NotRequired[str]
 
@@ -232,9 +255,9 @@ class IndiaAdditionalInfoTypeDef(TypedDict):
     pan: NotRequired[str]
 
 class MalaysiaAdditionalInfoOutputTypeDef(TypedDict):
-    businessRegistrationNumber: NotRequired[str]
     serviceTaxCodes: NotRequired[list[MalaysiaServiceTaxCodeType]]
     taxInformationNumber: NotRequired[str]
+    businessRegistrationNumber: NotRequired[str]
 
 class AuthorityTypeDef(TypedDict):
     country: str
@@ -300,9 +323,9 @@ class ListTaxRegistrationsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class MalaysiaAdditionalInfoTypeDef(TypedDict):
-    businessRegistrationNumber: NotRequired[str]
     serviceTaxCodes: NotRequired[Sequence[MalaysiaServiceTaxCodeType]]
     taxInformationNumber: NotRequired[str]
+    businessRegistrationNumber: NotRequired[str]
 
 class PutTaxInheritanceRequestTypeDef(TypedDict):
     heritageStatus: NotRequired[HeritageStatusType]
@@ -312,53 +335,57 @@ class SourceS3LocationTypeDef(TypedDict):
     key: str
 
 class SupplementalTaxRegistrationEntryTypeDef(TypedDict):
-    address: AddressTypeDef
-    legalName: str
     registrationId: str
     registrationType: Literal["VAT"]
+    legalName: str
+    address: AddressTypeDef
 
 class SupplementalTaxRegistrationTypeDef(TypedDict):
-    address: AddressTypeDef
-    authorityId: str
-    legalName: str
     registrationId: str
     registrationType: Literal["VAT"]
+    legalName: str
+    address: AddressTypeDef
+    authorityId: str
     status: TaxRegistrationStatusType
 
 class AccountMetaDataTypeDef(TypedDict):
     accountName: NotRequired[str]
-    address: NotRequired[AddressTypeDef]
-    addressRoleMap: NotRequired[dict[AddressRoleTypeType, JurisdictionTypeDef]]
-    addressType: NotRequired[AddressRoleTypeType]
     seller: NotRequired[str]
+    address: NotRequired[AddressTypeDef]
+    addressType: NotRequired[AddressRoleTypeType]
+    addressRoleMap: NotRequired[dict[AddressRoleTypeType, JurisdictionTypeDef]]
 
 class AdditionalInfoResponseTypeDef(TypedDict):
-    brazilAdditionalInfo: NotRequired[BrazilAdditionalInfoTypeDef]
-    canadaAdditionalInfo: NotRequired[CanadaAdditionalInfoTypeDef]
-    egyptAdditionalInfo: NotRequired[EgyptAdditionalInfoTypeDef]
+    malaysiaAdditionalInfo: NotRequired[MalaysiaAdditionalInfoOutputTypeDef]
+    israelAdditionalInfo: NotRequired[IsraelAdditionalInfoTypeDef]
     estoniaAdditionalInfo: NotRequired[EstoniaAdditionalInfoTypeDef]
+    canadaAdditionalInfo: NotRequired[CanadaAdditionalInfoTypeDef]
+    brazilAdditionalInfo: NotRequired[BrazilAdditionalInfoTypeDef]
+    spainAdditionalInfo: NotRequired[SpainAdditionalInfoTypeDef]
+    kenyaAdditionalInfo: NotRequired[KenyaAdditionalInfoTypeDef]
+    southKoreaAdditionalInfo: NotRequired[SouthKoreaAdditionalInfoTypeDef]
+    turkeyAdditionalInfo: NotRequired[TurkeyAdditionalInfoTypeDef]
     georgiaAdditionalInfo: NotRequired[GeorgiaAdditionalInfoTypeDef]
-    greeceAdditionalInfo: NotRequired[GreeceAdditionalInfoTypeDef]
+    italyAdditionalInfo: NotRequired[ItalyAdditionalInfoTypeDef]
+    romaniaAdditionalInfo: NotRequired[RomaniaAdditionalInfoTypeDef]
+    ukraineAdditionalInfo: NotRequired[UkraineAdditionalInfoTypeDef]
+    polandAdditionalInfo: NotRequired[PolandAdditionalInfoTypeDef]
+    saudiArabiaAdditionalInfo: NotRequired[SaudiArabiaAdditionalInfoTypeDef]
     indiaAdditionalInfo: NotRequired[IndiaAdditionalInfoTypeDef]
     indonesiaAdditionalInfo: NotRequired[IndonesiaAdditionalInfoTypeDef]
-    israelAdditionalInfo: NotRequired[IsraelAdditionalInfoTypeDef]
-    italyAdditionalInfo: NotRequired[ItalyAdditionalInfoTypeDef]
-    kenyaAdditionalInfo: NotRequired[KenyaAdditionalInfoTypeDef]
-    malaysiaAdditionalInfo: NotRequired[MalaysiaAdditionalInfoOutputTypeDef]
-    polandAdditionalInfo: NotRequired[PolandAdditionalInfoTypeDef]
-    romaniaAdditionalInfo: NotRequired[RomaniaAdditionalInfoTypeDef]
-    saudiArabiaAdditionalInfo: NotRequired[SaudiArabiaAdditionalInfoTypeDef]
-    southKoreaAdditionalInfo: NotRequired[SouthKoreaAdditionalInfoTypeDef]
-    spainAdditionalInfo: NotRequired[SpainAdditionalInfoTypeDef]
-    turkeyAdditionalInfo: NotRequired[TurkeyAdditionalInfoTypeDef]
-    ukraineAdditionalInfo: NotRequired[UkraineAdditionalInfoTypeDef]
-    uzbekistanAdditionalInfo: NotRequired[UzbekistanAdditionalInfoTypeDef]
     vietnamAdditionalInfo: NotRequired[VietnamAdditionalInfoTypeDef]
+    egyptAdditionalInfo: NotRequired[EgyptAdditionalInfoTypeDef]
+    greeceAdditionalInfo: NotRequired[GreeceAdditionalInfoTypeDef]
+    uzbekistanAdditionalInfo: NotRequired[UzbekistanAdditionalInfoTypeDef]
+    philippinesAdditionalInfo: NotRequired[PhilippinesAdditionalInfoTypeDef]
+    belgiumAdditionalInfo: NotRequired[BelgiumAdditionalInfoTypeDef]
+    chileAdditionalInfo: NotRequired[ChileAdditionalInfoTypeDef]
+    franceAdditionalInfo: NotRequired[FranceAdditionalInfoTypeDef]
 
 class TaxExemptionTypeTypeDef(TypedDict):
-    applicableJurisdictions: NotRequired[list[AuthorityTypeDef]]
-    description: NotRequired[str]
     displayName: NotRequired[str]
+    description: NotRequired[str]
+    applicableJurisdictions: NotRequired[list[AuthorityTypeDef]]
 
 class BatchDeleteTaxRegistrationResponseTypeDef(TypedDict):
     errors: list[BatchDeleteTaxRegistrationErrorTypeDef]
@@ -387,17 +414,17 @@ class PutTaxRegistrationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchPutTaxRegistrationResponseTypeDef(TypedDict):
-    errors: list[BatchPutTaxRegistrationErrorTypeDef]
     status: TaxRegistrationStatusType
+    errors: list[BatchPutTaxRegistrationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ExemptionCertificateTypeDef(TypedDict):
-    documentFile: BlobTypeDef
     documentName: str
+    documentFile: BlobTypeDef
 
 class TaxRegistrationDocFileTypeDef(TypedDict):
-    fileContent: BlobTypeDef
     fileName: str
+    fileContent: BlobTypeDef
 
 class GetTaxRegistrationDocumentRequestTypeDef(TypedDict):
     taxDocumentMetadata: TaxDocumentMetadataTypeDef
@@ -425,26 +452,26 @@ class ListSupplementalTaxRegistrationsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class TaxRegistrationTypeDef(TypedDict):
-    legalAddress: AddressTypeDef
-    legalName: str
     registrationId: str
     registrationType: TaxRegistrationTypeType
+    legalName: str
     status: TaxRegistrationStatusType
-    additionalTaxInformation: NotRequired[AdditionalInfoResponseTypeDef]
-    certifiedEmailId: NotRequired[str]
+    legalAddress: AddressTypeDef
     sector: NotRequired[SectorType]
     taxDocumentMetadatas: NotRequired[list[TaxDocumentMetadataTypeDef]]
+    certifiedEmailId: NotRequired[str]
+    additionalTaxInformation: NotRequired[AdditionalInfoResponseTypeDef]
 
 class TaxRegistrationWithJurisdictionTypeDef(TypedDict):
-    jurisdiction: JurisdictionTypeDef
-    legalName: str
     registrationId: str
     registrationType: TaxRegistrationTypeType
+    legalName: str
     status: TaxRegistrationStatusType
-    additionalTaxInformation: NotRequired[AdditionalInfoResponseTypeDef]
-    certifiedEmailId: NotRequired[str]
+    jurisdiction: JurisdictionTypeDef
     sector: NotRequired[SectorType]
     taxDocumentMetadatas: NotRequired[list[TaxDocumentMetadataTypeDef]]
+    certifiedEmailId: NotRequired[str]
+    additionalTaxInformation: NotRequired[AdditionalInfoResponseTypeDef]
 
 class GetTaxExemptionTypesResponseTypeDef(TypedDict):
     taxExemptionTypes: list[TaxExemptionTypeTypeDef]
@@ -455,39 +482,43 @@ class TaxExemptionTypeDef(TypedDict):
     taxExemptionType: TaxExemptionTypeTypeDef
     effectiveDate: NotRequired[datetime]
     expirationDate: NotRequired[datetime]
-    status: NotRequired[EntityExemptionAccountStatusType]
     systemEffectiveDate: NotRequired[datetime]
+    status: NotRequired[EntityExemptionAccountStatusType]
 
 class PutTaxExemptionRequestTypeDef(TypedDict):
     accountIds: Sequence[str]
     authority: AuthorityTypeDef
-    exemptionCertificate: ExemptionCertificateTypeDef
     exemptionType: str
+    exemptionCertificate: ExemptionCertificateTypeDef
 
 class TaxRegistrationDocumentTypeDef(TypedDict):
-    file: NotRequired[TaxRegistrationDocFileTypeDef]
     s3Location: NotRequired[SourceS3LocationTypeDef]
+    file: NotRequired[TaxRegistrationDocFileTypeDef]
 
 class AdditionalInfoRequestTypeDef(TypedDict):
-    canadaAdditionalInfo: NotRequired[CanadaAdditionalInfoTypeDef]
-    egyptAdditionalInfo: NotRequired[EgyptAdditionalInfoTypeDef]
-    estoniaAdditionalInfo: NotRequired[EstoniaAdditionalInfoTypeDef]
-    georgiaAdditionalInfo: NotRequired[GeorgiaAdditionalInfoTypeDef]
-    greeceAdditionalInfo: NotRequired[GreeceAdditionalInfoTypeDef]
-    indonesiaAdditionalInfo: NotRequired[IndonesiaAdditionalInfoTypeDef]
-    israelAdditionalInfo: NotRequired[IsraelAdditionalInfoTypeDef]
-    italyAdditionalInfo: NotRequired[ItalyAdditionalInfoTypeDef]
-    kenyaAdditionalInfo: NotRequired[KenyaAdditionalInfoTypeDef]
     malaysiaAdditionalInfo: NotRequired[MalaysiaAdditionalInfoUnionTypeDef]
-    polandAdditionalInfo: NotRequired[PolandAdditionalInfoTypeDef]
-    romaniaAdditionalInfo: NotRequired[RomaniaAdditionalInfoTypeDef]
-    saudiArabiaAdditionalInfo: NotRequired[SaudiArabiaAdditionalInfoTypeDef]
-    southKoreaAdditionalInfo: NotRequired[SouthKoreaAdditionalInfoTypeDef]
+    israelAdditionalInfo: NotRequired[IsraelAdditionalInfoTypeDef]
+    estoniaAdditionalInfo: NotRequired[EstoniaAdditionalInfoTypeDef]
+    canadaAdditionalInfo: NotRequired[CanadaAdditionalInfoTypeDef]
     spainAdditionalInfo: NotRequired[SpainAdditionalInfoTypeDef]
+    kenyaAdditionalInfo: NotRequired[KenyaAdditionalInfoTypeDef]
+    southKoreaAdditionalInfo: NotRequired[SouthKoreaAdditionalInfoTypeDef]
     turkeyAdditionalInfo: NotRequired[TurkeyAdditionalInfoTypeDef]
+    georgiaAdditionalInfo: NotRequired[GeorgiaAdditionalInfoTypeDef]
+    italyAdditionalInfo: NotRequired[ItalyAdditionalInfoTypeDef]
+    romaniaAdditionalInfo: NotRequired[RomaniaAdditionalInfoTypeDef]
     ukraineAdditionalInfo: NotRequired[UkraineAdditionalInfoTypeDef]
-    uzbekistanAdditionalInfo: NotRequired[UzbekistanAdditionalInfoTypeDef]
+    polandAdditionalInfo: NotRequired[PolandAdditionalInfoTypeDef]
+    saudiArabiaAdditionalInfo: NotRequired[SaudiArabiaAdditionalInfoTypeDef]
+    indonesiaAdditionalInfo: NotRequired[IndonesiaAdditionalInfoTypeDef]
     vietnamAdditionalInfo: NotRequired[VietnamAdditionalInfoTypeDef]
+    egyptAdditionalInfo: NotRequired[EgyptAdditionalInfoTypeDef]
+    greeceAdditionalInfo: NotRequired[GreeceAdditionalInfoTypeDef]
+    uzbekistanAdditionalInfo: NotRequired[UzbekistanAdditionalInfoTypeDef]
+    philippinesAdditionalInfo: NotRequired[PhilippinesAdditionalInfoTypeDef]
+    belgiumAdditionalInfo: NotRequired[BelgiumAdditionalInfoTypeDef]
+    chileAdditionalInfo: NotRequired[ChileAdditionalInfoTypeDef]
+    franceAdditionalInfo: NotRequired[FranceAdditionalInfoTypeDef]
 
 class GetTaxRegistrationResponseTypeDef(TypedDict):
     taxRegistration: TaxRegistrationTypeDef
@@ -495,15 +526,15 @@ class GetTaxRegistrationResponseTypeDef(TypedDict):
 
 class AccountDetailsTypeDef(TypedDict):
     accountId: NotRequired[str]
-    accountMetaData: NotRequired[AccountMetaDataTypeDef]
-    taxInheritanceDetails: NotRequired[TaxInheritanceDetailsTypeDef]
     taxRegistration: NotRequired[TaxRegistrationWithJurisdictionTypeDef]
+    taxInheritanceDetails: NotRequired[TaxInheritanceDetailsTypeDef]
+    accountMetaData: NotRequired[AccountMetaDataTypeDef]
 
 class TaxExemptionDetailsTypeDef(TypedDict):
+    taxExemptions: NotRequired[list[TaxExemptionTypeDef]]
     heritageObtainedDetails: NotRequired[bool]
     heritageObtainedParentEntity: NotRequired[str]
     heritageObtainedReason: NotRequired[str]
-    taxExemptions: NotRequired[list[TaxExemptionTypeDef]]
 
 class VerificationDetailsTypeDef(TypedDict):
     dateOfBirth: NotRequired[str]
@@ -515,8 +546,8 @@ class ListTaxRegistrationsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class BatchGetTaxExemptionsResponseTypeDef(TypedDict):
-    failedAccounts: list[str]
     taxExemptionDetailsMap: dict[str, TaxExemptionDetailsTypeDef]
+    failedAccounts: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTaxExemptionsResponseTypeDef(TypedDict):
@@ -527,12 +558,12 @@ class ListTaxExemptionsResponseTypeDef(TypedDict):
 class TaxRegistrationEntryTypeDef(TypedDict):
     registrationId: str
     registrationType: TaxRegistrationTypeType
-    additionalTaxInformation: NotRequired[AdditionalInfoRequestTypeDef]
-    certifiedEmailId: NotRequired[str]
-    legalAddress: NotRequired[AddressTypeDef]
     legalName: NotRequired[str]
+    legalAddress: NotRequired[AddressTypeDef]
     sector: NotRequired[SectorType]
+    additionalTaxInformation: NotRequired[AdditionalInfoRequestTypeDef]
     verificationDetails: NotRequired[VerificationDetailsTypeDef]
+    certifiedEmailId: NotRequired[str]
 
 class BatchPutTaxRegistrationRequestTypeDef(TypedDict):
     accountIds: Sequence[str]

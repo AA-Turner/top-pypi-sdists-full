@@ -6,6 +6,7 @@ import re
 import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from heapq import nlargest
 from math import isfinite
 from pathlib import Path
 from time import sleep, time
@@ -553,6 +554,19 @@ def on_train_end(trainer):
     # stopper.best_epoch is 1-indexed; -1 aligns with the 0-indexed `epoch` field
     best_epoch = max(0, getattr(getattr(trainer, "stopper", None), "best_epoch", trainer.epoch + 1) - 1)
 
+    image_metrics = trainer.validator.metrics.box.image_metrics if trainer.args.task == "detect" else {}
+    cohort = min(25_000, (len(image_metrics) + 1) // 2)
+    worst = nlargest(cohort, image_metrics.items(), key=lambda item: (-item[1]["f1"], item[1]["fp"] + item[1]["fn"]))
+    worst_names = {name for name, _ in worst}
+    best = nlargest(
+        cohort,
+        ((name, metric) for name, metric in image_metrics.items() if name not in worst_names),
+        key=lambda item: (item[1]["f1"], item[1]["tp"]),
+    )
+    rows = [
+        [Path(name).stem.split("_", 1)[0], metric["tp"], metric["fp"], metric["fn"]] for name, metric in worst + best
+    ]
+    validation = {"population": len(image_metrics), "rows": rows}
     _send(
         "training_complete",
         {
@@ -560,6 +574,7 @@ def on_train_end(trainer):
                 "metrics": {**trainer.metrics, "fitness": trainer.fitness},
                 "bestEpoch": best_epoch,
                 "bestFitness": trainer.best_fitness,
+                **({"validation": validation} if rows else {}),
                 **(artifact or {}),
             },
             "classNames": class_names,

@@ -866,7 +866,6 @@ class MockPinningAdapter(OpsMcpAdapter):
         is_destination: bool,
         target_version_id: str = "",
         rollout_created_at: str = "",
-        google_access_token: str = "",
     ) -> ConnectorPopulation:
         """Return a mock enabled (active-only) population, keyed by connector.
 
@@ -917,8 +916,6 @@ class MockPinningAdapter(OpsMcpAdapter):
     def apply_override(
         self,
         plan: OverridePlan,
-        *,
-        google_access_token: str = "",
     ) -> OperationResult:
         """Apply the override flow without calling Airbyte Cloud."""
         version_label = (

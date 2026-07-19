@@ -1,10 +1,9 @@
 import ipaddress
 import json
-import os
 import socket
 import webbrowser
-from typing import Optional, Tuple, cast
-from urllib.parse import urlparse
+from typing import List, Optional, Tuple, Union, cast
+from urllib.parse import urljoin, urlparse
 
 import aiohttp
 import click
@@ -241,31 +240,58 @@ def s_command(port: int, host: str, log_level: str, threads: int, no_ui: bool) -
 
             RunVar("_default_thread_limiter").set(CapacityLimiter(threads))
 
-    def _is_private_ip(host: str) -> bool:
+    def _is_blocked_ip(ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> bool:
+        return (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        )
+
+    def _resolve_public_ips(host: str) -> list[str]:
+        """Resolve a hostname to IPs, rejecting the request if any resolved
+        address is private/internal. Returns the safe IPs so the caller can
+        pin the connection to them and avoid DNS-rebinding (resolve twice)."""
         try:
             resolved = socket.getaddrinfo(host, None)
-            for item in resolved:
-                addr = item[4][0]
-                ip = ipaddress.ip_address(addr)
-                if (
-                    ip.is_private
-                    or ip.is_loopback
-                    or ip.is_link_local
-                    or ip.is_reserved
-                ):
-                    return True
         except Exception:
-            return True
-        return False
+            raise ValueError("Could not resolve hostname.")
 
-    def _validate_url(url: str) -> None:
+        ips: List[str] = []
+        for item in resolved:
+            addr = str(item[4][0])
+            ip = ipaddress.ip_address(addr)
+            if _is_blocked_ip(ip):
+                raise ValueError(
+                    "Requests to private/internal addresses are not allowed."
+                )
+            ips.append(addr)
+
+        if not ips:
+            raise ValueError("Could not resolve hostname.")
+        return ips
+
+    def _validate_url(url: str) -> list[str]:
         parsed = urlparse(url)
         if parsed.scheme not in ("http", "https"):
             raise ValueError("Only http and https URLs are allowed.")
         if not parsed.hostname:
             raise ValueError("Invalid URL: missing hostname.")
-        if _is_private_ip(parsed.hostname):
-            raise ValueError("Requests to private/internal addresses are not allowed.")
+        # If the host is a literal IP, validate it directly; otherwise resolve
+        # and validate every address it maps to.
+        try:
+            ip = ipaddress.ip_address(parsed.hostname)
+            if _is_blocked_ip(ip):
+                raise ValueError(
+                    "Requests to private/internal addresses are not allowed."
+                )
+            return [parsed.hostname]
+        except ValueError as e:
+            if "does not appear to be" not in str(e):
+                raise
+        return _resolve_public_ips(parsed.hostname)
 
     @app.get(
         path="/api/remove",
@@ -284,10 +310,63 @@ def s_command(port: int, host: str, log_level: str, threads: int, no_ui: bool) -
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                file = await response.read()
-                return await asyncify(im_without_bg)(file, commons)
+        max_bytes = 50 * 1024 * 1024
+
+        # Pin every connection to an already-validated IP so aiohttp cannot
+        # re-resolve the hostname to a private address (DNS rebinding).
+        class _PinnedResolver(aiohttp.abc.AbstractResolver):
+            async def resolve(self, host, port=0, family=socket.AF_INET):
+                try:
+                    ips = _validate_url(f"http://{host}")
+                except ValueError:
+                    raise OSError(f"Blocked host: {host}")
+                return [
+                    {
+                        "hostname": host,
+                        "host": ip,
+                        "port": port,
+                        "family": family,
+                        "proto": 0,
+                        "flags": socket.AI_NUMERICHOST,
+                    }
+                    for ip in ips
+                ]
+
+            async def close(self):
+                pass
+
+        connector = aiohttp.TCPConnector(resolver=_PinnedResolver())
+        async with aiohttp.ClientSession(connector=connector) as session:
+            current_url = url
+            for _ in range(5):
+                async with session.get(current_url, allow_redirects=False) as response:
+                    if response.status in (301, 302, 303, 307, 308):
+                        location = response.headers.get("Location")
+                        if not location:
+                            raise HTTPException(
+                                status_code=400,
+                                detail="Redirect without Location header.",
+                            )
+                        current_url = urljoin(current_url, location)
+                        try:
+                            _validate_url(current_url)
+                        except ValueError as e:
+                            raise HTTPException(status_code=400, detail=str(e))
+                        continue
+
+                    if response.content_length and response.content_length > max_bytes:
+                        raise HTTPException(
+                            status_code=400, detail="Image exceeds maximum size."
+                        )
+
+                    file = await response.content.read(max_bytes + 1)
+                    if len(file) > max_bytes:
+                        raise HTTPException(
+                            status_code=400, detail="Image exceeds maximum size."
+                        )
+                    return await asyncify(im_without_bg)(file, commons)
+
+            raise HTTPException(status_code=400, detail="Too many redirects.")
 
     @app.post(
         path="/api/remove",
@@ -305,8 +384,7 @@ def s_command(port: int, host: str, log_level: str, threads: int, no_ui: bool) -
         return await asyncify(im_without_bg)(file, commons)  # type: ignore
 
     def gr_app(app):
-        def inference(input_path, model, *args):
-            output_path = "output.png"
+        def inference(input_image, model, *args):
             a, af, ab, ae, om, ppm, cmd_args = args
 
             kwargs = {
@@ -327,17 +405,12 @@ def s_command(port: int, host: str, log_level: str, threads: int, no_ui: bool) -
                 sessions[model] = session
             kwargs["session"] = session
 
-            with open(input_path, "rb") as i:
-                with open(output_path, "wb") as o:
-                    input = i.read()
-                    output = remove(input, **kwargs)
-                    o.write(output)
-            return os.path.join(output_path)
+            return remove(input_image, **kwargs)
 
         interface = gr.Interface(
             inference,
             [
-                gr.components.Image(type="filepath", label="Input"),
+                gr.components.Image(type="pil", label="Input"),
                 gr.components.Dropdown(sessions_names, value="u2net", label="Models"),
                 gr.components.Checkbox(value=True, label="Alpha matting"),
                 gr.components.Slider(
@@ -353,7 +426,7 @@ def s_command(port: int, host: str, log_level: str, threads: int, no_ui: bool) -
                 gr.components.Checkbox(value=True, label="Post process mask"),
                 gr.components.Textbox(label="Arguments"),
             ],
-            gr.components.Image(type="filepath", label="Output"),
+            gr.components.Image(type="pil", label="Output"),
             concurrency_limit=3,
             analytics_enabled=False,
         )

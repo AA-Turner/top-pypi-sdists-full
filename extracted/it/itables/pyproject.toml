@@ -97,7 +97,7 @@ exclude_lines = [
 
 [tool.hatch.build.hooks.jupyter-builder]
 enable-by-default = true
-dependencies = ["hatch-jupyter-builder>=0.5.0", "dash", "pyyaml"]
+dependencies = ["hatch-jupyter-builder>=0.5.0", "dash==4.4.0", "pyyaml"]
 build-function = "hatch_jupyter_builder.npm_builder"
 ensured-targets = [
     "src/itables/html/dt_bundle.js",
@@ -184,13 +184,21 @@ python = "=3.11"
 
 
 [tool.pixi.feature.build.pypi-dependencies]
-dash = "*"
+dash = "==4.4.0"
 hatch = "<1.16"
 virtualenv = "<21"
 
 [tool.pixi.feature.minimal.dependencies]
 nodejs = ">=20"
 python = ">=3.9"
+
+[tool.pixi.feature.playwright.dependencies]
+nodejs = ">=20"
+python = ">=3.11"
+
+[tool.pixi.feature.playwright.pypi-dependencies]
+itables = {path = ".", editable = true, extras=["pandas", "test-notebook"]}
+playwright = "*"
 
 [tool.pixi.feature.minimal.pypi-dependencies]
 itables = {path = ".", editable = true, extras=["test-base"]}
@@ -209,6 +217,15 @@ itables = {path = ".", editable = true, extras=["pandas", "test-dash"]}
 
 [tool.pixi.feature.test-polars-dash.pypi-dependencies]
 itables = {path = ".", editable = true, extras=["polars", "test-dash"]}
+
+[tool.pixi.feature.quarto.dependencies]
+quarto = "*"
+python = ">=3.9"
+pip = "*"
+nodejs = ">=20"
+
+[tool.pixi.feature.quarto.pypi-dependencies]
+itables = {path = ".", editable = true, extras=["dev"]}
 
 [tool.pixi.feature.streamlit-app.dependencies]
 nodejs = ">=20"
@@ -240,3 +257,5 @@ test-pandas-notebook = { features = ["minimal", "test-pandas-notebook"], no-defa
 test-polars-notebook = { features = ["minimal", "test-polars-notebook"], no-default-feature = true}
 test-pandas-dash = { features = ["minimal", "test-pandas-dash"], no-default-feature = true}
 test-polars-dash = { features = ["minimal", "test-polars-dash"], no-default-feature = true}
+playwright = { features = ["playwright"], no-default-feature = true}
+quarto = { features = ["quarto"], no-default-feature = true }

@@ -52,8 +52,13 @@ class GoonboxImageExtractor(GoonboxExtractor):
     example = "https://goonbox.cr/img/ID"
 
     def images(self):
-        url = f"{self.root}/api/images/{self.groups[0]}"
+        url = f"{self.root}/api/images/{self.groups[0].rpartition('.')[2]}"
         data = self.request_json(url)
+
+        if "redirect" in data:
+            url = data["redirect"]
+            data = self.request_json(url)
+
         img = data["image"]
         img["count"] = 1
         img["num"] = 0

@@ -12,7 +12,7 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 dependencies = [
-    "esphome-device-builder-frontend==0.1.258",
+    "esphome-device-builder-frontend==0.1.260",
     "aiohttp>=3.9.0",
     "aiohttp-asyncmdnsresolver>=0.1.1",
     "colorlog>=6.8.0",
@@ -35,7 +35,7 @@ maintainers = [
 name = "esphome-device-builder"
 readme = "README.md"
 requires-python = ">=3.12"
-version = "1.6.4"
+version = "1.6.6"
 
 [project.optional-dependencies]
 esphome = [

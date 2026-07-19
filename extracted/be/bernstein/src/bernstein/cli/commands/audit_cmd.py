@@ -208,6 +208,11 @@ def verify_cmd(merkle_only: bool, hmac_only: bool) -> None:
     # both the HMAC chain and the Merkle seal.
     all_passed = _verify_evidence_bundles() and all_passed
 
+    # Agent-posted artifacts are a further integrity pillar: a flipped byte in a
+    # stored artifact blob or its journal row must fail verify with the artifact
+    # named (#2553). Orthogonal to both the HMAC chain and the Merkle seal.
+    all_passed = _verify_run_artifacts() and all_passed
+
     # Tournament selection receipts are a further integrity pillar: a tampered
     # score or a hand-picked winner must fail verify exactly like a tampered
     # chain entry (#2353). Orthogonal to both HMAC chain and Merkle seal.
@@ -230,6 +235,12 @@ def verify_cmd(merkle_only: bool, hmac_only: bool) -> None:
     # verify. Orthogonal to both HMAC chain and Merkle seal.
     all_passed = _verify_approval_cards() and all_passed
 
+    # Fleet config-plane events are a further integrity pillar: a variable
+    # write spliced out of its per-name lineage, or a connection resolution
+    # naming a document that was never created, must fail verify beyond the
+    # HMAC check (#2550). Orthogonal to both HMAC chain and Merkle seal.
+    all_passed = _verify_fleet_config() and all_passed
+
     # Named sandbox pools are a further integrity pillar: a tampered pool body
     # (its content-addressed hash no longer recomputes) or a forged placement
     # receipt (a widened effective manifest, a swapped backend) must fail verify
@@ -245,6 +256,49 @@ def verify_cmd(merkle_only: bool, hmac_only: bool) -> None:
 
     console.print()
     raise SystemExit(0 if all_passed else 1)
+
+
+def _verify_fleet_config() -> bool:
+    """Verify fleet config-plane semantic invariants. Returns True if valid.
+
+    Reconstructs the variable write lineage and connection references from the
+    chain and checks that write ordinals are contiguous, value hashes chain,
+    and every rotation/resolution names a created document (#2550). When no
+    fleet config events exist the check is a silent no-op.
+    """
+    from bernstein.core.fleet.config_audit import verify_fleet_config_events
+    from bernstein.core.security.audit import load_or_create_audit_key
+    from bernstein.core.security.audit_chain import (
+        EVENT_FLEET_VAR_SET,
+        AuditChainStore,
+    )
+
+    try:
+        chain = AuditChainStore(AUDIT_DIR, key=load_or_create_audit_key())
+    except OSError as exc:  # pragma: no cover - filesystem race
+        console.print(f"[red]Failed to load audit key for fleet config verification: {exc}[/red]")
+        return False
+
+    # Cheap presence probe: if no variable and no connection events exist,
+    # stay a silent no-op like the other pillars.
+    if not chain.query(event_type=EVENT_FLEET_VAR_SET) and not _has_any_connection_event(chain):
+        return True
+
+    ok, errors = verify_fleet_config_events(chain)
+    console.print()
+    if ok:
+        console.print(
+            Panel(
+                "[bold green]Fleet Config Verification Passed[/bold green]",
+                border_style="green",
+                expand=False,
+            )
+        )
+        return True
+    console.print(Panel("[bold red]Fleet Config Verification FAILED[/bold red]", border_style="red", expand=False))
+    for err in errors:
+        console.print(f"  [red]![/red] {err}")
+    return False
 
 
 def _verify_pool_receipts() -> bool:
@@ -266,6 +320,26 @@ def _verify_pool_receipts() -> bool:
     for err in errors:
         console.print(f"  [red]![/red] {err}")
     return False
+
+
+def _has_any_connection_event(chain: object) -> bool:
+    from bernstein.core.security.audit_chain import (
+        EVENT_FLEET_CONN_CREATE,
+        EVENT_FLEET_CONN_REFUSE,
+        EVENT_FLEET_CONN_RESOLVE,
+        EVENT_FLEET_CONN_ROTATE,
+    )
+
+    query = chain.query  # type: ignore[attr-defined]
+    return any(
+        query(event_type=event_type)
+        for event_type in (
+            EVENT_FLEET_CONN_CREATE,
+            EVENT_FLEET_CONN_ROTATE,
+            EVENT_FLEET_CONN_RESOLVE,
+            EVENT_FLEET_CONN_REFUSE,
+        )
+    )
 
 
 def _verify_grant_chains() -> bool:
@@ -401,6 +475,50 @@ def _verify_evidence_bundles() -> bool:
     for result in failures:
         task = result.bundle.task_id if result.bundle is not None else "?"
         console.print(f"  [red]![/red] task {task}: {result.reason}")
+    return False
+
+
+def _verify_run_artifacts() -> bool:
+    """Verify every agent-posted artifact and print results. Returns True if valid.
+
+    A flipped byte in a stored artifact blob, or in its journal row, makes
+    ``bernstein audit verify`` fail with the artifact key and its exact journal
+    position named -- exactly like a tampered chain entry (#2553). When no
+    artifacts exist the check is a silent no-op.
+    """
+    from bernstein.core.evidence.run_artifacts import verify_all_run_artifacts
+    from bernstein.core.security.audit import load_or_create_audit_key
+
+    # AUDIT_DIR is ``.sdd/audit``; the project root is two levels up. Artifacts
+    # live under ``<root>/.sdd/runs/*/journal.jsonl`` + ``<root>/.sdd/evidence``.
+    workdir = AUDIT_DIR.parent.parent
+
+    try:
+        key = load_or_create_audit_key()
+    except OSError as exc:  # pragma: no cover - filesystem race
+        console.print(f"[red]Failed to load audit key for artifact verification: {exc}[/red]")
+        return False
+
+    results = verify_all_run_artifacts(workdir, hmac_key=key)
+    if not results:
+        return True  # no artifacts recorded; nothing to verify
+
+    failures = [r for r in results if not r.ok]
+    console.print()
+    if not failures:
+        console.print(
+            Panel("[bold green]Run Artifact Verification Passed[/bold green]", border_style="green", expand=False)
+        )
+        table = Table(show_header=False, box=None, padding=(0, 2))
+        table.add_column("Key", style="dim", no_wrap=True, min_width=14)
+        table.add_column("Value")
+        table.add_row("Artifacts", str(len(results)))
+        console.print(table)
+        return True
+
+    console.print(Panel("[bold red]Run Artifact Verification FAILED[/bold red]", border_style="red", expand=False))
+    for result in failures:
+        console.print(f"  [red]![/red] task {result.task_id} key={result.key} v{result.version}: {result.reason}")
     return False
 
 
@@ -606,6 +724,19 @@ def verify_suspension_cmd(task_id: str, workdir: str, as_json: bool) -> None:
         raise SystemExit(0 if result.ok else 1)
 
     console.print()
+    if result.pending:
+        # A live park is an incomplete lifecycle, not a break. It exits 0, the
+        # same as before this distinction existed, so operator scripts that
+        # sweep parked fleets keep working.
+        console.print(
+            Panel(
+                f"[bold yellow]Suspension not settled yet[/bold yellow]\ntask [bold]{task_id}[/bold]: "
+                "parked, no resume recorded. Nothing to verify until it resumes.",
+                border_style="yellow",
+                expand=False,
+            )
+        )
+        raise SystemExit(0)
     if result.ok:
         detail = f"continued {result.effective_mode}"
         if result.effective_mode == "warm":

@@ -14,7 +14,7 @@ pub struct CreateTableLike {
 }
 impl CreateTableLike {
     #[inline]
-    pub fn path(&self) -> Option<ast::Path> {
+    pub fn table_name(&self) -> Option<ast::TableName> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -23,6 +23,10 @@ impl CreateTableLike {
     }
     #[inline]
     pub fn inherits(&self) -> Option<ast::Inherits> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn partition_of(&self) -> Option<ast::PartitionOf> {
         support::child(&self.syntax)
     }
 }
@@ -58,7 +62,7 @@ impl CreateViewLike {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn path(&self) -> Option<ast::Path> {
+    pub fn view(&self) -> Option<ast::View> {
         support::child(&self.syntax)
     }
     #[inline]

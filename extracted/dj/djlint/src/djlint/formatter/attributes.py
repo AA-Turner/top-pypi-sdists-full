@@ -10,7 +10,9 @@ import regex as re
 
 from djlint.formatter.class_attributes import (
     CLASS_ATTRIBUTE_NEWLINE,
+    VERBATIM_ATTRIBUTE_NEWLINE,
     decode_class_attribute_newlines,
+    restore_verbatim_attribute_newlines,
 )
 from djlint.helpers import RE_FLAGS_IMX, RE_FLAGS_IX, child_of_ignored_block
 
@@ -359,11 +361,13 @@ def format_attributes(config: Config, html: str, token: TagToken) -> str:
                 if (stripped := value.strip())
             )
 
-        # format JS/JSON attributes
+        # format JS/JSON attributes. values with preserved verbatim line
+        # breaks are skipped: the beautifier would mangle the marker.
         if (
             config.format_attribute_js_json
             and attrib_name
             and attrib_value
+            and VERBATIM_ATTRIBUTE_NEWLINE not in attrib_value
             and config.format_attribute_js_json_pattern.match(attrib_name)
         ):
             # Check if it's an object or general JavaScript code
@@ -407,7 +411,15 @@ def format_attributes(config: Config, html: str, token: TagToken) -> str:
 
         # format template stuff
         if config.format_attribute_template_tags:
-            if attrib_value and attrib_name not in config.ignored_attributes:
+            # only spread values whose whitespace collapses when rendered;
+            # other values (title, alt, data-*, ...) are shown verbatim and
+            # an added line break would change the rendered output.
+            if (
+                attrib_value
+                and attrib_name
+                and attrib_name.lower() in {"class", "style"}
+                and attrib_name not in config.ignored_attributes
+            ):
                 attrib_value = format_template_tags(
                     config,
                     attrib_value,
@@ -428,6 +440,9 @@ def format_attributes(config: Config, html: str, token: TagToken) -> str:
             attrib_value = decode_class_attribute_newlines(
                 attrib_value, join_space
             )
+
+        if attrib_value:
+            attrib_value = restore_verbatim_attribute_newlines(attrib_value)
 
         if (attrib_name and attrib_value) or is_quoted:
             attrib_value = attrib_value or ""

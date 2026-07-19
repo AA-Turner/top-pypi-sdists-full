@@ -19,8 +19,8 @@ BASE_PATTERN = (
     r"([\w-]+\.tumblr\.com)))"
 )
 
-POST_TYPES = frozenset(("text", "quote", "link", "answer", "video",
-                        "audio", "photo", "chat", "search"))
+POST_TYPES = {"text", "quote", "link", "answer", "video",
+              "audio", "photo", "chat", "search"}
 
 
 class TumblrExtractor(Extractor):
@@ -52,6 +52,14 @@ class TumblrExtractor(Extractor):
             self.api.posts_type = next(iter(self.types))
         elif not self.types:
             self.log.warning("no valid post types selected")
+
+        if il := self.inline:
+            if il == "reblog":
+                self._extract_body = lambda p: p["reblog"]["comment"]
+            elif il == "original":
+                self._extract_body = lambda p: (p["reblog"]["tree_html"] or
+                                                p["reblog"]["comment"])
+            self.inline = True
 
         if self.reblogs == "same-blog":
             self._skip_reblog = self._skip_reblog_same_blog
@@ -108,9 +116,11 @@ class TumblrExtractor(Extractor):
             if "trail" in post:
                 del post["trail"]
             post["date"] = self.parse_timestamp(post["timestamp"])
+            post["source"] = None
             posts = []
 
             if "photos" in post:  # type "photo" or "link"
+                post["source"] = "photo"
                 photos = post["photos"]
                 del post["photos"]
 
@@ -140,16 +150,19 @@ class TumblrExtractor(Extractor):
 
             url = post.get("audio_url")  # type "audio"
             if url and url.startswith("https://a.tumblr.com/"):
+                post["source"] = "audio"
                 posts.append(self._prepare(url, post.copy()))
 
             if url := post.get("video_url"):  # type "video"
+                post["source"] = "video"
                 posts.append(self._prepare(
                     self._original_video(url), post.copy()))
 
             if self.inline and "reblog" in post:  # inline media
+                post["source"] = "inline"
                 # only "chat" posts are missing a "reblog" key in their
                 # API response, but they can't contain images/videos anyway
-                body = post["reblog"]["comment"] + post["reblog"]["tree_html"]
+                body = self._extract_body(post)
                 if "question" in post:
                     body = (f"{body} {post['question']} "
                             f"{post.get('answer') or ''}")
@@ -166,10 +179,12 @@ class TumblrExtractor(Extractor):
 
             if self.external:  # external links
                 if url := post.get("permalink_url") or post.get("url"):
+                    post["source"] = "external"
                     post["extension"] = None
                     posts.append((Message.Queue, url, post.copy()))
                     del post["extension"]
 
+            del post["source"]
             post["count"] = len(posts)
             yield Message.Directory, "", post
 
@@ -248,6 +263,10 @@ class TumblrExtractor(Extractor):
             return post["blog"]["uuid"] != post.get("reblogged_root_uuid")
         except Exception:
             return self.blog != post.get("reblogged_root_uuid")
+
+    def _extract_body(self, post):
+        rb = post["reblog"]
+        return rb["comment"] + rb["tree_html"]
 
     def _original_photo(self, url):
         resized = url.replace("/s2048x3072/", "/s99999x99999/", 1)

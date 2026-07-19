@@ -64,13 +64,14 @@ def _refresh_token_then(on_success: list) -> Fetch:
     )
 
 
-def render_rollout_status_section() -> None:
-    """Connector Version Status section (1/3 width, pivoted key-value layout).
+def render_rollout_status_section(css_class: str = "") -> None:
+    """Connector Version Status section (pivoted key-value layout).
 
     Shows connector name, UUID, version comparison, and rollout status
-    with labels on the left and values on the right.
+    with labels on the left and values on the right. `css_class` is applied
+    to the panel surface so the caller can control its responsive width.
     """
-    with AbCard():
+    with AbCard(css_class=css_class):
         with CardHeader():
             H2("Connector Version Status", css_class="text-lg")
         with CardContent(), Column(gap=3):

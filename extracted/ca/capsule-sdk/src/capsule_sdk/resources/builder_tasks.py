@@ -15,3 +15,7 @@ class BuilderTasks:
         path = f"/api/v1/tenant/{self._tenant_id}/builder-tasks"
         data = self._http.get(path, params={"kind": kind})
         return BuilderTasksResponse.model_validate(data)
+
+    def acknowledge_deletions(self, deleted: list[dict[str, str]]) -> None:
+        path = f"/api/v1/tenant/{self._tenant_id}/builder-tasks"
+        self._http.post(path, json_body={"deleted": deleted})

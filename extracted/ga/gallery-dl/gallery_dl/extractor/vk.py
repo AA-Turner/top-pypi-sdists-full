@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2021-2025 Mike Fährmann
+# Copyright 2021-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -11,7 +11,7 @@
 from .common import Extractor, Message
 from .. import text
 
-BASE_PATTERN = r"(?:https://)?(?:www\.|m\.)?vk\.com"
+BASE_PATTERN = r"(?:https://)?(?:www\.|m\.)?vk\.(com|ru)"
 
 
 class VkExtractor(Extractor):
@@ -22,6 +22,14 @@ class VkExtractor(Extractor):
     archive_fmt = "{user[id]}_{id}"
     root = "https://vk.com"
     request_interval = (0.5, 1.5)
+
+    def initialize(self):
+        domain = self.config("domain", "auto")
+        if domain == "auto":
+            domain = "vk." + self.groups[0]
+        self.root = "https://" + domain
+        self.cookies_domain = "." + domain
+        Extractor.initialize(self)
 
     def _init(self):
         self.offset = text.parse_int(self.config("offset"))
@@ -141,7 +149,7 @@ class VkPhotosExtractor(VkExtractor):
 
     def __init__(self, match):
         VkExtractor.__init__(self, match)
-        self.user_id, self.user_name = match.groups()
+        _, self.user_id, self.user_name = match.groups()
 
     def photos(self):
         return self._pagination("photos" + self.user_id)
@@ -188,11 +196,11 @@ class VkAlbumExtractor(VkExtractor):
     example = "https://vk.com/album12345_00"
 
     def photos(self):
-        user_id, album_id = self.groups
+        _, user_id, album_id = self.groups
         return self._pagination(f"album{user_id}_{album_id}")
 
     def metadata(self):
-        user_id, album_id = self.groups
+        _, user_id, album_id = self.groups
 
         url = f"{self.root}/album{user_id}_{album_id}"
         page = self.request(url).text
@@ -251,11 +259,11 @@ class VkWallPostExtractor(VkExtractor):
     example = "https://vk.com/wall12345_123"
 
     def photos(self):
-        user_id, wall_id = self.groups
+        _, user_id, wall_id = self.groups
         return self._pagination(f"wall{user_id}_{wall_id}")
 
     def metadata(self):
-        user_id, wall_id = self.groups
+        _, user_id, wall_id = self.groups
 
         url = f"{self.root}/wall{user_id}_{wall_id}"
         page = self.request(url).text

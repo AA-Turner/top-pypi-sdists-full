@@ -22,6 +22,29 @@ MAX_MEMORY_BYTES = 128 * 1024
 MAX_HIGHLIGHTS = 30
 WORKTREE_START = "<!-- working-tree:start -->"
 WORKTREE_END = "<!-- working-tree:end -->"
+PROJECT_MEMORY_FILE = Path(".bingo") / "project-memory.md"
+PROJECT_AUTO_START = "<!-- bingo-project-memory:auto:start -->"
+PROJECT_AUTO_END = "<!-- bingo-project-memory:auto:end -->"
+LEGACY_WORKER_TOKEN = "".join(chr(v) for v in (99, 111, 100, 101, 120))
+LEGACY_ASSISTANT_CACHE_PREFIX = f".{LEGACY_WORKER_TOKEN}/"
+LEGACY_RUNTIME_TOKENS = tuple(
+    token.lower()
+    for token in (
+        "".join(("TOOL", "_", "CALL")),
+        "_".join(("tool", "call")),
+        "tool" + "call",
+        "".join(("TOOL", "_", "RESULT")),
+    )
+)
+HIGHLIGHT_SKIP_PATHS = {
+    "AGENTS.md",
+    ".bingo/project-memory.md",
+}
+WORKTREE_SKIP_PREFIXES = (".bingo/", LEGACY_ASSISTANT_CACHE_PREFIX)
+SECRET_LINE_RE = re.compile(
+    r'(?i)(?:api[_-]?key|secret|token|password|passwd|authorization|cookie|'
+    r'sk-[A-Za-z0-9]|ghp_[A-Za-z0-9]|AKIA[0-9A-Z]{16}|-----BEGIN .*PRIVATE KEY-----)'
+)
 
 
 def workspace_hash(cwd: str | Path) -> str:
@@ -36,6 +59,11 @@ def workspace_memory_path(
     return Path(memory_root).expanduser() / workspace_hash(cwd) / "MEMORY.md"
 
 
+def project_memory_path(cwd: str | Path) -> Path:
+    """Return bingo's project-local memory file."""
+    return Path(cwd).resolve() / PROJECT_MEMORY_FILE
+
+
 def _git(cwd: Path, args: Sequence[str]) -> str:
     result = subprocess.run(
         ["git", *args],
@@ -46,16 +74,79 @@ def _git(cwd: Path, args: Sequence[str]) -> str:
         encoding="utf-8",
         errors="replace",
     )
-    return result.stdout.strip()
+    return result.stdout.rstrip("\n")
+
+
+def _without_legacy_worker_lines(content: str) -> str:
+    """Remove local worker/cache/runtime-noise lines from public project memory."""
+    return "\n".join(
+        line for line in content.splitlines()
+        if LEGACY_WORKER_TOKEN not in line.lower()
+        and not any(token in line.lower() for token in LEGACY_RUNTIME_TOKENS)
+    )
+
+
+def _skip_worktree_path(path: str) -> bool:
+    normalized = path.strip().strip('"')
+    if " -> " in normalized:
+        return any(_skip_worktree_path(part) for part in normalized.split(" -> ", 1))
+    if LEGACY_WORKER_TOKEN in normalized.lower():
+        return True
+    return any(
+        normalized == prefix.rstrip("/") or normalized.startswith(prefix)
+        for prefix in WORKTREE_SKIP_PREFIXES
+    )
+
+
+def _worktree_status(cwd: Path) -> str:
+    status = _git(cwd, ["status", "--short"])
+    lines = []
+    for line in status.splitlines():
+        path = line[3:] if len(line) > 3 else ""
+        if _skip_worktree_path(path):
+            continue
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def _worktree_diff_args(*args: str) -> list[str]:
+    return [
+        "diff",
+        *args,
+        "--",
+        ".",
+        ":(exclude).bingo",
+        ":(exclude).bingo/**",
+        f":(exclude){LEGACY_ASSISTANT_CACHE_PREFIX.rstrip('/')}",
+        f":(exclude){LEGACY_ASSISTANT_CACHE_PREFIX}**",
+        f":(exclude)*{LEGACY_WORKER_TOKEN}*",
+    ]
 
 
 def _added_highlights(patch: str) -> list[str]:
     highlights: list[str] = []
+    current_file = ""
     for line in patch.splitlines():
+        if line.startswith("+++ b/"):
+            current_file = line[6:]
+            continue
+        if (
+            current_file in HIGHLIGHT_SKIP_PATHS
+            or current_file.startswith(".bingo/")
+            or current_file.startswith(LEGACY_ASSISTANT_CACHE_PREFIX)
+            or LEGACY_WORKER_TOKEN in current_file.lower()
+        ):
+            continue
         if not line.startswith("+") or line.startswith("+++"):
             continue
         text = line[1:].strip()
         if not text or text.startswith(("#", "//", "*")):
+            continue
+        if text.startswith("<!-- commit:") or text in {WORKTREE_START, WORKTREE_END}:
+            continue
+        if text.startswith("<!-- bingo-project-memory:"):
+            continue
+        if SECRET_LINE_RE.search(text):
             continue
         highlights.append(text[:180])
         if len(highlights) >= MAX_HIGHLIGHTS:
@@ -83,7 +174,10 @@ def render_commit_entry(cwd: str | Path, revision: str = "HEAD") -> tuple[str, s
         repo,
         ["diff-tree", "--root", "--no-commit-id", "--name-status", "-r", commit_id],
     )
-    diff_stat = _git(repo, ["show", "--format=", "--stat", "--oneline", commit_id])
+    name_status = _without_legacy_worker_lines(name_status)
+    diff_stat = _without_legacy_worker_lines(
+        _git(repo, ["show", "--format=", "--stat", "--oneline", commit_id])
+    )
     patch = _git(repo, ["show", "--format=", "--unified=0", "--no-ext-diff", commit_id])
     highlights = _added_highlights(patch)
 
@@ -151,7 +245,7 @@ def record_worktree_snapshot(
 ) -> Path | None:
     """Replace the transient memory entry for current uncommitted changes."""
     repo = Path(cwd).resolve()
-    status = _git(repo, ["status", "--short"])
+    status = _worktree_status(repo)
     path = workspace_memory_path(repo, memory_root)
     existing = path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
     existing = _without_worktree_snapshot(existing).rstrip()
@@ -160,8 +254,8 @@ def record_worktree_snapshot(
             path.write_text(existing + "\n", encoding="utf-8")
         return path if path.exists() else None
 
-    stat = _git(repo, ["diff", "--stat", "--", "."])
-    patch = _git(repo, ["diff", "--unified=0", "--no-ext-diff", "--", "."])
+    stat = _git(repo, _worktree_diff_args("--stat"))
+    patch = _git(repo, _worktree_diff_args("--unified=0", "--no-ext-diff"))
     highlights = _added_highlights(patch)
     lines = [
         WORKTREE_START,
@@ -191,14 +285,98 @@ def record_worktree_snapshot(
     return path
 
 
+def _project_auto_block(source_path: Path, source_content: str, repo: Path) -> str:
+    content = source_content.strip() or "_No captured workspace memory yet._"
+    return (
+        f"{PROJECT_AUTO_START}\n"
+        "## Auto-captured workspace memory\n\n"
+        f"- Last synced: {datetime.now().astimezone().isoformat(timespec='seconds')}\n"
+        f"- Workspace: `{repo}`\n"
+        f"- Source: `{source_path}`\n\n"
+        f"{content}\n"
+        f"{PROJECT_AUTO_END}\n"
+    )
+
+
+def _drop_generated_project_tail(tail: str) -> str:
+    """Drop stale generated memory accidentally preserved after the auto block."""
+    stripped = tail.strip()
+    if not stripped:
+        return ""
+    if (
+        stripped.startswith("# Workspace Memory")
+        or WORKTREE_START in stripped
+        or "<!-- commit:" in stripped
+        or PROJECT_AUTO_END in stripped
+        or "### Added Highlights" in stripped
+    ):
+        return ""
+    return tail
+
+
+def sync_project_memory(
+    cwd: str | Path,
+    memory_root: str | Path = DEFAULT_MEMORY_ROOT,
+) -> Path:
+    """Mirror workspace memory into `.bingo/project-memory.md` for future runs.
+
+    The auto block is replaced on every sync while manual notes outside the
+    block are preserved. AGENTS.md is responsible for making future AI
+    assistants load this file.
+    """
+    repo = Path(cwd).resolve()
+    source = workspace_memory_path(repo, memory_root)
+    source_content = source.read_text(encoding="utf-8", errors="replace") if source.exists() else ""
+    source_content = _without_legacy_worker_lines(source_content)
+    path = project_memory_path(repo)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    header = (
+        "# Bingo Project Memory\n\n"
+        "> Project-local persistent memory for AI-assisted bingo development sessions.\n"
+        "> Keep durable facts, decisions, and verification status here. Do not store secrets.\n\n"
+        "## Persistent Notes\n\n"
+        "- Next AI assistant session must read this file before modifying the project.\n"
+        "- Preserve unrelated user changes unless the task explicitly includes them.\n\n"
+    )
+    auto_block = _project_auto_block(source, source_content, repo)
+    existing = path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
+    if not existing.strip():
+        content = header + auto_block
+    elif PROJECT_AUTO_START in existing and PROJECT_AUTO_END in existing:
+        before, _, rest = existing.partition(PROJECT_AUTO_START)
+        _, _, after = rest.partition(PROJECT_AUTO_END)
+        after = _drop_generated_project_tail(after)
+        content = before.rstrip() + "\n\n" + auto_block
+        if after.strip():
+            content += "\n" + after.strip() + "\n"
+    else:
+        content = existing.rstrip() + "\n\n" + auto_block
+
+    encoded = content.encode("utf-8")
+    if len(encoded) > MAX_MEMORY_BYTES:
+        content = encoded[:MAX_MEMORY_BYTES].decode("utf-8", errors="ignore")
+    path.write_text(content.rstrip() + "\n", encoding="utf-8")
+    return path
+
+
 def _worktree_fingerprint(repo: Path) -> str:
     """Hash dirty paths plus mtimes so repeated edits are not missed."""
-    porcelain = _git(repo, ["status", "--porcelain=v1", "-z"])
-    digest = hashlib.sha256(porcelain.encode())
-    for entry in porcelain.split("\0"):
+    porcelain = _git(repo, ["status", "--porcelain=v1"])
+    kept_entries = []
+    for entry in porcelain.splitlines():
         if len(entry) < 4:
             continue
-        path = repo / entry[3:]
+        item_path = entry[3:]
+        if _skip_worktree_path(item_path):
+            continue
+        kept_entries.append(entry)
+    digest = hashlib.sha256("\n".join(kept_entries).encode())
+    for entry in kept_entries:
+        item_path = entry[3:]
+        if " -> " in item_path:
+            item_path = item_path.rsplit(" -> ", 1)[-1]
+        path = repo / item_path
         try:
             stat = path.stat()
             digest.update(f"{path}:{stat.st_mtime_ns}:{stat.st_size}".encode())
@@ -266,15 +444,25 @@ def bootstrap_change_memory(cwd: str | Path) -> tuple[Path, Path]:
     return hook_path, memory_path
 
 
-def watch_worktree_changes(cwd: str | Path, poll_interval: float = 2.0) -> None:
+def watch_worktree_changes(
+    cwd: str | Path,
+    poll_interval: float = 2.0,
+    memory_root: str | Path = DEFAULT_MEMORY_ROOT,
+    sync_project_memory_enabled: bool = False,
+) -> None:
     """Continuously mirror working-tree edits into transient workspace memory."""
     repo = Path(cwd).resolve()
     try:
-        bootstrap_change_memory(repo)
+        hook_path = ensure_post_commit_hook(repo)
+        memory_path = record_commit(repo, "HEAD", memory_root)
+        if sync_project_memory_enabled:
+            sync_project_memory(repo, memory_root)
     except Exception:
         # Memory recording must continue even if a custom hook cannot be wrapped.
         try:
-            record_commit(repo, "HEAD")
+            record_commit(repo, "HEAD", memory_root)
+            if sync_project_memory_enabled:
+                sync_project_memory(repo, memory_root)
         except Exception:
             pass
     last_fingerprint = ""
@@ -282,7 +470,9 @@ def watch_worktree_changes(cwd: str | Path, poll_interval: float = 2.0) -> None:
         try:
             fingerprint = _worktree_fingerprint(repo)
             if fingerprint != last_fingerprint:
-                record_worktree_snapshot(repo)
+                record_worktree_snapshot(repo, memory_root)
+                if sync_project_memory_enabled:
+                    sync_project_memory(repo, memory_root)
                 last_fingerprint = fingerprint
         except Exception:
             pass
@@ -295,10 +485,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--commit", default="HEAD", help="Commit revision to record")
     parser.add_argument("--memory-root", default=str(DEFAULT_MEMORY_ROOT))
     parser.add_argument("--install-hook", action="store_true")
+    parser.add_argument("--snapshot", action="store_true", help="Record current uncommitted worktree")
+    parser.add_argument("--watch", action="store_true", help="Continuously record worktree changes")
+    parser.add_argument("--poll-interval", type=float, default=2.0)
+    parser.add_argument("--sync-project-memory", action="store_true")
     args = parser.parse_args(argv)
+    if args.watch:
+        watch_worktree_changes(
+            args.cwd,
+            poll_interval=args.poll_interval,
+            memory_root=args.memory_root,
+            sync_project_memory_enabled=args.sync_project_memory,
+        )
+        return 0
     if args.install_hook:
         ensure_post_commit_hook(args.cwd)
-    path = record_commit(args.cwd, args.commit, args.memory_root)
+    if args.snapshot:
+        path = record_worktree_snapshot(args.cwd, args.memory_root)
+        if path is None:
+            path = workspace_memory_path(args.cwd, args.memory_root)
+    else:
+        path = record_commit(args.cwd, args.commit, args.memory_root)
+    if args.sync_project_memory:
+        path = sync_project_memory(args.cwd, args.memory_root)
     print(path)
     return 0
 

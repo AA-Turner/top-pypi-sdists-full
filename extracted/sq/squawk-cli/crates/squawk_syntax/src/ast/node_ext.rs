@@ -86,7 +86,40 @@ impl ast::Literal {
 impl ast::Constraint {
     #[inline]
     pub fn constraint_name(&self) -> Option<ast::ConstraintName> {
-        support::child(self.syntax())
+        support::child::<ast::ConstraintNameClause>(self.syntax())
+            .and_then(|clause| clause.constraint_name())
+    }
+}
+
+impl ast::CreateSchema {
+    pub fn schema_name(&self) -> Option<ast::Name> {
+        match self.create_schema_target()? {
+            ast::CreateSchemaTarget::AuthorizationSchema(auth) => auth.role()?.name(),
+            ast::CreateSchemaTarget::NamedSchema(named) => named.schema()?.name(),
+        }
+    }
+}
+
+impl ast::FromItem {
+    pub fn alias(&self) -> Option<ast::Alias> {
+        match self {
+            ast::FromItem::ExprFromItem(it) => it.alias(),
+            ast::FromItem::FunctionFromItem(it) => it.alias(),
+            ast::FromItem::GraphTableFromItem(it) => it.alias(),
+            ast::FromItem::JsonTableFromItem(it) => it.alias(),
+            ast::FromItem::ParenFromItem(it) => it.alias(),
+            ast::FromItem::RelationFromItem(it) => it.alias(),
+            ast::FromItem::RowsFromItem(it) => it.alias(),
+            ast::FromItem::XmlTableFromItem(it) => it.alias(),
+        }
+    }
+
+    pub fn ordinality_token(&self) -> Option<SyntaxToken> {
+        match self {
+            ast::FromItem::FunctionFromItem(it) => it.ordinality_token(),
+            ast::FromItem::RowsFromItem(it) => it.ordinality_token(),
+            _ => None,
+        }
     }
 }
 
@@ -95,7 +128,6 @@ pub enum BinOp {
     And(SyntaxToken),
     AtTimeZone(ast::AtTimeZone),
     Caret(SyntaxToken),
-    Collate(SyntaxToken),
     ColonColon(ast::ColonColon),
     ColonEq(SyntaxToken),
     CustomOp(ast::CustomOp),
@@ -168,7 +200,6 @@ impl ast::BinExpr {
                     let op = match token.kind() {
                         SyntaxKind::AND_KW => BinOp::And(token),
                         SyntaxKind::CARET => BinOp::Caret(token),
-                        SyntaxKind::COLLATE_KW => BinOp::Collate(token),
                         SyntaxKind::COLON_EQ => BinOp::ColonEq(token),
                         SyntaxKind::EQ => BinOp::Eq(token),
                         SyntaxKind::ESCAPE_KW => BinOp::Escape(token),
@@ -357,13 +388,24 @@ impl ast::RenameColumn {
     }
 }
 
-impl ast::ForeignKeyConstraint {
+impl ast::RenameValue {
     #[inline]
-    pub fn from_columns(&self) -> Option<ast::ColumnList> {
+    pub fn from(&self) -> Option<ast::Literal> {
         support::children(&self.syntax).nth(0)
     }
     #[inline]
-    pub fn to_columns(&self) -> Option<ast::ColumnList> {
+    pub fn to(&self) -> Option<ast::Literal> {
+        support::children(&self.syntax).nth(1)
+    }
+}
+
+impl ast::ForeignKeyConstraint {
+    #[inline]
+    pub fn from_columns(&self) -> Option<ast::ColumnRefList> {
+        support::children(&self.syntax).nth(0)
+    }
+    #[inline]
+    pub fn to_columns(&self) -> Option<ast::ColumnRefList> {
         support::children(&self.syntax).nth(1)
     }
 }
@@ -500,8 +542,60 @@ impl ast::CharType {
     }
 }
 
-fn is_falsey_option(text: &str) -> bool {
-    text == "0" || text.eq_ignore_ascii_case("false") || text.eq_ignore_ascii_case("off")
+fn string_literal_contents(token: &SyntaxToken) -> Option<&str> {
+    match token.kind() {
+        SyntaxKind::STRING => token.text().strip_prefix('\'')?.strip_suffix('\''),
+        SyntaxKind::ESC_STRING | SyntaxKind::NATIONAL_STRING => {
+            token.text().get(2..)?.strip_suffix('\'')
+        }
+        SyntaxKind::UNICODE_ESC_STRING => token.text().get(3..)?.strip_suffix('\''),
+        SyntaxKind::DOLLAR_QUOTED_STRING => {
+            let text = token.text();
+            let rest = text.strip_prefix('$')?;
+            let tag_len = rest.find('$')?;
+            let delimiter = text.get(..=tag_len + 1)?;
+            text.get(delimiter.len()..)?.strip_suffix(delimiter)
+        }
+        _ => None,
+    }
+}
+
+fn is_falsey_token(token: &SyntaxToken) -> bool {
+    match token.kind() {
+        SyntaxKind::FALSE_KW | SyntaxKind::NO_KW | SyntaxKind::OFF_KW => true,
+        SyntaxKind::INT_NUMBER => token.text() == "0",
+        SyntaxKind::STRING
+        | SyntaxKind::ESC_STRING
+        | SyntaxKind::NATIONAL_STRING
+        | SyntaxKind::UNICODE_ESC_STRING
+        | SyntaxKind::DOLLAR_QUOTED_STRING => string_literal_contents(token)
+            .is_some_and(|text| matches!(text.to_ascii_lowercase().as_str(), "false" | "off")),
+        _ => false,
+    }
+}
+
+fn is_falsey_vacuum_option_value(value: &ast::VacuumOptionValue) -> bool {
+    value
+        .syntax()
+        .first_token()
+        .is_some_and(|token| is_falsey_token(&token))
+}
+
+impl ast::Reindex {
+    pub fn is_concurrently(&self) -> bool {
+        self.concurrently_token().is_some()
+            || self.reindex_option_list().is_some_and(|options| {
+                options.reindex_options().any(|option| {
+                    option.concurrently_token().is_some()
+                        && !option.literal().is_some_and(|literal| {
+                            literal
+                                .syntax()
+                                .first_token()
+                                .is_some_and(|token| is_falsey_token(&token))
+                        })
+                })
+            })
+    }
 }
 
 impl ast::Vacuum {
@@ -510,18 +604,13 @@ impl ast::Vacuum {
             // TODO: we need a better way of handling option lists
             || self.vacuum_option_list().is_some_and(|opt_list| {
                 opt_list.vacuum_options().any(|opt| {
-                    let mut tokens = opt
-                        .syntax()
-                        .descendants_with_tokens()
-                        .filter_map(|child| child.into_token())
-                        .filter(|token| !token.kind().is_trivia());
-
-                    tokens
-                        .next()
-                        .is_some_and(|token| token.text().eq_ignore_ascii_case("full"))
-                        && tokens
-                            .next()
-                            .is_none_or(|token| !is_falsey_option(token.text()))
+                    opt.name().is_some_and(|name| {
+                        name.syntax()
+                            .first_token()
+                            .is_some_and(|token| token.text().eq_ignore_ascii_case("full"))
+                    }) && opt
+                        .vacuum_option_value()
+                        .is_none_or(|value| !is_falsey_vacuum_option_value(&value))
                 })
             })
     }
@@ -548,6 +637,74 @@ impl ast::CastSig {
     #[inline]
     pub fn rhs(&self) -> Option<ast::Type> {
         support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::ColumnConstraint {
+    #[inline]
+    pub fn constraint_name(&self) -> Option<ast::ConstraintName> {
+        match self {
+            ast::ColumnConstraint::CheckConstraint(check_constraint) => check_constraint
+                .constraint_name_clause()
+                .and_then(|clause| clause.constraint_name()),
+            ast::ColumnConstraint::DefaultConstraint(default_constraint) => default_constraint
+                .constraint_name_clause()
+                .and_then(|clause| clause.constraint_name()),
+            ast::ColumnConstraint::ExcludeConstraint(exclude_constraint) => exclude_constraint
+                .constraint_name_clause()
+                .and_then(|clause| clause.constraint_name()),
+            ast::ColumnConstraint::GeneratedConstraint(generated_constraint) => {
+                generated_constraint
+                    .constraint_name_clause()
+                    .and_then(|clause| clause.constraint_name())
+            }
+            ast::ColumnConstraint::NotNullConstraint(not_null_constraint) => not_null_constraint
+                .constraint_name_clause()
+                .and_then(|clause| clause.constraint_name()),
+            ast::ColumnConstraint::NullConstraint(null_constraint) => null_constraint
+                .constraint_name_clause()
+                .and_then(|clause| clause.constraint_name()),
+            ast::ColumnConstraint::PrimaryKeyConstraint(primary_key_constraint) => {
+                primary_key_constraint
+                    .constraint_name_clause()
+                    .and_then(|clause| clause.constraint_name())
+            }
+            ast::ColumnConstraint::ReferencesConstraint(references_constraint) => {
+                references_constraint
+                    .constraint_name_clause()
+                    .and_then(|clause| clause.constraint_name())
+            }
+            ast::ColumnConstraint::UniqueConstraint(unique_constraint) => unique_constraint
+                .constraint_name_clause()
+                .and_then(|clause| clause.constraint_name()),
+        }
+    }
+}
+
+impl ast::TableConstraint {
+    #[inline]
+    pub fn constraint_name(&self) -> Option<ast::ConstraintName> {
+        match self {
+            ast::TableConstraint::CheckConstraint(check_constraint) => check_constraint
+                .constraint_name_clause()
+                .and_then(|clause| clause.constraint_name()),
+            ast::TableConstraint::ExcludeConstraint(exclude_constraint) => exclude_constraint
+                .constraint_name_clause()
+                .and_then(|clause| clause.constraint_name()),
+            ast::TableConstraint::ForeignKeyConstraint(foreign_key_constraint) => {
+                foreign_key_constraint
+                    .constraint_name_clause()
+                    .and_then(|clause| clause.constraint_name())
+            }
+            ast::TableConstraint::PrimaryKeyConstraint(primary_key_constraint) => {
+                primary_key_constraint
+                    .constraint_name_clause()
+                    .and_then(|clause| clause.constraint_name())
+            }
+            ast::TableConstraint::UniqueConstraint(unique_constraint) => unique_constraint
+                .constraint_name_clause()
+                .and_then(|clause| clause.constraint_name()),
+        }
     }
 }
 
@@ -601,8 +758,31 @@ impl ast::SelectVariant {
     }
 }
 
-impl ast::HasParamList for ast::FunctionSig {}
-impl ast::HasParamList for ast::Aggregate {}
+impl ast::HasParamList {
+    #[inline]
+    pub fn param_list(&self) -> Option<ast::ParamList> {
+        support::child(self.syntax())
+    }
+    #[inline]
+    pub fn path(&self) -> Option<ast::Path> {
+        match self {
+            ast::HasParamList::CreateFunction(function) => function.name()?.path(),
+            ast::HasParamList::CreateProcedure(procedure) => procedure.name()?.path(),
+            _ => support::child(self.syntax()),
+        }
+    }
+    #[inline]
+    pub fn path_ref(&self) -> Option<ast::PathRef> {
+        match self {
+            ast::HasParamList::FunctionSig(signature) => signature.function_name_ref()?.path_ref(),
+            ast::HasParamList::ProcedureSig(signature) => {
+                signature.procedure_name_ref()?.path_ref()
+            }
+            ast::HasParamList::RoutineSig(signature) => signature.routine_name_ref()?.path_ref(),
+            _ => support::child(self.syntax()),
+        }
+    }
+}
 
 impl ast::NameLike for ast::Name {
     #[inline]
@@ -1036,6 +1216,31 @@ fn vacuum_full_false_is_not_full() {
 #[test]
 fn vacuum_full_off_is_not_full() {
     assert!(!extract_vacuum("VACUUM (FULL OFF) foo;").is_full());
+}
+
+#[test]
+fn vacuum_full_no_is_not_full() {
+    assert!(!extract_vacuum("VACUUM (FULL NO) foo;").is_full());
+}
+
+#[test]
+fn vacuum_full_quoted_off_is_not_full() {
+    assert!(!extract_vacuum("VACUUM (FULL 'off') foo;").is_full());
+}
+
+#[test]
+fn vacuum_full_escaped_string_off_is_not_full() {
+    assert!(!extract_vacuum("VACUUM (FULL E'off') foo;").is_full());
+}
+
+#[test]
+fn vacuum_full_unicode_escaped_string_off_is_not_full() {
+    assert!(!extract_vacuum("VACUUM (FULL U&'off') foo;").is_full());
+}
+
+#[test]
+fn vacuum_full_dollar_quoted_off_is_not_full() {
+    assert!(!extract_vacuum("VACUUM (FULL $$off$$) t;").is_full());
 }
 
 #[test]

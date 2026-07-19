@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: textblob
-Version: 0.20.0
+Version: 0.20.1
 Summary: Simple, Pythonic text processing. Sentiment analysis, part-of-speech tagging, noun phrase parsing, and more.
 Keywords: textblob,nlp,linguistics,nltk,pattern
 Author-email: Steven Loria <oss@stevenloria.com>

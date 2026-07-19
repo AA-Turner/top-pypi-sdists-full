@@ -453,7 +453,6 @@ def _row_click_actions(
                 "actor_workspace_id": STATE.actor_workspace_id,
                 "context_guid": STATE.context_guid,
                 "auth_bearer_token": STATE.auth_bearer_token,
-                "google_access_token": STATE.google_access_token,
             },
             on_success=_version_context_success_actions(),
             on_error=fail_context_actions(),

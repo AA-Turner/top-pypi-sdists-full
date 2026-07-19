@@ -14,6 +14,7 @@ Usage::
         ListIndexesPaginator,
         ListVectorBucketsPaginator,
         ListVectorsPaginator,
+        QueryVectorsPaginator,
         S3VectorsClient,
     )
 
@@ -26,11 +27,17 @@ Usage::
     list_indexes_paginator: ListIndexesPaginator = client.get_paginator("list_indexes")
     list_vector_buckets_paginator: ListVectorBucketsPaginator = client.get_paginator("list_vector_buckets")
     list_vectors_paginator: ListVectorsPaginator = client.get_paginator("list_vectors")
+    query_vectors_paginator: QueryVectorsPaginator = client.get_paginator("query_vectors")
     ```
 """
 
 from .client import S3VectorsClient
-from .paginator import ListIndexesPaginator, ListVectorBucketsPaginator, ListVectorsPaginator
+from .paginator import (
+    ListIndexesPaginator,
+    ListVectorBucketsPaginator,
+    ListVectorsPaginator,
+    QueryVectorsPaginator,
+)
 
 Client = S3VectorsClient
 
@@ -40,5 +47,6 @@ __all__ = (
     "ListIndexesPaginator",
     "ListVectorBucketsPaginator",
     "ListVectorsPaginator",
+    "QueryVectorsPaginator",
     "S3VectorsClient",
 )

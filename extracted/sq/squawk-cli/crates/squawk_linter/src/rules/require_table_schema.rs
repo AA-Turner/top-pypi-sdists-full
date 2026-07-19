@@ -1,5 +1,5 @@
 use squawk_syntax::{
-    Parse, SourceFile,
+    Parse, SourceFile, SyntaxNode,
     ast::{self, AstNode},
 };
 
@@ -13,7 +13,10 @@ pub(crate) fn require_table_schema(ctx: &mut Linter, parse: &Parse<SourceFile>) 
                 if matches!(create_table.persistence(), Some(ast::Persistence::Temp(_))) {
                     continue;
                 }
-                check_path(ctx, create_table.path());
+                check_path(
+                    ctx,
+                    create_table.table_name().and_then(|table| table.path()),
+                );
             }
             ast::Stmt::CreateTableAs(create_table_as) => {
                 if matches!(
@@ -22,14 +25,23 @@ pub(crate) fn require_table_schema(ctx: &mut Linter, parse: &Parse<SourceFile>) 
                 ) {
                     continue;
                 }
-                check_path(ctx, create_table_as.path());
+                check_path(
+                    ctx,
+                    create_table_as.table_name().and_then(|table| table.path()),
+                );
             }
             ast::Stmt::AlterTable(alter_table) => {
-                check_path(ctx, alter_table.relation_name().and_then(|r| r.path()));
+                check_path_ref(
+                    ctx,
+                    alter_table
+                        .table_relation_name()
+                        .and_then(|relation| relation.table_name_ref())
+                        .and_then(|table| table.path_ref()),
+                );
             }
             ast::Stmt::DropTable(drop_table) => {
-                for path in drop_table.paths() {
-                    check_path(ctx, Some(path));
+                for table in drop_table.table_name_refs() {
+                    check_path_ref(ctx, table.path_ref());
                 }
             }
             _ => (),
@@ -41,12 +53,24 @@ fn check_path(ctx: &mut Linter, path: Option<ast::Path>) {
     if let Some(path) = path
         && path.qualifier().is_none()
     {
-        ctx.report(Violation::for_node(
-            Rule::RequireTableSchema,
-            "Table name is not schema-qualified. Use schema.table (e.g., public.my_table).".into(),
-            path.syntax(),
-        ));
+        report_missing_schema(ctx, path.syntax());
     }
+}
+
+fn check_path_ref(ctx: &mut Linter, path: Option<ast::PathRef>) {
+    if let Some(path) = path
+        && path.qualifier().is_none()
+    {
+        report_missing_schema(ctx, path.syntax());
+    }
+}
+
+fn report_missing_schema(ctx: &mut Linter, node: &SyntaxNode) {
+    ctx.report(Violation::for_node(
+        Rule::RequireTableSchema,
+        "Table name is not schema-qualified. Use schema.table (e.g., public.my_table).".into(),
+        node,
+    ));
 }
 
 #[cfg(test)]

@@ -90,13 +90,17 @@ __all__ = (
     "ClusterAutoScalingStatusType",
     "ClusterCapacityTypeType",
     "ClusterConfigModeType",
+    "ClusterEventLevelType",
     "ClusterEventResourceTypeType",
+    "ClusterFSxLustreDeletionPolicyType",
+    "ClusterImageVersionStatusType",
     "ClusterInstanceStatusType",
     "ClusterInstanceTypeType",
     "ClusterInterfaceTypeType",
     "ClusterKubernetesTaintEffectType",
     "ClusterNodeProvisioningModeType",
     "ClusterNodeRecoveryType",
+    "ClusterPatchingStrategyType",
     "ClusterSlurmConfigStrategyType",
     "ClusterSlurmNodeTypeType",
     "ClusterSortByType",
@@ -136,6 +140,7 @@ __all__ = (
     "EvaluationTypeType",
     "EventSortByType",
     "ExecutionRoleIdentityConfigType",
+    "ExecutionRoleSessionNameModeType",
     "ExecutionStatusType",
     "FailureHandlingPolicyType",
     "FairShareType",
@@ -150,6 +155,7 @@ __all__ = (
     "FlatInvocationsType",
     "FlowDefinitionStatusType",
     "FrameworkType",
+    "HomeEfsFileSystemCreationType",
     "HubContentSortByType",
     "HubContentStatusType",
     "HubContentSupportStatusType",
@@ -177,6 +183,7 @@ __all__ = (
     "ImageVersionSortByType",
     "ImageVersionSortOrderType",
     "ImageVersionStatusType",
+    "IncludedDataType",
     "InferenceComponentCapacitySizeTypeType",
     "InferenceComponentPlacementStrategyType",
     "InferenceComponentSortKeyType",
@@ -189,6 +196,9 @@ __all__ = (
     "InstanceGroupStatusType",
     "InstanceTypeType",
     "IsTrackingServerActiveType",
+    "JobCategoryType",
+    "JobSecondaryStatusType",
+    "JobStatusType",
     "JobTypeType",
     "JoinSourceType",
     "LabelingJobStatusType",
@@ -242,6 +252,8 @@ __all__ = (
     "ListInferenceRecommendationsJobStepsPaginatorName",
     "ListInferenceRecommendationsJobsPaginatorName",
     "ListInferenceRecommendationsJobsSortByType",
+    "ListJobSchemaVersionsPaginatorName",
+    "ListJobsPaginatorName",
     "ListLabelingJobsForWorkteamPaginatorName",
     "ListLabelingJobsForWorkteamSortByOptionsType",
     "ListLabelingJobsPaginatorName",
@@ -295,6 +307,7 @@ __all__ = (
     "MaintenanceStatusType",
     "ManagedInstanceScalingScaleInStrategyType",
     "ManagedInstanceScalingStatusType",
+    "ManagedStorageTypeType",
     "MetricSetSourceType",
     "MlToolsType",
     "MlflowAppStatusType",
@@ -528,6 +541,7 @@ AIRecommendationInstanceTypeType = Literal[
     "ml.p5.4xlarge",
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
+    "ml.p6-b200.48xlarge",
 ]
 AIRecommendationJobStatusType = Literal["Completed", "Failed", "InProgress", "Stopped", "Stopping"]
 AIRecommendationMetricType = Literal["cost", "throughput", "ttft-ms"]
@@ -607,6 +621,12 @@ AppInstanceTypeType = Literal[
     "ml.g6e.4xlarge",
     "ml.g6e.8xlarge",
     "ml.g6e.xlarge",
+    "ml.g7e.12xlarge",
+    "ml.g7e.24xlarge",
+    "ml.g7e.2xlarge",
+    "ml.g7e.48xlarge",
+    "ml.g7e.4xlarge",
+    "ml.g7e.8xlarge",
     "ml.geospatial.interactive",
     "ml.m5.12xlarge",
     "ml.m5.16xlarge",
@@ -658,6 +678,7 @@ AppInstanceTypeType = Literal[
     "ml.p4d.24xlarge",
     "ml.p4de.24xlarge",
     "ml.p5.48xlarge",
+    "ml.p5.4xlarge",
     "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
     "ml.r5.12xlarge",
@@ -930,7 +951,12 @@ ClusterAutoScalingModeType = Literal["Disable", "Enable"]
 ClusterAutoScalingStatusType = Literal["Creating", "Deleting", "Failed", "InService"]
 ClusterCapacityTypeType = Literal["OnDemand", "Spot"]
 ClusterConfigModeType = Literal["Disable", "Enable"]
+ClusterEventLevelType = Literal["Error", "Info", "Warn"]
 ClusterEventResourceTypeType = Literal["Cluster", "Instance", "InstanceGroup"]
+ClusterFSxLustreDeletionPolicyType = Literal["DeleteIfNotUsed", "Keep"]
+ClusterImageVersionStatusType = Literal[
+    "EndOfLife", "SecurityUpdateRequired", "UpToDate", "UpdateAvailable"
+]
 ClusterInstanceStatusType = Literal[
     "DeepHealthCheckInProgress",
     "Failure",
@@ -954,6 +980,14 @@ ClusterInstanceTypeType = Literal[
     "ml.c5n.4xlarge",
     "ml.c5n.9xlarge",
     "ml.c5n.large",
+    "ml.c6g.12xlarge",
+    "ml.c6g.16xlarge",
+    "ml.c6g.2xlarge",
+    "ml.c6g.4xlarge",
+    "ml.c6g.8xlarge",
+    "ml.c6g.large",
+    "ml.c6g.medium",
+    "ml.c6g.xlarge",
     "ml.c6i.12xlarge",
     "ml.c6i.16xlarge",
     "ml.c6i.24xlarge",
@@ -963,6 +997,30 @@ ClusterInstanceTypeType = Literal[
     "ml.c6i.8xlarge",
     "ml.c6i.large",
     "ml.c6i.xlarge",
+    "ml.c7g.12xlarge",
+    "ml.c7g.16xlarge",
+    "ml.c7g.2xlarge",
+    "ml.c7g.4xlarge",
+    "ml.c7g.8xlarge",
+    "ml.c7g.large",
+    "ml.c7g.medium",
+    "ml.c7g.xlarge",
+    "ml.c8g.12xlarge",
+    "ml.c8g.16xlarge",
+    "ml.c8g.24xlarge",
+    "ml.c8g.2xlarge",
+    "ml.c8g.48xlarge",
+    "ml.c8g.4xlarge",
+    "ml.c8g.8xlarge",
+    "ml.c8g.large",
+    "ml.c8g.medium",
+    "ml.c8g.xlarge",
+    "ml.g4dn.12xlarge",
+    "ml.g4dn.16xlarge",
+    "ml.g4dn.2xlarge",
+    "ml.g4dn.4xlarge",
+    "ml.g4dn.8xlarge",
+    "ml.g4dn.xlarge",
     "ml.g5.12xlarge",
     "ml.g5.16xlarge",
     "ml.g5.24xlarge",
@@ -1069,6 +1127,7 @@ ClusterInterfaceTypeType = Literal["efa", "efa-only"]
 ClusterKubernetesTaintEffectType = Literal["NoExecute", "NoSchedule", "PreferNoSchedule"]
 ClusterNodeProvisioningModeType = Literal["Continuous"]
 ClusterNodeRecoveryType = Literal["Automatic", "None"]
+ClusterPatchingStrategyType = Literal["WhenAllIdle", "WhenIdle"]
 ClusterSlurmConfigStrategyType = Literal["Managed", "Merge", "Overwrite"]
 ClusterSlurmNodeTypeType = Literal["Compute", "Controller", "Login"]
 ClusterSortByType = Literal["CREATION_TIME", "NAME"]
@@ -1130,6 +1189,7 @@ EndpointStatusType = Literal[
 EvaluationTypeType = Literal["BenchmarkEvaluation", "CustomScorerEvaluation", "LLMAJEvaluation"]
 EventSortByType = Literal["EventTime"]
 ExecutionRoleIdentityConfigType = Literal["DISABLED", "USER_PROFILE_NAME"]
+ExecutionRoleSessionNameModeType = Literal["STATIC", "USER_IDENTITY"]
 ExecutionStatusType = Literal[
     "Completed", "CompletedWithViolations", "Failed", "InProgress", "Pending", "Stopped", "Stopping"
 ]
@@ -1157,6 +1217,7 @@ FlowDefinitionStatusType = Literal["Active", "Deleting", "Failed", "Initializing
 FrameworkType = Literal[
     "DARKNET", "KERAS", "MXNET", "ONNX", "PYTORCH", "SKLEARN", "TENSORFLOW", "TFLITE", "XGBOOST"
 ]
+HomeEfsFileSystemCreationType = Literal["Disabled", "Enabled"]
 HubContentSortByType = Literal["CreationTime", "HubContentName", "HubContentStatus"]
 HubContentStatusType = Literal[
     "Available",
@@ -1200,6 +1261,7 @@ ImageVersionSortOrderType = Literal["ASCENDING", "DESCENDING"]
 ImageVersionStatusType = Literal[
     "CREATED", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING"
 ]
+IncludedDataType = Literal["AllData", "MetadataOnly"]
 InferenceComponentCapacitySizeTypeType = Literal["CAPACITY_PERCENT", "COPY_COUNT"]
 InferenceComponentPlacementStrategyType = Literal["BINPACK", "SPREAD"]
 InferenceComponentSortKeyType = Literal["CreationTime", "Name", "Status"]
@@ -1278,6 +1340,14 @@ InstanceTypeType = Literal[
     "ml.g6.4xlarge",
     "ml.g6.8xlarge",
     "ml.g6.xlarge",
+    "ml.g6e.12xlarge",
+    "ml.g6e.16xlarge",
+    "ml.g6e.24xlarge",
+    "ml.g6e.2xlarge",
+    "ml.g6e.48xlarge",
+    "ml.g6e.4xlarge",
+    "ml.g6e.8xlarge",
+    "ml.g6e.xlarge",
     "ml.inf1.24xlarge",
     "ml.inf1.2xlarge",
     "ml.inf1.6xlarge",
@@ -1341,6 +1411,8 @@ InstanceTypeType = Literal[
     "ml.p4d.24xlarge",
     "ml.p4de.24xlarge",
     "ml.p5.48xlarge",
+    "ml.p5.4xlarge",
+    "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
     "ml.r5.12xlarge",
     "ml.r5.16xlarge",
@@ -1390,6 +1462,27 @@ InstanceTypeType = Literal[
     "ml.trn1n.32xlarge",
 ]
 IsTrackingServerActiveType = Literal["Active", "Inactive"]
+JobCategoryType = Literal["AgentRFT", "AgentRFTEvaluation"]
+JobSecondaryStatusType = Literal[
+    "Completed",
+    "DeleteFailed",
+    "Deleting",
+    "Downloading",
+    "Evaluating",
+    "Failed",
+    "Interrupted",
+    "MaxRuntimeExceeded",
+    "Pending",
+    "Restarting",
+    "Starting",
+    "Stopped",
+    "Stopping",
+    "Training",
+    "Uploading",
+]
+JobStatusType = Literal[
+    "Completed", "DeleteFailed", "Deleting", "Failed", "InProgress", "Stopped", "Stopping"
+]
 JobTypeType = Literal["INFERENCE", "NOTEBOOK_KERNEL", "TRAINING"]
 JoinSourceType = Literal["Input", "None"]
 LabelingJobStatusType = Literal[
@@ -1451,6 +1544,8 @@ ListInferenceRecommendationsJobStepsPaginatorName = Literal[
 ]
 ListInferenceRecommendationsJobsPaginatorName = Literal["list_inference_recommendations_jobs"]
 ListInferenceRecommendationsJobsSortByType = Literal["CreationTime", "Name", "Status"]
+ListJobSchemaVersionsPaginatorName = Literal["list_job_schema_versions"]
+ListJobsPaginatorName = Literal["list_jobs"]
 ListLabelingJobsForWorkteamPaginatorName = Literal["list_labeling_jobs_for_workteam"]
 ListLabelingJobsForWorkteamSortByOptionsType = Literal["CreationTime"]
 ListLabelingJobsPaginatorName = Literal["list_labeling_jobs"]
@@ -1539,6 +1634,7 @@ MIGProfileTypeType = Literal[
 MaintenanceStatusType = Literal["MaintenanceComplete", "MaintenanceFailed", "MaintenanceInProgress"]
 ManagedInstanceScalingScaleInStrategyType = Literal["CONSOLIDATION", "IDLE_RELEASE"]
 ManagedInstanceScalingStatusType = Literal["DISABLED", "ENABLED"]
+ManagedStorageTypeType = Literal["Restricted"]
 MetricSetSourceType = Literal["Test", "Train", "Validation"]
 MlToolsType = Literal[
     "AutoMl",
@@ -2195,6 +2291,7 @@ ResourceTypeType = Literal[
     "HyperParameterTuningJob",
     "Image",
     "ImageVersion",
+    "Job",
     "Model",
     "ModelCard",
     "ModelPackage",
@@ -2215,7 +2312,7 @@ S3DataDistributionType = Literal["FullyReplicated", "ShardedByS3Key"]
 S3DataTypeType = Literal["AugmentedManifestFile", "Converse", "ManifestFile", "S3Prefix"]
 S3ModelDataTypeType = Literal["S3Object", "S3Prefix"]
 SageMakerImageNameType = Literal["sagemaker_distribution"]
-SageMakerResourceNameType = Literal["endpoint", "hyperpod-cluster", "training-job"]
+SageMakerResourceNameType = Literal["endpoint", "hyperpod-cluster", "studio-apps", "training-job"]
 SagemakerServicecatalogStatusType = Literal["Disabled", "Enabled"]
 ScheduleStatusType = Literal["Failed", "Pending", "Scheduled", "Stopped"]
 SchedulerConfigComponentType = Literal["FairShare", "IdleResourceSharing", "PriorityClasses"]
@@ -2855,8 +2952,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -2883,6 +2978,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -2950,10 +3047,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -2986,6 +3083,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -3013,6 +3111,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -3034,7 +3133,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -3055,6 +3153,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -3132,6 +3231,8 @@ PaginatorName = Literal[
     "list_inference_experiments",
     "list_inference_recommendations_job_steps",
     "list_inference_recommendations_jobs",
+    "list_job_schema_versions",
+    "list_jobs",
     "list_labeling_jobs",
     "list_labeling_jobs_for_workteam",
     "list_lineage_groups",

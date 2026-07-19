@@ -76,14 +76,24 @@ async def extract_sid(request: Request) -> str:
     return x_session_id.strip()
 
 
+# Keepalive/health paths fire every ~10s per session, so at high session counts
+# they dominate stdout — measured at 94% of all log lines on a busy env pod. That
+# volume is what let a stalled log pipe (a node whose containerd stops draining
+# the stdout FIFO) fill the 64KB pipe buffer in seconds and freeze the pod on a
+# synchronous write(). Log these at DEBUG so they stay available on demand but
+# leave INFO (the default level) carrying only real traffic.
+_HIGH_FREQUENCY_PATHS = frozenset({"/ping"})
+
+
 class _LoggingRoute(APIRoute):
     def get_route_handler(self):
         original = super().get_route_handler()
         async def handler(request: Request):
             start = time.monotonic()
+            handled = logger.debug if request.url.path in _HIGH_FREQUENCY_PATHS else logger.info
             try:
                 response = await original(request)
-                logger.info(
+                handled(
                     "request_handled",
                     httpRequest={"latency": f"{time.monotonic() - start:.6f}s", "status": response.status_code},
                 )

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2025 Mike Fährmann
+# Copyright 2025-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,6 +28,8 @@ class Furry34Extractor(BooruExtractor):
         2   : "copyright",
         4   : "character",
         8   : "artist",
+        16  : "system",
+        32  : "meta",
     }
     FORMATS = (
         ("100", "mov.mp4"),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: abxbus
-Version: 2.5.18
+Version: 2.5.19
 Summary: Advanced Pydantic-powered event bus with async support
 Author: Nick Sweeting, ArchiveBox
 Classifier: Programming Language :: Python :: 3
@@ -85,8 +85,7 @@ It's async native, has proper automatic nested event tracking, and powerful conc
 
 Install abxbus and get started with a simple event-driven application:
 
-<!--pytest.mark.skip(reason="package installation command")-->
-```bash
+```console
 pip install abxbus      # see ./abxbus-ts/README.md for JS instructions
 ```
 
@@ -1704,8 +1703,7 @@ uv run ruff format
 uv run pyright
 ```
 
-<!--pytest.mark.skip(reason="pytest invocation")-->
-```bash
+```console
 # Run all tests
 uv run pytest -vxs --full-trace tests/
 

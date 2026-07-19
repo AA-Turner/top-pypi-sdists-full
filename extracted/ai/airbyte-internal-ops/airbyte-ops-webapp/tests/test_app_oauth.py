@@ -2,20 +2,46 @@
 
 from pathlib import Path
 
+import pytest
 from starlette.applications import Starlette
+from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from airbyte_ops_webapp import serve as serve_module
 from airbyte_ops_webapp import state as state_module
-from airbyte_ops_webapp.auth import google_oauth as google_oauth_module
 from airbyte_ops_webapp.auth import oauth as oauth_module
 from airbyte_ops_webapp.pages.connector_version_manager.defaults import (
     CONNECTOR_VERSION_MANAGER_PATH,
 )
+from airbyte_ops_webapp.pages.customer_billing.defaults import CUSTOMER_BILLING_PATH
 from airbyte_ops_webapp.pages.login.page import OPS_LOGIN_PATH
+from airbyte_ops_webapp.pages.motherduck_diagnostics.defaults import (
+    MOTHERDUCK_DIAGNOSTICS_PATH,
+)
 from airbyte_ops_webapp.serve import add_oauth_routes
+
+_IMPORTMAP = "<script type='importmap'>{}</script>"
+
+_PROTECTED_ROUTES = [
+    pytest.param(serve_module.add_home_routes, "/home", id="home"),
+    pytest.param(
+        serve_module.add_connector_version_manager_routes,
+        CONNECTOR_VERSION_MANAGER_PATH,
+        id="connector_version_manager",
+    ),
+    pytest.param(
+        serve_module.add_customer_billing_routes,
+        CUSTOMER_BILLING_PATH,
+        id="customer_billing",
+    ),
+    pytest.param(
+        serve_module.add_motherduck_diagnostics_routes,
+        MOTHERDUCK_DIAGNOSTICS_PATH,
+        id="motherduck_diagnostics",
+    ),
+]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -182,7 +208,8 @@ def test_webapp_root_redirects_to_home_path() -> None:
     assert response.headers["location"] == "/home"
 
 
-def test_webapp_home_path_hosts_home_app() -> None:
+def test_webapp_home_path_hosts_home_app(monkeypatch) -> None:
+    monkeypatch.setattr(serve_module, "request_has_valid_session", lambda request: True)
     app = Starlette()
     serve_module.add_home_routes(app, "<script type='importmap'>{}</script>")
 
@@ -214,7 +241,10 @@ def test_webapp_index_path_is_not_supported() -> None:
     assert response.status_code == 404
 
 
-def test_connector_versions_path_hosts_connector_version_manager_app() -> None:
+def test_connector_versions_path_hosts_connector_version_manager_app(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(serve_module, "request_has_valid_session", lambda request: True)
     app = Starlette()
     serve_module.add_connector_version_manager_routes(
         app,
@@ -274,7 +304,7 @@ def test_production_message_log_discards_mcp_messages() -> None:
             "params": {"arguments": {"auth_bearer_token": fake_token}},
         }
     )
-    message_log.log_response({"result": {"google_access_token": fake_token}})
+    message_log.log_response({"result": {"secret_field": fake_token}})
     message_log.log_bridge({"state": {"auth_bearer_token": fake_token}})
 
     assert message_log.get_since() == []
@@ -554,200 +584,205 @@ def test_ops_webapp_cloud_run_uses_oauth_secret_only() -> None:
     assert "ops-webapp-airbyte-cloud-client" not in bootstrap_source
 
 
-# --- Google OAuth tests ---
+# --- Airbyte login gate tests ---
 
 
-def test_google_oauth_config_disabled_without_secret(monkeypatch) -> None:
-    monkeypatch.delenv(google_oauth_module.GOOGLE_CLIENT_SECRET_ENV_VAR, raising=False)
-
-    config = google_oauth_module.google_oauth_config()
-
-    assert config["enabled"] is False
-    assert config["client_id"] == google_oauth_module.DEFAULT_GOOGLE_CLIENT_ID
-    assert "bigquery.readonly" in str(config["scopes"])
-
-
-def test_google_oauth_config_enabled_with_secret(monkeypatch) -> None:
-    monkeypatch.setenv(google_oauth_module.GOOGLE_CLIENT_SECRET_ENV_VAR, "test-secret")
-
-    config = google_oauth_module.google_oauth_config()
-
-    assert config["enabled"] is True
+def _request_with_session_cookie(cookie_value: str) -> Request:
+    headers: list[tuple[bytes, bytes]] = []
+    if cookie_value:
+        headers.append(
+            (
+                b"cookie",
+                f"{oauth_module.OAUTH_SESSION_COOKIE_NAME}={cookie_value}".encode(),
+            )
+        )
+    return Request({"type": "http", "headers": headers})
 
 
-def test_google_oauth_client_id_configurable(monkeypatch) -> None:
-    monkeypatch.setenv(google_oauth_module.GOOGLE_CLIENT_ID_ENV_VAR, "custom-client-id")
+@pytest.mark.parametrize("add_routes,path", _PROTECTED_ROUTES)
+def test_protected_page_redirects_unauthenticated(
+    monkeypatch, add_routes, path
+) -> None:
+    monkeypatch.setattr(serve_module, "mock_only_enabled", lambda: False)
+    app = Starlette()
+    add_routes(app, _IMPORTMAP)
 
-    assert google_oauth_module._google_client_id() == "custom-client-id"
+    response = TestClient(app).get(path, follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["location"] == "/authorization"
 
 
-def test_google_oauth_callback_has_csp_header(monkeypatch) -> None:
-    monkeypatch.delenv(google_oauth_module.GOOGLE_CLIENT_SECRET_ENV_VAR, raising=False)
+@pytest.mark.parametrize("add_routes,path", _PROTECTED_ROUTES)
+def test_protected_page_served_when_authenticated(
+    monkeypatch, add_routes, path
+) -> None:
+    monkeypatch.setattr(serve_module, "mock_only_enabled", lambda: False)
+    monkeypatch.setenv(state_module.OAUTH_CLIENT_SECRET_ENV_VAR, "test-secret")
     app = Starlette()
     add_oauth_routes(app)
-    client = TestClient(app)
-
-    response = client.get("/google-oauth/callback")
-
-    assert response.status_code == 200
-    csp = response.headers.get("content-security-policy", "")
-    assert "default-src 'none'" in csp
-    assert "connect-src 'self'" in csp
-    assert "script-src 'unsafe-inline'" in csp
-    assert "Completing Google sign-in" in response.text
-
-
-def test_google_oauth_token_route_rejects_non_dict_payload() -> None:
-    app = Starlette()
-    add_oauth_routes(app)
-
-    response = TestClient(app).post("/google-oauth/token", json=["bad"])
-
-    assert response.status_code == 400
-    assert response.json()["error"] == "invalid_request"
-
-
-def test_google_oauth_token_route_rejects_missing_fields() -> None:
-    app = Starlette()
-    add_oauth_routes(app)
-
-    response = TestClient(app).post("/google-oauth/token", json={"code": "code_value"})
-
-    assert response.status_code == 400
-    assert response.json()["error"] == "missing_code_or_verifier"
-
-
-def test_google_oauth_session_route_rejects_non_dict_payload(monkeypatch) -> None:
-    monkeypatch.setenv(google_oauth_module.GOOGLE_CLIENT_SECRET_ENV_VAR, "test-secret")
-    app = Starlette()
-    add_oauth_routes(app)
-
-    response = TestClient(app).post(
-        "/google-oauth/session", json=["access-token-value"]
-    )
-
-    assert response.status_code == 400
-    assert response.json()["error"] == "invalid_request"
-
-
-def test_google_oauth_session_round_trip(monkeypatch) -> None:
-    monkeypatch.setenv(google_oauth_module.GOOGLE_CLIENT_SECRET_ENV_VAR, "test-secret")
-    app = Starlette()
-    add_oauth_routes(app)
-    client = TestClient(app)
-
-    created = client.post(
-        "/google-oauth/session",
-        json={
-            "access_token": "google-access-token",
-            "email": "aj@airbyte.io",
-            "expires_in": 3600,
-        },
-    )
-    hydrated = client.get("/google-oauth/session")
-    deleted = client.delete("/google-oauth/session")
-    signed_out = client.get("/google-oauth/session")
-
-    assert created.status_code == 200
-    assert created.json()["google_authenticated"] is True
-    assert created.json()["google_access_token"] == "google-access-token"
-    assert "HttpOnly" in created.headers["set-cookie"]
-    assert "SameSite=lax" in created.headers["set-cookie"]
-    assert hydrated.status_code == 200
-    assert hydrated.json()["google_authenticated"] is True
-    assert hydrated.json()["google_user_email"] == "aj@airbyte.io"
-    assert deleted.status_code == 200
-    assert deleted.json()["google_authenticated"] is False
-    assert signed_out.status_code == 200
-    assert signed_out.json()["google_authenticated"] is False
-
-
-def test_google_oauth_session_rejects_missing_access_token(monkeypatch) -> None:
-    monkeypatch.setenv(google_oauth_module.GOOGLE_CLIENT_SECRET_ENV_VAR, "test-secret")
-    app = Starlette()
-    add_oauth_routes(app)
-
-    response = TestClient(app).post(
-        "/google-oauth/session", json={"email": "aj@airbyte.io"}
-    )
-
-    assert response.status_code == 400
-    assert response.json()["error"] == "missing_access_token"
-
-
-def test_google_oauth_session_requires_client_secret(monkeypatch) -> None:
-    monkeypatch.delenv(google_oauth_module.GOOGLE_CLIENT_SECRET_ENV_VAR, raising=False)
-    app = Starlette()
-    add_oauth_routes(app)
-    client = TestClient(app)
-
-    signed_out = client.get("/google-oauth/session")
-    created = client.post(
-        "/google-oauth/session",
-        json={"access_token": "google-access-token"},
-    )
-
-    assert signed_out.status_code == 200
-    assert signed_out.json()["google_authenticated"] is False
-    assert created.status_code == 500
-    assert created.json()["error"] == "server_error"
-
-
-def test_google_oauth_session_handles_tampered_cookie(monkeypatch) -> None:
-    monkeypatch.setenv(google_oauth_module.GOOGLE_CLIENT_SECRET_ENV_VAR, "test-secret")
-    app = Starlette()
-    add_oauth_routes(app)
-    client = TestClient(app)
-    client.cookies.set(google_oauth_module.GOOGLE_SESSION_COOKIE_NAME, "invalid-cookie")
-
-    response = client.get("/google-oauth/session")
-
-    assert response.status_code == 200
-    assert response.json()["google_authenticated"] is False
-
-
-def test_google_oauth_session_refreshes_expired_token(monkeypatch) -> None:
-    monkeypatch.setenv(google_oauth_module.GOOGLE_CLIENT_SECRET_ENV_VAR, "test-secret")
-    monkeypatch.setattr(google_oauth_module, "_now_ms", lambda: 100_000)
-
-    def refresh_google_token(refresh_token: str) -> dict[str, object]:
-        assert refresh_token == "google-refresh-token"
-        return {
-            "access_token": "refreshed-google-token",
-            "expires_in": 3600,
-            "refresh_token": "new-google-refresh-token",
-        }
-
-    monkeypatch.setattr(
-        google_oauth_module, "_refresh_google_token", refresh_google_token
-    )
-    app = Starlette()
-    add_oauth_routes(app)
+    add_routes(app, _IMPORTMAP)
     client = TestClient(app)
     client.post(
-        "/google-oauth/session",
+        "/oauth/session",
         json={
-            "access_token": "expired-google-token",
+            "access_token": "access-token-value",
             "email": "aj@airbyte.io",
-            "expires_in": 1,
-            "refresh_token": "google-refresh-token",
+            "expires_in": 60,
         },
     )
-    monkeypatch.setattr(google_oauth_module, "_now_ms", lambda: 200_000_000)
 
-    response = client.get("/google-oauth/session")
+    response = client.get(path, follow_redirects=False)
 
     assert response.status_code == 200
-    assert response.json()["google_authenticated"] is True
-    assert response.json()["google_access_token"] == "refreshed-google-token"
 
 
-def test_google_oauth_callback_csp_matches_airbyte_pattern() -> None:
-    csp = google_oauth_module._google_oauth_callback_csp()
+@pytest.mark.parametrize("add_routes,path", _PROTECTED_ROUTES)
+def test_protected_page_served_in_mock_mode(monkeypatch, add_routes, path) -> None:
+    monkeypatch.setattr(serve_module, "mock_only_enabled", lambda: True)
+    app = Starlette()
+    add_routes(app, _IMPORTMAP)
 
-    assert "default-src 'none'" in csp
-    assert "base-uri 'none'" in csp
-    assert "connect-src 'self'" in csp
-    assert "form-action 'none'" in csp
-    assert "frame-ancestors 'none'" in csp
-    assert "script-src 'unsafe-inline'" in csp
+    response = TestClient(app).get(path, follow_redirects=False)
+
+    assert response.status_code == 200
+
+
+def test_authorization_page_accessible_without_session(monkeypatch) -> None:
+    monkeypatch.setattr(serve_module, "mock_only_enabled", lambda: False)
+    app = Starlette()
+    serve_module.add_authorization_routes(app, _IMPORTMAP)
+
+    response = TestClient(app).get("/authorization", follow_redirects=False)
+
+    assert response.status_code == 200
+    assert 'const toolName = "ops_authorization";' in response.text
+
+
+@pytest.mark.parametrize(
+    "payload,expected",
+    [
+        pytest.param(
+            {"access_token": "tok", "expires_at": 200_000},
+            True,
+            id="valid_unexpired_access_token",
+        ),
+        pytest.param(
+            {
+                "access_token": "tok",
+                "expires_at": 90_000,
+                "refresh_token": "ref",
+                "refresh_expires_at": 200_000,
+            },
+            True,
+            id="expired_access_token_live_refresh_token",
+        ),
+        pytest.param(
+            {"access_token": "tok", "expires_at": 90_000, "refresh_token": "ref"},
+            True,
+            id="expired_access_token_refresh_without_expiry",
+        ),
+        pytest.param(
+            {
+                "access_token": "tok",
+                "expires_at": 90_000,
+                "refresh_token": "ref",
+                "refresh_expires_at": 90_000,
+            },
+            False,
+            id="expired_access_token_expired_refresh_token",
+        ),
+        pytest.param(
+            {"access_token": "tok", "expires_at": 90_000},
+            False,
+            id="expired_access_token_no_refresh_token",
+        ),
+        pytest.param(
+            {"access_token": "tok", "expires_at": 120_000},
+            False,
+            id="near_expiry_within_buffer_no_refresh",
+        ),
+        pytest.param(
+            {
+                "access_token": "tok",
+                "expires_at": 120_000,
+                "refresh_token": "ref",
+                "refresh_expires_at": 200_000,
+            },
+            True,
+            id="near_expiry_within_buffer_live_refresh",
+        ),
+    ],
+)
+def test_request_has_valid_session_evaluates_payload(
+    monkeypatch, payload, expected
+) -> None:
+    monkeypatch.setenv(state_module.OAUTH_CLIENT_SECRET_ENV_VAR, "test-secret")
+    monkeypatch.setattr(oauth_module, "_now_ms", lambda: 100_000)
+    cookie_value = oauth_module._encode_oauth_session(payload)
+
+    request = _request_with_session_cookie(cookie_value)
+
+    assert oauth_module.request_has_valid_session(request) is expected
+
+
+def test_request_has_valid_session_rejects_missing_cookie(monkeypatch) -> None:
+    monkeypatch.setenv(state_module.OAUTH_CLIENT_SECRET_ENV_VAR, "test-secret")
+
+    request = _request_with_session_cookie("")
+
+    assert oauth_module.request_has_valid_session(request) is False
+
+
+def test_request_has_valid_session_rejects_tampered_cookie(monkeypatch) -> None:
+    monkeypatch.setenv(state_module.OAUTH_CLIENT_SECRET_ENV_VAR, "test-secret")
+
+    request = _request_with_session_cookie("invalid-cookie")
+
+    assert oauth_module.request_has_valid_session(request) is False
+
+
+def test_request_has_valid_session_false_without_secret(monkeypatch) -> None:
+    monkeypatch.delenv(state_module.OAUTH_CLIENT_SECRET_ENV_VAR, raising=False)
+
+    request = _request_with_session_cookie("some-cookie")
+
+    assert oauth_module.request_has_valid_session(request) is False
+
+
+# --- Google login removal ---
+
+
+@pytest.mark.parametrize(
+    "method,path",
+    [
+        pytest.param("GET", "/google-oauth/callback", id="callback"),
+        pytest.param("POST", "/google-oauth/token", id="token"),
+        pytest.param("GET", "/google-oauth/session", id="session-get"),
+        pytest.param("POST", "/google-oauth/session", id="session-post"),
+        pytest.param("DELETE", "/google-oauth/session", id="session-delete"),
+    ],
+)
+def test_google_oauth_routes_are_absent(method: str, path: str) -> None:
+    """Removing the per-user Google login means the Google OAuth routes no
+    longer exist; the webapp reaches the GCS tier export via the runtime
+    service account."""
+    app = Starlette()
+    add_oauth_routes(app)
+
+    registered = {route.path for route in app.routes if isinstance(route, Route)}
+    assert path not in registered
+
+    response = TestClient(app).request(method, path)
+    assert response.status_code == 404
+
+
+def test_no_google_module_and_actions() -> None:
+    """The Google OAuth module is deleted and its JS actions are not aggregated
+    into the webapp's action set."""
+    with pytest.raises(ModuleNotFoundError):
+        __import__("airbyte_ops_webapp.auth.google_oauth")
+
+    script = serve_module._oauth_handlers_script()
+    assert "startGoogleOAuth" not in script
+    assert "google-oauth" not in script

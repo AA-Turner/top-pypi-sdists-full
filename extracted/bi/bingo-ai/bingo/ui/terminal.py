@@ -44,90 +44,42 @@ from ..i18n import t
 from ..proxy import ProxyManager
 
 
-def _tool_call_from_mapping(
-    value: object,
-    known_tools: set[str],
-    *,
-    allow_flat: bool = False,
-) -> str | None:
-    """Convert a model-emitted tool mapping to Bingo's canonical wire format."""
-    if not isinstance(value, dict):
-        return None
-    name = value.get("tool") or value.get("tool_name") or value.get("name")
-    if not isinstance(name, str) or name not in known_tools:
-        return None
-    has_explicit_args = "args" in value or "arguments" in value or "parameters" in value
-    # A generic API response may legitimately contain a top-level ``name``.
-    # Require an argument wrapper unless the mapping explicitly says ``tool``.
-    if "tool" not in value and "tool_name" not in value and not has_explicit_args and not allow_flat:
-        return None
-    if has_explicit_args:
-        args = value.get("args", value.get("arguments", value.get("parameters", {})))
-    else:
-        args = {
-            key: item
-            for key, item in value.items()
-            if key not in {"tool", "tool_name", "name"}
-        }
-    if not isinstance(args, dict):
-        args = {}
-    import json
-    return "TOOL_CALL:" + json.dumps({"name": name, "args": args}, ensure_ascii=False)
-
-
-def _normalize_tool_call_response(response: str) -> tuple[str, int]:
-    """Silently normalize fenced dict/XML tool calls before execution parsing."""
-    import ast
-    import json
-    import re
-
+def _positive_int_env(name: str, default: int, minimum: int = 1, maximum: int = 86400) -> int:
+    """Read a positive integer environment knob with sane bounds."""
+    raw = os.environ.get(name)
     try:
-        from ..tools_ext.pentest_tools import TOOL_REGISTRY
-        known_tools = set(TOOL_REGISTRY)
+        value = int(str(raw).strip()) if raw is not None else int(default)
     except Exception:
-        known_tools = set()
-    if not known_tools:
-        return response, 0
+        value = int(default)
+    return max(minimum, min(maximum, value))
 
-    converted = 0
 
-    def _parse_mapping(raw: str) -> object | None:
-        try:
-            return json.loads(raw)
-        except Exception:
-            try:
-                return ast.literal_eval(raw)
-            except Exception:
-                return None
+def _supervised_exec_limits() -> dict[str, int]:
+    """Runtime supervision limits for AI-emitted code blocks.
 
-    # The common failure mode is a Python/JSON fenced block containing only a
-    # tool mapping. Replace the entire block so it is never treated as code.
-    fence_pattern = re.compile(
-        r"```(?:python|json)?[ \t]*\n(?P<body>.*?)```",
-        re.DOTALL | re.IGNORECASE,
+    Code blocks still execute normally. These limits only bound a single
+    generated job so the model receives partial evidence instead of waiting
+    indefinitely on a silent subprocess.
+    """
+    script_timeout = _positive_int_env("BINGO_EXEC_TIMEOUT", 300, 1, 86400)
+    idle_report = _positive_int_env(
+        "BINGO_EXEC_IDLE_REPORT",
+        30,
+        1,
+        max(1, script_timeout),
     )
-
-    def _replace_fence(match: re.Match) -> str:
-        nonlocal converted
-        call = _tool_call_from_mapping(
-            _parse_mapping(match.group("body").strip()),
-            known_tools,
-            allow_flat=True,
-        )
-        if call is None:
-            return match.group(0)
-        converted += 1
-        return call
-
-    response = fence_pattern.sub(_replace_fence, response)
-
-    # Also accept a response that consists solely of a dict-form tool call.
-    stripped = response.strip()
-    if not re.search(r"TOOL_CALL\s*:", stripped):
-        call = _tool_call_from_mapping(_parse_mapping(stripped), known_tools, allow_flat=True)
-        if call is not None:
-            return call, converted + 1
-    return response, converted
+    wall_default = script_timeout + max(10, min(60, script_timeout))
+    wall_clock = _positive_int_env(
+        "BINGO_EXEC_WALL_CLOCK_TIMEOUT",
+        wall_default,
+        script_timeout,
+        86460,
+    )
+    return {
+        "script_timeout": script_timeout,
+        "idle_report": idle_report,
+        "wall_clock": wall_clock,
+    }
 
 
 def _repair_mixed_bash_python(script: str) -> tuple[str, bool]:
@@ -996,11 +948,11 @@ class BingoTerminal:
             return
         try:
             ts = datetime.now().strftime("%H:%M:%S")
-            # v6.2.172: tool_result 역할 추가 → TOOL_RESULT 누락 버그 수정
+            # 실행 결과 역할 추가
             if role == "user":
                 label = "**YOU**"
             elif role == "tool_result":
-                label = "**TOOL_RESULT**"
+                label = "**RUNTIME_RESULT**"
             else:
                 label = "**bingo**"
             # v6.2.169: 쿠키/토큰 평문 마스킹 후 저장
@@ -1390,7 +1342,7 @@ class BingoTerminal:
                 f"目标: {_target or '(见对话历史)'}\n"
                 f"已知: {_find_s or '(见对话历史)'}\n"
                 f"不要从头重来。根据历史结果执行下一步攻击。"
-                f"立即输出下一个 TOOL_CALL 或 bash 代码块。"
+                f"立即输出下一个 bash 代码块。"
             )
         if _lang == "ko":
             return (
@@ -1398,14 +1350,14 @@ class BingoTerminal:
                 f"타겟: {_target or '(대화 기록 참고)'}\n"
                 f"알려진 결과: {_find_s or '(대화 기록 참고)'}\n"
                 f"처음부터 다시 하지 말고, 이어서 다음 공격 단계를 실행하세요. "
-                f"즉시 다음 TOOL_CALL 또는 bash 코드 블록을 출력하세요."
+                f"즉시 다음 bash 코드 블록을 출력하세요."
             )
         return (
             f"[RESUME AFTER INTERRUPT]\n"
             f"Target: {_target or '(see chat history)'}\n"
             f"Known: {_find_s or '(see chat history)'}\n"
             f"Do NOT restart from scratch. Continue the next unfinished attack step. "
-            f"Emit the next TOOL_CALL or bash block NOW."
+            f"Emit the next bash block NOW."
         )
 
     def _read_hint_line_from_tty(self, timeout: float = 60.0) -> "str | None":
@@ -3587,7 +3539,7 @@ class BingoTerminal:
         ],
         "idor": [
             (r"(?:user|member|account|customer)_?(?:id|no|seq)\s*[=:]\s*\d+.{0,100}(?:name|email|phone|address)", "IDOR other-user data"),
-            (r"(?:unauthorized|forbidden|403).{0,80}(?:bypass|우회|bypassed|circumvent).{0,80}(?:200|success|ok\b)", "Authorization bypass confirmed"),
+            (r"(?:owner_only_resource|different_owner|other_user_id).{0,120}(?:data_returned|email|phone|address)", "Authorization bypass ownership proof"),
         ],
         "rce": [
             (r"uid=\d+\([^)]+\)|root:\w*:\d+:\d+|/etc/(?:passwd|shadow)", "RCE system identity output"),
@@ -3670,13 +3622,16 @@ class BingoTerminal:
 
             if stype == "xss":
                 payload = str(evidence.get("payload", ""))
-                reflected = evidence.get("reflected") is True
+                browser_executed = (
+                    evidence.get("browser_executed") is True
+                    or evidence.get("sink_executed") is True
+                )
                 executable = bool(_signal_re.search(
                     r"<script|alert\s*\(|onerror\s*=|javascript:\s*(?:alert|eval|document)",
                     payload,
                     _signal_re.IGNORECASE,
                 ))
-                return reflected and executable, "XSS payload reflected", payload[:80]
+                return browser_executed and executable, "XSS browser execution", payload[:80]
 
             if stype == "rce":
                 proof = str(evidence.get("proof", ""))
@@ -3706,7 +3661,13 @@ class BingoTerminal:
 
             if stype == "idor":
                 other_id = evidence.get("other_user_id")
-                valid = other_id is not None and evidence.get("data_returned") is True
+                valid = (
+                    other_id is not None
+                    and evidence.get("data_returned") is True
+                    and evidence.get("authenticated_baseline") is True
+                    and evidence.get("owner_only_resource") is True
+                    and evidence.get("different_owner") is True
+                )
                 return valid, "Other-user data returned", f"user_id={other_id}"
 
             if stype == "path_traversal":
@@ -3960,19 +3921,18 @@ class BingoTerminal:
             r"^我需要继续下一个回复",
             r"^这样有风险",
             r"^但在本对话中，用户",
-            # ── v6.2.83: 계획수립형 중국어 독백 (TOOL_CALL 형식 숙고) ──
+            # ── v6.2.83: 계획수립형 중국어 독백 ──
             r"^需要说明，我要以",              # 需要说明，我要以中文输出
-            r"^我将先使用\s*TOOL_CALL",        # 我将先使用 TOOL_CALL:waf_detect
             r"^注意：用户语言",                # 注意：用户语言是中文，所有输出必须中文
             r"^最终决定：",                    # 最终决定：第一段为中文分析
             r"^因此，我的回复结构",            # 因此，我的回复结构：
             r"^由于这是一个长时间任务",        # 由于这是一个长时间任务，我需要
-            r"^但是一次回复只能有",            # 但是一次回复只能有一个TOOL_CALL
+            r"^但是一次回复只能有",
             r"^按照规则，每个回复应该是",      # 按照规则，每个回复应该是一个代码块
-            r"^但是系统要求我以.*TOOL_CALL",   # 但是系统要求我以"TOOL_CALL:"格式
-            r"^但这里我只能发出一个",          # 但这里我只能发出一个TOOL_CALL
+            r"^但是系统要求我以",
+            r"^但这里我只能发出一个",
             r"^所以这个回复我将只包含",        # 所以这个回复我将只包含waf_detect
-            r"^实际上系统说.*TOOL_CALL",       # 实际上系统说"...TOOL_CALL..."
+            r"^实际上系统说",
             r"^我认为可以混合：先写推理",      # 我认为可以混合：先写推理
             # ── 한국어 자기참조 (모델이 한국어로 thinking 출력 시) ──
             r"^저는 실제로 실행할 수 없",
@@ -4040,7 +4000,6 @@ class BingoTerminal:
             r"^注意：用户语言",
             r"^最终决定：",
             r"^但是一次回复只能有",
-            r"^我将先使用\s*TOOL_CALL",
             r"^因此，我的回复结构",
         )
         filtered_lines: list[str] = []
@@ -5637,7 +5596,13 @@ class BingoTerminal:
 
         # agent_state 업데이트 (SQLi 결과 반영)
         sqli = results.get("💉 SQLi") or {}
-        if sqli.get("injectable"):
+        # Multi-agent heuristics alone must not mark target memory as confirmed.
+        # Require an extracted DB artifact or an explicit verified oracle flag.
+        if sqli.get("injectable") and (
+            sqli.get("database")
+            or sqli.get("tables")
+            or sqli.get("oracle_confirmed") is True
+        ):
             self._agent_state["confirmed_sqli"] = True
             self._agent_state["db_name"]  = sqli.get("database")
             self._agent_state["tables"]   = sqli.get("tables", [])
@@ -5758,11 +5723,7 @@ class BingoTerminal:
 
     def _run_code_blocks(self, response: str, _loaded_skills: set) -> list[str]:
         """AI 응답에서 Python/Bash 블록 추출 후 병렬 실행.
-        타임아웃 없음 — 성공할 때까지 실행. 모든 블록 동시 실행 후 결과 수집.
-
-        v5.2.0: TOOL_CALL 아키텍처 — bash 블록보다 우선 처리.
-        LLM이 TOOL_CALL:{"name":"...","args":{...}} 형식으로 호출하면
-        pentest_tools.py 의 Python 함수를 직접 실행 → 환각 완전 차단.
+        코드블록은 직접 실행하고 JOB_STATE로 실행 상태와 증거를 반환한다.
         """
         import re, subprocess, tempfile, os, threading
         from pathlib import Path
@@ -5773,493 +5734,6 @@ class BingoTerminal:
             "scripts": [],
             "response_bytes": 0,
         }
-
-        # ══════════════════════════════════════════════════════════════════════
-        # v6.2.145 ── XML tool_call 형식 자동 변환 (Type A 자동 교정기)
-        # AI가 가끔 <tool_call>{"name":...,"arguments":{...}}</tool_call> XML 형식을 출력.
-        # bingo는 TOOL_CALL:{} 형식만 인식하므로 자동 변환.
-        # 변환: <tool_call>{"name":"X","arguments":{...}}</tool_call>
-        #      → TOOL_CALL:{"name":"X","args":{...}}
-        import re as _re_tc
-        def _convert_xml_toolcall(text: str) -> str:
-            """<tool_call>...</tool_call> XML 형식 → TOOL_CALL:{} 형식 자동 변환"""
-            _xml_tc_pat = _re_tc.compile(
-                r'<tool_call>\s*(\{.*?\})\s*</tool_call>',
-                _re_tc.DOTALL | _re_tc.IGNORECASE,
-            )
-            def _replace_tc(m: "_re_tc.Match") -> str:
-                try:
-                    import json as _j
-                    _obj = _j.loads(m.group(1))
-                    _name = str(_obj.get("name", "") or _obj.get("tool_name", ""))
-                    _args = _obj.get("arguments", _obj.get("args", _obj.get("parameters", {})))
-                    if not isinstance(_args, dict):
-                        _args = {}
-                    return "TOOL_CALL:" + _j.dumps({"name": _name, "args": _args}, ensure_ascii=False)
-                except Exception:
-                    return m.group(0)
-            if "<tool_call>" in text.lower():
-                text = _xml_tc_pat.sub(_replace_tc, text)
-            return text
-        response = _convert_xml_toolcall(response)
-        response, _silent_tool_fixes = _normalize_tool_call_response(response)
-
-        # v5.2.0 ── TOOL_CALL 파서 (bash 블록 처리 이전에 실행)
-        # 형식: TOOL_CALL:{"name":"sqli_timebased","args":{"url":"...","param":"id"}}
-        # ══════════════════════════════════════════════════════════════════════
-        # v5.2.3 fix: 중첩 {} 파싱 버그 수정 — 비탐욕 정규식 대신 괄호 카운터 사용
-        def _extract_tool_call_jsons(text: str) -> list[str]:
-            """TOOL_CALL: 뒤 JSON을 중괄호 깊이 카운팅으로 추출 (중첩 {} 지원)"""
-            found: list[str] = []
-            for _m in re.finditer(r'TOOL_CALL\s*:\s*', text):
-                pos = _m.end()
-                if pos >= len(text) or text[pos] != '{':
-                    continue
-                depth, j, in_str, esc = 0, pos, False, False
-                while j < len(text):
-                    c = text[j]
-                    if esc:
-                        esc = False
-                    elif c == '\\' and in_str:
-                        esc = True
-                    elif c == '"':
-                        in_str = not in_str
-                    elif not in_str:
-                        if c == '{':
-                            depth += 1
-                        elif c == '}':
-                            depth -= 1
-                            if depth == 0:
-                                found.append(text[pos: j + 1])
-                                break
-                    j += 1
-            return found
-
-        _tool_matches = _extract_tool_call_jsons(response)
-
-        if _tool_matches:
-            tool_results: list[str] = []
-            try:
-                from ..tools_ext.pentest_tools import execute_tool, TOOL_REGISTRY
-            except ImportError:
-                execute_tool = None
-                TOOL_REGISTRY = {}
-
-            # ── v6.2.179 Type A: TOOL_CALL 실행 중 UI '不动/卡死' 방지 ──────────
-            # 증상(채팅/스크린샷): AI가 run_bash + http_get×N 을 한 번에 쏟아낸 뒤
-            # 실행 중 화면에 아무 진행도 안 보여 '멈춤'으로 오인.
-            # (백엔드는 동작 중 — Ctrl+C 후 continue 하면 결과 나옴)
-            # 수정: 진행 표시 + 5초 heartbeat + flush + Ctrl+C로 남은 도구 스킵
-            #      + 배치 http_get 은 curl 우선(Playwright×N 수분 정지 방지)
-            _MAX_TOOLS_PER_TURN = 10
-            _MAX_HTTP_GET_PER_TURN = 6
-            _total_tc = len(_tool_matches)
-            _http_get_done = 0
-            _tools_executed = 0
-            _deferred_names: list[str] = []
-            import sys as _sys_flush
-            import threading as _thr_tool
-
-            def _flush_ui() -> None:
-                try:
-                    self.console.file.flush()
-                except Exception:
-                    pass
-                try:
-                    _sys_flush.stdout.flush()
-                    _sys_flush.stderr.flush()
-                except Exception:
-                    pass
-
-            _lang_tc = getattr(self.config, "lang", "en")
-            _tc_banner = {
-                "ko": f"⚙ 도구 {_total_tc}개 실행 중… (진행 표시됨 / Ctrl+C=중단)",
-                "zh": f"⚙ 正在执行 {_total_tc} 个工具…（会显示进度 / Ctrl+C=中断）",
-                "en": f"⚙ Running {_total_tc} tools… (progress shown / Ctrl+C=stop)",
-            }.get(_lang_tc, f"⚙ Running {_total_tc} tools…")
-            self.console.print(f"[{THEME['accent']}]{_tc_banner}[/]")
-            _flush_ui()
-
-            for _tc_i, _raw_json in enumerate(_tool_matches):
-                if self._agent_stop_flag.is_set():
-                    _stop_tc = {
-                        "ko": f"⏸ Ctrl+C — 남은 도구 {_total_tc - _tc_i}개 스킵",
-                        "zh": f"⏸ Ctrl+C — 跳过剩余 {_total_tc - _tc_i} 个工具",
-                        "en": f"⏸ Ctrl+C — skipped {_total_tc - _tc_i} remaining tools",
-                    }.get(_lang_tc, "⏸ Interrupted")
-                    self.console.print(f"[{THEME['warn']}]{_stop_tc}[/]")
-                    _flush_ui()
-                    tool_results.append(
-                        "=== INTERRUPTED by Ctrl+C — remaining TOOL_CALLs skipped ===\n"
-                        "Summarize partial results. Do NOT re-emit the same TOOL_CALL flood."
-                    )
-                    break
-
-                # JSON 파싱
-                # v6.2.40 FIX: re.sub(r'\s+', ' ') 제거 — 이것이 Python 코드의 들여쓰기를
-                # 파괴하여 SyntaxError: expected 'except' or 'finally' block 의 근본 원인이었음.
-                # JSON 표준은 토큰 사이 공백을 허용하므로 json.loads()는 그대로 처리 가능.
-                # 리터럴 개행이 포함된 경우(비표준 LLM 출력)만 복구 메커니즘이 처리함.
-                _call = _raw_json.strip()  # 원본 보존 (공백 정규화 없음)
-                try:
-                    _parsed = __import__("json").loads(_call)
-                    _tool_name = str(_parsed.get("name", ""))
-                    _tool_args = _parsed.get("args", {})
-                    if not isinstance(_tool_args, dict):
-                        _tool_args = {}
-                except Exception as _je:
-                    # ── v6.2.34: JSON 복구 시도 ──────────────────────────────
-                    # script/code 필드의 복잡한 이스케이프 조합으로 json.loads 실패 시
-                    # regex 기반 필드 추출로 폴백
-                    # v6.2.40: _call 이 이제 원본 보존 버전이므로 Python 코드 들여쓰기 유지
-                    _recovered = False
-                    try:
-                        import re as _re_json
-                        # name 추출
-                        _nm = _re_json.search(r'"name"\s*:\s*"([^"]+)"', _call)
-                        if _nm:
-                            _tool_name = _nm.group(1)
-                            _tool_args = {}
-                            # args 내부의 각 키:값 추출 (script/code 포함)
-                            # script/code: "script": "..." 이지만 중간에 \n, \", \' 포함
-                            # → "script" 이후 첫 " 부터 마지막 "} 직전까지 추출
-                            for _fk in ("script", "code", "url", "param",
-                                        "base_value", "method", "headers",
-                                        "post_data", "dump_table", "timeout"):
-                                _fv_m = _re_json.search(
-                                    rf'"{_fk}"\s*:\s*"((?:[^"\\]|\\.)*)\"',
-                                    _call, _re_json.DOTALL
-                                )
-                                if _fv_m:
-                                    # JSON 이스케이프 해제
-                                    import codecs as _cod
-                                    try:
-                                        _fv = _cod.decode(
-                                            _fv_m.group(1).encode(), "unicode_escape"
-                                        )
-                                    except Exception:
-                                        _fv = _fv_m.group(1)
-                                    _tool_args[_fk] = _fv
-                            # timeout 숫자 변환
-                            if "timeout" in _tool_args:
-                                try:
-                                    _tool_args["timeout"] = int(str(_tool_args["timeout"]))
-                                except Exception:
-                                    _tool_args.pop("timeout", None)
-                            _recovered = bool(_tool_args or _tool_name)
-                    except Exception:
-                        pass
-                    if not _recovered:
-                        tool_results.append(
-                            f"TOOL_RESULT:{{'name':'?','error':'JSON parse failed: {_je}','success':false}}"
-                        )
-                        import os as _os
-                        if _os.environ.get("BINGO_DEBUG"):
-                            self.console.print(f"[dim red]  [TOOL_CALL DEBUG] raw={_raw_json!r}[/dim red]")
-                            self.console.print(f"[dim red]TOOL_CALL JSON parse error: {_je}[/dim red]")
-                        continue
-                    # 복구 성공은 정상 실행 경로로 취급한다. 상세 정보는 디버그에서만 노출.
-                    if __import__("os").environ.get("BINGO_DEBUG"):
-                        self.console.print(f"[dim]TOOL_CALL JSON recovered: {_tool_name}[/dim]")
-
-                if _tools_executed >= _MAX_TOOLS_PER_TURN:
-                    _deferred_names.append(_tool_name or "?")
-                    continue
-
-                if _tool_name == "http_get":
-                    if _http_get_done >= _MAX_HTTP_GET_PER_TURN:
-                        _deferred_names.append("http_get")
-                        tool_results.append(
-                            f"=== TOOL_RESULT: http_get ===\n"
-                            f"exit_code=-95  success=false\n"
-                            f"--- output ---\n"
-                            f"[HTTP_GET_BATCH_CAP] max {_MAX_HTTP_GET_PER_TURN} http_get/turn skipped.\n"
-                            f"Probe many hosts with ONE run_bash curl loop, not N×http_get.\n"
-                            f"URL: {str(_tool_args.get('url', ''))[:120]}\n"
-                            f"=== END TOOL_RESULT ==="
-                        )
-                        continue
-                    _tool_args = dict(_tool_args)
-                    _tool_args["prefer_curl"] = True
-                    try:
-                        _to = int(_tool_args.get("timeout", 10) or 10)
-                    except Exception:
-                        _to = 10
-                    _tool_args["timeout"] = min(max(_to, 3), 10)
-                    _http_get_done += 1
-
-                if execute_tool is None:
-                    tool_results.append(
-                        f"TOOL_RESULT:{{'name':'{_tool_name}','error':'pentest_tools not available','success':false}}"
-                    )
-                    continue
-
-                # ── v6.2.74: 도구 실행 해커 스타일 헤더 ───────────────
-                _args_preview = str(_tool_args)[:100]
-                self.console.print(
-                    f"\n[{THEME['dim']}]┌─[/][{THEME['accent']}]⚙ {_tool_name}[/]"
-                    f"[{THEME['dim']}] ({_tc_i + 1}/{_total_tc}) ────────────────────[/]"
-                )
-                self.console.print(
-                    f"[{THEME['dim']}]│  {_args_preview}[/]"
-                )
-                _flush_ui()
-
-                _t0 = __import__("time").time()
-                # 실행 중 heartbeat — 화면이 不动처럼 보이는 핵심 원인 제거
-                _box: dict = {}
-                _mute_tool_output = _thr_tool.Event()
-
-                def _run_one(_n=_tool_name, _a=_tool_args):
-                    _lock = getattr(self, "_tool_execution_lock", None)
-                    if _lock is None:
-                        _lock = _thr_tool.Lock()
-                        self._tool_execution_lock = _lock
-                    while not _lock.acquire(timeout=0.25):
-                        if self._agent_stop_flag.is_set():
-                            _box["r"] = {
-                                "success": False,
-                                "output": "INTERRUPTED before tool start",
-                                "exit_code": -1,
-                            }
-                            return
-
-                    _owner = _thr_tool.current_thread()
-                    _stdout = _sys_flush.stdout
-                    _stderr = _sys_flush.stderr
-                    _stdout_proxy = _ToolThreadOutput(
-                        _stdout, _owner, self._hint_input_active, _mute_tool_output
-                    )
-                    _stderr_proxy = _ToolThreadOutput(
-                        _stderr, _owner, self._hint_input_active, _mute_tool_output
-                    )
-                    try:
-                        _sys_flush.stdout = _stdout_proxy
-                        _sys_flush.stderr = _stderr_proxy
-                        _box["r"] = execute_tool(_n, _a)
-                    except Exception as _ex:
-                        _box["r"] = {
-                            "success": False,
-                            "output": f"execute_tool exception: {_ex}",
-                            "exit_code": -1,
-                        }
-                    finally:
-                        if _sys_flush.stdout is _stdout_proxy:
-                            _sys_flush.stdout = _stdout
-                        if _sys_flush.stderr is _stderr_proxy:
-                            _sys_flush.stderr = _stderr
-                        _lock.release()
-
-                _th = _thr_tool.Thread(target=_run_one, daemon=True)
-                _th._bingo_mute_output = _mute_tool_output
-                self._active_tool_thread = _th
-                _th.start()
-                _wait_s = 0
-                while _th.is_alive():
-                    _th.join(timeout=1.0)
-                    _wait_s += 1
-                    if getattr(self, "_hint_input_active", None) and self._hint_input_active.is_set():
-                        # hint 입력 중이면 heartbeat/출력 억제
-                        continue
-                    if self._agent_stop_flag.is_set():
-                        self.console.print(
-                            f"[{THEME['warn']}]│  ⏸ stop — waiting up to 8s for {_tool_name}…[/]"
-                        )
-                        _flush_ui()
-                        _th.join(timeout=8.0)
-                        break
-                    if _wait_s % 5 == 0:
-                        self.console.print(
-                            f"[{THEME['dim']}]│  ⏱ {_tool_name} running… {_wait_s}s "
-                            f"(not frozen)[/]"
-                        )
-                        _flush_ui()
-
-                if self._agent_stop_flag.is_set() and _th.is_alive():
-                    # The worker may be inside a blocking library call. Keep it
-                    # serialized, but permanently mute its direct output so it
-                    # cannot overwrite the hint prompt or resumed AI stream.
-                    _mute_tool_output.set()
-                    tool_results.append(
-                        f"=== TOOL_RESULT: {_tool_name} ===\n"
-                        f"exit_code=-1  success=false  elapsed={_wait_s}s\n"
-                        f"--- output ---\nINTERRUPTED mid-tool\n=== END TOOL_RESULT ==="
-                    )
-                    if not (getattr(self, "_hint_input_active", None) and self._hint_input_active.is_set()):
-                        self.console.print(
-                            f"[{THEME['warn']}]└─ ✘ interrupted[/]"
-                        )
-                        _flush_ui()
-                    break
-
-                _result = _box.get(
-                    "r",
-                    {"success": False, "output": "no result", "exit_code": -1},
-                )
-                _elapsed = round(__import__("time").time() - _t0, 2)
-                _tools_executed += 1
-                self._active_tool_thread = None
-
-                _out = _result.get("output", "")
-                _ok  = _result.get("success", False)
-                _ec  = _result.get("exit_code", -1)
-                _completed = bool(_result.get("completed", False)) and _ec == 0
-
-                # 화면에 결과 미리보기 출력 (v5.2.7: 스마트 필터 적용)
-                if _ok and _ec == 0:
-                    _color, _status_icon = THEME["success"], "✔"
-                elif _completed:
-                    _color, _status_icon = THEME["dim"], "∅"
-                else:
-                    _color, _status_icon = THEME["warn"], "✘"
-                if not (getattr(self, "_hint_input_active", None) and self._hint_input_active.is_set()):
-                    self.console.print(
-                        f"[{THEME['dim']}]└─[/][{_color}]{_status_icon} exit={_ec}[/]"
-                        f"[{THEME['dim']}]  elapsed={_elapsed}s[/]"
-                    )
-                    _flush_ui()
-                if _out:
-                    import re as _re_tr
-                    from rich.markup import escape as _esc
-                    # ── TOOL_RESULT 스마트 필터 ──
-                    # AI에게 보내는 _result_str은 필터 없이 전체 보존
-                    # 터미널 미리보기만 핵심 줄로 제한
-                    _IMP_TR = _re_tr.compile(
-                        r'(?:'
-                        r'HTTP/\d'
-                        r'|status[=:\s]+\d{3}'
-                        r'|\b(?:200|201|204|301|302|307|400|401|403|404|429|500|502)\b'
-                        r'|content-length\s*:\s*\d'
-                        r'|location\s*:\s*https?'
-                        r'|set-cookie\s*:'
-                        r'|server\s*:\s*\S'
-                        r'|x-powered-by|waf|cloudflare'
-                        r'|detected|found|error|exception'
-                        r'|---http_status|---size'
-                        r'|\[\+\]|\[-\]|\[!\]'
-                        r'|✅|❌|⚠|🔍|💥'
-                        r')',
-                        _re_tr.IGNORECASE,
-                    )
-                    _HTML_TR = _re_tr.compile(r'<[a-zA-Z/!]')
-                    _HDR_TR  = _re_tr.compile(r'^[A-Za-z][A-Za-z0-9\-]+\s*:\s*\S')
-                    _disp_lines: list[str] = []
-                    _html_run = 0
-                    _hdr_run  = 0
-                    _suppressed_html = 0
-                    _suppressed_hdr  = 0
-                    for _ln in _out.splitlines()[:120]:  # 최대 120줄 검사
-                        _s = _ln.strip()
-                        if not _s:
-                            continue
-                        # 항상 표시: 중요 패턴
-                        if _IMP_TR.search(_s):
-                            if _suppressed_html:
-                                _disp_lines.append(f"  ⋯ {_suppressed_html} HTML lines hidden")
-                                _suppressed_html = 0
-                            if _suppressed_hdr:
-                                _disp_lines.append(f"  ⋯ {_suppressed_hdr} header lines hidden")
-                                _suppressed_hdr = 0
-                            _html_run = _hdr_run = 0
-                            _disp_lines.append(_ln[:200])
-                            continue
-                        # HTTP 헤더 블록
-                        if _HDR_TR.match(_s):
-                            _hdr_run += 1
-                            _html_run = 0
-                            if _hdr_run <= 6:
-                                _disp_lines.append(_ln[:200])
-                            else:
-                                _suppressed_hdr += 1
-                            continue
-                        else:
-                            if _suppressed_hdr:
-                                _disp_lines.append(f"  ⋯ {_suppressed_hdr} header lines hidden")
-                                _suppressed_hdr = 0
-                            _hdr_run = 0
-                        # HTML 태그 밀집 줄
-                        if len(_HTML_TR.findall(_s)) >= 2 or (_s.startswith("<") and _s.endswith(">")):
-                            _html_run += 1
-                            _hdr_run = 0
-                            if _html_run <= 3:
-                                _disp_lines.append(_ln[:200])
-                            else:
-                                _suppressed_html += 1
-                            continue
-                        else:
-                            if _suppressed_html:
-                                _disp_lines.append(f"  ⋯ {_suppressed_html} HTML lines hidden")
-                                _suppressed_html = 0
-                            _html_run = 0
-                        # 일반 줄 (200자 제한)
-                        _disp_lines.append(_ln[:200])
-                    if _suppressed_html:
-                        _disp_lines.append(f"  ⋯ {_suppressed_html} HTML lines hidden")
-                    if _suppressed_hdr:
-                        _disp_lines.append(f"  ⋯ {_suppressed_hdr} header lines hidden")
-                    _preview = "\n".join(_disp_lines)
-                    try:
-                        self.console.print(f"[{THEME['dim']}]{_esc(_preview)}[/]")
-                    except Exception:
-                        self.console.print(_preview[:1200])
-
-                # 결과를 LLM에게 돌려줄 텍스트로 포맷
-                _result_extra = {
-                    k: v for k, v in _result.items()
-                    if k not in ("output",) and not isinstance(v, (bytes,))
-                }
-                _result_str = (
-                    f"=== TOOL_RESULT: {_tool_name} ===\n"
-                    f"exit_code={_ec}  success={_ok}  elapsed={_elapsed}s\n"
-                    f"extra={__import__('json').dumps(_result_extra, ensure_ascii=False, default=str)[:500]}\n"
-                    f"--- output ---\n{_out}\n"
-                    f"=== END TOOL_RESULT ==="
-                )
-
-                # ── v6.2.43: aaaa/OOOO 패턴 감지 — 커스텀 SQLi 추출 실패 안전망 ──────────
-                # run_python 출력에서 8자 이상 동일 문자 반복 감지
-                # → 커스텀 Boolean Oracle 루프가 오작동 중임을 의미
-                # → 모델 무관하게 강제 경고 주입 → sqli_autoexploit 전환 강제
-                if _tool_name == "run_python" and _out:
-                    import re as _re_aaaa
-                    _REPEAT_PAT = _re_aaaa.compile(r'([a-zA-Z?])\1{7,}')
-                    _repeat_found = _REPEAT_PAT.search(_out)
-                    if _repeat_found:
-                        _rep_char = _repeat_found.group(1)
-                        _warn_repeat = self.s.get("sqli_repeat_char_warning").format(char=_rep_char)
-                        self.console.print(f"[{THEME['error']}]{_warn_repeat}[/]")
-                        _result_str += (
-                            f"\n\n{_warn_repeat}"
-                        )
-                # ── 감지 끝 ────────────────────────────────────────────────────────────────
-
-                tool_results.append(_result_str)
-
-            if _deferred_names:
-                _n_def = len(_deferred_names)
-                _cap_msg = (
-                    f"[TOOL_CALL_CAP] Deferred {_n_def} call(s) "
-                    f"(max {_MAX_TOOLS_PER_TURN} tools / {_MAX_HTTP_GET_PER_TURN} http_get per turn). "
-                    f"Use ONE run_bash probe loop instead of flooding http_get."
-                )
-                self.console.print(f"[{THEME['warn']}]⚠ {_cap_msg}[/]")
-                _flush_ui()
-                tool_results.append(_cap_msg)
-
-            if tool_results:
-                self._last_execution_context = {
-                    "executed": _tools_executed > 0,
-                    "source": "tool_call",
-                    "scripts": [
-                        {"type": "tool_call", "code": raw[:16_384], "returncode": 0}
-                        for raw in _tool_matches[:10]
-                    ],
-                    "response_bytes": sum(len(item) for item in tool_results),
-                }
-                return tool_results
-        # ══════════════════════════════════════════════════════════════════════
-        # TOOL_CALL 없음 → 기존 bash 블록 처리로 진행 (하위 호환)
-        # ══════════════════════════════════════════════════════════════════════
 
         if "```" not in response:
             return []
@@ -7356,7 +6830,7 @@ class BingoTerminal:
                     "print(t[:1500])\n"
                     "\"\n"
                     "```\n"
-                    "Use runnable bash+curl or TOOL_CALL run_python. Do not return fake JSON results."
+                    "Use runnable bash+curl. Do not return fake JSON results."
                 )
             return [_hall_feedback]
 
@@ -7565,6 +7039,11 @@ class BingoTerminal:
                 script = '\n'.join(_cleaned_lines).strip()
                 if not script:
                     continue
+            # Use the same quote-aware repair path as internal bash execution.
+            # This converts multiline python -c blocks to heredoc/tempfiles and
+            # preserves curl pipeline stdin before bash syntax preflight.
+            from ..tools_ext.pentest_tools import _fix_bash_script
+            script = _fix_bash_script(script)
             # ── v5.1.7: 스크립트 전처리 (curl 타임아웃 + while 카운터 자동 주입) ──
             script = _sanitize_script(script)
             _bash_check = subprocess.run(
@@ -7578,7 +7057,7 @@ class BingoTerminal:
                 _syntax_detail = (_bash_check.stderr or "bash syntax error").strip()[:240]
                 _hallucination_msgs.append(
                     f"BASH_SYNTAX_PREFLIGHT_FAILED: {_syntax_detail}. "
-                    "Use TOOL_CALL run_python for HTML/regex parsing."
+                    "Use a Python code block for HTML/regex parsing."
                 )
                 continue
             # ── multi-line .sh 파일로 저장 ──
@@ -7682,7 +7161,7 @@ class BingoTerminal:
                 return [
                     "[INTERNAL_AUTO_REPAIR_REQUIRED]\n"
                     + "\n".join(_hallucination_msgs)
-                    + "\nRegenerate the operation as canonical TOOL_CALL run_python or valid Bash. "
+                    + "\nRegenerate the operation as a valid Python or Bash code block. "
                     "Do not explain the correction and do not repeat the malformed block."
                 ]
             return []
@@ -7690,6 +7169,7 @@ class BingoTerminal:
         # ── 병렬 실행 ────────────────────────────────────────────────
         results_text: list[str] = [""] * len(tasks)
         _lock = threading.Lock()
+        _exec_limits = _supervised_exec_limits()
 
         def _run_task(task: dict, slot: int) -> None:
             try:
@@ -7785,6 +7265,7 @@ class BingoTerminal:
                 with proc_list_lock:
                     proc_registry.append(p)
 
+                job_id = f"job_{slot + 1}"
                 label = f"script_{task.get('idx', slot)}" if task["type"] == "python" else task["cmd"][:80]
                 prefix = "PYTHON EXECUTION" if task["type"] == "python" else "REAL EXECUTION"
                 all_lines: list[str] = []
@@ -7797,7 +7278,20 @@ class BingoTerminal:
                 _last_stripped = None
                 _killed_reason: str | None = None
                 _start_ts = __import__("time").time()
-                _SCRIPT_TIMEOUT = 86400  # 24시간 (사실상 무제한) [v6.2.30: 타임아웃 제거]
+                _SCRIPT_TIMEOUT = _exec_limits["script_timeout"]
+                _IDLE_REPORT = _exec_limits["idle_report"]
+                _last_output_ts = _start_ts
+                task.update({
+                    "job_id": job_id,
+                    "status": "running",
+                    "pid": p.pid,
+                    "started_at": _start_ts,
+                    "last_output_at": _last_output_ts,
+                    "line_count": 0,
+                    "stdout_tail": [],
+                    "supervisor_timeout": _SCRIPT_TIMEOUT,
+                    "supervisor_idle_report": _IDLE_REPORT,
+                })
                 _MAX_CONSEC_DUP = 100   # 동일 줄 100회 연속 → 루프 감지 [v3.2.54: 오탐 방지 강화]
                 _MAX_CONSEC_SCAN = 500  # 스캔 결과 줄은 500회까지 허용 (XSS 반사 등)
                 # 합법적 반복이 발생하는 스캔 결과 prefix — 더 높은 임계값 적용
@@ -7824,10 +7318,12 @@ class BingoTerminal:
 
                 # ── 하드 워치독: stdout 출력 없는 블로킹(pymssql 등)도 강제 종료 ──
                 _watchdog_fired = threading.Event()
+                _watchdog_killed = threading.Event()
 
                 def _hard_watchdog(proc: subprocess.Popen, deadline: float,
-                                   fired: threading.Event) -> None:
-                    """stdout 스트림에 관계없이 deadline 이후 프로세스 그룹 전체를 강제 종료.
+                                   fired: threading.Event,
+                                   killed: threading.Event) -> None:
+                    """stdout 스트림에 관계없이 deadline 이후 프로세스 그룹 전체를 종료.
                     v5.1.6: proc.kill() → os.killpg() — bash 자식 프로세스(curl 등) 고아 방지.
                     proc.kill()은 bash만 종료하고 자식 curl 프로세스가 stdout 파이프를
                     유지해 스레드가 종료되지 않는 버그 수정."""
@@ -7845,6 +7341,7 @@ class BingoTerminal:
                                 proc.kill()
                             except Exception:
                                 pass
+                        killed.set()
                         # stdout 파이프 강제 닫기 — 자식 프로세스 잔존 시 readline 해제
                         try:
                             proc.stdout.close()
@@ -7854,7 +7351,7 @@ class BingoTerminal:
                 _watchdog_deadline = _start_ts + _SCRIPT_TIMEOUT
                 _watchdog_th = threading.Thread(
                     target=_hard_watchdog,
-                    args=(p, _watchdog_deadline, _watchdog_fired),
+                    args=(p, _watchdog_deadline, _watchdog_fired, _watchdog_killed),
                     daemon=True,
                 )
                 _watchdog_th.start()
@@ -8039,6 +7536,14 @@ class BingoTerminal:
                     line = raw_line.decode("utf-8", "replace").rstrip()
                     if not line:
                         continue
+                    _last_output_ts = __import__("time").time()
+                    _tail = task.setdefault("stdout_tail", [])
+                    if isinstance(_tail, list):
+                        _tail.append(line)
+                        if len(_tail) > 40:
+                            del _tail[:-40]
+                    task["last_output_at"] = _last_output_ts
+                    task["line_count"] = int(task.get("line_count", 0) or 0) + 1
 
                     _stripped_cur = line.strip()
 
@@ -8106,9 +7611,7 @@ class BingoTerminal:
                 _watchdog_fired.set()
 
                 # 워치독이 kill 했는지 확인 (stdout 없는 블로킹 타임아웃)
-                if not _killed_reason and (
-                    __import__("time").time() - _start_ts >= _SCRIPT_TIMEOUT - 1
-                ):
+                if not _killed_reason and _watchdog_killed.is_set():
                     _killed_reason = f"TIMEOUT_{_SCRIPT_TIMEOUT}s"
 
                 try:
@@ -8118,49 +7621,56 @@ class BingoTerminal:
                         p.kill()
                     except Exception:
                         pass
+                    if not _killed_reason:
+                        _killed_reason = "WAIT_TIMEOUT"
                 output = "\n".join(all_lines)
                 task["returncode"] = p.returncode
                 task["output_length"] = len(output)
-                _kill_suffix = ""
+                _end_ts = __import__("time").time()
+                _elapsed_s = max(0, int(round(_end_ts - _start_ts)))
+                _last_output_age = max(
+                    0,
+                    int(round(_end_ts - float(task.get("last_output_at", _start_ts) or _start_ts))),
+                )
                 if _killed_reason:
-                    if _killed_reason.startswith("INFINITE_LOOP:"):
-                        _dup_val = _killed_reason.split(":", 1)[1]
-                        _k_title = t("script_killed_infinite", "[SCRIPT_KILLED: INFINITE_LOOP detected]")
-                        _k_same = t("script_killed_same_val", "Same value '{val}' repeated {n}+ times.").replace("{val}", _dup_val).replace("{n}", str(_MAX_CONSEC_DUP))
-                        _k_fix = t("script_killed_mandatory_fix", "MANDATORY FIX — Your enumeration loop has NO deduplication.")
-                        _k_cursor = t("script_killed_cursor_must", "You MUST rewrite with cursor pagination pattern:")
-                        _kill_suffix = (
-                            f"\n{_k_title}\n"
-                            f"{_k_same}\n"
-                            f"{_k_fix}\n"
-                            f"{_k_cursor}\n"
-                            "  seen = set()\n"
-                            "  last_hex = ''\n"
-                            "  while True:\n"
-                            "      if last_hex:\n"
-                            "          payload = f'... AND name > {last_hex} ...'\n"
-                            "      result = extract(payload)\n"
-                            "      if not result or result in seen: break\n"
-                            "      seen.add(result)\n"
-                            "      last_hex = '0x' + result.encode().hex().upper()\n"
-                            "STOP using FOR loops with TOP 1 and no cursor.\n"
-                        )
-                    else:
-                        _k_timeout = t("script_killed_timeout", "[SCRIPT_KILLED: TIMEOUT]\nScript exceeded {sec}s timeout and was forcibly terminated.\nSplit the script into smaller blocks or optimize the loop.").replace("{sec}", str(_SCRIPT_TIMEOUT))
-                        _kill_suffix = f"\n{_k_timeout}\n"
-                if output.strip():
-                    # v3.2.23: AI 컨텍스트 전달 시 잔여 Traceback도 압축
-                    _ai_out, _, _ = _filter_traceback(output)
-                    results_text[slot] = (
-                        f"=== {prefix} ({label}) ===\n"
-                        f"{_ai_out.strip()}\n"
-                        f"=== EXIT: {p.returncode} ==={_kill_suffix}"
+                    _job_status = "timeout_interrupted"
+                    _job_reason = (
+                        "execution_budget_elapsed"
+                        if str(_killed_reason).startswith("TIMEOUT_")
+                        else "watcher_cleanup"
                     )
+                elif p.returncode == 0:
+                    _job_status = "completed"
+                    _job_reason = "process_exited"
                 else:
-                    results_text[slot] = (
-                        f"=== {prefix} ({label}) ===\n"
-                        f"(no output, exit={p.returncode}){_kill_suffix}"
-                    )
+                    _job_status = "completed_with_error"
+                    _job_reason = "process_exited"
+                task.update({
+                    "status": _job_status,
+                    "reason": _job_reason,
+                    "elapsed": _elapsed_s,
+                    "last_output_age": _last_output_age,
+                    "returncode": p.returncode,
+                    "output_length": len(output),
+                })
+                # v3.2.23: AI 컨텍스트 전달 시 잔여 Traceback도 압축
+                _ai_out, _, _ = _filter_traceback(output) if output.strip() else ("", "", "")
+                _section = "partial_output" if _killed_reason else "output"
+                _body = _ai_out.strip() if _ai_out.strip() else f"(no output, exit={p.returncode})"
+                results_text[slot] = (
+                    f"=== JOB_STATE: {job_id} ===\n"
+                    f"legacy={prefix}: {label}\n"
+                    f"type={task['type']} status={_job_status} exit={p.returncode} "
+                    f"elapsed={_elapsed_s}s pid={p.pid}\n"
+                    f"reason={_job_reason} line_count={int(task.get('line_count', 0) or 0)} "
+                    f"output_bytes={len(output)} last_output_age={_last_output_age}s "
+                    f"timeout_budget={_SCRIPT_TIMEOUT}s\n"
+                    "action_hint=partial_output_preserved; "
+                    "model_should_decide_continue_split_pivot_or_report\n"
+                    f"--- {_section} ---\n"
+                    f"{_body}\n"
+                    "=== END JOB_STATE ==="
+                )
             except Exception as e:
                 _err_msg2 = str(e)
                 # v6.2.20: I/O on closed file → 무시
@@ -8189,11 +7699,10 @@ class BingoTerminal:
         # ★ v3.2.99: HEARTBEAT 30→1 — Ctrl+C 후 최대 1초 내 반응 (기존 최대 30초)
         HEARTBEAT = 1   # 1초마다 stop_flag 체크 (heartbeat 출력은 30초마다)
         elapsed = 0
-        _heartbeat_print_interval = 30  # 화면 출력은 30초에 한 번
+        _heartbeat_print_interval = _exec_limits["idle_report"]  # 화면 출력 간격
         # v5.1.6: wall-clock 안전 타임아웃 — 워치독이 bash만 kill하고 자식 curl이 살아남아
         # 스레드가 종료되지 않는 경우에 대한 2차 방어선 (_SCRIPT_TIMEOUT + 60s)
-        # v6.2.30: 사실상 무제한 (24h + 60s)
-        _WALL_CLOCK_MAX = 86460  # _SCRIPT_TIMEOUT(86400) + 60s 버퍼
+        _WALL_CLOCK_MAX = _exec_limits["wall_clock"]
         while any(_th.is_alive() for _th in threads):
             for _th in threads:
                 _th.join(timeout=HEARTBEAT)
@@ -8238,13 +7747,48 @@ class BingoTerminal:
                     _th.join(timeout=3)
                 for i, r in enumerate(results_text):
                     if not r:
-                        results_text[i] = "=== INTERRUPTED — partial results only ==="
+                        _task = tasks[i]
+                        _task["status"] = "user_interrupted"
+                        _task["reason"] = "operator_requested_stop"
+                        _line_count = int(_task.get("line_count", 0) or 0)
+                        _tail = "\n".join(_task.get("stdout_tail", []) or [])
+                        _body = _tail if _tail.strip() else "(no output captured before operator interrupt)"
+                        results_text[i] = (
+                            f"=== JOB_STATE: {_task.get('job_id', f'job_{i + 1}')} ===\n"
+                            f"legacy={'PYTHON EXECUTION' if _task.get('type') == 'python' else 'REAL EXECUTION'}: "
+                            f"{_task.get('cmd', '')[:80]}\n"
+                            f"type={_task.get('type', '')} status=user_interrupted exit=unknown "
+                            f"elapsed={elapsed}s pid={_task.get('pid', 'unknown')}\n"
+                            f"reason=operator_requested_stop line_count={_line_count} "
+                            f"output_bytes={len(_tail)} last_output_age=unknown "
+                            f"timeout_budget={_exec_limits['script_timeout']}s\n"
+                            "action_hint=partial_output_preserved; "
+                            "model_should_decide_continue_split_pivot_or_report\n"
+                            "--- partial_output ---\n"
+                            f"{_body}\n"
+                            "=== END JOB_STATE ==="
+                        )
                 break
 
             # 30초마다 진행상황 heartbeat 출력
             if elapsed % _heartbeat_print_interval == 0 and any(_th.is_alive() for _th in threads):
+                _now_hb = __import__("time").time()
+                _job_bits: list[str] = []
+                for _task in tasks:
+                    if _task.get("status") != "running":
+                        continue
+                    _started = float(_task.get("started_at", _now_hb) or _now_hb)
+                    _last_out = float(_task.get("last_output_at", _started) or _started)
+                    _job_bits.append(
+                        f"{_task.get('job_id', '?')}:pid={_task.get('pid', '?')} "
+                        f"elapsed={int(_now_hb - _started)}s "
+                        f"idle={int(_now_hb - _last_out)}s "
+                        f"lines={int(_task.get('line_count', 0) or 0)}"
+                    )
+                _job_state = " | ".join(_job_bits[:4])
                 self.console.print(
-                    f"[{THEME['dim']}]  ⏱ {elapsed}s {_s.get('exec_running', 'running')}...[/]"
+                    f"[{THEME['dim']}]  ⏱ {elapsed}s {_s.get('exec_running', 'running')}... "
+                    f"{_job_state}[/]"
                 )
 
             # v5.1.6: wall-clock 최대 타임아웃 — 워치독 실패 시 2차 강제 종료
@@ -8275,9 +7819,26 @@ class BingoTerminal:
                     _th.join(timeout=2)
                 for i, r in enumerate(results_text):
                     if not r:
+                        _task = tasks[i]
+                        _task["status"] = "wall_clock_interrupted"
+                        _task["reason"] = "supervisor_wall_clock_cleanup"
+                        _line_count = int(_task.get("line_count", 0) or 0)
+                        _tail = "\n".join(_task.get("stdout_tail", []) or [])
+                        _body = _tail if _tail.strip() else "(no output captured before supervisor cleanup)"
                         results_text[i] = (
-                            f"=== WALL-CLOCK TIMEOUT ({elapsed}s) — "
-                            "script forcibly killed, partial results only ==="
+                            f"=== JOB_STATE: {_task.get('job_id', f'job_{i + 1}')} ===\n"
+                            f"legacy={'PYTHON EXECUTION' if _task.get('type') == 'python' else 'REAL EXECUTION'}: "
+                            f"{_task.get('cmd', '')[:80]}\n"
+                            f"type={_task.get('type', '')} status=wall_clock_interrupted exit=unknown "
+                            f"elapsed={elapsed}s pid={_task.get('pid', 'unknown')}\n"
+                            f"reason=supervisor_wall_clock_cleanup line_count={_line_count} "
+                            f"output_bytes={len(_tail)} last_output_age=unknown "
+                            f"timeout_budget={_WALL_CLOCK_MAX}s\n"
+                            "action_hint=partial_output_preserved; "
+                            "model_should_decide_continue_split_pivot_or_report\n"
+                            "--- partial_output ---\n"
+                            f"{_body}\n"
+                            "=== END JOB_STATE ==="
                         )
                 break
 
@@ -8287,8 +7848,15 @@ class BingoTerminal:
             "source": "code_block",
             "scripts": [
                 {
+                    "job_id": task.get("job_id"),
                     "type": task.get("type", ""),
                     "code": task.get("code", ""),
+                    "status": task.get("status"),
+                    "reason": task.get("reason"),
+                    "elapsed": task.get("elapsed"),
+                    "pid": task.get("pid"),
+                    "line_count": task.get("line_count", 0),
+                    "last_output_age": task.get("last_output_age"),
                     "returncode": task.get("returncode"),
                     "output_length": task.get("output_length", 0),
                 }
@@ -8394,8 +7962,7 @@ class BingoTerminal:
 
         while True:
             # 코드 블록 없으면 → AI에게 코드 작성 재촉 (최대 3회)
-            # v5.2.2: TOOL_CALL이 있으면 "코드 없음" 처리 우회 — _run_code_blocks에서 처리
-            if "```" not in current_response and "TOOL_CALL:" not in current_response:
+            if "```" not in current_response:
                 # ── v3.2.86: Web3/DApp 감사 JSON은 코드 블록 없어도 정상 완료 ──
                 _web3_data = self._is_web3_audit_json(current_response.strip())
                 if _web3_data is not None:
@@ -8436,12 +8003,47 @@ class BingoTerminal:
 
             _no_code_retry = 0  # 코드 있으면 카운터 리셋
 
-
+            # Repeated blocked SQLi gets a short execution cooldown. The model
+            # must execute another vulnerability vector before retrying SQLi.
+            _sqli_state = getattr(self, "_adaptive_attack_state", {}).get("sqli", {})
+            _sqli_cooldown = int(_sqli_state.get("cooldown", 0) or 0)
+            if _sqli_cooldown > 0:
+                import re as _pivot_guard_re
+                _code_only = "\n".join(_pivot_guard_re.findall(
+                    r'```(?:bash|sh|python)\s*(.*?)```',
+                    current_response,
+                    _pivot_guard_re.I | _pivot_guard_re.S,
+                ))
+                _repeats_sqli = bool(_pivot_guard_re.search(
+                    r'\bsqlmap\b|\bghauri\b|boolean.?oracle|extractvalue\s*\('
+                    r'|updatexml\s*\(|union\s+(?:all\s+)?select|sleep\s*\(',
+                    _code_only,
+                    _pivot_guard_re.I,
+                ))
+                if _repeats_sqli:
+                    _sqli_state["cooldown"] = _sqli_cooldown - 1
+                    _guard_msg = self.s.get(
+                        "sqli_cross_vector_guard",
+                        "[AUTO_PIVOT] Repeated blocked SQLi execution skipped. "
+                        "Run JS/API/IDOR/XSS/LFI/auth verification now.",
+                    )
+                    self.history.append(Message(role="user", content=_guard_msg))
+                    model_cfg_guard = self.config.get_active_model_config()
+                    if not model_cfg_guard:
+                        break
+                    from ..models.registry import ModelRegistry as _MR_guard
+                    current_response = self._stream_response(
+                        _MR_guard.build(model_cfg_guard).chat_stream(self._build_messages(""))
+                    )
+                    if current_response:
+                        self.history.append(Message(role="assistant", content=current_response))
+                    continue
+                _sqli_state["cooldown"] = 0
 
             # 코드 실행 (코드 블록이 있으면 반드시 실행)
             results_text = self._run_code_blocks(current_response, _loaded_skills)
 
-            # v6.2.172: TOOL_RESULT 세션 로그 기록 (이전엔 TOOL_RESULT=0 버그)
+            # 실행 결과 세션 로그 기록
             if results_text:
                 for _tr_log in results_text:
                     if _tr_log and _tr_log.strip():
@@ -8612,7 +8214,7 @@ class BingoTerminal:
                     pass  # VPN 감지 오류는 실행 차단하지 않음
 
             # v6.2.10: 0day Hunter 제거 — 자동 탐지가 오탐 다수 발생 (git_exposure on HTTP 400 등)
-            # CVE/버전 기반 exploit은 AI가 직접 판단해 tool_call로 실행하도록 위임
+            # CVE/버전 기반 exploit은 AI가 직접 판단해 코드블록으로 실행하도록 위임
 
             # ── v3.5.22: Recon 모듈 자동 탐지 (세션당 1회만 출력) ───────────
             if _combined_out:
@@ -9313,11 +8915,15 @@ class BingoTerminal:
                     _tgt_key = self._agent_state.get("target", "")
                     _raw_scan = raw_results
                     if _tgt_key and _raw_scan:
-                        # SQLi 확인 키워드 → sqli_point 저장
-                        _sqli_confirmed = bool(_tm_re.search(
-                            r'(?:sql.?inject|sqli|1=1.*200|WAITFOR.*DELAY|시간.*지연|응답.*차이|size.diff)',
-                            _raw_scan, _tm_re.I
-                        ))
+                        # Only the exporter evidence ladder can authorize a
+                        # confirmed SQLi memory entry.  Raw words such as
+                        # "sqli" or "size diff" are candidate evidence only.
+                        _sqli_confirmed = any(
+                            getattr(_f, "vuln_type", "") == "sqli"
+                            and getattr(_f, "confidence", "") == "confirmed"
+                            and bool(getattr(_f, "confirmed", False))
+                            for _f in getattr(self._findings_exporter, "findings", [])
+                        )
                         if _sqli_confirmed:
                             _u = _tm_re.search(r'https?://[^\s\'",]{10,}', _raw_scan)
                             _p = _tm_re.search(r'(?:param(?:eter)?|파라미터)[=:\s]*([a-zA-Z_][a-zA-Z0-9_]{1,30})', _raw_scan, _tm_re.I)
@@ -9478,15 +9084,16 @@ class BingoTerminal:
                         _403_detector = _IPBD403(_403_target)
                         _403_result = _403_detector.check()
                         if not _403_result.blocked:
-                            # 메인 사이트 접근 가능 → API 엔드포인트 403은 인증/권한 문제
+                            # 메인 사이트 접근 가능 → IP 전체 차단은 아님.
+                            # 단, endpoint별 권한 거부/행동형 WAF/rate-state는 모두 가능하다.
                             _lang_403 = getattr(self.config, "lang", "en")
                             _403_fp_msg = self.s.get("forbidden_403_not_ipblock", {
-                                "ko": "⚡ 403 감지됐지만 메인 사이트 접근 가능 — 인증/권한 거부 (IP 차단 아님)",
-                                "zh": "⚡ 检测到403但主站可访问 — 认证/权限拒绝（非IP封锁）",
-                                "en": "⚡ 403 detected but main site accessible — auth/permission denied, NOT IP block",
+                                "ko": "⚡ 403 감지됐지만 메인 사이트 접근 가능 — 전체 IP 차단 아님; endpoint 권한 거부 또는 WAF/rate-state 가능",
+                                "zh": "⚡ 检测到403但主站可访问 — 非全站IP封锁；可能是端点权限拒绝或WAF/rate状态",
+                                "en": "⚡ 403 detected but main site accessible — not a site-wide IP block; endpoint denial or WAF/rate-state possible",
                             })
                             if isinstance(_403_fp_msg, dict):
-                                _403_fp_msg = _403_fp_msg.get(_lang_403, "⚡ 403 auth/permission denial (not IP block)")
+                                _403_fp_msg = _403_fp_msg.get(_lang_403, "⚡ 403 endpoint denial or WAF/rate-state (not site-wide IP block)")
                             self.console.print(f"[dim]{_403_fp_msg}[/]")
                             _403_confirmed = False
                     except Exception:
@@ -10055,6 +9662,16 @@ class BingoTerminal:
                     f"  - If CAPTCHA: look for API endpoint that bypasses frontend\n"
                 )
 
+            _next_action_contract = (
+                "NEXT ACTION: Obey ADAPTIVE_OFFENSE_PIVOT and execute a non-SQLi vector now. "
+                "Do not emit sqlmap, sqli_*, Boolean oracle, UNION, error-based, or time-based SQLi.\n"
+                if adaptive_pivot_context and "next=cross_vector" in adaptive_pivot_context
+                else (
+                    "NEXT ACTION: Continue from where you left off. "
+                    "DO NOT re-extract already known facts above. "
+                    "Proceed to the next unknown step.\n"
+                )
+            )
             injection = (
                 "=== BINGO REAL EXECUTION RESULTS ===\n"
                 + trimmed
@@ -10062,10 +9679,8 @@ class BingoTerminal:
                 + _waf_redirect_note
                 + "\n=== END REAL RESULTS ===\n\n"
                 + state_summary
-                + "NEXT ACTION: Continue from where you left off. "
-                "DO NOT re-extract already known facts above. "
-                "Proceed to the next unknown step.\n"
-                "- If WAF blocks: use obfuscation variants\n"
+                + _next_action_contract
+                + "- If WAF blocks: use obfuscation variants\n"
                 "- Output TASK_COMPLETE when all credentials are extracted\n"
                 "- NEVER generate simulated output"
             )
@@ -10724,28 +10339,49 @@ class BingoTerminal:
         if not isinstance(state, dict) or state.get("_target") != target:
             state = {"_target": target}
             self._adaptive_attack_state = state
-        vector_state = state.setdefault(vector, {"counts": {}, "tried": set()})
+        vector_state = state.setdefault(
+            vector, {"counts": {}, "tried": set(), "blocked_attempts": 0}
+        )
+        if _pivot_re.search(
+            r"\b(?:403|598B|199B)\b|waf|blocked|inconclusive|unstable|"
+            r"SQLI_ORACLE_REJECTED|SQLI_EXTRACTION_FAILURE|oracle.*(?:fail|invalid)",
+            output,
+            _pivot_re.I,
+        ):
+            vector_state["blocked_attempts"] = vector_state.get("blocked_attempts", 0) + 1
         vector_state["tried"].add(technique)
         count = vector_state["counts"].get(technique, 0) + 1
         vector_state["counts"][technique] = count
-        if count < 2 or count % 2:
+        blocked_attempts = vector_state.get("blocked_attempts", 0)
+        if (count < 2 or count % 2) and blocked_attempts < 2:
             return ""
 
-        next_name, next_action = next(
-            (
-                (name, action)
-                for name, action in profiles[vector]
-                if name not in vector_state["tried"]
-            ),
-            profiles[vector][0],
-        )
+        if vector == "sqli" and blocked_attempts >= 2:
+            next_name, next_action = (
+                "cross_vector",
+                "switch to JS/API/IDOR and preserve this SQLi candidate for later verification",
+            )
+            vector_state["cooldown"] = 2
+        else:
+            next_name, next_action = next(
+                (
+                    (name, action)
+                    for name, action in profiles[vector]
+                    if name not in vector_state["tried"]
+                ),
+                (
+                    "cross_vector",
+                    "switch to JS/API/IDOR and preserve this candidate for later verification",
+                ),
+            )
         vector_state["tried"].add(next_name)
         return (
             "\n[ADAPTIVE_OFFENSE_PIVOT]\n"
             f"vector={vector} previous={technique} attempts={count} next={next_name}\n"
             f"ACTION: {next_action}.\n"
             "Preserve the candidate, target, endpoint, parameter, session, headers, and controls. "
-            "Change technique now; do not repeat the same request and do not stop exploration.\n"
+            "Change technique now; do not repeat the same request and do not stop exploration. "
+            "When next=cross_vector, SQLi tools are temporarily blocked until one non-SQLi vector executes.\n"
             "[/ADAPTIVE_OFFENSE_PIVOT]\n"
         )
 
@@ -11286,20 +10922,6 @@ class BingoTerminal:
             "zh": ("已确认", "推定/潜在"),
             "en": ("Confirmed", "Probable/Potential"),
         }.get(lang, ("Confirmed", "Probable/Potential"))
-        fix_lines = {
-            "ko": (
-                "- 안정적인 대조 oracle로 probable 항목을 재검증하세요.\n"
-                "- WAF 차단 페이지와 일반 응답 크기 차이는 미확정으로 처리하세요.\n"
-            ),
-            "zh": (
-                "- 使用稳定的对照 oracle 重新验证 probable 项目。\n"
-                "- 将 WAF 拦截页和普通响应大小差异视为未确认。\n"
-            ),
-            "en": (
-                "- Re-test probable findings with a stable control oracle.\n"
-                "- Treat WAF block pages and generic response-size differences as unconfirmed.\n"
-            ),
-        }.get(lang, "- Re-test probable findings with a stable control oracle.\n")
         credential_lines = (
             "\n".join(f"- {item}" for item in session_credentials)
             if session_credentials else no_creds.get(lang, no_creds["en"])
@@ -11311,6 +10933,45 @@ class BingoTerminal:
         ]
         confirmed_truth = [line for line in truth_lines if "tier=confirmed" in line]
         backlog_truth = [line for line in truth_lines if "tier=confirmed" not in line]
+        backlog_blob = "\n".join(backlog_truth).lower()
+        lang_strings = get_strings(lang)
+
+        def _report_msg(key: str, default: str) -> str:
+            value = lang_strings.get(key, default)
+            if isinstance(value, dict):
+                return value.get(lang, value.get("en", default))
+            return str(value)
+
+        def _fallback_fix_lines() -> str:
+            if not backlog_truth:
+                return "- " + _report_msg(
+                    "report_fix_no_verified",
+                    "No verified vulnerabilities. Maintain defensive baselines.",
+                ) + "\n"
+            lines: list[str] = []
+            if "tier=blocked" in backlog_blob:
+                lines.append(_report_msg(
+                    "report_fix_blocked",
+                    "Re-establish a clean baseline/session for blocked items.",
+                ))
+            if "xss" in backlog_blob and ("quarantined" in backlog_blob or "potential" in backlog_blob):
+                lines.append(_report_msg(
+                    "report_fix_xss_browser",
+                    "Confirm XSS candidates with browser execution evidence.",
+                ))
+            if "sqli" in backlog_blob and ("tier=probable" in backlog_blob or "tier=potential" in backlog_blob):
+                lines.append(_report_msg(
+                    "report_fix_sqli_crosscheck",
+                    "Re-test SQLi candidates with stable controls.",
+                ))
+            if not lines:
+                lines.append(_report_msg(
+                    "report_fix_backlog_generic",
+                    "Re-test backlog items according to their evidence tier.",
+                ))
+            return "\n".join(f"- {line.lstrip('- ')}" for line in lines) + "\n"
+
+        fix_lines = _fallback_fix_lines()
         no_verified = {
             "ko": "- 확인된 취약점 없음",
             "zh": "- 未确认漏洞",
@@ -11323,6 +10984,11 @@ class BingoTerminal:
         }.get(lang, "Verification Backlog (Unconfirmed)")
         verified_text = "\n".join(confirmed_truth) or no_verified
         backlog_text = "\n".join(backlog_truth) or "- None"
+        evidence_text = {
+            "ko": "- 확정되지 않은 관찰은 아래 검증 대기 목록에만 표시했습니다.",
+            "zh": "- 未确认的观察仅保留在下面的待验证列表中。",
+            "en": "- Unconfirmed observations are kept only in the verification backlog below.",
+        }.get(lang, "- Unconfirmed observations are kept only in the verification backlog below.")
         return (
             f"# Target: {target}\n"
             f"## {summary}\n"
@@ -11330,7 +10996,7 @@ class BingoTerminal:
             f"- {metrics[0]}: {confirmed_count}\n"
             f"- {metrics[1]}: {potential_count}\n\n"
             f"## {vulns}\n{verified_text}\n\n"
-            f"## {evidence}\n{verified_text}\n\n"
+            f"## {evidence}\n{evidence_text}\n\n"
             f"## {backlog_label}\n{backlog_text}\n\n"
             f"## {creds}\n{credential_lines}\n\n"
             f"## {fixes}\n{fix_lines}"
@@ -11447,6 +11113,7 @@ class BingoTerminal:
         _fe_potential_n = 0
         _fe_snap_block = ""
         _fe_report_findings: list = []
+        _fe = None
         try:
             _fe = getattr(self, "_findings_exporter", None)
             if _fe is not None and hasattr(_fe, "ground_truth_block"):
@@ -11463,7 +11130,7 @@ class BingoTerminal:
                 _fe_snap_block = (
                     f"\n⚠️ FINDINGS GROUND TRUTH (HARD RULE — DO NOT CONTRADICT):\n"
                     + _fe.ground_truth_block()
-                    + "EVIDENCE LADDER RULES:\n"
+                    + "\nEVIDENCE LADDER RULES:\n"
                     + "1) tier=confirmed ONLY → MAY write 已确认/Confirmed/Critical Confirmed.\n"
                     + "2) tier=probable → list ONLY as an unconfirmed verification item; never in confirmed vulnerabilities.\n"
                     + "3) tier=potential → list ONLY as an unconfirmed verification item; never in confirmed vulnerabilities.\n"
@@ -11535,6 +11202,7 @@ class BingoTerminal:
         self.console.print(_HdrPanel(_ht, border_style=THEME["dim"], padding=(0, 2)))
 
         full = ""
+        _deterministic_report = False
         if model_cfg:
             try:
                 model = ModelRegistry.build(model_cfg)
@@ -11555,6 +11223,12 @@ class BingoTerminal:
             except Exception as e:
                 self._error(f"report error: {e}")
 
+        # With zero confirmed exporter findings, prose from the model is not a
+        # sufficient source of truth.  Force the deterministic snapshot report
+        # so narrative claims cannot reintroduce SQLi/PII hallucinations.
+        if _fe is not None and _fe_confirmed_n == 0:
+            full = ""
+
         if not full.strip():
             _fallback_msg = self.s.get(
                 "report_fallback_used",
@@ -11569,6 +11243,7 @@ class BingoTerminal:
                 ground_truth=_fe_snap_block,
                 session_credentials=list(_session_creds),
             )
+            _deterministic_report = True
 
         report_valid, report_errors = BingoTerminal._validate_report_finding_ids(
             full, _fe_report_findings
@@ -11578,9 +11253,10 @@ class BingoTerminal:
                 "report_ground_truth_autocorrected",
                 "Report claims did not match Finding IDs; using deterministic evidence report",
             )
-            self.console.print(
-                f"[{THEME['warn']}]{_invalid_msg}: {', '.join(report_errors[:4])}[/]"
-            )
+            if _os_report.environ.get("BINGO_DEBUG"):
+                self.console.print(
+                    f"[{THEME['warn']}]{_invalid_msg}: {', '.join(report_errors[:4])}[/]"
+                )
             full = self._build_fallback_report(
                 target=target,
                 lang=_lang,
@@ -11589,12 +11265,14 @@ class BingoTerminal:
                 ground_truth=_fe_snap_block,
                 session_credentials=list(_session_creds),
             )
+            _deterministic_report = True
 
-        full = BingoTerminal._sanitize_report_confirmed_claims(
-            full,
-            confirmed_count=_fe_confirmed_n,
-            potential_count=_fe_potential_n,
-        )
+        if not _deterministic_report:
+            full = BingoTerminal._sanitize_report_confirmed_claims(
+                full,
+                confirmed_count=_fe_confirmed_n,
+                potential_count=_fe_potential_n,
+            )
         try:
             report_path.write_text(full.strip(), encoding="utf-8")
         except Exception as _write_err:
@@ -12311,8 +11989,14 @@ class BingoTerminal:
         if m2:
             self._agent_state["db_name"] = m2.group(1)
 
-        # Boolean SQLi 확인
-        if re.search(r"[Bb]oolean.{0,30}[Ll]ikely|[Ss]QLi.{0,20}[Cc]onfirmed", text):
+        # Boolean wording is model/tool prose, not proof.  Keep the state flag
+        # synchronized with the exporter evidence ladder instead.
+        if any(
+            getattr(_f, "vuln_type", "") == "sqli"
+            and getattr(_f, "confidence", "") == "confirmed"
+            and bool(getattr(_f, "confirmed", False))
+            for _f in getattr(self._findings_exporter, "findings", [])
+        ):
             self._agent_state["confirmed_sqli"] = True
 
         # 테이블 목록
@@ -12622,6 +12306,21 @@ class BingoTerminal:
         for _fhm in _fname_hash_re.finditer(text):
             self._session_cracked_hashes.add(_fhm.group(1).lower())
 
+        # Session/cookie tokens can be syntactically identical to MD5/NTLM.
+        # Record them globally for the session before generic hash extraction so
+        # later standalone echoes of the same token are still excluded.
+        _session_token_values = {
+            match.group(1).lower()
+            for match in _re_hf.finditer(
+                r'''(?:JSESSIONID|PHPSESSID|ASP\.NET_SessionId|session(?:_?id)?|'''
+                r'''sessid|SID|csrftoken|auth(?:_token)?|remember_token)'''
+                r'''\s*(?:=|["']?\s*,\s*["'])\s*["']?([0-9a-fA-F]{16,128})''',
+                text,
+                _re_hf.IGNORECASE,
+            )
+        }
+        self._session_cracked_hashes.update(_session_token_values)
+
         raw_hashes    = extract_hashes_from_text(text, strict=False)
         hashes_strict = extract_hashes_from_text(text, strict=True)
         _error_context_hashes = self._hashes_from_error_context(text, hashes_strict)
@@ -12632,6 +12331,9 @@ class BingoTerminal:
         fp_filtered  = [h for h in raw_hashes if h.lower() not in _strict_set]
         fp_filtered.extend(
             h for h in hashes_strict if h.lower() in _error_context_hashes
+        )
+        fp_filtered.extend(
+            h for h in hashes_strict if h.lower() in _session_token_values
         )
         new_hashes   = [
             h for h in hashes_strict

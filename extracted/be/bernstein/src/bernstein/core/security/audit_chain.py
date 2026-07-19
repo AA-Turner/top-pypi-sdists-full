@@ -870,13 +870,20 @@ class AuditChainStore:
         actor: str | None = None,
         since: str | None = None,
         until: str | None = None,
+        include_archived: bool = False,
     ) -> list[AuditEvent]:
-        """Delegate to the underlying :class:`AuditLog`."""
+        """Delegate to the underlying :class:`AuditLog`.
+
+        ``include_archived`` also replays archived ``*.jsonl.gz`` segments, so
+        a caller reasoning about linkage across the retention boundary sees
+        the same events :meth:`verify` does.
+        """
         return self._log.query(
             event_type=event_type,
             actor=actor,
             since=since,
             until=until,
+            include_archived=include_archived,
         )
 
     def verify(self) -> tuple[bool, list[str]]:
@@ -2313,7 +2320,7 @@ def record_sla_violation(
             "subject_type": subject_type,
             "subject_id": subject_id,
             "tick_instant": tick_instant,
-            "breached_axes": list(breached_axes),
+            "breached_axes": breached_axes.copy(),
             "requested_action": requested_action,
             "effective_action": effective_action,
             "remediation_blocked": remediation_blocked,
@@ -5476,7 +5483,381 @@ def record_audit_receipt_export(
     )
 
 
+#: Issue #2553 -- emitted once per agent-posted task artifact. The artifact
+#: bytes are content-addressed in the evidence store and sealed into the lineage
+#: spine; this mirror records only the identity (content hash, spine anchor,
+#: journal position, version chain) so the fact that a worker posted a given
+#: artifact at a known run position is itself chain-attested. The artifact
+#: payload is never recorded here.
+EVENT_RUN_ARTIFACT = "run.artifact"
+
+#: Issue #2553 -- emitted when a caller is refused an artifact post against a
+#: task whose claim it does not hold. The refusal is chain-attested so an
+#: operator can prove, from the chain alone, that isolation held.
+EVENT_RUN_ARTIFACT_REFUSED = "run.artifact_refused"
+
+
+def record_run_artifact(
+    *,
+    chain: AuditChainStore,
+    task_id: str,
+    key: str,
+    artifact_type: str,
+    content_hash: str,
+    version: int,
+    prev_version_hash: str,
+    spine_entry_hash: str,
+    journal_index: int,
+    journal_event_hash: str,
+    actor: str = "run_artifact",
+) -> AuditEvent:
+    """Append a ``run.artifact`` event into *chain* (#2553).
+
+    Mirrors an agent-posted task artifact into the HMAC-chained audit log. Only
+    the artifact identity is recorded -- the content hash, its spine anchor, the
+    version chain, and the anchoring journal position -- never the artifact
+    bytes. A verifier holding the stored blob can recompute the content hash
+    byte-identically and confirm the artifact is chain-attested.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        task_id: The task the artifact is bound to.
+        key: The artifact slot key.
+        artifact_type: One of ``report`` / ``table`` / ``link``.
+        content_hash: ``sha256:`` hash of the stored canonical bytes.
+        version: 1-based version number within the key.
+        prev_version_hash: The prior version's spine entry hash, or ``""``.
+        spine_entry_hash: This version's lineage-spine entry hash (its identity).
+        journal_index: 0-based index of the anchoring ``artifact_posted`` row.
+        journal_event_hash: The anchoring journal row's Merkle ``event_hash``.
+        actor: Recorded actor; defaults to ``"run_artifact"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_RUN_ARTIFACT,
+        actor=actor,
+        resource_type="run_artifact",
+        resource_id=spine_entry_hash,
+        details={
+            "task_id": task_id,
+            "key": key,
+            "artifact_type": artifact_type,
+            "content_hash": content_hash,
+            "version": version,
+            "prev_version_hash": prev_version_hash,
+            "spine_entry_hash": spine_entry_hash,
+            "journal_index": journal_index,
+            "journal_event_hash": journal_event_hash,
+        },
+    )
+
+
+def record_run_artifact_refused(
+    *,
+    chain: AuditChainStore,
+    task_id: str,
+    key: str,
+    caller: str,
+    reason: str,
+    actor: str = "run_artifact",
+) -> AuditEvent:
+    """Append a ``run.artifact_refused`` event into *chain* (#2553).
+
+    Records that a caller was refused an artifact post it was not authorised to
+    make (it does not hold the target task's claim). The refusal is chain-
+    attested so an operator can prove isolation held.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        task_id: The task the post was refused against.
+        key: The artifact key the caller attempted.
+        caller: The identity that attempted the post.
+        reason: A short typed reason string.
+        actor: Recorded actor; defaults to ``"run_artifact"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_RUN_ARTIFACT_REFUSED,
+        actor=actor,
+        resource_type="run_artifact",
+        resource_id=task_id,
+        details={
+            "task_id": task_id,
+            "key": key,
+            "caller": caller,
+            "reason": reason,
+        },
+    )
+
+
 # ---------------------------------------------------------------------------
+# Fleet config plane events (#2550)
+# ---------------------------------------------------------------------------
+#
+# Three named-configuration primitives share one discipline: every write,
+# rotation, and activation is a chain event, so config identity is a pure
+# projection of these receipts rather than a mutable live-state row. A
+# variable write records the old and new value hashes plus the per-name
+# write ordinal; a connection-document lifecycle records create / rotate /
+# resolve / refuse against the document's content hash; a context activation
+# records the canonical effective-settings hash. The constants are additive;
+# never edit or remove an existing entry.
+
+#: A fleet variable was written: carries the variable name, the prior value
+#: hash, the new value hash, and the per-name write ordinal (chain_position).
+#: A live-value config store cannot replay through mutation; because the
+#: write hashes are chained, a later mutation cannot rewrite what a pinned
+#: read resolved.
+EVENT_FLEET_VAR_SET = "fleet.var_set"
+
+#: A connection document was created for the first time under a name; the
+#: document names a broker-managed secret and connector defaults but carries
+#: no secret material, and is Ed25519-signed by the local install identity.
+EVENT_FLEET_CONN_CREATE = "fleet.conn_create"
+
+#: A connection document was rotated (old_hash -> new_hash); every consumer
+#: that references the document by name re-points at the next mint with zero
+#: task-spec edits. The rotation is itself a signed chain record.
+EVENT_FLEET_CONN_ROTATE = "fleet.conn_rotate"
+
+#: A connection document resolved through the broker mint path for a task;
+#: the receipt binds document name, document hash, task id, and token id so
+#: ``bernstein conn audit`` can reconstruct every resolving task offline.
+EVENT_FLEET_CONN_RESOLVE = "fleet.conn_resolve"
+
+#: A connection document refused to resolve (signature verification against
+#: the local install identity failed, e.g. a document copied from another
+#: install). The refusal is a recorded event, not a silent denial.
+EVENT_FLEET_CONN_REFUSE = "fleet.conn_refuse"
+
+#: A named operating context was activated: the receipt embeds the canonical
+#: effective-settings hash so a run carries a configuration identity a
+#: verifier can check, and replay can flag hash divergence with a named cause.
+EVENT_FLEET_CONTEXT_ACTIVATE = "fleet.context_activate"
+
+
+def record_fleet_var_set(
+    *,
+    chain: AuditChainStore,
+    name: str,
+    old_value_hash: str,
+    new_value_hash: str,
+    chain_position: int,
+    actor: str = "fleet_config",
+) -> AuditEvent:
+    """Append a ``fleet.var_set`` event into *chain* (#2550).
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        name: The fleet variable name; the variable's identity is its chain
+            segment (all ``fleet.var_set`` events sharing this ``resource_id``).
+        old_value_hash: Content hash of the prior value (``""`` for the first
+            write); pairs with ``new_value_hash`` so a mutated or deleted
+            historical write flips ``verify`` with a named failing record.
+        new_value_hash: Content hash of the value now in effect.
+        chain_position: The per-name write ordinal (0 for the first write);
+            a pinned read records this so divergence between two workers is
+            explained by the writes landing between their two positions.
+        actor: Recorded actor; defaults to ``"fleet_config"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_FLEET_VAR_SET,
+        actor=actor,
+        resource_type="fleet_variable",
+        resource_id=name,
+        details={
+            "name": name,
+            "old_value_hash": old_value_hash,
+            "new_value_hash": new_value_hash,
+            "chain_position": chain_position,
+        },
+    )
+
+
+def record_fleet_conn_create(
+    *,
+    chain: AuditChainStore,
+    name: str,
+    document_hash: str,
+    secret_name_digest: str,
+    actor: str = "fleet_config",
+) -> AuditEvent:
+    """Append a ``fleet.conn_create`` event into *chain* (#2550).
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        name: Operator-facing connection document name.
+        document_hash: ``sha256`` over the canonical unsigned document bytes;
+            the document's content-addressed identity.
+        secret_name_digest: Digest of the broker secret name the document
+            references (never the raw secret name, never the secret value).
+        actor: Recorded actor; defaults to ``"fleet_config"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_FLEET_CONN_CREATE,
+        actor=actor,
+        resource_type="fleet_connection",
+        resource_id=name,
+        details={
+            "name": name,
+            "document_hash": document_hash,
+            "secret_name_digest": secret_name_digest,
+        },
+    )
+
+
+def record_fleet_conn_rotate(
+    *,
+    chain: AuditChainStore,
+    name: str,
+    old_document_hash: str,
+    new_document_hash: str,
+    secret_name_digest: str,
+    actor: str = "fleet_config",
+) -> AuditEvent:
+    """Append a ``fleet.conn_rotate`` event into *chain* (#2550).
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        name: Operator-facing connection document name.
+        old_document_hash: Content hash of the superseded document version.
+        new_document_hash: Content hash of the new document version.
+        secret_name_digest: Digest of the (possibly new) broker secret name.
+        actor: Recorded actor; defaults to ``"fleet_config"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_FLEET_CONN_ROTATE,
+        actor=actor,
+        resource_type="fleet_connection",
+        resource_id=name,
+        details={
+            "name": name,
+            "old_document_hash": old_document_hash,
+            "new_document_hash": new_document_hash,
+            "secret_name_digest": secret_name_digest,
+        },
+    )
+
+
+def record_fleet_conn_resolve(
+    *,
+    chain: AuditChainStore,
+    name: str,
+    document_hash: str,
+    task_id: str,
+    token_id: str,
+    actor: str = "fleet_config",
+) -> AuditEvent:
+    """Append a ``fleet.conn_resolve`` event into *chain* (#2550).
+
+    The lineage receipt binds ``(document name, document hash, task id,
+    token id)`` so a resolving task can be reconstructed offline from the
+    chain alone. The raw secret never appears here.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        name: Connection document name that resolved.
+        document_hash: Content hash of the document version that resolved.
+        task_id: The task the short-lived token was minted for.
+        token_id: The broker-minted token identifier (opaque, non-secret).
+        actor: Recorded actor; defaults to ``"fleet_config"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_FLEET_CONN_RESOLVE,
+        actor=actor,
+        resource_type="fleet_connection",
+        resource_id=name,
+        details={
+            "name": name,
+            "document_hash": document_hash,
+            "task_id": task_id,
+            "token_id": token_id,
+        },
+    )
+
+
+def record_fleet_conn_refuse(
+    *,
+    chain: AuditChainStore,
+    name: str,
+    document_hash: str,
+    reason: str,
+    actor: str = "fleet_config",
+) -> AuditEvent:
+    """Append a ``fleet.conn_refuse`` event into *chain* (#2550).
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        name: Connection document name that refused to resolve.
+        document_hash: Content hash of the refused document.
+        reason: Machine-stable refusal reason (e.g.
+            ``"signature_verification_failed"``).
+        actor: Recorded actor; defaults to ``"fleet_config"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_FLEET_CONN_REFUSE,
+        actor=actor,
+        resource_type="fleet_connection",
+        resource_id=name,
+        details={
+            "name": name,
+            "document_hash": document_hash,
+            "reason": reason,
+        },
+    )
+
+
+def record_fleet_context_activate(
+    *,
+    chain: AuditChainStore,
+    name: str,
+    settings_hash: str,
+    actor: str = "fleet_config",
+) -> AuditEvent:
+    """Append a ``fleet.context_activate`` event into *chain* (#2550).
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        name: The operating context name that was activated.
+        settings_hash: Canonical effective-settings hash under the context;
+            embedded in run receipts so config drift becomes a detected hash
+            divergence with a named cause.
+        actor: Recorded actor; defaults to ``"fleet_config"``.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_FLEET_CONTEXT_ACTIVATE,
+        actor=actor,
+        resource_type="fleet_context",
+        resource_id=name,
+        details={
+            "name": name,
+            "settings_hash": settings_hash,
+        },
+    )
+
+
 # Cache policy engine (#2551): every hit, miss, dedup claim, and eviction is an
 # audit-chain event carrying the policy hash and recipe hash, so the fact a
 # cache decision was taken under a named policy is itself chain-attested. Only
@@ -6140,6 +6521,12 @@ __all__ = [
     "EVENT_EVIDENCE_BUNDLE",
     "EVENT_EXPECTATION_EXPIRED",
     "EVENT_FEED_RENDER_FAILURE",
+    "EVENT_FLEET_CONN_CREATE",
+    "EVENT_FLEET_CONN_REFUSE",
+    "EVENT_FLEET_CONN_RESOLVE",
+    "EVENT_FLEET_CONN_ROTATE",
+    "EVENT_FLEET_CONTEXT_ACTIVATE",
+    "EVENT_FLEET_VAR_SET",
     "EVENT_FORK_SNAPSHOT",
     "EVENT_GATE_ADJUDICATION",
     "EVENT_GOVERNANCE_DECISION",
@@ -6180,6 +6567,8 @@ __all__ = [
     "EVENT_REVIEW_RECEIPT",
     "EVENT_ROUTING_FAILOVER_RECEIPT",
     "EVENT_RULE_FIRE_RECEIPT",
+    "EVENT_RUN_ARTIFACT",
+    "EVENT_RUN_ARTIFACT_REFUSED",
     "EVENT_RUN_LIFECYCLE",
     "EVENT_RUN_SSH_TASK",
     "EVENT_SCHEDULE_COLLISION",
@@ -6245,6 +6634,12 @@ __all__ = [
     "record_eval_gate_verdict",
     "record_evidence_bundle",
     "record_expectation_expired",
+    "record_fleet_conn_create",
+    "record_fleet_conn_refuse",
+    "record_fleet_conn_resolve",
+    "record_fleet_conn_rotate",
+    "record_fleet_context_activate",
+    "record_fleet_var_set",
     "record_fork_snapshot",
     "record_gate_adjudication",
     "record_governance_decision",
@@ -6284,6 +6679,8 @@ __all__ = [
     "record_review_receipt",
     "record_routing_failover_receipt",
     "record_rule_fire_receipt",
+    "record_run_artifact",
+    "record_run_artifact_refused",
     "record_run_lifecycle",
     "record_run_ssh_task",
     "record_schedule_collision",

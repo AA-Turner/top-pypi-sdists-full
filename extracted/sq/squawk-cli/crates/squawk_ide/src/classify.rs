@@ -1,4 +1,4 @@
-use crate::{location::LocationKind, symbols::Name};
+use crate::{location::LocationKind, name, symbols::Name};
 use squawk_syntax::{
     SyntaxKind, SyntaxNode,
     ast::{self, AstNode},
@@ -6,12 +6,17 @@ use squawk_syntax::{
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum NameRefClass {
+    AccessMethod,
     Aggregate,
     AlterColumn,
-    CallProcedure,
     Channel,
+    Collation,
+    CompositeTypeAttribute,
     CompositeTypeField,
+    Constraint,
     ConstraintColumn,
+    Conversion,
+    CopyColumn,
     CreateIndexColumn,
     Cursor,
     Database,
@@ -19,32 +24,42 @@ pub(crate) enum NameRefClass {
     DeleteQualifiedColumnTable,
     EventTrigger,
     Extension,
+    ForeignDataWrapper,
     ForeignKeyColumn,
     ForeignKeyTable,
     FromTable,
     Function,
-    FunctionCall,
-    FunctionName,
     Index,
     InsertColumn,
     InsertQualifiedColumnTable,
     InsertTable,
     JoinUsingColumn,
-    LikeTable,
+    Language,
     MergeColumn,
     MergeQualifiedColumnTable,
     NamedArgParameter,
+    OperatorClass,
+    OperatorFamily,
+    ParamDefault,
     Policy,
     PolicyColumn,
     PolicyQualifiedColumnTable,
     PreparedStatement,
+    PrivilegeColumn,
+    PrivilegeObjectTable,
     Procedure,
-    ProcedureCall,
     PropertyGraph,
     PropertyGraphColumn,
+    Publication,
+    PublicationColumn,
     QualifiedColumn,
+    Relation,
     Role,
     Routine,
+    Rule,
+    RulePseudoColumn,
+    RulePseudoColumnTable,
+    Savepoint,
     Schema,
     SelectColumn,
     SelectFunctionCall,
@@ -54,52 +69,343 @@ pub(crate) enum NameRefClass {
     SelectQualifiedColumnTable,
     Sequence,
     Server,
+    Statistics,
+    StatisticsColumn,
+    Subscription,
     Table,
+    TableAndColumnsColumn,
     Tablespace,
+    TextSearchConfiguration,
+    TextSearchDictionary,
+    TextSearchParser,
+    TextSearchTemplate,
     Trigger,
+    TriggerEventColumn,
+    TriggerWhenColumn,
+    TriggerWhenColumnTable,
     Type,
     UpdateColumn,
     UpdateQualifiedColumnTable,
+    VertexTable,
     View,
     Window,
 }
 
-fn is_special_fn(kind: SyntaxKind) -> bool {
+fn classify_object_definition(kind: SyntaxKind) -> Option<LocationKind> {
+    Some(match kind {
+        SyntaxKind::ACCESS_METHOD => LocationKind::AccessMethod,
+        SyntaxKind::CHANNEL => LocationKind::Channel,
+        SyntaxKind::COLLATION => LocationKind::Collation,
+        SyntaxKind::CONSTRAINT_NAME => LocationKind::Constraint,
+        SyntaxKind::CONVERSION => LocationKind::Conversion,
+        SyntaxKind::CURSOR => LocationKind::Cursor,
+        SyntaxKind::DATABASE => LocationKind::Database,
+        SyntaxKind::DOMAIN => LocationKind::Type,
+        SyntaxKind::EVENT_TRIGGER => LocationKind::EventTrigger,
+        SyntaxKind::EXTENSION => LocationKind::Extension,
+        SyntaxKind::FOREIGN_DATA_WRAPPER => LocationKind::ForeignDataWrapper,
+        SyntaxKind::FUNCTION_NAME => LocationKind::Function,
+        SyntaxKind::INDEX => LocationKind::Index,
+        SyntaxKind::LANGUAGE => LocationKind::Language,
+        SyntaxKind::OP_CLASS_NAME => LocationKind::OperatorClass,
+        SyntaxKind::OP_FAMILY_NAME => LocationKind::OperatorFamily,
+        SyntaxKind::POLICY => LocationKind::Policy,
+        SyntaxKind::PREPARED_STATEMENT => LocationKind::PreparedStatement,
+        SyntaxKind::PROCEDURE_NAME => LocationKind::Procedure,
+        SyntaxKind::PROPERTY_GRAPH => LocationKind::PropertyGraph,
+        SyntaxKind::PUBLICATION => LocationKind::Publication,
+        SyntaxKind::RULE => LocationKind::Rule,
+        SyntaxKind::SAVEPOINT => LocationKind::Savepoint,
+        SyntaxKind::SCHEMA => LocationKind::Schema,
+        SyntaxKind::SEQUENCE => LocationKind::Sequence,
+        SyntaxKind::SERVER => LocationKind::Server,
+        SyntaxKind::STATISTICS => LocationKind::Statistics,
+        SyntaxKind::SUBSCRIPTION => LocationKind::Subscription,
+        SyntaxKind::TABLE_NAME => LocationKind::Table,
+        SyntaxKind::TABLESPACE => LocationKind::Tablespace,
+        SyntaxKind::TEXT_SEARCH_CONFIGURATION => LocationKind::TextSearchConfiguration,
+        SyntaxKind::TEXT_SEARCH_DICTIONARY => LocationKind::TextSearchDictionary,
+        SyntaxKind::TEXT_SEARCH_PARSER => LocationKind::TextSearchParser,
+        SyntaxKind::TEXT_SEARCH_TEMPLATE => LocationKind::TextSearchTemplate,
+        SyntaxKind::TRIGGER => LocationKind::Trigger,
+        SyntaxKind::TYPE_NAME => LocationKind::Type,
+        SyntaxKind::VIEW => LocationKind::View,
+        SyntaxKind::WINDOW => LocationKind::Window,
+        _ => return None,
+    })
+}
+
+fn classify_object_ref(kind: SyntaxKind) -> Option<NameRefClass> {
+    Some(match kind {
+        SyntaxKind::ACCESS_METHOD_REF => NameRefClass::AccessMethod,
+        SyntaxKind::CHANNEL_REF => NameRefClass::Channel,
+        SyntaxKind::COLLATION_REF => NameRefClass::Collation,
+        SyntaxKind::CONSTRAINT_NAME_REF => NameRefClass::Constraint,
+        SyntaxKind::CONVERSION_REF => NameRefClass::Conversion,
+        SyntaxKind::CURSOR_REF => NameRefClass::Cursor,
+        SyntaxKind::DATABASE_REF => NameRefClass::Database,
+        SyntaxKind::DOMAIN_REF => NameRefClass::Type,
+        SyntaxKind::EVENT_TRIGGER_REF => NameRefClass::EventTrigger,
+        SyntaxKind::EXTENSION_REF => NameRefClass::Extension,
+        SyntaxKind::FOREIGN_DATA_WRAPPER_REF => NameRefClass::ForeignDataWrapper,
+        SyntaxKind::FUNCTION_NAME_REF => NameRefClass::Function,
+        SyntaxKind::INDEX_REF => NameRefClass::Index,
+        SyntaxKind::LANGUAGE_REF => NameRefClass::Language,
+        SyntaxKind::OP_CLASS_REF => NameRefClass::OperatorClass,
+        SyntaxKind::OP_FAMILY_REF => NameRefClass::OperatorFamily,
+        SyntaxKind::POLICY_REF => NameRefClass::Policy,
+        SyntaxKind::PREPARED_STATEMENT_REF => NameRefClass::PreparedStatement,
+        SyntaxKind::PROCEDURE_NAME_REF => NameRefClass::Procedure,
+        SyntaxKind::PROPERTY_GRAPH_REF => NameRefClass::PropertyGraph,
+        SyntaxKind::PUBLICATION_REF => NameRefClass::Publication,
+        SyntaxKind::RELATION_NAME_REF => NameRefClass::Relation,
+        SyntaxKind::ROLE_REF => NameRefClass::Role,
+        SyntaxKind::ROUTINE_NAME_REF => NameRefClass::Routine,
+        SyntaxKind::RULE_REF => NameRefClass::Rule,
+        SyntaxKind::SAVEPOINT_REF => NameRefClass::Savepoint,
+        SyntaxKind::SCHEMA_REF => NameRefClass::Schema,
+        SyntaxKind::SEQUENCE_REF => NameRefClass::Sequence,
+        SyntaxKind::SERVER_REF => NameRefClass::Server,
+        SyntaxKind::STATISTICS_REF => NameRefClass::Statistics,
+        SyntaxKind::SUBSCRIPTION_REF => NameRefClass::Subscription,
+        SyntaxKind::TABLESPACE_REF => NameRefClass::Tablespace,
+        SyntaxKind::TEXT_SEARCH_CONFIGURATION_REF => NameRefClass::TextSearchConfiguration,
+        SyntaxKind::TEXT_SEARCH_DICTIONARY_REF => NameRefClass::TextSearchDictionary,
+        SyntaxKind::TEXT_SEARCH_PARSER_REF => NameRefClass::TextSearchParser,
+        SyntaxKind::TEXT_SEARCH_TEMPLATE_REF => NameRefClass::TextSearchTemplate,
+        SyntaxKind::TRIGGER_REF => NameRefClass::Trigger,
+        SyntaxKind::TYPE_NAME_REF => NameRefClass::Type,
+        SyntaxKind::VERTEX_TABLE_REF => NameRefClass::VertexTable,
+        SyntaxKind::VIEW_REF => NameRefClass::View,
+        SyntaxKind::WINDOW_REF => NameRefClass::Window,
+        _ => return None,
+    })
+}
+
+fn is_create_aggregate_function_option(option_name: &Name) -> bool {
     matches!(
-        kind,
-        SyntaxKind::EXTRACT_FN
-            | SyntaxKind::COLLATION_FOR_FN
-            | SyntaxKind::JSON_EXISTS_FN
-            | SyntaxKind::JSON_ARRAY_FN
-            | SyntaxKind::JSON_OBJECT_FN
-            | SyntaxKind::JSON_OBJECT_AGG_FN
-            | SyntaxKind::JSON_ARRAY_AGG_FN
-            | SyntaxKind::JSON_QUERY_FN
-            | SyntaxKind::JSON_SCALAR_FN
-            | SyntaxKind::JSON_SERIALIZE_FN
-            | SyntaxKind::JSON_VALUE_FN
-            | SyntaxKind::JSON_FN
-            | SyntaxKind::SUBSTRING_FN
-            | SyntaxKind::POSITION_FN
-            | SyntaxKind::OVERLAY_FN
-            | SyntaxKind::TRIM_FN
-            | SyntaxKind::XML_ROOT_FN
-            | SyntaxKind::XML_SERIALIZE_FN
-            | SyntaxKind::XML_ELEMENT_FN
-            | SyntaxKind::XML_FOREST_FN
-            | SyntaxKind::XML_EXISTS_FN
-            | SyntaxKind::XML_PARSE_FN
-            | SyntaxKind::XML_PI_FN
-            | SyntaxKind::SOME_FN
-            | SyntaxKind::ANY_FN
-            | SyntaxKind::ALL_FN
-            | SyntaxKind::EXISTS_FN
-            | SyntaxKind::GRAPH_TABLE_FN
+        option_name.0.as_str(),
+        "combinefunc"
+            | "deserialfunc"
+            | "finalfunc"
+            | "mfinalfunc"
+            | "minvfunc"
+            | "msfunc"
+            | "serialfunc"
+            | "sfunc"
     )
 }
 
+fn is_create_operator_function_option(option_name: &Name) -> bool {
+    matches!(option_name.0.as_str(), "function" | "procedure")
+}
+
+fn is_create_type_function_option(option_name: &Name) -> bool {
+    matches!(
+        option_name.0.as_str(),
+        "analyze"
+            | "canonical"
+            | "input"
+            | "output"
+            | "receive"
+            | "send"
+            | "subscript"
+            | "subtype_diff"
+            | "typmod_in"
+            | "typmod_out"
+    )
+}
+
+fn is_text_search_parser_function_option(option_name: &Name) -> bool {
+    matches!(
+        option_name.0.as_str(),
+        "end" | "gettoken" | "headline" | "lextypes" | "start"
+    )
+}
+
+fn is_text_search_template_function_option(option_name: &Name) -> bool {
+    matches!(option_name.0.as_str(), "init" | "lexize")
+}
+
+fn classify_ddl_function_option_value(ty_node: &SyntaxNode) -> Option<NameRefClass> {
+    let attribute_option = ty_node
+        .parent()
+        .and_then(ast::AttributeValue::cast)?
+        .syntax()
+        .parent()
+        .and_then(ast::AttributeOption::cast)?;
+    let attr_name = Name::from_node(&attribute_option.name()?);
+    let ddl_node = attribute_option
+        .syntax()
+        .parent()
+        .and_then(|attribute_list| attribute_list.parent())?;
+    let ddl_node = if ast::CreateTypeKind::can_cast(ddl_node.kind()) {
+        ddl_node.parent()?
+    } else {
+        ddl_node
+    };
+
+    if (ast::CreateOperator::can_cast(ddl_node.kind())
+        && is_create_operator_function_option(&attr_name))
+        || (ast::CreateAggregate::can_cast(ddl_node.kind())
+            && is_create_aggregate_function_option(&attr_name))
+        || (ast::CreateType::can_cast(ddl_node.kind())
+            && is_create_type_function_option(&attr_name))
+        || (ast::CreateTextSearchParser::can_cast(ddl_node.kind())
+            && is_text_search_parser_function_option(&attr_name))
+        || (ast::CreateTextSearchTemplate::can_cast(ddl_node.kind())
+            && is_text_search_template_function_option(&attr_name))
+    {
+        return Some(NameRefClass::Function);
+    }
+    if ast::CreateTextSearchConfiguration::can_cast(ddl_node.kind()) {
+        if attr_name.0.as_str() == "parser" {
+            return Some(NameRefClass::TextSearchParser);
+        }
+        if attr_name.0.as_str() == "copy" {
+            return Some(NameRefClass::TextSearchConfiguration);
+        }
+    }
+    if ast::CreateTextSearchDictionary::can_cast(ddl_node.kind())
+        && attr_name.0.as_str() == "template"
+    {
+        return Some(NameRefClass::TextSearchTemplate);
+    }
+    None
+}
+
+fn is_search_path(path: Option<ast::PathRef>) -> bool {
+    let Some(path) = path else {
+        return false;
+    };
+    if path.qualifier().is_some() {
+        return false;
+    }
+    path.segment()
+        .and_then(|segment| segment.name_ref())
+        .is_some_and(|name_ref| Name::from_node(&name_ref).0.as_str() == "search_path")
+}
+
+fn is_rule_old_new_ref(name_ref: &ast::NameRef) -> bool {
+    name_ref
+        .syntax()
+        .first_token()
+        .is_some_and(|t| matches!(t.kind(), SyntaxKind::OLD_KW | SyntaxKind::NEW_KW))
+        && name_ref
+            .syntax()
+            .ancestors()
+            .any(|a| ast::CreateRule::can_cast(a.kind()))
+}
+
+fn classify_call_expr_name_ref(
+    node: &SyntaxNode,
+    call_expr: &ast::CallExpr,
+) -> Option<NameRefClass> {
+    if !call_expr
+        .expr()?
+        .syntax()
+        .text_range()
+        .contains_range(node.text_range())
+    {
+        return None;
+    }
+
+    for ancestor in call_expr.syntax().ancestors() {
+        if let Some(create_trigger) = ast::CreateTrigger::cast(ancestor.clone())
+            && create_trigger
+                .call_expr()
+                .is_some_and(|execute_call| execute_call.syntax() == call_expr.syntax())
+        {
+            return Some(if create_trigger.procedure_token().is_some() {
+                NameRefClass::Procedure
+            } else {
+                NameRefClass::Function
+            });
+        }
+        if let Some(create_event_trigger) = ast::CreateEventTrigger::cast(ancestor.clone())
+            && create_event_trigger
+                .call_expr()
+                .is_some_and(|execute_call| execute_call.syntax() == call_expr.syntax())
+        {
+            return Some(if create_event_trigger.procedure_token().is_some() {
+                NameRefClass::Procedure
+            } else {
+                NameRefClass::Function
+            });
+        }
+        if ast::Select::can_cast(ancestor.kind())
+            || ast::SelectInto::can_cast(ancestor.kind())
+            || ast::Insert::can_cast(ancestor.kind())
+            || ast::ReturnFuncOption::can_cast(ancestor.kind())
+        {
+            return Some(NameRefClass::SelectFunctionCall);
+        }
+        if ast::Delete::can_cast(ancestor.kind())
+            || ast::Merge::can_cast(ancestor.kind())
+            || ast::Update::can_cast(ancestor.kind())
+        {
+            return Some(NameRefClass::Function);
+        }
+    }
+
+    Some(NameRefClass::Function)
+}
+
+fn classify_object_column_path(node: &SyntaxNode) -> Option<NameRefClass> {
+    let object_column = node.ancestors().find_map(ast::ObjectColumn::cast)?;
+    let mut path = object_column.path_ref()?;
+    let mut name_refs = Vec::new();
+
+    loop {
+        if let Some(name_ref) = path.segment().and_then(|segment| segment.name_ref()) {
+            name_refs.push(name_ref);
+        }
+        let Some(qualifier) = path.qualifier() else {
+            break;
+        };
+        path = qualifier;
+    }
+
+    name_refs.reverse();
+    let idx = name_refs
+        .iter()
+        .position(|name_ref| name_ref.syntax() == node)?;
+    let last_idx = name_refs.len().checked_sub(1)?;
+
+    if idx == last_idx {
+        Some(NameRefClass::QualifiedColumn)
+    } else if idx + 1 == last_idx {
+        Some(NameRefClass::Table)
+    } else {
+        Some(NameRefClass::Schema)
+    }
+}
+
+pub(crate) fn classify_literal(node: &SyntaxNode) -> Option<NameRefClass> {
+    let parent = node.parent()?;
+    if ast::SetSchemaValue::can_cast(parent.kind()) {
+        return Some(NameRefClass::Schema);
+    }
+    if let Some(set_config) = ast::SetConfig::cast(parent.clone())
+        && is_search_path(set_config.path_ref())
+        && set_config
+            .config_values()
+            .any(|config_value| config_value.syntax() == node)
+    {
+        return Some(NameRefClass::Schema);
+    }
+    if let Some(set_config_param) = ast::SetConfigParam::cast(parent)
+        && is_search_path(set_config_param.path_ref())
+        && set_config_param
+            .literals()
+            .any(|literal| literal.syntax() == node)
+    {
+        return Some(NameRefClass::Schema);
+    }
+    None
+}
+
 pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
-    let mut in_function_name = false;
     let mut in_arg_list = false;
     let mut in_column_list = false;
     let mut in_where_clause = false;
@@ -110,14 +416,15 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
     let mut in_constraint_include_clause = false;
     let mut in_constraint_where_clause = false;
     let mut in_partition_item = false;
-    let mut in_set_null_columns = false;
     let mut in_using_clause = false;
     let mut in_returning_clause = false;
     let mut in_when_clause = false;
-    let mut in_special_sql_fn = false;
     let mut in_conflict_target = false;
     let mut in_group_by_clause = false;
     let mut in_order_by_clause = false;
+    let mut in_distinct_clause = false;
+    let mut in_table_valued_column_list = false;
+    let mut has_table_name_ref = false;
 
     // TODO: can we combine this if and the one that follows?
     if let Some(parent) = node.parent()
@@ -139,6 +446,10 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
             .and_then(ast::FieldExpr::cast)
             .is_some();
 
+        if is_rule_old_new_ref(&base_name_ref) {
+            return Some(NameRefClass::RulePseudoColumnTable);
+        }
+
         let mut in_arg_list = false;
         let mut in_from_clause = false;
         let mut in_on_clause = false;
@@ -146,9 +457,16 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         let mut in_set_clause = false;
         let mut in_where_clause = false;
         let mut in_when_clause = false;
+        let mut in_when_condition = false;
         for ancestor in parent.ancestors() {
             if ast::ArgList::can_cast(ancestor.kind()) {
                 in_arg_list = true;
+            }
+            if ast::WhenCondition::can_cast(ancestor.kind()) {
+                in_when_condition = true;
+            }
+            if ast::CreateTrigger::can_cast(ancestor.kind()) && in_when_condition {
+                return Some(NameRefClass::TriggerWhenColumnTable);
             }
             if ast::OnClause::can_cast(ancestor.kind()) {
                 in_on_clause = true;
@@ -204,7 +522,8 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
                     }
                 }
             }
-            if ast::Select::can_cast(ancestor.kind())
+            if (ast::Select::can_cast(ancestor.kind())
+                || ast::SelectInto::can_cast(ancestor.kind()))
                 && (!in_from_clause || in_on_clause || in_arg_list)
             {
                 if is_function_call || is_schema_table_col {
@@ -247,14 +566,32 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
             .and_then(ast::FieldExpr::cast)
             .is_some();
 
+        if let Some(ast::Expr::NameRef(base_name_ref)) = field_expr.base()
+            && is_rule_old_new_ref(&base_name_ref)
+        {
+            return Some(NameRefClass::RulePseudoColumn);
+        }
+
+        // i.e., `(expr).field`
+        if !is_base_of_outer_field_expr && let Some(ast::Expr::ParenExpr(_)) = field_expr.base() {
+            return Some(NameRefClass::CompositeTypeField);
+        }
+
         let mut in_from_clause = false;
         let mut in_on_clause = false;
         let mut in_cast_expr = false;
         let mut in_when_clause = false;
+        let mut in_when_condition = false;
         let mut in_returning_clause = false;
         for ancestor in parent.ancestors() {
             if ast::OnClause::can_cast(ancestor.kind()) {
                 in_on_clause = true;
+            }
+            if ast::WhenCondition::can_cast(ancestor.kind()) {
+                in_when_condition = true;
+            }
+            if ast::CreateTrigger::can_cast(ancestor.kind()) && in_when_condition {
+                return Some(NameRefClass::TriggerWhenColumn);
             }
             if ast::CastExpr::can_cast(ancestor.kind()) {
                 in_cast_expr = true;
@@ -277,7 +614,10 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
                     return Some(NameRefClass::SelectQualifiedColumn);
                 }
             }
-            if ast::Select::can_cast(ancestor.kind()) && (!in_from_clause || in_on_clause) {
+            if (ast::Select::can_cast(ancestor.kind())
+                || ast::SelectInto::can_cast(ancestor.kind()))
+                && (!in_from_clause || in_on_clause)
+            {
                 if in_cast_expr {
                     return Some(NameRefClass::Type);
                 }
@@ -287,8 +627,6 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
                     && matches!(base, ast::Expr::NameRef(_) | ast::Expr::FieldExpr(_))
                 {
                     return Some(NameRefClass::SelectQualifiedColumn);
-                } else if let Some(ast::Expr::ParenExpr(_)) = field_expr.base() {
-                    return Some(NameRefClass::CompositeTypeField);
                 } else {
                     return Some(NameRefClass::SelectQualifiedColumnTable);
                 }
@@ -302,17 +640,30 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
                     return Some(NameRefClass::PolicyColumn);
                 }
             }
+            if ast::ReturnFuncOption::can_cast(ancestor.kind()) {
+                if let Some(ast::Expr::NameRef(base)) = field_expr.base()
+                    && enclosing_routine_name(&ancestor)
+                        .is_some_and(|routine_name| Name::from_node(&base) == routine_name)
+                {
+                    return Some(NameRefClass::SelectColumn);
+                }
+                return None;
+            }
         }
+    }
+
+    if let Some(class) = classify_object_column_path(node) {
+        return Some(class);
     }
 
     // %type clause paths (max 3 segments):
     //   column%type, table.column%type, schema.table.column%type
     if let Some(parent) = node.parent()
-        && let Some(mut path) = ast::PathSegment::cast(parent)
-            .and_then(|p| p.syntax().parent().and_then(ast::Path::cast))
+        && let Some(mut path) = ast::PathSegmentRef::cast(parent)
+            .and_then(|p| p.syntax().parent().and_then(ast::PathRef::cast))
     {
         let mut hops_up = 0;
-        while let Some(next) = path.syntax().parent().and_then(ast::Path::cast) {
+        while let Some(next) = path.syntax().parent().and_then(ast::PathRef::cast) {
             path = next;
             hops_up += 1;
         }
@@ -328,29 +679,30 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
                 _ => None,
             };
         }
+        if let Some(sequence_option) = path.syntax().parent().and_then(ast::SequenceOption::cast)
+            && sequence_option.owned_token().is_some()
+            && sequence_option.by_token().is_some()
+        {
+            return match hops_up {
+                0 => Some(NameRefClass::QualifiedColumn),
+                1 => Some(NameRefClass::Table),
+                2 => Some(NameRefClass::Schema),
+                _ => None,
+            };
+        }
     }
 
     if let Some(parent) = node.parent()
-        && let Some(inner_path) = ast::PathSegment::cast(parent)
-            .and_then(|p| p.syntax().parent().and_then(ast::Path::cast))
-        && let Some(outer_path) = inner_path
-            .syntax()
-            .parent()
-            .and_then(|p| ast::Path::cast(p).and_then(|p| p.qualifier()))
+        && let Some(inner_path) = ast::PathSegmentRef::cast(parent)
+            .and_then(|p| p.syntax().parent().and_then(ast::PathRef::cast))
+        && let Some(outer_path) = inner_path.syntax().parent().and_then(|p| {
+            ast::PathRef::cast(p.clone())
+                .and_then(|p| p.qualifier())
+                .or_else(|| ast::Path::cast(p).and_then(|p| p.qualifier()))
+        })
         && outer_path.syntax() == inner_path.syntax()
     {
         return Some(NameRefClass::Schema);
-    }
-
-    if let Some(parent) = node.parent()
-        && let Some(path) = ast::PathSegment::cast(parent)
-            .and_then(|p| p.syntax().parent().and_then(ast::Path::cast))
-        && let Some(stmt_parent) = path.syntax().parent()
-        && (ast::AlterPropertyGraph::can_cast(stmt_parent.kind())
-            || ast::DropPropertyGraph::can_cast(stmt_parent.kind())
-            || ast::GraphTableFn::can_cast(stmt_parent.kind()))
-    {
-        return Some(NameRefClass::PropertyGraph);
     }
 
     if let Some(parent) = node.parent()
@@ -361,56 +713,67 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         return Some(NameRefClass::PropertyGraphColumn);
     }
 
-    // Check for function/procedure reference in CREATE OPERATOR / CREATE AGGREGATE
-    // before the type check
-    for ancestor in node.ancestors() {
-        if let Some(attr_option) = ast::AttributeOption::cast(ancestor.clone())
-            && let Some(name) = attr_option.name()
-        {
-            let attr_name = Name::from_node(&name);
-            for outer in attr_option.syntax().ancestors() {
-                if ast::CreateOperator::can_cast(outer.kind())
-                    && (attr_name == Name::from_string("function")
-                        || attr_name == Name::from_string("procedure"))
-                {
-                    return Some(NameRefClass::FunctionName);
-                }
-                if ast::CreateAggregate::can_cast(outer.kind())
-                    && (attr_name == Name::from_string("sfunc")
-                        || attr_name == Name::from_string("finalfunc")
-                        || attr_name == Name::from_string("combinefunc")
-                        || attr_name == Name::from_string("serialfunc")
-                        || attr_name == Name::from_string("deserialfunc")
-                        || attr_name == Name::from_string("msfunc")
-                        || attr_name == Name::from_string("minvfunc")
-                        || attr_name == Name::from_string("mfinalfunc"))
-                {
-                    return Some(NameRefClass::FunctionName);
-                }
-            }
-        }
-    }
-
     let mut in_type = false;
     for ancestor in node.ancestors() {
+        if ast::TableNameRef::can_cast(ancestor.kind()) {
+            has_table_name_ref = true;
+        } else if let Some(class) = classify_object_ref(ancestor.kind()) {
+            return Some(class);
+        }
+        if ast::CopyTable::can_cast(ancestor.kind()) {
+            return Some(if has_table_name_ref {
+                NameRefClass::Table
+            } else {
+                NameRefClass::CopyColumn
+            });
+        }
+        if ast::OnTable::can_cast(ancestor.kind()) {
+            return Some(NameRefClass::Table);
+        }
+        if ast::TableAndColumns::can_cast(ancestor.kind()) {
+            return Some(if has_table_name_ref {
+                NameRefClass::Table
+            } else {
+                NameRefClass::TableAndColumnsColumn
+            });
+        }
+        if let Some(call_expr) = ast::CallExpr::cast(ancestor.clone())
+            && let Some(class) = classify_call_expr_name_ref(node, &call_expr)
+        {
+            return Some(class);
+        }
+        if let Some(privilege_objects) = ast::PrivilegeObjects::cast(ancestor.clone()) {
+            return classify_privilege_object(&privilege_objects);
+        }
+        if in_column_list
+            && (ast::Grant::can_cast(ancestor.kind()) || ast::Revoke::can_cast(ancestor.kind()))
+        {
+            return Some(NameRefClass::PrivilegeColumn);
+        }
         if ast::PathType::can_cast(ancestor.kind()) || ast::ExprType::can_cast(ancestor.kind()) {
+            if let Some(class) = classify_ddl_function_option_value(&ancestor) {
+                return Some(class);
+            }
             in_type = true;
         }
         if in_type {
             return Some(NameRefClass::Type);
         }
-        if ast::Fetch::can_cast(ancestor.kind())
-            || ast::Move::can_cast(ancestor.kind())
-            || ast::Close::can_cast(ancestor.kind())
-            || ast::WhereCurrentOf::can_cast(ancestor.kind())
+        if let Some(set_config) = ast::SetConfig::cast(ancestor.clone())
+            && is_search_path(set_config.path_ref())
+            && set_config
+                .config_values()
+                .any(|config_value| config_value.syntax() == node)
         {
-            return Some(NameRefClass::Cursor);
+            return Some(NameRefClass::Schema);
         }
-        if ast::Execute::can_cast(ancestor.kind()) || ast::Deallocate::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::PreparedStatement);
-        }
-        if ast::Notify::can_cast(ancestor.kind()) || ast::Unlisten::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::Channel);
+        if let Some(set_config_param) = ast::SetConfigParam::cast(ancestor.clone())
+            && is_search_path(set_config_param.path_ref())
+            && set_config_param
+                .name_refs()
+                .any(|name_ref| name_ref.syntax() == node)
+        {
+            return Some(NameRefClass::Schema);
         }
         if in_column_list
             && (ast::VertexTableDef::can_cast(ancestor.kind())
@@ -420,115 +783,45 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         {
             return Some(NameRefClass::PropertyGraphColumn);
         }
-        if ast::DropTable::can_cast(ancestor.kind())
-            || ast::DropForeignTable::can_cast(ancestor.kind())
-            || ast::Truncate::can_cast(ancestor.kind())
-            || ast::Lock::can_cast(ancestor.kind())
-            || ast::Vacuum::can_cast(ancestor.kind())
-            || ast::AlterTable::can_cast(ancestor.kind())
-            || ast::OnTable::can_cast(ancestor.kind())
-            || ast::AttachPartition::can_cast(ancestor.kind())
-            || ast::DetachPartition::can_cast(ancestor.kind())
-            || ast::Table::can_cast(ancestor.kind())
-            || ast::Inherits::can_cast(ancestor.kind())
-            || ast::PartitionOf::can_cast(ancestor.kind())
-            || ast::VertexTableDef::can_cast(ancestor.kind())
-            || ast::EdgeTableDef::can_cast(ancestor.kind())
-            || ast::SourceVertexTable::can_cast(ancestor.kind())
-            || ast::DestVertexTable::can_cast(ancestor.kind())
+        if ast::StatTypes::can_cast(ancestor.kind()) {
+            return None;
+        }
+        if ast::TriggerEventUpdate::can_cast(ancestor.kind()) {
+            return Some(NameRefClass::TriggerEventColumn);
+        }
+        if ast::CreateStatistics::can_cast(ancestor.kind()) {
+            return Some(NameRefClass::StatisticsColumn);
+        }
+        if let Some(publication_object) = ast::PublicationObject::cast(ancestor.clone())
+            && publication_object.table_token().is_some()
         {
+            return Some(if has_table_name_ref {
+                NameRefClass::Table
+            } else {
+                NameRefClass::PublicationColumn
+            });
+        }
+        if ast::FromTable::can_cast(ancestor.kind()) {
             return Some(NameRefClass::Table);
         }
-        if ast::AlterColumn::can_cast(ancestor.kind()) || ast::DropColumn::can_cast(ancestor.kind())
+        if ast::AlterColumn::can_cast(ancestor.kind())
+            || ast::AlterViewColumn::can_cast(ancestor.kind())
+            || ast::DropColumn::can_cast(ancestor.kind())
+            || ast::RenameColumn::can_cast(ancestor.kind())
         {
             return Some(NameRefClass::AlterColumn);
         }
-        if let Some(comment_on) = ast::CommentOn::cast(ancestor.clone()) {
-            if comment_on.table_token().is_some() {
-                return Some(NameRefClass::Table);
-            }
-            if comment_on.column_token().is_some() {
-                return Some(NameRefClass::QualifiedColumn);
-            }
-        }
-        if let Some(reindex) = ast::Reindex::cast(ancestor.clone()) {
-            if reindex.table_token().is_some() {
-                return Some(NameRefClass::Table);
-            }
-            if reindex.index_token().is_some() {
-                return Some(NameRefClass::Index);
-            }
-            if reindex.schema_token().is_some() {
-                return Some(NameRefClass::Schema);
-            }
-            if reindex.database_token().is_some() || reindex.system_token().is_some() {
-                return Some(NameRefClass::Database);
-            }
-        }
-        if ast::DropIndex::can_cast(ancestor.kind()) || ast::UsingIndex::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::Index);
-        }
-        if ast::DropType::can_cast(ancestor.kind()) || ast::DropDomain::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::Type);
-        }
-        if ast::DropView::can_cast(ancestor.kind())
-            || ast::DropMaterializedView::can_cast(ancestor.kind())
-            || ast::Refresh::can_cast(ancestor.kind())
+        if ast::RenameAttribute::can_cast(ancestor.kind())
+            || ast::DropAttribute::can_cast(ancestor.kind())
+            || ast::AlterAttribute::can_cast(ancestor.kind())
         {
-            return Some(NameRefClass::View);
+            return Some(NameRefClass::CompositeTypeAttribute);
         }
-        if ast::DropSequence::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::Sequence);
-        }
-        if ast::DropTrigger::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::Trigger);
-        }
-        if ast::DropPolicy::can_cast(ancestor.kind()) || ast::AlterPolicy::can_cast(ancestor.kind())
-        {
-            return Some(NameRefClass::Policy);
-        }
-        if ast::DropEventTrigger::can_cast(ancestor.kind())
-            || ast::AlterEventTrigger::can_cast(ancestor.kind())
-        {
-            return Some(NameRefClass::EventTrigger);
-        }
-        if ast::DropDatabase::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::Database);
-        }
-        if ast::DropServer::can_cast(ancestor.kind())
-            || ast::AlterServer::can_cast(ancestor.kind())
-            || ast::CreateServer::can_cast(ancestor.kind())
-            || ast::ServerName::can_cast(ancestor.kind())
-        {
-            return Some(NameRefClass::Server);
-        }
-        if ast::DropExtension::can_cast(ancestor.kind())
-            || ast::AlterExtension::can_cast(ancestor.kind())
-        {
-            return Some(NameRefClass::Extension);
-        }
-        if ast::AlterRole::can_cast(ancestor.kind())
-            || ast::DropRole::can_cast(ancestor.kind())
-            || ast::SetRole::can_cast(ancestor.kind())
-            || ast::RoleRef::can_cast(ancestor.kind())
-        {
-            return Some(NameRefClass::Role);
-        }
-        if let Some(sequence_option) = ast::SequenceOption::cast(ancestor.clone())
-            && sequence_option.owned_token().is_some()
-            && sequence_option.by_token().is_some()
-        {
-            return Some(NameRefClass::QualifiedColumn);
-        }
-        if ast::DropTablespace::can_cast(ancestor.kind())
-            || ast::Tablespace::can_cast(ancestor.kind())
-            || ast::SetTablespace::can_cast(ancestor.kind())
-            || ast::ConstraintIndexTablespace::can_cast(ancestor.kind())
-        {
-            return Some(NameRefClass::Tablespace);
+        if ast::ObjectAggregate::can_cast(ancestor.kind()) {
+            return Some(NameRefClass::Aggregate);
         }
         if ast::SetNullColumns::can_cast(ancestor.kind()) {
-            in_set_null_columns = true;
+            return Some(NameRefClass::ConstraintColumn);
         }
         if let Some(foreign_key) = ast::ForeignKeyConstraint::cast(ancestor.clone()) {
             if in_column_list {
@@ -551,28 +844,16 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
                 {
                     return Some(NameRefClass::ConstraintColumn);
                 }
-                if in_set_null_columns {
-                    return Some(NameRefClass::ConstraintColumn);
-                }
             } else {
                 return Some(NameRefClass::ForeignKeyTable);
             }
         }
-        if let Some(references_constraint) = ast::ReferencesConstraint::cast(ancestor.clone()) {
-            // TODO: the ast is too flat here
-            if let Some(column_ref) = references_constraint.column()
-                && column_ref
-                    .syntax()
-                    .text_range()
-                    .contains_range(node.text_range())
-            {
-                return Some(NameRefClass::ForeignKeyColumn);
-            }
-            if let Some(path) = references_constraint.table()
-                && path.syntax().text_range().contains_range(node.text_range())
-            {
-                return Some(NameRefClass::ForeignKeyTable);
-            }
+        if ast::ReferencesConstraint::can_cast(ancestor.kind()) {
+            return Some(if has_table_name_ref {
+                NameRefClass::ForeignKeyTable
+            } else {
+                NameRefClass::ForeignKeyColumn
+            });
         }
         if ast::CreatePolicy::can_cast(ancestor.kind())
             || ast::AlterPolicy::can_cast(ancestor.kind())
@@ -583,9 +864,6 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
             || ast::GeneratedConstraint::can_cast(ancestor.kind())
             || ast::NotNullConstraint::can_cast(ancestor.kind())
         {
-            if in_function_name {
-                return Some(NameRefClass::FunctionCall);
-            }
             return Some(NameRefClass::ConstraintColumn);
         }
         if in_column_list
@@ -599,68 +877,22 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
             || in_constraint_where_clause)
             && ast::ExcludeConstraint::can_cast(ancestor.kind())
         {
-            if in_function_name {
-                return Some(NameRefClass::FunctionCall);
-            }
             return Some(NameRefClass::ConstraintColumn);
         }
-        if ast::LikeClause::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::LikeTable);
-        }
-        if ast::CastExpr::can_cast(ancestor.kind()) && in_type {
-            return Some(NameRefClass::Type);
-        }
-        if ast::DropFunction::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::Function);
-        }
-        if ast::DropAggregate::can_cast(ancestor.kind()) {
+        if ast::DropAggregate::can_cast(ancestor.kind())
+            || ast::AlterAggregate::can_cast(ancestor.kind())
+        {
             return Some(NameRefClass::Aggregate);
         }
-        if ast::DropProcedure::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::Procedure);
-        }
-        if ast::DropRoutine::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::Routine);
-        }
-        if ast::Call::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::CallProcedure);
-        }
-        if ast::DropSchema::can_cast(ancestor.kind()) || ast::SetSchema::can_cast(ancestor.kind()) {
-            return Some(NameRefClass::Schema);
-        }
         if ast::CreateIndex::can_cast(ancestor.kind()) {
-            if in_partition_item {
-                if in_function_name {
-                    return Some(NameRefClass::FunctionCall);
-                }
-                return Some(NameRefClass::CreateIndexColumn);
-            }
-            return Some(NameRefClass::Table);
-        }
-        if let Some(create_trigger) = ast::CreateTrigger::cast(ancestor.clone())
-            && in_function_name
-        {
-            if create_trigger.procedure_token().is_some() {
-                return Some(NameRefClass::ProcedureCall);
-            }
-            return Some(NameRefClass::FunctionCall);
-        }
-        if let Some(create_event_trigger) = ast::CreateEventTrigger::cast(ancestor.clone())
-            && in_function_name
-        {
-            if create_event_trigger.procedure_token().is_some() {
-                return Some(NameRefClass::ProcedureCall);
-            }
-            return Some(NameRefClass::FunctionCall);
+            return Some(if has_table_name_ref {
+                NameRefClass::Table
+            } else {
+                NameRefClass::CreateIndexColumn
+            });
         }
         if in_partition_item && ast::CreateTableLike::can_cast(ancestor.kind()) {
-            if in_function_name {
-                return Some(NameRefClass::FunctionCall);
-            }
             return Some(NameRefClass::ConstraintColumn);
-        }
-        if is_special_fn(ancestor.kind()) {
-            in_special_sql_fn = true;
         }
         if ast::NamedArg::can_cast(ancestor.kind()) {
             return Some(NameRefClass::NamedArgParameter);
@@ -668,23 +900,21 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         if ast::ArgList::can_cast(ancestor.kind()) {
             in_arg_list = true;
         }
-        if ast::OverClause::can_cast(ancestor.kind()) && !in_function_name {
-            if node
-                .parent()
-                .is_some_and(|parent| ast::OverClause::can_cast(parent.kind()))
-            {
-                return Some(NameRefClass::Window);
-            }
-
+        if ast::XmlTableColumnList::can_cast(ancestor.kind())
+            || ast::JsonTableColumnList::can_cast(ancestor.kind())
+        {
+            in_table_valued_column_list = true;
+        }
+        if (ast::XmlTable::can_cast(ancestor.kind()) || ast::JsonTable::can_cast(ancestor.kind()))
+            && !in_table_valued_column_list
+        {
+            in_arg_list = true;
+        }
+        if ast::OverClause::can_cast(ancestor.kind()) {
             return Some(NameRefClass::SelectColumn);
         }
-        if ast::CallExpr::can_cast(ancestor.kind()) {
-            if !in_arg_list {
-                in_function_name = true;
-            }
-        }
-        if ast::DefaultConstraint::can_cast(ancestor.kind()) && in_function_name {
-            return Some(NameRefClass::FunctionCall);
+        if ast::ParamDefault::can_cast(ancestor.kind()) {
+            return Some(NameRefClass::ParamDefault);
         }
         if ast::OnClause::can_cast(ancestor.kind()) {
             in_on_clause = true;
@@ -698,21 +928,21 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         if ast::OrderByClause::can_cast(ancestor.kind()) {
             in_order_by_clause = true;
         }
-        if ast::Select::can_cast(ancestor.kind()) {
-            if in_function_name && !in_special_sql_fn {
-                return Some(NameRefClass::SelectFunctionCall);
-            }
+        if ast::DistinctClause::can_cast(ancestor.kind()) {
+            in_distinct_clause = true;
+        }
+        if ast::Select::can_cast(ancestor.kind()) || ast::SelectInto::can_cast(ancestor.kind()) {
             if in_from_clause && !in_on_clause {
                 if in_arg_list {
                     return Some(NameRefClass::SelectColumn);
                 }
                 return Some(NameRefClass::FromTable);
             }
-            if in_group_by_clause
-                && let Some(parent) = node.parent()
-                && ast::GroupingExpr::can_cast(parent.kind())
-            {
+            if in_group_by_clause && is_grouping_or_distinct_el(node) {
                 return Some(NameRefClass::SelectGroupByAliasOrColumn);
+            }
+            if in_distinct_clause && is_grouping_or_distinct_el(node) {
+                return Some(NameRefClass::SelectOrderByAliasOrColumn);
             }
             if in_order_by_clause
                 && let Some(parent) = node.parent()
@@ -731,7 +961,9 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         {
             return Some(NameRefClass::SelectOrderByAliasOrColumn);
         }
-        if ast::ColumnList::can_cast(ancestor.kind()) {
+        if ast::ColumnList::can_cast(ancestor.kind())
+            || ast::ColumnRefList::can_cast(ancestor.kind())
+        {
             in_column_list = true;
         }
         if ast::ConstraintExclusionList::can_cast(ancestor.kind()) {
@@ -750,9 +982,6 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
             in_conflict_target = true;
         }
         if ast::Insert::can_cast(ancestor.kind()) {
-            if in_function_name && !in_special_sql_fn {
-                return Some(NameRefClass::SelectFunctionCall);
-            }
             if in_returning_clause
                 || in_column_list
                 || in_set_clause
@@ -787,7 +1016,7 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
             if in_using_clause {
                 return Some(NameRefClass::FromTable);
             }
-            return Some(NameRefClass::Table);
+            break;
         }
         if ast::Update::can_cast(ancestor.kind()) {
             if in_returning_clause || in_where_clause || in_set_clause {
@@ -796,7 +1025,7 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
             if in_from_clause {
                 return Some(NameRefClass::FromTable);
             }
-            return Some(NameRefClass::Table);
+            break;
         }
         if ast::MergeWhenClause::can_cast(ancestor.kind()) {
             in_when_clause = true;
@@ -808,17 +1037,58 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
             if in_using_clause {
                 return Some(NameRefClass::FromTable);
             }
-            return Some(NameRefClass::Table);
+            break;
+        }
+        // SQL-body function: `create function f(x int) returns int language sql return x + 1;`
+        if ast::ReturnFuncOption::can_cast(ancestor.kind()) {
+            return Some(NameRefClass::SelectColumn);
         }
     }
 
+    has_table_name_ref.then_some(NameRefClass::Table)
+}
+
+fn enclosing_routine_name(node: &SyntaxNode) -> Option<Name> {
+    for ancestor in node.ancestors() {
+        if let Some(create_function) = ast::CreateFunction::cast(ancestor.clone()) {
+            let (_, routine_name) =
+                name::schema_and_name_definition(&create_function.name()?.path()?)?;
+            return Some(routine_name);
+        }
+        if let Some(create_procedure) = ast::CreateProcedure::cast(ancestor) {
+            let (_, routine_name) =
+                name::schema_and_name_definition(&create_procedure.name()?.path()?)?;
+            return Some(routine_name);
+        }
+    }
     None
+}
+
+fn is_grouping_or_distinct_el(node: &SyntaxNode) -> bool {
+    node.ancestors()
+        .skip(1)
+        .find(|n| !ast::ParenExpr::can_cast(n.kind()) && !ast::TupleExpr::can_cast(n.kind()))
+        .is_some_and(|n| {
+            ast::GroupBy::can_cast(n.kind()) || ast::DistinctClause::can_cast(n.kind())
+        })
+}
+
+fn classify_privilege_object(privilege_objects: &ast::PrivilegeObjects) -> Option<NameRefClass> {
+    match privilege_objects {
+        ast::PrivilegeObjects::PrivilegeDefault(_) | ast::PrivilegeObjects::PrivilegeTable(_) => {
+            Some(NameRefClass::PrivilegeObjectTable)
+        }
+        _ => None,
+    }
 }
 
 pub(crate) fn classify_def_node(def_node: &SyntaxNode) -> Option<LocationKind> {
     let mut in_column = false;
     let mut in_column_list = false;
     for ancestor in def_node.ancestors() {
+        if let Some(class) = classify_object_definition(ancestor.kind()) {
+            return Some(class);
+        }
         if ast::Column::can_cast(ancestor.kind()) {
             in_column = true;
         }
@@ -828,23 +1098,11 @@ pub(crate) fn classify_def_node(def_node: &SyntaxNode) -> Option<LocationKind> {
         if ast::Param::can_cast(ancestor.kind()) {
             return Some(LocationKind::NamedArgParameter);
         }
-        if ast::CreateTableLike::can_cast(ancestor.kind()) {
-            if in_column {
-                return Some(LocationKind::Column);
-            }
-            return Some(LocationKind::Table);
-        }
-        if ast::CreateType::can_cast(ancestor.kind()) {
-            if in_column {
-                return Some(LocationKind::Column);
-            }
-            return Some(LocationKind::Type);
-        }
-        if ast::CreateFunction::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Function);
-        }
-        if ast::CreateProcedure::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Procedure);
+        if in_column
+            && (ast::CreateTableLike::can_cast(ancestor.kind())
+                || ast::CreateType::can_cast(ancestor.kind()))
+        {
+            return Some(LocationKind::Column);
         }
         if ast::WithTable::can_cast(ancestor.kind()) {
             if in_column_list {
@@ -852,37 +1110,10 @@ pub(crate) fn classify_def_node(def_node: &SyntaxNode) -> Option<LocationKind> {
             }
             return Some(LocationKind::Table);
         }
-        if ast::CreateTableAs::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Table);
-        }
-        if ast::SelectInto::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Table);
-        }
-        if ast::CreateIndex::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Index);
-        }
-        if ast::CreateSequence::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Sequence);
-        }
-        if ast::CreateTrigger::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Trigger);
-        }
-        if ast::CreateEventTrigger::can_cast(ancestor.kind()) {
-            return Some(LocationKind::EventTrigger);
-        }
-        if ast::CreateTablespace::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Tablespace);
-        }
-        if ast::CreateDatabase::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Database);
-        }
-        if ast::CreateServer::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Server);
-        }
-        if ast::CreateExtension::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Extension);
-        }
-        if ast::CreateRole::can_cast(ancestor.kind()) {
+        if ast::CreateRole::can_cast(ancestor.kind())
+            || ast::CreateUser::can_cast(ancestor.kind())
+            || ast::CreateGroup::can_cast(ancestor.kind())
+        {
             return Some(LocationKind::Role);
         }
         if ast::CreateAggregate::can_cast(ancestor.kind()) {
@@ -891,37 +1122,17 @@ pub(crate) fn classify_def_node(def_node: &SyntaxNode) -> Option<LocationKind> {
         if ast::CreateSchema::can_cast(ancestor.kind()) {
             return Some(LocationKind::Schema);
         }
-        if ast::CreateView::can_cast(ancestor.kind())
-            || ast::CreateMaterializedView::can_cast(ancestor.kind())
+        if in_column_list
+            && (ast::CreateView::can_cast(ancestor.kind())
+                || ast::CreateMaterializedView::can_cast(ancestor.kind()))
         {
-            if in_column_list {
-                return Some(LocationKind::Column);
-            }
-            return Some(LocationKind::View);
-        }
-        if ast::CreatePolicy::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Policy);
-        }
-        if ast::CreatePropertyGraph::can_cast(ancestor.kind()) {
-            return Some(LocationKind::PropertyGraph);
-        }
-        if ast::Declare::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Cursor);
-        }
-        if ast::Prepare::can_cast(ancestor.kind()) {
-            return Some(LocationKind::PreparedStatement);
-        }
-        if ast::Listen::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Channel);
+            return Some(LocationKind::Column);
         }
         if ast::Alias::can_cast(ancestor.kind()) {
             if in_column {
                 return Some(LocationKind::Column);
             }
             return Some(LocationKind::Table);
-        }
-        if ast::WindowDef::can_cast(ancestor.kind()) {
-            return Some(LocationKind::Window);
         }
         if ast::AsName::can_cast(ancestor.kind())
             || ast::ParenSelect::can_cast(ancestor.kind())
@@ -932,17 +1143,4 @@ pub(crate) fn classify_def_node(def_node: &SyntaxNode) -> Option<LocationKind> {
         }
     }
     None
-}
-
-#[test]
-fn special_function() {
-    for kind in (0..SyntaxKind::__LAST as u16)
-        .map(SyntaxKind::from)
-        .filter(|kind| format!("{kind:?}").ends_with("_FN"))
-    {
-        assert!(
-            is_special_fn(kind),
-            "unhandled special function kind: {kind:?}. Please update is_special_fn"
-        )
-    }
 }

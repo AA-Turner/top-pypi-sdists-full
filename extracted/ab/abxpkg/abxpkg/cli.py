@@ -5,7 +5,7 @@ import os
 import re
 import sys
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -139,8 +139,10 @@ def _default_provider_names() -> list[str]:
 def _parse_provider_names(raw_value: str | None) -> list[str]:
     from . import ALL_PROVIDER_NAMES, PROVIDER_CLASS_BY_NAME
 
+    explicit_selection = raw_value is not None
     if raw_value is None:
         env_value = os.environ.get("ABXPKG_BINPROVIDERS")
+        explicit_selection = env_value is not None
         raw_value = (
             env_value if env_value is not None else ",".join(_default_provider_names())
         )
@@ -160,7 +162,10 @@ def _parse_provider_names(raw_value: str | None) -> list[str]:
         raise ValueError(
             f"unknown provider name(s): {', '.join(invalid)}. Valid providers: {valid}",
         )
-    os.environ["ABXPKG_BINPROVIDERS"] = ",".join(provider_names)
+    if explicit_selection:
+        os.environ["ABXPKG_BINPROVIDERS"] = ",".join(provider_names)
+    else:
+        os.environ.pop("ABXPKG_BINPROVIDERS", None)
     return provider_names
 
 
@@ -498,7 +503,7 @@ def _script_deps_from(
 
 
 def _build_binary(binary_name: str, options: ScriptOptions):
-    from . import DEFAULT_PROVIDER_NAMES, PROVIDER_CLASS_BY_NAME, Binary
+    from . import DEFAULT_PROVIDER_NAMES, PROVIDER_CLASS_BY_NAME, Binary, EnvProvider
 
     provider_names = options.provider_names
     if provider_names == list(DEFAULT_PROVIDER_NAMES):
@@ -512,9 +517,20 @@ def _build_binary(binary_name: str, options: ScriptOptions):
                 ]
             break
 
+    providers = _build_providers(provider_names, options)
+    explicit_abspath = Path(binary_name).expanduser()
+    if explicit_abspath.is_absolute():
+        for provider in providers:
+            if type(provider) is EnvProvider:
+                provider.PATH = provider._merge_PATH(
+                    explicit_abspath.parent,
+                    PATH=provider.PATH,
+                    prepend=True,
+                )
+
     kwargs: dict[str, Any] = {
         "name": binary_name,
-        "binproviders": _build_providers(provider_names, options),
+        "binproviders": providers,
     }
     for key in ("min_version", "postinstall_scripts", "min_release_age"):
         value = getattr(options, key)
@@ -553,6 +569,22 @@ def _same_runtime_provider(provider, loaded_provider) -> bool:
     return (
         getattr(provider, "install_root", None) == loaded_install_root
         and getattr(provider, "bin_dir", None) == loaded_bin_dir
+    )
+
+
+def _load_or_install_script_binary(binary_name: str, options: ScriptOptions):
+    if options.provider_names and options.provider_names[0] == "env":
+        host_binary = _build_binary(
+            binary_name,
+            replace(options, provider_names=["env"]),
+        )
+        try:
+            return host_binary.load(no_cache=options.no_cache)
+        except ABXPkgError:
+            pass
+    return _build_binary(binary_name, options).install(
+        dry_run=options.dry_run,
+        no_cache=options.no_cache,
     )
 
 
@@ -596,8 +628,17 @@ def _run_script(argv: list[str]) -> int | None:
             not runtime_provider_names
             and not dependencies
             and not explicit_provider_selection
+            and not raw_options.get("--deps-from")
         ):
-            runtime_provider_names = options.provider_names
+            # Preserve the default behavior of exposing previously installed
+            # sibling packages, but do not instantiate every managed provider
+            # on a cold script launch. Provider roots are the durable install
+            # state; an absent root cannot contribute anything to the runtime.
+            runtime_provider_names = [
+                provider_name
+                for provider_name in options.provider_names
+                if (options.lib_dir / provider_name).is_dir()
+            ]
         runtime_providers = _build_providers(runtime_provider_names, options)
         for dep in dependencies:
             if isinstance(dep, str):
@@ -613,18 +654,11 @@ def _run_script(argv: list[str]) -> int | None:
                 binary_options = dep_options
                 continue
 
-            dep_binary = _build_binary(dep_name, dep_options).install(
-                dry_run=options.dry_run,
-                no_cache=options.no_cache,
-            )
+            dep_binary = _load_or_install_script_binary(dep_name, dep_options)
             if dep_binary.loaded_binprovider:
                 runtime_providers.append(dep_binary.loaded_binprovider)
 
-        target_binary = _build_binary(binary_name, binary_options)
-        binary = target_binary.install(
-            dry_run=options.dry_run,
-            no_cache=options.no_cache,
-        )
+        binary = _load_or_install_script_binary(binary_name, binary_options)
     except ABXPkgError as err:
         print(
             f"abxpkg: failed to resolve dependency: {_format_error(err)}",

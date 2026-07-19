@@ -133,7 +133,6 @@ class ErdCode(enum.Enum):
     LAUNDRY_WASHER_DOWNLOAD_CYCLE_FEATURE_VERSION = "0x20d7"
     LAUNDRY_WASHER_STAIN_REMOVAL_FEATURE_VERSION = "0x20d8"
     LAUNDRY_WASHER_STEAM_OPTION_IS_WRITEABLE = "0x2160"
-    LAUNDRY_WASHER_ENERGY_USED = "0xd030"
     LAUNDRY_WASHER_LINE_CURRENT = "0x3227"
 
     # Laundry - Dryer Codes
@@ -246,6 +245,15 @@ class ErdCode(enum.Enum):
     UPPER_OVEN_LIGHT = "0x5111"
     UPPER_OVEN_LIGHT_AVAILABILITY = "0x5112"
     WARMING_DRAWER_STATE = "0x5009"
+
+    # Toaster Oven Codes
+    TOASTER_OVEN_LIGHT = "0x9201"
+    TOASTER_OVEN_LIGHT_CONTROL = "0x9202"
+    TOASTER_OVEN_COOK_SETTING = "0x9207"
+    TOASTER_OVEN_COOK_SETTING_CONTROL = "0x9208"
+    TOASTER_OVEN_CURRENT_STATE = "0x9209"
+    TOASTER_OVEN_CONVECTION = "0x922b"
+    TOASTER_OVEN_COOK_TIME_REMAINING = "0x922f"
 
     COOKTOP_CONFIG = "0x551c"
     COOKTOP_STATUS = "0x5520"
@@ -469,5 +477,5 @@ class ErdCode(enum.Enum):
     RESOURCE_GAS_TYPE = "0xd01f"                     # enum: Unknown / Natural Gas / Liquid Propane
     RESOURCE_CUMULATIVE_HOT_WATER_ML = "0xd020"      # u32 milliliters (cumulative)
     RESOURCE_CUMULATIVE_COLD_WATER_ML = "0xd021"     # u32 milliliters (cumulative)
-
+    RESOURCE_CUMULATIVE_ENERGY_WH = "0xd030"          # u32 watt-hours (cumulative)
 ErdCodeType: TypeAlias = Union[ErdCode, str]

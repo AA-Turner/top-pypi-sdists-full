@@ -7,9 +7,9 @@ use pyo3::prelude::*;
 
 #[pyclass]
 pub struct BoolIterator {
-    pub(crate) bits: Py<Tibs>,
-    pub(crate) index: isize,
-    pub(crate) length: isize,
+    pub(crate) bits: Tibs,
+    pub(crate) index: usize,
+    pub(crate) length: usize,
 }
 
 #[pymethods]
@@ -18,17 +18,19 @@ impl BoolIterator {
         slf
     }
 
-    fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<bool>> {
+    fn __next__(&mut self) -> Option<bool> {
         if self.index < self.length {
-            // It's probably pretty inefficient borrowing on each iterator.
-            // It may make more sense to buffer some values in advance.
-            let bits = self.bits.borrow(py);
-            let result = bits.get_index(self.index);
+            // SAFETY: index < length == bits.len(), and the Tibs is immutable.
+            let result = unsafe { *self.bits.as_bitslice().get_unchecked(self.index) };
             self.index += 1;
-            result.map(Some)
+            Some(result)
         } else {
-            Ok(None)
+            None
         }
+    }
+
+    fn __length_hint__(&self) -> usize {
+        self.length - self.index
     }
 }
 
@@ -48,6 +50,77 @@ pub struct FindAllIterator {
     pub byte_needle: Option<Vec<u8>>,
     pub byte_base: usize,
     pub byte_current: usize,
+}
+
+impl FindAllIterator {
+    pub(crate) fn new(
+        slf: PyRef<'_, Tibs>,
+        needle: Tibs,
+        start: Option<isize>,
+        end: Option<isize>,
+        byte_aligned: bool,
+        is_reverse: bool,
+    ) -> PyResult<Py<Self>> {
+        if needle.is_empty() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "No bits were provided to find.",
+            ));
+        }
+
+        let (start, end) = helpers::validate_slice(slf.len(), start, end)?;
+        let haystack_len = slf.len();
+        let step = if byte_aligned { 8 } else { 1 };
+        let alignment_mod8 = if byte_aligned { Some(0) } else { None };
+        let (byte_haystack, byte_needle, byte_base) = helpers::byte_search_prep(
+            slf.as_bitslice(),
+            needle.as_bitslice(),
+            start,
+            end,
+            alignment_mod8,
+        )
+        .map_or((None, None, 0), |(haystack, needle, base)| {
+            (Some(haystack.into_owned()), Some(needle.into_owned()), base)
+        });
+
+        let py = slf.py();
+        let using_byte_search = byte_haystack.is_some();
+        let using_small_search = needle.len() <= 64;
+        let (search_needle, lps) = if using_byte_search {
+            (needle, Vec::new())
+        } else if is_reverse {
+            let reversed_needle =
+                Tibs::from_bv(needle.as_bitslice().iter().by_vals().rev().collect());
+            let lps = if using_small_search {
+                Vec::new()
+            } else {
+                helpers::compute_lps(py, reversed_needle.as_bitslice())?
+            };
+            (reversed_needle, lps)
+        } else if using_small_search {
+            (needle, Vec::new())
+        } else {
+            let lps = helpers::compute_lps(py, needle.as_bitslice())?;
+            (needle, lps)
+        };
+
+        let iter_obj = Self {
+            haystack: slf.into(),
+            haystack_len,
+            search_needle,
+            lps,
+            start,
+            end,
+            byte_aligned,
+            step,
+            current_pos: if is_reverse { end } else { start },
+            is_reverse,
+            byte_haystack,
+            byte_needle,
+            byte_base,
+            byte_current: if is_reverse { end / 8 - byte_base } else { 0 },
+        };
+        Py::new(py, iter_obj)
+    }
 }
 
 #[pymethods]

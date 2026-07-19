@@ -115,6 +115,7 @@ class RunnerSession:
         env: dict[str, str] | None = None,
         working_dir: str | None = None,
         timeout_seconds: int | None = None,
+        proxy_token: str | None = None,
         on_stdout: Callable[[ExecEvent], Any] | None = None,
         on_stderr: Callable[[ExecEvent], Any] | None = None,
         on_exit: Callable[[int], Any] | None = None,
@@ -134,6 +135,7 @@ class RunnerSession:
             env=env,
             working_dir=working_dir,
             timeout_seconds=timeout_seconds,
+            proxy_token=proxy_token,
         )
         if on_stdout or on_stderr or on_exit:
             return self._iter_with_callbacks(events, on_stdout, on_stderr, on_exit)
@@ -145,6 +147,7 @@ class RunnerSession:
         env: dict[str, str] | None = None,
         working_dir: str | None = None,
         timeout_seconds: int | None = None,
+        proxy_token: str | None = None,
     ) -> ExecResult:
         """Execute a command and collect all output.
 
@@ -157,7 +160,13 @@ class RunnerSession:
         stderr_parts: list[str] = []
         exit_code = -1
         t0 = time.monotonic()
-        for event in self.exec(*command, env=env, working_dir=working_dir, timeout_seconds=timeout_seconds):
+        for event in self.exec(
+            *command,
+            env=env,
+            working_dir=working_dir,
+            timeout_seconds=timeout_seconds,
+            proxy_token=proxy_token,
+        ):
             if event.type == "stdout" and event.data:
                 stdout_parts.append(event.data)
             elif event.type == "stderr" and event.data:

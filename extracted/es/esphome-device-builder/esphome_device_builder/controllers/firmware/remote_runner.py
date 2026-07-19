@@ -30,7 +30,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Literal
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from esphome.const import __version__ as _offloader_esphome_version
 
@@ -51,6 +52,9 @@ from ...models import (
     OffloaderJobOutputData,
     OffloaderJobStateChangedData,
     OffloaderPeerLinkClosedData,
+    ResetBuildEnvAckFrameData,
+    ResetBuildEnvRejectReason,
+    SubmitJobAckFrameData,
 )
 from ..remote_build.peer_link_client import (
     DownloadArtifactsError,
@@ -77,6 +81,18 @@ _LOGGER = logging.getLogger(__name__)
 # case string per :class:`JobStateChangedFrameData`'s
 # ``Literal`` union.
 _TERMINAL_WIRE_STATUSES: frozenset[str] = frozenset({"completed", "failed", "cancelled"})
+
+# Errors any peer-link client request can raise before or at dispatch.
+_PEER_LINK_REQUEST_ERRORS = (
+    PeerLinkNoSessionError,
+    DuplicateRequestError,
+    SubmitJobSessionLostError,
+)
+# Ack-carrying requests (submit_job / reset_build_env) add the bounded
+# ack timeout; download_artifacts has no ack timeout and instead
+# surfaces receiver-reported failures as DownloadArtifactsError.
+_PEER_LINK_ACKED_REQUEST_ERRORS = (*_PEER_LINK_REQUEST_ERRORS, SubmitJobTimeoutError)
+_PEER_LINK_DOWNLOAD_ERRORS = (*_PEER_LINK_REQUEST_ERRORS, DownloadArtifactsError)
 
 
 class RemoteServerLostError(Exception):
@@ -111,7 +127,7 @@ async def run_remote_job(  # noqa: C901
     set ``status = RUNNING`` and fired ``JOB_STARTED``; this
     function is responsible for the entire run-and-finalise
     middle and leaves the outer ``finally`` block to clear
-    ``_current_job`` / persist.
+    the lane slot / persist.
 
     With ``retry_on_server_loss`` (the dispatch pool), a mid-build
     peer-link close raises :class:`RemoteServerLostError` instead of
@@ -195,7 +211,7 @@ async def run_remote_job(  # noqa: C901
     cancel_event = asyncio.Event()
     controller.state.cancel_events[job.job_id] = cancel_event
     # A cancel that landed during ``_execute_job``'s pre-runner
-    # phase (``_current_job = job`` is set before the persist
+    # phase (the lane slot is claimed before the persist
     # await, so the cancel handler accepts the request and
     # writes to ``_cancel_requested`` — but the runner hasn't
     # yet installed its event, so the handler's
@@ -385,19 +401,10 @@ async def _submit_job_to_receiver(
             # what this offloader would have built locally.
             target_esphome_version=_offloader_esphome_version,
         )
-    except (
-        PeerLinkNoSessionError,
-        DuplicateRequestError,
-        SubmitJobTimeoutError,
-        SubmitJobSessionLostError,
-    ) as exc:
+    except _PEER_LINK_ACKED_REQUEST_ERRORS as exc:
         _fail_locally(controller, job, reason=f"dispatch failed: {exc}")
         return False
-    if not ack["accepted"]:
-        reason = ack.get("reason", "no reason given")
-        _fail_locally(controller, job, reason=f"receiver rejected job: {reason}")
-        return False
-    return True
+    return _check_ack(controller, job, ack, reject_label="receiver rejected job")
 
 
 async def _send_reset_to_receiver(
@@ -409,21 +416,40 @@ async def _send_reset_to_receiver(
     """Send ``reset_build_env`` and return ``True`` on accepted ack, ``False`` otherwise."""
     try:
         ack = await client.reset_build_env(job_id=job.job_id)
-    except (
-        PeerLinkNoSessionError,
-        DuplicateRequestError,
-        SubmitJobTimeoutError,
-        SubmitJobSessionLostError,
-    ) as exc:
+    except _PEER_LINK_ACKED_REQUEST_ERRORS as exc:
         _fail_locally(controller, job, reason=f"dispatch failed: {exc}")
         return False
-    if not ack["accepted"]:
-        reason = ack.get("reason", "no reason given")
-        if reason == "busy":
-            reason = "the build server is busy with another job; retry when its queue is empty"
-        _fail_locally(controller, job, reason=f"receiver rejected reset: {reason}")
-        return False
-    return True
+    return _check_ack(
+        controller,
+        job,
+        ack,
+        reject_label="receiver rejected reset",
+        reason_remap={
+            "busy": "the build server is busy with another job; retry when its queue is empty"
+        },
+    )
+
+
+def _check_ack(
+    controller: FirmwareController,
+    job: FirmwareJob,
+    ack: SubmitJobAckFrameData | ResetBuildEnvAckFrameData,
+    *,
+    reject_label: str,
+    reason_remap: Mapping[ResetBuildEnvRejectReason, str] | None = None,
+) -> bool:
+    """
+    Fail *job* locally on a rejected ack; True iff accepted.
+
+    A wire reason missing from *reason_remap* passes through unmapped.
+    """
+    if ack["accepted"]:
+        return True
+    reason = ack.get("reason", "no reason given")
+    if reason_remap:
+        reason = cast("Mapping[str, str]", reason_remap).get(reason, reason)
+    _fail_locally(controller, job, reason=f"{reject_label}: {reason}")
+    return False
 
 
 async def _finalise_after_receiver_completed(
@@ -623,12 +649,7 @@ async def _fetch_and_materialise(
     )
     try:
         packed = await client.download_artifacts(job_id=job.job_id)
-    except (
-        PeerLinkNoSessionError,
-        DuplicateRequestError,
-        SubmitJobSessionLostError,
-        DownloadArtifactsError,
-    ) as exc:
+    except _PEER_LINK_DOWNLOAD_ERRORS as exc:
         _fail_locally(
             controller,
             job,
@@ -747,16 +768,13 @@ async def _run_upload_subprocess(
     Mirrors the local subprocess path's per-line bookkeeping
     (``_ingest_output_line``) so the firmware-tasks UI sees
     one event stream regardless of which CPU produced the
-    bytes. ``_tracked_subprocess`` registers the spawn on the
-    compile lane's ``current_process`` so a concurrent
+    bytes. ``_tracked_subprocess`` registers the spawn in the
+    job-keyed process registry so a concurrent
     ``firmware/cancel`` lands SIGTERM on the upload chain
     just like it does for the local-only path.
     """
-    # Register the local flash on the job's own lane (``lane_for``); a remote
-    # install is an INSTALL job, so that resolves to the compile lane.
-    lane = controller.state.lane_for(job)
     async with controller._tracked_subprocess(
-        lane,
+        job,
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
@@ -771,7 +789,7 @@ async def _run_upload_subprocess(
         # this check, the subprocess gets started for a job
         # the user already aborted.
         if job.job_id in controller.state.cancel_requested:
-            await controller._terminate_current_process(lane)
+            await controller._terminate_job_process(job)
 
         assert proc.stdout is not None  # type narrowing
         async for line in iter_lines_with_progress(proc.stdout):

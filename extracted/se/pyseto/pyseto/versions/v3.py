@@ -133,6 +133,8 @@ class V3Public(NISTKey):
         self._sig_size = 96
         if not isinstance(self._key, (EllipticCurvePublicKey, EllipticCurvePrivateKey)):
             raise ValueError("The key is not ECDSA key.")
+        if not isinstance(self._key.curve, ec.SECP384R1):
+            raise ValueError("The key is not on curve P-384.")
 
         if isinstance(self._key, EllipticCurvePublicKey):
             self._is_secret = False
@@ -214,7 +216,7 @@ class V3Public(NISTKey):
         self,
         wrapping_key: bytes | str = b"",
         password: bytes | str = b"",
-        _sealing_key: bytes | str = b"",
+        sealing_key: bytes | str = b"",
         iteration: int = 100000,
         _memory_cost: int = 15 * 1024,
         _time_cost: int = 2,
@@ -222,6 +224,11 @@ class V3Public(NISTKey):
     ) -> str:
         if wrapping_key and password:
             raise ValueError("Only one of wrapping_key or password should be specified.")
+        if sealing_key and (wrapping_key or password):
+            raise ValueError("Only one of wrapping_key, password or sealing_key should be specified.")
+
+        if sealing_key:
+            raise ValueError("Key sealing can only be used for local key.")
 
         if wrapping_key:
             # secret-wrap

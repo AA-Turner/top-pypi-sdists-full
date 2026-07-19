@@ -42,7 +42,20 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     target_ids,
     version_rows_or_empty,
 )
+from airbyte_ops_webapp.pages.connector_version_manager._state import (
+    ApplyOverrideResult,
+    CompoundContextResult,
+    ConnectorContextResult,
+    ConnectorVersionContextResult,
+    RemovePinsResult,
+    RolloutActionResult,
+    ScopeResolutionResult,
+    SearchConnectorsResult,
+    TabRowsResult,
+    VersionPinsResult,
+)
 from airbyte_ops_webapp.pages.shared_components.org_search import (
+    OrgSearchResult,
     search_organizations_and_workspaces,
 )
 from airbyte_ops_webapp.services.connector_version_manager.adapter import (
@@ -118,14 +131,12 @@ def _override_plan(
     user_email: str | None = None,
     customer_tier_filter: str = "TIER_2",
     force: bool = False,
-    google_access_token: str = "",
 ) -> OverridePlan:
     organization_id, workspace_id, actor_id = target_ids(
         adapter=adapter,
         scope_type=scope_type,
         scope_id=scope_id,
         actor_workspace_id=actor_workspace_id,
-        google_access_token=google_access_token,
     )
     return OverridePlan(
         action=action,
@@ -153,21 +164,21 @@ def _override_plan(
 
 
 @connector_version_manager_app.tool()
-def load_recent_releases_tab() -> dict[str, Any]:
+def load_recent_releases_tab() -> TabRowsResult:
     """Load Recent Releases tab data on demand (lazy)."""
-    return {"rows": recent_release_rows()}
+    return TabRowsResult(rows=recent_release_rows())
 
 
 @connector_version_manager_app.tool()
-def load_active_rollouts_tab() -> dict[str, Any]:
+def load_active_rollouts_tab() -> TabRowsResult:
     """Load Active Rollouts tab data on demand (lazy)."""
-    return {"rows": progressive_rollout_rows()}
+    return TabRowsResult(rows=progressive_rollout_rows())
 
 
 @connector_version_manager_app.tool()
-def load_pinned_versions_tab(origin_filter: str = "all") -> dict[str, Any]:
+def load_pinned_versions_tab(origin_filter: str = "all") -> TabRowsResult:
     """Load Pinned Versions tab data, optionally filtered by pin origin type."""
-    return {"rows": pinned_version_rows(origin_filter=origin_filter)}
+    return TabRowsResult(rows=pinned_version_rows(origin_filter=origin_filter))
 
 
 # ---------------------------------------------------------------------------
@@ -176,14 +187,14 @@ def load_pinned_versions_tab(origin_filter: str = "all") -> dict[str, Any]:
 
 
 @connector_version_manager_app.tool()
-def search_connectors(query: str = "") -> dict[str, Any]:
+def search_connectors(query: str = "") -> SearchConnectorsResult:
     """Search connector definitions by name, definition ID, or Docker repository."""
     connectors = connector_rows(query)
-    return {
-        "connectors": connectors,
-        "connector_options": connector_options(query),
-        "selected_connector_id": connectors[0]["id"] if connectors else "",
-    }
+    return SearchConnectorsResult(
+        connectors=connectors,
+        connector_options=connector_options(query),
+        selected_connector_id=connectors[0]["id"] if connectors else "",
+    )
 
 
 @connector_version_manager_app.tool()
@@ -191,7 +202,7 @@ def resolve_scope_guid(
     connector_id: str,
     context_guid: str,
     auth_bearer_token: str = "",
-) -> dict[str, Any]:
+) -> ScopeResolutionResult:
     """Validate a GUID and resolve it to a scope type with friendly name."""
     uuid_pattern = re.compile(
         r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}"
@@ -199,73 +210,29 @@ def resolve_scope_guid(
     )
     normalized = context_guid.strip()
     if not normalized:
-        return {
-            "scope_type": "",
-            "scope_id": "",
-            "scope_name": "",
-            "scope_url": "",
-            "resolved_context_label": "",
-            "context_error": "",
-            "is_valid_uuid": False,
-            "actor_workspace_id": "",
-            "workspace_name": "",
-            "workspace_url": "",
-            "organization_name": "",
-            "organization_url": "",
-        }
+        return ScopeResolutionResult()
     if not uuid_pattern.match(normalized):
-        return {
-            "scope_type": "",
-            "scope_id": "",
-            "scope_name": "",
-            "scope_url": "",
-            "resolved_context_label": "",
-            "context_error": "Invalid UUID format.",
-            "is_valid_uuid": False,
-            "actor_workspace_id": "",
-            "workspace_name": "",
-            "workspace_url": "",
-            "organization_name": "",
-            "organization_url": "",
-        }
+        return ScopeResolutionResult(context_error="Invalid UUID format.")
     adapter = get_adapter(auth_bearer_token or None)
     try:
         connector = adapter.get_connector(connector_id)
     except ValueError:
-        return {
-            "scope_type": "",
-            "scope_id": normalized,
-            "scope_name": "",
-            "scope_url": "",
-            "resolved_context_label": "",
-            "context_error": f"Unknown connector ID: {connector_id}",
-            "is_valid_uuid": True,
-            "actor_workspace_id": "",
-            "workspace_name": "",
-            "workspace_url": "",
-            "organization_name": "",
-            "organization_url": "",
-        }
+        return ScopeResolutionResult(
+            scope_id=normalized,
+            context_error=f"Unknown connector ID: {connector_id}",
+            is_valid_uuid=True,
+        )
     try:
         resolution = adapter.resolve_context_guid(
             connector=connector,
             context_guid=normalized,
         )
     except PyAirbyteInputError as error:
-        return {
-            "scope_type": "",
-            "scope_id": normalized,
-            "scope_name": "",
-            "scope_url": "",
-            "resolved_context_label": "",
-            "context_error": context_error_message(error),
-            "is_valid_uuid": True,
-            "actor_workspace_id": "",
-            "workspace_name": "",
-            "workspace_url": "",
-            "organization_name": "",
-            "organization_url": "",
-        }
+        return ScopeResolutionResult(
+            scope_id=normalized,
+            context_error=context_error_message(error),
+            is_valid_uuid=True,
+        )
     scope_url = cloud_scope_url(
         scope_type=resolution.scope_type,
         scope_id=resolution.scope_id,
@@ -288,20 +255,19 @@ def resolve_scope_guid(
             scope_type="organization",
             scope_id=resolution.organization_id,
         )
-    return {
-        "scope_type": resolution.scope_type,
-        "scope_id": resolution.scope_id,
-        "scope_name": resolution.scope_name,
-        "scope_url": scope_url,
-        "resolved_context_label": label,
-        "context_error": "",
-        "is_valid_uuid": True,
-        "actor_workspace_id": resolution.workspace_id or "",
-        "workspace_name": resolution.workspace_name,
-        "workspace_url": workspace_url,
-        "organization_name": resolution.organization_name,
-        "organization_url": organization_url,
-    }
+    return ScopeResolutionResult(
+        scope_type=resolution.scope_type,
+        scope_id=resolution.scope_id,
+        scope_name=resolution.scope_name,
+        scope_url=scope_url,
+        resolved_context_label=label,
+        is_valid_uuid=True,
+        actor_workspace_id=resolution.workspace_id or "",
+        workspace_name=resolution.workspace_name,
+        workspace_url=workspace_url,
+        organization_name=resolution.organization_name,
+        organization_url=organization_url,
+    )
 
 
 def _add_description_display(pin_rows: list[dict[str, Any]], max_len: int = 40) -> None:
@@ -343,9 +309,8 @@ def _build_context_result(
     actor_workspace_id: str = "",
     adapter: OpsMcpAdapter | None = None,
     include_rollout_sync_summary: bool = False,
-    google_access_token: str = "",
-) -> dict[str, Any]:
-    """Assemble the standard context result dict.
+) -> ConnectorContextResult:
+    """Assemble the standard context result, validated via `ConnectorContextResult`.
 
     When `include_rollout_sync_summary` is set and an `adapter` is provided, each
     active tier rollout's `get_actor_sync_info` health + population counts are
@@ -393,7 +358,6 @@ def _build_context_result(
             == "destination",
             target_version_id=target_version_id,
             rollout_created_at=rollout_created_at,
-            google_access_token=google_access_token,
         )
         # The headline "Eligible Actors" count is the backend's gated-eligible
         # total (`nActorsEligibleOrAlreadyPinned`). When tier resolution
@@ -408,11 +372,13 @@ def _build_context_result(
             total_actors_display = f"{population.total_active:,}"
         else:
             total_actors_display = ""
-        # Only pass per-tier eligible counts when tier resolution actually
-        # succeeded, so the UI can tell a genuine `0 eligible` apart from
-        # "eligible unknown" (BigQuery tier data unavailable). Keyed by the
-        # disjoint cohort the card enumerates; the final `ALL`/GA stage is
-        # surfaced under `TIER_0`.
+        # Only pass per-tier eligible counts when the breakdown was actually
+        # computed, so the UI can tell a genuine `0 eligible` apart from
+        # "eligible unknown" — the latter meaning `get_connector_population`
+        # returned early (no connector id, or the actor-population DB query
+        # failed). A GCS tier-export failure doesn't reach here: it raises and
+        # aborts the page. Keyed by the disjoint cohort the card enumerates;
+        # the final `ALL`/GA stage is surfaced under `TIER_0`.
         eligible_by_tier: dict[str, int] = {}
         pinned_by_tier: dict[str, int] = {}
         factors_by_tier: dict[str, TierPopulationFactors] = {}
@@ -451,25 +417,24 @@ def _build_context_result(
             pinned_by_tier=pinned_by_tier,
             factors_by_tier=factors_by_tier,
         )
-    return {
-        "connector": asdict(connector)
-        if not isinstance(connector, dict)
-        else connector,
-        "versions": versions,
-        "active_rollouts": active_rollouts,
-        "rollout_summary": rollout_summary,
-        "current_state": current_state,
-        "current_state_markdown": json_text(current_state),
-        "ancestor_configs": ancestor_configs or [],
-        "descendant_configs": descendant_configs or [],
-        "resolved_context_label": resolved_context_label,
-        "context_guid": context_guid,
-        "context_error": context_error,
-        "rollout_error": rollout_error,
-        "scope_type": scope_type,
-        "scope_id": scope_id,
-        "actor_workspace_id": actor_workspace_id,
-    }
+    connector_info = asdict(connector) if not isinstance(connector, dict) else connector
+    return ConnectorContextResult(
+        connector=connector_info,
+        versions=versions,
+        active_rollouts=active_rollouts,
+        rollout_summary=rollout_summary,
+        current_state=current_state,
+        current_state_markdown=json_text(current_state),
+        ancestor_configs=ancestor_configs or [],
+        descendant_configs=descendant_configs or [],
+        resolved_context_label=resolved_context_label,
+        context_guid=context_guid,
+        context_error=context_error,
+        rollout_error=rollout_error,
+        scope_type=scope_type,
+        scope_id=scope_id,
+        actor_workspace_id=actor_workspace_id,
+    )
 
 
 @connector_version_manager_app.tool()
@@ -480,8 +445,7 @@ def load_connector_context(
     actor_workspace_id: str = "",
     context_guid: str = "",
     auth_bearer_token: str = "",
-    google_access_token: str = "",
-) -> dict[str, Any]:
+) -> ConnectorContextResult:
     """Load connector versions and scoped pin context."""
     if not connector_id:
         return connector_context_placeholder(
@@ -502,7 +466,6 @@ def load_connector_context(
         "scope_id": scope_id,
         "actor_workspace_id": actor_workspace_id,
         "adapter": adapter,
-        "google_access_token": google_access_token,
     }
     if not auth_available(auth_bearer_token or None):
         versions, _version_error = version_rows_or_empty(adapter, connector)
@@ -591,8 +554,7 @@ def _load_context_from_compound_value(
     actor_workspace_id: str = "",
     context_guid: str = "",
     auth_bearer_token: str = "",
-    google_access_token: str = "",
-) -> dict[str, Any]:
+) -> CompoundContextResult:
     """Shared helper: split a `connector_id|version` value, load context."""
     connector_id, _separator, version = compound_value.partition("|")
     context = load_connector_context(
@@ -602,11 +564,12 @@ def _load_context_from_compound_value(
         actor_workspace_id=actor_workspace_id,
         context_guid=context_guid,
         auth_bearer_token=auth_bearer_token,
-        google_access_token=google_access_token,
     )
-    context["selected_connector_id"] = connector_id
-    context["target_version"] = version
-    return context
+    return CompoundContextResult(
+        **context.model_dump(),
+        selected_connector_id=connector_id,
+        target_version=version,
+    )
 
 
 @connector_version_manager_app.tool()
@@ -617,8 +580,7 @@ def load_recent_release_context(
     actor_workspace_id: str = "",
     context_guid: str = "",
     auth_bearer_token: str = "",
-    google_access_token: str = "",
-) -> dict[str, Any]:
+) -> CompoundContextResult:
     """Load connector context from a recent release combobox selection."""
     return _load_context_from_compound_value(
         release_value,
@@ -627,7 +589,6 @@ def load_recent_release_context(
         actor_workspace_id,
         context_guid,
         auth_bearer_token,
-        google_access_token,
     )
 
 
@@ -639,8 +600,7 @@ def load_progressive_rollout_context(
     actor_workspace_id: str = "",
     context_guid: str = "",
     auth_bearer_token: str = "",
-    google_access_token: str = "",
-) -> dict[str, Any]:
+) -> CompoundContextResult:
     """Load connector context from a progressive rollout selection."""
     return _load_context_from_compound_value(
         rollout_value,
@@ -649,7 +609,6 @@ def load_progressive_rollout_context(
         actor_workspace_id,
         context_guid,
         auth_bearer_token,
-        google_access_token,
     )
 
 
@@ -662,8 +621,7 @@ def load_connector_version_context(
     actor_workspace_id: str = "",
     context_guid: str = "",
     auth_bearer_token: str = "",
-    google_access_token: str = "",
-) -> dict[str, Any]:
+) -> ConnectorVersionContextResult:
     """Load connector context and auto-resolve pins for a specific version.
 
     Combines `load_connector_context` + `load_version_pins` into a single
@@ -677,60 +635,57 @@ def load_connector_version_context(
         actor_workspace_id=actor_workspace_id,
         context_guid=context_guid,
         auth_bearer_token=auth_bearer_token,
-        google_access_token=google_access_token,
     )
-    context["selected_connector_id"] = connector_id
-    effective_version = version_tag or context["connector"].get("latest_version", "")
-    context["target_version"] = effective_version
+    latest_version = context.connector.latest_version
+    effective_version = version_tag or latest_version
 
     # Resolve version_id and release dates from the versions list
     resolved_version_id = ""
     selected_version_release_date = ""
-    latest_version = context["connector"].get("latest_version", "")
     latest_version_release_date = ""
-    for v in context.get("versions", []):
+    for v in context.versions:
         tag = v.get("docker_image_tag", "")
         if tag == effective_version:
-            resolved_version_id = v.get("version_id", "")
-            selected_version_release_date = v.get("last_published", "")
+            resolved_version_id = str(v.get("version_id", "") or "")
+            selected_version_release_date = str(v.get("last_published", "") or "")
         if tag == latest_version:
-            latest_version_release_date = v.get("last_published", "")
-    context["selected_version_release_date"] = _fmt_date_short(
-        selected_version_release_date
-    )
-    context["latest_version_release_date"] = _fmt_date_short(
-        latest_version_release_date
-    )
-    context["selected_version_display"] = _version_with_date(
-        effective_version, selected_version_release_date
-    )
-    context["default_version_display"] = _version_with_date(
-        latest_version, latest_version_release_date
-    )
+            latest_version_release_date = str(v.get("last_published", "") or "")
 
     adapter = get_adapter(auth_bearer_token or None)
 
     # Load pins if we resolved a version_id
+    version_pins: list[dict[str, Any]] = []
+    version_pins_total = 0
+    version_pins_offset = 0
+    selected_version_id = ""
     if resolved_version_id:
-        pins, total = adapter.list_version_pins(
+        pins, version_pins_total = adapter.list_version_pins(
             resolved_version_id,
             limit=_PIN_BATCH_SIZE,
         )
-        pin_rows = rows_from_dataclasses(pins)
-        _add_description_display(pin_rows)
-        context["version_pins"] = pin_rows
-        context["version_pins_total"] = total
-        context["version_pins_offset"] = _PIN_BATCH_SIZE
-        context["selected_version_id"] = resolved_version_id
-        context["selected_version_tag"] = effective_version
-    else:
-        context["version_pins"] = []
-        context["version_pins_total"] = 0
-        context["version_pins_offset"] = 0
-        context["selected_version_id"] = ""
-        context["selected_version_tag"] = effective_version
+        version_pins = rows_from_dataclasses(pins)
+        _add_description_display(version_pins)
+        version_pins_offset = _PIN_BATCH_SIZE
+        selected_version_id = resolved_version_id
 
-    return context
+    return ConnectorVersionContextResult(
+        **context.model_dump(),
+        selected_connector_id=connector_id,
+        target_version=effective_version,
+        selected_version_release_date=_fmt_date_short(selected_version_release_date),
+        latest_version_release_date=_fmt_date_short(latest_version_release_date),
+        selected_version_display=_version_with_date(
+            effective_version, selected_version_release_date
+        ),
+        default_version_display=_version_with_date(
+            latest_version, latest_version_release_date
+        ),
+        version_pins=version_pins,
+        version_pins_total=version_pins_total,
+        version_pins_offset=version_pins_offset,
+        selected_version_id=selected_version_id,
+        selected_version_tag=effective_version,
+    )
 
 
 @connector_version_manager_app.tool()
@@ -739,7 +694,7 @@ def load_version_pins(
     version_tag: str = "",
     auth_bearer_token: str = "",
     offset: int = 0,
-) -> dict[str, Any]:
+) -> VersionPinsResult:
     """Load more pins for a connector version (accumulating).
 
     Fetches all pins from row 0 through `offset + _PIN_BATCH_SIZE` so the
@@ -750,13 +705,13 @@ def load_version_pins(
     pins, total = adapter.list_version_pins(version_id, limit=new_end, offset=0)
     pin_rows = rows_from_dataclasses(pins)
     _add_description_display(pin_rows)
-    return {
-        "version_pins": pin_rows,
-        "version_pins_total": total,
-        "version_pins_offset": new_end,
-        "selected_version_id": version_id,
-        "selected_version_tag": version_tag,
-    }
+    return VersionPinsResult(
+        version_pins=pin_rows,
+        version_pins_total=total,
+        version_pins_offset=new_end,
+        selected_version_id=version_id,
+        selected_version_tag=version_tag,
+    )
 
 
 @connector_version_manager_app.tool()
@@ -776,8 +731,7 @@ def apply_override(
     actor_workspace_id: str = "",
     customer_tier_filter: str = "TIER_2",
     force: bool = False,
-    google_access_token: str = "",
-) -> dict[str, Any]:
+) -> ApplyOverrideResult:
     """Apply a connector version override after user confirmation."""
     adapter = get_adapter(auth_bearer_token or None)
     result = adapter.apply_override(
@@ -797,15 +751,13 @@ def apply_override(
             user_email=user_email,
             customer_tier_filter=customer_tier_filter,
             force=force,
-            google_access_token=google_access_token,
         ),
-        google_access_token=google_access_token,
     )
-    return {
-        "apply_result_json": operation_result_to_json(result),
-        "apply_message": result.message,
-        "apply_success": result.success,
-    }
+    return ApplyOverrideResult(
+        apply_result_json=operation_result_to_json(result),
+        apply_message=result.message,
+        apply_success=result.success,
+    )
 
 
 @connector_version_manager_app.tool()
@@ -822,8 +774,7 @@ def remove_selected_pins(
     approval_comment_url: str = "",
     user_email: str | None = None,
     customer_tier_filter: str = "TIER_2",
-    google_access_token: str = "",
-) -> dict[str, Any]:
+) -> RemovePinsResult:
     """Remove (unset) version overrides for each selected pin.
 
     Iterates over `selected_pins` and calls `apply_override` with
@@ -871,9 +822,7 @@ def remove_selected_pins(
                     user_email=user_email,
                     customer_tier_filter=customer_tier_filter,
                     force=False,
-                    google_access_token=google_access_token,
                 ),
-                google_access_token=google_access_token,
             )
             if result.success:
                 removed += 1
@@ -897,15 +846,15 @@ def remove_selected_pins(
     if errors:
         summary += " Errors: " + "; ".join(errors)
 
-    return {
-        "remove_message": summary,
-        "remove_success": removed > 0 and not errors,
-        "version_pins": pin_rows,
-        "version_pins_total": total,
-        "version_pins_offset": _PIN_BATCH_SIZE,
-        "selected_version_id": version_id,
-        "selected_version_tag": version_tag,
-    }
+    return RemovePinsResult(
+        remove_message=summary,
+        remove_success=removed > 0 and not errors,
+        version_pins=pin_rows,
+        version_pins_total=total,
+        version_pins_offset=_PIN_BATCH_SIZE,
+        selected_version_id=version_id,
+        selected_version_tag=version_tag,
+    )
 
 
 def _resolve_actor_workspace(
@@ -939,7 +888,7 @@ def advance_rollout(
     target_percentage: str = "",
     auth_bearer_token: str = "",
     user_email: str = "",
-) -> dict[str, Any]:
+) -> RolloutActionResult:
     """Advance a connector rollout to the next stage."""
     adapter = get_adapter(auth_bearer_token or None)
     config_api_root = adapter.config_api_root
@@ -964,19 +913,19 @@ def advance_rollout(
             bearer_token=auth_bearer_token or None,
         )
     except PyAirbyteInputError as exc:
-        return {
-            "rollout_action_result": f"Failed to advance rollout: {exc}",
-            "rollout_action_success": False,
-        }
+        return RolloutActionResult(
+            rollout_action_result=f"Failed to advance rollout: {exc}",
+            rollout_action_success=False,
+        )
 
     pct_msg = f" to {parsed_pct}%" if parsed_pct else ""
-    return {
-        "rollout_action_result": (
+    return RolloutActionResult(
+        rollout_action_result=(
             f"Successfully advanced rollout{pct_msg} for "
             f"{docker_repository}:{docker_image_tag}."
         ),
-        "rollout_action_success": True,
-    }
+        rollout_action_success=True,
+    )
 
 
 @connector_version_manager_app.tool()
@@ -988,7 +937,7 @@ def finalize_rollout(
     state: str,
     auth_bearer_token: str = "",
     user_email: str = "",
-) -> dict[str, Any]:
+) -> RolloutActionResult:
     """Finalize a connector rollout (promote, cancel, or rollback).
 
     `state` must be one of: `succeeded`, `canceled`, `failed_rolled_back`.
@@ -1014,10 +963,10 @@ def finalize_rollout(
             bearer_token=auth_bearer_token or None,
         )
     except PyAirbyteInputError as exc:
-        return {
-            "rollout_action_result": f"Failed to finalize rollout: {exc}",
-            "rollout_action_success": False,
-        }
+        return RolloutActionResult(
+            rollout_action_result=f"Failed to finalize rollout: {exc}",
+            rollout_action_success=False,
+        )
 
     action_label = {
         "succeeded": "promoted",
@@ -1025,13 +974,13 @@ def finalize_rollout(
         "failed_rolled_back": "rolled back",
     }.get(state, state)
 
-    return {
-        "rollout_action_result": (
+    return RolloutActionResult(
+        rollout_action_result=(
             f"Successfully {action_label} rollout for "
             f"{docker_repository}:{docker_image_tag}."
         ),
-        "rollout_action_success": True,
-    }
+        rollout_action_success=True,
+    )
 
 
 @connector_version_manager_app.tool()
@@ -1042,17 +991,17 @@ def promote_to_next_stage(
     next_tier: str,
     auth_bearer_token: str = "",
     user_email: str = "",
-) -> dict[str, Any]:
+) -> RolloutActionResult:
     """Start a new rollout at the next tier (promote from current stage to next)."""
     valid_tiers = {t.value for t in CustomerTier}
     if next_tier not in valid_tiers:
-        return {
-            "rollout_action_result": (
+        return RolloutActionResult(
+            rollout_action_result=(
                 f"Invalid tier '{next_tier}'. "
                 f"Expected one of: {', '.join(sorted(valid_tiers))}."
             ),
-            "rollout_action_success": False,
-        }
+            rollout_action_success=False,
+        )
 
     adapter = get_adapter(auth_bearer_token or None)
     config_api_root = adapter.config_api_root
@@ -1075,19 +1024,19 @@ def promote_to_next_stage(
             customer_tier=next_tier,
         )
     except PyAirbyteInputError as exc:
-        return {
-            "rollout_action_result": f"Failed to promote to next stage: {exc}",
-            "rollout_action_success": False,
-        }
+        return RolloutActionResult(
+            rollout_action_result=f"Failed to promote to next stage: {exc}",
+            rollout_action_success=False,
+        )
 
     tier_label = CustomerTier(next_tier).label
-    return {
-        "rollout_action_result": (
+    return RolloutActionResult(
+        rollout_action_result=(
             f"Successfully started {tier_label} rollout for "
             f"{docker_repository}:{docker_image_tag}."
         ),
-        "rollout_action_success": True,
-    }
+        rollout_action_success=True,
+    )
 
 
 @connector_version_manager_app.tool()
@@ -1096,7 +1045,7 @@ def yank_connector_version(
     version: str,
     reason: str = "",
     reference_url: str = "",
-) -> dict[str, Any]:
+) -> RolloutActionResult:
     """Yank a released connector version from the production registry.
 
     Dispatches the `version-yank-command.yml` workflow which marks the version
@@ -1111,28 +1060,28 @@ def yank_connector_version(
     human-operated webapp (see `CONTRIBUTING.md`).
     """
     if not connector_name or not version:
-        return {
-            "rollout_action_result": (
+        return RolloutActionResult(
+            rollout_action_result=(
                 "A connector and version must be selected before yanking."
             ),
-            "rollout_action_success": False,
-        }
+            rollout_action_success=False,
+        )
 
     if mock_only_enabled():
-        return {
-            "rollout_action_result": (
+        return RolloutActionResult(
+            rollout_action_result=(
                 f"[Mock] Would yank {connector_name}@{version} on {YANK_STORE}."
             ),
-            "rollout_action_success": True,
-        }
+            rollout_action_success=True,
+        )
 
     try:
         token = resolve_ci_trigger_github_token()
     except ValueError as exc:
-        return {
-            "rollout_action_result": f"Failed to yank version: {exc}",
-            "rollout_action_success": False,
-        }
+        return RolloutActionResult(
+            rollout_action_result=f"Failed to yank version: {exc}",
+            rollout_action_success=False,
+        )
 
     workflow_inputs: dict[str, str] = {
         "connector-name": connector_name,
@@ -1160,13 +1109,13 @@ def yank_connector_version(
     )
 
     view_url = dispatch_result.run_url or dispatch_result.workflow_url
-    return {
-        "rollout_action_result": (
+    return RolloutActionResult(
+        rollout_action_result=(
             f"Yank workflow triggered for {connector_name}@{version} on "
             f"{YANK_STORE}. View progress at: {view_url}"
         ),
-        "rollout_action_success": True,
-    }
+        rollout_action_success=True,
+    )
 
 
 def _resolve_updated_by(
@@ -1192,6 +1141,6 @@ def _resolve_updated_by(
 @connector_version_manager_app.tool()
 def search_orgs_workspaces(
     query: str = "",
-) -> dict[str, Any]:
+) -> OrgSearchResult:
     """Search organizations and workspaces by name (case-insensitive substring)."""
     return search_organizations_and_workspaces(query=query)

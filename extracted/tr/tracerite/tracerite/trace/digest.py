@@ -6,11 +6,12 @@ import tokenize
 from collections import deque
 from contextlib import suppress
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 from tracerite.logging import logger
 
-from . import trace_cpy
+from . import trace_cpy, withblock
 from .chain_analysis import (
     find_try_block_for_except_line,
     parse_source_for_try_except,
@@ -18,12 +19,14 @@ from .chain_analysis import (
 from .collect import collect_exception_objects
 from .core import (
     COMP_CODE_NAMES,
-    Range,
     chain_reason,
     compute_cursor_position,
     create_summary,
     libdir_match,
 )
+
+if TYPE_CHECKING:
+    from .typing import ExcChain, ExceptionInfo, FrameInfo, RawChain
 from .fragments import (
     build_frame_ranges,
     count_bracket_depth,
@@ -36,10 +39,10 @@ from .syntaxerror import clean_syntax_error_message, extract_enhanced_positions
 
 
 def digest_exception_chain(
-    raw_chain: list[dict],
+    raw_chain: RawChain,
     *,
     cache: dict | None = None,
-) -> list[dict]:
+) -> ExcChain:
     """Convert the raw chain into digested exception info dicts."""
     return [
         digest_exception(item["exc"], cache=cache, **item["kwargs"])
@@ -53,7 +56,7 @@ def digest_exception(
     skip_outmost=0,
     skip_until=None,
     cache: dict | None = None,
-) -> dict:
+) -> ExceptionInfo:
     """Digest one exception into raw frames and metadata.
 
     The returned dict still contains the live exception object under the
@@ -111,7 +114,7 @@ def digest_exception(
     # Determine if this is a "stop" type exception (BaseException or ExceptionGroup)
     is_stop_type = not isinstance(e, Exception) or is_exception_group(e)
 
-    result = {
+    result: ExceptionInfo = {
         "type": type(e).__name__,
         "message": message,
         "summary": summary,
@@ -141,7 +144,7 @@ def extract_subexceptions(
     skip_outmost=0,
     skip_until=None,
     cache: dict | None = None,
-) -> list[list[dict]] | None:
+) -> list[ExcChain] | None:
     """Return parallel raw exception chains for an ExceptionGroup, or None."""
     if not is_exception_group(e):
         return None
@@ -170,7 +173,7 @@ def extract_subexception_chain(
     skip_outmost=0,
     skip_until=None,
     cache: dict | None = None,
-) -> list[dict]:
+) -> ExcChain:
     """Extract the raw exception chain for one ExceptionGroup subexception."""
     chain = collect_exception_objects(exc)
     kwargs = {"skip_outmost": skip_outmost, "skip_until": skip_until}
@@ -213,7 +216,7 @@ def find_except_start_for_line(
         # Find the innermost except block containing this line
         block = find_try_block_for_except_line(blocks, lineno)
         if block:
-            return block.except_start
+            return block["except_start"]
     except Exception:  # pragma: no cover
         pass
     return None
@@ -284,6 +287,7 @@ def extract_source_lines(
     *,
     notebook_cell=False,
     except_block=False,
+    with_block_end=None,
     cache: dict | None = None,
 ):
     try:
@@ -295,7 +299,13 @@ def extract_source_lines(
         )
 
         lines, start = slice_source_context(
-            lines, start, lineno, end_lineno, notebook_cell, except_start
+            lines,
+            start,
+            lineno,
+            end_lineno,
+            notebook_cell,
+            except_start,
+            with_block_end,
         )
 
         error_idx, end_idx = _error_indices(lineno, end_lineno, start)
@@ -331,7 +341,9 @@ def _get_source_from_frame(frame, *, cache: dict | None = None):
     return lines, start
 
 
-def slice_source_context(lines, start, lineno, end_lineno, notebook_cell, except_start):
+def slice_source_context(
+    lines, start, lineno, end_lineno, notebook_cell, except_start, with_block_end=None
+):
     """Slice source lines to the desired context window around the error."""
     if notebook_cell:
         if except_start is not None and except_start >= start:
@@ -342,6 +354,11 @@ def slice_source_context(lines, start, lineno, end_lineno, notebook_cell, except
     else:
         lines_before = 10
         lines_after = (end_lineno - lineno + 2) if end_lineno else 2
+    if with_block_end is not None:
+        # The error occurred when exiting an already-entered with block:
+        # show the block body that ran (e.g. all tasks created in a TaskGroup
+        # block), limited to the block itself (capped by the caller).
+        lines_after = with_block_end - lineno
 
     slice_start = max(0, lineno - start - lines_before)
     slice_end = max(0, lineno - start + lines_after + 1)
@@ -506,15 +523,15 @@ def get_qualified_function_name(frame, function):
 
 
 def extract_text_from_range(lines: str, mark_range) -> str | None:
-    """Return the source text covered by a Range."""
+    """Return the source text covered by a Range dict."""
     if mark_range is None:
         return None
 
     lines_list = lines.splitlines(keepends=True)
 
     # Convert to 0-based line indices
-    start_line_idx = mark_range.lfirst - 1
-    end_line_idx = mark_range.lfinal - 1
+    start_line_idx = mark_range["lfirst"] - 1
+    end_line_idx = mark_range["lfinal"] - 1
 
     # Bounds check
     if start_line_idx < 0 or end_line_idx >= len(lines_list):
@@ -526,13 +543,13 @@ def extract_text_from_range(lines: str, mark_range) -> str | None:
 
         if line_idx == start_line_idx == end_line_idx:
             # Single line case
-            extracted_parts.append(line[mark_range.cbeg : mark_range.cend])
+            extracted_parts.append(line[mark_range["cbeg"] : mark_range["cend"]])
         elif line_idx == start_line_idx:
             # First line of multi-line
-            extracted_parts.append(line[mark_range.cbeg :])
+            extracted_parts.append(line[mark_range["cbeg"] :])
         elif line_idx == end_line_idx:
             # Last line of multi-line
-            extracted_parts.append(line[: mark_range.cend])
+            extracted_parts.append(line[: mark_range["cend"]])
         else:
             # Middle lines of multi-line
             extracted_parts.append(line)
@@ -598,7 +615,7 @@ def get_variable_source_for_comprehension(
 def extract_emphasis_columns(
     lines, error_line_in_context, end_line, start_col, end_col, start
 ):
-    """Return the emphasis Range from caret anchors, or None."""
+    """Return the emphasis Range dict from caret anchors, or None."""
     if not (end_line and start_col is not None and end_col is not None):
         return None
 
@@ -644,7 +661,12 @@ def extract_emphasis_columns(
     lfirst = l0 + segment_start + 1
     lfinal = l1 + segment_start + 1
 
-    return Range(lfirst, lfinal, c0, c1)
+    return {
+        "lfirst": lfirst,
+        "lfinal": lfinal,
+        "cbeg": c0,
+        "cend": c1,
+    }
 
 
 def build_position_map(raw_tb):
@@ -680,10 +702,10 @@ def extract_syntax_error_frame(e):
 
     enhanced_mark, enhanced_em = extract_enhanced_positions(e, lines_list)
     if enhanced_mark:
-        lineno = enhanced_mark.lfirst
-        end_lineno = enhanced_mark.lfinal
-        start_col = enhanced_mark.cbeg
-        end_col = enhanced_mark.cend
+        lineno = enhanced_mark["lfirst"]
+        end_lineno = enhanced_mark["lfinal"]
+        start_col = enhanced_mark["cbeg"]
+        end_col = enhanced_mark["cend"]
 
     lines, lines_list, start, error_line_in_context, end_line = (
         slice_syntax_error_window(
@@ -719,7 +741,12 @@ def extract_syntax_error_frame(e):
         "notebook_cell": notebook_cell,
         "codeline": codeline,
         "range": (
-            Range(lineno, end_lineno or lineno, start_col, end_col)
+            {
+                "lfirst": lineno,
+                "lfinal": end_lineno or lineno,
+                "cbeg": start_col,
+                "cend": end_col,
+            }
             if start_col is not None
             else None
         ),
@@ -846,20 +873,20 @@ def _build_syntax_mark_ranges(
 ):
     """Build mark/emphasis ranges for a SyntaxError frame."""
     if enhanced_mark:
-        mark_range = Range(
-            enhanced_mark.lfirst - start + 1,
-            enhanced_mark.lfinal - start + 1,
-            enhanced_mark.cbeg,
-            enhanced_mark.cend,
-        )
+        mark_range = {
+            "lfirst": enhanced_mark["lfirst"] - start + 1,
+            "lfinal": enhanced_mark["lfinal"] - start + 1,
+            "cbeg": enhanced_mark["cbeg"],
+            "cend": enhanced_mark["cend"],
+        }
         em_ranges = (
             [
-                Range(
-                    em.lfirst - start + 1,
-                    em.lfinal - start + 1,
-                    em.cbeg,
-                    em.cend,
-                )
+                {
+                    "lfirst": em["lfirst"] - start + 1,
+                    "lfinal": em["lfinal"] - start + 1,
+                    "cbeg": em["cbeg"],
+                    "cend": em["cend"],
+                }
                 for em in enhanced_em
             ]
             if enhanced_em
@@ -867,7 +894,12 @@ def _build_syntax_mark_ranges(
         )
     else:
         mark_lfinal = end_line or error_line_in_context
-        mark_range = Range(error_line_in_context, mark_lfinal, start_col, end_col)
+        mark_range = {
+            "lfirst": error_line_in_context,
+            "lfinal": mark_lfinal,
+            "cbeg": start_col,
+            "cend": end_col,
+        }
         em_ranges = extract_emphasis_columns(
             lines,
             error_line_in_context,
@@ -882,7 +914,7 @@ def _build_syntax_mark_ranges(
 
 def digest_frames(
     tb, raw_tb=None, *, except_block=False, cache: dict | None = None
-) -> list[dict]:
+) -> list[FrameInfo]:
     """Convert a traceback into raw frame dicts without relevances/variables."""
     if not tb:
         return []
@@ -890,7 +922,7 @@ def digest_frames(
     position_map = build_position_map(raw_tb)
 
     frames = []
-    for frame, filename, lineno, function, codeline, _ in tb:
+    for frame_idx, (frame, filename, lineno, function, codeline, _) in enumerate(tb):
         hide = frame.f_globals.get("__tracebackhide__") or frame.f_locals.get(
             "__tracebackhide__"
         )
@@ -905,6 +937,10 @@ def digest_frames(
 
         frame_positions = position_map.get(frame)
         pos = frame_positions.popleft() if frame_positions else [None] * 4
+        # The frame called next, if any (used to detect with-block enter/exit)
+        next_func = (
+            tb[frame_idx + 1][0].f_code.co_name if frame_idx + 1 < len(tb) else None
+        )
 
         is_last_frame = frame is tb[-1][0]
         frame_info = extract_single_frame(
@@ -916,6 +952,7 @@ def digest_frames(
             pos,
             hidden,
             is_last_frame,
+            next_func=next_func,
             except_block=except_block,
             cache=cache,
         )
@@ -935,19 +972,40 @@ def extract_single_frame(
     hidden,
     is_last_frame,
     *,
+    next_func=None,
     except_block=False,
     cache: dict | None = None,
-):
+) -> FrameInfo | None:
     """Extract a single frame's worth of traceback information."""
     pos_end_lineno, start_col, end_col = pos[1], pos[2], pos[3]
     notebook_cell = is_notebook_cell(filename)
 
+    # With-block detection needs the frame's source, so it runs (and fetches
+    # it) only in the gated cases; other frames fetch source only when kept.
+    with_stage, with_block = (None, None)
+    if next_func in withblock.WITH_ENTER_EXIT_FUNCTIONS or is_last_frame:
+        full_source, full_source_start = get_full_source(frame, cache=cache)
+        with_stage, with_block = withblock.detect_with_block_error(
+            frame,
+            lineno,
+            frame.f_lasti,
+            next_func,
+            full_source,
+            full_source_start,
+            is_last_frame=is_last_frame,
+            cache=cache,
+        )
+    with_block_end = withblock.block_context_end(with_stage, with_block, lineno)
+
     lines, start, original_common_indent, except_start = extract_source_lines(
         frame,
         lineno,
-        pos_end_lineno,
+        # Enter failure never gets block context (the block never ran), even
+        # when Python's positions span the whole block (3.11).
+        None if with_stage == "enter" else pos_end_lineno,
         notebook_cell=notebook_cell,
         except_block=except_block,
+        with_block_end=with_block_end,
         cache=cache,
     )
 
@@ -960,7 +1018,7 @@ def extract_single_frame(
                 "relevance": "call",
                 "hidden": True,
                 "idframe": id(frame),
-                "frame_obj": frame,
+                "_frame_obj": frame,
                 "lineno": lineno,
                 "full_source": full_source,
                 "full_source_start": full_source_start,
@@ -981,25 +1039,32 @@ def extract_single_frame(
     error_line_in_context = lineno - start + 1
     end_line = pos_end_lineno - start + 1 if pos_end_lineno else None
 
-    frame_range, mark_range = build_frame_ranges(
-        lineno,
-        pos_end_lineno,
-        error_line_in_context,
-        end_line,
-        start_col,
-        end_col,
-        total_indent,
-        lines,
-    )
-
-    em_range = extract_emphasis_columns(
-        lines,
-        error_line_in_context,
-        end_line,
-        mark_range.cbeg if mark_range else None,
-        mark_range.cend if mark_range else None,
-        start,
-    )
+    if with_block is not None:
+        # The error came from the with statement's enter/exit handling, not
+        # from the context expression that Python marks: mark the entire
+        # statement instead and drop the misleading call caret emphasis.
+        frame_range, mark_range, em_range = withblock.build_with_statement_ranges(
+            with_block, lineno, frame.f_code, frame.f_lasti, start, total_indent, lines
+        )
+    else:
+        frame_range, mark_range = build_frame_ranges(
+            lineno,
+            pos_end_lineno,
+            error_line_in_context,
+            end_line,
+            start_col,
+            end_col,
+            total_indent,
+            lines,
+        )
+        em_range = extract_emphasis_columns(
+            lines,
+            error_line_in_context,
+            end_line,
+            mark_range["cbeg"] if mark_range else None,
+            mark_range["cend"] if mark_range else None,
+            start,
+        )
     fragments = parse_lines_to_fragments(lines, mark_range, em_range)
 
     cursor_line, cursor_col = compute_cursor_position(
@@ -1014,12 +1079,12 @@ def extract_single_frame(
         lines, lineno, start, mark_range
     )
 
-    result = {
+    result: FrameInfo = {
         "id": make_trace_id(),
         "relevance": "call",
         "hidden": hidden,
         "idframe": id(frame),
-        "frame_obj": frame,
+        "_frame_obj": frame,
         "filename": filename,
         "original_filename": original_filename,
         "location": location,
@@ -1035,10 +1100,15 @@ def extract_single_frame(
         "function": function,
         "function_suffix": "",
         "urls": urls,
-        "variable_source": variable_source,
+        "_variable_source": variable_source,
         "full_source": full_source,
         "full_source_start": full_source_start,
         "_except_start": except_start,
+        "_with_stage": with_stage,
     }
+    if with_stage is not None:
+        # Symbol description rendered after the stop emoji, telling apart
+        # with block enter and exit failures.
+        result["symbol_desc"] = f"{with_stage.capitalize()}ing"
 
     return result

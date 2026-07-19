@@ -209,18 +209,34 @@ _TYPED_REGION_DISPLAYS: frozenset[str] = (
 )
 
 
-def _pick_display_key(columns: list[dict[str, Any]]) -> str:
-    """Pick the first non-badge / non-ref column as the visible-row key.
+def _pick_display_key(
+    columns: list[dict[str, Any]],
+    *,
+    preferred: str = "",
+) -> str:
+    """Pick the column key used as the visible-row primary label.
 
-    Used by TREE / GRID / TIMELINE / KANBAN — they all need to know
-    which column to render as the card's primary label. Falls back to
-    the first column when nothing matches, then to ``"name"`` when
-    there are no columns at all.
+    Used by TREE / GRID / TIMELINE / KANBAN / QUEUE — they all need to know
+    which column to render as the card's primary label.
+
+    Preference order:
+    1. ``preferred`` (typically the entity's ``display_field``) when set —
+       even if that field is not among the projected columns, so queue
+       cards still label by subject/title rather than raw ``id``.
+    2. First non-badge / non-ref column.
+    3. First column key, else ``"name"``.
     """
+    if preferred:
+        return preferred
     return next(
         (c["key"] for c in columns if c.get("type") not in ("badge", "ref")),
         columns[0]["key"] if columns else "name",
     )
+
+
+def _entity_display_field(ctx: Any) -> str:
+    """Return the source entity's ``display_field`` when the ctx carries IR."""
+    return str(getattr(getattr(ctx, "entity_spec", None), "display_field", "") or "")
 
 
 # ──────────────────────────── chart family ─────────────────────────────
@@ -402,6 +418,18 @@ def _build_chart_adapter_ctx(
 # ───────────────────────────── list family ─────────────────────────────
 
 
+def _set_display_key(adapter_ctx: dict[str, Any], inputs: Any, ctx: Any) -> None:
+    """Entity display_field-aware primary label for card/row titles."""
+    adapter_ctx["display_key"] = _pick_display_key(
+        inputs.columns, preferred=_entity_display_field(ctx)
+    )
+
+
+def _set_detail_url_template(adapter_ctx: dict[str, Any], ctx: Any) -> None:
+    """#1303 hub drill template (``/app/<slug>/{id}``) when VIEW surface exists."""
+    adapter_ctx["detail_url_template"] = getattr(ctx, "detail_url_template", "") or ""
+
+
 def _build_list_adapter_ctx(
     display_upper: str,
     env: RenderEnv,
@@ -441,8 +469,7 @@ def _build_list_adapter_ctx(
         adapter_ctx["empty_message"] = ctx.surface_empty_message or ctx_region.empty_message
         # #1233 — action_id → POST URL map for row_action buttons.
         adapter_ctx["row_action_routes"] = getattr(ctx, "row_action_routes", None) or {}
-        # #1303 — per-row drill-to-detail URL template (empty = no row links).
-        adapter_ctx["detail_url_template"] = getattr(ctx, "detail_url_template", "") or ""
+        _set_detail_url_template(adapter_ctx, ctx)
         # dual_pane master-detail: pane-target drill instead of body swap.
         adapter_ctx["master_detail_pane"] = bool(getattr(ctx, "master_detail_pane", False))
         adapter_ctx["master_detail_target"] = str(getattr(ctx, "master_detail_target", "") or "")
@@ -450,7 +477,7 @@ def _build_list_adapter_ctx(
         adapter_ctx["items"] = inputs.items
         adapter_ctx["columns"] = inputs.columns
         adapter_ctx["kanban_columns"] = inputs.kanban_columns
-        adapter_ctx["display_key"] = _pick_display_key(inputs.columns)
+        _set_display_key(adapter_ctx, inputs, ctx)
         adapter_ctx["group_by"] = (
             inputs.group_by.field if isinstance(inputs.group_by, _BucketRef) else inputs.group_by
         )
@@ -462,19 +489,23 @@ def _build_list_adapter_ctx(
         adapter_ctx["queue_transitions"] = inputs.queue_transitions
         adapter_ctx["queue_status_field"] = inputs.queue_status_field
         adapter_ctx["queue_api_endpoint"] = inputs.queue_api_endpoint
+        # Prefer entity display_field; thread hub drill (not API plurals).
+        _set_display_key(adapter_ctx, inputs, ctx)
+        _set_detail_url_template(adapter_ctx, ctx)
     elif display_upper == "TIMELINE":
         adapter_ctx["items"] = inputs.items
         adapter_ctx["columns"] = inputs.columns
-        adapter_ctx["display_key"] = _pick_display_key(inputs.columns)
+        _set_display_key(adapter_ctx, inputs, ctx)
     elif display_upper == "GRID":
         adapter_ctx["items"] = inputs.items
         adapter_ctx["columns"] = inputs.columns
-        adapter_ctx["display_key"] = _pick_display_key(inputs.columns)
+        _set_display_key(adapter_ctx, inputs, ctx)
         adapter_ctx["entity_name"] = ctx.source
+        _set_detail_url_template(adapter_ctx, ctx)
     elif display_upper == "TREE":
         adapter_ctx["tree_items"] = inputs.tree_items
         adapter_ctx["items"] = inputs.items
-        adapter_ctx["display_key"] = _pick_display_key(inputs.columns)
+        _set_display_key(adapter_ctx, inputs, ctx)
     elif display_upper == "ACTIVITY_FEED":
         adapter_ctx["items"] = inputs.items
 

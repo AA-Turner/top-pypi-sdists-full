@@ -195,7 +195,6 @@ class CliArgs:
     )
     myclirc: str = clickdc.option(
         type=click.Path(),
-        default='~/.myclirc',
         help='Location of myclirc file.',
     )
     auto_vertical_output: bool = clickdc.option(
@@ -390,14 +389,6 @@ def preprocess_cli_args(
             sys.exit(1)
         cli_args.database = cli_args.password
         cli_args.password = EMPTY_PASSWORD_FLAG_SENTINEL
-
-    if cli_args.password is None and cli_args.password_file:
-        password_from_file = get_password_from_file(cli_args.password_file)
-        if password_from_file is not None:
-            cli_args.password = password_from_file
-
-    if cli_args.password is None and os.environ.get('MYSQL_PWD') is not None:
-        cli_args.password = os.environ.get('MYSQL_PWD')
 
     if cli_args.resume and not cli_args.checkpoint:
         click.secho('Error: --resume requires a --checkpoint file.', err=True, fg='red')

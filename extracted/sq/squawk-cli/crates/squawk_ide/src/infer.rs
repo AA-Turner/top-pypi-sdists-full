@@ -47,6 +47,7 @@ pub(crate) fn infer_type_from_expr(expr: &ast::Expr) -> Option<Type> {
         // TODO: we need to infer both lhs and rhs, BUT we also need to support
         // looking up the operator since there's operator overloading
         ast::Expr::BinExpr(_bin_expr) => None,
+        ast::Expr::Collate(collate) => infer_type_from_expr(&collate.expr()?),
         ast::Expr::Literal(literal) => infer_type_from_literal(literal),
         ast::Expr::ParenExpr(paren) => paren.expr().and_then(|e| infer_type_from_expr(&e)),
         ast::Expr::TupleExpr(_) => Some(Type::Record),
@@ -59,7 +60,7 @@ pub(crate) fn infer_type_from_ty(ty: &ast::Type) -> Option<Type> {
         ast::Type::CharType(_) => Some(Type::Text),
         ast::Type::BitType(_) => Some(Type::Bit),
         ast::Type::PathType(path_type) => {
-            let name = path_type.path()?.segment()?.name_ref()?;
+            let name = path_type.path_ref()?.segment()?.name_ref()?;
             Some(Type::Other(name.syntax().text().to_string()))
         }
         _ => None,

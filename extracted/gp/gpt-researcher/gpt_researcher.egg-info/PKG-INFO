@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: gpt-researcher
-Version: 0.15.1
+Version: 0.16.0
 Summary: GPT Researcher is an autonomous agent designed for comprehensive online research on a variety of tasks.
 Home-page: https://github.com/assafelovic/gpt-researcher
 Author: Assaf Elovic
 Author-email: Assaf Elovic <assaf.elovic@gmail.com>
 License: MIT
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiofiles>=23.2.1
@@ -19,7 +19,7 @@ Requires-Dist: arxiv>=2.0.0
 Requires-Dist: attrs>=25.3.0
 Requires-Dist: backoff>=2.2.1
 Requires-Dist: beautifulsoup4>=4.12.2
-Requires-Dist: brotli>=1.1.0
+Requires-Dist: brotli>=1.2.0
 Requires-Dist: certifi>=2025.4.26
 Requires-Dist: cffi>=1.17.1
 Requires-Dist: chardet>=5.2.0
@@ -273,7 +273,7 @@ See the [Documentation](https://docs.gptr.dev/docs/gpt-researcher/getting-starte
 
 ### Installation
 
-1. Install Python 3.11 or later. [Guide](https://www.tutorialsteacher.com/python/install-python).
+1. Install Python 3.12 or later. [Guide](https://www.tutorialsteacher.com/python/install-python).
 2. Clone the project and navigate to the directory:
 
     ```bash

@@ -1,8 +1,8 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Unit tests for the tier_cache module.
 
-Tests cover the pure/round-trip logic layer only — no BigQuery or Prod DB calls.
-External dependencies (_fetch_tier_data_from_bigquery, _resolve_workspace_from_db)
+Tests cover the pure/round-trip logic layer only — no GCS or Prod DB calls.
+External dependencies (`_fetch_tier_data_from_gcs`, `_resolve_workspace_from_db`)
 are patched where needed.
 """
 
@@ -16,6 +16,8 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+from google.api_core.exceptions import Forbidden
+from google.auth.exceptions import RefreshError
 
 from airbyte_ops_mcp.tier_cache import (
     CACHE_TTL_SECONDS,
@@ -23,9 +25,12 @@ from airbyte_ops_mcp.tier_cache import (
     OrgTierResult,
     TierSummary,
     WorkspaceResolution,
+    _extract_export_timestamp,
     _is_cache_fresh,
+    _load_tier_cache,
+    _parse_tier_export_line,
     _read_cache_file,
-    _resolve_bq_tier,
+    _resolve_tier_value,
     _write_cache_file,
     build_tier_summary,
     enrich_rows_by_org,
@@ -37,13 +42,13 @@ from airbyte_ops_mcp.tier_cache import (
 )
 
 # ---------------------------------------------------------------------------
-# _resolve_bq_tier — pure tier string normalization
+# _resolve_tier_value — pure tier string normalization
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "bq_value,expected",
+    "tier_value,expected",
     [
         pytest.param("Tier 0", "TIER_0", id="title_case_tier_0"),
         pytest.param("Tier 1", "TIER_1", id="title_case_tier_1"),
@@ -54,14 +59,14 @@ from airbyte_ops_mcp.tier_cache import (
         pytest.param("  tier 0  ", "TIER_0", id="whitespace_padded"),
     ],
 )
-def test_resolve_bq_tier_valid(bq_value: str, expected: str) -> None:
-    """Known BigQuery tier strings resolve to the correct CustomerTier."""
-    assert _resolve_bq_tier(bq_value) == expected
+def test_resolve_tier_value_valid(tier_value: str, expected: str) -> None:
+    """Known tier strings resolve to the correct CustomerTier."""
+    assert _resolve_tier_value(tier_value) == expected
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "bq_value",
+    "tier_value",
     [
         pytest.param("", id="empty_string"),
         pytest.param("unknown", id="unknown_value"),
@@ -69,9 +74,166 @@ def test_resolve_bq_tier_valid(bq_value: str, expected: str) -> None:
         pytest.param("gold", id="random_string"),
     ],
 )
-def test_resolve_bq_tier_unknown_defaults(bq_value: str) -> None:
+def test_resolve_tier_value_unknown_defaults(tier_value: str) -> None:
     """Unknown tier values default to TIER_2."""
-    assert _resolve_bq_tier(bq_value) == DEFAULT_TIER
+    assert _resolve_tier_value(tier_value) == DEFAULT_TIER
+
+
+# ---------------------------------------------------------------------------
+# _extract_export_timestamp — filename timestamp parsing (backend-mirroring)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "blob_name,expected",
+    [
+        pytest.param(
+            "data/sales_customer_attributes/2024_11_24_1732490206044_0.jsonl",
+            1732490206044,
+            id="timestamp_at_index_5",
+        ),
+        pytest.param(
+            "invalid_file_name.jsonl",
+            0,
+            id="too_few_fields",
+        ),
+        pytest.param(
+            "data/sales_customer_attributes/2024_11_24_notanumber_0.jsonl",
+            0,
+            id="non_numeric_timestamp",
+        ),
+    ],
+)
+def test_extract_export_timestamp(blob_name: str, expected: int) -> None:
+    """The 6th `_`-delimited field is parsed as the export timestamp, else 0."""
+    assert _extract_export_timestamp(blob_name) == expected
+
+
+# ---------------------------------------------------------------------------
+# _parse_tier_export_line — jsonl line parsing
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "line,expected",
+    [
+        pytest.param(
+            '{"_airbyte_data": {"organization_id": "org-1", "customer_tier": "Tier 0"}}',
+            ("org-1", "Tier 0"),
+            id="valid_row",
+        ),
+        pytest.param("   ", None, id="blank_line"),
+        pytest.param(
+            '{"_airbyte_data": {"organization_id": "No Organization Id",'
+            ' "customer_tier": "Tier 0"}}',
+            None,
+            id="sentinel_org",
+        ),
+        pytest.param(
+            '{"_airbyte_data": {"organization_id": "org-1",'
+            ' "customer_tier": "No Customer Tier"}}',
+            None,
+            id="sentinel_tier",
+        ),
+        pytest.param(
+            '{"_airbyte_data": {"organization_id": "org-1"}}',
+            None,
+            id="missing_tier",
+        ),
+        pytest.param('{"foo": "bar"}', None, id="missing_airbyte_data"),
+    ],
+)
+def test_parse_tier_export_line(line: str, expected: tuple[str, str] | None) -> None:
+    """Export lines parse to `(org, tier)`, dropping blank/sentinel/incomplete rows."""
+    assert _parse_tier_export_line(line) == expected
+
+
+@pytest.mark.unit
+def test_parse_tier_export_line_malformed_json_raises() -> None:
+    """A malformed line raises `JSONDecodeError` (never silently skipped): a
+    dropped row could downgrade a Tier 0/1 org to the `TIER_2` default."""
+    with pytest.raises(json.JSONDecodeError):
+        _parse_tier_export_line('{"_airbyte_data": {"organization_id": ')
+
+
+# ---------------------------------------------------------------------------
+# _load_tier_cache — hard-fail semantics (no stale-cache masking)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(Forbidden("no access"), id="gcs_forbidden"),
+        pytest.param(RefreshError("bad creds"), id="auth_refresh_error"),
+    ],
+)
+def test_load_tier_cache_gcs_failure_hard_fails_despite_stale_cache(
+    error: Exception,
+) -> None:
+    """A GCS auth/API failure raises even when a stale cache exists — the loader
+    must not mask a broken tier source (would hide an SA access regression and
+    could bypass tier protection).
+
+    Uses the normal TTL path (not `force_refresh`) with an expired cache
+    timestamp, so the stale cache is actually read, found stale, and the failed
+    refresh must still raise instead of serving the stale entries."""
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "airbyte_ops_mcp.tier_cache.get_gcp_credentials_for_tier_gcs_ro",
+                return_value=object(),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "airbyte_ops_mcp.tier_cache._read_cache_file",
+                return_value=(_make_tier_cache(), time.time() - CACHE_TTL_SECONDS - 1),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "airbyte_ops_mcp.tier_cache._fetch_tier_data_from_gcs",
+                side_effect=error,
+            )
+        )
+        with pytest.raises(RuntimeError, match="GCS tier refresh failed"):
+            _load_tier_cache()
+
+
+@pytest.mark.unit
+def test_load_tier_cache_empty_export_hard_fails_despite_stale_cache() -> None:
+    """An empty export (no rows) raises even when a stale cache exists, rather
+    than serving stale tier data behind a silently-broken export.
+
+    Uses the normal TTL path (not `force_refresh`) with an expired cache
+    timestamp, so the stale cache is actually read, found stale, and the
+    empty-export refresh must still raise instead of serving the stale
+    entries."""
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "airbyte_ops_mcp.tier_cache.get_gcp_credentials_for_tier_gcs_ro",
+                return_value=object(),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "airbyte_ops_mcp.tier_cache._read_cache_file",
+                return_value=(_make_tier_cache(), time.time() - CACHE_TTL_SECONDS - 1),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "airbyte_ops_mcp.tier_cache._fetch_tier_data_from_gcs",
+                return_value={},
+            )
+        )
+        with pytest.raises(RuntimeError, match="returned no rows"):
+            _load_tier_cache()
 
 
 # ---------------------------------------------------------------------------

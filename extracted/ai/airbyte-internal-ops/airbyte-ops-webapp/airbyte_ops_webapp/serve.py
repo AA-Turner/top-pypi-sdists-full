@@ -25,15 +25,6 @@ from starlette.applications import Starlette
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.routing import Route
 
-from airbyte_ops_webapp.auth.google_oauth import (
-    GOOGLE_OAUTH_CALLBACK_PATH,
-    GOOGLE_OAUTH_JS_ACTIONS,
-    GOOGLE_OAUTH_SESSION_PATH,
-    GOOGLE_OAUTH_TOKEN_PATH,
-    google_oauth_callback_response,
-    google_oauth_session_response,
-    google_oauth_token_response,
-)
 from airbyte_ops_webapp.auth.oauth import (
     OAUTH_CALLBACK_PATH,
     OAUTH_JS_ACTIONS,
@@ -42,6 +33,7 @@ from airbyte_ops_webapp.auth.oauth import (
     oauth_callback_response,
     oauth_session_response,
     oauth_token_response,
+    request_has_valid_session,
 )
 from airbyte_ops_webapp.pages.authorization.defaults import (
     OPS_AUTHORIZATION_PATH,
@@ -57,7 +49,12 @@ from airbyte_ops_webapp.pages.customer_billing.defaults import (
 )
 from airbyte_ops_webapp.pages.home.page import OPS_HOME_TOOL_NAME
 from airbyte_ops_webapp.pages.login.page import OPS_LOGIN_PATH
+from airbyte_ops_webapp.pages.motherduck_diagnostics.defaults import (
+    MOTHERDUCK_DIAGNOSTICS_PATH,
+    MOTHERDUCK_DIAGNOSTICS_TOOL_NAME,
+)
 from airbyte_ops_webapp.pages.shared_components.layout import OPS_HOME_PATH
+from airbyte_ops_webapp.state import mock_only_enabled
 from airbyte_ops_webapp.theme import RENDERER_OVERRIDE_CSS
 
 DEFAULT_SERVER_SPEC = "airbyte_ops_webapp/app.py:mcp"
@@ -124,6 +121,7 @@ async def _serve() -> None:
         add_authorization_routes(app, import_map_tag)
         add_connector_version_manager_routes(app, import_map_tag)
         add_customer_billing_routes(app, import_map_tag)
+        add_motherduck_diagnostics_routes(app, import_map_tag)
         add_prefab_renderer_route(app, mcp_url)
         add_oauth_routes(app)
         print(
@@ -155,22 +153,6 @@ def add_oauth_routes(app: Starlette) -> None:
             methods=["GET", "POST", "DELETE"],
         )
     )
-    # Google OAuth routes
-    app.routes.append(
-        Route(
-            GOOGLE_OAUTH_CALLBACK_PATH, google_oauth_callback_response, methods=["GET"]
-        )
-    )
-    app.routes.append(
-        Route(GOOGLE_OAUTH_TOKEN_PATH, google_oauth_token_response, methods=["POST"])
-    )
-    app.routes.append(
-        Route(
-            GOOGLE_OAUTH_SESSION_PATH,
-            google_oauth_session_response,
-            methods=["GET", "POST", "DELETE"],
-        )
-    )
 
 
 def remove_generic_app_routes(app: Starlette) -> None:
@@ -193,11 +175,31 @@ def remove_generic_app_routes(app: Starlette) -> None:
 APP_TITLE = "Airbyte Internal Ops"
 
 
+def _login_redirect(request) -> RedirectResponse | None:
+    """Return a redirect to the authorization page for unauthenticated requests.
+
+    The Airbyte login gate: every protected tool page is served only to requests
+    that carry a valid Airbyte session cookie. Unauthenticated requests are
+    bounced to `/authorization` before the tool host HTML (and therefore the
+    server-side data prefetch its MCP tool call triggers) is ever produced.
+    Mock-only local runs have no real session cookie, so the gate is bypassed
+    there and the client-side gate governs instead.
+    """
+    if mock_only_enabled():
+        return None
+    if request_has_valid_session(request):
+        return None
+    return RedirectResponse(OPS_AUTHORIZATION_PATH, status_code=302)
+
+
 def add_home_routes(app: Starlette, import_map_tag: str) -> None:
     async def home_redirect(_request) -> RedirectResponse:
         return RedirectResponse(OPS_HOME_PATH)
 
-    async def home(_request) -> HTMLResponse:
+    async def home(request) -> HTMLResponse | RedirectResponse:
+        gate = _login_redirect(request)
+        if gate is not None:
+            return gate
         return HTMLResponse(
             _tool_host_html(
                 tool_name=OPS_HOME_TOOL_NAME,
@@ -233,7 +235,10 @@ def add_authorization_routes(app: Starlette, import_map_tag: str) -> None:
 
 
 def add_connector_version_manager_routes(app: Starlette, import_map_tag: str) -> None:
-    async def connector_version_manager(request) -> HTMLResponse:
+    async def connector_version_manager(request) -> HTMLResponse | RedirectResponse:
+        gate = _login_redirect(request)
+        if gate is not None:
+            return gate
         tool_args = {
             key: value for key, value in request.query_params.items() if value.strip()
         }
@@ -252,7 +257,10 @@ def add_connector_version_manager_routes(app: Starlette, import_map_tag: str) ->
 
 
 def add_customer_billing_routes(app: Starlette, import_map_tag: str) -> None:
-    async def customer_billing(request) -> HTMLResponse:
+    async def customer_billing(request) -> HTMLResponse | RedirectResponse:
+        gate = _login_redirect(request)
+        if gate is not None:
+            return gate
         tool_args = {
             key: value for key, value in request.query_params.items() if value.strip()
         }
@@ -266,6 +274,26 @@ def add_customer_billing_routes(app: Starlette, import_map_tag: str) -> None:
         )
 
     app.routes.insert(0, Route(CUSTOMER_BILLING_PATH, customer_billing))
+
+
+def add_motherduck_diagnostics_routes(app: Starlette, import_map_tag: str) -> None:
+    async def motherduck_diagnostics(request) -> HTMLResponse | RedirectResponse:
+        gate = _login_redirect(request)
+        if gate is not None:
+            return gate
+        tool_args = {
+            key: value for key, value in request.query_params.items() if value.strip()
+        }
+        return HTMLResponse(
+            _tool_host_html(
+                tool_name=MOTHERDUCK_DIAGNOSTICS_TOOL_NAME,
+                tool_args=tool_args,
+                import_map_tag=import_map_tag,
+                page_title="Airbyte Ops \u2014 MotherDuck Diagnostics",
+            )
+        )
+
+    app.routes.insert(0, Route(MOTHERDUCK_DIAGNOSTICS_PATH, motherduck_diagnostics))
 
 
 _TITLE_RE = re.compile(r"<title>[^<]*</title>")
@@ -334,7 +362,7 @@ def _inject_renderer_overrides(html: str) -> str:
 
 
 def _oauth_handlers_script() -> str:
-    all_actions = {**OAUTH_JS_ACTIONS, **GOOGLE_OAUTH_JS_ACTIONS}
+    all_actions = {**OAUTH_JS_ACTIONS}
     action_entries = ",\n    ".join(
         f"{name}: {body}" for name, body in all_actions.items()
     )

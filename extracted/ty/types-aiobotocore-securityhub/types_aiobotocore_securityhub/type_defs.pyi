@@ -32,6 +32,7 @@ from .literals import (
     AwsIamAccessKeyStatusType,
     AwsS3BucketNotificationConfigurationS3KeyFilterRuleNameType,
     BatchUpdateFindingsV2UnprocessedFindingErrorCodeType,
+    CloudProviderNameType,
     ComplianceStatusType,
     ConfigurationPolicyAssociationStatusType,
     ConnectionDirectionType,
@@ -40,10 +41,16 @@ from .literals import (
     ConnectorStatusType,
     ControlFindingGeneratorType,
     ControlStatusType,
+    CspmConnectorStatusType,
+    CspmEnablementStatusType,
+    DateRangeComparisonType,
+    EnablementStatusType,
+    FeatureStatusType,
     FindingHistoryUpdateSourceTypeType,
     FindingsTrendsStringFieldType,
     GranularityFieldType,
     GroupByFieldType,
+    HealthIssueCodeType,
     IntegrationTypeType,
     IntegrationV2TypeType,
     MalwareStateType,
@@ -60,6 +67,7 @@ from .literals import (
     OrganizationConfigurationStatusType,
     ParameterValueTypeType,
     PartitionType,
+    RecommendationStatusType,
     RecordStateType,
     RegionAvailabilityStatusType,
     ResourceCategoryType,
@@ -70,11 +78,14 @@ from .literals import (
     ResourcesTrendsStringFieldType,
     RuleStatusType,
     RuleStatusV2Type,
+    ScopeTypeType,
+    SecurityControlsProviderType,
     SecurityHubFeatureType,
     SeverityLabelType,
     SeverityRatingType,
     SortOrderType,
     StandardsControlsUpdatableType,
+    StandardsProviderType,
     StandardsStatusType,
     StatusReasonCodeType,
     StringFilterComparisonType,
@@ -970,6 +981,12 @@ __all__ = (
     "AwsWafv2WebAclDetailsTypeDef",
     "AwsWafv2WebAclDetailsUnionTypeDef",
     "AwsXrayEncryptionConfigDetailsTypeDef",
+    "AzureDetailTypeDef",
+    "AzureProviderConfigurationTypeDef",
+    "AzureScopeConfigurationOutputTypeDef",
+    "AzureScopeConfigurationTypeDef",
+    "AzureScopeConfigurationUnionTypeDef",
+    "AzureUpdateConfigurationTypeDef",
     "BatchDeleteAutomationRulesRequestTypeDef",
     "BatchDeleteAutomationRulesResponseTypeDef",
     "BatchDisableStandardsRequestTypeDef",
@@ -1035,6 +1052,8 @@ __all__ = (
     "CreateAutomationRuleV2ResponseTypeDef",
     "CreateConfigurationPolicyRequestTypeDef",
     "CreateConfigurationPolicyResponseTypeDef",
+    "CreateConnectorRequestTypeDef",
+    "CreateConnectorResponseTypeDef",
     "CreateConnectorV2RequestTypeDef",
     "CreateConnectorV2ResponseTypeDef",
     "CreateFindingAggregatorRequestTypeDef",
@@ -1048,6 +1067,12 @@ __all__ = (
     "CriteriaOutputTypeDef",
     "CriteriaTypeDef",
     "CriteriaUnionTypeDef",
+    "CspmConnectorSummaryTypeDef",
+    "CspmHealthCheckTypeDef",
+    "CspmProviderConfigurationTypeDef",
+    "CspmProviderDetailTypeDef",
+    "CspmProviderSummaryTypeDef",
+    "CspmProviderUpdateConfigurationTypeDef",
     "CustomDataIdentifiersDetectionsOutputTypeDef",
     "CustomDataIdentifiersDetectionsTypeDef",
     "CustomDataIdentifiersDetectionsUnionTypeDef",
@@ -1069,7 +1094,10 @@ __all__ = (
     "DeleteAggregatorV2RequestTypeDef",
     "DeleteAutomationRuleV2RequestTypeDef",
     "DeleteConfigurationPolicyRequestTypeDef",
+    "DeleteConnectorRequestTypeDef",
+    "DeleteConnectorResponseTypeDef",
     "DeleteConnectorV2RequestTypeDef",
+    "DeleteConnectorV2ResponseTypeDef",
     "DeleteFindingAggregatorRequestTypeDef",
     "DeleteInsightRequestTypeDef",
     "DeleteInsightResponseTypeDef",
@@ -1101,6 +1129,7 @@ __all__ = (
     "DetectionUnionTypeDef",
     "DisableImportFindingsForProductRequestTypeDef",
     "DisableOrganizationAdminAccountRequestTypeDef",
+    "DisableSecurityHubFeatureV2RequestTypeDef",
     "DisassociateMembersRequestTypeDef",
     "DnsRequestActionTypeDef",
     "DoubleConfigurationOptionsTypeDef",
@@ -1108,12 +1137,14 @@ __all__ = (
     "EnableImportFindingsForProductResponseTypeDef",
     "EnableOrganizationAdminAccountRequestTypeDef",
     "EnableOrganizationAdminAccountResponseTypeDef",
+    "EnableSecurityHubFeatureV2RequestTypeDef",
     "EnableSecurityHubRequestTypeDef",
     "EnableSecurityHubV2RequestTypeDef",
     "EnableSecurityHubV2ResponseTypeDef",
     "EnumConfigurationOptionsTypeDef",
     "EnumListConfigurationOptionsTypeDef",
     "ExternalIntegrationConfigurationTypeDef",
+    "FeatureDetailTypeDef",
     "FilePathsTypeDef",
     "FindingAggregatorTypeDef",
     "FindingHistoryRecordTypeDef",
@@ -1137,6 +1168,7 @@ __all__ = (
     "FirewallPolicyStatelessCustomActionsDetailsTypeDef",
     "FirewallPolicyStatelessCustomActionsDetailsUnionTypeDef",
     "FirewallPolicyStatelessRuleGroupReferencesDetailsTypeDef",
+    "GenerateRecommendedPolicyV2RequestTypeDef",
     "GeneratorDetailsOutputTypeDef",
     "GeneratorDetailsTypeDef",
     "GeneratorDetailsUnionTypeDef",
@@ -1150,6 +1182,8 @@ __all__ = (
     "GetConfigurationPolicyAssociationResponseTypeDef",
     "GetConfigurationPolicyRequestTypeDef",
     "GetConfigurationPolicyResponseTypeDef",
+    "GetConnectorRequestTypeDef",
+    "GetConnectorResponseTypeDef",
     "GetConnectorV2RequestTypeDef",
     "GetConnectorV2ResponseTypeDef",
     "GetEnabledStandardsRequestPaginateTypeDef",
@@ -1180,6 +1214,9 @@ __all__ = (
     "GetMasterAccountResponseTypeDef",
     "GetMembersRequestTypeDef",
     "GetMembersResponseTypeDef",
+    "GetRecommendedPolicyV2RequestPaginateTypeDef",
+    "GetRecommendedPolicyV2RequestTypeDef",
+    "GetRecommendedPolicyV2ResponseTypeDef",
     "GetResourcesStatisticsV2RequestTypeDef",
     "GetResourcesStatisticsV2ResponseTypeDef",
     "GetResourcesTrendsV2RequestPaginateTypeDef",
@@ -1194,6 +1231,7 @@ __all__ = (
     "GroupByRuleTypeDef",
     "GroupByValueTypeDef",
     "HealthCheckTypeDef",
+    "HealthIssueTypeDef",
     "IcmpTypeCodeTypeDef",
     "ImportFindingsErrorTypeDef",
     "IndicatorOutputTypeDef",
@@ -1227,6 +1265,8 @@ __all__ = (
     "ListConfigurationPolicyAssociationsRequestPaginateTypeDef",
     "ListConfigurationPolicyAssociationsRequestTypeDef",
     "ListConfigurationPolicyAssociationsResponseTypeDef",
+    "ListConnectorsRequestTypeDef",
+    "ListConnectorsResponseTypeDef",
     "ListConnectorsV2RequestTypeDef",
     "ListConnectorsV2ResponseTypeDef",
     "ListEnabledProductsForImportRequestPaginateTypeDef",
@@ -1317,6 +1357,8 @@ __all__ = (
     "ProviderSummaryTypeDef",
     "ProviderUpdateConfigurationTypeDef",
     "RangeTypeDef",
+    "RecommendationErrorTypeDef",
+    "RecommendationStepTypeDef",
     "RecommendationTypeDef",
     "RecordTypeDef",
     "RegisterConnectorV2RequestTypeDef",
@@ -1329,6 +1371,9 @@ __all__ = (
     "ResourceFindingsSummaryTypeDef",
     "ResourceGroupByRuleTypeDef",
     "ResourceOutputTypeDef",
+    "ResourceOwnerAccountTypeDef",
+    "ResourceOwnerOrgTypeDef",
+    "ResourceOwnerTypeDef",
     "ResourceResultTypeDef",
     "ResourceScopesTypeDef",
     "ResourceSeverityBreakdownTypeDef",
@@ -1471,6 +1516,7 @@ __all__ = (
     "UnprocessedStandardsControlAssociationTypeDef",
     "UnprocessedStandardsControlAssociationUpdateTypeDef",
     "UntagResourceRequestTypeDef",
+    "UnusedPermissionsRecommendationStepTypeDef",
     "UpdateActionTargetRequestTypeDef",
     "UpdateAggregatorV2RequestTypeDef",
     "UpdateAggregatorV2ResponseTypeDef",
@@ -1478,7 +1524,10 @@ __all__ = (
     "UpdateAutomationRulesRequestItemTypeDef",
     "UpdateConfigurationPolicyRequestTypeDef",
     "UpdateConfigurationPolicyResponseTypeDef",
+    "UpdateConnectorRequestTypeDef",
+    "UpdateConnectorResponseTypeDef",
     "UpdateConnectorV2RequestTypeDef",
+    "UpdateConnectorV2ResponseTypeDef",
     "UpdateFindingAggregatorRequestTypeDef",
     "UpdateFindingAggregatorResponseTypeDef",
     "UpdateFindingsRequestTypeDef",
@@ -3619,6 +3668,14 @@ AwsXrayEncryptionConfigDetailsTypeDef = TypedDict(
     },
 )
 
+class AzureScopeConfigurationOutputTypeDef(TypedDict):
+    ScopeType: ScopeTypeType
+    ScopeValues: NotRequired[list[str]]
+
+class AzureScopeConfigurationTypeDef(TypedDict):
+    ScopeType: ScopeTypeType
+    ScopeValues: NotRequired[Sequence[str]]
+
 class BatchDeleteAutomationRulesRequestTypeDef(TypedDict):
     AutomationRulesArns: Sequence[str]
 
@@ -3774,10 +3831,6 @@ class ConfigurationPolicySummaryTypeDef(TypedDict):
     UpdatedAt: NotRequired[datetime]
     ServiceEnabled: NotRequired[bool]
 
-class ProviderSummaryTypeDef(TypedDict):
-    ProviderName: NotRequired[ConnectorProviderNameType]
-    ConnectorStatus: NotRequired[ConnectorStatusType]
-
 class VolumeMountTypeDef(TypedDict):
     Name: NotRequired[str]
     MountPath: NotRequired[str]
@@ -3807,9 +3860,14 @@ class CreateTicketV2RequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
     Mode: NotRequired[Literal["DRYRUN"]]
 
+class HealthIssueTypeDef(TypedDict):
+    Code: HealthIssueCodeType
+    Message: str
+
 class DateRangeTypeDef(TypedDict):
     Value: NotRequired[int]
     Unit: NotRequired[Literal["DAYS"]]
+    Comparison: NotRequired[DateRangeComparisonType]
 
 class DeclineInvitationsRequestTypeDef(TypedDict):
     AccountIds: Sequence[str]
@@ -3825,6 +3883,9 @@ class DeleteAutomationRuleV2RequestTypeDef(TypedDict):
 
 class DeleteConfigurationPolicyRequestTypeDef(TypedDict):
     Identifier: str
+
+class DeleteConnectorRequestTypeDef(TypedDict):
+    ConnectorId: str
 
 class DeleteConnectorV2RequestTypeDef(TypedDict):
     ConnectorId: str
@@ -3889,6 +3950,10 @@ class ProductV2TypeDef(TypedDict):
     ActivationUrl: NotRequired[str]
     MarketplaceProductId: NotRequired[str]
 
+class FeatureDetailTypeDef(TypedDict):
+    FeatureStatus: NotRequired[FeatureStatusType]
+    UpdatedAt: NotRequired[datetime]
+
 class DescribeStandardsControlsRequestTypeDef(TypedDict):
     StandardsSubscriptionArn: str
     NextToken: NotRequired[str]
@@ -3909,6 +3974,7 @@ class StandardsControlTypeDef(TypedDict):
 class DescribeStandardsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    Providers: NotRequired[Sequence[StandardsProviderType]]
 
 class DisableImportFindingsForProductRequestTypeDef(TypedDict):
     ProductSubscriptionArn: str
@@ -3916,6 +3982,9 @@ class DisableImportFindingsForProductRequestTypeDef(TypedDict):
 class DisableOrganizationAdminAccountRequestTypeDef(TypedDict):
     AdminAccountId: str
     Feature: NotRequired[SecurityHubFeatureType]
+
+class DisableSecurityHubFeatureV2RequestTypeDef(TypedDict):
+    FeatureName: Literal["NETWORK_SCANNING"]
 
 class DisassociateMembersRequestTypeDef(TypedDict):
     AccountIds: Sequence[str]
@@ -3926,6 +3995,9 @@ class EnableImportFindingsForProductRequestTypeDef(TypedDict):
 class EnableOrganizationAdminAccountRequestTypeDef(TypedDict):
     AdminAccountId: str
     Feature: NotRequired[SecurityHubFeatureType]
+
+class EnableSecurityHubFeatureV2RequestTypeDef(TypedDict):
+    FeatureName: Literal["NETWORK_SCANNING"]
 
 class EnableSecurityHubRequestTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
@@ -3968,6 +4040,9 @@ class FirewallPolicyStatelessRuleGroupReferencesDetailsTypeDef(TypedDict):
     Priority: NotRequired[int]
     ResourceArn: NotRequired[str]
 
+class GenerateRecommendedPolicyV2RequestTypeDef(TypedDict):
+    MetadataUid: str
+
 class GeneratorDetailsTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
@@ -3988,18 +4063,17 @@ class GetAutomationRuleV2RequestTypeDef(TypedDict):
 class GetConfigurationPolicyRequestTypeDef(TypedDict):
     Identifier: str
 
-class GetConnectorV2RequestTypeDef(TypedDict):
+class GetConnectorRequestTypeDef(TypedDict):
     ConnectorId: str
 
-class HealthCheckTypeDef(TypedDict):
-    ConnectorStatus: ConnectorStatusType
-    LastCheckedAt: datetime
-    Message: NotRequired[str]
+class GetConnectorV2RequestTypeDef(TypedDict):
+    ConnectorId: str
 
 class GetEnabledStandardsRequestTypeDef(TypedDict):
     StandardsSubscriptionArns: NotRequired[Sequence[str]]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    Providers: NotRequired[Sequence[StandardsProviderType]]
 
 class GetFindingAggregatorRequestTypeDef(TypedDict):
     FindingAggregatorArn: str
@@ -4029,6 +4103,15 @@ class MemberTypeDef(TypedDict):
     MemberStatus: NotRequired[str]
     InvitedAt: NotRequired[datetime]
     UpdatedAt: NotRequired[datetime]
+
+class GetRecommendedPolicyV2RequestTypeDef(TypedDict):
+    MetadataUid: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class RecommendationErrorTypeDef(TypedDict):
+    Code: NotRequired[str]
+    Message: NotRequired[str]
 
 class GetSecurityControlDefinitionRequestTypeDef(TypedDict):
     SecurityControlId: str
@@ -4092,11 +4175,19 @@ class ListConfigurationPoliciesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListConnectorsRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    ProviderName: NotRequired[Literal["AZURE"]]
+    ConnectorStatus: NotRequired[CspmConnectorStatusType]
+    EnablementStatus: NotRequired[CspmEnablementStatusType]
+
 class ListConnectorsV2RequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     ProviderName: NotRequired[ConnectorProviderNameType]
     ConnectorStatus: NotRequired[ConnectorStatusType]
+    EnablementStatus: NotRequired[EnablementStatusType]
 
 class ListEnabledProductsForImportRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -4124,6 +4215,7 @@ class ListSecurityControlDefinitionsRequestTypeDef(TypedDict):
     StandardsArn: NotRequired[str]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    Providers: NotRequired[Sequence[SecurityControlsProviderType]]
 
 class ListStandardsControlAssociationsRequestTypeDef(TypedDict):
     SecurityControlId: str
@@ -4202,6 +4294,13 @@ class ServiceNowDetailTypeDef(TypedDict):
 class ServiceNowUpdateConfigurationTypeDef(TypedDict):
     SecretArn: NotRequired[str]
 
+class UnusedPermissionsRecommendationStepTypeDef(TypedDict):
+    RecommendedAction: NotRequired[str]
+    ExistingPolicy: NotRequired[str]
+    ExistingPolicyId: NotRequired[str]
+    PolicyUpdatedAt: NotRequired[datetime]
+    RecommendedPolicy: NotRequired[str]
+
 RecommendationTypeDef = TypedDict(
     "RecommendationTypeDef",
     {
@@ -4223,6 +4322,12 @@ class ResourceSeverityBreakdownTypeDef(TypedDict):
     Low: NotRequired[int]
     Informational: NotRequired[int]
     Unknown: NotRequired[int]
+
+class ResourceOwnerAccountTypeDef(TypedDict):
+    Id: NotRequired[str]
+
+class ResourceOwnerOrgTypeDef(TypedDict):
+    Id: NotRequired[str]
 
 class ResourceTagTypeDef(TypedDict):
     Key: str
@@ -6271,6 +6376,15 @@ class AwsWafv2CustomResponseDetailsTypeDef(TypedDict):
 class AwsWafv2WebAclCaptchaConfigDetailsTypeDef(TypedDict):
     ImmunityTimeProperty: NotRequired[AwsWafv2WebAclCaptchaConfigImmunityTimePropertyDetailsTypeDef]
 
+class AzureDetailTypeDef(TypedDict):
+    AWSConfigConnectorArn: str
+    ScopeConfiguration: AzureScopeConfigurationOutputTypeDef
+    AzureRegions: list[str]
+
+AzureScopeConfigurationUnionTypeDef = Union[
+    AzureScopeConfigurationTypeDef, AzureScopeConfigurationOutputTypeDef
+]
+
 class CreateActionTargetResponseTypeDef(TypedDict):
     ActionTargetArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6291,11 +6405,19 @@ class CreateAutomationRuleV2ResponseTypeDef(TypedDict):
     RuleId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateConnectorResponseTypeDef(TypedDict):
+    ConnectorArn: str
+    ConnectorId: str
+    ConnectorStatus: CspmConnectorStatusType
+    EnablementStatus: CspmEnablementStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateConnectorV2ResponseTypeDef(TypedDict):
     ConnectorArn: str
     ConnectorId: str
     AuthUrl: str
     ConnectorStatus: ConnectorStatusType
+    EnablementStatus: EnablementStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateFindingAggregatorResponseTypeDef(TypedDict):
@@ -6318,6 +6440,14 @@ class DeleteActionTargetResponseTypeDef(TypedDict):
     ActionTargetArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeleteConnectorResponseTypeDef(TypedDict):
+    EnablementStatus: CspmEnablementStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteConnectorV2ResponseTypeDef(TypedDict):
+    EnablementStatus: EnablementStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteInsightResponseTypeDef(TypedDict):
     InsightArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6332,11 +6462,6 @@ class DescribeHubResponseTypeDef(TypedDict):
     SubscribedAt: str
     AutoEnableControls: bool
     ControlFindingGenerator: ControlFindingGeneratorType
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeSecurityHubV2ResponseTypeDef(TypedDict):
-    HubV2Arn: str
-    SubscribedAt: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EnableImportFindingsForProductResponseTypeDef(TypedDict):
@@ -6430,6 +6555,16 @@ class UpdateAggregatorV2ResponseTypeDef(TypedDict):
     AggregationRegion: str
     RegionLinkingMode: str
     LinkedRegions: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateConnectorResponseTypeDef(TypedDict):
+    ConnectorStatus: CspmConnectorStatusType
+    EnablementStatus: CspmEnablementStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateConnectorV2ResponseTypeDef(TypedDict):
+    ConnectorStatus: ConnectorStatusType
+    EnablementStatus: EnablementStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateFindingAggregatorResponseTypeDef(TypedDict):
@@ -6543,14 +6678,6 @@ class ListConfigurationPoliciesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class ConnectorSummaryTypeDef(TypedDict):
-    ConnectorId: str
-    Name: str
-    ProviderSummary: ProviderSummaryTypeDef
-    CreatedAt: datetime
-    ConnectorArn: NotRequired[str]
-    Description: NotRequired[str]
-
 class ContainerDetailsOutputTypeDef(TypedDict):
     ContainerRuntime: NotRequired[str]
     Name: NotRequired[str]
@@ -6589,6 +6716,18 @@ class InviteMembersResponseTypeDef(TypedDict):
     UnprocessedAccounts: list[ResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CspmHealthCheckTypeDef(TypedDict):
+    ConnectorStatus: CspmConnectorStatusType
+    LastCheckedAt: datetime
+    Message: NotRequired[str]
+    Issues: NotRequired[list[HealthIssueTypeDef]]
+
+class HealthCheckTypeDef(TypedDict):
+    ConnectorStatus: ConnectorStatusType
+    LastCheckedAt: datetime
+    Message: NotRequired[str]
+    Issues: NotRequired[list[HealthIssueTypeDef]]
+
 class DateFilterTypeDef(TypedDict):
     Start: NotRequired[str]
     End: NotRequired[str]
@@ -6610,14 +6749,20 @@ class DescribeStandardsControlsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeStandardsRequestPaginateTypeDef(TypedDict):
+    Providers: NotRequired[Sequence[StandardsProviderType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class GetEnabledStandardsRequestPaginateTypeDef(TypedDict):
     StandardsSubscriptionArns: NotRequired[Sequence[str]]
+    Providers: NotRequired[Sequence[StandardsProviderType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class GetInsightsRequestPaginateTypeDef(TypedDict):
     InsightArns: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class GetRecommendedPolicyV2RequestPaginateTypeDef(TypedDict):
+    MetadataUid: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAggregatorsV2RequestPaginateTypeDef(TypedDict):
@@ -6649,6 +6794,7 @@ class ListOrganizationAdminAccountsRequestPaginateTypeDef(TypedDict):
 
 class ListSecurityControlDefinitionsRequestPaginateTypeDef(TypedDict):
     StandardsArn: NotRequired[str]
+    Providers: NotRequired[Sequence[SecurityControlsProviderType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListStandardsControlAssociationsRequestPaginateTypeDef(TypedDict):
@@ -6676,6 +6822,12 @@ class DescribeProductsV2ResponseTypeDef(TypedDict):
     ProductsV2: list[ProductV2TypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class DescribeSecurityHubV2ResponseTypeDef(TypedDict):
+    HubV2Arn: str
+    SubscribedAt: str
+    Features: dict[str, FeatureDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeStandardsControlsResponseTypeDef(TypedDict):
     Controls: list[StandardsControlTypeDef]
@@ -6861,17 +7013,8 @@ class ParameterConfigurationOutputTypeDef(TypedDict):
 
 ParameterValueUnionTypeDef = Union[ParameterValueTypeDef, ParameterValueOutputTypeDef]
 
-class ProviderConfigurationTypeDef(TypedDict):
-    JiraCloud: NotRequired[JiraCloudProviderConfigurationTypeDef]
-    ServiceNow: NotRequired[ServiceNowProviderConfigurationTypeDef]
-
-class ProviderDetailTypeDef(TypedDict):
-    JiraCloud: NotRequired[JiraCloudDetailTypeDef]
-    ServiceNow: NotRequired[ServiceNowDetailTypeDef]
-
-class ProviderUpdateConfigurationTypeDef(TypedDict):
-    JiraCloud: NotRequired[JiraCloudUpdateConfigurationTypeDef]
-    ServiceNow: NotRequired[ServiceNowUpdateConfigurationTypeDef]
+class RecommendationStepTypeDef(TypedDict):
+    UnusedPermissions: NotRequired[UnusedPermissionsRecommendationStepTypeDef]
 
 class RemediationTypeDef(TypedDict):
     Recommendation: NotRequired[RecommendationTypeDef]
@@ -6881,6 +7024,10 @@ class ResourceFindingsSummaryTypeDef(TypedDict):
     ProductName: str
     TotalFindings: int
     Severities: NotRequired[ResourceSeverityBreakdownTypeDef]
+
+class ResourceOwnerTypeDef(TypedDict):
+    Account: NotRequired[ResourceOwnerAccountTypeDef]
+    Org: NotRequired[ResourceOwnerOrgTypeDef]
 
 class ResourcesTrendsValuesTypeDef(TypedDict):
     ResourcesCount: ResourcesCountTypeDef
@@ -6936,6 +7083,7 @@ class StandardTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
     EnabledByDefault: NotRequired[bool]
+    Provider: NotRequired[StandardsProviderType]
     StandardsManagedBy: NotRequired[StandardsManagedByTypeDef]
 
 class StandardsSubscriptionTypeDef(TypedDict):
@@ -6945,6 +7093,7 @@ class StandardsSubscriptionTypeDef(TypedDict):
     StandardsStatus: StandardsStatusType
     StandardsControlsUpdatable: NotRequired[StandardsControlsUpdatableType]
     StandardsStatusReason: NotRequired[StandardsStatusReasonTypeDef]
+    Provider: NotRequired[StandardsProviderType]
 
 class StatelessCustomPublishMetricActionOutputTypeDef(TypedDict):
     Dimensions: NotRequired[list[StatelessCustomPublishMetricActionDimensionTypeDef]]
@@ -8274,6 +8423,23 @@ AwsWafv2CustomResponseDetailsUnionTypeDef = Union[
     AwsWafv2CustomResponseDetailsTypeDef, AwsWafv2CustomResponseDetailsOutputTypeDef
 ]
 
+class CspmProviderDetailTypeDef(TypedDict):
+    Azure: NotRequired[AzureDetailTypeDef]
+
+class ProviderDetailTypeDef(TypedDict):
+    JiraCloud: NotRequired[JiraCloudDetailTypeDef]
+    ServiceNow: NotRequired[ServiceNowDetailTypeDef]
+    Azure: NotRequired[AzureDetailTypeDef]
+
+class AzureProviderConfigurationTypeDef(TypedDict):
+    AWSConfigConnectorArn: str
+    ScopeConfiguration: AzureScopeConfigurationUnionTypeDef
+    AzureRegions: Sequence[str]
+
+class AzureUpdateConfigurationTypeDef(TypedDict):
+    ScopeConfiguration: AzureScopeConfigurationUnionTypeDef
+    AzureRegions: Sequence[str]
+
 class BatchGetStandardsControlAssociationsResponseTypeDef(TypedDict):
     StandardsControlAssociationDetails: list[StandardsControlAssociationDetailTypeDef]
     UnprocessedAssociations: list[UnprocessedStandardsControlAssociationTypeDef]
@@ -8317,11 +8483,6 @@ class UnprocessedConfigurationPolicyAssociationTypeDef(TypedDict):
     ErrorCode: NotRequired[str]
     ErrorReason: NotRequired[str]
 
-class ListConnectorsV2ResponseTypeDef(TypedDict):
-    Connectors: list[ConnectorSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 ContainerDetailsUnionTypeDef = Union[ContainerDetailsTypeDef, ContainerDetailsOutputTypeDef]
 AutomationRulesFindingFiltersOutputTypeDef = TypedDict(
     "AutomationRulesFindingFiltersOutputTypeDef",
@@ -8364,6 +8525,9 @@ AutomationRulesFindingFiltersOutputTypeDef = TypedDict(
         "ResourceApplicationArn": NotRequired[list[StringFilterTypeDef]],
         "ResourceApplicationName": NotRequired[list[StringFilterTypeDef]],
         "AwsAccountName": NotRequired[list[StringFilterTypeDef]],
+        "ResourceProvider": NotRequired[list[StringFilterTypeDef]],
+        "ResourceOwnerAccountId": NotRequired[list[StringFilterTypeDef]],
+        "ResourceOwnerOrgId": NotRequired[list[StringFilterTypeDef]],
     },
 )
 AutomationRulesFindingFiltersTypeDef = TypedDict(
@@ -8407,6 +8571,9 @@ AutomationRulesFindingFiltersTypeDef = TypedDict(
         "ResourceApplicationArn": NotRequired[Sequence[StringFilterTypeDef]],
         "ResourceApplicationName": NotRequired[Sequence[StringFilterTypeDef]],
         "AwsAccountName": NotRequired[Sequence[StringFilterTypeDef]],
+        "ResourceProvider": NotRequired[Sequence[StringFilterTypeDef]],
+        "ResourceOwnerAccountId": NotRequired[Sequence[StringFilterTypeDef]],
+        "ResourceOwnerOrgId": NotRequired[Sequence[StringFilterTypeDef]],
     },
 )
 AwsSecurityFindingFiltersOutputTypeDef = TypedDict(
@@ -8516,6 +8683,9 @@ AwsSecurityFindingFiltersOutputTypeDef = TypedDict(
         "AwsAccountName": NotRequired[list[StringFilterTypeDef]],
         "ResourceApplicationName": NotRequired[list[StringFilterTypeDef]],
         "ResourceApplicationArn": NotRequired[list[StringFilterTypeDef]],
+        "ResourceOwnerAccountId": NotRequired[list[StringFilterTypeDef]],
+        "ResourceOwnerOrgId": NotRequired[list[StringFilterTypeDef]],
+        "ResourceProvider": NotRequired[list[StringFilterTypeDef]],
     },
 )
 AwsSecurityFindingFiltersTypeDef = TypedDict(
@@ -8627,6 +8797,9 @@ AwsSecurityFindingFiltersTypeDef = TypedDict(
         "AwsAccountName": NotRequired[Sequence[StringFilterTypeDef]],
         "ResourceApplicationName": NotRequired[Sequence[StringFilterTypeDef]],
         "ResourceApplicationArn": NotRequired[Sequence[StringFilterTypeDef]],
+        "ResourceOwnerAccountId": NotRequired[Sequence[StringFilterTypeDef]],
+        "ResourceOwnerOrgId": NotRequired[Sequence[StringFilterTypeDef]],
+        "ResourceProvider": NotRequired[Sequence[StringFilterTypeDef]],
     },
 )
 
@@ -8704,45 +8877,36 @@ class SecurityControlTypeDef(TypedDict):
     UpdateStatus: NotRequired[UpdateStatusType]
     Parameters: NotRequired[dict[str, ParameterConfigurationOutputTypeDef]]
     LastUpdateReason: NotRequired[str]
+    Provider: NotRequired[SecurityControlsProviderType]
 
 class ParameterConfigurationTypeDef(TypedDict):
     ValueType: ParameterValueTypeType
     Value: NotRequired[ParameterValueUnionTypeDef]
 
-class CreateConnectorV2RequestTypeDef(TypedDict):
-    Name: str
-    Provider: ProviderConfigurationTypeDef
-    Description: NotRequired[str]
-    KmsKeyArn: NotRequired[str]
-    Tags: NotRequired[Mapping[str, str]]
-    ClientToken: NotRequired[str]
-
-class GetConnectorV2ResponseTypeDef(TypedDict):
-    ConnectorArn: str
-    ConnectorId: str
-    Name: str
-    Description: str
-    KmsKeyArn: str
-    CreatedAt: datetime
-    LastUpdatedAt: datetime
-    Health: HealthCheckTypeDef
-    ProviderDetail: ProviderDetailTypeDef
+class GetRecommendedPolicyV2ResponseTypeDef(TypedDict):
+    RecommendationType: Literal["UNUSED_PERMISSION_RECOMMENDATION"]
+    RecommendationSteps: list[RecommendationStepTypeDef]
+    Error: RecommendationErrorTypeDef
+    Status: RecommendationStatusType
+    ResourceArn: str
     ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateConnectorV2RequestTypeDef(TypedDict):
-    ConnectorId: str
-    Description: NotRequired[str]
-    Provider: NotRequired[ProviderUpdateConfigurationTypeDef]
+    NextToken: NotRequired[str]
 
 class ResourceResultTypeDef(TypedDict):
     ResourceId: str
     AccountId: str
     Region: str
+    ResourceType: str
     ResourceDetailCaptureTimeDt: str
     ResourceConfig: dict[str, Any]
     ResourceGuid: NotRequired[str]
+    AccountName: NotRequired[str]
+    ResourceProvider: NotRequired[str]
+    ResourceOwnerAccountId: NotRequired[str]
+    ResourceOwnerOrgId: NotRequired[str]
+    ResourceCloudPartition: NotRequired[str]
+    ResourceRegion: NotRequired[str]
     ResourceCategory: NotRequired[ResourceCategoryType]
-    ResourceType: NotRequired[str]
     ResourceName: NotRequired[str]
     ResourceCreationTimeDt: NotRequired[str]
     FindingsSummary: NotRequired[list[ResourceFindingsSummaryTypeDef]]
@@ -9497,6 +9661,59 @@ class AwsWafv2WebAclActionDetailsOutputTypeDef(TypedDict):
 class AwsWafv2ActionBlockDetailsTypeDef(TypedDict):
     CustomResponse: NotRequired[AwsWafv2CustomResponseDetailsUnionTypeDef]
 
+class CspmProviderSummaryTypeDef(TypedDict):
+    ProviderName: NotRequired[Literal["AZURE"]]
+    ConnectorStatus: NotRequired[CspmConnectorStatusType]
+    ProviderConfiguration: NotRequired[CspmProviderDetailTypeDef]
+
+class GetConnectorResponseTypeDef(TypedDict):
+    ConnectorArn: str
+    ConnectorId: str
+    Name: str
+    Description: str
+    CreatedAt: datetime
+    LastUpdatedAt: datetime
+    Health: CspmHealthCheckTypeDef
+    ProviderDetail: CspmProviderDetailTypeDef
+    CreatedBy: str
+    EnablementStatus: CspmEnablementStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetConnectorV2ResponseTypeDef(TypedDict):
+    ConnectorArn: str
+    ConnectorId: str
+    Name: str
+    Description: str
+    KmsKeyArn: str
+    CreatedAt: datetime
+    LastUpdatedAt: datetime
+    Health: HealthCheckTypeDef
+    ProviderDetail: ProviderDetailTypeDef
+    EnablementStatus: EnablementStatusType
+    EnablementStatusReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ProviderSummaryTypeDef(TypedDict):
+    ProviderName: NotRequired[ConnectorProviderNameType]
+    ConnectorStatus: NotRequired[ConnectorStatusType]
+    ProviderConfiguration: NotRequired[ProviderDetailTypeDef]
+
+class CspmProviderConfigurationTypeDef(TypedDict):
+    Azure: NotRequired[AzureProviderConfigurationTypeDef]
+
+class ProviderConfigurationTypeDef(TypedDict):
+    JiraCloud: NotRequired[JiraCloudProviderConfigurationTypeDef]
+    ServiceNow: NotRequired[ServiceNowProviderConfigurationTypeDef]
+    Azure: NotRequired[AzureProviderConfigurationTypeDef]
+
+class CspmProviderUpdateConfigurationTypeDef(TypedDict):
+    Azure: NotRequired[AzureUpdateConfigurationTypeDef]
+
+class ProviderUpdateConfigurationTypeDef(TypedDict):
+    JiraCloud: NotRequired[JiraCloudUpdateConfigurationTypeDef]
+    ServiceNow: NotRequired[ServiceNowUpdateConfigurationTypeDef]
+    Azure: NotRequired[AzureUpdateConfigurationTypeDef]
+
 class VulnerabilityTypeDef(TypedDict):
     Id: str
     VulnerablePackages: NotRequired[Sequence[SoftwarePackageTypeDef]]
@@ -9519,6 +9736,7 @@ class SecurityControlDefinitionTypeDef(TypedDict):
     CurrentRegionAvailability: RegionAvailabilityStatusType
     CustomizableProperties: NotRequired[list[Literal["Parameters"]]]
     ParameterDefinitions: NotRequired[dict[str, ParameterDefinitionTypeDef]]
+    Provider: NotRequired[SecurityControlsProviderType]
 
 class BatchGetConfigurationPolicyAssociationsResponseTypeDef(TypedDict):
     ConfigurationPolicyAssociations: list[ConfigurationPolicyAssociationSummaryTypeDef]
@@ -10158,6 +10376,52 @@ class AwsWafv2RulesDetailsOutputTypeDef(TypedDict):
 AwsWafv2ActionBlockDetailsUnionTypeDef = Union[
     AwsWafv2ActionBlockDetailsTypeDef, AwsWafv2ActionBlockDetailsOutputTypeDef
 ]
+
+class CspmConnectorSummaryTypeDef(TypedDict):
+    ConnectorArn: NotRequired[str]
+    ConnectorId: NotRequired[str]
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    ProviderSummary: NotRequired[CspmProviderSummaryTypeDef]
+    CreatedAt: NotRequired[datetime]
+    CreatedBy: NotRequired[str]
+    EnablementStatus: NotRequired[CspmEnablementStatusType]
+
+class ConnectorSummaryTypeDef(TypedDict):
+    ConnectorId: str
+    Name: str
+    ProviderSummary: ProviderSummaryTypeDef
+    CreatedAt: datetime
+    ConnectorArn: NotRequired[str]
+    Description: NotRequired[str]
+    EnablementStatus: NotRequired[EnablementStatusType]
+    EnablementStatusReason: NotRequired[str]
+
+class CreateConnectorRequestTypeDef(TypedDict):
+    Name: str
+    Provider: CspmProviderConfigurationTypeDef
+    Description: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+    ClientToken: NotRequired[str]
+
+class CreateConnectorV2RequestTypeDef(TypedDict):
+    Name: str
+    Provider: ProviderConfigurationTypeDef
+    Description: NotRequired[str]
+    KmsKeyArn: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+    ClientToken: NotRequired[str]
+
+class UpdateConnectorRequestTypeDef(TypedDict):
+    ConnectorId: str
+    Description: NotRequired[str]
+    Provider: NotRequired[CspmProviderUpdateConfigurationTypeDef]
+
+class UpdateConnectorV2RequestTypeDef(TypedDict):
+    ConnectorId: str
+    Description: NotRequired[str]
+    Provider: NotRequired[ProviderUpdateConfigurationTypeDef]
+
 VulnerabilityUnionTypeDef = Union[VulnerabilityTypeDef, VulnerabilityOutputTypeDef]
 
 class GetSecurityControlDefinitionResponseTypeDef(TypedDict):
@@ -10433,6 +10697,16 @@ class AwsWafv2RulesActionDetailsTypeDef(TypedDict):
 class AwsWafv2WebAclActionDetailsTypeDef(TypedDict):
     Allow: NotRequired[AwsWafv2ActionAllowDetailsUnionTypeDef]
     Block: NotRequired[AwsWafv2ActionBlockDetailsUnionTypeDef]
+
+class ListConnectorsResponseTypeDef(TypedDict):
+    Connectors: list[CspmConnectorSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListConnectorsV2ResponseTypeDef(TypedDict):
+    Connectors: list[ConnectorSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class CriteriaOutputTypeDef(TypedDict):
     OcsfFindingCriteria: NotRequired[OcsfFindingFiltersOutputTypeDef]
@@ -11001,6 +11275,7 @@ ResourceDetailsOutputTypeDef = TypedDict(
         "AwsS3AccessPoint": NotRequired[AwsS3AccessPointDetailsTypeDef],
         "AwsEc2ClientVpnEndpoint": NotRequired[AwsEc2ClientVpnEndpointDetailsOutputTypeDef],
         "CodeRepository": NotRequired[CodeRepositoryDetailsTypeDef],
+        "AzureResource": NotRequired[dict[str, Any]],
     },
 )
 FirewallPolicyDetailsUnionTypeDef = Union[
@@ -11041,6 +11316,8 @@ ResourceOutputTypeDef = TypedDict(
         "Id": str,
         "Partition": NotRequired[PartitionType],
         "Region": NotRequired[str],
+        "Provider": NotRequired[CloudProviderNameType],
+        "Owner": NotRequired[ResourceOwnerTypeDef],
         "ResourceRole": NotRequired[str],
         "Tags": NotRequired[dict[str, str]],
         "DataClassification": NotRequired[DataClassificationDetailsOutputTypeDef],
@@ -11290,6 +11567,7 @@ ResourceDetailsTypeDef = TypedDict(
         "AwsS3AccessPoint": NotRequired[AwsS3AccessPointDetailsTypeDef],
         "AwsEc2ClientVpnEndpoint": NotRequired[AwsEc2ClientVpnEndpointDetailsUnionTypeDef],
         "CodeRepository": NotRequired[CodeRepositoryDetailsTypeDef],
+        "AzureResource": NotRequired[Mapping[str, Any]],
     },
 )
 ResourceDetailsUnionTypeDef = Union[ResourceDetailsTypeDef, ResourceDetailsOutputTypeDef]
@@ -11300,6 +11578,8 @@ ResourceTypeDef = TypedDict(
         "Id": str,
         "Partition": NotRequired[PartitionType],
         "Region": NotRequired[str],
+        "Provider": NotRequired[CloudProviderNameType],
+        "Owner": NotRequired[ResourceOwnerTypeDef],
         "ResourceRole": NotRequired[str],
         "Tags": NotRequired[Mapping[str, str]],
         "DataClassification": NotRequired[DataClassificationDetailsUnionTypeDef],

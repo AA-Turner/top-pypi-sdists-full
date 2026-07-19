@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: pyqwest
-Version: 0.6.2
-Classifier: Development Status :: 3 - Alpha
+Version: 0.7.0
+Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS :: MacOS X

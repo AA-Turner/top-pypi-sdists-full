@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -257,6 +258,64 @@ def test_cursor_hook_script_uses_daemon_fast_path(tmp_path: Path, monkeypatch: p
     assert json.loads(proc.stdout) == {"permission": "allow"}
 
 
+@pytest.mark.parametrize(
+    ("guard_payload", "guard_exit_code"),
+    [
+        ({"error": "evaluation failed"}, 1),
+        ({"policy_action": "future-action"}, 0),
+        ({"recorded": False}, 0),
+    ],
+)
+def test_generated_cursor_hook_fails_closed_for_missing_or_unknown_guard_action(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    guard_payload: dict[str, object],
+    guard_exit_code: int,
+) -> None:
+    from codex_plugin_scanner.guard.adapters.cursor_hooks import cursor_hook_script_source
+
+    home_dir = tmp_path / "home"
+    guard_home = tmp_path / "guard"
+    workspace_dir = tmp_path / "workspace"
+    guard_home.mkdir()
+    workspace_dir.mkdir()
+    fake_guard = tmp_path / "fake-guard.py"
+    fake_guard.write_text(
+        "import json\n"
+        f"print(json.dumps({guard_payload!r}))\n"
+        f"raise SystemExit({guard_exit_code})\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
+        lambda: [sys.executable, str(fake_guard)],
+    )
+    context = HarnessContext(home_dir=home_dir, guard_home=guard_home, workspace_dir=workspace_dir)
+    script_path = tmp_path / "cursor-hook.py"
+    script_path.write_text(cursor_hook_script_source(context), encoding="utf-8")
+
+    proc = subprocess.run(
+        [sys.executable, str(script_path)],
+        input=json.dumps(
+            {
+                "hook_event_name": "beforeShellExecution",
+                "tool_name": "Bash",
+                "command": "echo hi",
+                "cwd": str(workspace_dir),
+            }
+        ),
+        capture_output=True,
+        text=True,
+        env={**os.environ, "CURSOR_PROJECT_DIR": str(workspace_dir)},
+        timeout=10,
+    )
+
+    assert proc.returncode == 2
+    response = json.loads(proc.stdout)
+    assert response["permission"] == "deny"
+    assert "failed closed" in response["user_message"]
+
+
 def test_cursor_resolve_guard_cli_command_prefers_plugin_guard(monkeypatch: pytest.MonkeyPatch) -> None:
     from codex_plugin_scanner.guard.adapters.cursor_hooks import _resolve_guard_cli_command
 
@@ -387,14 +446,32 @@ def test_cursor_hook_response_from_guard_allows_shell() -> None:
     assert response["permission"] == "allow"
 
 
-def test_cursor_hook_would_prompt_user_for_warn_with_risk() -> None:
+@pytest.mark.parametrize("policy_action", ["", "future-action", "ALLOW"])
+def test_cursor_hook_response_from_guard_fails_closed_for_unknown_action(policy_action: str) -> None:
+    response = cursor_hook_response_from_guard(
+        policy_action=policy_action,
+        guard_payload={"risk_summary": "Malformed Guard response."},
+        hook_event_name="beforeShellExecution",
+    )
+    assert response["permission"] == "deny"
+
+
+def test_cursor_hook_warn_with_risk_remains_allowed_without_a_prompt() -> None:
     from codex_plugin_scanner.guard.adapters.cursor_hooks import cursor_hook_would_prompt_user
 
-    assert cursor_hook_would_prompt_user(
+    payload = {"risk_signals": ["destructive shell command"]}
+    assert not cursor_hook_would_prompt_user(
         policy_action="warn",
-        guard_payload={"risk_signals": ["destructive shell command"]},
+        guard_payload=payload,
     )
+    response = cursor_hook_response_from_guard(
+        policy_action="warn",
+        guard_payload=payload,
+        hook_event_name="beforeShellExecution",
+    )
+    assert response == {"permission": "allow"}
     assert not cursor_hook_would_prompt_user(policy_action="allow", guard_payload={})
+    assert cursor_hook_would_prompt_user(policy_action="review", guard_payload={})
     assert cursor_hook_would_prompt_user(policy_action="require-reapproval", guard_payload={})
 
 
@@ -563,6 +640,79 @@ def test_cursor_native_shell_session_allow_after_trusted_after_shell(tmp_path: P
             command=command,
         )
         is None
+    )
+
+
+def test_cursor_tampered_pending_shell_cannot_bootstrap_signed_native_allow(tmp_path: Path) -> None:
+    from codex_plugin_scanner.guard.adapters.cursor_hooks import prepare_cursor_hook_payload
+    from codex_plugin_scanner.guard.cli import commands as guard_commands_module
+
+    home_dir = tmp_path / "home"
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir()
+    store = GuardStore(home_dir)
+    conversation_id = "conv-cursor-tampered-pending"
+    command = "rm -rf ./hol-guard-cursor-native-test-marker"
+    generation_id = "gen-cursor-tampered-pending"
+    _record_cursor_pending_for_test(
+        store=store,
+        guard_home=home_dir,
+        guard_commands_module=guard_commands_module,
+        conversation_id=conversation_id,
+        command=command,
+        workspace_dir=workspace_dir,
+        generation_id=generation_id,
+    )
+    pending_key = guard_commands_module._cursor_pending_shell_state_key(conversation_id, command)
+    with sqlite3.connect(store.path) as connection:
+        row = connection.execute(
+            "select payload_json from sync_state where state_key = ?",
+            (pending_key,),
+        ).fetchone()
+        assert row is not None
+        tampered = json.loads(str(row[0]))
+        tampered["artifact_hash"] = "forged-artifact-hash"
+        connection.execute(
+            "update sync_state set payload_json = ? where state_key = ?",
+            (json.dumps(tampered), pending_key),
+        )
+
+    saved = guard_commands_module._persist_cursor_native_permission_after_shell(
+        store=store,
+        payload=prepare_cursor_hook_payload(
+            {
+                "conversation_id": conversation_id,
+                "generation_id": generation_id,
+                "hook_event_name": "afterShellExecution",
+                "command": command,
+                "cwd": str(workspace_dir),
+                "duration": 15,
+            }
+        ),
+        harness="cursor",
+        home_dir=home_dir,
+        guard_home=home_dir,
+        workspace=workspace_dir,
+        hook_env=_trusted_cursor_after_shell_env(
+            home_dir,
+            conversation_id=conversation_id,
+            command=command,
+            workspace_dir=workspace_dir,
+            approval_binding=generation_id,
+        ),
+    )
+
+    assert saved is False
+    assert store.get_sync_payload(pending_key) is None
+    assert (
+        store.get_sync_payload(guard_commands_module._cursor_native_shell_allow_state_key(conversation_id, command))
+        is None
+    )
+    events = store.list_events(event_name="rule.ignored.local_integrity")
+    event_payloads = [event_payload for event in events if isinstance(event_payload := event.get("payload"), dict)]
+    assert any(
+        event_payload.get("source") == "cursor-pending-shell" and event_payload.get("integrity_status") == "tampered"
+        for event_payload in event_payloads
     )
 
 
@@ -770,6 +920,7 @@ def test_normalize_cursor_shell_command_unwraps_lean_ctx_wrapper() -> None:
 
 def test_cursor_native_shell_is_approved_for_lean_ctx_wrapped_retry(tmp_path: Path) -> None:
     from codex_plugin_scanner.guard.cli import commands as guard_commands_module
+    from codex_plugin_scanner.guard.cli.commands_hook_runtime_eval import _cursor_native_saved_approval_hash
     from codex_plugin_scanner.guard.store import GuardStore
 
     home_dir = tmp_path / "home"
@@ -778,8 +929,31 @@ def test_cursor_native_shell_is_approved_for_lean_ctx_wrapped_retry(tmp_path: Pa
     command = "gh api graphql -f query='query { viewer { login } }'"
     wrapped = "/path/to/lean-ctx -c 'gh api graphql -f query='\\''query { viewer { login } }'\\'''"
     now = guard_commands_module._now()
+    assert guard_commands_module._record_cursor_native_shell_allow_state(
+        store=store,
+        conversation_id=conversation_id,
+        command=command,
+        artifact=_cursor_shell_artifact(workspace_dir=tmp_path, command=command),
+        artifact_hash="hash-gh-viewer-login",
+        now=now,
+    )
+
+    payload = {"conversation_id": conversation_id, "command": wrapped}
+    assert guard_commands_module._cursor_native_shell_is_approved(store, payload)
+    assert _cursor_native_saved_approval_hash(store, payload) == "hash-gh-viewer-login"
+
+
+def test_unsigned_cursor_native_shell_allowance_fails_closed_with_integrity_event(tmp_path: Path) -> None:
+    from codex_plugin_scanner.guard.cli import commands as guard_commands_module
+    from codex_plugin_scanner.guard.cli.commands_hook_runtime_eval import _cursor_native_saved_approval_hash
+
+    store = GuardStore(tmp_path / "home")
+    conversation_id = "conv-cursor-unsigned-session-allow"
+    command = "gh api graphql -f query='query { viewer { login } }'"
+    now = guard_commands_module._now()
+    state_key = guard_commands_module._cursor_native_shell_allow_state_key(conversation_id, command)
     store.set_sync_payload(
-        guard_commands_module._cursor_native_shell_allow_state_key(conversation_id, command),
+        state_key,
         {
             "saved_at": now,
             "action": "allow",
@@ -792,13 +966,107 @@ def test_cursor_native_shell_is_approved_for_lean_ctx_wrapped_retry(tmp_path: Pa
         now,
     )
 
-    assert guard_commands_module._cursor_native_shell_is_approved(
-        store,
-        {
-            "conversation_id": conversation_id,
-            "command": wrapped,
-        },
+    payload = {"conversation_id": conversation_id, "command": command}
+    assert not guard_commands_module._cursor_native_shell_is_approved(store, payload)
+    assert _cursor_native_saved_approval_hash(store, payload) is None
+    assert store.get_sync_payload(state_key) is None
+    events = store.list_events(event_name="rule.ignored.local_integrity")
+    assert len(events) == 1
+    assert events[0]["payload"]["source"] == "cursor-native-session"
+    assert events[0]["payload"]["integrity_status"] == "missing_integrity"
+
+
+def test_tampered_cursor_native_shell_allowance_fails_closed_with_integrity_event(tmp_path: Path) -> None:
+    from codex_plugin_scanner.guard.cli import commands as guard_commands_module
+    from codex_plugin_scanner.guard.cli.commands_hook_runtime_eval import _cursor_native_saved_approval_hash
+
+    store = GuardStore(tmp_path / "home")
+    conversation_id = "conv-cursor-tampered-session-allow"
+    command = "rm -rf ./sensitive-directory"
+    now = guard_commands_module._now()
+    state_key = guard_commands_module._cursor_native_shell_allow_state_key(conversation_id, command)
+    assert guard_commands_module._record_cursor_native_shell_allow_state(
+        store=store,
+        conversation_id=conversation_id,
+        command=command,
+        artifact=_cursor_shell_artifact(workspace_dir=tmp_path, command=command),
+        artifact_hash="hash-before-tamper",
+        now=now,
     )
+    stored = store.get_sync_payload(state_key)
+    assert isinstance(stored, dict)
+    store.set_sync_payload(state_key, {**stored, "artifact_hash": "forged-hash"}, now)
+
+    payload = {"conversation_id": conversation_id, "command": command}
+    assert not guard_commands_module._cursor_native_shell_is_approved(store, payload)
+    assert _cursor_native_saved_approval_hash(store, payload) is None
+    events = store.list_events(event_name="rule.ignored.local_integrity")
+    assert len(events) == 1
+    assert events[0]["payload"]["integrity_status"] == "tampered"
+    assert events[0]["payload"]["message"] == "local_authority_integrity_payload_hash_mismatch"
+
+
+def test_signed_cursor_allowance_cannot_be_replayed_into_another_conversation(tmp_path: Path) -> None:
+    from codex_plugin_scanner.guard.cli import commands as guard_commands_module
+
+    store = GuardStore(tmp_path / "home")
+    approved_conversation = "conv-cursor-approved"
+    forged_conversation = "conv-cursor-forged-copy"
+    command = "rm -rf ./sensitive-directory"
+    now = guard_commands_module._now()
+    approved_state_key = guard_commands_module._cursor_native_shell_allow_state_key(approved_conversation, command)
+    forged_state_key = guard_commands_module._cursor_native_shell_allow_state_key(forged_conversation, command)
+    assert guard_commands_module._record_cursor_native_shell_allow_state(
+        store=store,
+        conversation_id=approved_conversation,
+        command=command,
+        artifact=_cursor_shell_artifact(workspace_dir=tmp_path, command=command),
+        artifact_hash="hash-approved-conversation",
+        now=now,
+    )
+    signed_allowance = store.get_sync_payload(approved_state_key)
+    assert isinstance(signed_allowance, dict)
+    store.set_sync_payload(forged_state_key, signed_allowance, now)
+
+    assert not guard_commands_module._cursor_native_shell_is_approved(
+        store,
+        {"conversation_id": forged_conversation, "command": command},
+    )
+    events = store.list_events(event_name="rule.ignored.local_integrity")
+    assert len(events) == 1
+    assert events[0]["payload"]["message"] == "local_authority_integrity_context_mismatch"
+
+
+def test_malformed_cursor_allowance_json_fails_closed_with_integrity_event(tmp_path: Path) -> None:
+    from codex_plugin_scanner.guard.cli import commands as guard_commands_module
+
+    store = GuardStore(tmp_path / "home")
+    conversation_id = "conv-cursor-malformed-json"
+    command = "rm -rf ./sensitive-directory"
+    now = guard_commands_module._now()
+    state_key = guard_commands_module._cursor_native_shell_allow_state_key(conversation_id, command)
+    assert guard_commands_module._record_cursor_native_shell_allow_state(
+        store=store,
+        conversation_id=conversation_id,
+        command=command,
+        artifact=_cursor_shell_artifact(workspace_dir=tmp_path, command=command),
+        artifact_hash="hash-before-json-tamper",
+        now=now,
+    )
+    with sqlite3.connect(store.path) as connection:
+        connection.execute(
+            "update sync_state set payload_json = '{' where state_key = ?",
+            (state_key,),
+        )
+
+    assert not guard_commands_module._cursor_native_shell_is_approved(
+        store,
+        {"conversation_id": conversation_id, "command": command},
+    )
+    assert store.get_sync_payload(state_key) is None
+    events = store.list_events(event_name="rule.ignored.local_integrity")
+    assert len(events) == 1
+    assert events[0]["payload"]["message"] == "local_authority_integrity_payload_invalid_json"
 
 
 def test_cursor_native_shell_does_not_approve_unrelated_command(tmp_path: Path) -> None:
@@ -1228,6 +1496,8 @@ def test_cursor_hook_daemon_fast_path_rejects_empty_response(tmp_path: Path, mon
     # The fast path should reject the empty response and fall through to CLI.
     # The CLI path may fail (no real daemon), but it must not default-allow.
     assert proc.returncode in (0, 2)
+
+
 def test_cursor_hook_daemon_fast_path_rejects_spoofed_healthz(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Fast path returns None when a spoofed listener fails the HMAC challenge."""
     import http.server
@@ -1305,6 +1575,8 @@ def test_cursor_hook_daemon_fast_path_rejects_spoofed_healthz(tmp_path: Path, mo
     assert proc.returncode in (0, 2)
     assert "real-secret-token" not in proc.stdout
     assert "real-secret-token" not in proc.stderr
+
+
 def test_cursor_hook_daemon_fast_path_404_falls_through_to_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Fast path returns None when /v1/healthz/verify returns 404, falling through to CLI."""
     import http.server

@@ -6,18 +6,19 @@ struct PointerEffect {
 
 impl PointerEffect {
     fn new(screen_x: i32, screen_y: i32, glyph: &str) -> ComputerUseResult<Self> {
-        let (x, y, size) = pointer_effect_geometry(screen_x, screen_y);
-        let hwnd = create_static_overlay(
+        let (x, y, size, _) = pointer_mask_geometry(screen_x, screen_y);
+        let hwnd = create_color_overlay(
             glyph,
-            WS_BORDER.0 | STATIC_CENTER | STATIC_CENTER_IMAGE,
             (x, y, size, size),
-            235,
+            CONTROL_OVERLAY_ALPHA,
+            true,
+            false,
         )?;
         Ok(Self { hwnd })
     }
 
     fn reposition(&self, screen_x: i32, screen_y: i32) -> ComputerUseResult<()> {
-        let (x, y, size) = pointer_effect_geometry(screen_x, screen_y);
+        let (x, y, size, _) = pointer_mask_geometry(screen_x, screen_y);
         position_overlay(self.hwnd, (x, y, size, size), true)?;
         pump_overlay_messages(self.hwnd);
         Ok(())
@@ -35,30 +36,6 @@ impl PointerEffect {
             thread::sleep(remaining.min(Duration::from_millis(10)));
         }
     }
-}
-
-fn pointer_effect_geometry(screen_x: i32, screen_y: i32) -> (i32, i32, i32) {
-    let monitor = unsafe {
-        MonitorFromPoint(
-            POINT {
-                x: screen_x,
-                y: screen_y,
-            },
-            MONITOR_DEFAULTTONULL,
-        )
-    };
-    let dpi = if monitor.is_invalid() {
-        96
-    } else {
-        monitor_dpi(monitor, None)
-    };
-    let size = scaled_pixels(POINTER_EFFECT_SIZE, dpi);
-    let offset = size / 2;
-    (
-        screen_x.saturating_sub(offset),
-        screen_y.saturating_sub(offset),
-        size,
-    )
 }
 
 impl Drop for PointerEffect {
@@ -86,7 +63,7 @@ pub(crate) fn perform_action(
         observation.desktop_generation,
     );
     guard.synchronize()?;
-    focus_target(window_handle, observation.process_id)?;
+    let _focus_elevation = focus_target(window_handle, observation.process_id)?;
     guard.check()?;
     ensure_observation_target(window_handle, observation)?;
 
@@ -100,7 +77,6 @@ pub(crate) fn perform_action(
         "click" | "raw_coordinate_click" => {
             let point = required_point(request)?;
             let (screen_x, screen_y) = move_to(window_handle, observation, point, &guard, true)?;
-            let effect = PointerEffect::new(screen_x, screen_y, "●")?;
             click(
                 window_handle,
                 observation,
@@ -109,12 +85,12 @@ pub(crate) fn perform_action(
                 request.button.as_deref().unwrap_or("left"),
                 &guard,
             )?;
+            let effect = PointerEffect::new(screen_x, screen_y, "●")?;
             effect.dwell(&guard, pointer_effect_dwell(request))?;
         }
         "double_click" => {
             let point = required_point(request)?;
             let (screen_x, screen_y) = move_to(window_handle, observation, point, &guard, true)?;
-            let effect = PointerEffect::new(screen_x, screen_y, "◎")?;
             click(
                 window_handle,
                 observation,
@@ -132,12 +108,12 @@ pub(crate) fn perform_action(
                 request.button.as_deref().unwrap_or("left"),
                 &guard,
             )?;
+            let effect = PointerEffect::new(screen_x, screen_y, "◎")?;
             effect.dwell(&guard, pointer_effect_dwell(request))?;
         }
         "scroll" => {
             let point = required_point(request)?;
             let (screen_x, screen_y) = move_to(window_handle, observation, point, &guard, true)?;
-            let effect = PointerEffect::new(screen_x, screen_y, "↕")?;
             scroll(
                 window_handle,
                 observation,
@@ -147,6 +123,7 @@ pub(crate) fn perform_action(
                 request.scroll_y.unwrap_or(0),
                 &guard,
             )?;
+            let effect = PointerEffect::new(screen_x, screen_y, "↕")?;
             effect.dwell(&guard, pointer_effect_dwell(request))?;
         }
         "drag" => drag(window_handle, observation, request, &guard)?,
@@ -238,15 +215,7 @@ fn pointer_effect_dwell(request: &ComputerUseAction) -> Duration {
     )
 }
 
-fn focus_target(window_handle: u64, process_id: u32) -> ComputerUseResult<()> {
-    ensure_interactive_desktop()?;
-    let hwnd = HWND(window_handle as *mut core::ffi::c_void);
-    restore_target_for_input(hwnd, process_id)?;
-    let _ = available_target_rect_for_process(hwnd, process_id)?;
-    if unsafe { GetForegroundWindow() } == hwnd {
-        return Ok(());
-    }
-
+fn set_target_foreground(hwnd: HWND) {
     // AttachThreadInput requires a USER message queue. Adapter worker threads
     // often do not have one until they call PeekMessage at least once.
     let mut queue_probe = MSG::default();
@@ -274,14 +243,158 @@ fn focus_target(window_handle: u64, process_id: u32) -> ComputerUseResult<()> {
     if attached_foreground {
         let _ = unsafe { AttachThreadInput(current_thread, foreground_thread, false) };
     }
+}
+
+fn focus_recovery_allowed(
+    target_process_id: u32,
+    blocker_process_id: u32,
+    blocker_process: &str,
+    blocker_class: &str,
+) -> ComputerUseResult<bool> {
+    if blocker_process_id == 0 {
+        return Err(ComputerUseError::new(
+            ComputerUseErrorCode::FocusLost,
+            "Windows did not report a foreground window after focusing the scoped DCC",
+        ));
+    }
+    if blocker_process_id == target_process_id {
+        return Err(ComputerUseError::new(
+            ComputerUseErrorCode::FocusLost,
+            "another window owned by the scoped DCC has foreground focus; resolve the in-app modal before retrying",
+        ));
+    }
+    if protected_input_blocker(blocker_process, blocker_class) {
+        return Err(ComputerUseError::new(
+            ComputerUseErrorCode::InvalidTarget,
+            format!(
+                "the scoped DCC cannot recover foreground focus through protected system UI: {blocker_process} / {blocker_class}"
+            ),
+        ));
+    }
+    Ok(true)
+}
+
+fn focus_target(
+    window_handle: u64,
+    process_id: u32,
+) -> ComputerUseResult<Option<TransientTopmostTarget>> {
+    ensure_interactive_desktop()?;
+    let hwnd = HWND(window_handle as *mut core::ffi::c_void);
+    restore_target_for_input(hwnd, process_id)?;
+    let _ = available_target_rect_for_process(hwnd, process_id)?;
+    if unsafe { GetForegroundWindow() } == hwnd {
+        return Ok(None);
+    }
+
+    set_target_foreground(hwnd);
+    thread::sleep(Duration::from_millis(30));
+    let blocker = unsafe { GetForegroundWindow() };
+    if blocker == hwnd {
+        return Ok(None);
+    }
+    let mut blocker_process_id = 0_u32;
+    if !blocker.0.is_null() {
+        unsafe { GetWindowThreadProcessId(blocker, Some(&mut blocker_process_id)) };
+    }
+    let (blocker_process, blocker_class) = if blocker.0.is_null() {
+        (String::new(), String::new())
+    } else {
+        blocker_process_and_class(blocker)
+    };
+    focus_recovery_allowed(
+        process_id,
+        blocker_process_id,
+        &blocker_process,
+        &blocker_class,
+    )?;
+
+    let elevation = TransientTopmostTarget::raise(hwnd)?;
+    set_target_foreground(hwnd);
     thread::sleep(Duration::from_millis(30));
     if unsafe { GetForegroundWindow() } != hwnd {
         return Err(ComputerUseError::new(
             ComputerUseErrorCode::FocusLost,
-            "the scoped DCC window did not remain in the foreground",
+            format!(
+                "the scoped DCC window did not remain in the foreground after recovering from {blocker_process} / {blocker_class}"
+            ),
         ));
     }
-    Ok(())
+    Ok(Some(elevation))
+}
+
+fn protected_input_blocker(process: &str, class_name: &str) -> bool {
+    matches!(
+        process.to_ascii_lowercase().as_str(),
+        "consent.exe"
+            | "credentialuibroker.exe"
+            | "lockapp.exe"
+            | "logonui.exe"
+            | "pickerhost.exe"
+            | "securityhealthsystray.exe"
+    ) || matches!(
+        class_name,
+        "Credential Dialog Xaml Host" | "Shell_SystemDialog" | "Shell_SystemDim"
+    )
+}
+
+fn blocker_process_and_class(hwnd: HWND) -> (String, String) {
+    let mut process_id = 0_u32;
+    unsafe { GetWindowThreadProcessId(hwnd, Some(&mut process_id)) };
+    let process = process_name(process_id).unwrap_or_else(|_| format!("process {process_id}"));
+    let mut class_name = [0_u16; 128];
+    let length = unsafe { GetClassNameW(hwnd, &mut class_name) }.max(0) as usize;
+    (process, String::from_utf16_lossy(&class_name[..length]))
+}
+
+#[derive(Debug)]
+struct TransientTopmostTarget {
+    hwnd: HWND,
+    restore: bool,
+}
+
+impl TransientTopmostTarget {
+    fn raise(hwnd: HWND) -> ComputerUseResult<Self> {
+        let ex_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32;
+        let restore = ex_style & WS_EX_TOPMOST.0 == 0;
+        if restore {
+            unsafe {
+                SetWindowPos(
+                    hwnd,
+                    Some(HWND_TOPMOST),
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                )
+            }
+            .map_err(|error| {
+                ComputerUseError::new(
+                    ComputerUseErrorCode::FocusLost,
+                    format!("could not temporarily raise the scoped DCC window: {error}"),
+                )
+            })?;
+        }
+        Ok(Self { hwnd, restore })
+    }
+}
+
+impl Drop for TransientTopmostTarget {
+    fn drop(&mut self) {
+        if self.restore {
+            let _ = unsafe {
+                SetWindowPos(
+                    self.hwnd,
+                    Some(HWND_NOTOPMOST),
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                )
+            };
+        }
+    }
 }
 
 fn ensure_target_foreground(window_handle: u64, process_id: u32) -> ComputerUseResult<()> {
@@ -297,12 +410,12 @@ fn ensure_target_foreground(window_handle: u64, process_id: u32) -> ComputerUseR
     Ok(())
 }
 
-fn ensure_point_targets_window(
+fn prepare_point_target(
     screen_x: i32,
     screen_y: i32,
     target: HWND,
     process_id: u32,
-) -> ComputerUseResult<()> {
+) -> ComputerUseResult<Option<TransientTopmostTarget>> {
     let hit = unsafe {
         WindowFromPoint(POINT {
             x: screen_x,
@@ -315,12 +428,56 @@ fn ensure_point_targets_window(
             "no visible window owns the requested pointer coordinate",
         ));
     }
+    // The persistent cursor halo is intentionally a separate, topmost,
+    // click-through window. WindowFromPoint can still return it even though
+    // native input passes through. Ignore any WS_EX_TRANSPARENT presentation
+    // layer (including our registered overlays), then fail closed if a real
+    // input-receiving top-level window is above the scoped DCC here.
+    let hit = if is_input_transparent_window(hit) {
+        first_input_receiving_window_above_target_at_point(target, screen_x, screen_y)
+            .unwrap_or(target)
+    } else {
+        hit
+    };
     let mut hit_process_id = 0_u32;
     unsafe { GetWindowThreadProcessId(hit, Some(&mut hit_process_id)) };
     if hit_process_id != process_id {
+        let (process, class_name) = blocker_process_and_class(hit);
+        if protected_input_blocker(&process, &class_name) {
+            return Err(ComputerUseError::new(
+                ComputerUseErrorCode::InvalidTarget,
+                format!(
+                    "the requested pointer coordinate is blocked by protected system UI: {}",
+                    input_blocker_identity(hit)
+                ),
+            ));
+        }
+        let elevation = TransientTopmostTarget::raise(target)?;
+        thread::sleep(Duration::from_millis(16));
+        let retry = unsafe {
+            WindowFromPoint(POINT {
+                x: screen_x,
+                y: screen_y,
+            })
+        };
+        let retry = if is_input_transparent_window(retry) {
+            first_input_receiving_window_above_target_at_point(target, screen_x, screen_y)
+                .unwrap_or(target)
+        } else {
+            retry
+        };
+        let mut retry_process_id = 0_u32;
+        unsafe { GetWindowThreadProcessId(retry, Some(&mut retry_process_id)) };
+        let retry_root = unsafe { GetAncestor(retry, GA_ROOT) };
+        if retry_process_id == process_id && retry_root == target {
+            return Ok(Some(elevation));
+        }
         return Err(ComputerUseError::new(
             ComputerUseErrorCode::InvalidTarget,
-            "the requested pointer coordinate is occluded by another process",
+            format!(
+                "the requested pointer coordinate is occluded by {}",
+                input_blocker_identity(hit)
+            ),
         ));
     }
     let hit_root = unsafe { GetAncestor(hit, GA_ROOT) };
@@ -330,7 +487,7 @@ fn ensure_point_targets_window(
             "the requested pointer coordinate is outside the scoped top-level window",
         ));
     }
-    Ok(())
+    Ok(None)
 }
 
 fn ensure_cursor_at(screen_x: i32, screen_y: i32) -> ComputerUseResult<()> {
@@ -438,16 +595,21 @@ fn move_to(
     guard.synchronize()?;
     ensure_observation_target(window_handle, observation)?;
     let (screen_x, screen_y, absolute_x, absolute_y) = mapped_pointer_point(observation, point)?;
-    ensure_target_foreground(window_handle, observation.process_id)?;
+    // No input has been sent yet. Reacquire the already-scoped target after
+    // the desktop-barrier handshake so a caller window cannot steal focus in
+    // the small gap between initial preparation and the first pointer move.
+    let _focus_elevation = focus_target(window_handle, observation.process_id)?;
     ensure_observation_target(window_handle, observation)?;
-    if require_target_hit {
-        ensure_point_targets_window(
+    let _elevation = if require_target_hit {
+        prepare_point_target(
             screen_x,
             screen_y,
             HWND(window_handle as *mut core::ffi::c_void),
             observation.process_id,
-        )?;
-    }
+        )?
+    } else {
+        None
+    };
     guard.check()?;
     send_mouse(
         MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
@@ -537,7 +699,7 @@ fn click(
     ensure_target_foreground(window_handle, observation.process_id)?;
     ensure_observation_target(window_handle, observation)?;
     ensure_cursor_at(screen_x, screen_y)?;
-    ensure_point_targets_window(
+    let _elevation = prepare_point_target(
         screen_x,
         screen_y,
         HWND(window_handle as *mut core::ffi::c_void),
@@ -567,7 +729,7 @@ fn drag(
     ensure_target_foreground(window_handle, observation.process_id)?;
     ensure_observation_target(window_handle, observation)?;
     ensure_cursor_at(screen_x, screen_y)?;
-    ensure_point_targets_window(
+    let _elevation = prepare_point_target(
         screen_x,
         screen_y,
         HWND(window_handle as *mut core::ffi::c_void),
@@ -591,7 +753,7 @@ fn drag(
         ensure_cursor_at(previous_screen.0, previous_screen.1)?;
         let (mapped_x, mapped_y, absolute_x, absolute_y) =
             mapped_pointer_point(observation, point)?;
-        ensure_point_targets_window(
+        let _step_elevation = prepare_point_target(
             mapped_x,
             mapped_y,
             HWND(window_handle as *mut core::ffi::c_void),
@@ -657,7 +819,7 @@ fn scroll(
         ensure_target_foreground(window_handle, observation.process_id)?;
         ensure_observation_target(window_handle, observation)?;
         ensure_cursor_at(screen_x, screen_y)?;
-        ensure_point_targets_window(
+        let _elevation = prepare_point_target(
             screen_x,
             screen_y,
             HWND(window_handle as *mut core::ffi::c_void),
@@ -670,7 +832,7 @@ fn scroll(
         ensure_target_foreground(window_handle, observation.process_id)?;
         ensure_observation_target(window_handle, observation)?;
         ensure_cursor_at(screen_x, screen_y)?;
-        ensure_point_targets_window(
+        let _elevation = prepare_point_target(
             screen_x,
             screen_y,
             HWND(window_handle as *mut core::ffi::c_void),
@@ -709,7 +871,10 @@ fn keypress(
 ) -> ComputerUseResult<()> {
     let inputs = keypress_inputs(keys)?;
     guard.synchronize()?;
-    ensure_target_foreground(window_handle, process_id)?;
+    // This is the first and only input in a keypress action, so reacquiring the
+    // validated target after the barrier is safe. Multi-step actions continue
+    // to fail closed if focus changes after their first input.
+    let _focus_elevation = focus_target(window_handle, process_id)?;
     guard.check()?;
     send_inputs(&inputs)?;
     guard.check()

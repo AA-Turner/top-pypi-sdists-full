@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from importlib.resources import files
 from types import EllipsisType
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from html5tagger import HTML, Document, E, Template
 
@@ -14,17 +14,19 @@ from .trace.core import (
     symbols,
     symdesc,
 )
+
+if TYPE_CHECKING:
+    from .trace.typing import Chain, ExceptionInfo, Fragment, FrameInfo
 from .trace.finalize import (
-    build_chain_header,
     call_run_ranges,
-    exception_info,
     extract_chain,
-    extract_chain_exceptions,
     function_display,
     normalize_variable,
 )
 
-style = files(cast(str, __package__)).joinpath("style.css").read_text(encoding="UTF-8")
+html_style = (
+    files(cast(str, __package__)).joinpath("style.css").read_text(encoding="UTF-8")
+)
 javascript = (
     files(cast(str, __package__)).joinpath("script.js").read_text(encoding="UTF-8")
 )
@@ -40,7 +42,7 @@ p { margin: 0 0 0.5em 0 }
 # fmt: off
 Page = Template(
     Document(E.Title, lang="en")
-    .style(style, id="tracerite-style")
+    .style(html_style, id="tracerite-style")
     .style(PAGE_STYLE)
     .Header
     .main(E.Heading.Content)
@@ -60,27 +62,18 @@ def html_page(
     header: Any | None = None,
     footer: Any | None = None,
     msg: str | None | EllipsisType = ...,
-    chain: list[dict[str, Any]] | None = None,
+    chain: Chain | None = None,
     autodark: bool = True,
     local_urls: bool = False,
     **extract_args: Any,
 ) -> HTML:
-    """Render a full HTML5 document containing a TraceRite traceback.
-
-    Returns an html5tagger `HTML` string. The underlying `Page` template
-    includes TraceRite's CSS and JavaScript, an optional site-wide header and
-    footer, a heading/ingress block inside `<main>`, and the traceback itself.
-
-    The default heading inside `<main>` is built from the `Header` template,
-    which exposes `Heading` and `Ingress` slots. The `Header` and `Footer`
-    slots of `Page` are empty by default so callers can inject site-wide
-    header/footer content.
-    """
+    """Render a full HTML5 document containing a TraceRite traceback."""
     chain = extract_chain(exc=exc, **extract_args) if chain is None else chain
+    frames = chain["frames"]
     page_title = (
         title
         if title is not None
-        else (chain[-1].get("exception", {}).get("type") if chain else "TraceRite")
+        else (frames[-1].get("exception", {}).get("type") if frames else "TraceRite")
     )
     page_heading = heading if heading is not None else page_title
     page_ingress = (
@@ -105,9 +98,7 @@ def html_page(
     )
 
 
-def _collapse_call_runs(
-    frames: list[dict[str, Any]], min_run_length: int = 10
-) -> list[Any]:
+def _collapse_call_runs(frames: list[FrameInfo], min_run_length: int = 10) -> list[Any]:
     """Collapse consecutive runs of 'call' frames, keeping first and last of each run."""
     if not frames:
         return frames
@@ -128,7 +119,7 @@ def _collapse_call_runs(
 
 def html_traceback(
     exc: BaseException | None = None,
-    chain: list[dict[str, Any]] | None = None,
+    chain: Chain | None = None,
     *,
     msg: str | None | EllipsisType = ...,
     include_js_css: bool = True,
@@ -136,52 +127,52 @@ def html_traceback(
     clear: bool = False,
     autodark: bool = True,
     **extract_args: Any,
-) -> Any:
+) -> HTML:
     """Render an exception as an interactive HTML fragment.
 
-    Returns an html5tagger HTML fragment wrapped in a ``<div class="tracerite">``.
+    Returns an html5tagger HTML object wrapped in a ``<div class="tracerite">``.
     By default the fragment includes the TraceRite stylesheet and JavaScript;
     set ``include_js_css=False`` when embedding it in a page that already
     provides them.
     """
     chain = chain or extract_chain(exc=exc, **extract_args)
+    frames = chain["frames"]
     with E.div[".tracerite"](
         classes={"autodark": autodark},
         data_cleanup_mode="replace" if clear else None,
     ) as doc:
         if include_js_css:
-            doc._style(style)
+            doc._style(html_style)
 
         # Add chain header (use default if msg is ..., skip if msg is None/empty)
         if msg is ...:
-            msg = build_chain_header(chain) if chain else None
+            msg = chain["header"] or None
         if msg:
             doc.h2(msg)
 
-        if chain:
-            _chronological_output(doc, chain, local_urls=local_urls)
-        elif exc is not None:
-            for exc_dict in extract_chain_exceptions(exc):
-                _exception_banner(doc, exception_info(exc_dict))
+        if frames:
+            _chronological_output(doc, frames, local_urls=local_urls)
+        else:
+            doc.p("(no traceback)", class_="no-source")
 
         if include_js_css:
             doc._script(javascript)
-    return doc
+    return HTML(doc)
 
 
 def _chronological_output(
     doc: Any,
-    chain: list[dict[str, Any]],
+    frames: list[FrameInfo],
     *,
     local_urls: bool = False,
 ) -> None:
     """Output frames in chronological order with exception info after error frames."""
-    _render_frame_list(doc, chain, local_urls=local_urls)
+    _render_frame_list(doc, frames, local_urls=local_urls)
 
 
 def _render_frame_list(
     doc: Any,
-    frames: list[dict[str, Any]],
+    frames: list[FrameInfo],
     *,
     local_urls: bool = False,
 ) -> None:
@@ -244,7 +235,7 @@ def _render_frame_list(
 
 def _render_parallel_branches(
     doc: Any,
-    branches: list[list[dict[str, Any]]],
+    branches: list[list[FrameInfo]],
     *,
     local_urls: bool = False,
 ) -> None:
@@ -255,7 +246,7 @@ def _render_parallel_branches(
                 _render_frame_list(doc, branch, local_urls=local_urls)
 
 
-def _exception_banner(doc: Any, exc_info: dict[str, Any]) -> None:
+def _exception_banner(doc: Any, exc_info: ExceptionInfo) -> None:
     """Output exception type and message as a banner after the error frame."""
     exc_type = exc_info.get("type", "Exception")
     summary = exc_info.get("summary", "")
@@ -293,7 +284,7 @@ def _exception_banner(doc: Any, exc_info: dict[str, Any]) -> None:
                         doc(line)
 
 
-def _compact_code_line(doc: Any, frinfo: dict[str, Any]) -> None:
+def _compact_code_line(doc: Any, frinfo: FrameInfo) -> None:
     """Render compact one-liner showing all marked code regions."""
     fragments = frinfo["fragments"]
     relevance = frinfo["relevance"]
@@ -363,12 +354,12 @@ def _compact_code_line(doc: Any, frinfo: dict[str, Any]) -> None:
     doc.span(symbol, class_="compact-symbol")
 
 
-def _traceback_detail_chrono(doc: Any, frinfo: dict[str, Any]) -> None:
+def _traceback_detail_chrono(doc: Any, frinfo: FrameInfo) -> None:
     """Render frame detail in chronological mode."""
     fragments = frinfo["fragments"]
     relevance = frinfo["relevance"]
     symbol = symbols.get(relevance, "")
-    desc = symdesc.get(relevance, "")
+    desc = frinfo.get("symbol_desc") or symdesc.get(relevance, "")
     symbol_text = f"{symbol} {desc}" if desc else symbol
 
     if not fragments:
@@ -387,7 +378,7 @@ def _traceback_detail_chrono(doc: Any, frinfo: dict[str, Any]) -> None:
             # Show the symbol next to the final line of the frame range
             show_symbol = False
             frame_range = frinfo["range"]
-            if frame_range and abs_line == frame_range.lfinal:
+            if frame_range and abs_line == frame_range["lfinal"]:
                 show_symbol = True
 
             with doc.span(class_="codeline", data_lineno=abs_line):
@@ -405,7 +396,7 @@ def _traceback_detail_chrono(doc: Any, frinfo: dict[str, Any]) -> None:
                     leading_whitespace = code[: len(code) - len(code.lstrip())]
                     if leading_whitespace:
                         doc(leading_whitespace)
-                        first_fragment_modified = {
+                        first_fragment_modified: Fragment = {
                             **first_fragment,
                             "code": code.lstrip(),
                         }
@@ -424,7 +415,7 @@ def _traceback_detail_chrono(doc: Any, frinfo: dict[str, Any]) -> None:
 
 def _frame_label(
     doc: Any,
-    frinfo: dict[str, Any],
+    frinfo: FrameInfo,
     local_urls: bool = False,
     toggle_id: str | None = None,
 ) -> None:
@@ -484,7 +475,7 @@ def _frame_label(
             doc.span(class_="frame-function")
 
 
-def _render_fragment(doc: Any, fragment: dict[str, Any]) -> None:
+def _render_fragment(doc: Any, fragment: Fragment) -> None:
     """Render a single fragment with appropriate styling."""
     code = fragment["code"]
 

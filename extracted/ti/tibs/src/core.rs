@@ -1,4 +1,6 @@
-use crate::helpers::{BS, BV, bv_from_zeros, copy_shifted_bytes, validate_index};
+use crate::helpers::{
+    BS, BV, bv_from_zeros, copy_shifted_bytes, mask_padding_bits, validate_index, validate_slice,
+};
 use crate::mutibs::Mutibs;
 use crate::tibs_::Tibs;
 use bitvec::prelude::*;
@@ -6,6 +8,7 @@ use half::f16;
 use pyo3::exceptions::{PyIndexError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
+use std::borrow::Cow;
 use std::fmt;
 
 #[inline]
@@ -33,16 +36,6 @@ fn align_byte(bytes: &[u8], byte_index: usize, bit_shift: isize) -> u8 {
 }
 
 #[inline]
-fn mask_padding_bits(bytes: &mut [u8], len_bits: usize) {
-    let remainder = len_bits & 7;
-    if remainder != 0
-        && let Some(last) = bytes.last_mut()
-    {
-        *last &= 0xffu8 << (8 - remainder);
-    }
-}
-
-#[inline]
 fn copy_unaligned_padded_bytes(bytes: &[u8], bit_offset: usize, len_bits: usize, out: &mut [u8]) {
     debug_assert!((1..8).contains(&bit_offset));
     debug_assert_eq!(out.len(), len_bits.div_ceil(8));
@@ -51,22 +44,102 @@ fn copy_unaligned_padded_bytes(bytes: &[u8], bit_offset: usize, len_bits: usize,
     mask_padding_bits(out, len_bits);
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum LogicalOp {
+    Or,
+    And,
+    Xor,
+}
+
+impl LogicalOp {
+    #[inline]
+    fn byte(self, lhs: u8, rhs: u8) -> u8 {
+        match self {
+            LogicalOp::Or => lhs | rhs,
+            LogicalOp::And => lhs & rhs,
+            LogicalOp::Xor => lhs ^ rhs,
+        }
+    }
+
+    #[inline]
+    fn word(self, lhs: u64, rhs: u64) -> u64 {
+        match self {
+            LogicalOp::Or => lhs | rhs,
+            LogicalOp::And => lhs & rhs,
+            LogicalOp::Xor => lhs ^ rhs,
+        }
+    }
+
+    #[inline]
+    fn bitslice(self, result: &mut BV, rhs: &BS) {
+        match self {
+            LogicalOp::Or => *result |= rhs,
+            LogicalOp::And => *result &= rhs,
+            LogicalOp::Xor => *result ^= rhs,
+        }
+    }
+}
+
+#[inline]
+fn read_be_u64(bytes: &[u8], index: usize) -> u64 {
+    u64::from_be_bytes(bytes[index..index + 8].try_into().unwrap())
+}
+
+#[inline]
+fn logical_op_with_matching_bytes(lhs: &[u8], rhs: &[u8], op: LogicalOp) -> Vec<u8> {
+    debug_assert_eq!(lhs.len(), rhs.len());
+    lhs.iter()
+        .zip(rhs.iter())
+        .map(|(&left, &right)| op.byte(left, right))
+        .collect()
+}
+
 #[inline]
 fn logical_op_with_aligned_bytes(
     lhs: &[u8],
     lhs_offset: usize,
     rhs: &[u8],
     rhs_offset: usize,
-    op: impl Fn(u8, u8) -> u8,
+    op: LogicalOp,
 ) -> Vec<u8> {
     debug_assert!(lhs_offset < 8);
     debug_assert!(rhs_offset < 8);
 
     let rhs_shift = rhs_offset as isize - lhs_offset as isize;
-    lhs.iter()
-        .enumerate()
-        .map(|(index, &left)| op(left, align_byte(rhs, index, rhs_shift)))
-        .collect()
+    let mut out = Vec::with_capacity(lhs.len());
+    let mut index = 0;
+    match rhs_shift.cmp(&0) {
+        std::cmp::Ordering::Equal => {
+            return logical_op_with_matching_bytes(lhs, rhs, op);
+        }
+        std::cmp::Ordering::Greater => {
+            let left_shift = rhs_shift as u32;
+            let right_shift = 8 - left_shift;
+            while index + 8 <= lhs.len() && index + 8 <= rhs.len() {
+                let next = rhs.get(index + 8).copied().unwrap_or(0) as u64;
+                let aligned = (read_be_u64(rhs, index) << left_shift) | (next >> right_shift);
+                let word = op.word(read_be_u64(lhs, index), aligned);
+                out.extend_from_slice(&word.to_be_bytes());
+                index += 8;
+            }
+        }
+        std::cmp::Ordering::Less => {
+            let right_shift = (-rhs_shift) as u32;
+            while index + 8 <= lhs.len() && index + 8 <= rhs.len() {
+                let previous = if index == 0 { 0 } else { rhs[index - 1] as u64 };
+                let aligned =
+                    (read_be_u64(rhs, index) >> right_shift) | (previous << (64 - right_shift));
+                let word = op.word(read_be_u64(lhs, index), aligned);
+                out.extend_from_slice(&word.to_be_bytes());
+                index += 8;
+            }
+        }
+    }
+    out.extend(
+        (index..lhs.len())
+            .map(|byte_index| op.byte(lhs[byte_index], align_byte(rhs, byte_index, rhs_shift))),
+    );
+    out
 }
 
 pub(crate) fn count_bitslice(slice: &BS, count_ones: bool) -> usize {
@@ -145,75 +218,52 @@ pub(crate) trait BitCollection: Sized + Clone {
     }
 
     #[inline]
-    fn logical_or(&self, other: &impl BitCollection) -> Self {
+    fn logical_op(&self, other: &impl BitCollection, op: LogicalOp) -> Self {
         debug_assert!(self.len() == other.len());
 
         let (Some((lhs, lhs_offset, _)), Some((rhs, rhs_offset, _))) =
             (self.raw_data_ref(), other.raw_data_ref())
         else {
             let mut result = self.to_bitvec();
-            result |= other.as_bitslice();
+            op.bitslice(&mut result, other.as_bitslice());
             return Self::from_bv(result);
         };
 
-        if lhs_offset == rhs_offset {
-            let data: Vec<u8> = lhs.iter().zip(rhs.iter()).map(|(&a, &b)| a | b).collect();
-            let bv = BV::from_vec(data);
-            Self::from_bv(bv).get_slice_unchecked(lhs_offset, self.len())
+        let data = if lhs_offset == rhs_offset {
+            logical_op_with_matching_bytes(lhs, rhs, op)
         } else {
-            let data =
-                logical_op_with_aligned_bytes(lhs, lhs_offset, rhs, rhs_offset, |a, b| a | b);
-            let bv = BV::from_vec(data);
-            Self::from_bv(bv).get_slice_unchecked(lhs_offset, self.len())
-        }
+            logical_op_with_aligned_bytes(lhs, lhs_offset, rhs, rhs_offset, op)
+        };
+        Self::from_bv(BV::from_vec(data)).get_slice_unchecked(lhs_offset, self.len())
+    }
+
+    #[inline]
+    fn logical_or(&self, other: &impl BitCollection) -> Self {
+        self.logical_op(other, LogicalOp::Or)
     }
 
     #[inline]
     fn logical_and(&self, other: &impl BitCollection) -> Self {
-        debug_assert!(self.len() == other.len());
-
-        let (Some((lhs, lhs_offset, _)), Some((rhs, rhs_offset, _))) =
-            (self.raw_data_ref(), other.raw_data_ref())
-        else {
-            let mut result = self.to_bitvec();
-            result &= other.as_bitslice();
-            return Self::from_bv(result);
-        };
-
-        if lhs_offset == rhs_offset {
-            let data: Vec<u8> = lhs.iter().zip(rhs.iter()).map(|(&a, &b)| a & b).collect();
-            let bv = BV::from_vec(data);
-            Self::from_bv(bv).get_slice_unchecked(lhs_offset, self.len())
-        } else {
-            let data =
-                logical_op_with_aligned_bytes(lhs, lhs_offset, rhs, rhs_offset, |a, b| a & b);
-            let bv = BV::from_vec(data);
-            Self::from_bv(bv).get_slice_unchecked(lhs_offset, self.len())
-        }
+        self.logical_op(other, LogicalOp::And)
     }
 
     #[inline]
     fn logical_xor(&self, other: &impl BitCollection) -> Self {
-        debug_assert!(self.len() == other.len());
+        self.logical_op(other, LogicalOp::Xor)
+    }
 
-        let (Some((lhs, lhs_offset, _)), Some((rhs, rhs_offset, _))) =
-            (self.raw_data_ref(), other.raw_data_ref())
-        else {
-            let mut result = self.to_bitvec();
-            result ^= other.as_bitslice();
-            return Self::from_bv(result);
-        };
-
-        if lhs_offset == rhs_offset {
-            let data: Vec<u8> = lhs.iter().zip(rhs.iter()).map(|(&a, &b)| a ^ b).collect();
-            let bv = BV::from_vec(data);
-            Self::from_bv(bv).get_slice_unchecked(lhs_offset, self.len())
-        } else {
-            let data =
-                logical_op_with_aligned_bytes(lhs, lhs_offset, rhs, rhs_offset, |a, b| a ^ b);
-            let bv = BV::from_vec(data);
-            Self::from_bv(bv).get_slice_unchecked(lhs_offset, self.len())
+    #[inline]
+    fn map_slice<R>(
+        &self,
+        start: Option<isize>,
+        end: Option<isize>,
+        f: impl FnOnce(&Self) -> PyResult<R>,
+    ) -> PyResult<R> {
+        if start.is_none() && end.is_none() {
+            return f(self);
         }
+        let (start, end) = validate_slice(self.len(), start, end)?;
+        f(&self.get_slice_unchecked(start, end - start))
     }
 
     fn to_string(&self) -> String {
@@ -423,10 +473,27 @@ pub(crate) trait BitCollection: Sized + Clone {
         if n >= len {
             return Self::from_bv(bv_from_zeros(len));
         }
-        let mut result_data = BV::with_capacity(len);
-        result_data.extend_from_bitslice(&self.as_bitslice()[n..]);
-        result_data.resize(len, false);
-        Self::from_bv(result_data)
+
+        let data = self.padded_byte_data_cow();
+        let mut result = vec![0u8; data.len()];
+        let byte_shift = n / 8;
+        let bit_shift = n & 7;
+        if bit_shift == 0 {
+            result[..data.len() - byte_shift].copy_from_slice(&data[byte_shift..]);
+        } else {
+            let right_shift = 8 - bit_shift;
+            let source = &data[byte_shift..];
+            for (byte, pair) in result.iter_mut().zip(source.windows(2)) {
+                *byte = pair[0] << bit_shift | pair[1] >> right_shift;
+            }
+            if let Some((&last, byte)) = source.last().zip(result.get_mut(source.len() - 1)) {
+                *byte = last << bit_shift;
+            }
+        }
+        mask_padding_bits(&mut result, len);
+        let mut result = BV::from_vec(result);
+        result.truncate(len);
+        Self::from_bv(result)
     }
 
     fn rshift(&self, n: usize) -> Self {
@@ -437,16 +504,51 @@ pub(crate) trait BitCollection: Sized + Clone {
         if n >= len {
             return Self::from_bv(bv_from_zeros(len));
         }
-        let mut result_data = BV::repeat(false, n);
-        result_data.extend_from_bitslice(&self.as_bitslice()[..len - n]);
-        Self::from_bv(result_data)
+
+        let data = self.padded_byte_data_cow();
+        let mut result = vec![0u8; data.len()];
+        let byte_shift = n / 8;
+        let bit_shift = n & 7;
+        if bit_shift == 0 {
+            result[byte_shift..].copy_from_slice(&data[..data.len() - byte_shift]);
+        } else {
+            let left_shift = 8 - bit_shift;
+            let source = &data[..data.len() - byte_shift];
+            let output = &mut result[byte_shift..];
+            output[0] = source[0] >> bit_shift;
+            for (byte, pair) in output[1..].iter_mut().zip(source.windows(2)) {
+                *byte = pair[0] << left_shift | pair[1] >> bit_shift;
+            }
+        }
+        mask_padding_bits(&mut result, len);
+        let mut result = BV::from_vec(result);
+        result.truncate(len);
+        Self::from_bv(result)
     }
 
     /// Return a bit reversed copy
     fn reverse_copy(&self) -> Self {
+        if self.len().is_multiple_of(8) {
+            let mut bytes = self.to_padded_byte_data();
+            bytes.reverse();
+            bytes
+                .iter_mut()
+                .for_each(|byte| *byte = byte.reverse_bits());
+            return Self::from_bv(BV::from_vec(bytes));
+        }
         let mut bv = self.to_bitvec();
         bv.reverse();
         Self::from_bv(bv)
+    }
+
+    fn invert_copy(&self) -> Self {
+        let len = self.len();
+        let mut bytes = self.to_padded_byte_data();
+        bytes.iter_mut().for_each(|byte| *byte = !*byte);
+        mask_padding_bits(&mut bytes, len);
+        let mut result = BV::from_vec(bytes);
+        result.truncate(len);
+        Self::from_bv(result)
     }
 
     /// Return a byte swapped copy
@@ -574,6 +676,16 @@ pub(crate) trait BitCollection: Sized + Clone {
         bv.extend_from_bitslice(self.as_bitslice());
         bv.resize(new_len, false);
         bv.into_vec()
+    }
+
+    fn padded_byte_data_cow(&self) -> Cow<'_, [u8]> {
+        if self.len().is_multiple_of(8)
+            && let Some(bytes) = self.byte_aligned_raw_data()
+        {
+            Cow::Borrowed(bytes)
+        } else {
+            Cow::Owned(self.to_padded_byte_data())
+        }
     }
 
     #[inline]
@@ -727,6 +839,28 @@ pub(crate) trait BitCollection: Sized + Clone {
         }
         Ok(self.get_slice_unchecked(start_bit, length))
     }
+}
+
+pub(crate) fn concatenate_bitcollections(
+    left: &impl BitCollection,
+    right: &impl BitCollection,
+) -> BV {
+    let len = left.len() + right.len();
+    if left.len().is_multiple_of(8) {
+        let left = left.padded_byte_data_cow();
+        let right = right.padded_byte_data_cow();
+        let mut bytes = Vec::with_capacity(len.div_ceil(8));
+        bytes.extend_from_slice(&left);
+        bytes.extend_from_slice(&right);
+        let mut result = BV::from_vec(bytes);
+        result.truncate(len);
+        return result;
+    }
+
+    let mut result = BV::with_capacity(len);
+    result.extend_from_bitslice(left.as_bitslice());
+    result.extend_from_bitslice(right.as_bitslice());
+    result
 }
 
 impl BitCollection for Tibs {

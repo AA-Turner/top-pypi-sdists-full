@@ -55,6 +55,7 @@ pub(crate) fn iter_values_columns(values: &ast::Values) -> impl Iterator<Item = 
 #[derive(Debug)]
 pub(crate) enum ParentQuery {
     Select(ast::Select),
+    SelectInto(ast::SelectInto),
     Update(ast::Update),
     Delete(ast::Delete),
     Insert(ast::Insert),
@@ -71,6 +72,8 @@ pub(crate) fn node_parent_query(node: &SyntaxNode) -> Option<ParentQuery> {
     for ancestor in node.ancestors() {
         let result = if let Some(select) = ast::Select::cast(ancestor.clone()) {
             Select(select)
+        } else if let Some(select_into) = ast::SelectInto::cast(ancestor.clone()) {
+            SelectInto(select_into)
         } else if let Some(update) = ast::Update::cast(ancestor.clone()) {
             Update(update)
         } else if let Some(insert) = ast::Insert::cast(ancestor.clone()) {
@@ -251,7 +254,7 @@ pub(crate) fn parent_source(node: &SyntaxNode) -> Option<ParentSouce> {
 
 pub(crate) enum CreateTableArg {
     Column(ast::Column),
-    Inherits(ast::Path),
+    Inherits(ast::PathRef),
     LikeClause(ast::LikeClause),
     TableConstraint(#[expect(unused)] ast::TableConstraint),
 }
@@ -262,7 +265,8 @@ pub(crate) fn create_table_args(
     let inherits_iter = create_table
         .inherits()
         .into_iter()
-        .flat_map(|inherits| inherits.paths())
+        .flat_map(|inherits| inherits.table_name_refs())
+        .filter_map(|table| table.path_ref())
         .map(CreateTableArg::Inherits);
 
     let args_iter = create_table

@@ -974,6 +974,24 @@ _NON_READONLY_TOOLS: frozenset[str] = _counter.STATE_CHANGING_ACTIONS | {
     "route",
 } | _ANNOTATION_ONLY_WRITERS
 
+# Tools that CAN reach the network (all user-invoked, all README-disclosed):
+# GitHub fetch, cloud summarizer (opt-in), or a cloud embedding provider.
+# Everything else is annotated openWorldHint=False — a gating client can prove
+# the suite's no-network claim per tool instead of taking the README's word.
+# order/route can dispatch any catalog action, so they inherit True.
+_OPEN_WORLD_TOOLS: frozenset[str] = frozenset({
+    "index_repo",         # GitHub API fetch
+    "index_folder",       # cloud summarizer when configured + opted in
+    "index_file",         # cloud summarizer when configured + opted in
+    "summarize_repo",     # cloud summarizer when configured + opted in
+    "embed_repo",         # cloud embedding provider when configured
+    "check_embedding_drift",  # re-embeds canaries via the provider
+    "test_summarizer",    # probes the configured provider
+    "install_pack",       # starter-pack download
+    "order",              # front door — can dispatch the above
+    "route",              # front door — can dispatch the above
+})
+
 
 def _apply_readonly_annotations(tools: list[Tool]) -> list[Tool]:
     """Attach ToolAnnotations(readOnlyHint=...) to any tool lacking annotations.
@@ -989,7 +1007,8 @@ def _apply_readonly_annotations(tools: list[Tool]) -> list[Tool]:
             tool = tool.model_copy(
                 update={
                     "annotations": ToolAnnotations(
-                        readOnlyHint=tool.name not in _NON_READONLY_TOOLS
+                        readOnlyHint=tool.name not in _NON_READONLY_TOOLS,
+                        openWorldHint=tool.name in _OPEN_WORLD_TOOLS,
                     )
                 }
             )
@@ -2654,8 +2673,10 @@ def _build_tools_list() -> list[Tool]:
             name="find_implementations",
             description=(
                 "Find concrete implementations of an interface, abstract class, or method. "
-                "Multi-source resolution with confidence scoring: LSP dispatch (1.0), AST class "
-                "hierarchy (0.85), duck-typed name match (0.65), decorator handler (0.45). "
+                "Multi-source resolution with confidence scoring: SCIP/LSP evidence (1.0), AST class "
+                "hierarchy (0.85), duck-typed name match (0.65), decorator handler (0.45) — declared "
+                "priors; _meta.confidence_provenance states each channel's basis and measured "
+                "precision/recall. "
                 "Classifies each impl (subclass_override / interface_impl / duck_typed / "
                 "decorator_handler / subclass), ranks by PageRank × byte_length, attaches "
                 "differs_by breakdown. Optional cross_repo=true surfaces impls in other indexed "
@@ -3388,6 +3409,8 @@ def _build_tools_list() -> list[Tool]:
                 "Assemble the best-fit context for a query within a token budget. "
                 "Ranks all symbols by relevance (BM25) and/or centrality (PageRank), "
                 "loads source for the top candidates, and packs greedily until token_budget is exhausted. "
+                "Exact symbol names in the query (qualified, CamelCase, snake_case) are pinned ahead "
+                "of the ranking; include identifiers verbatim. "
                 "Use when you want 'the best N tokens of context for this task' without specifying exact symbols."
             ),
             inputSchema={
@@ -5626,9 +5649,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolR
                 result = await _apply_model_announcement(model)
         elif name == "jcodemunch_guide":
             from . import __version__ as _ver
+            from .retrieval.provenance import measured_provenance as _measured_provenance
             result = {
                 "version": _ver,
                 "content": _generate_claude_md_snippet(missing_only=False),
+                # Self-attesting contract: the measured artifacts behind the
+                # suite's savings/quality claims, plus the declared-vs-measured
+                # rule. Rides the guide (on-demand) — never the hot path.
+                "provenance": _measured_provenance(),
             }
         else:
             result = {"error": f"Unknown tool: {name}"}

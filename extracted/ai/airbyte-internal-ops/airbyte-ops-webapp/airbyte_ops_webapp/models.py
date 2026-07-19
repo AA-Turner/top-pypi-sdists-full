@@ -238,11 +238,15 @@ class ConnectorPopulation:
     full breakdown and show how both the addressable and the backend-eligible
     denominators are built. They are `None` when tier resolution was unavailable.
 
-    `tier_resolution_available` records whether the BigQuery-backed tier split
-    actually resolved. It is `False` when tier resolution was unavailable (so
+    `tier_resolution_available` records whether the per-tier split was
+    computed at all. It is `False` only when `get_connector_population`
+    returns early before building the breakdown — i.e. no
+    `connector_definition_id`, or the actor-population DB query raised — so
     the per-tier `eligible_*` / `pinned_*` counts are unknown rather than a
-    genuine zero), letting the UI distinguish "not started, 0 eligible" from
-    "not started, eligible unknown".
+    genuine zero, letting the UI distinguish "not started, 0 eligible" from
+    "not started, eligible unknown". A GCS/credential failure in tier
+    resolution does *not* set this flag: it propagates and aborts the page
+    rather than degrading to a misleading `0 of 0`.
     """
 
     total_active: int = 0

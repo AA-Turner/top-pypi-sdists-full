@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "gpt-researcher"
-version = "0.15.1"
+version = "0.16.0"
 description = "GPT Researcher is an autonomous agent designed for comprehensive online research on a variety of tasks."
 authors = ["Assaf Elovic <assaf.elovic@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.11"
+python = ">=3.12"
 aiofiles = ">=23.2.1"
 arxiv = ">=2.0.0"
 beautifulsoup4 = ">=4.12.2"
@@ -63,12 +63,12 @@ gpt-researcher = { workspace = true }
 
 [project]
 name = "gpt-researcher"
-version = "0.15.1"
+version = "0.16.0"
 description = "GPT Researcher is an autonomous agent designed for comprehensive online research on a variety of tasks."
 authors = [{ name = "Assaf Elovic", email = "assaf.elovic@gmail.com" }]
 license = { text = "MIT" }
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "aiofiles>=23.2.1",
     # Core dependencies
@@ -81,7 +81,7 @@ dependencies = [
     "attrs>=25.3.0",
     "backoff>=2.2.1",
     "beautifulsoup4>=4.12.2",
-    "brotli>=1.1.0",
+    "brotli>=1.2.0",  # < 1.2.0 has no decompression size limit (CVE-2025-6176)
     "certifi>=2025.4.26",
     "cffi>=1.17.1",
     "chardet>=5.2.0",

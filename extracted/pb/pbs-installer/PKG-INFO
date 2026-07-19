@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pbs-installer
-Version: 2026.6.10
+Version: 2026.7.18
 Summary: Installer for Python Build Standalone
 Author-Email: Frost Ming <me@frostming.com>
 License: MIT
@@ -16,6 +16,8 @@ Requires-Dist: pbs-installer[download,install]; extra == "all"
 Description-Content-Type: text/markdown
 
 # pbs-installer
+
+[![Support Frost's Python packaging ecosystem](https://img.shields.io/badge/Sponsor-Python%20packaging%20ecosystem-ea4aaa?logo=githubsponsors&logoColor=white&style=for-the-badge)](https://github.com/sponsors/frostming)
 
 [![PyPI](https://img.shields.io/pypi/v/pbs-installer)](https://pypi.org/project/pbs-installer)
 

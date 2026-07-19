@@ -230,9 +230,13 @@ class ZoneTools:
           ``warnings[]`` entry, and ``log.warning``.
         - a response that does not authoritatively enumerate ``zone`` (an older
           component with no ``covered_types``): fall back to legacy silently.
-        - ``HomeAssistantConnectionError`` (WS down): not caught here, so it
-          propagates to the tool's structured-error handler; the legacy path
-          shares the same socket and would fail identically.
+        - ``HomeAssistantConnectionError`` (pooled-WS drop) or the plain
+          ``Exception`` ``get_websocket_client()`` raises on a failed (re)connect:
+          served from the legacy ``zone/list`` (which rides the swallowing
+          ``send_websocket_message`` bridge, so a transport failure surfaces there
+          as a structured error rather than dying identically), with a
+          ``warnings[]`` entry + ``log.warning``; a transport failure must not
+          escape.
         """
         try:
             raw = await self._send_component_zone_list()
@@ -246,6 +250,18 @@ class ZoneTools:
             )
             logger.warning(
                 "ha_mcp_tools/helpers_list (zone) failed; fell back to legacy: %r",
+                exc,
+            )
+            return response
+        except Exception as exc:
+            response = _build_zone_result(await self._legacy_zone_rows(), zone_id)
+            response.setdefault("warnings", []).append(
+                f"component zone listing connection error ({exc}); "
+                "served via legacy path"
+            )
+            logger.warning(
+                "ha_mcp_tools/helpers_list (zone) connection error; "
+                "fell back to legacy: %r",
                 exc,
             )
             return response
@@ -313,6 +329,70 @@ class ZoneTools:
                     parameter="radius",
                 )
             )
+
+    def _build_set_zone_message(
+        self,
+        name: str | None,
+        latitude: float | None,
+        longitude: float | None,
+        zone_id: str | None,
+        radius: float | None,
+        icon: str | None,
+        passive: bool | None,
+    ) -> tuple[dict[str, Any], str, dict[str, Any]]:
+        """Build the zone/create|update WS message plus (operation, fields_to_update)."""
+        fields_to_update: dict[str, Any] = {}
+        if zone_id:
+            # UPDATE operation
+            operation = "update"
+            update_fields = {
+                "name": name,
+                "latitude": latitude,
+                "longitude": longitude,
+                "radius": radius,
+                "icon": icon,
+                "passive": passive,
+            }
+            fields_to_update = {k: v for k, v in update_fields.items() if v is not None}
+
+            if not fields_to_update:
+                raise_tool_error(
+                    create_validation_error(
+                        "No fields to update. Provide at least one field to change.",
+                        context={"zone_id": zone_id},
+                    )
+                )
+
+            self._validate_coordinates(latitude, longitude, radius)
+
+            message: dict[str, Any] = {
+                "type": "zone/update",
+                "zone_id": zone_id,
+                **fields_to_update,
+            }
+        else:
+            # CREATE operation
+            operation = "create"
+            if name is None or latitude is None or longitude is None:
+                raise_tool_error(
+                    create_validation_error(
+                        "name, latitude, and longitude are required when creating a zone.",
+                    )
+                )
+
+            self._validate_coordinates(latitude, longitude, radius)
+
+            message = {
+                "type": "zone/create",
+                "name": name,
+                "latitude": latitude,
+                "longitude": longitude,
+                "radius": radius if radius is not None else 100,
+                "passive": passive if passive is not None else False,
+            }
+            if icon:
+                message["icon"] = icon
+        return message, operation, fields_to_update
 
     @tool(
         name="ha_set_zone",
@@ -410,58 +490,9 @@ class ZoneTools:
                     ],
                     context={"action": "set"},
                 )
-            fields_to_update: dict[str, Any] = {}
-            if zone_id:
-                # UPDATE operation
-                operation = "update"
-                update_fields = {
-                    "name": name,
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "radius": radius,
-                    "icon": icon,
-                    "passive": passive,
-                }
-                fields_to_update = {
-                    k: v for k, v in update_fields.items() if v is not None
-                }
-
-                if not fields_to_update:
-                    raise_tool_error(
-                        create_validation_error(
-                            "No fields to update. Provide at least one field to change.",
-                            context={"zone_id": zone_id},
-                        )
-                    )
-
-                self._validate_coordinates(latitude, longitude, radius)
-
-                message: dict[str, Any] = {
-                    "type": "zone/update",
-                    "zone_id": zone_id,
-                    **fields_to_update,
-                }
-            else:
-                # CREATE operation
-                if name is None or latitude is None or longitude is None:
-                    raise_tool_error(
-                        create_validation_error(
-                            "name, latitude, and longitude are required when creating a zone.",
-                        )
-                    )
-
-                self._validate_coordinates(latitude, longitude, radius)
-
-                message = {
-                    "type": "zone/create",
-                    "name": name,
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "radius": radius if radius is not None else 100,
-                    "passive": passive if passive is not None else False,
-                }
-                if icon:
-                    message["icon"] = icon
+            message, operation, fields_to_update = self._build_set_zone_message(
+                name, latitude, longitude, zone_id, radius, icon, passive
+            )
 
             result = await self._client.send_websocket_message(message)
 

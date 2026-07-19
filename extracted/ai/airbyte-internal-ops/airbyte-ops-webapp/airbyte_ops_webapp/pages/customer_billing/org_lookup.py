@@ -57,7 +57,6 @@ def render_org_lookup() -> None:
                         arguments={
                             "query": STATE.org_query,
                             "auth_bearer_token": STATE.auth_bearer_token,
-                            "google_access_token": STATE.google_access_token,
                         },
                         on_success=lookup_success_actions(),
                         on_error=lookup_fail_actions(),
@@ -77,7 +76,6 @@ def render_org_lookup() -> None:
                         arguments={
                             "query": STATE.org_query,
                             "auth_bearer_token": STATE.auth_bearer_token,
-                            "google_access_token": STATE.google_access_token,
                         },
                         on_success=lookup_success_actions(),
                         on_error=lookup_fail_actions(),

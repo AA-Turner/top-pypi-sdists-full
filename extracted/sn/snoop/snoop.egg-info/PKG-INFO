@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: snoop
-Version: 0.6.0
+Version: 0.6.1
 Summary: Powerful debugging tools for Python
 Home-page: https://github.com/alexmojaki/snoop
 Author: Alex Hall
@@ -14,10 +14,10 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Debuggers
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Environment :: Console
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
@@ -36,6 +36,7 @@ Requires-Dist: pandas>=0.24.2; platform_python_implementation != "PyPy" and extr
 Requires-Dist: numpy>=1.16.5; platform_python_implementation != "PyPy" and extra == "tests"
 Requires-Dist: birdseye; platform_python_implementation != "PyPy" and extra == "tests"
 Requires-Dist: Django; extra == "tests"
+Dynamic: license-file
 
 # snoop
 

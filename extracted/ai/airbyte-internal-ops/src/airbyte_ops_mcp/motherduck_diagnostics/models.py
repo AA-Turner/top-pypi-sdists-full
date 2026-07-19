@@ -3,9 +3,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+ComputeUsageGrain = Literal["hour", "day"]
+"""Aggregation grain for compute-usage rollups: `hour` or `day`."""
 
 
 class QueryTextTreatment(BaseModel):
@@ -52,6 +55,11 @@ class MotherDuckQueryFilters(BaseModel):
         default=None,
         ge=0,
         description="Minimum execution_time threshold (seconds).",
+    )
+    min_total_elapsed_seconds: float | None = Field(
+        default=None,
+        ge=0,
+        description="Minimum total_elapsed_time threshold (seconds).",
     )
     query_text_contains: str | None = Field(
         default=None,
@@ -143,6 +151,73 @@ class MotherDuckQueryResult(BaseModel):
         )
     )
     queries: list[MotherDuckQueryRecord] = Field(description="Query records.")
+
+
+class MotherDuckComputeUsageBucket(BaseModel):
+    """Aggregated compute usage for a single time bucket, split by query type."""
+
+    bucket_start: str = Field(
+        description="ISO8601 start of the time bucket (UTC), e.g. `2026-07-15T18:00:00+00:00`."
+    )
+    grain: ComputeUsageGrain = Field(
+        description="Aggregation grain of this bucket: `hour` or `day`.",
+    )
+    compute_seconds: float = Field(
+        description="Sum of `EXECUTION_TIME` (falling back to `TOTAL_ELAPSED_TIME`) in seconds."
+    )
+    query_count: int = Field(description="Number of queries started in this bucket.")
+    failed_count: int = Field(
+        description="Number of queries in this bucket with a non-null error."
+    )
+    query_type_compute_seconds: dict[str, float] = Field(
+        default_factory=dict,
+        description=(
+            "Compute-seconds within this bucket keyed by MotherDuck's native "
+            "`QUERY_TYPE` (e.g. `DDL`, `DML`, `QUERY`, .../`UNKNOWN`). This is a "
+            "coarse server-side category, distinct from the regex-derived "
+            "statement `subtype` shown on the detailed query view."
+        ),
+    )
+    error_type_counts: dict[str, int] = Field(
+        default_factory=dict,
+        description=(
+            "Failed-query counts within this bucket keyed by MotherDuck's native "
+            "`ERROR_TYPE` classification, computed by the same server-side "
+            "`GROUP BY`. Failures with a null/empty `ERROR_TYPE` fold under "
+            "`UNKNOWN`. Succeeded queries contribute nothing here, so the values "
+            "sum to `failed_count`."
+        ),
+    )
+
+
+class MotherDuckComputeSummaryResult(BaseModel):
+    """Server-side aggregate rollup of query compute usage over a window.
+
+    Computed with a SQL `GROUP BY date_trunc(<grain>, START_TIME), QUERY_TYPE`
+    (grain is `hour` or `day`) so the totals reflect every matching query in the
+    window, independent of any row limit, and the compute is split by MotherDuck's
+    native `QUERY_TYPE` server-side rather than by grouping detailed rows in memory
+    or evaluating a per-row regex classification over the whole window.
+    """
+
+    mode: str = Field(
+        description="'historical' or 'realtime' — which view was aggregated."
+    )
+    grain: ComputeUsageGrain = Field(
+        description="Aggregation grain applied to every bucket: `hour` or `day`.",
+    )
+    total_compute_seconds: float = Field(
+        description="Total compute-seconds across the whole window."
+    )
+    total_query_count: int = Field(
+        description="Total number of queries in the whole window."
+    )
+    total_failed_count: int = Field(
+        description="Total number of failed queries in the whole window."
+    )
+    buckets: list[MotherDuckComputeUsageBucket] = Field(
+        description="Compute-usage buckets at the requested grain, ordered chronologically."
+    )
 
 
 class MotherDuckConnectionFilters(BaseModel):

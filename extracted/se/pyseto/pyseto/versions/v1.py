@@ -115,6 +115,11 @@ class V1Public(NISTKey):
         self._sig_size = 256
         if not isinstance(self._key, (RSAPublicKey, RSAPrivateKey)):
             raise ValueError("The key is not RSA key.")
+        if self._key.key_size != 2048:
+            raise ValueError("The RSA key size must be 2048 bits.")
+        pub = self._key if isinstance(self._key, RSAPublicKey) else self._key.public_key()
+        if pub.public_numbers().e != 65537:
+            raise ValueError("The RSA public exponent must be 65537.")
 
         if isinstance(self._key, RSAPublicKey):
             self._is_secret = False
@@ -172,7 +177,7 @@ class V1Public(NISTKey):
         self,
         wrapping_key: bytes | str = b"",
         password: bytes | str = b"",
-        _sealing_key: bytes | str = b"",
+        sealing_key: bytes | str = b"",
         iteration: int = 100000,
         _memory_cost: int = 15 * 1024,
         _time_cost: int = 2,
@@ -180,6 +185,11 @@ class V1Public(NISTKey):
     ) -> str:
         if wrapping_key and password:
             raise ValueError("Only one of wrapping_key or password should be specified.")
+        if sealing_key and (wrapping_key or password):
+            raise ValueError("Only one of wrapping_key, password or sealing_key should be specified.")
+
+        if sealing_key:
+            raise ValueError("Key sealing can only be used for local key.")
 
         if wrapping_key:
             # secret-wrap

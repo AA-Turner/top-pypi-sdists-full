@@ -26,11 +26,13 @@ from ...utils.path_security import (
 )
 from ..validation import InvalidVirtualPackageExtensionError
 from .identity import (
+    _DEFAULT_SCHEME_PORTS,
     _NON_ADO_PATH_SEGMENT_RE,
     InvalidSemverRangeError,
     _is_valid_registry_semver_range,
     _looks_like_invalid_semver_range,
     _path_segment_pattern,
+    _split_shorthand_host_port,
     build_canonical_dependency_string,
     build_dependency_unique_key,
     normalize_package_repo_url,
@@ -40,21 +42,16 @@ from .object_fields import (
     local_path_apm_yml_entry,
     parse_alias_override,
     reject_unknown_fields,
+    reject_unknown_git_fields,
 )
+from .provider_coordinates import ProviderCoordinateMixin
 from .types import VirtualPackageType
-
-# Identity/semver helpers re-exported from .identity for back-compat imports.
-# Default ports per URI scheme -- used to normalise away redundant
-# explicit ports (e.g. https://host:443/...) so that lockfile keys
-# and error messages stay consistent regardless of how the user
-# spelled the URL.
-_DEFAULT_SCHEME_PORTS: dict[str, int] = {"https": 443, "http": 80, "ssh": 22}
 
 _REF_VERSION_SUFFIX_RE = re.compile(r"^v?\d+(?:\.\d+)*(?:[-+][A-Za-z0-9][A-Za-z0-9._-]*)?$")
 
 
 @dataclass
-class DependencyReference:
+class DependencyReference(ProviderCoordinateMixin):
     """Represents a reference to an APM dependency."""
 
     repo_url: str  # e.g., "user/repo" for GitHub or "org/project/repo" for Azure DevOps
@@ -216,6 +213,19 @@ class DependencyReference:
         from ...utils.github_host import is_azure_devops_hostname
 
         return self.host is not None and is_azure_devops_hostname(self.host)
+
+    @classmethod
+    def canonical_ado_coordinates(
+        cls,
+        host: str | None,
+        repo_url: str,
+    ) -> tuple[str | None, str | None, str | None]:
+        """Return canonical ADO coordinates for a host and repository path."""
+        return (
+            cls._validate_final_repo_fields(host, repo_url)
+            if host and is_azure_devops_hostname(host)
+            else (None, None, None)
+        )
 
     @property
     def virtual_type(self) -> "VirtualPackageType | None":
@@ -853,12 +863,10 @@ class DependencyReference:
         git_url = entry["git"]
         if not isinstance(git_url, str) or not git_url.strip():
             raise ValueError("'git' field must be a non-empty string")
-        host_type = cls._parse_host_type(entry.get("type"))
 
         # Monorepo parent inheritance (literal ``git: parent`` only; resolver expands)
         if git_url == "parent":
-            if host_type is not None:
-                raise ValueError("'type' is only supported for remote git dependencies")
+            reject_unknown_git_fields(entry, parent=True)
             path_raw = entry.get("path")
             if path_raw is None:
                 raise ValueError(
@@ -885,6 +893,8 @@ class DependencyReference:
                 is_parent_repo_inheritance=True,
             )
 
+        reject_unknown_git_fields(entry, parent=False)
+        host_type = cls._parse_host_type(entry.get("type"))
         sub_path = entry.get("path")
         ref_override = entry.get("ref")
         allow_insecure = entry.get("allow_insecure", False)
@@ -1522,13 +1532,15 @@ class DependencyReference:
         Validates path components before returning.
 
         Returns:
-            ``(parsed_url, host)``
+            ``(parsed_url, host, port)`` with any custom shorthand port.
         """
         parts = repo_url.split("/")
 
         if "_git" in parts:
             git_idx = parts.index("_git")
             parts = parts[:git_idx] + parts[git_idx + 1 :]
+
+        parts[0], port = _split_shorthand_host_port(parts[0])
 
         if len(parts) >= 3 and is_supported_git_host(parts[0]):
             host = parts[0]
@@ -1596,7 +1608,7 @@ class DependencyReference:
         github_url = urllib.parse.urljoin(f"https://{host}/", quoted_repo)
         parsed_url = urllib.parse.urlparse(github_url)
 
-        return parsed_url, host
+        return parsed_url, host, port
 
     @classmethod
     def _validate_url_repo_path(cls, parsed_url) -> tuple[str, str | None]:
@@ -1772,7 +1784,7 @@ class DependencyReference:
             if port == _DEFAULT_SCHEME_PORTS.get(scheme):
                 port = None
         else:
-            parsed_url, host = cls._resolve_shorthand_to_parsed_url(repo_url, host)
+            parsed_url, host, port = cls._resolve_shorthand_to_parsed_url(repo_url, host)
 
         repo_url, url_virtual_path = cls._validate_url_repo_path(parsed_url)
 
@@ -1792,15 +1804,7 @@ class DependencyReference:
 
     @classmethod
     def _validate_final_repo_fields(cls, host, repo_url):
-        """Validate the final repo_url and extract ADO organisation fields.
-
-        Performs character-set and segment-count validation appropriate for
-        the detected host type (Azure DevOps vs generic git host).
-
-        Returns:
-            ``(ado_organization, ado_project, ado_repo)`` -- all ``None``
-            for non-ADO hosts.
-        """
+        """Validate a repository path and return its ADO coordinates when applicable."""
         is_ado_final = host and is_azure_devops_hostname(host)
         if is_ado_final:
             if not re.match(r"^[a-zA-Z0-9._-]+/[a-zA-Z0-9._\- ]+/[a-zA-Z0-9._\- ]+$", repo_url):
@@ -1949,7 +1953,8 @@ class DependencyReference:
                 elif _stripped.startswith("http://"):
                     explicit_scheme = "http"
 
-        # Phase 3: final validation and ADO field extraction
+        # Phase 3: full validation (all hosts) + ADO field extraction.
+        # canonical_ado_coordinates is for consumers with validated input only.
         ado_organization, ado_project, ado_repo = cls._validate_final_repo_fields(host, repo_url)
 
         if alias and not re.match(r"^[a-zA-Z0-9._-]+$", alias):
@@ -2012,7 +2017,8 @@ class DependencyReference:
             return self.to_canonical()
         if self.is_insecure:
             host = self.host or default_host()
-            entry = {"git": f"http://{host}/{self.repo_url}"}
+            netloc = f"{host}:{self.port}" if self.port else host
+            entry = {"git": f"http://{netloc}/{self.repo_url}"}
             if self.reference:
                 entry["ref"] = self.reference
             if self.alias:
@@ -2037,29 +2043,24 @@ class DependencyReference:
         return self.to_canonical()
 
     def to_github_url(self) -> str:
-        """Convert to full repository URL.
-
-        For Azure DevOps, generates: https://dev.azure.com/org/project/_git/repo
-        For GitHub, generates: https://github.com/owner/repo
-        For local packages, returns the local path.
-        """
+        """Convert to the canonical repository URL, or return a local path."""
         if self.is_local and self.local_path:
             return self.local_path
 
         host = self.host or default_host()
         netloc = f"{host}:{self.port}" if self.port else host
-
         scheme = "http" if self.is_insecure else "https"
-
         if self.is_azure_devops():
-            # ADO format: https://dev.azure.com/org/project/_git/repo
-            project = urllib.parse.quote(self.ado_project, safe="")
-            repo = urllib.parse.quote(self.ado_repo, safe="")
-            return f"https://{netloc}/{self.ado_organization}/{project}/_git/{repo}"
+            self.validate_provider_coordinates()
+            organization = self.ado_organization
+            ado_project = self.ado_project
+            ado_repo = self.ado_repo
+            project = urllib.parse.quote(ado_project, safe="")
+            repo = urllib.parse.quote(ado_repo, safe="")
+            return f"https://{netloc}/{organization}/{project}/_git/{repo}"
         elif self.artifactory_prefix:
             return f"{scheme}://{netloc}/{self.artifactory_prefix}/{self.repo_url}"
         else:
-            # Git host format: https://github.com/owner/repo
             return f"{scheme}://{netloc}/{self.repo_url}"
 
     def to_clone_url(self) -> str:

@@ -23,6 +23,7 @@ from mycli.constants import (
 )
 from mycli.packages.filepaths import guess_socket_location
 from mycli.packages.special.utils import format_connection_dsn
+from mycli.password_sources import PasswordCandidates
 from mycli.sqlexecute import SQLExecute
 from mycli.ssh_tunnel import SshTunnel, SshTunnelError
 
@@ -49,7 +50,7 @@ class ClientConnectionMixin:
         self,
         database: str | None = "",
         user: str | None = "",
-        passwd: str | int | None = None,
+        password_candidates: PasswordCandidates | None = None,
         host: str | None = "",
         port: str | int | None = "",
         socket: str | None = "",
@@ -86,6 +87,11 @@ class ClientConnectionMixin:
             if not host or host == DEFAULT_HOST:
                 socket = socket or user_connection_config.get("default_socket") or mylogin_cnf["socket"] or guess_socket_location()
 
+        if self.config.get('main', {}).get('password_sources'):
+            password_source_precedence = self.config.get('main').as_list('password_sources')
+        else:
+            password_source_precedence = ['prompt']
+
         if ssh_jump:
             remote_host = host or DEFAULT_HOST
             remote_port = int_port or DEFAULT_PORT
@@ -114,7 +120,8 @@ class ClientConnectionMixin:
                     pass
                 sys.exit(1)
 
-        passwd = passwd if isinstance(passwd, (str, int)) else mylogin_cnf["password"]
+        if password_candidates is None:
+            password_candidates = PasswordCandidates()
 
         if not character_set:
             if 'main' in self.config_without_package_defaults and 'default_character_set' in self.config_without_package_defaults['main']:
@@ -167,15 +174,6 @@ class ClientConnectionMixin:
         if not any(v for v in ssl_config.values()):
             ssl_config = {}
 
-        # password hierarchy
-        # 1. -p / --pass/--password CLI options
-        # 2. --password-file CLI option
-        # 3. envvar (MYSQL_PWD)
-        # 4. DSN (mysql://user:password)
-        # 5. Vault
-        # 6. .mylogin.cnf
-        # 7. keyring
-
         ssh_tunnel_field = urlquote(ssh_jump or '')
         if ssh_tunnel_field:
             ssh_tunnel_field = ':' + ssh_tunnel_field
@@ -183,15 +181,17 @@ class ClientConnectionMixin:
         keyring_domain = 'mycli.net'
         keyring_retrieved_cleanly = False
 
-        if passwd is None and use_keyring and not reset_keyring:
-            passwd = keyring.get_password(keyring_domain, keyring_identifier)
-            if passwd is not None:
-                keyring_retrieved_cleanly = True
+        password_candidates.add_value('login_path', mylogin_cnf['password'])
+        if use_keyring and not reset_keyring:
+            password_candidates.add_loader('keyring', lambda: keyring.get_password(keyring_domain, keyring_identifier))
+
+        selected_password = password_candidates.resolve(password_source_precedence)
+        passwd = selected_password.value if selected_password is not None else None
+        keyring_retrieved_cleanly = selected_password is not None and selected_password.source == 'keyring'
 
         # prompt for password if requested by user
         if passwd == EMPTY_PASSWORD_FLAG_SENTINEL:
             passwd = click.prompt(f"Enter password for {user}", hide_input=True, show_default=False, default='', type=str, err=True)
-            keyring_retrieved_cleanly = False
 
         # should not fail, but will help the typechecker
         assert not isinstance(passwd, int)
@@ -285,15 +285,18 @@ class ClientConnectionMixin:
                     _connect(
                         retry_ssl=True, keyring_retrieved_cleanly=keyring_retrieved_cleanly, keyring_save_eligible=keyring_save_eligible
                     )
-                elif e1.args[0] == ACCESS_DENIED_ERROR and connection_info["password"] is None:
+                elif e1.args[0] == ACCESS_DENIED_ERROR and connection_info["password"] is None and 'fallback' in password_source_precedence:
                     # if we already tried and failed to connect with a new password, raise the error
                     if retry_password:
                         raise e1
-                    # ask the user for a new password and try to connect again
-                    new_password = click.prompt(
-                        f"Enter password for {user}", hide_input=True, show_default=False, default='', type=str, err=True
+                    password_candidates.add_loader(
+                        'fallback',
+                        lambda: click.prompt(
+                            f"Enter password for {user}", hide_input=True, show_default=False, default='', type=str, err=True
+                        ),
                     )
-                    connection_info["password"] = new_password
+                    fallback_password = password_candidates.resolve(['fallback'])
+                    connection_info["password"] = fallback_password.value if fallback_password is not None else None
                     keyring_retrieved_cleanly = False
                     _connect(
                         retry_password=True,

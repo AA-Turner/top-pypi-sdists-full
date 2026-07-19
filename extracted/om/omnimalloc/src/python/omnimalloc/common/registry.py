@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import inspect
 import re
 from abc import ABC
 from typing import ClassVar
@@ -16,44 +15,28 @@ class Registered(ABC):
     Any direct subclass of Registered will maintain its own registry. Any
     subclass of that subclass that's not abstract will be registered in the
     direct subclass's registry.
-
-    Registry names derive from the class name: the root's `_strip_suffix`
-    (its class-role suffix, e.g. "Allocator" or "Source") is stripped from
-    the end of the name (mid-name occurrences stay), then the remainder
-    converts to snake_case — the token carries zero information when the
-    registry is the namespace. Roots leave `_strip_suffix` empty to keep
-    full class names.
     """
 
     _registry: ClassVar[dict[str, type[Self]]]
     _name: str
-    _strip_suffix: ClassVar[str] = ""
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
 
+        cls._name = _camel_to_snake(cls.__name__)
+
         # Direct subclass of Registered - initialize registry, don't register
         if Registered in cls.__bases__:
-            cls._name = _camel_to_snake(cls.__name__)
             cls._registry = {}
             return
 
-        # Abstract classes keep their full name and skip registration
-        if inspect.isabstract(cls):
-            cls._name = _camel_to_snake(cls.__name__)
+        # Skip abstract classes from registration
+        if getattr(cls, "__abstractmethods__", None):
             return
 
         # Child class - register in parent's registry
         for base in reversed(cls.__mro__[1:]):
             if Registered in base.__bases__ and issubclass(base, Registered):
-                cls._name = _derive_name(cls.__name__, base._strip_suffix)  # noqa: SLF001
-                registered = base._registry.get(cls._name)  # noqa: SLF001
-                if registered is not None and registered is not cls:
-                    raise RuntimeError(
-                        f"Registry name '{cls._name}' already taken by "
-                        f"{registered.__qualname__}; cannot register "
-                        f"{cls.__qualname__}"
-                    )
                 base._registry[cls._name] = cls  # noqa: SLF001
                 return
 
@@ -81,25 +64,6 @@ class Registered(ABC):
         raise KeyError(
             f"'{name}' not in {cls.__name__} registry. Available: {available}"
         )
-
-    @classmethod
-    def resolve(cls, value: "Self | type[Self] | str") -> Self:
-        """Normalize a registry name, class, or instance into an instance."""
-        if isinstance(value, str):
-            value = cls.get(value)
-        if isinstance(value, type):
-            return value()
-        return value
-
-
-def _derive_name(class_name: str, role_token: str) -> str:
-    """Registry key for `class_name`: strip the `role_token` suffix, snake_case."""
-    stripped = class_name.removesuffix(role_token) if role_token else class_name
-    if not stripped:
-        raise RuntimeError(
-            f"Registry name for {class_name!r} is empty after stripping {role_token!r}"
-        )
-    return _camel_to_snake(stripped)
 
 
 def _camel_to_snake(name: str) -> str:

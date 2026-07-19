@@ -40,6 +40,30 @@ python_version = "3.14"
 strict = true
 files = ["typing_validation", "test", "benchmark"]
 
+[[tool.mypy.overrides]]
+# The peer libraries are an optional group, and `contenders.py` imports every
+# one of them inside a `try`/`except ImportError` precisely so that they can be
+# absent. Type checking runs where they are, which is anywhere but a machine
+# that has installed the `peers` group -- CI deliberately does not, so without
+# this mypy fails on ten imports that are working as designed.
+module = [
+    "beartype",
+    "beartype.*",
+    "cattrs",
+    "cattrs.*",
+    "msgspec",
+    "msgspec.*",
+    "pydantic",
+    "pydantic.*",
+    "trycast",
+    "trycast.*",
+    "typedload",
+    "typedload.*",
+    "typeguard",
+    "typeguard.*",
+]
+ignore_missing_imports = true
+
 [tool.pyright]
 typeCheckingMode = "off"
 reportInvalidTypeForm = false
@@ -55,6 +79,21 @@ only-include = ["typing_validation", "README.md", "LICENSE"]
 
 [dependency-groups]
 dev = ["pytest >=8.0", "mypy >=1.14", "black >=24.0", "numpy >=2.0"]
+peers = [
+    # The libraries `benchmark/tools/contenders.py` measures against. A group of
+    # their own, not part of `dev`: the conformance suite does not need them, and
+    # CI should not install ten third-party packages to run it. Every one is
+    # optional at runtime — `contenders.py` skips any that will not import, so
+    # `python -m benchmark` degrades to whatever is present rather than failing,
+    # and says in the report that it did.
+    "beartype >=0.19",
+    "cattrs >=24.1",
+    "msgspec >=0.19",
+    "pydantic >=2.10",
+    "trycast >=1.2",
+    "typedload >=2.30",
+    "typeguard >=4.4",
+]
 docs = [
     "sphinx",
     "sphinx-rtd-theme",

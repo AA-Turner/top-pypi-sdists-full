@@ -27,6 +27,12 @@ from airbyte_ops_webapp.models import (
     ScopeType,
     TierPopulationFactors,
 )
+from airbyte_ops_webapp.pages.connector_version_manager._state import (
+    ConnectorContextResult,
+    PinSelection,
+    RolloutSelection,
+    RolloutSummary,
+)
 from airbyte_ops_webapp.services.connector_version_manager.adapter import (
     OpsMcpAdapter,
     _cloud_scope_url,
@@ -59,57 +65,12 @@ _CARD_TIER_STAGES: list[tuple[CustomerTier, str]] = [
 APPLY_ERROR = "Apply change failed. No connector version override was applied."
 SCOPE_PLACEHOLDER_SUFFIX = "_example"
 
-# Canonical empty-state dicts for rollout and pin selection.
+# Canonical empty-state dicts for rollout and pin selection, derived from the
+# typed models in `_state` so the placeholder shape has a single source of truth.
 # Used in initial state, success handlers, and context resets.
-EMPTY_ROLLOUT_STATE: dict[str, str] = {
-    "rollout_id": "",
-    "connector_id": "",
-    "connector_name": "",
-    "connector_type": "source",
-    "docker_repository": "",
-    "state": "",
-    "rc_docker_image_tag": "",
-    "initial_docker_image_tag": "",
-    "current_target_rollout_pct": "",
-    "final_target_rollout_pct": "",
-    "created_at": "",
-    "updated_at": "",
-}
-EMPTY_PIN_STATE: dict[str, str] = {
-    "scope_type": "",
-    "scope_id": "",
-    "scope_url": "",
-    "origin_type": "",
-    "origin_name": "",
-    "description": "",
-    "description_display": "",
-    "created_at": "",
-    "created_at_display": "",
-    "expires_at": "",
-    "expires_at_display": "",
-    "reference_url": "",
-    "scope_name": "",
-}
-EMPTY_ROLLOUT_SUMMARY: dict[str, Any] = {
-    "rc_version": "",
-    "tier_summary": "",
-    "highest_tier": "",
-    "next_tier": "",
-    "has_next_stage": False,
-    "autopilot": "",
-    "updated_at": "",
-    "total_rc_pins": "0",
-    "total_actors_display": "",
-    "tier_cards": [],
-    "connector_id": "",
-    "connector_name": "",
-    "docker_repository": "",
-    "rc_docker_image_tag": "",
-    "advance_rollout_id": "",
-    "advance_tier": "",
-    "advance_pct": "",
-    "promote_rollout_id": "",
-}
+EMPTY_ROLLOUT_STATE: dict[str, Any] = RolloutSelection().model_dump(mode="json")
+EMPTY_PIN_STATE: dict[str, Any] = PinSelection().model_dump(mode="json")
+EMPTY_ROLLOUT_SUMMARY: dict[str, Any] = RolloutSummary().model_dump(mode="json")
 
 
 # ---------------------------------------------------------------------------
@@ -810,7 +771,6 @@ def rollout_action_success_actions(
                 "actor_workspace_id": STATE.actor_workspace_id,
                 "context_guid": STATE.context_guid,
                 "auth_bearer_token": STATE.auth_bearer_token,
-                "google_access_token": STATE.google_access_token,
             },
             on_success=[
                 *context_success_actions(),
@@ -879,25 +839,18 @@ def fail_context_actions() -> list[Any]:
 # ---------------------------------------------------------------------------
 
 
-def connector_context_placeholder(message: str) -> dict[str, Any]:
-    current_state = {"message": message}
-    return {
-        "connector": empty_connector(),
-        "versions": [],
-        "active_rollouts": [],
-        "rollout_summary": dict(EMPTY_ROLLOUT_SUMMARY),
-        "current_state": current_state,
-        "current_state_markdown": json_text(current_state),
-        "ancestor_configs": [],
-        "descendant_configs": [],
-        "resolved_context_label": "",
-        "context_guid": "",
-        "context_error": message,
-        "rollout_error": "",
-        "scope_type": "workspace",
-        "scope_id": "",
-        "actor_workspace_id": "",
-    }
+def connector_context_placeholder(message: str) -> ConnectorContextResult:
+    """Empty context payload shown before a connector is selected or on error.
+
+    All other fields fall back to `ConnectorContextResult` defaults, which match
+    the empty connector / rollout-summary placeholder shapes.
+    """
+    current_state: dict[str, Any] = {"message": message}
+    return ConnectorContextResult(
+        current_state=current_state,
+        current_state_markdown=json_text(current_state),
+        context_error=message,
+    )
 
 
 def fallback_current_state(
@@ -1138,27 +1091,18 @@ def target_ids(
     scope_type: ScopeType,
     scope_id: str,
     actor_workspace_id: str,
-    google_access_token: str = "",
 ) -> tuple[str, str | None, str | None]:
     if scope_type == "organization":
         return scope_id, None, None
     if scope_type == "actor":
         organization_id = (
-            adapter.resolve_organization_id(
-                "workspace",
-                actor_workspace_id,
-                google_access_token=google_access_token,
-            )
+            adapter.resolve_organization_id("workspace", actor_workspace_id)
             if actor_workspace_id
             else ""
         )
         return organization_id, actor_workspace_id or None, scope_id
     return (
-        adapter.resolve_organization_id(
-            "workspace",
-            scope_id,
-            google_access_token=google_access_token,
-        ),
+        adapter.resolve_organization_id("workspace", scope_id),
         scope_id,
         None,
     )

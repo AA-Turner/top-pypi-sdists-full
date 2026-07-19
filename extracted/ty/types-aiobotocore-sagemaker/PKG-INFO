@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-sagemaker
-Version: 3.7.0
-Summary: Type annotations for aiobotocore SageMaker 3.7.0 service generated with mypy-boto3-builder 8.12.0
+Version: 3.8.0
+Summary: Type annotations for aiobotocore SageMaker 3.8.0 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore SageMaker 3.7.0](https://pypi.org/project/aiobotocore/) compatible
+[aiobotocore SageMaker 3.8.0](https://pypi.org/project/aiobotocore/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==3.7.0' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==3.8.0' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Add `SageMaker` service.
 4. Use provided commands to install generated packages.
@@ -375,6 +375,8 @@ from types_aiobotocore_sagemaker.paginator import (
     ListInferenceExperimentsPaginator,
     ListInferenceRecommendationsJobStepsPaginator,
     ListInferenceRecommendationsJobsPaginator,
+    ListJobSchemaVersionsPaginator,
+    ListJobsPaginator,
     ListLabelingJobsForWorkteamPaginator,
     ListLabelingJobsPaginator,
     ListLineageGroupsPaginator,
@@ -526,6 +528,10 @@ async with session.create_client("sagemaker") as client:
     list_inference_recommendations_jobs_paginator: ListInferenceRecommendationsJobsPaginator = (
         client.get_paginator("list_inference_recommendations_jobs")
     )
+    list_job_schema_versions_paginator: ListJobSchemaVersionsPaginator = client.get_paginator(
+        "list_job_schema_versions"
+    )
+    list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
     list_labeling_jobs_for_workteam_paginator: ListLabelingJobsForWorkteamPaginator = (
         client.get_paginator("list_labeling_jobs_for_workteam")
     )

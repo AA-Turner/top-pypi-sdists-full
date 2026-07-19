@@ -48,6 +48,24 @@ class HomeAssistantConnectionError(HomeAssistantError):
     """Connection error to Home Assistant."""
 
 
+class HomeAssistantCommandNotSent(HomeAssistantConnectionError):
+    """A WS command that provably never left the process.
+
+    Raised by ``HomeAssistantWebSocketClient.send_command`` ONLY at its single
+    provably-never-sent site: the entry-guard reject (socket not authenticated), where
+    nothing is transmitted. Subclass of ``HomeAssistantConnectionError`` so every
+    existing broad handler is unaffected, yet a write consumer can catch this type
+    FIRST to fall back to the legacy path safely — the write provably never happened,
+    so a legacy first fire cannot double-apply. A ``send_json_message`` failure is NOT
+    this type: ``websocket.send()`` raising does not prove the frame was untransmitted
+    (bytes may already be on the socket when the close surfaces), so send_command
+    re-raises the original exception and the consumer treats it as ambiguous. A
+    post-send socket close (mid-await) likewise raises a plain
+    ``HomeAssistantConnectionError`` (the close handler sets it on the pending future),
+    so type alone distinguishes never-sent from sent-then-dropped/ambiguous.
+    """
+
+
 class HomeAssistantAuthError(HomeAssistantError):
     """Authentication error with Home Assistant.
 
@@ -957,7 +975,11 @@ class HomeAssistantClient:
             raise
 
     async def upsert_automation_config(
-        self, config: dict[str, Any], identifier: str | None = None
+        self,
+        config: dict[str, Any],
+        identifier: str | None = None,
+        *,
+        _resolved: bool = False,
     ) -> dict[str, Any]:
         """
         Create new automation or update existing one.
@@ -965,6 +987,12 @@ class HomeAssistantClient:
         Args:
             config: Automation configuration dictionary
             identifier: Optional automation entity_id or unique_id (None = create new)
+            _resolved: When True, ``identifier`` is already the resolved unique_id
+                (the caller ran ``_resolve_automation_id``), so the redundant
+                entity_id→unique_id lookup is skipped. Ignored on the create path
+                (``identifier is None``). The #1404 config-id mismatch guard below
+                is unaffected — it still compares ``config['id']`` to the resolved
+                unique_id.
 
         Returns:
             Result with automation unique_id and status
@@ -978,7 +1006,11 @@ class HomeAssistantClient:
             operation = "created"
             logger.debug(f"Creating new automation with unique_id: {unique_id}")
         else:
-            unique_id = await self._resolve_automation_id(identifier)
+            unique_id = (
+                identifier
+                if _resolved
+                else await self._resolve_automation_id(identifier)
+            )
             operation = "updated"
             logger.debug(f"Updating automation with unique_id: {unique_id}")
 
@@ -1445,6 +1477,7 @@ class HomeAssistantClient:
                         return {
                             "success": False,
                             "error": f"WebSocket request blocked (403 Forbidden): {error_str}",
+                            "error_code": getattr(e, "code", None),
                             "suggestions": [
                                 "This may be caused by a reverse proxy or security filter",
                                 "Try simplifying the request (e.g., shorter templates, fewer parameters)",
@@ -1453,8 +1486,18 @@ class HomeAssistantClient:
                             ],
                         }
 
-                logger.error(f"WebSocket message failed: {e}")
-                return {"success": False, "error": str(e)}
+                # Name the command in the log line: a bare "Command failed:
+                # Unknown command." is undiagnosable from a user's log
+                # (issue #1889 took a live reproduction to attribute).
+                logger.error(f"WebSocket message failed ({message.get('type')}): {e}")
+                # Preserve HA's structured error code (e.g. ``not_found``) so callers
+                # can distinguish HA's authoritative verdict from a transient failure
+                # instead of only seeing the stringified message.
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "error_code": getattr(e, "code", None),
+                }
 
         return {"success": False, "error": "WebSocket request failed"}
 
@@ -1563,14 +1606,33 @@ class HomeAssistantClient:
             raise
 
     async def upsert_script_config(
-        self, config: dict[str, Any], script_id: str
+        self,
+        config: dict[str, Any],
+        script_id: str,
+        *,
+        resolved_id: str | None = None,
     ) -> dict[str, Any]:
-        """Create or update Home Assistant script configuration."""
-        resolved_id = await self._resolve_script_id(script_id)
-        try:
-            endpoint = f"config/script/config/{resolved_id}"
+        """Create or update Home Assistant script configuration.
 
-            # Validate required fields
+        ``resolved_id``, when provided, is the already-resolved storage key used
+        as the write target (the caller ran :meth:`_resolve_script_id`),
+        skipping the redundant entity-registry lookup. ``script_id`` stays the
+        CALLER's identifier and is used only to default a missing ``alias`` — a
+        renamed script (whose storage key differs from the entity slug the
+        caller passed) keeps its caller-facing name rather than resetting the
+        user-visible alias to the stale storage key (#1935).
+        """
+        write_id = (
+            resolved_id
+            if resolved_id is not None
+            else await self._resolve_script_id(script_id)
+        )
+        try:
+            endpoint = f"config/script/config/{write_id}"
+
+            # Default a missing alias from the CALLER's ``script_id`` (not
+            # ``write_id``) so a renamed script's user-visible name is preserved
+            # instead of being reset to the storage key.
             if "alias" not in config:
                 config["alias"] = script_id
 
@@ -1585,7 +1647,7 @@ class HomeAssistantClient:
 
             return {
                 "success": True,
-                "script_id": resolved_id,
+                "script_id": write_id,
                 "result": response.get("result", "ok"),
                 "operation": "created" if response.get("result") == "ok" else "updated",
             }
@@ -1693,22 +1755,39 @@ class HomeAssistantClient:
             raise
 
     async def upsert_scene_config(
-        self, config: dict[str, Any], scene_id: str, *, _resolved: bool = False
+        self,
+        config: dict[str, Any],
+        scene_id: str,
+        *,
+        resolved_id: str | None = None,
     ) -> dict[str, Any]:
         """Create or update Home Assistant scene configuration.
 
-        ``_resolved=True`` signals ``scene_id`` is already the resolved storage
-        key, skipping the redundant registry lookup (``resolve_scene_id`` is
-        idempotent, so the endpoint id is unchanged).
+        ``resolved_id``, when provided, is the already-resolved storage key used
+        as the write target (the caller ran :meth:`resolve_scene_id`), skipping
+        the redundant registry lookup. ``scene_id`` stays the CALLER's identifier
+        and is used only to default a missing ``name`` — a renamed scene (whose
+        storage key differs from the slug the caller passed) keeps its
+        caller-facing name rather than resetting to the stale storage key
+        (#1935, mirrors the script fix).
         """
-        resolved_id = scene_id if _resolved else await self.resolve_scene_id(scene_id)
+        write_id = (
+            resolved_id
+            if resolved_id is not None
+            else await self.resolve_scene_id(scene_id)
+        )
         try:
-            endpoint = f"config/scene/config/{resolved_id}"
+            endpoint = f"config/scene/config/{write_id}"
 
-            # Default a name when missing — mirrors the script upsert behaviour
-            # so a bare config dict is still acceptable.
+            # Default a name when missing from the CALLER's ``scene_id`` (not
+            # ``write_id``) — mirrors the script upsert behaviour so a bare
+            # config dict is acceptable, without resetting a renamed scene's
+            # name to the storage key. Strip the ``scene.`` prefix: a caller may
+            # pass the entity_id form (``resolve_scene_id`` accepts it), and HA
+            # derives the entity_id from the name slug — persisting the prefixed
+            # form would rename the scene and change its entity_id on a plain update.
             if "name" not in config:
-                config["name"] = scene_id
+                config["name"] = scene_id.removeprefix("scene.")
 
             # Validate required field. ``entities`` is a dict keyed by entity_id,
             # not a list — distinct from script ``sequence`` and automation ``action``.
@@ -1728,7 +1807,7 @@ class HomeAssistantClient:
             # activity should diff before/after via ``ha_config_get_scene``.
             return {
                 "success": True,
-                "scene_id": resolved_id,
+                "scene_id": write_id,
                 "result": response.get("result", "ok"),
             }
         except Exception as e:

@@ -22,7 +22,6 @@ from prefab_ui.components.control_flow import If
 from prefab_ui.rx import STATE
 
 from airbyte_ops_webapp.app_shell import build_ops_app
-from airbyte_ops_webapp.auth.google_oauth import hydrate_google_oauth_action
 from airbyte_ops_webapp.auth.oauth import hydrate_oauth_action, oauth_config
 from airbyte_ops_webapp.pages.customer_billing._mcp_tools import (
     customer_billing_app,
@@ -83,7 +82,7 @@ def customer_billing() -> PrefabApp:
         oauth_issuer=current_oauth_config.issuer,
     ) as app:
         with AbPage(
-            onMount=[hydrate_oauth_action(), hydrate_google_oauth_action()],
+            onMount=[hydrate_oauth_action()],
         ):
             with Column(gap=5, css_class=PAGE_CLASS):
                 render_environment_banners()

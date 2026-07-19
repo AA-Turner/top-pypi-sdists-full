@@ -44,6 +44,7 @@ from airbyte_ops_webapp.theme.tokens import (
     STAT_VALUE_CLASS,
     STATUS_CARD_CLASS,
     SUCCESS_CARD_CLASS,
+    TABLE_SCROLL_CLASS,
     TOOL_CARD_CLASS,
     TOOL_ICON_CLASS,
     VERSION_FOOTER_CLASS,
@@ -100,6 +101,15 @@ def _card_style(*, accent: str | None = None) -> dict[str, str]:
         "boxShadow": "0 10px 15px -3px rgba(0, 0, 0, 0.35)",
         "color": "#FFFFFF",
         "padding": "1rem",
+    }
+
+
+def _table_scroll_style() -> dict[str, str]:
+    return {
+        "width": "100%",
+        "minWidth": "0",
+        "maxHeight": "70vh",
+        "overflow": "auto",
     }
 
 
@@ -340,6 +350,26 @@ class AbCodeSurface(_StyledDefault, Div):
 
     def _ab_style(self) -> dict[str, str]:
         return _code_surface_style()
+
+
+class AbTableScroll(_StyledDefault, Div):
+    """Height-capped, both-axis scroll region for wrapping a wide/tall `DataTable`.
+
+    The Prefab renderer wraps every table in a `.pf-table-container` that is
+    relaxed to `overflow: visible` (in `RENDERER_OVERRIDE_CSS`) so its sticky
+    header can escape to the nearest real scroll parent. A `DataTable` placed
+    directly in a card therefore has *no* scroll parent, so wide tables bleed
+    past the card's right edge with no way to scroll to the clipped columns.
+    Wrapping the table in this component supplies that scroll parent: wide tables
+    scroll horizontally instead of overflowing, tall tables scroll vertically,
+    and the sticky header pins to this wrapper. Use it for any `DataTable` not
+    already inside a height-capped scroll parent (e.g. a modal or CVM panel).
+    """
+
+    AB_CLASS: ClassVar[str] = TABLE_SCROLL_CLASS
+
+    def _ab_style(self) -> dict[str, str]:
+        return _table_scroll_style()
 
 
 class AbDetailBox(_StyledDefault, Div):

@@ -4,6 +4,7 @@ import json
 import urllib.parse
 from types import SimpleNamespace
 
+import google.auth.exceptions
 import pytest
 from airbyte.exceptions import PyAirbyteInputError
 from airbyte_ops_mcp.connector_ops.rollouts._helpers import RolloutConfiguration
@@ -673,10 +674,10 @@ def test_load_connector_context_returns_connector_when_scope_context_fails(
 
     result = tools_module.load_connector_context(connector.id)
 
-    assert result["connector"]["name"] == "source-github"
-    assert result["versions"]
-    assert result["current_state"]["connector_name"] == "source-github"
-    assert "rejected the scoped-configuration request" in result["context_error"]
+    assert result.connector.name == "source-github"
+    assert result.versions
+    assert result.current_state["connector_name"] == "source-github"
+    assert "rejected the scoped-configuration request" in result.context_error
 
 
 def test_load_connector_context_skips_scoped_api_without_real_scope(
@@ -731,11 +732,11 @@ def test_load_connector_context_skips_scoped_api_without_real_scope(
         auth_bearer_token="oauth-token",
     )
 
-    assert result["connector"]["name"] == "source-github"
-    assert result["versions"][0]["docker_image_tag"] == "1.9.4"
-    assert result["versions"][0]["last_published_display"] == "2026-04-26 (Sun)"
-    assert result["current_state"]["active_version"] == "1.9.4"
-    assert "Enter a Context GUID" in result["context_error"]
+    assert result.connector.name == "source-github"
+    assert result.versions[0]["docker_image_tag"] == "1.9.4"
+    assert result.versions[0]["last_published_display"] == "2026-04-26 (Sun)"
+    assert result.current_state["active_version"] == "1.9.4"
+    assert "Enter a Context GUID" in result.context_error
 
 
 def test_load_recent_release_context_selects_connector_and_version(
@@ -748,9 +749,9 @@ def test_load_recent_release_context_selects_connector_and_version(
         context_guid="workspace_example",
     )
 
-    assert result["selected_connector_id"] == "ef69ef6e-aa7f-4af1-a01d-ef775033524e"
-    assert result["target_version"] == "1.9.4"
-    assert result["connector"]["name"] == "source-github"
+    assert result.selected_connector_id == "ef69ef6e-aa7f-4af1-a01d-ef775033524e"
+    assert result.target_version == "1.9.4"
+    assert result.connector.name == "source-github"
 
 
 def test_load_progressive_rollout_context_selects_connector_and_version(
@@ -764,10 +765,10 @@ def test_load_progressive_rollout_context_selects_connector_and_version(
         context_guid="workspace_example",
     )
 
-    assert result["selected_connector_id"] == "b5ea17b1-f170-46dc-bc31-cc744ca984c1"
-    assert result["target_version"] == "3.8.0-rc.12"
-    assert result["connector"]["name"] == "source-postgres"
-    assert result["resolved_context_label"] == '"Mock Workspace" Workspace'
+    assert result.selected_connector_id == "b5ea17b1-f170-46dc-bc31-cc744ca984c1"
+    assert result.target_version == "3.8.0-rc.12"
+    assert result.connector.name == "source-postgres"
+    assert result.resolved_context_label == '"Mock Workspace" Workspace'
 
 
 def test_load_connector_context_returns_connector_when_versions_need_auth(
@@ -785,9 +786,9 @@ def test_load_connector_context_returns_connector_when_versions_need_auth(
 
     result = tools_module.load_connector_context(connector.id)
 
-    assert result["connector"]["name"] == "source-github"
-    assert result["versions"] == []
-    assert result["context_error"] == (
+    assert result.connector.name == "source-github"
+    assert result.versions == []
+    assert result.context_error == (
         "Sign in with Airbyte to load scoped configuration context."
     )
 
@@ -1212,11 +1213,12 @@ def test_autopilot_display_off_when_config_unavailable(
     assert helpers_module._autopilot_display("conn-id", "1.0.0") == "OFF"
 
 
-def test_get_connector_population_keeps_total_when_tier_resolution_fails(
+def test_get_connector_population_propagates_tier_query_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A BigQuery tier-refresh `RuntimeError` must not break the context load:
-    the connector-wide total still renders, per-tier eligible degrades to zero."""
+    """A GCS tier-refresh `RuntimeError` during `summarize_population` must
+    propagate as a hard failure rather than degrading to a zeroed per-tier
+    breakdown that would misrepresent a real population as empty."""
     monkeypatch.setattr(
         adapter_module,
         "query_actor_population_by_org",
@@ -1228,26 +1230,17 @@ def test_get_connector_population_keeps_total_when_tier_resolution_fails(
 
     monkeypatch.setattr(
         adapter_module,
-        "get_gcp_credentials_for_bigquery_ro",
-        lambda **_: object(),
+        "get_gcp_credentials_for_tier_gcs_ro",
+        object,
     )
 
     def _raise_tier_error(*_args: object, **_kwargs: object) -> object:
-        raise RuntimeError("BigQuery tier refresh failed and no stale cache")
+        raise RuntimeError("GCS tier refresh failed and no stale cache")
 
     monkeypatch.setattr(adapter_module, "summarize_population", _raise_tier_error)
 
-    population = OpsMcpAdapter().get_connector_population(
-        "def-id", is_destination=False
-    )
-
-    assert population.total_active == 42
-    assert population.eligible_tier_2 == 0
-    assert population.eligible_tier_1 == 0
-    assert population.eligible_tier_0 == 0
-    # Tier data was unavailable — mark it so the UI shows "eligible unknown"
-    # rather than a misleading genuine zero.
-    assert population.tier_resolution_available is False
+    with pytest.raises(RuntimeError, match="GCS tier refresh failed"):
+        OpsMcpAdapter().get_connector_population("def-id", is_destination=False)
 
 
 def test_get_connector_population_maps_eligible_by_tier(
@@ -1268,12 +1261,12 @@ def test_get_connector_population_maps_eligible_by_tier(
     monkeypatch.setattr(adapter_module, "query_actor_population_by_org", _fake_query)
     sentinel_credentials = object()
 
-    def _fake_creds(*, access_token_override: str | None = None) -> object:
-        captured["access_token_override"] = access_token_override
+    def _fake_creds() -> object:
+        captured["creds_called"] = True
         return sentinel_credentials
 
     monkeypatch.setattr(
-        adapter_module, "get_gcp_credentials_for_bigquery_ro", _fake_creds
+        adapter_module, "get_gcp_credentials_for_tier_gcs_ro", _fake_creds
     )
 
     # Active fleet is 35, but the eligible denominator is the gated audience
@@ -1324,7 +1317,6 @@ def test_get_connector_population_maps_eligible_by_tier(
         "def-id",
         is_destination=False,
         target_version_id="rc-version-123",
-        google_access_token="user-bq-token",
     )
 
     assert population.total_active == 35
@@ -1373,9 +1365,46 @@ def test_get_connector_population_maps_eligible_by_tier(
     assert t2.addressable_gated == 13
     # The rollout's RC version id is threaded through to the population query.
     assert captured["target_version_id"] == "rc-version-123"
-    # The signed-in user's BigQuery token is threaded through to the tier lookup.
-    assert captured["access_token_override"] == "user-bq-token"
+    # Tier resolution runs under the runtime service-account (ADC) credentials.
+    assert captured["creds_called"] is True
     assert captured["credentials"] is sentinel_credentials
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(RuntimeError("gcs unavailable"), id="runtime-error"),
+        pytest.param(
+            google.auth.exceptions.GoogleAuthError("no ADC credentials"),
+            id="google-auth-error",
+        ),
+    ],
+)
+def test_get_connector_population_propagates_tier_gcs_failure(
+    monkeypatch, error: Exception
+) -> None:
+    """A GCS credential/read failure during tier resolution must propagate
+    as a hard failure rather than degrading to a zeroed `0 of 0` breakdown that
+    misrepresents a real population as empty."""
+
+    def _fake_query(**_kwargs: object) -> list[dict[str, object]]:
+        return [{"organization_id": "o1", "actor_count": 35, "pinned_actor_count": 7}]
+
+    monkeypatch.setattr(adapter_module, "query_actor_population_by_org", _fake_query)
+
+    def _raise_creds() -> object:
+        raise error
+
+    monkeypatch.setattr(
+        adapter_module, "get_gcp_credentials_for_tier_gcs_ro", _raise_creds
+    )
+
+    with pytest.raises(type(error)):
+        OpsMcpAdapter().get_connector_population(
+            "def-id",
+            is_destination=False,
+            target_version_id="rc-version-123",
+        )
 
 
 def test_format_ratio_pct_rounds_and_handles_edges() -> None:

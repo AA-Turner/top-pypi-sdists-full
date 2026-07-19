@@ -50,7 +50,7 @@ class HiperdexBase():
     def request_api(self, endpoint, params):
         url = "https://hiperdex.com/api/trpc/" + endpoint
         params = {"input": util.json_dumps({"json": params})}
-        headers = {"x-hpx-nexus": "hpx-block-f91"}
+        headers = {"x-cfg-auth": "yceqt7qgu004"}
 
         result = self.request_json(url, params=params, headers=headers)
         return result["result"]["data"]["json"]

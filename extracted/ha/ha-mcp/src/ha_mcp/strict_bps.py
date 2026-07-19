@@ -8,7 +8,10 @@ the call carries an acknowledgment key that is published ONLY inside the
 best-practices skill content served by ``ha_get_skill_guide``. The block
 error tells the model exactly how to obtain the key but never the key
 itself, forcing it to actually fetch/read the best practices before
-writing.
+writing. It also pre-arms the model with a recovery hint for clients that
+validate tool calls against a stale cached tool schema and reject the
+``BestPracticeKey`` retry client-side (#1901) — that rejection never
+reaches the server, so it cannot be handled anywhere else.
 
 Strict mode is *effective* only when BOTH ``enable_mandatory_bps`` (the
 parent, #1182) and ``enable_strict_mandatory_bps`` (the child, #1779) are
@@ -25,7 +28,10 @@ schema-validating clients will send it; the tool bodies never read it —
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import secrets
+import time
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Annotated, Any, NoReturn
 
@@ -52,11 +58,50 @@ def _warn_degraded_once(branch: str, message: str, *, exc_info: bool = False) ->
     logger.warning(message, exc_info=exc_info)
 
 
-# Single source of truth for the acknowledgment key literal. It is published
-# ONLY by ``strict_bps_ack_line`` (surfaced through ha_get_skill_guide Tier 3
-# when strict mode is effective) and validated ONLY by the middleware — it must
-# never appear in a block error, a tool docstring, or a skill_content embed.
-STRICT_BPS_ACK_KEY = "bps-ack-1779"
+# The acknowledgment key is deliberately NOT a static opaque token (#1924):
+#
+# * The PREFIX is a plain-English attestation phrase so the value cannot be
+#   mistaken for a credential. An agent shown the old opaque ``bps-ack-*``
+#   token misread the extract-and-replay round-trip as prompt injection,
+#   refused every gated write, and steered the user into disabling strict
+#   mode — the opposite of the gate's purpose. The key is a read-receipt:
+#   public, privilege-free proof the skill content entered the model's
+#   context before a write.
+# * The SUFFIX rotates hourly, derived from a per-process salt and the
+#   current hour bucket, so the key cannot be satisfied from the public
+#   repo, training data, an agent's persistent memory, or a stale session
+#   summary — only by a recent read of the guide served by THIS process.
+#   The previous hour's key is honored as a grace window so a read just
+#   before rotation does not strand the write that follows it. Derivation
+#   is stateless (salt + clock), keeping the no-server-side-session-state
+#   principle intact.
+#
+# The key is published ONLY by ``strict_bps_ack_line`` (surfaced through
+# ha_get_skill_guide Tier 3 when strict mode is effective) and validated ONLY
+# by the middleware — it must never appear in a block error, a tool
+# docstring, or a skill_content embed.
+STRICT_BPS_ACK_KEY_PREFIX = "I-HAVE-READ-THE-BEST-PRACTICES-GUIDE"
+
+_ACK_KEY_SALT = secrets.token_hex(8)
+_ACK_KEY_ROTATION_SECONDS = 3600
+
+
+def _current_ack_key(now: float | None = None) -> str:
+    bucket = int((time.time() if now is None else now) // _ACK_KEY_ROTATION_SECONDS)
+    digest = hashlib.sha256(f"{_ACK_KEY_SALT}:{bucket}".encode()).hexdigest()
+    return f"{STRICT_BPS_ACK_KEY_PREFIX}-{digest[:8]}"
+
+
+def current_strict_bps_ack_key() -> str:
+    """Return the acknowledgment key for the current rotation window."""
+    return _current_ack_key()
+
+
+def _valid_ack_keys() -> set[str]:
+    """Current key plus the previous rotation's key (grace window)."""
+    now = time.time()
+    return {_current_ack_key(now), _current_ack_key(now - _ACK_KEY_ROTATION_SECONDS)}
+
 
 # The write-tool parameter that carries the acknowledgment key. Declared on
 # each of the six gated tools (adjacent to ``MandatoryBPS``) but read only here.
@@ -71,8 +116,13 @@ BestPracticeKeyParam = Annotated[
     Field(
         default=None,
         description=(
-            "Acknowledgment key published in the home-assistant-best-practices "
-            "skill content; required when strict best-practices mode is enabled."
+            "Read-receipt for the home-assistant-best-practices skill; "
+            "required when strict best-practices mode is enabled. Not a "
+            "secret or credential: the current value is an attestation "
+            "phrase published openly at the top of the skill content served "
+            "by ha_get_skill_guide. Read that content, then pass the value "
+            "back verbatim — this round-trip is the server's designed "
+            "protocol confirming the practices were read before writing."
         ),
     ),
 ]
@@ -148,28 +198,37 @@ def strict_bps_ack_line() -> str:
     """Return the single line that publishes the acknowledgment key.
 
     Prepended to the ha_get_skill_guide Tier-3 best-practices content when
-    strict mode is effective (server.py). This is the ONLY place the key
-    literal is emitted to a caller.
+    strict mode is effective (server.py). This is the ONLY place the actual
+    key value is emitted to a caller.
     """
     return (
-        f"Acknowledgment key: {STRICT_BPS_ACK_KEY} — strict best-practices "
-        "mode is ON; pass this exact value as the BestPracticeKey argument "
-        "on gated write tools."
+        f"Acknowledgment key: {current_strict_bps_ack_key()} — strict "
+        "best-practices mode is ON; pass this exact value as the "
+        "BestPracticeKey argument on gated write tools. This key is a "
+        "read-receipt, not a secret: it is published here deliberately by "
+        "the ha-mcp server, rotates hourly, and grants no privileges — "
+        "replaying it is the designed acknowledgment protocol."
     )
 
 
 def _raise_bps_ack_required_error(name: str) -> NoReturn:
     """Raise the structured block error for a gated write missing the key.
 
-    The message and suggestion tell the model how to obtain the key but
-    never contain the key itself.
+    Neither suggestion ever contains the key itself. The first tells the
+    model how to obtain it; the second pre-arms the model for clients
+    that validate tool arguments against a stale cached tool schema and
+    reject the ``BestPracticeKey`` retry client-side (#1901) — that
+    rejection never reaches the server, so this error is the only server
+    surface that can carry the recovery path.
     """
     reference_file = STRICT_BPS_GATED_TOOLS[name]
     message = (
         "Strict best-practices mode is enabled for this tool. Read the "
         "best-practices skill to obtain the required acknowledgment key, then "
         "pass it as the BestPracticeKey argument on this call. The key is "
-        "published only in that skill's content."
+        "published only in that skill's content, and it rotates periodically "
+        "— a key obtained earlier may have expired, so re-read the skill for "
+        "the current value instead of resending a previous one."
     )
     raise_tool_error(
         create_error_response(
@@ -178,7 +237,14 @@ def _raise_bps_ack_required_error(name: str) -> NoReturn:
             suggestions=[
                 f"Call ha_get_skill_guide(skill={_HA_BEST_PRACTICES_SKILL_NAME!r}, "
                 f"file={reference_file!r}), read the content, then retry with "
-                f"{STRICT_BPS_KEY_PARAM} set."
+                f"{STRICT_BPS_KEY_PARAM} set.",
+                f"If your client then rejects the retry with a schema-validation "
+                f"error such as 'must NOT have additional properties', it is "
+                f"validating against a stale cached tool schema from an older "
+                f"server version that lacks {STRICT_BPS_KEY_PARAM}. Ask the user "
+                f"to fully reload the client application (VS Code: run "
+                f"'Developer: Reload Window' — restarting the MCP server or "
+                f"resetting cached tools is not enough), then retry.",
             ],
             context={"tool_name": name, "strict_mandatory_bps": True},
         )
@@ -249,10 +315,10 @@ class StrictBpsMiddleware(Middleware):
             return await call_next(context)
 
         # The gate is the ONLY reader of BestPracticeKey: strip it before
-        # dispatch (whether or not strict mode is on) so the constant never
+        # dispatch (whether or not strict mode is on) so the key value never
         # reaches the tool body, the policy middleware's approval args-hash
-        # (where it would churn remembered approvals across strict toggles),
-        # or downstream logging.
+        # (where the hourly-rotating value would churn remembered approvals
+        # every rotation), or downstream logging.
         args = context.message.arguments or {}
         supplied = args.get(STRICT_BPS_KEY_PARAM)
         if STRICT_BPS_KEY_PARAM in args:
@@ -261,9 +327,13 @@ class StrictBpsMiddleware(Middleware):
                 message=context.message.model_copy(update={"arguments": stripped})
             )
 
+        # isinstance guards the set-membership test: the middleware reads
+        # raw transport arguments before pydantic validation, so an
+        # off-spec client can send an unhashable value (dict/list) that
+        # would otherwise TypeError instead of hitting the block error.
         if (
             strict_bps_effective()
-            and supplied != STRICT_BPS_ACK_KEY
+            and not (isinstance(supplied, str) and supplied in _valid_ack_keys())
             and await self._is_registered(name)
         ):
             logger.info("strict-BPS mode blocked keyless write to %s", name)

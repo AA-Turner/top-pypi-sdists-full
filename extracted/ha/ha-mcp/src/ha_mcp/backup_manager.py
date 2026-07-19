@@ -195,6 +195,13 @@ def _resolve_default_dir() -> Path:
     return (Path.home() / ".local" / "share" / "ha_mcp" / "backups").resolve()
 
 
+# Sentinel returned by ``BackupManager._fetch_config_for_snapshot`` when there
+# is nothing to snapshot — a handled transient fetch failure (already logged),
+# or a None config for an entity that did not exist. Distinct from any real
+# config value so the caller can tell "skip" from a genuine payload.
+_SNAPSHOT_SKIP: Any = object()
+
+
 class BackupManager:
     """Per-entity snapshot manager. One instance per server, cached on client."""
 
@@ -317,6 +324,48 @@ class BackupManager:
         apply (force can't conjure a snapshot for an entity that
         doesn't exist or has no registered handler).
         """
+        handler = self._resolve_snapshot_handler(
+            domain, entity_id, force=force, mandatory=mandatory
+        )
+        if handler is None:
+            return None
+
+        key = f"{domain}:{entity_id}"
+        lock = self._locks.setdefault(key, asyncio.Lock())
+        async with lock:
+            now = time.monotonic()
+            throttle = self.throttle_seconds
+            # Skip throttle if no prior snapshot exists for this key.
+            # Using ``get(key, 0.0)`` would falsely block the first capture
+            # whenever ``monotonic()`` < throttle (typical on a fresh process
+            # in CI), since 0.0 would be treated as "last snapshot at
+            # monotonic time 0".
+            if (
+                not force
+                and throttle
+                and key in self._last_snapshot
+                and (now - self._last_snapshot[key]) < throttle
+            ):
+                return None
+            config = await self._fetch_config_for_snapshot(
+                handler, entity_id, key, mandatory=mandatory
+            )
+            if config is _SNAPSHOT_SKIP:
+                return None
+            return await self._write_and_rotate(
+                domain, entity_id, key, config, tool_name, now, mandatory=mandatory
+            )
+
+    def _resolve_snapshot_handler(
+        self, domain: str, entity_id: str, *, force: bool, mandatory: bool
+    ) -> DomainHandler | None:
+        """Run the pre-capture guards; return the handler or None to skip.
+
+        Raises ``MandatoryBackupError`` for the fail-closed cases (an unusable
+        backup dir, an unregistered domain) under ``mandatory``. A None return
+        is a legitimate skip (feature disabled, no entity id, no handler) — the
+        caller returns None and lets the wrapped write proceed.
+        """
         if self._init_dir_error is not None:
             if mandatory:
                 raise MandatoryBackupError(
@@ -344,88 +393,101 @@ class BackupManager:
                 domain,
             )
             return None
+        return handler
 
-        key = f"{domain}:{entity_id}"
-        lock = self._locks.setdefault(key, asyncio.Lock())
-        async with lock:
-            now = time.monotonic()
-            throttle = self.throttle_seconds
-            # Skip throttle if no prior snapshot exists for this key.
-            # Using ``get(key, 0.0)`` would falsely block the first capture
-            # whenever ``monotonic()`` < throttle (typical on a fresh process
-            # in CI), since 0.0 would be treated as "last snapshot at
-            # monotonic time 0".
-            if (
-                not force
-                and throttle
-                and key in self._last_snapshot
-                and (now - self._last_snapshot[key]) < throttle
-            ):
-                return None
-            try:
-                config = await handler.fetch(self._client, entity_id)
-            except _CAPTURE_TRANSIENT_ERRORS as err:
-                # Degraded fetches (a non-list WS envelope from an
-                # auth-scope change or API drift) raise rather than return
-                # None — see ``_require_list``. During auto-backup we skip
-                # the snapshot with a WARNING (operator-visible) instead of
-                # crashing the pipeline; the same error during a diff/
-                # restore propagates to the tool layer as a structured
-                # error. The warning level (vs the debug log below) is what
-                # distinguishes "fetch broke" from "entity didn't exist".
-                if mandatory:
-                    raise MandatoryBackupError(
-                        f"could not read the current state of {key} to back "
-                        f"it up: {type(err).__name__}: {err}"
-                    ) from err
-                logger.warning(
-                    "Auto-backup: fetch failed for %s — %s: %s",
-                    key,
-                    type(err).__name__,
-                    err,
-                )
-                return None
-            if config is None:
-                # Entity didn't exist at fetch time (create operation, or
-                # already-deleted at remove time before our pre-fetch).
-                logger.debug(
-                    "Auto-backup: fetch returned None for %s — skipping snapshot",
-                    key,
-                )
-                return None
-            try:
-                path = await asyncio.to_thread(
-                    self._write_snapshot, domain, entity_id, config, tool_name
-                )
-            except (OSError, yaml.YAMLError) as err:
-                if mandatory:
-                    raise MandatoryBackupError(
-                        f"could not write the pre-write snapshot for {key}: "
-                        f"{type(err).__name__}: {err}",
-                        suggestions=[
-                            "Free up disk space, or delete old snapshots via "
-                            "ha_manage_backup(scope='edits', action='delete')",
-                        ],
-                    ) from err
-                logger.warning(
-                    "Auto-backup: write failed for %s — %s: %s",
-                    key,
-                    type(err).__name__,
-                    err,
-                )
-                return None
-            self._last_snapshot[key] = now
-            self._maybe_prune_trackers()
-            try:
-                await asyncio.to_thread(self._rotate, domain, entity_id)
-            except OSError as err:
-                logger.warning(
-                    "Auto-backup: rotation failed for %s — %s: %s",
-                    key,
-                    type(err).__name__,
-                    err,
-                )
-            return path
+    async def _fetch_config_for_snapshot(
+        self, handler: DomainHandler, entity_id: str, key: str, *, mandatory: bool
+    ) -> Any:
+        """Fetch the pre-write config; return ``_SNAPSHOT_SKIP`` to skip capture.
+
+        A handled transient fetch failure logs a WARNING and returns the
+        sentinel (or raises ``MandatoryBackupError`` under ``mandatory``); a
+        fetch that returns None because the entity did not exist logs a DEBUG
+        and returns the sentinel. Any other value is the config to snapshot.
+        """
+        try:
+            config = await handler.fetch(self._client, entity_id)
+        except _CAPTURE_TRANSIENT_ERRORS as err:
+            # Degraded fetches (a non-list WS envelope from an
+            # auth-scope change or API drift) raise rather than return
+            # None — see ``_require_list``. During auto-backup we skip
+            # the snapshot with a WARNING (operator-visible) instead of
+            # crashing the pipeline; the same error during a diff/
+            # restore propagates to the tool layer as a structured
+            # error. The warning level (vs the debug log below) is what
+            # distinguishes "fetch broke" from "entity didn't exist".
+            if mandatory:
+                raise MandatoryBackupError(
+                    f"could not read the current state of {key} to back "
+                    f"it up: {type(err).__name__}: {err}"
+                ) from err
+            logger.warning(
+                "Auto-backup: fetch failed for %s — %s: %s",
+                key,
+                type(err).__name__,
+                err,
+            )
+            return _SNAPSHOT_SKIP
+        if config is None:
+            # Entity didn't exist at fetch time (create operation, or
+            # already-deleted at remove time before our pre-fetch).
+            logger.debug(
+                "Auto-backup: fetch returned None for %s — skipping snapshot",
+                key,
+            )
+            return _SNAPSHOT_SKIP
+        return config
+
+    async def _write_and_rotate(
+        self,
+        domain: str,
+        entity_id: str,
+        key: str,
+        config: Any,
+        tool_name: str | None,
+        now: float,
+        *,
+        mandatory: bool,
+    ) -> Path | None:
+        """Write the snapshot then rotate old files; return the written Path.
+
+        Returns None on a handled (non-mandatory) write failure. Raises
+        ``MandatoryBackupError`` under ``mandatory`` when the write genuinely
+        fails (e.g. disk-full).
+        """
+        try:
+            path = await asyncio.to_thread(
+                self._write_snapshot, domain, entity_id, config, tool_name
+            )
+        except (OSError, yaml.YAMLError) as err:
+            if mandatory:
+                raise MandatoryBackupError(
+                    f"could not write the pre-write snapshot for {key}: "
+                    f"{type(err).__name__}: {err}",
+                    suggestions=[
+                        "Free up disk space, or delete old snapshots via "
+                        "ha_manage_backup(scope='edits', action='delete')",
+                    ],
+                ) from err
+            logger.warning(
+                "Auto-backup: write failed for %s — %s: %s",
+                key,
+                type(err).__name__,
+                err,
+            )
+            return None
+        self._last_snapshot[key] = now
+        self._maybe_prune_trackers()
+        try:
+            await asyncio.to_thread(self._rotate, domain, entity_id)
+        except OSError as err:
+            logger.warning(
+                "Auto-backup: rotation failed for %s — %s: %s",
+                key,
+                type(err).__name__,
+                err,
+            )
+        return path
 
     def _maybe_prune_trackers(self) -> None:
         """Cap per-entity tracker growth.
@@ -1024,44 +1086,11 @@ def _diff_node(
     if type(stored) is type(current):
         if isinstance(stored, dict):
             assert isinstance(current, dict)
-            for key in stored:
-                seg = _pointer_segment(str(key))
-                sub_path = f"{path}/{seg}"
-                if key not in current:
-                    out.append({"op": "add", "path": sub_path, "value": stored[key]})
-                    if len(out) >= max_ops:
-                        return
-                else:
-                    _diff_node(stored[key], current[key], sub_path, out, max_ops)
-                    if len(out) >= max_ops:
-                        return
-            for key in current:
-                if key not in stored:
-                    seg = _pointer_segment(str(key))
-                    out.append({"op": "remove", "path": f"{path}/{seg}"})
-                    if len(out) >= max_ops:
-                        return
+            _diff_dict_node(stored, current, path, out, max_ops)
             return
         if isinstance(stored, list):
             assert isinstance(current, list)
-            min_len = min(len(stored), len(current))
-            for i in range(min_len):
-                _diff_node(stored[i], current[i], f"{path}/{i}", out, max_ops)
-                if len(out) >= max_ops:
-                    return
-            if len(stored) > len(current):
-                for value in stored[len(current) :]:
-                    out.append({"op": "add", "path": f"{path}/-", "value": value})
-                    if len(out) >= max_ops:
-                        return
-            elif len(current) > len(stored):
-                # Remove tail entries from highest to lowest index so
-                # successive removes stay valid (RFC 6902 reindexes
-                # after each op).
-                for i in range(len(current) - 1, len(stored) - 1, -1):
-                    out.append({"op": "remove", "path": f"{path}/{i}"})
-                    if len(out) >= max_ops:
-                        return
+            _diff_list_node(stored, current, path, out, max_ops)
             return
         if stored != current:
             out.append({"op": "replace", "path": path or "", "value": stored})
@@ -1074,6 +1103,61 @@ def _diff_node(
     # ``_compute_json_patch`` budgets ``max_ops + 1`` precisely to absorb
     # one final overflow op before trimming.
     out.append({"op": "replace", "path": path or "", "value": stored})
+
+
+def _diff_dict_node(
+    stored: dict[Any, Any],
+    current: dict[Any, Any],
+    path: str,
+    out: list[dict[str, Any]],
+    max_ops: int,
+) -> None:
+    """Diff two dicts into JSON-Patch ops (add/remove/recurse per key)."""
+    for key in stored:
+        seg = _pointer_segment(str(key))
+        sub_path = f"{path}/{seg}"
+        if key not in current:
+            out.append({"op": "add", "path": sub_path, "value": stored[key]})
+            if len(out) >= max_ops:
+                return
+        else:
+            _diff_node(stored[key], current[key], sub_path, out, max_ops)
+            if len(out) >= max_ops:
+                return
+    for key in current:
+        if key not in stored:
+            seg = _pointer_segment(str(key))
+            out.append({"op": "remove", "path": f"{path}/{seg}"})
+            if len(out) >= max_ops:
+                return
+
+
+def _diff_list_node(
+    stored: list[Any],
+    current: list[Any],
+    path: str,
+    out: list[dict[str, Any]],
+    max_ops: int,
+) -> None:
+    """Diff two lists into JSON-Patch ops (positional recurse, then tail add/remove)."""
+    min_len = min(len(stored), len(current))
+    for i in range(min_len):
+        _diff_node(stored[i], current[i], f"{path}/{i}", out, max_ops)
+        if len(out) >= max_ops:
+            return
+    if len(stored) > len(current):
+        for value in stored[len(current) :]:
+            out.append({"op": "add", "path": f"{path}/-", "value": value})
+            if len(out) >= max_ops:
+                return
+    elif len(current) > len(stored):
+        # Remove tail entries from highest to lowest index so
+        # successive removes stay valid (RFC 6902 reindexes
+        # after each op).
+        for i in range(len(current) - 1, len(stored) - 1, -1):
+            out.append({"op": "remove", "path": f"{path}/{i}"})
+            if len(out) >= max_ops:
+                return
 
 
 def _pointer_segment(key: str) -> str:
@@ -1296,14 +1380,18 @@ async def _restore_scene(client: Any, entity_id: str, config: Any) -> Any:
 async def _fetch_dashboard(client: Any, entity_id: str) -> Any:
     """Fetch a dashboard config via the same helper the get tool uses.
 
-    Delegates to ``tools_config_dashboards._get_dashboard_config_internal``
-    which handles the WS envelope, force-cache-bypass, and structured
-    error wrapping consistently with how the rest of the dashboard surface
-    fetches state. Imported lazily to avoid an import cycle.
+    The identifier is pre-resolved to its canonical url_path via the shared
+    ``_resolve_dashboard`` (component ``list`` when available), then the config is
+    read through the component ``get`` (one in-process frame) with a fall back to
+    the legacy ``lovelace/config`` read (``_get_dashboard_config_internal``, which
+    handles the WS envelope, force-cache-bypass, and structured error wrapping).
+    The component refuses YAML bodies, so those capture through legacy unchanged.
+    Imported lazily to avoid an import cycle.
     """
     from fastmcp.exceptions import ToolError
 
     from .tools.tools_config_dashboards import (
+        _component_dashboard_config,
         _get_dashboard_config_internal,
         _resolve_dashboard,
     )
@@ -1328,6 +1416,12 @@ async def _fetch_dashboard(client: Any, entity_id: str) -> Any:
             entity_id,
             err,
         )
+
+    # Component fast path (freshness-safe in-memory read); None ⇒ legacy below,
+    # which also covers YAML dashboards and not-found (nothing to back up).
+    component_config = await _component_dashboard_config(client, fetch_path)
+    if component_config is not None:
+        return component_config
 
     try:
         config, _config_hash = await _get_dashboard_config_internal(client, fetch_path)
@@ -1442,10 +1536,21 @@ def _strip_readonly(config: dict[str, Any], *extra: str) -> dict[str, Any]:
 
 
 async def _fetch_label(client: Any, entity_id: str) -> Any:
-    items = _require_list(
-        await _ws_send(client, {"type": "config/label_registry/list"}),
-        "config/label_registry/list",
-    )
+    # Route the capture through the component's ``registries`` capability when
+    # available (one in-process read of the label registry) instead of dumping
+    # the whole registry via WS. Lazy import to avoid the backup_manager →
+    # tools → backup_manager cycle (same pattern as ``_fetch_device``). ``None``
+    # from the helper means "component unavailable"; fall back to the full list.
+    from .tools.component_registries import fetch_registries_via_component
+
+    component_result = await fetch_registries_via_component(client, ["label"])
+    if component_result is not None:
+        items = component_result.get("labels") or []
+    else:
+        items = _require_list(
+            await _ws_send(client, {"type": "config/label_registry/list"}),
+            "config/label_registry/list",
+        )
     for item in items:
         if item.get("label_id") == entity_id:
             return item
@@ -1466,12 +1571,22 @@ async def _fetch_category(client: Any, entity_id: str) -> Any:
     scope, _, cat_id = entity_id.partition(":")
     if not cat_id:
         return None
-    items = _require_list(
-        await _ws_send(
-            client, {"type": "config/category_registry/list", "scope": scope}
-        ),
-        "config/category_registry/list",
+    # Same component-first routing as ``_fetch_label``; categories are scoped,
+    # so the requested scope rides ``category_scopes``.
+    from .tools.component_registries import fetch_registries_via_component
+
+    component_result = await fetch_registries_via_component(
+        client, ["category"], category_scopes=[scope]
     )
+    if component_result is not None:
+        items = (component_result.get("categories") or {}).get(scope, [])
+    else:
+        items = _require_list(
+            await _ws_send(
+                client, {"type": "config/category_registry/list", "scope": scope}
+            ),
+            "config/category_registry/list",
+        )
     for item in items:
         if item.get("category_id") == cat_id:
             return {"scope": scope, **item}
@@ -1607,19 +1722,30 @@ async def _fetch_area_or_floor(client: Any, entity_id: str) -> Any:
     kind, _, real_id = entity_id.partition(":")
     if not real_id:
         return None
+    # Same component-first routing as ``_fetch_label`` / ``_fetch_category``.
+    from .tools.component_registries import fetch_registries_via_component
+
     if kind == "area":
-        items = _require_list(
-            await _ws_send(client, {"type": "config/area_registry/list"}),
-            "config/area_registry/list",
-        )
+        component_result = await fetch_registries_via_component(client, ["area"])
+        if component_result is not None:
+            items = component_result.get("areas") or []
+        else:
+            items = _require_list(
+                await _ws_send(client, {"type": "config/area_registry/list"}),
+                "config/area_registry/list",
+            )
         for item in items:
             if item.get("area_id") == real_id:
                 return {"kind": "area", **item}
     elif kind == "floor":
-        items = _require_list(
-            await _ws_send(client, {"type": "config/floor_registry/list"}),
-            "config/floor_registry/list",
-        )
+        component_result = await fetch_registries_via_component(client, ["floor"])
+        if component_result is not None:
+            items = component_result.get("floors") or []
+        else:
+            items = _require_list(
+                await _ws_send(client, {"type": "config/floor_registry/list"}),
+                "config/floor_registry/list",
+            )
         for item in items:
             if item.get("floor_id") == real_id:
                 return {"kind": "floor", **item}
@@ -1720,12 +1846,23 @@ async def _restore_entity_state(client: Any, entity_id: str, config: Any) -> Any
 # best-effort.
 
 
-async def _fetch_device(client: Any, entity_id: str) -> Any:
+async def _fetch_device(client: Any, device_id: str) -> Any:
+    # Route the single-device capture through the component's ``device_get`` when
+    # available (one in-process read of the raw DeviceEntry) instead of dumping the
+    # whole registry — the same pre-write snapshot ``ha_set_device`` /
+    # ``ha_remove_device`` capture. Lazy import to avoid the backup_manager →
+    # tools → backup_manager cycle. ``None`` from the helper means "component
+    # unavailable"; fall back to the full-list scan.
+    from .tools.component_devices import fetch_device_via_component
+
+    result = await fetch_device_via_component(client, device_id)
+    if result is not None:
+        return result.get("device")
     items = await _ws_send(client, {"type": "config/device_registry/list"})
     if not isinstance(items, list):
         return None
     for item in items:
-        if item.get("id") == entity_id:
+        if item.get("id") == device_id:
             return item
     return None
 

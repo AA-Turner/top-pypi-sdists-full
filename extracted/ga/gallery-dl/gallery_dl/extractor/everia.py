@@ -4,7 +4,7 @@
 # it under the terms of the GNU General Public License version 2 as
 # published by the Free Software Foundation.
 
-"""Extractors for https://everia.club"""
+"""Extractors for https://everia.club/"""
 
 from .common import Extractor, Message
 from .. import text
@@ -49,10 +49,10 @@ class EveriaPostExtractor(EveriaExtractor):
     example = "https://everia.club/0000/00/00/TITLE"
 
     def items(self):
+        find_imgs = text.re(r'<img .*?(?:lazy-)?src="([^"]+)').findall
+
         url = self.root + self.groups[0] + "/"
         page = self.request(url).text
-        content = text.extr(page, 'itemprop="text">', "<h3")
-        urls = text.re(r'img.*?lazy-src="([^"]+)').findall(content)
 
         data = {
             "title": text.unescape(
@@ -61,13 +61,23 @@ class EveriaPostExtractor(EveriaExtractor):
             "post_url": text.unquote(url),
             "post_category": text.extr(
                 page, "post-in-category-", " ").capitalize(),
-            "count": len(urls),
         }
-
         yield Message.Directory, "", data
-        for data["num"], url in enumerate(urls, 1):
-            url = text.unquote(url)
-            yield Message.Url, url, text.nameext_from_url(url, data)
+
+        data["num"] = 0
+        pages = text.extract_iter(text.extr(
+            page, '<div class="page-links', "</div>"), 'href="', '"')
+        while True:
+            content = text.extr(page, 'itemprop="text">', "</article")
+
+            for url in find_imgs(content):
+                data["num"] += 1
+                url = text.unquote(url)
+                yield Message.Url, url, text.nameext_from_url(url, data)
+
+            if not (url := next(pages, None)):
+                break
+            page = self.request(text.unescape(url)).text
 
 
 class EveriaTagExtractor(EveriaExtractor):

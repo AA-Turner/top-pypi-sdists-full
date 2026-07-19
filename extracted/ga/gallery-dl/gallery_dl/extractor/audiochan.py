@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2025 Mike Fährmann
+# Copyright 2025-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -55,15 +55,14 @@ class AudiochanExtractor(Extractor):
             post["tags"] = tags
 
             if self.user:
-                post["user"] = post["credits"][0]["user"]
-
-            if not (url := file["url"]):
-                post["_http_segmented"] = 600000
-                url = file["stream_url"]
+                for credit in post["credits"]:
+                    if user := credit.get("user"):
+                        post["user"] = user
+                        break
 
             yield Message.Directory, "", post
             text.nameext_from_name(file["filename"], post)
-            yield Message.Url, url, post
+            yield Message.Url, self._extract_url(post), post
 
     def request_api(self, endpoint, params=None):
         url = self.root_api + endpoint
@@ -82,7 +81,25 @@ class AudiochanExtractor(Extractor):
 
             if not data["has_more"]:
                 break
-            params["page"] += 1
+
+            try:
+                if cursor := data["meta"]["pagination"].get("next_cursor"):
+                    params["cursor"] = cursor
+                    params.pop("page", None)
+                else:
+                    params["page"] += 1
+            except Exception:
+                break
+
+    def _extract_url(self, post):
+        file = post["audioFile"]
+        if url := file["url"]:
+            return url
+
+        data = {"file_id": file.get("source_audio_file_id") or file["id"]}
+        return self.request_json(
+            f"{self.root_api}/audios/{post['id']}/stream-url",
+            method="POST", headers=self.headers_api, json=data)["url"]
 
     def _extract_description(self, description, texts=None):
         if texts is None:
@@ -118,10 +135,11 @@ class AudiochanUserExtractor(AudiochanExtractor):
         self.kwdict["user"] = self.request_api(endpoint)["data"]
 
         params = {
-            "sfw_only": "false",
-            "sort"    : "new",
+            "type": "all",
+            "content_mode": "all",
+            "sort": "new",
         }
-        return self._pagination(endpoint + "/audios", params)
+        return self._pagination(endpoint + "/content", params)
 
 
 class AudiochanCollectionExtractor(AudiochanExtractor):
@@ -131,12 +149,12 @@ class AudiochanCollectionExtractor(AudiochanExtractor):
 
     def posts(self):
         slug = self.groups[0]
-        endpoint = "/collections/" + slug
+        endpoint = "/playlists/" + slug
         self.kwdict["collection"] = col = self.request_api(endpoint)
         col.pop("audios", None)
         col.pop("items", None)
 
-        endpoint = f"/collections/slug/{slug}/items"
+        endpoint = f"/playlists/slug/{slug}/audios"
         return self._pagination(endpoint, {})
 
 
@@ -147,8 +165,12 @@ class AudiochanSearchExtractor(AudiochanExtractor):
 
     def posts(self):
         self.user = True
-        endpoint = "/search"
+
         params = text.parse_query(self.groups[0])
-        params["sfw_only"] = "false"
+        type = params.pop("tab", "audios")
+        params.setdefault("type", type)
+        params.setdefault("sort", "new")
+        params["count_mode"] = "none"
+
         self.kwdict["search_tags"] = params.get("q")
-        return self._pagination(endpoint, params, "audios")
+        return self._pagination("/search", params, type)

@@ -3,20 +3,29 @@
 `ConnectorVersionManagerPageState` is the single source of truth for the page's
 initial state. It extends the shared `OpsPageState` (env / deploy / auth) and the
 shared `OrgLookupModalState`, then adds the page-specific fields. Building initial
-state through this model means a mistyped, missing, or extra initial-state key
-fails at page-build / test time instead of silently in the browser.
+state through this model means a wrong-typed value fails at page-build time rather
+than silently in the browser, and the `tests/test_page_state.py` guardrail catches
+key drift (`SetState` / initial-state keys absent from the model). Fields default,
+and the model uses Pydantic's `extra="ignore"`, so a missing or unknown key is not
+itself a construction error — the guardrail is what enforces key correctness.
 
 Runtime tool results (`RESULT.*`) replace the nested placeholders
 (`selected_connector`, `rollout_summary`, `selected_rollout`, `selected_pin`) and
 the DataTable row lists wholesale with richer shapes; the models here describe the
 *initial* placeholder shape only, mirroring the `EMPTY_*` constants and
 `empty_connector()` in `_helpers.py`.
+
+`ConnectorContextResult` and `TabRowsResult` are the typed output models for the
+CVM MCP tools (`load_connector_context` and the lazy tab loaders): building tool
+results through them means the `RESULT.*` reads in the `on_success` action ladders
+are validated at the tool boundary instead of only failing in the browser.
 """
 
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from airbyte_ops_webapp.models import ScopeType
 from airbyte_ops_webapp.pages.shared_components.org_lookup_modal import (
     OrgLookupModalState,
 )
@@ -102,6 +111,139 @@ class PinSelection(BaseModel):
     expires_at_display: str = ""
     reference_url: str = ""
     scope_name: str = ""
+
+
+class ConnectorContextResult(BaseModel):
+    """Typed output of `load_connector_context` and its builder helpers.
+
+    Row lists (`versions`, `active_rollouts`, `ancestor_configs`,
+    `descendant_configs`) and `current_state` are serialized dataclass rows whose
+    shape varies by branch, so they stay `dict`/`list[dict]` rather than nested
+    models; the scalar and object fields are fully typed.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    connector: ConnectorSummary = Field(default_factory=ConnectorSummary)
+    versions: list[dict[str, object]] = Field(default_factory=list)
+    active_rollouts: list[dict[str, object]] = Field(default_factory=list)
+    rollout_summary: RolloutSummary = Field(default_factory=RolloutSummary)
+    current_state: dict[str, object] = Field(default_factory=dict)
+    current_state_markdown: str = ""
+    ancestor_configs: list[dict[str, object]] = Field(default_factory=list)
+    descendant_configs: list[dict[str, object]] = Field(default_factory=list)
+    resolved_context_label: str = ""
+    context_guid: str = ""
+    context_error: str = ""
+    rollout_error: str = ""
+    scope_type: ScopeType = "workspace"
+    scope_id: str = ""
+    actor_workspace_id: str = ""
+
+
+class TabRowsResult(BaseModel):
+    """Typed output for the lazy tab loaders that return a single `rows` list."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rows: list[dict[str, object]] = Field(default_factory=list)
+
+
+class SearchConnectorsResult(BaseModel):
+    """Typed output of `search_connectors` (connector table + combobox options)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    connectors: list[dict[str, object]] = Field(default_factory=list)
+    connector_options: list[dict[str, object]] = Field(default_factory=list)
+    selected_connector_id: str = ""
+
+
+class ScopeResolutionResult(BaseModel):
+    """Typed output of `resolve_scope_guid` (a resolved pin scope + labels)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    scope_type: str = ""
+    scope_id: str = ""
+    scope_name: str = ""
+    scope_url: str = ""
+    resolved_context_label: str = ""
+    context_error: str = ""
+    is_valid_uuid: bool = False
+    actor_workspace_id: str = ""
+    workspace_name: str = ""
+    workspace_url: str = ""
+    organization_name: str = ""
+    organization_url: str = ""
+
+
+class CompoundContextResult(ConnectorContextResult):
+    """`ConnectorContextResult` plus the combobox-selected connector/version.
+
+    Returned by the compound-value context loaders (`load_recent_release_context`,
+    `load_progressive_rollout_context`) whose combobox values encode both the
+    connector id and a target version.
+    """
+
+    selected_connector_id: str = ""
+    target_version: str = ""
+
+
+class ConnectorVersionContextResult(CompoundContextResult):
+    """`CompoundContextResult` plus resolved version-pin detail for one version.
+
+    Returned by `load_connector_version_context`, which resolves the selected
+    version to its release date + pin list for the version-pin detail panel.
+    """
+
+    selected_version_release_date: str = ""
+    latest_version_release_date: str = ""
+    selected_version_display: str = ""
+    default_version_display: str = ""
+    version_pins: list[dict[str, object]] = Field(default_factory=list)
+    version_pins_total: int = 0
+    version_pins_offset: int = 0
+    selected_version_id: str = ""
+    selected_version_tag: str = ""
+
+
+class VersionPinsResult(BaseModel):
+    """Typed output of `load_version_pins` (a page of pins for a version)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    version_pins: list[dict[str, object]] = Field(default_factory=list)
+    version_pins_total: int = 0
+    version_pins_offset: int = 0
+    selected_version_id: str = ""
+    selected_version_tag: str = ""
+
+
+class RemovePinsResult(VersionPinsResult):
+    """`VersionPinsResult` plus the outcome of a pin-removal action."""
+
+    remove_message: str = ""
+    remove_success: bool = False
+
+
+class ApplyOverrideResult(BaseModel):
+    """Typed output of `apply_override` (a version-pin write result)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    apply_result_json: str = ""
+    apply_message: str = ""
+    apply_success: bool = False
+
+
+class RolloutActionResult(BaseModel):
+    """Typed output of the rollout/yank action tools (advance, promote, yank)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rollout_action_result: str = ""
+    rollout_action_success: bool = False
 
 
 class ConnectorVersionManagerPageState(OpsPageState, OrgLookupModalState):

@@ -55,7 +55,7 @@ logger = get_logger(__name__)
 
 _WRAPPER_OVERHEAD_TOKENS = 200
 _OVERSIZED_RUN_NOTE = "Run truncated to fit compaction budget."
-_EXCERPT_METADATA_OMIT_KEYS = frozenset(
+_SUMMARY_METADATA_OMIT_KEYS = frozenset(
     {
         "model_params",
         "tools_schema",
@@ -513,7 +513,7 @@ async def _generate_compaction_summary_with_retry(
     summary_prompt: str,
     token_estimator: Callable[[str], int],
 ) -> _GeneratedSummaryChunk:
-    """Generate one summary chunk, shrinking the input per the retry policy when safe."""
+    """Generate one summary chunk, retrying the same or smaller input when safe."""
     summary_input = initial_summary_input
     included_runs = initial_included_runs
     budget = summary_input_budget
@@ -556,6 +556,10 @@ async def _generate_compaction_summary_with_retry(
             )
             retry_budget = retry_policy.retry_budget(attempt=attempt, budget=budget, error=exc)
             if retry_budget is not None:
+                if retry_budget == budget:
+                    await asyncio.sleep(retry_policy.same_input_retry_delay_seconds)
+                    attempt += 1
+                    continue
                 rebuilt_input, rebuilt_runs = _build_summary_input(
                     previous_summary=previous_summary,
                     compacted_runs=compactable_runs,
@@ -733,9 +737,9 @@ def _compaction_replay_messages(
 def _excerpt_blocks(run: RunOutput | TeamRunOutput, history_settings: ResolvedHistorySettings) -> list[_ExcerptBlock]:
     blocks: list[_ExcerptBlock] = []
     if run.metadata:
-        blocks.append(
-            _ExcerptBlock("<run_metadata>", stable_serialize(_metadata_for_excerpt(run.metadata)), "</run_metadata>"),
-        )
+        metadata = _metadata_for_summary(run.metadata)
+        if metadata:
+            blocks.append(_ExcerptBlock("<run_metadata>", stable_serialize(metadata), "</run_metadata>"))
     for message in _compaction_replay_messages(run, history_settings):
         content = _render_message_content(message)
         if not content:
@@ -744,9 +748,9 @@ def _excerpt_blocks(run: RunOutput | TeamRunOutput, history_settings: ResolvedHi
     return blocks
 
 
-def _metadata_for_excerpt(metadata: dict[str, object]) -> dict[str, object]:
-    """Keep compact identity metadata for oversized excerpts without tool schema bulk."""
-    return {key: value for key, value in metadata.items() if key not in _EXCERPT_METADATA_OMIT_KEYS}
+def _metadata_for_summary(metadata: dict[str, object]) -> dict[str, object]:
+    """Omit bulky request metadata from compaction summary inputs."""
+    return {key: value for key, value in metadata.items() if key not in _SUMMARY_METADATA_OMIT_KEYS}
 
 
 def _truncate_excerpt(text: str, max_chars: int) -> str:
@@ -788,7 +792,9 @@ def _messages_for_runs(
 def _serialize_run(run: RunOutput | TeamRunOutput, index: int, history_settings: ResolvedHistorySettings) -> str:
     lines = [_run_open_tag(run, index)]
     if run.metadata:
-        lines.extend(["<run_metadata>", _escape_xml_content(stable_serialize(run.metadata)), "</run_metadata>"])
+        metadata = _metadata_for_summary(run.metadata)
+        if metadata:
+            lines.extend(["<run_metadata>", _escape_xml_content(stable_serialize(metadata)), "</run_metadata>"])
     for message in _compaction_replay_messages(run, history_settings):
         lines.extend(_serialize_message(message))
     lines.append("</run>")

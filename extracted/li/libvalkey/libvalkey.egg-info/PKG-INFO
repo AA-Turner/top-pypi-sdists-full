@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: libvalkey
-Version: 4.0.1
+Version: 4.1.0
 Summary: Python wrapper for libvalkey
 Home-page: https://github.com/valkey-io/libvalkey-py
 Author: libvalkey-py authors
@@ -17,17 +17,29 @@ Classifier: Operating System :: POSIX
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-python
+Dynamic: summary
 
 # libvalkey-py
 
@@ -59,7 +71,7 @@ python -m pytest
 
 ### Requirements
 
-libvalkey-py requires **Python 3.8+**.
+libvalkey-py requires **Python 3.9+**.
 
 Make sure Python development headers are available when installing libvalkey-py.
 On Ubuntu/Debian systems, install them with `apt-get install python3-dev`.
@@ -121,11 +133,9 @@ initializing it:
 
 Decoding of bulk data will be attempted using the specified encoding and
 error handler. If the error handler is `'strict'` (the default), a
-`UnicodeDecodeError` is raised when data cannot be dedcoded. This is identical
+`UnicodeDecodeError` is raised when data cannot be decoded. This is identical
 to Python's default behavior. Other valid values to `errors` include
-`'replace'`, `'ignore'`, and `'backslashreplace'`. More information on the
-behavior of these error handlers can be found
-[here](https://docs.python.org/3/howto/unicode.html#the-string-type).
+`'replace'`, `'ignore'`, and `'backslashreplace'`. See [Unicode HOWTO: The String Type](https://docs.python.org/3/howto/unicode.html#the-string-type) for more information on the behavior of these error handlers.
 
 
 When the specified encoding cannot be found, a `LookupError` will be raised

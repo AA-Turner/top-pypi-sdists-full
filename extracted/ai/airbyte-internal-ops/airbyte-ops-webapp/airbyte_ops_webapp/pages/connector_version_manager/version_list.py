@@ -95,11 +95,15 @@ _PIN_REMOVAL_SUCCESS = [
 # ---------------------------------------------------------------------------
 
 
-def render_pin_detail() -> None:
-    """Separate card section showing pin detail for the selected version."""
+def render_pin_detail(css_class: str = "") -> None:
+    """Separate card section showing pin detail for the selected version.
+
+    `css_class` is applied to the panel surface so the caller can control its
+    responsive width.
+    """
     with (
         If(STATE.selected_version_tag),
-        AbCard(),
+        AbCard(css_class=css_class),
     ):
         with CardHeader():
             H2("Version Pins", css_class="text-lg")
@@ -412,7 +416,6 @@ def _render_remove_this_pin_button() -> None:
                                 "auth_bearer_token": STATE.auth_bearer_token,
                                 "user_email": STATE.oauth_user_email,
                                 "customer_tier_filter": "ALL",
-                                "google_access_token": STATE.google_access_token,
                             },
                             on_success=_PIN_REMOVAL_SUCCESS,
                             on_error=fail_tool_call(ERROR),

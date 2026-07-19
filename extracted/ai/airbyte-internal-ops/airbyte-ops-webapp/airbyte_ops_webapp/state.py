@@ -74,12 +74,6 @@ class OpsPageState(BaseModel):
     oauth_status: str = ""
     oauth_user_email: str = ""
 
-    # --- Auth (Google / BigQuery) ---
-    google_authenticated: bool = False
-    google_user_email: str = ""
-    google_access_token: str = ""
-    google_status: str = ""
-
     @classmethod
     def from_env(
         cls,

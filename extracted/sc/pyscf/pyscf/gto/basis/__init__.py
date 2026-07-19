@@ -172,6 +172,7 @@ ALIAS = {
     'def2qzvppd' : 'def2-qzvppd.dat',
     'def2qzvpp'  : 'def2-qzvpp.dat' ,
     'def2qzvp'   : 'def2-qzvp.dat'  ,
+    'qavgvszps' : 'qavg-vszps.dat' ,
     'def2svpjfit'    : 'def2-universal-jfit.dat',
     'def2svpjkfit'   : 'def2-universal-jkfit.dat',
     'def2tzvpjfit'   : 'def2-universal-jfit.dat',
@@ -252,6 +253,7 @@ ALIAS = {
     'crenbl'     : 'crenbl.dat'     ,
     'crenbs'     : 'crenbs.dat'     ,
     'lanl2dz'    : 'lanl2dz.dat'    ,
+    'ecpqvszp'  : 'ecp-q-vszp.dat' ,
     'lanl2tz'    : 'lanl2tz.dat'    ,
     'lanl08'     : 'lanl08.dat'     ,
     'sbkjc'      : 'sbkjc.dat'      ,
@@ -711,15 +713,33 @@ def load(filename_or_basisname, symb, optimize=OPTIMIZE_CONTRACTION):
 
         raise BasisNotFoundError(f'Unknown basis format or basis name for {filename_or_basisname}')
 
-    if 'dat' in basmod:
-        b = fload(join(basis_dir, basmod), symb, optimize)
-    elif isinstance(basmod, (tuple, list)) and isinstance(basmod[0], str):
-        b = []
-        for f in basmod:
-            b += fload(join(basis_dir, f), symb, optimize)
-    else:
-        mod = importlib.import_module('.'+basmod, __package__)
-        b = mod.__getattribute__(symb)
+    try:
+        if 'dat' in basmod:
+            b = fload(join(basis_dir, basmod), symb, optimize)
+        elif isinstance(basmod, (tuple, list)) and isinstance(basmod[0], str):
+            b = []
+            for f in basmod:
+                b += fload(join(basis_dir, f), symb, optimize)
+        else:
+            mod = importlib.import_module('.'+basmod, __package__)
+            b = mod.__getattribute__(symb)
+    except (BasisNotFoundError, AttributeError):
+        # When basis set is recognized but its .dat file lacks required elements (e.g., lanthanides), fallback to BSE
+        from pyscf.gto.basis import bse
+        if bse.basis_set_exchange is None:
+            warnings.warn(
+                'Basis may be available in basis-set-exchange. '
+                'It is recommended to install basis-set-exchange: '
+                'pip install basis-set-exchange')
+            raise BasisNotFoundError(
+                f'Basis set not found for {symb} in {filename_or_basisname}')
+        try:
+            bse_obj = bse.basis_set_exchange.api.get_basis(
+                filename_or_basisname, elements=symb)
+        except KeyError:
+            raise BasisNotFoundError(
+                f'Basis set not found for {symb} in {filename_or_basisname}')
+        b = bse._orbital_basis(bse_obj)[0][symb]
 
     if contr_scheme != 'Full':
         b = _truncate(b, contr_scheme, symb, split_name)

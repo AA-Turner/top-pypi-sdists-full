@@ -14,6 +14,12 @@ fn is_reference_node(node: &SyntaxNode) -> bool {
         return true;
     }
 
+    if let Some(literal) = ast::Literal::cast(node.clone())
+        && matches!(literal.kind(), Some(ast::LitKind::PositionalParam(_)))
+    {
+        return true;
+    }
+
     if let Some(ty) = ast::Type::cast(node.clone()) {
         return match ty {
             ast::Type::BitType(_)
@@ -150,7 +156,7 @@ mod test {
         assert_snapshot!(find_refs("
 create table t();
 drop table t$0;
-"), @r"
+"), @"
           ╭▸ 
         2 │ create table t();
           │              ─ 1. reference
@@ -240,18 +246,20 @@ table users;
     }
 
     #[test]
-    fn temp_table_do_not_shadows_public() {
+    fn temp_table_shadows_public() {
         assert_snapshot!(find_refs("
 create table t();
 create temp table t$0();
 drop table t;
-"), @r"
+"), @"
           ╭▸ 
         3 │ create temp table t();
           │                   ┬
           │                   │
           │                   0. query
-          ╰╴                  1. reference
+          │                   1. reference
+        4 │ drop table t;
+          ╰╴           ─ 2. reference
         ");
     }
 
@@ -456,6 +464,20 @@ create function pg_catalog.bit(integer, integer) returns bit
            ‡
         10 │ create function pg_catalog.bit(integer, integer) returns bit
            ╰╴                                                         ─── 5. reference
+        ");
+    }
+
+    #[test]
+    fn positional_param_and_named_param() {
+        assert_snapshot!(find_refs("
+create function f(x$0 int) returns int language sql return x + $1;
+"), @"
+          ╭▸ 
+        2 │ create function f(x int) returns int language sql return x + $1;
+          │                   ┬                                      ┬   ── 3. reference
+          │                   │                                      │
+          │                   0. query                               2. reference
+          ╰╴                  1. reference
         ");
     }
 

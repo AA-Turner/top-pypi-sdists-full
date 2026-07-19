@@ -12,10 +12,10 @@ from allianceauth.notifications import notify
 from allianceauth.services.hooks import get_extension_logger
 from allianceauth.services.tasks import QueueOnce
 
-from . import __title__
-from .app_settings import STRUCTURES_TASKS_TIME_LIMIT
-from .core.notification_types import NotificationType
-from .models import (
+from structures import __title__
+from structures.app_settings import STRUCTURES_TASKS_TIME_LIMIT
+from structures.core.notification_types import NotificationType
+from structures.models import (
     EveSovereigntyMap,
     FuelAlertConfig,
     JumpFuelAlertConfig,
@@ -215,15 +215,17 @@ def send_new_notifications_for_owner(owner_pk: int):
 @shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
 def send_structure_fuel_notifications_for_config(config_pk: int):
     """Send structure fuel notifications for a config."""
-    FuelAlertConfig.objects.get(pk=config_pk).send_new_notifications()
-    send_queued_messages_for_webhooks(FuelAlertConfig.relevant_webhooks())
+    config = FuelAlertConfig.objects.get(pk=config_pk)
+    config.send_new_notifications()
+    send_queued_messages_for_webhooks(config.relevant_webhooks())
 
 
 @shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
 def send_jump_fuel_notifications_for_config(config_pk: int):
     """Send jump fuel notifications for a config."""
-    JumpFuelAlertConfig.objects.get(pk=config_pk).send_new_notifications()
-    send_queued_messages_for_webhooks(JumpFuelAlertConfig.relevant_webhooks())
+    config = JumpFuelAlertConfig.objects.get(pk=config_pk)
+    config.send_new_notifications()
+    send_queued_messages_for_webhooks(config.relevant_webhooks())
 
 
 def send_queued_messages_for_webhooks(webhooks: Iterable[Webhook]):

@@ -87,10 +87,6 @@ BASE_PATTERN = MisskeyExtractor.update({
         "root": "https://misskey.art",
         "pattern": r"misskey\.art",
     },
-    "lesbian.energy": {
-        "root": "https://lesbian.energy",
-        "pattern": r"lesbian\.energy",
-    },
     "sushi.ski": {
         "root": "https://sushi.ski",
         "pattern": r"sushi\.ski",
@@ -197,6 +193,30 @@ class MisskeyFavoriteExtractor(MisskeyExtractor):
         return self.api.i_favorites()
 
 
+class MisskeyEmojiExtractor(MisskeyExtractor):
+    """Extractor for instance emojis"""
+    subcategory = "emoji"
+    directory_fmt = ("misskey", "{instance}", "Emoji", "{emoji_category|''}")
+    filename_fmt = "{name|filename}.{extension}"
+    archive_fmt = "E/{filename}"
+    pattern = BASE_PATTERN + r"/about"
+    example = "https://misskey.io/about"
+
+    def items(self):
+        emojis = self.api.emojis()
+        data = {
+            "instance": self.instance,
+            "count"   : len(emojis),
+        }
+
+        for data["num"], emoji in enumerate(emojis, 1):
+            url = emoji["url"]
+            emoji["emoji_category"] = emoji.pop("category", None)
+            emoji.update(data)
+            yield Message.Directory, "", emoji
+            yield Message.Url, url, text.nameext_from_url(url, emoji)
+
+
 class MisskeyAPI():
     """Interface for Misskey API
 
@@ -232,6 +252,10 @@ class MisskeyAPI():
         data = {"username": username, "host": host or None}
         return self._call(endpoint, data)
 
+    def emojis(self):
+        endpoint = "/emojis"
+        return self._call(endpoint, None).get("emojis")
+
     def notes_show(self, note_id):
         endpoint = "/notes/show"
         data = {"noteId": note_id}
@@ -244,9 +268,10 @@ class MisskeyAPI():
         data = {"i": self.access_token}
         return self._pagination(endpoint, data)
 
-    def _call(self, endpoint, data):
-        url = f"{self.root}/api{endpoint}"
-        return self.extractor.request_json(url, method="POST", json=data)
+    def _call(self, endpoint, data=None):
+        return self.extractor.request_json(
+            f"{self.root}/api{endpoint}",
+            method=("GET" if data is None else "POST"), json=data)
 
     def _pagination(self, endpoint, data):
         extr = self.extractor

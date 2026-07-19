@@ -2,9 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-from abc import abstractmethod
-from typing import ClassVar
-
 import pytest
 from omnimalloc.allocators import (
     BaseAllocator,
@@ -21,7 +18,7 @@ from omnimalloc.common.registry import Registered
 
 
 class ExampleBase(Registered):
-    """Test base class without a role token."""
+    """Test base class."""
 
 
 class FooBar(ExampleBase):
@@ -33,17 +30,7 @@ class BazQux(ExampleBase):
 
 
 class SimpleAllocator(ExampleBase):
-    """Keeps its full name: ExampleBase strips no role token."""
-
-
-class ExampleRoleBase(Registered):
-    """Test base class stripping the 'Widget' role token."""
-
-    _strip_suffix: ClassVar[str] = "Widget"
-
-
-class SpinningWidget(ExampleRoleBase):
-    """Should register as 'spinning'."""
+    """Should register as 'simple_allocator'."""
 
 
 def test_registry_auto_registration() -> None:
@@ -103,88 +90,36 @@ def test_name_with_numbers() -> None:
     assert Test123Thing.name() == "test123_thing"
 
 
-def test_strip_suffix_stripped_once() -> None:
-    assert SpinningWidget.name() == "spinning"
-    assert ExampleRoleBase.registry()["spinning"] is SpinningWidget
-
-
-def test_strip_suffix_absent_keeps_full_name() -> None:
-    class PlainThing(ExampleRoleBase):
-        pass
-
-    assert PlainThing.name() == "plain_thing"
-
-
-def test_strip_suffix_ignores_mid_name_token() -> None:
-    class WidgetFactoryWidget(ExampleRoleBase):
-        pass
-
-    assert WidgetFactoryWidget.name() == "widget_factory"
-
-
-def test_bare_strip_suffix_name_rejected() -> None:
-    with pytest.raises(RuntimeError, match="empty"):
-
-        class Widget(ExampleRoleBase):
-            pass
-
-
-def test_abstract_intermediate_not_registered() -> None:
-    class AbstractMid(ExampleBase):
-        @abstractmethod
-        def compute(self) -> int: ...
-
-    class ConcreteLeaf(AbstractMid):
-        def compute(self) -> int:
-            return 0
-
-    registry = ExampleBase.registry()
-    assert "abstract_mid" not in registry
-    assert "concrete_leaf" in registry
-
-
 def test_allocator_registry() -> None:
     registry = BaseAllocator.registry()
-    assert "greedy" in registry
-    assert registry["greedy"] is GreedyAllocator
+    assert "greedy_allocator" in registry
+    assert registry["greedy_allocator"] is GreedyAllocator
 
 
 def test_allocator_get() -> None:
-    cls = BaseAllocator.get("greedy_by_size")
+    cls = BaseAllocator.get("greedy_by_size_allocator")
     assert cls is GreedyBySizeAllocator
 
 
-def test_allocator_name_drops_strip_suffix() -> None:
-    assert GreedyByAreaAllocator.name() == "greedy_by_area"
+def test_allocator_name() -> None:
+    assert GreedyByAreaAllocator.name() == "greedy_by_area_allocator"
 
 
 def test_source_registry() -> None:
     registry = BaseSource.registry()
-    assert "random" in registry
-    assert registry["random"] is RandomSource
+    assert "random_source" in registry
+    assert registry["random_source"] is RandomSource
 
 
 def test_source_get() -> None:
-    cls = BaseSource.get("sequential")
+    cls = BaseSource.get("sequential_source")
     assert cls is SequentialSource
 
 
-def test_source_name_drops_strip_suffix() -> None:
-    assert SequentialSource.name() == "sequential"
-    assert RandomSource.name() == "random"
+def test_source_name() -> None:
+    assert SequentialSource.name() == "sequential_source"
 
 
-def test_registry_rejects_duplicate_names() -> None:
-    class UniqueNameBase(Registered):
-        """Test base class."""
-
-    class DuplicateName(UniqueNameBase):
-        """First registration wins."""
-
-    first = DuplicateName
-    with pytest.raises(RuntimeError, match="already taken"):
-
-        class DuplicateName(UniqueNameBase):
-            """Second registration with the same name must fail."""
-
-    assert UniqueNameBase.registry()["duplicate_name"] is first
+def test_source_includes_suffix() -> None:
+    assert RandomSource.name() == "random_source"
+    assert "source" in RandomSource.name()

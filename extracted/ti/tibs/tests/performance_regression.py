@@ -36,6 +36,11 @@ CHUNK_SOURCE = Tibs.from_joined(
 _value_rng = random.Random(0xB17)
 VALUE_WORDS = [_value_rng.randrange(1 << 16) for _ in range(20_000)]
 VALUE_BYTES = Tibs.from_values("u16", VALUE_WORDS).to_bytes()
+_bulk_set_rng = random.Random("tibs-bulk-set")
+BULK_SET_POSITIONS = [
+    [_bulk_set_rng.randrange(len(SEARCH_TIBS)) for _ in range(8)]
+    for _ in range(20_000)
+]
 
 
 def test_find_all_bits(benchmark):
@@ -43,6 +48,30 @@ def test_find_all_bits(benchmark):
         return len(Tibs.from_bytes(SEARCH_BYTES).find_all("0xabc"))
 
     count = benchmark(find_all)
+    assert count >= 0
+
+
+def test_find_all_iter_bits(benchmark):
+    def find_all_iter():
+        return len(list(SEARCH_TIBS.find_all_iter("0xabc")))
+
+    count = benchmark(find_all_iter)
+    assert count >= 0
+
+
+def test_reverse_find_all_iter_bits(benchmark):
+    def reverse_find_all_iter():
+        return len(list(SEARCH_TIBS.rfind_all_iter("0xdeade")))
+
+    count = benchmark(reverse_find_all_iter)
+    assert count >= 0
+
+
+def test_count_bit_pattern(benchmark):
+    def count_bit_pattern():
+        return SEARCH_TIBS.count("0xabc")
+
+    count = benchmark(count_bit_pattern)
     assert count >= 0
 
 
@@ -73,6 +102,70 @@ def test_bit_operations(benchmark):
 
     result_length = benchmark(bit_operations)
     assert result_length == 24_999_500
+
+
+def test_concatenation(benchmark):
+    result = benchmark(lambda: SEARCH_TIBS + OTHER_TIBS)
+    assert len(result) == len(SEARCH_TIBS) + len(OTHER_TIBS)
+
+
+def test_invert_all(benchmark):
+    result = benchmark(lambda: ~SEARCH_TIBS)
+    assert result.count(1) == len(SEARCH_TIBS) - SEARCH_TIBS.count(1)
+
+
+def test_reverse_bits(benchmark):
+    result = benchmark(SEARCH_TIBS.reversed)
+    assert result[0] == SEARCH_TIBS[-1]
+    assert result[-1] == SEARCH_TIBS[0]
+
+
+def test_shift_left(benchmark):
+    result = benchmark(lambda: SEARCH_TIBS << 13)
+    assert result[:-13] == SEARCH_TIBS[13:]
+    assert result[-13:] == Tibs.from_zeros(13)
+
+
+def test_bool_list_conversion(benchmark):
+    result = benchmark(list, SEARCH_TIBS)
+    assert len(result) == len(SEARCH_TIBS)
+    assert sum(result) == SEARCH_TIBS.count(1)
+
+
+def test_copy_and_slice_set(benchmark):
+    replacement = Tibs.from_ones(10_000)
+    start = (len(SEARCH_TIBS) - len(replacement)) // 2
+
+    def copy_and_set():
+        result = SEARCH_TIBS.to_mutibs()
+        result[start : start + len(replacement)] = replacement
+        return result
+
+    result = benchmark(copy_and_set)
+    assert result[start : start + len(replacement)].all()
+
+
+def test_copy_and_slice_delete(benchmark):
+    start = (len(SEARCH_TIBS) - 10_000) // 2
+
+    def copy_and_delete():
+        result = SEARCH_TIBS.to_mutibs()
+        del result[start : start + 10_000]
+        return result
+
+    result = benchmark(copy_and_delete)
+    assert len(result) == len(SEARCH_TIBS) - 10_000
+
+
+def test_bulk_index_set(benchmark):
+    def bulk_index_set():
+        result = Mutibs.from_zeros(len(SEARCH_TIBS))
+        for positions in BULK_SET_POSITIONS:
+            result.set(positions)
+        return result
+
+    result = benchmark(bulk_index_set)
+    assert result.count(1) > 0
 
 
 def test_joined_construction(benchmark):

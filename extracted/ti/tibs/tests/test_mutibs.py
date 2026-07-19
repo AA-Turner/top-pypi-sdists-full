@@ -111,6 +111,27 @@ def test_setitem_slice():
     assert a == Tibs('0b0100000')
 
 
+def test_setitem_slice_on_sliced_mutibs():
+    # Slicing can leave the underlying storage starting mid-byte; the
+    # byte-aligned fast paths must still write to the right place.
+    a = Mutibs.from_zeros(24)
+    b = a[4:20]
+    b[0:8] = Mutibs.from_bytes(b'\xff')
+    assert b.to_bin() == '1111111100000000'
+    b.set([8, -1])
+    assert b.to_bin() == '1111111110000001'
+    b.unset(0)
+    assert b.to_bin() == '0111111110000001'
+
+
+def test_delitem_slice_on_sliced_mutibs():
+    a = Mutibs.from_string('0b1010') + Mutibs.from_bytes(b'\xf0\x0f')
+    b = a[4:20]
+    expected = b.to_bin()
+    del b[0:8]
+    assert b.to_bin() == expected[8:]
+
+
 def test_setitem_slice_length_change():
     a = Mutibs('0b1010')
     a[1:3] = '0b111'
@@ -440,6 +461,33 @@ def test_set_multiple_positions():
     a = Mutibs('0b0000')
     a.set([0, 2])
     assert a == Tibs('0b1010')
+
+
+def test_set_list_is_atomic_on_invalid_item():
+    for positions, error in [([1, 99, 2], IndexError), ([1, 'bad', 2], TypeError)]:
+        a = Mutibs('0b0000')
+        with pytest.raises(error):
+            a.set(positions)
+        assert a == Tibs('0b0000')
+
+
+def test_set_list_accepts_index_objects():
+    class Index:
+        def __init__(self, value):
+            self.value = value
+
+        def __index__(self):
+            return self.value
+
+    a = Mutibs('0b00000000')
+    a.set([Index(2), Index(-1)])
+    assert a == Tibs('0b00100001')
+
+
+def test_set_long_list():
+    a = Mutibs.from_zeros(24)
+    a.set(list(range(20)))
+    assert a == Tibs.from_ones(20) + Tibs.from_zeros(4)
 
 
 def test_set_multiple_positions_tuple():

@@ -19,7 +19,52 @@ fn pick_winner(a: &PatternMatch, b: &PatternMatch) -> bool {
 }
 
 /// Deduplicate overlapping entity spans. Longer spans win; same length → higher confidence wins.
+///
+/// Thin `text`-less wrapper over [`merge_entities_text`] — kept as its own pub fn
+/// (rather than a default-arg shim) because it is pub-re-exported from the crate
+/// root and consumed as a crates.io-stable primitive; its signature must not grow
+/// a `text` parameter. Callers that don't have `text` (or don't need the
+/// person-cross-layer trim, which is a no-op without one) use this directly.
 pub fn merge_entities(entities: Vec<PatternMatch>) -> Vec<PatternMatch> {
+    merge_entities_text(entities, "")
+}
+
+/// Same person-type on both sides, different detection layer? `Some(a.layer >
+/// b.layer)` says who wins (`true` = `a`, `false` = `b`); `None` means the rule
+/// does not apply (same layer, or either side is not `person`) and the caller
+/// must fall back to length/confidence. Scoped to `person` ONLY — see the
+/// module-level note on why this must never generalize to other types.
+fn person_cross_layer_winner(a: &PatternMatch, b: &PatternMatch) -> Option<bool> {
+    if a.type_ != "person" || b.type_ != "person" || a.layer == b.layer {
+        return None;
+    }
+    Some(a.layer > b.layer)
+}
+
+/// Deduplicate overlapping entity spans, `text`-aware. Same length/confidence
+/// resolution as [`merge_entities`], plus one narrow addition: a `person` span on
+/// one detection layer overlapping a `person` span on another layer prefers the
+/// higher layer (an NER model, layer 2+, over a Layer-1 regex candidate) instead
+/// of the longer one. This is deliberately scoped to `person`-vs-`person` across
+/// layers — see [`person_cross_layer_winner`] — because "higher layer wins" was
+/// tried unscoped and destroyed `address` and `license_plate` recall (those types
+/// have no cross-layer alternative: the NER model emits a coarser span, and
+/// preferring it flips the entity type and drops the value match entirely). Names
+/// are the one type where a higher-layer detector is reliably *more* correct than
+/// an over-greedy regex candidate.
+///
+/// When the higher-layer person wins a partial overlap, the loser is not simply
+/// discarded: [`trim_entity`] carves off whatever tail of the loser survives past
+/// the winner's end, so a fused candidate like "李明明王" (winner "李明明" + an
+/// extra character that was really a second name) doesn't silently drop that
+/// trailing character into the clear. Trimming only ever removes a *prefix* — the
+/// remaining span keeps the loser's original end — so this only fires when the
+/// winner starts at or before the loser's start; if the winner instead starts
+/// strictly *inside* the loser, trimming would have to drop the loser's *head*
+/// (which `trim_entity` cannot express), so that case falls through to the
+/// existing length/confidence logic, which keeps the longer span and is therefore
+/// safe against under-redaction even though it isn't layer-aware.
+fn merge_entities_text(entities: Vec<PatternMatch>, text: &str) -> Vec<PatternMatch> {
     if entities.is_empty() {
         return vec![];
     }
@@ -36,10 +81,58 @@ pub fn merge_entities(entities: Vec<PatternMatch>) -> Vec<PatternMatch> {
         let last = merged.last().unwrap();
         // Check overlap: a.start < b.end && b.start < a.end
         if last.start < entity.end && entity.start < last.end {
-            // Overlapping — pick winner
-            if !pick_winner(last, &entity) {
-                let len = merged.len();
-                merged[len - 1] = entity;
+            // The person-cross-layer rule needs `text` for its remainder trim: an
+            // empty `text` makes `trim_entity` slice an empty string, `py_strip`
+            // it to empty, and return `None` — which would silently DROP the tail
+            // that should have been redacted. So only consult the rule when there
+            // is real text to trim against; with no text, fall through to the
+            // length/confidence path = the pre-existing (leak-free) behavior.
+            let cross = if text.is_empty() {
+                None
+            } else {
+                person_cross_layer_winner(last, &entity)
+            };
+            match cross {
+                Some(false) if entity.start <= last.start => {
+                    // The higher-layer `entity` wins and starts no later than
+                    // `last` — no head would be dropped. Swap in the winner and
+                    // push whatever tail of the loser survives past its end; that
+                    // remainder re-enters the overlap test on the next iteration.
+                    let loser = last.clone();
+                    let len = merged.len();
+                    merged[len - 1] = entity;
+                    if let Some(rem) = trim_entity(&loser, merged[len - 1].end, text) {
+                        merged.push(rem);
+                    }
+                }
+                Some(true) => {
+                    // `last` (higher-layer person) wins the overlap; keep it. The
+                    // greedy sort guarantees `entity.start >= last.start`, so if
+                    // the lower-layer `entity` overruns `last`'s tail, the
+                    // non-overlapping region `[last.end, entity.end)` is still PII
+                    // that must be redacted — mirror the `Some(false)` remainder
+                    // trim (tail-only, no head-drop risk since entity starts no
+                    // earlier than last). Otherwise `entity` is fully covered by
+                    // `last` and is dropped.
+                    if entity.end > last.end {
+                        let last_end = last.end;
+                        if let Some(rem) = trim_entity(&entity, last_end, text) {
+                            merged.push(rem);
+                        }
+                    }
+                }
+                _ => {
+                    // Either the rule doesn't apply (`None`), or `entity` would
+                    // win but starts INTERIOR to `last` (entity.start > last.start)
+                    // — trimming can only remove a prefix, so honoring that win
+                    // would drop `last`'s head with no way to recover it. Fall
+                    // back to the pre-existing length/confidence resolution,
+                    // which keeps the longer span and cannot under-redact.
+                    if !pick_winner(last, &entity) {
+                        let len = merged.len();
+                        merged[len - 1] = entity;
+                    }
+                }
             }
         } else {
             merged.push(entity);
@@ -139,6 +232,20 @@ fn merge_priority(
             // confidence. Port of `_merge_priority`'s final branch (the two
             // Python sub-conditions both replace `final[-1]`, so they fold into
             // one `||`).
+            //
+            // This resolver is NOT layer-aware (unlike `merge_entities_text`'s
+            // `person_cross_layer_winner` check) — deliberately: `others` is
+            // always pre-merged via `merge_entities_text(others, text)` before
+            // `merge_priority` runs (see `merge_entities_with_text`), so every
+            // non-priority entity reaching this loop is already pairwise
+            // non-overlapping with its neighbors. Folding a priority entity in
+            // can only shrink a survivor (trim moves its start forward, keeps
+            // its end), which can only widen an existing gap, never narrow one
+            // into a fresh overlap — so this branch can never actually see an
+            // unresolved cross-layer person/person pair. See
+            // `priority_path_person_cross_layer_seam_no_leak` and
+            // `priority_path_person_cross_layer_pre_merge_boundary_holds_under_trim`
+            // for the constructed reachability attempts that confirm this.
             let last = final_.last().unwrap();
             let idx = final_.len() - 1;
             let longer = (current.end - current.start) > (last.end - last.start);
@@ -163,7 +270,11 @@ pub fn merge_entities_with_text(entities: Vec<PatternMatch>, text: &str) -> Vec<
     }
     let has_priority = entities.iter().any(|e| is_priority(&e.type_));
     if !has_priority {
-        return merge_entities(entities);
+        // No self_reference in play — go straight to the text-aware merge so the
+        // person-cross-layer rule (which needs `text` for its remainder trim) is
+        // reachable. This is the path a fused-name overlap with no self_reference
+        // in the input takes.
+        return merge_entities_text(entities, text);
     }
     let mut others: Vec<PatternMatch> = Vec::new();
     let mut priority: Vec<PatternMatch> = Vec::new();
@@ -177,7 +288,10 @@ pub fn merge_entities_with_text(entities: Vec<PatternMatch>, text: &str) -> Vec<
     let merged_others = if others.is_empty() {
         Vec::new()
     } else {
-        merge_entities(others)
+        // Pre-merge the non-priority subset WITH the real text so a fused-person
+        // cross-layer overlap co-present with a self_reference still gets the
+        // remainder trim (passing no text here would silently drop the tail).
+        merge_entities_text(others, text)
     };
     merge_priority(merged_others, priority, text)
 }
@@ -402,6 +516,198 @@ mod tests {
             &[
                 ("我", "self_reference", 0, 1, 1.0, 1),
                 ("13800138000", "phone", 2, 13, 1.0, 1),
+            ],
+        );
+    }
+
+    // ── Person cross-layer merge (merge_entities_text) ────────────────────────
+
+    #[test]
+    fn person_cross_layer_partial_overlap_trims_remainder() {
+        // An over-greedy L1 person candidate "李明明王"[2,6] overlaps a correct L2
+        // NER person span "李明明"[2,5]. Same start, so no head to drop: the
+        // higher-layer (L2) span wins and the L1 loser is trimmed to its tail
+        // remainder [5,6) "王" (still `person`, still layer 1) rather than
+        // discarded outright — nothing that would have been redacted leaks.
+        let out = merge_entities_with_text(
+            vec![
+                pmt("李明明王", "person", 2, 6, 1.0, 1),
+                pmt("李明明", "person", 2, 5, 1.0, 2),
+            ],
+            "客户李明明王联系电话13800138000",
+        );
+        assert_merged(
+            &out,
+            &[
+                ("李明明", "person", 2, 5, 1.0, 2),
+                ("王", "person", 5, 6, 1.0, 1),
+            ],
+        );
+    }
+
+    #[test]
+    fn person_same_layer_control_uses_length_then_confidence() {
+        // Two person spans on the SAME layer must NOT trigger the cross-layer
+        // rule — person_cross_layer_winner returns None for equal layers, so
+        // this falls through to the existing length-then-confidence pick_winner
+        // logic (longer span wins outright, no trim/remainder).
+        let out = merge_entities_with_text(
+            vec![
+                pmt("李明明王", "person", 2, 6, 1.0, 1),
+                pmt("李明明", "person", 2, 5, 1.0, 1),
+            ],
+            "客户李明明王联系电话13800138000",
+        );
+        assert_merged(&out, &[("李明明王", "person", 2, 6, 1.0, 1)]);
+    }
+
+    #[test]
+    fn has_priority_path_cross_layer_person_keeps_remainder() {
+        // A self_reference co-present with the fused-name person overlap forces
+        // `merge_entities_with_text` down the priority path, which pre-merges the
+        // non-priority subset. That pre-merge must run WITH the real text so the
+        // person-cross-layer trim still carves off the "王"[5,6] tail — otherwise
+        // it is silently dropped into plaintext (the leak this closes).
+        let out = merge_entities_with_text(
+            vec![
+                pmt("我", "self_reference", 0, 1, 1.0, 0),
+                pmt("李明明王", "person", 2, 6, 1.0, 1),
+                pmt("李明明", "person", 2, 5, 1.0, 2),
+            ],
+            "我x李明明王联系电话13800138000",
+        );
+        assert_merged(
+            &out,
+            &[
+                ("我", "self_reference", 0, 1, 1.0, 0),
+                ("李明明", "person", 2, 5, 1.0, 2),
+                ("王", "person", 5, 6, 1.0, 1),
+            ],
+        );
+    }
+
+    #[test]
+    fn person_cross_layer_last_wins_overrun_tail_redacted() {
+        // The higher-layer person span "张三"[2,4] (L2) sorts first and wins the
+        // overlap over the lower-layer "三丰道"[3,6] (L1). But the loser overruns
+        // last's tail: its non-overlapping region [4,6) is still PII and must be
+        // redacted. The Some(true) arm mirror-trims that tail ("丰道"[4,6], layer
+        // 1) instead of dropping the whole loser. Together the two spans cover
+        // [2,6) with no plaintext gap.
+        let out = merge_entities_with_text(
+            vec![
+                pmt("张三", "person", 2, 4, 1.0, 2),
+                pmt("三丰道", "person", 3, 6, 1.0, 1),
+            ],
+            "客户张三丰道人",
+        );
+        assert_merged(
+            &out,
+            &[
+                ("张三", "person", 2, 4, 1.0, 2),
+                ("丰道", "person", 4, 6, 1.0, 1),
+            ],
+        );
+    }
+
+    #[test]
+    fn bare_merge_entities_empty_text_cross_layer_falls_through() {
+        // The pub `merge_entities(entities)` wrapper passes text="". The person
+        // rule must NOT fire without text (its trim would slice an empty string
+        // and silently drop the remainder). With the empty-text guard it falls
+        // through to the length-then-confidence path = the pre-existing behavior:
+        // the longer L1 span wins whole, no panic, no partial remainder.
+        let out = merge_entities(vec![
+            pmt("李明明王", "person", 2, 6, 1.0, 1),
+            pmt("李明明", "person", 2, 5, 1.0, 2),
+        ]);
+        assert_merged(&out, &[("李明明王", "person", 2, 6, 1.0, 1)]);
+    }
+
+    // ── Reachability probe: merge_priority's neither-priority ELSE branch ─────
+    //
+    // `merge_priority`'s final `else` (neither entity is priority, or both are)
+    // resolves overlaps by plain length/confidence — it does NOT consult
+    // `person_cross_layer_winner`. These tests try to construct a case where
+    // that branch actually sees an unresolved cross-layer person/person
+    // overlap, to check whether it is a live leak site or whether the `others`
+    // pre-merge (run with real `text`, see `has_priority_path_cross_layer_person_keeps_remainder`)
+    // always resolves such pairs upstream. It always does: `others` is merged
+    // via `merge_entities_text` before `merge_priority` ever runs, so its
+    // output is already pairwise non-overlapping; folding the self_reference
+    // back in only ever *trims* those survivors (start moves forward, end is
+    // preserved), which can only widen an existing gap between two neighbors,
+    // never narrow one into a fresh overlap. So no matter where the
+    // self_reference lands relative to the cross-layer survivors, the else
+    // branch's overlap gate (`current.start >= last_end`) never lets it see
+    // them as overlapping. These are regression guards for that invariant, not
+    // leak reproductions — kept green on purpose.
+
+    #[test]
+    fn priority_path_person_cross_layer_seam_no_leak() {
+        // self_reference "明王"[4,6] straddles the seam between the two L1/L2
+        // survivors of a three-way cross-layer chain (L1 person[2,6] layer1,
+        // L2 person[2,5] layer2, L2 person[5,8] layer2). The `others` pre-merge
+        // resolves the three down to two non-overlapping layer-2 survivors,
+        // ["李明明"(2,5), "王道人"(5,8)], covering [2,8) before self_reference
+        // ever enters the picture (mirrors
+        // `person_cross_layer_partial_overlap_trims_remainder` chained twice).
+        // Folding the self_reference in via merge_priority: it starts INTERIOR
+        // to both survivors it touches, so the containment guard drops it
+        // outright (its range is already covered) — no plaintext tail, and
+        // the else branch is never invoked for this pair at all.
+        let text = "客户李明明王道人电话";
+        let out = merge_entities_with_text(
+            vec![
+                pmt("明王", "self_reference", 4, 6, 1.0, 0),
+                pmt("李明明王", "person", 2, 6, 1.0, 1),
+                pmt("李明明", "person", 2, 5, 1.0, 2),
+                pmt("王道人", "person", 5, 8, 1.0, 2),
+            ],
+            text,
+        );
+        assert_merged(
+            &out,
+            &[
+                ("李明明", "person", 2, 5, 1.0, 2),
+                ("王道人", "person", 5, 8, 1.0, 2),
+            ],
+        );
+    }
+
+    #[test]
+    fn priority_path_person_cross_layer_pre_merge_boundary_holds_under_trim() {
+        // Sharper adversarial attempt: self_reference "李明"[2,4] starts AT the
+        // seam's leading survivor's start (not interior), so it wins the
+        // overlap and TRIMS the layer-2 survivor down (via merge_priority's
+        // `cur_priority && !last_priority` branch) instead of being dropped —
+        // the closest this algorithm gets to reshaping a cross-layer survivor
+        // after the pre-merge already ran. The two-entity chain (L1
+        // person[2,6] layer1 + L2 person[2,5] layer2) pre-merges to
+        // ["李明明"(2,5) layer2, "王"(5,6) layer1] (different layers, adjacent at
+        // the seam start=end=5 — see `person_cross_layer_partial_overlap_trims_remainder`).
+        // Trimming the layer-2 survivor only moves ITS start forward
+        // (2->4), which cannot move the seam itself (still exactly 5): the
+        // layer-1 remainder's start and the trimmed layer-2 remainder's end
+        // never cross, so merge_priority's overlap gate (`current.start >=
+        // last_end`) still short-circuits before the else branch's
+        // length/confidence resolver ever runs on this pair. Full [2,6)
+        // coverage survives.
+        let text = "客户李明明王联系电话";
+        let out = merge_entities_with_text(
+            vec![
+                pmt("李明", "self_reference", 2, 4, 1.0, 0),
+                pmt("李明明王", "person", 2, 6, 1.0, 1),
+                pmt("李明明", "person", 2, 5, 1.0, 2),
+            ],
+            text,
+        );
+        assert_merged(
+            &out,
+            &[
+                ("李明", "self_reference", 2, 4, 1.0, 0),
+                ("明", "person", 4, 5, 1.0, 2),
+                ("王", "person", 5, 6, 1.0, 1),
             ],
         );
     }

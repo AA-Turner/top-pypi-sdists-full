@@ -72,6 +72,35 @@ def register_oauth_routes(mcp: FastMCP) -> None:
     )(oauth_session_response)
 
 
+def request_has_valid_session(request: Request) -> bool:
+    """Return `True` when `request` carries a usable Airbyte session cookie.
+
+    Used by the server-side login gate to decide whether to serve a protected
+    page or redirect to the authorization page. A session counts as usable when
+    its encrypted cookie decodes and either the access token is still valid or a
+    live refresh token is present — mirroring the refresh behavior in
+    `_get_session_response`, including its 30s expiry buffer and single `now`
+    read, so a near-expiry session the client would silently refresh (or sign
+    out) is judged identically by the gate.
+    """
+    try:
+        session_payload = _decode_oauth_session(
+            request.cookies.get(OAUTH_SESSION_COOKIE_NAME, "")
+        )
+    except OAuthSessionSecretError:
+        return False
+    if session_payload is None:
+        return False
+    now_ms = _now_ms()
+    if _oauth_session_payload_expires_at(session_payload) > now_ms + 30_000:
+        return True
+    refresh_token = str(session_payload.get("refresh_token", ""))
+    if not refresh_token:
+        return False
+    refresh_expires_at = _int_payload_value(session_payload.get("refresh_expires_at"))
+    return refresh_expires_at == 0 or refresh_expires_at > now_ms
+
+
 def hydrate_oauth_action() -> Fetch:
     return Fetch.get(
         OAUTH_SESSION_PATH,

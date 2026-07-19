@@ -337,7 +337,9 @@ def _enforce_require_hashes(ctx) -> None:
     policy = getattr(policy_fetch, "policy", None) if policy_fetch else None
     if policy is None:
         return
-    if not policy.security.integrity.require_hashes:
+    from .integrity import require_hashes_enabled
+
+    if not require_hashes_enabled(policy.security.integrity):
         return
 
     from ..deps.lockfile import LockFile, get_lockfile_path
@@ -644,7 +646,12 @@ def run_install_pipeline(  # noqa: PLR0913, RUF100
     if plan_callback is not None:
         from .plan import build_update_plan
 
-        plan = build_update_plan(_early_lockfile, ctx.deps_to_install)
+        complete_dep_keys = ctx.update_plan_complete_dep_keys if ctx.only_packages else None
+        plan = build_update_plan(
+            _early_lockfile,
+            ctx.deps_to_install,
+            complete_resolved_dep_keys=complete_dep_keys,
+        )
         proceed = plan_callback(plan)
         if not proceed:
             transaction.rollback()

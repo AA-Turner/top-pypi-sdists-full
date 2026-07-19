@@ -1,0 +1,108 @@
+site_name: Mode
+site_description: avro, kafka, client, faust, schema
+
+theme:
+  name: 'material'
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: deep orange
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: deep orange
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+  - navigation.tabs
+  - navigation.sections
+  - search.suggest
+  - search.highlight
+  - content.tabs.link
+  - content.code.annotate
+
+repo_name: faust-streaming/mode
+repo_url: https://github.com/faust-streaming/mode
+
+nav:
+  - Mode:
+    - Introduction: index.md
+    - Creating a Service: creating-service.md
+    - Examples:
+      - Service: example-service.md
+      - Web app: example-webapp.md
+    - Developing:
+      - Contributing Guide: contributing.md
+  - References:
+    - 'Mode':
+      - mode.services: references/mode.services.md
+      - mode.debug: references/mode.debug.md
+      - mode.exceptions: references/mode.exceptions.md
+      - mode.locals: references/mode.locals.md
+      - mode.proxy: references/mode.proxy.md
+      - mode.signals: references/mode.signals.md
+      - mode.supervisors: references/mode.supervisors.md
+      - mode.threads: references/mode.threads.md
+      - mode.timers: references/mode.timers.md
+      - mode.worker: references/mode.worker.md
+    - 'Typehints':
+      - mode.types: references/mode.types.md
+      - mode.types.services: references/mode.types.services.md
+      - mode.types.signals: references/mode.types.signals.md
+      - mode.types.supervisors: references/mode.types.supervisors.md
+    - 'Event Loops':
+      - mode.loop: references/mode.loop.md
+      - mode.loop.eventlet: references/mode.loop.eventlet.md
+      - mode.loop.gevent: references/mode.loop.gevent.md
+      - mode.loop.uvloop: references/mode.loop.uvloop.md
+    - 'Utils':
+      - mode.utils.aiter: references/mode.utils.aiter.md
+      - mode.utils.collections: references/mode.utils.collections.md
+      - mode.utils.compat: references/mode.utils.compat.md
+      - mode.utils.contexts: references/mode.utils.contexts.md
+      - mode.utils.cron: references/mode.utils.cron.md
+      - mode.utils.futures: references/mode.utils.futures.md
+      - mode.utils.graphs: references/mode.utils.graphs.md
+      - mode.utils.imports: references/mode.utils.imports.md
+      - mode.utils.locals: references/mode.utils.locals.md
+      - mode.utils.locks: references/mode.utils.locks.md
+      - mode.utils.logging: references/mode.utils.logging.md
+      - mode.utils.loops: references/mode.utils.loops.md
+      - mode.utils.mocks: references/mode.utils.mocks.md
+      - mode.utils.objects: references/mode.utils.objects.md
+      - mode.utils.queues: references/mode.utils.queues.md
+      - mode.utils.text: references/mode.utils.text.md
+      - mode.utils.times: references/mode.utils.times.md
+      - mode.utils.tracebacks: references/mode.utils.tracebacks.md
+      - mode.utils.trees: references/mode.utils.trees.md
+      - mode.utils.types.graphs: references/mode.utils.types.graphs.md
+      - mode.utils.types.trees: references/mode.utils.types.trees.md
+  - Changelog: changelog.md
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.snippets
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.details
+  - pymdownx.magiclink
+  - tables
+  - attr_list
+  - md_in_html
+  - admonition
+  - codehilite
+
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings

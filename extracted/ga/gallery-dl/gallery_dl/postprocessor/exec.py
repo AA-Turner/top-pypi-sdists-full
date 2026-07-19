@@ -97,7 +97,7 @@ class ExecPP(PostProcessor):
         args[0] = os.path.expanduser(args[0])
         retcode = self._exec(args, False)
 
-        if archive:
+        if archive and not retcode:
             archive.add(kwdict)
         return retcode
 
@@ -110,7 +110,7 @@ class ExecPP(PostProcessor):
         args = self._sub(self._replace, self.args)
         retcode = self._exec(args, True)
 
-        if archive:
+        if archive and not retcode:
             archive.add(pathfmt.kwdict)
         return retcode
 
@@ -129,7 +129,8 @@ class ExecPP(PostProcessor):
 
         if archive:
             self.archive = archive
-            archive.add(pathfmt.kwdict)
+            if not retcode:
+                archive.add(pathfmt.kwdict)
         return retcode
 
     def _exec(self, args, shell):

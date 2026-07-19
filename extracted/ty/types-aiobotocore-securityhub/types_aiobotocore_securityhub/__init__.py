@@ -22,6 +22,7 @@ Usage::
         GetFindingsTrendsV2Paginator,
         GetFindingsV2Paginator,
         GetInsightsPaginator,
+        GetRecommendedPolicyV2Paginator,
         GetResourcesTrendsV2Paginator,
         GetResourcesV2Paginator,
         ListAggregatorsV2Paginator,
@@ -54,6 +55,7 @@ Usage::
     get_findings_trends_v2_paginator: GetFindingsTrendsV2Paginator = client.get_paginator("get_findings_trends_v2")
     get_findings_v2_paginator: GetFindingsV2Paginator = client.get_paginator("get_findings_v2")
     get_insights_paginator: GetInsightsPaginator = client.get_paginator("get_insights")
+    get_recommended_policy_v2_paginator: GetRecommendedPolicyV2Paginator = client.get_paginator("get_recommended_policy_v2")
     get_resources_trends_v2_paginator: GetResourcesTrendsV2Paginator = client.get_paginator("get_resources_trends_v2")
     get_resources_v2_paginator: GetResourcesV2Paginator = client.get_paginator("get_resources_v2")
     list_aggregators_v2_paginator: ListAggregatorsV2Paginator = client.get_paginator("list_aggregators_v2")
@@ -82,6 +84,7 @@ from .paginator import (
     GetFindingsTrendsV2Paginator,
     GetFindingsV2Paginator,
     GetInsightsPaginator,
+    GetRecommendedPolicyV2Paginator,
     GetResourcesTrendsV2Paginator,
     GetResourcesV2Paginator,
     ListAggregatorsV2Paginator,
@@ -112,6 +115,7 @@ __all__ = (
     "GetFindingsTrendsV2Paginator",
     "GetFindingsV2Paginator",
     "GetInsightsPaginator",
+    "GetRecommendedPolicyV2Paginator",
     "GetResourcesTrendsV2Paginator",
     "GetResourcesV2Paginator",
     "ListAggregatorsV2Paginator",

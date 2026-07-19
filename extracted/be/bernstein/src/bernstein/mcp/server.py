@@ -76,6 +76,18 @@ FuncMetadata.convert_result = _patched_convert_result
 
 _DEFAULT_SERVER_URL = "http://127.0.0.1:8052"
 
+# Self-description advertised to MCP clients on connect.
+_SERVER_INSTRUCTIONS = (
+    "Bernstein: deterministic, verifiable orchestration for CLI coding agents - "
+    "reproducible parallel runs, signed audit trail, air-gap friendly. "
+    "Dispatches goals across 40+ CLI agent adapters (Claude Code, Codex, "
+    "Gemini CLI, and more), each task in its own git worktree behind "
+    "lint/type/test gates. Scheduling is plain Python with no LLM in the "
+    "coordination loop, so runs replay byte-identically. An always-on lineage "
+    "spine and replay journal record every run; an opt-in HMAC-chained audit "
+    "log adds receipts that verify offline."
+)
+
 # Timeout for all httpx calls to the task server (seconds).
 _HTTP_TIMEOUT = 5.0
 
@@ -160,13 +172,13 @@ def _register_health_tool(mcp: FastMCP[None]) -> None:
 def _get_journal_head(task_id: str) -> str:
     from pathlib import Path
 
-    from bernstein.core.replay.journal import EventJournal
+    from bernstein.core.replay.journal import EventJournal, run_journal_path
     from bernstein.core.tasks.checkpoint_retry import task_run_id
 
     run_id = task_run_id(task_id)
     sdd_dir = Path.cwd() / ".sdd"
     try:
-        journal_path = sdd_dir / "runs" / run_id / "journal.jsonl"
+        journal_path = run_journal_path(sdd_dir, run_id)
         if journal_path.exists():
             journal = EventJournal.resume(run_id, sdd_dir)
             return journal.head()
@@ -476,18 +488,20 @@ def _register_task_handle_tool(mcp: FastMCP[None]) -> None:
             return _validation_error_response(err)
         try:
             from bernstein.core.protocols.mcp.tasks_extension import RunHandle
-            from bernstein.core.replay.journal import JOURNAL_FILENAME, load_events
+            from bernstein.core.replay.journal import (
+                JournalPathError,
+                load_events,
+                run_journal_path,
+            )
 
             base = Path(workdir).resolve()
-            runs_root = (base / ".sdd" / "runs").resolve()
-            journal_path = (runs_root / run_id / JOURNAL_FILENAME).resolve()
-            # Realpath-containment check (CodeQL): a crafted run_id must not
-            # escape the runs root via ``..`` or an absolute path. A plain run
-            # id resolves to ``<runs_root>/<run_id>/journal.jsonl``; anything
-            # else is refused.
-            if journal_path.parent.parent != runs_root:
+            # Shared barrier rather than a local containment check, so this
+            # surface cannot drift from the rest of the run-journal readers.
+            try:
+                journal_path = run_journal_path(base / ".sdd", run_id)
+            except JournalPathError as exc:
                 return _error_response(
-                    ValueError("run_id escapes the runs directory"),
+                    exc,
                     hint="run_id must be a plain run identifier",
                 )
             events = load_events(journal_path)
@@ -697,6 +711,95 @@ def _register_action_tools(mcp: FastMCP[None], server_url: str) -> None:
                     f"{server_url}/tasks/{task_id}/messages",
                     json=payload,
                     headers=_auth_headers(),
+                )
+                resp.raise_for_status()
+                data: dict[str, Any] = resp.json()
+            return json.dumps(data, indent=2)
+        except Exception as exc:
+            return _error_response(exc)
+
+    @mcp.tool()
+    async def bernstein_post_artifact(  # pyright: ignore[reportUnusedFunction]
+        task_id: str,
+        key: str,
+        artifact_type: str,
+        poster: str,
+        body: str = "",
+        columns: list[str] | None = None,
+        rows: list[list[str]] | None = None,
+        url: str = "",
+        link_kind: str = "",
+    ) -> str:
+        """Attach a journal-anchored artifact to a task you hold the claim for.
+
+        The artifact is stored content-addressed, sealed into the lineage
+        spine, appended to the task's Merkle-chained journal, and mirrored to
+        the audit chain. The returned record IS the receipt: its identity is the
+        spine entry hash, and any reviewer can re-verify the content hash offline
+        against the same chain ``bernstein audit verify`` walks. Reposting a key
+        appends a new version chained to the prior one. There is no way to set
+        progress here - progress is a chain-computed projection of journaled
+        work, never postable.
+
+        Args:
+            task_id: The task to attach the artifact to. You must hold its claim.
+            key: The artifact slot; reposting a key appends a new version.
+            artifact_type: One of ``report`` (markdown ``body``), ``table``
+                (``columns`` + ``rows``), or ``link`` (``url`` + ``link_kind``).
+            poster: Your claim identity; posting against a task you do not hold
+                is refused and the refusal is audit-recorded.
+            body: Markdown body, for ``report`` artifacts.
+            columns: Column headers, for ``table`` artifacts.
+            rows: Rows of cells, for ``table`` artifacts.
+            url: The URL, for ``link`` artifacts.
+            link_kind: The declared link kind - ``preview`` / ``dashboard`` /
+                ``document`` - for ``link`` artifacts.
+
+        Returns:
+            JSON of the chain-anchored artifact record (``key``, ``version``,
+            ``content_hash``, ``spine_entry_hash``, ``journal_index``, ...).
+        """
+        err = _validate_or_error(
+            "bernstein_post_artifact",
+            {
+                "task_id": task_id,
+                "key": key,
+                "artifact_type": artifact_type,
+                "poster": poster,
+                "body": body,
+                "columns": columns,
+                "rows": rows,
+                "url": url,
+                "link_kind": link_kind,
+            },
+        )
+        if err is not None:
+            return _validation_error_response(err)
+        try:
+            payload: dict[str, Any] = {
+                "key": key,
+                "artifact_type": artifact_type,
+                "poster": poster,
+            }
+            if body:
+                payload["body"] = body
+            if columns is not None:
+                payload["columns"] = columns
+            if rows is not None:
+                payload["rows"] = rows
+            if url:
+                payload["url"] = url
+            if link_kind:
+                payload["link_kind"] = link_kind
+            # Carry the caller identity in the request header (the server's
+            # authorization principal), not only in the body. The server refuses
+            # posts against a task this identity does not hold the claim for.
+            headers = _auth_headers() | {"x-bernstein-agent-id": poster}
+            async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+                resp = await client.post(
+                    f"{server_url}/tasks/{task_id}/artifacts",
+                    json=payload,
+                    headers=headers,
                 )
                 resp.raise_for_status()
                 data: dict[str, Any] = resp.json()
@@ -1130,7 +1233,7 @@ def create_mcp_server(
     from bernstein.mcp.prompts import register_prompt_resources
 
     active_tier = resolve_active_tier(tier)
-    mcp: FastMCP[None] = FastMCP(name)
+    mcp: FastMCP[None] = FastMCP(name, instructions=_SERVER_INSTRUCTIONS)
     register_capability_resource(mcp)
     register_prompt_resources(mcp)
     _register_health_tool(mcp)

@@ -2566,7 +2566,7 @@ SELECT_SOURCE_ACTOR_POPULATION_BY_ORG = sqlalchemy.text(
          -- with a NULL bound `created_at >= NULL` matches nothing anyway, and
          -- gating on `IS NOT NULL` up front lets the planner skip the scan
          -- (a one-time filter) instead of walking `jobs` only to discard rows.
-         AND :rollout_created_at IS NOT NULL
+         AND CAST(:rollout_created_at AS timestamptz) IS NOT NULL
          AND jobs.created_at >= CAST(:rollout_created_at AS timestamptz)
         -- `jobs.id DESC` is a deterministic tiebreaker so the gate status is
         -- stable when a connection has multiple jobs sharing `created_at`.
@@ -2687,7 +2687,7 @@ SELECT_DESTINATION_ACTOR_POPULATION_BY_ORG = sqlalchemy.text(
          -- with a NULL bound `created_at >= NULL` matches nothing anyway, and
          -- gating on `IS NOT NULL` up front lets the planner skip the scan
          -- (a one-time filter) instead of walking `jobs` only to discard rows.
-         AND :rollout_created_at IS NOT NULL
+         AND CAST(:rollout_created_at AS timestamptz) IS NOT NULL
          AND jobs.created_at >= CAST(:rollout_created_at AS timestamptz)
         -- `jobs.id DESC` is a deterministic tiebreaker so the gate status is
         -- stable when a connection has multiple jobs sharing `created_at`.

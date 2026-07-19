@@ -68,7 +68,15 @@ class TestAsyncRunnerSession:
         session = AsyncRunnerSession(runners, "r-1", session_id="s-1")
 
         async def run() -> None:
-            result = await session.exec_collect("echo", "hello")
+            result = await session.exec_collect("echo", "hello", proxy_token="invocation-token")
+            runners.exec.assert_called_once_with(
+                "s-1",
+                ["echo", "hello"],
+                env=None,
+                working_dir=None,
+                timeout_seconds=None,
+                proxy_token="invocation-token",
+            )
             assert isinstance(result, ExecResult)
             assert result.stdout == "hello\n"
             assert result.stderr == "warn\n"

@@ -77,6 +77,26 @@ pub fn goto_definition(db: &dyn Db, position: InFile<TextSize>) -> SmallVec<[Loc
         }
     }
 
+    if let Some(literal) = ast::Literal::cast(parent.clone()) {
+        for definition_file in list_files(db, file) {
+            if let Some(locations) =
+                resolve::resolve_literal(db, InFile::new(definition_file, &literal))
+            {
+                return locations;
+            }
+        }
+    }
+
+    if let Some(custom_op) = ast::CustomOp::cast(parent.clone()) {
+        for definition_file in list_files(db, file) {
+            if let Some(locations) =
+                resolve::resolve_custom_op(db, InFile::new(definition_file, &custom_op))
+            {
+                return locations;
+            }
+        }
+    }
+
     let type_node = ast::Type::cast(parent.clone()).or_else(|| {
         // special case if we're at the timezone clause inside a timezone type
         if ast::Timezone::can_cast(parent.kind()) {
@@ -490,6 +510,36 @@ unlisten updates$0;
     }
 
     #[test]
+    fn goto_rollback_to_savepoint() {
+        assert_snapshot!(goto("
+begin;
+savepoint sp;
+rollback to savepoint sp$0;
+"), @"
+          ╭▸ 
+        3 │ savepoint sp;
+          │           ── 2. destination
+        4 │ rollback to savepoint sp;
+          ╰╴                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_release_savepoint() {
+        assert_snapshot!(goto("
+begin;
+savepoint sp;
+release savepoint sp$0;
+"), @"
+          ╭▸ 
+        3 │ savepoint sp;
+          │           ── 2. destination
+        4 │ release savepoint sp;
+          ╰╴                   ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_delete_where_current_of_cursor() {
         assert_snapshot!(goto("
 declare c scroll cursor for select * from t;
@@ -607,6 +657,48 @@ cross join lateral (select u$0.n * 10 as val) x;
     }
 
     #[test]
+    fn goto_correlated_subquery_outer_column() {
+        assert_snapshot!(goto("
+create table foo (id int);
+create table bar (fid int);
+select * from bar b where exists (select 1 from foo where foo.id = b.fid$0);
+"), @"
+          ╭▸ 
+        3 │ create table bar (fid int);
+          │                   ─── 2. destination
+        4 │ select * from bar b where exists (select 1 from foo where foo.id = b.fid);
+          ╰╴                                                                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_update_set_correlated_subquery_column() {
+        assert_snapshot!(goto("create table foo(a int, b int); update foo set a = (select b$0);"), @"
+          ╭▸ 
+        1 │ create table foo(a int, b int); update foo set a = (select b);
+          ╰╴                        ─ 2. destination                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_delete_where_correlated_subquery_column() {
+        assert_snapshot!(goto("create table foo(a int, b int); delete from foo where a = (select b$0);"), @"
+          ╭▸ 
+        1 │ create table foo(a int, b int); delete from foo where a = (select b);
+          ╰╴                        ─ 2. destination                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_multi_level_nested_select_outer_column() {
+        assert_snapshot!(goto("create table foo(a int); select (select (select a$0)) from foo;"), @"
+          ╭▸ 
+        1 │ create table foo(a int); select (select (select a)) from foo;
+          ╰╴                 ─ 2. destination               ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_lateral_missing_not_found() {
         // Query 1 ERROR at Line 3: : ERROR:  invalid reference to FROM-clause entry for table "u"
         // LINE 3: cross join (select u.n * 10 as val) x;
@@ -667,6 +759,202 @@ from (values (1), (2)) u(n)
 cross join ((((select u$0.n * 10 as val)))) x;
 ",
         );
+    }
+
+    #[test]
+    fn goto_aliased_join_expr_qualified_column() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+create table u(a int, c int);
+select j.b$0 from (t join u using(a)) as j;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int, b int);
+          │                       ─ 2. destination
+        3 │ create table u(a int, c int);
+        4 │ select j.b from (t join u using(a)) as j;
+          ╰╴         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_aliased_join_expr_qualified_merged_column() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+create table u(a int, c int);
+select j.a$0 from (t join u using(a)) as j;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int, b int);
+          │                ─ 2. destination
+        3 │ create table u(a int, c int);
+        4 │ select j.a from (t join u using(a)) as j;
+          ╰╴         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_aliased_join_expr_qualified_right_column() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+create table u(a int, c int);
+select j.c$0 from (t join u using(a)) as j;
+"), @"
+          ╭▸ 
+        3 │ create table u(a int, c int);
+          │                       ─ 2. destination
+        4 │ select j.c from (t join u using(a)) as j;
+          ╰╴         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_unaliased_paren_join_qualified_column_target_list() {
+        assert_snapshot!(goto("
+create table t (a int);
+create table u (b int);
+select t.a$0 from (t join u on t.a = u.b);
+"), @"
+          ╭▸ 
+        2 │ create table t (a int);
+          │                 ─ 2. destination
+        3 │ create table u (b int);
+        4 │ select t.a from (t join u on t.a = u.b);
+          ╰╴         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_unaliased_paren_join_qualified_column_where_clause() {
+        assert_snapshot!(goto("
+create table t (a int);
+create table u (b int);
+select 1 from (t join u on t.a = u.b) where t.a$0 = 1;
+"), @"
+          ╭▸ 
+        2 │ create table t (a int);
+          │                 ─ 2. destination
+        3 │ create table u (b int);
+        4 │ select 1 from (t join u on t.a = u.b) where t.a = 1;
+          ╰╴                                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_unaliased_paren_join_qualified_column_own_on_clause() {
+        assert_snapshot!(goto("
+create table t (a int);
+create table u (b int);
+select 1 from (t join u on t.a$0 = u.b);
+"), @"
+          ╭▸ 
+        2 │ create table t (a int);
+          │                 ─ 2. destination
+        3 │ create table u (b int);
+        4 │ select 1 from (t join u on t.a = u.b);
+          ╰╴                             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_unaliased_paren_join_qualified_column_outer_on_clause() {
+        assert_snapshot!(goto("
+create table t (a int);
+create table u (b int);
+create table v (c int);
+select 1 from (t join u on t.a = u.b) join v on t.a$0 = v.c;
+"), @"
+          ╭▸ 
+        2 │ create table t (a int);
+          │                 ─ 2. destination
+          ‡
+        5 │ select 1 from (t join u on t.a = u.b) join v on t.a = v.c;
+          ╰╴                                                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_fully_wrapped_paren_join_qualified_column_left() {
+        assert_snapshot!(goto("
+create table t (a int);
+create table u (b int);
+create table v (c int);
+select 1 from ((t join u on t.a = u.b) join v on v.c = t.a$0);
+"), @"
+          ╭▸ 
+        2 │ create table t (a int);
+          │                 ─ 2. destination
+          ‡
+        5 │ select 1 from ((t join u on t.a = u.b) join v on v.c = t.a);
+          ╰╴                                                         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_fully_wrapped_paren_join_qualified_column_right() {
+        assert_snapshot!(goto("
+create table t (a int);
+create table u (b int);
+create table v (c int);
+select 1 from ((t join u on t.a = u.b) join v on v.c$0 = t.a);
+"), @"
+          ╭▸ 
+        4 │ create table v (c int);
+          │                 ─ 2. destination
+        5 │ select 1 from ((t join u on t.a = u.b) join v on v.c = t.a);
+          ╰╴                                                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_ambiguous_unqualified_column_comma_join() {
+        assert_snapshot!(goto("
+create table t(a int);
+create table u(a int);
+select a$0 from t, u;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │                ─ 2. destination
+        3 │ create table u(a int);
+          │                ─ 3. destination
+        4 │ select a from t, u;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_join_using_output_column() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+create table u(a int, c int);
+select a$0 from t join u using(a);
+"), @"
+          ╭▸ 
+        2 │ create table t(a int, b int);
+          │                ─ 2. destination
+        3 │ create table u(a int, c int);
+          │                ─ 3. destination
+        4 │ select a from t join u using(a);
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_natural_join_output_column() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+create table u(a int, c int);
+select a$0 from t natural join u;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int, b int);
+          │                ─ 2. destination
+        3 │ create table u(a int, c int);
+          │                ─ 3. destination
+        4 │ select a from t natural join u;
+          ╰╴       ─ 1. source
+        ");
     }
 
     #[test]
@@ -926,6 +1214,92 @@ drop sequence s$0;
     }
 
     #[test]
+    fn goto_drop_constraint() {
+        assert_snapshot!(goto("
+create table t(id int constraint id_positive check (id > 0));
+alter table t drop constraint id_positive$0;
+"), @"
+          ╭▸ 
+        2 │ create table t(id int constraint id_positive check (id > 0));
+          │                                  ─────────── 2. destination
+        3 │ alter table t drop constraint id_positive;
+          ╰╴                                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_constraint() {
+        assert_snapshot!(goto("
+create table t(id int constraint id_positive check (id > 0));
+comment on constraint id_positive$0 on t is 'positive id';
+"), @"
+          ╭▸ 
+        2 │ create table t(id int constraint id_positive check (id > 0));
+          │                                  ─────────── 2. destination
+        3 │ comment on constraint id_positive on t is 'positive id';
+          ╰╴                                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_constraint_table() {
+        assert_snapshot!(goto("
+create table t(id int constraint id_positive check (id > 0));
+comment on constraint id_positive on t$0 is 'positive id';
+"), @"
+          ╭▸ 
+        2 │ create table t(id int constraint id_positive check (id > 0));
+          │              ─ 2. destination
+        3 │ comment on constraint id_positive on t is 'positive id';
+          ╰╴                                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_constraint_with_same_name_on_multiple_tables() {
+        assert_snapshot!(goto("
+create table t(id int constraint id_positive check (id > 0));
+create table u(id int constraint id_positive check (id > 0));
+alter table u drop constraint id_positive$0;
+"), @"
+          ╭▸ 
+        3 │ create table u(id int constraint id_positive check (id > 0));
+          │                                  ─────────── 2. destination
+        4 │ alter table u drop constraint id_positive;
+          ╰╴                                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_table_add_constraint() {
+        assert_snapshot!(goto("
+create table t(id int);
+alter table t add constraint id_positive check (id > 0);
+comment on constraint id_positive$0 on t is 'positive id';
+"), @"
+          ╭▸ 
+        3 │ alter table t add constraint id_positive check (id > 0);
+          │                              ─────────── 2. destination
+        4 │ comment on constraint id_positive on t is 'positive id';
+          ╰╴                                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_on_conflict_constraint() {
+        assert_snapshot!(goto("
+create table t(id int constraint t_id_key unique);
+insert into t values (1) on conflict on constraint t_id_key$0 do nothing;
+"), @"
+          ╭▸ 
+        2 │ create table t(id int constraint t_id_key unique);
+          │                                  ──────── 2. destination
+        3 │ insert into t values (1) on conflict on constraint t_id_key do nothing;
+          ╰╴                                                          ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_drop_trigger() {
         assert_snapshot!(goto("
 create trigger tr before insert on t for each row execute function f();
@@ -936,6 +1310,112 @@ drop trigger tr$0 on t;
           │                ── 2. destination
         3 │ drop trigger tr on t;
           ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_rule_table() {
+        assert_snapshot!(goto("
+create table t(a int);
+create rule r as on select to t$0 do instead nothing;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │              ─ 2. destination
+        3 │ create rule r as on select to t do instead nothing;
+          ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_rule() {
+        assert_snapshot!(goto("
+create table t(a int);
+create rule r as on select to t do instead nothing;
+drop rule r$0 on t;
+"), @"
+          ╭▸ 
+        3 │ create rule r as on select to t do instead nothing;
+          │             ─ 2. destination
+        4 │ drop rule r on t;
+          ╰╴          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_rule() {
+        assert_snapshot!(goto("
+create table t(a int);
+create rule r as on select to t do instead nothing;
+alter rule r$0 on t rename to r2;
+"), @"
+          ╭▸ 
+        3 │ create rule r as on select to t do instead nothing;
+          │             ─ 2. destination
+        4 │ alter rule r on t rename to r2;
+          ╰╴           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_table_enable_trigger() {
+        assert_snapshot!(goto("
+create table t(a int);
+create function f() returns trigger language plpgsql as $$ begin return new; end $$;
+create trigger tr before insert on t for each row execute function f();
+alter table t enable trigger tr$0;
+"), @"
+          ╭▸ 
+        4 │ create trigger tr before insert on t for each row execute function f();
+          │                ── 2. destination
+        5 │ alter table t enable trigger tr;
+          ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_table_disable_trigger() {
+        assert_snapshot!(goto("
+create table t(a int);
+create function f() returns trigger language plpgsql as $$ begin return new; end $$;
+create trigger tr before insert on t for each row execute function f();
+alter table t disable trigger tr$0;
+"), @"
+          ╭▸ 
+        4 │ create trigger tr before insert on t for each row execute function f();
+          │                ── 2. destination
+        5 │ alter table t disable trigger tr;
+          ╰╴                               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_table_enable_rule() {
+        assert_snapshot!(goto("
+create table t(a int);
+create rule r as on insert to t do instead nothing;
+alter table t enable rule r$0;
+"), @"
+          ╭▸ 
+        3 │ create rule r as on insert to t do instead nothing;
+          │             ─ 2. destination
+        4 │ alter table t enable rule r;
+          ╰╴                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_table_disable_rule() {
+        assert_snapshot!(goto("
+create table t(a int);
+create rule r as on insert to t do instead nothing;
+alter table t disable rule r$0;
+"), @"
+          ╭▸ 
+        3 │ create rule r as on insert to t do instead nothing;
+          │             ─ 2. destination
+        4 │ alter table t disable rule r;
+          ╰╴                           ─ 1. source
         ");
     }
 
@@ -980,11 +1460,11 @@ create table t(c int);
 create policy p on t;
 alter policy p on t
   with check (c$0 > 1);
-"), @r"
+"), @"
           ╭▸ 
-        3 │ create policy p on t;
-          │               ─ 2. destination
-        4 │ alter policy p on t
+        2 │ create table t(c int);
+          │                ─ 2. destination
+          ‡
         5 │   with check (c > 1);
           ╰╴              ─ 1. source
         ");
@@ -1070,6 +1550,130 @@ create policy p on t
           ‡
         7 │   with check (t.c > 1 and t.x > 0);
           ╰╴                            ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_function_param_in_begin_atomic_body() {
+        assert_snapshot!(goto("
+create function f(a int) returns int
+begin atomic
+  select a$0;
+end;
+"), @"
+          ╭▸ 
+        2 │ create function f(a int) returns int
+          │                   ─ 2. destination
+        3 │ begin atomic
+        4 │   select a;
+          ╰╴         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_function_param_in_begin_atomic_predicate() {
+        assert_snapshot!(goto("
+create table t (id int);
+create function f(x int) returns int begin atomic
+  select id from t where id = x$0;
+end;
+"), @"
+          ╭▸ 
+        3 │ create function f(x int) returns int begin atomic
+          │                   ─ 2. destination
+        4 │   select id from t where id = x;
+          ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_function_param_in_sql_body_return_expr() {
+        assert_snapshot!(goto("
+create function f(x int) returns int language sql return x$0 + 1;
+"), @"
+          ╭▸ 
+        2 │ create function f(x int) returns int language sql return x + 1;
+          ╰╴                  ─ 2. destination                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_function_param_self_qualified_in_sql_body_return_expr() {
+        assert_snapshot!(goto("
+create function f(x int) returns int language sql return f.x$0 + 1;
+"), @"
+          ╭▸ 
+        2 │ create function f(x int) returns int language sql return f.x + 1;
+          ╰╴                  ─ 2. destination                         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_function_param_bogus_qualified_in_sql_body_return_expr() {
+        goto_not_found(
+            "
+create function f(x int) returns int language sql return bogus.x$0 + 1;
+",
+        );
+    }
+
+    #[test]
+    fn goto_positional_param_in_sql_body_return_expr() {
+        assert_snapshot!(goto("
+create function f(x int) returns int language sql return $1$0 + 1;
+"), @"
+          ╭▸ 
+        2 │ create function f(x int) returns int language sql return $1 + 1;
+          ╰╴                  ─ 2. destination                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_positional_param_in_begin_atomic_body() {
+        assert_snapshot!(goto("
+create function f(x int) returns int language sql begin atomic
+  select $1$0 + 1;
+end;
+"), @"
+          ╭▸ 
+        2 │ create function f(x int) returns int language sql begin atomic
+          │                   ─ 2. destination
+        3 │   select $1 + 1;
+          ╰╴          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_positional_param_unnamed_param() {
+        assert_snapshot!(goto("
+create function f(int) returns int language sql return $1$0;
+"), @"
+          ╭▸ 
+        2 │ create function f(int) returns int language sql return $1;
+          ╰╴                  ─── 2. destination                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_positional_param_second_of_two() {
+        assert_snapshot!(goto("
+create function f(int, text) returns int language sql return $2$0;
+"), @"
+          ╭▸ 
+        2 │ create function f(int, text) returns int language sql return $2;
+          ╰╴                       ──── 2. destination                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_function_param_in_later_param_default() {
+        assert_snapshot!(goto("
+create function f(a int default 1, b int default a$0) returns int
+begin atomic select 1; end;
+"), @"
+          ╭▸ 
+        2 │ create function f(a int default 1, b int default a) returns int
+          ╰╴                  ─ 2. destination               ─ 1. source
         ");
     }
 
@@ -1437,6 +2041,119 @@ execute function noop();
     }
 
     #[test]
+    fn goto_create_constraint_trigger_from_table() {
+        assert_snapshot!(goto("
+create table t(id int);
+create table ref_t(id int);
+create constraint trigger trg after insert on t from ref_t$0 for each row execute function f();
+"), @"
+          ╭▸ 
+        3 │ create table ref_t(id int);
+          │              ───── 2. destination
+        4 │ create constraint trigger trg after insert on t from ref_t for each row execute function f();
+          ╰╴                                                         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_trigger_when_new_column() {
+        assert_snapshot!(goto("
+create table foo (id int);
+create trigger tr before insert on foo for each row when (new.id$0 > 0) execute function f();
+"), @"
+          ╭▸ 
+        2 │ create table foo (id int);
+          │                   ── 2. destination
+        3 │ create trigger tr before insert on foo for each row when (new.id > 0) execute function f();
+          ╰╴                                                               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_trigger_when_old_column() {
+        assert_snapshot!(goto("
+create table foo (id int);
+create trigger tr after update on foo for each row when (old.id$0 > 0) execute function f();
+"), @"
+          ╭▸ 
+        2 │ create table foo (id int);
+          │                   ── 2. destination
+        3 │ create trigger tr after update on foo for each row when (old.id > 0) execute function f();
+          ╰╴                                                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_trigger_when_new_table() {
+        assert_snapshot!(goto("
+create table foo (id int);
+create trigger tr before insert on foo for each row when (new$0.id > 0) execute function f();
+"), @"
+          ╭▸ 
+        2 │ create table foo (id int);
+          │              ─── 2. destination
+        3 │ create trigger tr before insert on foo for each row when (new.id > 0) execute function f();
+          ╰╴                                                            ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_rule_old_column() {
+        assert_snapshot!(goto("
+create table t(id int);
+create rule r as on update to t where old.id$0 = new.id do instead nothing;
+"), @"
+          ╭▸ 
+        2 │ create table t(id int);
+          │                ── 2. destination
+        3 │ create rule r as on update to t where old.id = new.id do instead nothing;
+          ╰╴                                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_rule_new_column() {
+        assert_snapshot!(goto("
+create table t(id int);
+create rule r as on update to t where old.id = new.id$0 do instead nothing;
+"), @"
+          ╭▸ 
+        2 │ create table t(id int);
+          │                ── 2. destination
+        3 │ create rule r as on update to t where old.id = new.id do instead nothing;
+          ╰╴                                                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_rule_old_table() {
+        assert_snapshot!(goto("
+create table t(id int);
+create rule r as on update to t where old$0.id = new.id do instead nothing;
+"), @"
+          ╭▸ 
+        2 │ create table t(id int);
+          │              ─ 2. destination
+        3 │ create rule r as on update to t where old.id = new.id do instead nothing;
+          ╰╴                                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_trigger_update_of_column() {
+        assert_snapshot!(goto("
+create table t(id int, updated_at timestamptz);
+create trigger tr before update of updated_at$0 on t for each row execute function f();
+"), @"
+          ╭▸ 
+        2 │ create table t(id int, updated_at timestamptz);
+          │                        ────────── 2. destination
+        3 │ create trigger tr before update of updated_at on t for each row execute function f();
+          ╰╴                                            ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_create_sequence_owned_by() {
         assert_snapshot!(goto("
 create table t(c serial);
@@ -1449,6 +2166,38 @@ create sequence s
         3 │ create sequence s
         4 │   owned by t.c;
           ╰╴             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_sequence_owned_by_table() {
+        assert_snapshot!(goto("
+create table t(c serial);
+create sequence s
+  owned by t$0.c;
+"), @"
+          ╭▸ 
+        2 │ create table t(c serial);
+          │              ─ 2. destination
+        3 │ create sequence s
+        4 │   owned by t.c;
+          ╰╴           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_sequence_owned_by_table() {
+        assert_snapshot!(goto("
+create table t(c serial);
+create sequence s;
+alter sequence s owned by t$0.c;
+"), @"
+          ╭▸ 
+        2 │ create table t(c serial);
+          │              ─ 2. destination
+        3 │ create sequence s;
+        4 │ alter sequence s owned by t.c;
+          ╰╴                          ─ 1. source
         ");
     }
 
@@ -1687,6 +2436,488 @@ alter extension my$0ext update to '2.0';
           │                  ───── 2. destination
         3 │ alter extension myext update to '2.0';
           ╰╴                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_extension_with_schema() {
+        assert_snapshot!(goto("
+create schema ext_schema;
+create extension hstore with schema ext_sche$0ma;
+"), @"
+          ╭▸ 
+        2 │ create schema ext_schema;
+          │               ────────── 2. destination
+        3 │ create extension hstore with schema ext_schema;
+          ╰╴                                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_extension_add_table() {
+        assert_snapshot!(goto("
+create extension e;
+create table t(id int);
+alter extension e add table t$0;
+"), @"
+          ╭▸ 
+        3 │ create table t(id int);
+          │              ─ 2. destination
+        4 │ alter extension e add table t;
+          ╰╴                            ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_extension_add_foreign_table() {
+        assert_snapshot!(goto("
+create extension e;
+create foreign table t(id int) server s;
+alter extension e add foreign table t$0;
+"), @"
+          ╭▸ 
+        3 │ create foreign table t(id int) server s;
+          │                      ─ 2. destination
+        4 │ alter extension e add foreign table t;
+          ╰╴                                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_default_privileges_in_schema() {
+        assert_snapshot!(goto("
+create schema myschema;
+create role bob;
+alter default privileges in schema myschema$0
+  grant select on tables to bob;
+"), @"
+          ╭▸ 
+        2 │ create schema myschema;
+          │               ──────── 2. destination
+        3 │ create role bob;
+        4 │ alter default privileges in schema myschema
+          ╰╴                                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_publication() {
+        assert_snapshot!(goto("
+create table t(id int);
+create publication pub for table t;
+alter publication pub$0 add table t;
+"), @"
+          ╭▸ 
+        3 │ create publication pub for table t;
+          │                    ─── 2. destination
+        4 │ alter publication pub add table t;
+          ╰╴                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_subscription() {
+        assert_snapshot!(goto("
+create subscription sub connection $$host=localhost$$ publication pub;
+alter subscription sub$0 refresh publication;
+"), @"
+          ╭▸ 
+        2 │ create subscription sub connection $$host=localhost$$ publication pub;
+          │                     ─── 2. destination
+        3 │ alter subscription sub refresh publication;
+          ╰╴                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_language() {
+        assert_snapshot!(goto("
+create language plpythonu;
+drop language plpythonu$0;
+"), @"
+          ╭▸ 
+        2 │ create language plpythonu;
+          │                 ───────── 2. destination
+        3 │ drop language plpythonu;
+          ╰╴                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_function_language_option() {
+        assert_snapshot!(goto("
+create language mylang;
+create function f() returns int language mylang$0 as $$x$$;
+"), @"
+          ╭▸ 
+        2 │ create language mylang;
+          │                 ────── 2. destination
+        3 │ create function f() returns int language mylang as $$x$$;
+          ╰╴                                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_procedure_language_option() {
+        assert_snapshot!(goto("
+create language mylang;
+create procedure p() language mylang$0 as $$x$$;
+"), @"
+          ╭▸ 
+        2 │ create language mylang;
+          │                 ────── 2. destination
+        3 │ create procedure p() language mylang as $$x$$;
+          ╰╴                                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_function_support_option() {
+        assert_snapshot!(goto("
+create function sf(internal) returns internal language c as $$x$$;
+create function f(int) returns int language sql support sf$0 as $$select 1$$;
+"), @"
+          ╭▸ 
+        2 │ create function sf(internal) returns internal language c as $$x$$;
+          │                 ── 2. destination
+        3 │ create function f(int) returns int language sql support sf as $$select 1$$;
+          ╰╴                                                         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_transform_language_option() {
+        assert_snapshot!(goto("
+create language mylang;
+create type typ as (x int);
+create transform for typ language mylang$0
+  (from sql with function int4(typ));
+"), @"
+          ╭▸ 
+        2 │ create language mylang;
+          │                 ────── 2. destination
+        3 │ create type typ as (x int);
+        4 │ create transform for typ language mylang
+          ╰╴                                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_collate_in_column() {
+        assert_snapshot!(goto("
+create collation mycoll (locale = 'C');
+create table t(name text collate mycoll$0);
+"), @"
+          ╭▸ 
+        2 │ create collation mycoll (locale = 'C');
+          │                  ────── 2. destination
+        3 │ create table t(name text collate mycoll);
+          ╰╴                                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_collate_in_order_by() {
+        assert_snapshot!(goto("
+create collation c from \"C\";
+create table t(a text);
+select a from t order by a collate c$0;
+"), @r#"
+          ╭▸ 
+        2 │ create collation c from "C";
+          │                  ─ 2. destination
+        3 │ create table t(a text);
+        4 │ select a from t order by a collate c;
+          ╰╴                                   ─ 1. source
+        "#);
+    }
+
+    #[test]
+    fn goto_collate_in_index_expr() {
+        assert_snapshot!(goto("
+create collation c from \"C\";
+create table t(a text);
+create index idx on t (a collate c$0);
+"), @r#"
+          ╭▸ 
+        2 │ create collation c from "C";
+          │                  ─ 2. destination
+        3 │ create table t(a text);
+        4 │ create index idx on t (a collate c);
+          ╰╴                                 ─ 1. source
+        "#);
+    }
+
+    #[test]
+    fn goto_create_collation_from() {
+        assert_snapshot!(goto("
+create collation c1 (locale = 'C');
+create collation c2 from c1$0;
+"), @"
+          ╭▸ 
+        2 │ create collation c1 (locale = 'C');
+          │                  ── 2. destination
+        3 │ create collation c2 from c1;
+          ╰╴                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_server_foreign_data_wrapper() {
+        assert_snapshot!(goto("
+create foreign data wrapper fdw;
+create server srv foreign data wrapper fdw$0;
+"), @"
+          ╭▸ 
+        2 │ create foreign data wrapper fdw;
+          │                             ─── 2. destination
+        3 │ create server srv foreign data wrapper fdw;
+          ╰╴                                         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_sequence() {
+        assert_snapshot!(goto("
+create sequence s;
+alter sequence s$0 restart with 1;
+"), @"
+          ╭▸ 
+        2 │ create sequence s;
+          │                 ─ 2. destination
+        3 │ alter sequence s restart with 1;
+          ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_view() {
+        assert_snapshot!(goto("
+create view v as select 1 as id;
+alter view v$0 rename to v2;
+"), @"
+          ╭▸ 
+        2 │ create view v as select 1 as id;
+          │             ─ 2. destination
+        3 │ alter view v rename to v2;
+          ╰╴           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_materialized_view() {
+        assert_snapshot!(goto("
+create materialized view mv as select 1 as id;
+alter materialized view mv$0 rename to mv2;
+"), @"
+          ╭▸ 
+        2 │ create materialized view mv as select 1 as id;
+          │                          ── 2. destination
+        3 │ alter materialized view mv rename to mv2;
+          ╰╴                         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_type() {
+        assert_snapshot!(goto("
+create type address as (city text);
+alter type address$0 add attribute zip text;
+"), @"
+          ╭▸ 
+        2 │ create type address as (city text);
+          │             ─────── 2. destination
+        3 │ alter type address add attribute zip text;
+          ╰╴                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_domain() {
+        assert_snapshot!(goto("
+create domain email as text;
+alter domain email$0 set not null;
+"), @"
+          ╭▸ 
+        2 │ create domain email as text;
+          │               ───── 2. destination
+        3 │ alter domain email set not null;
+          ╰╴                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_function() {
+        assert_snapshot!(goto("
+create function f(a int) returns int language sql as $$ select a $$;
+alter function f$0(int) owner to me;
+"), @"
+          ╭▸ 
+        2 │ create function f(a int) returns int language sql as $$ select a $$;
+          │                 ─ 2. destination
+        3 │ alter function f(int) owner to me;
+          ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_procedure() {
+        assert_snapshot!(goto("
+create procedure p(a int) language sql as $$ select 1 $$;
+alter procedure p$0(int) rename to q;
+"), @"
+          ╭▸ 
+        2 │ create procedure p(a int) language sql as $$ select 1 $$;
+          │                  ─ 2. destination
+        3 │ alter procedure p(int) rename to q;
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_routine() {
+        assert_snapshot!(goto("
+create function f() returns int language sql as $$ select 1 $$;
+alter routine f$0 rename to g;
+"), @"
+          ╭▸ 
+        2 │ create function f() returns int language sql as $$ select 1 $$;
+          │                 ─ 2. destination
+        3 │ alter routine f rename to g;
+          ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_aggregate() {
+        assert_snapshot!(goto("
+create aggregate agg (int) (sfunc = f, stype = int8);
+alter aggregate agg$0(int) rename to agg2;
+"), @"
+          ╭▸ 
+        2 │ create aggregate agg (int) (sfunc = f, stype = int8);
+          │                  ─── 2. destination
+        3 │ alter aggregate agg(int) rename to agg2;
+          ╰╴                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_index() {
+        assert_snapshot!(goto("
+create table t(id int);
+create index idx on t(id);
+alter index idx$0 rename to idx2;
+"), @"
+          ╭▸ 
+        3 │ create index idx on t(id);
+          │              ─── 2. destination
+        4 │ alter index idx rename to idx2;
+          ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_schema() {
+        assert_snapshot!(goto("
+create schema app;
+alter schema app$0 rename to app2;
+"), @"
+          ╭▸ 
+        2 │ create schema app;
+          │               ─── 2. destination
+        3 │ alter schema app rename to app2;
+          ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_schema_element_unqualified_table_ref() {
+        assert_snapshot!(goto("
+create schema app
+  create table users(id int)
+  create view v as
+    select id from users$0;
+"), @"
+          ╭▸ 
+        3 │   create table users(id int)
+          │                ───── 2. destination
+        4 │   create view v as
+        5 │     select id from users;
+          ╰╴                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_schema_element_unqualified_column_ref() {
+        assert_snapshot!(goto("
+create schema app
+  create table users(id int)
+  create view v as
+    select id$0 from users;
+"), @"
+          ╭▸ 
+        3 │   create table users(id int)
+          │                      ── 2. destination
+        4 │   create view v as
+        5 │     select id from users;
+          ╰╴            ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_database() {
+        assert_snapshot!(goto("
+create database appdb;
+alter database appdb$0 owner to alice;
+"), @"
+          ╭▸ 
+        2 │ create database appdb;
+          │                 ───── 2. destination
+        3 │ alter database appdb owner to alice;
+          ╰╴                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_tablespace() {
+        assert_snapshot!(goto("
+create tablespace fast location '/tmp/fast';
+alter tablespace fast$0 rename to faster;
+"), @"
+          ╭▸ 
+        2 │ create tablespace fast location '/tmp/fast';
+          │                   ──── 2. destination
+        3 │ alter tablespace fast rename to faster;
+          ╰╴                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_trigger() {
+        assert_snapshot!(goto("
+create trigger trg before insert on t for each row execute function f();
+alter trigger trg$0 on t rename to trg2;
+"), @"
+          ╭▸ 
+        2 │ create trigger trg before insert on t for each row execute function f();
+          │                ─── 2. destination
+        3 │ alter trigger trg on t rename to trg2;
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_foreign_table() {
+        assert_snapshot!(goto("
+create foreign table ft(id int) server myserver;
+alter foreign table ft$0 owner to alice;
+"), @"
+          ╭▸ 
+        2 │ create foreign table ft(id int) server myserver;
+          │                      ── 2. destination
+        3 │ alter foreign table ft owner to alice;
+          ╰╴                     ─ 1. source
         ");
     }
 
@@ -2335,6 +3566,43 @@ select a$0 from part_2026_01_02;
     }
 
     #[test]
+    fn goto_partition_table_qualified_column() {
+        assert_snapshot!(goto("
+create table part (
+  a int,
+  inserted_at timestamptz not null default now()
+) partition by range (inserted_at);
+create table part_2026_01_02 partition of part
+    for values from ('2026-01-02') to ('2026-01-03');
+select part_2026_01_02.a$0 from part_2026_01_02;
+"), @"
+          ╭▸ 
+        3 │   a int,
+          │   ─ 2. destination
+          ‡
+        8 │ select part_2026_01_02.a from part_2026_01_02;
+          ╰╴                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_partition_table_qualified_column_multi_level() {
+        assert_snapshot!(goto("
+create table p (a int) partition by list (a);
+create table m partition of p for values in (1) partition by list (a);
+create table c partition of m for values in (2);
+select c.a$0 from c;
+"), @"
+          ╭▸ 
+        2 │ create table p (a int) partition by list (a);
+          │                 ─ 2. destination
+          ‡
+        5 │ select c.a from c;
+          ╰╴         ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_alter_index_attach_partition() {
         assert_snapshot!(goto("
 create table t (
@@ -2342,14 +3610,15 @@ create table t (
 ) partition by range (inserted_at);
 create table part partition of t
     for values from ('2026-01-02') to ('2026-01-03');
-alter index t attach partition part$0;
-"), @r"
+create index parent_idx on t (inserted_at);
+create index child_idx on part (inserted_at);
+alter index parent_idx attach partition child_$0idx;
+"), @"
           ╭▸ 
-        5 │ create table part partition of t
-          │              ──── 2. destination
-        6 │     for values from ('2026-01-02') to ('2026-01-03');
-        7 │ alter index t attach partition part;
-          ╰╴                                  ─ 1. source
+        8 │ create index child_idx on part (inserted_at);
+          │              ───────── 2. destination
+        9 │ alter index parent_idx attach partition child_idx;
+          ╰╴                                             ─ 1. source
         ");
     }
 
@@ -2417,6 +3686,80 @@ select a$0 from v;
         3 │ create view v as table t;
         4 │ select a from v;
           ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_view_values_query_column_gap() {
+        assert_snapshot!(goto("
+create view v as values (1, 2);
+select column2$0 from v;
+"), @"
+          ╭▸ 
+        2 │ create view v as values (1, 2);
+          │                             ─ 2. destination
+        3 │ select column2 from v;
+          ╰╴             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_view_compound_table_query_column() {
+        assert_snapshot!(goto("
+create table t(a int);
+create view v as table t union table t;
+select a$0 from v;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │                ─ 2. destination
+        3 │ create view v as table t union table t;
+        4 │ select a from v;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_view_compound_values_query_column() {
+        assert_snapshot!(goto("
+create view v as values (1, 2) union values (3, 4);
+select column2$0 from v;
+"), @"
+          ╭▸ 
+        2 │ create view v as values (1, 2) union values (3, 4);
+          │                             ─ 2. destination
+        3 │ select column2 from v;
+          ╰╴             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_view_table_query_column_count_gap() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+create view v as table t;
+select b$0 from (select * from v) u(a);
+"), @"
+          ╭▸ 
+        2 │ create table t(a int, b int);
+          │                       ─ 2. destination
+        3 │ create view v as table t;
+        4 │ select b from (select * from v) u(a);
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_view_values_query_column_count_gap() {
+        assert_snapshot!(goto("
+create view v as values (1, 2);
+select column2$0 from (select * from v) u(a);
+"), @"
+          ╭▸ 
+        2 │ create view v as values (1, 2);
+          │                             ─ 2. destination
+        3 │ select column2 from (select * from v) u(a);
+          ╰╴             ─ 1. source
         ");
     }
 
@@ -2607,11 +3950,10 @@ select a$0 from u;
 create table t();
 create temp table t();
 drop table t$0;
-"), @r"
+"), @"
           ╭▸ 
-        2 │ create table t();
-          │              ─ 2. destination
         3 │ create temp table t();
+          │                   ─ 2. destination
         4 │ drop table t;
           ╰╴           ─ 1. source
         ");
@@ -2833,6 +4175,48 @@ select (member).name$0 from users;
         3 │ create table users(id int, member person_info);
         4 │ select (member).name from users;
           ╰╴                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_type_drop_attribute() {
+        assert_snapshot!(goto("
+create type address as (city text, zip text);
+alter type address drop attribute city$0;
+"), @"
+          ╭▸ 
+        2 │ create type address as (city text, zip text);
+          │                         ──── 2. destination
+        3 │ alter type address drop attribute city;
+          ╰╴                                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_type_rename_attribute() {
+        assert_snapshot!(goto("
+create type address as (city text, zip text);
+alter type address rename attribute city$0 to town;
+"), @"
+          ╭▸ 
+        2 │ create type address as (city text, zip text);
+          │                         ──── 2. destination
+        3 │ alter type address rename attribute city to town;
+          ╰╴                                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_type_alter_attribute() {
+        assert_snapshot!(goto("
+create type address as (city text, zip text);
+alter type address alter attribute city$0 set data type varchar;
+"), @"
+          ╭▸ 
+        2 │ create type address as (city text, zip text);
+          │                         ──── 2. destination
+        3 │ alter type address alter attribute city set data type varchar;
+          ╰╴                                      ─ 1. source
         ");
     }
 
@@ -3109,6 +4493,62 @@ select a$0 from u;
     }
 
     #[test]
+    fn goto_select_into_source_table() {
+        assert_snapshot!(goto("
+create table t(a int);
+select a into u from t$0;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │              ─ 2. destination
+        3 │ select a into u from t;
+          ╰╴                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_into_target_list_column() {
+        assert_snapshot!(goto("
+create table t(a int);
+select a$0 into u from t;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │                ─ 2. destination
+        3 │ select a into u from t;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_into_where_column() {
+        assert_snapshot!(goto("
+create table t(a int);
+select a into u from t where a$0 > 0;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │                ─ 2. destination
+        3 │ select a into u from t where a > 0;
+          ╰╴                             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_into_qualified_column() {
+        assert_snapshot!(goto("
+create table t(a int);
+select t.a$0 into u from t;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │                ─ 2. destination
+        3 │ select t.a into u from t;
+          ╰╴         ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_create_table_as_column() {
         assert_snapshot!(goto("
 create table t as select 1 a;
@@ -3169,6 +4609,80 @@ select column1$0 from k;
     }
 
     #[test]
+    fn goto_create_table_as_compound_table_query_column() {
+        assert_snapshot!(goto("
+create table t(a int);
+create table u as table t union table t;
+select a$0 from u;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │                ─ 2. destination
+        3 │ create table u as table t union table t;
+        4 │ select a from u;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_table_as_compound_values_query_column() {
+        assert_snapshot!(goto("
+create table u as values (1, 2) union values (3, 4);
+select column2$0 from u;
+"), @"
+          ╭▸ 
+        2 │ create table u as values (1, 2) union values (3, 4);
+          │                              ─ 2. destination
+        3 │ select column2 from u;
+          ╰╴             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_table_as_paren_table_query_column() {
+        assert_snapshot!(goto("
+create table t(a int);
+create table u as (table t);
+select a$0 from u;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │                ─ 2. destination
+        3 │ create table u as (table t);
+        4 │ select a from u;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_table_as_paren_values_query_column() {
+        assert_snapshot!(goto("
+create table u as (values (1, 2));
+select column2$0 from u;
+"), @"
+          ╭▸ 
+        2 │ create table u as (values (1, 2));
+          │                               ─ 2. destination
+        3 │ select column2 from u;
+          ╰╴             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_table_as_values_column_count_gap() {
+        assert_snapshot!(goto("
+create table u as values (1, 2);
+select column2$0 from (select * from u) x(a);
+"), @"
+          ╭▸ 
+        2 │ create table u as values (1, 2);
+          │                              ─ 2. destination
+        3 │ select column2 from (select * from u) x(a);
+          ╰╴             ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_select_from_create_table_as() {
         assert_snapshot!(goto("
 create table t as select 1 a;
@@ -3222,6 +4736,46 @@ select * from v$0;
         3 │     select col1 from v;
           ╰╴              ─ 1. source
         ");
+    }
+
+    #[test]
+    fn goto_create_table_as_with_explicit_column_list() {
+        assert_snapshot!(goto("
+create table t (a int);
+create table t2 (x) as select a from t;
+select x$0 from t2;
+"), @"
+          ╭▸ 
+        3 │ create table t2 (x) as select a from t;
+          │                  ─ 2. destination
+        4 │ select x from t2;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_table_as_explicit_column_list_shorter_than_select() {
+        assert_snapshot!(goto("
+create table t2 (x) as select 1 a, 2 b;
+select b$0 from t2;
+"), @"
+          ╭▸ 
+        2 │ create table t2 (x) as select 1 a, 2 b;
+          │                                      ─ 2. destination
+        3 │ select b from t2;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_table_as_explicit_column_list_shadows_select_column() {
+        goto_not_found(
+            "
+create table t (a int);
+create table t2 (x) as select a from t;
+select a$0 from t2;
+",
+        );
     }
 
     #[test]
@@ -3777,6 +5331,20 @@ select ((((member))).name$0) from team;
     }
 
     #[test]
+    fn goto_whole_row_field_access() {
+        assert_snapshot!(goto("
+create table t (a int);
+select (t).a$0 from t;
+"), @"
+          ╭▸ 
+        2 │ create table t (a int);
+          │                 ─ 2. destination
+        3 │ select (t).a from t;
+          ╰╴           ─ 1. source
+        ");
+    }
+
+    #[test]
     fn begin_to_rollback() {
         assert_snapshot!(goto(
             "
@@ -3898,6 +5466,87 @@ drop table foo.t$0;
     }
 
     #[test]
+    fn goto_with_search_path_via_set_config() {
+        assert_snapshot!(goto(r#"
+select set_config('search_path', 'foo, public', false);
+create table foo.t();
+drop table t$0;
+"#), @"
+          ╭▸ 
+        3 │ create table foo.t();
+          │                  ─ 2. destination
+        4 │ drop table t;
+          ╰╴           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_with_search_path_via_set_config_unrelated_setting() {
+        goto_not_found(
+            r#"
+select set_config('work_mem', '64MB', false);
+create table foo.t();
+drop table t$0;
+"#,
+        );
+    }
+
+    #[test]
+    fn goto_with_search_path_via_set_config_user_defined_function() {
+        goto_not_found(
+            r#"
+create function set_config(text, text, boolean) returns text as $$ select $2 $$ language sql;
+select set_config('search_path', 'foo', false);
+create table foo.t();
+drop table t$0;
+"#,
+        );
+    }
+
+    #[test]
+    fn goto_with_search_path_via_set_config_user_defined_function_outside_search_path() {
+        assert_snapshot!(goto(r#"
+create schema other;
+create function other.set_config(text, text, boolean) returns text as $$ select $2 $$ language sql;
+select set_config('search_path', 'foo', false);
+create table foo.t();
+drop table t$0;
+"#), @"
+          ╭▸ 
+        5 │ create table foo.t();
+          │                  ─ 2. destination
+        6 │ drop table t;
+          ╰╴           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_with_search_path_via_set_config_pg_catalog_qualified() {
+        assert_snapshot!(goto(r#"
+select pg_catalog.set_config('search_path', 'foo', false);
+create table foo.t();
+drop table t$0;
+"#), @"
+          ╭▸ 
+        3 │ create table foo.t();
+          │                  ─ 2. destination
+        4 │ drop table t;
+          ╰╴           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_with_search_path_via_set_config_non_pg_catalog_qualified() {
+        goto_not_found(
+            r#"
+select public.set_config('search_path', 'foo', false);
+create table foo.t();
+drop table t$0;
+"#,
+        );
+    }
+
+    #[test]
     fn goto_column_not_in_cte_but_in_table() {
         // we shouldn't navigate up to the table of the same name
         goto_not_found(
@@ -4007,6 +5656,212 @@ drop table t$0;
           │                       ─ 2. destination
         5 │ drop table t;
           ╰╴           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_search_path_schema_name() {
+        assert_snapshot!(goto("
+create schema app;
+set search_path to app$0;
+"), @"
+          ╭▸ 
+        2 │ create schema app;
+          │               ─── 2. destination
+        3 │ set search_path to app;
+          ╰╴                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_search_path_schema_name_quoted() {
+        assert_snapshot!(goto(r#"
+create schema app;
+set search_path to "app$0";
+"#), @r#"
+          ╭▸ 
+        2 │ create schema app;
+          │               ─── 2. destination
+        3 │ set search_path to "app";
+          ╰╴                      ─ 1. source
+        "#);
+    }
+
+    #[test]
+    fn goto_search_path_schema_name_string_literal() {
+        assert_snapshot!(goto(r#"
+create schema app;
+set search_path to 'app$0';
+"#), @"
+          ╭▸ 
+        2 │ create schema app;
+          │               ─── 2. destination
+        3 │ set search_path to 'app';
+          ╰╴                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_search_path_schema_name_second_item() {
+        assert_snapshot!(goto("
+create schema app;
+set search_path to public, app$0;
+"), @"
+          ╭▸ 
+        2 │ create schema app;
+          │               ─── 2. destination
+        3 │ set search_path to public, app;
+          ╰╴                             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_search_path_schema_name_not_the_param_name() {
+        goto_not_found(
+            "
+create schema search_path;
+set search_path$0 to app;
+",
+        );
+    }
+
+    #[test]
+    fn goto_alter_role_set_search_path() {
+        assert_snapshot!(goto("
+create schema app;
+create role app;
+create role r;
+alter role r set search_path = app$0;
+"), @"
+          ╭▸ 
+        2 │ create schema app;
+          │               ─── 2. destination
+          ‡
+        5 │ alter role r set search_path = app;
+          ╰╴                                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_database_set_search_path() {
+        assert_snapshot!(goto("
+create schema app;
+alter database d set search_path = app$0;
+"), @"
+          ╭▸ 
+        2 │ create schema app;
+          │               ─── 2. destination
+        3 │ alter database d set search_path = app;
+          ╰╴                                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_function_set_search_path() {
+        assert_snapshot!(goto("
+create schema app;
+create function f() returns int language sql as $$ select 1 $$ set search_path = app$0;
+"), @"
+          ╭▸ 
+        2 │ create schema app;
+          │               ─── 2. destination
+        3 │ create function f() returns int language sql as $$ select 1 $$ set search_path = app;
+          ╰╴                                                                                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_function_own_set_search_path_resolves_body_call() {
+        assert_snapshot!(goto("
+create schema bar;
+create function bar.foo() returns int language sql begin atomic select 1; end;
+create function caller() returns int language sql set search_path = bar begin atomic select foo$0(); end;
+"), @"
+          ╭▸ 
+        3 │ create function bar.foo() returns int language sql begin atomic select 1; end;
+          │                     ─── 2. destination
+        4 │ create function caller() returns int language sql set search_path = bar begin atomic select foo(); end;
+          ╰╴                                                                                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_function_own_set_search_path_does_not_leak_after_body() {
+        assert_snapshot!(goto("
+create schema bar;
+create table bar.t(id int);
+create table public.t(id int);
+create function caller() returns int language sql set search_path = bar begin atomic select 1; end;
+select * from t$0;
+"), @"
+          ╭▸ 
+        4 │ create table public.t(id int);
+          │                     ─ 2. destination
+        5 │ create function caller() returns int language sql set search_path = bar begin atomic select 1; end;
+        6 │ select * from t;
+          ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_function_set_search_path_from_current_resolves_body_call() {
+        assert_snapshot!(goto("
+create schema app;
+create function app.target() returns int language sql return 1;
+set search_path to app;
+create function caller() returns int language sql set search_path from current begin atomic select tar$0get(); end;
+"), @"
+          ╭▸ 
+        3 │ create function app.target() returns int language sql return 1;
+          │                     ────── 2. destination
+        4 │ set search_path to app;
+        5 │ create function caller() returns int language sql set search_path from current begin atomic select target(); end;
+          ╰╴                                                                                                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_procedure_own_set_search_path_resolves_body_call() {
+        assert_snapshot!(goto("
+create schema bar;
+create function bar.foo() returns int language sql begin atomic select 1; end;
+create procedure caller() language sql set search_path = bar begin atomic select foo$0(); end;
+"), @"
+          ╭▸ 
+        3 │ create function bar.foo() returns int language sql begin atomic select 1; end;
+          │                     ─── 2. destination
+        4 │ create procedure caller() language sql set search_path = bar begin atomic select foo(); end;
+          ╰╴                                                                                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_function_set_search_path() {
+        assert_snapshot!(goto("
+create schema app;
+create function f() returns int language sql as $$ select 1 $$;
+alter function f() set search_path = app$0;
+"), @"
+          ╭▸ 
+        2 │ create schema app;
+          │               ─── 2. destination
+        3 │ create function f() returns int language sql as $$ select 1 $$;
+        4 │ alter function f() set search_path = app;
+          ╰╴                                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_set_schema_literal() {
+        assert_snapshot!(goto("
+create schema app;
+set schema 'app$0';
+"), @"
+          ╭▸ 
+        2 │ create schema app;
+          │               ─── 2. destination
+        3 │ set schema 'app';
+          ╰╴              ─ 1. source
         ");
     }
 
@@ -4187,6 +6042,25 @@ drop index idx_name$0;
     }
 
     #[test]
+    fn goto_drop_index_schema_qualified() {
+        assert_snapshot!(goto("
+create schema a;
+create schema b;
+create table a.t(id int);
+create table b.t(id int);
+create index idx on a.t(id);
+create index idx on b.t(id);
+drop index b.idx$0;
+"), @"
+          ╭▸ 
+        7 │ create index idx on b.t(id);
+          │              ─── 2. destination
+        8 │ drop index b.idx;
+          ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_drop_index_multiple() {
         assert_snapshot!(goto("
 create index idx1 on t(x);
@@ -4325,6 +6199,34 @@ create index idx_email on users(email$0);
           │                                 ───── 2. destination
         3 │ create index idx_email on users(email);
           ╰╴                                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_index_include_column() {
+        assert_snapshot!(goto("
+create table users(id int, email text);
+create index idx on users(id) include (email$0);
+"), @r"
+          ╭▸ 
+        2 │ create table users(id int, email text);
+          │                            ───── 2. destination
+        3 │ create index idx on users(id) include (email);
+          ╰╴                                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_index_where_column() {
+        assert_snapshot!(goto("
+create table users(id int, email text);
+create index idx on users(id) where email$0 is not null;
+"), @r"
+          ╭▸ 
+        2 │ create table users(id int, email text);
+          │                            ───── 2. destination
+        3 │ create index idx on users(id) where email is not null;
+          ╰╴                                        ─ 1. source
         ");
     }
 
@@ -4633,6 +6535,214 @@ create function dup(int) returns table(f1 int, f2 text)
 select f2$0 from dup(42) as u(x, y);
 "#,
         );
+    }
+
+    #[test]
+    fn goto_select_column_from_function_returns_setof_table() {
+        assert_snapshot!(goto("
+create table users (id int, name text);
+create function f() returns setof users
+  language sql begin atomic select * from users; end;
+select id$0 from f();
+"), @"
+          ╭▸ 
+        2 │ create table users (id int, name text);
+          │                     ── 2. destination
+          ‡
+        5 │ select id from f();
+          ╰╴        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_column_from_function_returns_setof_table_qualified() {
+        assert_snapshot!(goto("
+create table users (id int, name text);
+create function f() returns setof users
+  language sql begin atomic select * from users; end;
+select f.id$0 from f();
+"), @"
+          ╭▸ 
+        2 │ create table users (id int, name text);
+          │                     ── 2. destination
+          ‡
+        5 │ select f.id from f();
+          ╰╴          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_column_from_function_returns_setof_composite_type() {
+        assert_snapshot!(goto("
+create type pt as (x int, y int);
+create function f() returns setof pt language sql begin atomic select 1, 2; end;
+select x$0 from f();
+"), @"
+          ╭▸ 
+        2 │ create type pt as (x int, y int);
+          │                    ─ 2. destination
+        3 │ create function f() returns setof pt language sql begin atomic select 1, 2; end;
+        4 │ select x from f();
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_column_from_scalar_setof_function_alias() {
+        assert_snapshot!(goto("
+create function nums() returns setof int language sql as $$ values (1) $$;
+select n$0 from nums() as n;
+"), @"
+          ╭▸ 
+        3 │ select n from nums() as n;
+          ╰╴       ─ 1. source      ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_select_column_from_scalar_setof_function_no_alias() {
+        assert_snapshot!(goto("
+create function nums() returns setof int language sql as $$ values (1) $$;
+select nums$0 from nums();
+"), @"
+          ╭▸ 
+        3 │ select nums from nums();
+          │           ┬      ──── 2. destination
+          │           │
+          ╰╴          1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_column_from_scalar_setof_function_alias_with_column_list() {
+        assert_snapshot!(goto("
+create function nums() returns setof int language sql as $$ values (1) $$;
+select x$0 from nums() as n(x);
+"), @"
+          ╭▸ 
+        3 │ select x from nums() as n(x);
+          ╰╴       ─ 1. source        ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_select_column_from_function_out_param() {
+        assert_snapshot!(goto("
+create function f(out id int, out nm text) returns setof record
+  language sql begin atomic select 1, 2; end;
+select id$0 from f();
+"), @"
+          ╭▸ 
+        2 │ create function f(out id int, out nm text) returns setof record
+          │                       ── 2. destination
+        3 │   language sql begin atomic select 1, 2; end;
+        4 │ select id from f();
+          ╰╴        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_column_from_rows_from() {
+        assert_snapshot!(goto("
+create function f() returns table(a int) language sql begin atomic select 1; end;
+select a$0 from rows from (f());
+"), @"
+          ╭▸ 
+        2 │ create function f() returns table(a int) language sql begin atomic select 1; end;
+          │                                   ─ 2. destination
+        3 │ select a from rows from (f());
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_column_from_xmltable() {
+        assert_snapshot!(goto("
+create table t (x xml);
+select b$0 from t, xmltable(
+  '/r' passing x
+  columns b int
+);
+"), @"
+          ╭▸ 
+        3 │ select b from t, xmltable(
+          │        ─ 1. source
+        4 │   '/r' passing x
+        5 │   columns b int
+          ╰╴          ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_select_column_from_xmltable_aliased() {
+        assert_snapshot!(goto("
+create table t (x xml);
+select xt.b$0 from t, xmltable(
+  '/r' passing x
+  columns b int
+) as xt;
+"), @"
+          ╭▸ 
+        3 │ select xt.b from t, xmltable(
+          │           ─ 1. source
+        4 │   '/r' passing x
+        5 │   columns b int
+          ╰╴          ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_xmltable_passing_clause_qualified_column() {
+        assert_snapshot!(goto("
+create table t (x xml);
+select 1 from t, xmltable(
+  '/r' passing t.x$0
+  columns b int
+);
+"), @"
+          ╭▸ 
+        2 │ create table t (x xml);
+          │                 ─ 2. destination
+        3 │ select 1 from t, xmltable(
+        4 │   '/r' passing t.x
+          ╰╴                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_column_from_json_table() {
+        assert_snapshot!(goto("
+create table t (j jsonb);
+select b$0 from t, json_table(
+  t.j, '$[*]'
+  columns (b int path '$')
+);
+"), @"
+          ╭▸ 
+        3 │ select b from t, json_table(
+          │        ─ 1. source
+        4 │   t.j, '$[*]'
+        5 │   columns (b int path '$')
+          ╰╴           ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_json_table_context_item_qualified_column() {
+        assert_snapshot!(goto("
+create table t (j jsonb);
+select 1 from t, json_table(
+  t.j$0, '$[*]'
+  columns (b int path '$')
+);
+"), @"
+          ╭▸ 
+        2 │ create table t (j jsonb);
+          │                 ─ 2. destination
+        3 │ select 1 from t, json_table(
+        4 │   t.j, '$[*]'
+          ╰╴    ─ 1. source
+        ");
     }
 
     #[test]
@@ -5156,6 +7266,65 @@ group by a$0;
     }
 
     #[test]
+    fn goto_select_alias_in_group_by_rollup() {
+        assert_snapshot!(goto("
+create table t (a int);
+select a as x from t
+group by rollup(x$0);
+"), @"
+          ╭▸ 
+        3 │ select a as x from t
+          │             ─ 2. destination
+        4 │ group by rollup(x);
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_alias_in_group_by_cube() {
+        assert_snapshot!(goto("
+create table t (a int);
+select a as x from t
+group by cube(x$0);
+"), @"
+          ╭▸ 
+        3 │ select a as x from t
+          │             ─ 2. destination
+        4 │ group by cube(x);
+          ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_alias_in_group_by_grouping_sets() {
+        assert_snapshot!(goto("
+create table t (a int);
+select a as x from t
+group by grouping sets ((x$0));
+"), @"
+          ╭▸ 
+        3 │ select a as x from t
+          │             ─ 2. destination
+        4 │ group by grouping sets ((x));
+          ╰╴                         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_alias_in_distinct_on() {
+        assert_snapshot!(goto("
+create table t (a int);
+select distinct on (x$0) a as x from t;
+"), @"
+          ╭▸ 
+        3 │ select distinct on (x) a as x from t;
+          │                     ┬       ─ 2. destination
+          │                     │
+          ╰╴                    1. source
+        ");
+    }
+
+    #[test]
     fn goto_select_alias_expr_in_order_by_not_found() {
         goto_not_found(
             "
@@ -5231,6 +7400,24 @@ merge into t
   when matched then do nothing;
 ",
         );
+    }
+
+    #[test]
+    fn goto_merge_using_subquery_source_column() {
+        assert_snapshot!(goto("
+create table t(id int, val int);
+merge into t
+  using (select 1 as id, 2 as val) as s
+    on t.id = s.id$0
+  when not matched then
+    insert (id, val) values (s.id, s.val);
+"), @"
+          ╭▸ 
+        4 │   using (select 1 as id, 2 as val) as s
+          │                      ── 2. destination
+        5 │     on t.id = s.id
+          ╰╴                 ─ 1. source
+        ");
     }
 
     #[test]
@@ -5487,6 +7674,66 @@ select * from nums;
     }
 
     #[test]
+    fn goto_cte_search_clause_set_column() {
+        assert_snapshot!(goto("
+with recursive r as (select 1 as id)
+  search depth first by id set ord
+select ord$0 from r;
+"), @"
+          ╭▸ 
+        3 │   search depth first by id set ord
+          │                                ─── 2. destination
+        4 │ select ord from r;
+          ╰╴         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_search_clause_set_column_qualified() {
+        assert_snapshot!(goto("
+with recursive r as (select 1 as id)
+  search depth first by id set ord
+select r.ord$0 from r;
+"), @"
+          ╭▸ 
+        3 │   search depth first by id set ord
+          │                                ─── 2. destination
+        4 │ select r.ord from r;
+          ╰╴           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_cycle_clause_set_column() {
+        assert_snapshot!(goto("
+with recursive r as (select 1 as id)
+  cycle id set is_cycle using path
+select is_cycle$0 from r;
+"), @"
+          ╭▸ 
+        3 │   cycle id set is_cycle using path
+          │                ──────── 2. destination
+        4 │ select is_cycle from r;
+          ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_cycle_clause_path_column() {
+        assert_snapshot!(goto("
+with recursive r as (select 1 as id)
+  cycle id set is_cycle using path
+select path$0 from r;
+"), @"
+          ╭▸ 
+        3 │   cycle id set is_cycle using path
+          │                               ──── 2. destination
+        4 │ select path from r;
+          ╰╴          ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_cte_with_column_list() {
         assert_snapshot!(goto("
 with t(a) as (select 1)
@@ -5687,6 +7934,85 @@ select c$0 from (select 1 c union select 2 c);
     }
 
     #[test]
+    fn goto_subquery_compound_table_query_column() {
+        assert_snapshot!(goto("
+create table t(a int);
+select a$0 from (table t union table t) u;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │                ─ 2. destination
+        3 │ select a from (table t union table t) u;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_subquery_table_query_whole_row_alias() {
+        assert_snapshot!(goto("
+create table t(a int);
+select t$0 from (table t) t;
+"), @"
+          ╭▸ 
+        3 │ select t from (table t) t;
+          ╰╴       ─ 1. source      ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_subquery_compound_table_query_whole_row_alias() {
+        assert_snapshot!(goto("
+create table t(a int);
+select t$0 from (table t union table t) t;
+"), @"
+          ╭▸ 
+        3 │ select t from (table t union table t) t;
+          ╰╴       ─ 1. source                    ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_subquery_compound_values_query_column() {
+        assert_snapshot!(goto("
+select column2$0 from (values (1, 2) union values (3, 4)) u;
+"), @"
+          ╭▸ 
+        2 │ select column2 from (values (1, 2) union values (3, 4)) u;
+          ╰╴             ─ 1. source        ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_cte_compound_table_query_column() {
+        assert_snapshot!(goto("
+create table t(a int);
+with u as (table t union table t)
+select a$0 from u;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │                ─ 2. destination
+        3 │ with u as (table t union table t)
+        4 │ select a from u;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_compound_values_query_column() {
+        assert_snapshot!(goto("
+with u as (values (1, 2) union values (3, 4))
+select column2$0 from u;
+"), @"
+          ╭▸ 
+        2 │ with u as (values (1, 2) union values (3, 4))
+          │                       ─ 2. destination
+        3 │ select column2 from u;
+          ╰╴             ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_subquery_compound_select_column_order_by() {
         assert_snapshot!(goto("
 with t as (select 1 a)
@@ -5695,6 +8021,20 @@ select 2 a from t union select 1 order by a$0;
           ╭▸ 
         3 │ select 2 a from t union select 1 order by a;
           ╰╴         ─ 2. destination                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_compound_table_query_column_order_by() {
+        assert_snapshot!(goto("
+create table t(a int);
+table t union table t order by a$0;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │                ─ 2. destination
+        3 │ table t union table t order by a;
+          ╰╴                               ─ 1. source
         ");
     }
 
@@ -6047,6 +8387,52 @@ select b$0 from u;
     }
 
     #[test]
+    fn goto_cte_paren_table_query_column() {
+        assert_snapshot!(goto("
+create table t(a int);
+with u as ((table t))
+select a$0 from u;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │                ─ 2. destination
+        3 │ with u as ((table t))
+        4 │ select a from u;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_paren_values_query_column() {
+        assert_snapshot!(goto("
+with u as ((values (1, 2)))
+select column2$0 from u;
+"), @"
+          ╭▸ 
+        2 │ with u as ((values (1, 2)))
+          │                        ─ 2. destination
+        3 │ select column2 from u;
+          ╰╴             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_table_query_column_count_gap() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+with u as (table t)
+select b$0 from (select * from u) x(a);
+"), @"
+          ╭▸ 
+        2 │ create table t(a int, b int);
+          │                       ─ 2. destination
+        3 │ with u as (table t)
+        4 │ select b from (select * from u) x(a);
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_insert_table() {
         assert_snapshot!(goto("
 create table users(id int, email text);
@@ -6330,13 +8716,42 @@ delete from t using public.f$0 where f_id = f.id;
 create table t(id int, f_id int);
 create table f(id int, name text);
 delete from t using f where f_id = f.id$0 and f.name = 'foo';
-"), @r"
+"), @"
           ╭▸ 
-        2 │ create table t(id int, f_id int);
-          │                ── 2. destination
         3 │ create table f(id int, name text);
+          │                ── 2. destination
         4 │ delete from t using f where f_id = f.id and f.name = 'foo';
           ╰╴                                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_delete_using_source_alias_qualifier() {
+        assert_snapshot!(goto("
+create table target(id int);
+create table src(y int);
+delete from target using src s where s$0.y = target.id;
+"), @"
+          ╭▸ 
+        4 │ delete from target using src s where s.y = target.id;
+          │                              ┬       ─ 1. source
+          │                              │
+          ╰╴                             2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_delete_using_source_alias_column() {
+        assert_snapshot!(goto("
+create table target(id int);
+create table src(y int);
+delete from target using src s where s.y$0 = target.id;
+"), @"
+          ╭▸ 
+        3 │ create table src(y int);
+          │                  ─ 2. destination
+        4 │ delete from target using src s where s.y = target.id;
+          ╰╴                                       ─ 1. source
         ");
     }
 
@@ -6606,6 +9021,48 @@ create schema foo;
           │               ─ 1. source
         3 │ create schema foo;
           ╰╴              ─── 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_create_schema_embedded_table() {
+        assert_snapshot!(goto("
+create schema app create table users(id int);
+select id from app.users$0;
+"), @"
+          ╭▸ 
+        2 │ create schema app create table users(id int);
+          │                                ───── 2. destination
+        3 │ select id from app.users;
+          ╰╴                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_schema_embedded_table_column() {
+        assert_snapshot!(goto("
+create schema app create table users(id int);
+select id$0 from app.users;
+"), @"
+          ╭▸ 
+        2 │ create schema app create table users(id int);
+          │                                      ── 2. destination
+        3 │ select id from app.users;
+          ╰╴        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_schema_embedded_view() {
+        assert_snapshot!(goto("
+create schema app create table users(id int) create view v as select 1;
+select 1 from app.v$0;
+"), @"
+          ╭▸ 
+        2 │ create schema app create table users(id int) create view v as select 1;
+          │                                                          ─ 2. destination
+        3 │ select 1 from app.v;
+          ╰╴                  ─ 1. source
         ");
     }
 
@@ -7728,6 +10185,36 @@ select * from t join u using (a$0);
     }
 
     #[test]
+    fn goto_join_using_alias_column() {
+        assert_snapshot!(goto("
+create table a(x int);
+create table b(x int);
+select j.x$0 from a join b using (x) as j;
+"), @"
+          ╭▸ 
+        2 │ create table a(x int);
+          │                ─ 2. destination
+        3 │ create table b(x int);
+          │                ─ 3. destination
+        4 │ select j.x from a join b using (x) as j;
+          ╰╴         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_join_using_alias_table() {
+        assert_snapshot!(goto("
+create table a(x int);
+create table b(x int);
+select j$0.x from a join b using (x) as j;
+"), @"
+          ╭▸ 
+        4 │ select j.x from a join b using (x) as j;
+          ╰╴       ─ 1. source                    ─ 2. destination
+        ");
+    }
+
+    #[test]
     fn goto_insert_select_cte_column() {
         assert_snapshot!(goto("
 create table users(id int, email text);
@@ -7943,6 +10430,53 @@ update users set email = messages.email from messages$0 where users.id = message
           │              ──────── 2. destination
         4 │ update users set email = messages.email from messages where users.id = messages.user_id;
           ╰╴                                                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_update_from_table_qualifier_in_set() {
+        assert_snapshot!(goto("
+create table target(id int, x int);
+create table src(id int, y int);
+update target set x = src$0.y from src where src.id = target.id;
+"), @"
+          ╭▸ 
+        3 │ create table src(id int, y int);
+          │              ─── 2. destination
+        4 │ update target set x = src.y from src where src.id = target.id;
+          ╰╴                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_update_set_target_resolves_to_target_table() {
+        assert_snapshot!(goto("
+create table t (a int);
+create table u (a int);
+update t set a$0 = u.a from u;
+"), @"
+          ╭▸ 
+        2 │ create table t (a int);
+          │                 ─ 2. destination
+        3 │ create table u (a int);
+        4 │ update t set a = u.a from u;
+          ╰╴             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_update_set_target_tuple_resolves_to_target_table() {
+        assert_snapshot!(goto("
+create table t (a int, b int);
+create table u (a int);
+update t set (a$0, b) = (u.a, 1) from u;
+"), @"
+          ╭▸ 
+        2 │ create table t (a int, b int);
+          │                 ─ 2. destination
+        3 │ create table u (a int);
+        4 │ update t set (a, b) = (u.a, 1) from u;
+          ╰╴              ─ 1. source
         ");
     }
 
@@ -8165,6 +10699,48 @@ vacuum t1, t2$0;
     }
 
     #[test]
+    fn goto_vacuum_column() {
+        assert_snapshot!(goto("
+create table users(id int, email text);
+vacuum users (id$0);
+"), @"
+          ╭▸ 
+        2 │ create table users(id int, email text);
+          │                    ── 2. destination
+        3 │ vacuum users (id);
+          ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_analyze_table() {
+        assert_snapshot!(goto("
+create table users(id int, email text);
+analyze users$0;
+"), @"
+          ╭▸ 
+        2 │ create table users(id int, email text);
+          │              ───── 2. destination
+        3 │ analyze users;
+          ╰╴            ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_analyze_column() {
+        assert_snapshot!(goto("
+create table users(id int, email text);
+analyze users (id$0);
+"), @"
+          ╭▸ 
+        2 │ create table users(id int, email text);
+          │                    ── 2. destination
+        3 │ analyze users (id);
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_alter_table() {
         assert_snapshot!(goto("
 create table users(id int, email text);
@@ -8203,6 +10779,65 @@ alter table users alter column email$0 set not null;
           │                            ───── 2. destination
         3 │ alter table users alter column email set not null;
           ╰╴                                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_table_rename_column() {
+        assert_snapshot!(goto("
+create table users(id int, email text);
+alter table users rename column email$0 to email_address;
+"), @"
+          ╭▸ 
+        2 │ create table users(id int, email text);
+          │                            ───── 2. destination
+        3 │ alter table users rename column email to email_address;
+          ╰╴                                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_view_alter_column() {
+        assert_snapshot!(goto("
+create table t(a int);
+create view v as select a from t;
+alter view v alter column a$0 set default 1;
+"), @"
+          ╭▸ 
+        3 │ create view v as select a from t;
+          │                         ─ 2. destination
+        4 │ alter view v alter column a set default 1;
+          ╰╴                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_view_rename_column() {
+        assert_snapshot!(goto("
+create table t(a int);
+create view v as select a from t;
+alter view v rename column a$0 to b;
+"), @"
+          ╭▸ 
+        3 │ create view v as select a from t;
+          │                         ─ 2. destination
+        4 │ alter view v rename column a to b;
+          ╰╴                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_materialized_view_rename_column() {
+        assert_snapshot!(goto("
+create table t(a int);
+create materialized view mv as select a from t;
+alter materialized view mv rename column a$0 to b;
+"), @"
+          ╭▸ 
+        3 │ create materialized view mv as select a from t;
+          │                                       ─ 2. destination
+        4 │ alter materialized view mv rename column a to b;
+          ╰╴                                         ─ 1. source
         ");
     }
 
@@ -8296,6 +10931,90 @@ alter table t set tablespace t$0s;
     }
 
     #[test]
+    fn goto_alter_table_all_in_tablespace() {
+        assert_snapshot!(goto("
+create tablespace ts location '/tmp/ts';
+alter table all in tablespace t$0s set tablespace pg_default;
+"), @"
+          ╭▸ 
+        2 │ create tablespace ts location '/tmp/ts';
+          │                   ── 2. destination
+        3 │ alter table all in tablespace ts set tablespace pg_default;
+          ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_materialized_view_all_in_tablespace() {
+        assert_snapshot!(goto("
+create tablespace ts location '/tmp/ts';
+alter materialized view all in tablespace t$0s set tablespace pg_default;
+"), @"
+          ╭▸ 
+        2 │ create tablespace ts location '/tmp/ts';
+          │                   ── 2. destination
+        3 │ alter materialized view all in tablespace ts set tablespace pg_default;
+          ╰╴                                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_index_all_in_tablespace() {
+        assert_snapshot!(goto("
+create tablespace ts location '/tmp/ts';
+alter index all in tablespace t$0s set tablespace pg_default;
+"), @"
+          ╭▸ 
+        2 │ create tablespace ts location '/tmp/ts';
+          │                   ── 2. destination
+        3 │ alter index all in tablespace ts set tablespace pg_default;
+          ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_database_owner() {
+        assert_snapshot!(goto("
+create role r;
+create database d owner r$0;
+"), @"
+          ╭▸ 
+        2 │ create role r;
+          │             ─ 2. destination
+        3 │ create database d owner r;
+          ╰╴                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_database_template() {
+        assert_snapshot!(goto("
+create database tmpl;
+create database d template tmpl$0;
+"), @"
+          ╭▸ 
+        2 │ create database tmpl;
+          │                 ──── 2. destination
+        3 │ create database d template tmpl;
+          ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_database_tablespace() {
+        assert_snapshot!(goto("
+create tablespace ts location '/tmp';
+create database d tablespace ts$0;
+"), @"
+          ╭▸ 
+        2 │ create tablespace ts location '/tmp';
+          │                   ── 2. destination
+        3 │ create database d tablespace ts;
+          ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_alter_table_set_schema() {
         assert_snapshot!(goto("
 create schema foo;
@@ -8360,13 +11079,997 @@ comment on table t$0 is '';
         assert_snapshot!(goto("
 create table t(id int);
 comment on column t.id$0 is '';
-"), @r"
+"), @"
           ╭▸ 
         2 │ create table t(id int);
           │                ── 2. destination
         3 │ comment on column t.id is '';
           ╰╴                     ─ 1. source
         ");
+    }
+
+    #[test]
+    fn goto_comment_on_column_table_qualifier() {
+        assert_snapshot!(goto("
+create table t(id int);
+comment on column t$0.id is '';
+"), @"
+          ╭▸ 
+        2 │ create table t(id int);
+          │              ─ 2. destination
+        3 │ comment on column t.id is '';
+          ╰╴                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_column_composite_type_attribute() {
+        assert_snapshot!(goto("
+create type address as (city text, zip text);
+comment on column address.city$0 is 'x';
+"), @"
+          ╭▸ 
+        2 │ create type address as (city text, zip text);
+          │                         ──── 2. destination
+        3 │ comment on column address.city is 'x';
+          ╰╴                             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_view() {
+        assert_snapshot!(goto("
+create view v as select 1;
+comment on view v$0 is '';
+"), @"
+          ╭▸ 
+        2 │ create view v as select 1;
+          │             ─ 2. destination
+        3 │ comment on view v is '';
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_materialized_view() {
+        assert_snapshot!(goto("
+create materialized view mv as select 1;
+comment on materialized view mv$0 is '';
+"), @"
+          ╭▸ 
+        2 │ create materialized view mv as select 1;
+          │                          ── 2. destination
+        3 │ comment on materialized view mv is '';
+          ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_sequence() {
+        assert_snapshot!(goto("
+create sequence s;
+comment on sequence s$0 is '';
+"), @"
+          ╭▸ 
+        2 │ create sequence s;
+          │                 ─ 2. destination
+        3 │ comment on sequence s is '';
+          ╰╴                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_type() {
+        assert_snapshot!(goto("
+create type t as (a int);
+comment on type t$0 is '';
+"), @"
+          ╭▸ 
+        2 │ create type t as (a int);
+          │             ─ 2. destination
+        3 │ comment on type t is '';
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_function() {
+        assert_snapshot!(goto("
+create function f() returns int language sql as 'select 1';
+comment on function f$0 is '';
+"), @"
+          ╭▸ 
+        2 │ create function f() returns int language sql as 'select 1';
+          │                 ─ 2. destination
+        3 │ comment on function f is '';
+          ╰╴                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_index() {
+        assert_snapshot!(goto("
+create table foo(id int);
+create index i on foo(id);
+comment on index i$0 is '';
+"), @"
+          ╭▸ 
+        3 │ create index i on foo(id);
+          │              ─ 2. destination
+        4 │ comment on index i is '';
+          ╰╴                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_trigger() {
+        assert_snapshot!(goto("
+create table t(a int);
+create function f() returns trigger language plpgsql as $$
+begin
+  return new;
+end
+$$;
+create trigger tr
+  before insert on t
+  for each row
+  execute function f();
+comment on trigger tr$0 on t is 'x';
+"), @"
+           ╭▸ 
+         8 │ create trigger tr
+           │                ── 2. destination
+           ‡
+        12 │ comment on trigger tr on t is 'x';
+           ╰╴                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_policy() {
+        assert_snapshot!(goto("
+create table t(a int);
+create policy p on t using (a > 0);
+comment on policy p$0 on t is 'x';
+"), @"
+          ╭▸ 
+        3 │ create policy p on t using (a > 0);
+          │               ─ 2. destination
+        4 │ comment on policy p on t is 'x';
+          ╰╴                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_rule() {
+        assert_snapshot!(goto("
+create table t(a int);
+create rule r as on select to t do instead nothing;
+comment on rule r$0 on t is 'x';
+"), @"
+          ╭▸ 
+        3 │ create rule r as on select to t do instead nothing;
+          │             ─ 2. destination
+        4 │ comment on rule r on t is 'x';
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_publication() {
+        assert_snapshot!(goto("
+create publication pub;
+comment on publication pub$0 is 'x';
+"), @"
+          ╭▸ 
+        2 │ create publication pub;
+          │                    ─── 2. destination
+        3 │ comment on publication pub is 'x';
+          ╰╴                         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_subscription() {
+        assert_snapshot!(goto("
+create subscription sub connection $$host=localhost$$ publication pub;
+comment on subscription sub$0 is 'x';
+"), @"
+          ╭▸ 
+        2 │ create subscription sub connection $$host=localhost$$ publication pub;
+          │                     ─── 2. destination
+        3 │ comment on subscription sub is 'x';
+          ╰╴                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_foreign_data_wrapper() {
+        assert_snapshot!(goto("
+create foreign data wrapper fdw;
+comment on foreign data wrapper fdw$0 is 'x';
+"), @"
+          ╭▸ 
+        2 │ create foreign data wrapper fdw;
+          │                             ─── 2. destination
+        3 │ comment on foreign data wrapper fdw is 'x';
+          ╰╴                                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_language() {
+        assert_snapshot!(goto("
+create language plfoo;
+comment on language plfoo$0 is 'x';
+"), @"
+          ╭▸ 
+        2 │ create language plfoo;
+          │                 ───── 2. destination
+        3 │ comment on language plfoo is 'x';
+          ╰╴                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_collation() {
+        assert_snapshot!(goto("
+create collation mycoll (locale = 'C');
+comment on collation mycoll$0 is 'x';
+"), @"
+          ╭▸ 
+        2 │ create collation mycoll (locale = 'C');
+          │                  ────── 2. destination
+        3 │ comment on collation mycoll is 'x';
+          ╰╴                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_conversion() {
+        assert_snapshot!(goto("
+create conversion conv for 'UTF8' to 'LATIN1' from utf8_to_latin1;
+drop conversion con$0v;
+"), @"
+          ╭▸ 
+        2 │ create conversion conv for 'UTF8' to 'LATIN1' from utf8_to_latin1;
+          │                   ──── 2. destination
+        3 │ drop conversion conv;
+          ╰╴                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_conversion() {
+        assert_snapshot!(goto("
+create conversion conv for 'UTF8' to 'LATIN1' from utf8_to_latin1;
+comment on conversion con$0v is 'x';
+"), @"
+          ╭▸ 
+        2 │ create conversion conv for 'UTF8' to 'LATIN1' from utf8_to_latin1;
+          │                   ──── 2. destination
+        3 │ comment on conversion conv is 'x';
+          ╰╴                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_conversion_from_function() {
+        assert_snapshot!(goto("
+create function my_conv(integer, integer, cstring, internal, integer) returns void language c as $$x$$;
+create conversion my_conv_obj for 'UTF8' to 'LATIN1' from my_co$0nv;
+"), @"
+          ╭▸ 
+        2 │ create function my_conv(integer, integer, cstring, internal, integer) returns void language c as $$x$$;
+          │                 ─────── 2. destination
+        3 │ create conversion my_conv_obj for 'UTF8' to 'LATIN1' from my_conv;
+          ╰╴                                                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_text_search_dictionary() {
+        assert_snapshot!(goto("
+create text search dictionary english_stem (template = snowball, language = english);
+drop text search dictionary english_st$0em;
+"), @"
+          ╭▸ 
+        2 │ create text search dictionary english_stem (template = snowball, language = english);
+          │                               ──────────── 2. destination
+        3 │ drop text search dictionary english_stem;
+          ╰╴                                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_text_search_dictionary() {
+        assert_snapshot!(goto("
+create text search dictionary english_stem (template = snowball, language = english);
+alter text search dictionary english_st$0em rename to stemmer;
+"), @"
+          ╭▸ 
+        2 │ create text search dictionary english_stem (template = snowball, language = english);
+          │                               ──────────── 2. destination
+        3 │ alter text search dictionary english_stem rename to stemmer;
+          ╰╴                                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_text_search_configuration() {
+        assert_snapshot!(goto("
+create text search configuration my_config (parser = pg_catalog.default);
+drop text search configuration my_conf$0ig;
+"), @"
+          ╭▸ 
+        2 │ create text search configuration my_config (parser = pg_catalog.default);
+          │                                  ───────── 2. destination
+        3 │ drop text search configuration my_config;
+          ╰╴                                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_text_search_configuration() {
+        assert_snapshot!(goto("
+create text search configuration my_config (parser = pg_catalog.default);
+alter text search configuration my_conf$0ig rename to my_config2;
+"), @"
+          ╭▸ 
+        2 │ create text search configuration my_config (parser = pg_catalog.default);
+          │                                  ───────── 2. destination
+        3 │ alter text search configuration my_config rename to my_config2;
+          ╰╴                                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_text_search_parser() {
+        assert_snapshot!(goto("
+create text search parser my_parser (start = prsd_start, gettoken = prsd_nexttoken, end = prsd_end, lextypes = prsd_lextype);
+drop text search parser my_pars$0er;
+"), @"
+          ╭▸ 
+        2 │ create text search parser my_parser (start = prsd_start, gettoken = prsd_nexttoken, end = prsd_end, lextypes = prsd_lextype);
+          │                           ───────── 2. destination
+        3 │ drop text search parser my_parser;
+          ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_text_search_parser() {
+        assert_snapshot!(goto("
+create text search parser my_parser (start = prsd_start, gettoken = prsd_nexttoken, end = prsd_end, lextypes = prsd_lextype);
+alter text search parser my_pars$0er rename to my_parser2;
+"), @"
+          ╭▸ 
+        2 │ create text search parser my_parser (start = prsd_start, gettoken = prsd_nexttoken, end = prsd_end, lextypes = prsd_lextype);
+          │                           ───────── 2. destination
+        3 │ alter text search parser my_parser rename to my_parser2;
+          ╰╴                               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_text_search_template() {
+        assert_snapshot!(goto("
+create text search template my_template (init = dsimple_init, lexize = dsimple_lexize);
+drop text search template my_temp$0late;
+"), @"
+          ╭▸ 
+        2 │ create text search template my_template (init = dsimple_init, lexize = dsimple_lexize);
+          │                             ─────────── 2. destination
+        3 │ drop text search template my_template;
+          ╰╴                                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_text_search_template() {
+        assert_snapshot!(goto("
+create text search template my_template (init = dsimple_init, lexize = dsimple_lexize);
+alter text search template my_temp$0late rename to my_template2;
+"), @"
+          ╭▸ 
+        2 │ create text search template my_template (init = dsimple_init, lexize = dsimple_lexize);
+          │                             ─────────── 2. destination
+        3 │ alter text search template my_template rename to my_template2;
+          ╰╴                                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_text_search_parser_function_option() {
+        assert_snapshot!(goto("
+create function start_fn(internal, int) returns internal language c as $$x$$;
+create text search parser p (start = start_$0fn, gettoken = g, end = e, lextypes = l);
+"), @"
+          ╭▸ 
+        2 │ create function start_fn(internal, int) returns internal language c as $$x$$;
+          │                 ──────── 2. destination
+        3 │ create text search parser p (start = start_fn, gettoken = g, end = e, lextypes = l);
+          ╰╴                                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_text_search_template_function_option() {
+        assert_snapshot!(goto("
+create function init_fn(internal) returns internal language c as $$x$$;
+create text search template t (init = init_$0fn, lexize = lex_fn);
+"), @"
+          ╭▸ 
+        2 │ create function init_fn(internal) returns internal language c as $$x$$;
+          │                 ─────── 2. destination
+        3 │ create text search template t (init = init_fn, lexize = lex_fn);
+          ╰╴                                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_text_search_configuration_parser_option() {
+        assert_snapshot!(goto("
+create text search parser my_parser (start = s, gettoken = g, end = e, lextypes = l);
+create text search configuration cfg (parser = my_par$0ser);
+"), @"
+          ╭▸ 
+        2 │ create text search parser my_parser (start = s, gettoken = g, end = e, lextypes = l);
+          │                           ───────── 2. destination
+        3 │ create text search configuration cfg (parser = my_parser);
+          ╰╴                                                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_text_search_configuration_copy_option() {
+        assert_snapshot!(goto("
+create text search configuration src (parser = pg_catalog.default);
+create text search configuration cfg (copy = sr$0c);
+"), @"
+          ╭▸ 
+        2 │ create text search configuration src (parser = pg_catalog.default);
+          │                                  ─── 2. destination
+        3 │ create text search configuration cfg (copy = src);
+          ╰╴                                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_text_search_dictionary_template_option() {
+        assert_snapshot!(goto("
+create text search template my_template (init = i, lexize = l);
+create text search dictionary dict (template = my_temp$0late);
+"), @"
+          ╭▸ 
+        2 │ create text search template my_template (init = i, lexize = l);
+          │                             ─────────── 2. destination
+        3 │ create text search dictionary dict (template = my_template);
+          ╰╴                                                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_text_search_configuration_add_mapping_dictionary() {
+        assert_snapshot!(goto("
+create text search dictionary dict (template = pg_catalog.simple);
+create text search configuration cfg (parser = pg_catalog.default);
+alter text search configuration cfg add mapping for asciiword with dic$0t;
+"), @"
+          ╭▸ 
+        2 │ create text search dictionary dict (template = pg_catalog.simple);
+          │                               ──── 2. destination
+        3 │ create text search configuration cfg (parser = pg_catalog.default);
+        4 │ alter text search configuration cfg add mapping for asciiword with dict;
+          ╰╴                                                                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_text_search_configuration_alter_mapping_with_dictionary() {
+        assert_snapshot!(goto("
+create text search dictionary d1 (template = pg_catalog.simple);
+create text search configuration cfg (parser = pg_catalog.default);
+alter text search configuration cfg alter mapping for asciiword with d$01;
+"), @"
+          ╭▸ 
+        2 │ create text search dictionary d1 (template = pg_catalog.simple);
+          │                               ── 2. destination
+        3 │ create text search configuration cfg (parser = pg_catalog.default);
+        4 │ alter text search configuration cfg alter mapping for asciiword with d1;
+          ╰╴                                                                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_text_search_configuration_alter_mapping_replace_dictionary() {
+        assert_snapshot!(goto("
+create text search dictionary d1 (template = pg_catalog.simple);
+create text search dictionary d2 (template = pg_catalog.simple);
+create text search configuration cfg (parser = pg_catalog.default);
+alter text search configuration cfg alter mapping replace d1 with d$02;
+"), @"
+          ╭▸ 
+        3 │ create text search dictionary d2 (template = pg_catalog.simple);
+          │                               ── 2. destination
+        4 │ create text search configuration cfg (parser = pg_catalog.default);
+        5 │ alter text search configuration cfg alter mapping replace d1 with d2;
+          ╰╴                                                                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_access_method() {
+        assert_snapshot!(goto("
+create access method heap2 type table handler heap_tableam_handler;
+drop access method hea$0p2;
+"), @"
+          ╭▸ 
+        2 │ create access method heap2 type table handler heap_tableam_handler;
+          │                      ───── 2. destination
+        3 │ drop access method heap2;
+          ╰╴                     ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_set_access_method() {
+        assert_snapshot!(goto("
+create access method heap2 type table handler heap_tableam_handler;
+alter table t set access method hea$0p2;
+"), @"
+          ╭▸ 
+        2 │ create access method heap2 type table handler heap_tableam_handler;
+          │                      ───── 2. destination
+        3 │ alter table t set access method heap2;
+          ╰╴                                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_operator_family() {
+        assert_snapshot!(goto("
+create operator family my_family using btree;
+drop operator family my_fami$0ly using btree;
+"), @"
+          ╭▸ 
+        2 │ create operator family my_family using btree;
+          │                        ───────── 2. destination
+        3 │ drop operator family my_family using btree;
+          ╰╴                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_operator_family() {
+        assert_snapshot!(goto("
+create operator family my_family using btree;
+alter operator family my_fami$0ly using btree owner to someone;
+"), @"
+          ╭▸ 
+        2 │ create operator family my_family using btree;
+          │                        ───────── 2. destination
+        3 │ alter operator family my_family using btree owner to someone;
+          ╰╴                            ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_operator_family() {
+        assert_snapshot!(goto("
+create operator family my_family using btree;
+comment on operator family my_fami$0ly using btree is 'hi';
+"), @"
+          ╭▸ 
+        2 │ create operator family my_family using btree;
+          │                        ───────── 2. destination
+        3 │ comment on operator family my_family using btree is 'hi';
+          ╰╴                                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_operator_class() {
+        assert_snapshot!(goto("
+create operator class my_opclass for type int using btree as operator 1 < (int, int);
+comment on operator class my_opcla$0ss using btree is 'hi';
+"), @"
+          ╭▸ 
+        2 │ create operator class my_opclass for type int using btree as operator 1 < (int, int);
+          │                       ────────── 2. destination
+        3 │ comment on operator class my_opclass using btree is 'hi';
+          ╰╴                                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_operator_class() {
+        assert_snapshot!(goto("
+create operator class my_opclass for type int using btree as operator 1 < (int, int);
+drop operator class my_opcla$0ss using btree;
+"), @"
+          ╭▸ 
+        2 │ create operator class my_opclass for type int using btree as operator 1 < (int, int);
+          │                       ────────── 2. destination
+        3 │ drop operator class my_opclass using btree;
+          ╰╴                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_operator_class() {
+        assert_snapshot!(goto("
+create operator class my_opclass for type int using btree as operator 1 < (int, int);
+alter operator class my_opcla$0ss using btree owner to someone;
+"), @"
+          ╭▸ 
+        2 │ create operator class my_opclass for type int using btree as operator 1 < (int, int);
+          │                       ────────── 2. destination
+        3 │ alter operator class my_opclass using btree owner to someone;
+          ╰╴                            ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_index_using_access_method() {
+        assert_snapshot!(goto("
+create function my_handler(internal) returns index_am_handler language c as $$x$$;
+create access method my_am type index handler my_handler;
+create table t(id int);
+create index on t using my_a$0m (id);
+"), @"
+          ╭▸ 
+        3 │ create access method my_am type index handler my_handler;
+          │                      ───── 2. destination
+        4 │ create table t(id int);
+        5 │ create index on t using my_am (id);
+          ╰╴                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_table_using_access_method() {
+        assert_snapshot!(goto("
+create function my_handler(internal) returns table_am_handler language c as $$x$$;
+create access method my_am type table handler my_handler;
+create table t(id int) using my_a$0m;
+"), @"
+          ╭▸ 
+        3 │ create access method my_am type table handler my_handler;
+          │                      ───── 2. destination
+        4 │ create table t(id int) using my_am;
+          ╰╴                                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_operator_family_using_access_method() {
+        assert_snapshot!(goto("
+create function my_handler(internal) returns index_am_handler language c as $$x$$;
+create access method my_am type index handler my_handler;
+create operator family fam using my_a$0m;
+"), @"
+          ╭▸ 
+        3 │ create access method my_am type index handler my_handler;
+          │                      ───── 2. destination
+        4 │ create operator family fam using my_am;
+          ╰╴                                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_operator_class_using_access_method() {
+        assert_snapshot!(goto("
+create function my_handler(internal) returns index_am_handler language c as $$x$$;
+create access method my_am type index handler my_handler;
+create operator class my_opclass for type int using my_a$0m as storage int;
+"), @"
+          ╭▸ 
+        3 │ create access method my_am type index handler my_handler;
+          │                      ───── 2. destination
+        4 │ create operator class my_opclass for type int using my_am as storage int;
+          ╰╴                                                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_operator_class_family() {
+        assert_snapshot!(goto("
+create function h(internal) returns index_am_handler language c as $$x$$;
+create access method fam type index handler h;
+create operator family fam using btree;
+create operator class ops for type int using btree family fa$0m as operator 1 <;
+"), @"
+          ╭▸ 
+        4 │ create operator family fam using btree;
+          │                        ─── 2. destination
+        5 │ create operator class ops for type int using btree family fam as operator 1 <;
+          ╰╴                                                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_operator_class_for_order_by_family() {
+        assert_snapshot!(goto("
+create operator family sort_fam using btree;
+create operator class ops for type int using gist as operator 1 <-> for order by sort_f$0am;
+"), @"
+          ╭▸ 
+        2 │ create operator family sort_fam using btree;
+          │                        ──────── 2. destination
+        3 │ create operator class ops for type int using gist as operator 1 <-> for order by sort_fam;
+          ╰╴                                                                                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_insert_on_conflict_operator_class() {
+        assert_snapshot!(goto("
+create operator class my_ops for type int using btree as operator 1 <;
+create table t(a int);
+insert into t values (1) on conflict (a my_o$0ps) do nothing;
+"), @"
+          ╭▸ 
+        2 │ create operator class my_ops for type int using btree as operator 1 <;
+          │                       ────── 2. destination
+        3 │ create table t(a int);
+        4 │ insert into t values (1) on conflict (a my_ops) do nothing;
+          ╰╴                                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_index_operator_class() {
+        assert_snapshot!(goto("
+create operator class public.my_ops for type int using btree as operator 1 <, function 1 btint4cmp(int,int);
+create table t(a int);
+create index idx on t (a public.my_o$0ps);
+"), @"
+          ╭▸ 
+        2 │ create operator class public.my_ops for type int using btree as operator 1 <, function 1 btint4cmp(int,int);
+          │                              ────── 2. destination
+        3 │ create table t(a int);
+        4 │ create index idx on t (a public.my_ops);
+          ╰╴                                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_operator_family_using_access_method() {
+        assert_snapshot!(goto("
+create function my_handler(internal) returns index_am_handler language c as $$x$$;
+create access method my_am type index handler my_handler;
+create operator family fam using my_am;
+alter operator family fam using my_a$0m owner to someone;
+"), @"
+          ╭▸ 
+        3 │ create access method my_am type index handler my_handler;
+          │                      ───── 2. destination
+        4 │ create operator family fam using my_am;
+        5 │ alter operator family fam using my_am owner to someone;
+          ╰╴                                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_operator_class_using_access_method() {
+        assert_snapshot!(goto("
+create function my_handler(internal) returns index_am_handler language c as $$x$$;
+create access method my_am type index handler my_handler;
+create operator class my_opclass for type int using my_am as storage int;
+drop operator class my_opclass using my_a$0m;
+"), @"
+          ╭▸ 
+        3 │ create access method my_am type index handler my_handler;
+          │                      ───── 2. destination
+        4 │ create operator class my_opclass for type int using my_am as storage int;
+        5 │ drop operator class my_opclass using my_am;
+          ╰╴                                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_operator_class_function_option() {
+        assert_snapshot!(goto("
+create function my_cmp(int, int) returns int language sql as $$select 0$$;
+create operator class my_opclass for type int using btree as function 1 my_cm$0p(int, int);
+"), @"
+          ╭▸ 
+        2 │ create function my_cmp(int, int) returns int language sql as $$select 0$$;
+          │                 ────── 2. destination
+        3 │ create operator class my_opclass for type int using btree as function 1 my_cmp(int, int);
+          ╰╴                                                                            ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_operator_class_explicit_schema() {
+        assert_snapshot!(goto("
+create schema app;
+create operator class app.my_ops for type int using btree as storage int;
+drop operator class app.my_o$0ps using btree;
+"), @"
+          ╭▸ 
+        3 │ create operator class app.my_ops for type int using btree as storage int;
+          │                           ────── 2. destination
+        4 │ drop operator class app.my_ops using btree;
+          ╰╴                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_operator_class_wrong_explicit_schema_not_found() {
+        goto_not_found(
+            "
+create schema app;
+create operator class app.my_ops for type int using btree as storage int;
+set search_path to app;
+drop operator class public.my_o$0ps using btree;
+",
+        );
+    }
+
+    #[test]
+    fn goto_drop_collation_explicit_schema() {
+        assert_snapshot!(goto(r#"
+create schema app;
+create collation app.coll (locale = 'C');
+drop collation app.co$0ll;
+"#), @"
+          ╭▸ 
+        3 │ create collation app.coll (locale = 'C');
+          │                      ──── 2. destination
+        4 │ drop collation app.coll;
+          ╰╴                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_text_search_configuration_explicit_schema() {
+        assert_snapshot!(goto("
+create schema app;
+create text search configuration app.cfg (parser = pg_catalog.default);
+drop text search configuration app.c$0fg;
+"), @"
+          ╭▸ 
+        3 │ create text search configuration app.cfg (parser = pg_catalog.default);
+          │                                      ─── 2. destination
+        4 │ drop text search configuration app.cfg;
+          ╰╴                                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_text_search_configuration_wrong_explicit_schema_not_found() {
+        goto_not_found(
+            "
+create schema app;
+create text search configuration app.cfg (parser = pg_catalog.default);
+set search_path to app;
+drop text search configuration public.c$0fg;
+",
+        );
+    }
+
+    #[test]
+    fn goto_grant_table_explicit_schema() {
+        assert_snapshot!(goto("
+create schema app;
+create table app.t(a int);
+grant select on app.t$0 to public;
+"), @"
+          ╭▸ 
+        3 │ create table app.t(a int);
+          │                  ─ 2. destination
+        4 │ grant select on app.t to public;
+          ╰╴                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_table_wrong_explicit_schema_not_found() {
+        goto_not_found(
+            "
+create schema app;
+create table app.t(a int);
+set search_path to app;
+grant select on public.t$0 to public;
+",
+        );
+    }
+
+    #[test]
+    fn goto_security_label_table() {
+        assert_snapshot!(goto("
+create table foo(id int);
+security label on table foo$0 is 'x';
+"), @"
+          ╭▸ 
+        2 │ create table foo(id int);
+          │              ─── 2. destination
+        3 │ security label on table foo is 'x';
+          ╰╴                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_security_label_column() {
+        assert_snapshot!(goto("
+create table foo(id int);
+security label on column foo.id$0 is 'x';
+"), @"
+          ╭▸ 
+        2 │ create table foo(id int);
+          │                  ── 2. destination
+        3 │ security label on column foo.id is 'x';
+          ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_security_label_column_table_qualifier() {
+        assert_snapshot!(goto("
+create table foo(id int);
+security label on column foo$0.id is 'x';
+"), @"
+          ╭▸ 
+        2 │ create table foo(id int);
+          │              ─── 2. destination
+        3 │ security label on column foo.id is 'x';
+          ╰╴                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_security_label_view() {
+        assert_snapshot!(goto("
+create view v as select 1;
+security label on view v$0 is 'x';
+"), @"
+          ╭▸ 
+        2 │ create view v as select 1;
+          │             ─ 2. destination
+        3 │ security label on view v is 'x';
+          ╰╴                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_security_label_type() {
+        assert_snapshot!(goto("
+create type t as (a int);
+security label on type t$0 is 'x';
+"), @"
+          ╭▸ 
+        2 │ create type t as (a int);
+          │             ─ 2. destination
+        3 │ security label on type t is 'x';
+          ╰╴                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_security_label_function() {
+        assert_snapshot!(goto("
+create function f() returns int language sql as 'select 1';
+security label on function f$0() is 'x';
+"), @"
+          ╭▸ 
+        2 │ create function f() returns int language sql as 'select 1';
+          │                 ─ 2. destination
+        3 │ security label on function f() is 'x';
+          ╰╴                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_security_label_provider_unresolved() {
+        goto_not_found(
+            "
+create table foo(id int);
+security label for prov$0 on table foo is 'x';
+",
+        );
     }
 
     #[test]
@@ -8423,6 +12126,93 @@ reindex index idx$0;
           │              ─── 2. destination
         4 │ reindex index idx;
           ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cluster_table() {
+        assert_snapshot!(goto("
+create table foo(id int);
+cluster foo$0;
+"), @"
+          ╭▸ 
+        2 │ create table foo(id int);
+          │              ─── 2. destination
+        3 │ cluster foo;
+          ╰╴          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cluster_using_index() {
+        assert_snapshot!(goto("
+create table foo(id int);
+create index i on foo(id);
+cluster foo using i$0;
+"), @"
+          ╭▸ 
+        3 │ create index i on foo(id);
+          │              ─ 2. destination
+        4 │ cluster foo using i;
+          ╰╴                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_table_cluster_on() {
+        assert_snapshot!(goto("
+create table t(a int);
+create index idx on t(a);
+alter table t cluster on idx$0;
+"), @"
+          ╭▸ 
+        3 │ create index idx on t(a);
+          │              ─── 2. destination
+        4 │ alter table t cluster on idx;
+          ╰╴                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_table_replica_identity_using_index() {
+        assert_snapshot!(goto("
+create table t(a int);
+create unique index idx on t(a);
+alter table t replica identity using index idx$0;
+"), @"
+          ╭▸ 
+        3 │ create unique index idx on t(a);
+          │                     ─── 2. destination
+        4 │ alter table t replica identity using index idx;
+          ╰╴                                             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_copy_table() {
+        assert_snapshot!(goto("
+create table foo (id int);
+copy foo$0 to stdout;
+"), @"
+          ╭▸ 
+        2 │ create table foo (id int);
+          │              ─── 2. destination
+        3 │ copy foo to stdout;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_copy_column() {
+        assert_snapshot!(goto("
+create table foo (id int);
+copy foo (id$0) to stdout;
+"), @"
+          ╭▸ 
+        2 │ create table foo (id int);
+          │                   ── 2. destination
+        3 │ copy foo (id) to stdout;
+          ╰╴           ─ 1. source
         ");
     }
 
@@ -8984,6 +12774,60 @@ merge into x
           ‡
         7 │   when matched and a = c
           ╰╴                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_merge_update_set_target_column() {
+        assert_snapshot!(goto("
+create table target(id int, val int);
+create table source(id int, val int);
+merge into target using source on target.id = source.id
+  when matched then update set val$0 = source.val;
+"
+        ), @"
+          ╭▸ 
+        2 │ create table target(id int, val int);
+          │                             ─── 2. destination
+          ‡
+        5 │   when matched then update set val = source.val;
+          ╰╴                                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_merge_update_set_source_expr_column() {
+        assert_snapshot!(goto("
+create table target(id int, val int);
+create table source(id int, val int);
+merge into target using source on target.id = source.id
+  when matched then update set val = source.val$0;
+"
+        ), @"
+          ╭▸ 
+        3 │ create table source(id int, val int);
+          │                             ─── 2. destination
+        4 │ merge into target using source on target.id = source.id
+        5 │   when matched then update set val = source.val;
+          ╰╴                                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_merge_insert_column_list_target_column() {
+        assert_snapshot!(goto("
+create table target(id int, val int);
+create table source(id int, val int);
+merge into target using source on target.id = source.id
+  when not matched then insert (val$0) values(source.val);
+"
+        ), @"
+          ╭▸ 
+        2 │ create table target(id int, val int);
+          │                             ─── 2. destination
+          ‡
+        5 │   when not matched then insert (val) values(source.val);
+          ╰╴                                  ─ 1. source
         ");
     }
 
@@ -9906,6 +13750,178 @@ create operator ||| (leftarg = int, rightarg = int, procedure = f$0);
     }
 
     #[test]
+    fn goto_operator_expr_usage() {
+        assert_snapshot!(goto("
+create operator === (leftarg = int, rightarg = int, function = int4eq);
+select 1 ===$0 2;
+"), @"
+          ╭▸ 
+        2 │ create operator === (leftarg = int, rightarg = int, function = int4eq);
+          │                 ─── 2. destination
+        3 │ select 1 === 2;
+          ╰╴           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_operator_explicit_operator_call() {
+        assert_snapshot!(goto("
+create operator === (leftarg = int, rightarg = int, function = int4eq);
+select 1 operator(===$0) 2;
+"), @"
+          ╭▸ 
+        2 │ create operator === (leftarg = int, rightarg = int, function = int4eq);
+          │                 ─── 2. destination
+        3 │ select 1 operator(===) 2;
+          ╰╴                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_operator() {
+        assert_snapshot!(goto("
+create operator === (leftarg = int, rightarg = int, function = int4eq);
+drop operator ===$0 (int, int);
+"), @"
+          ╭▸ 
+        2 │ create operator === (leftarg = int, rightarg = int, function = int4eq);
+          │                 ─── 2. destination
+        3 │ drop operator === (int, int);
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_operator_set_schema() {
+        assert_snapshot!(goto("
+create operator === (leftarg = int, rightarg = int, function = int4eq);
+alter operator ===$0 (int, int) set schema public;
+"), @"
+          ╭▸ 
+        2 │ create operator === (leftarg = int, rightarg = int, function = int4eq);
+          │                 ─── 2. destination
+        3 │ alter operator === (int, int) set schema public;
+          ╰╴                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_operator() {
+        assert_snapshot!(goto("
+create operator === (leftarg = int, rightarg = int, function = int4eq);
+comment on operator ===$0 (int, int) is 'x';
+"), @"
+          ╭▸ 
+        2 │ create operator === (leftarg = int, rightarg = int, function = int4eq);
+          │                 ─── 2. destination
+        3 │ comment on operator === (int, int) is 'x';
+          ╰╴                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_operator_class_operator_member() {
+        assert_snapshot!(goto("
+create operator === (leftarg = int, rightarg = int, function = int4eq);
+create operator class c for type int using btree as operator 1 ===$0;
+"), @"
+          ╭▸ 
+        2 │ create operator === (leftarg = int, rightarg = int, function = int4eq);
+          │                 ─── 2. destination
+        3 │ create operator class c for type int using btree as operator 1 ===;
+          ╰╴                                                                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_operator_family_operator_member() {
+        assert_snapshot!(goto("
+create operator === (leftarg = int, rightarg = int, function = int4eq);
+create operator family fam using btree;
+alter operator family fam using btree add operator 1 ===$0 (int, int);
+"), @"
+          ╭▸ 
+        2 │ create operator === (leftarg = int, rightarg = int, function = int4eq);
+          │                 ─── 2. destination
+        3 │ create operator family fam using btree;
+        4 │ alter operator family fam using btree add operator 1 === (int, int);
+          ╰╴                                                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_operator_exclude_constraint() {
+        assert_snapshot!(goto("
+create operator === (leftarg = int, rightarg = int, function = int4eq);
+create table t (a int, exclude (a with ===$0));
+"), @"
+          ╭▸ 
+        2 │ create operator === (leftarg = int, rightarg = int, function = int4eq);
+          │                 ─── 2. destination
+        3 │ create table t (a int, exclude (a with ===));
+          ╰╴                                         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_operator_commutator_option() {
+        assert_snapshot!(goto("
+create operator === (leftarg = int, rightarg = int, function = int4eq);
+create operator ==== (leftarg = int, rightarg = int, function = int4eq, commutator = ===$0);
+"), @"
+          ╭▸ 
+        2 │ create operator === (leftarg = int, rightarg = int, function = int4eq);
+          │                 ─── 2. destination
+        3 │ create operator ==== (leftarg = int, rightarg = int, function = int4eq, commutator = ===);
+          ╰╴                                                                                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_operator_schema_qualified() {
+        assert_snapshot!(goto("
+create operator public.=== (leftarg = int, rightarg = int, function = int4eq);
+drop operator public.===$0 (int, int);
+"), @"
+          ╭▸ 
+        2 │ create operator public.=== (leftarg = int, rightarg = int, function = int4eq);
+          │                 ────────── 2. destination
+        3 │ drop operator public.=== (int, int);
+          ╰╴                       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_cast_function_ref() {
+        assert_snapshot!(goto("
+create type a as enum ('x');
+create type b as enum ('x');
+create function a_to_b(a) returns b language sql as $$ select 'x'::b $$;
+create cast (a as b) with function a_to_b$0(a);
+"), @"
+          ╭▸ 
+        4 │ create function a_to_b(a) returns b language sql as $$ select 'x'::b $$;
+          │                 ────── 2. destination
+        5 │ create cast (a as b) with function a_to_b(a);
+          ╰╴                                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_type_range_subtype_diff_function_ref() {
+        assert_snapshot!(goto("
+create function int_diff(int, int) returns float8 language sql as $$ select 0::float8 $$;
+create type int_range as range (subtype = int, subtype_diff = int_diff$0);
+"), @"
+          ╭▸ 
+        2 │ create function int_diff(int, int) returns float8 language sql as $$ select 0::float8 $$;
+          │                 ──────── 2. destination
+        3 │ create type int_range as range (subtype = int, subtype_diff = int_diff);
+          ╰╴                                                                     ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_cte_window_partition_column_from_create_table_if_not_exists() {
         assert_snapshot!(goto("
 create table t (
@@ -10020,6 +14036,37 @@ window w as (
        13 │ from tbl
        14 │ window w as (
           ╰╴       ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_window_base_name_in_inline_over() {
+        assert_snapshot!(goto("
+create table t(a int);
+select row_number() over (w1$0 order by a)
+from t
+window w1 as (partition by a);
+"), @"
+          ╭▸ 
+        3 │ select row_number() over (w1 order by a)
+          │                            ─ 1. source
+        4 │ from t
+        5 │ window w1 as (partition by a);
+          ╰╴       ── 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_window_base_name_in_window_def() {
+        assert_snapshot!(goto("
+create table t(a int);
+select row_number() over w2
+from t
+window w1 as (partition by a), w2 as (w1$0 order by a);
+"), @"
+          ╭▸ 
+        5 │ window w1 as (partition by a), w2 as (w1 order by a);
+          ╰╴       ── 2. destination               ─ 1. source
         ");
     }
 
@@ -10147,17 +14194,17 @@ create table e2 (
 );
 
 create property graph g1
-  vertex tables (v1, v2, v3)
+  vertex tables (v1 as source_vertex, v2 as destination_vertex, v3)
   edge tables (
-    e1 source v1$0 destination v2,
-    e2 source v1 destination v3);
+    e1 source source_vertex$0 destination destination_vertex,
+    e2 source source_vertex destination v3);
 "), @"
            ╭▸ 
-         2 │ create table v1 (
-           │              ── 2. destination
-           ‡
-        32 │     e1 source v1 destination v2,
-           ╰╴               ─ 1. source
+        30 │   vertex tables (v1 as source_vertex, v2 as destination_vertex, v3)
+           │                        ───────────── 2. destination
+        31 │   edge tables (
+        32 │     e1 source source_vertex destination destination_vertex,
+           ╰╴                          ─ 1. source
         "
         );
 
@@ -10217,19 +14264,19 @@ create table e1 (
 );
 
 create property graph g1
-  vertex tables (v1, v2)
+  vertex tables (v1 as source_vertex, v2)
   edge tables (
     e1
-      source key (source_id) references v1$0 (id)
+      source key (source_id) references source_vertex$0 (id)
       destination key (destination_id) references v2 (id)
   );
 "), @"
            ╭▸ 
-         2 │ create table v1 (id int8 primary key);
-           │              ── 2. destination
+        11 │   vertex tables (v1 as source_vertex, v2)
+           │                        ───────────── 2. destination
            ‡
-        14 │       source key (source_id) references v1 (id)
-           ╰╴                                         ─ 1. source
+        14 │       source key (source_id) references source_vertex (id)
+           ╰╴                                                    ─ 1. source
         "
         );
     }
@@ -10293,18 +14340,18 @@ create table e1 (
 );
 
 create property graph g1
-  vertex tables (v1, v2)
+  vertex tables (v1 as source_vertex, v2)
   edge tables (
     e1 key (id)
-      source key (source_id) references v1 (id$0)
+      source key (source_id) references source_vertex (id$0)
       destination key (destination_id) references v2 (id));
 "), @"
            ╭▸ 
          2 │ create table v1 (id int8 primary key);
            │                  ── 2. destination
            ‡
-        14 │       source key (source_id) references v1 (id)
-           ╰╴                                             ─ 1. source
+        14 │       source key (source_id) references source_vertex (id)
+           ╰╴                                                        ─ 1. source
         ");
     }
 
@@ -10548,6 +14595,377 @@ create function f(x t.a$0%type) returns t.b%type
           │                 ─ 2. destination
         3 │ create function f(x t.a%type) returns t.b%type
           ╰╴                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_table() {
+        assert_snapshot!(goto("
+create table foo (id int);
+grant select on foo$0 to bob;
+"), @"
+          ╭▸ 
+        2 │ create table foo (id int);
+          │              ─── 2. destination
+        3 │ grant select on foo to bob;
+          ╰╴                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_table_keyword() {
+        assert_snapshot!(goto("
+create table foo (id int);
+grant select on table foo$0 to bob;
+"), @"
+          ╭▸ 
+        2 │ create table foo (id int);
+          │              ─── 2. destination
+        3 │ grant select on table foo to bob;
+          ╰╴                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_revoke_table() {
+        assert_snapshot!(goto("
+create table foo (id int);
+revoke select on foo$0 from bob;
+"), @"
+          ╭▸ 
+        2 │ create table foo (id int);
+          │              ─── 2. destination
+        3 │ revoke select on foo from bob;
+          ╰╴                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_column() {
+        assert_snapshot!(goto("
+create table foo (id int);
+grant select (id$0) on foo to bob;
+"), @"
+          ╭▸ 
+        2 │ create table foo (id int);
+          │                   ── 2. destination
+        3 │ grant select (id) on foo to bob;
+          ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_sequence() {
+        assert_snapshot!(goto("
+create sequence s;
+grant usage on sequence s$0 to bob;
+"), @"
+          ╭▸ 
+        2 │ create sequence s;
+          │                 ─ 2. destination
+        3 │ grant usage on sequence s to bob;
+          ╰╴                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_function() {
+        assert_snapshot!(goto("
+create function f() returns int language sql as 'select 1';
+grant execute on function f$0 to bob;
+"), @"
+          ╭▸ 
+        2 │ create function f() returns int language sql as 'select 1';
+          │                 ─ 2. destination
+        3 │ grant execute on function f to bob;
+          ╰╴                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_schema() {
+        assert_snapshot!(goto("
+create schema myschema;
+grant usage on schema myschema$0 to bob;
+"), @"
+          ╭▸ 
+        2 │ create schema myschema;
+          │               ──────── 2. destination
+        3 │ grant usage on schema myschema to bob;
+          ╰╴                             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_view() {
+        assert_snapshot!(goto("
+create view v as select 1;
+grant select on v$0 to bob;
+"), @"
+          ╭▸ 
+        2 │ create view v as select 1;
+          │             ─ 2. destination
+        3 │ grant select on v to bob;
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_domain() {
+        assert_snapshot!(goto("
+create domain d as int;
+grant usage on domain d$0 to bob;
+"), @"
+          ╭▸ 
+        2 │ create domain d as int;
+          │               ─ 2. destination
+        3 │ grant usage on domain d to bob;
+          ╰╴                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_language() {
+        assert_snapshot!(goto("
+create language mylang handler h;
+grant usage on language mylang$0 to bob;
+"), @"
+          ╭▸ 
+        2 │ create language mylang handler h;
+          │                 ────── 2. destination
+        3 │ grant usage on language mylang to bob;
+          ╰╴                             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_foreign_server() {
+        assert_snapshot!(goto("
+create foreign data wrapper fdw;
+create server s foreign data wrapper fdw;
+grant usage on foreign server s$0 to bob;
+"), @"
+          ╭▸ 
+        3 │ create server s foreign data wrapper fdw;
+          │               ─ 2. destination
+        4 │ grant usage on foreign server s to bob;
+          ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_foreign_data_wrapper() {
+        assert_snapshot!(goto("
+create foreign data wrapper w;
+grant usage on foreign data wrapper w$0 to bob;
+"), @"
+          ╭▸ 
+        2 │ create foreign data wrapper w;
+          │                             ─ 2. destination
+        3 │ grant usage on foreign data wrapper w to bob;
+          ╰╴                                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_grant_all_tables_in_schema() {
+        assert_snapshot!(goto("
+create schema sc;
+grant select on all tables in schema sc$0 to bob;
+"), @"
+          ╭▸ 
+        2 │ create schema sc;
+          │               ── 2. destination
+        3 │ grant select on all tables in schema sc to bob;
+          ╰╴                                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_statistics_column() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+create statistics st on a$0, b from t;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int, b int);
+          │                ─ 2. destination
+        3 │ create statistics st on a, b from t;
+          ╰╴                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_statistics_table() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+create statistics st on a, b from t$0;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int, b int);
+          │              ─ 2. destination
+        3 │ create statistics st on a, b from t;
+          ╰╴                                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_statistics_schema_qualified_table() {
+        assert_snapshot!(goto("
+create schema s;
+create table s.t(a int, b int);
+create statistics st on a, b from s.t$0;
+"), @"
+          ╭▸ 
+        3 │ create table s.t(a int, b int);
+          │                ─ 2. destination
+        4 │ create statistics st on a, b from s.t;
+          ╰╴                                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_statistics() {
+        assert_snapshot!(goto("
+create table t(a int);
+create statistics s on a from t;
+drop statistics s$0;
+"), @"
+          ╭▸ 
+        3 │ create statistics s on a from t;
+          │                   ─ 2. destination
+        4 │ drop statistics s;
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_statistics() {
+        assert_snapshot!(goto("
+create table t(a int);
+create statistics s on a from t;
+alter statistics s$0 set statistics 100;
+"), @"
+          ╭▸ 
+        3 │ create statistics s on a from t;
+          │                   ─ 2. destination
+        4 │ alter statistics s set statistics 100;
+          ╰╴                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_statistics() {
+        assert_snapshot!(goto("
+create table t(a int);
+create statistics s on a from t;
+comment on statistics s$0 is '';
+"), @"
+          ╭▸ 
+        3 │ create statistics s on a from t;
+          │                   ─ 2. destination
+        4 │ comment on statistics s is '';
+          ╰╴                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_publication_table() {
+        assert_snapshot!(goto("
+create table t(a int);
+create publication pub for table t$0;
+"), @"
+          ╭▸ 
+        2 │ create table t(a int);
+          │              ─ 2. destination
+        3 │ create publication pub for table t;
+          ╰╴                                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_publication_column() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+create publication pub for table t (a$0, b);
+"), @"
+          ╭▸ 
+        2 │ create table t(a int, b int);
+          │                ─ 2. destination
+        3 │ create publication pub for table t (a, b);
+          ╰╴                                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_publication_where_column() {
+        assert_snapshot!(goto("
+create table t(a int, b int);
+create publication pub for table t where (a$0 > 1);
+"), @"
+          ╭▸ 
+        2 │ create table t(a int, b int);
+          │                ─ 2. destination
+        3 │ create publication pub for table t where (a > 1);
+          ╰╴                                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_count_star_filter_column() {
+        assert_snapshot!(goto("
+create table t (a int);
+select count(*) filter (where a$0 > 0) from t;
+"), @"
+          ╭▸ 
+        2 │ create table t (a int);
+          │                 ─ 2. destination
+        3 │ select count(*) filter (where a > 0) from t;
+          ╰╴                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_with_ordinality_implicit_column() {
+        assert_snapshot!(goto("
+select ordinality$0 from unnest(array[1,2]) with ordinality;
+"), @"
+          ╭▸ 
+        2 │ select ordinality from unnest(array[1,2]) with ordinality;
+          ╰╴                ─ 1. source                    ────────── 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_with_ordinality_qualified_implicit_column() {
+        assert_snapshot!(goto("
+select u.ordinality$0 from unnest(array[1,2]) with ordinality as u;
+"), @"
+          ╭▸ 
+        2 │ select u.ordinality from unnest(array[1,2]) with ordinality as u;
+          ╰╴                  ─ 1. source                    ────────── 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_with_ordinality_explicit_alias_column() {
+        assert_snapshot!(goto("
+select o$0 from unnest(array[1,2]) with ordinality as u(x, o);
+"), @"
+          ╭▸ 
+        2 │ select o from unnest(array[1,2]) with ordinality as u(x, o);
+          ╰╴       ─ 1. source                                       ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_rows_from_with_ordinality_implicit_column() {
+        assert_snapshot!(goto("
+select ordinality$0 from rows from (unnest(array[1,2])) with ordinality;
+"), @"
+          ╭▸ 
+        2 │ select ordinality from rows from (unnest(array[1,2])) with ordinality;
+          ╰╴                ─ 1. source                                ────────── 2. destination
         ");
     }
 }

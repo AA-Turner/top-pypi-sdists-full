@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apm-cli
-Version: 0.25.0
+Version: 0.26.0
 Summary: MCP configuration tool
 Author-email: Daniel Meppiel <user@example.com>
 License: MIT License
@@ -41,6 +41,7 @@ Requires-Dist: click>=8.0.0
 Requires-Dist: colorama>=0.4.6
 Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: requests>=2.31.0
+Requires-Dist: truststore>=0.10.0
 Requires-Dist: python-frontmatter>=1.0.0
 Requires-Dist: llm>=0.28
 Requires-Dist: llm-github-models>=0.18.0
@@ -63,6 +64,8 @@ Requires-Dist: ruff>=0.11.0; extra == "dev"
 Requires-Dist: mypy>=1.0.0; extra == "dev"
 Requires-Dist: jsonschema>=4.0.0; extra == "dev"
 Requires-Dist: pylint>=3.0.0; extra == "dev"
+Requires-Dist: hypothesis>=6.0.0; extra == "dev"
+Requires-Dist: mutmut==3.6.0; extra == "dev"
 Provides-Extra: build
 Requires-Dist: pyinstaller>=6.0.0; extra == "build"
 Dynamic: license-file

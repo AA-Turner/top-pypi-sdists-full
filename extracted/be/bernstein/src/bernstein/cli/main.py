@@ -1,4 +1,4 @@
-"""CLI entry point for Bernstein -- declarative agent orchestration.
+"""CLI entry point for Bernstein -- deterministic, verifiable orchestration for CLI coding agents.
 
 This module defines the top-level click group and registers all
 subcommand modules from:
@@ -383,7 +383,7 @@ def print_rich_help() -> None:
     c.print(
         Panel(
             "[bold]bernstein[/bold]  deterministic Python scheduler for CLI coding agents.\n"
-            "  43 adapters, parallel git worktrees, HMAC-SHA256 audit chain (RFC 2104).",
+            "  40+ adapters, parallel git worktrees, opt-in HMAC-SHA256 audit chain (RFC 2104).",
             border_style="blue",
             padding=(0, 2),
             expand=False,
@@ -730,7 +730,7 @@ def cli(
     refine_spec: str | None,
     unsafe_allow_unicode_tags: bool,
 ) -> None:
-    """Declarative agent orchestration for engineering teams."""
+    """Deterministic, verifiable orchestration for CLI coding agents."""
     # The skill-pack invisible-Unicode sanitizer reads its opt-out from this
     # env var; set it as early as possible so any later import that triggers a
     # SkillLoader sees the operator's choice. Default is OFF (sanitize on).
@@ -1158,6 +1158,17 @@ cli.add_command(intent_group, "intent")
 from bernstein.cli.commands.context_cmd import context_group  # noqa: E402
 
 cli.add_command(context_group, "context")
+# Fleet config plane: audit-chained variables, named connection documents,
+# and switchable operating contexts (#2550). The ``context`` name is taken
+# by the worker context-capsule surface above, so operating contexts are
+# exposed as ``ctx``.
+from bernstein.cli.commands.conn_cmd import conn_group  # noqa: E402
+from bernstein.cli.commands.ctx_cmd import ctx_group  # noqa: E402
+from bernstein.cli.commands.var_cmd import var_group  # noqa: E402
+
+cli.add_command(var_group, "var")
+cli.add_command(conn_group, "conn")
+cli.add_command(ctx_group, "ctx")
 # Signed maker-checker / judge-panel gate adjudications (#2294).
 from bernstein.cli.commands.gate_cmd import gate_group  # noqa: E402
 
@@ -1268,6 +1279,11 @@ cli.add_command(activity_group, "activity")
 from bernstein.cli.commands.evidence_cmd import evidence_group  # noqa: E402
 
 cli.add_command(evidence_group, "evidence")
+
+# Agent-posted, journal-anchored task artifacts: reports, tables, links (#2553).
+from bernstein.cli.commands.artifacts_cmd import artifacts_group  # noqa: E402
+
+cli.add_command(artifacts_group, "artifacts")
 
 # In-process verification gate driven by worker hooks: blocks a failing
 # completion or an out-of-scope write in-session, sealing gate receipts (#2360).

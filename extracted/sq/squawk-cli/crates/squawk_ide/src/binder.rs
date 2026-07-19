@@ -1,10 +1,12 @@
 /// Loosely based on TypeScript's binder
 /// see: typescript-go/internal/binder/binder.go
 use la_arena::Arena;
-use rowan::TextSize;
+use rowan::{TextRange, TextSize};
 use smallvec::SmallVec;
 use squawk_syntax::{SyntaxNodePtr, ast, ast::AstNode};
 
+use crate::literals::literal_string_value;
+use crate::name::schema_and_func_name;
 use crate::scope::Scope;
 use crate::symbols::{Name, Schema, Symbol, SymbolKind};
 
@@ -43,6 +45,12 @@ pub(crate) struct Binder {
     scope: Scope,
     symbols: Arena<Symbol>,
     search_path_changes: Vec<SearchPathChange>,
+    // When binding objects nested inside `create schema ...`, they default to
+    // the schema being created instead of the current search path.
+    default_schema_override: Option<Schema>,
+    // If we have a `create schema foo` command then commands nested inside that
+    // get `foo` for their schema.
+    schema_regions: Vec<(TextRange, Schema)>,
 }
 
 impl Binder {
@@ -58,6 +66,8 @@ impl Binder {
                     Schema::new("pg_catalog"),
                 ],
             }],
+            default_schema_override: None,
+            schema_regions: vec![],
         }
     }
 
@@ -78,9 +88,28 @@ impl Binder {
         let unqualified = schema.is_none();
         let list = match schema {
             Some(s) => Schemas::from_iter([s.clone()]),
-            None => self.search_path_at(position).iter().cloned().collect(),
+            None => self.resolution_search_path(position),
         };
         ResolvedSchemas { list, unqualified }
+    }
+
+    fn resolution_search_path(&self, position: TextSize) -> Schemas {
+        let pg_temp = Schema::new("pg_temp");
+        let search_path = self.search_path_at(position);
+        let mut list = Schemas::new();
+        // Usually empty unless someone is using `create schema`
+        if let Some((_, schema)) = self
+            .schema_regions
+            .iter()
+            .find(|(range, _)| range.contains(position))
+        {
+            list.push(schema.clone());
+        }
+        if search_path.contains(&pg_temp) {
+            list.push(pg_temp.clone());
+        }
+        list.extend(search_path.iter().filter(|s| **s != pg_temp).cloned());
+        list
     }
 
     pub(crate) fn lookup_with(
@@ -166,6 +195,13 @@ impl Binder {
         None
     }
 
+    fn default_schema(&self) -> Option<Schema> {
+        if let Some(schema) = &self.default_schema_override {
+            return Some(schema.clone());
+        }
+        self.current_search_path().first().cloned()
+    }
+
     fn current_search_path(&self) -> &[Schema] {
         &self
             .search_path_changes
@@ -242,6 +278,8 @@ fn bind_file(b: &mut Binder, file: &ast::SourceFile) {
 
 fn bind_stmt(b: &mut Binder, stmt: ast::Stmt) {
     match stmt {
+        ast::Stmt::AlterDomain(alter_domain) => bind_alter_domain(b, alter_domain),
+        ast::Stmt::AlterTable(alter_table) => bind_alter_table(b, alter_table),
         ast::Stmt::CreateTable(create_table) => bind_create_table(b, create_table),
         ast::Stmt::CreateTableAs(create_table_as) => bind_create_table_as(b, create_table_as),
         ast::Stmt::SelectInto(select_into) => bind_select_into(b, select_into),
@@ -260,6 +298,9 @@ fn bind_stmt(b: &mut Binder, stmt: ast::Stmt) {
             bind_create_materialized_view(b, create_view)
         }
         ast::Stmt::CreateSequence(create_sequence) => bind_create_sequence(b, create_sequence),
+        ast::Stmt::CreateStatistics(create_statistics) => {
+            bind_create_statistics(b, create_statistics)
+        }
         ast::Stmt::CreateTrigger(create_trigger) => bind_create_trigger(b, create_trigger),
         ast::Stmt::CreateEventTrigger(create_event_trigger) => {
             bind_create_event_trigger(b, create_event_trigger)
@@ -269,13 +310,54 @@ fn bind_stmt(b: &mut Binder, stmt: ast::Stmt) {
         }
         ast::Stmt::CreateDatabase(create_database) => bind_create_database(b, create_database),
         ast::Stmt::CreateServer(create_server) => bind_create_server(b, create_server),
+        ast::Stmt::CreateForeignDataWrapper(create_fdw) => {
+            bind_create_foreign_data_wrapper(b, create_fdw)
+        }
+        ast::Stmt::CreatePublication(create_publication) => {
+            bind_create_publication(b, create_publication)
+        }
+        ast::Stmt::CreateSubscription(create_subscription) => {
+            bind_create_subscription(b, create_subscription)
+        }
+        ast::Stmt::CreateLanguage(create_language) => bind_create_language(b, create_language),
+        ast::Stmt::CreateCollation(create_collation) => bind_create_collation(b, create_collation),
+        ast::Stmt::CreateConversion(create_conversion) => {
+            bind_create_conversion(b, create_conversion)
+        }
         ast::Stmt::CreateExtension(create_extension) => bind_create_extension(b, create_extension),
-        ast::Stmt::CreateRole(create_role) => bind_create_role(b, create_role),
+        ast::Stmt::CreateAccessMethod(create_access_method) => {
+            bind_create_access_method(b, create_access_method)
+        }
+        ast::Stmt::CreateOperator(create_operator) => bind_create_operator(b, create_operator),
+        ast::Stmt::CreateOperatorFamily(create_operator_family) => {
+            bind_create_operator_family(b, create_operator_family)
+        }
+        ast::Stmt::CreateOperatorClass(create_operator_class) => {
+            bind_create_operator_class(b, create_operator_class)
+        }
+        ast::Stmt::CreateTextSearchDictionary(create_text_search_dictionary) => {
+            bind_create_text_search_dictionary(b, create_text_search_dictionary)
+        }
+        ast::Stmt::CreateTextSearchConfiguration(create_text_search_configuration) => {
+            bind_create_text_search_configuration(b, create_text_search_configuration)
+        }
+        ast::Stmt::CreateTextSearchParser(create_text_search_parser) => {
+            bind_create_text_search_parser(b, create_text_search_parser)
+        }
+        ast::Stmt::CreateTextSearchTemplate(create_text_search_template) => {
+            bind_create_text_search_template(b, create_text_search_template)
+        }
+        ast::Stmt::CreateRole(create_role) => bind_create_role(b, create_role.role()),
+        ast::Stmt::CreateUser(create_user) => bind_create_role(b, create_user.role()),
+        ast::Stmt::CreateGroup(create_group) => bind_create_role(b, create_group.role()),
         ast::Stmt::Declare(declare) => bind_declare_cursor(b, declare),
         ast::Stmt::Prepare(prepare) => bind_prepare(b, prepare),
         ast::Stmt::Listen(listen) => bind_listen(b, listen),
+        ast::Stmt::SavepointCreate(savepoint) => bind_savepoint(b, savepoint),
+        ast::Stmt::Select(select) => bind_select(b, select),
         ast::Stmt::Set(set) => bind_set(b, set),
         ast::Stmt::CreatePolicy(create_policy) => bind_create_policy(b, create_policy),
+        ast::Stmt::CreateRule(create_rule) => bind_create_rule(b, create_rule),
         ast::Stmt::CreatePropertyGraph(create_property_graph) => {
             bind_create_property_graph(b, create_property_graph)
         }
@@ -284,7 +366,7 @@ fn bind_stmt(b: &mut Binder, stmt: ast::Stmt) {
 }
 
 fn bind_create_table(b: &mut Binder, create_table: impl ast::HasCreateTable) {
-    let Some(path) = create_table.path() else {
+    let Some(path) = create_table.table_name().and_then(|table| table.path()) else {
         return;
     };
     let Some(table_name) = item_name(&path) else {
@@ -309,17 +391,51 @@ fn bind_create_table(b: &mut Binder, create_table: impl ast::HasCreateTable) {
     let type_id = b.symbols.alloc(Symbol {
         kind: SymbolKind::Type,
         ptr: name_ptr,
-        schema: Some(schema),
+        schema: Some(schema.clone()),
         params: None,
         table: None,
     });
 
     b.scope.insert(table_name.clone(), table_id);
-    b.scope.insert(table_name, type_id);
+    b.scope.insert(table_name.clone(), type_id);
+    bind_create_table_constraints(b, &create_table, &schema, &table_name);
+}
+
+fn bind_create_table_constraints(
+    b: &mut Binder,
+    create_table: &impl ast::HasCreateTable,
+    schema: &Schema,
+    table_name: &Name,
+) {
+    let Some(table_arg_list) = create_table.table_arg_list() else {
+        return;
+    };
+
+    for arg in table_arg_list.args() {
+        match arg {
+            ast::TableArg::Column(column) => {
+                for constraint in column.constraints() {
+                    if let Some(constraint_name) = constraint.constraint_name()
+                        && let Some(name) = constraint_name.name()
+                    {
+                        bind_constraint_name_node(b, name, schema, table_name);
+                    }
+                }
+            }
+            ast::TableArg::TableConstraint(constraint) => {
+                if let Some(constraint_name) = constraint.constraint_name()
+                    && let Some(name) = constraint_name.name()
+                {
+                    bind_constraint_name_node(b, name, schema, table_name);
+                }
+            }
+            ast::TableArg::LikeClause(_) => (),
+        }
+    }
 }
 
 fn bind_create_table_as(b: &mut Binder, create_table_as: ast::CreateTableAs) {
-    let Some(path) = create_table_as.path() else {
+    let Some(path) = create_table_as.table_name().and_then(|table| table.path()) else {
         return;
     };
     let Some(table_name) = item_name(&path) else {
@@ -357,7 +473,7 @@ fn bind_select_into(b: &mut Binder, select_into: ast::SelectInto) {
     let Some(into_clause) = select_into.into_clause() else {
         return;
     };
-    let Some(path) = into_clause.path() else {
+    let Some(path) = into_clause.table_name().and_then(|table| table.path()) else {
         return;
     };
     let Some(table_name) = item_name(&path) else {
@@ -392,14 +508,24 @@ fn bind_select_into(b: &mut Binder, select_into: ast::SelectInto) {
 }
 
 fn bind_create_index(b: &mut Binder, create_index: ast::CreateIndex) {
-    let Some(name) = create_index.name() else {
+    let Some(path) = create_index.index().and_then(|index| index.path()) else {
         return;
     };
 
-    let index_name = Name::from_node(&name);
-    let name_ptr = SyntaxNodePtr::new(name.syntax());
+    let Some(index_name) = item_name(&path) else {
+        return;
+    };
+    let name_ptr = path_to_ptr(&path);
 
-    let Some(schema) = b.current_search_path().first().cloned() else {
+    let schema = match create_index
+        .table_relation_name()
+        .and_then(|relation| relation.table_name_ref())
+        .and_then(|table| table.path_ref())
+    {
+        Some(table_path) => schema_name_ref(b, &table_path, false),
+        None => b.default_schema(),
+    };
+    let Some(schema) = schema else {
         return;
     };
 
@@ -415,7 +541,7 @@ fn bind_create_index(b: &mut Binder, create_index: ast::CreateIndex) {
 }
 
 fn bind_create_function(b: &mut Binder, create_function: ast::CreateFunction) {
-    let Some(path) = create_function.path() else {
+    let Some(path) = create_function.name().and_then(|name| name.path()) else {
         return;
     };
 
@@ -440,10 +566,15 @@ fn bind_create_function(b: &mut Binder, create_function: ast::CreateFunction) {
     });
 
     b.scope.insert(function_name, function_id);
+
+    bind_routine_body_search_path(b, create_function.option_list());
 }
 
 fn bind_create_aggregate(b: &mut Binder, create_aggregate: ast::CreateAggregate) {
-    let Some(path) = create_aggregate.path() else {
+    let Some(path) = create_aggregate
+        .aggregate_name()
+        .and_then(|name| name.path())
+    else {
         return;
     };
 
@@ -471,7 +602,7 @@ fn bind_create_aggregate(b: &mut Binder, create_aggregate: ast::CreateAggregate)
 }
 
 fn bind_create_procedure(b: &mut Binder, create_procedure: ast::CreateProcedure) {
-    let Some(path) = create_procedure.path() else {
+    let Some(path) = create_procedure.name().and_then(|name| name.path()) else {
         return;
     };
 
@@ -496,34 +627,57 @@ fn bind_create_procedure(b: &mut Binder, create_procedure: ast::CreateProcedure)
     });
 
     b.scope.insert(procedure_name, procedure_id);
+
+    bind_routine_body_search_path(b, create_procedure.option_list());
 }
 
 fn bind_create_schema(b: &mut Binder, create_schema: ast::CreateSchema) {
-    let (schema_name, name_ptr) = if let Some(schema_name_node) = create_schema.name() {
-        let schema_name = Name::from_node(&schema_name_node);
-        let name_ptr = SyntaxNodePtr::new(schema_name_node.syntax());
-        (schema_name, name_ptr)
-    } else if let Some(name) = create_schema.role().and_then(|role| role.name()) {
-        let schema_name = Name::from_node(&name);
-        let name_ptr = SyntaxNodePtr::new(name.syntax());
-        (schema_name, name_ptr)
-    } else {
+    let Some(schema_name_node) = create_schema.schema_name() else {
         return;
     };
+    let schema_name = Name::from_node(&schema_name_node);
+    let name_ptr = SyntaxNodePtr::new(schema_name_node.syntax());
+
+    let schema = Schema(schema_name.clone());
 
     let schema_id = b.symbols.alloc(Symbol {
         kind: SymbolKind::Schema,
         ptr: name_ptr,
-        schema: Some(Schema(schema_name.clone())),
+        schema: Some(schema.clone()),
         params: None,
         table: None,
     });
 
     b.scope.insert(schema_name, schema_id);
+
+    b.schema_regions
+        .push((create_schema.syntax().text_range(), schema.clone()));
+
+    let prev_override = b.default_schema_override.replace(schema);
+    for element in create_schema.schema_elements() {
+        bind_schema_element(b, element);
+    }
+    b.default_schema_override = prev_override;
+}
+
+fn bind_schema_element(b: &mut Binder, element: ast::SchemaElement) {
+    match element {
+        ast::SchemaElement::CreateIndex(create_index) => bind_create_index(b, create_index),
+        ast::SchemaElement::CreateSequence(create_sequence) => {
+            bind_create_sequence(b, create_sequence)
+        }
+        ast::SchemaElement::CreateTable(create_table) => bind_create_table(b, create_table),
+        ast::SchemaElement::CreateTrigger(create_trigger) => bind_create_trigger(b, create_trigger),
+        ast::SchemaElement::CreateView(create_view) => bind_create_view(b, create_view),
+        ast::SchemaElement::Grant(_) => (),
+    }
 }
 
 fn bind_create_type(b: &mut Binder, create_type: ast::CreateType) {
-    let Some(path) = create_type.path() else {
+    let Some(path) = create_type
+        .type_name()
+        .and_then(|type_name| type_name.path())
+    else {
         return;
     };
 
@@ -547,9 +701,9 @@ fn bind_create_type(b: &mut Binder, create_type: ast::CreateType) {
 
     b.scope.insert(type_name.clone(), type_id);
 
-    if create_type.range_token().is_some() {
+    if let Some(ast::CreateTypeKind::RangeType(range_type)) = create_type.kind() {
         if let Some((multirange_name, multirange_ptr, multirange_schema)) =
-            multirange_type_from_range(b, create_type, type_name, schema, name_ptr)
+            multirange_type_from_range(b, &range_type, type_name, schema, name_ptr)
         {
             let multirange_id = b.symbols.alloc(Symbol {
                 kind: SymbolKind::Type,
@@ -564,7 +718,7 @@ fn bind_create_type(b: &mut Binder, create_type: ast::CreateType) {
 }
 
 fn bind_create_domain(b: &mut Binder, create_domain: ast::CreateDomain) {
-    let Some(path) = create_domain.path() else {
+    let Some(path) = create_domain.domain().and_then(|domain| domain.path()) else {
         return;
     };
 
@@ -581,22 +735,126 @@ fn bind_create_domain(b: &mut Binder, create_domain: ast::CreateDomain) {
     let type_id = b.symbols.alloc(Symbol {
         kind: SymbolKind::Type,
         ptr: name_ptr,
-        schema: Some(schema),
+        schema: Some(schema.clone()),
         params: None,
         table: None,
     });
 
-    b.scope.insert(domain_name, type_id);
+    b.scope.insert(domain_name.clone(), type_id);
+
+    for constraint in create_domain.constraints() {
+        if let Some(constraint_name) = constraint.constraint_name()
+            && let Some(name) = constraint_name.name()
+        {
+            bind_constraint_name_node(b, name, &schema, &domain_name);
+        }
+    }
+}
+
+fn bind_alter_table(b: &mut Binder, alter_table: ast::AlterTable) {
+    let Some(path) = alter_table
+        .table_relation_name()
+        .and_then(|relation| relation.table_name_ref())
+        .and_then(|table| table.path_ref())
+    else {
+        return;
+    };
+    let Some(table_name) = item_name_ref(&path) else {
+        return;
+    };
+    let Some(schema) = schema_name_ref(b, &path, false) else {
+        return;
+    };
+
+    for action in alter_table.actions() {
+        match action {
+            ast::AlterTableAction::AddColumn(add_column) => {
+                for constraint in add_column.constraints() {
+                    if let Some(constraint_name) = constraint.constraint_name()
+                        && let Some(name) = constraint_name.name()
+                    {
+                        bind_constraint_name_node(b, name, &schema, &table_name);
+                    }
+                }
+            }
+            ast::AlterTableAction::AddConstraint(add_constraint) => {
+                if let Some(constraint) = add_constraint.constraint()
+                    && let Some(constraint_name) = constraint.constraint_name()
+                    && let Some(name) = constraint_name.name()
+                {
+                    bind_constraint_name_node(b, name, &schema, &table_name);
+                }
+            }
+            ast::AlterTableAction::RenameConstraint(rename_constraint) => {
+                if let Some(name) = rename_constraint
+                    .constraint_name()
+                    .and_then(|constraint| constraint.name())
+                {
+                    bind_constraint_name_node(b, name, &schema, &table_name);
+                }
+            }
+            _ => (),
+        }
+    }
+}
+
+fn bind_alter_domain(b: &mut Binder, alter_domain: ast::AlterDomain) {
+    let Some(path) = alter_domain
+        .domain_ref()
+        .and_then(|domain| domain.path_ref())
+    else {
+        return;
+    };
+    let Some(domain_name) = item_name_ref(&path) else {
+        return;
+    };
+    let Some(schema) = schema_name_ref(b, &path, false) else {
+        return;
+    };
+
+    match alter_domain.action() {
+        Some(ast::AlterDomainAction::AddConstraint(add_constraint)) => {
+            if let Some(constraint) = add_constraint.constraint()
+                && let Some(constraint_name) = constraint.constraint_name()
+                && let Some(name) = constraint_name.name()
+            {
+                bind_constraint_name_node(b, name, &schema, &domain_name);
+            }
+        }
+        Some(ast::AlterDomainAction::RenameConstraint(rename_constraint)) => {
+            if let Some(name) = rename_constraint
+                .constraint_name()
+                .and_then(|constraint| constraint.name())
+            {
+                bind_constraint_name_node(b, name, &schema, &domain_name);
+            }
+        }
+        _ => (),
+    }
+}
+
+fn bind_constraint_name_node(b: &mut Binder, name: ast::Name, schema: &Schema, owner_name: &Name) {
+    let name_ptr = SyntaxNodePtr::new(name.syntax());
+    let constraint_name = Name::from_node(&name);
+    let constraint_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Constraint,
+        ptr: name_ptr,
+        schema: Some(schema.clone()),
+        params: None,
+        table: Some(owner_name.clone()),
+    });
+
+    b.scope.insert(constraint_name, constraint_id);
 }
 
 fn multirange_type_from_range(
     b: &Binder,
-    create_type: ast::CreateType,
+    range_type: &ast::RangeType,
     type_name: Name,
     schema: Schema,
     fallback_ptr: SyntaxNodePtr,
 ) -> Option<(Name, SyntaxNodePtr, Schema)> {
-    if let Some(attribute_list) = create_type.attribute_list() {
+    if let Some(attribute_list) = range_type.attribute_list() {
         let multirange_key = Name::from_string("multirange_type_name");
         for option in attribute_list.attribute_options() {
             let Some(name) = option.name() else {
@@ -613,11 +871,11 @@ fn multirange_type_from_range(
                     return Some((multirange_name, fallback_ptr, schema));
                 }
                 if let Some(ast::Type::PathType(path_type)) = attribute_value.ty()
-                    && let Some(path) = path_type.path()
-                    && let Some(multirange_name) = item_name(&path)
+                    && let Some(path) = path_type.path_ref()
+                    && let Some(multirange_name) = item_name_ref(&path)
                 {
                     let multirange_schema = if path.qualifier().is_some() {
-                        schema_name(b, &path, false)?
+                        schema_name_ref(b, &path, false)?
                     } else {
                         schema
                     };
@@ -647,7 +905,7 @@ fn derive_multirange_name(range_name: Name) -> Name {
 }
 
 fn bind_create_view(b: &mut Binder, create_view: ast::CreateView) {
-    let Some(path) = create_view.path() else {
+    let Some(path) = create_view.view().and_then(|view| view.path()) else {
         return;
     };
 
@@ -677,7 +935,7 @@ fn bind_create_view(b: &mut Binder, create_view: ast::CreateView) {
 
 // TODO: combine with create_view
 fn bind_create_materialized_view(b: &mut Binder, create_view: ast::CreateMaterializedView) {
-    let Some(path) = create_view.path() else {
+    let Some(path) = create_view.view().and_then(|view| view.path()) else {
         return;
     };
 
@@ -703,7 +961,10 @@ fn bind_create_materialized_view(b: &mut Binder, create_view: ast::CreateMateria
 }
 
 fn bind_create_sequence(b: &mut Binder, create_sequence: ast::CreateSequence) {
-    let Some(path) = create_sequence.path() else {
+    let Some(path) = create_sequence
+        .sequence()
+        .and_then(|sequence| sequence.path())
+    else {
         return;
     };
 
@@ -731,23 +992,56 @@ fn bind_create_sequence(b: &mut Binder, create_sequence: ast::CreateSequence) {
     b.scope.insert(sequence_name, sequence_id);
 }
 
+fn bind_create_statistics(b: &mut Binder, create_statistics: ast::CreateStatistics) {
+    let Some(path) = create_statistics
+        .statistics()
+        .and_then(|statistics| statistics.path())
+    else {
+        return;
+    };
+
+    let Some(statistics_name) = item_name(&path) else {
+        return;
+    };
+
+    let name_ptr = path_to_ptr(&path);
+
+    let Some(schema) = schema_name(b, &path, false) else {
+        return;
+    };
+
+    let statistics_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Statistics,
+        ptr: name_ptr,
+        schema: Some(schema),
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(statistics_name, statistics_id);
+}
+
 fn bind_create_trigger(b: &mut Binder, create_trigger: ast::CreateTrigger) {
-    let Some(name) = create_trigger.name() else {
+    let Some(name) = create_trigger.trigger().and_then(|trigger| trigger.name()) else {
         return;
     };
 
     let trigger_name = Name::from_node(&name);
     let name_ptr = SyntaxNodePtr::new(name.syntax());
 
-    let Some(table_path) = create_trigger.on_table().and_then(|on| on.path()) else {
+    let Some(table_path) = create_trigger
+        .on_relation()
+        .and_then(|on| on.relation_name_ref())
+        .and_then(|relation| relation.path_ref())
+    else {
         return;
     };
 
-    let Some(table_name) = item_name(&table_path) else {
+    let Some(table_name) = item_name_ref(&table_path) else {
         return;
     };
 
-    let Some(schema) = schema_name(b, &table_path, false) else {
+    let Some(schema) = schema_name_ref(b, &table_path, false) else {
         return;
     };
 
@@ -763,22 +1057,26 @@ fn bind_create_trigger(b: &mut Binder, create_trigger: ast::CreateTrigger) {
 }
 
 fn bind_create_policy(b: &mut Binder, create_policy: ast::CreatePolicy) {
-    let Some(name) = create_policy.name() else {
+    let Some(name) = create_policy.policy().and_then(|policy| policy.name()) else {
         return;
     };
 
     let policy_name = Name::from_node(&name);
     let name_ptr = SyntaxNodePtr::new(name.syntax());
 
-    let Some(table_path) = create_policy.on_table().and_then(|on| on.path()) else {
+    let Some(table_path) = create_policy
+        .on_table()
+        .and_then(|on| on.table_name_ref())
+        .and_then(|table| table.path_ref())
+    else {
         return;
     };
 
-    let Some(table_name) = item_name(&table_path) else {
+    let Some(table_name) = item_name_ref(&table_path) else {
         return;
     };
 
-    let Some(schema) = schema_name(b, &table_path, false) else {
+    let Some(schema) = schema_name_ref(b, &table_path, false) else {
         return;
     };
 
@@ -793,8 +1091,46 @@ fn bind_create_policy(b: &mut Binder, create_policy: ast::CreatePolicy) {
     b.scope.insert(policy_name, policy_id);
 }
 
+fn bind_create_rule(b: &mut Binder, create_rule: ast::CreateRule) {
+    let Some(name) = create_rule.rule().and_then(|rule| rule.name()) else {
+        return;
+    };
+
+    let rule_name = Name::from_node(&name);
+    let name_ptr = SyntaxNodePtr::new(name.syntax());
+
+    let Some(table_path) = create_rule
+        .rule_on()
+        .and_then(|on| on.relation_name_ref())
+        .and_then(|relation| relation.path_ref())
+    else {
+        return;
+    };
+
+    let Some(table_name) = item_name_ref(&table_path) else {
+        return;
+    };
+
+    let Some(schema) = schema_name_ref(b, &table_path, false) else {
+        return;
+    };
+
+    let rule_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Rule,
+        ptr: name_ptr,
+        schema: Some(schema),
+        params: None,
+        table: Some(table_name),
+    });
+
+    b.scope.insert(rule_name, rule_id);
+}
+
 fn bind_create_property_graph(b: &mut Binder, create_property_graph: ast::CreatePropertyGraph) {
-    let Some(path) = create_property_graph.path() else {
+    let Some(path) = create_property_graph
+        .property_graph()
+        .and_then(|property_graph| property_graph.path())
+    else {
         return;
     };
     let Some(property_graph_name) = item_name(&path) else {
@@ -817,7 +1153,10 @@ fn bind_create_property_graph(b: &mut Binder, create_property_graph: ast::Create
 }
 
 fn bind_create_event_trigger(b: &mut Binder, create_event_trigger: ast::CreateEventTrigger) {
-    let Some(name) = create_event_trigger.name() else {
+    let Some(name) = create_event_trigger
+        .event_trigger()
+        .and_then(|event_trigger| event_trigger.name())
+    else {
         return;
     };
 
@@ -836,7 +1175,10 @@ fn bind_create_event_trigger(b: &mut Binder, create_event_trigger: ast::CreateEv
 }
 
 fn bind_create_tablespace(b: &mut Binder, create_tablespace: ast::CreateTablespace) {
-    let Some(name) = create_tablespace.name() else {
+    let Some(name) = create_tablespace
+        .tablespace()
+        .and_then(|tablespace| tablespace.name())
+    else {
         return;
     };
 
@@ -855,7 +1197,10 @@ fn bind_create_tablespace(b: &mut Binder, create_tablespace: ast::CreateTablespa
 }
 
 fn bind_create_database(b: &mut Binder, create_database: ast::CreateDatabase) {
-    let Some(name) = create_database.name() else {
+    let Some(name) = create_database
+        .database()
+        .and_then(|database| database.name())
+    else {
         return;
     };
 
@@ -874,7 +1219,7 @@ fn bind_create_database(b: &mut Binder, create_database: ast::CreateDatabase) {
 }
 
 fn bind_create_server(b: &mut Binder, create_server: ast::CreateServer) {
-    let Some(name) = create_server.name() else {
+    let Some(name) = create_server.server().and_then(|server| server.name()) else {
         return;
     };
 
@@ -892,8 +1237,377 @@ fn bind_create_server(b: &mut Binder, create_server: ast::CreateServer) {
     b.scope.insert(server_name, server_id);
 }
 
+fn bind_create_foreign_data_wrapper(b: &mut Binder, create_fdw: ast::CreateForeignDataWrapper) {
+    let Some(name) = create_fdw
+        .foreign_data_wrapper()
+        .and_then(|foreign_data_wrapper| foreign_data_wrapper.name())
+    else {
+        return;
+    };
+
+    let fdw_name = Name::from_node(&name);
+    let name_ptr = SyntaxNodePtr::new(name.syntax());
+
+    let fdw_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::ForeignDataWrapper,
+        ptr: name_ptr,
+        schema: None,
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(fdw_name, fdw_id);
+}
+
+fn bind_create_publication(b: &mut Binder, create_publication: ast::CreatePublication) {
+    let Some(name) = create_publication
+        .publication()
+        .and_then(|publication| publication.name())
+    else {
+        return;
+    };
+
+    let publication_name = Name::from_node(&name);
+    let name_ptr = SyntaxNodePtr::new(name.syntax());
+
+    let publication_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Publication,
+        ptr: name_ptr,
+        schema: None,
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(publication_name, publication_id);
+}
+
+fn bind_create_subscription(b: &mut Binder, create_subscription: ast::CreateSubscription) {
+    let Some(name) = create_subscription
+        .subscription()
+        .and_then(|subscription| subscription.name())
+    else {
+        return;
+    };
+
+    let subscription_name = Name::from_node(&name);
+    let name_ptr = SyntaxNodePtr::new(name.syntax());
+
+    let subscription_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Subscription,
+        ptr: name_ptr,
+        schema: None,
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(subscription_name, subscription_id);
+}
+
+fn bind_create_language(b: &mut Binder, create_language: ast::CreateLanguage) {
+    let Some(name) = create_language
+        .language()
+        .and_then(|language| language.name())
+    else {
+        return;
+    };
+
+    let language_name = Name::from_node(&name);
+    let name_ptr = SyntaxNodePtr::new(name.syntax());
+
+    let language_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Language,
+        ptr: name_ptr,
+        schema: None,
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(language_name, language_id);
+}
+
+fn bind_create_collation(b: &mut Binder, create_collation: ast::CreateCollation) {
+    let Some(path) = create_collation
+        .collation()
+        .and_then(|collation| collation.path())
+    else {
+        return;
+    };
+
+    let Some(collation_name) = item_name(&path) else {
+        return;
+    };
+
+    let Some(schema) = schema_name(b, &path, false) else {
+        return;
+    };
+
+    let collation_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Collation,
+        ptr: path_to_ptr(&path),
+        schema: Some(schema),
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(collation_name, collation_id);
+}
+
+fn bind_create_conversion(b: &mut Binder, create_conversion: ast::CreateConversion) {
+    let Some(path) = create_conversion
+        .conversion()
+        .and_then(|conversion| conversion.path())
+    else {
+        return;
+    };
+
+    let Some(conversion_name) = item_name(&path) else {
+        return;
+    };
+
+    let Some(schema) = schema_name(b, &path, false) else {
+        return;
+    };
+
+    let conversion_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Conversion,
+        ptr: path_to_ptr(&path),
+        schema: Some(schema),
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(conversion_name, conversion_id);
+}
+
+fn bind_create_access_method(b: &mut Binder, create_access_method: ast::CreateAccessMethod) {
+    let Some(name) = create_access_method
+        .access_method()
+        .and_then(|name| name.name())
+    else {
+        return;
+    };
+
+    let access_method_name = Name::from_node(&name);
+    let name_ptr = SyntaxNodePtr::new(name.syntax());
+
+    let access_method_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::AccessMethod,
+        ptr: name_ptr,
+        schema: None,
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(access_method_name, access_method_id);
+}
+
+fn bind_create_operator(b: &mut Binder, create_operator: ast::CreateOperator) {
+    let Some(op) = create_operator.op() else {
+        return;
+    };
+
+    let Some(custom_op) = op.custom_op() else {
+        return;
+    };
+
+    let operator_name = Name::from_string(custom_op.syntax().text().to_string());
+
+    let path = op.syntax().children().find_map(ast::Path::cast);
+    let schema = match &path {
+        Some(path) => schema_name(b, path, false),
+        None => b.default_schema(),
+    };
+
+    let operator_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Operator,
+        ptr: SyntaxNodePtr::new(op.syntax()),
+        schema,
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(operator_name, operator_id);
+}
+
+fn bind_create_operator_family(b: &mut Binder, create_operator_family: ast::CreateOperatorFamily) {
+    let Some(path) = create_operator_family
+        .op_family_name()
+        .and_then(|name| name.path())
+    else {
+        return;
+    };
+
+    let Some(operator_family_name) = item_name(&path) else {
+        return;
+    };
+
+    let Some(schema) = schema_name(b, &path, false) else {
+        return;
+    };
+
+    let operator_family_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::OperatorFamily,
+        ptr: path_to_ptr(&path),
+        schema: Some(schema),
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(operator_family_name, operator_family_id);
+}
+
+fn bind_create_text_search_dictionary(
+    b: &mut Binder,
+    create_text_search_dictionary: ast::CreateTextSearchDictionary,
+) {
+    let Some(path) = create_text_search_dictionary
+        .text_search_dictionary()
+        .and_then(|dictionary| dictionary.path())
+    else {
+        return;
+    };
+
+    let Some(dictionary_name) = item_name(&path) else {
+        return;
+    };
+
+    let Some(schema) = schema_name(b, &path, false) else {
+        return;
+    };
+
+    let dictionary_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::TextSearchDictionary,
+        ptr: path_to_ptr(&path),
+        schema: Some(schema),
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(dictionary_name, dictionary_id);
+}
+
+fn bind_create_text_search_configuration(
+    b: &mut Binder,
+    create_text_search_configuration: ast::CreateTextSearchConfiguration,
+) {
+    let Some(path) = create_text_search_configuration
+        .text_search_configuration()
+        .and_then(|configuration| configuration.path())
+    else {
+        return;
+    };
+
+    let Some(configuration_name) = item_name(&path) else {
+        return;
+    };
+
+    let Some(schema) = schema_name(b, &path, false) else {
+        return;
+    };
+
+    let configuration_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::TextSearchConfiguration,
+        ptr: path_to_ptr(&path),
+        schema: Some(schema),
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(configuration_name, configuration_id);
+}
+
+fn bind_create_text_search_parser(
+    b: &mut Binder,
+    create_text_search_parser: ast::CreateTextSearchParser,
+) {
+    let Some(path) = create_text_search_parser
+        .text_search_parser()
+        .and_then(|parser| parser.path())
+    else {
+        return;
+    };
+
+    let Some(parser_name) = item_name(&path) else {
+        return;
+    };
+
+    let Some(schema) = schema_name(b, &path, false) else {
+        return;
+    };
+
+    let parser_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::TextSearchParser,
+        ptr: path_to_ptr(&path),
+        schema: Some(schema),
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(parser_name, parser_id);
+}
+
+fn bind_create_text_search_template(
+    b: &mut Binder,
+    create_text_search_template: ast::CreateTextSearchTemplate,
+) {
+    let Some(path) = create_text_search_template
+        .text_search_template()
+        .and_then(|template| template.path())
+    else {
+        return;
+    };
+
+    let Some(template_name) = item_name(&path) else {
+        return;
+    };
+
+    let Some(schema) = schema_name(b, &path, false) else {
+        return;
+    };
+
+    let template_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::TextSearchTemplate,
+        ptr: path_to_ptr(&path),
+        schema: Some(schema),
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(template_name, template_id);
+}
+
+fn bind_create_operator_class(b: &mut Binder, create_operator_class: ast::CreateOperatorClass) {
+    let Some(path) = create_operator_class
+        .op_class_name()
+        .and_then(|name| name.path())
+    else {
+        return;
+    };
+
+    let Some(operator_class_name) = item_name(&path) else {
+        return;
+    };
+
+    let Some(schema) = schema_name(b, &path, false) else {
+        return;
+    };
+
+    let operator_class_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::OperatorClass,
+        ptr: path_to_ptr(&path),
+        schema: Some(schema),
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(operator_class_name, operator_class_id);
+}
+
 fn bind_create_extension(b: &mut Binder, create_extension: ast::CreateExtension) {
-    let Some(name) = create_extension.name() else {
+    let Some(name) = create_extension
+        .extension()
+        .and_then(|extension| extension.name())
+    else {
         return;
     };
 
@@ -911,8 +1625,8 @@ fn bind_create_extension(b: &mut Binder, create_extension: ast::CreateExtension)
     b.scope.insert(extension_name, extension_id);
 }
 
-fn bind_create_role(b: &mut Binder, create_role: ast::CreateRole) {
-    let Some(name) = create_role.name() else {
+fn bind_create_role(b: &mut Binder, role: Option<ast::Role>) {
+    let Some(name) = role.and_then(|role| role.name()) else {
         return;
     };
 
@@ -931,7 +1645,7 @@ fn bind_create_role(b: &mut Binder, create_role: ast::CreateRole) {
 }
 
 fn bind_declare_cursor(b: &mut Binder, declare: ast::Declare) {
-    let Some(name) = declare.name() else {
+    let Some(name) = declare.cursor().and_then(|cursor| cursor.name()) else {
         return;
     };
 
@@ -950,7 +1664,10 @@ fn bind_declare_cursor(b: &mut Binder, declare: ast::Declare) {
 }
 
 fn bind_prepare(b: &mut Binder, prepare: ast::Prepare) {
-    let Some(name) = prepare.name() else {
+    let Some(name) = prepare
+        .prepared_statement()
+        .and_then(|statement| statement.name())
+    else {
         return;
     };
 
@@ -969,7 +1686,7 @@ fn bind_prepare(b: &mut Binder, prepare: ast::Prepare) {
 }
 
 fn bind_listen(b: &mut Binder, listen: ast::Listen) {
-    let Some(name) = listen.name() else {
+    let Some(name) = listen.channel().and_then(|channel| channel.name()) else {
         return;
     };
 
@@ -987,34 +1704,56 @@ fn bind_listen(b: &mut Binder, listen: ast::Listen) {
     b.scope.insert(channel_name, channel_id);
 }
 
+fn bind_savepoint(b: &mut Binder, savepoint: ast::SavepointCreate) {
+    let Some(name) = savepoint.savepoint().and_then(|savepoint| savepoint.name()) else {
+        return;
+    };
+
+    let savepoint_name = Name::from_node(&name);
+    let name_ptr = SyntaxNodePtr::new(name.syntax());
+
+    let savepoint_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Savepoint,
+        ptr: name_ptr,
+        schema: None,
+        params: None,
+        table: None,
+    });
+
+    b.scope.insert(savepoint_name, savepoint_id);
+}
+
 fn item_name(path: &ast::Path) -> Option<Name> {
-    let segment = path.segment()?;
+    Some(Name::from_node(&path.segment()?.name()?))
+}
 
-    if let Some(name) = segment.name() {
-        return Some(Name::from_node(&name));
-    }
-    if let Some(name) = segment.name_ref() {
-        return Some(Name::from_node(&name));
-    }
-
-    None
+fn item_name_ref(path: &ast::PathRef) -> Option<Name> {
+    Some(Name::from_node(&path.segment()?.name_ref()?))
 }
 
 fn path_to_ptr(path: &ast::Path) -> SyntaxNodePtr {
-    if let Some(segment) = path.segment() {
-        if let Some(name) = segment.name() {
-            return SyntaxNodePtr::new(name.syntax());
-        }
-        if let Some(name_ref) = segment.name_ref() {
-            return SyntaxNodePtr::new(name_ref.syntax());
-        }
-    }
-    SyntaxNodePtr::new(path.syntax())
+    path.segment()
+        .and_then(|segment| segment.name())
+        .map_or_else(
+            || SyntaxNodePtr::new(path.syntax()),
+            |name| SyntaxNodePtr::new(name.syntax()),
+        )
 }
 
 fn schema_name(b: &Binder, path: &ast::Path, is_temp: bool) -> Option<Schema> {
-    if let Some(name_ref) = path
-        .qualifier()
+    schema_name_from_qualifier(b, path.qualifier(), is_temp)
+}
+
+fn schema_name_ref(b: &Binder, path: &ast::PathRef, is_temp: bool) -> Option<Schema> {
+    schema_name_from_qualifier(b, path.qualifier(), is_temp)
+}
+
+fn schema_name_from_qualifier(
+    b: &Binder,
+    qualifier: Option<ast::PathRef>,
+    is_temp: bool,
+) -> Option<Schema> {
+    if let Some(name_ref) = qualifier
         .and_then(|q| q.segment())
         .and_then(|s| s.name_ref())
     {
@@ -1025,26 +1764,119 @@ fn schema_name(b: &Binder, path: &ast::Path, is_temp: bool) -> Option<Schema> {
         return Some(Schema::new("pg_temp"));
     }
 
-    b.current_search_path().first().cloned()
+    b.default_schema()
+}
+
+fn bind_routine_body_search_path(b: &mut Binder, option_list: Option<ast::FuncOptionList>) {
+    let Some(option_list) = option_list else {
+        return;
+    };
+
+    let mut search_path = None;
+    let mut body_range = None;
+    for option in option_list.options() {
+        match option {
+            ast::FuncOption::SetFuncOption(set_func_option) => {
+                if let Some(set_config_param) = set_func_option.set_config_param() {
+                    search_path = search_path_from_set_config_param(&set_config_param);
+                }
+            }
+            ast::FuncOption::BeginFuncOptionList(begin_func_option_list) => {
+                body_range = Some(begin_func_option_list.syntax().text_range());
+            }
+            _ => (),
+        }
+    }
+
+    let (Some(search_path), Some(body_range)) = (search_path, body_range) else {
+        return;
+    };
+
+    let previous_search_path = b.current_search_path().to_vec();
+    let search_path = match search_path {
+        SearchPathOverride::Explicit(search_path) => search_path,
+        SearchPathOverride::FromCurrent => previous_search_path.clone(),
+    };
+    b.search_path_changes.push(SearchPathChange {
+        position: body_range.start(),
+        search_path,
+    });
+    b.search_path_changes.push(SearchPathChange {
+        position: body_range.end(),
+        search_path: previous_search_path,
+    });
+}
+
+enum SearchPathOverride {
+    Explicit(Vec<Schema>),
+    FromCurrent,
+}
+
+fn search_path_from_set_config_param(
+    set_config_param: &ast::SetConfigParam,
+) -> Option<SearchPathOverride> {
+    let path = set_config_param.path_ref()?;
+    if path.qualifier().is_some() {
+        return None;
+    }
+
+    let segment = path.segment()?;
+    let param_name = segment.name_ref()?.syntax().text().to_string();
+    if !param_name.eq_ignore_ascii_case("search_path") {
+        return None;
+    }
+
+    if set_config_param.current_token().is_some() {
+        return Some(SearchPathOverride::FromCurrent);
+    }
+
+    if set_config_param.default_token().is_some() {
+        return Some(SearchPathOverride::Explicit(vec![
+            Schema::new("public"),
+            Schema::new("pg_temp"),
+            Schema::new("pg_catalog"),
+        ]));
+    }
+
+    let mut search_path = vec![];
+    for literal in set_config_param.literals() {
+        if let Some(string_value) = extract_string_literal(&literal)
+            && !string_value.is_empty()
+        {
+            search_path.push(Schema::new(string_value));
+        }
+    }
+    for name_ref in set_config_param.name_refs() {
+        search_path.push(Schema::new(name_ref.syntax().text().to_string()));
+    }
+
+    Some(SearchPathOverride::Explicit(search_path))
 }
 
 fn bind_set(b: &mut Binder, set: ast::Set) {
     let position = set.syntax().text_range().start();
 
-    // `set schema` is an alternative to `set search_path`
-    if set.schema_token().is_some() {
-        if let Some(literal) = set.literal()
-            && let Some(string_value) = extract_string_literal(&literal)
-        {
-            b.search_path_changes.push(SearchPathChange {
-                position,
-                search_path: vec![Schema::new(string_value)],
-            });
+    match set.set_target() {
+        // `set schema` is an alternative to `set search_path`
+        Some(ast::SetTarget::SetSchemaValue(set_schema)) => {
+            if let Some(literal) = set_schema.literal()
+                && let Some(string_value) = extract_string_literal(&literal)
+            {
+                b.search_path_changes.push(SearchPathChange {
+                    position,
+                    search_path: vec![Schema::new(string_value)],
+                });
+            }
         }
-        return;
+        Some(ast::SetTarget::SetConfig(set_config)) => bind_set_config(b, set_config, position),
+        _ => (),
     }
+}
 
-    let Some(path) = set.path() else { return };
+fn bind_set_config(b: &mut Binder, set_config: ast::SetConfig, position: TextSize) {
+    let Some(path) = set_config.path_ref() else {
+        return;
+    };
 
     if path.qualifier().is_some() {
         return;
@@ -1065,7 +1897,7 @@ fn bind_set(b: &mut Binder, set: ast::Set) {
     }
 
     // `set search_path`
-    if set.default_token().is_some() {
+    if set_config.default_token().is_some() {
         b.search_path_changes.push(SearchPathChange {
             position,
             search_path: vec![
@@ -1076,7 +1908,7 @@ fn bind_set(b: &mut Binder, set: ast::Set) {
         });
     } else {
         let mut search_path = vec![];
-        for config_value in set.config_values() {
+        for config_value in set_config.config_values() {
             match config_value {
                 ast::ConfigValue::Literal(literal) => {
                     if let Some(string_value) = extract_string_literal(&literal) {
@@ -1101,6 +1933,86 @@ fn bind_set(b: &mut Binder, set: ast::Set) {
     }
 }
 
+fn bind_select(b: &mut Binder, select: ast::Select) {
+    let position = select.syntax().text_range().start();
+    bind_select_set_config(b, &select, position);
+}
+
+// `select set_config('search_path', 'foo, public', false)` is the functional
+// equivalent of `set search_path to foo, public`.
+fn bind_select_set_config(b: &mut Binder, select: &ast::Select, position: TextSize) {
+    if select.from_clause().is_some() {
+        return;
+    }
+
+    let mut targets = select
+        .select_clause()
+        .and_then(|select_clause| select_clause.target_list())
+        .into_iter()
+        .flat_map(|target_list| target_list.targets());
+
+    let Some(target) = targets.next() else {
+        return;
+    };
+    if targets.next().is_some() {
+        return;
+    }
+
+    let Some(ast::Expr::CallExpr(call_expr)) = target.expr() else {
+        return;
+    };
+
+    let Some((schema, func_name)) = schema_and_func_name(&call_expr) else {
+        return;
+    };
+    if func_name != Name::from_string("set_config") {
+        return;
+    }
+    if let Some(schema) = &schema
+        && *schema != Schema::new("pg_catalog")
+    {
+        return;
+    }
+
+    let schemas = b.resolved_schemas(position, schema.as_ref());
+    if let Some((resolved_schema, _)) = b.lookup_info(&func_name, SymbolKind::Function, &schemas)
+        && resolved_schema != Schema::new("pg_catalog")
+    {
+        return;
+    }
+
+    let mut args = call_expr.arg_list().into_iter().flat_map(|al| al.args());
+
+    let Some(ast::Expr::Literal(setting_name_literal)) = args.next().and_then(|a| a.expr()) else {
+        return;
+    };
+    let Some(setting_name) = literal_string_value(&setting_name_literal) else {
+        return;
+    };
+    if !setting_name.eq_ignore_ascii_case("search_path") {
+        return;
+    }
+
+    let Some(ast::Expr::Literal(new_value_literal)) = args.next().and_then(|a| a.expr()) else {
+        return;
+    };
+    let Some(new_value) = literal_string_value(&new_value_literal) else {
+        return;
+    };
+
+    let search_path = new_value
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(Schema::new)
+        .collect();
+
+    b.search_path_changes.push(SearchPathChange {
+        position,
+        search_path,
+    });
+}
+
 pub(crate) fn extract_string_literal(literal: &ast::Literal) -> Option<String> {
     let text = literal.syntax().text().to_string();
 
@@ -1117,7 +2029,7 @@ fn extract_param_signature(param_list: Option<ast::ParamList>) -> Option<Vec<Nam
     for param in param_list.params() {
         if let Some(ty) = param.ty()
             && let ast::Type::PathType(path_type) = ty
-            && let Some(path) = path_type.path()
+            && let Some(path) = path_type.path_ref()
             && let Some(segment) = path.segment()
             && let Some(name_ref) = segment.name_ref()
         {

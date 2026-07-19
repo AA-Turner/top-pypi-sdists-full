@@ -182,7 +182,7 @@ class CivitaiExtractor(Extractor):
                     self._image_ext)
             if "id" not in file and data["filename"].isdecimal():
                 file["id"] = text.parse_int(data["filename"])
-            if "date" not in file:
+            if "date" not in file and "createdAt" in file:
                 file["date"] = self.parse_datetime_iso(file["createdAt"])
             if self._meta_generation:
                 file["generation"] = self._extract_meta_generation(file)

@@ -92,6 +92,14 @@ class TorchBackend(Backend[torch.Tensor]):
                 i = int(k[4:])
                 torch.cuda.set_rng_state(torch.from_numpy(numpy.frombuffer(v, dtype="uint8")), i)
 
+    @staticmethod
+    def raw_to_numpy(raw_tensor: torch.Tensor) -> numpy.ndarray:
+        """
+        :param raw_tensor:
+        :return: numpy array with the same content
+        """
+        return raw_tensor.detach().cpu().numpy()
+
     # keep in sync with native implementation
     @staticmethod
     def get_dtype_name_raw(raw_tensor: torch.Tensor) -> str:
@@ -695,7 +703,14 @@ class TorchBackend(Backend[torch.Tensor]):
         out_dims = list(logits.dims)
         out_dims.remove(axis)
 
-        cross_entropy = Tensor(name="cross_entropy", dims=out_dims, raw_tensor=raw_cross_entropy, dtype=logits.dtype)
+        cross_entropy = Tensor(
+            name="cross_entropy",
+            dims=out_dims,
+            raw_tensor=raw_cross_entropy,
+            # take the dtype from the raw result:
+            # under autocast, F.cross_entropy computes in float32 even for bf16 logits
+            dtype=TorchBackend.get_dtype_name_raw(raw_cross_entropy),
+        )
 
         return cross_entropy
 

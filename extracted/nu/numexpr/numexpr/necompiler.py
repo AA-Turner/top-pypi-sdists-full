@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import threading
+import weakref
 from typing import Dict, Optional
 
 import numpy
@@ -794,6 +795,26 @@ _numexpr_last = threading.local()
 evaluate_lock = threading.Lock()
 
 
+def _cache_last_kwargs(out: Optional[numpy.ndarray],
+                       order: str,
+                       casting: str,
+                       ex_uses_vml: bool) -> Dict[str, object]:
+    return {
+        'out': None if out is None else weakref.ref(out),
+        'order': order,
+        'casting': casting,
+        'ex_uses_vml': ex_uses_vml,
+    }
+
+
+def _resolve_last_kwargs(kwargs: Dict) -> Dict:
+    kwargs = kwargs.copy()
+    out = kwargs.get('out')
+    if isinstance(out, weakref.ReferenceType):
+        kwargs['out'] = out()
+    return kwargs
+
+
 def validate(ex: str,
              local_dict: Optional[Dict] = None,
              global_dict: Optional[Dict] = None,
@@ -905,8 +926,7 @@ def validate(ex: str,
             compiled_ex = _numexpr_cache.c[numexpr_key]
         except KeyError:
             compiled_ex = _numexpr_cache.c[numexpr_key] = NumExpr(ex, signature, sanitize=sanitize, **context)
-        kwargs = {'out': out, 'order': order, 'casting': casting,
-                  'ex_uses_vml': ex_uses_vml}
+        kwargs = _cache_last_kwargs(out, order, casting, ex_uses_vml)
         _numexpr_last.l.set(ex=compiled_ex, argnames=names, kwargs=kwargs)
     except Exception as e:
         return e
@@ -920,6 +940,7 @@ def evaluate(ex: str,
              casting: str = 'same_kind',
              sanitize: Optional[bool] = None,
              _frame_depth: int = 3,
+             disable_cache: bool = False,
              **kwargs) -> numpy.ndarray:
     r"""
     Evaluate a simple array expression element-wise using the virtual machine.
@@ -978,10 +999,41 @@ def evaluate(ex: str,
         The calling frame depth. Unless you are a NumExpr developer you should
         not set this value.
 
+    disable_cache: bool
+        If set to be `True`, disables the uses of internal expression cache.
+
+        By default, NumExpr caches compiled expressions and associated metadata
+        (via the internal `_numexpr_last`, `_numexpr_cache`, and `_names_cache`
+        structures). This allows repeated evaluations of the same expression
+        to skip recompilation, improving performance in workloads where the same
+        expression is executed multiple times.
+
+        However, caching retains references to input and output arrays in order
+        to support re-evaluation. As a result, this can increase their reference
+        counts and may prevent them from being garbage-collected immediately.
+        In situations where precise control over object lifetimes or memory
+        management is required, set `disable_cache=True` to avoid this behavior.
+
+        Default is `False`.
+
     """
     # We could avoid code duplication if we called validate and then re_evaluate
     # here, but we have difficulties with the `sys.getframe(2)` call in
     # `getArguments`
+
+    # If dissable_cache set to be True, we evaluate the expression here
+    # Otherwise we validate and then re_evaluate
+    if disable_cache:
+        context = getContext(kwargs)
+        names, ex_uses_vml = getExprNames(ex, context, sanitize=sanitize)
+        arguments = getArguments(names, local_dict, global_dict, _frame_depth=_frame_depth - 1)
+        signature = [(name, getType(arg)) for (name, arg) in
+                     zip(names, arguments)]
+        compiled_ex = NumExpr(ex, signature, sanitize=sanitize, **context)
+        kwargs = {'out': out, 'order': order, 'casting': casting,
+                  'ex_uses_vml': ex_uses_vml}
+        return compiled_ex(*arguments, **kwargs)
+
     e = validate(ex, local_dict=local_dict, global_dict=global_dict,
                  out=out, order=order, casting=casting,
                  _frame_depth=_frame_depth, sanitize=sanitize, **kwargs)
@@ -1017,6 +1069,6 @@ def re_evaluate(local_dict: Optional[Dict] = None,
         raise RuntimeError("A previous evaluate() execution was not found, please call `validate` or `evaluate` once before `re_evaluate`")
     argnames = _numexpr_last.l['argnames']
     args = getArguments(argnames, local_dict, global_dict, _frame_depth=_frame_depth)
-    kwargs = _numexpr_last.l['kwargs']
+    kwargs = _resolve_last_kwargs(_numexpr_last.l['kwargs'])
     # with evaluate_lock:
     return compiled_ex(*args, **kwargs)

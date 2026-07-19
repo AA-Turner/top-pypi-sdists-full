@@ -182,7 +182,6 @@ def _render_apply_section() -> None:
                         "auth_bearer_token": STATE.auth_bearer_token,
                         "customer_tier_filter": STATE.customer_tier_filter,
                         "force": False,
-                        "google_access_token": STATE.google_access_token,
                     },
                     on_success=[
                         *finish_tool_call(),

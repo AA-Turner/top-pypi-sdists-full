@@ -240,8 +240,7 @@ def test_guard_protect_render_uses_supply_chain_user_copy(capsys) -> None:
                     "harness_message": (
                         "HOL Guard blocked `minimist@1.2.5` before install.\n"
                         "Reason: Known exploited package.\n"
-                        "Fix: Install `minimist@1.2.9` instead.\n"
-                        "Review this request in HOL Guard, then retry."
+                        "Fix: Install `minimist@1.2.9` instead."
                     ),
                 },
             },
@@ -253,7 +252,7 @@ def test_guard_protect_render_uses_supply_chain_user_copy(capsys) -> None:
 
     assert "HOL Guard blocked" in output
     assert "Install `minimist@1.2.9` instead." in output
-    assert "Review this request in HOL Guard, then retry." in output
+    assert "Review this request in HOL Guard, then retry." not in output
 
 
 def test_guard_protect_render_uses_supply_chain_review_copy(capsys) -> None:
@@ -915,6 +914,30 @@ def test_guard_render_redacts_non_dict_oauth_storage_health_values(monkeypatch) 
     payload = captured["payload"]
     assert isinstance(payload, dict)
     assert payload["oauth_storage_health"] == "Authorization: ***** ~/private"
+
+
+def test_guard_render_preserves_authority_diagnostics_while_redacting_values(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_renderer(_console, payload: dict[str, object]) -> None:
+        captured["payload"] = payload
+
+    monkeypatch.setitem(render._RENDERERS, "run", fake_renderer)
+    monkeypatch.setattr(render, "_RICH_AVAILABLE", True)
+
+    emit_guard_payload(
+        "run",
+        {
+            "authority_error": "authoritative_decision_inconsistent",
+            "authority_error_message": "Authorization: Bearer super-secret /Users/example/private",
+        },
+        False,
+    )
+
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert payload["authority_error"] == "authoritative_decision_inconsistent"
+    assert payload["authority_error_message"] == "Authorization: ***** ~/private"
 
 
 def test_emit_guard_payload_renders_supply_chain_risks_table(capsys, monkeypatch) -> None:

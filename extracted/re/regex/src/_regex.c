@@ -8395,6 +8395,7 @@ Py_LOCAL_INLINE(int) search_start(RE_State* state, RE_NextNode* next,
 
     test = next->test;
     node = next->node;
+    new_position->node = node;
 
     if (state->reverse) {
         if (start_pos < state->slice_start) {
@@ -9188,7 +9189,7 @@ again:
     if (test == node) {
         text_pos = start_pos + test->step;
 
-        if (test->next_1.node) {
+        if (test->next_1.node && state->slice_start <= text_pos && text_pos <= state->slice_end) {
             int status;
 
             status = try_match(state, &test->next_1, text_pos, new_position);
@@ -13430,8 +13431,12 @@ advance:
                 repeat->tail_guard_list.last_text_pos = -1;
             }
 
-            /* Call a group, skipping its CALL_REF node. */
-            node = pattern->call_ref_info[index].node->next_1.node;
+            /* Call a group, skipping its CALL_REF node. Be aware that we might be calling the entire pattern. */
+            if (pattern->call_ref_info[index].node) {
+                node = pattern->call_ref_info[index].node->next_1.node;
+            } else {
+                node = pattern->start_node;
+            }
             break;
         }
         case RE_OP_GROUP_EXISTS: /* Capture group exists. */

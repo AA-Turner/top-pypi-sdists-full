@@ -1,14 +1,7 @@
 cmake_minimum_required(VERSION 3.18...3.30)
-
-# Version is sourced from setuptools-scm via scikit-build-core (git tags). This
-# fallback only applies for standalone CMake calls, not using the build backend.
-if(NOT DEFINED SKBUILD_PROJECT_VERSION)
-  set(SKBUILD_PROJECT_VERSION "0.0.0")
-endif()
-
 project(
   OmniMalloc
-  VERSION ${SKBUILD_PROJECT_VERSION}
+  VERSION 0.4.0 # Also update pyproject.toml
   LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -27,37 +20,16 @@ endif()
 
 find_package(Python 3.10 REQUIRED COMPONENTS Interpreter Development.Module)
 
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
-
 execute_process(
   COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
   OUTPUT_STRIP_TRAILING_WHITESPACE
   OUTPUT_VARIABLE nanobind_ROOT)
 find_package(nanobind CONFIG REQUIRED)
 
-nanobind_add_module(
-  _cpp
-  NB_STATIC
-  NOMINSIZE
-  src/cpp/allocators/best_fit.cpp
-  src/cpp/allocators/first_fit.cpp
-  src/cpp/allocators/local_search.cpp
-  src/cpp/allocators/omni.cpp
-  src/cpp/allocators/simulated_annealing.cpp
-  src/cpp/allocators/supermalloc.cpp
-  src/cpp/allocators/tabu_search.cpp
-  src/cpp/allocators/telamalloc.cpp
-  src/cpp/analysis/antichain.cpp
-  src/cpp/analysis/closure.cpp
-  src/cpp/analysis/conflicts.cpp
-  src/cpp/analysis/linearize.cpp
-  src/cpp/analysis/placement.cpp
-  src/cpp/primitives/allocation.cpp
-  src/cpp/bindings.cpp)
+nanobind_add_module(_cpp NB_STATIC src/cpp/allocators/greedy.cpp
+                    src/cpp/primitives/allocation.cpp src/cpp/bindings.cpp)
 
 target_include_directories(_cpp PRIVATE src/cpp)
-target_link_libraries(_cpp PRIVATE Threads::Threads)
 
 if(ENABLE_CLANG_TIDY)
   set_target_properties(_cpp PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_PROGRAM}")

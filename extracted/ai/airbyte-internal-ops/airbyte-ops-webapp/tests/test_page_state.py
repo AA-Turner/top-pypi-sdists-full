@@ -19,6 +19,9 @@ from airbyte_ops_webapp.pages.connector_version_manager._state import (
     ConnectorVersionManagerPageState,
 )
 from airbyte_ops_webapp.pages.customer_billing._state import CustomerBillingPageState
+from airbyte_ops_webapp.pages.motherduck_diagnostics._state import (
+    MotherDuckDiagnosticsPageState,
+)
 from airbyte_ops_webapp.state import OAuthConfigState
 
 _WEBAPP_ROOT = Path(__file__).resolve().parent.parent / "airbyte_ops_webapp"
@@ -55,6 +58,14 @@ _PAGE_STATE_CASES = [
             oauth_config=_sample_oauth_config()
         ).to_prefab_state(),
         id="customer_billing",
+    ),
+    pytest.param(
+        MotherDuckDiagnosticsPageState,
+        (_WEBAPP_ROOT / "pages" / "motherduck_diagnostics",),
+        MotherDuckDiagnosticsPageState.from_env(
+            oauth_config=_sample_oauth_config()
+        ).to_prefab_state(),
+        id="motherduck_diagnostics",
     ),
     pytest.param(
         ConnectorVersionManagerPageState,

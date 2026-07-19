@@ -9,7 +9,6 @@ from pathlib import Path
 
 from sphinx.application import Sphinx
 from sphinx.util import logging
-from sphinx.util.console import bold
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +31,8 @@ release = get_version(project)
 # The short X.Y version
 version = ".".join(release.split(".")[:3])
 
-logger.info(bold("%s version: %s"), project, version)
-logger.info(bold("%s release: %s"), project, release)
+logger.info("%s version: %s", project, version)
+logger.info("%s release: %s", project, release)
 
 # -- General configuration ---------------------------------------------------
 
@@ -44,6 +43,7 @@ extensions = [
     # Stdlib extensions:
     "sphinx.ext.intersphinx",
     # Third-party extensions:
+    "click_extra.sphinx",  # provides GitHub-flavored admonition syntax
     "myst_parser",
     "sphinxcontrib.apidoc",
     "sphinxcontrib.programoutput",
@@ -65,6 +65,12 @@ html_title = f"<nobr>{project}</nobr> documentation v{release}"
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
+    "packaging": ("https://packaging.pypa.io/en/stable", None),
+    "pip": ("https://pip.pypa.io/en/stable", None),
+    "click": ("https://click.palletsprojects.com/en/stable", None),
+    "build": ("https://build.pypa.io/en/stable", None),
+    "importlib_metadata": ("https://importlib-metadata.readthedocs.io/en/latest", None),
+    "pytest": ("https://docs.pytest.org/en/stable", None),
 }
 
 issues_github_path = "jazzband/pip-tools"
@@ -90,16 +96,24 @@ linkcheck_ignore = [
 ]
 
 nitpick_ignore_regex = [
-    ("py:class", "pip.*"),
-    ("py:class", "pathlib.*"),
-    ("py:class", "click.*"),
-    ("py:class", "build.*"),
-    ("py:class", "optparse.*"),
-    ("py:class", "_ImportLibDist"),
-    ("py:class", "PackageMetadata"),
-    ("py:class", "importlib.*"),
+    # FIXME: broken refs inside of pip-tools itself
+    # internal names with leading '_', mostly type vars
+    ("py:.*", r"piptools\..*\._\w+"),
+    # BaseRepository ref is broken?
+    ("py:class", r"piptools\.repositories\.BaseRepository"),
+    # external libraries
+    ("py:.*", r"click\..*"),
+    ("py:.*", r"pip\..*"),
+    ("py:class", "NormalizedName"),
+    ("py:exc", "InvalidName"),
     ("py:class", "IndexContent"),
-    ("py:exc", "click.*"),
+    ("py:class", "PackageMetadata"),
+    ("py:class", "_ImportLibDist"),
+    ("py:class", r"build\..*"),
+    # stdlib
+    ("py:class", r"importlib\..*"),
+    ("py:class", r"optparse\..*"),
+    ("py:class", r"pathlib\..*"),
 ]
 
 suppress_warnings = [
@@ -126,7 +140,9 @@ apidoc_toc_file = None
 
 
 # -- myst_parser options --------------------------------------------------
-myst_enable_extensions: set[str] = set()
+myst_enable_extensions = {
+    "colon_fence",
+}
 
 
 # -- Sphinx extension-API `setup()` hook

@@ -208,7 +208,7 @@ class WSGITransport(SyncTransport):
                     request_input.close()
                     response_started.set()
                 with contextlib.suppress(Exception):
-                    response_iter.close()  # pyright: ignore[reportAttributeAccessIssue]
+                    response_iter.close()  # ty: ignore[unresolved-attribute]
 
         app_future = self._executor.submit(run_app)
 
@@ -231,6 +231,9 @@ class WSGITransport(SyncTransport):
             if isinstance(exc[1], TimeoutError):
                 # Allow an app to evaluate a TimeoutError itself.
                 raise WSGITimeoutError(str(exc[1]), app_future) from exc[1]
+            if isinstance(exc[1], ConnectionError):
+                # Allow an app to evaluate a ConnectionError itself.
+                raise WSGIConnectionError(str(exc[1]), app_future) from exc[1]
             return SyncResponse(
                 status=500,
                 http_version=self._http_version,
@@ -359,7 +362,7 @@ class RequestInput:
             return
         self._closed = True
         with contextlib.suppress(Exception):
-            self._content.close()  # pyright: ignore[reportAttributeAccessIssue]
+            self._content.close()  # ty: ignore[unresolved-attribute]
 
 
 class ResponseContent(Iterator[bytes]):
@@ -447,6 +450,22 @@ class ResponseContent(Iterator[bytes]):
 
 class WSGITimeoutError(TimeoutError):
     """Timeout error raised by WSGI transport.
+
+    Contains a handle to the app future to allow joining on its thread.
+    """
+
+    def __init__(self, msg: str, app_future: Future) -> None:
+        super().__init__(msg)
+        self._app_future = app_future
+
+    def wait(self, timeout: float | None = None) -> None:
+        """Waits for the WSGI application to finish."""
+        with contextlib.suppress(Exception):
+            self._app_future.result(timeout)
+
+
+class WSGIConnectionError(ConnectionError):
+    """Connection error raised by WSGI transport.
 
     Contains a handle to the app future to allow joining on its thread.
     """

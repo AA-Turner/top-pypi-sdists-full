@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docsig
-Version: 0.91.0
+Version: 0.91.1
 Summary: Check signature params for proper documentation
 License-Expression: MIT
 License-File: LICENSE
@@ -59,7 +59,7 @@ Description-Content-Type: text/x-rst
    :target: https://docsig.io/en/latest/?badge=latest
    :alt: readthedocs.org
 .. |python3.10| image:: https://img.shields.io/badge/python-3.10-blue.svg
-   :target: https://www.python.org/downloads/release/python-390
+   :target: https://www.python.org/downloads/release/python-310
    :alt: python3.10
 .. |Black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
@@ -80,7 +80,7 @@ Description-Content-Type: text/x-rst
    :target: https://github.com/jshwi/docsig/actions/workflows/build-intellij-plugin.yaml
    :alt: Build
 .. |VS Code Build| image:: https://github.com/jshwi/docsig/actions/workflows/build-vscode-extension.yaml/badge.svg
-   :target: https://github.com/jshwi/docsig/actions/workflows/build-vscode-extension.yaml.yaml
+   :target: https://github.com/jshwi/docsig/actions/workflows/build-vscode-extension.yaml
    :alt: Build
 .. |VS Code Extension| image:: https://img.shields.io/badge/vscode%20extension-v1.0.1-007ACC
    :target: https://marketplace.visualstudio.com/items?itemName=jshwi.docsig
@@ -125,14 +125,14 @@ Commandline
                   [--check-protected-class-methods] [--ignore-args] [--ignore-kwargs]
                   [--ignore-no-params] [-d LIST] [-t LIST] [-e PATTERN] [-E PATH [PATH ...]]
                   [-i] [-s STR]
-                  [path [path ...]]
+                  [path ...]
 
     Check signature params for proper documentation
 
     positional arguments:
       path                  directories or files to check
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       -l, --list-checks     display a list of all checks and their messages
@@ -206,7 +206,7 @@ ensure your installation has registered `docsig`
 .. code-block:: console
 
     $ flake8 --version
-    7.3.0 (docsig: 0.91.0, mccabe: 0.7.0, pycodestyle: 2.14.0, pyflakes: 3.4.0) CPython 3.10.19 on Darwin
+    7.3.0 (docsig: 0.91.1, mccabe: 0.7.0, pycodestyle: 2.14.0, pyflakes: 3.4.0) CPython 3.10.19 on Darwin
 
 And now use `flake8` to lint your files
 
@@ -292,7 +292,7 @@ Standalone
 
     repos:
       - repo: https://github.com/jshwi/docsig
-        rev: v0.91.0
+        rev: v0.91.1
         hooks:
           - id: docsig
             args:
@@ -311,7 +311,7 @@ or integrated with ``flake8``
         hooks:
           - id: flake8
             additional_dependencies:
-              - docsig==0.91.0
+              - docsig==0.91.1
             args:
               - "--sig-check-class"
               - "--sig-check-dunders"

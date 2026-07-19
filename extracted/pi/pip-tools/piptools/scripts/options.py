@@ -9,12 +9,42 @@ from pip._internal.utils.misc import redact_auth_from_url
 from piptools.locations import CACHE_DIR, DEFAULT_CONFIG_FILE_NAMES
 from piptools.utils import UNSAFE_PACKAGES, override_defaults_from_config_file
 
+_FC = _t.TypeVar("_FC", bound="_t.Callable[..., _t.Any] | click.Command")
+
 BuildTargetT = _t.Literal["sdist", "wheel", "editable"]
 ALL_BUILD_TARGETS: tuple[BuildTargetT, ...] = (
     "editable",
     "sdist",
     "wheel",
 )
+
+
+def help_option(*, epilog: str | None = None) -> _t.Callable[[_FC], _FC]:
+    """A variant of the built-in click ``--help`` option, customized for pip-tools.
+
+    Unlike ``click.help_option``, this decorator accepts its own ``epilog`` text which
+    is printed *without indentation* after help text.
+    """
+
+    def show_help(ctx: click.Context, param: click.Parameter, value: bool) -> None:
+        """Callback that print the help page on ``<stdout>`` and exits."""
+        if value and not ctx.resilient_parsing:
+            click.echo(ctx.get_help(), color=ctx.color)
+            if epilog is not None:
+                formatter = ctx.make_formatter()
+                formatter.write_text(epilog)
+                click.echo("\n" + formatter.getvalue().rstrip("\n"), color=ctx.color)
+            ctx.exit()
+
+    return click.option(  # type: ignore[return-value]
+        "-h",
+        "--help",
+        help="Show this message and exit.",
+        callback=show_help,
+        is_eager=True,
+        expose_value=False,
+        is_flag=True,
+    )
 
 
 def _get_default_option(option_name: str) -> _t.Any:
@@ -26,8 +56,6 @@ def _get_default_option(option_name: str) -> _t.Any:
     default_values = install_command.parser.get_default_values()
     return getattr(default_values, option_name)
 
-
-help_option_names = ("-h", "--help")
 
 # The options used by pip-compile and pip-sync are presented in no specific order.
 
@@ -78,14 +106,17 @@ extra = click.option(
     "--extra",
     "extras",
     multiple=True,
-    help="Name of an extras_require group to install; may be used more than once",
+    help=(
+        "Name of an extras_require group to install; may be used more than "
+        "once. Pass ``--all-extras`` to include every declared extra."
+    ),
 )
 
 all_extras = click.option(
     "--all-extras",
     is_flag=True,
     default=False,
-    help="Install all extras_require groups",
+    help="Install all extras_require groups (see also: ``--extra`` for one at a time)",
 )
 
 find_links = click.option(
@@ -134,6 +165,16 @@ trusted_host = click.option(
     ),
 )
 
+uploaded_prior_to = click.option(
+    "--uploaded-prior-to",
+    default=None,
+    help=(
+        "Only consider package versions uploaded prior to the given date/time. "
+        "Accepts ISO 8601 strings (e.g., '2023-01-01T00:00:00Z'). "
+        "Requires pip >= 26.0."
+    ),
+)
+
 header = click.option(
     "--header/--no-header",
     is_flag=True,
@@ -176,7 +217,11 @@ upgrade_package = click.option(
     "upgrade_packages",
     nargs=1,
     multiple=True,
-    help="Specify a particular package to upgrade; may be used more than once",
+    help=(
+        "Re-resolve the named package against the index, ignoring any pin "
+        "from the existing requirements file. May be used more than once. "
+        "Other packages keep their seeded pins."
+    ),
 )
 
 output_file = click.option(
@@ -253,9 +298,12 @@ build_isolation = click.option(
     is_flag=True,
     default=True,
     help=(
-        "Enable isolation when building a modern source distribution. "
-        "Build dependencies specified by PEP 518 must be already installed "
-        "if build isolation is disabled."
+        "Enable isolation when building a modern source distribution. With "
+        "``--no-build-isolation`` you must pre-install every PEP 518 build "
+        "dependency (``setuptools``, ``wheel``, ``hatchling``, etc.) into "
+        "the active environment; missing build deps surface as "
+        "import errors during the backend invocation, far from the "
+        "underlying cause."
     ),
 )
 

@@ -37,9 +37,11 @@ impl SyncHttpTransport {
     #[pyo3(signature = (
         *,
         tls_ca_cert = None,
+        tls_include_system_certs = false,
         tls_key = None,
         tls_cert = None,
         http_version = None,
+        proxy = None,
         timeout = None,
         connect_timeout = 30.0,
         read_timeout = None,
@@ -58,9 +60,11 @@ impl SyncHttpTransport {
     pub(crate) fn new(
         py: Python<'_>,
         tls_ca_cert: Option<&[u8]>,
+        tls_include_system_certs: bool,
         tls_key: Option<&[u8]>,
         tls_cert: Option<&[u8]>,
         http_version: Option<Bound<'_, HTTPVersion>>,
+        proxy: Option<&str>,
         timeout: Option<f64>,
         connect_timeout: Option<f64>,
         read_timeout: Option<f64>,
@@ -78,9 +82,11 @@ impl SyncHttpTransport {
     ) -> PyResult<Self> {
         let (client, http3) = new_reqwest_client(ClientParams {
             tls_ca_cert,
+            tls_include_system_certs,
             tls_key,
             tls_cert,
             http_version,
+            proxy,
             timeout,
             connect_timeout,
             read_timeout,

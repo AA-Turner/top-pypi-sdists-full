@@ -49,6 +49,7 @@ Usage::
         GetResourcePoliciesPaginator,
         ListAssociationVersionsPaginator,
         ListAssociationsPaginator,
+        ListCloudConnectorsPaginator,
         ListCommandInvocationsPaginator,
         ListCommandsPaginator,
         ListComplianceItemsPaginator,
@@ -63,6 +64,7 @@ Usage::
         ListResourceComplianceSummariesPaginator,
         ListResourceDataSyncPaginator,
         SSMClient,
+        ValidateCloudConnectorPaginator,
     )
 
     session = get_session()
@@ -110,6 +112,7 @@ Usage::
     get_resource_policies_paginator: GetResourcePoliciesPaginator = client.get_paginator("get_resource_policies")
     list_association_versions_paginator: ListAssociationVersionsPaginator = client.get_paginator("list_association_versions")
     list_associations_paginator: ListAssociationsPaginator = client.get_paginator("list_associations")
+    list_cloud_connectors_paginator: ListCloudConnectorsPaginator = client.get_paginator("list_cloud_connectors")
     list_command_invocations_paginator: ListCommandInvocationsPaginator = client.get_paginator("list_command_invocations")
     list_commands_paginator: ListCommandsPaginator = client.get_paginator("list_commands")
     list_compliance_items_paginator: ListComplianceItemsPaginator = client.get_paginator("list_compliance_items")
@@ -123,6 +126,7 @@ Usage::
     list_ops_metadata_paginator: ListOpsMetadataPaginator = client.get_paginator("list_ops_metadata")
     list_resource_compliance_summaries_paginator: ListResourceComplianceSummariesPaginator = client.get_paginator("list_resource_compliance_summaries")
     list_resource_data_sync_paginator: ListResourceDataSyncPaginator = client.get_paginator("list_resource_data_sync")
+    validate_cloud_connector_paginator: ValidateCloudConnectorPaginator = client.get_paginator("validate_cloud_connector")
     ```
 """
 
@@ -165,6 +169,7 @@ from .paginator import (
     GetResourcePoliciesPaginator,
     ListAssociationsPaginator,
     ListAssociationVersionsPaginator,
+    ListCloudConnectorsPaginator,
     ListCommandInvocationsPaginator,
     ListCommandsPaginator,
     ListComplianceItemsPaginator,
@@ -178,6 +183,7 @@ from .paginator import (
     ListOpsMetadataPaginator,
     ListResourceComplianceSummariesPaginator,
     ListResourceDataSyncPaginator,
+    ValidateCloudConnectorPaginator,
 )
 from .waiter import CommandExecutedWaiter
 
@@ -223,6 +229,7 @@ __all__ = (
     "GetResourcePoliciesPaginator",
     "ListAssociationVersionsPaginator",
     "ListAssociationsPaginator",
+    "ListCloudConnectorsPaginator",
     "ListCommandInvocationsPaginator",
     "ListCommandsPaginator",
     "ListComplianceItemsPaginator",
@@ -237,4 +244,5 @@ __all__ = (
     "ListResourceComplianceSummariesPaginator",
     "ListResourceDataSyncPaginator",
     "SSMClient",
+    "ValidateCloudConnectorPaginator",
 )

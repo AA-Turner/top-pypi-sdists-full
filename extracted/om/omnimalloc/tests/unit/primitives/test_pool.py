@@ -128,6 +128,28 @@ def test_size_mixed_allocated_unallocated() -> None:
         _ = pool.size
 
 
+def test_total_size_single_allocation() -> None:
+    """Test total_size calculation with single allocation."""
+    alloc = Allocation(id=101, size=100, start=0, end=10)
+    pool = Pool(id=201, allocations=(alloc,))
+    assert pool.total_size == 100
+
+
+def test_total_size_multiple_allocations() -> None:
+    """Test total_size calculation with multiple allocations."""
+    alloc1 = Allocation(id=101, size=100, start=0, end=10)
+    alloc2 = Allocation(id=102, size=50, start=0, end=10)
+    alloc3 = Allocation(id=103, size=75, start=0, end=10)
+    pool = Pool(id=201, allocations=(alloc1, alloc2, alloc3))
+    assert pool.total_size == 225
+
+
+def test_total_size_empty_pool() -> None:
+    """Test total_size calculation with empty pool."""
+    pool = Pool(id=1, allocations=())
+    assert pool.total_size == 0
+
+
 def test_pressure_single_allocation() -> None:
     """Test pressure calculation with single allocation."""
     alloc = Allocation(id=101, size=100, start=0, end=10)
@@ -328,6 +350,7 @@ def test_large_values() -> None:
     alloc2 = Allocation(id=102, size=10**11, start=0, end=100, offset=10**12)
     pool = Pool(id=999, allocations=(alloc1, alloc2), offset=10**15)
     assert pool.size == 10**12 + 10**11
+    assert pool.total_size == 10**12 + 10**11
     assert pool.pressure == 10**12 + 10**11
     assert pool.offset == 10**15
 
@@ -338,6 +361,7 @@ def test_multiple_allocations_complex() -> None:
     alloc2 = Allocation(id=102, size=50, start=5, end=15, offset=150)
     alloc3 = Allocation(id=103, size=75, start=10, end=20, offset=50)
     pool = Pool(id=300, allocations=(alloc1, alloc2, alloc3))
+    assert pool.total_size == 225
     assert pool.pressure == 150
     assert pool.size == 200
     assert pool.is_allocated is True
@@ -359,29 +383,3 @@ def test_allocate_with_allocator() -> None:
     assert len(allocated_pool.allocations) == 2
     # Original pool should be unchanged
     assert pool.is_allocated is False
-
-
-def test_pool_allocate_rejects_allocator_returning_different_set() -> None:
-    from omnimalloc.allocators.base import BaseAllocator
-
-    class DroppingAllocator(BaseAllocator):
-        def _allocate(
-            self, allocations: tuple[Allocation, ...]
-        ) -> tuple[Allocation, ...]:
-            return tuple(a.with_offset(0) for a in allocations[:-1])
-
-    pool = Pool(
-        id="p",
-        allocations=(
-            Allocation(id=1, size=10, start=0, end=5),
-            Allocation(id=2, size=10, start=0, end=5),
-        ),
-    )
-    with pytest.raises(ValueError, match="different allocation set"):
-        pool.allocate(DroppingAllocator())
-
-
-def test_size_counts_gap_below_lowest_allocation() -> None:
-    alloc = Allocation(id=1, size=100, start=0, end=10, offset=1000)
-    pool = Pool(id="p", allocations=(alloc,))
-    assert pool.size == 1100

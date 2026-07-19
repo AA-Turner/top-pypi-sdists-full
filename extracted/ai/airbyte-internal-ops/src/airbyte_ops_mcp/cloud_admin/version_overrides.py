@@ -429,13 +429,13 @@ def _validate_version_override_target(target: VersionOverrideTarget) -> None:
 def _resolve_target_context(
     target: VersionOverrideTarget,
     *,
-    bq_credentials: google.auth.credentials.Credentials | None = None,
+    gcs_credentials: google.auth.credentials.Credentials | None = None,
 ) -> tuple[str, bool | None, str | None]:
     """Resolve customer tier, EU region, and error message for `target`."""
     if target.scope in ("actor", "workspace"):
         assert target.workspace_id is not None
         ws_resolution = resolve_workspace(
-            target.workspace_id, credentials=bq_credentials
+            target.workspace_id, credentials=gcs_credentials
         )
         if not ws_resolution.organization_id:
             return (
@@ -451,7 +451,7 @@ def _resolve_target_context(
             )
         return ws_resolution.customer_tier, ws_resolution.is_eu, None
 
-    tier_result = get_org_tier(target.organization_id, credentials=bq_credentials)
+    tier_result = get_org_tier(target.organization_id, credentials=gcs_credentials)
     return tier_result.customer_tier, None, None
 
 
@@ -606,7 +606,7 @@ def apply_version_override_to_config_api(
 def _describe_auth_context(
     *,
     user_email: str | None,
-    bq_credentials: google.auth.credentials.Credentials | None,
+    gcs_credentials: google.auth.credentials.Credentials | None,
     auth: ResolvedCloudAuth,
 ) -> str:
     """Build a human-readable summary of the auth identities in use.
@@ -616,14 +616,14 @@ def _describe_auth_context(
     parts: list[str] = []
     if user_email:
         parts.append(f"webapp_user={user_email}")
-    if bq_credentials is not None:
-        bq_identity = _get_identity_from_credentials(bq_credentials)
-        if bq_identity:
-            parts.append(f"bq_identity={bq_identity}")
+    if gcs_credentials is not None:
+        tier_identity = _get_identity_from_credentials(gcs_credentials)
+        if tier_identity:
+            parts.append(f"tier_identity={tier_identity}")
         else:
-            parts.append("bq_identity=user_oauth_token")
+            parts.append("tier_identity=application_default")
     else:
-        parts.append("bq_identity=none")
+        parts.append("tier_identity=none")
     if auth.bearer_token:
         parts.append("config_api_auth=bearer_token")
     elif auth.client_id:
@@ -648,14 +648,14 @@ def set_version_override(
     force: bool = False,
     config_api_root: str | None = None,
     user_email: str | None = None,
-    bq_credentials: google.auth.credentials.Credentials | None = None,
+    gcs_credentials: google.auth.credentials.Credentials | None = None,
 ) -> VersionOverrideResult:
     """Set or clear a connector version override through one normalized path."""
     _validate_version_override_target(target)
     result_kwargs = _result_identity_kwargs(target)
     auth_context = _describe_auth_context(
         user_email=user_email,
-        bq_credentials=bq_credentials,
+        gcs_credentials=gcs_credentials,
         auth=auth,
     )
 
@@ -674,7 +674,7 @@ def set_version_override(
 
     try:
         customer_tier, is_eu, context_error = _resolve_target_context(
-            target, bq_credentials=bq_credentials
+            target, gcs_credentials=gcs_credentials
         )
     except Exception as exc:
         logger.exception("Tier resolution failed for %s", target)

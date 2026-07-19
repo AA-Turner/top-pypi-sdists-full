@@ -80,7 +80,7 @@ jobs:
   pre-setup:
     name: ⚙️ Pre-set global build settings
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     timeout-minutes: 2  # network is slow sometimes when fetching from Git
 
@@ -108,7 +108,7 @@ jobs:
 
     steps:
     - name: Switch to using Python 3.14 by default
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
       with:
         python-version: 3.14
     - name: >-
@@ -144,7 +144,7 @@ jobs:
         ) as outputs_file:
             print('release-requested=true', file=outputs_file)
     - name: Check out src from Git
-      uses: actions/checkout@v4
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       with:
         fetch-depth: >-
           ${{
@@ -152,6 +152,7 @@ jobs:
             && 1 || 0
           }}
         ref: ${{ inputs.release-committish }}
+        persist-credentials: false
     - name: Scan static PEP 621 core packaging metadata
       id: metadata
       run: |
@@ -179,7 +180,7 @@ jobs:
     - name: Set up pip cache
       if: >-
         steps.request-check.outputs.release-requested != 'true'
-      uses: re-actors/cache-python-deps@release/v1
+      uses: re-actors/cache-python-deps@810325a232f2a28ea124dfba85c7c72fd1774b38  # v1.0.0
       with:
         cache-key-for-dependency-files: >-
           ${{ steps.calc-cache-key-files.outputs.cache-key-for-dep-files }}
@@ -277,7 +278,7 @@ jobs:
     needs:
     - pre-setup  # transitive, for accessing settings
 
-    uses: tox-dev/workflow/.github/workflows/reusable-tox.yml@617ca35caa695c572377861016677905e58a328c  # yamllint disable-line rule:line-length
+    uses: tox-dev/workflow/.github/workflows/reusable-tox.yml@1bb961580e20073f66ccb9024f248357f8c8fecb  # unstable/v1  # yamllint disable-line rule:line-length
     with:
       cache-key-for-dependency-files: >-
         ${{ needs.pre-setup.outputs.cache-key-for-dep-files }}
@@ -293,7 +294,7 @@ jobs:
       job-dependencies-context: >-  # context for hooks
         ${{ toJSON(needs) }}
       python-version: 3.12
-      runner-vm-os: ubuntu-latest
+      runner-vm-os: ubuntu-24.04
       timeout-minutes: 2
       toxenv: build-dists
       xfail: false
@@ -303,16 +304,19 @@ jobs:
     uses: ./.github/workflows/reusable-qa.yml
 
   test:
-    name: ${{ matrix.os }} / ${{ matrix.python-version }} / ${{ matrix.pip-version }}
-    runs-on: ${{ matrix.os }}-latest
+    name: ${{ matrix.runner-vm }} / ${{ matrix.python-version }} / ${{ matrix.pip-version }}
+    needs:
+    - pre-setup  # transitive, for accessing settings
+    runs-on: ${{ matrix.runner-vm }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - Ubuntu
-          - Windows
-          - macOS
+        runner-vm:
+          - ubuntu-24.04
+          - windows-2025
+          - macos-26
+          - macos-15-intel
         python-version: >-
           ${{
             fromJSON(
@@ -338,16 +342,18 @@ jobs:
           || ''
         }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
       - name: Set up Python ${{ matrix.python-version }} from GitHub
         id: python-install
         if: "!endsWith(matrix.python-version, '-dev')"
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Set up Python ${{ matrix.python-version }} from deadsnakes
         if: endsWith(matrix.python-version, '-dev')
-        uses: deadsnakes/action@v2.1.1
+        uses: deadsnakes/action@e640ac8743173a67cca4d7d77cd837e514bf98e8  # v3.2.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Log python version info (${{ matrix.python-version }})
@@ -358,7 +364,7 @@ jobs:
         run: |
           echo "dir=$(pip cache dir)" >> "${GITHUB_OUTPUT}"
       - name: Pip cache
-        uses: actions/cache@v4
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7  # v5.0.4
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: >-
@@ -414,42 +420,50 @@ jobs:
         if: >-
           !cancelled()
           && !inputs.cpython-pip-version
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
         with:
+          fail_ci_if_error: >-
+            ${{ fromJSON(needs.pre-setup.outputs.is-upstream-repository) }}
           files: ./coverage.xml
           flags: >-
             CI-GHA,
             OS-${{ runner.os }},
-            VM-${{ matrix.os }},
+            VM-${{ matrix.runner-vm }},
             Py-${{ steps.python-install.outputs.python-version }},
             Pip-${{ matrix.pip-version }}
           name: >-
             OS-${{ runner.os }},
-            VM-${{ matrix.os }},
+            VM-${{ matrix.runner-vm }},
             Py-${{ steps.python-install.outputs.python-version }},
             Pip-${{ matrix.pip-version }}
 
   pypy:
-    name: ${{ matrix.os }} / ${{ matrix.python-version }} / ${{ matrix.pip-version }}
-    runs-on: ${{ matrix.os }}-latest
-    timeout-minutes: 9
+    name: ${{ matrix.runner-vm }} / ${{ matrix.python-version }} / ${{ matrix.pip-version }}
+    runs-on: ${{ matrix.runner-vm }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - Ubuntu
-          - MacOS
-          - Windows
+        runner-vm:
+          - ubuntu-24.04
+          - macos-26
+          - macos-26-intel
         python-version:
-          - pypy-3.10
+          - pypy-3.11
         pip-version:
           - supported
+        include:
+          - runner-vm: windows-2025
+            python-version: pypy-3.11
+            pip-version: lowest  # PR 2400: legacy depresolver fails
     env:
       TOXENV: pip${{ matrix.pip-version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Get pip cache dir
@@ -458,7 +472,7 @@ jobs:
         run: |
           echo "dir=$(pip cache dir)" >> "${GITHUB_OUTPUT}"
       - name: Pip cache
-        uses: actions/cache@v4
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7  # v5.0.4
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: >-
@@ -514,18 +528,28 @@ jobs:
     name: Coverage processing
     if: >-
       !cancelled()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 1
     needs:
+      - pre-setup  # transitive, for accessing settings
       - test
     steps:
       - name: Notify Codecov that all coverage reports have been uploaded
         if: >-
           !cancelled()
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
         with:
-          fail_ci_if_error: true
+          fail_ci_if_error: >-
+            ${{ fromJSON(needs.pre-setup.outputs.is-upstream-repository) }}
           run_command: send-notifications
+
+  zizmor:
+    name: 🌈 zizmor
+    permissions:
+      security-events: write
+
+    # yamllint disable-line rule:line-length
+    uses: zizmorcore/workflow/.github/workflows/reusable-zizmor.yml@1e20adb0862e932363a4d85d68c92e5cc6fcb5d4
 
   check: # This job does nothing and is only used for the branch protection
     if: always()
@@ -534,13 +558,14 @@ jobs:
       - linters
       - pypy
       - test
+      - zizmor
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     timeout-minutes: 1
 
     steps:
       - name: Decide whether the needed jobs succeeded or failed
-        uses: re-actors/alls-green@afee1c1eac2a506084c274e9c02c8e0687b48d9e
+        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe  # v1.2.2
         with:
           jobs: ${{ toJSON(needs) }}

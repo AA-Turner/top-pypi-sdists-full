@@ -32,6 +32,10 @@ class TestFormParser(BaseParserTest):
         self.assertEqual(0, len(forms))
         self.assertEqual(0, len(files))
 
+    def test_empty_strict(self):
+        with self.assertRaises(multipart.MultipartError):
+            self.parse_form_data(strict=True)
+
     def test_urlencoded(self):
         for ctype in ('application/x-www-form-urlencoded', 'application/x-url-encoded'):
             self.reset().write('a=b&c=d')
@@ -56,9 +60,14 @@ class TestFormParser(BaseParserTest):
             self.assertEqual(forms['a'], 'ƀ♭')
             self.assertEqual(forms['e'], 'ḟ♮')
 
-    def test_empty(self):
-        with self.assertRaises(multipart.MultipartError):
-            self.parse_form_data(strict=True)
+    def test_urlencoded_empty_name_value(self):
+        " Enpty names are skipped, empty values are just empty"
+        self.reset().write('name_only&empty_value=&=empty_name')
+        self.environ['CONTENT_TYPE'] = 'application/x-www-form-urlencoded'
+        forms, files = self.parse_form_data()
+        self.assertEqual(forms['name_only'], '')
+        self.assertEqual(forms['empty_value'], '')
+        self.assertEqual(len(forms), 2) # Empty names are skipped
 
     def test_wrong_method(self):
         self.environ['REQUEST_METHOD'] = 'GET'
@@ -88,6 +97,17 @@ class TestFormParser(BaseParserTest):
             self.parse_form_data(strict=True)
         self.environ['CONTENT_LENGTH'] = 'notanumber'
         with self.assertRaises(multipart.MultipartError):
+            self.parse_form_data(strict=True)
+
+    def test_invalid_content_type_charset(self):
+        self.environ['CONTENT_TYPE'] = 'multipart/form-data; boundary=foo; charset=does-not-exist'
+        self.write_end()
+        with self.assertRaises(multipart.ParserError):
+            self.parse_form_data(strict=True)
+
+        self.reset().write('a=b')
+        self.environ['CONTENT_TYPE'] = 'application/x-www-form-urlencoded; charset=does-not-exist'
+        with self.assertRaises(multipart.ParserError):
             self.parse_form_data(strict=True)
     
     def test_invalid_environ(self):
@@ -123,6 +143,21 @@ class TestFormParser(BaseParserTest):
             self.environ['CONTENT_LENGTH'] = '10'
             self.parse_form_data(strict=True)
 
+    def test_urlencoded_part_limit_exact(self):
+        self.reset().write('a=1&b=2&c=3')
+        self.environ['CONTENT_TYPE'] = 'application/x-www-form-urlencoded'
+        forms, files = self.parse_form_data(part_limit=3, strict=True)
+        self.assertEqual(forms['a'], '1')
+        self.assertEqual(forms['b'], '2')
+        self.assertEqual(forms['c'], '3')
+        self.assertEqual(len(files), 0)
+
+    def test_urlencoded_part_limit_exceeded(self):
+        self.reset().write('a=1&b=2&c=3')
+        self.environ['CONTENT_TYPE'] = 'application/x-www-form-urlencoded'
+        with self.assertRaises(multipart.ParserLimitReached):
+            self.parse_form_data(part_limit=2, strict=True)
+
     def test_close_on_error(self):
         self.write_field("file1", 'x'*1024, filename="foo.bin")
         self.write_field("file2", 'x'*1025, filename="foo.bin")
@@ -145,4 +180,3 @@ class TestFormParser(BaseParserTest):
         self.parse_form_data(strict=False)
         with self.assertMultipartError("Unexpected end of multipart stream"):
             self.parse_form_data(strict=False, ignore_errors=False)
-

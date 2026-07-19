@@ -92,9 +92,17 @@ class TestRunnerSession:
             ExecEvent(type="exit", code=0),
         ]
 
-        with patch.object(runners, "exec", return_value=iter(events)):
-            result = session.exec_collect("echo", "hello")
+        with patch.object(runners, "exec", return_value=iter(events)) as exec_mock:
+            result = session.exec_collect("echo", "hello", proxy_token="invocation-token")
 
+        exec_mock.assert_called_once_with(
+            "s-1",
+            ["echo", "hello"],
+            env=None,
+            working_dir=None,
+            timeout_seconds=None,
+            proxy_token="invocation-token",
+        )
         assert isinstance(result, ExecResult)
         assert result.stdout == "hello\n"
         assert result.stderr == "warn\n"

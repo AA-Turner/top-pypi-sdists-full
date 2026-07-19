@@ -190,6 +190,30 @@ _XSS_TEST_EVIDENCE = re.compile(
     r'XSS.{0,40}(?:confirmed|reflected|executed|browser\s+verified))',
     re.I,
 )
+_XSS_NEGATIVE_EVIDENCE = re.compile(
+    r'NOT\s+REFLECTED|not\s+reflected|미반사|未反射|未找到\s*payload|'
+    r'payload\s+not\s+found|browser_confirmed\s*[=:]\s*false|'
+    r'browser\s+confirmed\s*[=:]\s*false|XSS_CANDIDATE|escaped|saniti[sz]ed|'
+    r'no\s+xss|not\s+vulnerable',
+    re.I,
+)
+_XSS_TRIGGER_NOTICE = re.compile(
+    r'\[XSS_TRIGGER_DETECTED\]',
+    re.I,
+)
+_XSS_POSITIVE_EVIDENCE = re.compile(
+    r'window\.__BINGO_XSS__\s*=\s*1|browser_confirmed\s*[=:]\s*true|'
+    r'browser\s+confirmed\s*[=:]\s*true|PAYLOAD[_ -]?REFLECTED|'
+    r'unescaped\s+reflection|dialog\s+(?:opened|observed)|'
+    r'XSS.{0,40}(?:confirmed|reflected|executed|browser\s+verified|success)',
+    re.I,
+)
+
+
+def _xss_negative_only(output: str) -> bool:
+    return bool(_XSS_NEGATIVE_EVIDENCE.search(output)) and not bool(
+        _XSS_POSITIVE_EVIDENCE.search(output)
+    )
 
 _ACTIVE_HTTP_TEST = re.compile(
     r'\b(?:curl|wget|httpx|requests\.(?:get|post|request)|'
@@ -300,6 +324,10 @@ def _potential_disposition(
     """Return keep/quarantine/reject for pattern-only evidence."""
     code = _execution_code(code_snippet, execution_context)
     if vtype == FINDING_XSS:
+        if _xss_negative_only(output):
+            return "reject", "xss_negative_verification"
+        if _XSS_TRIGGER_NOTICE.search(output) and not _XSS_POSITIVE_EVIDENCE.search(output):
+            return "reject", "xss_trigger_notice_without_evidence"
         if _XSS_TEST_EVIDENCE.search(output):
             return "keep", ""
         if _ACTIVE_HTTP_TEST.search(code) and _XSS_ACTIVE_PAYLOAD.search(code):
@@ -419,6 +447,25 @@ _WAF_BLOCK_EN = re.compile(
     re.I,
 )
 
+# A control response that is an HTTP/WAF block is not a Boolean oracle.  Keep
+# this deliberately scoped to control-pair parsing so ordinary HTTP 403 pages
+# can still be retained as protected/indeterminate evidence elsewhere.
+_CONTROL_BLOCK_RE = re.compile(
+    r'\b(?:HTTP(?:/\d(?:\.\d)?)?\s*)?403\b'
+    r'|\b199B\b|\b598B\b'
+    r'|\b(?:waf|firewall|security\s+policy|access\s+denied|request\s+blocked)\b'
+    r'|요청이\s*차단|보안\s*정책\s*위반|차단\s*되었습니다',
+    re.I,
+)
+
+# Labels/form templates are not disclosure.  A real disclosure requires a
+# non-baseline record/value; labels with ROWS=0 are a blocked observation.
+_INFO_LABEL_ONLY_RE = re.compile(
+    r'(?:personal\s*=\s*true|보호자|환자명|환자\s*정보|guardian|patient)'
+    r'.{0,240}?(?:rows?\s*[=:]\s*0|결과\s*없음|no\s+records?|empty)',
+    re.I | re.S,
+)
+
 # v6.2.16: WAF 보안 도메인 302 리다이렉트 패턴 (페이로드 차단 = 취약점 없음)
 # 예: Location: http://sh1.igear.co.kr/secure/index.html → WAF payload block, NOT sqli evidence
 _WAF_SECURITY_REDIRECT = re.compile(
@@ -451,6 +498,7 @@ _ORACLE_FAILURE_WARNING = re.compile(
     r'|oracle\s*pre-?check\s*(?:fail|FAILED)'
     r'|Oracle预检失败'
     r'|TRUE/FALSE\s*(?:无法区分|indistinguishable|구분\s*불가)'
+    r'|SQLI_ORACLE_REJECTED'
     r'|SQLI_EXTRACTION_FAILURE'
     r'|Boolean\s+oracle\s+may\s+be\s+unreliable'
     r'|WAF\s*(?:全部拦截|全部拦截|屏蔽所有|blocking\s+all)'
@@ -606,6 +654,14 @@ def _evidence_ladder(output: str, code_snippet: str = "") -> EvidenceVerdict:
             timing[1],
         )
 
+    if _INFO_LABEL_ONLY_RE.search(output):
+        return EvidenceVerdict(
+            CONF_BLOCKED,
+            REASON_NOT_VULNERABLE,
+            FINDING_INFO_DISC,
+            "labels/template only; no records",
+        )
+
     # ═══════════════ TIER 4: PROBABLE (실 oracle, Confirmed 아님) ═══════════════
     _m_t = re.search(
         r'(?:TRUE|1\s*=\s*1|2\s*>\s*1).{0,60}?(\d{2,6})\s*B',
@@ -616,6 +672,15 @@ def _evidence_ladder(output: str, code_snippet: str = "") -> EvidenceVerdict:
         output, re.I | re.S
     )
     if _m_t and _m_f:
+        # WAF/protection pages can differ in size and status.  They prove only
+        # that the controls were filtered, never that the backend evaluated SQL.
+        if _CONTROL_BLOCK_RE.search(output):
+            return EvidenceVerdict(
+                CONF_BLOCKED,
+                REASON_WAF_BLOCK_PAGE,
+                FINDING_SQLI,
+                "control response blocked/protected",
+            )
         try:
             _tb, _fb = int(_m_t.group(1)), int(_m_f.group(1))
             if abs(_tb - _fb) >= 200:
@@ -784,6 +849,8 @@ def _detect_vuln_type_raw(output: str, code_snippet: str = "") -> tuple[str, str
     _skip_xss = False
     if _SERVER_ALERT_PATTERN.search(output) and not _XSS_PAYLOAD_IN_CODE.search(code_snippet):
         _skip_xss = True
+    if _xss_negative_only(output):
+        _skip_xss = True
     if not _XSS_PAYLOAD_IN_CODE.search(code_snippet) and not _XSS_PAYLOAD_IN_CODE.search(output):
         _skip_xss = True
 
@@ -849,6 +916,10 @@ class FindingsExporter:
         self.target = target
         self._findings: list[Finding] = []
         self._quarantined: list[Finding] = []
+        # IDs are session-stable.  They must not depend on the current list
+        # length because invalidation/rejection removes entries from that list.
+        self._finding_sequence = 0
+        self._quarantine_sequence = 0
         self._finding_hashes: set[str] = set()   # 중복 방지
         self._quarantine_hashes: set[str] = set()
         self._blocked_reasons: set[str] = set()  # v6.2.175: blocked reason 중복 방지
@@ -887,6 +958,14 @@ class FindingsExporter:
             self._dir.mkdir(parents=True, exist_ok=True)
         except Exception:
             self._dir = Path.cwd()
+
+    def _next_finding_id(self) -> str:
+        self._finding_sequence += 1
+        return f"BINGO-{self._finding_sequence:04d}"
+
+    def _next_quarantine_id(self) -> str:
+        self._quarantine_sequence += 1
+        return f"BINGO-Q{self._quarantine_sequence:04d}"
 
     # ── 공개 API ──────────────────────────────────────────────────────────────
 
@@ -980,7 +1059,7 @@ class FindingsExporter:
                 return None
             self._finding_hashes.add(_hash)
             finding = Finding(
-                id=f"BINGO-{len(self._findings)+1:04d}",
+                id=self._next_finding_id(),
                 vuln_type=vtype,
                 severity=SEVERITY_LOW,
                 target=self.target,
@@ -1080,7 +1159,7 @@ class FindingsExporter:
         self._finding_hashes.add(_hash)
 
         finding = Finding(
-            id=f"BINGO-{len(self._findings)+1:04d}",
+            id=self._next_finding_id(),
             vuln_type=vtype,
             severity=severity,
             target=self.target,
@@ -1120,7 +1199,7 @@ class FindingsExporter:
         self._quarantine_hashes.add(qhash)
         context_source = "runtime" if execution_context else "legacy"
         finding = Finding(
-            id=f"BINGO-Q{len(self._quarantined)+1:04d}",
+            id=self._next_quarantine_id(),
             vuln_type=vtype,
             severity=SEVERITY_LOW,
             target=self.target,
@@ -1181,7 +1260,8 @@ class FindingsExporter:
         ]
         for finding in invalidated:
             self._findings.remove(finding)
-            finding.id = f"BINGO-Q{len(self._quarantined)+1:04d}"
+            # Preserve the original ID when moving a finding to quarantine so
+            # report references and audit history remain stable.
             finding.confidence = CONF_QUARANTINED
             finding.confirmed = False
             finding.severity = SEVERITY_LOW

@@ -445,6 +445,27 @@ class ExecTest(BasePostprocessorTest):
         m_aa.assert_called_once_with(self.pathfmt.kwdict)
         m_ac.assert_called_once()
 
+    def test_archive_fail(self):
+        pp = self._create({
+            "command": ["echo", "failure"],
+            "archive": ":memory:",
+            "event"  : "finalize",
+        })
+
+        self.assertIsInstance(pp.archive, archive.DownloadArchive)
+
+        with patch.object(pp.archive, "add") as m_aa, \
+                patch.object(pp.archive, "close") as m_ac, \
+                patch("gallery_dl.util.Popen") as p:
+            p.return_value = i = Mock()
+            i.wait.return_value = 123
+            with self.assertLogs():
+                self._trigger(("finalize",))
+        pp.archive.close()
+
+        m_aa.assert_not_called()
+        m_ac.assert_called_once()
+
     def test_verbose_string(self):
         self._create({
             "command": "echo foo bar",

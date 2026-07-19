@@ -62,9 +62,7 @@ class GanknowExtractor(Extractor):
             url = media.get("url") or media.get("thumbUrl")
             preview = False
 
-            if url:
-                url += "=s0"
-            else:
+            if not url:
                 if self.previews:
                     url = media.get("previewUrl") or media.get("blurUrl")
                     preview = True
@@ -73,6 +71,8 @@ class GanknowExtractor(Extractor):
                     self.log.warning("%s: No URL for media %s",
                                      post["id"], media["id"])
                     continue
+            elif media.get("type") == "image":
+                url += "=s0"
 
             files.append({
                 "url"          : url,

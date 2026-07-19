@@ -16,6 +16,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Sequence  # noqa: UP035
 
+from ..core.deployment_ledger import DEPLOYMENT_OWNER_REMEDIATION
 from ..deps.lockfile import _SELF_KEY, LEGACY_LOCKFILE_NAME, LOCKFILE_NAME
 from .models import CheckResult, CIAuditResult
 
@@ -94,15 +95,27 @@ def _check_ref_consistency(
     manifest: APMPackage,
     lock: LockFile,
 ) -> CheckResult:
-    """Verify every dependency's manifest ref matches lockfile resolved_ref."""
+    """Verify manifest refs match the lockfile's resolved ref and commit."""
+    from ..deps.revision_pins import is_full_revision_pin
     from ..drift import detect_ref_change
 
     mismatches: list[str] = []
+    requires_update = False
     for dep_ref in manifest.get_all_apm_dependencies():
         key = dep_ref.get_unique_key()
         locked_dep = lock.get_dependency(key)
         if locked_dep is None:
             mismatches.append(f"{key}: not found in lockfile")
+            requires_update = requires_update or bool(lock.dependencies)
+            continue
+        if is_full_revision_pin(dep_ref.reference) and (
+            locked_dep.resolved_commit != dep_ref.reference
+        ):
+            mismatches.append(
+                f"{key}: manifest commit '{dep_ref.reference}' != "
+                f"lockfile resolved_commit '{locked_dep.resolved_commit or '(missing)'}'"
+            )
+            requires_update = True
             continue
         if detect_ref_change(dep_ref, locked_dep):
             manifest_ref = dep_ref.reference or "(default branch)"
@@ -117,10 +130,13 @@ def _check_ref_consistency(
             passed=True,
             message="All dependency refs match lockfile",
         )
+    repair_command = "apm install --update" if requires_update else "apm install"
     return CheckResult(
         name="ref-consistency",
         passed=False,
-        message=f"{len(mismatches)} ref mismatch(es) -- run 'apm install' to update lockfile",
+        message=(
+            f"{len(mismatches)} ref mismatch(es) -- run '{repair_command}' to update lockfile"
+        ),
         details=mismatches,
     )
 
@@ -153,6 +169,38 @@ def _check_deployed_files_present(
         passed=False,
         message=(f"{len(missing)} deployed file(s) missing -- run 'apm install' to restore"),
         details=missing,
+    )
+
+
+def _check_deployment_ledger_owners(lock: LockFile) -> CheckResult:
+    """Require every canonical deployment owner to resolve in the lockfile."""
+    from ..core.deployment_ledger import DeploymentLedgerCodec
+
+    violations = DeploymentLedgerCodec.owner_reference_violations(lock)
+    if not violations:
+        return CheckResult(
+            name="deployment-ledger-owners",
+            passed=True,
+            message="All deployment ledger owners are valid",
+        )
+
+    details = []
+    for violation in violations:
+        invalid = ", ".join(violation.invalid_owners)
+        active = (
+            f"; invalid active owner {violation.invalid_active_owner}"
+            if violation.invalid_active_owner is not None
+            else ""
+        )
+        details.append(f"{violation.locator.key}: invalid owner(s) {invalid}{active}")
+    return CheckResult(
+        name="deployment-ledger-owners",
+        passed=False,
+        message=(
+            f"{len(violations)} invalid deployment ownership record(s) -- "
+            f"{DEPLOYMENT_OWNER_REMEDIATION}"
+        ),
+        details=details,
     )
 
 
@@ -632,31 +680,47 @@ def run_baseline_checks(
         result.checks.append(check)
         return fail_fast and not check.passed
 
-    # Check 2: Ref consistency
+    # Check 2: Ref consistency (external manifest <-> lockfile identity)
+    #
+    # External-boundary identity checks MUST surface before internal
+    # reconciliation checks (Check 3, deployment-ledger-owners) because the
+    # latter's remedy assumes the lockfile's identity claims are legitimate.
+    # A source-identity tamper (attacker rewrites a dependency's host/repo_url)
+    # trips both: ref-consistency ("not found in lockfile" -> re-resolve from the
+    # trusted manifest via 'apm install --update') and deployment-ledger-owners
+    # (stale owner -> 'apm prune'). Under fail-fast the first failing check wins,
+    # and 'apm prune' on a tampered lockfile would reconcile ownership toward the
+    # attacker source, so ref-consistency -- the safe, manifest-driven remedy --
+    # must be evaluated first. The ledger-owner check still owns the genuine
+    # departed-owner case (req-pl-016), where ref-consistency passes.
     if _run(_check_ref_consistency(manifest, lock)):
         return result
 
-    # Check 3: Deployed files present
+    # Check 3: Canonical deployment owner references
+    if _run(_check_deployment_ledger_owners(lock)):
+        return result
+
+    # Check 4: Deployed files present
     if _run(_check_deployed_files_present(project_root, lock)):
         return result
 
-    # Check 4: No orphaned packages
+    # Check 5: No orphaned packages
     if _run(_check_no_orphans(manifest, lock)):
         return result
 
-    # Check 4.5: Skill subset consistency (manifest vs lockfile)
+    # Check 6: Skill subset consistency (manifest vs lockfile)
     if _run(_check_skill_subset_consistency(manifest, lock)):
         return result
 
-    # Check 5: Config consistency (MCP)
+    # Check 7: Config consistency (MCP)
     if _run(_check_config_consistency(manifest, lock)):
         return result
 
-    # Check 6: Content integrity
+    # Check 8: Content integrity
     if _run(_check_content_integrity(project_root, lock)):
         return result
 
-    # Check 7: Includes consent (advisory; never hard-fails)
+    # Check 9: Includes consent (advisory; never hard-fails)
     _run(_check_includes_consent(manifest, lock))
 
     return result

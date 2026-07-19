@@ -170,7 +170,7 @@ class GalaxyClient:
                 results = collection_info["data"]
             else:
                 results = collection_info["results"]
-            next_link = collection_info["links"]["next"]
+            next_link = (collection_info.get("links") or {}).get("next")
             add_params = False
         for version_record in results:
             versions.append(version_record["version"])
@@ -322,6 +322,14 @@ class GalaxyClient:
         )
 
 
+@dataclasses.dataclass
+class _ChecksumData:
+    checksum: str
+    algorithm: str
+    algorithm_kwargs: dict[str, t.Any] | None
+    algorithm_name: str
+
+
 class CollectionDownloader(GalaxyClient):
     """Manage downloading collections from Galaxy."""
 
@@ -360,10 +368,40 @@ class CollectionDownloader(GalaxyClient):
             trust_collection_cache = lib_ctx.trust_collection_cache
         self.trust_collection_cache: t.Final[bool] = trust_collection_cache
 
+    def _find_checksum(
+        self, release_info: dict[str, t.Any], *, require_checksum: bool
+    ) -> _ChecksumData | None:
+        """
+        Extract checksum and check whether it is present, if ``require_checksum == True``.
+
+        The checksum, the algorithm identifier, the algorithm's kwargs,
+        and the algorithm's name are returned.
+        """
+        artifact_info = release_info.get("artifact") or {}
+        # Right now, the only supported checksum by Galaxy is SHA-256.
+        # If other Galaxy implementations (or Galaxy itself) provide other
+        # (secure) checksums, we could also verify them instead.
+        sha256sum = artifact_info.get("sha256")
+        if sha256sum is None:
+            if require_checksum:
+                raise DownloadFailure(
+                    "The release information does not contain a SHA-256 checksum"
+                    " for the collection artifact."
+                )
+            return None
+        return _ChecksumData(
+            checksum=sha256sum,
+            algorithm="sha256",
+            algorithm_kwargs=None,
+            algorithm_name="SHA-256",
+        )
+
     async def download(
         self,
         collection: str,
         version: str | semver.Version,
+        *,
+        require_checksum: bool | None = True,
     ) -> str:
         """
         Download a collection.
@@ -372,6 +410,12 @@ class CollectionDownloader(GalaxyClient):
 
         :arg collection: Namespace.collection identifying the collection.
         :arg version: Version of the collection to download.
+        :kwarg require_checksum: Whether to require checksums being provided by
+            Galaxy when downloading artifacts.  If set to ``None``, use the
+            global setting from the library context.  For backwards compatibility,
+            this is set to ``True``.
+
+            The default will change in 4.0.0 to ``None``.
         :returns: The full path to the downloaded collection.
         """
         namespace, name = collection.split(".", 1)
@@ -394,14 +438,25 @@ class CollectionDownloader(GalaxyClient):
         release_info = await self.get_release_info(f"{namespace}/{name}", version)
         release_url = release_info["download_url"]
 
-        sha256sum = release_info["artifact"]["sha256"]
+        checksum = self._find_checksum(
+            release_info,
+            require_checksum=(
+                lib_ctx.require_galaxy_checksums
+                if require_checksum is None
+                else require_checksum
+            ),
+        )
 
-        if self.collection_cache:
+        if checksum is not None and self.collection_cache:
             cached_copy = os.path.join(self.collection_cache, filename)
             if os.path.isfile(cached_copy):
                 lib_ctx = app_context.lib_ctx.get()
                 if await verify_hash(
-                    cached_copy, sha256sum, chunksize=lib_ctx.chunksize
+                    cached_copy,
+                    checksum.checksum,
+                    algorithm=checksum.algorithm,
+                    algorithm_kwargs=checksum.algorithm_kwargs,
+                    chunksize=lib_ctx.chunksize,
                 ):
                     await copy_file(
                         cached_copy,
@@ -424,16 +479,21 @@ class CollectionDownloader(GalaxyClient):
                     await f.write(chunk)
 
         # Verify the download
-        if not await verify_hash(
-            download_filename, sha256sum, chunksize=lib_ctx.chunksize
+        if checksum is not None and not await verify_hash(
+            download_filename,
+            checksum.checksum,
+            algorithm=checksum.algorithm,
+            algorithm_kwargs=checksum.algorithm_kwargs,
+            chunksize=lib_ctx.chunksize,
         ):
             raise DownloadFailure(
                 f"{release_url} failed to download correctly."
-                f" Expected checksum: {sha256sum}"
+                f" Expected {checksum.algorithm_name} checksum: {checksum.checksum}"
             )
 
-        # Copy downloaded collection into cache
-        if self.collection_cache:
+        # Copy downloaded collection into cache, but only if a checksum is present
+        # (and thus the download verified)
+        if self.collection_cache and checksum is not None:
             cached_copy = os.path.join(self.collection_cache, filename)
             await copy_file(
                 download_filename,
@@ -446,7 +506,11 @@ class CollectionDownloader(GalaxyClient):
         return download_filename
 
     async def download_latest_matching(
-        self, collection: str, version_spec: str
+        self,
+        collection: str,
+        version_spec: str,
+        *,
+        require_checksum: bool = True,
     ) -> DownloadResults:
         """
         Download the latest version of a collection that matches a specification.
@@ -460,5 +524,7 @@ class CollectionDownloader(GalaxyClient):
             of :obj:`semantic_version.SimpleSpec`
         """
         version = await self.get_latest_matching_version(collection, version_spec)
-        download_path = await self.download(collection, version)
+        download_path = await self.download(
+            collection, version, require_checksum=require_checksum
+        )
         return DownloadResults(version=version, download_path=download_path)

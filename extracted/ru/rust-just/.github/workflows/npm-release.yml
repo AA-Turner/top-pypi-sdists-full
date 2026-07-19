@@ -76,7 +76,7 @@ jobs:
           extract: true
           extract-path: './target/${{ matrix.TARGET }}/release'
       - name: Install Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: "https://registry.npmjs.org"
@@ -117,12 +117,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Install Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: "https://registry.npmjs.org"
       - name: Wait for npm repository to index the binaries
-        uses: AliSajid/random-wait-action@v2.11.1
+        uses: AliSajid/random-wait-action@v2.12.0
         with:
           minimum: 30
           maximum: 60

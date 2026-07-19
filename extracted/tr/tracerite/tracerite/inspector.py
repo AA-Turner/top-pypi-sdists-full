@@ -6,164 +6,18 @@ import dataclasses
 import math
 import re
 import types
-from collections import namedtuple
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from tracerite.logging import logger
+
+if TYPE_CHECKING:
+    from .trace.typing import VarInfo
 
 # Minimum length for a string value to be considered a match against the
 # exception message.  Short strings are too likely to collide with unrelated
 # variables by accident.
 _EXCEPTION_MESSAGE_MIN_MATCH_LEN = 12
-
-# Variable info with formatting metadata
-VarInfo = namedtuple("VarInfo", ["name", "typename", "value", "format_hint"])
-
-blacklist_names = {"_", "In", "Out"}
-blacklist_types = (
-    type,
-    types.ModuleType,
-    types.FunctionType,
-    types.MethodType,
-    types.BuiltinFunctionType,
-)
-no_str_conv = re.compile(r"<.* object at 0x[0-9a-fA-F]{5,}>")
-
-# Superscript digits for formatting powers of 10
-_SUPERSCRIPT_DIGITS = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
-
-
-def _format_scalar(v: Any) -> str:
-    """Format a single numeric value intelligently."""
-    dtype = str(v.dtype) if hasattr(v, "dtype") else ""
-    if isinstance(v, int) or "int" in dtype:
-        return str(int(v))
-    if isinstance(v, float) or "float" in dtype:
-        v = float(v)
-        if math.isnan(v):
-            return "NaN"
-        if math.isinf(v):
-            return "∞" if v > 0 else "-∞"
-        if v == 0:
-            return "0"
-        if v == int(v) and abs(v) < 1e15:
-            return str(int(v))
-        # Compact fixed-point: strip trailing zeros
-        return f"{v:.6f}".rstrip("0").rstrip(".")
-    return str(v)
-
-
-def _get_flat(arr: Any) -> Any:
-    """Get a flat/1D view of an array, supporting numpy and torch."""
-    if hasattr(arr, "flat"):
-        return arr.flat
-    if hasattr(arr, "flatten"):
-        return arr.flatten()
-    return arr
-
-
-def _array_formatter(arr: Any) -> tuple[Callable[[Any], str], str]:
-    """Create an optimal formatter for displaying array values consistently."""
-    try:
-        dtype_str = str(arr.dtype)
-    except AttributeError:
-        dtype_str = ""
-
-    # Integer arrays - display as integers, no scaling
-    if "int" in dtype_str or "bool" in dtype_str:
-        return lambda v: str(int(v)), ""
-
-    # For float arrays, analyze the values to determine optimal formatting
-    if "float" in dtype_str or "complex" in dtype_str:
-        flat = _get_flat(arr)
-        n = len(flat)
-        sample = [float(v) for v in (flat if n <= 200 else (*flat[:100], *flat[-100:]))]
-
-        finite = [abs(v) for v in sample if math.isfinite(v)]
-        if not finite:
-            return (
-                lambda v: "NaN" if math.isnan(float(v)) else ("∞" if v > 0 else "-∞"),
-                "",
-            )
-
-        max_abs = max(finite)
-        log_max = math.log10(max_abs) if max_abs > 0 else 0
-        scale_power = int(log_max // 3) * 3
-        if scale_power in (-3, 0, 3):
-            scale_power = 0
-        scale_suffix = (
-            f"×10{str(scale_power).translate(_SUPERSCRIPT_DIGITS)}"
-            if scale_power
-            else ""
-        )
-        scale_factor = 10.0 ** (-scale_power) if scale_power else 1.0
-        log_scaled = log_max - scale_power if scale_power else log_max
-        decimals = max(0, 2 - math.floor(log_scaled)) if max_abs > 0 else 0
-
-        def fmt(v: Any, sf: float = scale_factor, d: int = decimals) -> str:
-            v = float(v)
-            if math.isnan(v):
-                return "NaN"
-            if math.isinf(v):
-                return "∞" if v > 0 else "-∞"
-            scaled = v * sf
-            if scaled == 0:
-                return "0"
-            return f"{scaled:.{d}f}"
-
-        return fmt, scale_suffix
-
-    return lambda v: f"{v}", ""
-
-
-class _IdentifierVisitor(ast.NodeVisitor):
-    """AST visitor that collects variable identifiers from source code."""
-
-    def __init__(self):
-        self.identifiers: set[str] = set()
-
-    def visit_Name(self, node: ast.Name) -> None:
-        self.identifiers.add(node.id)
-        self.generic_visit(node)
-
-    def visit_Attribute(self, node: ast.Attribute) -> None:
-        parts: list[str] = []
-        current: ast.AST = node
-        while isinstance(current, ast.Attribute):
-            parts.append(current.attr)
-            current = current.value
-        if isinstance(current, ast.Name):
-            parts.append(current.id)
-            self.identifiers.update(
-                ".".join(reversed(parts[i:])) for i in range(len(parts))
-            )
-        self.generic_visit(node)
-
-
-def _extract_identifiers_ast(sourcecode: str) -> set[str] | None:
-    """Extract variable identifiers from source code using AST."""
-    tree: ast.AST | None = None
-    for wrapper in ("({})", "{}"):
-        with contextlib.suppress(SyntaxError):
-            tree = ast.parse(wrapper.format(sourcecode), mode="eval")
-            break
-    if tree is None:
-        with contextlib.suppress(SyntaxError):
-            tree = ast.parse(sourcecode, mode="exec")
-    if tree is None:
-        return None
-
-    visitor = _IdentifierVisitor()
-    visitor.visit(tree)
-    return visitor.identifiers
-
-
-def _extract_identifiers_regex(sourcecode: str) -> set[str]:
-    """Extract variable identifiers from source code using regex (fallback)."""
-    return {
-        m.group(0) for p in (r"\w+", r"\w+\.\w+") for m in re.finditer(p, sourcecode)
-    }
 
 
 def extract_variables(
@@ -223,7 +77,157 @@ def _extract_variable_rows(
     val_str, val_fmt = prettyvalue(value)
     if typename == "NoneType":
         typename = ""
-    return [VarInfo(name, typename, val_str, val_fmt)]
+    return [
+        {"name": name, "typename": typename, "value": val_str, "format_hint": val_fmt}
+    ]
+
+
+blacklist_names = {"_", "In", "Out"}
+blacklist_types = (
+    type,
+    types.ModuleType,
+    types.FunctionType,
+    types.MethodType,
+    types.BuiltinFunctionType,
+)
+no_str_conv = re.compile(r"<.* object at 0x[0-9a-fA-F]{5,}>")
+
+# Superscript digits for formatting powers of 10
+_SUPERSCRIPT_DIGITS = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
+
+
+def _format_scalar(v: Any) -> str:
+    """Format a single numeric value intelligently."""
+    dtype = str(v.dtype) if hasattr(v, "dtype") else ""
+    if isinstance(v, int) or "int" in dtype:
+        return str(int(v))
+    if isinstance(v, float) or "float" in dtype:
+        v = float(v)
+        if math.isnan(v):
+            return "NaN"
+        if math.isinf(v):
+            return "∞" if v > 0 else "\u2212∞"
+        if v == 0:
+            return "0"
+        if v == int(v) and abs(v) < 1e15:
+            return str(int(v))
+        # Compact fixed-point: strip trailing zeros
+        return f"{v:.6f}".rstrip("0").rstrip(".")
+    return str(v)
+
+
+def _get_flat(arr: Any) -> Any:
+    """Get a flat/1D view of an array, supporting numpy and torch."""
+    if hasattr(arr, "flat"):
+        return arr.flat
+    if hasattr(arr, "flatten"):
+        return arr.flatten()
+    return arr
+
+
+def _array_formatter(arr: Any) -> tuple[Callable[[Any], str], str]:
+    """Create an optimal formatter for displaying array values consistently."""
+    try:
+        dtype_str = str(arr.dtype)
+    except AttributeError:
+        dtype_str = ""
+
+    # Integer arrays - display as integers, no scaling
+    if "int" in dtype_str or "bool" in dtype_str:
+        return lambda v: str(int(v)), ""
+
+    # For float arrays, analyze the values to determine optimal formatting
+    if "float" in dtype_str or "complex" in dtype_str:
+        flat = _get_flat(arr)
+        n = len(flat)
+        sample = [float(v) for v in (flat if n <= 200 else (*flat[:100], *flat[-100:]))]
+
+        finite = [abs(v) for v in sample if math.isfinite(v)]
+        if not finite:
+            return (
+                lambda v: (
+                    "NaN" if math.isnan(float(v)) else ("∞" if v > 0 else "\u2212∞")
+                ),
+                "",
+            )
+
+        max_abs = max(finite)
+        log_max = math.log10(max_abs) if max_abs > 0 else 0
+        scale_power = int(log_max // 3) * 3
+        if scale_power in (-3, 0, 3):
+            scale_power = 0
+        scale_suffix = (
+            f"×10{str(scale_power).translate(_SUPERSCRIPT_DIGITS)}"
+            if scale_power
+            else ""
+        )
+        scale_factor = 10.0 ** (-scale_power) if scale_power else 1.0
+        log_scaled = log_max - scale_power if scale_power else log_max
+        decimals = max(0, 2 - math.floor(log_scaled)) if max_abs > 0 else 0
+
+        def fmt(v: Any, sf: float = scale_factor, d: int = decimals) -> str:
+            v = float(v)
+            if math.isnan(v):
+                return "NaN"
+            if math.isinf(v):
+                return "∞" if v > 0 else "\u2212∞"
+            scaled = v * sf
+            if scaled == 0:
+                return "0"
+            return f"{scaled:.{d}f}"
+
+        return fmt, scale_suffix
+
+    return lambda v: f"{v}", ""
+
+
+class _IdentifierVisitor(ast.NodeVisitor):
+    """AST visitor that collects variable identifiers from source code."""
+
+    def __init__(self):
+        self.identifiers: set[str] = set()
+
+    def visit_Name(self, node: ast.Name) -> None:
+        self.identifiers.add(node.id)
+        self.generic_visit(node)
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        parts: list[str] = []
+        current: ast.AST = node
+        while isinstance(current, ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+        if isinstance(current, ast.Name):
+            parts.append(current.id)
+            self.identifiers.update(
+                ".".join(reversed(parts[i:])) for i in range(len(parts))
+            )
+        self.generic_visit(node)
+
+
+def _extract_identifiers_ast(sourcecode: str) -> set[str] | None:
+    """Extract variable identifiers from source code using AST."""
+    tree: ast.AST | None = None
+    for wrapper in ("({})", "{}"):
+        with contextlib.suppress(SyntaxError):
+            tree = ast.parse(wrapper.format(sourcecode), mode="eval")
+            break
+    if tree is None:
+        with contextlib.suppress(SyntaxError):
+            tree = ast.parse(sourcecode, mode="exec")
+    if tree is None:
+        return None
+
+    visitor = _IdentifierVisitor()
+    visitor.visit(tree)
+    return visitor.identifiers
+
+
+def _extract_identifiers_regex(sourcecode: str) -> set[str]:
+    """Extract variable identifiers from source code using regex (fallback)."""
+    return {
+        m.group(0) for p in (r"\w+", r"\w+\.\w+") for m in re.finditer(p, sourcecode)
+    }
 
 
 def _is_exception_message_variable(
@@ -256,12 +260,18 @@ def _extract_member_rows(
 
     typename = type(value).__name__
     return [
-        VarInfo(mname, f"{type(v).__name__} in {typename}", *prettyvalue(v))
+        {
+            "name": mname,
+            "typename": f"{type(v).__name__} in {typename}",
+            "value": val,
+            "format_hint": fmt,
+        }
         for n, v in members
         if (not sourcecode or (mname := f"{name}.{n}") in identifiers)
         and not isinstance(v, blacklist_types)
         and (member_str := _safe_str(v)) is not None
         and not no_str_conv.fullmatch(member_str)
+        for val, fmt in [prettyvalue(v)]
     ]
 
 

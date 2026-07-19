@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numexpr
-Version: 2.14.1
+Version: 2.14.2
 Summary: Fast numerical expression evaluator for NumPy
 Author-email: "David M. Cooke, Francesc Alted, and others" <blosc@blosc.org>
 Maintainer-email: Blosc Development Team <blosc@blosc.org>
@@ -17,16 +17,15 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: LICENSES/cpuinfo.txt
-Requires-Dist: numpy>=1.23.0
+Requires-Dist: numpy>=1.26.0
 Dynamic: license-file
 
 ======================================================

@@ -135,7 +135,7 @@ def lookup_customer_tiers(
     Accepts mixed lists of organization IDs, workspace IDs, and connection IDs.
     Resolves each to its organization and maps to a customer tier (TIER_0, TIER_1, or TIER_2).
 
-    Tier 0 and Tier 1 orgs are explicitly tracked in Salesforce and cached from BigQuery.
+    Tier 0 and Tier 1 orgs are explicitly tracked in Salesforce and cached from the GCS export.
     Any org not in the cache defaults to TIER_2.
 
     Returns enriched entries with tier, region (EU/US), and a summary of the distribution.
@@ -231,7 +231,7 @@ def lookup_customer_tiers(
     idempotent=True,
 )
 def refresh_customer_tier_cache() -> TierCacheRefreshResult:
-    """Force-refresh the customer tier cache from BigQuery.
+    """Force-refresh the customer tier cache from the GCS export.
 
     The tier cache is automatically refreshed every 24 hours. Use this tool to
     manually trigger a refresh if you need the latest tier data immediately

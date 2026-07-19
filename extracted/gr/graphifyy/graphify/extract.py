@@ -309,7 +309,7 @@ def _import_js(node, source: bytes, file_nid: str, stem: str, edges: list, str_p
         resolved = _resolve_js_import_target(raw, str_path)
         if resolved is not None:
             tgt_nid, resolved_path = resolved
-            edges.append({
+            edge = {
                 "source": file_nid,
                 "target": tgt_nid,
                 "relation": "imports_from",
@@ -318,7 +318,15 @@ def _import_js(node, source: bytes, file_nid: str, stem: str, edges: list, str_p
                 "source_file": str_path,
                 "source_location": f"L{node.start_point[0] + 1}",
                 "weight": 1.0,
-            })
+            }
+            # Stamp the resolved target file so a same-basename cross-extension
+            # sibling (foo.ts importing/re-exporting ./foo.mjs) keys its target salt
+            # by the TARGET's file rather than the importer's. Both files collapse to
+            # the base id `foo`; without this the salted lookup mis-points the target
+            # back onto the importer's own variant, a phantom self-loop (#1814).
+            if resolved_path is not None:
+                edge["target_file"] = str(resolved_path)
+            edges.append(edge)
 
     # Emit symbol-level edges for named imports/re-exports from local/aliased files.
     # e.g. `import { Foo, type Bar } from './bar'` → file → Foo, file → Bar (EXTRACTED)
@@ -4583,10 +4591,10 @@ def extract(
                     break
             if canonical_nid is None:
                 continue
-            # Named alias imports can retain an absolute-prefixed target even
+            # Named alias imports/re-exports can retain an absolute-prefixed target
             # when the symbol node is already canonical. Record every old form
-            # so a redundant edge can be recognized without globally
-            # reinterpreting an id that another real node may own.
+            # so a redundant import edge or dangling re-export target can be fixed
+            # without globally reinterpreting an id that another real node may own.
             for old_pref, new_pref in entry:
                 if not canonical_nid.startswith(new_pref + "_"):
                     continue
@@ -4617,6 +4625,12 @@ def extract(
             owned_node_ids = {node.get("id") for node in all_nodes}
             deduped_edges: list[dict] = []
             for edge in all_edges:
+                if edge.get("relation") == "re_exports":
+                    candidates = edge_alias_candidates.get(edge.get("target", ""), set())
+                    if len(candidates) == 1 and edge.get("target") not in owned_node_ids:
+                        edge["target"] = next(iter(candidates))
+                    deduped_edges.append(edge)
+                    continue
                 candidates = (
                     edge_alias_candidates.get(edge.get("target", ""), set())
                     if edge.get("relation") == "imports"

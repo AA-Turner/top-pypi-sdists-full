@@ -9,13 +9,14 @@
 #  rights to use.
 ####################################################################
 
-
+import gc
 import os
 import platform
 import subprocess
 import sys
 import unittest
 import warnings
+import weakref
 from contextlib import contextmanager
 from unittest.mock import MagicMock
 
@@ -337,6 +338,16 @@ class test_numexpr(TestCase):
         evaluate('1')
         assert sys.getrefcount(a) == 2
 
+    # Test if `disable_cache` works correctly with refcount, see issue #521
+    # Comment out as modern Python optimizes handling refcounts.
+    @unittest.skipIf(hasattr(sys, "pypy_version_info"),
+                     "PyPy does not have sys.getrefcount()")
+    def _test_refcount_disable_cache(self):
+        a = array([1])
+        b = array([1])
+        evaluate('a', out=b, disable_cache=True)
+        assert sys.getrefcount(b) == 2
+
     @pytest.mark.thread_unsafe
     def test_locals_clears_globals(self):
         # Check for issue #313, whereby clearing f_locals also clear f_globals
@@ -402,6 +413,30 @@ class test_evaluate(TestCase):
         x = re_evaluate(local_dict=local_dict)
         assert_array_equal(x, array([86., 124., 168.]))
 
+    def test_evaluate_out_is_not_kept_alive(self):
+        a = arange(1000.0)
+        out = zeros(a.shape)
+        out_ref = weakref.ref(out)
+
+        evaluate("a + 1", local_dict={"a": a}, out=out)
+        del out
+        gc.collect()
+
+        assert out_ref() is None
+
+    def test_re_evaluate_reuses_live_out(self):
+        a = array([1., 2., 3.])
+        out = zeros(a.shape)
+
+        x = evaluate("a + 1", local_dict={"a": a}, out=out)
+        assert x is out
+        assert_array_equal(out, array([2., 3., 4.]))
+
+        a = array([4., 5., 6.])
+        x = re_evaluate(local_dict={"a": a})
+        assert x is out
+        assert_array_equal(out, array([5., 6., 7.]))
+
     def test_validate(self):
         a = array([1., 2., 3.])
         b = array([4., 5., 6.])
@@ -446,6 +481,21 @@ class test_evaluate(TestCase):
     def test_right_shift(self):
         x = arange(10, dtype='i4')
         assert_array_equal(evaluate("x>>2"), x >> 2)
+
+    def test_shift_out_of_range(self):
+        # Shift counts that are negative or >= the operand width are
+        # undefined behavior in C. Match NumPy, which treats them as a
+        # full shift (0 for <<, sign fill for >>).
+        for dtype in ('i4', 'i8'):
+            width = np.dtype(dtype).itemsize * 8
+            x = array([5, -5, 0], dtype=dtype)
+            # Include the exact width boundary for each dtype (32 for i4,
+            # 64 for i8) so the >= width edge is covered, not just far
+            # out-of-range counts.
+            for count in (-1, width, width + 1, 200):
+                y = array([count] * len(x), dtype=dtype)
+                assert_array_equal(evaluate("x << y"), x << y)
+                assert_array_equal(evaluate("x >> y"), x >> y)
 
     # PyTables uses __nonzero__ among ExpressionNode objects internally
     # so this should be commented out for the moment.  See #24.

@@ -15,13 +15,12 @@ from fastmcp import FastMCP
 from prefab_ui.app import PrefabApp
 from prefab_ui.components import (
     Column,
-    Grid,
+    Row,
 )
 from prefab_ui.components.control_flow import If
 from prefab_ui.rx import STATE
 
 from airbyte_ops_webapp.app_shell import build_ops_app
-from airbyte_ops_webapp.auth.google_oauth import hydrate_google_oauth_action
 from airbyte_ops_webapp.auth.oauth import hydrate_oauth_action, oauth_config
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     EMPTY_ROLLOUT_SUMMARY,
@@ -120,7 +119,7 @@ def connector_version_manager(
         initial_scope_id,
         actor_workspace_id,
         context_guid=initial_scope_id,
-    )
+    ).model_dump(mode="json")
 
     state = _build_initial_state(
         connectors=connectors,
@@ -137,7 +136,7 @@ def connector_version_manager(
         oauth_issuer=current_oauth_config.issuer,
     ) as app:
         with AbPage(
-            onMount=[hydrate_oauth_action(), hydrate_google_oauth_action()],
+            onMount=[hydrate_oauth_action()],
         ):
             with Column(gap=5, css_class=PAGE_CLASS):
                 render_environment_banners()
@@ -155,9 +154,17 @@ def connector_version_manager(
                 render_connector_selector(state)
 
                 with If(STATE.selected_connector.id):
-                    with Grid(columns=[2, 1], gap=4):
-                        render_rollout_status_section()
-                        render_pin_detail()
+                    # Responsive two-panel layout: the panels sit side by side
+                    # when the tab is wide enough and stack when it is not.
+                    # Widths flow from content via flex-grow + min-width rather
+                    # than a fixed column ratio.
+                    with Row(gap=4, align="start", css_class="flex-wrap"):
+                        render_rollout_status_section(
+                            css_class="grow basis-[22rem] min-w-[18rem] max-w-[34rem]"
+                        )
+                        render_pin_detail(
+                            css_class="grow-[2] basis-[30rem] min-w-[24rem]"
+                        )
                     render_pin_modal(state)
                 render_version_footer()
 

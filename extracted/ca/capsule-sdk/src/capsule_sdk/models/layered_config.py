@@ -113,6 +113,9 @@ class CreateConfigResponse(CapsuleModel):
 
     config_id: str
     leaf_workload_key: str | None = None
+    build_status: str | None = None
+    chain_build_id: str | None = None
+    build_enqueue_error: str | None = None
     layers: list[dict[str, Any]] | None = None
 
 

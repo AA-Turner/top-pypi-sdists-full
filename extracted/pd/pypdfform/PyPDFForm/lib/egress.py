@@ -5,11 +5,9 @@ A module for egress functions.
 This module provides functionalities that prepare the final PDF for output (egress),
 ensuring that it is properly formatted and ready for the end-user. This includes
 managing appearance streams (so form fields display correctly after being filled),
-handling the /NeedAppearances flag, and preserving or updating document-level
-properties like metadata, title, and OpenAction scripts. It can also rebuild the
-AcroForm `/Fields` array from the widget annotations present on each page. These
-functions are typically called right before the final PDF byte stream is returned by
-the wrapper module.
+handling the /NeedAppearances flag, and rebuilding the AcroForm `/Fields` array from
+the widget annotations present on each page. These functions are typically called
+right before the final PDF byte stream is returned by the wrapper module.
 """
 
 from functools import lru_cache
@@ -18,19 +16,14 @@ from warnings import catch_warnings, filterwarnings
 
 from pikepdf import Pdf
 from pypdf import PdfWriter
-from pypdf.generic import ArrayObject, DictionaryObject, NameObject, TextStringObject
+from pypdf.generic import ArrayObject, DictionaryObject, NameObject
 
 from .constants import (
-    JS,
     XFA,
     AcroForm,
     Annots,
     Fields,
-    JavaScript,
-    OpenAction,
     Parent,
-    S,
-    Title,
 )
 from .template import get_widget_key
 
@@ -83,50 +76,6 @@ def appearance_streams_handler(pdf: bytes, generate_appearance_streams: bool) ->
                 result = r.read()
 
     return result
-
-
-def preserve_pdf_properties(
-    pdf: bytes, title: str, script: str, metadata: dict
-) -> bytes:
-    """
-    Preserves and updates PDF properties such as metadata, title, and OpenAction scripts.
-
-    This function allows setting or updating the PDF's title and metadata, and
-    attaching a JavaScript script that executes when the PDF is opened. Metadata
-    is merged into the reader's current metadata when provided; the title and
-    OpenAction JavaScript are written only when non-empty values are supplied.
-
-    Args:
-        pdf (bytes): The PDF file content as a bytes stream.
-        title (str): The title to be set in the PDF metadata.
-        script (str): JavaScript code to be executed when the PDF is opened.
-        metadata (dict): The original metadata to preserve.
-
-    Returns:
-        bytes: The modified PDF content as a bytes stream.
-    """
-    writer = PdfWriter(BytesIO(pdf))
-
-    if title or metadata:
-        _metadata = writer.metadata or {}
-        if metadata:
-            _metadata.update(metadata)
-        if title:
-            _metadata[NameObject(Title)] = TextStringObject(title)
-
-        writer.add_metadata(_metadata)
-
-    if script:
-        open_action = DictionaryObject()
-        open_action[NameObject(S)] = NameObject(JavaScript)
-        open_action[NameObject(JS)] = TextStringObject(script)
-
-        writer._root_object.update({NameObject(OpenAction): open_action})  # type: ignore # noqa: SLF001 # # pylint: disable=W0212
-
-    with BytesIO() as f:
-        writer.write(f)
-        f.seek(0)
-        return f.read()
 
 
 def rebuild_acroform_fields(

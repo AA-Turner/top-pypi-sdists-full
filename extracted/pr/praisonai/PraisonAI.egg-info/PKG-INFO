@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.6.151
+Version: 4.6.152
 Summary: PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration.
 Author: Mervin Praison
 License: MIT
@@ -11,12 +11,13 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.6.154
-Requires-Dist: praisonai-code>=0.0.50
-Requires-Dist: praisonai-bot>=0.0.35
-Requires-Dist: praisonai-train>=0.0.6
-Requires-Dist: praisonai-browser>=0.0.3
-Requires-Dist: praisonai-mcp>=0.0.3
+Requires-Dist: praisonaiagents>=1.6.155
+Requires-Dist: praisonai-code>=0.0.51
+Requires-Dist: praisonai-bot>=0.0.36
+Requires-Dist: praisonai-train>=0.0.7
+Requires-Dist: praisonai-browser>=0.0.4
+Requires-Dist: praisonai-mcp>=0.0.4
+Requires-Dist: praisonai-sandbox>=0.0.2
 Requires-Dist: python-dotenv>=0.19.0
 Requires-Dist: litellm<2,>=1.83.14
 Requires-Dist: PyYAML>=6.0
@@ -60,11 +61,11 @@ Requires-Dist: tavily-python==0.5.0; extra == "code"
 Requires-Dist: crawl4ai>=0.7.0; extra == "code"
 Requires-Dist: playwright>=1.47.0; extra == "code"
 Provides-Extra: sandbox
-Requires-Dist: sandlock>=0.1.0; extra == "sandbox"
+Requires-Dist: praisonai-sandbox[all]; extra == "sandbox"
 Provides-Extra: ssh
-Requires-Dist: asyncssh>=2.14.0; extra == "ssh"
+Requires-Dist: praisonai-sandbox[ssh]; extra == "ssh"
 Provides-Extra: modal
-Requires-Dist: modal>=0.64.0; extra == "modal"
+Requires-Dist: praisonai-sandbox[modal]; extra == "modal"
 Provides-Extra: daytona
 Provides-Extra: realtime
 Requires-Dist: aiui<0.4,>=0.3.121; extra == "realtime"

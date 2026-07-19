@@ -23,6 +23,8 @@ else:
 
 __all__ = (
     "AnalyticsS3ExportFileFormatType",
+    "AnnotationConfigurationStateType",
+    "AnnotationDirectiveType",
     "ArchiveStatusType",
     "BucketAbacStatusType",
     "BucketAccelerateStatusType",
@@ -60,6 +62,7 @@ __all__ = (
     "ListBucketsPaginatorName",
     "ListDirectoryBucketsPaginatorName",
     "ListMultipartUploadsPaginatorName",
+    "ListObjectAnnotationsPaginatorName",
     "ListObjectVersionsPaginatorName",
     "ListObjectsPaginatorName",
     "ListObjectsV2PaginatorName",
@@ -115,6 +118,8 @@ __all__ = (
 )
 
 AnalyticsS3ExportFileFormatType = Literal["CSV"]
+AnnotationConfigurationStateType = Literal["DISABLED", "ENABLED"]
+AnnotationDirectiveType = Literal["COPY", "EXCLUDE"]
 ArchiveStatusType = Literal["ARCHIVE_ACCESS", "DEEP_ARCHIVE_ACCESS"]
 BucketAbacStatusType = Literal["Disabled", "Enabled"]
 BucketAccelerateStatusType = Literal["Enabled", "Suspended"]
@@ -191,6 +196,9 @@ EventType = Literal[
     "s3:LifecycleExpiration:DeleteMarkerCreated",
     "s3:LifecycleTransition",
     "s3:ObjectAcl:Put",
+    "s3:ObjectAnnotation:*",
+    "s3:ObjectAnnotation:Delete",
+    "s3:ObjectAnnotation:Put",
     "s3:ObjectCreated:*",
     "s3:ObjectCreated:CompleteMultipartUpload",
     "s3:ObjectCreated:Copy",
@@ -247,6 +255,7 @@ JSONTypeType = Literal["DOCUMENT", "LINES"]
 ListBucketsPaginatorName = Literal["list_buckets"]
 ListDirectoryBucketsPaginatorName = Literal["list_directory_buckets"]
 ListMultipartUploadsPaginatorName = Literal["list_multipart_uploads"]
+ListObjectAnnotationsPaginatorName = Literal["list_object_annotations"]
 ListObjectVersionsPaginatorName = Literal["list_object_versions"]
 ListObjectsPaginatorName = Literal["list_objects"]
 ListObjectsV2PaginatorName = Literal["list_objects_v2"]
@@ -527,8 +536,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -555,6 +562,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -622,10 +631,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -658,6 +667,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -685,6 +695,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -706,7 +717,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -727,6 +737,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -766,6 +777,7 @@ PaginatorName = Literal[
     "list_buckets",
     "list_directory_buckets",
     "list_multipart_uploads",
+    "list_object_annotations",
     "list_object_versions",
     "list_objects",
     "list_objects_v2",

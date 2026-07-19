@@ -649,6 +649,7 @@ class AsyncRunners:
         env: dict[str, str] | None = None,
         working_dir: str | None = None,
         timeout_seconds: int | None = None,
+        proxy_token: str | None = None,
     ) -> AsyncIterator[ExecEvent]:
         body: dict[str, Any] = {"command": command}
         if env:
@@ -657,6 +658,8 @@ class AsyncRunners:
             body["working_dir"] = working_dir
         if timeout_seconds:
             body["timeout_seconds"] = timeout_seconds
+        if proxy_token:
+            body["proxy_token"] = proxy_token
 
         async for event in self._exec_with_host_retry(session_id, body):
             yield event

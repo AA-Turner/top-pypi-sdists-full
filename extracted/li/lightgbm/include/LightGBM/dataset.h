@@ -1,9 +1,10 @@
 /*!
- * Copyright (c) 2016 Microsoft Corporation. All rights reserved.
+ * Copyright (c) 2016-2026 Microsoft Corporation. All rights reserved.
+ * Copyright (c) 2016-2026 The LightGBM developers. All rights reserved.
  * Licensed under the MIT License. See LICENSE file in the project root for license information.
  */
-#ifndef LIGHTGBM_DATASET_H_
-#define LIGHTGBM_DATASET_H_
+#ifndef LIGHTGBM_INCLUDE_LIGHTGBM_DATASET_H_
+#define LIGHTGBM_INCLUDE_LIGHTGBM_DATASET_H_
 
 #include <LightGBM/arrow.h>
 #include <LightGBM/config.h>
@@ -111,22 +112,28 @@ class Metadata {
                         const std::vector<data_size_t>& used_data_indices);
 
   void SetLabel(const label_t* label, data_size_t len);
-  void SetLabel(const ArrowChunkedArray& array);
+  void SetLabel(struct ArrowArrayStream* stream);
+  void SetLabel(int64_t n_chunks, struct ArrowArray* chunks, struct ArrowSchema* schema);
 
   void SetWeights(const label_t* weights, data_size_t len);
-  void SetWeights(const ArrowChunkedArray& array);
+  void SetWeights(struct ArrowArrayStream* stream);
+  void SetWeights(int64_t n_chunks, struct ArrowArray* chunks, struct ArrowSchema* schema);
 
   void SetQuery(const data_size_t* query, data_size_t len);
-  void SetQuery(const ArrowChunkedArray& array);
+  void SetQuery(struct ArrowArrayStream* stream);
+  void SetQuery(int64_t n_chunks, struct ArrowArray* chunks, struct ArrowSchema* schema);
 
   void SetPosition(const data_size_t* position, data_size_t len);
+  void SetPosition(struct ArrowArrayStream* stream);
+  void SetPosition(int64_t n_chunks, struct ArrowArray* chunks, struct ArrowSchema* schema);
 
   /*!
   * \brief Set initial scores
   * \param init_score Initial scores, this class will manage memory for init_score.
   */
   void SetInitScore(const double* init_score, data_size_t len);
-  void SetInitScore(const ArrowChunkedArray& array);
+  void SetInitScore(struct ArrowArrayStream* stream);
+  void SetInitScore(int64_t n_chunks, struct ArrowArray* chunks, struct ArrowSchema* schema);
 
 
   /*!
@@ -554,9 +561,13 @@ class Dataset {
   }
 
   inline void FinishOneRow(int tid, data_size_t row_idx, const std::vector<bool>& is_feature_added) {
-    if (is_finish_load_) { return; }
+    if (is_finish_load_) {
+      return;
+    }
     for (auto fidx : feature_need_push_zeros_) {
-      if (is_feature_added[fidx]) { continue; }
+      if (is_feature_added[fidx]) {
+        continue;
+      }
       const int group = feature2group_[fidx];
       const int sub_feature = feature2subfeature_[fidx];
       feature_groups_[group]->PushData(tid, sub_feature, row_idx, 0.0f);
@@ -587,10 +598,14 @@ class Dataset {
   }
 
   inline void PushOneRow(int tid, data_size_t row_idx, const std::vector<std::pair<int, double>>& feature_values) {
-    if (is_finish_load_) { return; }
+    if (is_finish_load_) {
+      return;
+    }
     std::vector<bool> is_feature_added(num_features_, false);
     for (auto& inner_data : feature_values) {
-      if (inner_data.first >= num_total_features_) { continue; }
+      if (inner_data.first >= num_total_features_) {
+        continue;
+      }
       int feature_idx = used_feature_map_[inner_data.first];
       if (feature_idx >= 0) {
         is_feature_added[feature_idx] = true;
@@ -637,7 +652,7 @@ class Dataset {
   inline int Feature2Group(int feature_idx) const {
     return feature2group_[feature_idx];
   }
-  inline int Feture2SubFeature(int feature_idx) const {
+  inline int Feature2SubFeature(int feature_idx) const {
     return feature2subfeature_[feature_idx];
   }
   inline uint64_t GroupBinBoundary(int group_idx) const {
@@ -660,6 +675,8 @@ class Dataset {
 
   void CopySubrow(const Dataset* fullset, const data_size_t* used_indices, data_size_t num_used_indices, bool need_meta_data);
 
+  void CopySubrowToDevice(const Dataset* fullset, const data_size_t* used_indices, data_size_t num_used_indices, bool need_meta_data, int gpu_device_id);
+
   MultiValBin* GetMultiBinFromSparseFeatures(const std::vector<uint32_t>& offsets) const;
 
   MultiValBin* GetMultiBinFromAllFeatures(const std::vector<uint32_t>& offsets) const;
@@ -672,7 +689,10 @@ class Dataset {
 
   LIGHTGBM_EXPORT void FinishLoad();
 
-  bool SetFieldFromArrow(const char* field_name, const ArrowChunkedArray& ca);
+  bool SetFieldFromArrow(const char* field_name, struct ArrowArrayStream* stream);
+
+  bool SetFieldFromArrow(const char* field_name, int64_t n_chunks,
+                         struct ArrowArray* chunks, struct ArrowSchema* schema);
 
   LIGHTGBM_EXPORT bool SetFloatField(const char* field_name, const float* field_data, data_size_t num_element);
 
@@ -1004,6 +1024,8 @@ class Dataset {
 
   void CreateCUDAColumnData();
 
+  void CopySubrowHostPart(const Dataset* fullset, const data_size_t* used_indices, data_size_t num_used_indices, bool need_meta_data);
+
   std::string data_filename_;
   /*! \brief Store used features */
   std::vector<std::unique_ptr<FeatureGroup>> feature_groups_;
@@ -1063,4 +1085,4 @@ class Dataset {
 
 }  // namespace LightGBM
 
-#endif   // LightGBM_DATA_H_
+#endif   // LIGHTGBM_INCLUDE_LIGHTGBM_DATASET_H_

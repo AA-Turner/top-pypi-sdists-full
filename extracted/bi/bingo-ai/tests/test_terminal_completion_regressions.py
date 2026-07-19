@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 from bingo.ui.terminal import (
     BingoTerminal,
-    _normalize_tool_call_response,
     _repair_mixed_bash_python,
+    _supervised_exec_limits,
 )
 from bingo.lang.strings import get_strings
 from bingo.tools.findings_exporter import FindingsExporter
@@ -20,13 +20,25 @@ from bingo.orchestrator.engine import _board_value_anchored, _goal_completion_al
 from bingo.tools_ext import autoexploit_modules
 from bingo.tools_ext.pentest_tools import (
     TOOL_REGISTRY,
+    _build_adaptive_boolean_candidates,
+    _boolean_probe_is_blocked,
+    _boolean_probe_pair_is_eligible,
+    _calibrate_boolean_oracle,
+    _classify_dbms_with_oracle,
     _fix_bash_script,
+    _load_sqli_checkpoint,
+    _save_sqli_checkpoint,
     _inject_post_exploit_notice,
     _inject_sqli_trigger_notice,
     execute_tool,
     run_python,
+    run_ghauri,
+    run_sqlmap,
+    sqli_autoexploit,
     ssrf_chain_exploit,
 )
+from bingo.tools.http_probe import ProbeResult
+from bingo.tools.waf_bypass import WafBypassEngine, WafDetector
 
 
 class _Console:
@@ -85,36 +97,6 @@ def test_preexecution_claim_downgrade_preserves_attack_code() -> None:
     assert code in corrected
 
 
-def test_dict_tool_call_is_normalized_before_code_execution() -> None:
-    response = (
-        "```python\n"
-        "{'name': 'http_get', 'arguments': {'url': 'https://example.test/'}}\n"
-        "```"
-    )
-
-    normalized, count = _normalize_tool_call_response(response)
-
-    assert count == 1
-    assert normalized.startswith("TOOL_CALL:")
-    assert '"name": "http_get"' in normalized
-    assert "```python" not in normalized
-    assert "WRONG_TOOL_FORMAT" not in normalized
-
-
-def test_flat_dict_tool_call_is_normalized_silently() -> None:
-    response = (
-        "```python\n"
-        "{'name': 'http_get', 'url': 'https://example.test/', 'timeout': 7}\n"
-        "```"
-    )
-
-    normalized, count = _normalize_tool_call_response(response)
-
-    assert count == 1
-    assert '"args": {"url": "https://example.test/", "timeout": 7}' in normalized
-    assert "AUTO_FIX" not in normalized
-
-
 def _code_test_terminal() -> BingoTerminal:
     terminal = BingoTerminal.__new__(BingoTerminal)
     terminal.console = _Console()
@@ -127,7 +109,59 @@ def _code_test_terminal() -> BingoTerminal:
     return terminal
 
 
-def test_dict_tool_call_executes_without_autofix_warning(monkeypatch) -> None:
+def test_supervised_exec_limits_are_env_configurable(monkeypatch) -> None:
+    monkeypatch.setenv("BINGO_EXEC_TIMEOUT", "2")
+    monkeypatch.setenv("BINGO_EXEC_IDLE_REPORT", "1")
+    monkeypatch.setenv("BINGO_EXEC_WALL_CLOCK_TIMEOUT", "4")
+
+    limits = _supervised_exec_limits()
+
+    assert limits == {
+        "script_timeout": 2,
+        "idle_report": 1,
+        "wall_clock": 4,
+    }
+
+
+def test_supervised_codeblock_reports_job_state_on_success() -> None:
+    terminal = _code_test_terminal()
+
+    results = terminal._run_code_blocks(
+        "```bash\npython3 -c \"print('ok', flush=True)\"\n```",
+        set(),
+    )
+
+    combined = "\n".join(results)
+    assert "=== JOB_STATE: job_1 ===" in combined
+    assert "legacy=REAL EXECUTION:" in combined
+    assert "status=completed" in combined
+    assert "--- output ---" in combined
+    assert "ok" in combined
+
+
+def test_supervised_codeblock_reports_partial_state_on_timeout(monkeypatch) -> None:
+    terminal = _code_test_terminal()
+    monkeypatch.setenv("BINGO_EXEC_TIMEOUT", "2")
+    monkeypatch.setenv("BINGO_EXEC_IDLE_REPORT", "1")
+    monkeypatch.setenv("BINGO_EXEC_WALL_CLOCK_TIMEOUT", "4")
+
+    results = terminal._run_code_blocks(
+        "```bash\npython3 -c \"import time; print('start', flush=True); time.sleep(5)\"\n```",
+        set(),
+    )
+
+    combined = "\n".join(results)
+    assert "=== JOB_STATE: job_1 ===" in combined
+    assert "status=timeout_interrupted" in combined
+    assert "reason=execution_budget_elapsed" in combined
+    assert "--- partial_output ---" in combined
+    assert "partial_output_preserved" in combined
+    assert "start" in combined
+    assert "SCRIPT_KILLED" not in combined
+    assert "blocked" not in combined.lower()
+
+
+def test_dict_literal_codeblock_is_not_interpreted_as_helper_call(monkeypatch) -> None:
     terminal = _code_test_terminal()
     monkeypatch.setitem(
         TOOL_REGISTRY,
@@ -146,8 +180,10 @@ def test_dict_tool_call_executes_without_autofix_warning(monkeypatch) -> None:
     )
 
     visible = "\n".join(terminal.console.messages)
-    assert results and "value=ok" in results[0]
-    assert "WRONG_TOOL_FORMAT" not in visible
+    combined = "\n".join(results)
+    assert "=== JOB_STATE: job_1 ===" in combined
+    assert "status=completed" in combined
+    assert "value=ok" not in combined
     assert "AUTO_FIX" not in visible
 
 
@@ -184,6 +220,63 @@ def test_python_suffix_inside_bash_is_wrapped_before_preflight() -> None:
     import subprocess
     checked = subprocess.run(["bash", "-n"], input=repaired, text=True, capture_output=True)
     assert checked.returncode == 0, checked.stderr
+
+
+def test_quote_heavy_multiline_python_pipeline_uses_tempfile(tmp_path: Path) -> None:
+    script = (
+        "curl -sk https://example.test/ | python3 -c \"\n"
+        "import re, sys\n"
+        "js_urls = set(re.findall(r'src=[\\\"'\\\\'\\x60]([^\\\"'\\\\'\\x60 >]+)', html, re.I))\n"
+        "print(js_urls)\n"
+        "\""
+    )
+
+    repaired = _fix_bash_script(script)
+
+    assert "mktemp /tmp/bingo_py_" in repaired
+    assert "| python3 \"${_bingo_pytmp_1}\"" in repaired
+    import subprocess
+    checked = subprocess.run(["bash", "-n"], input=repaired, text=True, capture_output=True)
+    assert checked.returncode == 0, checked.stderr
+
+
+def test_quote_heavy_regex_is_repaired_to_valid_python() -> None:
+    script = (
+        'curl -sk https://example.test/ | python3 -c "\n'
+        "import re, sys\n"
+        "html = sys.stdin.read()\n"
+        'links = re.findall(r"[\"\']([^\"\']+)[\"\']", html)\n'
+        "print(links)\n"
+        '"'
+    )
+
+    repaired = _fix_bash_script(script)
+    python_body = repaired.split("BINGO_PYEOF_1'\n", 1)[1].split(
+        "\nBINGO_PYEOF_1", 1
+    )[0]
+
+    compile(python_body, "<repaired>", "exec")
+    assert r"[^\x22\x27]" in python_body
+
+
+def test_corrupted_href_findall_is_repaired_to_valid_python() -> None:
+    script = (
+        'python3 -c "\n'
+        "import re\n"
+        "html = '<a href=/manager/>x</a>'\n"
+        "links = re.findall(rhref=[\"']([^\"']+)[\"'], html)\n"
+        "print(links)\n"
+        '"'
+    )
+
+    repaired = _fix_bash_script(script)
+    python_body = repaired.split("BINGO_PYEOF_1'\n", 1)[1].split(
+        "\nBINGO_PYEOF_1", 1
+    )[0]
+
+    compile(python_body, "<repaired>", "exec")
+    assert "re.findall" in python_body
+    assert "href=" in python_body
 
 
 def test_custom_sqli_oracle_executes_instead_of_being_blocked() -> None:
@@ -226,10 +319,11 @@ def test_direct_http_sqli_probe_is_not_transport_blocked(monkeypatch) -> None:
 def test_system_prompt_ends_with_evidence_driven_offense_contract() -> None:
     prompt = get_pentest_system_prompt("deepseek")
 
-    assert prompt.rstrip().endswith(
+    assert (
         "Reports contain verified vulnerabilities only. Probable/potential candidates stay\n"
         "   in the verification backlog and continue to drive attacks."
-    )
+    ) in prompt
+    assert prompt.rstrip().endswith("promote after deterministic extraction evidence.")
     assert "sqlmap is PERMANENTLY BANNED" not in prompt
 
 
@@ -239,7 +333,10 @@ def test_repeated_inconclusive_attack_automatically_pivots(tmp_path: Path) -> No
     terminal._findings_exporter = FindingsExporter(
         target="https://example.test", output_dir=str(tmp_path)
     )
-    code = 'TOOL_CALL:{"name":"sqli_autoexploit","args":{"url":"https://example.test/item","param":"id"}}'
+    code = (
+        "from bingo.tools_ext.pentest_tools import sqli_autoexploit\n"
+        "sqli_autoexploit(url='https://example.test/item', param='id')"
+    )
     output = "oracle inconclusive: same-size responses"
 
     first = terminal._adaptive_attack_pivot_context(code, output)
@@ -248,8 +345,255 @@ def test_repeated_inconclusive_attack_automatically_pivots(tmp_path: Path) -> No
     assert first == ""
     assert "ADAPTIVE_OFFENSE_PIVOT" in second
     assert "vector=sqli" in second
-    assert "next=error" in second
+    assert "next=cross_vector" in second
+    assert terminal._adaptive_attack_state["sqli"]["cooldown"] == 2
     assert "do not stop exploration" in second
+
+
+def test_boolean_oracle_rejects_block_pages_and_status_transitions() -> None:
+    assert _boolean_probe_is_blocked(403, "Forbidden")
+    assert _boolean_probe_is_blocked(200, "Request was blocked by WAF")
+    assert _boolean_probe_pair_is_eligible(200, "true page", 200, "false page")
+    assert not _boolean_probe_pair_is_eligible(403, "blocked", 200, "normal")
+
+
+def test_boolean_oracle_calibration_accepts_stable_body_only_difference() -> None:
+    counter = {"value": 0}
+
+    def probe(payload: str):
+        counter["value"] += 1
+        marker = "X" * 40 if "1=1" in payload else "Y" * 40
+        token = f"{counter['value']:032x}"
+        body = f"same-size result={marker} request={token}"
+        return len(body), body, 200
+
+    calibrated = _calibrate_boolean_oracle(probe, "id AND 1=1", "id AND 1=2", 3)
+
+    assert calibrated["eligible"] is True
+    assert calibrated["samples"] == 3
+    assert calibrated["true_stability"] >= 0.90
+    assert calibrated["cross_similarity"] <= 0.92
+
+
+def test_boolean_oracle_calibration_rejects_mixed_block_status() -> None:
+    def probe(payload: str):
+        if "1=1" in payload:
+            return 199, "request blocked", 403
+        return 598, "normal response", 200
+
+    calibrated = _calibrate_boolean_oracle(probe, "id AND 1=1", "id AND 1=2", 3)
+
+    assert calibrated["eligible"] is False
+    assert calibrated["blocked"] is True
+
+
+def test_adaptive_candidates_prioritize_learned_and_vendor_profiles() -> None:
+    learned = _build_adaptive_boolean_candidates(
+        "1", waf_hint="Cloudflare", preferred="AND_comment"
+    )
+    vendor = _build_adaptive_boolean_candidates("1", waf_hint="Cloudflare")
+
+    assert learned[0][0] == "AND_comment"
+    assert len(vendor) <= 24
+    assert any("adaptive:" in label for label, _true, _false in vendor)
+    assert len({(true, false) for _label, true, false in vendor}) == len(vendor)
+
+
+def test_dbms_classifier_requires_vendor_negative_control() -> None:
+    def mysql_oracle(expr: str) -> bool:
+        if "DATABASE() IS NULL AND" in expr:
+            return False
+        return expr == "DATABASE() IS NOT NULL"
+
+    assert _classify_dbms_with_oracle(mysql_oracle) == "mysql"
+    assert _classify_dbms_with_oracle(lambda _expr: True) == ""
+
+
+def test_sqli_checkpoint_round_trip(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("BINGO_SQLI_STATE_DIR", str(tmp_path))
+    state = {"oracle_op": "AND_comment", "dbms": "mysql", "db_name": "app"}
+
+    assert _save_sqli_checkpoint("POST|https://example.test|id|1", state)
+    restored = _load_sqli_checkpoint("POST|https://example.test|id|1")
+
+    assert restored == state
+
+
+def test_sqli_post_profile_preserves_json_csrf_cookies_and_redirects(monkeypatch) -> None:
+    calls: list[dict] = []
+
+    class Response:
+        status_code = 403
+        text = "request blocked"
+        content = text.encode()
+
+    class Session:
+        def __init__(self):
+            self.headers = {}
+            self.cookies = {}
+            self.verify = True
+
+        def get(self, *_args, **kwargs):
+            calls.append(kwargs)
+            return Response()
+
+        def post(self, *_args, **kwargs):
+            calls.append(kwargs)
+            return Response()
+
+    monkeypatch.setattr("requests.Session", Session)
+
+    result = sqli_autoexploit(
+        "https://example.test/api",
+        "id",
+        method="POST",
+        post_data='{"id":"1","scope":"all"}',
+        extra_params={"route": "v2"},
+        cookies={"SESSION": "abc"},
+        csrf_param="csrf",
+        csrf_token="token123",
+        content_type="application/json",
+        follow_redirects=False,
+        oracle_samples=3,
+        resume=False,
+    )
+
+    assert result["success"] is False
+    assert result["candidate"] is False
+    assert result["evidence_tier"] == "blocked"
+    assert any("STAGE 2.6" in line for line in result["log"])
+    assert calls
+    assert all(call["params"] == {"route": "v2"} for call in calls)
+    assert all(call["json"]["csrf"] == "token123" for call in calls)
+    assert all(call["json"]["scope"] == "all" for call in calls)
+    assert all(call["allow_redirects"] is False for call in calls)
+    sqlmap_args = result["external_handoff"]["sqlmap_args"]
+    assert sqlmap_args["url"] == "https://example.test/api?route=v2"
+    assert json.loads(sqlmap_args["post_data"]) == {
+        "id": "1",
+        "scope": "all",
+        "csrf": "token123",
+    }
+    assert sqlmap_args["headers"]["Content-Type"] == "application/json"
+    assert sqlmap_args["follow_redirects"] is False
+
+
+def test_external_tools_receive_calibrated_request_profile(monkeypatch) -> None:
+    captured: list[list[str]] = []
+    monkeypatch.setattr(
+        "bingo.tools_ext.pentest_tools._find_sqlmap", lambda: ["sqlmap"]
+    )
+    monkeypatch.setattr(
+        "bingo.tools_ext.pentest_tools._find_tool", lambda _name: ["ghauri"]
+    )
+    monkeypatch.setattr(
+        "bingo.tools_ext.pentest_tools._run",
+        lambda cmd, timeout: captured.append(cmd) or {
+            "success": True,
+            "output": "ok",
+            "elapsed": 0,
+        },
+    )
+
+    run_sqlmap(
+        "https://example.test/api",
+        "id",
+        cookies={"SESSION": "abc"},
+        dbms="mysql",
+        technique="BT",
+        csrf_token="csrf",
+        csrf_url="https://example.test/form",
+        follow_redirects=False,
+    )
+    run_ghauri(
+        "https://example.test/api",
+        "id",
+        cookies={"SESSION": "abc"},
+        dbms="mysql",
+    )
+
+    sqlmap_cmd, ghauri_cmd = captured
+    assert "--cookie" in sqlmap_cmd and "SESSION=abc" in sqlmap_cmd
+    assert "--dbms" in sqlmap_cmd and "mysql" in sqlmap_cmd
+    assert "--csrf-token" in sqlmap_cmd and "csrf" in sqlmap_cmd
+    assert "--technique" in sqlmap_cmd and "BT" in sqlmap_cmd
+    assert "--ignore-redirects" in sqlmap_cmd
+    assert "--cookie" in ghauri_cmd and "SESSION=abc" in ghauri_cmd
+    assert "--redirects" not in ghauri_cmd
+    assert "run_ghauri" in TOOL_REGISTRY
+
+
+def test_waf_detector_does_not_infer_vendor_from_generic_403(monkeypatch) -> None:
+    class Probe:
+        def __init__(self):
+            self.calls = 0
+
+        def get(self, url: str, timeout: int = 0):
+            self.calls += 1
+            if self.calls == 1:
+                return ProbeResult(url, 200, "normal", {}, 0.01)
+            return ProbeResult(url, 403, "Access denied: request blocked", {}, 0.01)
+
+    monkeypatch.setattr("bingo.tools.waf_bypass.time.sleep", lambda _delay: None)
+
+    detected = WafDetector(Probe()).detect("https://example.test/")
+
+    assert detected.detected is True
+    assert detected.waf_type == "generic"
+
+
+def test_waf_bypass_requires_exact_blocked_control_and_semantic_difference() -> None:
+    engine = WafBypassEngine.__new__(WafBypassEngine)
+    engine._blocked_response = ProbeResult(
+        url="https://example.test/?id=blocked",
+        status=403,
+        body="request blocked",
+        headers={},
+        elapsed=0,
+    )
+    engine._baseline_response = ProbeResult(
+        url="https://example.test/?id=1",
+        status=200,
+        body="normal page",
+        headers={},
+        elapsed=0,
+    )
+    same_as_clean = ProbeResult(
+        url="https://example.test/?id=variant",
+        status=200,
+        body="normal page",
+        headers={},
+        elapsed=0,
+    )
+    semantic_change = ProbeResult(
+        url="https://example.test/?id=variant2",
+        status=200,
+        body="query result changed",
+        headers={},
+        elapsed=0,
+    )
+
+    assert not engine._is_bypassed(same_as_clean)
+    assert engine._is_bypassed(semantic_change)
+
+
+def test_localized_oracle_rejection_triggers_cross_vector_pivot(tmp_path: Path) -> None:
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal._agent_state = {"target": "https://example.test"}
+    terminal._findings_exporter = FindingsExporter(
+        target="https://example.test", output_dir=str(tmp_path)
+    )
+    code = (
+        "from bingo.tools_ext.pentest_tools import sqli_autoexploit\n"
+        "sqli_autoexploit(param='id')"
+    )
+    output = "[SQLI_ORACLE_REJECTED] TRUE/FALSE 대조가 차단되었습니다."
+
+    assert terminal._adaptive_attack_pivot_context(code, output) == ""
+    pivot = terminal._adaptive_attack_pivot_context(code, output)
+
+    assert "next=cross_vector" in pivot
+    assert terminal._adaptive_attack_state["sqli"]["cooldown"] == 2
 
 
 def test_orchestrator_rejects_self_authored_evidence_and_completion() -> None:
@@ -413,7 +757,7 @@ def test_active_security_tests_remain_candidates(tmp_path: Path) -> None:
 def test_process_runtime_elapsed_is_not_time_based_sqli(tmp_path: Path) -> None:
     exporter = FindingsExporter(target="https://example.test", output_dir=str(tmp_path))
     output = (
-        "=== TOOL_RESULT: run_python ===\n"
+        "=== RUNTIME_RESULT: python ===\n"
         "exit_code=0 success=True elapsed=14.42s\n"
         "[200] ERROR (598B): LENGTH=1"
     )
@@ -431,8 +775,8 @@ def test_process_runtime_elapsed_is_not_time_based_sqli(tmp_path: Path) -> None:
 def test_failed_time_measurement_invalidates_probable_sqli(tmp_path: Path) -> None:
     exporter = FindingsExporter(target="https://example.test", output_dir=str(tmp_path))
     code = (
-        'TOOL_CALL:{"name":"sqli_autoexploit","args":'
-        '{"url":"https://example.test/item","param":"id"}}'
+        "from bingo.tools_ext.pentest_tools import sqli_autoexploit\n"
+        "sqli_autoexploit(url='https://example.test/item', param='id')"
     )
     probable = exporter.process("TRUE 1200B\nFALSE 500B", code)
     assert probable is not None and probable.confidence == "probable"
@@ -449,6 +793,67 @@ def test_failed_time_measurement_invalidates_probable_sqli(tmp_path: Path) -> No
         q.reason_code == "invalidated_by_time_based_threshold_failed"
         for q in exporter.quarantined
     )
+
+
+def test_waf_control_pair_is_blocked_not_probable(tmp_path: Path) -> None:
+    exporter = FindingsExporter(target="https://example.test", output_dir=str(tmp_path))
+    code = (
+        "from bingo.tools_ext.pentest_tools import sqli_autoexploit\n"
+        "sqli_autoexploit(url='https://example.test/item', param='id')"
+    )
+
+    finding = exporter.process(
+        "TRUE 403 199B request blocked\nFALSE 200 598B generic error page",
+        code,
+    )
+
+    assert finding is not None
+    assert finding.confidence == "blocked"
+    assert exporter.stats()["probable"] == 0
+
+
+def test_equal_waf_controls_are_blocked_not_probable(tmp_path: Path) -> None:
+    exporter = FindingsExporter(target="https://example.test", output_dir=str(tmp_path))
+    code = "curl 'https://example.test/item?id=1' # sqli boolean controls"
+
+    finding = exporter.process("TRUE 403 199B\nFALSE 403 199B", code)
+
+    assert finding is not None
+    assert finding.confidence == "blocked"
+    assert exporter.stats()["probable"] == 0
+
+
+def test_finding_ids_are_monotonic_across_invalidation(tmp_path: Path) -> None:
+    exporter = FindingsExporter(target="https://example.test", output_dir=str(tmp_path))
+    code = (
+        "from bingo.tools_ext.pentest_tools import sqli_autoexploit\n"
+        "sqli_autoexploit(url='https://example.test/item', param='id')"
+    )
+
+    first = exporter.process("TRUE 1200B\nFALSE 500B", code)
+    assert first is not None and first.id == "BINGO-0001"
+    exporter.process(
+        "기준 응답 시간: 0.68s\n[sleep] 응답 시간: 0.35s (임계값: 2.18s)\n"
+        "[sleep_num] 응답 시간: 0.31s (임계값: 2.18s)",
+        code,
+    )
+    second = exporter.process("TRUE 1300B\nFALSE 500B", code)
+
+    assert second is not None and second.id == "BINGO-0003"
+    assert exporter.quarantined[0].id == "BINGO-0001"
+    assert len({f.id for f in exporter.findings + exporter.quarantined}) == 3
+
+
+def test_label_only_personal_page_is_blocked(tmp_path: Path) -> None:
+    exporter = FindingsExporter(target="https://example.test", output_dir=str(tmp_path))
+    output = "HTTP 200\npersonal=True\n보호자: 환자명\nROWS=0\n예약"
+
+    finding = exporter.process(output, "curl https://example.test/patient")
+
+    assert finding is not None
+    assert finding.vuln_type == "info_disclosure"
+    assert finding.confidence == "blocked"
+    assert not finding.confirmed
 
 
 def test_structured_time_measurement_requires_repeated_passes(tmp_path: Path) -> None:
@@ -862,6 +1267,45 @@ def test_error_identifier_never_enters_pending_crack_queue() -> None:
     assert value in obj._session_cracked_hashes
 
 
+def test_jsessionid_never_enters_pending_crack_queue_even_when_echoed_later() -> None:
+    value = "E9A7C3C2D2404A4C8000226189606120"
+    obj = BingoTerminal.__new__(BingoTerminal)
+    obj._session_cracked_hashes = set()
+    obj._pending_crack_hashes = []
+    obj.config = SimpleNamespace(lang="en")
+    obj.console = _Console()
+
+    BingoTerminal._collect_crack_hashes(obj, f"Set-Cookie: JSESSIONID={value}; Path=/")
+    BingoTerminal._collect_crack_hashes(obj, f"later response echoed {value}")
+
+    assert obj._pending_crack_hashes == []
+    assert value.lower() in obj._session_cracked_hashes
+
+
+def test_structured_xss_requires_execution_not_reflection() -> None:
+    reflected = {
+        "payload": "<img src=x onerror=alert(1)>",
+        "reflected": True,
+    }
+    executed = {**reflected, "browser_executed": True}
+
+    assert not BingoTerminal._validate_bingo_signal("xss", reflected)[0]
+    assert BingoTerminal._validate_bingo_signal("xss", executed)[0]
+
+
+def test_structured_idor_requires_authenticated_ownership_boundary() -> None:
+    public_selector = {"other_user_id": 2, "data_returned": True}
+    owner_boundary = {
+        **public_selector,
+        "authenticated_baseline": True,
+        "owner_only_resource": True,
+        "different_owner": True,
+    }
+
+    assert not BingoTerminal._validate_bingo_signal("idor", public_selector)[0]
+    assert BingoTerminal._validate_bingo_signal("idor", owner_boundary)[0]
+
+
 def test_hash_pipeline_finishes_before_prompt_return() -> None:
     events: list[str] = []
     obj = BingoTerminal.__new__(BingoTerminal)
@@ -900,7 +1344,7 @@ def test_report_fallback_is_written_without_model(tmp_path: Path, monkeypatch) -
 
         @staticmethod
         def ground_truth_block():
-            return "- id=BINGO-1 tier=potential type=sqli\n"
+            return "- id=BINGO-1 tier=potential type=sqli"
 
         @staticmethod
         def save():
@@ -923,6 +1367,18 @@ def test_report_fallback_is_written_without_model(tmp_path: Path, monkeypatch) -
     obj._render_hacker_report = lambda *_args: None
     obj._converge_session_artifacts = lambda *_args, **_kwargs: None
     obj._suggest_next_steps = lambda: None
+    original_fallback = BingoTerminal._build_fallback_report
+    captured: dict[str, str] = {}
+
+    def capture_fallback(**kwargs):
+        captured["ground_truth"] = kwargs["ground_truth"]
+        return original_fallback(**kwargs)
+
+    monkeypatch.setattr(
+        BingoTerminal,
+        "_build_fallback_report",
+        staticmethod(capture_fallback),
+    )
     monkeypatch.setenv("BINGO_REPORTS_DIR", str(tmp_path))
 
     BingoTerminal._auto_generate_report(obj)
@@ -937,3 +1393,65 @@ def test_report_fallback_is_written_without_model(tmp_path: Path, monkeypatch) -
     vuln_section = report.split("## Vulnerabilities Found", 1)[1].split("##", 1)[0]
     assert "BINGO-1" not in vuln_section
     assert "Verification Backlog (Unconfirmed)" in report
+    assert "type=sqli\nEVIDENCE LADDER RULES" in captured["ground_truth"]
+
+
+def test_chinese_deterministic_report_keeps_zero_confirmed_label() -> None:
+    report = BingoTerminal._build_fallback_report(
+        target="https://example.test",
+        lang="zh",
+        confirmed_count=0,
+        potential_count=2,
+        ground_truth="- id=BINGO-1 tier=blocked type=sqli",
+        session_credentials=[],
+    )
+
+    assert "已确认: 0" in report
+    assert "未确认: 0" not in report
+
+
+def test_new_runtime_messages_have_all_languages() -> None:
+    for lang in ("ko", "zh", "en"):
+        strings = get_strings(lang)
+        for key in (
+            "sqli_cross_vector_guard",
+            "report_manual_artifact_blocked",
+            "sqli_oracle_rejected",
+            "ae_xss_candidate",
+            "sqli_adaptive_profile",
+            "sqli_oracle_calibrated",
+            "sqli_dbms_detected",
+            "sqli_checkpoint_restored",
+            "sqli_external_handoff",
+            "sqli_candidate_only",
+        ):
+            assert strings[key].strip()
+
+
+def test_xss_reflection_output_is_candidate_not_vulnerable(monkeypatch, capsys) -> None:
+    payload = "<img src=x onerror=alert(1)>"
+
+    class Response:
+        text = payload
+
+        def __bool__(self):
+            return True
+
+    class Session:
+        headers: dict = {}
+
+    monkeypatch.setattr(autoexploit_modules, "_XSS_PAYLOADS", [payload])
+    monkeypatch.setattr(autoexploit_modules, "_sess", lambda _headers: Session())
+    monkeypatch.setattr(
+        autoexploit_modules,
+        "_req",
+        lambda *_args, **_kwargs: Response(),
+    )
+    monkeypatch.setattr(autoexploit_modules, "_save", lambda *_args: "/tmp/result")
+
+    result = autoexploit_modules.xss_autotest("https://example.test", "q")
+    visible = capsys.readouterr().out
+
+    assert "[XSS_CANDIDATE]" in result["output"]
+    assert "browser_confirmed=false" in result["output"]
+    assert "XSS Vulnerable" not in visible

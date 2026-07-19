@@ -33,6 +33,7 @@ from .paginator import (
     ListBucketsPaginator,
     ListDirectoryBucketsPaginator,
     ListMultipartUploadsPaginator,
+    ListObjectAnnotationsPaginator,
     ListObjectsPaginator,
     ListObjectsV2Paginator,
     ListObjectVersionsPaginator,
@@ -69,6 +70,8 @@ from .type_defs import (
     DeleteBucketRequestTypeDef,
     DeleteBucketTaggingRequestTypeDef,
     DeleteBucketWebsiteRequestTypeDef,
+    DeleteObjectAnnotationOutputTypeDef,
+    DeleteObjectAnnotationRequestTypeDef,
     DeleteObjectOutputTypeDef,
     DeleteObjectRequestTypeDef,
     DeleteObjectsOutputTypeDef,
@@ -128,6 +131,8 @@ from .type_defs import (
     GetBucketWebsiteRequestTypeDef,
     GetObjectAclOutputTypeDef,
     GetObjectAclRequestTypeDef,
+    GetObjectAnnotationOutputTypeDef,
+    GetObjectAnnotationRequestTypeDef,
     GetObjectAttributesOutputTypeDef,
     GetObjectAttributesRequestTypeDef,
     GetObjectLegalHoldOutputTypeDef,
@@ -162,6 +167,8 @@ from .type_defs import (
     ListDirectoryBucketsRequestTypeDef,
     ListMultipartUploadsOutputTypeDef,
     ListMultipartUploadsRequestTypeDef,
+    ListObjectAnnotationsOutputTypeDef,
+    ListObjectAnnotationsRequestTypeDef,
     ListObjectsOutputTypeDef,
     ListObjectsRequestTypeDef,
     ListObjectsV2OutputTypeDef,
@@ -196,6 +203,8 @@ from .type_defs import (
     PutBucketWebsiteRequestTypeDef,
     PutObjectAclOutputTypeDef,
     PutObjectAclRequestTypeDef,
+    PutObjectAnnotationOutputTypeDef,
+    PutObjectAnnotationRequestTypeDef,
     PutObjectLegalHoldOutputTypeDef,
     PutObjectLegalHoldRequestTypeDef,
     PutObjectLockConfigurationOutputTypeDef,
@@ -212,6 +221,7 @@ from .type_defs import (
     RestoreObjectRequestTypeDef,
     SelectObjectContentOutputTypeDef,
     SelectObjectContentRequestTypeDef,
+    UpdateBucketMetadataAnnotationTableConfigurationRequestTypeDef,
     UpdateBucketMetadataInventoryTableConfigurationRequestTypeDef,
     UpdateBucketMetadataJournalTableConfigurationRequestTypeDef,
     UpdateObjectEncryptionRequestTypeDef,
@@ -244,20 +254,26 @@ __all__ = ("S3Client",)
 
 class Exceptions(BaseClientExceptions):
     AccessDenied: type[BotocoreClientError]
+    AnnotationLimitExceeded: type[BotocoreClientError]
+    AnnotationNameTooLong: type[BotocoreClientError]
     BucketAlreadyExists: type[BotocoreClientError]
     BucketAlreadyOwnedByYou: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     EncryptionTypeMismatch: type[BotocoreClientError]
     IdempotencyParameterMismatch: type[BotocoreClientError]
+    InvalidAnnotationName: type[BotocoreClientError]
     InvalidObjectState: type[BotocoreClientError]
+    InvalidPrefix: type[BotocoreClientError]
     InvalidRequest: type[BotocoreClientError]
     InvalidWriteOffset: type[BotocoreClientError]
+    NoSuchAnnotation: type[BotocoreClientError]
     NoSuchBucket: type[BotocoreClientError]
     NoSuchKey: type[BotocoreClientError]
     NoSuchUpload: type[BotocoreClientError]
     ObjectAlreadyInActiveTierError: type[BotocoreClientError]
     ObjectNotInActiveTierError: type[BotocoreClientError]
     TooManyParts: type[BotocoreClientError]
+    UnsupportedMediaType: type[BotocoreClientError]
 
 
 class S3Client(AioBaseClient):
@@ -543,6 +559,16 @@ class S3Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/delete_object.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#delete_object)
+        """
+
+    async def delete_object_annotation(
+        self, **kwargs: Unpack[DeleteObjectAnnotationRequestTypeDef]
+    ) -> DeleteObjectAnnotationOutputTypeDef:
+        """
+        Deletes a specific annotation from an Amazon S3 object.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/delete_object_annotation.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#delete_object_annotation)
         """
 
     async def delete_object_tagging(
@@ -851,6 +877,16 @@ class S3Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#get_object_acl)
         """
 
+    async def get_object_annotation(
+        self, **kwargs: Unpack[GetObjectAnnotationRequestTypeDef]
+    ) -> GetObjectAnnotationOutputTypeDef:
+        """
+        Retrieves an annotation from an Amazon S3 object.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_object_annotation.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#get_object_annotation)
+        """
+
     async def get_object_attributes(
         self, **kwargs: Unpack[GetObjectAttributesRequestTypeDef]
     ) -> GetObjectAttributesOutputTypeDef:
@@ -1013,6 +1049,16 @@ class S3Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/list_multipart_uploads.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#list_multipart_uploads)
+        """
+
+    async def list_object_annotations(
+        self, **kwargs: Unpack[ListObjectAnnotationsRequestTypeDef]
+    ) -> ListObjectAnnotationsOutputTypeDef:
+        """
+        Lists the annotations attached to an Amazon S3 object.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/list_object_annotations.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#list_object_annotations)
         """
 
     async def list_object_versions(
@@ -1290,6 +1336,16 @@ class S3Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#put_object_acl)
         """
 
+    async def put_object_annotation(
+        self, **kwargs: Unpack[PutObjectAnnotationRequestTypeDef]
+    ) -> PutObjectAnnotationOutputTypeDef:
+        """
+        Attaches an annotation to an Amazon S3 object.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/put_object_annotation.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#put_object_annotation)
+        """
+
     async def put_object_legal_hold(
         self, **kwargs: Unpack[PutObjectLegalHoldRequestTypeDef]
     ) -> PutObjectLegalHoldOutputTypeDef:
@@ -1367,6 +1423,17 @@ class S3Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/select_object_content.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#select_object_content)
+        """
+
+    async def update_bucket_metadata_annotation_table_configuration(
+        self, **kwargs: Unpack[UpdateBucketMetadataAnnotationTableConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Updates the annotation table configuration for an Amazon S3 bucket's metadata
+        configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/update_bucket_metadata_annotation_table_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#update_bucket_metadata_annotation_table_configuration)
         """
 
     async def update_bucket_metadata_inventory_table_configuration(
@@ -1554,6 +1621,17 @@ class S3Client(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_multipart_uploads"]
     ) -> ListMultipartUploadsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_object_annotations"]
+    ) -> ListObjectAnnotationsPaginator:
         """
         Create a paginator for an operation.
 

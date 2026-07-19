@@ -15,10 +15,7 @@ def _default_kms_key_name(cloud_provider: str, tenant_id: str) -> str | None:
     """
     if cloud_provider == CLOUD_AWS:
         return None
-    return (
-        f"projects/{tenant_id}/locations/global/keyRings/capsule"
-        f"/cryptoKeys/capsule-attestation/cryptoKeyVersions/1"
-    )
+    return f"projects/{tenant_id}/locations/global/keyRings/capsule/cryptoKeys/capsule-attestation/cryptoKeyVersions/1"
 
 
 @dataclass(frozen=True)

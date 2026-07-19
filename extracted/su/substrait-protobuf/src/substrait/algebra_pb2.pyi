@@ -435,19 +435,15 @@ class ReadRel(google.protobuf.message.Message):
 
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-        VALUES_FIELD_NUMBER: builtins.int
         EXPRESSIONS_FIELD_NUMBER: builtins.int
-        @property
-        def values(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___Expression.Literal.Struct]: ...
         @property
         def expressions(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___Expression.Nested.Struct]: ...
         def __init__(
             self,
             *,
-            values: collections.abc.Iterable[Global___Expression.Literal.Struct] | None = ...,
             expressions: collections.abc.Iterable[Global___Expression.Nested.Struct] | None = ...,
         ) -> None: ...
-        def ClearField(self, field_name: typing.Literal["expressions", b"expressions", "values", b"values"]) -> None: ...
+        def ClearField(self, field_name: typing.Literal["expressions", b"expressions"]) -> None: ...
 
     @typing.final
     class ExtensionTable(google.protobuf.message.Message):
@@ -936,20 +932,9 @@ class FetchRel(google.protobuf.message.Message):
 
     COMMON_FIELD_NUMBER: builtins.int
     INPUT_FIELD_NUMBER: builtins.int
-    OFFSET_FIELD_NUMBER: builtins.int
     OFFSET_EXPR_FIELD_NUMBER: builtins.int
-    COUNT_FIELD_NUMBER: builtins.int
     COUNT_EXPR_FIELD_NUMBER: builtins.int
     ADVANCED_EXTENSION_FIELD_NUMBER: builtins.int
-    offset: builtins.int
-    """the offset expressed in number of records
-    Deprecated: use `offset_expr` instead
-    """
-    count: builtins.int
-    """the amount of records to return
-    use -1 to signal that ALL records should be returned
-    Deprecated: use `count_expr` instead
-    """
     @property
     def common(self) -> Global___RelCommon: ...
     @property
@@ -959,7 +944,7 @@ class FetchRel(google.protobuf.message.Message):
         """Expression evaluated into a non-negative integer specifying the number
         of records to skip. An expression evaluating to null is treated as 0.
         Evaluating to a negative integer should result in an error.
-        Recommended type for offset is int64.
+        Recommended type for offset is int64. Unset is treated as 0.
         """
 
     @property
@@ -968,7 +953,8 @@ class FetchRel(google.protobuf.message.Message):
         of records to return. An expression evaluating to null signals that ALL
         records should be returned.
         Evaluating to a negative integer should result in an error.
-        Recommended type for count is int64.
+        Recommended type for count is int64. Unset signals that ALL records
+        should be returned.
         """
 
     @property
@@ -978,18 +964,12 @@ class FetchRel(google.protobuf.message.Message):
         *,
         common: Global___RelCommon | None = ...,
         input: Global___Rel | None = ...,
-        offset: builtins.int = ...,
         offset_expr: Global___Expression | None = ...,
-        count: builtins.int = ...,
         count_expr: Global___Expression | None = ...,
         advanced_extension: substrait.extensions.extensions_pb2.AdvancedExtension | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "count", b"count", "count_expr", b"count_expr", "count_mode", b"count_mode", "input", b"input", "offset", b"offset", "offset_expr", b"offset_expr", "offset_mode", b"offset_mode"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "count", b"count", "count_expr", b"count_expr", "count_mode", b"count_mode", "input", b"input", "offset", b"offset", "offset_expr", b"offset_expr", "offset_mode", b"offset_mode"]) -> None: ...
-    @typing.overload
-    def WhichOneof(self, oneof_group: typing.Literal["count_mode", b"count_mode"]) -> typing.Literal["count", "count_expr"] | None: ...
-    @typing.overload
-    def WhichOneof(self, oneof_group: typing.Literal["offset_mode", b"offset_mode"]) -> typing.Literal["offset", "offset_expr"] | None: ...
+    def HasField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "count_expr", b"count_expr", "input", b"input", "offset_expr", b"offset_expr"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "count_expr", b"count_expr", "input", b"input", "offset_expr", b"offset_expr"]) -> None: ...
 
 Global___FetchRel: typing_extensions.TypeAlias = FetchRel
 
@@ -2402,8 +2382,6 @@ class HashJoinRel(google.protobuf.message.Message):
     COMMON_FIELD_NUMBER: builtins.int
     LEFT_FIELD_NUMBER: builtins.int
     RIGHT_FIELD_NUMBER: builtins.int
-    LEFT_KEYS_FIELD_NUMBER: builtins.int
-    RIGHT_KEYS_FIELD_NUMBER: builtins.int
     KEYS_FIELD_NUMBER: builtins.int
     POST_JOIN_FILTER_FIELD_NUMBER: builtins.int
     TYPE_FIELD_NUMBER: builtins.int
@@ -2422,18 +2400,8 @@ class HashJoinRel(google.protobuf.message.Message):
     @property
     def right(self) -> Global___Rel: ...
     @property
-    def left_keys(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___Expression.FieldReference]:
-        """These fields are deprecated in favor of `keys`.  If they are set then
-        the two lists (left_keys and right_keys) must have the same length and
-        the comparion function is considered to be SimpleEqualityType::EQ
-        """
-
-    @property
-    def right_keys(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___Expression.FieldReference]: ...
-    @property
     def keys(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___ComparisonJoinKey]:
-        """One or more keys to join on.  The relation is invalid if this is empty
-        (unless the deprecated left_keys/right_keys fields are being used).
+        """One or more keys to join on.  The relation is invalid if this is empty.
 
         If a custom comparison function is used then it must be consistent with
         the hash function used for the keys.
@@ -2472,8 +2440,6 @@ class HashJoinRel(google.protobuf.message.Message):
         common: Global___RelCommon | None = ...,
         left: Global___Rel | None = ...,
         right: Global___Rel | None = ...,
-        left_keys: collections.abc.Iterable[Global___Expression.FieldReference] | None = ...,
-        right_keys: collections.abc.Iterable[Global___Expression.FieldReference] | None = ...,
         keys: collections.abc.Iterable[Global___ComparisonJoinKey] | None = ...,
         post_join_filter: Global___Expression | None = ...,
         type: Global___HashJoinRel.JoinType.ValueType = ...,
@@ -2482,7 +2448,7 @@ class HashJoinRel(google.protobuf.message.Message):
         advanced_extension: substrait.extensions.extensions_pb2.AdvancedExtension | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "left", b"left", "post_join_filter", b"post_join_filter", "residual_expression", b"residual_expression", "right", b"right"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "build_input", b"build_input", "common", b"common", "keys", b"keys", "left", b"left", "left_keys", b"left_keys", "post_join_filter", b"post_join_filter", "residual_expression", b"residual_expression", "right", b"right", "right_keys", b"right_keys", "type", b"type"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "build_input", b"build_input", "common", b"common", "keys", b"keys", "left", b"left", "post_join_filter", b"post_join_filter", "residual_expression", b"residual_expression", "right", b"right", "type", b"type"]) -> None: ...
 
 Global___HashJoinRel: typing_extensions.TypeAlias = HashJoinRel
 
@@ -2533,8 +2499,6 @@ class MergeJoinRel(google.protobuf.message.Message):
     COMMON_FIELD_NUMBER: builtins.int
     LEFT_FIELD_NUMBER: builtins.int
     RIGHT_FIELD_NUMBER: builtins.int
-    LEFT_KEYS_FIELD_NUMBER: builtins.int
-    RIGHT_KEYS_FIELD_NUMBER: builtins.int
     KEYS_FIELD_NUMBER: builtins.int
     POST_JOIN_FILTER_FIELD_NUMBER: builtins.int
     TYPE_FIELD_NUMBER: builtins.int
@@ -2548,18 +2512,8 @@ class MergeJoinRel(google.protobuf.message.Message):
     @property
     def right(self) -> Global___Rel: ...
     @property
-    def left_keys(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___Expression.FieldReference]:
-        """These fields are deprecated in favor of `keys`.  If they are set then
-        the two lists (left_keys and right_keys) must have the same length and
-        the comparion function is considered to be SimpleEqualityType::EQ
-        """
-
-    @property
-    def right_keys(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___Expression.FieldReference]: ...
-    @property
     def keys(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___ComparisonJoinKey]:
-        """One or more keys to join on.  The relation is invalid if this is empty
-        (unless the deprecated left_keys/right_keys fields are being used).
+        """One or more keys to join on.  The relation is invalid if this is empty.
 
         If a custom comparison function is used then it must be consistent with
         the ordering of the input data.  For example, if the comparison function
@@ -2600,8 +2554,6 @@ class MergeJoinRel(google.protobuf.message.Message):
         common: Global___RelCommon | None = ...,
         left: Global___Rel | None = ...,
         right: Global___Rel | None = ...,
-        left_keys: collections.abc.Iterable[Global___Expression.FieldReference] | None = ...,
-        right_keys: collections.abc.Iterable[Global___Expression.FieldReference] | None = ...,
         keys: collections.abc.Iterable[Global___ComparisonJoinKey] | None = ...,
         post_join_filter: Global___Expression | None = ...,
         type: Global___MergeJoinRel.JoinType.ValueType = ...,
@@ -2609,7 +2561,7 @@ class MergeJoinRel(google.protobuf.message.Message):
         advanced_extension: substrait.extensions.extensions_pb2.AdvancedExtension | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "left", b"left", "post_join_filter", b"post_join_filter", "residual_expression", b"residual_expression", "right", b"right"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "keys", b"keys", "left", b"left", "left_keys", b"left_keys", "post_join_filter", b"post_join_filter", "residual_expression", b"residual_expression", "right", b"right", "right_keys", b"right_keys", "type", b"type"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "keys", b"keys", "left", b"left", "post_join_filter", b"post_join_filter", "residual_expression", b"residual_expression", "right", b"right", "type", b"type"]) -> None: ...
 
 Global___MergeJoinRel: typing_extensions.TypeAlias = MergeJoinRel
 
@@ -2896,33 +2848,27 @@ class Expression(google.protobuf.message.Message):
 
             DAYS_FIELD_NUMBER: builtins.int
             SECONDS_FIELD_NUMBER: builtins.int
-            MICROSECONDS_FIELD_NUMBER: builtins.int
             PRECISION_FIELD_NUMBER: builtins.int
             SUBSECONDS_FIELD_NUMBER: builtins.int
             days: builtins.int
             seconds: builtins.int
-            microseconds: builtins.int
-            """use precision and subseconds below, they cover and replace microseconds."""
             precision: builtins.int
             """Sub-second precision, 0 means the value given is in seconds, 3 is milliseconds, 6 microseconds, 9 is nanoseconds, 12 is picoseconds. Should be used with subseconds below."""
             subseconds: builtins.int
             """The sub-second component only, expressed as the number of 1e(-precision)
             units (e.g. with precision 12 this is a number of picoseconds in the
             range [0, 1e12)). Whole seconds belong in the seconds field above, not
-            here. Should only be used with precision field, not microseconds.
+            here. Should only be used with precision field.
             """
             def __init__(
                 self,
                 *,
                 days: builtins.int = ...,
                 seconds: builtins.int = ...,
-                microseconds: builtins.int = ...,
                 precision: builtins.int = ...,
                 subseconds: builtins.int = ...,
             ) -> None: ...
-            def HasField(self, field_name: typing.Literal["microseconds", b"microseconds", "precision", b"precision", "precision_mode", b"precision_mode"]) -> builtins.bool: ...
-            def ClearField(self, field_name: typing.Literal["days", b"days", "microseconds", b"microseconds", "precision", b"precision", "precision_mode", b"precision_mode", "seconds", b"seconds", "subseconds", b"subseconds"]) -> None: ...
-            def WhichOneof(self, oneof_group: typing.Literal["precision_mode", b"precision_mode"]) -> typing.Literal["microseconds", "precision"] | None: ...
+            def ClearField(self, field_name: typing.Literal["days", b"days", "precision", b"precision", "seconds", b"seconds", "subseconds", b"subseconds"]) -> None: ...
 
         @typing.final
         class IntervalCompound(google.protobuf.message.Message):

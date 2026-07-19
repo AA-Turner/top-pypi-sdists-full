@@ -22,6 +22,9 @@ PUT = "PUT"
 DELETE = "DELETE"
 PATCH = "PATCH"
 
+# Sentinel so Request.data can cache falsy bodies (None, {}, b"").
+_UNSET = object()
+
 
 def _wipe_data(req, res, storage):
     keep_buckets = bool(req.query.get("keep-buckets"))
@@ -38,42 +41,78 @@ def _health_check(req, res, storage):
     res.write("OK")
 
 
+def _json_api_routes(prefix):
+    """JSON API object/bucket routes under ``prefix`` (e.g. ``/storage/v1`` or ``""``).
+
+    The empty prefix aliases ``/b/...`` without ``/storage/v1``, which is what the
+    Node ``@google-cloud/storage`` client uses when ``STORAGE_EMULATOR_HOST`` is set
+    (baseUrl becomes the host only, not ``host/storage/v1``).
+    """
+    p = re.escape(prefix) if prefix else ""
+    return (
+        (rf"^{p}/b$", {GET: buckets.ls, POST: buckets.insert}),
+        (
+            rf"^{p}/b/(?P<bucket_name>[-.\w]+)/acl$",
+            {GET: buckets.acl_list},
+        ),
+        (
+            rf"^{p}/b/(?P<bucket_name>[-.\w]+)/defaultObjectAcl$",
+            {GET: buckets.default_object_acl_list},
+        ),
+        # IAM stubs (#229): more specific paths before /b/{bucket}
+        (
+            rf"^{p}/b/(?P<bucket_name>[-.\w]+)/iam/testPermissions$",
+            {GET: buckets.test_iam_permissions},
+        ),
+        (
+            rf"^{p}/b/(?P<bucket_name>[-.\w]+)/iam$",
+            {GET: buckets.get_iam_policy, PUT: buckets.set_iam_policy},
+        ),
+        (
+            rf"^{p}/b/(?P<bucket_name>[-.\w]+)$",
+            {GET: buckets.get, DELETE: buckets.delete, PATCH: buckets.patch},
+        ),
+        (
+            rf"^{p}/b/(?P<bucket_name>[-.\w]+)/o$",
+            {GET: objects.ls},
+        ),
+        (
+            rf"^{p}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/copyTo/b/"
+            rf"(?P<dest_bucket_name>[-.\w]+)/o/(?P<dest_object_id>.*[^/]+)$",
+            {POST: objects.copy},
+        ),
+        (
+            rf"^{p}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/rewriteTo/b/"
+            rf"(?P<dest_bucket_name>[-.\w]+)/o/(?P<dest_object_id>.*[^/]+)$",
+            {POST: objects.rewrite},
+        ),
+        (
+            rf"^{p}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/compose$",
+            {POST: objects.compose},
+        ),
+        # Object ACL list must be registered before the generic object path so
+        # ``.../o/name/acl`` is not treated as object_id ``name/acl``.
+        (
+            rf"^{p}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/acl$",
+            {GET: objects.acl_list},
+        ),
+        # Soft-delete restore: POST .../o/{object}/restore?generation=...
+        (
+            rf"^{p}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/restore$",
+            {POST: objects.restore},
+        ),
+        (
+            rf"^{p}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)$",
+            {GET: objects.get, DELETE: objects.delete, PATCH: objects.patch},
+        ),
+    )
+
+
 HANDLERS = (
-    (r"^{}/b$".format(settings.API_ENDPOINT), {GET: buckets.ls, POST: buckets.insert}),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)$".format(settings.API_ENDPOINT),
-        {GET: buckets.get, DELETE: buckets.delete},
-    ),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)/o$".format(settings.API_ENDPOINT),
-        {GET: objects.ls},
-    ),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/copyTo/b/".format(
-            settings.API_ENDPOINT
-        )
-        + r"(?P<dest_bucket_name>[-.\w]+)/o/(?P<dest_object_id>.*[^/]+)$",
-        {POST: objects.copy},
-    ),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/rewriteTo/b/".format(
-            settings.API_ENDPOINT
-        )
-        + r"(?P<dest_bucket_name>[-.\w]+)/o/(?P<dest_object_id>.*[^/]+)$",
-        {POST: objects.rewrite},
-    ),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/compose$".format(
-            settings.API_ENDPOINT
-        ),
-        {POST: objects.compose},
-    ),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)$".format(
-            settings.API_ENDPOINT
-        ),
-        {GET: objects.get, DELETE: objects.delete, PATCH: objects.patch},
-    ),
+    # Canonical GCS JSON API
+    *_json_api_routes(settings.API_ENDPOINT),
+    # Node STORAGE_EMULATOR_HOST style: /b/... without /storage/v1
+    *_json_api_routes(""),
     # Non-default API endpoints
     (
         r"^{}/b/(?P<bucket_name>[-.\w]+)/o$".format(settings.UPLOAD_API_ENDPOINT),
@@ -92,19 +131,38 @@ HANDLERS = (
     # Internal API, not supported by the real GCS
     (r"^/$", {GET: _health_check}),  # Health check endpoint
     (r"^/wipe$", {GET: _wipe_data}),  # Wipe all data
-    # Public file serving, same as object.download and signed URLs
+    # Public file serving, same as object.download and signed URLs.
+    # Must stay after /b aliases so paths like /b/bucket are not treated as
+    # bucket_name=b, object_id=bucket.
     (
         r"^/(?P<bucket_name>[-.\w]+)/(?P<object_id>.*[^/]+)$",
         {GET: objects.download, PUT: objects.xml_upload},
     ),
 )
 
+# Batch nested request lines look like:
+#   DELETE /storage/v1/b/bucket/o/obj HTTP/1.1
+#   POST http://host/storage/v1/b/src/o/a/copyTo/b/dst/o/b?prettyPrint=false HTTP/1.1
+#   GET /b/bucket/o/obj HTTP/1.1   (Node-style without /storage/v1)
+# More specific patterns (copyTo) must come before generic object paths.
+_API = re.escape(settings.API_ENDPOINT)
+# Optional /storage/v1 so nested batch lines work with either path style.
+_API_OPT = rf"(?:{_API})?"
+_QUERY = r"(?:\?[^\s]*)?"
+_HTTP_VER = r"(?:\s+HTTP/[\d.]+)?"
 BATCH_HANDLERS = (
-    r"^(?P<method>[\w]+).*{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>[^\?]+[^/])([\?].*)?$".format(
-        settings.API_ENDPOINT
+    (
+        rf"^(?P<method>[\w]+)\s+\S*{_API_OPT}/b/(?P<bucket_name>[-.\w]+)/o/"
+        rf"(?P<object_id>[^\s?]+)/copyTo/b/(?P<dest_bucket_name>[-.\w]+)/o/"
+        rf"(?P<dest_object_id>[^\s?]+){_QUERY}{_HTTP_VER}$"
     ),
-    r"^(?P<method>[\w]+).*{}/b/(?P<bucket_name>[-.\w]+)([\?].*)?$".format(
-        settings.API_ENDPOINT
+    (
+        rf"^(?P<method>[\w]+)\s+\S*{_API_OPT}/b/(?P<bucket_name>[-.\w]+)/o/"
+        rf"(?P<object_id>[^\s?]+){_QUERY}{_HTTP_VER}$"
+    ),
+    (
+        rf"^(?P<method>[\w]+)\s+\S*{_API_OPT}/b/(?P<bucket_name>[-.\w]+)"
+        rf"{_QUERY}{_HTTP_VER}$"
     ),
     r"^Content-Type:\s*(?P<content_type>[-.\w/]+)$",
 )
@@ -121,11 +179,18 @@ def _parse_batch_item(item):
                 content_reached = True
             else:
                 for regex in BATCH_HANDLERS:
-                    pattern = re.compile(regex)
-                    match = pattern.fullmatch(line)
+                    match = re.compile(regex).fullmatch(line)
                     if match:
                         for k, v in match.groupdict().items():
-                            parsed_params[k] = unquote(v)
+                            if v is not None:
+                                parsed_params[k] = unquote(v)
+                        # Prefer the first (most specific) path match; still allow
+                        # later Content-Type lines to be recorded separately.
+                        if (
+                            "method" in match.groupdict()
+                            and "content_type" not in match.groupdict()
+                        ):
+                            break
         else:
             partial_content += line
     if partial_content and parsed_params.get("content_type") == "application/json":
@@ -134,12 +199,12 @@ def _parse_batch_item(item):
 
 
 def _read_raw_data(request_handler):
-    if request_handler.headers["Content-Length"]:
-        return request_handler.rfile.read(
-            int(request_handler.headers["Content-Length"])
-        )
+    content_length = request_handler.headers.get("Content-Length")
+    if content_length:
+        return request_handler.rfile.read(int(content_length))
 
-    if request_handler.headers["Transfer-Encoding"] == "chunked":
+    transfer_encoding = request_handler.headers.get("Transfer-Encoding")
+    if transfer_encoding and transfer_encoding.lower() == "chunked":
         raw_data = b""
 
         while True:
@@ -161,10 +226,11 @@ def _decode_raw_data(raw_data, request_handler):
     if not raw_data:
         return None
 
-    if request_handler.headers["Content-Encoding"] == "gzip":
+    content_encoding = request_handler.headers.get("Content-Encoding")
+    if content_encoding == "gzip":
         return gzip.decompress(raw_data)
 
-    if request_handler.headers["Content-Encoding"] == "deflate":
+    if content_encoding == "deflate":
         return zlib.decompress(raw_data)
 
     return raw_data
@@ -176,7 +242,9 @@ def _read_data(request_handler, query):
     if not raw_data:
         return None
 
-    content_type = request_handler.headers["Content-Type"] or "application/octet-stream"
+    content_type = (
+        request_handler.headers.get("Content-Type") or "application/octet-stream"
+    )
 
     if content_type.startswith("application/json") and "upload_id" not in query:
         return json.loads(raw_data)
@@ -214,14 +282,23 @@ class Request(object):
         self._path = request_handler.path
         self._request_handler = request_handler
         self._server_address = request_handler.server.server_address
-        self._base_url = "http://{}:{}".format(
-            self._server_address[0], self._server_address[1]
-        )
+        # Prefer the client-facing Host header so resumable upload Location /
+        # mediaLink URLs work in Docker (bind address is often 0.0.0.0).
+        # https://github.com/oittaa/gcp-storage-emulator/issues/210
+        host = request_handler.headers.get("Host")
+        if host:
+            self._base_url = "http://{}".format(host)
+        else:
+            self._base_url = "http://{}:{}".format(
+                self._server_address[0], self._server_address[1]
+            )
         self._full_url = self._base_url + self._path
         self._parsed_url = urlparse(self._full_url)
         self._query = parse_qs(self._parsed_url.query)
         self._methtod = method
-        self._data = None
+        # Use a sentinel: empty JSON ({}) and missing bodies (None) are falsy, and
+        # re-reading the socket hangs (Node createWriteStream sends metadata as {}).
+        self._data = _UNSET
         self._parsed_params = None
 
     @property
@@ -257,7 +334,7 @@ class Request(object):
 
     @property
     def data(self):
-        if not self._data:
+        if self._data is _UNSET:
             self._data = _read_data(self._request_handler, self._query)
         return self._data
 
@@ -319,8 +396,9 @@ class Router(object):
         self._request_handler = request_handler
 
     def handle(self, method):
-        if self._request_handler.headers["x-http-method-override"]:
-            method = self._request_handler.headers["x-http-method-override"]
+        override = self._request_handler.headers.get("x-http-method-override")
+        if override:
+            method = override
 
         request = Request(self._request_handler, method)
         response = Response(self._request_handler)
@@ -331,6 +409,27 @@ class Router(object):
             if match:
                 request.set_match(match)
                 handler = handlers.get(method)
+                # Some clients POST uploads to .../b/.../o without the /upload prefix
+                # (and optionally without /storage/v1 when using STORAGE_EMULATOR_HOST).
+                if (
+                    handler is None
+                    and method == POST
+                    and request.query.get("uploadType")
+                    and request.path.endswith("/o")
+                    and (
+                        request.path.startswith(settings.API_ENDPOINT + "/b/")
+                        or request.path.startswith("/b/")
+                    )
+                ):
+                    handler = objects.insert
+                if handler is None:
+                    logger.error(
+                        "Method not implemented: {} - {}".format(
+                            request.method, request.path
+                        )
+                    )
+                    response.status = HTTPStatus.NOT_IMPLEMENTED
+                    break
                 try:
                     handler(request, response, self._request_handler.storage)
                 except Exception as e:
@@ -407,8 +506,20 @@ class APIThread(threading.Thread):
 
 
 class Server(object):
-    def __init__(self, host, port, in_memory, default_bucket=None, data_dir=None):
-        self._storage = Storage(use_memory_fs=in_memory, data_dir=data_dir)
+    def __init__(
+        self,
+        host,
+        port,
+        in_memory,
+        default_bucket=None,
+        data_dir=None,
+        project_number=None,
+    ):
+        self._storage = Storage(
+            use_memory_fs=in_memory,
+            data_dir=data_dir,
+            project_number=project_number,
+        )
         if default_bucket:
             logger.debug('[SERVER] Creating default bucket "{}"'.format(default_bucket))
             buckets.create_bucket(default_bucket, self._storage)
@@ -448,7 +559,14 @@ class Server(object):
             self.stop()
 
 
-def create_server(host, port, in_memory=False, default_bucket=None, data_dir=None):
+def create_server(
+    host,
+    port,
+    in_memory=False,
+    default_bucket=None,
+    data_dir=None,
+    project_number=None,
+):
     logger.info("Starting server at {}:{}".format(host, port))
     return Server(
         host,
@@ -456,4 +574,5 @@ def create_server(host, port, in_memory=False, default_bucket=None, data_dir=Non
         in_memory=in_memory,
         default_bucket=default_bucket,
         data_dir=data_dir,
+        project_number=project_number,
     )

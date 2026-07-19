@@ -9,13 +9,10 @@ Resolution order (SA/ADC path):
 2. Standard ADC discovery (workload identity, gcloud auth, GOOGLE_APPLICATION_CREDENTIALS)
 
 Usage:
-    from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_bigquery_ro
+    from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_tier_gcs_ro
 
-    # Webapp/MCP with user token override
-    credentials = get_gcp_credentials_for_bigquery_ro(access_token_override=user_token)
-
-    # Backend/CLI (SA path)
-    credentials = get_gcp_credentials_for_bigquery_ro()
+    # Backend/CLI/webapp (SA/ADC path)
+    credentials = get_gcp_credentials_for_tier_gcs_ro()
 """
 
 from __future__ import annotations
@@ -30,7 +27,6 @@ import google.auth
 from google.cloud import logging as gcp_logging
 from google.cloud import secretmanager
 from google.oauth2 import service_account
-from google.oauth2.credentials import Credentials as GoogleOAuthCredentials
 
 from airbyte_ops_mcp.constants import ENV_GCP_PROD_DB_ACCESS_CREDENTIALS
 
@@ -142,18 +138,14 @@ def _resolve_sa_credentials() -> google.auth.credentials.Credentials:
 # =============================================================================
 
 
-def get_gcp_credentials_for_bigquery_ro(
-    *,
-    access_token_override: str | None = None,
-) -> google.auth.credentials.Credentials:
-    """Resolve credentials for BigQuery on `airbyte-data-prod`.
+def get_gcp_credentials_for_tier_gcs_ro() -> google.auth.credentials.Credentials:
+    """Resolve credentials for the customer-tier GCS export bucket.
 
-    If `access_token_override` is provided (webapp user context), builds
-    credentials from the user's Google OAuth token. Otherwise resolves via
-    SA/ADC for backend and CLI callers.
+    Customer tiers are read from the platform's GCS export of
+    `sales_customer_attributes` in `gs://airbyte_warehouse_exports`
+    (`prod-ab-cloud-proj`). Resolves via SA/ADC for all callers (backend, CLI,
+    and the webapp runtime service account).
     """
-    if access_token_override:
-        return GoogleOAuthCredentials(token=access_token_override)
     return _resolve_sa_credentials()
 
 

@@ -801,9 +801,15 @@ class AutomationConfigTools:
             # (trigger -> triggers, action -> actions, condition -> conditions).
             config_dict = _normalize_automation_config(config_dict)
 
-            # Optional hash check for full config updates
+            # Optional hash check for full config updates. When it runs it
+            # resolves ``identifier`` to the storage key — thread that through so
+            # the upsert doesn't re-resolve (issue #1813 Phase 0). Stays None on
+            # the no-hash update path (raw identifier resolved once, in upsert).
+            resolved_id: str | None = None
             if identifier and config_hash:
-                await self._fetch_and_verify_hash(identifier, config_hash, "set")
+                _, resolved_id = await self._fetch_and_verify_hash(
+                    identifier, config_hash, "set"
+                )
 
             self._validate_required_fields(config_dict, identifier)
             bp_warnings = _check_best_practices(config_dict)
@@ -820,6 +826,7 @@ class AutomationConfigTools:
                 validation_meta,
                 MandatoryBPS,
                 conflict_warnings,
+                resolved_id,
             )
 
         except ToolError as te:
@@ -832,39 +839,7 @@ class AutomationConfigTools:
                 and e.status_code == 404
             ):
                 await self._raise_automation_not_found(identifier)
-            error_text = str(e)
-            suggestions = [
-                "Check automation configuration format",
-                "Ensure required fields: alias, triggers, actions",
-                "Use entity_id format: automation.morning_routine or unique_id",
-                "Use ha_search(domain_filter='automation') to find automations",
-                "Use ha_get_skill_guide for automation examples",
-            ]
-            if isinstance(e, HomeAssistantAPIError):
-                if "'service'" in error_text and "not allowed" in error_text:
-                    suggestions.insert(
-                        0,
-                        "Use 'action:' not 'service:' for service calls in action steps "
-                        "(renamed in HA 2024.8).",
-                    )
-                elif "unexpected keyword argument" in error_text.lower():
-                    suggestions.insert(
-                        0,
-                        "An action step contains a field that belongs at the automation root "
-                        "(e.g. alias, trigger, condition). Each action step should only contain "
-                        "action/target/data/delay/choose/if/repeat/parallel keys.",
-                    )
-                elif "'variables'" in error_text and "dictionary" in error_text:
-                    suggestions.insert(
-                        0,
-                        "variables must be a dict mapping names to values, "
-                        'e.g. {"variables": {"my_var": 42}}',
-                    )
-            if bp_warnings:
-                suggestions.append(
-                    "Config had best-practice issues that may be related: "
-                    + "; ".join(bp_warnings)
-                )
+            suggestions = self._build_set_automation_suggestions(e, bp_warnings)
             error = exception_to_structured_error(
                 e,
                 context={"identifier": identifier},
@@ -873,6 +848,75 @@ class AutomationConfigTools:
             )
             augment_error_dict_with_skill_content(error, bp_warnings)
             raise_tool_error(error)
+
+    @staticmethod
+    def _build_set_automation_suggestions(
+        e: Exception, bp_warnings: BestPracticeCheckResult
+    ) -> list[str]:
+        """Build the ordered suggestion list for a failed config-replacement set.
+
+        Extracted verbatim from ``ha_config_set_automation``'s exception
+        handler: HA-API messages get a targeted lead suggestion inserted, and
+        any best-practice warnings are appended.
+        """
+        error_text = str(e)
+        suggestions = [
+            "Check automation configuration format",
+            "Ensure required fields: alias, triggers, actions",
+            "Use entity_id format: automation.morning_routine or unique_id",
+            "Use ha_search(domain_filter='automation') to find automations",
+            "Use ha_get_skill_guide for automation examples",
+        ]
+        if isinstance(e, HomeAssistantAPIError):
+            if "'service'" in error_text and "not allowed" in error_text:
+                suggestions.insert(
+                    0,
+                    "Use 'action:' not 'service:' for service calls in action steps "
+                    "(renamed in HA 2024.8).",
+                )
+            elif "unexpected keyword argument" in error_text.lower():
+                suggestions.insert(
+                    0,
+                    "An action step contains a field that belongs at the automation root "
+                    "(e.g. alias, trigger, condition). Each action step should only contain "
+                    "action/target/data/delay/choose/if/repeat/parallel keys.",
+                )
+            elif "'variables'" in error_text and "dictionary" in error_text:
+                suggestions.insert(
+                    0,
+                    "variables must be a dict mapping names to values, "
+                    'e.g. {"variables": {"my_var": 42}}',
+                )
+        if bp_warnings:
+            suggestions.append(
+                "Config had best-practice issues that may be related: "
+                + "; ".join(bp_warnings)
+            )
+        return suggestions
+
+    async def _upsert_automation(
+        self,
+        config: dict[str, Any],
+        identifier: str | None,
+        resolved_id: str | None,
+    ) -> dict[str, Any]:
+        """Upsert, threading a pre-resolved unique_id when available.
+
+        When ``resolved_id`` is set the caller already resolved ``identifier``
+        (via ``_fetch_and_verify_hash``); pass it with ``_resolved=True`` so the
+        REST client skips the redundant entity_id→unique_id lookup (issue #1813
+        Phase 0). Otherwise fall back to the raw ``identifier`` and let the REST
+        client resolve — the create path (``identifier is None``) and the
+        no-hash update path both land here unchanged.
+        """
+        result: dict[str, Any]
+        if resolved_id is not None:
+            result = await self._client.upsert_automation_config(
+                config, resolved_id, _resolved=True
+            )
+        else:
+            result = await self._client.upsert_automation_config(config, identifier)
+        return result
 
     async def _run_python_transform(
         self,
@@ -908,7 +952,7 @@ class AutomationConfigTools:
                 )
             )
 
-        current_config = await self._fetch_and_verify_hash(
+        current_config, resolved_id = await self._fetch_and_verify_hash(
             identifier, config_hash, "python_transform"
         )
 
@@ -938,8 +982,12 @@ class AutomationConfigTools:
         self._validate_required_fields(transformed_config, identifier)
         bp_warnings = _check_best_practices(transformed_config)
 
-        result = await self._client.upsert_automation_config(
-            transformed_config, identifier
+        # ``_fetch_and_verify_hash`` already resolved ``identifier`` to the
+        # storage key; thread it so the upsert skips the redundant re-resolve
+        # (issue #1813 Phase 0). Fall back to the raw identifier if the fetched
+        # body carried no ``id`` (not expected for a real automation).
+        result = await self._upsert_automation(
+            transformed_config, identifier, resolved_id
         )
         for warning in conflict_warnings:
             result.setdefault("warnings", []).append(warning)
@@ -988,9 +1036,15 @@ class AutomationConfigTools:
         validation_meta: dict[str, Any],
         MandatoryBPS: bool,
         conflict_warnings: list[str] | None = None,
+        resolved_id: str | None = None,
     ) -> dict[str, Any]:
-        """Execute config-replacement mode and return the tool response."""
-        result = await self._client.upsert_automation_config(config_dict, identifier)
+        """Execute config-replacement mode and return the tool response.
+
+        ``resolved_id`` (set only when the optional hash check pre-resolved
+        ``identifier``) is threaded to the upsert so it skips the redundant
+        re-resolve; None falls back to resolving inside the REST client.
+        """
+        result = await self._upsert_automation(config_dict, identifier, resolved_id)
 
         for warning in conflict_warnings or []:
             result.setdefault("warnings", []).append(warning)
@@ -1137,10 +1191,18 @@ class AutomationConfigTools:
 
     async def _fetch_and_verify_hash(
         self, identifier: str, config_hash: str, action: str
-    ) -> dict[str, Any]:
+    ) -> tuple[dict[str, Any], str | None]:
         """Fetch current automation config and verify config_hash for optimistic locking.
 
-        Returns the current normalized config dict.
+        Returns ``(current_normalized_config, resolved_unique_id)``. The fetch
+        already resolved ``identifier`` to the storage key inside
+        ``get_automation_config``; HA returns the stored body keyed by that
+        unique_id, so ``config['id']`` IS the resolved unique_id (the same value
+        the #1404 guard compares against). Threading it lets the caller pass
+        ``_resolved=True`` to ``upsert_automation_config`` and skip the redundant
+        second resolve (issue #1813 Phase 0). ``None`` when the stored body has
+        no ``id`` (not expected for a real automation) — the caller then falls
+        back to re-resolving.
         Raises ToolError if the hash does not match (conflict).
         """
         current_config, current_hash = await self._get_automation_config_internal(
@@ -1158,7 +1220,11 @@ class AutomationConfigTools:
                     context={"action": action, "identifier": identifier},
                 )
             )
-        return current_config
+        raw_id = current_config.get("id")
+        # Stringify to match ``_resolve_automation_id``'s ``str()`` coercion so a
+        # threaded id is byte-for-byte what the unthreaded path would produce.
+        resolved_id = str(raw_id) if raw_id is not None else None
+        return current_config, resolved_id
 
     @staticmethod
     def _parse_and_validate_config(config: str | dict[str, Any]) -> dict[str, Any]:

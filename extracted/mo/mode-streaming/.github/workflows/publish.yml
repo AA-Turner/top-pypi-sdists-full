@@ -1,0 +1,63 @@
+name: Publish Package
+
+on:
+  # Only run when release is created in the master branch
+  release:
+    types: [created]
+    branches:
+      - 'master'
+  # Manual re-publish/backfill: run from a tag to rebuild and upload any
+  # files missing on PyPI for that version (skip-existing keeps the rest).
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build distributable files
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Checkout source repository'
+        uses: actions/checkout@v4
+        with:
+            fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install build dependencies
+        # --upgrade packaging: the system interpreter satisfies twine's floor
+        # with packaging 24.0, which predates Metadata-Version 2.4 / PEP 639
+        # License-File support and fails `twine check` on wheels built by
+        # setuptools >= 77.
+        run: pip install --upgrade build twine packaging
+
+      - name: 'Build package'
+        run: scripts/build.sh
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-packages
+          path: 'dist/*'
+          if-no-files-found: error
+
+  upload_pypi:
+    name: Upload packages
+    needs: ['build']
+    runs-on: 'ubuntu-latest'
+    if: >-
+      (github.event_name == 'release' && github.event.action == 'created')
+      || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-packages
+          path: dist
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: '__token__'
+          password: '${{ secrets.PYPI_API_TOKEN }}'
+          skip-existing: true

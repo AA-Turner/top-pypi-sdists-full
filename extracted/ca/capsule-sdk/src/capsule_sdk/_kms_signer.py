@@ -38,6 +38,7 @@ def new_signer(cloud_provider: str, kms_key_name: str) -> Signer:
     if cloud_provider == CLOUD_AWS:
         raise NotImplementedError("AWS KMS signer not yet implemented")
     from capsule_sdk._gcp_kms_signer import GCPKMSSigner
+
     return GCPKMSSigner(kms_key_name)
 
 
@@ -46,4 +47,5 @@ def new_async_signer(cloud_provider: str, kms_key_name: str) -> AsyncSigner:
     if cloud_provider == CLOUD_AWS:
         raise NotImplementedError("AWS KMS signer not yet implemented")
     from capsule_sdk._gcp_kms_signer import AsyncGCPKMSSigner
+
     return AsyncGCPKMSSigner(kms_key_name)

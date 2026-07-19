@@ -74,11 +74,29 @@ def _determine_linesep(
     }[strategy]
 
 
-@click.command(
-    name="pip-compile",
-    context_settings={"help_option_names": options.help_option_names},
-)
+COMPILE_EPILOG = """\b
+Examples:
+\b
+    Compile requirements.in to requirements.txt:
+    $ pip-compile
+\b
+    Upgrade all packages to their latest versions:
+    $ pip-compile --upgrade
+\b
+    Upgrade specific packages:
+    $ pip-compile -P django -P requests
+\b
+    Include package hashes for extra security:
+    $ pip-compile --generate-hashes
+\b
+    Compile with optional extras:
+    $ pip-compile --extra dev pyproject.toml
+"""
+
+
+@click.command(name="pip-compile")
 @click.pass_context
+@options.help_option(epilog=COMPILE_EPILOG)
 @options.version
 @options.color
 @options.verbose
@@ -95,6 +113,7 @@ def _determine_linesep(
 @options.cert
 @options.client_cert
 @options.trusted_host
+@options.uploaded_prior_to
 @options.header
 @options.emit_trusted_host
 @options.annotate
@@ -140,6 +159,7 @@ def cli(
     cert: str | None,
     client_cert: str | None,
     trusted_host: tuple[str, ...],
+    uploaded_prior_to: str | None,
     header: bool,
     emit_trusted_host: bool,
     annotate: bool,
@@ -250,7 +270,7 @@ def cli(
         )
 
     if config:
-        log.debug(f"Using pip-tools configuration defaults found in '{config !s}'.")
+        log.debug(f"Using pip-tools configuration defaults found in '{config!s}'.")
 
     if resolver_name == "legacy":
         log.warning(
@@ -280,6 +300,14 @@ def cli(
         pip_args.extend(["--pre"])
     for host in trusted_host:
         pip_args.extend(["--trusted-host", host])
+    if uploaded_prior_to:
+        if _pip_api.PIP_VERSION_MAJOR_MINOR < (26, 0):
+            raise click.BadParameter(
+                "--uploaded-prior-to requires pip >= 26.0, "
+                f"but you have pip {_pip_api.PIP_VERSION}",
+                param_hint="--uploaded-prior-to",
+            )
+        pip_args.extend(["--uploaded-prior-to", uploaded_prior_to])
     if not build_isolation:
         pip_args.append("--no-build-isolation")
     if resolver_name == "legacy":

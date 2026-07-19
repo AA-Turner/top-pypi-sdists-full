@@ -353,7 +353,7 @@ def build_providers(
 
 
 def build_binary(binary_name: str, options: CliOptions, *, dry_run: bool) -> Binary:
-    from . import DEFAULT_PROVIDER_NAMES, PROVIDER_CLASS_BY_NAME, Binary
+    from . import DEFAULT_PROVIDER_NAMES, PROVIDER_CLASS_BY_NAME, Binary, EnvProvider
 
     provider_names = options.provider_names
     if provider_names == list(DEFAULT_PROVIDER_NAMES):
@@ -373,17 +373,28 @@ def build_binary(binary_name: str, options: CliOptions, *, dry_run: bool) -> Bin
                 ]
             break
 
+    providers = build_providers(
+        provider_names,
+        dry_run=dry_run,
+        install_root=options.install_root,
+        bin_dir=options.bin_dir,
+        euid=options.euid,
+        install_timeout=options.install_timeout,
+        version_timeout=options.version_timeout,
+    )
+    explicit_abspath = Path(binary_name).expanduser()
+    if explicit_abspath.is_absolute():
+        for provider in providers:
+            if type(provider) is EnvProvider:
+                provider.PATH = provider._merge_PATH(
+                    explicit_abspath.parent,
+                    PATH=provider.PATH,
+                    prepend=True,
+                )
+
     binary_kwargs: dict[str, Any] = {
         "name": binary_name,
-        "binproviders": build_providers(
-            provider_names,
-            dry_run=dry_run,
-            install_root=options.install_root,
-            bin_dir=options.bin_dir,
-            euid=options.euid,
-            install_timeout=options.install_timeout,
-            version_timeout=options.version_timeout,
-        ),
+        "binproviders": providers,
     }
     # Binary's field validators coerce str → SemVer, dict → BinaryOverrides,
     # etc., so just forward the parsed values verbatim. Binary.install /
@@ -468,8 +479,15 @@ def build_cli_options(
         handler_overrides[key] = value
 
     if group is None:
+        explicit_provider_selection = (
+            binproviders is not None
+            or os.environ.get("ABXPKG_BINPROVIDERS") is not None
+        )
         provider_names = parse_provider_names(binproviders)
-        os.environ["ABXPKG_BINPROVIDERS"] = ",".join(provider_names)
+        if explicit_provider_selection:
+            os.environ["ABXPKG_BINPROVIDERS"] = ",".join(provider_names)
+        else:
+            os.environ.pop("ABXPKG_BINPROVIDERS", None)
         normalized_overrides = normalize_binary_overrides(
             provider_names,
             overrides=overrides,
@@ -496,7 +514,10 @@ def build_cli_options(
         if binproviders is None
         else parse_provider_names(binproviders)
     )
-    os.environ["ABXPKG_BINPROVIDERS"] = ",".join(provider_names)
+    if binproviders is not None or os.environ.get("ABXPKG_BINPROVIDERS") is not None:
+        os.environ["ABXPKG_BINPROVIDERS"] = ",".join(provider_names)
+    else:
+        os.environ.pop("ABXPKG_BINPROVIDERS", None)
     subcommand_overrides = normalize_binary_overrides(
         provider_names,
         overrides=overrides,
@@ -1364,6 +1385,29 @@ def resolve_runtime_binary(
     install_before_run: bool = False,
     update_before_run: bool = False,
 ) -> tuple[Binary, list[BinProvider]]:
+    if (
+        install_before_run
+        and not update_before_run
+        and options.provider_names
+        and options.provider_names[0] == "env"
+    ):
+        # Loading EnvProvider is intentionally a separate first phase. Building
+        # every managed provider eagerly creates and inspects their environments,
+        # which is both unnecessary and expensive when a compatible host binary
+        # is already available. Only construct managed fallbacks after a real
+        # host miss or version rejection.
+        host_binary = build_binary(
+            binary_name,
+            replace(options, provider_names=["env"]),
+            dry_run=options.dry_run,
+        )
+        try:
+            host_binary = host_binary.load(no_cache=options.no_cache)
+        except ABXPkgError as err:
+            logger.debug("Host-first load missed %s: %s", binary_name, err)
+        else:
+            return host_binary, list(host_binary.binproviders)
+
     binary = build_binary(binary_name, options, dry_run=options.dry_run)
     update_provider_names = [
         provider_name
@@ -1396,10 +1440,13 @@ def resolve_runtime_binary(
                         no_cache=options.no_cache,
                     )
         elif install_before_run:
-            binary = binary.install(
-                dry_run=options.dry_run,
-                no_cache=options.no_cache,
-            )
+            try:
+                binary = binary.load(no_cache=options.no_cache)
+            except ABXPkgError:
+                binary = binary.install(
+                    dry_run=options.dry_run,
+                    no_cache=options.no_cache,
+                )
         else:
             binary = binary.load(no_cache=options.no_cache)
     except ABXPkgError as err:

@@ -20,8 +20,19 @@ from fastmcp.tools import tool
 from pydantic import Field
 
 from .._version import get_version, is_dev_version, is_embedded, is_running_in_addon
-from ..client.rest_client import HomeAssistantAPIError
+from ..client.rest_client import (
+    HomeAssistantAPIError,
+    HomeAssistantCommandError,
+    HomeAssistantCommandTimeout,
+)
+from ..client.websocket_client import get_websocket_client
 from ..errors import ErrorCode, create_error_response
+from .component_api import (
+    component_supports,
+    get_component_caps,
+    invalidate_caps,
+    is_unknown_command,
+)
 from .helpers import (
     exception_to_structured_error,
     log_tool_usage,
@@ -39,6 +50,17 @@ FEATURE_FLAG = "HAMCP_ENABLE_DEV_MODE"
 # runs the ha-mcp server in-process inside HA and exposes channel /
 # pip-spec options that ha_dev_manage_server drives.
 COMPONENT_DOMAIN = "ha_mcp_tools"
+
+# The component's own in-process command for locating its "server" config
+# entry (see ``_fetch_server_entry_via_component``) — replaces probing every
+# ha_mcp_tools-domain entry's options-flow schema from the outside.
+WS_SERVER_ENTRY = "ha_mcp_tools/server_entry"
+
+# The WRITE counterpart: applies a channel / pip_spec delta to the server entry via
+# ``async_update_entry`` directly (embedded mode only — see
+# ``_update_source_via_component``), collapsing update_source's options-flow start +
+# submit round-trip. Gated on the ``server_entry_update`` capability.
+WS_SERVER_ENTRY_UPDATE = "ha_mcp_tools/server_entry_update"
 
 # Options-flow field names of the component's server entry
 # (custom_components/ha_mcp_tools/const.py OPT_CHANNEL / OPT_PIP_SPEC).
@@ -77,6 +99,11 @@ _BACKGROUND_TASKS: set[asyncio.Task[None]] = set()
 
 # Sentinel marking a key for removal in _merge_file_override (reset action).
 _REMOVE = object()
+
+# Sentinel returned by the per-type ``_coerce_*_setting`` helpers when ``raw``
+# is not coercible to that type — the caller then raises the generic
+# type-mismatch error.
+_COERCE_MISS = object()
 
 
 def is_dev_mode_enabled() -> bool:
@@ -119,24 +146,130 @@ def _field_prefill(item: dict[str, Any]) -> Any:
     return item.get("default", item.get("value"))
 
 
+async def _fetch_server_entry_via_component(client: Any) -> dict[str, Any] | None:
+    """One ``ha_mcp_tools/server_entry`` read; ``None`` ⇒ use the legacy probe.
+
+    Returns the component's ``{entry_id, channel, pip_spec}`` payload —
+    ``entry_id`` is ``None`` when no server entry exists, an AUTHORITATIVE
+    verdict the component reaches in-process (its own ``DOMAIN`` entries),
+    not a "try the legacy path" signal. Returns ``None`` (⇒ legacy probe) on
+    capability miss, downgrade (``unknown_command`` → invalidate the cached
+    caps), command error/timeout (logged), or an empty-string ``entry_id``
+    (a malformed reply shape — not the component's real "no entry" signal,
+    which is ``None`` — so it is not trusted as authoritative either) — same
+    taxonomy as ``component_devices.fetch_device_via_component``. A
+    ``HomeAssistantConnectionError`` (pooled-WS drop) or the plain ``Exception``
+    ``get_websocket_client()`` raises on a failed (re)connect is caught here and
+    mapped to ``None``: the legacy probe (``find_server_config_entry``) rides the
+    swallowing ``send_websocket_message`` bridge, NOT this pooled socket — so a
+    transport failure must fall back rather than escape.
+    """
+    caps = await get_component_caps(client)
+    if not component_supports(caps, "server_entry"):
+        return None
+    try:
+        ws = await get_websocket_client(url=client.base_url, token=client.token)
+        raw = await ws.send_command(WS_SERVER_ENTRY)
+    except (HomeAssistantCommandError, HomeAssistantCommandTimeout) as exc:
+        if is_unknown_command(exc):
+            invalidate_caps(client)
+        else:
+            logger.warning("%s failed; fell back to legacy: %r", WS_SERVER_ENTRY, exc)
+        return None
+    except Exception as exc:
+        # HomeAssistantConnectionError / plain establish Exception → legacy probe
+        # (which rides the swallowing send_websocket_message bridge).
+        logger.warning(
+            "%s connection error; falling back to legacy: %r", WS_SERVER_ENTRY, exc
+        )
+        return None
+    result = raw.get("result")
+    if not isinstance(result, dict) or "entry_id" not in result:
+        return None
+    if result.get("entry_id") == "":
+        return None
+    return result
+
+
+def _fields_from_flow_schema(flow: dict[str, Any]) -> dict[str, Any]:
+    """Map an options-flow's ``data_schema`` field names to their current values.
+
+    Shared by ``_open_server_entry_flow`` (the component-identified entry)
+    and ``find_server_config_entry``'s legacy per-candidate probe — both open
+    a flow and need the same ``{field_name: current_value}`` shape, via
+    ``_field_prefill``.
+    """
+    schema = flow.get("data_schema") or []
+    return {
+        str(item["name"]): _field_prefill(item)
+        for item in schema
+        if isinstance(item, dict) and item.get("name")
+    }
+
+
+async def _open_server_entry_flow(
+    client: Any, entry_id: str
+) -> tuple[str, dict[str, Any], dict[str, Any]] | None:
+    """Open the options flow for a KNOWN server ``entry_id``; ``None`` on failure.
+
+    Builds ``current_options`` from the freshly-opened flow's own schema (via
+    ``_fields_from_flow_schema``) rather than the component's narrower
+    ``{channel, pip_spec}`` shape, so callers like ``_update_source`` that
+    resend ``_PRESERVED_OPTION_KEYS`` (``server_url`` / ``external_url`` /
+    ``webhook_id_override`` / ``secret_path_override`` — fields the
+    ``server_entry`` capability does not carry) still see them.
+    """
+    try:
+        flow = await client.start_options_flow(entry_id)
+    except HomeAssistantAPIError as exc:
+        # The component-identified entry couldn't open its flow (e.g. a race
+        # where the entry vanished between the two calls) — the caller falls
+        # back to the legacy per-candidate probe rather than treating this as
+        # authoritative "no server entry".
+        logger.debug("Options-flow open failed for %s: %s", entry_id, exc)
+        return None
+    return str(entry_id), flow, _fields_from_flow_schema(flow)
+
+
 async def find_server_config_entry(
     client: Any,
 ) -> tuple[str, dict[str, Any], dict[str, Any]] | None:
     """Find the ha_mcp_tools in-process "server" config entry.
 
-    Probes each ``ha_mcp_tools`` entry's options flow: the server entry's
-    flow is a form whose schema carries the ``pip_spec`` field; the tools
-    (services) entry's flow is an informational form with no ``pip_spec``
-    field, so it never matches. Returns
-    ``(entry_id, open_flow, current_options)`` with the options flow left
-    OPEN (callers must submit or abort it), or ``None`` when no server
-    entry exists. ``current_options`` maps schema field names to their current
-    values (persisted ``suggested_value`` first, else the schema ``default`` or
-    ``value``, via ``_field_prefill``).
+    When the component advertises ``server_entry``, one
+    ``ha_mcp_tools/server_entry`` read identifies the entry in-process (no
+    per-candidate options-flow probing, no ``pip_spec`` schema-shape
+    heuristic); an authoritative "no server entry" verdict from that read
+    returns ``None`` directly. Only ONE options flow is then opened — for the
+    identified entry — because the write path (``_update_source``) submits
+    it; a component read never substitutes for that flow.
+
+    On capability miss, component error, or a failure to open the identified
+    entry's flow, this falls back to probing each ``ha_mcp_tools`` entry's
+    options flow directly: the server entry's flow is a form whose schema
+    carries the ``pip_spec`` field; the tools (services) entry's flow is an
+    informational form with no ``pip_spec`` field, so it never matches.
+
+    Returns ``(entry_id, open_flow, current_options)`` with the options flow
+    left OPEN (callers must submit or abort it), or ``None`` when no server
+    entry exists. ``current_options`` maps schema field names to their
+    current values (persisted ``suggested_value`` first, else the schema
+    ``default`` or ``value``, via ``_field_prefill``).
 
     Module-level (not a DevTools method) so the settings UI's embedded
     restart handler can share it.
     """
+    via_component = await _fetch_server_entry_via_component(client)
+    if via_component is not None:
+        entry_id = via_component.get("entry_id")
+        if entry_id is None:
+            # Authoritative: the component confirmed no server entry exists.
+            return None
+        found = await _open_server_entry_flow(client, str(entry_id))
+        if found is not None:
+            return found
+        # Fall through to the legacy probe below as a defensive retry.
+
     response = await client.send_websocket_message(
         {"type": "config_entries/get", "domain": COMPONENT_DOMAIN}
     )
@@ -165,12 +298,7 @@ async def find_server_config_entry(
             # component that is already running.
             logger.debug("Options-flow probe failed for %s: %s", entry_id, exc)
             continue
-        schema = flow.get("data_schema") or []
-        fields: dict[str, Any] = {
-            str(item["name"]): _field_prefill(item)
-            for item in schema
-            if isinstance(item, dict) and item.get("name")
-        }
+        fields = _fields_from_flow_schema(flow)
         if flow.get("type") == "form" and _OPT_PIP_SPEC in fields:
             return str(entry_id), flow, fields
         # Not the server entry — close the probe flow if one opened.
@@ -319,40 +447,17 @@ class DevTools:
         for int/float). Raises ``ToolError`` on mismatch.
         """
         if ftype is bool:
-            if isinstance(raw, bool):
-                return raw
-            if isinstance(raw, str) and raw.strip().lower() in ("true", "false"):
-                return raw.strip().lower() == "true"
+            coerced = DevTools._coerce_bool_setting(raw)
         elif ftype is int:
-            if isinstance(raw, bool):
-                pass  # bool is an int subclass; reject below
-            elif isinstance(raw, int):
-                return raw
-            elif isinstance(raw, str):
-                try:
-                    return int(raw.strip())
-                except ValueError:
-                    pass
+            coerced = DevTools._coerce_int_setting(raw)
         elif ftype is float:
-            if isinstance(raw, bool):
-                pass
-            elif isinstance(raw, int | float):
-                return float(raw)
-            elif isinstance(raw, str):
-                try:
-                    return float(raw.strip())
-                except ValueError:
-                    pass
+            coerced = DevTools._coerce_float_setting(raw)
         elif ftype is str:
-            if isinstance(raw, str):
-                if "\x00" in raw:
-                    raise_tool_error(
-                        create_error_response(
-                            ErrorCode.VALIDATION_INVALID_PARAMETER,
-                            f"{fname!r} value contains a null byte",
-                        )
-                    )
-                return raw
+            coerced = DevTools._coerce_str_setting(fname, raw)
+        else:
+            coerced = _COERCE_MISS
+        if coerced is not _COERCE_MISS:
+            return coerced
         raise_tool_error(
             create_error_response(
                 ErrorCode.VALIDATION_INVALID_PARAMETER,
@@ -361,6 +466,60 @@ class DevTools:
             )
         )
         return None  # unreachable; explicit for CodeQL
+
+    @staticmethod
+    def _coerce_bool_setting(raw: Any) -> Any:
+        """Coerce ``raw`` to bool, or ``_COERCE_MISS`` if not coercible."""
+        if isinstance(raw, bool):
+            return raw
+        if isinstance(raw, str) and raw.strip().lower() in ("true", "false"):
+            return raw.strip().lower() == "true"
+        return _COERCE_MISS
+
+    @staticmethod
+    def _coerce_int_setting(raw: Any) -> Any:
+        """Coerce ``raw`` to int, or ``_COERCE_MISS`` if not coercible."""
+        if isinstance(raw, bool):
+            pass  # bool is an int subclass; reject below
+        elif isinstance(raw, int):
+            return raw
+        elif isinstance(raw, str):
+            try:
+                return int(raw.strip())
+            except ValueError:
+                pass
+        return _COERCE_MISS
+
+    @staticmethod
+    def _coerce_float_setting(raw: Any) -> Any:
+        """Coerce ``raw`` to float, or ``_COERCE_MISS`` if not coercible."""
+        if isinstance(raw, bool):
+            pass
+        elif isinstance(raw, int | float):
+            return float(raw)
+        elif isinstance(raw, str):
+            try:
+                return float(raw.strip())
+            except ValueError:
+                pass
+        return _COERCE_MISS
+
+    @staticmethod
+    def _coerce_str_setting(fname: str, raw: Any) -> Any:
+        """Coerce ``raw`` to str, or ``_COERCE_MISS`` if not a string.
+
+        Raises ``ToolError`` when a string contains a null byte.
+        """
+        if isinstance(raw, str):
+            if "\x00" in raw:
+                raise_tool_error(
+                    create_error_response(
+                        ErrorCode.VALIDATION_INVALID_PARAMETER,
+                        f"{fname!r} value contains a null byte",
+                    )
+                )
+            return raw
+        return _COERCE_MISS
 
     @staticmethod
     async def _merge_file_override(changes: dict[str, Any]) -> None:
@@ -534,12 +693,9 @@ class DevTools:
                 _ADVANCED_SETTINGS_SENTINELS,
                 _FEATURE_FLAG_INT_BOUNDS,
                 ADVANCED_SETTINGS_FIELDS,
-                BETA_FEATURE_FIELDS,
                 FEATURE_FLAG_FIELDS,
                 _read_feature_flag_override_file,
-                _reset_global_settings,
                 get_feature_flag_origin,
-                get_global_settings,
             )
 
             features = {f: (e, t) for f, e, t in FEATURE_FLAG_FIELDS}
@@ -574,122 +730,20 @@ class DevTools:
                 )
 
             if action == "reset":
-                if origin == "env":
-                    raise_tool_error(
-                        create_error_response(
-                            ErrorCode.VALIDATION_INVALID_PARAMETER,
-                            f"{setting!r} is pinned by the {env_name} env var; "
-                            "unset the env var instead.",
-                        )
-                    )
-                if origin == "addon":
-                    raise_tool_error(
-                        create_error_response(
-                            ErrorCode.VALIDATION_INVALID_PARAMETER,
-                            f"{setting!r} is managed by the add-on "
-                            "configuration; change it there or via "
-                            "action='set'.",
-                        )
-                    )
-                had_override = origin == "file"
-                if had_override:
-                    await self._merge_file_override({setting: _REMOVE})
-                    _reset_global_settings()
-                return {
-                    "success": True,
-                    "data": {
-                        "setting": setting,
-                        "removed_override": had_override,
-                        "restart_required": had_override,
-                    },
-                }
+                return await self._apply_setting_reset(setting, env_name, origin)
 
             # action == "set"
-            if value is None:
-                raise_tool_error(
-                    create_error_response(
-                        ErrorCode.VALIDATION_MISSING_PARAMETER,
-                        "'value' is required for action='set'",
-                    )
-                )
-            if not editable:
-                raise_tool_error(
-                    create_error_response(
-                        ErrorCode.VALIDATION_INVALID_PARAMETER,
-                        f"{setting!r} is locked by {origin}. "
-                        + (
-                            f"Unset the {env_name} env var to edit it here."
-                            if origin == "env"
-                            else "It is display-only on this surface."
-                        ),
-                    )
-                )
-            coerced = self._coerce_setting_value(setting, value, ftype)
-            if (
-                bounds is not None
-                and coerced != sentinel
-                and not (bounds[0] <= coerced <= bounds[1])
-            ):
-                raise_tool_error(
-                    create_error_response(
-                        ErrorCode.VALIDATION_INVALID_PARAMETER,
-                        f"{setting!r} must be between {bounds[0]} and {bounds[1]}",
-                    )
-                )
-            if choices is not None and coerced not in choices:
-                raise_tool_error(
-                    create_error_response(
-                        ErrorCode.VALIDATION_INVALID_PARAMETER,
-                        f"{setting!r} must be one of {list(choices)}",
-                    )
-                )
-            # Master beta gate: enabling a beta sub-flag while the
-            # effective master is off would be silently forced back off
-            # at runtime — reject loudly instead (same rule as the web
-            # UI save handler).
-            if (
-                setting in BETA_FEATURE_FIELDS
-                and bool(coerced)
-                and not get_global_settings().enable_beta_features
-            ):
-                raise_tool_error(
-                    create_error_response(
-                        ErrorCode.VALIDATION_INVALID_PARAMETER,
-                        f"Cannot enable beta sub-flag {setting!r} while "
-                        "'enable_beta_features' is off.",
-                        suggestions=["Set enable_beta_features=true first, then retry"],
-                    )
-                )
-
-            if origin == "addon":
-                from ..settings_ui._supervisor import _supervisor_merge_and_post_options
-
-                ok, err = await _supervisor_merge_and_post_options(
-                    get_global_settings().verify_ssl, {setting: coerced}
-                )
-                if not ok:
-                    message = err.message if err else "Supervisor update failed"
-                    raise_tool_error(
-                        create_error_response(
-                            ErrorCode.SERVICE_CALL_FAILED,
-                            f"Supervisor rejected the options update: {message}",
-                            suggestions=["Check the Supervisor and add-on logs"],
-                        )
-                    )
-                mode = "addon"
-            else:
-                await self._merge_file_override({setting: coerced})
-                _reset_global_settings()
-                mode = "file"
-            return {
-                "success": True,
-                "data": {
-                    "setting": setting,
-                    "value": coerced,
-                    "mode": mode,
-                    "restart_required": True,
-                },
-            }
+            return await self._apply_setting_set(
+                setting,
+                value,
+                env_name,
+                ftype,
+                origin,
+                editable,
+                bounds,
+                sentinel,
+                choices,
+            )
         except ToolError:
             raise
         except Exception as e:
@@ -699,6 +753,156 @@ class DevTools:
                 suggestions=["Check server logs for details"],
             )
             return None  # unreachable; explicit for CodeQL
+
+    async def _apply_setting_reset(
+        self, setting: str, env_name: str, origin: str
+    ) -> dict[str, Any]:
+        """Handle ``ha_dev_manage_settings`` action='reset'.
+
+        Extracted verbatim from the inline branch: rejects env/addon-managed
+        settings, removes any file override, and reports whether one existed.
+        """
+        from ..config import _reset_global_settings
+
+        if origin == "env":
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    f"{setting!r} is pinned by the {env_name} env var; "
+                    "unset the env var instead.",
+                )
+            )
+        if origin == "addon":
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    f"{setting!r} is managed by the add-on "
+                    "configuration; change it there or via "
+                    "action='set'.",
+                )
+            )
+        had_override = origin == "file"
+        if had_override:
+            await self._merge_file_override({setting: _REMOVE})
+            _reset_global_settings()
+        return {
+            "success": True,
+            "data": {
+                "setting": setting,
+                "removed_override": had_override,
+                "restart_required": had_override,
+            },
+        }
+
+    async def _apply_setting_set(
+        self,
+        setting: str,
+        value: bool | int | float | str | None,
+        env_name: str,
+        ftype: type,
+        origin: str,
+        editable: bool,
+        bounds: tuple[float, float] | None,
+        sentinel: int | None,
+        choices: tuple[str, ...] | None,
+    ) -> dict[str, Any]:
+        """Handle ``ha_dev_manage_settings`` action='set'.
+
+        Extracted verbatim from the inline branch: validates presence +
+        editability, coerces and range/choice/beta-checks the value, then
+        persists via Supervisor (add-on mode) or the override file.
+        """
+        from ..config import (
+            BETA_FEATURE_FIELDS,
+            _reset_global_settings,
+            get_global_settings,
+        )
+
+        if value is None:
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.VALIDATION_MISSING_PARAMETER,
+                    "'value' is required for action='set'",
+                )
+            )
+        if not editable:
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    f"{setting!r} is locked by {origin}. "
+                    + (
+                        f"Unset the {env_name} env var to edit it here."
+                        if origin == "env"
+                        else "It is display-only on this surface."
+                    ),
+                )
+            )
+        coerced = self._coerce_setting_value(setting, value, ftype)
+        if (
+            bounds is not None
+            and coerced != sentinel
+            and not (bounds[0] <= coerced <= bounds[1])
+        ):
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    f"{setting!r} must be between {bounds[0]} and {bounds[1]}",
+                )
+            )
+        if choices is not None and coerced not in choices:
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    f"{setting!r} must be one of {list(choices)}",
+                )
+            )
+        # Master beta gate: enabling a beta sub-flag while the
+        # effective master is off would be silently forced back off
+        # at runtime — reject loudly instead (same rule as the web
+        # UI save handler).
+        if (
+            setting in BETA_FEATURE_FIELDS
+            and bool(coerced)
+            and not get_global_settings().enable_beta_features
+        ):
+            raise_tool_error(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    f"Cannot enable beta sub-flag {setting!r} while "
+                    "'enable_beta_features' is off.",
+                    suggestions=["Set enable_beta_features=true first, then retry"],
+                )
+            )
+
+        if origin == "addon":
+            from ..settings_ui._supervisor import _supervisor_merge_and_post_options
+
+            ok, err = await _supervisor_merge_and_post_options(
+                get_global_settings().verify_ssl, {setting: coerced}
+            )
+            if not ok:
+                message = err.message if err else "Supervisor update failed"
+                raise_tool_error(
+                    create_error_response(
+                        ErrorCode.SERVICE_CALL_FAILED,
+                        f"Supervisor rejected the options update: {message}",
+                        suggestions=["Check the Supervisor and add-on logs"],
+                    )
+                )
+            mode = "addon"
+        else:
+            await self._merge_file_override({setting: coerced})
+            _reset_global_settings()
+            mode = "file"
+        return {
+            "success": True,
+            "data": {
+                "setting": setting,
+                "value": coerced,
+                "mode": mode,
+                "restart_required": True,
+            },
+        }
 
     @tool(
         name="ha_dev_manage_server",
@@ -717,7 +921,9 @@ class DevTools:
             Field(
                 description=(
                     "info: deployment/version report; update_source: point the "
-                    "in-process server at a channel or pip spec and reinstall; "
+                    "ha_mcp_tools component's separate in-process server at a "
+                    "channel or pip spec and reinstall it (never changes the "
+                    "server serving this connection, unless embedded); "
                     "restart: restart this server"
                 )
             ),
@@ -754,14 +960,21 @@ class DevTools:
         as a PR tarball, and restarting the server so config or code
         changes take effect.
 
-        Caveats: restart interrupts this MCP connection in embedded and
-        add-on deployments (the reply arrives just before the server
-        goes down); update_source only self-interrupts in embedded mode
-        — elsewhere it reloads the separate in-process server entry
-        without dropping this connection. Reinstalls can take minutes.
-        update_source requires the ha_mcp_tools component's in-process
-        server entry; restart supports embedded and add-on deployments
-        only (standalone processes must be restarted externally).
+        Caveats: update_source changes ONLY the ha_mcp_tools custom
+        component's separate in-process server entry — it never updates
+        the add-on, Docker, standalone, or PyPI server that may be
+        serving this connection (update those via ha_manage_addon /
+        docker pull / pip). In embedded mode that entry IS this server,
+        so the update self-interrupts; elsewhere this connection is
+        untouched and keeps its current version. Success means the
+        entry's options were applied — the component then reinstalls in
+        the background, which can take minutes and can still fail
+        (check HA logs). update_source requires the component's
+        in-process server entry to exist. restart interrupts this MCP
+        connection in embedded and add-on deployments (the reply
+        arrives just before the server goes down) and supports those
+        two deployments only (standalone processes must be restarted
+        externally).
 
         EXAMPLES:
         ha_dev_manage_server("info")
@@ -819,6 +1032,17 @@ class DevTools:
                     "entry_id": entry_id,
                     "channel": options.get(_OPT_CHANNEL),
                     "pip_spec": options.get(_OPT_PIP_SPEC),
+                    "role": (
+                        "this server (embedded)"
+                        if mode == "embedded"
+                        else (
+                            "separate in-process server run by the "
+                            "ha_mcp_tools component; the update_source "
+                            "target. server_version above describes the "
+                            f"{mode} server handling this connection, not "
+                            "this entry."
+                        )
+                    ),
                 }
         except Exception as exc:
             # Best-effort probe: a failure here (including the ToolError the
@@ -831,9 +1055,14 @@ class DevTools:
             result["warnings"] = warnings
         return result
 
-    async def _update_source(
-        self, channel: str | None, pip_spec: str | None
-    ) -> dict[str, Any]:
+    @staticmethod
+    def _validate_update_source_args(channel: str | None, pip_spec: str | None) -> None:
+        """Validate ``update_source``'s channel/pip_spec arguments.
+
+        Extracted verbatim from ``_update_source``: raises a structured
+        ToolError when neither is given, the channel is unknown, or the
+        pip_spec is multi-line / over 500 chars.
+        """
         if channel is None and pip_spec is None:
             raise_tool_error(
                 create_error_response(
@@ -858,6 +1087,28 @@ class DevTools:
                 )
             )
 
+    async def _update_source(
+        self, channel: str | None, pip_spec: str | None
+    ) -> dict[str, Any]:
+        self._validate_update_source_args(channel, pip_spec)
+
+        if is_embedded():
+            # Embedded self-reload: prefer the component's one-hop direct write
+            # (async_update_entry) over the options-flow start+submit — and try it
+            # BEFORE find_server_config_entry opens the legacy options flow, so the
+            # fast path is NOT gated behind (or delayed/broken by) the very flow-open
+            # it exists to bypass. The component locates the entry in-process itself,
+            # so it needs no find. On ANY component error this returns None and we
+            # fall through to the legacy find + options-flow submit below (unchanged).
+            # Non-embedded deployments never route here — they reload the SEPARATE
+            # in-process server entry synchronously and keep this connection, so the
+            # collapse buys nothing there.
+            component_result = await self._update_source_via_component(
+                channel, pip_spec
+            )
+            if component_result is not None:
+                return component_result
+
         found = await find_server_config_entry(self._client)
         if found is None:
             raise_tool_error(
@@ -875,6 +1126,7 @@ class DevTools:
                 )
             )
         entry_id, flow, current = found
+
         # Resend the user's current overrides (see _PRESERVED_OPTION_KEYS) so a
         # channel/pip-spec change here does not blank them — an omitted optional
         # field reads as "cleared", not "unchanged".
@@ -903,6 +1155,9 @@ class DevTools:
                 "data": {
                     "scheduled": True,
                     "entry_id": entry_id,
+                    "target": (
+                        "this server (the embedded ha_mcp_tools in-process entry)"
+                    ),
                     "applying": user_input,
                     "previous": {
                         _OPT_CHANNEL: current.get(_OPT_CHANNEL),
@@ -930,17 +1185,139 @@ class DevTools:
             "success": True,
             "data": {
                 "entry_id": entry_id,
+                "target": "ha_mcp_tools in-process server entry",
                 "applied": user_input,
                 "previous": {
                     _OPT_CHANNEL: current.get(_OPT_CHANNEL),
                     _OPT_PIP_SPEC: current.get(_OPT_PIP_SPEC),
                 },
                 "note": (
-                    "The component is reloading the in-process server with "
-                    "the new source; installs can take a few minutes."
+                    "Applied to the ha_mcp_tools component's SEPARATE "
+                    "in-process server entry, which is now reinstalling in "
+                    "the background (can take minutes and can still fail — "
+                    "check HA logs). The server handling this connection is "
+                    "NOT affected and keeps its current version; verify the "
+                    "in-process server on its own connect URL, not here."
                 ),
             },
         }
+
+    async def _update_source_via_component(
+        self, channel: str | None, pip_spec: str | None
+    ) -> dict[str, Any] | None:
+        """Apply the channel/pip_spec delta via the component's direct write.
+
+        Embedded-only fast path: when the component advertises
+        ``server_entry_update``, one ``ha_mcp_tools/server_entry_update`` frame
+        applies the delta through ``async_update_entry`` directly — the component
+        merges it against its LIVE ``entry.options`` (so no preserved-key resend is
+        needed) and schedules the resulting self-reload after a flush delay. Returns
+        the final ``{success, data}`` envelope, or ``None`` to fall back to the
+        legacy options-flow submit.
+
+        The write is IDEMPOTENT (it targets a specific merged options set), so —
+        unlike ``ha_call_service`` — a post-send ambiguity is harmless: EVERY
+        component error (capability miss, unknown_command, connection/timeout, or a
+        malformed reply) returns ``None``, and the legacy submit then re-applies the
+        SAME delta, which the entry's ``DATA_LAST_OPTIONS`` guard collapses to a
+        no-op reload if the component's write already landed. ``unknown_command``
+        additionally invalidates the cached caps so the next call re-probes.
+        """
+        caps = await get_component_caps(self._client)
+        if not component_supports(caps, "server_entry_update"):
+            return None
+        try:
+            # verify_ssl included so a verify_ssl=False client never establishes (or
+            # keys) a default-verification pooled connection (mirrors the pooled
+            # ``send_websocket_message`` path). ``getattr`` guards duck-typed clients
+            # that omit the attribute — falling back to the pool's global default.
+            ws = await get_websocket_client(
+                url=self._client.base_url,
+                token=self._client.token,
+                verify_ssl=getattr(self._client, "verify_ssl", None),
+            )
+        except Exception as exc:
+            logger.warning(
+                "%s establishment failed; falling back to legacy: %r",
+                WS_SERVER_ENTRY_UPDATE,
+                exc,
+            )
+            return None
+        deltas: dict[str, Any] = {}
+        if channel is not None:
+            deltas[_OPT_CHANNEL] = channel
+        if pip_spec is not None:
+            deltas[_OPT_PIP_SPEC] = pip_spec
+        try:
+            raw = await ws.send_command(WS_SERVER_ENTRY_UPDATE, **deltas)
+        except (HomeAssistantCommandError, HomeAssistantCommandTimeout) as exc:
+            if is_unknown_command(exc):
+                logger.warning(
+                    "%s unknown_command; invalidating caps and falling back to "
+                    "legacy: %r",
+                    WS_SERVER_ENTRY_UPDATE,
+                    exc,
+                )
+                invalidate_caps(self._client)
+            else:
+                logger.warning(
+                    "%s command error; falling back to legacy: %r",
+                    WS_SERVER_ENTRY_UPDATE,
+                    exc,
+                )
+            return None
+        except Exception as exc:
+            # HomeAssistantConnectionError (pooled-WS drop) or a plain post-send
+            # transport failure. The write is idempotent, so a legacy re-apply is
+            # safe (see docstring) — fall back rather than report a phantom error.
+            logger.warning(
+                "%s connection error; falling back to legacy: %r",
+                WS_SERVER_ENTRY_UPDATE,
+                exc,
+            )
+            return None
+        result = raw.get("result")
+        if not isinstance(result, dict) or not (
+            result.get("scheduled") or result.get("unchanged")
+        ):
+            logger.warning(
+                "%s returned an unusable result; falling back to legacy: %r",
+                WS_SERVER_ENTRY_UPDATE,
+                result,
+            )
+            return None
+        return {"success": True, "data": self._component_update_data(result)}
+
+    @staticmethod
+    def _component_update_data(result: dict[str, Any]) -> dict[str, Any]:
+        """Map a ``server_entry_update`` component reply into update_source's data.
+
+        Mirrors the legacy embedded branch's ``scheduled:true`` shape
+        (entry_id/target/applying/previous/note); a no-op reply carries ``unchanged``
+        and its own note instead. This route is embedded-only, so ``target`` is
+        always the embedded-server phrasing (matches the legacy embedded branch and
+        preserves the #1929 target field).
+        """
+        data: dict[str, Any] = {
+            "scheduled": bool(result.get("scheduled")),
+            "entry_id": result.get("entry_id"),
+            "target": "this server (the embedded ha_mcp_tools in-process entry)",
+            "applying": result.get("applying"),
+            "previous": result.get("previous"),
+        }
+        if result.get("unchanged"):
+            data["unchanged"] = True
+            data["note"] = (
+                "No change: the requested channel/pip_spec already matches the "
+                "current in-process server source."
+            )
+        else:
+            data["note"] = (
+                "The in-process server will reinstall and restart now; this "
+                "connection will drop. Reconnect in 1-5 minutes and verify with "
+                "ha_dev_manage_server('info')."
+            )
+        return data
 
     async def _restart_server(self) -> dict[str, Any]:
         if is_embedded():

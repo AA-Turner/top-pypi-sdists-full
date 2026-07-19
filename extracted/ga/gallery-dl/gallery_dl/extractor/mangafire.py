@@ -19,90 +19,57 @@ class MangafireBase():
     category = "mangafire"
     root = "https://mangafire.to"
 
-    def _manga_info(self, manga_path, page=None):
-        if page is None:
-            url = f"{self.root}/manga/{manga_path}"
-            page = self.request(url).text
-        slug, _, mid = manga_path.rpartition(".")
+    def _manga_info(self, manga_id):
+        manga = self.request_api("/titles/" + manga_id)["data"]
 
-        extr = text.extract_from(page)
-        manga = {
-            "cover": text.extr(extr(
-                'class="poster">', '</div>'), 'src="', '"'),
-            "status": extr("<p>", "<").replace("_", " ").title(),
-            "manga"     : text.unescape(extr(
-                'itemprop="name">', "<")),
-            "manga_id": mid,
-            "manga_slug": slug,
-            "manga_titles": text.unescape(extr(
-                "<h6>", "<")).split("; "),
-            "type": text.remove_html(extr(
-                'class="min-info">', "</a>")),
-            "author": text.unescape(text.remove_html(extr(
-                "<span>Author:</span>", "</div>"))).split(" , "),
-            "published": text.remove_html(extr(
-                "<span>Published:</span>", "</div>")),
-            "tags": text.split_html(extr(
-                "<span>Genres:</span>", "</div>"))[::2],
-            "publisher": text.unescape(text.remove_html(extr(
-                "<span>Mangazines:</span>", "</div>"))).split(" , "),
-            "score": text.parse_float(text.remove_html(extr(
-                'class="score">', " / "))),
-            "description": text.remove_html(extr(
-                'id="synopsis">', "<script>")),
-        }
-
-        if len(lst := manga["author"]) == 1 and not lst[0]:
-            manga["author"] = ()
-        if len(lst := manga["publisher"]) == 1 and not lst[0]:
-            manga["publisher"] = ()
+        manga["manga"] = manga.pop("title")
+        manga["manga_id"] = manga.pop("id")
+        manga["manga_hid"] = manga.pop("hid")
+        manga["manga_slug"] = manga.pop("slug")
+        manga["manga_titles"] = manga.pop("altTitles")
+        manga["cover"] = manga.pop("poster")["large"]
+        manga["description"] = text.unescape(text.remove_html(
+            manga.pop("synopsisHtml")))
+        manga["author"] = [t["title"] for t in manga.pop("authors") or ()]
+        manga["artist"] = [t["title"] for t in manga.pop("artists") or ()]
+        manga["themes"] = [t["title"] for t in manga.pop("themes") or ()]
+        manga["tags"] = [t["title"] for t in manga.pop("genres") or ()]
+        manga["demographic"] = [
+            t["title"] for t in manga.pop("demographics") or ()]
 
         return manga
 
-    def _manga_chapters(self, manga_info):
-        manga_id, type, lang = manga_info
-        url = f"{self.root}/ajax/read/{manga_id}/{type}/{lang}"
-        params = {"vrf": self.utils("vrf").generate(
-            f"{manga_id}@{type}@{lang}")}
-        headers = {"x-requested-with": "XMLHttpRequest"}
-        data = self.request_json(url, params=params, headers=headers)
-
-        needle = f"{manga_id}/{lang}/"
-        return {
-            text.extr(anchor, needle, '"'): anchor
-            for anchor in text.extract_iter(data["result"]["html"], "<a ", ">")
-        }
-
     def _chapter_info(self, info):
-        _, lang, chapter_info = text.extr(info, 'href="', '"').rsplit("/", 2)
+        chapter_info = str(info["number"])
 
-        if chapter_info.startswith("vol"):
-            volume = text.extr(info, 'data-number="', '"')
-            volume_id = text.parse_int(text.extr(info, 'data-id="', '"'))
+        if info.get("type") == "volume":
             return {
-                "volume"        : text.parse_int(volume),
-                "volume_id"     : volume_id,
+                "volume"        : info["number"],
+                "volume_id"     : info.get("id", 0),
                 "chapter"       : 0,
                 "chapter_minor" : "",
                 "chapter_string": chapter_info,
-                "chapter_id"    : volume_id,
-                "title"         : text.unescape(text.extr(
-                    info, 'title="', '"')),
-                "lang"          : lang,
+                "chapter_id"    : info.get("id", 0),
+                "title"         : info.get("name"),
+                "lang"          : info.get("language"),
             }
 
-        chapter, sep, minor = text.extr(
-            info, 'data-number="', '"').partition(".")
+        chapter, sep, minor = chapter_info.partition(".")
         return {
             "chapter"       : text.parse_int(chapter),
             "chapter_minor" : sep + minor,
             "chapter_string": chapter_info,
-            "chapter_id"    : text.parse_int(text.extr(
-                info, 'data-id="', '"')),
-            "title"         : text.unescape(text.extr(
-                info, 'title="', '"')),
-            "lang"          : lang,
+            "chapter_id"    : info.get("id", 0),
+            "title"         : info.get("name"),
+            "lang"          : info.get("language"),
+            "date"          : self.parse_timestamp(info.get("createdAt")),
         }
+
+    def request_api(self, endpoint, params=None):
+        return self.request_json(f"{self.root}/api{endpoint}", headers={
+            "Accept": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+        }, params=params)
 
 
 class MangafireChapterExtractor(MangafireBase, ChapterExtractor):
@@ -115,58 +82,66 @@ class MangafireChapterExtractor(MangafireBase, ChapterExtractor):
         "{page:>03}.{extension}")
     archive_fmt = (
         "{manga_id}_{chapter_id}_{page}")
-    pattern = (BASE_PATTERN + r"/read/([\w-]+\.(\w+))/([\w-]+)"
-               r"/((chapter|volume)-\d+(?:\D.*)?)")
-    example = "https://mangafire.to/read/MANGA.ID/LANG/chapter-123"
+    pattern = (BASE_PATTERN + r"/(?:title|manga)/(\w+)[\w-]*"
+               r"/(chapter|volume)/(\d+)")
+    example = "https://mangafire.to/title/ID-MANGA/chapter/123"
 
     def metadata(self, _):
-        manga_path, manga_id, lang, chapter_info, self.type = self.groups
+        manga_id, type, chapter_id = self.groups
 
         try:
-            chapters = self.cache(
-                self._manga_chapters, (manga_id, self.type, lang))
-            anchor = chapters[chapter_info]
-        except KeyError:
+            ch = self.request_api(f"/{type}s/{chapter_id}")["data"]
+            self.pages = ch.pop("pages")
+        except Exception:
             raise self.exc.NotFoundError("chapter")
-        self.chapter_id = text.extr(anchor, 'data-id="', '"')
 
         return {
-            **self.cache(self._manga_info, manga_path),
-            **self.cache(self._chapter_info, anchor),
+            **self.cache(self._manga_info, manga_id),
+            **self._chapter_info(ch),
         }
 
     def images(self, page):
-        url = f"{self.root}/ajax/read/{self.type}/{self.chapter_id}"
-        params = {"vrf": self.utils("vrf").generate(
-            f"{self.type}@{self.chapter_id}")}
-        headers = {"x-requested-with": "XMLHttpRequest"}
-        data = self.request_json(url, params=params, headers=headers)
-
         return [
-            (image[0], None)
-            for image in data["result"]["images"]
+            (page.pop("url"), page)
+            for page in self.pages
         ]
 
 
 class MangafireMangaExtractor(MangafireBase, MangaExtractor):
     """Extractor for mangafire manga"""
     chapterclass = MangafireChapterExtractor
-    pattern = BASE_PATTERN + r"/manga/([\w-]+)\.(\w+)"
-    example = "https://mangafire.to/manga/MANGA.ID"
+    pattern = BASE_PATTERN + r"/(?:title|manga)/(\w+)"
+    example = "https://mangafire.to/title/ID-MANGA"
 
     def chapters(self, page):
-        manga_slug, manga_id = self.groups
-        lang = self.config("lang") or "en"
+        manga_id = self.groups[0]
+        manga = self.cache(self._manga_info, manga_id)
+        base = f"{self.root}{manga['url']}/chapter/"
 
-        manga = self.cache(
-            self._manga_info, f"{manga_slug}.{manga_id}")
-        chapters = self.cache(
-            self._manga_chapters, (manga_id, "chapter", lang))
+        endpoint = f"/titles/{manga_id}/chapters"
+        params = {
+            "language": self.config("lang") or "en",
+            "sort" : "number",
+            "order": "desc",
+            "page" : 1,
+            "limit": "200",
+        }
 
-        return [
-            (self.root + text.extr(anchor, 'href="', '"'), {
-                **manga,
-                **self.cache(self._chapter_info, anchor),
-            })
-            for anchor in chapters.values()
-        ]
+        results = []
+        while True:
+            data = self.request_api(endpoint, params)
+
+            for ch in data["items"]:
+                results.append((base + str(ch["id"]), {
+                    **manga,
+                    **self._chapter_info(ch),
+                }))
+
+            try:
+                if not data["meta"]["hasNext"]:
+                    break
+            except Exception:
+                break
+
+            params["page"] += 1
+        return results

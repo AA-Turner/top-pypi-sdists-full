@@ -25,6 +25,7 @@ import hashlib  # noqa: E402
 import ipaddress  # noqa: E402
 import logging  # noqa: E402
 import os  # noqa: E402
+import secrets  # noqa: E402
 import signal  # noqa: E402
 import stat  # noqa: E402
 import sys  # noqa: E402
@@ -979,6 +980,39 @@ def _healthz_enabled() -> bool:
     return os.getenv("MCP_HEALTHZ", "").strip().lower() in ("1", "true", "yes", "on")
 
 
+def _oidc_verify_id_token_enabled() -> bool:
+    """True when OIDC_VERIFY_ID_TOKEN opts in to ID-token verification.
+
+    Off by default: FastMCP's OIDCProxy verifies the access token as a JWT,
+    which works for providers like Authentik and Keycloak. Providers that
+    issue opaque access tokens (Google always; Auth0 without an API
+    audience) need ``verify_id_token=True`` so FastMCP verifies the ID token
+    instead.
+    """
+    return os.getenv("OIDC_VERIFY_ID_TOKEN", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _oidc_allowed_client_redirect_uris() -> list[str] | None:
+    """Parse OIDC_ALLOWED_CLIENT_REDIRECT_URIS into a list, or None if unset.
+
+    Comma-separated list of redirect URI patterns FastMCP's OIDCProxy will
+    accept from dynamically-registered clients. With no allow-list set,
+    FastMCP still validates a client's redirect URI against that same
+    client's own registered redirect URIs — the exposure is that open DCR
+    lets an attacker register their own client with their own redirect URI;
+    internet-facing deployments should set this to constrain what any
+    dynamically-registered client may register in the first place.
+    """
+    raw = os.getenv("OIDC_ALLOWED_CLIENT_REDIRECT_URIS", "")
+    uris = [uri.strip() for uri in raw.split(",") if uri.strip()]
+    return uris or None
+
+
 def register_browser_landing(
     mcp_instance: "FastMCP | _DeferredMCP",
     path: str,
@@ -1017,14 +1051,43 @@ def register_browser_landing(
     )
 
 
-def _log_settings_url(host: str, port: int, path: str) -> None:
+def _log_settings_url(
+    host: str,
+    port: int,
+    path: str,
+    *,
+    level: int = logging.INFO,
+    note_autogen: bool = False,
+    base_url: str | None = None,
+) -> None:
     """Log the web settings-UI URL at HTTP startup.
 
     Non-add-on operators (Docker / standalone) otherwise have no easy way to
     discover the settings page or its secret-path URL (issue #1458). When the
     bind host is the wildcard (``0.0.0.0`` / ``::``) the process can't know its
     externally reachable address, so we log a ``<host>`` placeholder.
+
+    ``level`` and ``note_autogen`` let the OAuth/OIDC dedicated-secret path log
+    an auto-generated URL at WARNING (visible even when internet-facing
+    deployments run at ``LOG_LEVEL=WARNING``), since that path rotates each
+    restart and is the only way for the admin to find it. ``base_url``, when
+    given (OAuth/OIDC modes, where it is the required public front), is used
+    verbatim instead of the local ``host:port`` — those deployments are reached
+    through a tunnel/proxy, not the bind address.
     """
+    if base_url:
+        url = f"{base_url.rstrip('/')}{path.rstrip('/')}/settings"
+        logger.log(
+            level,
+            f"Settings UI available at: {url}"
+            + (
+                "  [auto-generated, rotates each restart; "
+                "set MCP_SETTINGS_SECRET_PATH for a stable URL]"
+                if note_autogen
+                else ""
+            ),
+        )
+        return
     is_wildcard = host in ("0.0.0.0", "::")
     if is_wildcard:
         display_host = "<host>"
@@ -1035,7 +1098,158 @@ def _log_settings_url(host: str, port: int, path: str) -> None:
         display_host = host
     url = f"http://{display_host}:{port}{path.rstrip('/')}/settings"
     note = "  (substitute this server's address for <host>)" if is_wildcard else ""
-    logger.info(f"Settings UI available at: {url}{note}")
+    if note_autogen:
+        note += (
+            "  [auto-generated, rotates each restart; "
+            "set MCP_SETTINGS_SECRET_PATH for a stable URL]"
+        )
+    logger.log(level, f"Settings UI available at: {url}{note}")
+
+
+# Truthy / falsy env-var spellings for HA_MCP_DISABLE_SETTINGS_UI, matching the
+# parsing in stdio_settings_sidecar.py so the toggle behaves the same across
+# transports. A value in neither set is unrecognized: fail closed (disable) with
+# a warning, since this is a security kill switch and failing open on a typo
+# would leave an unauthenticated surface up.
+_SETTINGS_TRUTHY = {"1", "true", "yes", "on"}
+_SETTINGS_FALSY = {"0", "false", "no", "off", ""}
+
+
+def _settings_ui_disabled() -> bool:
+    """Return True when ``HA_MCP_DISABLE_SETTINGS_UI`` turns the settings UI off.
+
+    Honored by every long-lived HTTP transport (standard ``ha-mcp-web`` /
+    ``ha-mcp-sse`` as well as OAuth/OIDC) and, with matching semantics, by the
+    stdio sidecar. As a security kill switch it fails **closed**: any value that
+    is neither a recognized truthy nor falsy spelling disables the UI and warns
+    (so the operator learns why it vanished), rather than leaving an
+    unauthenticated surface up on a typo. Unset — or an explicit falsy value —
+    keeps the UI served.
+    """
+    disable = os.getenv("HA_MCP_DISABLE_SETTINGS_UI", "").strip().lower()
+    if disable in _SETTINGS_FALSY:
+        return False
+    if disable not in _SETTINGS_TRUTHY:
+        logger.warning(
+            "HA_MCP_DISABLE_SETTINGS_UI=%r is not a recognized on/off value; "
+            "disabling the settings UI (fail-closed). Use one of %s to disable, "
+            "or one of %s to keep it served.",
+            disable,
+            ", ".join(sorted(_SETTINGS_TRUTHY)),
+            ", ".join(sorted(s for s in _SETTINGS_FALSY if s)),
+        )
+    return True
+
+
+def _resolve_settings_secret_path() -> str | None:
+    """Resolve the dedicated settings-UI secret path for OAuth/OIDC modes.
+
+    These modes are internet-facing, so the settings UI must never sit at the
+    guessable default MCP path, where FastMCP custom routes bypass the OAuth /
+    OIDC auth middleware (GHSA-mx64-982r-65vg). It gets its own secret path:
+
+    - ``HA_MCP_DISABLE_SETTINGS_UI`` truthy → ``None`` (do not mount at all).
+    - ``MCP_SETTINGS_SECRET_PATH`` set → that path (stable across restarts).
+    - neither → an auto-generated ``/private_<token>`` path (logged at startup).
+
+    Returns the path to mount the settings UI under, or ``None`` when disabled.
+    """
+    if _settings_ui_disabled():
+        return None
+    explicit = os.getenv("MCP_SETTINGS_SECRET_PATH", "").strip()
+    if explicit:
+        return explicit
+    return "/private_" + secrets.token_urlsafe(16)
+
+
+def _register_settings_ui_secret_path(
+    mcp: "FastMCP",
+    server: "HomeAssistantSmartMCPServer",
+    host: str,
+    port: int,
+    mcp_path: str,
+    base_url: str,
+) -> None:
+    """Register the settings UI behind a dedicated secret path (OAuth/OIDC modes).
+
+    Standard HTTP mode serves the settings UI under the MCP secret path itself,
+    but in OAuth/OIDC modes that path is known to clients and OAuth/OIDC — not
+    path secrecy — is the auth boundary. So the settings UI gets its own secret
+    path from :func:`_resolve_settings_secret_path`, mounted with
+    ``advertise_prefix=False`` so the path is never returned to MCP clients via
+    ``ha_get_overview``. The admin learns the URL from the startup log.
+
+    ``mcp_path`` is the MCP endpoint path. The settings path is validated against
+    it and rejected (fail closed — UI not mounted) if it is malformed or reuses
+    the MCP path, either of which would re-expose the unauthenticated routes
+    (GHSA-mx64-982r-65vg).
+    """
+    from ha_mcp.settings_ui import register_settings_routes
+
+    settings_path = _resolve_settings_secret_path()
+    if settings_path is None:
+        logger.info(
+            "Settings UI disabled (HA_MCP_DISABLE_SETTINGS_UI); routes not registered."
+        )
+        return
+
+    explicit = bool(os.getenv("MCP_SETTINGS_SECRET_PATH", "").strip())
+
+    # An explicit path may be malformed; the auto-generated /private_<token> is
+    # always well-formed. Starlette asserts routes start with "/", so a missing
+    # leading slash would crash startup — normalize it (and tell the admin).
+    if not settings_path.startswith("/"):
+        logger.warning(
+            "MCP_SETTINGS_SECRET_PATH=%r has no leading '/'; normalizing to %r.",
+            settings_path,
+            "/" + settings_path,
+        )
+        settings_path = "/" + settings_path
+    if "{" in settings_path or "}" in settings_path:
+        # Starlette compiles {name} into a wildcard capture, so a braced path
+        # (an unrendered /private_{token} template, or a literal paste of the
+        # docs' /private_<token> convention) would mount the settings routes as a
+        # publicly-matching wildcard — the exact exposure this guards against.
+        logger.error(
+            "MCP_SETTINGS_SECRET_PATH (%r) contains route-template characters "
+            "('{{'/'}}'), which Starlette would turn into a wildcard route, "
+            "re-exposing the settings UI (GHSA-mx64-982r-65vg). Use a literal path "
+            "or unset it to auto-generate; settings UI not registered.",
+            settings_path,
+        )
+        return
+    if not settings_path.rstrip("/"):
+        logger.error(
+            "MCP_SETTINGS_SECRET_PATH must be a non-empty absolute path like "
+            "'/private_xxx'; settings UI not registered."
+        )
+        return
+    if settings_path.rstrip("/") == mcp_path.rstrip("/"):
+        logger.error(
+            "MCP_SETTINGS_SECRET_PATH (%r) must not equal the MCP path (%r): the "
+            "settings routes bypass OAuth/OIDC auth, so reusing the client-known MCP "
+            "path would re-expose them (GHSA-mx64-982r-65vg). Set a distinct path or "
+            "unset it to auto-generate; settings UI not registered.",
+            settings_path,
+            mcp_path,
+        )
+        return
+
+    register_settings_routes(
+        mcp, server, secret_path=settings_path, advertise_prefix=False
+    )
+    # Auto-generated paths rotate each restart and are the only way the admin can
+    # find the UI, so log them at WARNING to survive LOG_LEVEL=WARNING; an
+    # explicit path the admin already knows stays at INFO. OAuth/OIDC are fronted
+    # by MCP_BASE_URL (a public HTTPS tunnel/proxy), so log that, not host:port.
+    _log_settings_url(
+        host,
+        port,
+        settings_path,
+        level=logging.INFO if explicit else logging.WARNING,
+        note_autogen=not explicit,
+        base_url=base_url,
+    )
 
 
 def _run_http_server(transport: str, default_port: int = 8086) -> None:
@@ -1056,8 +1270,13 @@ def _run_http_server(transport: str, default_port: int = 8086) -> None:
     register_browser_landing(_get_mcp(), path, quiet_probe_log=transport != "sse")
     if _healthz_enabled():
         _register_healthz_route(_get_mcp())
-    register_settings_routes(_get_mcp(), _get_server(), secret_path=path)
-    _log_settings_url(host, port, path)
+    if _settings_ui_disabled():
+        logger.info(
+            "Settings UI disabled (HA_MCP_DISABLE_SETTINGS_UI); routes not registered."
+        )
+    else:
+        register_settings_routes(_get_mcp(), _get_server(), secret_path=path)
+        _log_settings_url(host, port, path)
 
     _run_entrypoint(
         _run_http_with_graceful_shutdown(transport, host, port, path),
@@ -1074,6 +1293,8 @@ def main_web() -> None:
     - MCP_HOST (optional, default: "0.0.0.0"; set 127.0.0.1 to restrict to loopback)
     - MCP_PORT (optional, default: 8086)
     - MCP_SECRET_PATH (optional, default: "/mcp")
+    - HA_MCP_DISABLE_SETTINGS_UI (optional): set truthy to not serve the web
+      settings UI at all
     """
     _setup_standard_mode()
     _run_http_server("http", default_port=8086)
@@ -1088,6 +1309,8 @@ def main_sse() -> None:
     - MCP_HOST (optional, default: "0.0.0.0"; set 127.0.0.1 to restrict to loopback)
     - MCP_PORT (optional, default: 8087)
     - MCP_SECRET_PATH (optional, default: "/mcp")
+    - HA_MCP_DISABLE_SETTINGS_UI (optional): set truthy to not serve the web
+      settings UI at all
     """
     _setup_standard_mode()
     _run_http_server("sse", default_port=8087)
@@ -1105,7 +1328,12 @@ def main_oauth() -> None:
     - MCP_BASE_URL (required): Public URL where this server is accessible (e.g., https://your-tunnel.com)
     - MCP_HOST (optional, default: "0.0.0.0"; set 127.0.0.1 to restrict to loopback)
     - MCP_PORT (optional, default: 8086)
-    - MCP_SECRET_PATH (optional, default: "/mcp")
+    - MCP_SECRET_PATH (optional, default: "/mcp") — the MCP endpoint path only;
+      the settings UI uses its own secret path (below), not this one
+    - MCP_SETTINGS_SECRET_PATH (optional): dedicated secret path for the web
+      settings UI. Auto-generated and logged at startup when unset.
+    - HA_MCP_DISABLE_SETTINGS_UI (optional): set truthy to not serve the
+      settings UI at all
     - LOG_LEVEL (optional, default: INFO)
 
     Note: HOMEASSISTANT_TOKEN is NOT required in this mode.
@@ -1210,10 +1438,9 @@ async def _run_oauth_server(
     if _healthz_enabled():
         _register_healthz_route(mcp)
 
-    from ha_mcp.settings_ui import register_settings_routes
-
-    register_settings_routes(mcp, _server, secret_path=path)
-    _log_settings_url(host, port, path)
+    # The settings UI must not sit at the OAuth-known MCP path (custom routes
+    # bypass the OAuth auth middleware); mount it behind a dedicated secret path.
+    _register_settings_ui_secret_path(mcp, _server, host, port, path, base_url)
 
     tools = await mcp.list_tools()
     logger.info(
@@ -1222,6 +1449,200 @@ async def _run_oauth_server(
 
     await _run_with_shutdown(
         mcp.run_async(**_http_run_kwargs("http", host, port, path))
+    )
+
+
+def main_oidc() -> None:
+    """Run server with OIDC authentication over HTTP.
+
+    This mode enables authentication via an external OIDC provider
+    (Authentik, Keycloak, Auth0, Google, etc.). All authenticated users
+    share the same Home Assistant instance via the configured credentials.
+
+    Unlike OAuth mode which collects per-user HA credentials via a consent form,
+    OIDC mode is purely an access gate — users authenticate through the OIDC provider,
+    then all requests use the shared HA credentials from environment variables.
+
+    Environment:
+    - OIDC_CONFIG_URL (required): OIDC discovery URL (.well-known/openid-configuration)
+    - OIDC_CLIENT_ID (required): OAuth client ID registered with your OIDC provider
+    - OIDC_CLIENT_SECRET (required): OAuth client secret from your OIDC provider
+    - MCP_BASE_URL (required): Public HTTPS URL where this server is accessible
+    - HOMEASSISTANT_URL (required): Home Assistant instance URL
+    - HOMEASSISTANT_TOKEN (required): Home Assistant long-lived access token or supervisor token
+    - OIDC_JWT_SIGNING_KEY (optional): Secret key for signing FastMCP JWTs. Sessions
+      persist across restarts by default (the key is derived from OIDC_CLIENT_SECRET);
+      set this to decouple the signing key from the client secret. Generate with:
+      python -c "import secrets; print(secrets.token_urlsafe(32))"
+    - OIDC_ALLOWED_CLIENT_REDIRECT_URIS (optional): Comma-separated list of redirect URI
+      patterns accepted from dynamically-registered clients. Strongly recommended for
+      internet-facing deployments.
+    - OIDC_VERIFY_ID_TOKEN (optional, default: false): Set true for providers that issue
+      opaque access tokens (e.g. Google, or Auth0 without an API audience).
+    - OIDC_AUDIENCE (optional): Expected `aud` claim for IdP-issued access tokens.
+      Without it (and with OIDC_VERIFY_ID_TOKEN off), FastMCP's JWT verifier checks
+      issuer, signature, and expiry but not audience. With OIDC_VERIFY_ID_TOKEN=true,
+      verification pins `aud` to OIDC_CLIENT_ID instead and this value is only
+      forwarded to the IdP's authorize/token endpoints (it is what makes Auth0
+      issue JWT rather than opaque access tokens).
+    - MCP_HOST (optional, default: "0.0.0.0"; set 127.0.0.1 to restrict to loopback
+      behind a same-host reverse proxy)
+    - MCP_PORT (optional, default: 8086)
+    - MCP_SECRET_PATH (optional, default: "/mcp") — the MCP endpoint path only;
+      the settings UI uses its own secret path (below), not this one
+    - MCP_SETTINGS_SECRET_PATH (optional): dedicated secret path for the web
+      settings UI. Auto-generated and logged at startup when unset.
+    - HA_MCP_DISABLE_SETTINGS_UI (optional): set truthy to not serve the
+      settings UI at all
+    - LOG_LEVEL (optional, default: INFO)
+    """
+    # Configure logging for OIDC mode (force=True needed since logging may already be configured)
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    _setup_logging(log_level, force=True)
+    for logger_name in ["ha_mcp", "ha_mcp.auth", "ha_mcp.auth.provider"]:
+        logging.getLogger(logger_name).setLevel(getattr(logging, log_level))
+    logger.info(f"OIDC mode logging configured at {log_level} level")
+    _log_startup_version()
+
+    # Validate HA credentials (OIDC mode needs them — unlike OAuth mode)
+    from ha_mcp.config import get_settings
+
+    settings = get_settings()
+    _validate_standard_credentials(settings)
+
+    # Validate OIDC-specific env vars
+    oidc_config_url = os.getenv("OIDC_CONFIG_URL")
+    oidc_client_id = os.getenv("OIDC_CLIENT_ID")
+    oidc_client_secret = os.getenv("OIDC_CLIENT_SECRET")
+    base_url = os.getenv("MCP_BASE_URL")
+
+    missing = []
+    if not oidc_config_url:
+        missing.append("OIDC_CONFIG_URL")
+    if not oidc_client_id:
+        missing.append("OIDC_CLIENT_ID")
+    if not oidc_client_secret:
+        missing.append("OIDC_CLIENT_SECRET")
+    if not base_url:
+        missing.append("MCP_BASE_URL")
+
+    if missing:
+        logger.error(
+            f"Missing required environment variables for OIDC mode: {', '.join(missing)}"
+        )
+        logger.error(
+            "OIDC mode requires an external OIDC provider (Authentik, Keycloak, Auth0, etc.)"
+        )
+        sys.exit(1)
+
+    assert oidc_config_url is not None
+    assert oidc_client_id is not None
+    assert oidc_client_secret is not None
+    assert base_url is not None
+
+    host, port, path = _get_http_runtime(default_port=8086)
+
+    _run_entrypoint(
+        _run_oidc_server(
+            config_url=oidc_config_url,
+            client_id=oidc_client_id,
+            client_secret=oidc_client_secret,
+            base_url=base_url,
+            host=host,
+            port=port,
+            path=path,
+        ),
+        "OIDC server",
+    )
+
+
+async def _run_oidc_server(
+    config_url: str,
+    client_id: str,
+    client_secret: str,
+    base_url: str,
+    host: str,
+    port: int,
+    path: str,
+) -> None:
+    """Run the OIDC-authenticated MCP server.
+
+    Unlike OAuth mode which uses OAuthProxyClient for per-user credential routing,
+    OIDC mode uses the standard HomeAssistantClient with shared credentials.
+    OIDC is purely an access gate — all authenticated users share the same HA instance.
+
+    Args:
+        config_url: OIDC discovery URL (.well-known/openid-configuration)
+        client_id: OAuth client ID from the OIDC provider
+        client_secret: OAuth client secret from the OIDC provider
+        base_url: Public HTTPS URL where this server is accessible
+        host: Bind host (typically 0.0.0.0; override via MCP_HOST)
+        port: Port to listen on
+        path: MCP endpoint path
+    """
+    from fastmcp.server.auth.oidc_proxy import OIDCProxy
+
+    from ha_mcp.server import HomeAssistantSmartMCPServer
+    from ha_mcp.transport_security import ensure_host_origin_guard_default_off
+
+    # OIDC mode is deployed behind a public reverse proxy or LAN hostname;
+    # disable FastMCP's Host/Origin rebinding guard so proxied requests are
+    # not rejected with 421/403 before OIDC auth runs.
+    ensure_host_origin_guard_default_off()
+
+    proxy_kwargs: dict[str, Any] = {
+        "config_url": config_url,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "base_url": base_url,
+        # "external" tells FastMCP that consent is handled by the upstream
+        # IdP (Authentik, Keycloak, etc.) -- unlike `False`, this does not
+        # log a security warning at startup that consent is disabled.
+        "require_authorization_consent": "external",
+        # Preserve `or None`: an empty-but-set env var must not bypass
+        # FastMCP's derive-from-client-secret default for jwt_signing_key.
+        "jwt_signing_key": os.getenv("OIDC_JWT_SIGNING_KEY") or None,
+    }
+
+    allowed_redirect_uris = _oidc_allowed_client_redirect_uris()
+    if allowed_redirect_uris:
+        proxy_kwargs["allowed_client_redirect_uris"] = allowed_redirect_uris
+    else:
+        logger.warning(
+            "OIDC_ALLOWED_CLIENT_REDIRECT_URIS is not set: any dynamically-registered "
+            "(DCR) client's own redirect URIs are accepted. Internet-facing "
+            "deployments should set it."
+        )
+
+    if _oidc_verify_id_token_enabled():
+        proxy_kwargs["verify_id_token"] = True
+
+    audience = os.getenv("OIDC_AUDIENCE", "").strip()
+    if audience:
+        proxy_kwargs["audience"] = audience
+
+    # Create OIDC auth provider — auto-discovers endpoints from config_url
+    auth = OIDCProxy(**proxy_kwargs)
+
+    # Standard server with shared credentials (no proxy client needed)
+    global _server
+    _server = HomeAssistantSmartMCPServer()
+    mcp_instance = _server.mcp
+    mcp_instance.auth = auth
+
+    logger.info("Server created with OIDC authentication")
+    # OIDC mode intentionally registers no browser landing page: an
+    # unauthenticated browser GET gets a bare 405 rather than a friendly page.
+    # The settings UI *is* served, but only behind a dedicated secret path
+    # (never the OIDC-known MCP path, whose custom routes bypass the auth
+    # middleware — GHSA-mx64-982r-65vg).
+    _register_settings_ui_secret_path(mcp_instance, _server, host, port, path, base_url)
+    if _healthz_enabled():
+        _register_healthz_route(mcp_instance)
+    logger.info(f"Starting OIDC-enabled MCP server at {base_url}{path}")
+
+    await _run_with_shutdown(
+        mcp_instance.run_async(**_http_run_kwargs("http", host, port, path))
     )
 
 

@@ -8,7 +8,7 @@ import time
 from contextlib import redirect_stdout
 
 import pytest
-from omnimalloc.benchmark.timer import Timer, _format_time, measure, time_block
+from omnimalloc.benchmark.timer import Timer, measure, time_block
 
 
 def test_init_default() -> None:
@@ -101,14 +101,13 @@ def test_is_running_property() -> None:
     assert not timer.is_running
 
 
-def test_elapsed_ns_stopped(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_elapsed_ns_stopped() -> None:
     """Test elapsed_ns property on a stopped timer."""
-    ticks = iter([1_000, 2_000_000])
-    monkeypatch.setattr(time, "perf_counter_ns", lambda: next(ticks))
     timer = Timer(auto_start=True)
+    time.sleep(0.001)
     timer.stop()
     elapsed = timer.elapsed_ns
-    assert elapsed == 1_999_000  # Delta between the two clock reads
+    assert elapsed > 1_000_000  # At least 1ms in nanoseconds
     # Reading again should return same value
     assert timer.elapsed_ns == elapsed
 
@@ -309,9 +308,3 @@ def test_nested_context_managers() -> None:
 
     assert inner_elapsed > 0
     assert outer_elapsed > inner_elapsed
-
-
-def test_format_time_minutes_and_hours() -> None:
-    assert _format_time(90 * 10**9) == "1.50 min"
-    assert _format_time(30 * 60 * 10**9) == "30.00 min"
-    assert _format_time(2 * 3600 * 10**9) == "2.00 h"

@@ -25,11 +25,32 @@ from ..client.rest_client import (
     HomeAssistantCommandTimeout,
     HomeAssistantConnectionError,
 )
+from .component_api import get_component_caps
 
 logger = logging.getLogger(__name__)
 
 # Strips ANSI terminal escape codes from container/log output.
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+
+# Mapping from service name to the expected resulting primary state. The single
+# source of truth (imported by both ``tools_service`` and ``device_control``): it
+# is the confirmation HINT the server hands the component's ``call_service`` /
+# ``bulk_call_service`` capability so the component confirms only on REACHING that
+# state (skipping a multi-phase service's intermediate states and attribute-only
+# noise) and short-circuits an idempotent no-op. ``.get(service)`` is ``None`` for
+# every service without a known primary state (``set_temperature`` /
+# ``set_fan_mode`` / …) — a ``None`` hint keeps today's any-first-event
+# confirmation. Lives here (a low-level module both consumers already import from)
+# so the two write paths share one map with no import cycle. The legacy
+# WS-subscribe verifier (``tools_service._verify_state_change``) reads it too.
+_SERVICE_TO_STATE: dict[str, str] = {
+    "turn_on": "on",
+    "turn_off": "off",
+    "open": "open",
+    "close": "closed",
+    "lock": "locked",
+    "unlock": "unlocked",
+}
 
 
 def websocket_error_message(error: Any) -> str:
@@ -546,10 +567,16 @@ def filter_active_repairs(
     Repairs UI hides ignored ones by default). Mirror that UI default so
     overview / system-health responses don't surface repairs the user has
     already dismissed.
+
+    Entries with ``active=False`` are always dropped, regardless of
+    ``include_dismissed``: HA core's ``ws_list_issues`` never emits them
+    (on restart the registry reloads each stored non-persistent issue as an
+    inactive stub until it is re-raised or deleted), but the component's
+    raw registry dump does.
     """
     if include_dismissed:
-        return list(issues)
-    return [r for r in issues if not r.get("ignored")]
+        return [r for r in issues if r.get("active") is not False]
+    return [r for r in issues if r.get("active") is not False and not r.get("ignored")]
 
 
 def project_repair_fields(issue: dict[str, Any]) -> dict[str, Any]:
@@ -654,11 +681,31 @@ _TIMESTAMP_METADATA_FIELDS = {
 
 
 async def _fetch_ha_timezone(client: Any) -> tuple[str, bool]:
-    """Fetch ``time_zone`` from ``/api/config``, falling back to UTC on failure.
+    """Fetch the HA timezone, preferring the ``ha_mcp_tools`` component's cached
+    ``info`` handshake over a fresh ``/api/config`` REST call.
 
-    Returns ``(ha_timezone, fetch_failed)``. ``fetch_failed`` is ``True`` when
-    the config fetch raised, in which case *ha_timezone* is always ``"UTC"``.
+    When ``get_component_caps(client)`` reports a non-empty ``timezone`` (an
+    additive ``info`` field — see ``ComponentCaps.timezone``), return it
+    directly with NO REST call. Otherwise falls back to the legacy
+    ``client.get_config()`` fetch exactly as before — the path taken when the
+    component is absent, predates the ``timezone`` field, or reports it empty.
+
+    Staleness trade-off: the component route reads a cached, process-lifetime
+    probe, so an HA timezone change mid-session keeps serving the value from
+    the last successful negotiation (positive cache entries do not expire on a
+    timer — only ``invalidate_caps`` or a process restart forces a re-probe)
+    until then. The #1813 Phase 2 audit rated this Low risk and acceptable —
+    instance timezone changes are rare — versus the legacy path, which always
+    re-fetches fresh on every call.
+
+    Returns ``(ha_timezone, fetch_failed)``. ``fetch_failed`` is ``True`` only
+    when the legacy REST fetch raised, in which case *ha_timezone* is always
+    ``"UTC"``.
     """
+    caps = await get_component_caps(client)
+    if caps is not None and caps.timezone:
+        return caps.timezone, False
+
     try:
         config = await client.get_config()
         return config.get("time_zone", "UTC"), False
@@ -726,10 +773,12 @@ async def add_timezone_metadata(
 ) -> dict[str, Any]:
     """Add Home Assistant timezone to tool responses and convert timestamps to local time.
 
-    Fetches ``time_zone`` from ``/api/config``, converts every
-    ``last_changed``, ``last_updated``, ``last_reported``, ``when``, and
-    ``last_triggered`` field found anywhere in *data* from UTC to that local
-    timezone, then wraps the result in ``{"data": ..., "metadata": {...}}``.
+    Resolves the Home Assistant time zone via ``_fetch_ha_timezone`` (which
+    prefers the ``ha_mcp_tools`` component's cached handshake and falls back to
+    ``/api/config``), converts every ``last_changed``, ``last_updated``,
+    ``last_reported``, ``when``, and ``last_triggered`` field found anywhere in
+    *data* from UTC to that local timezone, then wraps the result in
+    ``{"data": ..., "metadata": {...}}``.
 
     Pass ``include_metadata=False`` to return *data* unchanged — the
     ``metadata`` wrapper is then omitted entirely.

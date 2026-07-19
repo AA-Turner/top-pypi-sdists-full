@@ -1,13 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: aiochannel
-Version: 1.3.0
+Version: 1.4.1
 Summary: asyncio Channels (closable queues) inspired by golang
-Home-page: https://github.com/tbug/aiochannel
 License: Apache-2.0
 Keywords: asyncio,aio,chan,channel,gochan
 Author: Henrik Tudborg
-Author-email: henrik@tudb.org
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
@@ -18,20 +16,21 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Typing :: Typed
-Project-URL: Source, https://github.com/tbug/aiochannel
-Project-URL: Tracker, https://github.com/tbug/aiochannel/issues
+Project-URL: Homepage, https://github.com/tudborg/aiochannel
+Project-URL: Source, https://github.com/tudborg/aiochannel
+Project-URL: Tracker, https://github.com/tudborg/aiochannel/issues
 Description-Content-Type: text/markdown
 
 # aiochannel - AsyncIO Channel
 
-[![Build Status](https://github.com/tbug/aiochannel/actions/workflows/test.yml/badge.svg)][Build Status]
+[![Build Status](https://github.com/tudborg/aiochannel/actions/workflows/test.yml/badge.svg)][Build Status]
 [![Stable Version](https://img.shields.io/pypi/v/aiochannel?label=stable)][PyPI Releases]
 [![Python Versions](https://img.shields.io/pypi/pyversions/aiochannel)][PyPI]
 [![Download Stats](https://img.shields.io/pypi/dm/aiochannel)](https://pypistats.org/packages/aiochannel)
@@ -151,8 +150,8 @@ which is functionally equivalent to
 
   [PyPI]: https://pypi.org/project/aiochannel
   [PyPI Releases]: https://pypi.org/project/aiochannel/#history
-  [Github]: https://github.com/tbug/aiochannel
-  [Changelog]: https://github.com/tbug/aiochannel/blob/master/CHANGELOG.md
-  [Issue Tracker]: https://github.com/tbug/aiochannel/issues
-  [Build Status]: https://github.com/tbug/aiochannel/actions/workflows/test.yml
+  [Github]: https://github.com/tudborg/aiochannel
+  [Changelog]: https://github.com/tudborg/aiochannel/blob/master/CHANGELOG.md
+  [Issue Tracker]: https://github.com/tudborg/aiochannel/issues
+  [Build Status]: https://github.com/tudborg/aiochannel/actions/workflows/test.yml
 

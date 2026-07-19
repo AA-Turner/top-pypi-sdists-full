@@ -250,8 +250,8 @@ def summarize_population(
     `tier_filter` restricts which customer tiers are counted (defaults to
     `TIER_2` per the repo's tier-safety convention; pass `ALL` for every tier).
 
-    `credentials` are optional GCP credentials for the BigQuery-backed tier
-    refresh (e.g. a per-user OAuth token); falls back to the default identity.
+    `credentials` are optional GCP credentials for the GCS-backed tier refresh;
+    falls back to the default identity.
     """
     # Copy each row before enrichment: `enrich_rows_by_org` adds keys in place and the
     # loop below stamps derived counts, so copying keeps the caller's `population_rows`

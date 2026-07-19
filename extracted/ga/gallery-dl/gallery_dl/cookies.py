@@ -295,9 +295,9 @@ def _firefox_browser_directory(browser_name):
         }[browser_name]
     else:
         home = os.path.expanduser("~")
+        config = (os.environ.get("XDG_CONFIG_HOME") or
+                  os.path.expanduser("~/.config"))
         if browser_name == "firefox":
-            config = (os.environ.get("XDG_CONFIG_HOME") or
-                      os.path.expanduser("~/.config"))
             return (
                 # versions >= 147
                 join(config, "mozilla/firefox"),
@@ -309,7 +309,10 @@ def _firefox_browser_directory(browser_name):
                 # Snap
                 home + "/snap/firefox/common/.mozilla/firefox",
             )
-        return f"{home}/.{browser_name}"
+        return (
+            join(config, browser_name),
+            f"{home}/.{browser_name}",
+        )
 
 
 # --------------------------------------------------------------------

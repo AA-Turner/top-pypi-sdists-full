@@ -1,10 +1,11 @@
 import datetime
+import json
 import os
 from io import BytesIO
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest import TestCase as BaseTestCase
 
-import fs
 import requests
 from google.api_core.exceptions import BadRequest, Conflict, NotFound
 from google.auth.credentials import AnonymousCredentials, Signing
@@ -12,8 +13,11 @@ from google.auth.credentials import AnonymousCredentials, Signing
 from gcp_storage_emulator.server import create_server
 from gcp_storage_emulator.settings import STORAGE_BASE, STORAGE_DIR
 
-
 TEST_TEXT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_text.txt")
+
+
+def _storage_path(*parts: str) -> Path:
+    return Path(STORAGE_BASE, STORAGE_DIR, *parts)
 
 
 class FakeSigningCredentials(Signing, AnonymousCredentials):
@@ -120,8 +124,7 @@ class BucketsTests(BaseTestCase):
         bucket = self._client.create_bucket("bucket_name")
         bucket.delete()
 
-        with fs.open_fs(os.path.join(STORAGE_BASE, STORAGE_DIR)) as pwd:
-            self.assertFalse(pwd.exists("bucket_name"))
+        self.assertFalse(_storage_path("bucket_name").exists())
 
     def test_bucket_delete_non_existing(self):
         # client.bucket doesn't create the actual bucket resource remotely
@@ -150,8 +153,7 @@ class BucketsTests(BaseTestCase):
         blob = bucket.get_blob("cantouchme.txt")
         self.assertIsNone(blob)
 
-        with fs.open_fs(os.path.join(STORAGE_BASE, STORAGE_DIR)) as pwd:
-            self.assertFalse(pwd.exists("bucket_name"))
+        self.assertFalse(_storage_path("bucket_name").exists())
 
 
 class DefaultBucketTests(BaseTestCase):
@@ -173,6 +175,191 @@ class DefaultBucketTests(BaseTestCase):
         self.assertEqual(bucket.storage_class, "STANDARD")
 
 
+class ProjectNumberConfigTests(BaseTestCase):
+    """Configurable projectNumber on bucket resources (issue #118)."""
+
+    def tearDown(self):
+        if getattr(self, "_server", None):
+            self._server.wipe()
+            self._server.stop()
+        return super().tearDown()
+
+    def _start(self, port, **kwargs):
+        self._server = create_server("localhost", port, in_memory=True, **kwargs)
+        self._server.start()
+        self._session = requests.Session()
+        os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:{}".format(port)
+        from google.cloud import storage
+
+        return storage.Client(
+            project="[PROJECT]",
+            _http=self._session,
+            client_options={"api_endpoint": "http://localhost:{}".format(port)},
+        )
+
+    def test_create_server_project_number_kwarg(self):
+        client = self._start(19051, project_number="987654321012")
+        bucket = client.create_bucket("pn-kwarg-bucket")
+        self.assertEqual(bucket.project_number, 987654321012)
+        # Raw JSON field is a string, same as GCS.
+        raw = self._session.get(
+            "http://localhost:19051/storage/v1/b/pn-kwarg-bucket", timeout=5
+        )
+        self.assertEqual(raw.status_code, 200)
+        self.assertEqual(raw.json()["projectNumber"], "987654321012")
+
+    def test_default_bucket_uses_project_number(self):
+        client = self._start(
+            19052,
+            default_bucket="default-pn.appspot.com",
+            project_number="111222333444",
+        )
+        bucket = client.get_bucket("default-pn.appspot.com")
+        self.assertEqual(bucket.project_number, 111222333444)
+
+    def test_project_number_env_default(self):
+        """PROJECT_NUMBER env is read into settings at import; Storage uses
+        DEFAULT_PROJECT_NUMBER when project_number is omitted.
+
+        We pass the value explicitly via create_server to avoid mutating
+        module globals mid-suite; env is covered by argparse default tests.
+        """
+        from gcp_storage_emulator import settings
+        from gcp_storage_emulator.storage import Storage
+
+        storage = Storage(use_memory_fs=True, project_number=None)
+        self.assertEqual(storage.project_number, str(settings.DEFAULT_PROJECT_NUMBER))
+
+        storage_custom = Storage(use_memory_fs=True, project_number="555666777888")
+        self.assertEqual(storage_custom.project_number, "555666777888")
+
+
+class ProjectNumberCliTests(BaseTestCase):
+    def test_cli_project_number_argument(self):
+        from gcp_storage_emulator.__main__ import prepare_args_parser
+
+        parser, _ = prepare_args_parser()
+        args = parser.parse_args(
+            ["start", "--port=19053", "--project-number=424242424242"]
+        )
+        self.assertEqual(args.project_number, "424242424242")
+
+    def test_cli_project_number_default_from_settings(self):
+        from gcp_storage_emulator.__main__ import prepare_args_parser
+        from gcp_storage_emulator.settings import DEFAULT_PROJECT_NUMBER
+
+        parser, _ = prepare_args_parser()
+        args = parser.parse_args(["start", "--port=19054"])
+        self.assertEqual(args.project_number, DEFAULT_PROJECT_NUMBER)
+
+    def test_settings_default_matches_env_or_1234(self):
+        from gcp_storage_emulator.settings import DEFAULT_PROJECT_NUMBER
+
+        self.assertEqual(
+            DEFAULT_PROJECT_NUMBER, os.environ.get("PROJECT_NUMBER", "1234")
+        )
+
+    def test_main_start_passes_project_number(self):
+        from gcp_storage_emulator.__main__ import main
+
+        server = main(
+            ["start", "--port=19055", "--in-memory", "--project-number=121212121212"],
+            test_mode=True,
+        )
+        try:
+            server.start()
+            self.assertEqual(server._storage.project_number, "121212121212")
+            session = requests.Session()
+            os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:19055"
+            from google.cloud import storage
+
+            client = storage.Client(
+                project="[PROJECT]",
+                _http=session,
+                client_options={"api_endpoint": "http://localhost:19055"},
+            )
+            bucket = client.create_bucket("cli-pn-bucket")
+            self.assertEqual(bucket.project_number, 121212121212)
+        finally:
+            server.wipe()
+            server.stop()
+
+
+class SoftDeleteTests(ServerBaseCase):
+    """Object soft delete: delete retains, list softDeleted, restore."""
+
+    def test_bucket_default_soft_delete_policy(self):
+        bucket = self._client.create_bucket("sd-policy-bucket")
+        policy = bucket.soft_delete_policy
+        self.assertEqual(policy.retention_duration_seconds, 7 * 24 * 60 * 60)
+
+    def test_delete_soft_deletes_and_restore(self):
+        bucket = self._client.create_bucket("sd-restore-bucket")
+        blob = bucket.blob("keep-me.txt")
+        blob.upload_from_string("soft-delete-payload")
+        generation = blob.generation
+        self.assertIsNotNone(generation)
+
+        blob.delete()
+        # Live object is gone.
+        self.assertIsNone(bucket.get_blob("keep-me.txt"))
+        live_names = [b.name for b in bucket.list_blobs()]
+        self.assertNotIn("keep-me.txt", live_names)
+
+        # Soft-deleted listing.
+        soft = list(bucket.list_blobs(soft_deleted=True))
+        self.assertEqual(len(soft), 1)
+        self.assertEqual(soft[0].name, "keep-me.txt")
+        self.assertIsNotNone(soft[0].soft_delete_time)
+        self.assertIsNotNone(soft[0].hard_delete_time)
+        self.assertEqual(soft[0].generation, generation)
+
+        # Restore creates a new live object with the same content.
+        restored = bucket.restore_blob("keep-me.txt", generation=generation)
+        self.assertEqual(restored.name, "keep-me.txt")
+        self.assertEqual(restored.download_as_bytes(), b"soft-delete-payload")
+        # New generation after restore.
+        self.assertNotEqual(restored.generation, generation)
+
+        live = bucket.get_blob("keep-me.txt")
+        self.assertIsNotNone(live)
+        self.assertEqual(live.download_as_bytes(), b"soft-delete-payload")
+
+    def test_soft_delete_disabled_hard_deletes(self):
+        bucket = self._client.create_bucket("sd-off-bucket")
+        # Disable soft delete: retention 0.
+        bucket.soft_delete_policy.retention_duration_seconds = 0
+        bucket.patch()
+
+        blob = bucket.blob("gone.txt")
+        blob.upload_from_string("bye")
+        blob.delete()
+
+        self.assertIsNone(bucket.get_blob("gone.txt"))
+        soft = list(bucket.list_blobs(soft_deleted=True))
+        self.assertEqual(soft, [])
+
+    def test_restore_overwrites_live_with_soft_delete(self):
+        bucket = self._client.create_bucket("sd-overwrite-bucket")
+        blob = bucket.blob("obj.txt")
+        blob.upload_from_string("v1")
+        gen1 = blob.generation
+        blob.delete()
+
+        # New live object with same name.
+        blob2 = bucket.blob("obj.txt")
+        blob2.upload_from_string("v2-live")
+
+        restored = bucket.restore_blob("obj.txt", generation=gen1)
+        self.assertEqual(restored.download_as_bytes(), b"v1")
+        # Previous live v2 should now be soft-deleted.
+        soft = list(bucket.list_blobs(soft_deleted=True))
+        soft_contents_gens = {b.generation for b in soft}
+        # Soft-deleted set includes original gen1 (still retained) and soft-deleted v2.
+        self.assertIn(gen1, soft_contents_gens)
+        self.assertGreaterEqual(len(soft), 2)
+
+
 class ObjectsTests(ServerBaseCase):
     def test_upload_from_string(self):
         content = "this is the content of the file\n"
@@ -180,9 +367,10 @@ class ObjectsTests(ServerBaseCase):
         blob = bucket.blob("testblob-name.txt")
         blob.upload_from_string(content)
 
-        with fs.open_fs(os.path.join(STORAGE_BASE, STORAGE_DIR)) as pwd:
-            read_content = pwd.readtext("testbucket/testblob-name.txt")
-            self.assertEqual(read_content, content)
+        read_content = _storage_path("testbucket", "testblob-name.txt").read_text(
+            encoding="utf-8"
+        )
+        self.assertEqual(read_content, content)
 
     def test_upload_from_text_file(self):
         bucket = self._client.create_bucket("testbucket")
@@ -190,8 +378,9 @@ class ObjectsTests(ServerBaseCase):
         with open(TEST_TEXT, "rb") as file:
             blob.upload_from_file(file)
 
-            with fs.open_fs(os.path.join(STORAGE_BASE, STORAGE_DIR)) as pwd:
-                read_content = pwd.readtext("testbucket/test_text.txt")
+        read_content = _storage_path("testbucket", "test_text.txt").read_text(
+            encoding="utf-8"
+        )
 
         with open(TEST_TEXT, "rb") as file:
             expected_content = str(file.read(), encoding="utf-8")
@@ -206,8 +395,7 @@ class ObjectsTests(ServerBaseCase):
         with open(test_binary, "rb") as file:
             blob.upload_from_file(file)
 
-        with fs.open_fs(os.path.join(STORAGE_BASE, STORAGE_DIR)) as pwd:
-            read_content = pwd.readbytes("testbucket/binary.png")
+        read_content = _storage_path("testbucket", "binary.png").read_bytes()
 
         with open(test_binary, "rb") as file:
             expected_content = file.read()
@@ -221,8 +409,7 @@ class ObjectsTests(ServerBaseCase):
 
         blob.upload_from_file(test_binary, size=len(content))
 
-        with fs.open_fs(os.path.join(STORAGE_BASE, STORAGE_DIR)) as pwd:
-            read_content = pwd.readbytes("testbucket/binary_cr.png")
+        read_content = _storage_path("testbucket", "binary_cr.png").read_bytes()
 
         self.assertEqual(read_content, content)
 
@@ -362,6 +549,53 @@ class ObjectsTests(ServerBaseCase):
         blob.reload()
         self.assertEqual(blob.metadata, metadata)
 
+    def test_download_includes_x_goog_meta_headers(self):
+        """Custom metadata is returned as x-goog-meta-* on object download (#187)."""
+        content = b"helloworld"
+        bucket = self._client.create_bucket("testbucket")
+        blob = bucket.blob("meta-object")
+        blob.metadata = {"some": "metadata", "Color": "Pink"}
+        blob.upload_from_string(content)
+
+        # JSON API media download path
+        url = (
+            "http://localhost:9023/download/storage/v1/b/testbucket/o/"
+            "meta-object?alt=media"
+        )
+        response = self._session.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, content)
+        # HTTP headers are case-insensitive; requests normalizes to lowercase keys.
+        self.assertEqual(response.headers.get("x-goog-meta-some"), "metadata")
+        self.assertEqual(response.headers.get("x-goog-meta-color"), "Pink")
+
+    def test_public_path_download_includes_x_goog_meta_headers(self):
+        content = b"public-meta"
+        bucket = self._client.create_bucket("testbucket")
+        blob = bucket.blob("public-meta.txt")
+        blob.metadata = {"reviewer": "jane"}
+        blob.upload_from_string(content)
+
+        # Public / signed-URL style path: /{bucket}/{object}
+        response = self._session.get("http://localhost:9023/testbucket/public-meta.txt")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, content)
+        self.assertEqual(response.headers.get("x-goog-meta-reviewer"), "jane")
+
+    def test_download_without_custom_metadata_omits_x_goog_meta_headers(self):
+        content = b"no-meta"
+        bucket = self._client.create_bucket("testbucket")
+        blob = bucket.blob("plain.txt")
+        blob.upload_from_string(content)
+
+        response = self._session.get(
+            "http://localhost:9023/download/storage/v1/b/testbucket/o/plain.txt?alt=media"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            any(name.lower().startswith("x-goog-meta-") for name in response.headers)
+        )
+
     def test_set_custom_time(self):
         content = "The quick brown fox jumps over the lazy dog\n"
         bucket = self._client.create_bucket("testbucket")
@@ -455,12 +689,30 @@ class ObjectsTests(ServerBaseCase):
         self.assertEqual(download_blob.crc32c, crc32c_hash)
 
     def test_invalid_crc32c_hash(self):
+        # google-cloud-storage 3.x no longer forwards a pre-set invalid crc32c on
+        # upload_from_string; hit the multipart API directly so the server still
+        # validates checksums independently of client library behaviour.
         content = b"Hello World"
-        bucket = self._client.create_bucket("testbucket")
-        blob = bucket.blob("hashtest")
-        blob.crc32c = "deadbeef"
-        with self.assertRaises(BadRequest):
-            blob.upload_from_string(content)
+        self._client.create_bucket("testbucket")
+        boundary = "===============boundary=="
+        metadata = json.dumps({"name": "hashtest", "crc32c": "deadbeef"})
+        body = (
+            (
+                f"--{boundary}\r\n"
+                "Content-Type: application/json; charset=UTF-8\r\n\r\n"
+                f"{metadata}\r\n"
+                f"--{boundary}\r\n"
+                "Content-Type: application/octet-stream\r\n\r\n"
+            ).encode("utf-8")
+            + content
+            + f"\r\n--{boundary}--\r\n".encode("utf-8")
+        )
+        response = self._session.post(
+            "http://localhost:9023/upload/storage/v1/b/testbucket/o?uploadType=multipart",
+            data=body,
+            headers={"Content-Type": f"multipart/related; boundary={boundary}"},
+        )
+        self.assertEqual(response.status_code, 400)
 
     def test_download_binary_to_file(self):
         test_binary = os.path.join(
@@ -498,12 +750,12 @@ class ObjectsTests(ServerBaseCase):
         blob = bucket.blob("canttouchme.txt")
         blob.upload_from_string("File content")
 
-        with fs.open_fs(os.path.join(STORAGE_BASE, STORAGE_DIR)) as pwd:
-            self.assertTrue(pwd.exists("bucket_name/canttouchme.txt"))
-            blob.delete()
+        path = _storage_path("bucket_name", "canttouchme.txt")
+        self.assertTrue(path.exists())
+        blob.delete()
 
-            self.assertIsNone(bucket.get_blob("cantouchme.txt"))
-            self.assertFalse(pwd.exists("bucket_name/canttouchme.txt"))
+        self.assertIsNone(bucket.get_blob("cantouchme.txt"))
+        self.assertFalse(path.exists())
 
     def test_delete_nonexistent_object(self):
         bucket = self._client.create_bucket("bucket_name")
@@ -517,9 +769,10 @@ class ObjectsTests(ServerBaseCase):
         blob = bucket.blob("this/is/a/nested/file.txt")
         blob.upload_from_string("Not even joking!")
 
-        with fs.open_fs(os.path.join(STORAGE_BASE, STORAGE_DIR)) as pwd:
-            read_content = pwd.readtext("bucket_name/this/is/a/nested/file.txt")
-            self.assertEqual(read_content, "Not even joking!")
+        read_content = _storage_path(
+            "bucket_name", "this", "is", "a", "nested", "file.txt"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(read_content, "Not even joking!")
 
     def test_create_within_multiple_time_does_not_break(self):
         bucket = self._client.create_bucket("bucket_name")
@@ -529,8 +782,11 @@ class ObjectsTests(ServerBaseCase):
         bucket.blob("this/is/another/nested/file.txt")
         blob.upload_from_string("Yet another one")
 
-        with fs.open_fs(os.path.join(STORAGE_BASE, STORAGE_DIR)) as pwd:
-            self.assertTrue(pwd.exists("bucket_name/this/is/a/nested/file.txt"))
+        self.assertTrue(
+            _storage_path(
+                "bucket_name", "this", "is", "a", "nested", "file.txt"
+            ).exists()
+        )
 
     def _assert_blob_list(self, expected, actual):
         self.assertEqual([b.name for b in expected], [b.name for b in actual])
@@ -577,6 +833,48 @@ class ObjectsTests(ServerBaseCase):
 
         self._assert_blob_list(blobs, [blob_1, blob_2])
 
+    def test_list_blobs_with_match_glob(self):
+        bucket = self._client.create_bucket("bucket_name")
+        for name in ["foo/bar", "foo/baz", "foo/foobar", "foobar"]:
+            bucket.blob(name).upload_from_string("helloworld")
+
+        expected = {
+            "foo*bar": ["foobar"],
+            "foo**bar": ["foo/bar", "foo/foobar", "foobar"],
+            "**/foobar": ["foo/foobar", "foobar"],
+            "*/ba[rz]": ["foo/bar", "foo/baz"],
+            "*/ba[!a-y]": ["foo/baz"],
+            "**/{foobar,baz}": ["foo/baz", "foo/foobar", "foobar"],
+            "foo/{foo*,*baz}": ["foo/baz", "foo/foobar"],
+        }
+        for match_glob, names in expected.items():
+            blobs = list(self._client.list_blobs(bucket, match_glob=match_glob))
+            self.assertEqual([blob.name for blob in blobs], names, match_glob)
+
+    def test_list_blobs_with_match_glob_and_delimiter(self):
+        bucket = self._client.create_bucket("bucket_name")
+        for name in ["all/foo/bar", "foo/baz", "foo/389_bar", "bar", "baz"]:
+            bucket.blob(name).upload_from_string("helloworld")
+
+        expected = {
+            "foo*bar": [],
+            "**/bar": ["bar"],
+            "**ba[rz]": ["bar", "baz"],
+            "*ba[!a-y]": ["baz"],
+            "**/{foobar,baz}": ["baz"],
+            "*{foo*,*baz}": ["baz"],
+        }
+        for match_glob, names in expected.items():
+            blobs = list(
+                self._client.list_blobs(bucket, match_glob=match_glob, delimiter="/")
+            )
+            self.assertEqual([blob.name for blob in blobs], names, match_glob)
+
+    def test_list_blobs_match_glob_wrong_delimiter(self):
+        bucket = self._client.create_bucket("bucket_name")
+        with self.assertRaises(BadRequest):
+            list(self._client.list_blobs(bucket, delimiter="*", match_glob="*.pdf"))
+
     def test_list_blobs_with_prefix_and_delimiter(self):
         bucket = self._client.create_bucket("bucket_name")
 
@@ -615,6 +913,45 @@ class ObjectsTests(ServerBaseCase):
 
         with self.assertRaises(NotFound):
             bucket.rename_blob(blob_1, "c/d.txt")
+
+    def test_blob_rewrite_response_shape(self):
+        """Python client requires totalBytesRewritten/objectSize (issue #305)."""
+        content = b"rewrite-me-please"
+        bucket = self._client.create_bucket("rewrite_bucket")
+        source = bucket.blob("src/file.txt")
+        source.upload_from_string(content)
+
+        dest = bucket.blob("dst/file.txt")
+        token, bytes_rewritten, total_bytes = dest.rewrite(source)
+
+        self.assertIsNone(token)
+        self.assertEqual(bytes_rewritten, len(content))
+        self.assertEqual(total_bytes, len(content))
+        self.assertEqual(dest.download_as_bytes(), content)
+        self.assertEqual(dest.name, "dst/file.txt")
+
+    def test_blob_rewrite_http_response_schema(self):
+        """Raw JSON matches official storage#rewriteResponse fields."""
+        content = b"schema-check"
+        bucket = self._client.create_bucket("rewrite_http")
+        source = bucket.blob("a.txt")
+        source.upload_from_string(content)
+
+        url = (
+            "http://localhost:9023/storage/v1/b/rewrite_http/o/a.txt/"
+            "rewriteTo/b/rewrite_http/o/b.txt"
+        )
+        response = self._session.post(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["kind"], "storage#rewriteResponse")
+        self.assertTrue(data["done"])
+        self.assertEqual(data["totalBytesRewritten"], str(len(content)))
+        self.assertEqual(data["objectSize"], str(len(content)))
+        self.assertNotIn("written", data)
+        self.assertNotIn("size", data)
+        self.assertEqual(data["resource"]["name"], "b.txt")
+        self.assertEqual(data["resource"]["bucket"], "rewrite_http")
 
     def test_compose_create_new_blob(self):
         bucket = self._client.create_bucket("compose_test")
@@ -758,6 +1095,47 @@ class ObjectsTests(ServerBaseCase):
         with self.assertRaises(NotFound):
             self._client.get_bucket("batchbucket2")
 
+    def test_batch_copy_same_bucket(self):
+        bucket = self._client.create_bucket("batchbucket")
+        source = []
+        target = []
+        for i in range(2):
+            source.append(bucket.blob("a/{}.txt".format(i)))
+            source[-1].upload_from_string("text {}".format(i))
+            target.append(bucket.blob("b/{}.txt".format(i)))
+
+        with self._client.batch():
+            for i in range(2):
+                bucket.copy_blob(source[i], bucket, target[i].name)
+
+        blobs = list(self._client.list_blobs(bucket))
+        self._assert_blob_list(source + target, blobs)
+        for i in range(2):
+            self.assertEqual(
+                bucket.get_blob(target[i].name).download_as_bytes(),
+                "text {}".format(i).encode("utf-8"),
+            )
+
+    def test_batch_copy_cross_bucket(self):
+        src_bucket = self._client.create_bucket("batchsrc")
+        dst_bucket = self._client.create_bucket("batchdst")
+        source = src_bucket.blob("nested/file.txt")
+        source.upload_from_string("cross-bucket-payload")
+
+        with self._client.batch():
+            src_bucket.copy_blob(source, dst_bucket, "copied/file.txt")
+
+        copied = dst_bucket.get_blob("copied/file.txt")
+        self.assertIsNotNone(copied)
+        self.assertEqual(copied.download_as_bytes(), b"cross-bucket-payload")
+
+    def test_batch_copy_nonexistent_source(self):
+        bucket = self._client.create_bucket("batchbucket")
+        missing = bucket.blob("does-not-exist.txt")
+        with self.assertRaises(NotFound):
+            with self._client.batch():
+                bucket.copy_blob(missing, bucket, "dest.txt")
+
     def test_resumable_upload_small_chunk_size(self):
         content = b"a" * 10000000
         bucket = self._client.create_bucket("testbucket")
@@ -781,6 +1159,304 @@ class ObjectsTests(ServerBaseCase):
         fetched_content = blob.download_as_bytes()
         self.assertEqual(len(fetched_content), len(content))
         self.assertEqual(fetched_content, content)
+
+    def test_resumable_chunked_write_via_blob_open(self):
+        """Multi-chunk streaming write (issue #301).
+
+        google-resumable-media sends Content-Range: bytes START-END/* until the
+        final chunk, when the total size becomes known. Intermediate chunks must
+        get HTTP 308, not 200.
+        """
+        chunk_size = 256 * 1024
+        # More than two chunks so intermediate /* ranges are used.
+        content = b"x" * (chunk_size * 3 + 123)
+        bucket = self._client.create_bucket("testbucket")
+        blob = bucket.blob("chunked-stream.bin", chunk_size=chunk_size)
+
+        with blob.open("wb", chunk_size=chunk_size) as writer:
+            offset = 0
+            while offset < len(content):
+                writer.write(content[offset : offset + chunk_size])
+                offset += chunk_size
+
+        fetched = bucket.get_blob("chunked-stream.bin").download_as_bytes()
+        self.assertEqual(len(fetched), len(content))
+        self.assertEqual(fetched, content)
+
+    def test_resumable_chunked_known_total_via_upload_from_string(self):
+        """Known-size multi-chunk upload (chunk_size smaller than object)."""
+        chunk_size = 256 * 1024
+        content = b"y" * (chunk_size * 2 + 50)
+        bucket = self._client.create_bucket("testbucket")
+        blob = bucket.blob("known-total.bin", chunk_size=chunk_size)
+        blob.upload_from_string(content)
+        fetched = bucket.get_blob("known-total.bin").download_as_bytes()
+        self.assertEqual(fetched, content)
+
+    def test_streaming_write_like_node_create_write_stream(self):
+        """Streaming upload via blob.open (Node createWriteStream equivalent, #258)."""
+        content = b"streamed-" + (b"data" * 10000)
+        bucket = self._client.create_bucket("testbucket")
+        blob = bucket.blob("streamed.txt")
+        with blob.open("wb") as writer:
+            # Write in several pieces like a passthrough stream.
+            for i in range(0, len(content), 1024):
+                writer.write(content[i : i + 1024])
+        self.assertEqual(bucket.get_blob("streamed.txt").download_as_bytes(), content)
+
+    def test_resumable_start_with_empty_json_body(self):
+        """Node createWriteStream starts resumable with metadata body `{}`.
+
+        Empty dict is falsy in Python; Request.data must cache it so the body
+        is not re-read from the socket (which hangs the client).
+        """
+        self._client.create_bucket("testbucket")
+        content = b"hello from node-like resumable"
+        start = self._session.post(
+            "http://localhost:9023/upload/storage/v1/b/testbucket/o",
+            params={"name": "node-empty-meta.txt", "uploadType": "resumable"},
+            headers={
+                "Content-Type": "application/json",
+                "X-Upload-Content-Type": "text/plain",
+            },
+            data=b"{}",
+            timeout=5,
+        )
+        self.assertEqual(start.status_code, 200, start.text)
+        location = start.headers.get("Location")
+        self.assertTrue(location, "Location header required for resumable upload")
+
+        # Node single-stream style: bytes START-*/TOTAL with full body.
+        put = self._session.put(
+            location,
+            headers={
+                "Content-Range": "bytes 0-*/{}".format(len(content)),
+                "Content-Type": "text/plain",
+            },
+            data=content,
+            timeout=5,
+        )
+        self.assertEqual(put.status_code, 200, put.text)
+        blob = self._client.bucket("testbucket").get_blob("node-empty-meta.txt")
+        self.assertEqual(blob.download_as_bytes(), content)
+
+    def test_unprefixed_b_json_api_aliases(self):
+        """Node STORAGE_EMULATOR_HOST uses /b/... without /storage/v1.
+
+        @google-cloud/storage sets baseUrl to the emulator host only, so bucket
+        and object calls hit POST /b, GET /b/bucket, GET /b/bucket/o/obj?alt=media.
+        """
+        # Create bucket via unprefixed path (like Node createBucket).
+        created = self._session.post(
+            "http://localhost:9023/b",
+            params={"project": "test-project"},
+            headers={"Content-Type": "application/json"},
+            json={"name": "aliasbucket"},
+            timeout=5,
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        self.assertEqual(created.json()["name"], "aliasbucket")
+
+        got = self._session.get("http://localhost:9023/b/aliasbucket", timeout=5)
+        self.assertEqual(got.status_code, 200, got.text)
+        self.assertEqual(got.json()["name"], "aliasbucket")
+
+        content = b"via unprefixed json api"
+        start = self._session.post(
+            "http://localhost:9023/upload/storage/v1/b/aliasbucket/o",
+            params={"name": "alias.txt", "uploadType": "resumable"},
+            headers={
+                "Content-Type": "application/json",
+                "X-Upload-Content-Type": "text/plain",
+            },
+            data=b"{}",
+            timeout=5,
+        )
+        self.assertEqual(start.status_code, 200, start.text)
+        location = start.headers["Location"]
+        put = self._session.put(
+            location,
+            headers={
+                "Content-Range": "bytes 0-*/{}".format(len(content)),
+                "Content-Type": "text/plain",
+            },
+            data=content,
+            timeout=5,
+        )
+        self.assertEqual(put.status_code, 200, put.text)
+
+        # Metadata + media download without /storage/v1 (Node download path).
+        meta = self._session.get(
+            "http://localhost:9023/b/aliasbucket/o/alias.txt", timeout=5
+        )
+        self.assertEqual(meta.status_code, 200, meta.text)
+        self.assertEqual(meta.json()["name"], "alias.txt")
+
+        media = self._session.get(
+            "http://localhost:9023/b/aliasbucket/o/alias.txt",
+            params={"alt": "media"},
+            timeout=5,
+        )
+        self.assertEqual(media.status_code, 200, media.text)
+        self.assertEqual(media.content, content)
+
+        listed = self._session.get("http://localhost:9023/b/aliasbucket/o", timeout=5)
+        self.assertEqual(listed.status_code, 200, listed.text)
+        names = [item["name"] for item in listed.json().get("items", [])]
+        self.assertIn("alias.txt", names)
+
+    def test_blob_make_public_and_make_private(self):
+        """Python blob.make_public / make_private (issue #204).
+
+        These call GET .../o/{object}/acl then PATCH the object with an acl list
+        that grants or revokes allUsers READER.
+        """
+        bucket = self._client.create_bucket("acl-bucket")
+        blob = bucket.blob("public-me.txt")
+        blob.upload_from_string("hello-acl")
+
+        # Empty ACL list before make_public.
+        listed = self._session.get(
+            "http://localhost:9023/storage/v1/b/acl-bucket/o/public-me.txt/acl",
+            timeout=5,
+        )
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertEqual(listed.json().get("kind"), "storage#objectAccessControls")
+        self.assertEqual(listed.json().get("items"), [])
+
+        blob.make_public()
+        entities = {entry["entity"]: entry["role"] for entry in blob.acl}
+        self.assertEqual(entities.get("allUsers"), "READER")
+
+        # Persist check via raw API.
+        after = self._session.get(
+            "http://localhost:9023/storage/v1/b/acl-bucket/o/public-me.txt/acl",
+            timeout=5,
+        )
+        self.assertEqual(after.status_code, 200, after.text)
+        raw_entities = {
+            item["entity"]: item["role"] for item in after.json().get("items", [])
+        }
+        self.assertEqual(raw_entities.get("allUsers"), "READER")
+
+        blob.make_private()
+        entities_private = {entry["entity"]: entry["role"] for entry in blob.acl}
+        self.assertNotIn("allUsers", entities_private)
+
+        # Content still readable after ACL changes.
+        self.assertEqual(blob.download_as_bytes(), b"hello-acl")
+
+    def test_bucket_make_public(self):
+        """Bucket.make_public uses GET .../acl + PATCH bucket with acl."""
+        bucket = self._client.create_bucket("bucket-acl")
+        blob = bucket.blob("nested.txt")
+        blob.upload_from_string("data")
+
+        bucket.make_public()
+        bucket_entities = {entry["entity"]: entry["role"] for entry in bucket.acl}
+        self.assertEqual(bucket_entities.get("allUsers"), "READER")
+
+        # future=True also touches defaultObjectAcl.
+        bucket2 = self._client.create_bucket("bucket-acl-future")
+        bucket2.make_public(future=True)
+        doa = {entry["entity"]: entry["role"] for entry in bucket2.default_object_acl}
+        self.assertEqual(doa.get("allUsers"), "READER")
+
+    def test_bucket_get_and_set_iam_policy(self):
+        """Bucket IAM getIamPolicy / setIamPolicy stubs (issue #229).
+
+        Policies are stored and returned only; permissions are not enforced.
+        """
+        bucket = self._client.create_bucket("iam-bucket")
+
+        # Default empty policy via Python client.
+        policy = bucket.get_iam_policy(requested_policy_version=3)
+        self.assertIsNotNone(policy)
+        self.assertEqual(policy.to_api_repr().get("bindings", []), [])
+
+        # Raw GET also works (and unprefixed /b alias).
+        raw = self._session.get(
+            "http://localhost:9023/storage/v1/b/iam-bucket/iam", timeout=5
+        )
+        self.assertEqual(raw.status_code, 200, raw.text)
+        self.assertEqual(raw.json().get("kind"), "storage#policy")
+        self.assertEqual(raw.json().get("resourceId"), "projects/_/buckets/iam-bucket")
+
+        alias = self._session.get("http://localhost:9023/b/iam-bucket/iam", timeout=5)
+        self.assertEqual(alias.status_code, 200, alias.text)
+
+        # Set a binding and read it back.
+        policy = bucket.get_iam_policy(requested_policy_version=3)
+        policy["roles/storage.objectViewer"] = {"allUsers"}
+        updated = bucket.set_iam_policy(policy)
+        roles = {
+            b["role"]: set(b["members"])
+            for b in updated.to_api_repr().get("bindings", [])
+        }
+        self.assertIn("allUsers", roles.get("roles/storage.objectViewer", set()))
+
+        again = bucket.get_iam_policy(requested_policy_version=3)
+        roles2 = {
+            b["role"]: set(b["members"])
+            for b in again.to_api_repr().get("bindings", [])
+        }
+        self.assertIn("allUsers", roles2.get("roles/storage.objectViewer", set()))
+
+        missing = self._session.get(
+            "http://localhost:9023/storage/v1/b/no-such-bucket/iam", timeout=5
+        )
+        self.assertEqual(missing.status_code, 404)
+
+    def test_bucket_test_iam_permissions_stub(self):
+        """testIamPermissions returns the requested permissions (allow-all stub)."""
+        bucket = self._client.create_bucket("iam-perms-bucket")
+        perms = [
+            "storage.buckets.get",
+            "storage.objects.create",
+        ]
+        allowed = bucket.test_iam_permissions(perms)
+        self.assertEqual(set(allowed), set(perms))
+
+    def test_upload_without_upload_prefix_does_not_crash(self):
+        """Wrong path /storage/v1/.../o?uploadType= used by some clients (#258).
+
+        Must not raise NoneType; either succeed (compat) or 501.
+        """
+        self._client.create_bucket("testbucket")
+        boundary = "separator_string"
+        body = (
+            f"--{boundary}\r\n"
+            "Content-Type: application/json; charset=UTF-8\r\n\r\n"
+            '{"name":"my-document.txt"}\r\n'
+            f"--{boundary}\r\n"
+            "Content-Type: text/plain\r\n\r\n"
+            "This is a text file.\r\n"
+            f"--{boundary}--\r\n"
+        )
+        # Deliberately omit /upload prefix (as in issue #258 comment).
+        response = self._session.post(
+            "http://localhost:9023/storage/v1/b/testbucket/o?uploadType=multipart",
+            headers={
+                "Content-Type": f"multipart/related; boundary={boundary}",
+            },
+            data=body.encode("utf-8"),
+        )
+        # Compatibility: we accept uploadType on the JSON API objects path.
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["name"], "my-document.txt")
+        bucket = self._client.bucket("testbucket")
+        self.assertEqual(
+            bucket.get_blob("my-document.txt").download_as_bytes(),
+            b"This is a text file.",
+        )
+
+    def test_unsupported_method_returns_501_not_none_callable(self):
+        """Path match without method must be 501, not 'NoneType is not callable'."""
+        response = self._session.put(
+            "http://localhost:9023/storage/v1/b/testbucket/o",
+            data=b"nope",
+        )
+        self.assertEqual(response.status_code, 501)
 
     def test_empty_blob(self):
         bucket = self._client.create_bucket("testbucket")
@@ -943,6 +1619,24 @@ class ObjectsTests(ServerBaseCase):
         blob = bucket.get_blob(file_name)
         self.assertEqual(blob.name, file_name)
         self.assertEqual(blob.download_as_bytes(), content)
+
+    def test_upload_from_file_with_metadata(self):
+        file_name = "test.json"
+        content = b'[{"a": 1}]'
+        bucket = self._client.create_bucket("testbucket")
+        blob = bucket.blob(file_name)
+        blob.metadata = {"foo": "bar"}
+
+        with NamedTemporaryFile() as temp_file:
+            temp_file.write(content)
+            temp_file.flush()
+            temp_file.seek(0)
+            blob.upload_from_file(temp_file, content_type="application/json")
+
+        blob = bucket.get_blob(file_name)
+        self.assertEqual(blob.name, file_name)
+        self.assertEqual(blob.download_as_bytes(), content)
+        self.assertEqual(blob.metadata, {"foo": "bar"})
 
 
 class HttpEndpointsTest(ServerBaseCase):

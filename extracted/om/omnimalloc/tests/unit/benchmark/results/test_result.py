@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from omnimalloc import allocate
+from omnimalloc import run_allocation
 from omnimalloc.allocators import GreedyAllocator
 from omnimalloc.benchmark.results.result import BenchmarkResult
 from omnimalloc.benchmark.sources.generator import RandomSource
@@ -20,7 +20,7 @@ def allocated_pool() -> tuple[Any, GreedyAllocator, RandomSource]:
     source = RandomSource(num_allocations=10, seed=42)
     allocator = GreedyAllocator()
     pool = source.get_pool()
-    allocated_pool = allocate(pool, allocator)
+    allocated_pool = run_allocation(pool, allocator)
     return allocated_pool, allocator, source
 
 
@@ -228,7 +228,6 @@ def test_benchmark_result_frozen(
         result.duration = 1.0  # type: ignore[misc]
 
 
-@pytest.mark.filterwarnings("ignore::UserWarning")
 def test_benchmark_result_visualize_no_file(
     allocated_pool: tuple[Any, GreedyAllocator, RandomSource],
 ) -> None:
@@ -242,7 +241,7 @@ def test_benchmark_result_visualize_no_file(
         duration=0.5,
     )
     # Should not raise an error
-    result.visualize()
+    result.visualize(file_path=None, show_inline=False)
 
 
 def test_benchmark_result_visualize_with_file(
@@ -262,7 +261,7 @@ def test_benchmark_result_visualize_with_file(
         tmp_path = Path(tmp.name)
 
     try:
-        result.visualize(tmp_path)
+        result.visualize(file_path=tmp_path, show_inline=False)
         assert tmp_path.exists()
     finally:
         if tmp_path.exists():
@@ -275,8 +274,8 @@ def test_benchmark_result_different_num_allocations() -> None:
     source2 = RandomSource(num_allocations=15, seed=43)
     allocator = GreedyAllocator()
 
-    pool1 = allocate(source1.get_pool(), allocator)
-    pool2 = allocate(source2.get_pool(), allocator)
+    pool1 = run_allocation(source1.get_pool(), allocator)
+    pool2 = run_allocation(source2.get_pool(), allocator)
 
     result1 = BenchmarkResult(
         id=0, allocator=allocator, source=source1, entity=pool1, duration=0.5

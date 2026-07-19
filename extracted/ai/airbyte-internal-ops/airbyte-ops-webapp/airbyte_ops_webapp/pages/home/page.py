@@ -26,6 +26,10 @@ from airbyte_ops_webapp.pages.customer_billing.defaults import (
     CUSTOMER_BILLING_EMOJI,
     CUSTOMER_BILLING_PATH,
 )
+from airbyte_ops_webapp.pages.motherduck_diagnostics.defaults import (
+    MOTHERDUCK_DIAGNOSTICS_EMOJI,
+    MOTHERDUCK_DIAGNOSTICS_PATH,
+)
 from airbyte_ops_webapp.pages.shared_components.layout import (
     OPS_HOME_LABEL,
     render_breadcrumb_nav,
@@ -124,6 +128,37 @@ def _render_customer_billing_card() -> None:
             )
 
 
+def _render_motherduck_diagnostics_card() -> None:
+    with (
+        AbToolCard(),
+        CardContent(),
+        Column(gap=3),
+    ):
+        _render_emoji_icon(MOTHERDUCK_DIAGNOSTICS_EMOJI)
+        H3("MotherDuck Diagnostics")
+        Text(
+            "Compute-usage analytics, recent query outcomes, and live server "
+            "connections for MotherDuck."
+        )
+        with If(~STATE.oauth_authenticated):
+            Badge(
+                "Sign-in required",
+                css_class="w-fit bg-[#CECBF2] text-[#140F43]",
+            )
+            AbPrimaryLink(
+                "Log in with Airbyte",
+                href=OPS_AUTHORIZATION_PATH,
+                target="_top",
+            )
+        with If(STATE.oauth_authenticated):
+            Badge("Ready", variant="success")
+            AbPrimaryLink(
+                "Open tool",
+                href=MOTHERDUCK_DIAGNOSTICS_PATH,
+                target="_top",
+            )
+
+
 def _render_more_tools_card() -> None:
     with (
         AbToolCard(accent=AIRBYTE_LAVENDER),
@@ -187,6 +222,7 @@ def open_ops_home(
         with Grid(columns=3, gap=4):
             _render_connector_version_manager_card(connector_query)
             _render_customer_billing_card()
+            _render_motherduck_diagnostics_card()
             _render_more_tools_card()
         render_version_footer()
     return app

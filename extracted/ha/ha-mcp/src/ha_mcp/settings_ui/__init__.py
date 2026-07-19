@@ -33,6 +33,12 @@ from ._handlers_server import (
 )
 from ._handlers_theme import build_theme_handlers
 from ._handlers_tools import build_tools_handlers
+from ._i18n import (
+    LOCALE_COOKIE,
+    build_payload,
+    select_locale,
+    serialize_payload,
+)
 from ._persistence import (
     _atomic_write_json,
     _get_backup_settings_override_path,
@@ -57,6 +63,7 @@ from ._supervisor import (
 )
 from ._theme import _load_theme_prefs, _sanitize_theme_prefs
 from ._tools_meta import (
+    BPS_MANDATORY_TOOLS,
     FEATURE_GATED_TOOLS,
     MANDATORY_TOOLS,
     TRANSFORM_GENERATED_TOOLS,
@@ -64,6 +71,7 @@ from ._tools_meta import (
     UserToolStateOverrides,
     _get_tool_metadata,
     apply_tool_visibility,
+    effective_mandatory_tools,
 )
 
 if TYPE_CHECKING:
@@ -134,11 +142,14 @@ except OSError as exc:  # pragma: no cover - packaging guard
 
 # The settings page HTML lives in settings.html, extracted the same way as
 # settings.js / settings.css (a real file for editor/HTML tooling). It carries
-# three substitution markers — two filled once at import, one per request:
+# six substitution markers — two filled once at import, four per request:
 #   __HA_MCP_CSS__         -> settings.css contents (inside <style>)
 #   __HA_MCP_JS__          -> settings.js contents (inside <script>)
 #   __HA_MCP_THEME_PREFS__ -> per-request server-seeded theme prefs JSON,
 #                             substituted in _render_settings_html()
+#   __HA_MCP_I18N__        -> selected merged translation catalog JSON
+#   __HA_MCP_LANG__        -> selected locale code for the html lang attribute
+#   __HA_MCP_DIR__         -> selected catalog text direction (ltr / rtl)
 # Same import-time packaging dependency as settings.js/css (wheel package-data,
 # MANIFEST.in, PyInstaller datas) and the same OSError guard -- but this loader
 # raises RuntimeError, not the ImportError that settings.js/css raise.
@@ -156,7 +167,14 @@ except OSError as exc:  # pragma: no cover - packaging guard
 # versa) — str.replace() silently no-ops on an absent token, which would ship a
 # page missing its CSS, JS, or server-seeded theme prefs. Assert all three
 # markers are present.
-for _sentinel in ("__HA_MCP_CSS__", "__HA_MCP_JS__", "__HA_MCP_THEME_PREFS__"):
+for _sentinel in (
+    "__HA_MCP_CSS__",
+    "__HA_MCP_JS__",
+    "__HA_MCP_THEME_PREFS__",
+    "__HA_MCP_I18N__",
+    "__HA_MCP_LANG__",
+    "__HA_MCP_DIR__",
+):
     if _sentinel not in _settings_html_template:
         raise RuntimeError(
             f"settings.html is out of sync: sentinel {_sentinel} not found. "
@@ -305,8 +323,8 @@ def _build_visibility_handlers(*, data_dir: Path) -> dict[str, Any]:
     }
 
 
-def _render_settings_html() -> str:
-    """Substitute the persisted theme prefs into the served settings page.
+def _render_settings_html(request: Request | None = None) -> str:
+    """Substitute theme preferences and the request-selected locale.
 
     The ``server-prefs`` head script carries a ``data-prefs`` attribute
     with a placeholder token; request-time substitution keeps
@@ -314,19 +332,44 @@ def _render_settings_html() -> str:
     body itself parseable at rest for the script-surface tests). Values
     are sanitized enums / vetted hex colors and the JSON is HTML-escaped,
     so the attribute cannot break out of its quoting context.
+
+    Locale priority is a user-selected cookie, the Home Assistant language
+    hint supplied by the embedded panel, the browser's Accept-Language header,
+    then English. Only the selected merged catalog is embedded in the page.
     """
-    payload = html.escape(
+    theme_payload = html.escape(
         json.dumps(_load_theme_prefs(), separators=(",", ":")), quote=True
     )
-    rendered = _SETTINGS_HTML.replace("__HA_MCP_THEME_PREFS__", payload, 1)
-    if "__HA_MCP_THEME_PREFS__" in rendered:
+    locale = select_locale(
+        cookie_locale=request.cookies.get(LOCALE_COOKIE) if request else None,
+        ha_language=request.query_params.get("ha_lang") if request else None,
+        accept_language=request.headers.get("accept-language") if request else None,
+    )
+    locale_payload = build_payload(locale)
+    i18n_payload = serialize_payload(locale_payload)
+    direction = locale_payload["dir"]
+    rendered = (
+        _SETTINGS_HTML.replace("__HA_MCP_THEME_PREFS__", theme_payload, 1)
+        .replace("__HA_MCP_I18N__", i18n_payload, 1)
+        .replace("__HA_MCP_LANG__", locale, 1)
+        .replace("__HA_MCP_DIR__", direction, 1)
+    )
+    if any(
+        sentinel in rendered
+        for sentinel in (
+            "__HA_MCP_THEME_PREFS__",
+            "__HA_MCP_I18N__",
+            "__HA_MCP_LANG__",
+            "__HA_MCP_DIR__",
+        )
+    ):
         # str.replace silently no-ops when the placeholder vanishes in a
         # refactor; the unit contract test catches that in CI, this line
-        # catches it loudly in a live deployment instead of quietly
-        # serving a page without server-side prefs.
+        # catches it loudly in a live deployment instead of quietly serving a
+        # page without server-side preferences or translations.
         logger.error(
-            "server-prefs placeholder was not substituted; theme prefs "
-            "will not survive fresh origins"
+            "settings-page request placeholder was not substituted; theme "
+            "preferences or translations may be unavailable"
         )
     return rendered
 
@@ -361,11 +404,11 @@ def build_settings_handlers(
     so the served page is identical regardless of transport.
     """
 
-    async def _root_page(_: Request) -> HTMLResponse:
-        return HTMLResponse(_render_settings_html())
+    async def _root_page(request: Request) -> HTMLResponse:
+        return HTMLResponse(_render_settings_html(request))
 
-    async def _settings_page(_: Request) -> HTMLResponse:
-        return HTMLResponse(_render_settings_html())
+    async def _settings_page(request: Request) -> HTMLResponse:
+        return HTMLResponse(_render_settings_html(request))
 
     handlers: dict[str, Any] = {
         "root_page": _root_page,
@@ -477,16 +520,34 @@ def get_http_settings_prefix() -> str | None:
     """Return the settings-UI mount prefix for HTTP transports, or None.
 
     Set by :func:`register_settings_routes` when the page is mounted on a
-    long-lived HTTP server. ``ha_get_overview`` reads it to hint at the
-    settings page when there is no stdio sidecar URL to hand the user.
+    long-lived HTTP server *and* advertising is enabled. ``ha_get_overview``
+    reads it to hint at the settings page when there is no stdio sidecar URL to
+    hand the user. It is None when the mount is deliberately not advertised
+    (OAuth/OIDC dedicated-secret mode) — use :func:`is_http_settings_mounted`,
+    not this, to tell HTTP from the stdio sidecar.
     """
     return _http_settings_prefix
+
+
+# Whether the settings UI is served over HTTP (add-on / Docker / OAuth / OIDC)
+# as opposed to the stdio sidecar. Distinct from _http_settings_prefix, which is
+# the *advertised* URL and is None when a mount is deliberately hidden from MCP
+# clients (advertise_prefix=False). Consumers that only need "is this stdio?"
+# must read this, not the prefix (GHSA-mx64-982r-65vg fix left the prefix None
+# on a real HTTP mount).
+_http_settings_mounted: bool = False
+
+
+def is_http_settings_mounted() -> bool:
+    """Return True when the settings UI is HTTP-mounted (not the stdio sidecar)."""
+    return _http_settings_mounted
 
 
 def register_settings_routes(
     mcp: FastMCP,
     server: HomeAssistantSmartMCPServer,
     secret_path: str = "",
+    advertise_prefix: bool = True,
 ) -> None:
     """Register the settings UI HTTP routes on the FastMCP Starlette app.
 
@@ -507,9 +568,27 @@ def register_settings_routes(
             ``/mcp``). Required for non-add-on HTTP modes; if empty in
             non-add-on mode, the function logs a warning and registers
             nothing rather than expose the routes publicly.
+        advertise_prefix: When True (default), record the secret-path mount in
+            ``_http_settings_prefix`` so ``ha_get_overview`` can hint at the
+            settings URL. OAuth/OIDC modes pass False: there the settings UI
+            sits under a *dedicated* secret path that must never be handed to
+            MCP clients (GHSA-mx64-982r-65vg), so the mount happens but the
+            prefix is not recorded.
     """
     handlers = build_settings_handlers(server)
     secret_prefix = secret_path.rstrip("/") if secret_path else ""
+    if secret_prefix and ("{" in secret_prefix or "}" in secret_prefix):
+        # Starlette compiles {name} into a [^/]+ wildcard capture, so a braced
+        # secret path (e.g. an unrendered /private_{token} template) would mount
+        # these routes at a publicly-matching wildcard. Drop the secret mount
+        # rather than expose it (GHSA-mx64-982r-65vg); the add-on root mount below
+        # is unaffected.
+        logger.error(
+            "settings UI secret path %r contains route-template characters "
+            "('{{'/'}}'); not mounting under it (it would become a wildcard route).",
+            secret_prefix,
+        )
+        secret_prefix = ""
     is_addon = is_running_in_addon()
 
     if not is_addon and not secret_prefix:
@@ -519,6 +598,12 @@ def register_settings_routes(
             "be publicly reachable). Pass MCP_SECRET_PATH or run as add-on."
         )
         return
+
+    # Past this point at least one HTTP mount happens (add-on root and/or the
+    # secret path). Record that so consumers can distinguish HTTP from the stdio
+    # sidecar even when the prefix itself is not advertised (advertise_prefix=False).
+    global _http_settings_mounted
+    _http_settings_mounted = True
 
     # Every route this function mounts except the add-on-only root mount is defined
     # once in this table and mounted under each active prefix below: at root
@@ -593,7 +678,10 @@ def register_settings_routes(
         # need the same secret to reach the UI as they do for the MCP
         # endpoint.
         _mount(secret_prefix)
-        # Record the mount so ha_get_overview can point users at the settings
-        # page in HTTP transports that have no stdio sidecar URL file (#1458).
-        global _http_settings_prefix
-        _http_settings_prefix = secret_prefix
+        if advertise_prefix:
+            # Record the mount so ha_get_overview can point users at the
+            # settings page in HTTP transports that have no stdio sidecar URL
+            # file (#1458). Suppressed in OAuth/OIDC modes, where the dedicated
+            # secret path must not leak to MCP clients (GHSA-mx64-982r-65vg).
+            global _http_settings_prefix
+            _http_settings_prefix = secret_prefix

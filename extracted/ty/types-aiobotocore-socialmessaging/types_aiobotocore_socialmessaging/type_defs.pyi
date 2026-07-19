@@ -23,7 +23,7 @@ from typing import IO, Any, Union
 
 from aiobotocore.response import StreamingBody
 
-from .literals import RegistrationStatusType
+from .literals import MetaFlowCategoryType, RegistrationStatusType
 
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
@@ -34,20 +34,28 @@ __all__ = (
     "AssociateWhatsAppBusinessAccountInputTypeDef",
     "AssociateWhatsAppBusinessAccountOutputTypeDef",
     "BlobTypeDef",
+    "CreateWhatsAppFlowInputTypeDef",
+    "CreateWhatsAppFlowOutputTypeDef",
     "CreateWhatsAppMessageTemplateFromLibraryInputTypeDef",
     "CreateWhatsAppMessageTemplateFromLibraryOutputTypeDef",
     "CreateWhatsAppMessageTemplateInputTypeDef",
     "CreateWhatsAppMessageTemplateMediaInputTypeDef",
     "CreateWhatsAppMessageTemplateMediaOutputTypeDef",
     "CreateWhatsAppMessageTemplateOutputTypeDef",
+    "DeleteWhatsAppFlowInputTypeDef",
     "DeleteWhatsAppMessageMediaInputTypeDef",
     "DeleteWhatsAppMessageMediaOutputTypeDef",
     "DeleteWhatsAppMessageTemplateInputTypeDef",
+    "DeprecateWhatsAppFlowInputTypeDef",
     "DisassociateWhatsAppBusinessAccountInputTypeDef",
     "GetLinkedWhatsAppBusinessAccountInputTypeDef",
     "GetLinkedWhatsAppBusinessAccountOutputTypeDef",
     "GetLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef",
     "GetLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef",
+    "GetWhatsAppFlowInputTypeDef",
+    "GetWhatsAppFlowOutputTypeDef",
+    "GetWhatsAppFlowPreviewInputTypeDef",
+    "GetWhatsAppFlowPreviewOutputTypeDef",
     "GetWhatsAppMessageMediaInputTypeDef",
     "GetWhatsAppMessageMediaOutputTypeDef",
     "GetWhatsAppMessageTemplateInputTypeDef",
@@ -63,17 +71,31 @@ __all__ = (
     "ListLinkedWhatsAppBusinessAccountsOutputTypeDef",
     "ListTagsForResourceInputTypeDef",
     "ListTagsForResourceOutputTypeDef",
+    "ListWhatsAppFlowAssetsInputPaginateTypeDef",
+    "ListWhatsAppFlowAssetsInputTypeDef",
+    "ListWhatsAppFlowAssetsOutputTypeDef",
+    "ListWhatsAppFlowsInputPaginateTypeDef",
+    "ListWhatsAppFlowsInputTypeDef",
+    "ListWhatsAppFlowsOutputTypeDef",
     "ListWhatsAppMessageTemplatesInputPaginateTypeDef",
     "ListWhatsAppMessageTemplatesInputTypeDef",
     "ListWhatsAppMessageTemplatesOutputTypeDef",
     "ListWhatsAppTemplateLibraryInputPaginateTypeDef",
     "ListWhatsAppTemplateLibraryInputTypeDef",
     "ListWhatsAppTemplateLibraryOutputTypeDef",
+    "MetaFlowApplicationInfoTypeDef",
+    "MetaFlowAssetTypeDef",
+    "MetaFlowHealthEntityTypeDef",
+    "MetaFlowHealthStatusTypeDef",
+    "MetaFlowPreviewInfoTypeDef",
+    "MetaFlowSummaryTypeDef",
+    "MetaFlowWhatsAppBusinessAccountInfoTypeDef",
     "MetaLibraryTemplateDefinitionTypeDef",
     "MetaLibraryTemplateTypeDef",
     "PaginatorConfigTypeDef",
     "PostWhatsAppMessageMediaInputTypeDef",
     "PostWhatsAppMessageMediaOutputTypeDef",
+    "PublishWhatsAppFlowInputTypeDef",
     "PutWhatsAppBusinessAccountEventDestinationsInputTypeDef",
     "ResponseMetadataTypeDef",
     "S3FileTypeDef",
@@ -86,6 +108,9 @@ __all__ = (
     "TemplateSummaryTypeDef",
     "UntagResourceInputTypeDef",
     "UntagResourceOutputTypeDef",
+    "UpdateWhatsAppFlowAssetsInputTypeDef",
+    "UpdateWhatsAppFlowAssetsOutputTypeDef",
+    "UpdateWhatsAppFlowInputTypeDef",
     "UpdateWhatsAppMessageTemplateInputTypeDef",
     "WabaPhoneNumberSetupFinalizationTypeDef",
     "WabaSetupFinalizationTypeDef",
@@ -114,6 +139,14 @@ class S3FileTypeDef(TypedDict):
     bucketName: str
     key: str
 
+DeleteWhatsAppFlowInputTypeDef = TypedDict(
+    "DeleteWhatsAppFlowInputTypeDef",
+    {
+        "id": str,
+        "flowId": str,
+    },
+)
+
 class DeleteWhatsAppMessageMediaInputTypeDef(TypedDict):
     mediaId: str
     originationPhoneNumberId: str
@@ -125,6 +158,13 @@ DeleteWhatsAppMessageTemplateInputTypeDef = TypedDict(
         "templateName": str,
         "metaTemplateId": NotRequired[str],
         "deleteAllLanguages": NotRequired[bool],
+    },
+)
+DeprecateWhatsAppFlowInputTypeDef = TypedDict(
+    "DeprecateWhatsAppFlowInputTypeDef",
+    {
+        "id": str,
+        "flowId": str,
     },
 )
 DisassociateWhatsAppBusinessAccountInputTypeDef = TypedDict(
@@ -156,6 +196,45 @@ class WhatsAppPhoneNumberDetailTypeDef(TypedDict):
     qualityRating: str
     dataLocalizationRegion: NotRequired[str]
 
+GetWhatsAppFlowInputTypeDef = TypedDict(
+    "GetWhatsAppFlowInputTypeDef",
+    {
+        "id": str,
+        "flowId": str,
+    },
+)
+MetaFlowApplicationInfoTypeDef = TypedDict(
+    "MetaFlowApplicationInfoTypeDef",
+    {
+        "name": str,
+        "id": str,
+        "link": NotRequired[str],
+    },
+)
+
+class MetaFlowPreviewInfoTypeDef(TypedDict):
+    previewUrl: str
+    expiresAt: str
+
+MetaFlowWhatsAppBusinessAccountInfoTypeDef = TypedDict(
+    "MetaFlowWhatsAppBusinessAccountInfoTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "currency": NotRequired[str],
+        "timezoneId": NotRequired[str],
+        "messageTemplateNamespace": NotRequired[str],
+    },
+)
+GetWhatsAppFlowPreviewInputTypeDef = TypedDict(
+    "GetWhatsAppFlowPreviewInputTypeDef",
+    {
+        "id": str,
+        "flowId": str,
+        "invalidate": NotRequired[bool],
+    },
+)
+
 class S3PresignedUrlTypeDef(TypedDict):
     url: str
     headers: Mapping[str, str]
@@ -163,8 +242,10 @@ class S3PresignedUrlTypeDef(TypedDict):
 GetWhatsAppMessageTemplateInputTypeDef = TypedDict(
     "GetWhatsAppMessageTemplateInputTypeDef",
     {
-        "metaTemplateId": str,
         "id": str,
+        "metaTemplateId": NotRequired[str],
+        "templateName": NotRequired[str],
+        "templateLanguageCode": NotRequired[str],
     },
 )
 
@@ -229,6 +310,37 @@ class TagTypeDef(TypedDict):
     key: str
     value: NotRequired[str]
 
+ListWhatsAppFlowAssetsInputTypeDef = TypedDict(
+    "ListWhatsAppFlowAssetsInputTypeDef",
+    {
+        "id": str,
+        "flowId": str,
+        "nextToken": NotRequired[str],
+        "maxResults": NotRequired[int],
+    },
+)
+
+class MetaFlowAssetTypeDef(TypedDict):
+    name: str
+    assetType: str
+    downloadUrl: str
+
+ListWhatsAppFlowsInputTypeDef = TypedDict(
+    "ListWhatsAppFlowsInputTypeDef",
+    {
+        "id": str,
+        "nextToken": NotRequired[str],
+        "maxResults": NotRequired[int],
+    },
+)
+
+class MetaFlowSummaryTypeDef(TypedDict):
+    flowId: str
+    flowName: str
+    flowStatus: str
+    flowCategories: list[MetaFlowCategoryType]
+    validationErrors: list[str]
+
 ListWhatsAppMessageTemplatesInputTypeDef = TypedDict(
     "ListWhatsAppMessageTemplatesInputTypeDef",
     {
@@ -255,10 +367,40 @@ ListWhatsAppTemplateLibraryInputTypeDef = TypedDict(
         "filters": NotRequired[Mapping[str, str]],
     },
 )
+MetaFlowHealthEntityTypeDef = TypedDict(
+    "MetaFlowHealthEntityTypeDef",
+    {
+        "entityType": str,
+        "id": str,
+        "canSendMessage": str,
+    },
+)
+PublishWhatsAppFlowInputTypeDef = TypedDict(
+    "PublishWhatsAppFlowInputTypeDef",
+    {
+        "id": str,
+        "flowId": str,
+    },
+)
 
 class UntagResourceInputTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
+
+UpdateWhatsAppFlowInputTypeDef = TypedDict(
+    "UpdateWhatsAppFlowInputTypeDef",
+    {
+        "id": str,
+        "flowId": str,
+        "flowName": NotRequired[str],
+        "categories": NotRequired[Sequence[MetaFlowCategoryType]],
+    },
+)
+
+class CreateWhatsAppFlowOutputTypeDef(TypedDict):
+    flowId: str
+    validationErrors: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateWhatsAppMessageTemplateFromLibraryOutputTypeDef(TypedDict):
     metaTemplateId: str
@@ -305,6 +447,21 @@ class UntagResourceOutputTypeDef(TypedDict):
     statusCode: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateWhatsAppFlowAssetsOutputTypeDef(TypedDict):
+    validationErrors: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+CreateWhatsAppFlowInputTypeDef = TypedDict(
+    "CreateWhatsAppFlowInputTypeDef",
+    {
+        "id": str,
+        "flowName": str,
+        "categories": Sequence[MetaFlowCategoryType],
+        "flowJson": NotRequired[BlobTypeDef],
+        "publish": NotRequired[bool],
+        "cloneFlowId": NotRequired[str],
+    },
+)
 CreateWhatsAppMessageTemplateInputTypeDef = TypedDict(
     "CreateWhatsAppMessageTemplateInputTypeDef",
     {
@@ -318,11 +475,21 @@ class SendWhatsAppMessageInputTypeDef(TypedDict):
     message: BlobTypeDef
     metaApiVersion: str
 
+UpdateWhatsAppFlowAssetsInputTypeDef = TypedDict(
+    "UpdateWhatsAppFlowAssetsInputTypeDef",
+    {
+        "id": str,
+        "flowId": str,
+        "flowJson": BlobTypeDef,
+    },
+)
 UpdateWhatsAppMessageTemplateInputTypeDef = TypedDict(
     "UpdateWhatsAppMessageTemplateInputTypeDef",
     {
         "id": str,
-        "metaTemplateId": str,
+        "metaTemplateId": NotRequired[str],
+        "templateName": NotRequired[str],
+        "templateLanguageCode": NotRequired[str],
         "parameterFormat": NotRequired[str],
         "templateCategory": NotRequired[str],
         "templateComponents": NotRequired[BlobTypeDef],
@@ -347,6 +514,11 @@ class LinkedWhatsAppBusinessAccountIdMetaDataTypeDef(TypedDict):
     registrationStatus: NotRequired[RegistrationStatusType]
     unregisteredWhatsAppPhoneNumbers: NotRequired[list[WhatsAppPhoneNumberDetailTypeDef]]
     wabaId: NotRequired[str]
+
+class GetWhatsAppFlowPreviewOutputTypeDef(TypedDict):
+    flowId: str
+    preview: MetaFlowPreviewInfoTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetWhatsAppMessageMediaInputTypeDef(TypedDict):
     mediaId: str
@@ -391,6 +563,7 @@ LinkedWhatsAppBusinessAccountSummaryTypeDef = TypedDict(
         "linkDate": datetime,
         "wabaName": str,
         "eventDestinations": list[WhatsAppBusinessAccountEventDestinationTypeDef],
+        "marketingMessagesOnboardingStatus": NotRequired[str],
     },
 )
 PutWhatsAppBusinessAccountEventDestinationsInputTypeDef = TypedDict(
@@ -411,12 +584,28 @@ LinkedWhatsAppBusinessAccountTypeDef = TypedDict(
         "wabaName": str,
         "eventDestinations": list[WhatsAppBusinessAccountEventDestinationTypeDef],
         "phoneNumbers": list[WhatsAppPhoneNumberSummaryTypeDef],
+        "marketingMessagesOnboardingStatus": NotRequired[str],
     },
 )
 
 class ListLinkedWhatsAppBusinessAccountsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+ListWhatsAppFlowAssetsInputPaginateTypeDef = TypedDict(
+    "ListWhatsAppFlowAssetsInputPaginateTypeDef",
+    {
+        "id": str,
+        "flowId": str,
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+ListWhatsAppFlowsInputPaginateTypeDef = TypedDict(
+    "ListWhatsAppFlowsInputPaginateTypeDef",
+    {
+        "id": str,
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
 ListWhatsAppMessageTemplatesInputPaginateTypeDef = TypedDict(
     "ListWhatsAppMessageTemplatesInputPaginateTypeDef",
     {
@@ -460,10 +649,24 @@ WabaSetupFinalizationTypeDef = TypedDict(
     },
 )
 
+class ListWhatsAppFlowAssetsOutputTypeDef(TypedDict):
+    flowAssets: list[MetaFlowAssetTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListWhatsAppFlowsOutputTypeDef(TypedDict):
+    flows: list[MetaFlowSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListWhatsAppMessageTemplatesOutputTypeDef(TypedDict):
     templates: list[TemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class MetaFlowHealthStatusTypeDef(TypedDict):
+    canSendMessage: str
+    entities: NotRequired[list[MetaFlowHealthEntityTypeDef]]
 
 class WhatsAppSignupCallbackResultTypeDef(TypedDict):
     associateInProgressToken: NotRequired[str]
@@ -499,9 +702,25 @@ class WhatsAppSetupFinalizationTypeDef(TypedDict):
     phoneNumberParent: NotRequired[str]
     waba: NotRequired[WabaSetupFinalizationTypeDef]
 
+class GetWhatsAppFlowOutputTypeDef(TypedDict):
+    flowId: str
+    flowName: str
+    flowStatus: str
+    categories: list[MetaFlowCategoryType]
+    validationErrors: list[str]
+    jsonVersion: str
+    dataApiVersion: str
+    endpointUri: str
+    preview: MetaFlowPreviewInfoTypeDef
+    whatsAppBusinessAccount: MetaFlowWhatsAppBusinessAccountInfoTypeDef
+    application: MetaFlowApplicationInfoTypeDef
+    healthStatus: MetaFlowHealthStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class AssociateWhatsAppBusinessAccountOutputTypeDef(TypedDict):
     signupCallbackResult: WhatsAppSignupCallbackResultTypeDef
     statusCode: int
+    linkedWhatsAppBusinessAccountId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssociateWhatsAppBusinessAccountInputTypeDef(TypedDict):

@@ -150,7 +150,7 @@ class OrganizationSearchHit(BaseModel):
     )
     customer_tier: str | None = Field(
         default=None,
-        description="Customer tier (TIER_0, TIER_1, or TIER_2). Enriched from BigQuery tier cache.",
+        description="Customer tier (TIER_0, TIER_1, or TIER_2). Enriched from the GCS tier cache.",
     )
 
 
@@ -187,7 +187,7 @@ class WorkspaceInfo(BaseModel):
     )
     customer_tier: str | None = Field(
         default=None,
-        description="Customer tier (TIER_0, TIER_1, or TIER_2). Enriched from BigQuery tier cache.",
+        description="Customer tier (TIER_0, TIER_1, or TIER_2). Enriched from the GCS tier cache.",
     )
     is_eu: bool | None = Field(
         default=None,
